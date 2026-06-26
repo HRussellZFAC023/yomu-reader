@@ -522,8 +522,9 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('keeps the style popover open without reopening the paused transcript panel', () => {
+    it('keeps the pause-opened transcript closed while subtitle style controls are open', () => {
         const { controller } = createInstalledSubtitleController({
+            subtitleOverlayVisible: true,
             subtitlePausePanel: true,
             subtitleTranscriptVisible: false,
             subtitleFontSize: 28,
@@ -531,7 +532,7 @@ describe('SubtitlePlayerController', () => {
         const video = attachVideo(controller, { currentTime: 0.5 });
         Object.defineProperty(video, 'paused', { configurable: true, value: true });
         Object.defineProperty(video, 'ended', { configurable: true, value: false });
-        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const cue = { start: 0, end: 2, text: '一時停止した行。', transcriptEligible: true };
         const internals = controllerInternals<{
             cues: Array<typeof cue>;
             currentCue: typeof cue;
@@ -542,17 +543,31 @@ describe('SubtitlePlayerController', () => {
 
         try {
             controller.refresh();
+            internals.syncPauseTranscriptPanel();
+
             const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
             const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
             const toggle = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="style"]')!;
 
+            expect(panel.hidden).toBe(false);
+            expect(panel.textContent).toContain('一時停止した行');
+
             toggle.click();
+
             const popover = root.querySelector<HTMLElement>('[data-subtitle-style-popover]')!;
             setSubtitleStyleControlValue(popover, 'subtitleFontSize', '34');
-            internals.syncPauseTranscriptPanel();
-
             expect(popover.hidden).toBe(false);
             expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(true);
+            expect(panel.hidden).toBe(true);
+
+            internals.syncPauseTranscriptPanel();
+
+            expect(panel.hidden).toBe(true);
+
+            toggle.click();
+            internals.syncPauseTranscriptPanel();
+
+            expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(false);
             expect(panel.hidden).toBe(true);
         } finally {
             controller.destroy();
@@ -2823,6 +2838,8 @@ Watch the cat
             .not.toContain('.jpdb-subtitle-panel-open .jpdb-subtitle-rail');
         expect(SUBTITLES_YOUTUBE_CSS)
             .toContain('max-height: min(5.4em, 45%, calc(100% - 24px));\n  overflow: hidden;');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open)');
     });
 
     it('keeps the secondary subtitle line on the primary subtitle font', () => {
@@ -2899,6 +2916,7 @@ Watch the cat
 
         expect(normalizedCss).toContain('@media (hover: none) {');
         expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail { opacity: 0; pointer-events: none; transform: translateY(-4px); }');
+        expect(normalizedCss).not.toContain('jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open)');
     });
 
     it('hides the whole subtitle rail when subtitle controls are hidden', () => {

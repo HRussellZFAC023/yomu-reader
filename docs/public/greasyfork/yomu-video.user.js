@@ -3207,7 +3207,6 @@
       fontPresetYomuDefault: "Built-in font",
       fontPresetJapaneseSans: "Japanese sans",
       fontPresetHiraginoYuGothic: "Hiragino / Yu Gothic",
-      fontPresetJapaneseRounded: "Japanese rounded",
       fontPresetJapaneseSerif: "Japanese serif",
       fontPresetSystemUi: "System UI",
       fontPresetCustom: "Custom...",
@@ -3719,11 +3718,8 @@
       nextLookupWord: "Next word",
       previousSubtitle: "Previous subtitle",
       nextSubtitle: "Next subtitle",
-      jumpToCurrentSubtitle: "Jump to current subtitle",
       playVideo: "Play video",
       pauseVideo: "Pause video",
-      enterFullscreen: "Enter fullscreen",
-      exitFullscreen: "Exit fullscreen",
       copySubtitle: "Copy subtitle",
       subtitleFallbackLabel: "Subtitle",
       subtitlesTitle: "Subtitles",
@@ -4471,11 +4467,8 @@ couldNotReadAudio	音声を読み取れませんでした。
 couldNotReadAudioBlob	音声データを読み取れませんでした。
 previousSubtitle	前の字幕
 nextSubtitle	次の字幕
-jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
-enterFullscreen	全画面表示
-exitFullscreen	全画面表示を終了
 copySubtitle	字幕をコピー
 subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
@@ -4812,7 +4805,6 @@ popupFontFamily	ポップアップの日本語フォント
 fontPresetYomuDefault	内蔵フォント
 fontPresetJapaneseSans	日本語サンセリフ
 fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
-fontPresetJapaneseRounded	日本語丸ゴシック
 fontPresetJapaneseSerif	日本語明朝
 fontPresetSystemUi	システムUI
 fontPresetCustom	カスタム...
@@ -10733,23 +10725,32 @@ ${spelling}`);
   function withBreaks(value) {
     return value.replace(/\n/g, "<br>");
   }
-  const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
-  const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
-  const JAPANESE_ROUNDED_FONT_FAMILY = '"Hiragino Maru Gothic ProN", "Yu Gothic", "Noto Sans JP", Meiryo, sans-serif';
-  const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
-  const FONT_FAMILY_PRESETS = [
-    { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: "fontPresetYomuDefault", fallbackLabel: "Built-in font" },
-    { value: JAPANESE_SANS_FONT_FAMILY, labelKey: "fontPresetJapaneseSans", fallbackLabel: "Japanese sans" },
-    { value: HIRAGINO_YU_GOTHIC_FONT_FAMILY, labelKey: "fontPresetHiraginoYuGothic", fallbackLabel: "Hiragino / Yu Gothic" },
-    { value: JAPANESE_ROUNDED_FONT_FAMILY, labelKey: "fontPresetJapaneseRounded", fallbackLabel: "Japanese rounded" },
-    { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
-    { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
-  ];
   const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.2;
   const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;
   const SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT = 80;
   const TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
-  const SUBTITLE_STYLE_FONT_PRESETS = FONT_FAMILY_PRESETS;
+  const SUBTITLE_STYLE_FONT_PRESETS = [
+    {
+      value: DEFAULT_POPUP_FONT_FAMILY,
+      labelKey: "fontPresetYomuDefault"
+    },
+    {
+      value: '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif',
+      labelKey: "fontPresetJapaneseSans"
+    },
+    {
+      value: '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif',
+      labelKey: "fontPresetHiraginoYuGothic"
+    },
+    {
+      value: '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif',
+      labelKey: "fontPresetJapaneseSerif"
+    },
+    {
+      value: DEFAULT_READER_FONT_FAMILY,
+      labelKey: "fontPresetSystemUi"
+    }
+  ];
   const SUBTITLE_STYLE_FONT_FAMILY_VALUES = SUBTITLE_STYLE_FONT_PRESETS.map((preset) => preset.value);
   function renderPanelNavigationControls(enabled, language) {
     const previous = uiText(language, "previousSubtitle");
@@ -10784,7 +10785,6 @@ ${spelling}`);
         <button class="jpdb-subtitle-style-toggle" type="button" data-action="style" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="false" aria-controls="jpdb-subtitle-style-popover">${subtitleIcon("style")}</button>
         <div class="jpdb-subtitle-style-popover" id="jpdb-subtitle-style-popover" data-subtitle-style-popover role="group" aria-label="${escapeHtml(label)}" hidden>
             ${renderSubtitleStyleRange("subtitleFontSize", uiText(language, "subtitleFontSize"), settings.subtitleFontSize, 16, 64, 2, "px")}
-            ${renderSubtitleStyleRange("subtitleFontWeight", uiText(language, "subtitleFontWeight"), settings.subtitleFontWeight, 300, 900, 20, "weight")}
             ${renderSubtitleStyleRange("subtitleBottomOffset", uiText(language, "subtitleBottomOffset"), settings.subtitleBottomOffset, 2, 40, 1, "%")}
             ${renderSubtitleStyleRange("subtitleBackgroundOpacity", uiText(language, "subtitleBackgroundOpacity"), settings.subtitleBackgroundOpacity, 0, 0.7, 0.05, "")}
             <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
@@ -10817,7 +10817,6 @@ ${spelling}`);
     return `<option value="${escapeHtml(preset.value)}" ${preset.value === current ? "selected" : ""}>${escapeHtml(uiText(language, preset.labelKey))}</option>`;
   }
   function subtitleStyleDisplayValue(value, suffix) {
-    if (suffix === "weight") return String(Math.round(value));
     if (!suffix) return `${Math.round(value * 100)}%`;
     return `${Math.round(value)}${suffix}`;
   }
@@ -10874,9 +10873,6 @@ ${spelling}`);
       copy: '<path d="M14 3H6a2 2 0 0 0-2 2v12"/><path d="M10 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M14 11v6"/><path d="M11 14h6"/>',
       eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
       "eye-off": '<path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.2 3.8"/><path d="M6.6 6.8A18 18 0 0 0 2 12s3.5 6 10 6c1.5 0 2.8-.3 4-.8"/>',
-      fullscreen: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/>',
-      "fullscreen-exit": '<path d="M9 3v4a2 2 0 0 1-2 2H3"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M15 21v-4a2 2 0 0 1 2-2h4"/><path d="M9 21v-4a2 2 0 0 0-2-2H3"/>',
-      locate: '<path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
       menu: '<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',
       "panel-bottom": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 14h16"/>',
       "panel-left": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',
@@ -12592,8 +12588,8 @@ ${spelling}`);
   }
   const REDIRECT_FLAG = "__yomuSubtitleFullscreenRedirect";
   const STYLE_ID = "yomu-subtitle-fullscreen-redirect-style";
-  const INLINE_FULLSCREEN_CLASS$1 = "jpdb-subtitle-inline-fullscreen";
-  const INLINE_FULLSCREEN_ATTRIBUTE$1 = "data-yomu-inline-fullscreen";
+  const INLINE_FULLSCREEN_CLASS = "jpdb-subtitle-inline-fullscreen";
+  const INLINE_FULLSCREEN_ATTRIBUTE = "data-yomu-inline-fullscreen";
   function fullscreenRedirectBootstrap(win) {
     const flag = "__yomuSubtitleFullscreenRedirect";
     const inlineKey = "__yomuSubtitleInlineFullscreenElement";
@@ -12640,7 +12636,7 @@ ${spelling}`);
           const container = fullscreenContainerForVideo(this);
           if (container && container !== this) return requestElementFullscreenOrInline(container, args);
         }
-        if (mode === "inline" || mode === "picture-in-picture") exitInlineFullscreen2();
+        if (mode === "inline" || mode === "picture-in-picture") exitInlineFullscreen();
         return native.apply(this, [mode, ...args]);
       };
     }
@@ -12650,7 +12646,7 @@ ${spelling}`);
       if (typeof original !== "function") continue;
       const native = original;
       videoProto[name] = function patchedVideoExitFullscreen(...args) {
-        if (activeInlineFullscreenElement2()) return exitInlineFullscreen2();
+        if (activeInlineFullscreenElement()) return exitInlineFullscreen();
         return native.apply(this, args);
       };
     }
@@ -12661,7 +12657,7 @@ ${spelling}`);
         if (typeof original !== "function") continue;
         const native = original;
         documentProto[name] = function patchedDocumentExitFullscreen(...args) {
-          if (activeInlineFullscreenElement2()) return exitInlineFullscreen2();
+          if (activeInlineFullscreenElement()) return exitInlineFullscreen();
           return native.apply(this, args);
         };
       }
@@ -12680,18 +12676,18 @@ ${spelling}`);
         try {
           return fallbackInlineOnRequestFailure(native.apply(target, args), target);
         } catch {
-          return enterInlineFullscreen2(target);
+          return enterInlineFullscreen(target);
         }
       }
-      return enterInlineFullscreen2(target);
+      return enterInlineFullscreen(target);
     }
     function fallbackInlineOnRequestFailure(result, target) {
       const promise = result;
-      return typeof promise?.catch === "function" ? promise.catch(() => enterInlineFullscreen2(target)) : result;
+      return typeof promise?.catch === "function" ? promise.catch(() => enterInlineFullscreen(target)) : result;
     }
-    function enterInlineFullscreen2(target) {
-      const current = activeInlineFullscreenElement2();
-      if (current && current !== target) clearInlineFullscreenElement2(current);
+    function enterInlineFullscreen(target) {
+      const current = activeInlineFullscreenElement();
+      if (current && current !== target) clearInlineFullscreenElement(current);
       target.setAttribute(inlineAttribute, "true");
       if (!target.hasAttribute("fullscreen")) {
         target.setAttribute("fullscreen", "");
@@ -12707,19 +12703,19 @@ ${spelling}`);
       }
       win.document.documentElement.classList.add(inlineClass);
       win[inlineKey] = target;
-      dispatchFullscreenLikeEvents2();
+      dispatchFullscreenLikeEvents();
       return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
     }
-    function exitInlineFullscreen2() {
-      const current = activeInlineFullscreenElement2();
+    function exitInlineFullscreen() {
+      const current = activeInlineFullscreenElement();
       if (!current) return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
-      clearInlineFullscreenElement2(current);
+      clearInlineFullscreenElement(current);
       win.document.documentElement.classList.remove(inlineClass);
       delete win[inlineKey];
-      dispatchFullscreenLikeEvents2();
+      dispatchFullscreenLikeEvents();
       return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
     }
-    function clearInlineFullscreenElement2(element) {
+    function clearInlineFullscreenElement(element) {
       element.removeAttribute(inlineAttribute);
       if (element.dataset.yomuInlineFullscreenAttr === "true") element.removeAttribute("fullscreen");
       if (element.dataset.yomuInlineYtpFullscreenClass === "true") element.classList.remove("ytp-fullscreen");
@@ -12728,12 +12724,11 @@ ${spelling}`);
       delete element.dataset.yomuInlineYtpFullscreenClass;
       delete element.dataset.yomuInlineFullscreenClass;
     }
-    function activeInlineFullscreenElement2() {
+    function activeInlineFullscreenElement() {
       const current = win[inlineKey];
-      if (elementCtor && current instanceof elementCtor) return current;
-      return win.document.querySelector(`[${inlineAttribute}="true"]`);
+      return elementCtor && current instanceof elementCtor ? current : null;
     }
-    function dispatchFullscreenLikeEvents2() {
+    function dispatchFullscreenLikeEvents() {
       for (const eventName of ["fullscreenchange", "webkitfullscreenchange"]) {
         try {
           win.document.dispatchEvent(new win.Event(eventName));
@@ -12758,10 +12753,10 @@ ${spelling}`);
       "#movie_player:-webkit-full-screen .html5-video-container{width:100%!important;height:100%!important;}",
       `[data-yomu-video-frame]:fullscreen video{${fill}}`,
       `[data-yomu-video-frame]:-webkit-full-screen video{${fill}}`,
-      `html.${INLINE_FULLSCREEN_CLASS$1},html.${INLINE_FULLSCREEN_CLASS$1} body{width:100%!important;height:100%!important;overflow:hidden!important;}`,
-      `[${INLINE_FULLSCREEN_ATTRIBUTE$1}="true"]{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important;z-index:2147483640!important;background:#000!important;}`,
-      `[${INLINE_FULLSCREEN_ATTRIBUTE$1}="true"] video{${fill}object-fit:contain!important;}`,
-      `[${INLINE_FULLSCREEN_ATTRIBUTE$1}="true"] .html5-video-container{width:100%!important;height:100%!important;}`
+      `html.${INLINE_FULLSCREEN_CLASS},html.${INLINE_FULLSCREEN_CLASS} body{width:100%!important;height:100%!important;overflow:hidden!important;}`,
+      `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important;z-index:2147483640!important;background:#000!important;}`,
+      `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] video{${fill}object-fit:contain!important;}`,
+      `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] .html5-video-container{width:100%!important;height:100%!important;}`
     ].join("\n");
   }
   function injectFullscreenRedirectStyle() {
@@ -14212,8 +14207,6 @@ ${spelling}`);
     "jpdb-subtitle-dragging"
   ];
   const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = "jpdb-subtitle-yt-sheet-open";
-  const INLINE_FULLSCREEN_CLASS = "jpdb-subtitle-inline-fullscreen";
-  const INLINE_FULLSCREEN_ATTRIBUTE = "data-yomu-inline-fullscreen";
   function isYouTubeTheaterMode() {
     return isYouTubePage() && Boolean(document.querySelector("ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]"));
   }
@@ -14228,60 +14221,6 @@ ${spelling}`);
   function currentFullscreenElement() {
     const fullscreenDocument = document;
     return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
-  }
-  function exitCurrentFullscreen() {
-    const fullscreenDocument = document;
-    return document.exitFullscreen?.() ?? fullscreenDocument.webkitExitFullscreen?.() ?? fullscreenDocument.webkitCancelFullScreen?.() ?? fullscreenDocument.mozCancelFullScreen?.() ?? fullscreenDocument.msExitFullscreen?.();
-  }
-  function requestElementFullscreen(element) {
-    const target = element;
-    return target.requestFullscreen?.() ?? target.webkitRequestFullscreen?.() ?? target.webkitRequestFullScreen?.() ?? target.mozRequestFullScreen?.() ?? target.msRequestFullscreen?.();
-  }
-  function canRequestElementFullscreen(element) {
-    const target = element;
-    return Boolean(target.requestFullscreen || target.webkitRequestFullscreen || target.webkitRequestFullScreen || target.mozRequestFullScreen || target.msRequestFullscreen);
-  }
-  function enterInlineFullscreen(target) {
-    const current = activeInlineFullscreenElement();
-    if (current && current !== target) clearInlineFullscreenElement(current);
-    target.setAttribute(INLINE_FULLSCREEN_ATTRIBUTE, "true");
-    if (!target.hasAttribute("fullscreen")) {
-      target.setAttribute("fullscreen", "");
-      target.dataset.yomuInlineFullscreenAttr = "true";
-    }
-    if (!target.classList.contains("ytp-fullscreen")) {
-      target.classList.add("ytp-fullscreen");
-      target.dataset.yomuInlineYtpFullscreenClass = "true";
-    }
-    if (!target.classList.contains("fullscreen")) {
-      target.classList.add("fullscreen");
-      target.dataset.yomuInlineFullscreenClass = "true";
-    }
-    document.documentElement.classList.add(INLINE_FULLSCREEN_CLASS);
-    dispatchFullscreenLikeEvents();
-  }
-  function exitInlineFullscreen() {
-    const current = activeInlineFullscreenElement();
-    if (!current) return;
-    clearInlineFullscreenElement(current);
-    document.documentElement.classList.remove(INLINE_FULLSCREEN_CLASS);
-    dispatchFullscreenLikeEvents();
-  }
-  function activeInlineFullscreenElement() {
-    return document.querySelector(`[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]`);
-  }
-  function clearInlineFullscreenElement(element) {
-    element.removeAttribute(INLINE_FULLSCREEN_ATTRIBUTE);
-    if (element.dataset.yomuInlineFullscreenAttr === "true") element.removeAttribute("fullscreen");
-    if (element.dataset.yomuInlineYtpFullscreenClass === "true") element.classList.remove("ytp-fullscreen");
-    if (element.dataset.yomuInlineFullscreenClass === "true") element.classList.remove("fullscreen");
-    delete element.dataset.yomuInlineFullscreenAttr;
-    delete element.dataset.yomuInlineYtpFullscreenClass;
-    delete element.dataset.yomuInlineFullscreenClass;
-  }
-  function dispatchFullscreenLikeEvents() {
-    for (const eventName of ["fullscreenchange", "webkitfullscreenchange"]) document.dispatchEvent(new Event(eventName));
-    window.dispatchEvent(new Event("resize"));
   }
   function subtitleViewportRect() {
     return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
@@ -14333,8 +14272,13 @@ ${spelling}`);
     return Math.max(subtitleMinimumFontSize(root), Math.min(64, scaled));
   }
   const DEFAULT_SUBTITLE_BOTTOM_OFFSET = 16;
-  function effectiveSubtitleBottomPercent(settings) {
-    return settings.subtitleBottomOffset;
+  function effectiveSubtitleBottomPercent(settings, root) {
+    if (settings.subtitleBottomOffset !== DEFAULT_SUBTITLE_BOTTOM_OFFSET) return settings.subtitleBottomOffset;
+    const rect = root.getBoundingClientRect();
+    const portrait = rect.height > rect.width;
+    const narrow = rect.width < 700;
+    const floor = portrait ? 28 : narrow ? 22 : 0;
+    return Math.max(settings.subtitleBottomOffset, floor);
   }
   function subtitleElementOverflows(element) {
     return element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1;
@@ -14623,8 +14567,7 @@ ${spelling}`);
     if (control && control.value !== nextValue) control.value = nextValue;
     const output = root.querySelector(`[data-subtitle-style-output="${key}"]`);
     if (!output) return;
-    if (suffix === "weight") output.textContent = String(Math.round(value));
-    else output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
+    output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
   }
   function isRecord(value) {
     return Boolean(value && typeof value === "object");
@@ -14697,7 +14640,6 @@ ${spelling}`);
     transcriptViewportStabilizeTimer;
     transcriptPreviewPlayerResizeDeferred = false;
     transcriptResizeBackgroundResumeTimer;
-    transcriptAutoScrollResumeTimer;
     transcriptHydrationAfterResizeIndex;
     transcriptWarmupAfterResize = false;
     transcriptPanelHideTimer;
@@ -14749,7 +14691,6 @@ ${spelling}`);
       previous: () => this.seekSubtitle(-1),
       next: () => this.seekSubtitle(1),
       playback: () => this.toggleVideoPlayback(),
-      fullscreen: () => this.togglePlayerFullscreen(),
       copy: (target) => {
         void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target));
       },
@@ -14757,7 +14698,6 @@ ${spelling}`);
         void this.copyTranscriptRow(this.rowIndexFromTarget(target)).then(() => flashSubtitleCopyFeedback(target));
       },
       "peek-row": (target) => this.toggleRowTranslationPeek(target),
-      "jump-current": () => this.jumpToCurrentTranscriptRow(),
       load: () => this.openSubtitleFilePicker("primary"),
       "load-secondary": () => this.openSubtitleFilePicker("secondary"),
       panel: () => this.toggleTranscriptDrawer(),
@@ -14861,7 +14801,6 @@ ${spelling}`);
       this.transcriptInsetRealignFrame = clearWindowAnimationFrame(this.transcriptInsetRealignFrame);
       this.transcriptViewportStabilizeTimer = clearWindowTimeout(this.transcriptViewportStabilizeTimer);
       this.transcriptResizeBackgroundResumeTimer = clearWindowTimeout(this.transcriptResizeBackgroundResumeTimer);
-      this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
       this.clearTranscriptPanelAnimation();
       this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
       this.pendingPointerActivity = void 0;
@@ -14939,7 +14878,6 @@ ${spelling}`);
       const previousLabel = uiText(settings.interfaceLanguage, "previousSubtitle");
       const nextLabel = uiText(settings.interfaceLanguage, "nextSubtitle");
       const playLabel = uiText(settings.interfaceLanguage, "playVideo");
-      const fullscreenLabel = uiText(settings.interfaceLanguage, "enterFullscreen");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
       setInnerHtml(root, `
@@ -14949,7 +14887,6 @@ ${spelling}`);
                 <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
                 <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon("play")}</button>
-                <button class="jpdb-subtitle-fullscreen-toggle" type="button" data-action="fullscreen" title="${escapeHtml(fullscreenLabel)}" aria-label="${escapeHtml(fullscreenLabel)}">${subtitleIcon("fullscreen")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon("panel-right")}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
             </div>
@@ -16321,7 +16258,7 @@ ${spelling}`);
     }
     applyEffectiveSubtitleBottom() {
       if (!this.root) return;
-      this.root.style.setProperty("--subtitle-bottom", `${effectiveSubtitleBottomPercent(this.options.getSettings())}%`);
+      this.root.style.setProperty("--subtitle-bottom", `${effectiveSubtitleBottomPercent(this.options.getSettings(), this.root)}%`);
     }
     fitSubtitleTextToVideo() {
       if (!this.root || !this.subtitleEl) return;
@@ -16521,7 +16458,6 @@ ${spelling}`);
       const settings = this.options.getSettings();
       const setting = control.dataset.subtitleStyleSetting;
       if (setting === "subtitleFontSize") return updateNumberSetting(settings, "subtitleFontSize", control.value, 16, 64);
-      if (setting === "subtitleFontWeight") return updateNumberSetting(settings, "subtitleFontWeight", control.value, 300, 900);
       if (setting === "subtitleBottomOffset") return updateNumberSetting(settings, "subtitleBottomOffset", control.value, 2, 40);
       if (setting === "subtitleBackgroundOpacity") return updateNumberSetting(settings, "subtitleBackgroundOpacity", control.value, 0, 0.7);
       if (setting === "subtitleFontFamily") {
@@ -16617,10 +16553,8 @@ ${spelling}`);
         handle,
         dragFrame,
         dragRoot,
-        mode: handle.matches(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR) ? "transform" : "bottom-offset",
         startY,
-        startOffset: this.subtitleDragOffsetYPx,
-        startBottomOffset: this.options.getSettings().subtitleBottomOffset
+        startOffset: this.subtitleDragOffsetYPx
       };
       this.subtitleDragActive = true;
       handle.classList.add("jpdb-subtitle-dragging");
@@ -16631,11 +16565,7 @@ ${spelling}`);
     }
     updateSubtitleDrag(session, clientY, event) {
       if (event.cancelable) event.preventDefault();
-      if (session.mode === "bottom-offset") {
-        this.setSubtitleBottomOffsetFromDrag(session.startBottomOffset, clientY - session.startY, session.dragFrame);
-      } else {
-        this.setSubtitleDragOffset(session.startOffset + clientY - session.startY, session.dragFrame);
-      }
+      this.setSubtitleDragOffset(session.startOffset + clientY - session.startY, session.dragFrame);
       this.showControlsTemporarily();
     }
     endSubtitleDrag(session) {
@@ -16643,8 +16573,7 @@ ${spelling}`);
       session.handle.classList.remove("jpdb-subtitle-dragging");
       session.dragRoot?.classList.remove("jpdb-subtitle-dragging");
       if (session.dragRoot !== this.root) this.root?.classList.remove("jpdb-subtitle-dragging");
-      if (session.mode === "bottom-offset") this.resetLegacySubtitleDragOffset();
-      else this.persistSubtitleDragOffset();
+      this.persistSubtitleDragOffset();
       this.showControlsTemporarily();
     }
     moveSubtitleOverlayFromKeyboard(event) {
@@ -16661,44 +16590,13 @@ ${spelling}`);
       if (delta === void 0 && !shouldReset) return;
       event.preventDefault();
       event.stopPropagation();
-      const mode = event.currentTarget instanceof HTMLElement && event.currentTarget.matches(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR) ? "transform" : "bottom-offset";
       if (shouldReset) {
-        if (mode === "bottom-offset") this.resetSubtitleBottomOffset();
-        else this.resetSubtitleDragOffset();
+        this.resetSubtitleDragOffset();
       } else {
-        if (mode === "bottom-offset") this.adjustSubtitleBottomOffsetByPixels(delta, dragFrame);
-        else {
-          this.setSubtitleDragOffset(this.subtitleDragOffsetYPx + delta, dragFrame);
-          this.persistSubtitleDragOffset();
-        }
+        this.setSubtitleDragOffset(this.subtitleDragOffsetYPx + delta, dragFrame);
+        this.persistSubtitleDragOffset();
       }
       this.showControlsTemporarily();
-    }
-    setSubtitleBottomOffsetFromDrag(startPercent, deltaY, dragFrame) {
-      this.setSubtitleBottomOffset(startPercent - deltaY / this.subtitlePositionReferenceHeight(dragFrame) * 100);
-    }
-    adjustSubtitleBottomOffsetByPixels(deltaY, dragFrame) {
-      this.setSubtitleBottomOffset(this.options.getSettings().subtitleBottomOffset - deltaY / this.subtitlePositionReferenceHeight(dragFrame) * 100);
-    }
-    setSubtitleBottomOffset(value) {
-      if (!Number.isFinite(value)) return;
-      const settings = this.options.getSettings();
-      const next = Math.round(Math.min(Math.max(value, 2), 40));
-      if (settings.subtitleBottomOffset === next) return;
-      settings.subtitleBottomOffset = next;
-      this.applyEffectiveSubtitleBottom();
-      this.syncSubtitleStyleControls();
-      this.options.onSettingsChange();
-    }
-    resetSubtitleBottomOffset() {
-      this.setSubtitleBottomOffset(DEFAULT_SUBTITLE_BOTTOM_OFFSET);
-      this.resetLegacySubtitleDragOffset();
-    }
-    subtitlePositionReferenceHeight(dragFrame) {
-      const rect = this.root?.getBoundingClientRect() ?? dragFrame?.getBoundingClientRect();
-      const styledHeight = this.root?.style.height ?? "";
-      const styledRootHeight = styledHeight.endsWith("px") ? Number.parseFloat(styledHeight) : 0;
-      return Math.max(1, rect?.height || styledRootHeight || this.videoLayoutRect().height || dragFrame?.getBoundingClientRect().height || this.subtitleDragViewportHeight());
     }
     setSubtitleDragOffset(offsetPx, dragFrame) {
       const offset = Math.round(this.clampedSubtitleDragOffset(offsetPx, dragFrame));
@@ -16708,12 +16606,9 @@ ${spelling}`);
     }
     // Snap back to the configured bottom offset and forget the remembered nudge.
     resetSubtitleDragOffset() {
-      this.resetLegacySubtitleDragOffset();
-    }
-    resetLegacySubtitleDragOffset() {
       this.subtitleDragOffsetFraction = 0;
-      this.subtitleDragOffsetYPx = 0;
       saveSubtitleDragOffsetFraction(0);
+      this.subtitleDragOffsetYPx = 0;
       this.syncSubtitleDragOffsetStyle();
     }
     // Reproject the remembered nudge (a viewport-height fraction) into pixels
@@ -16739,7 +16634,7 @@ ${spelling}`);
     }
     syncSubtitleDragOffsetStyle() {
       const offset = `${this.subtitleDragOffsetYPx}px`;
-      if (this.root) setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", "0px");
+      if (this.root) setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", offset);
       for (const root of this.asbPlayerSubtitleMoveRoots()) {
         setStylePropertyIfChanged(root, "--jpdb-subtitle-asb-drag-offset-y", offset);
       }
@@ -16964,7 +16859,7 @@ ${spelling}`);
     seekToCueObject(cue, options = {}) {
       const padding = options.exact ? 0 : this.options.getSettings().subtitleSeekPadding;
       this.seekVideoTo(Math.max(0, cue.start + padding));
-      this.clearTranscriptManualScrollPause();
+      this.transcriptUserScrollAt = 0;
       this.currentCue = cue;
       this.secondaryCue = this.secondaryCues.find((item) => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
       this.render();
@@ -16977,51 +16872,6 @@ ${spelling}`);
       if (video.paused) void video.play().catch(() => void 0);
       else video.pause();
       this.syncControls();
-    }
-    togglePlayerFullscreen() {
-      const video = this.video;
-      if (!video) return;
-      if (this.isFullscreenActive()) {
-        this.exitPlayerFullscreen();
-        return;
-      }
-      const target = this.fullscreenRequestTarget(video);
-      if (target && target !== video) {
-        if (canRequestElementFullscreen(target)) void Promise.resolve(requestElementFullscreen(target)).catch(() => this.enterInlinePlayerFullscreen(target));
-        else this.enterInlinePlayerFullscreen(target);
-        return;
-      }
-      if (canRequestElementFullscreen(video)) void Promise.resolve(requestElementFullscreen(video)).catch(() => this.enterNativeVideoFullscreen(video));
-      else this.enterNativeVideoFullscreen(video);
-    }
-    exitPlayerFullscreen() {
-      if (activeInlineFullscreenElement()) {
-        exitInlineFullscreen();
-        this.syncFullscreenState();
-        this.scheduleAlignToVideo();
-        this.render();
-        return;
-      }
-      void Promise.resolve(exitCurrentFullscreen()).catch(() => void 0);
-    }
-    enterInlinePlayerFullscreen(target) {
-      enterInlineFullscreen(target);
-      this.syncFullscreenState();
-      this.scheduleAlignToVideo();
-      this.render();
-    }
-    fullscreenRequestTarget(video) {
-      return subtitleVideoLayoutTarget(video) ?? video;
-    }
-    enterNativeVideoFullscreen(video) {
-      try {
-        const fullscreenVideo = video;
-        (fullscreenVideo.webkitEnterFullscreen ?? fullscreenVideo.webkitEnterFullScreen)?.call(video);
-      } catch {
-      }
-    }
-    isFullscreenActive() {
-      return Boolean(this.fullscreen || currentFullscreenElement() || videoIsInNativeFullscreen(this.video));
     }
     seekVideoTo(time) {
       const video = this.video;
@@ -17465,8 +17315,6 @@ ${spelling}`);
       this.syncLineNavigationButtons(hasLines);
       this.syncDrawerButtons(hasLines);
       this.syncSubtitleStyleControls();
-      this.syncFullscreenRailButton();
-      this.syncTranscriptAutoScrollPausedClass();
       this.syncStatus();
       this.setNativeTrackModes();
     }
@@ -17477,17 +17325,6 @@ ${spelling}`);
       const status = this.root?.querySelector(".jpdb-subtitle-status");
       if (!status) return;
       syncSubtitleTrackStatus(status, this.tracks.length, this.options.getSettings().interfaceLanguage);
-    }
-    syncFullscreenRailButton() {
-      const button = this.root?.querySelector('[data-action="fullscreen"]');
-      if (!button) return;
-      const active = this.isFullscreenActive();
-      const label = uiText(this.options.getSettings().interfaceLanguage, active ? "exitFullscreen" : "enterFullscreen");
-      button.disabled = !this.video;
-      button.title = label;
-      button.setAttribute("aria-label", label);
-      button.setAttribute("aria-pressed", String(active));
-      setInnerHtml(button, subtitleIcon(active ? "fullscreen-exit" : "fullscreen"));
     }
     syncLineNavigationButtons(hasLines) {
       const panelOpen = this.isTranscriptPanelDockedOpen();
@@ -17731,8 +17568,6 @@ ${spelling}`);
       const persist = options.persist ?? true;
       this.clearDeferredTranscriptPanelRender();
       this.clearTranscriptVirtualRender();
-      this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
-      this.transcriptUserScrollAt = 0;
       if (!options.autoPause) {
         this.pausePanelOpen = false;
         if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
@@ -17747,10 +17582,7 @@ ${spelling}`);
     }
     toggleSubtitleStylePanel() {
       const nextOpen = !this.subtitleStylePanelOpen;
-      if (nextOpen) {
-        if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
-        if (this.isTranscriptPanelOpen()) this.closeTranscriptPanel({ persist: false, immediate: true });
-      }
+      if (nextOpen && this.isTranscriptPanelOpen()) this.closeTranscriptPanel({ persist: false, immediate: true });
       this.subtitleStylePanelOpen = nextOpen;
       this.syncSubtitleStyleControls();
       this.showControlsTemporarily();
@@ -17776,7 +17608,6 @@ ${spelling}`);
       if (!popover) return;
       popover.hidden = !open;
       syncSubtitleStyleRangeControl(popover, "subtitleFontSize", settings.subtitleFontSize, "px");
-      syncSubtitleStyleRangeControl(popover, "subtitleFontWeight", settings.subtitleFontWeight, "weight");
       syncSubtitleStyleRangeControl(popover, "subtitleBottomOffset", settings.subtitleBottomOffset, "%");
       syncSubtitleStyleRangeControl(popover, "subtitleBackgroundOpacity", settings.subtitleBackgroundOpacity, "");
       const fontSelect = popover.querySelector('[data-subtitle-style-setting="subtitleFontFamily"]');
@@ -17801,8 +17632,7 @@ ${spelling}`);
         this.closePauseTranscriptPanel();
         return;
       }
-      if (this.subtitleStylePanelOpen) return;
-      if (this.pausePanelDismissed || this.isTranscriptPanelOpen()) return;
+      if (this.pausePanelDismissed || this.subtitleStylePanelOpen || this.isTranscriptPanelOpen()) return;
       this.openLinesPanel({ persist: false, autoPause: true, deferRender: options.deferRender });
     }
     closePauseTranscriptPanel() {
@@ -17926,18 +17756,16 @@ ${spelling}`);
       };
     }
     transcriptVirtualStartIndex(scrollTop, currentRowIndex, visibleRows) {
-      if (this.shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex, visibleRows)) {
+      if (this.shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex)) {
         return currentRowIndex - Math.floor(visibleRows / 2);
       }
       return Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
     }
-    shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex, visibleRows) {
+    shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex) {
       if (currentRowIndex < 0) return false;
       if (!this.options.getSettings().subtitleTranscriptAutoScroll) return false;
-      if (this.isTranscriptAutoScrollPaused()) return false;
-      const firstRendered = Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
-      const lastRendered = firstRendered + visibleRows - 1;
-      return scrollTop <= 1 || currentRowIndex < firstRendered || currentRowIndex > lastRendered;
+      if (performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs()) return false;
+      return scrollTop <= 1 || currentRowIndex < Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
     }
     refreshExistingTranscriptPanel(state2) {
       if (this.lastTranscriptSignature !== state2.signature) return false;
@@ -17968,7 +17796,6 @@ ${spelling}`);
                 <div class="jpdb-subtitle-drawer-actions">
                     ${renderPanelModeControls("lines", this.hasTranscriptSurface(), language)}
                     ${renderPanelNavigationControls(Boolean(this.video && rowCount), language)}
-                    <button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml(uiText(language, "jumpToCurrentSubtitle"))}" aria-label="${escapeHtml(uiText(language, "jumpToCurrentSubtitle"))}">${subtitleIcon("locate")}</button>
                     ${renderPanelPlacementControls(this.effectiveTranscriptPlacement, language)}
                     ${renderPausePanelToggle(settings.subtitlePausePanel, language)}
                 </div>
@@ -18052,9 +17879,9 @@ ${spelling}`);
       if (active) active.classList.add("active");
       this.scrollTranscriptToActive();
     }
-    scrollTranscriptToActive(options = {}) {
-      if (!options.force && !this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
-      if (!options.force && this.isTranscriptAutoScrollPaused()) return;
+    scrollTranscriptToActive() {
+      if (!this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
+      if (performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs()) return;
       if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
       this.transcriptScrollFrame = requestAnimationFrame(() => {
         this.transcriptScrollFrame = void 0;
@@ -18067,36 +17894,7 @@ ${spelling}`);
     }
     noteTranscriptScroll() {
       if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
-      if (!this.options.getSettings().subtitleTranscriptAutoScroll) return;
       this.transcriptUserScrollAt = performance.now();
-      this.syncTranscriptAutoScrollPausedClass();
-      this.scheduleTranscriptAutoScrollResume();
-    }
-    jumpToCurrentTranscriptRow() {
-      this.clearTranscriptManualScrollPause();
-      this.clearTranscriptVirtualRender();
-      this.renderTranscriptPanel(true);
-      this.scrollTranscriptToActive({ force: true });
-    }
-    clearTranscriptManualScrollPause() {
-      this.transcriptUserScrollAt = 0;
-      this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
-      this.syncTranscriptAutoScrollPausedClass();
-    }
-    scheduleTranscriptAutoScrollResume() {
-      this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
-      const remaining = Math.max(0, this.transcriptAutoScrollResumeMs() - (performance.now() - this.transcriptUserScrollAt));
-      this.transcriptAutoScrollResumeTimer = window.setTimeout(() => {
-        this.transcriptAutoScrollResumeTimer = void 0;
-        this.syncTranscriptAutoScrollPausedClass();
-        this.scrollTranscriptToActive();
-      }, remaining + 20);
-    }
-    syncTranscriptAutoScrollPausedClass() {
-      this.transcriptPanel?.classList.toggle("jpdb-subtitle-auto-scroll-paused", this.isTranscriptAutoScrollPaused());
-    }
-    isTranscriptAutoScrollPaused() {
-      return Boolean(this.options.getSettings().subtitleTranscriptAutoScroll && this.transcriptUserScrollAt && performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs());
     }
     transcriptAutoScrollResumeMs() {
       const seconds = this.options.getSettings().subtitleTranscriptAutoScrollResumeSeconds;
@@ -18770,9 +18568,6 @@ ${spelling}`);
       if (!options.skipControlSync) this.syncDrawerButtons(this.hasVisibleSubtitleLines());
     }
     transcriptDrawerLayout(options, referenceVideoRect) {
-      if (this.shouldKeepVideoLayoutStableForTranscript()) {
-        return this.stableVideoTranscriptDrawerLayout(options, referenceVideoRect);
-      }
       const layoutOptions = this.withConstrainedSideTranscriptSize(options, referenceVideoRect);
       const layout = computeSubtitleDrawerLayout(layoutOptions);
       const resolvedLayout = this.shouldUseBottomTranscriptLayout(layout, referenceVideoRect) ? computeSubtitleDrawerLayout({
@@ -18781,49 +18576,6 @@ ${spelling}`);
         preferredPlacement: "bottom"
       }) : layout;
       return resolvedLayout;
-    }
-    shouldKeepVideoLayoutStableForTranscript() {
-      if (!this.video) return false;
-      return isYouTubePage() || Boolean(this.video.closest("[data-yomu-video-frame]"));
-    }
-    stableVideoTranscriptDrawerLayout(options, videoRect) {
-      const placement = options.preferredPlacement === "left" ? "left" : options.preferredPlacement === "bottom" ? "bottom" : "right";
-      if (options.compactPanel || placement === "bottom") {
-        return computeSubtitleDrawerLayout({
-          ...options,
-          compactPanel: true,
-          preferredPlacement: "bottom"
-        });
-      }
-      const sideLayout = this.stableSideTranscriptDrawerLayout(placement, options, videoRect);
-      return sideLayout ?? computeSubtitleDrawerLayout({
-        ...options,
-        compactPanel: true,
-        preferredPlacement: "bottom"
-      });
-    }
-    stableSideTranscriptDrawerLayout(placement, options, videoRect) {
-      if (videoRect.width <= 0 || videoRect.height <= 0) return null;
-      const margin = TRANSCRIPT_PANEL_MARGIN;
-      const availableWidth = Math.floor(placement === "left" ? videoRect.left - margin * 2 : options.viewportWidth - videoRect.right - margin * 2);
-      if (availableWidth < TRANSCRIPT_PANEL_MIN_SIDE_WIDTH) return null;
-      const desiredWidth = options.size?.sideWidth ?? Math.min(460, options.viewportWidth * 0.32);
-      const width = Math.round(Math.min(Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, desiredWidth), availableWidth));
-      const top = Math.round(Math.min(
-        Math.max(options.anchorTop ?? videoRect.top ?? 72, margin),
-        Math.max(margin, options.viewportHeight - 280)
-      ));
-      return {
-        placement,
-        left: placement === "left" ? Math.max(margin, Math.round(videoRect.left - margin - width)) : Math.min(options.viewportWidth - margin - width, Math.max(margin, Math.round(videoRect.right + margin))),
-        top,
-        width,
-        height: Math.max(260, options.viewportHeight - top - margin),
-        viewportWidth: options.viewportWidth,
-        viewportHeight: options.viewportHeight,
-        margin,
-        maxWidth: availableWidth
-      };
     }
     withConstrainedSideTranscriptSize(options, referenceVideoRect) {
       if (options.compactPanel || options.preferredPlacement === "bottom" || !this.video) return options;
@@ -18937,10 +18689,6 @@ ${spelling}`);
         return false;
       }
       if (layout.placement === "bottom") {
-        this.clearVideoInsetForTranscriptPanel();
-        return false;
-      }
-      if (this.shouldKeepVideoLayoutStableForTranscript()) {
         this.clearVideoInsetForTranscriptPanel();
         return false;
       }
@@ -19393,6 +19141,7 @@ ${spelling}`);
   const OEMBED_SESSION_CACHE_PREFIX = "yomu:youtube-oembed-title:v1:";
   const OEMBED_SESSION_CACHE_TTL_MS = 6 * 60 * 60 * 1e3;
   const OEMBED_BATCH_RESCAN_DELAY_MS = 180;
+  const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 4200;
   const YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS = 90;
   const YOUTUBE_FILTER_COLLAPSE_DELAY_MS = 80;
   const YOUTUBE_FILTER_SCROLL_COLLAPSE_DELAY_MS = 650;
@@ -19459,6 +19208,7 @@ ${spelling}`);
     events;
     timer;
     metadataRescanTimer;
+    noticeTimer;
     bar;
     channelShelf;
     revealed = false;
@@ -19897,9 +19647,11 @@ ${spelling}`);
       }
       const noticeScope = this.currentNoticeScope();
       if (!this.bar && this.dismissedNoticeScope === noticeScope) return;
+      const shouldStartTimer = !this.bar;
       const notice = this.ensureNoticeBar();
       this.updateNoticeSummary(notice.summary, filteredCount, shownCount, settings);
       this.updateNoticeActions(notice, settings);
+      if (shouldStartTimer) this.startNoticeTimer(noticeScope);
     }
     ensureNoticeBar() {
       if (!this.bar) {
@@ -20545,7 +20297,17 @@ ${spelling}`);
         this.schedule(0);
       }, OEMBED_BATCH_RESCAN_DELAY_MS);
     }
+    startNoticeTimer(noticeScope) {
+      window.clearTimeout(this.noticeTimer);
+      this.noticeTimer = window.setTimeout(() => {
+        if (this.currentNoticeScope() !== noticeScope) return;
+        this.dismissedNoticeScope = noticeScope;
+        this.removeNotice();
+      }, YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS);
+    }
     removeNotice() {
+      window.clearTimeout(this.noticeTimer);
+      this.noticeTimer = void 0;
       this.bar?.remove();
       this.bar = void 0;
     }

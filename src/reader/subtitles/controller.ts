@@ -4601,8 +4601,7 @@ export class SubtitlePlayerController {
             this.closePauseTranscriptPanel();
             return;
         }
-        if (this.subtitleStylePanelOpen) return;
-        if (this.pausePanelDismissed || this.isTranscriptPanelOpen()) return;
+        if (this.pausePanelDismissed || this.subtitleStylePanelOpen || this.isTranscriptPanelOpen()) return;
         this.openLinesPanel({ persist: false, autoPause: true, deferRender: options.deferRender });
     }
 
