@@ -220,6 +220,8 @@ const ASBPLAYER_SUBTITLE_DRAG_CLASSES = [
     'jpdb-subtitle-dragging',
 ] as const;
 const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = 'jpdb-subtitle-yt-sheet-open';
+const INLINE_FULLSCREEN_CLASS = 'jpdb-subtitle-inline-fullscreen';
+const INLINE_FULLSCREEN_ATTRIBUTE = 'data-yomu-inline-fullscreen';
 
 interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
@@ -262,11 +264,24 @@ type FullscreenDocument = Document & {
     webkitFullscreenElement?: Element | null;
     mozFullScreenElement?: Element | null;
     msFullscreenElement?: Element | null;
+    webkitExitFullscreen?: () => Promise<void> | void;
+    webkitCancelFullScreen?: () => Promise<void> | void;
+    mozCancelFullScreen?: () => Promise<void> | void;
+    msExitFullscreen?: () => Promise<void> | void;
 };
 
 type FullscreenVideoElement = HTMLVideoElement & {
     webkitDisplayingFullscreen?: boolean;
     webkitPresentationMode?: string;
+    webkitEnterFullscreen?: () => void;
+    webkitEnterFullScreen?: () => void;
+};
+
+type FullscreenTargetElement = HTMLElement & {
+    webkitRequestFullscreen?: () => Promise<void> | void;
+    webkitRequestFullScreen?: () => Promise<void> | void;
+    mozRequestFullScreen?: () => Promise<void> | void;
+    msRequestFullscreen?: () => Promise<void> | void;
 };
 
 function currentFullscreenElement(): Element | null {
@@ -276,6 +291,80 @@ function currentFullscreenElement(): Element | null {
         ?? fullscreenDocument.mozFullScreenElement
         ?? fullscreenDocument.msFullscreenElement
         ?? null;
+}
+
+function exitCurrentFullscreen(): Promise<void> | void {
+    const fullscreenDocument = document as FullscreenDocument;
+    return document.exitFullscreen?.()
+        ?? fullscreenDocument.webkitExitFullscreen?.()
+        ?? fullscreenDocument.webkitCancelFullScreen?.()
+        ?? fullscreenDocument.mozCancelFullScreen?.()
+        ?? fullscreenDocument.msExitFullscreen?.();
+}
+
+function requestElementFullscreen(element: HTMLElement): Promise<void> | void {
+    const target = element as FullscreenTargetElement;
+    return target.requestFullscreen?.()
+        ?? target.webkitRequestFullscreen?.()
+        ?? target.webkitRequestFullScreen?.()
+        ?? target.mozRequestFullScreen?.()
+        ?? target.msRequestFullscreen?.();
+}
+
+function canRequestElementFullscreen(element: HTMLElement): boolean {
+    const target = element as FullscreenTargetElement;
+    return Boolean(target.requestFullscreen
+        || target.webkitRequestFullscreen
+        || target.webkitRequestFullScreen
+        || target.mozRequestFullScreen
+        || target.msRequestFullscreen);
+}
+
+function enterInlineFullscreen(target: HTMLElement): void {
+    const current = activeInlineFullscreenElement();
+    if (current && current !== target) clearInlineFullscreenElement(current);
+    target.setAttribute(INLINE_FULLSCREEN_ATTRIBUTE, 'true');
+    if (!target.hasAttribute('fullscreen')) {
+        target.setAttribute('fullscreen', '');
+        target.dataset.yomuInlineFullscreenAttr = 'true';
+    }
+    if (!target.classList.contains('ytp-fullscreen')) {
+        target.classList.add('ytp-fullscreen');
+        target.dataset.yomuInlineYtpFullscreenClass = 'true';
+    }
+    if (!target.classList.contains('fullscreen')) {
+        target.classList.add('fullscreen');
+        target.dataset.yomuInlineFullscreenClass = 'true';
+    }
+    document.documentElement.classList.add(INLINE_FULLSCREEN_CLASS);
+    dispatchFullscreenLikeEvents();
+}
+
+function exitInlineFullscreen(): void {
+    const current = activeInlineFullscreenElement();
+    if (!current) return;
+    clearInlineFullscreenElement(current);
+    document.documentElement.classList.remove(INLINE_FULLSCREEN_CLASS);
+    dispatchFullscreenLikeEvents();
+}
+
+function activeInlineFullscreenElement(): HTMLElement | null {
+    return document.querySelector<HTMLElement>(`[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]`);
+}
+
+function clearInlineFullscreenElement(element: HTMLElement): void {
+    element.removeAttribute(INLINE_FULLSCREEN_ATTRIBUTE);
+    if (element.dataset.yomuInlineFullscreenAttr === 'true') element.removeAttribute('fullscreen');
+    if (element.dataset.yomuInlineYtpFullscreenClass === 'true') element.classList.remove('ytp-fullscreen');
+    if (element.dataset.yomuInlineFullscreenClass === 'true') element.classList.remove('fullscreen');
+    delete element.dataset.yomuInlineFullscreenAttr;
+    delete element.dataset.yomuInlineYtpFullscreenClass;
+    delete element.dataset.yomuInlineFullscreenClass;
+}
+
+function dispatchFullscreenLikeEvents(): void {
+    for (const eventName of ['fullscreenchange', 'webkitfullscreenchange']) document.dispatchEvent(new Event(eventName));
+    window.dispatchEvent(new Event('resize'));
 }
 
 function subtitleViewportRect(): DOMRect {
@@ -349,23 +438,10 @@ function subtitleFrameTargetFontSize(root: HTMLElement, settings: ReaderSettings
     return Math.max(subtitleMinimumFontSize(root), Math.min(64, scaled));
 }
 
-// The flat bottom offset (default 16%) is measured against the video-frame box.
-// On a portrait/Shorts frame the lower quarter is YouTube's action rail +
-// scrubber, so the default line lands inside the chrome. Lift an UNCONFIGURED
-// default clear of it on narrow/portrait frames while letting an explicit larger
-// user value win — the setting stays authoritative; we only raise a default.
 // Mirrors settings/index.ts default subtitleBottomOffset; keep in sync.
 const DEFAULT_SUBTITLE_BOTTOM_OFFSET = 16;
-function effectiveSubtitleBottomPercent(settings: ReaderSettings, root: HTMLElement): number {
-    // Only lift the UNCONFIGURED default — any explicit user value (higher OR
-    // lower) stays authoritative, so a viewer who deliberately set a low offset
-    // keeps it. We only raise the untouched default clear of portrait/Shorts chrome.
-    if (settings.subtitleBottomOffset !== DEFAULT_SUBTITLE_BOTTOM_OFFSET) return settings.subtitleBottomOffset;
-    const rect = root.getBoundingClientRect();
-    const portrait = rect.height > rect.width;
-    const narrow = rect.width < 700;
-    const floor = portrait ? 28 : narrow ? 22 : 0;
-    return Math.max(settings.subtitleBottomOffset, floor);
+function effectiveSubtitleBottomPercent(settings: ReaderSettings): number {
+    return settings.subtitleBottomOffset;
 }
 
 function subtitleElementOverflows(element: HTMLElement): boolean {
@@ -550,8 +626,10 @@ interface SubtitleDragSession {
     handle: HTMLElement;
     dragFrame: HTMLElement;
     dragRoot?: HTMLElement;
+    mode: 'bottom-offset' | 'transform';
     startY: number;
     startOffset: number;
+    startBottomOffset: number;
 }
 
 interface TranscriptPanelRenderState {
@@ -777,7 +855,7 @@ function normalizeHostedSubtitleOpenPanel(value: unknown): HostedSubtitleFileLoa
     return value === 'lines' || value === 'tracks' || value === 'auto' || value === false ? value : 'auto';
 }
 
-type SubtitleStyleNumberSetting = 'subtitleFontSize' | 'subtitleBottomOffset' | 'subtitleBackgroundOpacity';
+type SubtitleStyleNumberSetting = 'subtitleFontSize' | 'subtitleFontWeight' | 'subtitleBottomOffset' | 'subtitleBackgroundOpacity';
 
 function updateNumberSetting(
     settings: ReaderSettings,
@@ -799,14 +877,15 @@ function syncSubtitleStyleRangeControl(
     root: HTMLElement,
     key: SubtitleStyleNumberSetting,
     value: number,
-    suffix: 'px' | '%' | '',
+    suffix: 'px' | '%' | 'weight' | '',
 ): void {
     const control = root.querySelector<HTMLInputElement>(`[data-subtitle-style-setting="${key}"]`);
     const nextValue = key === 'subtitleBackgroundOpacity' ? String(Number(value.toFixed(2))) : String(Math.round(value));
     if (control && control.value !== nextValue) control.value = nextValue;
     const output = root.querySelector<HTMLOutputElement>(`[data-subtitle-style-output="${key}"]`);
     if (!output) return;
-    output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
+    if (suffix === 'weight') output.textContent = String(Math.round(value));
+    else output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -878,6 +957,7 @@ export class SubtitlePlayerController {
     private transcriptViewportStabilizeTimer?: number;
     private transcriptPreviewPlayerResizeDeferred = false;
     private transcriptResizeBackgroundResumeTimer?: number;
+    private transcriptAutoScrollResumeTimer?: number;
     private transcriptHydrationAfterResizeIndex?: number;
     private transcriptWarmupAfterResize = false;
     private transcriptPanelHideTimer?: number;
@@ -932,9 +1012,11 @@ export class SubtitlePlayerController {
         previous: () => this.seekSubtitle(-1),
         next: () => this.seekSubtitle(1),
         playback: () => this.toggleVideoPlayback(),
+        fullscreen: () => this.togglePlayerFullscreen(),
         copy: target => { void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target)); },
         'copy-row': target => { void this.copyTranscriptRow(this.rowIndexFromTarget(target)).then(() => flashSubtitleCopyFeedback(target)); },
         'peek-row': target => this.toggleRowTranslationPeek(target),
+        'jump-current': () => this.jumpToCurrentTranscriptRow(),
         load: () => this.openSubtitleFilePicker('primary'),
         'load-secondary': () => this.openSubtitleFilePicker('secondary'),
         panel: () => this.toggleTranscriptDrawer(),
@@ -1039,6 +1121,7 @@ export class SubtitlePlayerController {
         this.transcriptInsetRealignFrame = clearWindowAnimationFrame(this.transcriptInsetRealignFrame);
         this.transcriptViewportStabilizeTimer = clearWindowTimeout(this.transcriptViewportStabilizeTimer);
         this.transcriptResizeBackgroundResumeTimer = clearWindowTimeout(this.transcriptResizeBackgroundResumeTimer);
+        this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
         this.clearTranscriptPanelAnimation();
         this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
         this.pendingPointerActivity = undefined;
@@ -1123,6 +1206,7 @@ export class SubtitlePlayerController {
         const previousLabel = uiText(settings.interfaceLanguage, 'previousSubtitle');
         const nextLabel = uiText(settings.interfaceLanguage, 'nextSubtitle');
         const playLabel = uiText(settings.interfaceLanguage, 'playVideo');
+        const fullscreenLabel = uiText(settings.interfaceLanguage, 'enterFullscreen');
         const panelLabel = uiText(settings.interfaceLanguage, 'openSubtitlePanel');
         const moveLabel = uiText(settings.interfaceLanguage, 'moveSubtitles');
         setInnerHtml(root, `
@@ -1132,6 +1216,7 @@ export class SubtitlePlayerController {
                 <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
                 <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon('play')}</button>
+                <button class="jpdb-subtitle-fullscreen-toggle" type="button" data-action="fullscreen" title="${escapeHtml(fullscreenLabel)}" aria-label="${escapeHtml(fullscreenLabel)}">${subtitleIcon('fullscreen')}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
             </div>
@@ -2757,7 +2842,7 @@ export class SubtitlePlayerController {
 
     private applyEffectiveSubtitleBottom(): void {
         if (!this.root) return;
-        this.root.style.setProperty('--subtitle-bottom', `${effectiveSubtitleBottomPercent(this.options.getSettings(), this.root)}%`);
+        this.root.style.setProperty('--subtitle-bottom', `${effectiveSubtitleBottomPercent(this.options.getSettings())}%`);
     }
 
     private fitSubtitleTextToVideo(): void {
@@ -3001,6 +3086,7 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         const setting = control.dataset.subtitleStyleSetting;
         if (setting === 'subtitleFontSize') return updateNumberSetting(settings, 'subtitleFontSize', control.value, 16, 64);
+        if (setting === 'subtitleFontWeight') return updateNumberSetting(settings, 'subtitleFontWeight', control.value, 300, 900);
         if (setting === 'subtitleBottomOffset') return updateNumberSetting(settings, 'subtitleBottomOffset', control.value, 2, 40);
         if (setting === 'subtitleBackgroundOpacity') return updateNumberSetting(settings, 'subtitleBackgroundOpacity', control.value, 0, 0.7);
         if (setting === 'subtitleFontFamily') {
@@ -3108,8 +3194,10 @@ export class SubtitlePlayerController {
             handle,
             dragFrame,
             dragRoot,
+            mode: handle.matches(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR) ? 'transform' : 'bottom-offset',
             startY,
             startOffset: this.subtitleDragOffsetYPx,
+            startBottomOffset: this.options.getSettings().subtitleBottomOffset,
         };
         this.subtitleDragActive = true;
         handle.classList.add('jpdb-subtitle-dragging');
@@ -3121,7 +3209,11 @@ export class SubtitlePlayerController {
 
     private updateSubtitleDrag(session: SubtitleDragSession, clientY: number, event: Event): void {
         if (event.cancelable) event.preventDefault();
-        this.setSubtitleDragOffset(session.startOffset + clientY - session.startY, session.dragFrame);
+        if (session.mode === 'bottom-offset') {
+            this.setSubtitleBottomOffsetFromDrag(session.startBottomOffset, clientY - session.startY, session.dragFrame);
+        } else {
+            this.setSubtitleDragOffset(session.startOffset + clientY - session.startY, session.dragFrame);
+        }
         this.showControlsTemporarily();
     }
 
@@ -3130,7 +3222,8 @@ export class SubtitlePlayerController {
         session.handle.classList.remove('jpdb-subtitle-dragging');
         session.dragRoot?.classList.remove('jpdb-subtitle-dragging');
         if (session.dragRoot !== this.root) this.root?.classList.remove('jpdb-subtitle-dragging');
-        this.persistSubtitleDragOffset();
+        if (session.mode === 'bottom-offset') this.resetLegacySubtitleDragOffset();
+        else this.persistSubtitleDragOffset();
         this.showControlsTemporarily();
     }
 
@@ -3151,13 +3244,51 @@ export class SubtitlePlayerController {
 
         event.preventDefault();
         event.stopPropagation();
+        const mode = event.currentTarget instanceof HTMLElement && event.currentTarget.matches(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR)
+            ? 'transform'
+            : 'bottom-offset';
         if (shouldReset) {
-            this.resetSubtitleDragOffset();
+            if (mode === 'bottom-offset') this.resetSubtitleBottomOffset();
+            else this.resetSubtitleDragOffset();
         } else {
-            this.setSubtitleDragOffset(this.subtitleDragOffsetYPx + delta, dragFrame);
-            this.persistSubtitleDragOffset();
+            if (mode === 'bottom-offset') this.adjustSubtitleBottomOffsetByPixels(delta, dragFrame);
+            else {
+                this.setSubtitleDragOffset(this.subtitleDragOffsetYPx + delta, dragFrame);
+                this.persistSubtitleDragOffset();
+            }
         }
         this.showControlsTemporarily();
+    }
+
+    private setSubtitleBottomOffsetFromDrag(startPercent: number, deltaY: number, dragFrame?: HTMLElement): void {
+        this.setSubtitleBottomOffset(startPercent - (deltaY / this.subtitlePositionReferenceHeight(dragFrame)) * 100);
+    }
+
+    private adjustSubtitleBottomOffsetByPixels(deltaY: number, dragFrame?: HTMLElement): void {
+        this.setSubtitleBottomOffset(this.options.getSettings().subtitleBottomOffset - (deltaY / this.subtitlePositionReferenceHeight(dragFrame)) * 100);
+    }
+
+    private setSubtitleBottomOffset(value: number): void {
+        if (!Number.isFinite(value)) return;
+        const settings = this.options.getSettings();
+        const next = Math.round(Math.min(Math.max(value, 2), 40));
+        if (settings.subtitleBottomOffset === next) return;
+        settings.subtitleBottomOffset = next;
+        this.applyEffectiveSubtitleBottom();
+        this.syncSubtitleStyleControls();
+        this.options.onSettingsChange();
+    }
+
+    private resetSubtitleBottomOffset(): void {
+        this.setSubtitleBottomOffset(DEFAULT_SUBTITLE_BOTTOM_OFFSET);
+        this.resetLegacySubtitleDragOffset();
+    }
+
+    private subtitlePositionReferenceHeight(dragFrame?: HTMLElement): number {
+        const rect = this.root?.getBoundingClientRect() ?? dragFrame?.getBoundingClientRect();
+        const styledHeight = this.root?.style.height ?? '';
+        const styledRootHeight = styledHeight.endsWith('px') ? Number.parseFloat(styledHeight) : 0;
+        return Math.max(1, rect?.height || styledRootHeight || this.videoLayoutRect().height || dragFrame?.getBoundingClientRect().height || this.subtitleDragViewportHeight());
     }
 
     private setSubtitleDragOffset(offsetPx: number, dragFrame?: HTMLElement): void {
@@ -3169,9 +3300,13 @@ export class SubtitlePlayerController {
 
     // Snap back to the configured bottom offset and forget the remembered nudge.
     private resetSubtitleDragOffset(): void {
+        this.resetLegacySubtitleDragOffset();
+    }
+
+    private resetLegacySubtitleDragOffset(): void {
         this.subtitleDragOffsetFraction = 0;
-        saveSubtitleDragOffsetFraction(0);
         this.subtitleDragOffsetYPx = 0;
+        saveSubtitleDragOffsetFraction(0);
         this.syncSubtitleDragOffsetStyle();
     }
 
@@ -3201,7 +3336,7 @@ export class SubtitlePlayerController {
 
     private syncSubtitleDragOffsetStyle(): void {
         const offset = `${this.subtitleDragOffsetYPx}px`;
-        if (this.root) setStylePropertyIfChanged(this.root, '--subtitle-drag-offset-y', offset);
+        if (this.root) setStylePropertyIfChanged(this.root, '--subtitle-drag-offset-y', '0px');
         for (const root of this.asbPlayerSubtitleMoveRoots()) {
             setStylePropertyIfChanged(root, '--jpdb-subtitle-asb-drag-offset-y', offset);
         }
@@ -3483,7 +3618,7 @@ export class SubtitlePlayerController {
         this.seekVideoTo(Math.max(0, cue.start + padding));
         // Deliberate navigation (line click, Previous/Next) re-engages
         // auto-follow even if the viewer had manually scrolled moments ago.
-        this.transcriptUserScrollAt = 0;
+        this.clearTranscriptManualScrollPause();
         this.currentCue = cue;
         this.secondaryCue = this.secondaryCues.find(item => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
         this.render();
@@ -3497,6 +3632,58 @@ export class SubtitlePlayerController {
         if (video.paused) void video.play().catch(() => undefined);
         else video.pause();
         this.syncControls();
+    }
+
+    private togglePlayerFullscreen(): void {
+        const video = this.video;
+        if (!video) return;
+        if (this.isFullscreenActive()) {
+            this.exitPlayerFullscreen();
+            return;
+        }
+        const target = this.fullscreenRequestTarget(video);
+        if (target && target !== video) {
+            if (canRequestElementFullscreen(target)) void Promise.resolve(requestElementFullscreen(target)).catch(() => this.enterInlinePlayerFullscreen(target));
+            else this.enterInlinePlayerFullscreen(target);
+            return;
+        }
+        if (canRequestElementFullscreen(video)) void Promise.resolve(requestElementFullscreen(video)).catch(() => this.enterNativeVideoFullscreen(video));
+        else this.enterNativeVideoFullscreen(video);
+    }
+
+    private exitPlayerFullscreen(): void {
+        if (activeInlineFullscreenElement()) {
+            exitInlineFullscreen();
+            this.syncFullscreenState();
+            this.scheduleAlignToVideo();
+            this.render();
+            return;
+        }
+        void Promise.resolve(exitCurrentFullscreen()).catch(() => undefined);
+    }
+
+    private enterInlinePlayerFullscreen(target: HTMLElement): void {
+        enterInlineFullscreen(target);
+        this.syncFullscreenState();
+        this.scheduleAlignToVideo();
+        this.render();
+    }
+
+    private fullscreenRequestTarget(video: HTMLVideoElement): HTMLElement {
+        return subtitleVideoLayoutTarget(video) ?? video;
+    }
+
+    private enterNativeVideoFullscreen(video: HTMLVideoElement): void {
+        try {
+            const fullscreenVideo = video as FullscreenVideoElement;
+            (fullscreenVideo.webkitEnterFullscreen ?? fullscreenVideo.webkitEnterFullScreen)?.call(video);
+        } catch {
+            // Fullscreen is best-effort across userscript hosts and mobile Safari.
+        }
+    }
+
+    private isFullscreenActive(): boolean {
+        return Boolean(this.fullscreen || currentFullscreenElement() || videoIsInNativeFullscreen(this.video));
     }
 
     private seekVideoTo(time: number): void {
@@ -4015,6 +4202,8 @@ export class SubtitlePlayerController {
         this.syncLineNavigationButtons(hasLines);
         this.syncDrawerButtons(hasLines);
         this.syncSubtitleStyleControls();
+        this.syncFullscreenRailButton();
+        this.syncTranscriptAutoScrollPausedClass();
         this.syncStatus();
         this.setNativeTrackModes();
     }
@@ -4027,6 +4216,18 @@ export class SubtitlePlayerController {
         const status = this.root?.querySelector<HTMLElement>('.jpdb-subtitle-status');
         if (!status) return;
         syncSubtitleTrackStatus(status, this.tracks.length, this.options.getSettings().interfaceLanguage);
+    }
+
+    private syncFullscreenRailButton(): void {
+        const button = this.root?.querySelector<HTMLButtonElement>('[data-action="fullscreen"]');
+        if (!button) return;
+        const active = this.isFullscreenActive();
+        const label = uiText(this.options.getSettings().interfaceLanguage, active ? 'exitFullscreen' : 'enterFullscreen');
+        button.disabled = !this.video;
+        button.title = label;
+        button.setAttribute('aria-label', label);
+        button.setAttribute('aria-pressed', String(active));
+        setInnerHtml(button, subtitleIcon(active ? 'fullscreen-exit' : 'fullscreen'));
     }
 
     private syncLineNavigationButtons(hasLines: boolean): void {
@@ -4304,6 +4505,8 @@ export class SubtitlePlayerController {
         const persist = options.persist ?? true;
         this.clearDeferredTranscriptPanelRender();
         this.clearTranscriptVirtualRender();
+        this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
+        this.transcriptUserScrollAt = 0;
         if (!options.autoPause) {
             this.pausePanelOpen = false;
             // An explicit close while paused must stick: otherwise the "open panel
@@ -4322,7 +4525,10 @@ export class SubtitlePlayerController {
 
     private toggleSubtitleStylePanel(): void {
         const nextOpen = !this.subtitleStylePanelOpen;
-        if (nextOpen && this.isTranscriptPanelOpen()) this.closeTranscriptPanel({ persist: false, immediate: true });
+        if (nextOpen) {
+            if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
+            if (this.isTranscriptPanelOpen()) this.closeTranscriptPanel({ persist: false, immediate: true });
+        }
         this.subtitleStylePanelOpen = nextOpen;
         this.syncSubtitleStyleControls();
         this.showControlsTemporarily();
@@ -4350,6 +4556,7 @@ export class SubtitlePlayerController {
         if (!popover) return;
         popover.hidden = !open;
         syncSubtitleStyleRangeControl(popover, 'subtitleFontSize', settings.subtitleFontSize, 'px');
+        syncSubtitleStyleRangeControl(popover, 'subtitleFontWeight', settings.subtitleFontWeight, 'weight');
         syncSubtitleStyleRangeControl(popover, 'subtitleBottomOffset', settings.subtitleBottomOffset, '%');
         syncSubtitleStyleRangeControl(popover, 'subtitleBackgroundOpacity', settings.subtitleBackgroundOpacity, '');
         const fontSelect = popover.querySelector<HTMLSelectElement>('[data-subtitle-style-setting="subtitleFontFamily"]');
@@ -4381,6 +4588,7 @@ export class SubtitlePlayerController {
             this.closePauseTranscriptPanel();
             return;
         }
+        if (this.subtitleStylePanelOpen) return;
         if (this.pausePanelDismissed || this.isTranscriptPanelOpen()) return;
         this.openLinesPanel({ persist: false, autoPause: true, deferRender: options.deferRender });
     }
@@ -4516,17 +4724,19 @@ export class SubtitlePlayerController {
     }
 
     private transcriptVirtualStartIndex(scrollTop: number, currentRowIndex: number, visibleRows: number): number {
-        if (this.shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex)) {
+        if (this.shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex, visibleRows)) {
             return currentRowIndex - Math.floor(visibleRows / 2);
         }
         return Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
     }
 
-    private shouldCenterActiveTranscriptRow(scrollTop: number, currentRowIndex: number): boolean {
+    private shouldCenterActiveTranscriptRow(scrollTop: number, currentRowIndex: number, visibleRows: number): boolean {
         if (currentRowIndex < 0) return false;
         if (!this.options.getSettings().subtitleTranscriptAutoScroll) return false;
-        if (performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs()) return false;
-        return scrollTop <= 1 || currentRowIndex < Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
+        if (this.isTranscriptAutoScrollPaused()) return false;
+        const firstRendered = Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
+        const lastRendered = firstRendered + visibleRows - 1;
+        return scrollTop <= 1 || currentRowIndex < firstRendered || currentRowIndex > lastRendered;
     }
 
     private refreshExistingTranscriptPanel(state: TranscriptPanelRenderState): boolean {
@@ -4559,6 +4769,7 @@ export class SubtitlePlayerController {
                 <div class="jpdb-subtitle-drawer-actions">
                     ${renderPanelModeControls('lines', this.hasTranscriptSurface(), language)}
                     ${renderPanelNavigationControls(Boolean(this.video && rowCount), language)}
+                    <button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}" aria-label="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}">${subtitleIcon('locate')}</button>
                     ${renderPanelPlacementControls(this.effectiveTranscriptPlacement, language)}
                     ${renderPausePanelToggle(settings.subtitlePausePanel, language)}
                 </div>
@@ -4659,12 +4870,12 @@ export class SubtitlePlayerController {
         this.scrollTranscriptToActive();
     }
 
-    private scrollTranscriptToActive(): void {
-        if (!this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
+    private scrollTranscriptToActive(options: { force?: boolean } = {}): void {
+        if ((!options.force && !this.options.getSettings().subtitleTranscriptAutoScroll) || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
         // Respect a manual scroll: don't yank the list back to the active row
         // while the viewer is reading elsewhere. Auto-follow resumes after the
         // configurable resume window with no further manual scrolling.
-        if (performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs()) return;
+        if (!options.force && this.isTranscriptAutoScrollPaused()) return;
         if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
         this.transcriptScrollFrame = requestAnimationFrame(() => {
             this.transcriptScrollFrame = undefined;
@@ -4680,7 +4891,43 @@ export class SubtitlePlayerController {
 
     private noteTranscriptScroll(): void {
         if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
+        if (!this.options.getSettings().subtitleTranscriptAutoScroll) return;
         this.transcriptUserScrollAt = performance.now();
+        this.syncTranscriptAutoScrollPausedClass();
+        this.scheduleTranscriptAutoScrollResume();
+    }
+
+    private jumpToCurrentTranscriptRow(): void {
+        this.clearTranscriptManualScrollPause();
+        this.clearTranscriptVirtualRender();
+        this.renderTranscriptPanel(true);
+        this.scrollTranscriptToActive({ force: true });
+    }
+
+    private clearTranscriptManualScrollPause(): void {
+        this.transcriptUserScrollAt = 0;
+        this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
+        this.syncTranscriptAutoScrollPausedClass();
+    }
+
+    private scheduleTranscriptAutoScrollResume(): void {
+        this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
+        const remaining = Math.max(0, this.transcriptAutoScrollResumeMs() - (performance.now() - this.transcriptUserScrollAt));
+        this.transcriptAutoScrollResumeTimer = window.setTimeout(() => {
+            this.transcriptAutoScrollResumeTimer = undefined;
+            this.syncTranscriptAutoScrollPausedClass();
+            this.scrollTranscriptToActive();
+        }, remaining + 20);
+    }
+
+    private syncTranscriptAutoScrollPausedClass(): void {
+        this.transcriptPanel?.classList.toggle('jpdb-subtitle-auto-scroll-paused', this.isTranscriptAutoScrollPaused());
+    }
+
+    private isTranscriptAutoScrollPaused(): boolean {
+        return Boolean(this.options.getSettings().subtitleTranscriptAutoScroll
+            && this.transcriptUserScrollAt
+            && performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs());
     }
 
     private transcriptAutoScrollResumeMs(): number {
@@ -5474,6 +5721,9 @@ export class SubtitlePlayerController {
     }
 
     private transcriptDrawerLayout(options: SubtitleDrawerLayoutOptions, referenceVideoRect: DOMRect): TranscriptPanelLayout {
+        if (this.shouldKeepVideoLayoutStableForTranscript()) {
+            return this.stableVideoTranscriptDrawerLayout(options, referenceVideoRect);
+        }
         const layoutOptions = this.withConstrainedSideTranscriptSize(options, referenceVideoRect);
         const layout = computeSubtitleDrawerLayout(layoutOptions);
         const resolvedLayout = this.shouldUseBottomTranscriptLayout(layout, referenceVideoRect)
@@ -5484,6 +5734,60 @@ export class SubtitlePlayerController {
             })
             : layout;
         return resolvedLayout;
+    }
+
+    private shouldKeepVideoLayoutStableForTranscript(): boolean {
+        if (!this.video) return false;
+        return isYouTubePage() || Boolean(this.video.closest('[data-yomu-video-frame]'));
+    }
+
+    private stableVideoTranscriptDrawerLayout(options: SubtitleDrawerLayoutOptions, videoRect: DOMRect): TranscriptPanelLayout {
+        const placement = options.preferredPlacement === 'left' ? 'left' : options.preferredPlacement === 'bottom' ? 'bottom' : 'right';
+        if (options.compactPanel || placement === 'bottom') {
+            return computeSubtitleDrawerLayout({
+                ...options,
+                compactPanel: true,
+                preferredPlacement: 'bottom',
+            });
+        }
+        const sideLayout = this.stableSideTranscriptDrawerLayout(placement, options, videoRect);
+        return sideLayout ?? computeSubtitleDrawerLayout({
+            ...options,
+            compactPanel: true,
+            preferredPlacement: 'bottom',
+        });
+    }
+
+    private stableSideTranscriptDrawerLayout(
+        placement: Exclude<ReaderSettings['subtitleTranscriptPlacement'], 'bottom'>,
+        options: SubtitleDrawerLayoutOptions,
+        videoRect: DOMRect,
+    ): TranscriptPanelLayout | null {
+        if (videoRect.width <= 0 || videoRect.height <= 0) return null;
+        const margin = TRANSCRIPT_PANEL_MARGIN;
+        const availableWidth = Math.floor(placement === 'left'
+            ? videoRect.left - margin * 2
+            : options.viewportWidth - videoRect.right - margin * 2);
+        if (availableWidth < TRANSCRIPT_PANEL_MIN_SIDE_WIDTH) return null;
+        const desiredWidth = options.size?.sideWidth ?? Math.min(460, options.viewportWidth * 0.32);
+        const width = Math.round(Math.min(Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, desiredWidth), availableWidth));
+        const top = Math.round(Math.min(
+            Math.max(options.anchorTop ?? videoRect.top ?? 72, margin),
+            Math.max(margin, options.viewportHeight - 280),
+        ));
+        return {
+            placement,
+            left: placement === 'left'
+                ? Math.max(margin, Math.round(videoRect.left - margin - width))
+                : Math.min(options.viewportWidth - margin - width, Math.max(margin, Math.round(videoRect.right + margin))),
+            top,
+            width,
+            height: Math.max(260, options.viewportHeight - top - margin),
+            viewportWidth: options.viewportWidth,
+            viewportHeight: options.viewportHeight,
+            margin,
+            maxWidth: availableWidth,
+        };
     }
 
     private withConstrainedSideTranscriptSize(options: SubtitleDrawerLayoutOptions, referenceVideoRect: DOMRect): SubtitleDrawerLayoutOptions {
@@ -5634,6 +5938,10 @@ export class SubtitlePlayerController {
             return false;
         }
         if (layout.placement === 'bottom') {
+            this.clearVideoInsetForTranscriptPanel();
+            return false;
+        }
+        if (this.shouldKeepVideoLayoutStableForTranscript()) {
             this.clearVideoInsetForTranscriptPanel();
             return false;
         }

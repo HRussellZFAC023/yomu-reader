@@ -6,6 +6,7 @@ import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID }
 import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
 import { activateSettingsPanel, applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings/form';
+import { JAPANESE_ROUNDED_FONT_FAMILY } from '../../src/reader/settings/font-presets';
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../src/reader/settings/form-read';
 import { reconcileApiCredentialInputs } from '../../src/reader/settings/dialog-controller';
 import { KANJI_SIMILAR_WORDS_SOURCE_ID, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/sources/sections';
@@ -145,12 +146,14 @@ function expectFontFamilyOptions(form: HTMLFormElement, controlName: 'readerFont
     systemLabel: string;
     customLabel: string;
     historicalLabel: string;
+    roundedLabel: string;
 }): void {
     expect(form.querySelector<HTMLSelectElement>(`select[name="${controlName}"]`)).not.toBeNull();
     expect(form.querySelector<HTMLInputElement>(`input[name="${controlName}Custom"]`)).not.toBeNull();
     expect(optionText(form, controlName, DEFAULT_SETTINGS.popupFontFamily)).toBe(labels.defaultLabel);
     expect(optionText(form, controlName, DEFAULT_SETTINGS.subtitleFontFamily)).toBe(labels.systemLabel);
     expect(optionText(form, controlName, HISTORICAL_HIRAGINO_YU_GOTHIC_FONT)).toBe(labels.historicalLabel);
+    expect(optionText(form, controlName, JAPANESE_ROUNDED_FONT_FAMILY)).toBe(labels.roundedLabel);
     expect(optionText(form, controlName, CUSTOM_FONT_FAMILY_VALUE)).toBe(labels.customLabel);
 }
 
@@ -1330,18 +1333,21 @@ describe('settings form localization', () => {
             systemLabel: 'System UI',
             customLabel: 'Custom...',
             historicalLabel: 'Hiragino / Yu Gothic',
+            roundedLabel: 'Japanese rounded',
         });
         expectFontFamilyOptions(form, 'popupFontFamily', {
             defaultLabel: 'Built-in font',
             systemLabel: 'System UI',
             customLabel: 'Custom...',
             historicalLabel: 'Hiragino / Yu Gothic',
+            roundedLabel: 'Japanese rounded',
         });
         expectFontFamilyOptions(form, 'subtitleFontFamily', {
             defaultLabel: 'Built-in font',
             systemLabel: 'System UI',
             customLabel: 'Custom...',
             historicalLabel: 'Hiragino / Yu Gothic',
+            roundedLabel: 'Japanese rounded',
         });
         expect(subtitleFontFamily.value).toBe(DEFAULT_SETTINGS.subtitleFontFamily);
         expect(fontWeight.value).toBe('400');
@@ -1774,18 +1780,21 @@ describe('settings form localization', () => {
             systemLabel: 'システムUI',
             customLabel: 'カスタム...',
             historicalLabel: 'ヒラギノ / 游ゴシック',
+            roundedLabel: '日本語丸ゴシック',
         });
         expectFontFamilyOptions(form, 'popupFontFamily', {
             defaultLabel: '内蔵フォント',
             systemLabel: 'システムUI',
             customLabel: 'カスタム...',
             historicalLabel: 'ヒラギノ / 游ゴシック',
+            roundedLabel: '日本語丸ゴシック',
         });
         expectFontFamilyOptions(form, 'subtitleFontFamily', {
             defaultLabel: '内蔵フォント',
             systemLabel: 'システムUI',
             customLabel: 'カスタム...',
             historicalLabel: 'ヒラギノ / 游ゴシック',
+            roundedLabel: '日本語丸ゴシック',
         });
     });
 

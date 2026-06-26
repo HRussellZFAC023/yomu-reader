@@ -149,7 +149,6 @@ const OEMBED_TITLE_CACHE_LIMIT = 240;
 const OEMBED_SESSION_CACHE_PREFIX = 'yomu:youtube-oembed-title:v1:';
 const OEMBED_SESSION_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const OEMBED_BATCH_RESCAN_DELAY_MS = 180;
-const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 4200;
 const YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS = 90;
 const YOUTUBE_FILTER_COLLAPSE_DELAY_MS = 80;
 const YOUTUBE_FILTER_SCROLL_COLLAPSE_DELAY_MS = 650;
@@ -279,7 +278,6 @@ export class YoutubeImmersionFilter {
     private events?: AbortController;
     private timer?: number;
     private metadataRescanTimer?: number;
-    private noticeTimer?: number;
     private bar?: HTMLElement;
     private channelShelf?: HTMLElement;
     private revealed = false;
@@ -818,12 +816,10 @@ export class YoutubeImmersionFilter {
 
         const noticeScope = this.currentNoticeScope();
         if (!this.bar && this.dismissedNoticeScope === noticeScope) return;
-        const shouldStartTimer = !this.bar;
 
         const notice = this.ensureNoticeBar();
         this.updateNoticeSummary(notice.summary, filteredCount, shownCount, settings);
         this.updateNoticeActions(notice, settings);
-        if (shouldStartTimer) this.startNoticeTimer(noticeScope);
     }
 
     private ensureNoticeBar(): YouTubeFilterNoticeElements {
@@ -1593,18 +1589,7 @@ export class YoutubeImmersionFilter {
         }, OEMBED_BATCH_RESCAN_DELAY_MS);
     }
 
-    private startNoticeTimer(noticeScope: string): void {
-        window.clearTimeout(this.noticeTimer);
-        this.noticeTimer = window.setTimeout(() => {
-            if (this.currentNoticeScope() !== noticeScope) return;
-            this.dismissedNoticeScope = noticeScope;
-            this.removeNotice();
-        }, YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS);
-    }
-
     private removeNotice(): void {
-        window.clearTimeout(this.noticeTimer);
-        this.noticeTimer = undefined;
         this.bar?.remove();
         this.bar = undefined;
     }

@@ -233,7 +233,12 @@ async function startYoutubeFilter({
         document.body.innerHTML = html;
     }
 
-    const filter = createYoutubeFilter(() => settings, filterOptions);
+    const filter = createYoutubeFilter(() => settings, {
+        setShowFilterNotice: visible => {
+            settings.youtubeShowFilterNotice = visible;
+        },
+        ...filterOptions,
+    });
     filter.init();
 
     if (wait === 'initial-scan') {
@@ -909,6 +914,7 @@ describe('YouTube immersion filter', () => {
         await vi.advanceTimersByTimeAsync(0);
 
         expect(settings.youtubeImmersionEnabled).toBe(true);
+        expect(settings.youtubeShowFilterNotice).toBe(false);
         expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
 
@@ -1570,7 +1576,7 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
-    it('auto-dismisses the hidden-video notice like a toast', async () => {
+    it('keeps the hidden-video notice visible until it is dismissed', async () => {
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({
             oEmbedTitles: {
@@ -1586,8 +1592,35 @@ describe('YouTube immersion filter', () => {
 
         await vi.advanceTimersByTimeAsync(4200);
 
-        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).not.toBeNull();
         expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
+
+        filter.destroy();
+    });
+
+    it('persists the hidden-video notice dismissal', async () => {
+        renderYouTubeCards();
+        const { filter, settings } = await startYoutubeFilter({
+            oEmbedTitles: {
+                jp: '日本語で花の名前を覚える',
+                en: '10 habits for studying',
+                channel: 'study with me',
+                translated: '37,000 Lines of Slop',
+                modern: '東京カフェで朝ごはん',
+            },
+        });
+
+        document.querySelector<HTMLButtonElement>('[data-action="hide-notice"]')!.click();
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
+        expect(settings.youtubeShowFilterNotice).toBe(false);
+        expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
+
+        filter.refresh();
+        await flushPendingFilterWork();
+
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
 
         filter.destroy();
     });
@@ -1606,7 +1639,8 @@ describe('YouTube immersion filter', () => {
 
         expect(document.querySelector('.jpdb-youtube-filter-bar')).not.toBeNull();
 
-        await vi.advanceTimersByTimeAsync(4200);
+        document.querySelector<HTMLButtonElement>('[data-action="hide-notice"]')!.click();
+        await vi.advanceTimersByTimeAsync(0);
 
         expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
 

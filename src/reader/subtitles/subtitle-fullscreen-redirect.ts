@@ -164,7 +164,8 @@ function fullscreenRedirectBootstrap(win: PatchableWindow): void {
 
     function activeInlineFullscreenElement(): HTMLElement | null {
         const current = win[inlineKey];
-        return elementCtor && current instanceof elementCtor ? current : null;
+        if (elementCtor && current instanceof elementCtor) return current;
+        return win.document.querySelector<HTMLElement>(`[${inlineAttribute}="true"]`);
     }
 
     function dispatchFullscreenLikeEvents(): void {

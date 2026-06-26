@@ -8,6 +8,7 @@ const INLINE_FULLSCREEN_CLASS = 'jpdb-subtitle-inline-fullscreen';
 const INLINE_FULLSCREEN_ATTRIBUTE = 'data-yomu-inline-fullscreen';
 
 type RequestFullscreenPrototype = typeof HTMLElement.prototype & { requestFullscreen?: unknown };
+type ExitFullscreenPrototype = typeof Document.prototype & { exitFullscreen?: unknown };
 type VideoFullscreenPrototype = typeof HTMLVideoElement.prototype & {
     webkitEnterFullscreen?: unknown;
     webkitSetPresentationMode?: unknown;
@@ -27,6 +28,23 @@ function withStubbedRequestFullscreen(run: (calls: Element[]) => void): void {
     } finally {
         if (had) proto.requestFullscreen = original;
         else delete (proto as Partial<RequestFullscreenPrototype>).requestFullscreen;
+    }
+}
+
+function withStubbedExitFullscreen(run: (calls: Document[]) => void): void {
+    const calls: Document[] = [];
+    const proto = Document.prototype as ExitFullscreenPrototype;
+    const had = Object.prototype.hasOwnProperty.call(proto, 'exitFullscreen');
+    const original = proto.exitFullscreen;
+    proto.exitFullscreen = function stubExitFullscreen(this: Document) {
+        calls.push(this);
+        return Promise.resolve();
+    };
+    try {
+        run(calls);
+    } finally {
+        if (had) proto.exitFullscreen = original;
+        else delete (proto as Partial<ExitFullscreenPrototype>).exitFullscreen;
     }
 }
 
@@ -126,6 +144,27 @@ describe('installSubtitleFullscreenRedirect', () => {
             expect(player.hasAttribute(INLINE_FULLSCREEN_ATTRIBUTE)).toBe(false);
             expect(player.hasAttribute('fullscreen')).toBe(false);
             expect(player.classList.contains('ytp-fullscreen')).toBe(false);
+            expect(document.documentElement.classList.contains(INLINE_FULLSCREEN_CLASS)).toBe(false);
+        });
+    });
+
+    it('clears controller-created inline fullscreen state through the patched document exit path', () => {
+        withStubbedExitFullscreen(calls => {
+            document.body.innerHTML = '<div id="movie_player" class="html5-video-player ytp-fullscreen fullscreen" data-yomu-inline-fullscreen="true" fullscreen><video></video></div>';
+            const player = document.getElementById('movie_player')!;
+            player.dataset.yomuInlineFullscreenAttr = 'true';
+            player.dataset.yomuInlineYtpFullscreenClass = 'true';
+            player.dataset.yomuInlineFullscreenClass = 'true';
+            document.documentElement.classList.add(INLINE_FULLSCREEN_CLASS);
+            installSubtitleFullscreenRedirect();
+
+            document.exitFullscreen();
+
+            expect(calls).toHaveLength(0);
+            expect(player.hasAttribute(INLINE_FULLSCREEN_ATTRIBUTE)).toBe(false);
+            expect(player.hasAttribute('fullscreen')).toBe(false);
+            expect(player.classList.contains('ytp-fullscreen')).toBe(false);
+            expect(player.classList.contains('fullscreen')).toBe(false);
             expect(document.documentElement.classList.contains(INLINE_FULLSCREEN_CLASS)).toBe(false);
         });
     });
