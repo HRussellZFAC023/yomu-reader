@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.131
+// @version 1.4.132
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.131
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.131
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.131
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.131
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.132
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.132
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.132
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.132
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -37163,7 +37163,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.131"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.132"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],
@@ -41478,8 +41478,15 @@ class ReaderApp {
   }
   isCurrentRenderedWordHover(word, hoverLookupKey, hoverLookupGeneration) {
     if (!this.isCurrentHoverGeneration(hoverLookupGeneration, hoverLookupKey)) return false;
-    const activeMiddlePressLookup = this.pressLookup?.source === "middle" && this.pressLookup.lastWord === word;
-    return this.isRunnableScheduledHoverWord(word, hoverLookupKey) && (activeMiddlePressLookup || this.isWordHoverActive(word) && this.settings.lookupOnHover);
+    const activeWord = this.currentRenderedHoverWord(word);
+    if (!activeWord) return false;
+    const activeMiddlePressLookup = this.pressLookup?.source === "middle" && this.pressLookup.lastWord === activeWord;
+    return this.isRunnableScheduledHoverWord(activeWord, hoverLookupKey) && (activeMiddlePressLookup || this.isWordHoverActive(activeWord) && this.settings.lookupOnHover);
+  }
+  currentRenderedHoverWord(word) {
+    if (word.isConnected) return word;
+    if (!this.reanchorDisconnectedHoverWord(word, {})) return null;
+    return this.activeHoverWord?.isConnected ? this.activeHoverWord : null;
   }
   isCurrentPointerTextHoverResult(candidate, range, hoverLookupGeneration) {
     const hoverLookupKey = `text-result:${this.hoverAnchorId(candidate.anchor)}:${range.start}:${range.end}`;
