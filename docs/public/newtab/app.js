@@ -3567,7 +3567,7 @@ recommendedJiten	Jiten頻度です。
     background: READER_THEME_COLOR_TOKENS.dark.bg
   };
   const DEFAULT_WORD_COLOR_TOKENS = {
-    new: "#58a6ff",
+    new: "#ffffff",
     learning: "#ffd166",
     known: "#7bd88f",
     due: "#5fb3b3",

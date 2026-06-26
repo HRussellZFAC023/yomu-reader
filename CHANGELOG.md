@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.123] - 2026-06-26
+
+### Changed
+
+- Updated default "New and in deck" card/word color to white (#ffffff) to match Canna's suggestion.
+
 ## [1.4.122] - 2026-06-26
 
 ### Added

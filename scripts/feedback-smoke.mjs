@@ -606,6 +606,9 @@ async function assertHostedManualPanelCloseRestoresPlayer(page) {
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true, null, { timeout: 6000 });
     const hiddenLayout = await readHostedPlayerLayoutState(page);
     assert(hostedPlayerLayoutRestored(hiddenLayout), 'Hosted video player did not restore full-width controls after manually closing the subtitle panel', hiddenLayout);
+    const subtitleState = await readHostedOnVideoSubtitleState(page);
+    assert(hostedOnVideoSubtitleVisible(subtitleState), 'Hosted video subtitles disappeared after manually closing the subtitle panel', subtitleState);
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-panel-hidden-subtitles.png'), fullPage: false });
 }
 
 async function assertHostedSubtitleStyleControls(page) {
@@ -1088,6 +1091,64 @@ function hostedPlayerLayoutRestored(layout) {
         && Math.abs(videoWidth - stageWidth) <= widthTolerance;
 }
 
+async function readHostedOnVideoSubtitleState(page) {
+    return page.evaluate(() => {
+        const rect = element => {
+            const box = element?.getBoundingClientRect();
+            return box ? {
+                width: box.width,
+                height: box.height,
+                left: box.left,
+                right: box.right,
+            } : null;
+        };
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const text = document.querySelector('.jpdb-subtitle-text');
+        const line = document.querySelector('.jpdb-subtitle-lines');
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        const rootStyle = root ? getComputedStyle(root) : null;
+        const textStyle = text ? getComputedStyle(text) : null;
+        const lineStyle = line ? getComputedStyle(line) : null;
+        return {
+            panelHidden: panel?.hidden ?? null,
+            rootHidden: root?.hidden ?? null,
+            rootHiddenClass: root?.classList.contains('jpdb-subtitle-hidden') ?? null,
+            rootOutOfView: root?.classList.contains('jpdb-subtitle-video-out-of-view') ?? null,
+            rootDisplay: rootStyle?.display ?? null,
+            rootVisibility: rootStyle?.visibility ?? null,
+            textDisplay: textStyle?.display ?? null,
+            textVisibility: textStyle?.visibility ?? null,
+            lineDisplay: lineStyle?.display ?? null,
+            lineVisibility: lineStyle?.visibility ?? null,
+            lineText: line?.textContent ?? '',
+            textRect: rect(text),
+            lineRect: rect(line),
+        };
+    });
+}
+
+function hostedOnVideoSubtitleVisible(state) {
+    const lineRect = state.lineRect;
+    const textRect = state.textRect;
+    return state.panelHidden === true
+        && state.rootHidden === false
+        && state.rootHiddenClass === false
+        && state.rootOutOfView === false
+        && state.rootDisplay !== 'none'
+        && state.rootVisibility !== 'hidden'
+        && state.textDisplay !== 'none'
+        && state.textVisibility !== 'hidden'
+        && state.lineDisplay !== 'none'
+        && state.lineVisibility !== 'hidden'
+        && includesText(state.lineText, '猫を見る')
+        && Boolean(lineRect)
+        && Boolean(textRect)
+        && lineRect.width > 0
+        && lineRect.height > 0
+        && textRect.width > 0
+        && textRect.height > 0;
+}
+
 async function readHostedPausePanelState(page) {
     const panel = page.locator('.jpdb-subtitle-list').first();
     const [rows, text, hidden, rect, viewport] = await Promise.all([
@@ -1154,6 +1215,7 @@ try {
             path.join(ARTIFACTS, 'feedback-settings-font.png'),
             path.join(ARTIFACTS, 'feedback-keyboard-word-nav.png'),
             path.join(ARTIFACTS, 'feedback-video-open-with-subtitles.png'),
+            path.join(ARTIFACTS, 'feedback-video-panel-hidden-subtitles.png'),
             path.join(ARTIFACTS, 'feedback-video-style-controls.png'),
             path.join(ARTIFACTS, 'feedback-video-style-controls-mobile.png'),
             path.join(ARTIFACTS, 'feedback-video-fullscreen-subtitles.png'),

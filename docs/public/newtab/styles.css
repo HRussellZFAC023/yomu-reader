@@ -23,7 +23,7 @@
   --jpdb-reader-theme-danger: #e55353;
   --jpdb-reader-white: #ffffff;
   --jpdb-reader-black: #000000;
-  --jpdb-reader-state-new: #58a6ff;
+  --jpdb-reader-state-new: #ffffff;
   --jpdb-reader-state-learning: #ffd166;
   --jpdb-reader-state-known: #7bd88f;
   --jpdb-reader-state-due: #5fb3b3;
@@ -32,7 +32,7 @@
   --jpdb-reader-state-frequent: #4b8d7f;
   --jpdb-reader-state-unparsed: var(--jpdb-reader-faint);
   --jpdb-reader-state-not-in-deck: color-mix(in srgb, var(--jpdb-reader-state-new) 36%, var(--jpdb-reader-faint));
-  --jpdb-reader-state-new-bright: #5aa9ff;
+  --jpdb-reader-state-new-bright: #ffffff;
   --jpdb-reader-state-hard: #ffb454;
   --jpdb-reader-state-new-readable: var(--jpdb-reader-state-new);
   --jpdb-reader-state-not-in-deck-readable: color-mix(in srgb, var(--jpdb-reader-state-new-readable) 28%, var(--jpdb-reader-muted));
