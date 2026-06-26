@@ -51,6 +51,7 @@ export function cloudSettingsSyncAvailable(): boolean {
     return CLOUD_SETTINGS_SYNC_ENABLED;
 }
 
+// fallow-ignore-next-line unused-export
 export async function uploadCloudSettingsToCloud(settings: ReaderSettings): Promise<CloudSettingsSyncMetadata> {
     requireConfigured();
     const snapshot: CloudSettingsSyncSnapshot = {
@@ -67,6 +68,7 @@ export async function uploadCloudSettingsToCloud(settings: ReaderSettings): Prom
     return { syncedAt: snapshot.syncedAt, fileId: file.id, modifiedTime: file.modifiedTime };
 }
 
+// fallow-ignore-next-line unused-export
 export async function downloadCloudSettingsFromCloud(): Promise<CloudSettingsSyncSnapshot | null> {
     requireConfigured();
     const existing = await findSettingsFile();
