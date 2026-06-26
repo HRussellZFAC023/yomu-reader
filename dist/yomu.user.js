@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.129
+// @version 1.4.130
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.129
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.129
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.129
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.129
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.130
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.130
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.130
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.130
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -10984,7 +10984,11 @@ class AudioPlayer {
     return true;
   }
   lastPlayedAudioIdentity(card) {
-    return this.lastAudioIdentityByCard.get(audioIdentityCardKey(card));
+    for (const key of audioIdentityCardKeys(card)) {
+      const identity = this.lastAudioIdentityByCard.get(key);
+      if (identity) return identity;
+    }
+    return void 0;
   }
   markAudioCandidatePlayed(card, candidate) {
     const identity = audioCandidatePlaybackIdentity(candidate);
@@ -10992,9 +10996,10 @@ class AudioPlayer {
     this.markAudioIdentityPlayed(card, identity);
   }
   markAudioIdentityPlayed(card, identity) {
-    const key = audioIdentityCardKey(card);
-    this.lastAudioIdentityByCard.delete(key);
-    this.lastAudioIdentityByCard.set(key, identity);
+    for (const key of audioIdentityCardKeys(card)) {
+      this.lastAudioIdentityByCard.delete(key);
+      this.lastAudioIdentityByCard.set(key, identity);
+    }
     while (this.lastAudioIdentityByCard.size > LAST_AUDIO_IDENTITY_LIMIT) {
       const oldest = this.lastAudioIdentityByCard.keys().next().value;
       if (!oldest) break;
@@ -11284,19 +11289,19 @@ function audioCandidatePlaybackIdentity(candidate) {
   if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
   return normalizeAttemptedAudioUrl(candidate.url);
 }
-function textToSpeechPlaybackIdentity(text2, voice) {
+function textToSpeechPlaybackIdentity(text2, _voice) {
   return [
     "text-to-speech",
-    voice?.voiceURI || voice?.name || "default",
-    voice?.lang || "",
     text2
   ].join("");
 }
-function audioIdentityCardKey(card) {
-  return [
+function audioIdentityCardKeys(card) {
+  const keys = [[
     card.spelling,
     card.reading
-  ].join("");
+  ].join("")];
+  if (card.spelling) keys.push(["spelling", card.spelling].join(""));
+  return [...new Set(keys)];
 }
 function getAudioContextConstructor() {
   return window.AudioContext ?? window.webkitAudioContext;
@@ -37139,7 +37144,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.129"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.130"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],

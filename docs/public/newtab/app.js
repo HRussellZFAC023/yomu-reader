@@ -18057,7 +18057,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return true;
     }
     lastPlayedAudioIdentity(card) {
-      return this.lastAudioIdentityByCard.get(audioIdentityCardKey(card));
+      for (const key of audioIdentityCardKeys(card)) {
+        const identity = this.lastAudioIdentityByCard.get(key);
+        if (identity) return identity;
+      }
+      return void 0;
     }
     markAudioCandidatePlayed(card, candidate) {
       const identity = audioCandidatePlaybackIdentity(candidate);
@@ -18065,9 +18069,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       this.markAudioIdentityPlayed(card, identity);
     }
     markAudioIdentityPlayed(card, identity) {
-      const key = audioIdentityCardKey(card);
-      this.lastAudioIdentityByCard.delete(key);
-      this.lastAudioIdentityByCard.set(key, identity);
+      for (const key of audioIdentityCardKeys(card)) {
+        this.lastAudioIdentityByCard.delete(key);
+        this.lastAudioIdentityByCard.set(key, identity);
+      }
       while (this.lastAudioIdentityByCard.size > LAST_AUDIO_IDENTITY_LIMIT) {
         const oldest = this.lastAudioIdentityByCard.keys().next().value;
         if (!oldest) break;
@@ -18362,19 +18367,19 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
     return normalizeAttemptedAudioUrl(candidate.url);
   }
-  function textToSpeechPlaybackIdentity(text2, voice) {
+  function textToSpeechPlaybackIdentity(text2, _voice) {
     return [
       "text-to-speech",
-      voice?.voiceURI || voice?.name || "default",
-      voice?.lang || "",
       text2
     ].join("");
   }
-  function audioIdentityCardKey(card) {
-    return [
+  function audioIdentityCardKeys(card) {
+    const keys = [[
       card.spelling,
       card.reading
-    ].join("");
+    ].join("")];
+    if (card.spelling) keys.push(["spelling", card.spelling].join(""));
+    return [...new Set(keys)];
   }
   function getAudioContextConstructor() {
     return window.AudioContext ?? window.webkitAudioContext;

@@ -619,7 +619,11 @@ export class AudioPlayer {
     }
 
     private lastPlayedAudioIdentity(card: JPDBCard): string | undefined {
-        return this.lastAudioIdentityByCard.get(audioIdentityCardKey(card));
+        for (const key of audioIdentityCardKeys(card)) {
+            const identity = this.lastAudioIdentityByCard.get(key);
+            if (identity) return identity;
+        }
+        return undefined;
     }
 
     private markAudioCandidatePlayed(card: JPDBCard, candidate: AudioCandidate): void {
@@ -629,9 +633,10 @@ export class AudioPlayer {
     }
 
     private markAudioIdentityPlayed(card: JPDBCard, identity: string): void {
-        const key = audioIdentityCardKey(card);
-        this.lastAudioIdentityByCard.delete(key);
-        this.lastAudioIdentityByCard.set(key, identity);
+        for (const key of audioIdentityCardKeys(card)) {
+            this.lastAudioIdentityByCard.delete(key);
+            this.lastAudioIdentityByCard.set(key, identity);
+        }
         while (this.lastAudioIdentityByCard.size > LAST_AUDIO_IDENTITY_LIMIT) {
             const oldest = this.lastAudioIdentityByCard.keys().next().value;
             if (!oldest) break;
@@ -995,20 +1000,20 @@ function audioCandidatePlaybackIdentity(candidate: AudioCandidate): string {
     return normalizeAttemptedAudioUrl(candidate.url);
 }
 
-function textToSpeechPlaybackIdentity(text: string, voice: SpeechSynthesisVoice | null): string {
+function textToSpeechPlaybackIdentity(text: string, _voice: SpeechSynthesisVoice | null): string {
     return [
         'text-to-speech',
-        voice?.voiceURI || voice?.name || 'default',
-        voice?.lang || '',
         text,
     ].join('\u0001');
 }
 
-function audioIdentityCardKey(card: JPDBCard): string {
-    return [
+function audioIdentityCardKeys(card: JPDBCard): string[] {
+    const keys = [[
         card.spelling,
         card.reading,
-    ].join('\u0001');
+    ].join('\u0001')];
+    if (card.spelling) keys.push(['spelling', card.spelling].join('\u0001'));
+    return [...new Set(keys)];
 }
 
 function getAudioContextConstructor(): typeof AudioContext | undefined {

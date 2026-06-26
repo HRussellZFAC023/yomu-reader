@@ -8943,7 +8943,10 @@ describe('reader helpers', () => {
         const played: string[] = [];
         const spoken: string[] = [];
         const restoreAudio = mockHtmlAudioPlayback(played);
-        mockSpeechSynthesis(spoken);
+        mockSpeechSynthesis(spoken, [
+            { name: 'Kyoko', lang: 'ja-JP', default: true },
+            { name: 'Otoya', lang: 'ja-JP', default: false },
+        ] as SpeechSynthesisVoice[]);
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
             audioEnableDefaultSources: false,
@@ -14741,6 +14744,59 @@ describe('reader helpers', () => {
             expect(spoken).toEqual([card.spelling]);
             expect(requested).toEqual(['http://x.test/after-tts.mp3']);
             expect(played).toEqual(['blob:http://localhost/after-tts-fallback.mp3']);
+        } finally {
+            restoreAudio();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('plays the next recorded source after a prioritized browser TTS source on gesture replay', async () => {
+        const played: string[] = [];
+        const spoken: string[] = [];
+        const requested: string[] = [];
+        const restoreAudio = mockAudioPlaybackEnvironment(played, {
+            randomValue: 0.99,
+            objectUrl: 'blob:http://localhost/source-order-after-tts.mp3',
+        });
+        mockSpeechSynthesis(spoken);
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                if (details.responseType === 'text') {
+                    resolveUserscriptTextResponse(details, JSON.stringify({
+                        result: {
+                            audioSources: [{ source: { url: 'http://x.test/source-order-after-tts.mp3' } }],
+                        },
+                    }));
+                    return;
+                }
+                resolveUserscriptBlobResponse(details);
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'random',
+                audioTtsMode: 'source-order',
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                    { type: 'custom-json', url: 'http://x.test/source-order?term={term}', voice: '', enabled: true },
+                ],
+            }));
+
+            await expect(player.play({ ...card, reading: '' }, { reservedGesture: true })).resolves.toBe(true);
+            await expect(player.play(card, { userGesture: true })).resolves.toBe(true);
+
+            expect(spoken).toEqual([card.spelling]);
+            expect(requested).toEqual([
+                'http://x.test/source-order?term=%E9%A3%9F%E3%81%B9%E3%82%8B',
+                'http://x.test/source-order-after-tts.mp3',
+            ]);
+            expect(played.filter(url => url.startsWith('blob:'))).toEqual(['blob:http://localhost/source-order-after-tts.mp3']);
         } finally {
             restoreAudio();
             vi.unstubAllGlobals();

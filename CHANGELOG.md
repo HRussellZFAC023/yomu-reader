@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.130] - 2026-06-26
+
+### Fixed
+
+- Source-order audio no longer repeats browser text-to-speech on replay when a recorded source has resolved in the meantime; the same word now advances from quick TTS fallback to real audio instead of sounding stuck.
+
 ## [1.4.129] - 2026-06-26
 
 ### Fixed
