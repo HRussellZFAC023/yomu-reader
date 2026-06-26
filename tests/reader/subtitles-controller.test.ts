@@ -448,6 +448,59 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('keeps the pause-opened transcript closed while subtitle style controls are open', () => {
+        const { controller } = createInstalledSubtitleController({
+            subtitleOverlayVisible: true,
+            subtitlePausePanel: true,
+            subtitleTranscriptVisible: false,
+        });
+        const video = document.createElement('video');
+        Object.defineProperties(video, {
+            paused: { configurable: true, value: true },
+            ended: { configurable: true, value: false },
+        });
+        const cue = { start: 0, end: 2, text: '一時停止した行。', transcriptEligible: true };
+        const internals = controllerInternals<{
+            video: HTMLVideoElement;
+            cues: Array<typeof cue>;
+            currentCue: typeof cue;
+            syncPauseTranscriptPanel: () => void;
+        }>(controller);
+        internals.video = video;
+        internals.cues = [cue];
+        internals.currentCue = cue;
+
+        try {
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const toggle = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="style"]')!;
+
+            expect(panel.hidden).toBe(false);
+            expect(panel.textContent).toContain('一時停止した行');
+
+            toggle.click();
+
+            const popover = root.querySelector<HTMLElement>('[data-subtitle-style-popover]')!;
+            expect(popover.hidden).toBe(false);
+            expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(true);
+            expect(panel.hidden).toBe(true);
+
+            internals.syncPauseTranscriptPanel();
+
+            expect(panel.hidden).toBe(true);
+
+            toggle.click();
+            internals.syncPauseTranscriptPanel();
+
+            expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(false);
+            expect(panel.hidden).toBe(true);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps the playback toggle beside subtitle navigation while playing', () => {
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
         const { controller } = createInstalledSubtitleController();
@@ -2579,9 +2632,11 @@ Watch the cat
 
     it('hides the whole subtitle rail while compact navigation idles', () => {
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  pointer-events: none;\n  transform: translateY(-4px);\n}');
+            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  pointer-events: none;\n  transform: translateY(-4px);\n}');
         expect(SUBTITLES_YOUTUBE_CSS)
             .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open)');
     });
 
     it('keeps the secondary subtitle line on the primary subtitle font', () => {
@@ -2657,7 +2712,8 @@ Watch the cat
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('@media (hover: none) {');
-        expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail { opacity: 0; pointer-events: none; transform: translateY(-4px); }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail { opacity: 0; pointer-events: none; transform: translateY(-4px); }');
+        expect(normalizedCss).not.toContain('jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open)');
     });
 
     it('hides the whole subtitle rail when subtitle controls are hidden', () => {
@@ -4752,8 +4808,8 @@ Watch the cat
             const provisionalHtml = await internals.parseCueHtml('読む', settings);
             const pendingAuthoritativeHtml = internals.pendingParsedHtml.get(key);
 
-            expect(parseJapanese).toHaveBeenNthCalledWith(1, '読む', { requireJpdb: true, includeLocalPitch: true });
-            expect(parseJapanese).toHaveBeenNthCalledWith(2, '読む', { skipJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
+            expect(parseJapanese).toHaveBeenNthCalledWith(1, '読む', { skipJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
+            expect(parseJapanese).toHaveBeenNthCalledWith(2, '読む', { requireJpdb: true, includeLocalPitch: true });
             expect(provisionalHtml).toContain('jpdb-not-in-deck');
             expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-not-in-deck');
             expect(pendingAuthoritativeHtml).toBeDefined();
@@ -4767,6 +4823,67 @@ Watch the cat
             expect(rowText.querySelector('.jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
             expect(rowText.querySelector('.jpdb-reader-furi')?.textContent).toBe('よ');
             expect(document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('renders batched provisional transcript rows before scheduling authoritative upgrades', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=batch-provisional') as unknown as Location,
+        });
+
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                localDictionariesEnabled: false,
+                subtitleTranscriptAutoScroll: false,
+            };
+            const authoritative = deferred<JPDBToken[][]>();
+            const parseJapaneseBatch = vi.fn((texts: string[], options?: { requireJpdb?: boolean; skipJpdb?: boolean }) => {
+                if (options?.requireJpdb) return authoritative.promise;
+                if (options?.skipJpdb) return Promise.resolve(texts.map((text, index) => [makeSubtitleToken(text, { cardState: ['not-in-deck'], vid: index + 1 })]));
+                return Promise.resolve(texts.map(() => []));
+            });
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                parseJapaneseBatch,
+                onSettingsChange: () => undefined,
+            });
+            const internals = controller as unknown as {
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+                parseCueHtmlBatch: (texts: string[], settings: ReaderSettings) => Promise<Array<{ key: string; html: string; provisional?: boolean }>>;
+                parsedHtmlCache: Map<string, string>;
+                pendingParsedHtml: Map<string, Promise<string>>;
+                provisionalParsedHtmlCache: Map<string, string>;
+            };
+            const firstKey = internals.parseCacheKey('一番', settings);
+
+            const parsed = await internals.parseCueHtmlBatch(['一番', '二番'], settings);
+            const pendingAuthoritativeHtml = internals.pendingParsedHtml.get(firstKey);
+
+            expect(parseJapaneseBatch).toHaveBeenNthCalledWith(1, ['一番', '二番'], { skipJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
+            expect(parseJapaneseBatch).toHaveBeenNthCalledWith(2, ['一番', '二番'], { requireJpdb: true, includeLocalPitch: true });
+            expect(parsed.map(item => item.provisional)).toEqual([true, true]);
+            expect(parsed[0]?.html).toContain('jpdb-not-in-deck');
+            expect(internals.provisionalParsedHtmlCache.get(firstKey)).toContain('jpdb-not-in-deck');
+            expect(pendingAuthoritativeHtml).toBeDefined();
+
+            authoritative.resolve([
+                [makeSubtitleToken('一番', { cardState: ['known'], pitchClass: 'heiban', vid: 10 })],
+                [makeSubtitleToken('二番', { cardState: ['known'], pitchClass: 'heiban', vid: 11 })],
+            ]);
+            await expect(pendingAuthoritativeHtml).resolves.toContain('jpdb-known jpdb-pitch-heiban');
+
+            expect(internals.parsedHtmlCache.get(firstKey)).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.provisionalParsedHtmlCache.has(firstKey)).toBe(false);
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,

@@ -54,6 +54,15 @@ describe('settings CSS', () => {
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-tab[aria-selected="true"] { border-color: var(--jpdb-reader-accent) !important; color: var(--jpdb-reader-accent-readable) !important; background: var(--jpdb-reader-accent-soft) !important; }');
     });
 
+    it('lets subtitle rails idle while the transcript panel is open', () => {
+        const normalizedSubtitlesCss = normalizeCss(SUBTITLES_YOUTUBE_CSS);
+
+        expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: 0; pointer-events: none; transform: translateY(-4px); }');
+        expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-rail:hover, .jpdb-subtitle-style-open .jpdb-subtitle-rail { opacity: 1; }');
+        expect(normalizedSubtitlesCss).not.toContain('jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open)');
+        expect(normalizedSubtitlesCss).not.toContain('.jpdb-subtitle-panel-open .jpdb-subtitle-rail');
+    });
+
     it('paints unknown-pitch page-word underlines with the neutral pitch color', () => {
         const normalizedReaderWordsOcrCss = normalizeCss(READER_WORDS_OCR_CSS);
 
