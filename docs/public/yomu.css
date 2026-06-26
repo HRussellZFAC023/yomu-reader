@@ -1235,6 +1235,15 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   object-fit: fill;
 }
 
+:is(
+  .jpdb-ocr-video-frame,
+  .jpdb-ocr-video-frame-status,
+  .jpdb-ocr-video-frame-resume-fallback,
+  .jpdb-ocr-layer
+)[data-yomu-ocr-fullscreen-hosted="true"] {
+  position: absolute;
+}
+
 .jpdb-ocr-video-frame-pending {
   opacity: 0.001;
   pointer-events: none !important;
