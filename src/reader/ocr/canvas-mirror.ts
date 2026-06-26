@@ -2,7 +2,7 @@
 // can read them. The page records drawImage/clearRect calls in the page realm; the
 // reader replays them with GM-fetched clean image sources.
 
-import { isBookwalkerViewerHost } from './canvas-readers';
+import { isBookwalkerViewerHost } from './canvas-hosts';
 
 export interface MirrorOp {
     seq: number;

@@ -30790,241 +30790,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     });
   }
   registerYomuCompanion("settings", { SettingsDialogController });
-  const PAGE_COUNTER_SELECTOR = "#pageSliderCounter";
-  const CURRENT_SCREEN_CLASS = "currentScreen";
-  const CURRENT_SCREEN_SELECTOR = `.${CURRENT_SCREEN_CLASS}`;
-  const VIEWPORT_CONTAINER_SELECTOR = '[id^="viewport"]';
-  const CANVAS_READER_HOST_PATTERNS = [
-    /(^|\.)bookwalker\.jp$/i,
-    /(^|\.)comic-walker\.com$/i
-  ];
-  const BACKGROUND_IMAGE_READER_HOST_PATTERNS = [
-    /(^|\.)mokuro\.app$/i
-  ];
-  const BACKGROUND_IMAGE_READER_SELECTOR = [
-    "[data-page-index]",
-    '[style*="background-image"]',
-    '[style*="background:"][style*="url("]'
-  ].join(",");
-  const MIN_PAGE_CANVAS_DIMENSION = 600;
-  const MIN_PAGE_CANVAS_ASPECT = 0.3;
-  const MAX_PAGE_CANVAS_ASPECT = 3.2;
-  const MIN_RENDERED_DIMENSION = 200;
-  const VIEWPORT_COVERAGE_FRACTION = 0.4;
-  const VIEWPORT_AREA_FRACTION = 0.18;
-  const CONTENT_SAMPLE_SIZE = 20;
-  const MIN_CONTENT_CONTRAST = 36;
-  const MIN_CONTENT_BUCKETS = 3;
-  const MIN_OPAQUE_FRACTION = 0.5;
   function isBookwalkerViewerHost(hostname = location.hostname) {
     return hostname === "bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
-  }
-  function isKnownCanvasReaderHost(hostname = location.hostname) {
-    return CANVAS_READER_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
-  }
-  function isKnownBackgroundImageReaderHost(hostname = location.hostname) {
-    return BACKGROUND_IMAGE_READER_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
-  }
-  function hasPageShape(canvas) {
-    const { width, height } = canvas;
-    if (width < MIN_PAGE_CANVAS_DIMENSION || height < MIN_PAGE_CANVAS_DIMENSION) return false;
-    const aspect = width / height;
-    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
-  }
-  function hasRenderedPageShape(rect) {
-    if (rect.width < MIN_RENDERED_DIMENSION || rect.height < MIN_RENDERED_DIMENSION) return false;
-    const aspect = rect.width / rect.height;
-    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
-  }
-  function isViewportProminent(element) {
-    const rect = element.getBoundingClientRect();
-    if (rect.width < MIN_RENDERED_DIMENSION || rect.height < MIN_RENDERED_DIMENSION) return false;
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
-    const coversAxis = rect.width >= viewportWidth * VIEWPORT_COVERAGE_FRACTION || rect.height >= viewportHeight * VIEWPORT_COVERAGE_FRACTION;
-    const coversArea = rect.width * rect.height >= viewportWidth * viewportHeight * VIEWPORT_AREA_FRACTION;
-    return coversAxis && coversArea;
-  }
-  function sampleCanvasContent(canvas) {
-    try {
-      const sample = document.createElement("canvas");
-      sample.width = CONTENT_SAMPLE_SIZE;
-      sample.height = CONTENT_SAMPLE_SIZE;
-      const context = markCanvasMirrorSkip(sample.getContext("2d", { willReadFrequently: true }));
-      if (!context) return null;
-      context.drawImage(canvas, 0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
-      const { data } = context.getImageData(0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
-      const buckets = /* @__PURE__ */ new Set();
-      let min = 255;
-      let max2 = 0;
-      let hash = 2166136261;
-      let opaque = 0;
-      for (let i2 = 0; i2 < data.length; i2 += 4) {
-        if (data[i2 + 3] < 8) continue;
-        opaque++;
-        const luminance = data[i2] * 0.299 + data[i2 + 1] * 0.587 + data[i2 + 2] * 0.114 | 0;
-        if (luminance < min) min = luminance;
-        if (luminance > max2) max2 = luminance;
-        buckets.add(luminance >> 4);
-        hash ^= luminance;
-        hash = Math.imul(hash, 16777619) >>> 0;
-      }
-      return { buckets: buckets.size, contrast: max2 - min, hash, opaque };
-    } catch {
-      return null;
-    }
-  }
-  function looksLikeRenderedCanvasImage(canvas) {
-    return Boolean(canvasRenderedContentSignature(canvas));
-  }
-  function canvasRenderedContentSignature(canvas) {
-    const sample = sampleCanvasContent(canvas);
-    if (!sample) return void 0;
-    if (sample.opaque < CONTENT_SAMPLE_SIZE * CONTENT_SAMPLE_SIZE * MIN_OPAQUE_FRACTION) return void 0;
-    if (sample.contrast < MIN_CONTENT_CONTRAST || sample.buckets < MIN_CONTENT_BUCKETS) return void 0;
-    return `${sample.hash.toString(36)}:${sample.contrast}:${sample.buckets}`;
-  }
-  function isLikelyPageCanvas(canvas, lenient) {
-    if (!hasPageShape(canvas)) return false;
-    if (lenient) return true;
-    return isViewportProminent(canvas) && looksLikeRenderedCanvasImage(canvas);
-  }
-  function pageCanvases(hostname = location.hostname) {
-    const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
-    const canvases = Array.from(document.querySelectorAll("canvas")).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
-    return isBookwalkerViewerHost(hostname) ? preferCurrentScreenCanvases(canvases) : canvases;
-  }
-  function preferCurrentScreenCanvases(canvases) {
-    if (canvases.length < 2) return canvases;
-    const current = canvases.filter(isOnScreenViewportCanvas);
-    if (!current.length) return canvases;
-    const renderedCurrent = current.filter(looksLikeRenderedCanvasImage);
-    if (renderedCurrent.length) return renderedCurrent;
-    const renderedFallback = canvases.filter((canvas) => !current.includes(canvas)).filter(looksLikeRenderedCanvasImage);
-    return renderedFallback.length ? renderedFallback : current;
-  }
-  function isOnScreenViewportCanvas(canvas) {
-    const viewport = canvas.closest(VIEWPORT_CONTAINER_SELECTOR);
-    return viewport ? viewport.classList.contains(CURRENT_SCREEN_CLASS) : Boolean(canvas.closest(CURRENT_SCREEN_SELECTOR));
-  }
-  function hasBackgroundReaderSignal(element) {
-    return element.hasAttribute("data-page-index") || Boolean(element.closest("[data-mokuro-reader]"));
-  }
-  function isLikelyBackgroundImagePage(element, hostname) {
-    if (!backgroundImageReaderUrl(element)) return false;
-    const rect = element.getBoundingClientRect();
-    if (!hasRenderedPageShape(rect)) return false;
-    const knownHost = isKnownBackgroundImageReaderHost(hostname);
-    if (!knownHost && !hasBackgroundReaderSignal(element)) return false;
-    return knownHost || isViewportProminent(element);
-  }
-  function backgroundImagePages(hostname = location.hostname) {
-    return Array.from(document.querySelectorAll(BACKGROUND_IMAGE_READER_SELECTOR)).filter((element) => isLikelyBackgroundImagePage(element, hostname));
-  }
-  function isCanvasReaderPage(hostname = location.hostname) {
-    return pageCanvases(hostname).length > 0;
-  }
-  function collectCanvasReaderSurfaces(hostname = location.hostname) {
-    return pageCanvases(hostname);
-  }
-  function isBackgroundImageReaderPage(hostname = location.hostname) {
-    return backgroundImagePages(hostname).length > 0;
-  }
-  function collectBackgroundImageReaderSurfaces(hostname = location.hostname) {
-    return backgroundImagePages(hostname);
-  }
-  function isReaderRasterPage(hostname = location.hostname) {
-    return isCanvasReaderPage(hostname) || isBackgroundImageReaderPage(hostname) || isKnownCanvasReaderHost(hostname) || isKnownBackgroundImageReaderHost(hostname);
-  }
-  function canvasReaderPageSignature() {
-    const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
-    const scroll = isBookwalkerViewerHost() ? Math.round((window.scrollY || 0) / 40) : 0;
-    const canvases = pageCanvases();
-    const tokens = canvasReaderContentTokens(canvases);
-    const surfaces = tokens.length;
-    const content = tokens.join(",");
-    const backgrounds = backgroundImagePages().map((element) => `${element.getAttribute("data-page-index") ?? ""}:${backgroundImageReaderUrl(element) ?? ""}`).join("|");
-    return `${counter}|${scroll}|${surfaces}|${content}|${backgrounds}`;
-  }
-  function canvasReaderContentTokens(canvases) {
-    let mirrorToken;
-    const tokens = canvases.map((canvas) => {
-      try {
-        const signature = canvasRenderedContentSignature(canvas);
-        if (signature) return signature;
-      } catch {
-      }
-      return mirrorToken ??= canvasMirrorTurnToken();
-    });
-    return [...new Set(tokens)].filter(Boolean);
-  }
-  function captureCanvasDataUrl(canvas, maxPixels) {
-    try {
-      const width = canvas.width;
-      const height = canvas.height;
-      if (!width || !height) return void 0;
-      const pixels = width * height;
-      const scale = maxPixels > 0 && pixels > maxPixels ? Math.sqrt(maxPixels / pixels) : 1;
-      if (scale >= 1) return canvas.toDataURL("image/jpeg", 0.86);
-      const scaled = document.createElement("canvas");
-      scaled.width = Math.max(1, Math.round(width * scale));
-      scaled.height = Math.max(1, Math.round(height * scale));
-      const context = markCanvasMirrorSkip(scaled.getContext("2d"));
-      if (!context) return void 0;
-      context.drawImage(canvas, 0, 0, scaled.width, scaled.height);
-      return scaled.toDataURL("image/jpeg", 0.86);
-    } catch {
-      return void 0;
-    }
-  }
-  function isCanvasReadable(canvas) {
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) return false;
-    try {
-      context.getImageData(0, 0, 1, 1);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  const READER_PAGE_IMAGE_PATTERNS = [
-    /\/item\/xhtml\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i,
-    // SpeedBinB / NFBR page tile
-    /\/(?:page|img|image|content)s?\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i
-  ];
-  const READER_PAGE_IMAGE_EXCLUDE = /(?:icon|logo|avatar|banner|thumb(?:nail)?|sprite|favicon|cover|ad[\b_-])/i;
-  function readerCanvasSourceImageUrl() {
-    let entries;
-    try {
-      entries = performance.getEntriesByType("resource");
-    } catch {
-      return void 0;
-    }
-    const urls = entries.map((entry) => entry.name).filter((url) => typeof url === "string" && !READER_PAGE_IMAGE_EXCLUDE.test(url));
-    for (const pattern of READER_PAGE_IMAGE_PATTERNS) {
-      for (let index = urls.length - 1; index >= 0; index--) {
-        if (pattern.test(urls[index])) return urls[index];
-      }
-    }
-    return void 0;
-  }
-  function canUseReaderCanvasSourceImageFallback(hostname = location.hostname) {
-    return !isBookwalkerViewerHost(hostname);
-  }
-  function positionCanvasFrameImage(frame, rect) {
-    frame.style.left = `${rect.left}px`;
-    frame.style.top = `${rect.top}px`;
-    frame.style.width = `${rect.width}px`;
-    frame.style.height = `${rect.height}px`;
-  }
-  function backgroundImageReaderUrl(element) {
-    const image = getComputedStyle(element).backgroundImage;
-    return firstCssBackgroundUrl(image);
-  }
-  function firstCssBackgroundUrl(value) {
-    const match = value.match(/url\((?:"([^"]+)"|'([^']+)'|([^)]*))\)/iu);
-    const raw = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
-    return raw.trim() || void 0;
   }
   const ID_ATTR = "data-yomu-mid";
   const MAX_OPS_PER_CANVAS = 6e3;
@@ -31524,6 +31291,239 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       store.setItem(STORE_KEY, JSON.stringify(out));
     } catch {
     }
+  }
+  const PAGE_COUNTER_SELECTOR = "#pageSliderCounter";
+  const CURRENT_SCREEN_CLASS = "currentScreen";
+  const CURRENT_SCREEN_SELECTOR = `.${CURRENT_SCREEN_CLASS}`;
+  const VIEWPORT_CONTAINER_SELECTOR = '[id^="viewport"]';
+  const CANVAS_READER_HOST_PATTERNS = [
+    /(^|\.)bookwalker\.jp$/i,
+    /(^|\.)comic-walker\.com$/i
+  ];
+  const BACKGROUND_IMAGE_READER_HOST_PATTERNS = [
+    /(^|\.)mokuro\.app$/i
+  ];
+  const BACKGROUND_IMAGE_READER_SELECTOR = [
+    "[data-page-index]",
+    '[style*="background-image"]',
+    '[style*="background:"][style*="url("]'
+  ].join(",");
+  const MIN_PAGE_CANVAS_DIMENSION = 600;
+  const MIN_PAGE_CANVAS_ASPECT = 0.3;
+  const MAX_PAGE_CANVAS_ASPECT = 3.2;
+  const MIN_RENDERED_DIMENSION = 200;
+  const VIEWPORT_COVERAGE_FRACTION = 0.4;
+  const VIEWPORT_AREA_FRACTION = 0.18;
+  const CONTENT_SAMPLE_SIZE = 20;
+  const MIN_CONTENT_CONTRAST = 36;
+  const MIN_CONTENT_BUCKETS = 3;
+  const MIN_OPAQUE_FRACTION = 0.5;
+  function isKnownCanvasReaderHost(hostname = location.hostname) {
+    return CANVAS_READER_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
+  }
+  function isKnownBackgroundImageReaderHost(hostname = location.hostname) {
+    return BACKGROUND_IMAGE_READER_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
+  }
+  function hasPageShape(canvas) {
+    const { width, height } = canvas;
+    if (width < MIN_PAGE_CANVAS_DIMENSION || height < MIN_PAGE_CANVAS_DIMENSION) return false;
+    const aspect = width / height;
+    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
+  }
+  function hasRenderedPageShape(rect) {
+    if (rect.width < MIN_RENDERED_DIMENSION || rect.height < MIN_RENDERED_DIMENSION) return false;
+    const aspect = rect.width / rect.height;
+    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
+  }
+  function isViewportProminent(element) {
+    const rect = element.getBoundingClientRect();
+    if (rect.width < MIN_RENDERED_DIMENSION || rect.height < MIN_RENDERED_DIMENSION) return false;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
+    const coversAxis = rect.width >= viewportWidth * VIEWPORT_COVERAGE_FRACTION || rect.height >= viewportHeight * VIEWPORT_COVERAGE_FRACTION;
+    const coversArea = rect.width * rect.height >= viewportWidth * viewportHeight * VIEWPORT_AREA_FRACTION;
+    return coversAxis && coversArea;
+  }
+  function sampleCanvasContent(canvas) {
+    try {
+      const sample = document.createElement("canvas");
+      sample.width = CONTENT_SAMPLE_SIZE;
+      sample.height = CONTENT_SAMPLE_SIZE;
+      const context = markCanvasMirrorSkip(sample.getContext("2d", { willReadFrequently: true }));
+      if (!context) return null;
+      context.drawImage(canvas, 0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
+      const { data } = context.getImageData(0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
+      const buckets = /* @__PURE__ */ new Set();
+      let min = 255;
+      let max2 = 0;
+      let hash = 2166136261;
+      let opaque = 0;
+      for (let i2 = 0; i2 < data.length; i2 += 4) {
+        if (data[i2 + 3] < 8) continue;
+        opaque++;
+        const luminance = data[i2] * 0.299 + data[i2 + 1] * 0.587 + data[i2 + 2] * 0.114 | 0;
+        if (luminance < min) min = luminance;
+        if (luminance > max2) max2 = luminance;
+        buckets.add(luminance >> 4);
+        hash ^= luminance;
+        hash = Math.imul(hash, 16777619) >>> 0;
+      }
+      return { buckets: buckets.size, contrast: max2 - min, hash, opaque };
+    } catch {
+      return null;
+    }
+  }
+  function looksLikeRenderedCanvasImage(canvas) {
+    return Boolean(canvasRenderedContentSignature(canvas));
+  }
+  function canvasRenderedContentSignature(canvas) {
+    const sample = sampleCanvasContent(canvas);
+    if (!sample) return void 0;
+    if (sample.opaque < CONTENT_SAMPLE_SIZE * CONTENT_SAMPLE_SIZE * MIN_OPAQUE_FRACTION) return void 0;
+    if (sample.contrast < MIN_CONTENT_CONTRAST || sample.buckets < MIN_CONTENT_BUCKETS) return void 0;
+    return `${sample.hash.toString(36)}:${sample.contrast}:${sample.buckets}`;
+  }
+  function isLikelyPageCanvas(canvas, lenient) {
+    if (!hasPageShape(canvas)) return false;
+    if (lenient) return true;
+    return isViewportProminent(canvas) && looksLikeRenderedCanvasImage(canvas);
+  }
+  function pageCanvases(hostname = location.hostname) {
+    const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
+    const canvases = Array.from(document.querySelectorAll("canvas")).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
+    return isBookwalkerViewerHost(hostname) ? preferCurrentScreenCanvases(canvases) : canvases;
+  }
+  function preferCurrentScreenCanvases(canvases) {
+    if (canvases.length < 2) return canvases;
+    const current = canvases.filter(isOnScreenViewportCanvas);
+    if (!current.length) return canvases;
+    const renderedCurrent = current.filter(looksLikeRenderedCanvasImage);
+    if (renderedCurrent.length) return renderedCurrent;
+    const renderedFallback = canvases.filter((canvas) => !current.includes(canvas)).filter(looksLikeRenderedCanvasImage);
+    return renderedFallback.length ? renderedFallback : current;
+  }
+  function isOnScreenViewportCanvas(canvas) {
+    const viewport = canvas.closest(VIEWPORT_CONTAINER_SELECTOR);
+    return viewport ? viewport.classList.contains(CURRENT_SCREEN_CLASS) : Boolean(canvas.closest(CURRENT_SCREEN_SELECTOR));
+  }
+  function hasBackgroundReaderSignal(element) {
+    return element.hasAttribute("data-page-index") || Boolean(element.closest("[data-mokuro-reader]"));
+  }
+  function isLikelyBackgroundImagePage(element, hostname) {
+    if (!backgroundImageReaderUrl(element)) return false;
+    const rect = element.getBoundingClientRect();
+    if (!hasRenderedPageShape(rect)) return false;
+    const knownHost = isKnownBackgroundImageReaderHost(hostname);
+    if (!knownHost && !hasBackgroundReaderSignal(element)) return false;
+    return knownHost || isViewportProminent(element);
+  }
+  function backgroundImagePages(hostname = location.hostname) {
+    return Array.from(document.querySelectorAll(BACKGROUND_IMAGE_READER_SELECTOR)).filter((element) => isLikelyBackgroundImagePage(element, hostname));
+  }
+  function isCanvasReaderPage(hostname = location.hostname) {
+    return pageCanvases(hostname).length > 0;
+  }
+  function collectCanvasReaderSurfaces(hostname = location.hostname) {
+    return pageCanvases(hostname);
+  }
+  function isBackgroundImageReaderPage(hostname = location.hostname) {
+    return backgroundImagePages(hostname).length > 0;
+  }
+  function collectBackgroundImageReaderSurfaces(hostname = location.hostname) {
+    return backgroundImagePages(hostname);
+  }
+  function isReaderRasterPage(hostname = location.hostname) {
+    return isCanvasReaderPage(hostname) || isBackgroundImageReaderPage(hostname) || isKnownCanvasReaderHost(hostname) || isKnownBackgroundImageReaderHost(hostname);
+  }
+  function canvasReaderPageSignature() {
+    const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
+    const scroll = isBookwalkerViewerHost() ? Math.round((window.scrollY || 0) / 40) : 0;
+    const canvases = pageCanvases();
+    const tokens = canvasReaderContentTokens(canvases);
+    const surfaces = tokens.length;
+    const content = tokens.join(",");
+    const backgrounds = backgroundImagePages().map((element) => `${element.getAttribute("data-page-index") ?? ""}:${backgroundImageReaderUrl(element) ?? ""}`).join("|");
+    return `${counter}|${scroll}|${surfaces}|${content}|${backgrounds}`;
+  }
+  function canvasReaderContentTokens(canvases) {
+    let mirrorToken;
+    const tokens = canvases.map((canvas) => {
+      try {
+        const signature = canvasRenderedContentSignature(canvas);
+        if (signature) return signature;
+      } catch {
+      }
+      return mirrorToken ??= canvasMirrorTurnToken();
+    });
+    return [...new Set(tokens)].filter(Boolean);
+  }
+  function captureCanvasDataUrl(canvas, maxPixels) {
+    try {
+      const width = canvas.width;
+      const height = canvas.height;
+      if (!width || !height) return void 0;
+      const pixels = width * height;
+      const scale = maxPixels > 0 && pixels > maxPixels ? Math.sqrt(maxPixels / pixels) : 1;
+      if (scale >= 1) return canvas.toDataURL("image/jpeg", 0.86);
+      const scaled = document.createElement("canvas");
+      scaled.width = Math.max(1, Math.round(width * scale));
+      scaled.height = Math.max(1, Math.round(height * scale));
+      const context = markCanvasMirrorSkip(scaled.getContext("2d"));
+      if (!context) return void 0;
+      context.drawImage(canvas, 0, 0, scaled.width, scaled.height);
+      return scaled.toDataURL("image/jpeg", 0.86);
+    } catch {
+      return void 0;
+    }
+  }
+  function isCanvasReadable(canvas) {
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return false;
+    try {
+      context.getImageData(0, 0, 1, 1);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const READER_PAGE_IMAGE_PATTERNS = [
+    /\/item\/xhtml\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i,
+    // SpeedBinB / NFBR page tile
+    /\/(?:page|img|image|content)s?\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i
+  ];
+  const READER_PAGE_IMAGE_EXCLUDE = /(?:icon|logo|avatar|banner|thumb(?:nail)?|sprite|favicon|cover|ad[\b_-])/i;
+  function readerCanvasSourceImageUrl() {
+    let entries;
+    try {
+      entries = performance.getEntriesByType("resource");
+    } catch {
+      return void 0;
+    }
+    const urls = entries.map((entry) => entry.name).filter((url) => typeof url === "string" && !READER_PAGE_IMAGE_EXCLUDE.test(url));
+    for (const pattern of READER_PAGE_IMAGE_PATTERNS) {
+      for (let index = urls.length - 1; index >= 0; index--) {
+        if (pattern.test(urls[index])) return urls[index];
+      }
+    }
+    return void 0;
+  }
+  function canUseReaderCanvasSourceImageFallback(hostname = location.hostname) {
+    return !isBookwalkerViewerHost(hostname);
+  }
+  function positionCanvasFrameImage(frame, rect) {
+    frame.style.left = `${rect.left}px`;
+    frame.style.top = `${rect.top}px`;
+    frame.style.width = `${rect.width}px`;
+    frame.style.height = `${rect.height}px`;
+  }
+  function backgroundImageReaderUrl(element) {
+    const image = getComputedStyle(element).backgroundImage;
+    return firstCssBackgroundUrl(image);
+  }
+  function firstCssBackgroundUrl(value) {
+    const match = value.match(/url\((?:"([^"]+)"|'([^']+)'|([^)]*))\)/iu);
+    const raw = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
+    return raw.trim() || void 0;
   }
   const CAPTURE_VISIBLE_TAB_MESSAGE = "yomu.captureVisibleTab";
   const SCREENSHOT_HIDE_STYLE_ID = "yomu-extension-screenshot-hide-style";
@@ -56231,7 +56231,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     // Jiten Cards parity: the new-tab Search browser needs the full deck, not
     // the current review batch. /vocabulary is paginated by the API at 100 rows.
-    // fallow-ignore-next-line unused-class-member
     async listStudyDeckVocabularyCards(deckId, limit = 5e3) {
       const normalizedDeckId = normalizeJitenStudyDeckId(deckId);
       const cardLimit = Math.max(1, Math.floor(limit));
