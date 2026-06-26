@@ -8067,6 +8067,10 @@ ${candidate.depth}`;
           return;
         }
         if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
+        if (canvasSurfaceSnapshotKey(canvas) !== key) {
+          this.scheduleReaderRasterRefresh(40);
+          return;
+        }
         const frame = document.createElement("img");
         frame.className = "jpdb-ocr-canvas-frame";
         frame.dataset.yomuCanvasFrame = "true";

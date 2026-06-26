@@ -585,6 +585,43 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('discards an async BookWalker capture if the page turns before it resolves', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        const counter = pageCounter('1 / 12');
+        stubTaintedCanvas();
+        let resolveFirstCapture: ((canvas: HTMLCanvasElement) => void) | undefined;
+        let captureCount = 0;
+        const captureCanvasMirror = vi.fn(async () => {
+            captureCount++;
+            if (captureCount === 1) {
+                return new Promise<HTMLCanvasElement>(resolve => { resolveFirstCapture = resolve; });
+            }
+            return mirrorCanvas('PAGE2');
+        });
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+            });
+
+            counter.textContent = '2 / 12';
+            controller.refresh();
+            resolveFirstCapture?.(mirrorCanvas('PAGE1'));
+
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+                const frames = [...document.querySelectorAll<HTMLImageElement>('.jpdb-ocr-canvas-frame')];
+                expect(frames).toHaveLength(1);
+                expect(frames[0]?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE2');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
     // P0-2: a capture that races the engine (mirror has no ops yet) must retry with
     // backoff and recover on its own, instead of leaving the page permanently blank
     // until a full reload.

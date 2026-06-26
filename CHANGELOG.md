@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.126] - 2026-06-26
+
+### Fixed
+
+- Prevented stale BookWalker OCR captures from rendering after a page turn, and expanded the BookWalker Playwright smoke so previous-page OCR must clear before the new page re-OCRs.
+
 ## [1.4.125] - 2026-06-26
 
 ### Fixed

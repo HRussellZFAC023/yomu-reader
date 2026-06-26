@@ -1503,6 +1503,14 @@ export class ImageOcrController {
             }
             if (!frameSrc) { this.scheduleCanvasCaptureRetry(canvas, userRequested); return; }
             if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
+            if (canvasSurfaceSnapshotKey(canvas) !== key) {
+                // BookWalker can repaint the same canvas while a mirror/screenshot
+                // capture from the previous page is still resolving. Never append
+                // that stale frame over the new page; schedule a fresh capture for
+                // the current signature instead.
+                this.scheduleReaderRasterRefresh(40);
+                return;
+            }
             const frame = document.createElement('img');
             frame.className = 'jpdb-ocr-canvas-frame';
             frame.dataset.yomuCanvasFrame = 'true';

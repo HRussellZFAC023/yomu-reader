@@ -131,6 +131,8 @@ async function runCase({ engineName, host, double, deviceName }) {
     await page.evaluate(() => { const c = document.querySelector('#pageSliderCounter'); if (c) c.textContent = '2 / 10'; });
     await page.evaluate(() => window.__draw(2));
     await page.waitForTimeout(300);
+    const staleClearMs = await waitFor(async () => (await lineCount()) === 0);
+    const staleCleared = staleClearMs >= 0;
     await trigger();
     const turnMs = await waitFor(async () => ocrHits > hitsBeforeTurn && (await lineCount()) >= 1);
     const turnOk = turnMs >= 0;
@@ -147,8 +149,8 @@ async function runCase({ engineName, host, double, deviceName }) {
     await page.waitForTimeout(600); // give any (unwanted) re-OCR time to fire
     const cacheOk = backOverlay >= 0 && ocrHits === hitsBeforeBack; // overlay shown, but no new OCR call
 
-    const ok = firstOk && turnOk && cacheOk;
-    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — first ${firstOk ? ms + 'ms' : 'NO OVERLAY'}, page-turn ${turnOk ? 're-OCR ' + turnMs + 'ms' : 'NOT re-OCR\'d'}, back-cache ${cacheOk ? 'hit (no re-OCR)' : `MISS (${ocrHits - hitsBeforeBack} re-OCR)`}`);
+    const ok = firstOk && staleCleared && turnOk && cacheOk;
+    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — first ${firstOk ? ms + 'ms' : 'NO OVERLAY'}, stale-clear ${staleCleared ? staleClearMs + 'ms' : 'NO'}, page-turn ${turnOk ? 're-OCR ' + turnMs + 'ms' : 'NOT re-OCR\'d'}, back-cache ${cacheOk ? 'hit (no re-OCR)' : `MISS (${ocrHits - hitsBeforeBack} re-OCR)`}`);
     if (!ok) failures.push(label);
     rows.push({ label, ok, ms, turnOk, cacheOk });
     await context.close();
