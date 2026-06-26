@@ -38798,17 +38798,24 @@ ${spelling}`);
     return likelyPlayerWithChrome || hasInsetSpace && likelyPlayerFrame;
   }
   function isLikelyGenericPlayerFrame(element) {
-    const text2 = `${element.id} ${String(element.className)} ${element.getAttribute("aria-label") ?? ""}`;
-    return /(^|[-_\s])(player|video|media|embed|lesson-player|video-card|jwplayer|brightcove|vjs|video-js|plyr|mux|playback|wistia|vimeo|dailymotion|kaltura|shaka|cld-video-player)([-_\s]|$)/i.test(text2);
+    const text2 = `${element.tagName.toLowerCase()} ${element.id} ${String(element.className)} ${element.getAttribute("aria-label") ?? ""}`;
+    return /(^|[-_\s])(player|video|media|stream|watch|episode|embed|lesson-player|video-card|media-player|media-provider|artplayer|xgplayer|vidstack|clappr|flowplayer|jw|jwplayer|brightcove|vjs|video-js|plyr|mux|playback|mediaelement|mejs|wistia|vimeo|dailymotion|kaltura|hls|dash|shaka|shaka-player|cld-video-player)([-_\s]|$)/i.test(text2);
   }
   const PLAYER_CHROME_SELECTOR = [
     "button",
+    "media-control-bar",
+    "media-controls",
     '[role="button"]',
     '[role="slider"]',
     '[role="progressbar"]',
+    '[part*="controls" i]',
+    "[data-media-controls]",
     '[aria-label*="play" i]',
     '[aria-label*="pause" i]',
+    '[aria-label*="seek" i]',
+    '[aria-label*="volume" i]',
     '[class*="control" i]',
+    '[class*="controlbar" i]',
     '[class*="controls" i]',
     '[class*="play" i]',
     '[class*="pause" i]',
@@ -40161,7 +40168,7 @@ ${spelling}`);
       }
       if (yomuCaptionsActive) option.track.mode = "disabled";
     }
-    if (yomuCaptionsActive) suppressGenericCaptionPlayerUi(state2.video);
+    if (yomuCaptionsActive && (state2.suppressCaptionPlayerUi ?? true)) suppressGenericCaptionPlayerUi(state2.video);
     document.documentElement.classList.toggle(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
     document.documentElement.classList.remove("jpdb-subtitle-yomu-captions-active");
     return false;
@@ -40501,10 +40508,14 @@ ${spelling}`);
     ".caption-visual-line",
     ".captions-text",
     '[data-purpose="captions-text"]',
+    '[data-uia="player-subtitle-text"]',
+    '[data-uia="player-captions-text"]',
+    ".player-timedtext-text-container",
+    ".player-timedtext-text-container span",
     ".ytp-caption-segment"
   ];
   const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(",");
-  const CAPTION_CONTAINER_SELECTORS = '.caption-visual-line,.captions-text,[data-purpose="captions-text"],.caption-window,.ytp-caption-segment';
+  const CAPTION_CONTAINER_SELECTORS = '.caption-visual-line,.captions-text,[data-purpose="captions-text"],[data-uia="player-subtitle-text"],[data-uia="player-captions-text"],.player-timedtext-text-container,.caption-window,.ytp-caption-segment';
   const PLAYER_CHROME_CONTAINER_SELECTOR = [
     "#player-control-overlay",
     ".ytp-chrome-bottom",
@@ -41432,7 +41443,7 @@ ${spelling}`);
   }
   function subtitleAnimeSearchQuery(video) {
     const raw = video?.dataset.yomuAnimeSearch || video?.dataset.yomuVideoTitle || video?.title || document.title || "";
-    return raw.replace(/\.(?:mkv|mp4|m4v|mov|webm|ogv)$/iu, "").replace(/[-|]\s*(?:YouTube|Yomu Video|よむ 動画)\s*$/iu, "").replace(/\[[^\]]*\]/gu, " ").replace(/[._]+/gu, " ").replace(/\s+/gu, " ").trim().slice(0, 120);
+    return raw.replace(/\.(?:mkv|mp4|m4v|mov|webm|ogv)$/iu, "").replace(/[-|]\s*(?:YouTube|Yomu Video|よむ 動画)\s*$/iu, "").replace(/\[[^\]]*\]/gu, " ").replace(/[._]+/gu, " ").replace(/^\s*(?:watch|stream)\s+/iu, "").replace(/\s+(?:episode|ep\.?)\s*\d+(?:\.\d+)?\b.*$/iu, "").replace(/\s*[-|·]\s*(?:watch|stream|free|anime|online|subbed|dubbed|hd)\b.*$/iu, "").replace(/\b(?:english|eng)\s+(?:subbed|sub|dubbed|dub)\b/giu, " ").replace(/\b(?:subbed|dubbed)\b/giu, " ").replace(/\s+\b(?:online|free|hd)\b\s*$/iu, "").replace(/\s+/gu, " ").trim().slice(0, 120);
   }
   function clearWindowTimeout(id) {
     if (id !== void 0) window.clearTimeout(id);
@@ -41496,6 +41507,7 @@ ${spelling}`);
   const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
+  const DOM_CAPTION_MISSING_GRACE_MS = 1200;
   const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = "youtube-dom-caption-fallback";
   const SUBTITLE_FILE_ACCEPT = ".srt,.vtt,.ass,.ssa,text/vtt";
   const log$j = Logger.scope("Subtitles");
@@ -41734,6 +41746,7 @@ ${spelling}`);
     youtubeAutoSelectSuppressedVideoId = "";
     lastDomCaption = "";
     pendingDomCaption;
+    lastDomCaptionSeenAt = 0;
     parsedHtmlCache = /* @__PURE__ */ new Map();
     provisionalParsedHtmlCache = /* @__PURE__ */ new Map();
     enrichedProvisionalParsedHtmlKeys = /* @__PURE__ */ new Set();
@@ -42144,6 +42157,7 @@ ${spelling}`);
       this.secondaryCue = void 0;
       this.pendingDomCaption = void 0;
       this.lastDomCaption = "";
+      this.lastDomCaptionSeenAt = 0;
       this.lastAutoCopiedCueSignature = "";
       this.lastRenderedPrimaryText = "";
       this.lastRenderedPrimaryHtml = "";
@@ -42698,6 +42712,7 @@ ${spelling}`);
     clearLoadedPrimaryCue() {
       this.currentCue = void 0;
       this.lastDomCaption = "";
+      this.lastDomCaptionSeenAt = 0;
       return true;
     }
     updateLoadedSecondaryCue(secondary) {
@@ -42733,6 +42748,7 @@ ${spelling}`);
     keepDomCaptionCueAlive(text2) {
       if (this.cues.length || !this.currentCue) return;
       if (text2 !== this.lastDomCaption) return;
+      this.lastDomCaptionSeenAt = performance.now();
       const now = this.video?.currentTime ?? 0;
       if (now >= this.currentCue.start && this.currentCue.end < now + 1) this.currentCue.end = now + 4;
     }
@@ -42780,13 +42796,19 @@ ${spelling}`);
       return Boolean(selected?.kind === "youtube" && selected.sourceKey !== YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY && !isJapaneseSubtitleTrack(selected));
     }
     clearDomCaptionFallbackIfExpired() {
+      if (this.shouldHoldRecentDomCaption()) return;
       this.pendingDomCaption = void 0;
       if (!this.cues.length && this.currentCue && (this.video?.currentTime ?? 0) > this.currentCue.end) {
         this.currentCue = void 0;
         this.lastDomCaption = "";
+        this.lastDomCaptionSeenAt = 0;
         this.render();
         this.syncControls();
       }
+    }
+    shouldHoldRecentDomCaption() {
+      if (this.cues.length || !this.currentCue || !this.lastDomCaptionSeenAt) return false;
+      return performance.now() - this.lastDomCaptionSeenAt < DOM_CAPTION_MISSING_GRACE_MS;
     }
     isDomCaptionStable(text2, nowMs2) {
       if (this.pendingDomCaption?.text !== text2) {
@@ -42807,6 +42829,7 @@ ${spelling}`);
     }
     applyDomCaptionFallback(text2, selected) {
       this.lastDomCaption = text2;
+      this.lastDomCaptionSeenAt = performance.now();
       const now = this.video?.currentTime ?? 0;
       this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text: text2 }])[0];
       if (selected?.loadingState === "waiting") selected.loadingState = "ready";
@@ -44244,6 +44267,8 @@ ${spelling}`);
       this.cues = [];
       this.currentCue = void 0;
       this.pendingDomCaption = void 0;
+      this.lastDomCaption = "";
+      this.lastDomCaptionSeenAt = 0;
       return requestId;
     }
     clearSecondaryTrackSelection() {
@@ -44332,6 +44357,8 @@ ${spelling}`);
         this.cues = [];
         this.currentCue = void 0;
         this.pendingDomCaption = void 0;
+        this.lastDomCaption = "";
+        this.lastDomCaptionSeenAt = 0;
         this.youtubeDomCaptionFallbackTrackId = "";
       }
       const requestId = this.beginTrackSelection("secondary");
@@ -44370,12 +44397,14 @@ ${spelling}`);
     }
     setNativeTrackModes() {
       const settings = this.options.getSettings();
+      const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
       this.lastYomuCaptionsActive = applySubtitleNativeTrackModes({
         tracks: this.tracks,
         selectedTrackId: this.selectedTrackId,
         secondaryTrackId: this.secondaryTrackId,
         overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
         suppressNativeCaptions: Boolean(settings.subtitlePlayerEnabled && this.video),
+        suppressCaptionPlayerUi: !this.shouldUseDomCaptionFallback(selected),
         video: this.video,
         hasPrimaryCues: Boolean(this.cues.length),
         currentCueText: this.currentCue?.text,
@@ -45689,6 +45718,7 @@ ${spelling}`);
       this.transcriptVirtualScrollTop = 0;
       this.clearTranscriptVirtualRender();
       this.lastDomCaption = "";
+      this.lastDomCaptionSeenAt = 0;
       this.pendingDomCaption = void 0;
       this.youtubeDomCaptionFallbackTrackId = "";
       this.lastAutoCopiedCueSignature = "";

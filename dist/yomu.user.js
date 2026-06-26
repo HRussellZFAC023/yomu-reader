@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.134
+// @version 1.4.135
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.134
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.134
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.134
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.134
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.135
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.135
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.135
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.135
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -32225,9 +32225,17 @@ function isGenericManagedAppShell() {
     'script[id="__NEXT_DATA__"]',
     "#__next",
     "#__nuxt",
+    "#root",
+    "#app",
     "[data-reactroot]",
     '[data-server-rendered="true"]',
     "[data-v-app]",
+    "[data-sveltekit-preload-data]",
+    'script[src*="/_app/immutable/"]',
+    'script[type="module"][src*="/assets/"]',
+    'script[type="module"][src*="/build/assets/"]',
+    'script[src*="/build/assets/"]',
+    "astro-island",
     "[ng-version]"
   ].join(",")));
 }
@@ -37174,7 +37182,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.134"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.135"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],

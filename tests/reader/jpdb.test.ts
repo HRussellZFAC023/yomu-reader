@@ -33151,6 +33151,33 @@ describe('reader helpers', () => {
         expect(title.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
     });
 
+    it('uses non-destructive generic targets on Vite-style app shells', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 640, height: 48 });
+        document.body.innerHTML = `
+            <div id="root">
+                <main>
+                    <h1>日本語の配信ページ</h1>
+                    <p>今日は字幕を探します。</p>
+                    <button type="button">保存</button>
+                </main>
+            </div>
+            <script type="module" src="/assets/index-abcd1234.js"></script>
+        `;
+
+        const targets = collectScanTargets(10, 'https://example.com/watch/episode-1');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '日本語の配信ページ',
+            '今日は字幕を探します。',
+            '保存',
+        ]));
+        expect(targets.every(target => target.nonDestructive === true)).toBe(true);
+        expect(targets.find(target => target.text === '日本語の配信ページ')).toMatchObject({
+            nonDestructive: true,
+        });
+    });
+
     it('sweeps visible Japanese comments controls and nav after generic prose', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `

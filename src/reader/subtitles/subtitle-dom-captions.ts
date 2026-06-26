@@ -5,11 +5,15 @@ const CAPTION_SELECTOR_LIST = [
     '.caption-visual-line',
     '.captions-text',
     '[data-purpose="captions-text"]',
+    '[data-uia="player-subtitle-text"]',
+    '[data-uia="player-captions-text"]',
+    '.player-timedtext-text-container',
+    '.player-timedtext-text-container span',
     '.ytp-caption-segment',
 ];
 
 const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(',');
-const CAPTION_CONTAINER_SELECTORS = '.caption-visual-line,.captions-text,[data-purpose="captions-text"],.caption-window,.ytp-caption-segment';
+const CAPTION_CONTAINER_SELECTORS = '.caption-visual-line,.captions-text,[data-purpose="captions-text"],[data-uia="player-subtitle-text"],[data-uia="player-captions-text"],.player-timedtext-text-container,.caption-window,.ytp-caption-segment';
 const PLAYER_CHROME_CONTAINER_SELECTOR = [
     '#player-control-overlay',
     '.ytp-chrome-bottom',

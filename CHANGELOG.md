@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.135] - 2026-06-26
+
+### Added
+
+- Made Yomu Study, Yomu Video, and Yomu PDF installable with web app manifests and offline service-worker shells.
+- Documented the Cloudflare/Wrangler blocker for a default public Ultimate audio source, including the safe deployment plan and free-tier limits to check before opting in.
+
+### Fixed
+
+- Improved compatibility with modern anime and app-style sites by treating Vite/Svelte/Astro-style shells as non-destructive scan targets and recognizing more custom video player frames such as Vidstack, Artplayer, XGPlayer, Clappr, and MediaElement wrappers.
+- Cleaned streaming-site title noise from Jimaku anime subtitle searches and gave subtitle furigana extra line height to avoid overlap on player overlays.
+- Hardened Netflix-shaped reactive DOM captions so Yomu keeps its subtitle foreground stable through brief host caption layer refreshes without repeatedly toggling the site's caption controls.
+
 ## [1.4.134] - 2026-06-26
 
 ### Fixed

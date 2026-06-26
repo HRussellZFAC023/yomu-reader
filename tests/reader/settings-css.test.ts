@@ -69,6 +69,12 @@ describe('settings CSS', () => {
         expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-word.jpdb-pitch-unknown { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown); --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-unknown-readable); --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent); --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-unknown, transparent); }');
     });
 
+    it('reserves subtitle line height for furigana on player overlays', () => {
+        const normalizedSubtitlesCss = normalizeCss(SUBTITLES_YOUTUBE_CSS);
+
+        expect(normalizedSubtitlesCss).toContain(':is(.jpdb-subtitle-primary, .jpdb-reader-subtitle-surface) .jpdb-reader-word.jpdb-reader-has-furi { line-height: 1.72; }');
+    });
+
     it('keeps host page button widths out of shared popover controls', () => {
         const normalizedKanjiCss = normalizeCss(KANJI_CSS);
 

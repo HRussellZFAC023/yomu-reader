@@ -446,6 +446,9 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending {
   filter: saturate(.72);
 }
+:is(.jpdb-subtitle-primary, .jpdb-reader-subtitle-surface) .jpdb-reader-word.jpdb-reader-has-furi {
+  line-height: 1.72;
+}
 /* Second selector matches the same element in light mode at higher specificity
    than the on-page furigana reset (`:is(.theme-light) .jpdb-reader-word rt` in
    reader-words-ocr.css), which would otherwise strip the outline. That reset
@@ -934,6 +937,15 @@ html.jpdb-subtitle-native-captions-suppressed .mejs__captions-layer {
 html.jpdb-subtitle-native-captions-suppressed video::cue {
   visibility: hidden;
   opacity: 0;
+}
+html.jpdb-subtitle-native-captions-suppressed .player-timedtext-text-container,
+html.jpdb-subtitle-native-captions-suppressed .player-timedtext-text-container *,
+html.jpdb-subtitle-native-captions-suppressed [data-uia="player-subtitle-text"],
+html.jpdb-subtitle-native-captions-suppressed [data-uia="player-captions-text"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  text-shadow: none !important;
 }
 html.jpdb-subtitle-video-inset-right ytd-watch-flexy #secondary,
 html.jpdb-subtitle-video-inset-left ytd-watch-flexy #secondary,
