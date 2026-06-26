@@ -4900,6 +4900,53 @@ Watch the cat
         expect(updatedRows[1]?.classList.contains('active')).toBe(true);
     });
 
+    it('keeps the open sidebar on the later adjacent cue when native cuechange reports the earlier cue', () => {
+        const cues = [
+            { start: 10, end: 13.12, text: '一番', transcriptEligible: true },
+            { start: 13.1, end: 15, text: '二番', transcriptEligible: true },
+        ];
+        const nativeCues = cues.map(cue => ({
+            startTime: cue.start,
+            endTime: cue.end,
+            text: cue.text,
+        }));
+        const track = {
+            mode: 'hidden',
+            cues: nativeCues,
+            activeCues: [nativeCues[0]],
+        } as unknown as TextTrack;
+        const { internals, video } = setupTranscriptCueController<typeof cues[number], {
+            currentCue: typeof cues[number] | undefined;
+            renderTranscriptPanel(force?: boolean): void;
+            tracks: Array<{ id: string; label: string; kind: 'native'; language: string; track: TextTrack }>;
+            updateFromLoadedCues: () => void;
+            updateFromNativeTrack: (track: TextTrack) => void;
+        }>(cues, {
+            currentCue: cues[0],
+            currentTime: 13.055,
+            selectedTrackId: 'native-0',
+            settings: { subtitleTranscriptAutoScroll: true },
+        });
+        internals.tracks = [{
+            id: 'native-0',
+            label: 'Japanese captions',
+            kind: 'native',
+            language: 'ja',
+            track,
+        }];
+
+        internals.openLinesPanel();
+        video.currentTime = 13.055;
+        internals.updateFromLoadedCues();
+        expect(internals.currentCue?.text).toBe('二番');
+
+        internals.updateFromNativeTrack(track);
+
+        expect(internals.currentCue?.text).toBe('二番');
+        const rows = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row'));
+        expect(rows.filter(row => row.classList.contains('active'))).toEqual([rows[1]]);
+    });
+
     it('does not re-scroll the transcript when the active line is unchanged', () => {
         const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
         const scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');

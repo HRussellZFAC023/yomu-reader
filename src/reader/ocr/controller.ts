@@ -139,6 +139,17 @@ const VIDEO_FRAME_PLAYER_SELECTOR = [
     '#player-container-outer',
     '[data-yomu-video-frame]',
 ].join(',');
+const VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR = [
+    '[data-yomu-inline-fullscreen="true"]',
+    '[data-fullscreen-active="true"]',
+    '[fullscreen]',
+    '#movie_player.ytp-fullscreen',
+    '.html5-video-player.ytp-fullscreen',
+    'ytd-watch-flexy[fullscreen]',
+    'ytm-player[fullscreen]',
+    'ytm-player.fullscreen',
+    'ytm-player.ytp-fullscreen',
+].join(',');
 // YouTube feed/preview tile containers. A <video> OR thumbnail <img> inside one
 // of these is unambiguously a feed/preview surface, never the main watch player,
 // so OCR must skip it: neither the paused-frame snapshot card nor the image
@@ -616,7 +627,7 @@ export class ImageOcrController {
         overlay.hidden = true;
         setOcrOverlayAccessibility(overlay, false);
 
-        document.body.append(overlay);
+        this.mountOcrOverlayForImage(overlay, image);
 
         const state = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
         image.addEventListener('load', () => {
@@ -631,6 +642,11 @@ export class ImageOcrController {
             if (this.canAutoScanImage(settings) || (settings.ocrAutoScanImages && hasInlineOcrFallback(image))) this.enqueue(image);
         }
         return state;
+    }
+
+    private mountOcrOverlayForImage(overlay: HTMLElement, image: HTMLImageElement): void {
+        const video = this.videoFrameVideos.get(image);
+        appendOcrArtifactToRoot(overlay, video ? videoFrameArtifactRoot(video) : document.body);
     }
 
     private enqueue(image: HTMLImageElement, userRequested = false): void {
@@ -1144,12 +1160,11 @@ export class ImageOcrController {
         frame.dataset.yomuVideoFrame = 'true';
         frame.dataset.ocrPending = 'true';
         frame.alt = '';
-        positionVideoFrameImage(frame, rect, target);
         frame.addEventListener('load', () => {
             if (this.videoFrames.get(target) === frame) this.enqueue(frame, true);
         }, { once: true });
         frame.src = dataUrl;
-        document.body.append(frame);
+        appendOcrArtifactToRoot(frame, videoFrameArtifactRoot(target));
         this.videoFrames.set(target, frame);
         this.videoFrameVideos.set(frame, target);
         const status = this.createVideoFrameStatus('loading');
@@ -1169,6 +1184,9 @@ export class ImageOcrController {
         // not cover the player chrome the way the full frame image would.
         const resume = this.createVideoFrameResumeControl(target);
         this.videoFrameControls.set(target, resume);
+        this.syncVideoFrameArtifactMount(target, frame);
+        positionVideoFrameImage(frame, rect, target);
+        positionVideoFrameStatus(status, rect, target);
         positionVideoFrameResumeControl(resume, rect, target);
         this.schedulePosition();
     }
@@ -1233,7 +1251,7 @@ export class ImageOcrController {
         label.className = 'jpdb-ocr-video-frame-status-label';
         element.append(label);
         this.setVideoFrameStatus(element, status);
-        document.body.append(element);
+        appendOcrArtifactToRoot(element, document.body);
         return element;
     }
 
@@ -1294,7 +1312,7 @@ export class ImageOcrController {
         this.clearImageStatusTimer(image);
         // No recognizable text — drop the loader rather than linger on the image.
         if (status === 'empty') {
-            existing?.remove();
+            if (existing) removeOcrArtifact(existing);
             this.imageStatuses.delete(image);
             return;
         }
@@ -1340,7 +1358,7 @@ export class ImageOcrController {
         this.clearImageStatusTimer(image);
         const card = this.imageStatuses.get(image);
         if (!card) return;
-        card.remove();
+        removeOcrArtifact(card);
         this.imageStatuses.delete(image);
     }
 
@@ -1360,13 +1378,13 @@ export class ImageOcrController {
         if (control) removeVideoFrameResumeControl(control);
         this.videoFrameControls.delete(target);
         const status = this.videoFrameStatuses.get(target);
-        status?.remove();
+        if (status) removeOcrArtifact(status);
         this.videoFrameStatuses.delete(target);
         const state = this.states.get(frame);
         if (state) this.releaseImageState(frame, state);
         else this.forgetImageWork(frame);
         this.videoFrameVideos.delete(frame);
-        frame.remove();
+        removeOcrArtifact(frame);
     }
 
     private releaseAllVideoFrames(): void {
@@ -1765,6 +1783,7 @@ export class ImageOcrController {
                 continue;
             }
             const rect = video.getBoundingClientRect();
+            this.syncVideoFrameArtifactMount(video, frame);
             positionVideoFrameImage(frame, rect, video);
             const resume = this.videoFrameControls.get(video);
             if (resume) positionVideoFrameResumeControl(resume, rect, video);
@@ -1789,8 +1808,7 @@ export class ImageOcrController {
         state.overlay.hidden = !visible;
         setOcrOverlayAccessibility(state.overlay, visible);
         if (!visible) return;
-        state.overlay.style.left = `${rect.left}px`;
-        state.overlay.style.top = `${rect.top}px`;
+        setOcrArtifactPosition(state.overlay, rect.left, rect.top);
         state.overlay.style.width = `${rect.width}px`;
         state.overlay.style.height = `${rect.height}px`;
         this.fitLineFonts(state, renderedOcrImageFrame(image, rect, state.result));
@@ -1876,12 +1894,12 @@ export class ImageOcrController {
         this.queue = [];
         this.inFlightKeys.clear();
         for (const state of this.states.values()) {
-            state.overlay.remove();
+            removeOcrArtifact(state.overlay);
         }
         this.states.clear();
         for (const timer of this.imageStatusTimers.values()) window.clearTimeout(timer);
         this.imageStatusTimers.clear();
-        for (const card of this.imageStatuses.values()) card.remove();
+        for (const card of this.imageStatuses.values()) removeOcrArtifact(card);
         this.imageStatuses.clear();
     }
 
@@ -1978,10 +1996,21 @@ export class ImageOcrController {
     private releaseImageState(image: HTMLImageElement, state = this.states.get(image)): void {
         if (state) {
             this.observer?.unobserve(image);
-            state.overlay.remove();
+            removeOcrArtifact(state.overlay);
             this.states.delete(image);
         }
         this.forgetImageWork(image, state);
+    }
+
+    private syncVideoFrameArtifactMount(video: HTMLVideoElement, frame: HTMLImageElement): void {
+        const root = videoFrameArtifactRoot(video);
+        appendOcrArtifactToRoot(frame, root);
+        const state = this.states.get(frame);
+        if (state) appendOcrArtifactToRoot(state.overlay, root);
+        const status = this.videoFrameStatuses.get(video);
+        if (status) appendOcrArtifactToRoot(status, root);
+        const resume = this.videoFrameControls.get(video);
+        if (resume?.classList.contains('jpdb-ocr-video-frame-resume-fallback')) appendOcrArtifactToRoot(resume, root);
     }
 
     private forgetImageWork(image: HTMLImageElement, state?: ImageState): void {
@@ -3312,34 +3341,144 @@ function isPrimaryPlayerSizedVideo(video: HTMLVideoElement): boolean {
 // box keeps the OCR overlay's fractional line geometry aligned.
 function positionVideoFrameImage(frame: HTMLImageElement, rect: DOMRect, video: HTMLVideoElement): void {
     const content = videoContentBox(rect, video);
-    frame.style.left = `${content.left}px`;
-    frame.style.top = `${content.top}px`;
+    setOcrArtifactPosition(frame, content.left, content.top);
     frame.style.width = `${content.width}px`;
     frame.style.height = `${content.height}px`;
 }
 
 function positionVideoFrameResumeControl(control: HTMLElement, rect: DOMRect, video: HTMLVideoElement): void {
-    if (hideVideoFrameResumeControlBehindSubtitlePlayback(control)) return;
-    if (attachVideoFrameResumeControlToSubtitleRail(control)) return;
-    attachVideoFrameResumeControlFallback(control);
+    const root = videoFrameArtifactRoot(video);
+    if (hideVideoFrameResumeControlBehindSubtitlePlayback(control, root)) return;
+    if (attachVideoFrameResumeControlToSubtitleRail(control, root)) return;
+    attachVideoFrameResumeControlFallback(control, root);
     const content = videoContentBox(rect, video);
-    control.style.left = `${content.left + content.width - 12}px`;
-    control.style.top = `${content.top + 12}px`;
+    setOcrArtifactPosition(control, content.left + content.width - 12, content.top + 12);
 }
 
 function positionVideoFrameStatus(status: HTMLElement, rect: DOMRect, video: HTMLVideoElement): void {
     const content = videoContentBox(rect, video);
     const maxWidth = Math.max(96, Math.min(Math.max(96, content.width - 24), 320));
-    status.style.left = `${Math.max(8, content.left + 12)}px`;
-    status.style.top = `${Math.max(8, content.top + 12)}px`;
+    setOcrArtifactPosition(status, Math.max(8, content.left + 12), Math.max(8, content.top + 12));
     status.style.maxWidth = `${maxWidth}px`;
 }
 
 function positionOcrImageStatus(status: HTMLElement, rect: DOMRect): void {
     const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
-    status.style.left = `${Math.max(8, rect.left + 12)}px`;
-    status.style.top = `${Math.max(8, rect.top + 12)}px`;
+    setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
     status.style.maxWidth = `${maxWidth}px`;
+}
+
+function setOcrArtifactPosition(element: HTMLElement, viewportLeft: number, viewportTop: number): void {
+    const offset = ocrArtifactRootOffset(element);
+    element.style.left = `${viewportLeft - offset.left}px`;
+    element.style.top = `${viewportTop - offset.top}px`;
+}
+
+function ocrArtifactRootOffset(element: HTMLElement): { left: number; top: number } {
+    if (element.dataset.yomuOcrFullscreenHosted !== 'true') return { left: 0, top: 0 };
+    const root = element.parentElement;
+    if (!root || root === document.body || root === document.documentElement) return { left: 0, top: 0 };
+    const rect = root.getBoundingClientRect();
+    return { left: rect.left, top: rect.top };
+}
+
+function appendOcrArtifactToRoot(element: HTMLElement, root: HTMLElement): void {
+    const oldRoot = element.parentElement;
+    const fullscreenHosted = root !== document.body;
+    if (fullscreenHosted) prepareOcrFullscreenHost(root);
+    element.dataset.yomuOcrFullscreenHosted = fullscreenHosted ? 'true' : 'false';
+    if (oldRoot !== root) root.append(element);
+    clearOcrFullscreenHostMarker(oldRoot);
+}
+
+function removeOcrArtifact(element: HTMLElement): void {
+    const oldRoot = element.parentElement;
+    element.remove();
+    clearOcrFullscreenHostMarker(oldRoot);
+}
+
+function clearOcrFullscreenHostMarker(root: Element | null): void {
+    if (!(root instanceof HTMLElement) || root === document.body) return;
+    if (root.querySelector('[data-yomu-ocr-fullscreen-hosted="true"]')) return;
+    delete root.dataset.yomuOcrFullscreenHost;
+    if (root.dataset.yomuOcrFullscreenHostPosition === 'relative') {
+        root.style.position = '';
+        delete root.dataset.yomuOcrFullscreenHostPosition;
+    }
+}
+
+function prepareOcrFullscreenHost(root: HTMLElement): void {
+    root.dataset.yomuOcrFullscreenHost = 'true';
+    const position = getComputedStyle(root).position;
+    if (position && position !== 'static') return;
+    root.style.position = 'relative';
+    root.dataset.yomuOcrFullscreenHostPosition = 'relative';
+}
+
+function videoFrameArtifactRoot(video: HTMLVideoElement): HTMLElement {
+    return activeVideoFullscreenHost(video) ?? document.body;
+}
+
+function activeVideoFullscreenHost(video: HTMLVideoElement): HTMLElement | null {
+    const active = activeFullscreenElement();
+    if (active && (active === document.body || active === document.documentElement)) return document.body;
+    if (active instanceof HTMLVideoElement && active === video) return fullscreenVideoArtifactHost(video);
+    if (active && active.contains(video)) return active;
+    const host = video.closest<HTMLElement>(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR);
+    if (host && host.isConnected && host !== video && host.contains(video)) return host;
+    return youtubeFullscreenHostForOcrVideo(video);
+}
+
+function fullscreenVideoArtifactHost(video: HTMLVideoElement): HTMLElement | null {
+    const host = video.closest<HTMLElement>(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR)
+        ?? video.closest<HTMLElement>(VIDEO_FRAME_PLAYER_SELECTOR);
+    if (host && host !== video && host.isConnected && host.contains(video)) return host;
+    return youtubeFullscreenHostForOcrVideo(video);
+}
+
+function youtubeFullscreenHostForOcrVideo(video: HTMLVideoElement): HTMLElement | null {
+    if (!isYouTubePageForOcr()) return null;
+    const scopedHost = [
+        video.closest<HTMLElement>('[data-yomu-inline-fullscreen="true"]'),
+        video.closest<HTMLElement>('.html5-video-player.ytp-fullscreen'),
+        video.closest<HTMLElement>('#movie_player.ytp-fullscreen'),
+        video.closest<HTMLElement>('ytd-watch-flexy[fullscreen] #movie_player'),
+        video.closest<HTMLElement>('ytd-watch-flexy[fullscreen] ytd-player'),
+        video.closest<HTMLElement>('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen'),
+    ].find((element): element is HTMLElement => Boolean(element && element !== video));
+    if (scopedHost) return scopedHost;
+
+    return [
+        document.querySelector<HTMLElement>('[data-yomu-inline-fullscreen="true"]'),
+        document.querySelector<HTMLElement>('.html5-video-player.ytp-fullscreen'),
+        document.querySelector<HTMLElement>('#movie_player.ytp-fullscreen'),
+        document.querySelector<HTMLElement>('ytd-watch-flexy[fullscreen] #movie_player'),
+        document.querySelector<HTMLElement>('ytd-watch-flexy[fullscreen] ytd-player'),
+        document.querySelector<HTMLElement>('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen'),
+    ].find(element => Boolean(element && element !== video && (element.contains(video) || isYouTubeMobileFullscreenHostForOcr(element)))) ?? null;
+}
+
+function isYouTubePageForOcr(): boolean {
+    return /(^|\.)youtube\.com$/i.test(location.hostname) || /(^|\.)youtu\.be$/i.test(location.hostname);
+}
+
+function isYouTubeMobileFullscreenHostForOcr(element: HTMLElement): boolean {
+    return /^m\.youtube\.com$/i.test(location.hostname)
+        && element.matches('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen');
+}
+
+function activeFullscreenElement(): HTMLElement | null {
+    const doc = document as Document & {
+        webkitFullscreenElement?: Element | null;
+        mozFullScreenElement?: Element | null;
+        msFullscreenElement?: Element | null;
+    };
+    const element = doc.fullscreenElement
+        ?? doc.webkitFullscreenElement
+        ?? doc.mozFullScreenElement
+        ?? doc.msFullscreenElement
+        ?? null;
+    return element instanceof HTMLElement ? element : null;
 }
 
 function videoFrameStatusTextKey(status: OcrVideoFrameStatus): UiCopyKey {
@@ -3356,44 +3495,54 @@ function videoFrameStatusTextKey(status: OcrVideoFrameStatus): UiCopyKey {
     }
 }
 
-function attachVideoFrameResumeControlToSubtitleRail(control: HTMLElement): boolean {
-    const rail = document.querySelector<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail');
+function attachVideoFrameResumeControlToSubtitleRail(control: HTMLElement, root: HTMLElement): boolean {
+    const rail = subtitleRailForOcrRoot(root);
     if (!rail?.isConnected) return false;
+    const oldParent = control.parentElement;
     const oldRoot = subtitlePlayerRoot(control);
     control.classList.remove('jpdb-ocr-video-frame-resume-fallback');
+    control.dataset.yomuOcrFullscreenHosted = 'false';
     control.style.left = '';
     control.style.top = '';
     const panelButton = rail.querySelector<HTMLElement>('.jpdb-subtitle-panel-toggle');
     if (control.parentElement !== rail) rail.insertBefore(control, panelButton ?? null);
+    clearOcrFullscreenHostMarker(oldParent);
     updateSubtitleRailResumeState(oldRoot);
     updateSubtitleRailResumeState(subtitlePlayerRoot(control));
     return true;
 }
 
-function hideVideoFrameResumeControlBehindSubtitlePlayback(control: HTMLElement): boolean {
-    const rail = document.querySelector<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail');
+function hideVideoFrameResumeControlBehindSubtitlePlayback(control: HTMLElement, root: HTMLElement): boolean {
+    const rail = subtitleRailForOcrRoot(root);
     const playback = rail?.querySelector<HTMLButtonElement>('[data-action="playback"]');
     if (!rail?.isConnected || !playback || playback.hidden || playback.disabled) return false;
     const oldRoot = subtitlePlayerRoot(control);
-    control.remove();
+    removeOcrArtifact(control);
     control.classList.remove('jpdb-ocr-video-frame-resume-fallback');
+    control.dataset.yomuOcrFullscreenHosted = 'false';
     control.style.left = '';
     control.style.top = '';
     updateSubtitleRailResumeState(oldRoot);
     return true;
 }
 
-function attachVideoFrameResumeControlFallback(control: HTMLElement): void {
+function attachVideoFrameResumeControlFallback(control: HTMLElement, root: HTMLElement): void {
     const oldRoot = subtitlePlayerRoot(control);
-    if (control.parentElement !== document.body) document.body.append(control);
+    appendOcrArtifactToRoot(control, root);
     control.classList.add('jpdb-ocr-video-frame-resume-fallback');
     updateSubtitleRailResumeState(oldRoot);
 }
 
 function removeVideoFrameResumeControl(control: HTMLElement): void {
     const root = subtitlePlayerRoot(control);
-    control.remove();
+    removeOcrArtifact(control);
     updateSubtitleRailResumeState(root);
+}
+
+function subtitleRailForOcrRoot(root: HTMLElement): HTMLElement | null {
+    const rails = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail'));
+    if (root === document.body) return rails.find(rail => rail.isConnected) ?? null;
+    return rails.find(rail => rail.isConnected && root.contains(rail)) ?? null;
 }
 
 function subtitlePlayerRoot(control: HTMLElement): HTMLElement | null {

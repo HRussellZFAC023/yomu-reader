@@ -1640,13 +1640,12 @@ export class SubtitlePlayerController {
         if (primary?.track === track) {
             const cues = readTextTrackCues(track);
             if (cues.length) primary.cues = cues;
-            if (!this.cues.length && cues.length) this.cues = offsetSubtitleCues(cues, this.trackTimingOffsetSeconds(primary.id));
-            if (this.trackTimingOffsetSeconds(primary.id)) {
+            if (cues.length) {
+                this.cues = offsetSubtitleCues(cues, this.trackTimingOffsetSeconds(primary.id));
                 this.updateFromLoadedCues();
                 return;
             }
             this.currentCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getTextTrackCueText(active) }])[0];
-            if (!this.cues.length) this.cues = cues;
             void this.autoCopyCurrentCue();
         }
     }
@@ -1656,13 +1655,12 @@ export class SubtitlePlayerController {
         if (secondary?.track === track) {
             const cues = readTextTrackCues(track);
             if (cues.length) secondary.cues = cues;
-            if (!this.secondaryCues.length && cues.length) this.secondaryCues = offsetSubtitleCues(cues, this.trackTimingOffsetSeconds(secondary.id));
-            if (this.trackTimingOffsetSeconds(secondary.id)) {
+            if (cues.length) {
+                this.secondaryCues = offsetSubtitleCues(cues, this.trackTimingOffsetSeconds(secondary.id));
                 this.updateFromLoadedCues();
                 return;
             }
             this.secondaryCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getTextTrackCueText(active), transcriptEligible: false }])[0];
-            if (!this.secondaryCues.length) this.secondaryCues = cues;
         }
     }
 
