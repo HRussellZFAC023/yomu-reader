@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.129] - 2026-06-26
+
+### Fixed
+
+- Played vocabulary term audio during subtitle hover lookups if the video is paused (due to "Pause video on subtitle hover" being enabled or general playback states), avoiding clashing audio while allowing standard lookup pronunciations.
+
 ## [1.4.128] - 2026-06-26
 
 ### Fixed

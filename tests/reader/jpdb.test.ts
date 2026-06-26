@@ -9270,6 +9270,10 @@ describe('reader helpers', () => {
         const app = new ReaderApp();
         const video = document.createElement('video');
         Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
+        Object.defineProperty(video, 'paused', { configurable: true, value: false });
+        Object.defineProperty(video, 'ended', { configurable: true, value: false });
+        Object.defineProperty(video, 'muted', { configurable: true, value: false });
+        Object.defineProperty(video, 'volume', { configurable: true, value: 1.0 });
         Object.defineProperty(video, 'getBoundingClientRect', {
             configurable: true,
             value: () => new DOMRect(0, 0, 640, 360),
@@ -9283,7 +9287,7 @@ describe('reader helpers', () => {
             ...DEFAULT_SETTINGS,
             audioEnabled: true,
             autoPlayAudio: true,
-            audioAutoPlayMode: 'tap',
+            audioAutoPlayMode: 'all',
             suppressAutoAudioOnVideo: true,
         };
 
@@ -9293,7 +9297,40 @@ describe('reader helpers', () => {
 
             internals.settings = { ...internals.settings, suppressAutoAudioOnVideo: false };
 
-            expect(internals.shouldAutoPlay(card, 'modal', true)).toBe(true);
+            expect(internals.shouldAutoPlay(card, 'hover', false)).toBe(true);
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not suppress automatic lookup audio when the video is paused', () => {
+        const app = new ReaderApp();
+        const video = document.createElement('video');
+        Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
+        Object.defineProperty(video, 'paused', { configurable: true, value: true });
+        Object.defineProperty(video, 'ended', { configurable: true, value: false });
+        Object.defineProperty(video, 'muted', { configurable: true, value: false });
+        Object.defineProperty(video, 'volume', { configurable: true, value: 1.0 });
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            configurable: true,
+            value: () => new DOMRect(0, 0, 640, 360),
+        });
+        document.body.append(video);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture?: boolean, anchor?: HTMLElement): boolean;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: true,
+            autoPlayAudio: true,
+            audioAutoPlayMode: 'all',
+            suppressAutoAudioOnVideo: true,
+        };
+
+        try {
+            expect(internals.shouldAutoPlay(card, 'hover', false)).toBe(true);
         } finally {
             app.destroy();
             document.body.replaceChildren();

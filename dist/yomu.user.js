@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.128
+// @version 1.4.129
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.128
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.128
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.128
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.128
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.129
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.129
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.129
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.129
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -35982,7 +35982,7 @@ function canAttemptReaderAutoAudio(options) {
 }
 function shouldSuppressAutoAudioForVideo(options) {
   if (options.userGesture) return false;
-  return options.settings.suppressAutoAudioOnVideo && (Boolean(options.anchor?.closest(options.subtitleSurfaceSelector)) || hasVisiblePageVideo());
+  return options.settings.suppressAutoAudioOnVideo && hasVisiblePageVideo();
 }
 function shouldAutoPlayForTrigger(settings, trigger) {
   const mode = settings.audioAutoPlayMode;
@@ -37139,7 +37139,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.128"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.129"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],
@@ -40247,9 +40247,7 @@ class ReaderApp {
   }
   shouldPrepareHoverWordAudio(word) {
     return canAttemptReaderAutoAudio({
-      anchor: word,
       settings: this.settings,
-      subtitleSurfaceSelector: SUBTITLE_SURFACE_SELECTOR,
       trigger: "hover",
       userGesture: false
     });
@@ -42084,9 +42082,7 @@ class ReaderApp {
     if (trigger !== "hover") return true;
     if (options.autoPlay === false) return false;
     return canAttemptReaderAutoAudio({
-      anchor,
       settings: this.settings,
-      subtitleSurfaceSelector: SUBTITLE_SURFACE_SELECTOR,
       trigger,
       userGesture: Boolean(options.userGesture)
     });
@@ -42402,9 +42398,7 @@ class ReaderApp {
   }
   shouldAutoPlay(card, trigger, userGesture = false, anchor, hoverLookupGeneration) {
     if (!canAttemptReaderAutoAudio({
-      anchor,
       settings: this.settings,
-      subtitleSurfaceSelector: SUBTITLE_SURFACE_SELECTOR,
       trigger,
       userGesture
     })) return false;
