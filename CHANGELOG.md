@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.122] - 2026-06-26
+
+### Added
+
+- Added a hosted Yomu Video fullscreen button that fullscreen-targets the video frame instead of the bare video, with mobile inline fallback coverage so Yomu subtitles stay visible while watching.
+
 ## [1.4.121] - 2026-06-26
 
 ### Added

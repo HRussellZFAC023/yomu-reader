@@ -474,6 +474,93 @@
       visibility: hidden;
     }
 
+    .stage-fullscreen {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 2147483646;
+      width: 40px;
+      height: 40px;
+      display: none;
+      place-items: center;
+      border: 1px solid color-mix(in srgb, white 22%, transparent);
+      border-radius: 8px;
+      background: color-mix(in srgb, #111820 70%, transparent);
+      color: white;
+      box-shadow: 0 12px 28px color-mix(in srgb, black 34%, transparent);
+      cursor: pointer;
+      opacity: .86;
+      transition: opacity .16s ease, transform .16s ease, background .16s ease;
+    }
+
+    .stage.has-video .stage-fullscreen {
+      display: grid;
+    }
+
+    .stage-fullscreen:hover,
+    .stage-fullscreen:focus-visible {
+      opacity: 1;
+      transform: translateY(-1px);
+      background: color-mix(in srgb, #111820 86%, transparent);
+    }
+
+    .stage-fullscreen:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .stage-fullscreen svg {
+      width: 20px;
+      height: 20px;
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2.2;
+    }
+
+    .stage[data-fullscreen-active="true"] .stage-fullscreen .enter-icon,
+    .stage:not([data-fullscreen-active="true"]) .stage-fullscreen .exit-icon {
+      display: none;
+    }
+
+    .stage:fullscreen,
+    .stage:-webkit-full-screen,
+    .stage[data-yomu-inline-fullscreen="true"] {
+      width: 100vw !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      max-width: none !important;
+      max-height: none !important;
+      margin: 0 !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      background: #000 !important;
+    }
+
+    .stage:fullscreen video,
+    .stage:-webkit-full-screen video,
+    .stage[data-yomu-inline-fullscreen="true"] video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: contain !important;
+    }
+
+    html.jpdb-subtitle-inline-fullscreen,
+    html.jpdb-subtitle-inline-fullscreen body {
+      width: 100% !important;
+      height: 100% !important;
+      overflow: hidden !important;
+    }
+
+    .stage[data-yomu-inline-fullscreen="true"] {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 2147483640 !important;
+    }
+
     /* When the subtitle transcript drawer docks to a side, the Yomu runtime pins
        the frame to its full (un-docked) height and centres the letterboxed video
        inside it — leaving big bars and pushing the subtitle overlay (which is
@@ -519,6 +606,18 @@
       max-height: 100% !important;
       min-width: 0 !important;
       min-height: 0 !important;
+    }
+
+    :root.jpdb-subtitle-inline-fullscreen:not(.jpdb-subtitle-video-inset-left):not(.jpdb-subtitle-video-inset-right):not(.jpdb-subtitle-video-inset-bottom) [data-yomu-video-frame][data-yomu-inline-fullscreen="true"],
+    :root.jpdb-subtitle-inline-fullscreen [data-yomu-video-frame][data-yomu-inline-fullscreen="true"] {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      max-width: none !important;
+      max-height: none !important;
+      z-index: 2147483640 !important;
     }
 
     .empty {
@@ -681,6 +780,20 @@
     <div class="stage-area">
       <section class="stage" data-stage data-yomu-video-frame aria-label="Video">
         <video controls playsinline preload="metadata" data-video aria-label="Selected video"></video>
+        <button class="stage-fullscreen" type="button" data-fullscreen-toggle aria-label="Enter fullscreen" title="Enter fullscreen">
+          <svg class="enter-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 3H3v5"></path>
+            <path d="M16 3h5v5"></path>
+            <path d="M21 16v5h-5"></path>
+            <path d="M3 16v5h5"></path>
+          </svg>
+          <svg class="exit-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 3v6H3"></path>
+            <path d="M15 3v6h6"></path>
+            <path d="M21 15h-6v6"></path>
+            <path d="M3 15h6v6"></path>
+          </svg>
+        </button>
         <button class="empty" type="button" data-empty-open>
           <div>
             <strong>Open or drop a video</strong>
@@ -708,6 +821,7 @@
       const subtitleOpen = document.querySelector('[data-subtitle-open]');
       const jimakuLink = document.querySelector('[data-jimaku-link]');
       const brandIcon = document.querySelector('[data-yomu-brand-icon]');
+      const fullscreenToggle = document.querySelector('[data-fullscreen-toggle]');
       const themeKey = 'yomu-page-theme';
       const settingsKey = 'jpdb-popup-reader-settings';
       const settingsChangeEvent = 'yomu-settings-change';
@@ -770,6 +884,8 @@
           switchToDarkTheme: 'Switch to dark theme',
           switchToJapanese: 'Switch Yomu HUD to Japanese',
           switchToEnglish: 'Switch Yomu HUD to English',
+          enterFullscreen: 'Enter fullscreen',
+          exitFullscreen: 'Exit fullscreen',
         },
         ja: {
           title: 'よむ 動画',
@@ -803,6 +919,8 @@
           switchToDarkTheme: 'ダークテーマに切り替え',
           switchToJapanese: 'Yomu HUDを日本語に切り替え',
           switchToEnglish: 'Yomu HUDを英語に切り替え',
+          enterFullscreen: '全画面にする',
+          exitFullscreen: '全画面を終了',
         },
       };
 
@@ -983,6 +1101,7 @@
           languageToggle.setAttribute('aria-label', label);
           languageToggle.removeAttribute('title');
         }
+        syncFullscreenButtonLabel();
         applyTheme(effectiveTheme());
         applyAccent();
         // Guarded: this hook only exists on hosted-demo builds that define it;
@@ -1239,6 +1358,90 @@
           stage.style.setProperty('--aspect', String(video.videoWidth / video.videoHeight));
         }
       }
+
+      function activeFullscreenElement() {
+        return document.fullscreenElement
+          || document.webkitFullscreenElement
+          || document.mozFullScreenElement
+          || document.msFullscreenElement
+          || null;
+      }
+
+      function stageIsFullscreen() {
+        const active = activeFullscreenElement();
+        return active === stage || stage.getAttribute('data-yomu-inline-fullscreen') === 'true';
+      }
+
+      function syncFullscreenButtonLabel() {
+        if (!fullscreenToggle) return;
+        const text = copy[effectiveInterfaceLanguage()];
+        const active = stageIsFullscreen();
+        const label = active ? text.exitFullscreen : text.enterFullscreen;
+        stage.toggleAttribute('data-fullscreen-active', active);
+        fullscreenToggle.setAttribute('aria-label', label);
+        fullscreenToggle.title = label;
+      }
+
+      function requestStageFullscreen() {
+        const request = stage.requestFullscreen
+          || stage.webkitRequestFullscreen
+          || stage.webkitRequestFullScreen
+          || stage.mozRequestFullScreen
+          || stage.msRequestFullscreen;
+        if (typeof request === 'function') return request.call(stage);
+        return enterInlineFullscreen();
+      }
+
+      function exitStageFullscreen() {
+        if (stage.getAttribute('data-yomu-inline-fullscreen') === 'true') return exitInlineFullscreen();
+        const exit = document.exitFullscreen
+          || document.webkitExitFullscreen
+          || document.webkitCancelFullScreen
+          || document.mozCancelFullScreen
+          || document.msExitFullscreen;
+        if (typeof exit === 'function') return exit.call(document);
+        return undefined;
+      }
+
+      function enterInlineFullscreen() {
+        stage.setAttribute('data-yomu-inline-fullscreen', 'true');
+        stage.setAttribute('fullscreen', '');
+        stage.classList.add('fullscreen', 'ytp-fullscreen');
+        document.documentElement.classList.add('jpdb-subtitle-inline-fullscreen');
+        dispatchFullscreenStateChange();
+        return Promise.resolve();
+      }
+
+      function exitInlineFullscreen() {
+        stage.removeAttribute('data-yomu-inline-fullscreen');
+        stage.removeAttribute('fullscreen');
+        stage.classList.remove('fullscreen', 'ytp-fullscreen');
+        document.documentElement.classList.remove('jpdb-subtitle-inline-fullscreen');
+        dispatchFullscreenStateChange();
+        return Promise.resolve();
+      }
+
+      function dispatchFullscreenStateChange() {
+        for (const name of ['fullscreenchange', 'webkitfullscreenchange']) {
+          document.dispatchEvent(new Event(name));
+        }
+        window.dispatchEvent(new Event('resize'));
+        syncFullscreenButtonLabel();
+      }
+
+      async function toggleFullscreen() {
+        if (!stage.classList.contains('has-video')) {
+          videoInput.click();
+          return;
+        }
+        try {
+          if (stageIsFullscreen()) await exitStageFullscreen();
+          else await Promise.resolve(requestStageFullscreen()).catch(() => enterInlineFullscreen());
+        } finally {
+          syncFullscreenButtonLabel();
+        }
+      }
+
       video.addEventListener('loadedmetadata', applyVideoAspect);
       video.addEventListener('resize', applyVideoAspect);
 
@@ -1254,6 +1457,15 @@
       languageToggle?.addEventListener('click', () => saveInterfaceLanguage(nextInterfaceLanguage()));
       settingsTrigger?.addEventListener('click', openSettings);
       subtitleOpen?.addEventListener('click', openSubtitleTracks);
+      fullscreenToggle?.addEventListener('click', toggleFullscreen);
+      document.addEventListener('fullscreenchange', syncFullscreenButtonLabel);
+      document.addEventListener('webkitfullscreenchange', syncFullscreenButtonLabel);
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && stage.getAttribute('data-yomu-inline-fullscreen') === 'true') {
+          event.preventDefault();
+          void exitInlineFullscreen();
+        }
+      });
       window.addEventListener(settingsChangeEvent, syncFromSettingsEvent);
       window.addEventListener('storage', event => {
         if (event.key === settingsKey || event.key === themeKey || event.key === null) {

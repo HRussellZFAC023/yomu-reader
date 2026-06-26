@@ -791,6 +791,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Stats': '統計',
     'Changelog': '変更履歴',
     'Added': '追加',
+    'Added a hosted Yomu Video fullscreen button that fullscreen-targets the video frame instead of the bare video, with mobile inline fallback coverage so Yomu subtitles stay visible while watching.': 'ホスト版Yomu Videoに全画面ボタンを追加しました。動画要素単体ではなく動画フレームを全画面対象にするため、視聴中もYomu字幕が表示されます。モバイル向けのインライン全画面フォールバックもカバーしています。',
     'Added compact Yomu Video subtitle style controls beside the player for font preset, background opacity, position, size, and hover-pause behavior, with desktop and mobile Playwright coverage.': 'Yomu Videoに、プレイヤー横で使えるコンパクトな字幕スタイル操作を追加しました。フォントプリセット、背景不透明度、位置、サイズ、ホバー一時停止を調整でき、デスクトップとモバイルのPlaywrightカバレッジも追加しています。',
     'Changed': '変更',
     'The hosted Yomu Video player now accepts a video file and subtitle files in the same picker/drop action. Japanese/native subtitle files are inferred from their names, loaded automatically, and the transcript opens directly to the lines view.': 'ホスト版Yomu Videoプレイヤーは、同じファイル選択またはドロップ操作で動画ファイルと字幕ファイルを一緒に受け取れるようになりました。日本語字幕と母語字幕はファイル名から推定され、自動で読み込まれ、トランスクリプトは直接「行」ビューで開きます。',

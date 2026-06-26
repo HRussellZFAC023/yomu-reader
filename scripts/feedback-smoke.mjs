@@ -491,6 +491,7 @@ async function verifyHostedSubtitleFlow(page, baseUrl) {
     await loadHostedVideoAndSubtitleTogether(page);
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-open-with-subtitles.png'), fullPage: false });
     await assertHostedSubtitleStyleControls(page);
+    await assertHostedFullscreenSubtitleOverlay(page);
     await assertHostedManualPanelCloseRestoresPlayer(page);
     await openHostedVideoPlayer(page, baseUrl);
     await loadHostedVideoAndOpenTracks(page);
@@ -704,6 +705,162 @@ async function verifyHostedSubtitleStyleControlsMobile(page, baseUrl) {
     const mobileState = await readHostedSubtitleStyleMobileState(page);
     assert(hostedSubtitleStyleMobileReady(mobileState), 'Hosted compact subtitle style controls did not fit/read well on mobile', mobileState);
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-style-controls-mobile.png'), fullPage: false });
+}
+
+async function assertHostedFullscreenSubtitleOverlay(page) {
+    await closeHostedTranscriptPanel(page);
+    await page.locator('[data-fullscreen-toggle]').click();
+    await page.waitForFunction(() => {
+        const stage = document.querySelector('[data-yomu-video-frame]');
+        const root = document.querySelector('.jpdb-subtitle-player');
+        return document.fullscreenElement === stage
+            && root?.parentElement === stage
+            && root?.classList.contains('jpdb-subtitle-fullscreen')
+            && !root?.classList.contains('jpdb-subtitle-video-out-of-view');
+    }, null, { timeout: 6000 });
+    const state = await readHostedFullscreenSubtitleState(page);
+    assert(hostedFullscreenSubtitleReady(state), 'Hosted fullscreen did not keep Yomu subtitles inside the video frame', state);
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-fullscreen-subtitles.png'), fullPage: false });
+    await page.evaluate(() => document.exitFullscreen?.());
+    await page.waitForFunction(() => !document.fullscreenElement, null, { timeout: 6000 });
+    await openHostedLinesPanel(page);
+}
+
+async function verifyHostedFullscreenInlineFallbackMobile(page, baseUrl) {
+    await openHostedVideoPlayer(page, baseUrl);
+    await loadHostedVideoAndSubtitleTogether(page);
+    await closeHostedTranscriptPanel(page);
+    await page.evaluate(() => {
+        const stage = document.querySelector('[data-yomu-video-frame]');
+        if (!stage) return;
+        for (const name of ['requestFullscreen', 'webkitRequestFullscreen', 'webkitRequestFullScreen', 'mozRequestFullScreen', 'msRequestFullscreen']) {
+            Object.defineProperty(stage, name, { configurable: true, value: undefined });
+        }
+    });
+    await page.locator('[data-fullscreen-toggle]').click();
+    await page.waitForFunction(() => {
+        const stage = document.querySelector('[data-yomu-video-frame]');
+        const root = document.querySelector('.jpdb-subtitle-player');
+        return stage?.getAttribute('data-yomu-inline-fullscreen') === 'true'
+            && root?.parentElement === stage
+            && root?.classList.contains('jpdb-subtitle-fullscreen')
+            && !root?.classList.contains('jpdb-subtitle-video-out-of-view');
+    }, null, { timeout: 6000 });
+    const state = await readHostedFullscreenSubtitleState(page);
+    assert(hostedInlineFullscreenSubtitleReady(state), 'Hosted mobile inline fullscreen fallback did not keep Yomu subtitles inside the video frame', state);
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-fullscreen-mobile.png'), fullPage: false });
+    await page.locator('[data-fullscreen-toggle]').click();
+    await page.waitForFunction(() => document.querySelector('[data-yomu-video-frame]')?.getAttribute('data-yomu-inline-fullscreen') !== 'true', null, { timeout: 6000 });
+}
+
+async function closeHostedTranscriptPanel(page) {
+    const hidden = await page.evaluate(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true);
+    if (hidden) return;
+    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click();
+    await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true, null, { timeout: 6000 });
+}
+
+async function openHostedLinesPanel(page) {
+    const open = await page.evaluate(() => Boolean(document.querySelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row')));
+    if (open) return;
+    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click();
+    await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 6000 });
+}
+
+async function readHostedFullscreenSubtitleState(page) {
+    return page.evaluate(() => {
+        const rect = element => {
+            const box = element?.getBoundingClientRect();
+            return box ? {
+                width: box.width,
+                height: box.height,
+                left: box.left,
+                top: box.top,
+                right: box.right,
+                bottom: box.bottom,
+            } : null;
+        };
+        const stage = document.querySelector('[data-yomu-video-frame]');
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const line = document.querySelector('.jpdb-subtitle-lines');
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        const toggle = document.querySelector('[data-fullscreen-toggle]');
+        return {
+            fullscreenTag: document.fullscreenElement?.tagName ?? null,
+            documentInlineClass: document.documentElement.classList.contains('jpdb-subtitle-inline-fullscreen'),
+            stageInline: stage?.getAttribute('data-yomu-inline-fullscreen') ?? null,
+            stageActive: stage?.hasAttribute('data-fullscreen-active') ?? false,
+            rootParentIsStage: Boolean(stage && root?.parentElement === stage),
+            rootFullscreenClass: root?.classList.contains('jpdb-subtitle-fullscreen') ?? false,
+            rootOutOfView: root?.classList.contains('jpdb-subtitle-video-out-of-view') ?? true,
+            rootRect: rect(root),
+            stageRect: rect(stage),
+            panelHidden: panel?.hidden ?? null,
+            lineText: line?.textContent ?? '',
+            toggleLabel: toggle?.getAttribute('aria-label') ?? '',
+            toggleVisible: toggle ? getComputedStyle(toggle).display !== 'none' : false,
+            viewport: { width: window.innerWidth, height: window.innerHeight },
+        };
+    });
+}
+
+function hostedFullscreenSubtitleReady(state) {
+    return state.fullscreenTag === 'SECTION'
+        && state.stageActive === true
+        && state.rootParentIsStage
+        && state.rootFullscreenClass
+        && !state.rootOutOfView
+        && state.panelHidden === true
+        && state.toggleVisible
+        && includesText(state.toggleLabel, 'Exit fullscreen')
+        && includesText(state.lineText, '猫を見る')
+        && fullscreenRectFillsViewport(state);
+}
+
+function hostedInlineFullscreenSubtitleReady(state) {
+    return state.fullscreenTag === null
+        && state.documentInlineClass
+        && state.stageInline === 'true'
+        && state.stageActive === true
+        && state.rootParentIsStage
+        && state.rootFullscreenClass
+        && !state.rootOutOfView
+        && state.panelHidden === true
+        && state.toggleVisible
+        && includesText(state.toggleLabel, 'Exit fullscreen')
+        && includesText(state.lineText, '猫を見る')
+        && fullscreenStageFillsViewport(state)
+        && fullscreenRootFitsInsideStage(state);
+}
+
+function fullscreenRectFillsViewport(state) {
+    const rect = state.rootRect;
+    if (!rect) return false;
+    return rect.left <= 1
+        && rect.top <= 1
+        && rect.width >= state.viewport.width - 2
+        && rect.height >= state.viewport.height - 2;
+}
+
+function fullscreenStageFillsViewport(state) {
+    const rect = state.stageRect;
+    if (!rect) return false;
+    return rect.left <= 1
+        && rect.top <= 1
+        && rect.width >= state.viewport.width - 2
+        && rect.height >= state.viewport.height - 2;
+}
+
+function fullscreenRootFitsInsideStage(state) {
+    const root = state.rootRect;
+    const stage = state.stageRect;
+    if (!root || !stage) return false;
+    return root.width >= Math.min(260, state.viewport.width * 0.65)
+        && root.height >= 120
+        && root.left >= stage.left - 1
+        && root.top >= stage.top - 1
+        && root.right <= stage.right + 1
+        && root.bottom <= stage.bottom + 1;
 }
 
 async function readHostedSubtitleStyleMobileState(page) {
@@ -987,6 +1144,10 @@ try {
     await verifyHostedSubtitleStyleControlsMobile(mobileVideoPage, baseUrl);
     await mobileVideoPage.close();
 
+    const mobileFullscreenPage = await newPage(browser, baseSettings, { width: 390, height: 844 });
+    await verifyHostedFullscreenInlineFallbackMobile(mobileFullscreenPage, baseUrl);
+    await mobileFullscreenPage.close();
+
     console.log(JSON.stringify({
         ok: true,
         artifacts: [
@@ -995,6 +1156,8 @@ try {
             path.join(ARTIFACTS, 'feedback-video-open-with-subtitles.png'),
             path.join(ARTIFACTS, 'feedback-video-style-controls.png'),
             path.join(ARTIFACTS, 'feedback-video-style-controls-mobile.png'),
+            path.join(ARTIFACTS, 'feedback-video-fullscreen-subtitles.png'),
+            path.join(ARTIFACTS, 'feedback-video-fullscreen-mobile.png'),
             path.join(ARTIFACTS, 'feedback-video-pause-panel.png'),
         ],
     }, null, 2));
