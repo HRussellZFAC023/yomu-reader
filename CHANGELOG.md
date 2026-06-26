@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.120] - 2026-06-26
+
+### Fixed
+
+- The hosted Yomu Video player now resets stale drawer inset sizing after subtitle panel close/auto-hide, so the video frame and native progress bar stretch back across the full player.
+
 ## [1.4.119] - 2026-06-26
 
 ### Fixed

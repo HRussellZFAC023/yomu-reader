@@ -490,6 +490,7 @@ async function verifyHostedSubtitleFlow(page, baseUrl) {
     await assertSubtitleOpenRequiresVideo(page);
     await loadHostedVideoAndSubtitleTogether(page);
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-open-with-subtitles.png'), fullPage: false });
+    await assertHostedManualPanelCloseRestoresPlayer(page);
     await openHostedVideoPlayer(page, baseUrl);
     await loadHostedVideoAndOpenTracks(page);
     await assertHostedTracksPanel(page);
@@ -598,6 +599,13 @@ async function loadHostedVideoAndSubtitleTogether(page) {
     assert(hostedPausePanelHasExpectedText(loaded), 'Opening video and subtitle together did not load the expected subtitle text', loaded);
 }
 
+async function assertHostedManualPanelCloseRestoresPlayer(page) {
+    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click();
+    await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true, null, { timeout: 6000 });
+    const hiddenLayout = await readHostedPlayerLayoutState(page);
+    assert(hostedPlayerLayoutRestored(hiddenLayout), 'Hosted video player did not restore full-width controls after manually closing the subtitle panel', hiddenLayout);
+}
+
 async function readHostedVideoAndSubtitleTogetherState(page) {
     return page.evaluate(() => {
         const panel = document.querySelector('.jpdb-subtitle-list');
@@ -695,6 +703,9 @@ async function readHostedAutoHideState(page) {
 async function assertHostedPausePanelOnPause(page) {
     await dispatchHostedVideoEvent(page, 'play');
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true);
+    const hiddenLayout = await readHostedPlayerLayoutState(page);
+    assert(hostedPlayerLayoutRestored(hiddenLayout), 'Hosted video player did not restore full-width controls after hiding the subtitle panel', hiddenLayout);
+
     await dispatchHostedVideoEvent(page, 'pause');
     await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 6000 });
 
@@ -714,6 +725,64 @@ async function dispatchHostedVideoEvent(page, eventName) {
         }
         video?.dispatchEvent(new Event(name));
     }, eventName);
+}
+
+async function readHostedPlayerLayoutState(page) {
+    return page.evaluate(() => {
+        const rect = element => {
+            const box = element?.getBoundingClientRect();
+            return box ? {
+                width: box.width,
+                height: box.height,
+                left: box.left,
+                right: box.right,
+            } : null;
+        };
+        const root = document.documentElement;
+        const stageArea = document.querySelector('.stage-area');
+        const stage = document.querySelector('[data-yomu-video-frame]');
+        const video = document.querySelector('video');
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        return {
+            rootClasses: root.className,
+            insetVar: root.style.getPropertyValue('--jpdb-subtitle-video-inset'),
+            panelHidden: panel?.hidden ?? null,
+            stageArea: rect(stageArea),
+            stage: rect(stage),
+            video: rect(video),
+            stageStyle: stage instanceof HTMLElement ? {
+                width: stage.style.width,
+                maxWidth: stage.style.maxWidth,
+                height: stage.style.height,
+                maxHeight: stage.style.maxHeight,
+                marginLeft: stage.style.marginLeft,
+                marginRight: stage.style.marginRight,
+                justifySelf: stage.style.justifySelf,
+            } : null,
+            videoStyle: video instanceof HTMLElement ? {
+                width: video.style.width,
+                maxWidth: video.style.maxWidth,
+                height: video.style.height,
+                maxHeight: video.style.maxHeight,
+                minHeight: video.style.minHeight,
+                objectFit: video.style.objectFit,
+            } : null,
+        };
+    });
+}
+
+function hostedPlayerLayoutRestored(layout) {
+    const widthTolerance = 6;
+    const stageWidth = layout.stage?.width ?? 0;
+    const videoWidth = layout.video?.width ?? 0;
+    const stageAreaWidth = layout.stageArea?.width ?? 0;
+    const staleInset = /jpdb-subtitle-video-inset-(left|right|bottom)/.test(layout.rootClasses)
+        || Boolean(layout.insetVar);
+    return layout.panelHidden === true
+        && !staleInset
+        && stageAreaWidth > 0
+        && stageWidth >= stageAreaWidth - widthTolerance
+        && Math.abs(videoWidth - stageWidth) <= widthTolerance;
 }
 
 async function readHostedPausePanelState(page) {

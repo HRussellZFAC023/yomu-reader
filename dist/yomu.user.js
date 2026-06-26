@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.119
+// @version 1.4.120
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.119
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.119
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.119
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.119
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.120
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.120
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.120
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.120
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue

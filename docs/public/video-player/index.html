@@ -495,6 +495,32 @@
       min-height: 0 !important;
     }
 
+    /* Defensive reset for drawer transitions: if the subtitle drawer closes after
+       the runtime has written generic inset widths, the hosted frame must reclaim
+       the full stage-area width so the native video timeline reaches the player
+       edge again. Root inset classes are present only while a drawer is actively
+       reserving space, so this does not fight the side/bottom docked layouts. */
+    :root:not(.jpdb-subtitle-video-inset-left):not(.jpdb-subtitle-video-inset-right):not(.jpdb-subtitle-video-inset-bottom) [data-yomu-video-frame] {
+      width: min(100cqw, calc(100cqh * var(--aspect))) !important;
+      height: min(100cqh, calc(100cqw / var(--aspect))) !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      justify-self: center !important;
+    }
+
+    :root:not(.jpdb-subtitle-video-inset-left):not(.jpdb-subtitle-video-inset-right):not(.jpdb-subtitle-video-inset-bottom) [data-yomu-video-frame] video {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+    }
+
     .empty {
       width: auto;
       min-height: 0;
