@@ -71,6 +71,36 @@ describe('interface language resolution', () => {
         expect(calloutCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 
+    it('keeps Study dictionary and offline guidance covered by Japanese docs copy', () => {
+        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const studySource = readFileSync('docs/tools/study-page.md', 'utf8');
+        const studySection = between(studySource, '## Local pitch and frequency dictionaries', '## Questions');
+        const studyCopy = [
+            ...markdownHeadings(studySection),
+            ...markdownParagraphs(studySection),
+            ...markdownListTextNodes(studySection),
+        ];
+        const inlineTextNodeCopy = [
+            'Frequency:',
+            ' install JPDBv2㋕ from Settings → Dictionaries. Kuuuube documents it as the recommended JPDB v2.2 frequency package, with kana-frequency display and high corpus coverage.',
+            'Pitch accent:',
+            ' import a Yomitan-compatible pitch dictionary that matches your licensing comfort. The Kanjium source data documents pitch-accent additions under CC BY-SA 4.0, and MarvNC\'s current Yomitan dictionary guide recommends an NHK2016 pitch dictionary; よむ can read pitch metadata from imported Yomitan metadata dictionaries, but the automatic Kanjium/NHK install button is intentionally not shipped until there is a current, license-clear public ZIP URL.',
+            'Jiten:',
+            ' if you use Jiten, its frequency download remains available in Settings; JPDBv2㋕ is the default local frequency recommendation for users who do not want frequency to depend on a live service.',
+            'When the hosted page has been visited once, the PWA cache keeps the Study shell available offline. Cached cards show an ',
+            'Offline cache',
+            ' status, and review grades that cannot reach Jiten, JPDB, or Anki are saved locally and retried when the provider reconnects.',
+            'Open ',
+            'Settings → Study',
+            ' to choose a review source and switch the rating scale between the normal five buttons and a thumb-friendly ',
+            'Fail / Pass',
+            ' mode. On phones, the two-button row uses the full available width so the actions stay centered and easy to hit.',
+        ];
+
+        expect(studyCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
+        expect(inlineTextNodeCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
+    });
+
     it('keeps hosted tools overview covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
         const toolsSource = readFileSync('docs/tools/index.md', 'utf8');

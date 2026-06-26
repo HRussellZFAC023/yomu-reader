@@ -3,11 +3,13 @@ import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiConnectAvailabilityEr
 import { diagnoseAnkiConnectFailure } from '../anki/transport';
 import { copyText } from '../ui/browser';
 import { createAudioPreviewCard } from '../cards/utils';
-import { NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from '../app/constants';
+import { NEW_TAB_PAGE_URL, NEW_TAB_VERSION_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from '../app/constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
 import { configureLogger, Logger, loggingSettingsSummary } from '../app/logger';
 import { clearNewTabOfflineCache } from '../newtab/cache';
+import { requestJson } from '../network/http';
+import { compareYomuVersions, CURRENT_YOMU_VERSION, latestYomuVersionFromVersionJson } from '../app/version';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { mergeDictionaryPreferences, normalizeReaderSettings, saveSettings } from './index';
@@ -55,7 +57,7 @@ import { CLOUD_SETTINGS_SYNC_ENABLED, cloudSettingsSyncAvailable, downloadCloudS
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
 import type { AnkiLibraryScanResult } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
-import { uiText } from '../app/i18n';
+import { formatUiText, uiText } from '../app/i18n';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 
@@ -504,6 +506,7 @@ export class SettingsDialogController {
     private ankiConnectionProbeId = 0;
     private jpdbConnectionProbeId = 0;
     private ankiLibraryScanId = 0;
+    private yomuUpdateCheckId = 0;
     private settingsJapaneseParseRefreshTimer: number | undefined;
 
     constructor(private readonly dependencies: SettingsDialogDependencies) {}
@@ -534,6 +537,7 @@ export class SettingsDialogController {
         void this.refreshJpdbConnectionStatus(form);
         void this.refreshDictionaryStatus(form);
         void this.refreshDeckControls(form);
+        if (panel === 'help') void this.refreshYomuUpdateStatus(form);
         this.refreshSettingsJapaneseParse(form);
     }
 
@@ -1285,6 +1289,42 @@ export class SettingsDialogController {
         }
     }
 
+    private async refreshYomuUpdateStatus(form: HTMLFormElement): Promise<void> {
+        const status = form.querySelector<HTMLElement>('[data-yomu-update-status]');
+        if (!status) return;
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        const requestId = ++this.yomuUpdateCheckId;
+        status.dataset.statusTone = 'pending';
+        status.dataset.updateChecked = 'true';
+        status.textContent = formatUiText(language, 'updateStatusChecking', { current: CURRENT_YOMU_VERSION });
+        try {
+            const version = await requestJson(`${NEW_TAB_VERSION_URL}?t=${Date.now()}`, {
+                allowDirectCrossOrigin: true,
+                anonymous: true,
+                credentials: 'omit',
+                failureLabel: 'Yomu update check',
+                preferFetch: true,
+                timeoutMs: 6000,
+                withCredentials: false,
+            });
+            if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
+            const latest = latestYomuVersionFromVersionJson(version);
+            if (!latest) throw new Error('Hosted version response did not include a build id.');
+            const comparison = compareYomuVersions(CURRENT_YOMU_VERSION, latest);
+            const updateAvailable = comparison !== null && comparison < 0;
+            status.dataset.statusTone = updateAvailable ? 'pending' : 'success';
+            status.textContent = formatUiText(language, updateAvailable ? 'updateStatusAvailable' : 'updateStatusCurrent', {
+                current: CURRENT_YOMU_VERSION,
+                latest,
+            });
+        } catch (error) {
+            log.warn('Yomu update status unavailable', error);
+            if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
+            status.dataset.statusTone = 'pending';
+            status.textContent = formatUiText(language, 'updateStatusUnknown', { current: CURRENT_YOMU_VERSION });
+        }
+    }
+
     private async applyDictionaryStatus(form: HTMLFormElement, elements: DictionaryStatusElements, summary: DictionarySummary): Promise<void> {
         await this.mergeDictionaryPreferencesFromSummary(summary);
         await this.dependencies.refreshDictionaryStyles();
@@ -1450,6 +1490,7 @@ export class SettingsDialogController {
         if (action === 'settings-panel') {
             const panel = selectedSettingsPanel(control);
             activateSettingsPanel(form, panel);
+            if (panel === 'help') void this.refreshYomuUpdateStatus(form);
             this.refreshSettingsJapaneseParse(form);
             return true;
         }

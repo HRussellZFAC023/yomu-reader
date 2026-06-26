@@ -162,6 +162,7 @@ function assertSyncedDocsAssets() {
     ['dist/newtab/app.js', 'docs/public/newtab/app.js'],
     ['dist/newtab/styles.css', 'docs/public/newtab/styles.css'],
     ['dist/newtab/index.html', 'docs/public/newtab/index.html'],
+    ['dist/newtab/manifest.webmanifest', 'docs/public/newtab/manifest.webmanifest'],
     ['dist/newtab/sw.js', 'docs/public/newtab/sw.js'],
     ['dist/newtab/version.json', 'docs/public/newtab/version.json'],
     ...GREASY_FORK_LIBRARIES.map(library => {
@@ -179,6 +180,7 @@ function assertSyncedDocsAssets() {
     ['docs/public/newtab/app.js', 'docs/.vitepress/dist/newtab/app.js'],
     ['docs/public/newtab/styles.css', 'docs/.vitepress/dist/newtab/styles.css'],
     ['docs/public/newtab/index.html', 'docs/.vitepress/dist/newtab/index.html'],
+    ['docs/public/newtab/manifest.webmanifest', 'docs/.vitepress/dist/newtab/manifest.webmanifest'],
     ['docs/public/newtab/sw.js', 'docs/.vitepress/dist/newtab/sw.js'],
     ['docs/public/newtab/version.json', 'docs/.vitepress/dist/newtab/version.json'],
     ...GREASY_FORK_LIBRARIES.map(library => {
@@ -215,6 +217,9 @@ function assertNewTabIndexCacheBusting(appHash, cssHash) {
   }
   if (!index.includes(`./styles.css?v=${cssHash}`)) {
     fail('docs/public/newtab/index.html does not reference the current new-tab stylesheet hash.');
+  }
+  if (!index.includes("navigator.serviceWorker.register('./sw.js')")) {
+    fail('docs/public/newtab/index.html does not register the new-tab service worker.');
   }
 }
 

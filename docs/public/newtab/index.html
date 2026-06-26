@@ -21,7 +21,8 @@
     <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="../favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
-    <link rel="stylesheet" href="./styles.css?v=5882f198bdcd">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="stylesheet" href="./styles.css?v=f021c8edc46e">
     <meta name="apple-mobile-web-app-title" content="よむ">
     <meta name="color-scheme" content="light dark">
     <meta http-equiv="Cache-Control" content="no-cache">
@@ -476,11 +477,16 @@
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
     <script>
       (() => {
-        const appHash = 'ddf825aa1671';
-        const buildId = '1.4.132-ddf825aa1671';
+        const appHash = 'aec21d5e5f80';
+        const buildId = '1.4.133-aec21d5e5f80';
         window.yomuNewTabAppHash = appHash;
         window.yomuNewTabBuildId = buildId;
         if (appHash.startsWith('__') || buildId.startsWith('__')) return;
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').catch(() => undefined);
+          }, { once: true });
+        }
         const current = new URL(location.href);
         if (current.searchParams.get('build') === buildId) return;
         fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' })
@@ -502,7 +508,7 @@
           .catch(() => undefined);
       })();
     </script>
-    <script src="./app.js?v=ddf825aa1671"></script>
+    <script src="./app.js?v=aec21d5e5f80"></script>
   </body>
 
 </html>

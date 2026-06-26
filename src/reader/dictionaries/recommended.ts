@@ -1,6 +1,7 @@
 import type { UiCopyKey } from '../app/i18n';
+import { DOCS_BASE_URL } from '../app/constants';
 
-export type RecommendedDictionaryCategory = 'terms' | 'kanji' | 'frequency';
+export type RecommendedDictionaryCategory = 'terms' | 'kanji' | 'pitch' | 'frequency';
 
 export interface RecommendedDictionary {
     id: string;
@@ -8,6 +9,7 @@ export interface RecommendedDictionary {
     name: string;
     descriptionKey: UiCopyKey;
     downloadUrl?: string;
+    helpUrl?: string;
 }
 
 export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
@@ -61,11 +63,11 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
         downloadUrl: 'https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BKanji%5D%20JPDB%20Kanji.zip',
     },
     {
-        id: 'jiten',
-        category: 'frequency',
-        name: 'Jiten',
-        descriptionKey: 'recommendedJiten',
-        downloadUrl: 'https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan',
+        id: 'kanjium-pitch',
+        category: 'pitch',
+        name: 'Kanjium pitch accents',
+        descriptionKey: 'recommendedKanjiumPitch',
+        helpUrl: `${DOCS_BASE_URL}tools/study-page#local-pitch-and-frequency-dictionaries`,
     },
     {
         id: 'jpdbv2-kana',
@@ -73,6 +75,13 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
         name: 'JPDBv2㋕',
         descriptionKey: 'recommendedJpdbv2Kana',
         downloadUrl: 'https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip',
+    },
+    {
+        id: 'jiten',
+        category: 'frequency',
+        name: 'Jiten',
+        descriptionKey: 'recommendedJiten',
+        downloadUrl: 'https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan',
     },
     {
         id: 'bccwj',

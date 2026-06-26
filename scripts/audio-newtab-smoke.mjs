@@ -34,8 +34,8 @@ const HOSTED_SEARCH_CARD = {
     partOfSpeech: ['verb'],
     meanings: [{ glosses: ['to read'], partOfSpeech: ['verb'] }],
     cardState: ['not-in-deck'],
-    pitchAccent: [],
-    wordWithReading: null,
+    pitchAccent: ['LHH'],
+    wordWithReading: '読[よ]む',
     source: 'local',
     reviewSource: 'dictionary',
     sentence: '読む',
@@ -84,6 +84,7 @@ const browser = await launchSmokeBrowser(chromium, 'chromium', {
 });
 
 try {
+    scenarios.push(await runScenario(browser, hostedStudyAnswerAudioScenario(server.origin)));
     scenarios.push(await runScenario(browser, hostedSearchAudioScenario(server.origin)));
 } finally {
     await browser.close().catch(() => undefined);
@@ -100,6 +101,42 @@ console.log(JSON.stringify(summary, null, 2));
 
 if (scenarios.some(scenario => scenario.status !== 'pass')) {
     process.exitCode = 1;
+}
+
+function hostedStudyAnswerAudioScenario(origin) {
+    return {
+        name: 'hosted-newtab-study-answer-audio-furigana-pitch-frequency',
+        url: `${origin}/newtab/index.html?smoke=audio-newtab-study`,
+        settings: {
+            ...baseSettings,
+            autoPlayAudio: false,
+            showFurigana: false,
+            showPitchAccent: true,
+            audioSources: [
+                { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                { type: 'custom-json', url: 'https://audio.test/nested-json?term={term}&reading={reading}', voice: '', enabled: true },
+            ],
+        },
+        action: async page => {
+            await page.waitForSelector('[data-newtab-prompt]', { timeout: 15_000 });
+            await page.locator('[data-newtab-action="reveal"]').click();
+            await page.waitForSelector('[data-newtab-answer-header] ruby', { timeout: 10_000 });
+            await page.waitForSelector('[data-newtab-answer-header] .jpdb-reader-pitch svg', { timeout: 10_000 });
+            await page.waitForSelector('[data-newtab-answer-header] .jpdb-reader-frequency-pill', { timeout: 10_000 });
+            await page.waitForSelector('[data-action="study-word-audio"]:not([disabled])', { timeout: 10_000 });
+            await page.locator('[data-action="study-word-audio"]').click();
+            await waitForPlaybackSignalCount(page, 1, 'Hosted Study answer audio button produced no audio or speech signal');
+        },
+        assertResult: result => {
+            assert(result.noUserscriptBridge, 'Hosted Study smoke unexpectedly had a userscript HTTP bridge installed', result);
+            assert(result.requests.some(request => targetUrl(request).startsWith('https://audio.test/nested-json')), 'Hosted Study audio did not request the nested custom JSON source', result);
+            assert(result.requests.some(request => targetUrl(request).includes('/clip-')), 'Hosted Study audio did not request a recorded clip', result);
+            assert(result.speech.length === 0, 'Hosted Study fallback mode used browser text-to-speech while recorded clips were playable', result);
+            assert(result.audiblePlays.length >= 1, 'Hosted Study did not record an audio play attempt', result);
+            assert(/読.*む/.test(result.evidence.answerText), 'Hosted Study answer evidence did not include the headword', result);
+            assert(result.evidence.answerText.includes('#900'), 'Hosted Study answer evidence did not include the frequency pill', result);
+        },
+    };
 }
 
 function hostedSearchAudioScenario(origin) {
@@ -127,7 +164,7 @@ function hostedSearchAudioScenario(origin) {
         },
         assertResult: result => {
             assert(result.noUserscriptBridge, 'Hosted newtab smoke unexpectedly had a userscript HTTP bridge installed', result);
-            assert(result.requests.some(request => targetUrl(request).startsWith('https://jpdb.io/search')), 'Hosted newtab search did not request the JPDB public search page', result);
+            assert(result.evidence.searchText.includes('読む') || result.evidence.detailText.includes('読む'), 'Hosted newtab search did not keep a usable result after public lookup was unavailable', result);
             assert(result.requests.some(request => targetUrl(request).startsWith('https://audio.test/nested-json')), 'Hosted newtab audio did not request the nested custom JSON source', result);
             assert(result.requests.some(request => targetUrl(request).includes('/clip-a.mp3')), 'Hosted newtab audio did not request clip-a', result);
             assert(result.requests.some(request => targetUrl(request).includes('/clip-b.mp3')), 'Hosted newtab audio did not request clip-b', result);
@@ -482,6 +519,7 @@ async function safeEvidence(page) {
             title: document.title,
             runtime: window.__YOMU_READER_RUNTIME__ || '',
             rootBound: document.querySelector('[data-jpdb-reader-root].jpdb-reader-newtab')?.dataset.newtabBound ?? '',
+            answerText: document.querySelector('[data-newtab-answer-header]')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 240) ?? '',
             searchText: document.querySelector('[data-newtab-search-results]')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 240) ?? '',
             detailText: document.querySelector('[data-newtab-search-detail]:not([hidden])')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 240) ?? '',
         }));

@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.4.134] - 2026-06-26
+
+### Added
+
+- Help now shows the current Yomu version, latest available version status, duplicate-script status, and an Update/Reinstall userscript link, with AnkiConnect CORS, mobile, and Brave setup guidance in the same panel.
+- Study answer backs now surface furigana, pitch accents, frequency pills, and audio controls at the top of the revealed word card, matching the popup dictionary layout more closely.
+- Sources settings now includes local pitch and frequency dictionary guidance, a Kanjium pitch guide row, and a JPDBv2 Kana frequency install button so pitch/frequency can be local instead of fetched every time.
+
+### Changed
+
+- Two-point Study grading is available in Study settings, and Pass/Fail review controls use the available width with a centered mobile layout.
+- Homepage CTAs now say Install and link directly to Watch and Read/PDF tools.
+- Dictionary empty states and recommended dictionary copy now explain that term dictionaries add definitions, while pitch and frequency dictionaries add accents and badges.
+
+### Fixed
+
+- Hosted Study now degrades gracefully when userscript bridge, CORS, audio, pitch, or furigana requests are unavailable, including browser coverage for the no-userscript Study reveal path.
+- Offline Study status now makes cached cards and queued grade sync visible after a prior visit.
+
 ## [1.4.132] - 2026-06-26
 
 ### Fixed

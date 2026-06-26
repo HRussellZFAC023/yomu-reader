@@ -599,6 +599,15 @@ export class NewTabRuntime {
                 isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
                 dictionaryLabel: name => this.dictionaryLabel(name),
             }),
+            renderStudyWordPills: (card, metaEntries, ankiLookup) => renderWordPills({
+                card,
+                jpdbUrl: jpdbVocabularyUrl(card),
+                settings: this.settings,
+                metaEntries,
+                ankiLookup,
+                isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
+                dictionaryLabel: name => this.dictionaryLabel(name),
+            }),
             installSearchDetailSources: (root, card, sentence, jpdbVocabularyInfo) => this.installLookupPopoverSources(root, card, sentence, jpdbVocabularyInfo),
             renderStudyDefinitionSources: (card, data, sentence) => this.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, {
                 includeStudySources: false,

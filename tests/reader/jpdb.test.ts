@@ -21089,7 +21089,9 @@ describe('reader helpers', () => {
         expect(findRecommendedDictionary('wty-ja-ja')?.downloadUrl).toContain('wty-ja-ja.zip');
         expect(findRecommendedDictionary('pixiv-light')?.downloadUrl).toContain('PixivLight.zip');
         expect(findRecommendedDictionary('jpdb-kanji')?.downloadUrl).toContain('JPDB%20Kanji.zip');
-        expect(RECOMMENDED_JAPANESE_DICTIONARIES.every(item => Boolean(item.downloadUrl))).toBe(true);
+        expect(findRecommendedDictionary('kanjium-pitch')?.helpUrl).toContain('tools/study-page#local-pitch-and-frequency-dictionaries');
+        expect(findRecommendedDictionary('jpdbv2-kana')?.downloadUrl).toContain('JPDB_v2.2_Frequency_Kana.zip');
+        expect(RECOMMENDED_JAPANESE_DICTIONARIES.every(item => Boolean(item.downloadUrl || item.helpUrl))).toBe(true);
         expect(RECOMMENDED_JAPANESE_DICTIONARIES.map(item => item.name)).toEqual([
             'Jitendex',
             'JMdict',
@@ -21098,8 +21100,9 @@ describe('reader helpers', () => {
             'Pixiv Light',
             'KANJIDIC',
             'JPDB Kanji',
-            'Jiten',
+            'Kanjium pitch accents',
             'JPDBv2㋕',
+            'Jiten',
             'BCCWJ',
         ]);
     });
