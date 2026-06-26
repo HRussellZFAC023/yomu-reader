@@ -629,7 +629,9 @@
       place-items: center;
       border: 2px dashed var(--line);
       border-radius: var(--radius);
-      background: transparent;
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--panel) 20%, transparent), transparent 58%),
+        transparent;
       color: var(--stage-empty-text);
       text-align: center;
       text-shadow: 0 1px 2px var(--stage-empty-shadow);
@@ -642,6 +644,36 @@
       justify-items: center;
       gap: 8px;
       width: min(100%, 480px);
+    }
+
+    .empty-file-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .empty-file-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 30px;
+      padding: 0 10px;
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .08);
+      color: var(--stage-empty-strong);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1;
+      text-shadow: none;
+      white-space: nowrap;
+    }
+
+    .empty-file-chip span:last-child {
+      color: var(--stage-empty-text);
+      font-weight: 720;
     }
 
     .empty strong {
@@ -730,6 +762,12 @@
         padding: 16px;
       }
 
+      .empty-file-chip {
+        min-height: 28px;
+        padding: 0 9px;
+        font-size: 11px;
+      }
+
       .status {
         max-width: 30ch;
       }
@@ -796,8 +834,12 @@
         </button>
         <button class="empty" type="button" data-empty-open>
           <div>
-            <strong>Open or drop a video</strong>
-            <span class="status" data-status>Open a video, then use Subtitles to add Japanese and native subtitle files.</span>
+            <strong>Drop anime and subtitles</strong>
+            <span class="status" data-status>Open a video with .srt, .vtt, .ass, or .ssa files. Nothing uploads.</span>
+            <span class="empty-file-row" aria-hidden="true">
+              <span class="empty-file-chip"><span data-empty-video-chip>Video</span><span>MP4 / MKV</span></span>
+              <span class="empty-file-chip"><span data-empty-subtitle-chip>Subtitles</span><span>SRT / VTT / ASS</span></span>
+            </span>
           </div>
         </button>
       </section>
@@ -864,6 +906,8 @@
           stageLabel: 'Video',
           emptyTitle: 'Drop anime and subtitles',
           emptyStatus: 'Open a video with .srt, .vtt, .ass, or .ssa files. Nothing uploads.',
+          emptyVideoChip: 'Video',
+          emptySubtitleChip: 'Subtitles',
           chooseVideo: 'Choose a browser-supported video, or drop it with subtitle files.',
           chooseVideoBeforeSubtitles: 'Open a video first, or drop a video and subtitle files together.',
           loadingRuntime: 'Loading Yomu controls...',
@@ -899,6 +943,8 @@
           stageLabel: '動画',
           emptyTitle: '動画と字幕をドロップ',
           emptyStatus: '動画と .srt / .vtt / .ass / .ssa 字幕を一緒に開けます。アップロードはされません。',
+          emptyVideoChip: '動画',
+          emptySubtitleChip: '字幕',
           chooseVideo: 'ブラウザーで再生できる動画、または動画と字幕ファイルを一緒に選んでください。',
           chooseVideoBeforeSubtitles: '先に動画を開くか、動画と字幕ファイルを一緒にドロップしてください。',
           loadingRuntime: 'よむの操作パネルを読み込んでいます...',
@@ -1083,6 +1129,8 @@
         jimakuLink?.replaceChildren(text.findSubtitles);
         jimakuLink?.setAttribute('aria-label', text.openJimaku);
         document.querySelector('.empty strong').textContent = text.emptyTitle;
+        document.querySelector('[data-empty-video-chip]')?.replaceChildren(text.emptyVideoChip);
+        document.querySelector('[data-empty-subtitle-chip]')?.replaceChildren(text.emptySubtitleChip);
         overflowSummary?.setAttribute('aria-label', text.menu);
         if (settingsTrigger) {
           settingsTrigger.textContent = text.settings;

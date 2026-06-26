@@ -3,7 +3,7 @@ import { getUserscriptHttpRequest } from '../userscript/index';
 
 const READER_CSS_RESOURCE = 'yomuCss';
 const READER_CSS_RESOURCE_URL = 'https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css';
-const READER_CSS_CACHE_KEY = 'yomu:reader-css-cache:v1';
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${__YOMU_VERSION__}`;
 
 export const READER_CSS = resourceReaderCss();
 

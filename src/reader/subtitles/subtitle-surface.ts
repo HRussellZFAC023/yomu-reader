@@ -1,6 +1,7 @@
 import { escapeHtml } from '../dom/index';
 import { uiText } from '../app/i18n';
 import { clampNumber } from '../core/number-utils';
+import { DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY } from '../settings/index';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.2;
@@ -9,7 +10,7 @@ const SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT = 80;
 const TRANSCRIPT_PLACEMENTS = ['left', 'bottom', 'right'] as const satisfies readonly ReaderSettings['subtitleTranscriptPlacement'][];
 const SUBTITLE_STYLE_FONT_PRESETS = [
     {
-        value: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        value: DEFAULT_POPUP_FONT_FAMILY,
         labelKey: 'fontPresetYomuDefault',
     },
     {
@@ -17,8 +18,16 @@ const SUBTITLE_STYLE_FONT_PRESETS = [
         labelKey: 'fontPresetJapaneseSans',
     },
     {
+        value: '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif',
+        labelKey: 'fontPresetHiraginoYuGothic',
+    },
+    {
         value: '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif',
         labelKey: 'fontPresetJapaneseSerif',
+    },
+    {
+        value: DEFAULT_READER_FONT_FAMILY,
+        labelKey: 'fontPresetSystemUi',
     },
 ] as const satisfies readonly { value: string; labelKey: Parameters<typeof uiText>[1] }[];
 
@@ -74,6 +83,10 @@ export function renderSubtitleStyleControls(settings: ReaderSettings, language: 
                 <select data-subtitle-style-setting="subtitleFontFamily">
                     ${SUBTITLE_STYLE_FONT_PRESETS.map(preset => renderSubtitleStyleFontOption(preset, settings.subtitleFontFamily, language)).join('')}
                 </select>
+            </label>
+            <label class="jpdb-subtitle-style-toggle-field">
+                <input type="checkbox" data-subtitle-style-setting="subtitleMiningPause" ${settings.subtitleMiningPause ? 'checked' : ''}>
+                <span>${escapeHtml(uiText(language, 'subtitleMiningPause'))}</span>
             </label>
             <label class="jpdb-subtitle-style-toggle-field">
                 <input type="checkbox" data-subtitle-style-setting="subtitleHoverPause" ${settings.subtitleHoverPause ? 'checked' : ''}>

@@ -155,6 +155,12 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Added a clearer hosted Yomu Video empty state for dropping anime and subtitle files together, with desktop and mobile Playwright screenshots.': '動画と字幕ファイルを一緒にドロップするための、よりわかりやすいホスト版Yomu Videoの空の状態を追加し、デスクトップとモバイルのPlaywrightスクリーンショットを追加しました。',
+    'Added "Pause video when mining subtitle" setting option.': '「字幕マイニング時に動画を一時停止」設定オプションを追加しました。',
+    'Added Hiragino/Yu Gothic and System UI font family preset settings options.': 'ヒラギノ・遊ゴシックおよびシステムUIのフォントファミリープリセット設定オプションを追加しました。',
+    'Themed the subtitle style popover panel to match user theme and accent settings instead of being static dark mode.': '字幕スタイルポップオーバーパネルを、固定のダークモードではなく、ユーザーのテーマとアクセントカラー設定に一致するようにテーマ化しました。',
+    'Fixed settings synchronization: updating settings from the subtitle popover now updates the main settings page dialog in real-time.': '設定の同期を修正しました。字幕ポップオーバーから設定を更新すると、メイン設定ダイアログがリアルタイムで更新されるようになります。',
+    'Fixed a stale cache-invalidation issue on Chrome (TK\'s bug) by adding version-specific cache keys for reader CSS.': 'リーダーCSSにバージョン固有のキャッシュキーを追加することで、Chromeにおけるキャッシュ無効化の不具合（TK氏から報告されたバグ）を修正しました。',
     'Appearance': '外観',
     'Browser stores': 'ブラウザストア',
     'Preparing': '準備中',

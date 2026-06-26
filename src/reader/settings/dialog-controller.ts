@@ -794,14 +794,24 @@ export class SettingsDialogController {
         });
         window.addEventListener(SETTINGS_CHANGE_EVENT, event => {
             if (this.currentForm !== form || !form.isConnected) return;
+            const customEvent = event as CustomEvent<{ settings?: ReaderSettings; preview?: boolean }>;
+            const detail = customEvent.detail;
+            if (detail && detail.settings && detail.preview !== true) {
+                this.settings = { ...this.settings, ...detail.settings };
+                syncFormFromSettings(form, this.settings);
+                syncSubtitlePreview(form);
+                syncFontFamilyControls(form);
+            }
             const theme = themeFromSettingsChangeEvent(event);
-            if (!theme) return;
-            const input = form.querySelector<HTMLInputElement>('[data-theme-value]');
-            if (!input || input.value === theme) return;
-            input.value = theme;
-            this.settings.theme = theme;
-            applyThemePreview();
-            this.syncThemeSwitch(form);
+            if (theme) {
+                const input = form.querySelector<HTMLInputElement>('[data-theme-value]');
+                if (input && input.value !== theme) {
+                    input.value = theme;
+                    this.settings.theme = theme;
+                    applyThemePreview();
+                    this.syncThemeSwitch(form);
+                }
+            }
         });
         syncSubtitlePreview(form);
         syncFontFamilyControls(form);
@@ -2138,6 +2148,34 @@ function getReaderStorageExport(value: unknown): unknown {
 
 function publishSettingsChange(settings: Partial<ReaderSettings>, options: { preview?: boolean } = {}): void {
     dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings }));
+}
+
+function syncFormFromSettings(form: HTMLFormElement, settings: ReaderSettings): void {
+    for (const key of Object.keys(settings) as Array<keyof ReaderSettings>) {
+        if (key === 'theme') continue;
+        const val = settings[key];
+        if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+            const elements = form.elements.namedItem(key);
+            if (elements instanceof HTMLInputElement) {
+                if (elements.type === 'checkbox') {
+                    elements.checked = Boolean(val);
+                } else if (elements.type === 'radio') {
+                    elements.checked = elements.value === String(val);
+                } else {
+                    elements.value = String(val);
+                }
+            } else if (elements instanceof RadioNodeList || (elements instanceof NodeList && elements.length > 0)) {
+                const list = elements instanceof RadioNodeList ? Array.from(elements) : Array.from(elements as any as Node[]);
+                for (const node of list) {
+                    if (node instanceof HTMLInputElement && node.type === 'radio') {
+                        node.checked = node.value === String(val);
+                    }
+                }
+            } else if (elements instanceof HTMLSelectElement) {
+                elements.value = String(val);
+            }
+        }
+    }
 }
 
 function themeFromSettingsChangeEvent(event: Event): ReaderSettings['theme'] | undefined {

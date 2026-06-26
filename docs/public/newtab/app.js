@@ -29296,14 +29296,24 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       });
       window.addEventListener(SETTINGS_CHANGE_EVENT, (event) => {
         if (this.currentForm !== form || !form.isConnected) return;
+        const customEvent = event;
+        const detail = customEvent.detail;
+        if (detail && detail.settings && detail.preview !== true) {
+          this.settings = { ...this.settings, ...detail.settings };
+          syncFormFromSettings(form, this.settings);
+          syncSubtitlePreview(form);
+          syncFontFamilyControls(form);
+        }
         const theme = themeFromSettingsChangeEvent(event);
-        if (!theme) return;
-        const input2 = form.querySelector("[data-theme-value]");
-        if (!input2 || input2.value === theme) return;
-        input2.value = theme;
-        this.settings.theme = theme;
-        applyThemePreview();
-        this.syncThemeSwitch(form);
+        if (theme) {
+          const input2 = form.querySelector("[data-theme-value]");
+          if (input2 && input2.value !== theme) {
+            input2.value = theme;
+            this.settings.theme = theme;
+            applyThemePreview();
+            this.syncThemeSwitch(form);
+          }
+        }
       });
       syncSubtitlePreview(form);
       syncFontFamilyControls(form);
@@ -30486,6 +30496,33 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function publishSettingsChange(settings, options = {}) {
     dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings }));
+  }
+  function syncFormFromSettings(form, settings) {
+    for (const key of Object.keys(settings)) {
+      if (key === "theme") continue;
+      const val = settings[key];
+      if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
+        const elements = form.elements.namedItem(key);
+        if (elements instanceof HTMLInputElement) {
+          if (elements.type === "checkbox") {
+            elements.checked = Boolean(val);
+          } else if (elements.type === "radio") {
+            elements.checked = elements.value === String(val);
+          } else {
+            elements.value = String(val);
+          }
+        } else if (elements instanceof RadioNodeList || elements instanceof NodeList && elements.length > 0) {
+          const list = elements instanceof RadioNodeList ? Array.from(elements) : Array.from(elements);
+          for (const node of list) {
+            if (node instanceof HTMLInputElement && node.type === "radio") {
+              node.checked = node.value === String(val);
+            }
+          }
+        } else if (elements instanceof HTMLSelectElement) {
+          elements.value = String(val);
+        }
+      }
+    }
   }
   function themeFromSettingsChangeEvent(event) {
     const theme = event.detail?.settings?.theme;
@@ -37262,7 +37299,7 @@ ${spelling}`);
   const TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
   const SUBTITLE_STYLE_FONT_PRESETS = [
     {
-      value: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      value: DEFAULT_POPUP_FONT_FAMILY,
       labelKey: "fontPresetYomuDefault"
     },
     {
@@ -37270,8 +37307,16 @@ ${spelling}`);
       labelKey: "fontPresetJapaneseSans"
     },
     {
+      value: '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif',
+      labelKey: "fontPresetHiraginoYuGothic"
+    },
+    {
       value: '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif',
       labelKey: "fontPresetJapaneseSerif"
+    },
+    {
+      value: DEFAULT_READER_FONT_FAMILY,
+      labelKey: "fontPresetSystemUi"
     }
   ];
   const SUBTITLE_STYLE_FONT_FAMILY_VALUES = SUBTITLE_STYLE_FONT_PRESETS.map((preset) => preset.value);
@@ -37315,6 +37360,10 @@ ${spelling}`);
                 <select data-subtitle-style-setting="subtitleFontFamily">
                     ${SUBTITLE_STYLE_FONT_PRESETS.map((preset) => renderSubtitleStyleFontOption(preset, settings.subtitleFontFamily, language)).join("")}
                 </select>
+            </label>
+            <label class="jpdb-subtitle-style-toggle-field">
+                <input type="checkbox" data-subtitle-style-setting="subtitleMiningPause" ${settings.subtitleMiningPause ? "checked" : ""}>
+                <span>${escapeHtml$1(uiText(language, "subtitleMiningPause"))}</span>
             </label>
             <label class="jpdb-subtitle-style-toggle-field">
                 <input type="checkbox" data-subtitle-style-setting="subtitleHoverPause" ${settings.subtitleHoverPause ? "checked" : ""}>
@@ -43145,6 +43194,11 @@ ${spelling}`);
         settings.subtitleHoverPause = control.checked;
         return true;
       }
+      if (setting === "subtitleMiningPause" && control instanceof HTMLInputElement) {
+        if (settings.subtitleMiningPause === control.checked) return false;
+        settings.subtitleMiningPause = control.checked;
+        return true;
+      }
       return false;
     }
     handlePointerActivity(event) {
@@ -44283,6 +44337,8 @@ ${spelling}`);
       if (fontSelect && fontSelect.value !== settings.subtitleFontFamily) fontSelect.value = settings.subtitleFontFamily;
       const hoverPause = popover.querySelector('[data-subtitle-style-setting="subtitleHoverPause"]');
       if (hoverPause) hoverPause.checked = settings.subtitleHoverPause;
+      const miningPause = popover.querySelector('[data-subtitle-style-setting="subtitleMiningPause"]');
+      if (miningPause) miningPause.checked = settings.subtitleMiningPause;
     }
     schedulePauseTranscriptPanelSync() {
       if (this.pausePanelSyncScheduled) return;

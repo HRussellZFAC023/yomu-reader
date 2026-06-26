@@ -10331,7 +10331,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   color: var(--jpdb-reader-text);
 }
 .jpdb-subtitle-style-popover {
-  --jpdb-subtitle-style-border: color-mix(in srgb, var(--jpdb-reader-video-text) 18%, transparent);
+  --jpdb-subtitle-style-border: var(--jpdb-reader-border);
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -10342,9 +10342,9 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   padding: 10px;
   border: 1px solid var(--jpdb-subtitle-style-border);
   border-radius: 8px;
-  background: var(--jpdb-reader-video-panel, #1c222b);
-  color: var(--jpdb-reader-video-text);
-  box-shadow: 0 16px 34px var(--jpdb-reader-video-shadow);
+  background: var(--jpdb-reader-surface-2) !important;
+  color: var(--jpdb-reader-text) !important;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(16px);
   pointer-events: auto;
 }
@@ -10352,23 +10352,23 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   display: none;
 }
 .jpdb-subtitle-player .jpdb-subtitle-rail .jpdb-subtitle-style-popover {
-  background: #1c222b !important;
-  background-color: #1c222b !important;
+  background: var(--jpdb-reader-surface-2) !important;
+  background-color: var(--jpdb-reader-surface-2) !important;
 }
 .jpdb-subtitle-style-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px 10px;
   margin: 0;
-  color: var(--jpdb-reader-video-text-muted);
+  color: var(--jpdb-reader-muted);
   font: 700 12px/1.2 var(--jpdb-reader-font);
 }
 .jpdb-subtitle-style-field > span,
 .jpdb-subtitle-style-toggle-field > span {
-  color: var(--jpdb-reader-video-text) !important;
+  color: var(--jpdb-reader-text) !important;
 }
 .jpdb-subtitle-style-field output {
-  color: var(--jpdb-reader-video-text);
+  color: var(--jpdb-reader-text);
   font-variant-numeric: tabular-nums;
 }
 .jpdb-subtitle-style-field input[type="range"] {
@@ -10384,8 +10384,8 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   padding: 0 9px;
   border: 1px solid var(--jpdb-subtitle-style-border);
   border-radius: 7px;
-  background: #111820;
-  color: var(--jpdb-reader-video-text);
+  background: var(--jpdb-reader-surface) !important;
+  color: var(--jpdb-reader-text) !important;
   font: 700 12px/1.2 var(--jpdb-reader-font);
 }
 .jpdb-subtitle-style-toggle-field {
@@ -10394,7 +10394,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   gap: 8px;
   min-height: 34px;
   margin: 0;
-  color: var(--jpdb-reader-video-text);
+  color: var(--jpdb-reader-text);
   font: 700 12px/1.25 var(--jpdb-reader-font);
 }
 .jpdb-subtitle-style-toggle-field input {

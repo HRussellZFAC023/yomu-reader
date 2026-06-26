@@ -67,6 +67,8 @@ const baseSettings = {
     subtitleOverlayVisible: true,
     subtitleSecondaryVisible: true,
     subtitleTranscriptVisible: false,
+    subtitleMiningPause: true,
+    subtitleHoverPause: true,
     subtitlePausePanel: false,
     subtitleTranscriptPlacement: 'right',
     subtitleTranscriptAutoScroll: true,
@@ -486,6 +488,7 @@ async function selectKeyboardWordRange(page, startIndex, endIndex) {
 async function verifyHostedSubtitleFlow(page, baseUrl) {
     await openHostedVideoPlayer(page, baseUrl);
     await assertHostedBrandIcon(page);
+    await assertHostedEmptyState(page, 'desktop');
     await openHostedSettingsFromOverflow(page);
     await assertSubtitleOpenRequiresVideo(page);
     await loadHostedVideoAndSubtitleTogether(page);
@@ -493,6 +496,8 @@ async function verifyHostedSubtitleFlow(page, baseUrl) {
     await assertHostedSubtitleStyleControls(page);
     await assertHostedFullscreenSubtitleOverlay(page);
     await assertHostedManualPanelCloseRestoresPlayer(page);
+    await assertHostedThemeToggleResponsiveWithLoadedSubtitles(page);
+    await assertHostedPausedVideoOcrDoesNotCoverPlayback(page);
     await openHostedVideoPlayer(page, baseUrl);
     await loadHostedVideoAndOpenTracks(page);
     await assertHostedTracksPanel(page);
@@ -505,6 +510,62 @@ async function verifyHostedSubtitleFlow(page, baseUrl) {
 async function openHostedVideoPlayer(page, baseUrl) {
     await page.goto(`${baseUrl}/video-player/index.html`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => Boolean(window.__yomuReaderAppInitialized && document.querySelector('.jpdb-subtitle-player')), { timeout: 6000 });
+}
+
+async function assertHostedEmptyState(page, variant) {
+    const state = await readHostedEmptyState(page);
+    assert(hostedEmptyStateReady(state), `Hosted Yomu Video empty state did not fit the drop-video-plus-subtitles workflow on ${variant}`, state);
+    await page.screenshot({ path: path.join(ARTIFACTS, `feedback-video-empty-${variant}.png`), fullPage: false });
+}
+
+async function readHostedEmptyState(page) {
+    return page.evaluate(() => {
+        const rect = element => {
+            const box = element?.getBoundingClientRect();
+            return box ? {
+                width: box.width,
+                height: box.height,
+                left: box.left,
+                top: box.top,
+                right: box.right,
+                bottom: box.bottom,
+            } : null;
+        };
+        const empty = document.querySelector('[data-empty-open]');
+        const status = document.querySelector('[data-status]');
+        const chips = [...document.querySelectorAll('.empty-file-chip')];
+        const stage = document.querySelector('[data-yomu-video-frame]');
+        const emptyStyle = empty ? getComputedStyle(empty) : null;
+        return {
+            title: document.querySelector('[data-empty-open] strong')?.textContent?.trim() ?? '',
+            status: status?.textContent?.trim() ?? '',
+            chips: chips.map(chip => chip.textContent?.replace(/\s+/g, ' ').trim() ?? ''),
+            emptyRect: rect(empty),
+            statusRect: rect(status),
+            chipRects: chips.map(rect),
+            stageRect: rect(stage),
+            hidden: empty?.hidden === true || emptyStyle?.display === 'none' || emptyStyle?.visibility === 'hidden',
+        };
+    });
+}
+
+function hostedEmptyStateReady(state) {
+    const stage = state.stageRect;
+    const empty = state.emptyRect;
+    if (!stage || !empty) return false;
+    const rects = [state.statusRect, ...state.chipRects];
+    return state.hidden === false
+        && includesText(state.title, 'Drop anime and subtitles')
+        && includesText(state.status, 'Nothing uploads')
+        && state.chips.some(chip => includesText(chip, 'MP4') && includesText(chip, 'MKV'))
+        && state.chips.some(chip => includesText(chip, 'SRT') && includesText(chip, 'ASS'))
+        && empty.width > 180
+        && empty.height > 150
+        && empty.left >= stage.left - 1
+        && empty.top >= stage.top - 1
+        && empty.right <= stage.right + 1
+        && empty.bottom <= stage.bottom + 1
+        && rects.every(rect => rect && rect.width > 0 && rect.height > 0 && rect.left >= empty.left - 1 && rect.right <= empty.right + 1);
 }
 
 async function assertHostedBrandIcon(page) {
@@ -611,6 +672,229 @@ async function assertHostedManualPanelCloseRestoresPlayer(page) {
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-panel-hidden-subtitles.png'), fullPage: false });
 }
 
+async function assertHostedThemeToggleResponsiveWithLoadedSubtitles(page) {
+    const before = await readHostedThemeState(page);
+    await page.locator('[data-theme-toggle]').click({ timeout: 6000 });
+    await page.waitForFunction(previous => {
+        const root = document.documentElement;
+        const changed = root.classList.contains('yomu-page-theme-light') !== previous.light
+            || root.classList.contains('yomu-page-theme-dark') !== previous.dark;
+        const line = document.querySelector('.jpdb-subtitle-lines');
+        return changed && (line?.textContent ?? '').includes('猫を見る');
+    }, before, { timeout: 2000 });
+    const state = await readHostedThemeResponsivenessState(page);
+    assert(hostedThemeToggleResponsive(state), 'Hosted dark-mode toggle became slow or hid subtitles after loading a video/subtitle file', state);
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-theme-toggle.png'), fullPage: false });
+}
+
+async function readHostedThemeState(page) {
+    return page.evaluate(() => ({
+        light: document.documentElement.classList.contains('yomu-page-theme-light'),
+        dark: document.documentElement.classList.contains('yomu-page-theme-dark'),
+    }));
+}
+
+async function readHostedThemeResponsivenessState(page) {
+    return page.evaluate(async () => {
+        const start = performance.now();
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const frameDelayMs = performance.now() - start;
+        const root = document.documentElement;
+        const line = document.querySelector('.jpdb-subtitle-lines');
+        const themeToggle = document.querySelector('[data-theme-toggle]');
+        const overlay = document.querySelector('.jpdb-subtitle-player');
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        return {
+            frameDelayMs,
+            light: root.classList.contains('yomu-page-theme-light'),
+            dark: root.classList.contains('yomu-page-theme-dark'),
+            toggleLabel: themeToggle?.getAttribute('aria-label') ?? '',
+            subtitleOverlay: readHostedSubtitleVisibilityInPage(overlay, line, panel),
+        };
+
+        function readHostedSubtitleVisibilityInPage(rootElement, lineElement, panelElement) {
+            const rect = element => {
+                const box = element?.getBoundingClientRect();
+                return box ? { width: box.width, height: box.height } : null;
+            };
+            const rootStyle = rootElement ? getComputedStyle(rootElement) : null;
+            const lineStyle = lineElement ? getComputedStyle(lineElement) : null;
+            return {
+                panelHidden: panelElement?.hidden ?? null,
+                rootHidden: rootElement?.hidden ?? null,
+                rootHiddenClass: rootElement?.classList.contains('jpdb-subtitle-hidden') ?? null,
+                rootOutOfView: rootElement?.classList.contains('jpdb-subtitle-video-out-of-view') ?? null,
+                rootDisplay: rootStyle?.display ?? null,
+                rootVisibility: rootStyle?.visibility ?? null,
+                lineDisplay: lineStyle?.display ?? null,
+                lineVisibility: lineStyle?.visibility ?? null,
+                lineText: lineElement?.textContent ?? '',
+                rootRect: rect(rootElement),
+                lineRect: rect(lineElement),
+            };
+        }
+    });
+}
+
+function hostedThemeToggleResponsive(state) {
+    return state.frameDelayMs < 1000
+        && state.light !== state.dark
+        && includesText(state.toggleLabel, state.light ? 'Switch to dark theme' : 'Switch to light theme')
+        && hostedSubtitleOverlayVisible(state.subtitleOverlay);
+}
+
+async function assertHostedPausedVideoOcrDoesNotCoverPlayback(page) {
+    await installHostedPausedVideoCaptureStub(page);
+    await dispatchHostedVideoEvent(page, 'pause');
+    await page.waitForSelector('.jpdb-ocr-video-frame', { state: 'attached', timeout: 5000 });
+    await page.waitForSelector('.jpdb-ocr-video-frame-status', { state: 'attached', timeout: 5000 });
+    const state = await readHostedPausedVideoOcrState(page);
+    assert(hostedPausedVideoOcrSafe(state), 'Paused-frame OCR covered Yomu Video playback/subtitles or changed the video timeline', state);
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-paused-ocr.png'), fullPage: false });
+    const resume = page.locator('.jpdb-ocr-video-frame-resume, .jpdb-subtitle-rail [data-action="playback"]').first();
+    await resume.click();
+    await dispatchHostedVideoEvent(page, 'play');
+    await page.waitForFunction(() => !document.querySelector('.jpdb-ocr-video-frame'), null, { timeout: 5000 });
+}
+
+async function installHostedPausedVideoCaptureStub(page) {
+    await page.evaluate(() => {
+        const video = document.querySelector('video');
+        if (!video) throw new Error('Hosted video element missing');
+        if (!window.__yomuHostedPausedOcrCanvasStubsInstalled) {
+            window.__yomuHostedPausedOcrCanvasStubsInstalled = true;
+            const canvas = HTMLCanvasElement.prototype;
+            const context = CanvasRenderingContext2D?.prototype;
+            if (context) Object.defineProperty(context, 'drawImage', { configurable: true, value: () => undefined });
+            Object.defineProperty(canvas, 'toDataURL', {
+                configurable: true,
+                value: () => 'data:image/jpeg;base64,ZmVhdHVyZS1wcmV2aWV3',
+            });
+        }
+        const originalCurrentTime = 42.25;
+        let currentTime = originalCurrentTime;
+        window.__yomuHostedPausedOcrTimeline = { originalCurrentTime, writes: [] };
+        Object.defineProperty(video, 'currentTime', {
+            configurable: true,
+            get: () => currentTime,
+            set: value => {
+                currentTime = Number(value);
+                window.__yomuHostedPausedOcrTimeline.writes.push(currentTime);
+            },
+        });
+        Object.defineProperty(video, 'paused', { configurable: true, value: true });
+        Object.defineProperty(video, 'ended', { configurable: true, value: false });
+        Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
+        Object.defineProperty(video, 'videoWidth', { configurable: true, value: 1280 });
+        Object.defineProperty(video, 'videoHeight', { configurable: true, value: 720 });
+    });
+}
+
+async function readHostedPausedVideoOcrState(page) {
+    return page.evaluate(() => {
+        const rect = element => {
+            const box = element?.getBoundingClientRect();
+            return box ? {
+                width: box.width,
+                height: box.height,
+                left: box.left,
+                top: box.top,
+                right: box.right,
+                bottom: box.bottom,
+            } : null;
+        };
+        const style = element => {
+            const computed = element ? getComputedStyle(element) : null;
+            return computed ? {
+                opacity: Number.parseFloat(computed.opacity) || 0,
+                pointerEvents: computed.pointerEvents,
+                visibility: computed.visibility,
+                display: computed.display,
+            } : null;
+        };
+        const frame = document.querySelector('.jpdb-ocr-video-frame');
+        const status = document.querySelector('.jpdb-ocr-video-frame-status');
+        const resume = document.querySelector('.jpdb-ocr-video-frame-resume');
+        const playback = document.querySelector('.jpdb-subtitle-rail [data-action="playback"]');
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const line = document.querySelector('.jpdb-subtitle-lines');
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        const video = document.querySelector('video');
+        const timeline = window.__yomuHostedPausedOcrTimeline ?? { originalCurrentTime: null, writes: [] };
+        return {
+            frames: document.querySelectorAll('.jpdb-ocr-video-frame').length,
+            statuses: document.querySelectorAll('.jpdb-ocr-video-frame-status').length,
+            resumeButtons: document.querySelectorAll('.jpdb-ocr-video-frame-resume').length,
+            railResumeButtons: document.querySelectorAll('.jpdb-subtitle-rail .jpdb-ocr-video-frame-resume').length,
+            fallbackResumeButtons: document.querySelectorAll('.jpdb-ocr-video-frame-resume-fallback').length,
+            railResumeActive: root?.classList.contains('jpdb-ocr-video-frame-resume-active') ?? false,
+            framePending: frame?.classList.contains('jpdb-ocr-video-frame-pending') ?? false,
+            statusPending: status?.classList.contains('jpdb-ocr-video-frame-pending') ?? false,
+            currentTime: video?.currentTime ?? null,
+            originalCurrentTime: timeline.originalCurrentTime,
+            currentTimeWrites: timeline.writes,
+            frameStyle: style(frame),
+            statusStyle: style(status),
+            resumeStyle: style(resume),
+            playbackStyle: style(playback),
+            frameRect: rect(frame),
+            statusRect: rect(status),
+            resumeRect: rect(resume),
+            playbackRect: rect(playback),
+            playbackLabel: playback?.getAttribute('aria-label') ?? '',
+            videoRect: rect(video),
+            subtitleOverlay: readHostedSubtitleVisibilityInPage(root, line, panel),
+        };
+
+        function readHostedSubtitleVisibilityInPage(rootElement, lineElement, panelElement) {
+            const rootStyle = rootElement ? getComputedStyle(rootElement) : null;
+            const lineStyle = lineElement ? getComputedStyle(lineElement) : null;
+            return {
+                panelHidden: panelElement?.hidden ?? null,
+                rootHidden: rootElement?.hidden ?? null,
+                rootHiddenClass: rootElement?.classList.contains('jpdb-subtitle-hidden') ?? null,
+                rootOutOfView: rootElement?.classList.contains('jpdb-subtitle-video-out-of-view') ?? null,
+                rootDisplay: rootStyle?.display ?? null,
+                rootVisibility: rootStyle?.visibility ?? null,
+                lineDisplay: lineStyle?.display ?? null,
+                lineVisibility: lineStyle?.visibility ?? null,
+                lineText: lineElement?.textContent ?? '',
+                rootRect: rect(rootElement),
+                lineRect: rect(lineElement),
+            };
+        }
+    });
+}
+
+function hostedPausedVideoOcrSafe(state) {
+    const dedicatedResumeControl = state.resumeButtons === 1
+        && state.railResumeButtons === 1
+        && state.fallbackResumeButtons === 0
+        && state.railResumeActive === true
+        && state.resumeStyle?.pointerEvents === 'auto';
+    const existingPlaybackControl = state.resumeButtons === 0
+        && state.railResumeButtons === 0
+        && state.fallbackResumeButtons === 0
+        && includesText(state.playbackLabel, 'Play video')
+        && state.playbackStyle?.display !== 'none'
+        && state.playbackStyle?.visibility !== 'hidden'
+        && state.playbackStyle?.pointerEvents !== 'none'
+        && state.playbackRect?.width > 0
+        && state.playbackRect?.height > 0;
+    return state.frames === 1
+        && state.statuses === 1
+        && (dedicatedResumeControl || existingPlaybackControl)
+        && state.framePending === true
+        && state.statusPending === true
+        && state.frameStyle?.opacity <= 0.01
+        && state.frameStyle?.pointerEvents === 'none'
+        && state.statusStyle?.opacity <= 0.01
+        && state.statusStyle?.pointerEvents === 'none'
+        && state.currentTime === state.originalCurrentTime
+        && state.currentTimeWrites.length === 0
+        && hostedSubtitleOverlayVisible(state.subtitleOverlay);
+}
+
 async function assertHostedSubtitleStyleControls(page) {
     await page.locator('.jpdb-subtitle-rail [data-action="style"]').click();
     await page.waitForSelector('[data-subtitle-style-popover]:not([hidden])', { timeout: 6000 });
@@ -618,12 +902,14 @@ async function assertHostedSubtitleStyleControls(page) {
     await setHostedSubtitleStyleControl(page, 'subtitleBottomOffset', '24');
     await setHostedSubtitleStyleControl(page, 'subtitleBackgroundOpacity', '0.35');
     await setHostedSubtitleStyleFont(page);
+    await page.locator('[data-subtitle-style-setting="subtitleMiningPause"]').setChecked(false);
     await page.locator('[data-subtitle-style-setting="subtitleHoverPause"]').setChecked(false);
     await page.waitForFunction(key => {
         const settings = JSON.parse(localStorage.getItem(key) || '{}');
         return settings.subtitleFontSize === 34
             && settings.subtitleBottomOffset === 24
             && settings.subtitleBackgroundOpacity === 0.35
+            && settings.subtitleMiningPause === false
             && settings.subtitleHoverPause === false;
     }, SETTINGS_KEY, { timeout: 6000 });
     const styleState = await readHostedSubtitleStyleState(page);
@@ -671,6 +957,7 @@ async function readHostedSubtitleStyleState(page) {
                 fontSize: settings.subtitleFontSize,
                 bottomOffset: settings.subtitleBottomOffset,
                 backgroundOpacity: settings.subtitleBackgroundOpacity,
+                miningPause: settings.subtitleMiningPause,
                 hoverPause: settings.subtitleHoverPause,
                 fontFamily: settings.subtitleFontFamily,
             },
@@ -683,6 +970,7 @@ function hostedSubtitleStyleControlsReady(state) {
         && state.popoverOpen
         && state.controlCount >= 5
         && includesText(state.text, 'Subtitle font size')
+        && includesText(state.text, 'Pause video when mining subtitle')
         && includesText(state.text, 'Pause video on subtitle hover')
         && numericPx(state.fontTarget) >= 34
         && state.bottom === '24%'
@@ -692,6 +980,7 @@ function hostedSubtitleStyleControlsReady(state) {
         && state.saved.fontSize === 34
         && state.saved.bottomOffset === 24
         && state.saved.backgroundOpacity === 0.35
+        && state.saved.miningPause === false
         && state.saved.hoverPause === false
         && includesText(state.saved.fontFamily, 'Noto Serif JP');
 }
@@ -702,6 +991,7 @@ function numericPx(value) {
 
 async function verifyHostedSubtitleStyleControlsMobile(page, baseUrl) {
     await openHostedVideoPlayer(page, baseUrl);
+    await assertHostedEmptyState(page, 'mobile');
     await loadHostedVideoAndSubtitleTogether(page);
     await page.locator('.jpdb-subtitle-rail [data-action="style"]').click();
     await page.waitForSelector('[data-subtitle-style-popover]:not([hidden])', { timeout: 6000 });
@@ -1149,6 +1439,26 @@ function hostedOnVideoSubtitleVisible(state) {
         && textRect.height > 0;
 }
 
+function hostedSubtitleOverlayVisible(state) {
+    const rootRect = state.rootRect;
+    const lineRect = state.lineRect;
+    return state.panelHidden === true
+        && state.rootHidden === false
+        && state.rootHiddenClass === false
+        && state.rootOutOfView === false
+        && state.rootDisplay !== 'none'
+        && state.rootVisibility !== 'hidden'
+        && state.lineDisplay !== 'none'
+        && state.lineVisibility !== 'hidden'
+        && includesText(state.lineText, '猫を見る')
+        && Boolean(rootRect)
+        && Boolean(lineRect)
+        && rootRect.width > 0
+        && rootRect.height > 0
+        && lineRect.width > 0
+        && lineRect.height > 0;
+}
+
 async function readHostedPausePanelState(page) {
     const panel = page.locator('.jpdb-subtitle-list').first();
     const [rows, text, hidden, rect, viewport] = await Promise.all([
@@ -1214,8 +1524,12 @@ try {
         artifacts: [
             path.join(ARTIFACTS, 'feedback-settings-font.png'),
             path.join(ARTIFACTS, 'feedback-keyboard-word-nav.png'),
+            path.join(ARTIFACTS, 'feedback-video-empty-desktop.png'),
+            path.join(ARTIFACTS, 'feedback-video-empty-mobile.png'),
             path.join(ARTIFACTS, 'feedback-video-open-with-subtitles.png'),
             path.join(ARTIFACTS, 'feedback-video-panel-hidden-subtitles.png'),
+            path.join(ARTIFACTS, 'feedback-video-theme-toggle.png'),
+            path.join(ARTIFACTS, 'feedback-video-paused-ocr.png'),
             path.join(ARTIFACTS, 'feedback-video-style-controls.png'),
             path.join(ARTIFACTS, 'feedback-video-style-controls-mobile.png'),
             path.join(ARTIFACTS, 'feedback-video-fullscreen-subtitles.png'),

@@ -3016,6 +3016,11 @@ export class SubtitlePlayerController {
             settings.subtitleHoverPause = control.checked;
             return true;
         }
+        if (setting === 'subtitleMiningPause' && control instanceof HTMLInputElement) {
+            if (settings.subtitleMiningPause === control.checked) return false;
+            settings.subtitleMiningPause = control.checked;
+            return true;
+        }
         return false;
     }
 
@@ -4351,6 +4356,8 @@ export class SubtitlePlayerController {
         if (fontSelect && fontSelect.value !== settings.subtitleFontFamily) fontSelect.value = settings.subtitleFontFamily;
         const hoverPause = popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleHoverPause"]');
         if (hoverPause) hoverPause.checked = settings.subtitleHoverPause;
+        const miningPause = popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleMiningPause"]');
+        if (miningPause) miningPause.checked = settings.subtitleMiningPause;
     }
 
     private schedulePauseTranscriptPanelSync(): void {

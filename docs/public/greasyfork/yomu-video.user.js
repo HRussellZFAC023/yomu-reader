@@ -1804,6 +1804,8 @@
   }
   Logger.scope("Settings");
   const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
+  const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
   const AUDIO_SOURCE_TYPE_VALUES = [
     "jpod101",
     "language-pod-101",
@@ -10725,7 +10727,7 @@ ${spelling}`);
   const TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
   const SUBTITLE_STYLE_FONT_PRESETS = [
     {
-      value: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      value: DEFAULT_POPUP_FONT_FAMILY,
       labelKey: "fontPresetYomuDefault"
     },
     {
@@ -10733,8 +10735,16 @@ ${spelling}`);
       labelKey: "fontPresetJapaneseSans"
     },
     {
+      value: '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif',
+      labelKey: "fontPresetHiraginoYuGothic"
+    },
+    {
       value: '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif',
       labelKey: "fontPresetJapaneseSerif"
+    },
+    {
+      value: DEFAULT_READER_FONT_FAMILY,
+      labelKey: "fontPresetSystemUi"
     }
   ];
   const SUBTITLE_STYLE_FONT_FAMILY_VALUES = SUBTITLE_STYLE_FONT_PRESETS.map((preset) => preset.value);
@@ -10778,6 +10788,10 @@ ${spelling}`);
                 <select data-subtitle-style-setting="subtitleFontFamily">
                     ${SUBTITLE_STYLE_FONT_PRESETS.map((preset) => renderSubtitleStyleFontOption(preset, settings.subtitleFontFamily, language)).join("")}
                 </select>
+            </label>
+            <label class="jpdb-subtitle-style-toggle-field">
+                <input type="checkbox" data-subtitle-style-setting="subtitleMiningPause" ${settings.subtitleMiningPause ? "checked" : ""}>
+                <span>${escapeHtml(uiText(language, "subtitleMiningPause"))}</span>
             </label>
             <label class="jpdb-subtitle-style-toggle-field">
                 <input type="checkbox" data-subtitle-style-setting="subtitleHoverPause" ${settings.subtitleHoverPause ? "checked" : ""}>
@@ -16440,6 +16454,11 @@ ${spelling}`);
         settings.subtitleHoverPause = control.checked;
         return true;
       }
+      if (setting === "subtitleMiningPause" && control instanceof HTMLInputElement) {
+        if (settings.subtitleMiningPause === control.checked) return false;
+        settings.subtitleMiningPause = control.checked;
+        return true;
+      }
       return false;
     }
     handlePointerActivity(event) {
@@ -17578,6 +17597,8 @@ ${spelling}`);
       if (fontSelect && fontSelect.value !== settings.subtitleFontFamily) fontSelect.value = settings.subtitleFontFamily;
       const hoverPause = popover.querySelector('[data-subtitle-style-setting="subtitleHoverPause"]');
       if (hoverPause) hoverPause.checked = settings.subtitleHoverPause;
+      const miningPause = popover.querySelector('[data-subtitle-style-setting="subtitleMiningPause"]');
+      if (miningPause) miningPause.checked = settings.subtitleMiningPause;
     }
     schedulePauseTranscriptPanelSync() {
       if (this.pausePanelSyncScheduled) return;

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.124] - 2026-06-26
+
+### Added
+- Added a clearer hosted Yomu Video empty state for dropping anime and subtitle files together, with desktop and mobile Playwright screenshots.
+- Added "Pause video when mining subtitle" setting option.
+- Added Hiragino/Yu Gothic and System UI font family preset settings options.
+
+### Changed
+- Themed the subtitle style popover panel to match user theme and accent settings instead of being static dark mode.
+
+### Fixed
+- Fixed settings synchronization: updating settings from the subtitle popover now updates the main settings page dialog in real-time.
+- Fixed a stale cache-invalidation issue on Chrome (TK's bug) by adding version-specific cache keys for reader CSS.
+
 ## [1.4.123] - 2026-06-26
 
 ### Changed

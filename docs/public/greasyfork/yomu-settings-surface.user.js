@@ -10728,14 +10728,24 @@ recommendedJiten	Jiten頻度です。
       });
       window.addEventListener(SETTINGS_CHANGE_EVENT, (event) => {
         if (this.currentForm !== form || !form.isConnected) return;
+        const customEvent = event;
+        const detail = customEvent.detail;
+        if (detail && detail.settings && detail.preview !== true) {
+          this.settings = { ...this.settings, ...detail.settings };
+          syncFormFromSettings(form, this.settings);
+          syncSubtitlePreview(form);
+          syncFontFamilyControls(form);
+        }
         const theme = themeFromSettingsChangeEvent(event);
-        if (!theme) return;
-        const input2 = form.querySelector("[data-theme-value]");
-        if (!input2 || input2.value === theme) return;
-        input2.value = theme;
-        this.settings.theme = theme;
-        applyThemePreview();
-        this.syncThemeSwitch(form);
+        if (theme) {
+          const input2 = form.querySelector("[data-theme-value]");
+          if (input2 && input2.value !== theme) {
+            input2.value = theme;
+            this.settings.theme = theme;
+            applyThemePreview();
+            this.syncThemeSwitch(form);
+          }
+        }
       });
       syncSubtitlePreview(form);
       syncFontFamilyControls(form);
@@ -11918,6 +11928,33 @@ recommendedJiten	Jiten頻度です。
   }
   function publishSettingsChange(settings, options = {}) {
     dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings }));
+  }
+  function syncFormFromSettings(form, settings) {
+    for (const key of Object.keys(settings)) {
+      if (key === "theme") continue;
+      const val = settings[key];
+      if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
+        const elements = form.elements.namedItem(key);
+        if (elements instanceof HTMLInputElement) {
+          if (elements.type === "checkbox") {
+            elements.checked = Boolean(val);
+          } else if (elements.type === "radio") {
+            elements.checked = elements.value === String(val);
+          } else {
+            elements.value = String(val);
+          }
+        } else if (elements instanceof RadioNodeList || elements instanceof NodeList && elements.length > 0) {
+          const list = elements instanceof RadioNodeList ? Array.from(elements) : Array.from(elements);
+          for (const node of list) {
+            if (node instanceof HTMLInputElement && node.type === "radio") {
+              node.checked = node.value === String(val);
+            }
+          }
+        } else if (elements instanceof HTMLSelectElement) {
+          elements.value = String(val);
+        }
+      }
+    }
   }
   function themeFromSettingsChangeEvent(event) {
     const theme = event.detail?.settings?.theme;

@@ -123,14 +123,19 @@ function shouldUseGreasyForkCompanions(command: string): boolean {
 }
 
 function readerDefines(command: string) {
-    return command === 'build'
-        ? {
+    const defines = {
+        __YOMU_VERSION__: JSON.stringify(pkg.version),
+    };
+    if (command === 'build') {
+        return {
+            ...defines,
             __YOMU_EXTENSION_BUILD__: JSON.stringify(process.env.YOMU_USERSCRIPT_BUNDLE_MODE === 'self-contained'),
             // Public OAuth client id for serverless Google Drive settings sync.
             // No secret, safe to embed; empty leaves the feature inert.
             __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__: JSON.stringify(process.env.YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID ?? ''),
-        }
-        : {};
+        };
+    }
+    return defines;
 }
 
 const readerDevServerConfig = {

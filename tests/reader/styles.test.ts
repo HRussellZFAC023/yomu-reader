@@ -119,7 +119,7 @@ describe('reader stylesheet loading', () => {
 
     it('uses cached full reader CSS when fetch is unavailable', async () => {
         stubGmStorage(new Map([[
-            'yomu:reader-css-cache:v1',
+            `yomu:reader-css-cache:v2:${__YOMU_VERSION__}`,
             FULL_READER_CSS,
         ]]));
 
