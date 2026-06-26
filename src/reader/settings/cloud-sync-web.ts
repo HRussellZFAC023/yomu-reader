@@ -9,12 +9,13 @@ import { requestJson, requestText } from '../network/http';
 // stores a single yomu-settings.json in the Drive appDataFolder (a per-app
 // sandbox the drive.appdata scope grants — it cannot read the rest of Drive).
 //
-// The only deploy-time requirement is a PUBLIC OAuth client id (no secret, no
-// server) baked in via the build define below. With it unset the feature stays
-// inert, so the bundle ships safely before the client id is registered.
-const WEB_OAUTH_CLIENT_ID = typeof __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__ === 'string'
+// Public OAuth client id for browser-only Drive appData sync. There is no
+// secret in the SPA/userscript flow; builds may still override this for forks
+// or local OAuth projects.
+const DEFAULT_WEB_OAUTH_CLIENT_ID = '697885991868-bj7l5ja9vgbgk5i2ojcf5jfnkdg5h47g.apps.googleusercontent.com';
+const WEB_OAUTH_CLIENT_ID = typeof __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__ === 'string' && __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__
     ? __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__
-    : '';
+    : DEFAULT_WEB_OAUTH_CLIENT_ID;
 
 export const CLOUD_SETTINGS_SYNC_ENABLED = Boolean(WEB_OAUTH_CLIENT_ID);
 
@@ -50,6 +51,7 @@ export function cloudSettingsSyncAvailable(): boolean {
     return CLOUD_SETTINGS_SYNC_ENABLED;
 }
 
+// fallow-ignore-next-line unused-export
 export async function uploadCloudSettingsToCloud(settings: ReaderSettings): Promise<CloudSettingsSyncMetadata> {
     requireConfigured();
     const snapshot: CloudSettingsSyncSnapshot = {
@@ -66,6 +68,7 @@ export async function uploadCloudSettingsToCloud(settings: ReaderSettings): Prom
     return { syncedAt: snapshot.syncedAt, fileId: file.id, modifiedTime: file.modifiedTime };
 }
 
+// fallow-ignore-next-line unused-export
 export async function downloadCloudSettingsFromCloud(): Promise<CloudSettingsSyncSnapshot | null> {
     requireConfigured();
     const existing = await findSettingsFile();
@@ -220,26 +223,49 @@ function tokenViaBroker(): Promise<AcquiredToken> {
             reject(new Error('Google Drive settings sync needs a browser window.'));
             return;
         }
+        if (typeof MessageChannel !== 'function') {
+            reject(new Error('Google Drive settings sync needs a browser with secure channel support.'));
+            return;
+        }
+        const state = randomBoundary();
+        const channel = new MessageChannel();
         const brokerUrl = `${OAUTH_BROKER_URL}?origin=${encodeURIComponent(opener.location.origin)}`
-            + `&client_id=${encodeURIComponent(WEB_OAUTH_CLIENT_ID)}`;
+            + `&client_id=${encodeURIComponent(WEB_OAUTH_CLIENT_ID)}`
+            + `&state=${encodeURIComponent(state)}`;
         const popup = opener.open(brokerUrl, 'yomu-drive-oauth', 'width=480,height=640,menubar=no,toolbar=no');
         if (!popup) {
             reject(new Error('Allow pop-ups for this site to sign in to Google Drive.'));
             return;
         }
         let settled = false;
+        let channelTransferred = false;
         const finish = (run: () => void) => {
             if (settled) return;
             settled = true;
-            opener.removeEventListener('message', onMessage);
+            opener.removeEventListener('message', onReadyMessage);
+            try { channel.port1.close(); } catch { /* ignore */ }
+            if (!channelTransferred) {
+                try { channel.port2.close(); } catch { /* ignore */ }
+            }
             opener.clearTimeout(timer);
             opener.clearInterval(closedPoll);
             run();
         };
-        const onMessage = (event: MessageEvent) => {
+        const onReadyMessage = (event: MessageEvent) => {
             if (event.origin !== OAUTH_BROKER_ORIGIN || event.source !== popup) return;
             const data = event.data;
-            if (!isRecord(data) || data.type !== 'yomu-drive-oauth-token') return;
+            if (!isRecord(data) || data.type !== 'yomu-drive-oauth-ready' || data.state !== state) return;
+            if (channelTransferred) return;
+            try {
+                popup.postMessage({ type: 'yomu-drive-oauth-init', state }, OAUTH_BROKER_ORIGIN, [channel.port2]);
+                channelTransferred = true;
+            } catch {
+                finish(() => reject(new Error('Google authorization failed to establish a secure channel.')));
+            }
+        };
+        channel.port1.onmessage = event => {
+            const data = event.data;
+            if (!isRecord(data) || data.type !== 'yomu-drive-oauth-token' || data.state !== state) return;
             if (typeof data.accessToken === 'string' && data.accessToken) {
                 const expiresInSeconds = Number(data.expiresIn) || 3600;
                 finish(() => { try { popup.close(); } catch { /* ignore */ } resolve({ accessToken: data.accessToken as string, expiresInSeconds }); });
@@ -247,7 +273,8 @@ function tokenViaBroker(): Promise<AcquiredToken> {
                 finish(() => { try { popup.close(); } catch { /* ignore */ } reject(new Error(typeof data.error === 'string' ? data.error : 'Google authorization failed.')); });
             }
         };
-        opener.addEventListener('message', onMessage);
+        channel.port1.start();
+        opener.addEventListener('message', onReadyMessage);
         const timer = opener.setTimeout(() => finish(() => { try { popup.close(); } catch { /* ignore */ } reject(new Error('Google authorization timed out.')); }), POPUP_TIMEOUT_MS);
         const closedPoll = opener.setInterval(() => {
             if (popup.closed) finish(() => reject(new Error('Google authorization was cancelled.')));

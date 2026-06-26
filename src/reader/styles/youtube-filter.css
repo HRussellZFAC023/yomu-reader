@@ -327,7 +327,18 @@ html[dark] .jpdb-youtube-channel-shelf,
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
     line-clamp: 1;
+    line-height: 1.2;
     white-space: normal;
+}
+
+.jpdb-youtube-channel-name .jpdb-reader-word.jpdb-reader-has-furi,
+.jpdb-youtube-channel-description .jpdb-reader-word.jpdb-reader-has-furi {
+    line-height: inherit;
+}
+
+.jpdb-youtube-channel-name .jpdb-reader-furi,
+.jpdb-youtube-channel-description .jpdb-reader-furi {
+    line-height: 0.95;
 }
 
 .jpdb-youtube-channel-description br {

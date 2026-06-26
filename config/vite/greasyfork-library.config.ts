@@ -1,6 +1,9 @@
 import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
+const configRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const require = createRequire(import.meta.url);
 const { GREASY_FORK_LIBRARIES, greasyForkLibraryDir } = require('../../scripts/lib/greasyfork-libraries.cjs') as {
     GREASY_FORK_LIBRARIES: Array<{
@@ -19,6 +22,15 @@ if (!library) {
 }
 
 export default defineConfig({
+    define: {
+        __YOMU_EXTENSION_BUILD__: JSON.stringify(false),
+        __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__: JSON.stringify(process.env.YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID ?? ''),
+    },
+    resolve: {
+        alias: {
+            './cloud-sync': path.join(configRoot, 'src', 'reader', 'settings', 'cloud-sync-web.ts'),
+        },
+    },
     build: {
         outDir: `dist/${greasyForkLibraryDir}`,
         emptyOutDir: false,

@@ -52,17 +52,27 @@
       var params = new URLSearchParams(location.search);
       var clientId = params.get('client_id') || '';
       var openerOrigin = params.get('origin') || '';
+      var state = params.get('state') || '';
       var statusEl = document.getElementById('status');
       var retryEl = document.getElementById('retry');
+      var channelPort = null;
+      var readyTimer = null;
+      var started = false;
 
       function setStatus(text, isError) {
         statusEl.textContent = text;
         statusEl.className = isError ? 'status error' : 'status';
       }
 
+      function postReady() {
+        if (!window.opener || !openerOrigin || channelPort) return;
+        try { window.opener.postMessage({ type: 'yomu-drive-oauth-ready', state: state }, openerOrigin); } catch (_) { /* ignore */ }
+      }
+
       function postToOpener(message) {
-        if (!window.opener || !openerOrigin) return;
-        try { window.opener.postMessage(message, openerOrigin); } catch (_) { /* ignore */ }
+        if (!channelPort) return;
+        message.state = state;
+        try { channelPort.postMessage(message); } catch (_) { /* ignore */ }
       }
 
       function fail(reason) {
@@ -80,8 +90,16 @@
         setStatus('This window must be opened by Yomu.', true);
         return;
       }
+      if (!/^[a-z0-9]+$/i.test(state)) {
+        setStatus('This window must be opened by Yomu.', true);
+        return;
+      }
 
       function start() {
+        if (!channelPort) {
+          setStatus('Connecting to Yomu…');
+          return;
+        }
         if (!(window.google && google.accounts && google.accounts.oauth2)) {
           setStatus('Loading Google sign-in…');
           window.setTimeout(start, 200);
@@ -116,10 +134,28 @@
         }
       }
 
+      window.addEventListener('message', function (event) {
+        if (event.source !== window.opener || event.origin !== openerOrigin) return;
+        var data = event.data || {};
+        if (data.type !== 'yomu-drive-oauth-init' || data.state !== state) return;
+        if (!event.ports || !event.ports[0]) {
+          fail('Could not establish a secure authorization channel.');
+          return;
+        }
+        channelPort = event.ports[0];
+        if (readyTimer) window.clearInterval(readyTimer);
+        if (!started) {
+          started = true;
+          start();
+        }
+      });
+
       retryEl.addEventListener('click', start);
       window.addEventListener('beforeunload', function () {
         postToOpener({ type: 'yomu-drive-oauth-token', error: 'Window closed before authorization completed.' });
       });
+      readyTimer = window.setInterval(postReady, 250);
+      postReady();
       start();
     })();
   </script>

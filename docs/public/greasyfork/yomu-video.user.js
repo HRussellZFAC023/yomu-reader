@@ -19028,6 +19028,7 @@ ${spelling}`);
   const YOUTUBE_COLLAPSED_CLASS = "jpdb-youtube-filter-collapsed";
   const YOUTUBE_FILTERED_SELECTOR = `[data-yomu-youtube-filtered="true"],[data-yomu-youtube-pending="true"],.${YOUTUBE_FILTERED_CLASS},.${YOUTUBE_PENDING_CLASS}`;
   const SHELF_SELECTOR = "grid-shelf-view-model,ytd-rich-shelf-renderer,ytd-reel-shelf-renderer,ytd-shelf-renderer,ytm-reel-shelf-renderer";
+  const YOUTUBE_UNRENDERED_SHELF_SLOT_SELECTOR = SHELF_SELECTOR.split(",").flatMap((selector) => [`${selector} ytd-rich-item-renderer`, `${selector} ytm-rich-item-renderer`]).join(",");
   const SHORTS_CARD_SELECTOR = "ytd-reel-item-renderer,ytd-reel-video-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2";
   const VIDEO_CARD_HIDE_TARGET_SELECTOR = `ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer,ytd-grid-video-renderer,ytm-rich-item-renderer,ytm-compact-video-renderer,ytm-video-card-renderer,ytm-video-with-context-renderer,ytm-channel-featured-video-renderer,${SHORTS_CARD_SELECTOR}`;
   const VIDEO_CARD_SELECTOR = `${VIDEO_CARD_HIDE_TARGET_SELECTOR},yt-lockup-view-model`;
@@ -20816,7 +20817,7 @@ ${spelling}`);
     return Array.from(root.querySelectorAll(FILTERABLE_VIDEO_SHELF_SELECTOR)).filter(isFilterableVideoShelf);
   }
   function syncUnrenderedYouTubeShelfSlots(root = document) {
-    root.querySelectorAll("ytd-rich-shelf-renderer ytd-rich-item-renderer").forEach((slot) => {
+    root.querySelectorAll(YOUTUBE_UNRENDERED_SHELF_SLOT_SELECTOR).forEach((slot) => {
       if (slot.classList.contains(YOUTUBE_FILTERED_CLASS) || slot.classList.contains(YOUTUBE_PENDING_CLASS)) {
         slot.classList.remove(YOUTUBE_UNRENDERED_SLOT_CLASS);
         return;

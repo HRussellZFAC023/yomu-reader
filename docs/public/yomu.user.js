@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.130
+// @version 1.4.132
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.130
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.130
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.130
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.130
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.132
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.132
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.132
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.132
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -36604,21 +36604,19 @@ function refreshReaderWordContrast(root = document) {
       neutralWords.push(word);
       continue;
     }
-    const isHovered = word.matches(":hover, :focus");
-    if (hasAnkiAccessibleColor) {
-      if (isHovered && !hasInlineTextColor) {
-        scheduleHoverSettledContrastRefresh(word);
-        continue;
-      }
-    }
-    if (isHovered) {
-      scheduleHoverSettledContrastRefresh(word);
-    }
     const background = cachedPageBackgroundFor(word);
     if (!background) {
       if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
       unknownBackgroundWords.push(word);
       continue;
+    }
+    const isHovered = word.matches(":hover, :focus");
+    if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
+      scheduleHoverSettledContrastRefresh(word);
+      continue;
+    }
+    if (isHovered) {
+      scheduleHoverSettledContrastRefresh(word);
     }
     activeWords.push(word);
     activeBackgrounds.push(background);
@@ -36643,7 +36641,9 @@ function refreshReaderWordContrast(root = document) {
       color: style.color,
       decoration: style.textDecorationColor,
       parentColor: parentStyle.color,
-      furiColor: furiStyle?.color
+      furiColor: furiStyle?.color,
+      hoverColor: style.getPropertyValue("--jpdb-reader-hover"),
+      hovered: word.matches(":hover, :focus")
     };
   });
   neutralWords.forEach((word) => clearContrastVars(word));
@@ -36668,7 +36668,7 @@ function applyWordContrastVars(word, background, m) {
   const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
   const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
   const textSource = passiveWord ? nativeText : sourceText ?? nativeText;
-  const textBackgrounds = preserveHostPaint ? [background.hex] : uniqueHexes([textBackdropHex]);
+  const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
   const furiBackgrounds = [background.hex];
   word.style.setProperty("--jpdb-reader-word-highlight-text", readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
   word.style.setProperty("--jpdb-reader-word-accessible-color", readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
@@ -36682,6 +36682,25 @@ function isPassiveChromeWord(word) {
 }
 function uniqueHexes(colors) {
   return [...new Set(colors)];
+}
+function textBackdropsForMeasurement(m, textBackdropHex) {
+  const hoverBackdrop = hoveredTextBackdropHex(m.hoverColor, textBackdropHex, m.hovered);
+  return uniqueHexes(hoverBackdrop ? [textBackdropHex, hoverBackdrop] : [textBackdropHex]);
+}
+function existingAccessibleColorRemainsReadableOnHover(word, background) {
+  const existingText = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-color"), background.rgba);
+  if (!existingText) return false;
+  const existingHighlight = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-highlight"), background.rgba);
+  const baseBackdrop = existingHighlight ?? background.hex;
+  const hoverBackdrop = hoveredTextBackdropHex(getComputedStyle(word).getPropertyValue("--jpdb-reader-hover"), baseBackdrop, true);
+  return uniqueHexes(hoverBackdrop ? [baseBackdrop, hoverBackdrop] : [baseBackdrop]).every((backdrop) => contrastRatio(existingText, backdrop) >= TEXT_CONTRAST);
+}
+function hoveredTextBackdropHex(hoverColor, textBackdropHex, hovered) {
+  if (!hovered) return null;
+  const hover = cssColorToRgba(hoverColor);
+  const backdrop = cssColorToRgba(textBackdropHex);
+  if (!hover || !backdrop || hover.alpha <= 0) return null;
+  return rgbaToHex(blendRgba(hover, backdrop));
 }
 function resolveAccessibleHighlight(word, background, wordBgColor, preserveHostPaint = false) {
   const colorRgba = cssColorToRgba(wordBgColor);
@@ -37144,7 +37163,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.130"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.132"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],
@@ -41459,8 +41478,15 @@ class ReaderApp {
   }
   isCurrentRenderedWordHover(word, hoverLookupKey, hoverLookupGeneration) {
     if (!this.isCurrentHoverGeneration(hoverLookupGeneration, hoverLookupKey)) return false;
-    const activeMiddlePressLookup = this.pressLookup?.source === "middle" && this.pressLookup.lastWord === word;
-    return this.isRunnableScheduledHoverWord(word, hoverLookupKey) && (activeMiddlePressLookup || this.isWordHoverActive(word) && this.settings.lookupOnHover);
+    const activeWord = this.currentRenderedHoverWord(word);
+    if (!activeWord) return false;
+    const activeMiddlePressLookup = this.pressLookup?.source === "middle" && this.pressLookup.lastWord === activeWord;
+    return this.isRunnableScheduledHoverWord(activeWord, hoverLookupKey) && (activeMiddlePressLookup || this.isWordHoverActive(activeWord) && this.settings.lookupOnHover);
+  }
+  currentRenderedHoverWord(word) {
+    if (word.isConnected) return word;
+    if (!this.reanchorDisconnectedHoverWord(word, {})) return null;
+    return this.activeHoverWord?.isConnected ? this.activeHoverWord : null;
   }
   isCurrentPointerTextHoverResult(candidate, range, hoverLookupGeneration) {
     const hoverLookupKey = `text-result:${this.hoverAnchorId(candidate.anchor)}:${range.start}:${range.end}`;
@@ -42066,13 +42092,26 @@ class ReaderApp {
     void this.enrichPitchWords([token], { urgent: true });
   }
   maybeAutoPlayInitialCard(card, context) {
-    if (!this.shouldAutoPlayInitialCard(card, context)) return;
-    void this.audioActions.playTermAudio(card, {
+    if (context.options.autoPlay === false || !this.isCurrentCardForAutoPlay(context)) return;
+    void this.playInitialCardAudio(card, context);
+  }
+  async playInitialCardAudio(card, context) {
+    const audioCard = await this.resolveInitialCardForAutoAudio(card, context);
+    if (!this.shouldAutoPlayInitialCard(audioCard, context)) return;
+    void this.audioActions.playTermAudio(audioCard, {
       hoverLookupGeneration: context.hoverLookupGeneration,
       userGesture: context.options.userGesture,
       isCurrent: context.trigger === "hover" ? context.isCurrentHoverCard : void 0,
       autoPlay: true
     });
+  }
+  async resolveInitialCardForAutoAudio(card, context) {
+    if (context.trigger !== "hover" || !context.options.skipInitialCardResolution) return card;
+    try {
+      return await this.resolveLookupCardForInitialRender(card);
+    } catch {
+      return card;
+    }
   }
   maybePreloadLookupCardAudio(card, options, anchor) {
     if (!this.canPreloadReaderAudio()) return;

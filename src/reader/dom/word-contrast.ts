@@ -76,21 +76,19 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
             neutralWords.push(word);
             continue;
         }
-        const isHovered = word.matches(':hover, :focus');
-        if (hasAnkiAccessibleColor) {
-            if (isHovered && !hasInlineTextColor) {
-                scheduleHoverSettledContrastRefresh(word);
-                continue;
-            }
-        }
-        if (isHovered) {
-            scheduleHoverSettledContrastRefresh(word);
-        }
         const background = cachedPageBackgroundFor(word);
         if (!background) {
             if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
             unknownBackgroundWords.push(word);
             continue;
+        }
+        const isHovered = word.matches(':hover, :focus');
+        if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
+            scheduleHoverSettledContrastRefresh(word);
+            continue;
+        }
+        if (isHovered) {
+            scheduleHoverSettledContrastRefresh(word);
         }
         activeWords.push(word);
         activeBackgrounds.push(background);
@@ -119,6 +117,8 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
             decoration: style.textDecorationColor,
             parentColor: parentStyle.color,
             furiColor: furiStyle?.color,
+            hoverColor: style.getPropertyValue('--jpdb-reader-hover'),
+            hovered: word.matches(':hover, :focus'),
         };
     });
 
@@ -139,6 +139,8 @@ type WordContrastMeasurement = {
     decoration: string;
     parentColor: string;
     furiColor?: string;
+    hoverColor: string;
+    hovered: boolean;
 };
 
 function applyWordContrastVars(word: HTMLElement, background: PageBackground, m: WordContrastMeasurement): void {
@@ -160,7 +162,7 @@ function applyWordContrastVars(word: HTMLElement, background: PageBackground, m:
     const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
     const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
     const textSource = passiveWord ? nativeText : (sourceText ?? nativeText);
-    const textBackgrounds = preserveHostPaint ? [background.hex] : uniqueHexes([textBackdropHex]);
+    const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
     const furiBackgrounds = [background.hex];
 
     word.style.setProperty('--jpdb-reader-word-highlight-text', readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
@@ -177,6 +179,29 @@ function isPassiveChromeWord(word: HTMLElement): boolean {
 
 function uniqueHexes(colors: string[]): string[] {
     return [...new Set(colors)];
+}
+
+function textBackdropsForMeasurement(m: WordContrastMeasurement, textBackdropHex: string): string[] {
+    const hoverBackdrop = hoveredTextBackdropHex(m.hoverColor, textBackdropHex, m.hovered);
+    return uniqueHexes(hoverBackdrop ? [textBackdropHex, hoverBackdrop] : [textBackdropHex]);
+}
+
+function existingAccessibleColorRemainsReadableOnHover(word: HTMLElement, background: PageBackground): boolean {
+    const existingText = cssColorToHex(word.style.getPropertyValue('--jpdb-reader-word-accessible-color'), background.rgba);
+    if (!existingText) return false;
+    const existingHighlight = cssColorToHex(word.style.getPropertyValue('--jpdb-reader-word-accessible-highlight'), background.rgba);
+    const baseBackdrop = existingHighlight ?? background.hex;
+    const hoverBackdrop = hoveredTextBackdropHex(getComputedStyle(word).getPropertyValue('--jpdb-reader-hover'), baseBackdrop, true);
+    return uniqueHexes(hoverBackdrop ? [baseBackdrop, hoverBackdrop] : [baseBackdrop])
+        .every(backdrop => contrastRatio(existingText, backdrop) >= TEXT_CONTRAST);
+}
+
+function hoveredTextBackdropHex(hoverColor: string, textBackdropHex: string, hovered: boolean): string | null {
+    if (!hovered) return null;
+    const hover = cssColorToRgba(hoverColor);
+    const backdrop = cssColorToRgba(textBackdropHex);
+    if (!hover || !backdrop || hover.alpha <= 0) return null;
+    return rgbaToHex(blendRgba(hover, backdrop));
 }
 
 function resolveAccessibleHighlight(word: HTMLElement, background: PageBackground, wordBgColor: string, preserveHostPaint = false): {
