@@ -437,11 +437,23 @@ async function verifyGenericPassiveStyleContainment(page, baseUrl) {
 
     const state = await readGenericPassiveStyleState(page);
     assert(state.passive === 'true', 'Compact author/name word was not marked passive', state);
-    assert(state.authorColor === state.usernameColor, 'Compact author/name word did not preserve host text color', state);
-    assert(state.authorTextFill === state.usernameColor, 'Compact author/name word did not preserve host text fill color', state);
-    assert(state.authorHighlight === 'transparent', 'Compact author/name word kept an intrusive highlight source', state);
+    assert(state.authorTextFill === state.authorColor, 'Compact author/name word text fill drifted from computed text color', state);
+    assert(readableCssContrastOnPaint(state.authorColor, state.authorPaint, state.authorBackdrop), 'Compact author/name word is not readable on its highlight or host backdrop', state);
+    const authorHasHighlight = !isTransparentCssValue(state.authorHighlight);
+    if (authorHasHighlight) {
+        assert(state.authorBackgroundImage.includes('linear-gradient'), 'Compact author/name word lost its stable highlight backing', state);
+    }
     assert(state.messagePassive !== 'true', 'Chat message prose was incorrectly treated as passive chrome', state);
     assert(state.messageFuri === 'こきょう', 'Chat message prose lost furigana while fixing compact author chrome', state);
+    assert(readableCssContrast(state.messageFuriColor, state.messageBackdrop), 'Chat message furigana is not readable on the host surface', state);
+    await page.locator('[data-style-conflict] .username .jpdb-reader-word').hover();
+    await page.waitForTimeout(150);
+    const hoverState = await readGenericPassiveStyleState(page);
+    if (authorHasHighlight) {
+        assert(hoverState.authorBackgroundImage.includes('linear-gradient'), 'Compact author/name hover removed the highlight backing', hoverState);
+    }
+    assert(hoverState.authorHighlight === state.authorHighlight, 'Compact author/name hover changed highlight source unexpectedly', { before: state, after: hoverState });
+    assert(readableCssContrastOnPaint(hoverState.authorColor, hoverState.authorPaint, hoverState.authorBackdrop), 'Compact author/name hover text is not readable', hoverState);
     await page.locator('[data-style-conflict]').screenshot({ path: path.join(ARTIFACTS, 'feedback-generic-style-containment.png') });
 }
 
@@ -452,14 +464,23 @@ async function readGenericPassiveStyleState(page) {
         const messageWord = document.querySelector('[data-style-conflict] .messageContent .jpdb-reader-word');
         const usernameStyle = username ? getComputedStyle(username) : null;
         const authorStyle = authorWord ? getComputedStyle(authorWord) : null;
+        const messageStyle = messageWord ? getComputedStyle(messageWord) : null;
+        const messageFuri = messageWord?.querySelector('rt.jpdb-reader-furi');
+        const messageFuriStyle = messageFuri ? getComputedStyle(messageFuri) : null;
+        const firstPaint = (value) => String(value).match(/rgba?\([^)]+\)/)?.[0] ?? '';
         return {
             passive: authorWord?.getAttribute('data-jpdb-reader-passive') ?? '',
             authorColor: authorStyle?.color ?? '',
             authorTextFill: authorStyle?.webkitTextFillColor ?? '',
             authorHighlight: authorStyle?.getPropertyValue('--jpdb-reader-word-highlight-source').trim() ?? '',
+            authorBackdrop: authorStyle?.getPropertyValue('--jpdb-reader-highlight-backdrop').trim() ?? '',
+            authorBackgroundImage: authorStyle?.backgroundImage ?? '',
+            authorPaint: firstPaint(authorStyle?.backgroundImage ?? ''),
             usernameColor: usernameStyle?.color ?? '',
             messagePassive: messageWord?.getAttribute('data-jpdb-reader-passive') ?? '',
             messageFuri: messageWord?.querySelector('rt.jpdb-reader-furi')?.textContent?.trim() ?? '',
+            messageBackdrop: messageStyle?.getPropertyValue('--jpdb-reader-highlight-backdrop').trim() ?? '',
+            messageFuriColor: messageFuriStyle?.color ?? '',
         };
     });
 }
@@ -1389,6 +1410,46 @@ function rgbBrightness(value) {
 function rgbAlpha(value) {
     const parts = rgbParts(value);
     return parts.length >= 4 ? parts[3] : parts.length >= 3 ? 1 : 0;
+}
+
+function isTransparentCssValue(value) {
+    const normalized = String(value).trim().toLowerCase();
+    return normalized === '' || normalized === 'transparent' || normalized === '#0000' || normalized === 'rgba(0, 0, 0, 0)';
+}
+
+function readableCssContrast(foreground, background, target = 4.5) {
+    const fg = rgbParts(foreground).slice(0, 3);
+    const bg = rgbParts(background).slice(0, 3);
+    if (fg.length < 3 || bg.length < 3) return false;
+    return contrastRatioFromRgb(fg, bg) >= target;
+}
+
+function readableCssContrastOnPaint(foreground, paint, backdrop, target = 4.5) {
+    return readableCssContrast(foreground, effectivePaintCss(paint, backdrop), target);
+}
+
+function effectivePaintCss(paint, backdrop) {
+    const paintParts = rgbParts(paint);
+    const backdropParts = rgbParts(backdrop);
+    if (paintParts.length < 3) return backdrop;
+    if (paintParts.length < 4 || paintParts[3] >= 1 || backdropParts.length < 3) return paint;
+    const alpha = paintParts[3];
+    const blended = paintParts.slice(0, 3).map((channel, index) => Math.round(channel * alpha + backdropParts[index] * (1 - alpha)));
+    return `rgb(${blended[0]}, ${blended[1]}, ${blended[2]})`;
+}
+
+function contrastRatioFromRgb(a, b) {
+    const lighter = Math.max(relativeLuminance(a), relativeLuminance(b));
+    const darker = Math.min(relativeLuminance(a), relativeLuminance(b));
+    return (lighter + 0.05) / (darker + 0.05);
+}
+
+function relativeLuminance(parts) {
+    const [r, g, b] = parts.map(channel => {
+        const value = channel / 255;
+        return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
 async function readHostedVideoAndSubtitleTogetherState(page) {

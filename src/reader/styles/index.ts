@@ -65,7 +65,7 @@ function criticalChannelCss(): string {
     return [
         '.jpdb-reader-word-highlight-status .jpdb-reader-word{--yh:var(--hs,#0000)}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{--yh:var(--h1,#0000)}.jpdb-reader-word-highlight-anki .jpdb-reader-word{--yh:var(--ah,#0000)}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{--yh:var(--h2,#0000)}',
         ':is(.jpdb-reader-word-highlight-status,.jpdb-reader-word-highlight-jpdb,.jpdb-reader-word-highlight-anki,.jpdb-reader-word-highlight-pitch) .jpdb-reader-word{background:linear-gradient(var(--yh),var(--yh)) center/var(--yz) 100% no-repeat!important}',
-        '.jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}',
+        ':is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror,[data-jpdb-reader-passive-chrome=true]) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}',
         '.jpdb-reader-word-underline-status .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-anki .jpdb-reader-word{--yu:var(--ac,#0000)}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--yu:var(--d2,#0000)}',
         '.jpdb-reader-word-text-status .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-jpdb .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-anki .jpdb-reader-word{--yt:var(--ar,var(--ac,currentColor))}.jpdb-reader-word-text-pitch .jpdb-reader-word{--yt:var(--c2,currentColor)}',
         ':is(.jpdb-reader-word-text-status,.jpdb-reader-word-text-jpdb,.jpdb-reader-word-text-anki,.jpdb-reader-word-text-pitch) .jpdb-reader-word{color:var(--yt,currentColor)!important;-webkit-text-fill-color:var(--yt,currentColor)}',
@@ -192,7 +192,7 @@ export const CRITICAL_READER_CSS = `
   border-radius: 999px;
   background: var(--jpdb-reader-faint, #687384);
 }
-.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}.jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor;--yh:#0000}
+.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}.jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor}:is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror,[data-jpdb-reader-passive-chrome=true]) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}
 .jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,#0000);pointer-events:none}
 ${criticalWordCss()}
 `.trim();

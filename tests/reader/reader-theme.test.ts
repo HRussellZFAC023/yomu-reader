@@ -261,7 +261,7 @@ describe('reader theme', () => {
     it('keeps passive UI scan words on the host control text color', () => {
         document.body.innerHTML = `
             <p style="background: rgb(24, 27, 32);">
-                <a style="background: rgb(55, 108, 80); color: rgb(255, 255, 255);">
+                <a role="button" style="background: rgb(55, 108, 80); color: rgb(255, 255, 255);">
                     <span class="jpdb-reader-word jpdb-redundant jpdb-reader-scan-word jpdb-reader-passive-word jpdb-pitch-atamadaka" style="background: rgb(55, 108, 80); color: rgb(0, 0, 0); text-decoration-color: rgb(123, 216, 143);">
                         <ruby>よ<rt class="jpdb-reader-furi">よ</rt></ruby>む
                     </span>
@@ -287,7 +287,7 @@ describe('reader theme', () => {
         // (#25573d) instead, keeping the text white.
         document.body.innerHTML = `
             <p style="background: rgb(24, 27, 32);">
-                <a style="background: rgb(37, 87, 61); color: rgb(255, 255, 255);">
+                <a role="button" style="background: rgb(37, 87, 61); color: rgb(255, 255, 255);">
                     <span class="jpdb-reader-word jpdb-redundant jpdb-reader-scan-word jpdb-reader-passive-word jpdb-pitch-atamadaka" style="background: rgb(68, 133, 91); color: rgb(255, 255, 255); text-decoration-color: rgb(123, 216, 143);">
                         <ruby>よ<rt class="jpdb-reader-furi" style="color: rgb(255, 255, 255);">よ</rt></ruby>む
                     </span>
@@ -304,6 +304,43 @@ describe('reader theme', () => {
         expect(text).toBe('#ffffff');
         expect(word.style.getPropertyValue('--jpdb-reader-word-highlight-text')).toBe('#ffffff');
         expect(furiText).toBe('#ffffff');
+    });
+
+    it('infers dark transparent host surfaces from light native text instead of assuming a white page', () => {
+        document.documentElement.style.colorScheme = 'dark';
+        document.body.innerHTML = `
+            <section style="color: rgb(242, 243, 245);">
+                <span class="username">
+                    Canna<span class="jpdb-reader-word jpdb-known jpdb-reader-scan-word jpdb-reader-passive-word" style="color: rgb(0, 0, 0);">波蘭</span>
+                </span>
+            </section>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        refreshReaderWordContrastForWord(word);
+
+        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        expect(word.style.getPropertyValue('--jpdb-reader-highlight-backdrop')).toBe('rgb(24, 27, 32)');
+        expect(text).toBe('#f2f3f5');
+        expect(contrastRatio(text, '#181b20')).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('keeps passive content highlights readable while keeping furigana readable on the page surface', () => {
+        document.body.innerHTML = `
+            <p style="background: rgb(24, 27, 32); color: rgb(242, 243, 245);">
+                <span class="jpdb-reader-word jpdb-known jpdb-reader-scan-word jpdb-reader-passive-word" style="background: rgb(236, 244, 255); color: rgb(242, 243, 245);">
+                    <ruby><span class="jpdb-reader-ruby-base">波蘭</span><rt class="jpdb-reader-furi" style="color: rgb(242, 243, 245);">ぽーらん</rt></ruby>
+                </span>
+            </p>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        refreshReaderWordContrastForWord(word);
+
+        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        const furiText = word.style.getPropertyValue('--jpdb-reader-furi-accessible-color');
+        expect(contrastRatio(text, '#ecf4ff')).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(furiText, '#181b20')).toBeGreaterThanOrEqual(4.5);
     });
 
     it('keeps generated furigana readable without changing native page text', () => {
@@ -791,9 +828,10 @@ describe('reader theme', () => {
         const normalizedCss = READER_WORD_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-paint: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) );');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none; cursor: inherit; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; cursor: inherit; }');
+        expect(normalizedCss).toContain(':is(button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none; }');
         expect(normalizedCss).toContain(') .jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; color: var(--jpdb-reader-word-accessible-color, currentColor) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor); }');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word:hover, .jpdb-reader-word.jpdb-reader-passive-word:focus');
+        expect(normalizedCss).not.toContain('.jpdb-reader-word.jpdb-reader-passive-word:hover, .jpdb-reader-word.jpdb-reader-passive-word:focus');
         expect(normalizedCss).toContain('background-image: none !important; box-shadow: none;');
         expect(normalizedCss).toContain('background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;');
         expect(normalizedCss).toContain('background-size: var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;');

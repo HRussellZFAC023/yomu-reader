@@ -1,5 +1,5 @@
 import { CORE_COLOR_TOKENS, PAGE_WORD_COLOR_TOKENS } from '../theme/color-tokens';
-import { blendRgba, contrastRatio, cssColorToHex, cssColorToRgba, mixHex, readableOn, rgbaToHex, type RgbaColor } from '../theme/color-utils';
+import { blendRgba, contrastRatio, cssColorToHex, cssColorToRgba, mixHex, readableOn, readableOnAll, rgbaToHex, type RgbaColor } from '../theme/color-utils';
 import { RENDERED_WORD_CONTRAST_VARS, RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW } from './rendered-word-contrast-vars';
 
 const PAGE_WORD_SELECTOR = '.jpdb-reader-word';
@@ -7,6 +7,8 @@ const YOMU_SURFACE_SELECTOR = '[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-s
 const TEXT_CONTRAST = 4.5;
 const DECORATION_CONTRAST = 3;
 const HIGHLIGHT_CONTRAST = 1.45;
+const TRANSPARENT_DARK_PAGE_FALLBACK = '#181b20';
+const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
 const COLORED_READER_WORD_CLASSES = new Set([
     'jpdb-new',
     'jpdb-in-deck',
@@ -144,28 +146,37 @@ function applyWordContrastVars(word: HTMLElement, background: PageBackground, m:
     word.style.setProperty('--jpdb-reader-highlight-backdrop', background.css);
     word.style.removeProperty('--jpdb-reader-word-contrast-shadow');
 
-    const preserveHostPaint = word.classList.contains('jpdb-reader-passive-word');
+    const passiveWord = word.classList.contains('jpdb-reader-passive-word');
+    const preserveHostPaint = isPassiveChromeWord(word);
     const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor, preserveHostPaint);
 
-    // Passive words keep the host's own paint/tint, so their label text sits on the
-    // host background, not on our preserved highlight tint. Measuring text contrast
-    // against the subtle tint can flip a host's near-passing white label all the way
-    // to black on a mid-tone control (the green "Install よむ" button); evaluate text
-    // against the host background so the word keeps the surrounding label's color.
+    // Compact passive chrome keeps the host's own paint/tint, so its label text
+    // sits on the host background, not on a preserved highlight tint. Passive
+    // prose/links still keep Yomu highlights and must contrast against them.
     const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
 
     const sourceText = cssColorToHex(m.color, accessibleRgba);
     const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(textBackdropHex);
     const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
     const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
-    const textSource = word.classList.contains('jpdb-reader-passive-word') ? nativeText : (sourceText ?? nativeText);
+    const textSource = passiveWord ? nativeText : (sourceText ?? nativeText);
+    const textBackgrounds = preserveHostPaint ? [background.hex] : uniqueHexes([textBackdropHex]);
+    const furiBackgrounds = [background.hex];
 
-    word.style.setProperty('--jpdb-reader-word-highlight-text', readableOn(nativeText, textBackdropHex, TEXT_CONTRAST));
-    word.style.setProperty('--jpdb-reader-word-accessible-color', readableOn(textSource, textBackdropHex, TEXT_CONTRAST));
-    if (furiText) word.style.setProperty('--jpdb-reader-furi-accessible-color', readableOn(furiText, textBackdropHex, TEXT_CONTRAST));
+    word.style.setProperty('--jpdb-reader-word-highlight-text', readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
+    word.style.setProperty('--jpdb-reader-word-accessible-color', readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
+    if (furiText) word.style.setProperty('--jpdb-reader-furi-accessible-color', readableOnAll(furiText, furiBackgrounds, TEXT_CONTRAST));
     else word.style.removeProperty('--jpdb-reader-furi-accessible-color');
     if (decoration) word.style.setProperty('--jpdb-reader-word-accessible-underline', readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
     else word.style.removeProperty('--jpdb-reader-word-accessible-underline');
+}
+
+function isPassiveChromeWord(word: HTMLElement): boolean {
+    return word.classList.contains('jpdb-reader-passive-word') && Boolean(word.closest(PASSIVE_CHROME_SELECTOR));
+}
+
+function uniqueHexes(colors: string[]): string[] {
+    return [...new Set(colors)];
 }
 
 function resolveAccessibleHighlight(word: HTMLElement, background: PageBackground, wordBgColor: string, preserveHostPaint = false): {
@@ -238,7 +249,33 @@ function pageBackgroundFor(word: HTMLElement): PageBackground | null {
         rgba = blendRgba(color, rgba);
         found = true;
     }
-    if (!found && hasImageBackdrop) return null;
+    if (!found) {
+        if (hasImageBackdrop) return null;
+        return inferredTransparentPageBackground(word);
+    }
+    return pageBackgroundFromRgba(rgba);
+}
+
+function inferredTransparentPageBackground(word: HTMLElement): PageBackground {
+    const style = getComputedStyle(word.parentElement ?? word);
+    const rootStyle = getComputedStyle(document.documentElement);
+    const bodyStyle = getComputedStyle(document.body);
+    const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
+    if (colorScheme.includes('dark')) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
+    const pageTextColors = [bodyStyle.color, rootStyle.color]
+        .map(color => cssColorToHex(color))
+        .filter((color): color is string => Boolean(color));
+    if (pageTextColors.some(color => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
+        return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
+    }
+    return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
+}
+
+function pageBackgroundFromCss(color: string): PageBackground {
+    return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
+}
+
+function pageBackgroundFromRgba(rgba: RgbaColor): PageBackground {
     const hex = rgbaToHex(rgba);
     return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
 }

@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Kept compact host UI labels such as author names, usernames, metadata, and headers passive so Yomu annotations preserve the site's native text color and avoid intrusive highlight fills, while normal chat/message prose still receives ruby.
+- Kept compact host UI labels such as author names, usernames, metadata, and headers passive without making dark-site annotations unreadable; passive content highlights now remain stable on hover, transparent dark app shells no longer get treated as white pages, and normal chat/message prose still receives ruby.
 
 ## [1.4.126] - 2026-06-26
 

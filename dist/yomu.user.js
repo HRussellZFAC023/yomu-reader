@@ -36542,6 +36542,8 @@ const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-s
 const TEXT_CONTRAST = 4.5;
 const DECORATION_CONTRAST = 3;
 const HIGHLIGHT_CONTRAST = 1.45;
+const TRANSPARENT_DARK_PAGE_FALLBACK = "#181b20";
+const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
 const COLORED_READER_WORD_CLASSES = new Set([
   "jpdb-new",
   "jpdb-in-deck",
@@ -36652,20 +36654,29 @@ function applyWordContrastVars(word, background, m) {
   word.style.setProperty("--jpdb-reader-page-bg", background.css);
   word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
   word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
-  const preserveHostPaint = word.classList.contains("jpdb-reader-passive-word");
+  const passiveWord = word.classList.contains("jpdb-reader-passive-word");
+  const preserveHostPaint = isPassiveChromeWord(word);
   const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor, preserveHostPaint);
   const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
   const sourceText = cssColorToHex(m.color, accessibleRgba);
   const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(textBackdropHex);
   const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
   const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
-  const textSource = word.classList.contains("jpdb-reader-passive-word") ? nativeText : sourceText ?? nativeText;
-  word.style.setProperty("--jpdb-reader-word-highlight-text", readableOn(nativeText, textBackdropHex, TEXT_CONTRAST));
-  word.style.setProperty("--jpdb-reader-word-accessible-color", readableOn(textSource, textBackdropHex, TEXT_CONTRAST));
-  if (furiText) word.style.setProperty("--jpdb-reader-furi-accessible-color", readableOn(furiText, textBackdropHex, TEXT_CONTRAST));
+  const textSource = passiveWord ? nativeText : sourceText ?? nativeText;
+  const textBackgrounds = preserveHostPaint ? [background.hex] : uniqueHexes([textBackdropHex]);
+  const furiBackgrounds = [background.hex];
+  word.style.setProperty("--jpdb-reader-word-highlight-text", readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
+  word.style.setProperty("--jpdb-reader-word-accessible-color", readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
+  if (furiText) word.style.setProperty("--jpdb-reader-furi-accessible-color", readableOnAll(furiText, furiBackgrounds, TEXT_CONTRAST));
   else word.style.removeProperty("--jpdb-reader-furi-accessible-color");
   if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
   else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
+}
+function isPassiveChromeWord(word) {
+  return word.classList.contains("jpdb-reader-passive-word") && Boolean(word.closest(PASSIVE_CHROME_SELECTOR));
+}
+function uniqueHexes(colors) {
+  return [...new Set(colors)];
 }
 function resolveAccessibleHighlight(word, background, wordBgColor, preserveHostPaint = false) {
   const colorRgba = cssColorToRgba(wordBgColor);
@@ -36723,7 +36734,28 @@ function pageBackgroundFor(word) {
     rgba = blendRgba(color, rgba);
     found = true;
   }
-  if (!found && hasImageBackdrop) return null;
+  if (!found) {
+    if (hasImageBackdrop) return null;
+    return inferredTransparentPageBackground(word);
+  }
+  return pageBackgroundFromRgba(rgba);
+}
+function inferredTransparentPageBackground(word) {
+  const style = getComputedStyle(word.parentElement ?? word);
+  const rootStyle = getComputedStyle(document.documentElement);
+  const bodyStyle = getComputedStyle(document.body);
+  const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
+  if (colorScheme.includes("dark")) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
+  const pageTextColors = [bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
+  if (pageTextColors.some((color) => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
+    return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
+  }
+  return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
+}
+function pageBackgroundFromCss(color) {
+  return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
+}
+function pageBackgroundFromRgba(rgba) {
   const hex = rgbaToHex(rgba);
   return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
 }
@@ -37154,7 +37186,7 @@ function criticalChannelCss() {
   return [
     ".jpdb-reader-word-highlight-status .jpdb-reader-word{--yh:var(--hs,#0000)}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{--yh:var(--h1,#0000)}.jpdb-reader-word-highlight-anki .jpdb-reader-word{--yh:var(--ah,#0000)}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{--yh:var(--h2,#0000)}",
     ":is(.jpdb-reader-word-highlight-status,.jpdb-reader-word-highlight-jpdb,.jpdb-reader-word-highlight-anki,.jpdb-reader-word-highlight-pitch) .jpdb-reader-word{background:linear-gradient(var(--yh),var(--yh)) center/var(--yz) 100% no-repeat!important}",
-    ".jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}",
+    ":is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror,[data-jpdb-reader-passive-chrome=true]) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}",
     ".jpdb-reader-word-underline-status .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-anki .jpdb-reader-word{--yu:var(--ac,#0000)}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--yu:var(--d2,#0000)}",
     ".jpdb-reader-word-text-status .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-jpdb .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-anki .jpdb-reader-word{--yt:var(--ar,var(--ac,currentColor))}.jpdb-reader-word-text-pitch .jpdb-reader-word{--yt:var(--c2,currentColor)}",
     ":is(.jpdb-reader-word-text-status,.jpdb-reader-word-text-jpdb,.jpdb-reader-word-text-anki,.jpdb-reader-word-text-pitch) .jpdb-reader-word{color:var(--yt,currentColor)!important;-webkit-text-fill-color:var(--yt,currentColor)}",
@@ -37280,7 +37312,7 @@ height: 5px;
 border-radius: 999px;
 background: var(--jpdb-reader-faint, #687384);
 }
-.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}.jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor;--yh:#0000}
+.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}.jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor}:is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror,[data-jpdb-reader-passive-chrome=true]) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}
 .jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,#0000);pointer-events:none}
 ${criticalWordCss()}
 `.trim();

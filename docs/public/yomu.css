@@ -531,9 +531,13 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 .jpdb-reader-word.jpdb-reader-passive-word {
   --jpdb-reader-word-color-source: currentColor;
+  cursor: inherit;
+}
+
+:is(button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"])
+  .jpdb-reader-word.jpdb-reader-passive-word {
   --jpdb-reader-word-highlight-source: transparent;
   --jpdb-reader-word-highlight-shadow-source: none;
-  cursor: inherit;
 }
 
 /* Touch reading without a stylus (Canna feedback): manga text boxes pack small,
@@ -591,10 +595,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   outline: none;
 }
 
-:is(button, [role="button"], [role="tab"], summary, label) .jpdb-reader-word.jpdb-reader-passive-word:hover,
-:is(button, [role="button"], [role="tab"], summary, label) .jpdb-reader-word.jpdb-reader-passive-word:focus,
-.jpdb-reader-word.jpdb-reader-passive-word:hover,
-.jpdb-reader-word.jpdb-reader-passive-word:focus,
+:is(button, [role="button"], [role="tab"], summary, label, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:hover,
+:is(button, [role="button"], [role="tab"], summary, label, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:focus,
 .jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:hover,
 .jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:focus {
   background-image: none !important;
