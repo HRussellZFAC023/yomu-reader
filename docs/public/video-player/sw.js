@@ -1,3 +1,4 @@
+// fallow-ignore-file unused-file
 const CACHE_NAME = 'yomu-video-player-v1';
 const SHELL = [
   './',
