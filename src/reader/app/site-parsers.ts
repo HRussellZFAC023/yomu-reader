@@ -339,6 +339,7 @@ const YOMU_PDF_READER_EXCLUDE = [
     '.textLayer .endOfContent',
     '.textLayer span[role="img"]',
 ].join(',');
+const YOMU_PDF_READER_MIN_TEXT_LENGTH = 8;
 const YOUTUBE_CHROME_ROOTS = [
     'yt-chip-cloud-chip-renderer button',
     'yt-chip-cloud-chip-renderer [role="tab"]',
@@ -954,8 +955,51 @@ export function siteProvidesNativeTextLayer(href = window.location.href): boolea
     return getMatchingSiteParsers(href).some(profile => {
         if (!profile.providesTextLayer) return false;
         if (profile.id === 'mokuro-parser') return mokuroDisplayOcrEnabled();
+        if (profile.id === 'yomu-pdf-reader-parser') return yomuPdfReaderProvidesNativeTextLayer();
         return true;
     });
+}
+
+function yomuPdfReaderProvidesNativeTextLayer(): boolean {
+    const pages = Array.from(document.querySelectorAll<HTMLElement>('.pdf-page'));
+    if (!pages.length) return true;
+    const visiblePages = pages.filter(isVisiblePdfReaderPage);
+    if (!visiblePages.length) return true;
+    if (visiblePages.some(isScannedPdfReaderPage)) return false;
+    return visiblePages.some(page => isTextPdfReaderPage(page) || isPendingPdfReaderPage(page));
+}
+
+function isScannedPdfReaderPage(page: HTMLElement): boolean {
+    return page.dataset.pdfText === 'scanned'
+        || page.dataset.yomuCanvasOcr === 'on'
+        || page.classList.contains('scanned');
+}
+
+function isTextPdfReaderPage(page: HTMLElement): boolean {
+    if (page.dataset.pdfText === 'text') return true;
+    const textLayer = page.querySelector<HTMLElement>('.textLayer');
+    if (!textLayer || textLayer.hidden || textLayer.getAttribute('aria-hidden') === 'true') return false;
+    return compactText(textLayer.textContent ?? '').length >= YOMU_PDF_READER_MIN_TEXT_LENGTH;
+}
+
+function isPendingPdfReaderPage(page: HTMLElement): boolean {
+    return !page.dataset.pdfText || page.dataset.pdfText === 'pending';
+}
+
+function isVisiblePdfReaderPage(page: HTMLElement): boolean {
+    const rect = page.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
+    return rect.width > 0
+        && rect.height > 0
+        && rect.bottom >= 0
+        && rect.right >= 0
+        && rect.top <= viewportHeight
+        && rect.left <= viewportWidth;
+}
+
+function compactText(value: string): string {
+    return value.replace(/\s+/g, '');
 }
 
 /**

@@ -177,6 +177,32 @@ describe('canvas readers (BookWalker)', () => {
         expect(canvasReaderPageSignature()).not.toBe(beforeSignature);
     });
 
+    it('keeps vertically stacked visible BookWalker pages instead of collapsing to one currentScreen', () => {
+        document.body.innerHTML = `
+            <div id="renderer">
+                <div id="viewport0" class="currentScreen"><canvas width="1600" height="2260"></canvas></div>
+                <div id="viewport1"><canvas width="1600" height="2260"></canvas></div>
+            </div>
+            <span id="pageSliderCounter">1/13</span>`;
+        const canvases = [...document.querySelectorAll<HTMLCanvasElement>('canvas')];
+        canvases[0]!.getBoundingClientRect = () => new DOMRect(120, 24, 420, 594);
+        canvases[1]!.getBoundingClientRect = () => new DOMRect(120, 650, 420, 594);
+
+        const surfaces = collectCanvasReaderSurfaces('viewer.bookwalker.jp');
+
+        expect(surfaces).toEqual(canvases);
+    });
+
+    it('collects explicit scanned PDF canvas OCR opt-in surfaces on generic hosts', () => {
+        document.body.innerHTML = `
+            <section class="pdf-page" data-yomu-canvas-ocr="on">
+                <canvas width="595" height="842" data-yomu-canvas-ocr="on"></canvas>
+            </section>`;
+        const canvas = document.querySelector<HTMLCanvasElement>('canvas')!;
+
+        expect(collectCanvasReaderSurfaces('hrussellzfac023.github.io')).toEqual([canvas]);
+    });
+
     it('does not select both buffers if .currentScreen sits on a shared ancestor (#renderer)', () => {
         // Hardening: a future DOM that marked the shared #renderer ancestor with
         // .currentScreen must NOT match both viewport canvases via closest().

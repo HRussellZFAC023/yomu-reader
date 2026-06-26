@@ -122,6 +122,7 @@ const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
     ocrEnabled: true,
     ocrVideoPauseFrames: true,
     ocrProvider: 'google-lens',
+    ocrOverlayTheme: 'auto',
 } as const;
 const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: 'ファントムハイヴ', spelling: 'ファントムハイヴ', reading: 'ファントムハイヴ', pitchPosition: 1 },
@@ -155,6 +156,10 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'BookWalker canvas OCR now supports both page movement directions, retries manual taps when WebKit only delivers touchstart, and clears stale page captures after turns, reloads, or viewer signature changes.': 'BookWalkerのキャンバスOCRが両方のページ移動方向に対応し、WebKitでtouchstartだけが届く手動タップも再試行し、ページめくり、再読み込み、ビューワー署名の変化後に古いページキャプチャを消すようになりました。',
+    'Reduced BookWalker OCR churn and moved translation/status overlays away from the bottom edge so page text remains tappable and visible near the end of the viewport.': 'BookWalkerのOCR再処理の揺れを減らし、翻訳／ステータスのオーバーレイを下端から離したため、ビューポート下部付近のページ本文もタップしやすく見やすいままになります。',
+    'Made OCR overlays easier to read on scanned and dark pages with a softer status pill, stronger dark-mode highlight contrast, and a setting to force light, dark, or app-matched overlay styling.': 'スキャンページやダークページでもOCRオーバーレイを読みやすくしました。ステータスピルを控えめにし、ダークモードのハイライトコントラストを強め、ライト／ダーク／アプリ連動のオーバーレイ表示を選べる設定を追加しています。',
+    'Centered the Yomu PDF empty drop area, distinguished text PDFs from scanned PDFs, used parsed PDF text where available, and limited OCR canvas overlays to scanned pages so text PDFs stay readable.': 'Yomu PDFの空のドロップ領域を中央に整え、テキストPDFとスキャンPDFを区別するようにしました。利用できる場合はPDFの解析済みテキストを使い、OCRキャンバスのオーバーレイはスキャンページに限定するため、テキストPDFは読みやすいままです。',
     'Made Yomu Study, Yomu Video, and Yomu PDF installable with web app manifests and offline service-worker shells.': 'Yomu Study、Yomu Video、Yomu PDFをWebアプリマニフェストとオフライン用サービスワーカーシェルでインストール可能にしました。',
     'Documented the Cloudflare/Wrangler blocker for a default public Ultimate audio source, including the safe deployment plan and free-tier limits to check before opting in.': '既定の公開Ultimate音声ソースに関するCloudflare/Wrangler上のブロッカーを文書化しました。安全なデプロイ計画と、任意で有効化する前に確認すべき無料枠の制限も含めています。',
     'Improved compatibility with modern anime and app-style sites by treating Vite/Svelte/Astro-style shells as non-destructive scan targets and recognizing more custom video player frames such as Vidstack, Artplayer, XGPlayer, Clappr, and MediaElement wrappers.': 'Vite/Svelte/Astro風のアプリシェルを非破壊スキャン対象として扱い、Vidstack、Artplayer、XGPlayer、Clappr、MediaElementなどのカスタム動画プレーヤーフレームをより多く認識することで、現代的なアニメサイトやアプリ型サイトとの互換性を高めました。',

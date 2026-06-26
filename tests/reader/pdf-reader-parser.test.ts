@@ -33,11 +33,41 @@ describe('hosted PDF reader route + parser', () => {
         expect(getMatchingSiteParsers(LOCAL_PDF_URL).some(p => p.id === 'yomu-pdf-reader-parser')).toBe(true);
     });
 
-    it('marks the PDF reader as providing a native text layer so image-OCR does not double-paint', () => {
+    it('marks the PDF reader as providing a native text layer before a document is rendered', () => {
         const parser = getMatchingSiteParsers(HOSTED_PDF_URL).find(p => p.id === 'yomu-pdf-reader-parser');
         expect(parser?.providesTextLayer).toBe(true);
         expect(siteProvidesNativeTextLayer(HOSTED_PDF_URL)).toBe(true);
         expect(siteProvidesNativeTextLayer(LOCAL_PDF_URL)).toBe(true);
+    });
+
+    it('keeps image OCR suppressed for visible text PDF pages', () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = pdfPageHtml('text', 'これは日本語のテキストPDFです。');
+        try {
+            expect(siteProvidesNativeTextLayer(HOSTED_PDF_URL)).toBe(true);
+        } finally {
+            restoreRects();
+        }
+    });
+
+    it('allows image OCR for visible scanned PDF pages', () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = pdfPageHtml('scanned', '');
+        try {
+            expect(siteProvidesNativeTextLayer(HOSTED_PDF_URL)).toBe(false);
+        } finally {
+            restoreRects();
+        }
+    });
+
+    it('keeps OCR suppressed while visible PDF pages are still pending classification', () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = pdfPageHtml('pending', '');
+        try {
+            expect(siteProvidesNativeTextLayer(HOSTED_PDF_URL)).toBe(true);
+        } finally {
+            restoreRects();
+        }
     });
 
     it('scans Japanese text inside the PDF.js text layer', () => {
@@ -63,6 +93,20 @@ describe('hosted PDF reader route + parser', () => {
         }
     });
 });
+
+function pdfPageHtml(mode: 'pending' | 'scanned' | 'text', text: string): string {
+    const isScanned = mode === 'scanned';
+    return `
+        <section class="viewer">
+            <div class="pdf-page${isScanned ? ' scanned' : ''}" data-pdf-text="${mode}" data-yomu-canvas-ocr="${isScanned ? 'on' : 'off'}">
+                <canvas data-pdf-text="${mode}" data-yomu-canvas-ocr="${isScanned ? 'on' : 'off'}"></canvas>
+                <div class="textLayer"${isScanned ? ' hidden aria-hidden="true"' : ''}>
+                    <span>${text}</span>
+                </div>
+            </div>
+        </section>
+    `;
+}
 
 function mockVisibleElementRects(): () => void {
     const originalRect = HTMLElement.prototype.getBoundingClientRect;

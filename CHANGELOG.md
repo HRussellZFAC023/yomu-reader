@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.136] - 2026-06-26
+
+### Fixed
+
+- BookWalker canvas OCR now supports both page movement directions, retries manual taps when WebKit only delivers touchstart, and clears stale page captures after turns, reloads, or viewer signature changes.
+- Reduced BookWalker OCR churn and moved translation/status overlays away from the bottom edge so page text remains tappable and visible near the end of the viewport.
+- Made OCR overlays easier to read on scanned and dark pages with a softer status pill, stronger dark-mode highlight contrast, and a setting to force light, dark, or app-matched overlay styling.
+- Centered the Yomu PDF empty drop area, distinguished text PDFs from scanned PDFs, used parsed PDF text where available, and limited OCR canvas overlays to scanned pages so text PDFs stay readable.
+
 ## [1.4.135] - 2026-06-26
 
 ### Added
@@ -31,7 +40,6 @@
 - Speaker replays now restart single-source term audio deterministically, including Jiten-only audio setups, instead of sometimes leaving the previous clip unmanaged and producing silence until repeated clicks.
 - Hover autoplay now keeps playing across consecutive word hovers instead of letting earlier audio state dead-end later eligible words.
 - Apple Pencil/stylus taps now activate reader popup controls on the first tap, including dictionary links, kanji buttons, and Show trace / Hide trace toggles, without double-firing follow-up clicks.
-- YouTube comment annotations now stay inline instead of falling back to repaint-loop text mirrors, avoiding false "read more" overflow while hover lookups keep priority over background public-dictionary enrichment on busy pages.
 
 ## [1.4.132] - 2026-06-26
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.135
+// @version 1.4.136
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.135
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.135
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.135
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.135
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.136
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.136
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.136
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.136
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -2575,6 +2575,7 @@ const AUDIO_TTS_MODES = ["source-order", "fallback"];
 const IMMERSION_KIT_CATEGORIES = ["anime", "drama", "games", "all"];
 const IMMERSION_KIT_SORTS = ["sentence_length:desc", "sentence_length:asc"];
 const IMMERSION_EXAMPLE_SOURCES = ["nadeshiko", "combined", "immersion-kit"];
+const OCR_OVERLAY_THEMES = ["auto", "dark", "light"];
 const SUBTITLE_CONTROL_MODES = ["always", "hidden", "auto"];
 const SUBTITLE_TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
 const NEW_TAB_SOURCES = ["jpdb", "anki", "auto", "dictionary"];
@@ -2719,6 +2720,7 @@ const DEFAULT_SETTINGS = {
   ocrAutoScanImages: true,
   ocrVideoPauseFrames: true,
   ocrShowTextOverlay: false,
+  ocrOverlayTheme: "auto",
   ocrProvider: "google-lens",
   ocrEndpointUrl: "",
   ocrEngine: "auto",
@@ -3144,6 +3146,7 @@ function normalizeMediaSettings(value) {
     immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
     immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
     ocrProvider: normalizeOcrProvider(settings.ocrProvider, value),
+    ocrOverlayTheme: normalizeOcrOverlayTheme(settings.ocrOverlayTheme),
     ocrEngine: normalizeOcrEngine(settings.ocrEngine),
     ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
     ocrTextColor: sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
@@ -3266,6 +3269,9 @@ function trimmedStringSetting(value, key, fallback) {
 }
 function normalizeSubtitleControlsMode(value) {
   return normalizeOption(value, SUBTITLE_CONTROL_MODES, DEFAULT_SETTINGS.subtitleControlsMode);
+}
+function normalizeOcrOverlayTheme(value) {
+  return normalizeOption(value, OCR_OVERLAY_THEMES, DEFAULT_SETTINGS.ocrOverlayTheme);
 }
 function normalizeSubtitleTranscriptPlacement(value) {
   return normalizeOption(value, SUBTITLE_TRANSCRIPT_PLACEMENTS, DEFAULT_SETTINGS.subtitleTranscriptPlacement);
@@ -7256,6 +7262,10 @@ const COPY = {
     ocrVideoPauseFrames: "Read paused video frames",
     ocrInvertDarkPanels: "Read light text on dark panels",
     ocrProvider: "Image reading",
+    ocrOverlayTheme: "OCR overlay theme",
+    ocrOverlayThemeAuto: "Match app theme",
+    ocrOverlayThemeLight: "Light overlay",
+    ocrOverlayThemeDark: "Dark overlay",
     googleLens: "Google Lens (free, recommended)",
     cloudVision: "Google Cloud Vision (API key)",
     localOcr: "Local OCR server",
@@ -8854,6 +8864,10 @@ ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
 ocrInvertDarkPanels	暗いコマの白い文字を読む
 ocrProvider	画像読み取り
+ocrOverlayTheme	OCRオーバーレイテーマ
+ocrOverlayThemeAuto	アプリのテーマに合わせる
+ocrOverlayThemeLight	ライトオーバーレイ
+ocrOverlayThemeDark	ダークオーバーレイ
 googleLens	Google Lens — 無料・設定不要（おすすめ）
 cloudVision	Google Cloud Vision — APIキーが必要
 localOcr	ローカルOCRサーバー — 上級者向け
@@ -31419,6 +31433,7 @@ const YOMU_PDF_READER_EXCLUDE = [
   ".textLayer .endOfContent",
   '.textLayer span[role="img"]'
 ].join(",");
+const YOMU_PDF_READER_MIN_TEXT_LENGTH = 8;
 const YOUTUBE_CHROME_ROOTS = [
   "yt-chip-cloud-chip-renderer button",
   'yt-chip-cloud-chip-renderer [role="tab"]',
@@ -31985,8 +32000,38 @@ function siteProvidesNativeTextLayer(href = window.location.href) {
   return getMatchingSiteParsers(href).some((profile) => {
     if (!profile.providesTextLayer) return false;
     if (profile.id === "mokuro-parser") return mokuroDisplayOcrEnabled();
+    if (profile.id === "yomu-pdf-reader-parser") return yomuPdfReaderProvidesNativeTextLayer();
     return true;
   });
+}
+function yomuPdfReaderProvidesNativeTextLayer() {
+  const pages = Array.from(document.querySelectorAll(".pdf-page"));
+  if (!pages.length) return true;
+  const visiblePages = pages.filter(isVisiblePdfReaderPage);
+  if (!visiblePages.length) return true;
+  if (visiblePages.some(isScannedPdfReaderPage)) return false;
+  return visiblePages.some((page) => isTextPdfReaderPage(page) || isPendingPdfReaderPage(page));
+}
+function isScannedPdfReaderPage(page) {
+  return page.dataset.pdfText === "scanned" || page.dataset.yomuCanvasOcr === "on" || page.classList.contains("scanned");
+}
+function isTextPdfReaderPage(page) {
+  if (page.dataset.pdfText === "text") return true;
+  const textLayer = page.querySelector(".textLayer");
+  if (!textLayer || textLayer.hidden || textLayer.getAttribute("aria-hidden") === "true") return false;
+  return compactText(textLayer.textContent ?? "").length >= YOMU_PDF_READER_MIN_TEXT_LENGTH;
+}
+function isPendingPdfReaderPage(page) {
+  return !page.dataset.pdfText || page.dataset.pdfText === "pending";
+}
+function isVisiblePdfReaderPage(page) {
+  const rect = page.getBoundingClientRect();
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
+  return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.right >= 0 && rect.top <= viewportHeight && rect.left <= viewportWidth;
+}
+function compactText(value) {
+  return value.replace(/\s+/g, "");
 }
 function mokuroDisplayOcrEnabled() {
   try {
@@ -33413,6 +33458,7 @@ const IMAGE_READING_MIN_AREA = 15e4;
 const IMAGE_READING_MIN_VIEWPORT_RATIO = 0.35;
 const IMAGE_READING_MIN_EDGE = 240;
 function documentLooksLikeImageReadingPage() {
+  if (document.querySelector('canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas')) return true;
   const images = Array.from(document.images).filter((image) => !image.closest("[data-jpdb-reader-root]"));
   if (images.length === 1 && isStandaloneImageDocument(images[0])) return true;
   return images.some(imageLooksLikeReadableSurface);
@@ -37185,7 +37231,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.135"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.136"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],

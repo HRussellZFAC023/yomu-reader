@@ -705,6 +705,22 @@ describe('settings form localization', () => {
         expect(saved.shortcuts.scanImages).toBe('Ctrl+I');
     });
 
+    it('round-trips the OCR overlay theme setting', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, ocrOverlayTheme: 'light' }, 'https://jpdb.io/settings');
+        const select = form.querySelector<HTMLSelectElement>('select[name="ocrOverlayTheme"]')!;
+
+        expect(labelForControl(form, 'ocrOverlayTheme')).toContain('OCR overlay theme');
+        expect(optionText(form, 'ocrOverlayTheme', 'auto')).toBe('Match app theme');
+        expect(optionText(form, 'ocrOverlayTheme', 'light')).toBe('Light overlay');
+        expect(optionText(form, 'ocrOverlayTheme', 'dark')).toBe('Dark overlay');
+        expect(selectValue(form, 'ocrOverlayTheme')).toBe('light');
+
+        select.value = 'dark';
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(saved.ocrOverlayTheme).toBe('dark');
+    });
+
     it('omits the old paused-frame OCR status card setting', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
@@ -1052,6 +1068,7 @@ describe('settings form localization', () => {
         expect(normalizedTheme).toContain('ocrEnabled: true');
         expect(normalizedTheme).toContain('ocrVideoPauseFrames: true');
         expect(normalizedTheme).toContain('ocrProvider: \'google-lens\'');
+        expect(normalizedTheme).toContain('ocrOverlayTheme: \'auto\'');
     });
 
     it('shows Immersion Kit reveal audio autoplay enabled by default', () => {

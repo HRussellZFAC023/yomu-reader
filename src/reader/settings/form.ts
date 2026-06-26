@@ -683,6 +683,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['google-lens', 'Google Lens — free, no setup (recommended)'], ['cloud-vision', 'Google Cloud Vision — needs API key'], ['local-service', 'Local OCR server — advanced'], ['off', 'Off']])}
+                    ${select('ocrOverlayTheme', 'OCR overlay theme', settings.ocrOverlayTheme, [['auto', 'Match app theme'], ['light', 'Light overlay'], ['dark', 'Dark overlay']])}
                     ${select('ocrMaxImagesPerPage', 'Images to read per page', String(settings.ocrMaxImagesPerPage), [['3', 'Light'], ['8', 'Normal'], ['16', 'More']])}
                     ${select('ocrMinImageArea', 'Smallest image to read', String(settings.ocrMinImageArea), [['80000', 'Large images only'], ['45000', 'Normal'], ['15000', 'Include small images']])}
                     ${select('ocrMaxImagePixels', 'Image detail', String(settings.ocrMaxImagePixels), [['640000', 'Faster'], ['1200000', 'Balanced'], ['2000000', 'Sharper']])}
@@ -1288,6 +1289,11 @@ function localizeOcrSettingsSelects(form: HTMLFormElement, text: SettingsText): 
         ['local-service', text('localOcr')],
         ['off', text('off')],
     ]);
+    setSelectOptionLabels(form, 'ocrOverlayTheme', [
+        ['auto', text('ocrOverlayThemeAuto')],
+        ['light', text('ocrOverlayThemeLight')],
+        ['dark', text('ocrOverlayThemeDark')],
+    ]);
     setSelectOptionLabels(form, 'ocrMaxImagesPerPage', [
         ['3', text('lightWork')],
         ['8', text('normal')],
@@ -1672,7 +1678,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
     'immersionKitPlayOnHover', 'immersionKitPlayOnImageClick', 'immersionKitCategory', 'immersionKitSort', 'immersionKitLimit',
     'immersionKitMinLength', 'immersionKitMaxLength', 'immersionKitPlaybackRate', 'immersionKitExactMatch', 'ocrEnabled',
-    'ocrAutoScanImages', 'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrInvertDarkPanels', 'ocrProvider', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
+    'ocrAutoScanImages', 'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrInvertDarkPanels', 'ocrProvider', 'ocrOverlayTheme', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
     'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundColor', 'ocrBackgroundOpacity',
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
     'subtitleOverlayVisible', 'subtitleSecondaryVisible', 'subtitleNativeBlurred', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',

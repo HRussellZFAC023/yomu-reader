@@ -128,6 +128,7 @@ export function canvasRenderedContentSignature(canvas: HTMLCanvasElement): strin
 }
 
 function isLikelyPageCanvas(canvas: HTMLCanvasElement, lenient: boolean): boolean {
+    if (shouldForceCanvasReaderSurface(canvas)) return hasForcedCanvasReaderShape(canvas);
     if (!hasPageShape(canvas)) return false;
     if (lenient) return true;
     return isViewportProminent(canvas) && looksLikeRenderedCanvasImage(canvas);
@@ -136,8 +137,26 @@ function isLikelyPageCanvas(canvas: HTMLCanvasElement, lenient: boolean): boolea
 function pageCanvases(hostname: string = location.hostname): HTMLCanvasElement[] {
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
     const canvases = Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas'))
+        .filter(canvas => !shouldSkipCanvasReaderSurface(canvas))
         .filter(canvas => isLikelyPageCanvas(canvas, lenient));
     return isBookwalkerViewerHost(hostname) ? preferCurrentScreenCanvases(canvases) : canvases;
+}
+
+function shouldSkipCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {
+    return canvas.dataset.yomuCanvasOcr === 'off'
+        || Boolean(canvas.closest('[data-yomu-canvas-ocr="off"]'));
+}
+
+function shouldForceCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {
+    return canvas.dataset.yomuCanvasOcr === 'on'
+        || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
+}
+
+function hasForcedCanvasReaderShape(canvas: HTMLCanvasElement): boolean {
+    const { width, height } = canvas;
+    if (Math.max(width, height) < MIN_PAGE_CANVAS_DIMENSION || Math.min(width, height) < MIN_RENDERED_DIMENSION) return false;
+    const aspect = width / height;
+    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
 }
 
 // BookWalker's NFBR viewer keeps the previous/next page painted in an off-screen
@@ -152,6 +171,7 @@ function pageCanvases(hostname: string = location.hostname): HTMLCanvasElement[]
 // marked current) so a page is never dropped.
 function preferCurrentScreenCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasElement[] {
     if (canvases.length < 2) return canvases;
+    if (hasVerticallyStackedVisibleCanvases(canvases)) return canvases;
     const current = canvases.filter(isOnScreenViewportCanvas);
     if (!current.length) return canvases;
     const renderedCurrent = current.filter(looksLikeRenderedCanvasImage);
@@ -160,6 +180,34 @@ function preferCurrentScreenCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasE
         .filter(canvas => !current.includes(canvas))
         .filter(looksLikeRenderedCanvasImage);
     return renderedFallback.length ? renderedFallback : current;
+}
+
+function hasVerticallyStackedVisibleCanvases(canvases: HTMLCanvasElement[]): boolean {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!viewportWidth || !viewportHeight) return false;
+    const rects = canvases
+        .map(canvas => canvas.getBoundingClientRect())
+        .filter(rect => rect.width > 0
+            && rect.height > 0
+            && rect.bottom >= 0
+            && rect.right >= 0
+            && rect.top <= viewportHeight
+            && rect.left <= viewportWidth)
+        .sort((a, b) => a.top - b.top);
+    if (rects.length < 2) return false;
+    for (let index = 1; index < rects.length; index += 1) {
+        const previous = rects[index - 1];
+        const current = rects[index];
+        const smallerHeight = Math.max(1, Math.min(previous.height, current.height));
+        const smallerWidth = Math.max(1, Math.min(previous.width, current.width));
+        const verticalOverlap = Math.max(0, Math.min(previous.bottom, current.bottom) - Math.max(previous.top, current.top));
+        const horizontalOverlap = Math.max(0, Math.min(previous.right, current.right) - Math.max(previous.left, current.left));
+        if (Math.abs(current.top - previous.top) > smallerHeight * 0.45
+            && verticalOverlap / smallerHeight < 0.55
+            && horizontalOverlap / smallerWidth > 0.55) return true;
+    }
+    return false;
 }
 
 // The on-screen page lives in the #viewportN whose own container carries

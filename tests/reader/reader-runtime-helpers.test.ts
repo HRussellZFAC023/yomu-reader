@@ -113,6 +113,16 @@ describe('reader runtime helpers', () => {
         expect(documentLooksLikeImageReadingPage()).toBe(true);
     });
 
+    it('treats explicit canvas OCR opt-in surfaces as image reading pages', () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1200;
+        canvas.height = 1600;
+        canvas.dataset.yomuCanvasOcr = 'on';
+        document.body.replaceChildren(document.createTextNode('Scanned PDF'), canvas);
+
+        expect(documentLooksLikeImageReadingPage()).toBe(true);
+    });
+
     it('does not treat icon-only pages as OCR reading pages', () => {
         vi.stubGlobal('innerWidth', 1000);
         vi.stubGlobal('innerHeight', 800);
