@@ -885,14 +885,20 @@ describe('YouTube immersion filter', () => {
         expect(card('channel-only').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(card('translated-english').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(card('modern-lockup').classList.contains('jpdb-youtube-filtered')).toBe(false);
-        expect(document.querySelector('.jpdb-youtube-filter-bar')?.textContent).toContain('hid 3');
-        expect(document.querySelector('.jpdb-youtube-filter-bar')?.textContent).toContain('Show hidden videos');
+        const bar = document.querySelector<HTMLElement>('.jpdb-youtube-filter-bar')!;
+        expect(bar.getAttribute('aria-label')).toContain('hid 3');
+        expect(bar.querySelector<HTMLElement>('[data-role="summary"]')?.classList.contains('jpdb-reader-sr-only')).toBe(true);
+        expect(Array.from(bar.querySelectorAll('button')).map(button => button.textContent)).toEqual([
+            'Show hidden videos',
+            'Hide notice',
+        ]);
 
         document.querySelector<HTMLButtonElement>('[data-action="toggle-hidden"]')!.click();
         await vi.advanceTimersByTimeAsync(0);
 
         expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(false);
-        expect(document.querySelector('.jpdb-youtube-filter-bar')?.textContent).toContain('Hide hidden videos');
+        expect(document.querySelector<HTMLElement>('.jpdb-youtube-filter-bar')?.getAttribute('aria-label')).toContain('shows 3');
+        expect(document.querySelector('.jpdb-youtube-filter-bar [data-action="toggle-hidden"]')?.textContent).toBe('Hide hidden videos');
 
         document.querySelector<HTMLButtonElement>('[data-action="toggle-hidden"]')!.click();
         await vi.advanceTimersByTimeAsync(0);

@@ -46400,8 +46400,11 @@ ${spelling}`);
       const bar = document.createElement("div");
       bar.className = "jpdb-youtube-filter-bar";
       bar.dataset.jpdbReaderRoot = "true";
+      bar.role = "status";
+      bar.ariaLive = "polite";
       const summary = document.createElement("span");
       summary.dataset.role = "summary";
+      summary.className = "jpdb-reader-sr-only";
       const actions = document.createElement("div");
       actions.className = "jpdb-youtube-filter-actions";
       actions.append(noticeButton("toggle-hidden"), noticeButton("hide-notice"));
@@ -46431,8 +46434,15 @@ ${spelling}`);
       this.removeNotice();
     }
     updateNoticeSummary(summary, filteredCount, shownCount, settings) {
-      summary.textContent = this.noticeSummaryText(filteredCount, settings);
-      summary.title = shownCount ? formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterVisible"), { count: String(shownCount) }) : "";
+      const summaryText = this.noticeSummaryText(filteredCount, settings);
+      const visibleText = shownCount ? formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterVisible"), { count: String(shownCount) }) : "";
+      const bar = summary.closest(".jpdb-youtube-filter-bar");
+      summary.textContent = summaryText;
+      summary.title = visibleText;
+      if (bar) {
+        bar.setAttribute("aria-label", visibleText ? `${summaryText}. ${visibleText}` : summaryText);
+        bar.title = visibleText;
+      }
     }
     noticeSummaryText(filteredCount, settings) {
       const plural = filteredCount === 1 ? "" : "s";

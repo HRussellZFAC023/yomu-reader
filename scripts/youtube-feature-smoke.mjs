@@ -607,6 +607,9 @@ async function installUserscriptContext(context) {
         window.__yomuFeatureReadHomepageState = function yomuFeatureReadHomepageState() {
             const channelDescriptions = Array.from(document.querySelectorAll('.jpdb-youtube-channel-description'))
                 .map(element => element.textContent?.trim() || '');
+            const notice = document.querySelector('.jpdb-youtube-filter-bar');
+            const noticeSummary = notice?.querySelector('[data-role="summary"]') ?? null;
+            const noticeSummaryStyle = noticeSummary ? getComputedStyle(noticeSummary) : null;
             return {
                 cards: queryCount('ytd-rich-item-renderer'),
                 readerWordsInGrid: queryCount('ytd-rich-grid-renderer .jpdb-reader-word'),
@@ -616,6 +619,15 @@ async function installUserscriptContext(context) {
                 englishVisible: elementVisible('ytd-rich-item-renderer[data-case="english"]'),
                 visibleJapanese: elementVisible('ytd-rich-item-renderer[data-case="jp"]'),
                 noticeText: elementText('.jpdb-youtube-filter-bar'),
+                noticeAriaLabel: notice?.getAttribute('aria-label') ?? '',
+                noticeButtons: Array.from(notice?.querySelectorAll('button') ?? [])
+                    .map(button => button.textContent?.trim() || ''),
+                noticeSummaryScreenReaderOnly: Boolean(noticeSummary?.classList.contains('jpdb-reader-sr-only')),
+                noticeSummaryVisuallyHidden: Boolean(noticeSummaryStyle
+                    && noticeSummaryStyle.position === 'absolute'
+                    && noticeSummaryStyle.width === '1px'
+                    && noticeSummaryStyle.height === '1px'
+                    && noticeSummaryStyle.overflow === 'hidden'),
                 channelNames: Array.from(document.querySelectorAll('.jpdb-youtube-channel-name'))
                     .map(element => element.textContent?.trim() || ''),
                 channelDescriptions,
@@ -809,7 +821,10 @@ async function runHomepageCheck(page) {
     assert(beforeReveal.ocrLines === 0 && beforeReveal.ocrLayers === 0, 'YouTube homepage thumbnails triggered OCR overlays', beforeReveal);
     assert(beforeReveal.filteredEnglish === true, 'YouTube immersion filter did not hide the non-Japanese recommendation', beforeReveal);
     assert(beforeReveal.visibleJapanese === true, 'YouTube immersion filter hid a Japanese recommendation', beforeReveal);
-    assert(beforeReveal.noticeText.includes('hid'), 'YouTube filter notice did not summarize hidden videos', beforeReveal);
+    assert(beforeReveal.noticeAriaLabel.includes('hid'), 'YouTube filter notice did not summarize hidden videos for assistive tech', beforeReveal);
+    assert(beforeReveal.noticeSummaryScreenReaderOnly, 'YouTube filter notice summary was visible instead of screen-reader-only', beforeReveal);
+    assert(beforeReveal.noticeSummaryVisuallyHidden, 'YouTube filter notice summary was not visually clipped in the browser', beforeReveal);
+    assert(beforeReveal.noticeButtons.join('|') === 'Show hidden videos|Hide notice', 'YouTube filter notice should only show the two action buttons', beforeReveal);
 
     await page.waitForFunction(() => Boolean(document.querySelector('.jpdb-youtube-filter-bar [data-action="toggle-hidden"]')), null, { timeout: 10000 });
     await page.evaluate(() => {
@@ -822,6 +837,7 @@ async function runHomepageCheck(page) {
     await page.waitForTimeout(800);
     const afterReveal = await page.evaluate(() => window.__yomuFeatureReadHomepageState());
     assert(afterReveal.englishVisible === true, 'YouTube filter reveal did not show hidden recommendations', afterReveal);
+    assert(afterReveal.noticeButtons.join('|') === 'Hide hidden videos|Hide notice', 'YouTube reveal notice should still only show the two action buttons', afterReveal);
     assert(afterReveal.readerWordsInGrid >= beforeReveal.readerWordsInGrid, 'Yomu lost enhanced homepage titles after reveal', afterReveal);
     assert(afterReveal.ocrLines === 0 && afterReveal.ocrLayers === 0, 'YouTube homepage thumbnails triggered OCR overlays after reveal', afterReveal);
 

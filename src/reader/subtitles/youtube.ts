@@ -838,9 +838,12 @@ export class YoutubeImmersionFilter {
         const bar = document.createElement('div');
         bar.className = 'jpdb-youtube-filter-bar';
         bar.dataset.jpdbReaderRoot = 'true';
+        bar.role = 'status';
+        bar.ariaLive = 'polite';
 
         const summary = document.createElement('span');
         summary.dataset.role = 'summary';
+        summary.className = 'jpdb-reader-sr-only';
         const actions = document.createElement('div');
         actions.className = 'jpdb-youtube-filter-actions';
 
@@ -876,10 +879,17 @@ export class YoutubeImmersionFilter {
     }
 
     private updateNoticeSummary(summary: HTMLElement, filteredCount: number, shownCount: number, settings: ReaderSettings): void {
-        summary.textContent = this.noticeSummaryText(filteredCount, settings);
-        summary.title = shownCount
+        const summaryText = this.noticeSummaryText(filteredCount, settings);
+        const visibleText = shownCount
             ? formatYoutubeText(uiText(settings.interfaceLanguage, 'youtubeFilterVisible'), { count: String(shownCount) })
             : '';
+        const bar = summary.closest<HTMLElement>('.jpdb-youtube-filter-bar');
+        summary.textContent = summaryText;
+        summary.title = visibleText;
+        if (bar) {
+            bar.setAttribute('aria-label', visibleText ? `${summaryText}. ${visibleText}` : summaryText);
+            bar.title = visibleText;
+        }
     }
 
     private noticeSummaryText(filteredCount: number, settings: ReaderSettings): string {

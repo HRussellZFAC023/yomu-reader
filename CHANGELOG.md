@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.128] - 2026-06-26
+
+### Fixed
+
+- Simplified the YouTube hidden-video notice so it visually shows only the reveal and dismiss buttons while keeping the hidden count and visible-item summary available to assistive tech; the YouTube Playwright smoke now verifies the summary is visually clipped in-browser.
+
 ## [1.4.127] - 2026-06-26
 
 ### Fixed
