@@ -42824,14 +42824,19 @@ ${spelling}`);
     async parseProvisionalCueHtml(text2, settings, key, options = {}) {
       const restored = this.restoreSessionParsedCueHtml(key);
       if (restored) return restored;
-      if (options.authoritativeUpgrade !== false) this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
+      const shouldUpgradeAuthoritative = options.authoritativeUpgrade !== false;
       const cached = this.provisionalParsedHtmlCache.get(key);
       const cachedIsEnriched = this.enrichedProvisionalParsedHtmlKeys.has(key);
       if (cached && (!options.refreshProvisional || cachedIsEnriched) && (!options.requireEnrichedProvisional || cachedIsEnriched)) {
+        if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
         return cached;
       }
       const pending = options.refreshProvisional ? options.requireEnrichedProvisional ? void 0 : this.pendingProvisionalParsedHtml.get(key) : this.pendingParsedCueHtml(key, "provisional");
-      if (pending) return pending;
+      if (pending) {
+        const html = await pending;
+        if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
+        return html;
+      }
       const promise = (async () => {
         const tokens = await this.options.parseJapanese(text2, provisionalSubtitleParseOptions());
         if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
@@ -42841,7 +42846,9 @@ ${spelling}`);
       })();
       this.pendingProvisionalParsedHtml.set(key, promise);
       try {
-        return await promise;
+        const html = await promise;
+        if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
+        return html;
       } finally {
         this.pendingProvisionalParsedHtml.delete(key);
       }
@@ -42954,7 +42961,7 @@ ${spelling}`);
       return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingParsedHtml);
     }
     async parseCueHtmlBatchWithProvisionalFallback(items, settings, options = {}) {
-      if (options.authoritativeUpgrade !== false) this.ensureAuthoritativeParsedCueHtmlBatch(items, settings);
+      const shouldUpgradeAuthoritative = options.authoritativeUpgrade !== false;
       const { ready, batch } = planProvisionalSubtitleParseBatch(
         items,
         (key) => this.parsedHtmlCache.get(key),
@@ -42962,10 +42969,16 @@ ${spelling}`);
         (key) => options.refreshProvisional ? void 0 : this.pendingParsedCueHtml(key, "provisional"),
         (key) => this.freshEmptyParsedHtml(key)
       );
+      if (shouldUpgradeAuthoritative) {
+        const batchedItems = new Set(batch);
+        this.ensureAuthoritativeParsedCueHtmlBatch(items.filter((item) => !batchedItems.has(item)), settings);
+      }
       if (!batch.length) return Promise.all(ready);
       const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(batch.map((item) => item.text), provisionalSubtitleParseOptions()) : Promise.all(batch.map((item) => this.options.parseJapanese(item.text, provisionalSubtitleParseOptions())));
       const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { provisional: true, enrichBeforeRender: options.enrichBeforeRender });
-      return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingProvisionalParsedHtml);
+      const results = await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingProvisionalParsedHtml);
+      if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtmlBatch(batch, settings);
+      return results;
     }
     renderParsedHtmlBatch(batch, parsed, settings, options = {}) {
       return batch.map((item, index) => parsed.then(async (tokens) => {
@@ -44571,7 +44584,7 @@ ${spelling}`);
         this.closePauseTranscriptPanel();
         return;
       }
-      if (this.pausePanelDismissed || this.isTranscriptPanelOpen()) return;
+      if (this.pausePanelDismissed || this.subtitleStylePanelOpen || this.isTranscriptPanelOpen()) return;
       this.openLinesPanel({ persist: false, autoPause: true, deferRender: options.deferRender });
     }
     closePauseTranscriptPanel() {

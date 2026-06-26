@@ -10281,7 +10281,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   transform: translateY(-4px);
 }
 .jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: .72; }
-.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
+.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
   opacity: 0;
   pointer-events: none;
   transform: translateY(-4px);
@@ -10290,7 +10290,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   opacity: 1;
 }
 .jpdb-subtitle-rail:hover,
-.jpdb-subtitle-panel-open .jpdb-subtitle-rail {
+.jpdb-subtitle-style-open .jpdb-subtitle-rail {
   opacity: 1;
 }
 .jpdb-subtitle-rail button,
@@ -10450,7 +10450,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
    always hides the rail; the chrome-lockstep tick re-reveals it whenever the
    player's own controls fade back in. */
 @media (hover: none) {
-  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail {
+  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail {
     opacity: 0;
     pointer-events: none;
     transform: translateY(-4px);
@@ -10520,7 +10520,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   .jpdb-subtitle-list.jpdb-subtitle-panel-entering,
   .jpdb-subtitle-list.jpdb-subtitle-panel-closing,
   .jpdb-subtitle-controls-hidden .jpdb-subtitle-rail,
-  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
+  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
     transform: none;
   }
 }

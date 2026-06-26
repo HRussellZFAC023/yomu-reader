@@ -512,7 +512,7 @@ async function runLocalMobileWrapSmoke(browser) {
         return video && !video.paused && playback?.getAttribute('aria-label') === 'Pause video';
     }, null, { timeout: 3000 });
     const controls = await readMobileSubtitleControlsState(page);
-    assert(controls.actions.join(',') === 'previous,next,playback,panel', 'Mobile rail did not keep playback beside subtitle navigation', controls);
+    assert(controls.actions.join(',') === 'previous,next,playback,panel,style', 'Mobile rail did not keep playback beside subtitle navigation', controls);
     assert(!controls.previousHidden && !controls.nextHidden && !controls.playbackHidden, 'Mobile previous/next/playback controls were not shown together', controls);
     assert(controls.playbackLabel === 'Pause video' && controls.playbackPressed === 'true', 'Mobile playback control did not expose pause while playing', controls);
     assert(controls.handle && controls.rail && controls.subtitle, 'Mobile subtitle controls did not expose measurable rail, subtitle, and handle boxes', controls);
