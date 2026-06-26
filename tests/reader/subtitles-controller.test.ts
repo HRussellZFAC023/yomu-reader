@@ -5048,8 +5048,8 @@ Watch the cat
             const provisionalHtml = await internals.parseCueHtml('読む', settings);
             const pendingAuthoritativeHtml = internals.pendingParsedHtml.get(key);
 
-            expect(parseJapanese).toHaveBeenNthCalledWith(1, '読む', { requireJpdb: true, includeLocalPitch: true });
-            expect(parseJapanese).toHaveBeenNthCalledWith(2, '読む', { skipJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
+            expect(parseJapanese).toHaveBeenNthCalledWith(1, '読む', { skipJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
+            expect(parseJapanese).toHaveBeenNthCalledWith(2, '読む', { requireJpdb: true, includeLocalPitch: true });
             expect(provisionalHtml).toContain('jpdb-not-in-deck');
             expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-not-in-deck');
             expect(pendingAuthoritativeHtml).toBeDefined();
@@ -5063,6 +5063,67 @@ Watch the cat
             expect(rowText.querySelector('.jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
             expect(rowText.querySelector('.jpdb-reader-furi')?.textContent).toBe('よ');
             expect(document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('renders batched provisional transcript rows before scheduling authoritative upgrades', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=batch-provisional') as unknown as Location,
+        });
+
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                localDictionariesEnabled: false,
+                subtitleTranscriptAutoScroll: false,
+            };
+            const authoritative = deferred<JPDBToken[][]>();
+            const parseJapaneseBatch = vi.fn((texts: string[], options?: { requireJpdb?: boolean; skipJpdb?: boolean }) => {
+                if (options?.requireJpdb) return authoritative.promise;
+                if (options?.skipJpdb) return Promise.resolve(texts.map((text, index) => [makeSubtitleToken(text, { cardState: ['not-in-deck'], vid: index + 1 })]));
+                return Promise.resolve(texts.map(() => []));
+            });
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                parseJapaneseBatch,
+                onSettingsChange: () => undefined,
+            });
+            const internals = controller as unknown as {
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+                parseCueHtmlBatch: (texts: string[], settings: ReaderSettings) => Promise<Array<{ key: string; html: string; provisional?: boolean }>>;
+                parsedHtmlCache: Map<string, string>;
+                pendingParsedHtml: Map<string, Promise<string>>;
+                provisionalParsedHtmlCache: Map<string, string>;
+            };
+            const firstKey = internals.parseCacheKey('一番', settings);
+
+            const parsed = await internals.parseCueHtmlBatch(['一番', '二番'], settings);
+            const pendingAuthoritativeHtml = internals.pendingParsedHtml.get(firstKey);
+
+            expect(parseJapaneseBatch).toHaveBeenNthCalledWith(1, ['一番', '二番'], { skipJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
+            expect(parseJapaneseBatch).toHaveBeenNthCalledWith(2, ['一番', '二番'], { requireJpdb: true, includeLocalPitch: true });
+            expect(parsed.map(item => item.provisional)).toEqual([true, true]);
+            expect(parsed[0]?.html).toContain('jpdb-not-in-deck');
+            expect(internals.provisionalParsedHtmlCache.get(firstKey)).toContain('jpdb-not-in-deck');
+            expect(pendingAuthoritativeHtml).toBeDefined();
+
+            authoritative.resolve([
+                [makeSubtitleToken('一番', { cardState: ['known'], pitchClass: 'heiban', vid: 10 })],
+                [makeSubtitleToken('二番', { cardState: ['known'], pitchClass: 'heiban', vid: 11 })],
+            ]);
+            await expect(pendingAuthoritativeHtml).resolves.toContain('jpdb-known jpdb-pitch-heiban');
+
+            expect(internals.parsedHtmlCache.get(firstKey)).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.provisionalParsedHtmlCache.has(firstKey)).toBe(false);
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,
