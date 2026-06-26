@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.121] - 2026-06-26
+
+### Added
+
+- Added compact Yomu Video subtitle style controls beside the player for font preset, background opacity, position, size, and hover-pause behavior, with desktop and mobile Playwright coverage.
+
 ## [1.4.120] - 2026-06-26
 
 ### Fixed

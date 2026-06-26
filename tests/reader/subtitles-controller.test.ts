@@ -233,6 +233,19 @@ function subtitlePanelToggleElements(): { root: HTMLElement; panel: HTMLElement;
     return { root, panel, button };
 }
 
+function setSubtitleStyleControlValue(popover: HTMLElement, name: string, value: string): void {
+    const input = popover.querySelector<HTMLInputElement>(`[data-subtitle-style-setting="${name}"]`)!;
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function setSubtitleStyleSelectValue(popover: HTMLElement): void {
+    const select = popover.querySelector<HTMLSelectElement>('[data-subtitle-style-setting="subtitleFontFamily"]')!;
+    const serifOption = [...select.options].find(option => option.value.includes('Noto Serif JP'))!;
+    select.value = serifOption.value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 function expectJapaneseTracksPanelOpen(panel: HTMLElement): void {
     expect(panel.hidden).toBe(false);
     expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
@@ -361,7 +374,7 @@ describe('SubtitlePlayerController', () => {
         expect(commentEvent.defaultPrevented).toBe(false);
     });
 
-    it('renders subtitle navigation, playback, and panel controls in the rail', () => {
+    it('renders subtitle navigation, playback, panel, and style controls in the rail', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -377,12 +390,62 @@ describe('SubtitlePlayerController', () => {
         const actions = [...document.querySelectorAll<HTMLButtonElement>('.jpdb-subtitle-rail button')]
             .map(button => button.dataset.action);
 
-        expect(actions).toEqual(['previous', 'next', 'playback', 'panel']);
+        expect(actions).toEqual(['previous', 'next', 'playback', 'panel', 'style']);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="playback"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="panel"]')).toHaveLength(1);
+        expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="style"]')).toHaveLength(1);
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="toggle"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="list"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
+    });
+
+    it('updates subtitle style settings from the compact rail controls', () => {
+        const onSettingsChange = vi.fn();
+        const { settings, controller } = createInstalledSubtitleController({
+            subtitleOverlayVisible: true,
+            subtitleFontSize: 28,
+            subtitleBottomOffset: 16,
+            subtitleBackgroundOpacity: 0,
+            subtitleHoverPause: true,
+        }, { onSettingsChange });
+        const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        const toggle = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="style"]')!;
+
+        try {
+            toggle.click();
+
+            const popover = root.querySelector<HTMLElement>('[data-subtitle-style-popover]')!;
+            expect(popover.hidden).toBe(false);
+            expect(toggle.getAttribute('aria-expanded')).toBe('true');
+            expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(true);
+            expect(popover.textContent).toContain('Subtitle font size');
+            expect(popover.textContent).toContain('Pause video on subtitle hover');
+
+            setSubtitleStyleControlValue(popover, 'subtitleFontSize', '36');
+            setSubtitleStyleControlValue(popover, 'subtitleBottomOffset', '24');
+            setSubtitleStyleControlValue(popover, 'subtitleBackgroundOpacity', '0.35');
+            setSubtitleStyleSelectValue(popover);
+            popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleHoverPause"]')!.click();
+
+            expect(settings.subtitleFontSize).toBe(36);
+            expect(settings.subtitleBottomOffset).toBe(24);
+            expect(settings.subtitleBackgroundOpacity).toBe(0.35);
+            expect(settings.subtitleHoverPause).toBe(false);
+            expect(root.style.getPropertyValue('--subtitle-font-size-target')).toBe('36px');
+            expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('24%');
+            expect(root.style.getPropertyValue('--subtitle-background-rgba')).toContain(',0.35)');
+            expect(root.style.getPropertyValue('--subtitle-family')).toContain('Noto Serif JP');
+            expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleBackgroundOpacity"]')?.textContent).toBe('35%');
+            expect(onSettingsChange).toHaveBeenCalled();
+
+            toggle.click();
+
+            expect(popover.hidden).toBe(true);
+            expect(toggle.getAttribute('aria-expanded')).toBe('false');
+            expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(false);
+        } finally {
+            controller.destroy();
+        }
     });
 
     it('keeps the playback toggle beside subtitle navigation while playing', () => {
@@ -2516,7 +2579,7 @@ Watch the cat
 
     it('hides the whole subtitle rail while compact navigation idles', () => {
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  pointer-events: none;\n  transform: translateY(-4px);\n}');
+            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  pointer-events: none;\n  transform: translateY(-4px);\n}');
         expect(SUBTITLES_YOUTUBE_CSS)
             .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],');
     });
@@ -2594,7 +2657,7 @@ Watch the cat
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('@media (hover: none) {');
-        expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail { opacity: 0; pointer-events: none; transform: translateY(-4px); }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail { opacity: 0; pointer-events: none; transform: translateY(-4px); }');
     });
 
     it('hides the whole subtitle rail when subtitle controls are hidden', () => {

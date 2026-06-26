@@ -791,6 +791,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Stats': '統計',
     'Changelog': '変更履歴',
     'Added': '追加',
+    'Added compact Yomu Video subtitle style controls beside the player for font preset, background opacity, position, size, and hover-pause behavior, with desktop and mobile Playwright coverage.': 'Yomu Videoに、プレイヤー横で使えるコンパクトな字幕スタイル操作を追加しました。フォントプリセット、背景不透明度、位置、サイズ、ホバー一時停止を調整でき、デスクトップとモバイルのPlaywrightカバレッジも追加しています。',
     'Changed': '変更',
     'The hosted Yomu Video player now accepts a video file and subtitle files in the same picker/drop action. Japanese/native subtitle files are inferred from their names, loaded automatically, and the transcript opens directly to the lines view.': 'ホスト版Yomu Videoプレイヤーは、同じファイル選択またはドロップ操作で動画ファイルと字幕ファイルを一緒に受け取れるようになりました。日本語字幕と母語字幕はファイル名から推定され、自動で読み込まれ、トランスクリプトは直接「行」ビューで開きます。',
     'Added a separate Video setting for pausing on subtitle hover lookup. Clicked/tapped subtitle lookups still pause by default, while hover pause can now be turned off independently.': '字幕ホバールックアップ時に一時停止するための個別の動画設定を追加しました。クリックまたはタップした字幕ルックアップはこれまで通り既定で一時停止し、ホバーによる一時停止だけを独立してオフにできます。',

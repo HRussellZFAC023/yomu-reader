@@ -490,6 +490,7 @@ async function verifyHostedSubtitleFlow(page, baseUrl) {
     await assertSubtitleOpenRequiresVideo(page);
     await loadHostedVideoAndSubtitleTogether(page);
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-open-with-subtitles.png'), fullPage: false });
+    await assertHostedSubtitleStyleControls(page);
     await assertHostedManualPanelCloseRestoresPlayer(page);
     await openHostedVideoPlayer(page, baseUrl);
     await loadHostedVideoAndOpenTracks(page);
@@ -604,6 +605,151 @@ async function assertHostedManualPanelCloseRestoresPlayer(page) {
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true, null, { timeout: 6000 });
     const hiddenLayout = await readHostedPlayerLayoutState(page);
     assert(hostedPlayerLayoutRestored(hiddenLayout), 'Hosted video player did not restore full-width controls after manually closing the subtitle panel', hiddenLayout);
+}
+
+async function assertHostedSubtitleStyleControls(page) {
+    await page.locator('.jpdb-subtitle-rail [data-action="style"]').click();
+    await page.waitForSelector('[data-subtitle-style-popover]:not([hidden])', { timeout: 6000 });
+    await setHostedSubtitleStyleControl(page, 'subtitleFontSize', '34');
+    await setHostedSubtitleStyleControl(page, 'subtitleBottomOffset', '24');
+    await setHostedSubtitleStyleControl(page, 'subtitleBackgroundOpacity', '0.35');
+    await setHostedSubtitleStyleFont(page);
+    await page.locator('[data-subtitle-style-setting="subtitleHoverPause"]').setChecked(false);
+    await page.waitForFunction(key => {
+        const settings = JSON.parse(localStorage.getItem(key) || '{}');
+        return settings.subtitleFontSize === 34
+            && settings.subtitleBottomOffset === 24
+            && settings.subtitleBackgroundOpacity === 0.35
+            && settings.subtitleHoverPause === false;
+    }, SETTINGS_KEY, { timeout: 6000 });
+    const styleState = await readHostedSubtitleStyleState(page);
+    assert(hostedSubtitleStyleControlsReady(styleState), 'Hosted compact subtitle style controls did not update subtitle settings/style', styleState);
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-style-controls.png'), fullPage: false });
+    await page.locator('.jpdb-subtitle-rail [data-action="style"]').click();
+    await page.waitForFunction(() => document.querySelector('[data-subtitle-style-popover]')?.hasAttribute('hidden') === true, null, { timeout: 6000 });
+    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click();
+    await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 6000 });
+}
+
+async function setHostedSubtitleStyleControl(page, name, value) {
+    await page.locator(`[data-subtitle-style-setting="${name}"]`).evaluate((control, nextValue) => {
+        control.value = nextValue;
+        control.dispatchEvent(new Event('input', { bubbles: true }));
+        control.dispatchEvent(new Event('change', { bubbles: true }));
+    }, value);
+}
+
+async function setHostedSubtitleStyleFont(page) {
+    await page.locator('[data-subtitle-style-setting="subtitleFontFamily"]').evaluate(select => {
+        const option = Array.from(select.options).find(item => item.value.includes('Noto Serif JP'));
+        if (!option) throw new Error('Japanese serif subtitle font preset not found');
+        select.value = option.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+}
+
+async function readHostedSubtitleStyleState(page) {
+    return page.evaluate(key => {
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const popover = document.querySelector('[data-subtitle-style-popover]');
+        const settings = JSON.parse(localStorage.getItem(key) || '{}');
+        return {
+            expanded: document.querySelector('[data-action="style"]')?.getAttribute('aria-expanded'),
+            popoverOpen: popover instanceof HTMLElement && !popover.hidden,
+            text: popover?.textContent ?? '',
+            controlCount: document.querySelectorAll('[data-subtitle-style-setting]').length,
+            fontTarget: root?.style.getPropertyValue('--subtitle-font-size-target') ?? '',
+            bottom: root?.style.getPropertyValue('--subtitle-bottom') ?? '',
+            background: root?.style.getPropertyValue('--subtitle-background-rgba') ?? '',
+            family: root?.style.getPropertyValue('--subtitle-family') ?? '',
+            opacityOutput: document.querySelector('[data-subtitle-style-output="subtitleBackgroundOpacity"]')?.textContent ?? '',
+            saved: {
+                fontSize: settings.subtitleFontSize,
+                bottomOffset: settings.subtitleBottomOffset,
+                backgroundOpacity: settings.subtitleBackgroundOpacity,
+                hoverPause: settings.subtitleHoverPause,
+                fontFamily: settings.subtitleFontFamily,
+            },
+        };
+    }, SETTINGS_KEY);
+}
+
+function hostedSubtitleStyleControlsReady(state) {
+    return state.expanded === 'true'
+        && state.popoverOpen
+        && state.controlCount >= 5
+        && includesText(state.text, 'Subtitle font size')
+        && includesText(state.text, 'Pause video on subtitle hover')
+        && numericPx(state.fontTarget) >= 34
+        && state.bottom === '24%'
+        && includesText(state.background, ',0.35)')
+        && includesText(state.family, 'Noto Serif JP')
+        && state.opacityOutput === '35%'
+        && state.saved.fontSize === 34
+        && state.saved.bottomOffset === 24
+        && state.saved.backgroundOpacity === 0.35
+        && state.saved.hoverPause === false
+        && includesText(state.saved.fontFamily, 'Noto Serif JP');
+}
+
+function numericPx(value) {
+    return Number.parseFloat(String(value).replace('px', '')) || 0;
+}
+
+async function verifyHostedSubtitleStyleControlsMobile(page, baseUrl) {
+    await openHostedVideoPlayer(page, baseUrl);
+    await loadHostedVideoAndSubtitleTogether(page);
+    await page.locator('.jpdb-subtitle-rail [data-action="style"]').click();
+    await page.waitForSelector('[data-subtitle-style-popover]:not([hidden])', { timeout: 6000 });
+    const mobileState = await readHostedSubtitleStyleMobileState(page);
+    assert(hostedSubtitleStyleMobileReady(mobileState), 'Hosted compact subtitle style controls did not fit/read well on mobile', mobileState);
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-style-controls-mobile.png'), fullPage: false });
+}
+
+async function readHostedSubtitleStyleMobileState(page) {
+    return page.evaluate(() => {
+        const rect = element => {
+            const box = element?.getBoundingClientRect();
+            return box ? { width: box.width, height: box.height, left: box.left, right: box.right } : null;
+        };
+        const popover = document.querySelector('[data-subtitle-style-popover]');
+        const label = document.querySelector('.jpdb-subtitle-style-field > span');
+        return {
+            viewport: { width: window.innerWidth, height: window.innerHeight },
+            rail: rect(document.querySelector('.jpdb-subtitle-rail')),
+            popover: rect(popover),
+            popoverBackground: popover ? getComputedStyle(popover).backgroundColor : '',
+            labelColor: label ? getComputedStyle(label).color : '',
+            controlCount: document.querySelectorAll('[data-subtitle-style-setting]').length,
+        };
+    });
+}
+
+function hostedSubtitleStyleMobileReady(state) {
+    return Boolean(state.popover)
+        && state.controlCount >= 5
+        && state.popover.left >= 0
+        && state.popover.right <= state.viewport.width + 1
+        && state.popover.width >= 260
+        && state.rail?.right <= state.viewport.width + 1
+        && rgbAlpha(state.popoverBackground) >= 0.98
+        && rgbBrightness(state.popoverBackground) <= 70
+        && rgbBrightness(state.labelColor) >= 170;
+}
+
+function rgbParts(value) {
+    return String(value).match(/\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+}
+
+function rgbBrightness(value) {
+    const parts = rgbParts(value).slice(0, 3);
+    if (parts.length < 3) return 0;
+    return (parts[0] + parts[1] + parts[2]) / 3;
+}
+
+function rgbAlpha(value) {
+    const parts = rgbParts(value);
+    return parts.length >= 4 ? parts[3] : parts.length >= 3 ? 1 : 0;
 }
 
 async function readHostedVideoAndSubtitleTogetherState(page) {
@@ -837,12 +983,18 @@ try {
     await verifyHostedSubtitleFlow(videoPage, baseUrl);
     await videoPage.close();
 
+    const mobileVideoPage = await newPage(browser, baseSettings, { width: 390, height: 844 });
+    await verifyHostedSubtitleStyleControlsMobile(mobileVideoPage, baseUrl);
+    await mobileVideoPage.close();
+
     console.log(JSON.stringify({
         ok: true,
         artifacts: [
             path.join(ARTIFACTS, 'feedback-settings-font.png'),
             path.join(ARTIFACTS, 'feedback-keyboard-word-nav.png'),
             path.join(ARTIFACTS, 'feedback-video-open-with-subtitles.png'),
+            path.join(ARTIFACTS, 'feedback-video-style-controls.png'),
+            path.join(ARTIFACTS, 'feedback-video-style-controls-mobile.png'),
             path.join(ARTIFACTS, 'feedback-video-pause-panel.png'),
         ],
     }, null, 2));

@@ -10260,7 +10260,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   transform: translateY(-4px);
 }
 .jpdb-subtitle-controls-auto .jpdb-subtitle-rail:not(:hover):not(:focus-within) { opacity: .72; }
-.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
+.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
   opacity: 0;
   pointer-events: none;
   transform: translateY(-4px);
@@ -10325,6 +10325,84 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   border-color: var(--jpdb-reader-border) !important;
   background: color-mix(in srgb, var(--jpdb-reader-surface) 86%, transparent) !important;
 }
+.jpdb-subtitle-style-toggle[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border)) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface)) !important;
+  color: var(--jpdb-reader-text);
+}
+.jpdb-subtitle-style-popover {
+  --jpdb-subtitle-style-border: color-mix(in srgb, var(--jpdb-reader-video-text) 18%, transparent);
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  width: min(282px, calc(100vw - 18px));
+  padding: 10px;
+  border: 1px solid var(--jpdb-subtitle-style-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-video-panel, #1c222b);
+  color: var(--jpdb-reader-video-text);
+  box-shadow: 0 16px 34px var(--jpdb-reader-video-shadow);
+  backdrop-filter: blur(16px);
+  pointer-events: auto;
+}
+.jpdb-subtitle-style-popover[hidden] {
+  display: none;
+}
+.jpdb-subtitle-player .jpdb-subtitle-rail .jpdb-subtitle-style-popover {
+  background: #1c222b !important;
+  background-color: #1c222b !important;
+}
+.jpdb-subtitle-style-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
+  margin: 0;
+  color: var(--jpdb-reader-video-text-muted);
+  font: 700 12px/1.2 var(--jpdb-reader-font);
+}
+.jpdb-subtitle-style-field > span,
+.jpdb-subtitle-style-toggle-field > span {
+  color: var(--jpdb-reader-video-text) !important;
+}
+.jpdb-subtitle-style-field output {
+  color: var(--jpdb-reader-video-text);
+  font-variant-numeric: tabular-nums;
+}
+.jpdb-subtitle-style-field input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-height: 28px;
+  accent-color: var(--jpdb-reader-accent);
+}
+.jpdb-subtitle-style-select select {
+  grid-column: 1 / -1;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--jpdb-subtitle-style-border);
+  border-radius: 7px;
+  background: #111820;
+  color: var(--jpdb-reader-video-text);
+  font: 700 12px/1.2 var(--jpdb-reader-font);
+}
+.jpdb-subtitle-style-toggle-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  margin: 0;
+  color: var(--jpdb-reader-video-text);
+  font: 700 12px/1.25 var(--jpdb-reader-font);
+}
+.jpdb-subtitle-style-toggle-field input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--jpdb-reader-accent);
+}
 .jpdb-subtitle-rail button[hidden] {
   display: none !important;
 }
@@ -10351,7 +10429,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
    always hides the rail; the chrome-lockstep tick re-reveals it whenever the
    player's own controls fade back in. */
 @media (hover: none) {
-  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail {
+  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail {
     opacity: 0;
     pointer-events: none;
     transform: translateY(-4px);
@@ -10421,7 +10499,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   .jpdb-subtitle-list.jpdb-subtitle-panel-entering,
   .jpdb-subtitle-list.jpdb-subtitle-panel-closing,
   .jpdb-subtitle-controls-hidden .jpdb-subtitle-rail,
-  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
+  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {
     transform: none;
   }
 }

@@ -3723,6 +3723,7 @@
       subtitlesTitle: "Subtitles",
       openSubtitlePanel: "Open subtitle panel",
       closeSubtitlePanel: "Close subtitle panel",
+      subtitleStyle: "Subtitle style",
       closeSubtitleDrawer: "Close subtitle drawer",
       enableSubtitleAutoHide: "Auto-hide panel while playing",
       disableSubtitleAutoHide: "Keep panel open while playing",
@@ -4471,6 +4472,7 @@ subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
 openSubtitlePanel	字幕パネルを開く
 closeSubtitlePanel	字幕パネルを閉じる
+subtitleStyle	字幕スタイル
 closeSubtitleDrawer	字幕ドロワーを閉じる
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
@@ -5058,6 +5060,7 @@ subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
 subtitleHoverPause	字幕ホバー時に動画を一時停止
 subtitleControlsMode	字幕コントロール
+subtitleStyle	字幕スタイル
 moveSubtitles	字幕を移動
 right	右
 left	左
@@ -10720,6 +10723,21 @@ ${spelling}`);
   const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;
   const SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT = 80;
   const TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
+  const SUBTITLE_STYLE_FONT_PRESETS = [
+    {
+      value: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      labelKey: "fontPresetYomuDefault"
+    },
+    {
+      value: '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif',
+      labelKey: "fontPresetJapaneseSans"
+    },
+    {
+      value: '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif',
+      labelKey: "fontPresetJapaneseSerif"
+    }
+  ];
+  const SUBTITLE_STYLE_FONT_FAMILY_VALUES = SUBTITLE_STYLE_FONT_PRESETS.map((preset) => preset.value);
   function renderPanelNavigationControls(enabled, language) {
     const previous = uiText(language, "previousSubtitle");
     const next = uiText(language, "nextSubtitle");
@@ -10746,6 +10764,43 @@ ${spelling}`);
             <span>${escapeHtml(uiText(language, "subtitleAutoHideShort"))}</span>
         </button>
     `;
+  }
+  function renderSubtitleStyleControls(settings, language) {
+    const label = uiText(language, "subtitleStyle");
+    return `
+        <button class="jpdb-subtitle-style-toggle" type="button" data-action="style" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="false" aria-controls="jpdb-subtitle-style-popover">${subtitleIcon("style")}</button>
+        <div class="jpdb-subtitle-style-popover" id="jpdb-subtitle-style-popover" data-subtitle-style-popover role="group" aria-label="${escapeHtml(label)}" hidden>
+            ${renderSubtitleStyleRange("subtitleFontSize", uiText(language, "subtitleFontSize"), settings.subtitleFontSize, 16, 64, 2, "px")}
+            ${renderSubtitleStyleRange("subtitleBottomOffset", uiText(language, "subtitleBottomOffset"), settings.subtitleBottomOffset, 2, 40, 1, "%")}
+            ${renderSubtitleStyleRange("subtitleBackgroundOpacity", uiText(language, "subtitleBackgroundOpacity"), settings.subtitleBackgroundOpacity, 0, 0.7, 0.05, "")}
+            <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
+                <span>${escapeHtml(uiText(language, "subtitleFontFamily"))}</span>
+                <select data-subtitle-style-setting="subtitleFontFamily">
+                    ${SUBTITLE_STYLE_FONT_PRESETS.map((preset) => renderSubtitleStyleFontOption(preset, settings.subtitleFontFamily, language)).join("")}
+                </select>
+            </label>
+            <label class="jpdb-subtitle-style-toggle-field">
+                <input type="checkbox" data-subtitle-style-setting="subtitleHoverPause" ${settings.subtitleHoverPause ? "checked" : ""}>
+                <span>${escapeHtml(uiText(language, "subtitleHoverPause"))}</span>
+            </label>
+        </div>
+    `;
+  }
+  function renderSubtitleStyleRange(setting, label, value, min, max, step, suffix) {
+    return `
+        <label class="jpdb-subtitle-style-field">
+            <span>${escapeHtml(label)}</span>
+            <output data-subtitle-style-output="${setting}">${escapeHtml(subtitleStyleDisplayValue(value, suffix))}</output>
+            <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-subtitle-style-setting="${setting}">
+        </label>
+    `;
+  }
+  function renderSubtitleStyleFontOption(preset, current, language) {
+    return `<option value="${escapeHtml(preset.value)}" ${preset.value === current ? "selected" : ""}>${escapeHtml(uiText(language, preset.labelKey))}</option>`;
+  }
+  function subtitleStyleDisplayValue(value, suffix) {
+    if (!suffix) return `${Math.round(value * 100)}%`;
+    return `${Math.round(value)}${suffix}`;
   }
   function renderPanelPlacementControls(currentPlacement, language) {
     const label = uiText(language, "subtitleTranscriptPlacement");
@@ -10806,6 +10861,7 @@ ${spelling}`);
       "panel-right": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',
       pause: '<path d="M9 5v14"/><path d="M15 5v14"/>',
       play: '<path d="M8 5v14l11-7-11-7Z"/>',
+      style: '<path d="M4 7h5"/><path d="M15 7h5"/><circle cx="12" cy="7" r="2"/><path d="M4 17h9"/><path d="M19 17h1"/><circle cx="16" cy="17" r="2"/>',
       tracks: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',
       transcript: '<path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>'
     };
@@ -14478,6 +14534,23 @@ ${spelling}`);
   function normalizeHostedSubtitleOpenPanel(value) {
     return value === "lines" || value === "tracks" || value === "auto" || value === false ? value : "auto";
   }
+  function updateNumberSetting(settings, key, value, min, max) {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed)) return false;
+    const next = Math.min(Math.max(parsed, min), max);
+    const normalized = key === "subtitleBackgroundOpacity" ? Number(next.toFixed(2)) : Math.round(next);
+    if (settings[key] === normalized) return false;
+    settings[key] = normalized;
+    return true;
+  }
+  function syncSubtitleStyleRangeControl(root, key, value, suffix) {
+    const control = root.querySelector(`[data-subtitle-style-setting="${key}"]`);
+    const nextValue = key === "subtitleBackgroundOpacity" ? String(Number(value.toFixed(2))) : String(Math.round(value));
+    if (control && control.value !== nextValue) control.value = nextValue;
+    const output = root.querySelector(`[data-subtitle-style-output="${key}"]`);
+    if (!output) return;
+    output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
+  }
   function isRecord(value) {
     return Boolean(value && typeof value === "object");
   }
@@ -14585,6 +14658,7 @@ ${spelling}`);
     pausePanelDismissed = false;
     pausePanelSyncScheduled = false;
     subtitleDragOffsetYPx = 0;
+    subtitleStylePanelOpen = false;
     // Remembered manual vertical position, as a fraction of viewport height, so a
     // nudge survives video changes and reloads instead of snapping back to the
     // configured bottom offset. Persisted via gmStorage; see subtitle-layout.
@@ -14609,6 +14683,7 @@ ${spelling}`);
       load: () => this.openSubtitleFilePicker("primary"),
       "load-secondary": () => this.openSubtitleFilePicker("secondary"),
       panel: () => this.toggleTranscriptDrawer(),
+      style: () => this.toggleSubtitleStylePanel(),
       "panel-lines": () => this.openLinesPanel({ deferRender: true }),
       "panel-tracks": () => this.openTracksPanel(),
       "close-panel": () => this.closeTranscriptPanel(),
@@ -14712,6 +14787,7 @@ ${spelling}`);
       this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
       this.pendingPointerActivity = void 0;
       this.clearVideoInsetForTranscriptPanel();
+      this.subtitleStylePanelOpen = false;
       document.documentElement.classList.remove(YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS);
       this.removeAsbPlayerSubtitleMoveHandles();
       this.transcriptPanel?.remove();
@@ -14794,10 +14870,13 @@ ${spelling}`);
                 <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
                 <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon("play")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon("panel-right")}</button>
+                ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
         `);
       root.addEventListener("click", (event) => this.handleClick(event));
+      root.addEventListener("input", (event) => this.handleSubtitleStyleInput(event), this.eventOptions());
+      root.addEventListener("change", (event) => this.handleSubtitleStyleInput(event), this.eventOptions());
       this.subtitleEl = root.querySelector(".jpdb-subtitle-lines");
       this.transcriptPanel = root.querySelector(".jpdb-subtitle-list");
       this.transcriptPanel.dataset.jpdbReaderRoot = "true";
@@ -16213,6 +16292,17 @@ ${spelling}`);
       this.handleClick(event);
       event.stopPropagation();
     }
+    handleSubtitleStyleInput(event) {
+      const target = event.target instanceof HTMLElement ? event.target.closest("[data-subtitle-style-setting]") : null;
+      if (!target || !this.root?.contains(target)) return;
+      event.stopPropagation();
+      if (!this.applySubtitleStyleControlValue(target)) return;
+      this.syncRootStyleSettings(this.options.getSettings());
+      this.syncSubtitleStyleControls();
+      this.render();
+      this.options.onSettingsChange();
+      this.showControlsTemporarily();
+    }
     stopTranscriptPanelPropagation(event) {
       event.stopPropagation();
     }
@@ -16332,6 +16422,25 @@ ${spelling}`);
       this.videoInset.clear(this.video);
       this.positionTranscriptPanel({ realignAfterInset: true });
       this.syncControls();
+    }
+    applySubtitleStyleControlValue(control) {
+      const settings = this.options.getSettings();
+      const setting = control.dataset.subtitleStyleSetting;
+      if (setting === "subtitleFontSize") return updateNumberSetting(settings, "subtitleFontSize", control.value, 16, 64);
+      if (setting === "subtitleBottomOffset") return updateNumberSetting(settings, "subtitleBottomOffset", control.value, 2, 40);
+      if (setting === "subtitleBackgroundOpacity") return updateNumberSetting(settings, "subtitleBackgroundOpacity", control.value, 0, 0.7);
+      if (setting === "subtitleFontFamily") {
+        const next = SUBTITLE_STYLE_FONT_FAMILY_VALUES.includes(control.value) ? control.value : settings.subtitleFontFamily;
+        if (settings.subtitleFontFamily === next) return false;
+        settings.subtitleFontFamily = next;
+        return true;
+      }
+      if (setting === "subtitleHoverPause" && control instanceof HTMLInputElement) {
+        if (settings.subtitleHoverPause === control.checked) return false;
+        settings.subtitleHoverPause = control.checked;
+        return true;
+      }
+      return false;
     }
     handlePointerActivity(event) {
       if (event.type === "pointermove") {
@@ -17163,11 +17272,13 @@ ${spelling}`);
     syncControls() {
       const hasLines = this.hasVisibleSubtitleLines();
       this.root?.classList.toggle("jpdb-subtitle-panel-open", this.isTranscriptPanelOpen());
+      this.root?.classList.toggle("jpdb-subtitle-style-open", this.subtitleStylePanelOpen);
       this.root?.classList.toggle("jpdb-subtitle-has-lines", hasLines);
       this.root?.classList.toggle("jpdb-subtitle-has-track", hasSelectedSubtitleTrackOrLines(this.selectedTrackId, hasLines));
       this.syncTranscriptPlacementClass();
       this.syncLineNavigationButtons(hasLines);
       this.syncDrawerButtons(hasLines);
+      this.syncSubtitleStyleControls();
       this.syncStatus();
       this.setNativeTrackModes();
     }
@@ -17258,6 +17369,7 @@ ${spelling}`);
     }
     toggleTranscriptDrawer() {
       if (!this.transcriptPanel) return;
+      this.closeSubtitleStylePanel({ sync: false });
       if (this.isTranscriptPanelOpen()) {
         this.closeTranscriptPanel();
         return;
@@ -17268,6 +17380,7 @@ ${spelling}`);
     showTranscriptPanelElement() {
       const panel = this.transcriptPanel;
       if (!panel) return;
+      this.closeSubtitleStylePanel({ sync: false });
       this.clearTranscriptPanelAnimation();
       this.transcriptPanelClosing = false;
       this.prepareTranscriptPanelPlacementForOpen();
@@ -17423,13 +17536,48 @@ ${spelling}`);
         this.pausePanelOpen = false;
         if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
       }
-      this.hideTranscriptPanelElement();
+      this.hideTranscriptPanelElement({ immediate: options.immediate });
       if (persist) {
         this.options.getSettings().subtitleTranscriptVisible = false;
         this.options.onSettingsChange();
       }
       this.clearVideoInsetForTranscriptPanel();
       this.syncControls();
+    }
+    toggleSubtitleStylePanel() {
+      const nextOpen = !this.subtitleStylePanelOpen;
+      if (nextOpen && this.isTranscriptPanelOpen()) this.closeTranscriptPanel({ persist: false, immediate: true });
+      this.subtitleStylePanelOpen = nextOpen;
+      this.syncSubtitleStyleControls();
+      this.showControlsTemporarily();
+    }
+    closeSubtitleStylePanel(options = {}) {
+      if (!this.subtitleStylePanelOpen) return;
+      this.subtitleStylePanelOpen = false;
+      if (options.sync !== false) this.syncSubtitleStyleControls();
+    }
+    syncSubtitleStyleControls() {
+      if (!this.root) return;
+      const settings = this.options.getSettings();
+      const open = this.subtitleStylePanelOpen && settings.subtitleControlsMode !== "hidden";
+      this.root.classList.toggle("jpdb-subtitle-style-open", open);
+      const button = this.root.querySelector('[data-action="style"]');
+      if (button) {
+        const label = uiText(settings.interfaceLanguage, "subtitleStyle");
+        button.title = label;
+        button.setAttribute("aria-label", label);
+        button.setAttribute("aria-expanded", String(open));
+      }
+      const popover = this.root.querySelector("[data-subtitle-style-popover]");
+      if (!popover) return;
+      popover.hidden = !open;
+      syncSubtitleStyleRangeControl(popover, "subtitleFontSize", settings.subtitleFontSize, "px");
+      syncSubtitleStyleRangeControl(popover, "subtitleBottomOffset", settings.subtitleBottomOffset, "%");
+      syncSubtitleStyleRangeControl(popover, "subtitleBackgroundOpacity", settings.subtitleBackgroundOpacity, "");
+      const fontSelect = popover.querySelector('[data-subtitle-style-setting="subtitleFontFamily"]');
+      if (fontSelect && fontSelect.value !== settings.subtitleFontFamily) fontSelect.value = settings.subtitleFontFamily;
+      const hoverPause = popover.querySelector('[data-subtitle-style-setting="subtitleHoverPause"]');
+      if (hoverPause) hoverPause.checked = settings.subtitleHoverPause;
     }
     schedulePauseTranscriptPanelSync() {
       if (this.pausePanelSyncScheduled) return;

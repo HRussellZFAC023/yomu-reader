@@ -7,6 +7,22 @@ const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.2;
 const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;
 const SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT = 80;
 const TRANSCRIPT_PLACEMENTS = ['left', 'bottom', 'right'] as const satisfies readonly ReaderSettings['subtitleTranscriptPlacement'][];
+const SUBTITLE_STYLE_FONT_PRESETS = [
+    {
+        value: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        labelKey: 'fontPresetYomuDefault',
+    },
+    {
+        value: '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif',
+        labelKey: 'fontPresetJapaneseSans',
+    },
+    {
+        value: '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif',
+        labelKey: 'fontPresetJapaneseSerif',
+    },
+] as const satisfies readonly { value: string; labelKey: Parameters<typeof uiText>[1] }[];
+
+export const SUBTITLE_STYLE_FONT_FAMILY_VALUES: readonly string[] = SUBTITLE_STYLE_FONT_PRESETS.map(preset => preset.value);
 
 export interface SubtitleElementLayout {
     left: number;
@@ -43,6 +59,59 @@ export function renderPausePanelToggle(enabled: boolean, language: InterfaceLang
             <span>${escapeHtml(uiText(language, 'subtitleAutoHideShort'))}</span>
         </button>
     `;
+}
+
+export function renderSubtitleStyleControls(settings: ReaderSettings, language: InterfaceLanguage): string {
+    const label = uiText(language, 'subtitleStyle');
+    return `
+        <button class="jpdb-subtitle-style-toggle" type="button" data-action="style" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="false" aria-controls="jpdb-subtitle-style-popover">${subtitleIcon('style')}</button>
+        <div class="jpdb-subtitle-style-popover" id="jpdb-subtitle-style-popover" data-subtitle-style-popover role="group" aria-label="${escapeHtml(label)}" hidden>
+            ${renderSubtitleStyleRange('subtitleFontSize', uiText(language, 'subtitleFontSize'), settings.subtitleFontSize, 16, 64, 2, 'px')}
+            ${renderSubtitleStyleRange('subtitleBottomOffset', uiText(language, 'subtitleBottomOffset'), settings.subtitleBottomOffset, 2, 40, 1, '%')}
+            ${renderSubtitleStyleRange('subtitleBackgroundOpacity', uiText(language, 'subtitleBackgroundOpacity'), settings.subtitleBackgroundOpacity, 0, 0.7, 0.05, '')}
+            <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
+                <span>${escapeHtml(uiText(language, 'subtitleFontFamily'))}</span>
+                <select data-subtitle-style-setting="subtitleFontFamily">
+                    ${SUBTITLE_STYLE_FONT_PRESETS.map(preset => renderSubtitleStyleFontOption(preset, settings.subtitleFontFamily, language)).join('')}
+                </select>
+            </label>
+            <label class="jpdb-subtitle-style-toggle-field">
+                <input type="checkbox" data-subtitle-style-setting="subtitleHoverPause" ${settings.subtitleHoverPause ? 'checked' : ''}>
+                <span>${escapeHtml(uiText(language, 'subtitleHoverPause'))}</span>
+            </label>
+        </div>
+    `;
+}
+
+function renderSubtitleStyleRange(
+    setting: 'subtitleFontSize' | 'subtitleBottomOffset' | 'subtitleBackgroundOpacity',
+    label: string,
+    value: number,
+    min: number,
+    max: number,
+    step: number,
+    suffix: string,
+): string {
+    return `
+        <label class="jpdb-subtitle-style-field">
+            <span>${escapeHtml(label)}</span>
+            <output data-subtitle-style-output="${setting}">${escapeHtml(subtitleStyleDisplayValue(value, suffix))}</output>
+            <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-subtitle-style-setting="${setting}">
+        </label>
+    `;
+}
+
+function renderSubtitleStyleFontOption(
+    preset: typeof SUBTITLE_STYLE_FONT_PRESETS[number],
+    current: string,
+    language: InterfaceLanguage,
+): string {
+    return `<option value="${escapeHtml(preset.value)}" ${preset.value === current ? 'selected' : ''}>${escapeHtml(uiText(language, preset.labelKey))}</option>`;
+}
+
+function subtitleStyleDisplayValue(value: number, suffix: string): string {
+    if (!suffix) return `${Math.round(value * 100)}%`;
+    return `${Math.round(value)}${suffix}`;
 }
 
 export function renderPanelPlacementControls(currentPlacement: ReaderSettings['subtitleTranscriptPlacement'], language: InterfaceLanguage): string {
@@ -96,7 +165,7 @@ export function setStylePropertyIfChanged(element: HTMLElement, property: string
     element.style.setProperty(property, value);
 }
 
-export type SubtitleIconName = 'auto-hide' | 'close' | 'copy' | 'eye' | 'eye-off' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'pause' | 'play' | 'tracks' | 'transcript';
+export type SubtitleIconName = 'auto-hide' | 'close' | 'copy' | 'eye' | 'eye-off' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'pause' | 'play' | 'style' | 'tracks' | 'transcript';
 
 export function transcriptPlacementIcon(placement: ReaderSettings['subtitleTranscriptPlacement']): SubtitleIconName {
     if (placement === 'left') return 'panel-left';
@@ -117,6 +186,7 @@ export function subtitleIcon(name: SubtitleIconName): string {
         'panel-right': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',
         pause: '<path d="M9 5v14"/><path d="M15 5v14"/>',
         play: '<path d="M8 5v14l11-7-11-7Z"/>',
+        style: '<path d="M4 7h5"/><path d="M15 7h5"/><circle cx="12" cy="7" r="2"/><path d="M4 17h9"/><path d="M19 17h1"/><circle cx="16" cy="17" r="2"/>',
         tracks: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',
         transcript: '<path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>',
     };

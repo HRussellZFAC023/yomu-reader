@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.120
+// @version 1.4.121
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.120
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.120
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.120
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.120
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.121
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.121
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.121
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.121
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -7521,6 +7521,7 @@ const COPY = {
     subtitlesTitle: "Subtitles",
     openSubtitlePanel: "Open subtitle panel",
     closeSubtitlePanel: "Close subtitle panel",
+    subtitleStyle: "Subtitle style",
     closeSubtitleDrawer: "Close subtitle drawer",
     enableSubtitleAutoHide: "Auto-hide panel while playing",
     disableSubtitleAutoHide: "Keep panel open while playing",
@@ -8288,6 +8289,7 @@ subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
 openSubtitlePanel	字幕パネルを開く
 closeSubtitlePanel	字幕パネルを閉じる
+subtitleStyle	字幕スタイル
 closeSubtitleDrawer	字幕ドロワーを閉じる
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
@@ -8875,6 +8877,7 @@ subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
 subtitleHoverPause	字幕ホバー時に動画を一時停止
 subtitleControlsMode	字幕コントロール
+subtitleStyle	字幕スタイル
 moveSubtitles	字幕を移動
 right	右
 left	左

@@ -141,9 +141,11 @@ import {
     renderPanelNavigationControls,
     renderPanelPlacementControls,
     renderPausePanelToggle,
+    renderSubtitleStyleControls,
     setStylePropertyIfChanged,
     subtitleIcon,
     subtitleOverlayLayout,
+    SUBTITLE_STYLE_FONT_FAMILY_VALUES,
 } from './subtitle-surface';
 import {
     TRANSCRIPT_PANEL_ANIMATION_MS,
@@ -232,6 +234,7 @@ interface TranscriptPanelOptions {
     persist?: boolean;
     autoPause?: boolean;
     deferRender?: boolean;
+    immediate?: boolean;
 }
 
 interface ParseCueHtmlOptions {
@@ -774,6 +777,38 @@ function normalizeHostedSubtitleOpenPanel(value: unknown): HostedSubtitleFileLoa
     return value === 'lines' || value === 'tracks' || value === 'auto' || value === false ? value : 'auto';
 }
 
+type SubtitleStyleNumberSetting = 'subtitleFontSize' | 'subtitleBottomOffset' | 'subtitleBackgroundOpacity';
+
+function updateNumberSetting(
+    settings: ReaderSettings,
+    key: SubtitleStyleNumberSetting,
+    value: string,
+    min: number,
+    max: number,
+): boolean {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed)) return false;
+    const next = Math.min(Math.max(parsed, min), max);
+    const normalized = key === 'subtitleBackgroundOpacity' ? Number(next.toFixed(2)) : Math.round(next);
+    if (settings[key] === normalized) return false;
+    settings[key] = normalized;
+    return true;
+}
+
+function syncSubtitleStyleRangeControl(
+    root: HTMLElement,
+    key: SubtitleStyleNumberSetting,
+    value: number,
+    suffix: 'px' | '%' | '',
+): void {
+    const control = root.querySelector<HTMLInputElement>(`[data-subtitle-style-setting="${key}"]`);
+    const nextValue = key === 'subtitleBackgroundOpacity' ? String(Number(value.toFixed(2))) : String(Math.round(value));
+    if (control && control.value !== nextValue) control.value = nextValue;
+    const output = root.querySelector<HTMLOutputElement>(`[data-subtitle-style-output="${key}"]`);
+    if (!output) return;
+    output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value && typeof value === 'object');
 }
@@ -879,6 +914,7 @@ export class SubtitlePlayerController {
     private pausePanelDismissed = false;
     private pausePanelSyncScheduled = false;
     private subtitleDragOffsetYPx = 0;
+    private subtitleStylePanelOpen = false;
     // Remembered manual vertical position, as a fraction of viewport height, so a
     // nudge survives video changes and reloads instead of snapping back to the
     // configured bottom offset. Persisted via gmStorage; see subtitle-layout.
@@ -902,6 +938,7 @@ export class SubtitlePlayerController {
         load: () => this.openSubtitleFilePicker('primary'),
         'load-secondary': () => this.openSubtitleFilePicker('secondary'),
         panel: () => this.toggleTranscriptDrawer(),
+        style: () => this.toggleSubtitleStylePanel(),
         'panel-lines': () => this.openLinesPanel({ deferRender: true }),
         'panel-tracks': () => this.openTracksPanel(),
         'close-panel': () => this.closeTranscriptPanel(),
@@ -1006,6 +1043,7 @@ export class SubtitlePlayerController {
         this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
         this.pendingPointerActivity = undefined;
         this.clearVideoInsetForTranscriptPanel();
+        this.subtitleStylePanelOpen = false;
         document.documentElement.classList.remove(YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS);
         this.removeAsbPlayerSubtitleMoveHandles();
         this.transcriptPanel?.remove();
@@ -1095,10 +1133,13 @@ export class SubtitlePlayerController {
                 <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
                 <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon('play')}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
+                ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
         `);
         root.addEventListener('click', event => this.handleClick(event));
+        root.addEventListener('input', event => this.handleSubtitleStyleInput(event), this.eventOptions());
+        root.addEventListener('change', event => this.handleSubtitleStyleInput(event), this.eventOptions());
         this.subtitleEl = root.querySelector('.jpdb-subtitle-lines') as HTMLElement;
         this.transcriptPanel = root.querySelector('.jpdb-subtitle-list') as HTMLElement;
         this.transcriptPanel.dataset.jpdbReaderRoot = 'true';
@@ -2797,6 +2838,20 @@ export class SubtitlePlayerController {
         event.stopPropagation();
     }
 
+    private handleSubtitleStyleInput(event: Event): void {
+        const target = event.target instanceof HTMLElement
+            ? event.target.closest<HTMLInputElement | HTMLSelectElement>('[data-subtitle-style-setting]')
+            : null;
+        if (!target || !this.root?.contains(target)) return;
+        event.stopPropagation();
+        if (!this.applySubtitleStyleControlValue(target)) return;
+        this.syncRootStyleSettings(this.options.getSettings());
+        this.syncSubtitleStyleControls();
+        this.render();
+        this.options.onSettingsChange();
+        this.showControlsTemporarily();
+    }
+
     private stopTranscriptPanelPropagation(event: Event): void {
         event.stopPropagation();
     }
@@ -2940,6 +2995,28 @@ export class SubtitlePlayerController {
         this.videoInset.clear(this.video);
         this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncControls();
+    }
+
+    private applySubtitleStyleControlValue(control: HTMLInputElement | HTMLSelectElement): boolean {
+        const settings = this.options.getSettings();
+        const setting = control.dataset.subtitleStyleSetting;
+        if (setting === 'subtitleFontSize') return updateNumberSetting(settings, 'subtitleFontSize', control.value, 16, 64);
+        if (setting === 'subtitleBottomOffset') return updateNumberSetting(settings, 'subtitleBottomOffset', control.value, 2, 40);
+        if (setting === 'subtitleBackgroundOpacity') return updateNumberSetting(settings, 'subtitleBackgroundOpacity', control.value, 0, 0.7);
+        if (setting === 'subtitleFontFamily') {
+            const next = SUBTITLE_STYLE_FONT_FAMILY_VALUES.includes(control.value)
+                ? control.value
+                : settings.subtitleFontFamily;
+            if (settings.subtitleFontFamily === next) return false;
+            settings.subtitleFontFamily = next;
+            return true;
+        }
+        if (setting === 'subtitleHoverPause' && control instanceof HTMLInputElement) {
+            if (settings.subtitleHoverPause === control.checked) return false;
+            settings.subtitleHoverPause = control.checked;
+            return true;
+        }
+        return false;
     }
 
     private handlePointerActivity(event: PointerEvent): void {
@@ -3926,11 +4003,13 @@ export class SubtitlePlayerController {
     private syncControls(): void {
         const hasLines = this.hasVisibleSubtitleLines();
         this.root?.classList.toggle('jpdb-subtitle-panel-open', this.isTranscriptPanelOpen());
+        this.root?.classList.toggle('jpdb-subtitle-style-open', this.subtitleStylePanelOpen);
         this.root?.classList.toggle('jpdb-subtitle-has-lines', hasLines);
         this.root?.classList.toggle('jpdb-subtitle-has-track', hasSelectedSubtitleTrackOrLines(this.selectedTrackId, hasLines));
         this.syncTranscriptPlacementClass();
         this.syncLineNavigationButtons(hasLines);
         this.syncDrawerButtons(hasLines);
+        this.syncSubtitleStyleControls();
         this.syncStatus();
         this.setNativeTrackModes();
     }
@@ -4033,6 +4112,7 @@ export class SubtitlePlayerController {
 
     private toggleTranscriptDrawer(): void {
         if (!this.transcriptPanel) return;
+        this.closeSubtitleStylePanel({ sync: false });
         if (this.isTranscriptPanelOpen()) {
             this.closeTranscriptPanel();
             return;
@@ -4044,6 +4124,7 @@ export class SubtitlePlayerController {
     private showTranscriptPanelElement(): void {
         const panel = this.transcriptPanel;
         if (!panel) return;
+        this.closeSubtitleStylePanel({ sync: false });
         this.clearTranscriptPanelAnimation();
         this.transcriptPanelClosing = false;
         this.prepareTranscriptPanelPlacementForOpen();
@@ -4225,13 +4306,51 @@ export class SubtitlePlayerController {
             // never close it. Re-arm on the next play (see the play listener).
             if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
         }
-        this.hideTranscriptPanelElement();
+        this.hideTranscriptPanelElement({ immediate: options.immediate });
         if (persist) {
             this.options.getSettings().subtitleTranscriptVisible = false;
             this.options.onSettingsChange();
         }
         this.clearVideoInsetForTranscriptPanel();
         this.syncControls();
+    }
+
+    private toggleSubtitleStylePanel(): void {
+        const nextOpen = !this.subtitleStylePanelOpen;
+        if (nextOpen && this.isTranscriptPanelOpen()) this.closeTranscriptPanel({ persist: false, immediate: true });
+        this.subtitleStylePanelOpen = nextOpen;
+        this.syncSubtitleStyleControls();
+        this.showControlsTemporarily();
+    }
+
+    private closeSubtitleStylePanel(options: { sync?: boolean } = {}): void {
+        if (!this.subtitleStylePanelOpen) return;
+        this.subtitleStylePanelOpen = false;
+        if (options.sync !== false) this.syncSubtitleStyleControls();
+    }
+
+    private syncSubtitleStyleControls(): void {
+        if (!this.root) return;
+        const settings = this.options.getSettings();
+        const open = this.subtitleStylePanelOpen && settings.subtitleControlsMode !== 'hidden';
+        this.root.classList.toggle('jpdb-subtitle-style-open', open);
+        const button = this.root.querySelector<HTMLButtonElement>('[data-action="style"]');
+        if (button) {
+            const label = uiText(settings.interfaceLanguage, 'subtitleStyle');
+            button.title = label;
+            button.setAttribute('aria-label', label);
+            button.setAttribute('aria-expanded', String(open));
+        }
+        const popover = this.root.querySelector<HTMLElement>('[data-subtitle-style-popover]');
+        if (!popover) return;
+        popover.hidden = !open;
+        syncSubtitleStyleRangeControl(popover, 'subtitleFontSize', settings.subtitleFontSize, 'px');
+        syncSubtitleStyleRangeControl(popover, 'subtitleBottomOffset', settings.subtitleBottomOffset, '%');
+        syncSubtitleStyleRangeControl(popover, 'subtitleBackgroundOpacity', settings.subtitleBackgroundOpacity, '');
+        const fontSelect = popover.querySelector<HTMLSelectElement>('[data-subtitle-style-setting="subtitleFontFamily"]');
+        if (fontSelect && fontSelect.value !== settings.subtitleFontFamily) fontSelect.value = settings.subtitleFontFamily;
+        const hoverPause = popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleHoverPause"]');
+        if (hoverPause) hoverPause.checked = settings.subtitleHoverPause;
     }
 
     private schedulePauseTranscriptPanelSync(): void {
