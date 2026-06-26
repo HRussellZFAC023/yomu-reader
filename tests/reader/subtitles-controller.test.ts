@@ -80,6 +80,14 @@ function mockElementRect(element: Element, rect: DOMRect): void {
     });
 }
 
+function mockNetflixCaptionGeometry(element: HTMLElement): void {
+    Object.defineProperty(element, 'innerText', {
+        configurable: true,
+        get: () => element.textContent ?? '',
+    });
+    mockElementRect(element, { left: 300, right: 820, top: 452, bottom: 530, width: 520, height: 78 } as DOMRect);
+}
+
 type SubtitleControllerOptions = ConstructorParameters<typeof SubtitlePlayerController>[0];
 type SubtitleControllerHooks = Partial<Omit<SubtitleControllerOptions, 'getSettings'>>;
 
@@ -3517,6 +3525,82 @@ Watch the cat
         });
 
         expect(readPageCaptionText(video)).toBe('今日は映画を見ます。');
+    });
+
+    it('keeps Netflix-shaped DOM captions visible through transient foreground churn', () => {
+        let nowMs = 0;
+        const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => nowMs);
+        try {
+            document.body.innerHTML = `
+                <div class="watch-video">
+                    <video controls></video>
+                    <button type="button" aria-label="Captions" aria-pressed="true"></button>
+                    <div class="player-timedtext-text-container">
+                        <span data-uia="player-subtitle-text">今日は映画を見ます。</span>
+                    </div>
+                </div>
+            `;
+            const { controller } = createInstalledSubtitleController({
+                subtitleOverlayVisible: true,
+                subtitleTranscriptVisible: false,
+            });
+            const video = document.querySelector('video') as HTMLVideoElement;
+            attachVideo(controller, {
+                video,
+                currentTime: 12,
+                rect: { left: 80, right: 1040, top: 40, bottom: 580, width: 960, height: 540 } as DOMRect,
+            });
+            const fixture = document.querySelector<HTMLElement>('.watch-video')!;
+            const captionButton = document.querySelector<HTMLButtonElement>('[aria-label="Captions"]')!;
+            const captionToggleClick = vi.fn();
+            captionButton.addEventListener('click', captionToggleClick);
+            const captionContainer = document.querySelector<HTMLElement>('.player-timedtext-text-container')!;
+            mockNetflixCaptionGeometry(captionContainer);
+            mockNetflixCaptionGeometry(document.querySelector<HTMLElement>('[data-uia="player-subtitle-text"]')!);
+
+            const internals = controllerInternals<{
+                setNativeTrackModes: () => void;
+                updateFromDomCaptions: () => void;
+                currentCue?: { end: number; text: string };
+                lastAppliedSubtitleHtml: string;
+            }>(controller);
+            internals.setNativeTrackModes();
+            expect(captionToggleClick).not.toHaveBeenCalled();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(true);
+            internals.updateFromDomCaptions();
+            nowMs += 200;
+            internals.updateFromDomCaptions();
+
+            const rendered = document.querySelector<HTMLElement>('.jpdb-subtitle-lines')!;
+            expect(rendered.textContent).toContain('今日は映画を見ます。');
+            const stableHtml = internals.lastAppliedSubtitleHtml;
+
+            captionContainer.remove();
+            video.currentTime = (internals.currentCue?.end ?? 16) + 0.25;
+            nowMs += 400;
+            internals.updateFromDomCaptions();
+
+            expect(internals.currentCue?.text).toBe('今日は映画を見ます。');
+            expect(rendered.textContent).toContain('今日は映画を見ます。');
+            expect(internals.lastAppliedSubtitleHtml).toBe(stableHtml);
+
+            fixture.insertAdjacentHTML('beforeend', `
+                <div class="player-timedtext-text-container">
+                    <span data-uia="player-subtitle-text">今日は映画を見ます。</span>
+                </div>
+            `);
+            mockNetflixCaptionGeometry(document.querySelector<HTMLElement>('.player-timedtext-text-container')!);
+            mockNetflixCaptionGeometry(document.querySelector<HTMLElement>('[data-uia="player-subtitle-text"]')!);
+            nowMs += 100;
+            internals.setNativeTrackModes();
+            internals.updateFromDomCaptions();
+
+            expect(captionToggleClick).not.toHaveBeenCalled();
+            expect(document.querySelector<HTMLElement>('.jpdb-subtitle-lines')?.textContent).toContain('今日は映画を見ます。');
+            expect(internals.lastAppliedSubtitleHtml).toBe(stableHtml);
+        } finally {
+            nowSpy.mockRestore();
+        }
     });
 
     it('collapses layout-only page caption line breaks before rendering the overlay', () => {

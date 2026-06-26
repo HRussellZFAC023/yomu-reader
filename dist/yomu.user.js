@@ -32225,9 +32225,17 @@ function isGenericManagedAppShell() {
     'script[id="__NEXT_DATA__"]',
     "#__next",
     "#__nuxt",
+    "#root",
+    "#app",
     "[data-reactroot]",
     '[data-server-rendered="true"]',
     "[data-v-app]",
+    "[data-sveltekit-preload-data]",
+    'script[src*="/_app/immutable/"]',
+    'script[type="module"][src*="/assets/"]',
+    'script[type="module"][src*="/build/assets/"]',
+    'script[src*="/build/assets/"]',
+    "astro-island",
     "[ng-version]"
   ].join(",")));
 }

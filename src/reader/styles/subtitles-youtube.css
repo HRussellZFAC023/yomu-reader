@@ -938,6 +938,15 @@ html.jpdb-subtitle-native-captions-suppressed video::cue {
   visibility: hidden;
   opacity: 0;
 }
+html.jpdb-subtitle-native-captions-suppressed .player-timedtext-text-container,
+html.jpdb-subtitle-native-captions-suppressed .player-timedtext-text-container *,
+html.jpdb-subtitle-native-captions-suppressed [data-uia="player-subtitle-text"],
+html.jpdb-subtitle-native-captions-suppressed [data-uia="player-captions-text"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  text-shadow: none !important;
+}
 html.jpdb-subtitle-video-inset-right ytd-watch-flexy #secondary,
 html.jpdb-subtitle-video-inset-left ytd-watch-flexy #secondary,
 html.jpdb-subtitle-video-inset-right ytd-watch-flexy #secondary-inner,

@@ -17,6 +17,7 @@ export interface SubtitleNativeTrackModeState<T extends SubtitleNativeTrackModeO
     secondaryTrackId: string;
     overlayVisible: boolean;
     suppressNativeCaptions?: boolean;
+    suppressCaptionPlayerUi?: boolean;
     video?: HTMLVideoElement;
     hasPrimaryCues: boolean;
     currentCueText?: string;
@@ -48,7 +49,7 @@ function applyGenericNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
         }
         if (yomuCaptionsActive) option.track.mode = 'disabled';
     }
-    if (yomuCaptionsActive) suppressGenericCaptionPlayerUi(state.video);
+    if (yomuCaptionsActive && (state.suppressCaptionPlayerUi ?? true)) suppressGenericCaptionPlayerUi(state.video);
     document.documentElement.classList.toggle(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
     document.documentElement.classList.remove('jpdb-subtitle-yomu-captions-active');
     return false;

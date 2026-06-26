@@ -597,6 +597,7 @@ const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1000;
 const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
 const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2000;
 const DOM_CAPTION_STABLE_DELAY_MS = 180;
+const DOM_CAPTION_MISSING_GRACE_MS = 1200;
 const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = 'youtube-dom-caption-fallback';
 const SUBTITLE_FILE_ACCEPT = '.srt,.vtt,.ass,.ssa,text/vtt';
 const log = Logger.scope('Subtitles');
@@ -933,6 +934,7 @@ export class SubtitlePlayerController {
     private youtubeAutoSelectSuppressedVideoId = '';
     private lastDomCaption = '';
     private pendingDomCaption?: { text: string; firstSeenAt: number };
+    private lastDomCaptionSeenAt = 0;
     private parsedHtmlCache = new Map<string, string>();
     private provisionalParsedHtmlCache = new Map<string, string>();
     private enrichedProvisionalParsedHtmlKeys = new Set<string>();
@@ -1367,6 +1369,7 @@ export class SubtitlePlayerController {
         this.secondaryCue = undefined;
         this.pendingDomCaption = undefined;
         this.lastDomCaption = '';
+        this.lastDomCaptionSeenAt = 0;
         this.lastAutoCopiedCueSignature = '';
         this.lastRenderedPrimaryText = '';
         this.lastRenderedPrimaryHtml = '';
@@ -2028,6 +2031,7 @@ export class SubtitlePlayerController {
         // when the page still shows the identical text; the stability clock
         // in pendingDomCaption is kept so the re-apply is immediate.
         this.lastDomCaption = '';
+        this.lastDomCaptionSeenAt = 0;
         return true;
     }
 
@@ -2068,6 +2072,7 @@ export class SubtitlePlayerController {
     private keepDomCaptionCueAlive(text: string): void {
         if (this.cues.length || !this.currentCue) return;
         if (text !== this.lastDomCaption) return;
+        this.lastDomCaptionSeenAt = performance.now();
         const now = this.video?.currentTime ?? 0;
         if (now >= this.currentCue.start && this.currentCue.end < now + 1) this.currentCue.end = now + 4;
     }
@@ -2128,13 +2133,20 @@ export class SubtitlePlayerController {
     }
 
     private clearDomCaptionFallbackIfExpired(): void {
+        if (this.shouldHoldRecentDomCaption()) return;
         this.pendingDomCaption = undefined;
         if (!this.cues.length && this.currentCue && (this.video?.currentTime ?? 0) > this.currentCue.end) {
             this.currentCue = undefined;
             this.lastDomCaption = '';
+            this.lastDomCaptionSeenAt = 0;
             this.render();
             this.syncControls();
         }
+    }
+
+    private shouldHoldRecentDomCaption(): boolean {
+        if (this.cues.length || !this.currentCue || !this.lastDomCaptionSeenAt) return false;
+        return performance.now() - this.lastDomCaptionSeenAt < DOM_CAPTION_MISSING_GRACE_MS;
     }
 
     private isDomCaptionStable(text: string, nowMs: number): boolean {
@@ -2167,6 +2179,7 @@ export class SubtitlePlayerController {
 
     private applyDomCaptionFallback(text: string, selected: SubtitleTrackOption | undefined): void {
         this.lastDomCaption = text;
+        this.lastDomCaptionSeenAt = performance.now();
         const now = this.video?.currentTime ?? 0;
         this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text }])[0];
         if (selected?.loadingState === 'waiting') selected.loadingState = 'ready';
@@ -3874,6 +3887,8 @@ export class SubtitlePlayerController {
         this.cues = [];
         this.currentCue = undefined;
         this.pendingDomCaption = undefined;
+        this.lastDomCaption = '';
+        this.lastDomCaptionSeenAt = 0;
         return requestId;
     }
 
@@ -3989,6 +4004,8 @@ export class SubtitlePlayerController {
             this.cues = [];
             this.currentCue = undefined;
             this.pendingDomCaption = undefined;
+            this.lastDomCaption = '';
+            this.lastDomCaptionSeenAt = 0;
             this.youtubeDomCaptionFallbackTrackId = '';
         }
         const requestId = this.beginTrackSelection('secondary');
@@ -4033,12 +4050,14 @@ export class SubtitlePlayerController {
 
     private setNativeTrackModes(): void {
         const settings = this.options.getSettings();
+        const selected = this.tracks.find(track => track.id === this.selectedTrackId);
         this.lastYomuCaptionsActive = applySubtitleNativeTrackModes({
             tracks: this.tracks,
             selectedTrackId: this.selectedTrackId,
             secondaryTrackId: this.secondaryTrackId,
             overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
             suppressNativeCaptions: Boolean(settings.subtitlePlayerEnabled && this.video),
+            suppressCaptionPlayerUi: !this.shouldUseDomCaptionFallback(selected),
             video: this.video,
             hasPrimaryCues: Boolean(this.cues.length),
             currentCueText: this.currentCue?.text,
@@ -5551,6 +5570,7 @@ export class SubtitlePlayerController {
         this.transcriptVirtualScrollTop = 0;
         this.clearTranscriptVirtualRender();
         this.lastDomCaption = '';
+        this.lastDomCaptionSeenAt = 0;
         this.pendingDomCaption = undefined;
         this.youtubeDomCaptionFallbackTrackId = '';
         this.lastAutoCopiedCueSignature = '';
