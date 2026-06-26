@@ -124,6 +124,44 @@ const readerFixtureHtml = `<!doctype html>
       border-radius: 8px;
       background: #fffdfa;
     }
+    .chat-style-conflict {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 10px;
+      padding: 16px;
+      border-radius: 8px;
+      background: #1e1f22;
+      color: #dbdee1;
+    }
+    .chat-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #313338;
+    }
+    .messageHeader {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+      margin: 0 0 4px;
+      font-size: 16px;
+      line-height: 1.25;
+    }
+    .username {
+      color: rgb(242, 243, 245);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .messageTime {
+      color: #949ba4;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .messageContent {
+      color: #dbdee1;
+      line-height: 1.45;
+    }
     .jpdb-reader-word {
       border-radius: 4px;
       padding: 2px 4px;
@@ -140,6 +178,18 @@ const readerFixtureHtml = `<!doctype html>
       <span class="jpdb-reader-word" data-expression="鳥" data-vid="-1003" data-sid="-1003" data-sentence="猫と犬と鳥を見る">鳥</span>
       を見る。
     </p>
+    <section class="chat-style-conflict" data-style-conflict>
+      <span class="chat-avatar" aria-hidden="true"></span>
+      <div>
+        <h3 class="messageHeader">
+          <span class="username">Canna<span class="jpdb-reader-word jpdb-known jpdb-reader-scan-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-expression="波蘭" data-vid="-2001" data-sid="-2001" data-sentence="Canna波蘭">波蘭</span></span>
+          <time class="messageTime">10:50</time>
+        </h3>
+        <div class="messageContent">
+          今日は<span class="jpdb-reader-word jpdb-known jpdb-reader-scan-word" data-expression="故郷" data-vid="-2002" data-sid="-2002" data-sentence="今日は故郷を守るために戦います。"><ruby><span class="jpdb-reader-ruby-base">故郷</span><rp>(</rp><rt class="jpdb-reader-furi">こきょう</rt><rp>)</rp></ruby></span>を守るために戦います。
+        </div>
+      </div>
+    </section>
   </main>
 </body>
 </html>`;
@@ -378,6 +428,40 @@ async function verifyKeyboardWordNavigation(page, baseUrl) {
     await waitForKeyboardActiveWord(page, '鳥', 'Keyboard navigation did not advance inside the selected text range');
 
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-keyboard-word-nav.png'), fullPage: false });
+}
+
+async function verifyGenericPassiveStyleContainment(page, baseUrl) {
+    await page.goto(`${baseUrl}/reader-fixture.html`, { waitUntil: 'domcontentloaded' });
+    await injectUserscript(page);
+    await page.waitForSelector('[data-style-conflict] .username .jpdb-reader-word', { timeout: 6000 });
+
+    const state = await readGenericPassiveStyleState(page);
+    assert(state.passive === 'true', 'Compact author/name word was not marked passive', state);
+    assert(state.authorColor === state.usernameColor, 'Compact author/name word did not preserve host text color', state);
+    assert(state.authorTextFill === state.usernameColor, 'Compact author/name word did not preserve host text fill color', state);
+    assert(state.authorHighlight === 'transparent', 'Compact author/name word kept an intrusive highlight source', state);
+    assert(state.messagePassive !== 'true', 'Chat message prose was incorrectly treated as passive chrome', state);
+    assert(state.messageFuri === 'こきょう', 'Chat message prose lost furigana while fixing compact author chrome', state);
+    await page.locator('[data-style-conflict]').screenshot({ path: path.join(ARTIFACTS, 'feedback-generic-style-containment.png') });
+}
+
+async function readGenericPassiveStyleState(page) {
+    return page.evaluate(() => {
+        const username = document.querySelector('[data-style-conflict] .username');
+        const authorWord = document.querySelector('[data-style-conflict] .username .jpdb-reader-word');
+        const messageWord = document.querySelector('[data-style-conflict] .messageContent .jpdb-reader-word');
+        const usernameStyle = username ? getComputedStyle(username) : null;
+        const authorStyle = authorWord ? getComputedStyle(authorWord) : null;
+        return {
+            passive: authorWord?.getAttribute('data-jpdb-reader-passive') ?? '',
+            authorColor: authorStyle?.color ?? '',
+            authorTextFill: authorStyle?.webkitTextFillColor ?? '',
+            authorHighlight: authorStyle?.getPropertyValue('--jpdb-reader-word-highlight-source').trim() ?? '',
+            usernameColor: usernameStyle?.color ?? '',
+            messagePassive: messageWord?.getAttribute('data-jpdb-reader-passive') ?? '',
+            messageFuri: messageWord?.querySelector('rt.jpdb-reader-furi')?.textContent?.trim() ?? '',
+        };
+    });
 }
 
 async function installKeyboardNavigationProbe(page) {
@@ -1612,6 +1696,15 @@ try {
     await verifyKeyboardWordNavigation(keyboardPage, baseUrl);
     await keyboardPage.close();
 
+    const styleContainmentPage = await newPage(browser, {
+        ...baseSettings,
+        theme: 'dark',
+        wordHighlightColorSource: 'jpdb',
+        wordTextColorSource: 'status',
+    });
+    await verifyGenericPassiveStyleContainment(styleContainmentPage, baseUrl);
+    await styleContainmentPage.close();
+
     const videoPage = await newPage(browser, baseSettings, { width: 1440, height: 900 });
     await verifyHostedSubtitleFlow(videoPage, baseUrl);
     await videoPage.close();
@@ -1629,6 +1722,7 @@ try {
         artifacts: [
             path.join(ARTIFACTS, 'feedback-settings-font.png'),
             path.join(ARTIFACTS, 'feedback-keyboard-word-nav.png'),
+            path.join(ARTIFACTS, 'feedback-generic-style-containment.png'),
             path.join(ARTIFACTS, 'feedback-video-empty-desktop.png'),
             path.join(ARTIFACTS, 'feedback-video-empty-mobile.png'),
             path.join(ARTIFACTS, 'feedback-video-open-with-subtitles.png'),

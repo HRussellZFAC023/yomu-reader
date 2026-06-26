@@ -7147,7 +7147,8 @@ recommendedJiten	Jiten頻度です。
   const DISPLAY_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6";
   const PASSIVE_INTERACTION_SELECTOR = 'a[href],button,summary,label,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[role="checkbox"],[role="radio"],[role="switch"],[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less';
   const COMPACT_PASSIVE_INTERACTION_SELECTOR = '[onclick],[tabindex]:not([tabindex="-1"]),[class*="audio" i],[class*="button" i],[class*="control" i],[class*="play" i],[class*="sound" i],[class*="speaker" i],[class*="toggle" i]';
-  const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR}`;
+  const COMPACT_PASSIVE_CHROME_SELECTOR = 'time,[datetime],[aria-label*="author" i],[aria-label*="username" i],[class*="author" i],[class*="byline" i],[class*="display-name" i],[class*="handle" i],[class*="header" i],[class*="meta" i],[class*="nickname" i],[class*="screen-name" i],[class*="user-name" i],[class*="username" i]';
+  const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
   const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = "ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer";
   const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]";
   const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
@@ -7440,7 +7441,12 @@ recommendedJiten	Jiten頻度です。
   function isPassiveInteractionBoundaryElement(element, options) {
     if (!options.includePassiveInteractions) return false;
     const explicitInteraction = safeElementMatches(element, PASSIVE_INTERACTION_SELECTOR);
-    if (!explicitInteraction && safeElementMatches(element, COMPACT_PASSIVE_INTERACTION_SELECTOR) && !isCompactPassiveInteractionElement(element)) {
+    const compactInteraction = safeElementMatches(element, COMPACT_PASSIVE_INTERACTION_SELECTOR);
+    const compactChrome = safeElementMatches(element, COMPACT_PASSIVE_CHROME_SELECTOR);
+    if (!explicitInteraction && compactInteraction && !isCompactPassiveInteractionElement(element)) {
+      return false;
+    }
+    if (!explicitInteraction && !compactInteraction && compactChrome && !isCompactPassiveChromeElement(element)) {
       return false;
     }
     if (!safeElementMatches(element, PASSIVE_INTERACTION_BOUNDARY_SELECTOR)) return false;
@@ -7473,14 +7479,18 @@ recommendedJiten	Jiten頻度です。
     if (element.closest(READER_ROOT_SELECTOR)) return false;
     if (element.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
     const compactInteraction = element.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-    if (!compactInteraction) return false;
-    if (!isCompactPassiveInteractionElement(compactInteraction)) return false;
-    return true;
+    if (compactInteraction && isCompactPassiveInteractionElement(compactInteraction)) return true;
+    const compactChrome = element.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
+    return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
   }
   function isCompactPassiveInteractionElement(element) {
     const text2 = element.textContent?.replace(/\s+/g, "").trim() ?? "";
     if (!text2 || text2.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
     return element.childElementCount <= 4;
+  }
+  function isCompactPassiveChromeElement(element) {
+    if (isLikelyProseElement(element)) return false;
+    return isCompactPassiveInteractionElement(element);
   }
   function isFragmentPassiveInteractionElement(element, options) {
     if (isPassiveInteractionElement(element)) return true;

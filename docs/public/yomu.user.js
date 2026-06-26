@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.126
+// @version 1.4.127
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.126
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.126
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.126
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.126
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.127
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.127
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.127
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.127
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -3685,7 +3685,8 @@ const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6";
 const PASSIVE_INTERACTION_SELECTOR = 'a[href],button,summary,label,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[role="checkbox"],[role="radio"],[role="switch"],[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less';
 const COMPACT_PASSIVE_INTERACTION_SELECTOR = '[onclick],[tabindex]:not([tabindex="-1"]),[class*="audio" i],[class*="button" i],[class*="control" i],[class*="play" i],[class*="sound" i],[class*="speaker" i],[class*="toggle" i]';
-const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR}`;
+const COMPACT_PASSIVE_CHROME_SELECTOR = 'time,[datetime],[aria-label*="author" i],[aria-label*="username" i],[class*="author" i],[class*="byline" i],[class*="display-name" i],[class*="handle" i],[class*="header" i],[class*="meta" i],[class*="nickname" i],[class*="screen-name" i],[class*="user-name" i],[class*="username" i]';
+const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
 const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = "ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer";
 const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]";
 const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
@@ -4160,7 +4161,12 @@ function isFragmentParagraphBoundary(element2, options) {
 function isPassiveInteractionBoundaryElement(element2, options) {
   if (!options.includePassiveInteractions) return false;
   const explicitInteraction = safeElementMatches$1(element2, PASSIVE_INTERACTION_SELECTOR);
-  if (!explicitInteraction && safeElementMatches$1(element2, COMPACT_PASSIVE_INTERACTION_SELECTOR) && !isCompactPassiveInteractionElement(element2)) {
+  const compactInteraction = safeElementMatches$1(element2, COMPACT_PASSIVE_INTERACTION_SELECTOR);
+  const compactChrome = safeElementMatches$1(element2, COMPACT_PASSIVE_CHROME_SELECTOR);
+  if (!explicitInteraction && compactInteraction && !isCompactPassiveInteractionElement(element2)) {
+    return false;
+  }
+  if (!explicitInteraction && !compactInteraction && compactChrome && !isCompactPassiveChromeElement(element2)) {
     return false;
   }
   if (!safeElementMatches$1(element2, PASSIVE_INTERACTION_BOUNDARY_SELECTOR)) return false;
@@ -4193,14 +4199,18 @@ function isPassiveInteractionElement(element2) {
   if (element2.closest(READER_ROOT_SELECTOR$3)) return false;
   if (element2.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
   const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-  if (!compactInteraction) return false;
-  if (!isCompactPassiveInteractionElement(compactInteraction)) return false;
-  return true;
+  if (compactInteraction && isCompactPassiveInteractionElement(compactInteraction)) return true;
+  const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
+  return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
 }
 function isCompactPassiveInteractionElement(element2) {
   const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
   if (!text2 || text2.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
   return element2.childElementCount <= 4;
+}
+function isCompactPassiveChromeElement(element2) {
+  if (isLikelyProseElement(element2)) return false;
+  return isCompactPassiveInteractionElement(element2);
 }
 function isFragmentPassiveInteractionElement(element2, options) {
   if (isPassiveInteractionElement(element2)) return true;
@@ -37097,7 +37107,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.126"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.127"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],
@@ -37144,10 +37154,11 @@ function criticalChannelCss() {
   return [
     ".jpdb-reader-word-highlight-status .jpdb-reader-word{--yh:var(--hs,#0000)}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{--yh:var(--h1,#0000)}.jpdb-reader-word-highlight-anki .jpdb-reader-word{--yh:var(--ah,#0000)}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{--yh:var(--h2,#0000)}",
     ":is(.jpdb-reader-word-highlight-status,.jpdb-reader-word-highlight-jpdb,.jpdb-reader-word-highlight-anki,.jpdb-reader-word-highlight-pitch) .jpdb-reader-word{background:linear-gradient(var(--yh),var(--yh)) center/var(--yz) 100% no-repeat!important}",
-    ":is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}",
+    ".jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}",
     ".jpdb-reader-word-underline-status .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-anki .jpdb-reader-word{--yu:var(--ac,#0000)}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--yu:var(--d2,#0000)}",
     ".jpdb-reader-word-text-status .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-jpdb .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-anki .jpdb-reader-word{--yt:var(--ar,var(--ac,currentColor))}.jpdb-reader-word-text-pitch .jpdb-reader-word{--yt:var(--c2,currentColor)}",
-    ":is(.jpdb-reader-word-text-status,.jpdb-reader-word-text-jpdb,.jpdb-reader-word-text-anki,.jpdb-reader-word-text-pitch) .jpdb-reader-word{color:var(--yt,currentColor)!important;-webkit-text-fill-color:var(--yt,currentColor)}"
+    ":is(.jpdb-reader-word-text-status,.jpdb-reader-word-text-jpdb,.jpdb-reader-word-text-anki,.jpdb-reader-word-text-pitch) .jpdb-reader-word{color:var(--yt,currentColor)!important;-webkit-text-fill-color:var(--yt,currentColor)}",
+    ":is(.jpdb-reader-word-text-status,.jpdb-reader-word-text-jpdb,.jpdb-reader-word-text-anki,.jpdb-reader-word-text-pitch) .jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor;color:var(--jpdb-reader-word-accessible-color,currentColor)!important;-webkit-text-fill-color:var(--jpdb-reader-word-accessible-color,currentColor)}"
   ].join("");
 }
 const CRITICAL_READER_CSS = `
@@ -37269,7 +37280,7 @@ height: 5px;
 border-radius: 999px;
 background: var(--jpdb-reader-faint, #687384);
 }
-.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}
+.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}.jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor;--yh:#0000}
 .jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,#0000);pointer-events:none}
 ${criticalWordCss()}
 `.trim();

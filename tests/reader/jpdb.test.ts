@@ -33058,6 +33058,62 @@ describe('reader helpers', () => {
         expect(word.querySelector('rt')?.textContent).toBe('こきょう');
     });
 
+    it('keeps compact chat author names passive while preserving message prose ruby', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 420, height: 48 });
+        document.body.innerHTML = `
+            <main>
+                <div role="article" class="messageListItem" style="display:grid;grid-template-columns:44px 1fr;gap:10px">
+                    <img class="avatar" alt="" src="/avatar.png">
+                    <div>
+                        <h3 class="messageHeader" style="display:flex;align-items:baseline;gap:8px;min-width:0">
+                            <span class="username" style="color:rgb(242,243,245);font-weight:700;white-space:nowrap">Canna波蘭</span>
+                            <time style="color:rgb(148,155,164)">10:50</time>
+                        </h3>
+                        <div class="messageContent" style="color:rgb(219,222,225);white-space:normal">
+                            今日は故郷を守るために戦います。
+                        </div>
+                    </div>
+                </div>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://chat.example/channels/1/2');
+        rectSpy.mockRestore();
+        const authorTarget = targets.find(candidate => candidate.text.includes('Canna波蘭'))!;
+        const messageTarget = targets.find(candidate => candidate.text === '今日は故郷を守るために戦います。')!;
+        expect(authorTarget).toMatchObject({ passiveInteraction: true });
+        expect(messageTarget).toBeTruthy();
+        expect(messageTarget).not.toMatchObject({ passiveInteraction: true });
+        expect(messageTarget).not.toMatchObject({ suppressRuby: true });
+
+        applyTokensToScanTarget(authorTarget, [{
+            card: { ...card, cardState: ['known'], spelling: '波蘭', reading: 'ぽーらん' },
+            start: 5,
+            end: 7,
+            length: 2,
+            rubies: [{ text: 'ぽーらん', start: 5, end: 7, length: 2 }],
+            pitchClass: '',
+            sentence: authorTarget.text,
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        applyTokensToScanTarget(messageTarget, [{
+            card: { ...card, cardState: ['known'], spelling: '故郷', reading: 'こきょう' },
+            start: 3,
+            end: 5,
+            length: 2,
+            rubies: [{ text: 'こきょう', start: 3, end: 5, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '今日は故郷を守るために戦います。',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const authorWord = document.querySelector<HTMLElement>('.username .jpdb-reader-word')!;
+        const messageWord = document.querySelector<HTMLElement>('.messageContent .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(authorWord)).toBe('波蘭');
+        expect(authorWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(authorWord.classList.contains('jpdb-reader-passive-word')).toBe(true);
+        expect(messageWord.dataset.jpdbReaderPassive).toBeUndefined();
+        expect(messageWord.querySelector('rt.jpdb-reader-furi')?.textContent).toBe('こきょう');
+    });
+
     it('scans generic chatbot markdown messages with furigana and pitch styling', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 720, height: 160 });
         document.body.innerHTML = `
