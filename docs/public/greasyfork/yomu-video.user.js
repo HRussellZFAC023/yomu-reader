@@ -13407,7 +13407,7 @@ ${spelling}`);
       }
       if (yomuCaptionsActive) option.track.mode = "disabled";
     }
-    if (yomuCaptionsActive) suppressGenericCaptionPlayerUi(state2.video);
+    if (yomuCaptionsActive && (state2.suppressCaptionPlayerUi ?? true)) suppressGenericCaptionPlayerUi(state2.video);
     document.documentElement.classList.toggle(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
     document.documentElement.classList.remove("jpdb-subtitle-yomu-captions-active");
     return false;
@@ -14562,6 +14562,7 @@ ${spelling}`);
   const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
+  const DOM_CAPTION_MISSING_GRACE_MS = 1200;
   const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = "youtube-dom-caption-fallback";
   const SUBTITLE_FILE_ACCEPT = ".srt,.vtt,.ass,.ssa,text/vtt";
   const log = Logger.scope("Subtitles");
@@ -14800,6 +14801,7 @@ ${spelling}`);
     youtubeAutoSelectSuppressedVideoId = "";
     lastDomCaption = "";
     pendingDomCaption;
+    lastDomCaptionSeenAt = 0;
     parsedHtmlCache = /* @__PURE__ */ new Map();
     provisionalParsedHtmlCache = /* @__PURE__ */ new Map();
     enrichedProvisionalParsedHtmlKeys = /* @__PURE__ */ new Set();
@@ -15210,6 +15212,7 @@ ${spelling}`);
       this.secondaryCue = void 0;
       this.pendingDomCaption = void 0;
       this.lastDomCaption = "";
+      this.lastDomCaptionSeenAt = 0;
       this.lastAutoCopiedCueSignature = "";
       this.lastRenderedPrimaryText = "";
       this.lastRenderedPrimaryHtml = "";
@@ -15764,6 +15767,7 @@ ${spelling}`);
     clearLoadedPrimaryCue() {
       this.currentCue = void 0;
       this.lastDomCaption = "";
+      this.lastDomCaptionSeenAt = 0;
       return true;
     }
     updateLoadedSecondaryCue(secondary) {
@@ -15799,6 +15803,7 @@ ${spelling}`);
     keepDomCaptionCueAlive(text) {
       if (this.cues.length || !this.currentCue) return;
       if (text !== this.lastDomCaption) return;
+      this.lastDomCaptionSeenAt = performance.now();
       const now = this.video?.currentTime ?? 0;
       if (now >= this.currentCue.start && this.currentCue.end < now + 1) this.currentCue.end = now + 4;
     }
@@ -15846,13 +15851,19 @@ ${spelling}`);
       return Boolean(selected?.kind === "youtube" && selected.sourceKey !== YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY && !isJapaneseSubtitleTrack(selected));
     }
     clearDomCaptionFallbackIfExpired() {
+      if (this.shouldHoldRecentDomCaption()) return;
       this.pendingDomCaption = void 0;
       if (!this.cues.length && this.currentCue && (this.video?.currentTime ?? 0) > this.currentCue.end) {
         this.currentCue = void 0;
         this.lastDomCaption = "";
+        this.lastDomCaptionSeenAt = 0;
         this.render();
         this.syncControls();
       }
+    }
+    shouldHoldRecentDomCaption() {
+      if (this.cues.length || !this.currentCue || !this.lastDomCaptionSeenAt) return false;
+      return performance.now() - this.lastDomCaptionSeenAt < DOM_CAPTION_MISSING_GRACE_MS;
     }
     isDomCaptionStable(text, nowMs2) {
       if (this.pendingDomCaption?.text !== text) {
@@ -15873,6 +15884,7 @@ ${spelling}`);
     }
     applyDomCaptionFallback(text, selected) {
       this.lastDomCaption = text;
+      this.lastDomCaptionSeenAt = performance.now();
       const now = this.video?.currentTime ?? 0;
       this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text }])[0];
       if (selected?.loadingState === "waiting") selected.loadingState = "ready";
@@ -17310,6 +17322,8 @@ ${spelling}`);
       this.cues = [];
       this.currentCue = void 0;
       this.pendingDomCaption = void 0;
+      this.lastDomCaption = "";
+      this.lastDomCaptionSeenAt = 0;
       return requestId;
     }
     clearSecondaryTrackSelection() {
@@ -17398,6 +17412,8 @@ ${spelling}`);
         this.cues = [];
         this.currentCue = void 0;
         this.pendingDomCaption = void 0;
+        this.lastDomCaption = "";
+        this.lastDomCaptionSeenAt = 0;
         this.youtubeDomCaptionFallbackTrackId = "";
       }
       const requestId = this.beginTrackSelection("secondary");
@@ -17436,12 +17452,14 @@ ${spelling}`);
     }
     setNativeTrackModes() {
       const settings = this.options.getSettings();
+      const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
       this.lastYomuCaptionsActive = applySubtitleNativeTrackModes({
         tracks: this.tracks,
         selectedTrackId: this.selectedTrackId,
         secondaryTrackId: this.secondaryTrackId,
         overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
         suppressNativeCaptions: Boolean(settings.subtitlePlayerEnabled && this.video),
+        suppressCaptionPlayerUi: !this.shouldUseDomCaptionFallback(selected),
         video: this.video,
         hasPrimaryCues: Boolean(this.cues.length),
         currentCueText: this.currentCue?.text,
@@ -18755,6 +18773,7 @@ ${spelling}`);
       this.transcriptVirtualScrollTop = 0;
       this.clearTranscriptVirtualRender();
       this.lastDomCaption = "";
+      this.lastDomCaptionSeenAt = 0;
       this.pendingDomCaption = void 0;
       this.youtubeDomCaptionFallbackTrackId = "";
       this.lastAutoCopiedCueSignature = "";
