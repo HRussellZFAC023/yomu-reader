@@ -3503,6 +3503,7 @@
       fontPresetYomuDefault: "Built-in font",
       fontPresetJapaneseSans: "Japanese sans",
       fontPresetHiraginoYuGothic: "Hiragino / Yu Gothic",
+      fontPresetJapaneseRounded: "Japanese rounded",
       fontPresetJapaneseSerif: "Japanese serif",
       fontPresetSystemUi: "System UI",
       fontPresetCustom: "Custom...",
@@ -4014,8 +4015,11 @@
       nextLookupWord: "Next word",
       previousSubtitle: "Previous subtitle",
       nextSubtitle: "Next subtitle",
+      jumpToCurrentSubtitle: "Jump to current subtitle",
       playVideo: "Play video",
       pauseVideo: "Pause video",
+      enterFullscreen: "Enter fullscreen",
+      exitFullscreen: "Exit fullscreen",
       copySubtitle: "Copy subtitle",
       subtitleFallbackLabel: "Subtitle",
       subtitlesTitle: "Subtitles",
@@ -4763,8 +4767,11 @@ couldNotReadAudio	音声を読み取れませんでした。
 couldNotReadAudioBlob	音声データを読み取れませんでした。
 previousSubtitle	前の字幕
 nextSubtitle	次の字幕
+jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
+enterFullscreen	全画面表示
+exitFullscreen	全画面表示を終了
 copySubtitle	字幕をコピー
 subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
@@ -5101,6 +5108,7 @@ popupFontFamily	ポップアップの日本語フォント
 fontPresetYomuDefault	内蔵フォント
 fontPresetJapaneseSans	日本語サンセリフ
 fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
+fontPresetJapaneseRounded	日本語丸ゴシック
 fontPresetJapaneseSerif	日本語明朝
 fontPresetSystemUi	システムUI
 fontPresetCustom	カスタム...
@@ -7238,6 +7246,18 @@ recommendedJiten	Jiten頻度です。
     const [link] = links.splice(from, 1);
     links.splice(to, 0, link);
   }
+  const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
+  const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
+  const JAPANESE_ROUNDED_FONT_FAMILY = '"Hiragino Maru Gothic ProN", "Yu Gothic", "Noto Sans JP", Meiryo, sans-serif';
+  const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
+  const FONT_FAMILY_PRESETS = [
+    { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: "fontPresetYomuDefault", fallbackLabel: "Built-in font" },
+    { value: JAPANESE_SANS_FONT_FAMILY, labelKey: "fontPresetJapaneseSans", fallbackLabel: "Japanese sans" },
+    { value: HIRAGINO_YU_GOTHIC_FONT_FAMILY, labelKey: "fontPresetHiraginoYuGothic", fallbackLabel: "Hiragino / Yu Gothic" },
+    { value: JAPANESE_ROUNDED_FONT_FAMILY, labelKey: "fontPresetJapaneseRounded", fallbackLabel: "Japanese rounded" },
+    { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
+    { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
+  ];
   const DEFAULT_WEB_OAUTH_CLIENT_ID = "697885991868-bj7l5ja9vgbgk5i2ojcf5jfnkdg5h47g.apps.googleusercontent.com";
   const WEB_OAUTH_CLIENT_ID = DEFAULT_WEB_OAUTH_CLIENT_ID;
   const CLOUD_SETTINGS_SYNC_ENABLED = Boolean(WEB_OAUTH_CLIENT_ID);
@@ -8139,16 +8159,6 @@ recommendedJiten	Jiten頻度です。
   };
   const API_KEY_INPUT_ATTRIBUTE_HTML = ' autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
   const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
-  const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
-  const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
-  const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
-  const FONT_FAMILY_PRESETS = [
-    { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: "fontPresetYomuDefault", fallbackLabel: "Built-in font" },
-    { value: JAPANESE_SANS_FONT_FAMILY, labelKey: "fontPresetJapaneseSans", fallbackLabel: "Japanese sans" },
-    { value: HIRAGINO_YU_GOTHIC_FONT_FAMILY, labelKey: "fontPresetHiraginoYuGothic", fallbackLabel: "Hiragino / Yu Gothic" },
-    { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
-    { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
-  ];
   const DEFAULT_SETTINGS_PANEL = "appearance";
   const SETTINGS_TABS = [
     { panel: "appearance", label: "Appearance", active: true },

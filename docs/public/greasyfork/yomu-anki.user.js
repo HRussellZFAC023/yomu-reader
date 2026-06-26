@@ -1204,6 +1204,7 @@
       fontPresetYomuDefault: "Built-in font",
       fontPresetJapaneseSans: "Japanese sans",
       fontPresetHiraginoYuGothic: "Hiragino / Yu Gothic",
+      fontPresetJapaneseRounded: "Japanese rounded",
       fontPresetJapaneseSerif: "Japanese serif",
       fontPresetSystemUi: "System UI",
       fontPresetCustom: "Custom...",
@@ -1715,8 +1716,11 @@
       nextLookupWord: "Next word",
       previousSubtitle: "Previous subtitle",
       nextSubtitle: "Next subtitle",
+      jumpToCurrentSubtitle: "Jump to current subtitle",
       playVideo: "Play video",
       pauseVideo: "Pause video",
+      enterFullscreen: "Enter fullscreen",
+      exitFullscreen: "Exit fullscreen",
       copySubtitle: "Copy subtitle",
       subtitleFallbackLabel: "Subtitle",
       subtitlesTitle: "Subtitles",
@@ -2483,8 +2487,11 @@ couldNotReadAudio	音声を読み取れませんでした。
 couldNotReadAudioBlob	音声データを読み取れませんでした。
 previousSubtitle	前の字幕
 nextSubtitle	次の字幕
+jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
+enterFullscreen	全画面表示
+exitFullscreen	全画面表示を終了
 copySubtitle	字幕をコピー
 subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
@@ -2821,6 +2828,7 @@ popupFontFamily	ポップアップの日本語フォント
 fontPresetYomuDefault	内蔵フォント
 fontPresetJapaneseSans	日本語サンセリフ
 fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
+fontPresetJapaneseRounded	日本語丸ゴシック
 fontPresetJapaneseSerif	日本語明朝
 fontPresetSystemUi	システムUI
 fontPresetCustom	カスタム...
