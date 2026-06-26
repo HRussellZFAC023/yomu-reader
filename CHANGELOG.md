@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.125] - 2026-06-26
+
+### Fixed
+
+- Renamed the subtitle mining pause control to "Pause video on subtitle click" and strengthened Yomu Video Playwright coverage so the compact subtitle popover must expose click pause, hover pause, the full font preset set, themed styling, and Settings-page sync.
+
 ## [1.4.124] - 2026-06-26
 
 ### Added

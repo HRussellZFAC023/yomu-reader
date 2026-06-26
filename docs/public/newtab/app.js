@@ -1583,7 +1583,7 @@
       subtitleTranscriptAutoScroll: "Scroll transcript with playback",
       subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
       subtitleAutoCopyLine: "Auto-copy subtitle lines",
-      subtitleMiningPause: "Pause video when mining subtitle",
+      subtitleMiningPause: "Pause video on subtitle click",
       subtitleHoverPause: "Pause video on subtitle hover",
       subtitleControlsMode: "Subtitle controls",
       right: "Right",
@@ -3174,7 +3174,7 @@ subtitleTranscriptPlacement	文字起こしパネル位置
 subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
 subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
-subtitleMiningPause	字幕を採掘するとき動画を一時停止
+subtitleMiningPause	字幕クリック時に動画を一時停止
 subtitleHoverPause	字幕ホバー時に動画を一時停止
 subtitleControlsMode	字幕コントロール
 subtitleStyle	字幕スタイル
@@ -27173,7 +27173,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${checkbox("subtitleTranscriptAutoScroll", "Scroll transcript with playback", settings.subtitleTranscriptAutoScroll)}
                     ${checkbox("subtitleAutoCopyLine", "Auto-copy each subtitle line as it plays", settings.subtitleAutoCopyLine)}
                     ${checkbox("subtitleCopyIncludeTranslation", "Include the translation when copying a line", settings.subtitleCopyIncludeTranslation)}
-                    ${checkbox("subtitleMiningPause", "Pause video when looking up subtitles", settings.subtitleMiningPause)}
+                    ${checkbox("subtitleMiningPause", "Pause video on subtitle click", settings.subtitleMiningPause)}
                     ${checkbox("subtitleHoverPause", "Pause video on subtitle hover lookup", settings.subtitleHoverPause)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">

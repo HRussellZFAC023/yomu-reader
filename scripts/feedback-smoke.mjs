@@ -322,18 +322,21 @@ async function verifyMediaSettings(page) {
     await page.locator('[data-action="settings-panel"][data-panel="media"]').click();
     const media = await readMediaSettings(page);
     assert(media.pausePanel, 'Pause-only subtitle panel setting was not discoverable', media);
+    assert(media.clickPause, 'Subtitle click-pause setting was not discoverable', media);
     assert(media.hoverPause, 'Subtitle hover-pause setting was not discoverable', media);
     assert(includesText(media.text, 'Open side panel when paused'), 'Pause-only subtitle panel setting was not discoverable', media);
+    assert(includesText(media.text, 'Pause video on subtitle click'), 'Subtitle click-pause setting was not discoverable', media);
     assert(includesText(media.text, 'Pause video on subtitle hover'), 'Subtitle hover-pause setting was not discoverable', media);
 }
 
 async function readMediaSettings(page) {
-    const [pausePanelCount, hoverPauseCount, text] = await Promise.all([
+    const [pausePanelCount, clickPauseCount, hoverPauseCount, text] = await Promise.all([
         page.locator('input[name="subtitlePausePanel"]').count(),
+        page.locator('input[name="subtitleMiningPause"]').count(),
         page.locator('input[name="subtitleHoverPause"]').count(),
         settingsDialogText(page),
     ]);
-    return { pausePanel: pausePanelCount > 0, hoverPause: hoverPauseCount > 0, text };
+    return { pausePanel: pausePanelCount > 0, clickPause: clickPauseCount > 0, hoverPause: hoverPauseCount > 0, text };
 }
 
 async function settingsDialogText(page) {
@@ -494,6 +497,7 @@ async function verifyHostedSubtitleFlow(page, baseUrl) {
     await loadHostedVideoAndSubtitleTogether(page);
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-open-with-subtitles.png'), fullPage: false });
     await assertHostedSubtitleStyleControls(page);
+    await assertHostedSubtitleSettingsSyncedFromCompactControls(page);
     await assertHostedFullscreenSubtitleOverlay(page);
     await assertHostedManualPanelCloseRestoresPlayer(page);
     await assertHostedThemeToggleResponsiveWithLoadedSubtitles(page);
@@ -921,6 +925,59 @@ async function assertHostedSubtitleStyleControls(page) {
     await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 6000 });
 }
 
+async function assertHostedSubtitleSettingsSyncedFromCompactControls(page) {
+    await page.evaluate(() => {
+        window.dispatchEvent(new CustomEvent('yomu-open-settings', { detail: { panel: 'media' } }));
+    });
+    await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
+    await page.locator('[data-action="settings-panel"][data-panel="media"]').click();
+    const state = await readHostedSubtitleSettingsSyncState(page);
+    assert(hostedSubtitleSettingsSynced(state), 'Compact subtitle controls did not stay in sync with the Settings dialog', state);
+    await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
+    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
+}
+
+async function readHostedSubtitleSettingsSyncState(page) {
+    return page.evaluate(() => {
+        const value = selector => document.querySelector(selector)?.value ?? '';
+        const checked = selector => document.querySelector(selector)?.checked ?? null;
+        const settings = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') || '{}');
+        return {
+            text: document.querySelector('.jpdb-reader-settings')?.textContent ?? '',
+            fontSize: value('input[name="subtitleFontSize"]'),
+            bottomOffset: value('input[name="subtitleBottomOffset"]'),
+            backgroundOpacity: value('input[name="subtitleBackgroundOpacity"]'),
+            fontFamily: value('select[name="subtitleFontFamily"]'),
+            miningPause: checked('input[name="subtitleMiningPause"]'),
+            hoverPause: checked('input[name="subtitleHoverPause"]'),
+            saved: {
+                fontSize: settings.subtitleFontSize,
+                bottomOffset: settings.subtitleBottomOffset,
+                backgroundOpacity: settings.subtitleBackgroundOpacity,
+                fontFamily: settings.subtitleFontFamily,
+                miningPause: settings.subtitleMiningPause,
+                hoverPause: settings.subtitleHoverPause,
+            },
+        };
+    });
+}
+
+function hostedSubtitleSettingsSynced(state) {
+    return includesText(state.text, 'Pause video on subtitle click')
+        && includesText(state.fontFamily, 'Noto Serif JP')
+        && state.fontSize === '34'
+        && state.bottomOffset === '24'
+        && Number(state.backgroundOpacity) === 0.35
+        && state.miningPause === false
+        && state.hoverPause === false
+        && state.saved.fontSize === 34
+        && state.saved.bottomOffset === 24
+        && state.saved.backgroundOpacity === 0.35
+        && includesText(state.saved.fontFamily, 'Noto Serif JP')
+        && state.saved.miningPause === false
+        && state.saved.hoverPause === false;
+}
+
 async function setHostedSubtitleStyleControl(page, name, value) {
     await page.locator(`[data-subtitle-style-setting="${name}"]`).evaluate((control, nextValue) => {
         control.value = nextValue;
@@ -943,11 +1000,38 @@ async function readHostedSubtitleStyleState(page) {
         const root = document.querySelector('.jpdb-subtitle-player');
         const popover = document.querySelector('[data-subtitle-style-popover]');
         const settings = JSON.parse(localStorage.getItem(key) || '{}');
+        const normalizeColor = value => {
+            if (!value) return '';
+            const probe = document.createElement('span');
+            probe.style.color = value;
+            document.body.append(probe);
+            const color = getComputedStyle(probe).color;
+            probe.remove();
+            return color;
+        };
+        const rootVars = root instanceof HTMLElement ? {
+            surface2: getComputedStyle(root).getPropertyValue('--jpdb-reader-surface-2').trim(),
+            text: getComputedStyle(root).getPropertyValue('--jpdb-reader-text').trim(),
+            border: getComputedStyle(root).getPropertyValue('--jpdb-reader-border').trim(),
+        } : null;
         return {
             expanded: document.querySelector('[data-action="style"]')?.getAttribute('aria-expanded'),
             popoverOpen: popover instanceof HTMLElement && !popover.hidden,
             text: popover?.textContent ?? '',
             controlCount: document.querySelectorAll('[data-subtitle-style-setting]').length,
+            fontOptions: [...document.querySelectorAll('[data-subtitle-style-setting="subtitleFontFamily"] option')]
+                .map(option => option.textContent?.trim() ?? ''),
+            popoverStyle: popover instanceof HTMLElement ? {
+                background: getComputedStyle(popover).backgroundColor,
+                color: getComputedStyle(popover).color,
+                borderColor: getComputedStyle(popover).borderColor,
+            } : null,
+            rootThemeVars: rootVars,
+            rootThemeColors: rootVars ? {
+                surface2: normalizeColor(rootVars.surface2),
+                text: normalizeColor(rootVars.text),
+                border: normalizeColor(rootVars.border),
+            } : null,
             fontTarget: root?.style.getPropertyValue('--subtitle-font-size-target') ?? '',
             bottom: root?.style.getPropertyValue('--subtitle-bottom') ?? '',
             background: root?.style.getPropertyValue('--subtitle-background-rgba') ?? '',
@@ -968,10 +1052,13 @@ async function readHostedSubtitleStyleState(page) {
 function hostedSubtitleStyleControlsReady(state) {
     return state.expanded === 'true'
         && state.popoverOpen
-        && state.controlCount >= 5
+        && state.controlCount >= 6
         && includesText(state.text, 'Subtitle font size')
-        && includesText(state.text, 'Pause video when mining subtitle')
+        && includesText(state.text, 'Pause video on subtitle click')
         && includesText(state.text, 'Pause video on subtitle hover')
+        && ['Built-in font', 'Japanese sans', 'Hiragino / Yu Gothic', 'Japanese serif', 'System UI'].every(label => state.fontOptions.includes(label))
+        && state.popoverStyle?.background === state.rootThemeColors?.surface2
+        && state.popoverStyle?.color === state.rootThemeColors?.text
         && numericPx(state.fontTarget) >= 34
         && state.bottom === '24%'
         && includesText(state.background, ',0.35)')
@@ -1162,7 +1249,21 @@ async function readHostedSubtitleStyleMobileState(page) {
             const box = element?.getBoundingClientRect();
             return box ? { width: box.width, height: box.height, left: box.left, right: box.right } : null;
         };
+        const normalizeColor = value => {
+            if (!value) return '';
+            const probe = document.createElement('span');
+            probe.style.color = value;
+            document.body.append(probe);
+            const color = getComputedStyle(probe).color;
+            probe.remove();
+            return color;
+        };
         const popover = document.querySelector('[data-subtitle-style-popover]');
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const rootVars = root instanceof HTMLElement ? {
+            surface2: getComputedStyle(root).getPropertyValue('--jpdb-reader-surface-2').trim(),
+            text: getComputedStyle(root).getPropertyValue('--jpdb-reader-text').trim(),
+        } : null;
         const label = document.querySelector('.jpdb-subtitle-style-field > span');
         return {
             viewport: { width: window.innerWidth, height: window.innerHeight },
@@ -1170,6 +1271,10 @@ async function readHostedSubtitleStyleMobileState(page) {
             popover: rect(popover),
             popoverBackground: popover ? getComputedStyle(popover).backgroundColor : '',
             labelColor: label ? getComputedStyle(label).color : '',
+            rootThemeColors: rootVars ? {
+                surface2: normalizeColor(rootVars.surface2),
+                text: normalizeColor(rootVars.text),
+            } : null,
             controlCount: document.querySelectorAll('[data-subtitle-style-setting]').length,
         };
     });
@@ -1177,14 +1282,14 @@ async function readHostedSubtitleStyleMobileState(page) {
 
 function hostedSubtitleStyleMobileReady(state) {
     return Boolean(state.popover)
-        && state.controlCount >= 5
+        && state.controlCount >= 6
         && state.popover.left >= 0
         && state.popover.right <= state.viewport.width + 1
         && state.popover.width >= 260
         && state.rail?.right <= state.viewport.width + 1
         && rgbAlpha(state.popoverBackground) >= 0.98
-        && rgbBrightness(state.popoverBackground) <= 70
-        && rgbBrightness(state.labelColor) >= 170;
+        && state.popoverBackground === state.rootThemeColors?.surface2
+        && state.labelColor === state.rootThemeColors?.text;
 }
 
 function rgbParts(value) {

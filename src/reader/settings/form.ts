@@ -729,7 +729,7 @@ function renderVideoSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('subtitleTranscriptAutoScroll', 'Scroll transcript with playback', settings.subtitleTranscriptAutoScroll)}
                     ${checkbox('subtitleAutoCopyLine', 'Auto-copy each subtitle line as it plays', settings.subtitleAutoCopyLine)}
                     ${checkbox('subtitleCopyIncludeTranslation', 'Include the translation when copying a line', settings.subtitleCopyIncludeTranslation)}
-                    ${checkbox('subtitleMiningPause', 'Pause video when looking up subtitles', settings.subtitleMiningPause)}
+                    ${checkbox('subtitleMiningPause', 'Pause video on subtitle click', settings.subtitleMiningPause)}
                     ${checkbox('subtitleHoverPause', 'Pause video on subtitle hover lookup', settings.subtitleHoverPause)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
