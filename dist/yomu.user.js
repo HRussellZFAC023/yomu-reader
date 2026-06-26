@@ -4368,7 +4368,9 @@ function applyTokensToScanTarget(target, tokens, settings) {
     return;
   }
   const nonDestructiveHost = nonDestructiveScanHost(target);
-  if (!target.forceInlineRender && (target.nonDestructive || scanHostIsLiveFrameworkRegion(nonDestructiveHost) || scanHostIsRepaintLooping(nonDestructiveHost, target.text))) {
+  const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
+  const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
+  if ((!target.forceInlineRender || repaintLooping) && (target.nonDestructive || liveFrameworkRegion || repaintLooping)) {
     applyTokensToNonDestructiveScanTarget(target, tokens, settings);
     return;
   }

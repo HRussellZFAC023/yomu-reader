@@ -17,6 +17,11 @@ function paint(host: HTMLElement): void {
     expect(target).toBeTruthy();
     applyTokensToScanTarget(target!, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 }
+function paintForcedInline(host: HTMLElement): void {
+    const target = collectTextTargetsIn(host, 40, false).find(t => t.text.trim() === TEXT);
+    expect(target).toBeTruthy();
+    applyTokensToScanTarget({ ...target!, forceInlineRender: true }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+}
 
 afterEach(() => { document.body.innerHTML = ''; });
 
@@ -44,6 +49,25 @@ describe('repaint-loop mirror fallback', () => {
         paint(host);
         expect(host.querySelector('.jpdb-reader-word')).toBeTruthy();
         expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+    });
+
+    it('keeps forced-inline targets inline until they prove they are repaint-looping', () => {
+        document.body.innerHTML = `<div id="comment">${TEXT}</div>`;
+        const host = document.getElementById('comment')!;
+
+        paintForcedInline(host);
+        expect(host.querySelector('.jpdb-reader-word')).toBeTruthy();
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+
+        let mirroredAt = -1;
+        for (let i = 0; i < 6; i++) {
+            host.textContent = TEXT;
+            paintForcedInline(host);
+            if (host.querySelector('.jpdb-reader-text-mirror')) { mirroredAt = i; break; }
+        }
+
+        expect(mirroredAt).toBeGreaterThanOrEqual(0);
+        expect(mirroredAt).toBeLessThanOrEqual(4);
     });
 
     it('stretches text mirrors across inline attributed-string hosts without width or ruby clipping', () => {
