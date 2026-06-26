@@ -470,6 +470,22 @@ const TOKEN_LIST_POPOVER_CONTROL_SELECTOR = [
     '.jpdb-reader-popover a.jpdb-reader-pill',
     '.jpdb-reader-popover .jpdb-reader-action-pill',
 ].join(',');
+const READER_CONTROL_POINTER_ACTIVATION_SELECTOR = [
+    'button',
+    'a[href]',
+    'summary',
+    '[role="button"]',
+    '[role="checkbox"]',
+    '[role="link"]',
+    '[role="menuitem"]',
+    '[role="option"]',
+    '[role="radio"]',
+    '[role="switch"]',
+    '[role="tab"]',
+    '[data-action]',
+    '[data-token-choice]',
+].join(',');
+const READER_CONTROL_POINTER_TAP_SLOP_PX = 12;
 const NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR = [
     '.ytp-caption-segment',
     '.caption-window',
@@ -485,6 +501,19 @@ const SELECTION_LOOKUP_ANCHOR_SELECTOR = [
     '.jpdb-reader-word',
     VIDEO_LOOKUP_ANCHOR_SELECTOR,
 ].join(', ');
+
+type ReaderControlPointerTap = {
+    pointerId: number;
+    root: HTMLElement;
+    target: HTMLElement;
+    x: number;
+    y: number;
+};
+
+type ReaderControlClickGuard = {
+    target: HTMLElement;
+    expiresAt: number;
+};
 
 function createNoopImageOcrController(): ImageOcrController {
     const noop = (): void => undefined;
@@ -821,6 +850,8 @@ export class ReaderApp {
     private dismissedSelectionText = '';
     private suppressWordClickUntil = 0;
     private suppressPenHoverUntil = 0;
+    private readerControlPointerTap?: ReaderControlPointerTap;
+    private readerControlClickGuard?: ReaderControlClickGuard;
     private pageHasJapaneseText = false;
     private embeddedFrame = false;
     private pressLookup?: PressLookupState;
@@ -1565,7 +1596,78 @@ export class ReaderApp {
     private installJpdbPageAddonHandlers(root: HTMLElement, fallbackCard: JPDBCard): void {
         if (root.dataset.yomuHandlersInstalled === 'true') return;
         root.dataset.yomuHandlersInstalled = 'true';
+        this.installReaderControlPointerActivation(root);
         root.addEventListener('click', event => this.handleJpdbPageAddonClick(event, root, fallbackCard));
+    }
+
+    private installReaderControlPointerActivation(root: HTMLElement): void {
+        if (root.dataset.yomuPointerActivationInstalled === 'true') return;
+        root.dataset.yomuPointerActivationInstalled = 'true';
+        root.addEventListener('pointerdown', event => this.trackReaderControlPointerTap(event, root), { capture: true });
+        root.addEventListener('pointerup', event => this.activateReaderControlPointerTap(event, root), { capture: true });
+        root.addEventListener('pointercancel', event => this.clearReaderControlPointerTap(event), { capture: true });
+        root.addEventListener('click', event => this.consumeReaderControlDuplicateClick(event, root), { capture: true });
+    }
+
+    private trackReaderControlPointerTap(event: PointerEvent, root: HTMLElement): void {
+        if (!this.isPenControlPointer(event) || event.button !== 0) {
+            if (this.readerControlPointerTap?.pointerId === event.pointerId) this.readerControlPointerTap = undefined;
+            return;
+        }
+        const target = this.readerControlPointerTarget(event.target, root);
+        this.readerControlPointerTap = target
+            ? { pointerId: event.pointerId, root, target, x: event.clientX, y: event.clientY }
+            : undefined;
+    }
+
+    private activateReaderControlPointerTap(event: PointerEvent, root: HTMLElement): void {
+        const tap = this.readerControlPointerTap;
+        if (!tap || tap.root !== root || tap.pointerId !== event.pointerId) return;
+        this.readerControlPointerTap = undefined;
+        if (!this.isPenControlPointer(event)) return;
+        const target = this.readerControlPointerTarget(event.target, root);
+        if (!target || target !== tap.target) return;
+        if (Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > READER_CONTROL_POINTER_TAP_SLOP_PX) return;
+        event.preventDefault();
+        event.stopPropagation();
+        target.click();
+        this.readerControlClickGuard = { target, expiresAt: Date.now() + 750 };
+    }
+
+    private clearReaderControlPointerTap(event: PointerEvent): void {
+        if (this.readerControlPointerTap?.pointerId === event.pointerId) this.readerControlPointerTap = undefined;
+    }
+
+    private consumeReaderControlDuplicateClick(event: MouseEvent, root: HTMLElement): void {
+        const guard = this.readerControlClickGuard;
+        if (!guard) return;
+        if (Date.now() > guard.expiresAt) {
+            this.readerControlClickGuard = undefined;
+            return;
+        }
+        const target = this.readerControlPointerTarget(event.target, root);
+        if (target !== guard.target) return;
+        if (event.detail === 0 && !event.isTrusted) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.readerControlClickGuard = undefined;
+    }
+
+    private isPenControlPointer(event: PointerEvent): boolean {
+        return event.pointerType === 'pen' && event.isPrimary !== false;
+    }
+
+    private readerControlPointerTarget(target: EventTarget | null, root: HTMLElement): HTMLElement | null {
+        const element = target instanceof Element ? target : null;
+        const control = element?.closest<HTMLElement>(READER_CONTROL_POINTER_ACTIVATION_SELECTOR) ?? null;
+        if (!control || !root.contains(control) || this.isDisabledReaderControl(control)) return null;
+        return control;
+    }
+
+    private isDisabledReaderControl(control: HTMLElement): boolean {
+        if (control.getAttribute('aria-disabled') === 'true') return true;
+        if (control.closest('[aria-disabled="true"]')) return true;
+        return control.matches(':disabled, fieldset[disabled] *');
     }
 
     private handleJpdbPageAddonClick(event: MouseEvent, root: HTMLElement, fallbackCard: JPDBCard): void {
@@ -5739,6 +5841,7 @@ export class ReaderApp {
 
     private installCardPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void {
         installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
+        this.installReaderControlPointerActivation(popover);
         popover.addEventListener('click', event => this.handleCardPopoverClick(event, card, sentence, anchor, trigger));
         popover.addEventListener('change', event => this.handlePopoverReviewTargetChange(event, popover));
     }
@@ -5973,6 +6076,7 @@ export class ReaderApp {
 
     private installKanjiCardActions(popover: HTMLElement, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): void {
         installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
+        this.installReaderControlPointerActivation(popover);
         popover.addEventListener('click', event => this.handleKanjiCardActionClick(event, card, kanji, sentence, anchor));
         popover.addEventListener('change', event => this.handlePopoverReviewTargetChange(event, popover));
     }
@@ -7917,6 +8021,7 @@ export class ReaderApp {
     }
 
     private installMountedPopoverSurface(popover: HTMLElement, state: PopoverMountState): void {
+        this.installReaderControlPointerActivation(popover);
         this.installPopoverBodyStabilizers(popover);
         if (!popover.classList.contains('jpdb-reader-sheet')) {
             if (typeof ResizeObserver === 'function') {

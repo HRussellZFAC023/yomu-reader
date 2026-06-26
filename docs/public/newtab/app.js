@@ -17752,6 +17752,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     reserveGestureAudioElement(request) {
       if (!shouldReserveGestureAudioElement(request)) return void 0;
+      this.stopCurrent();
       return this.reserveCurrentGestureAudioElement();
     }
     reserveCurrentGestureAudioElement() {

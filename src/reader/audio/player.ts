@@ -193,6 +193,7 @@ export class AudioPlayer {
 
     private reserveGestureAudioElement(request: AudioPlaybackRequest): HTMLAudioElement | undefined {
         if (!shouldReserveGestureAudioElement(request)) return undefined;
+        this.stopCurrent();
         return this.reserveCurrentGestureAudioElement();
     }
 

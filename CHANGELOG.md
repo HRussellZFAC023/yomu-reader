@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.4.133] - 2026-06-26
+## [1.4.134] - 2026-06-26
 
 ### Fixed
 
@@ -10,6 +10,14 @@
 - Standardized compact subtitle typography controls with Settings font presets, added subtitle weight to the popover, and made subtitle dragging update the same bottom-offset setting shown in Settings.
 - Kept paused-frame OCR inside the active fullscreen player host, including mobile fullscreen shells, so OCR words remain tappable after pausing fullscreen video.
 - Stabilized native and loaded subtitle cue selection at adjacent boundaries so the open sidebar current line no longer flickers between neighboring rows.
+
+## [1.4.133] - 2026-06-26
+
+### Fixed
+
+- Speaker replays now restart single-source term audio deterministically, including Jiten-only audio setups, instead of sometimes leaving the previous clip unmanaged and producing silence until repeated clicks.
+- Hover autoplay now keeps playing across consecutive word hovers instead of letting earlier audio state dead-end later eligible words.
+- Apple Pencil/stylus taps now activate reader popup controls on the first tap, including dictionary links, kanji buttons, and Show trace / Hide trace toggles, without double-firing follow-up clicks.
 
 ## [1.4.132] - 2026-06-26
 
