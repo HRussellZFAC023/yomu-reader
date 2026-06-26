@@ -81,6 +81,7 @@ try {
     await pushScenario('fixture-random-nested-duplicate-no-repeat', () => runFixtureDuplicateNestedCandidateScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-fallback-tts-deprioritized-random-replay', () => runFixtureFallbackTtsDeprioritizedScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-source-order-tts-random-no-repeat', () => runFixtureSourceOrderTtsScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-single-jiten-speaker-replay', () => runFixtureSingleJitenSpeakerReplayScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-ipad-tap-blob', () => runFixtureIpadBlobScenario(browser, fixture.baseUrl));
     await pushScenario('wikipedia-click-open', () => runWikipediaScenario(browser));
     await pushScenario('youtube-click-open-video-page', () => runYouTubeScenario(browser));
@@ -407,6 +408,37 @@ async function runFixtureSourceOrderTtsScenario(browser, baseUrl) {
     });
 }
 
+async function runFixtureSingleJitenSpeakerReplayScenario(browser, baseUrl) {
+    return await runReaderScenario(browser, {
+        name: 'fixture-single-jiten-speaker-replay',
+        url: `${baseUrl}/fixture.html`,
+        settings: {
+            ...baseSettings,
+            audioViaBlob: true,
+            audioSelectionMode: 'random',
+            audioTtsMode: 'fallback',
+            audioSources: [{ type: 'jiten-tts', url: '', voice: 'female', enabled: true }],
+        },
+        initRandomValue: 0,
+        action: async page => {
+            await clickTargetWord(page);
+            await waitForAudibleAudio(page, 'single Jiten source first audio did not play');
+            for (let index = 0; index < 3; index += 1) {
+                await page.locator('.jpdb-reader-popover [data-action="audio"]').click();
+                await waitForAudibleAudioCount(page, index + 2, `single Jiten source replay ${index + 1} produced no audio`);
+            }
+        },
+        assertResult: result => {
+            const urls = result.audiblePlays
+                .map(play => play.sourceUrl || play.src)
+                .filter(url => url.includes('/api/tts/word/42/0?voice=female'));
+            assert(urls.length >= 4, 'single Jiten source did not play on every speaker click', result);
+            assert(result.pauseEvents.length >= 3, 'single Jiten replay did not pause the active audio before restarting', result);
+            assert(result.speech.length === 0, 'single Jiten replay fell back to browser TTS', result);
+        },
+    });
+}
+
 async function runFixtureIpadBlobScenario(browser, baseUrl) {
     return await runReaderScenario(browser, {
         name: 'fixture-ipad-tap-blob',
@@ -577,6 +609,17 @@ function bridgeResponse(request) {
             ],
         }), 'application/json; charset=utf-8');
     }
+    if (request.url.startsWith('https://api.jiten.moe/api/vocabulary/search')) {
+        return jsonResponse({
+            results: [{
+                wordId: 42,
+                readingIndex: 0,
+                text: '読む',
+                rubyText: '読む[よむ]',
+            }],
+        });
+    }
+    if (request.url.startsWith('https://api.jiten.moe/api/tts/word/42/0')) return bytesResponse(SILENT_WAV_BYTES, 'audio/mpeg');
     if (request.url.startsWith('https://audio.test/')) return bytesResponse(SILENT_WAV_BYTES, 'audio/mpeg');
     return textResponse('', 'text/plain; charset=utf-8', 404);
 }
@@ -606,8 +649,9 @@ function bytesResponse(buffer, contentType, status = 200) {
 async function installAudioInstrumentation(page, options) {
     await page.addInitScript(({ blockedPlayPattern, initRandomValue, pendingPlayPattern }) => {
         if (typeof initRandomValue === 'number') Math.random = () => initRandomValue;
-        window.__yomuAudioSmoke = { plays: [], rejected: [], pending: [], speech: [], sourceByBlob: {} };
+        window.__yomuAudioSmoke = { plays: [], pauses: [], rejected: [], pending: [], speech: [], sourceByBlob: {} };
         const originalPlay = HTMLMediaElement.prototype.play;
+        const originalPause = HTMLMediaElement.prototype.pause;
         const originalLoad = HTMLMediaElement.prototype.load;
         const originalCreateObjectUrl = URL.createObjectURL.bind(URL);
         const originalSpeak = window.speechSynthesis?.speak?.bind(window.speechSynthesis);
@@ -633,6 +677,9 @@ async function installAudioInstrumentation(page, options) {
             }
             return Promise.resolve();
         };
+        HTMLMediaElement.prototype.pause = function pause() {
+            if (this.tagName === 'AUDIO') window.__yomuAudioSmoke.pauses.push(audioEvent(this));
+        };
         HTMLMediaElement.prototype.load = function load() {};
         if ('speechSynthesis' in window) {
             window.speechSynthesis.speak = utterance => {
@@ -642,6 +689,7 @@ async function installAudioInstrumentation(page, options) {
         }
         window.__yomuAudioSmokeRestore = () => {
             HTMLMediaElement.prototype.play = originalPlay;
+            HTMLMediaElement.prototype.pause = originalPause;
             HTMLMediaElement.prototype.load = originalLoad;
             URL.createObjectURL = originalCreateObjectUrl;
             if (originalSpeak && window.speechSynthesis) window.speechSynthesis.speak = originalSpeak;
@@ -800,6 +848,7 @@ async function scenarioSnapshot(page, name, requests, browserErrors) {
         runtimeMarker: evidence.runtimeMarker,
         audioLoading: evidence.audioLoading,
         audiblePlays: evidence.audiblePlays,
+        pauseEvents: evidence.pauseEvents,
         rejectedPlays: evidence.rejectedPlays,
         pendingPlays: evidence.pendingPlays,
         speech: evidence.speech,
@@ -821,6 +870,7 @@ async function safeEvidence(page) {
             audioLoading: document.querySelector('.jpdb-reader-popover')?.dataset.audioLoading ?? '',
             plays,
             audiblePlays: plays.filter(play => play.src && !play.src.includes('UklGRiYAAABX')),
+            pauseEvents: window.__yomuAudioSmoke?.pauses ?? [],
             rejectedPlays: window.__yomuAudioSmoke?.rejected ?? [],
             pendingPlays: window.__yomuAudioSmoke?.pending ?? [],
             speech: window.__yomuAudioSmoke?.speech ?? [],

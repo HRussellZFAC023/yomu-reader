@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.133] - 2026-06-26
+
+### Fixed
+
+- Speaker replays now restart single-source term audio deterministically, including Jiten-only audio setups, instead of sometimes leaving the previous clip unmanaged and producing silence until repeated clicks.
+
 ## [1.4.132] - 2026-06-26
 
 ### Fixed

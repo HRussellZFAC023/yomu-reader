@@ -8852,6 +8852,50 @@ describe('reader helpers', () => {
         }
     });
 
+    it('pauses active single-source audio before reserving a replay gesture', async () => {
+        const events: string[] = [];
+        const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function play(this: HTMLMediaElement) {
+            events.push(`play:${this.src}`);
+            return Promise.resolve();
+        });
+        const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function pause(this: HTMLMediaElement) {
+            events.push(`pause:${this.src}`);
+        });
+        const loadSpy = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'random',
+                audioViaBlob: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'custom', url: 'http://x.test/single-source.mp3', voice: '', enabled: true }],
+            }));
+
+            await expect(player.play(card, { userGesture: true })).resolves.toBe(true);
+            await expect(player.play(card, { userGesture: true })).resolves.toBe(true);
+
+            const audiblePlay = 'play:http://x.test/single-source.mp3';
+            const audiblePause = 'pause:http://x.test/single-source.mp3';
+            const firstAudiblePlay = events.indexOf(audiblePlay);
+            const secondGestureReservation = events.findIndex((event, index) =>
+                index > firstAudiblePlay && event.startsWith('play:data:audio/wav;base64,')
+            );
+            const pauseBeforeReplay = events.lastIndexOf(audiblePause, secondGestureReservation);
+
+            expect(firstAudiblePlay).toBeGreaterThan(-1);
+            expect(secondGestureReservation).toBeGreaterThan(firstAudiblePlay);
+            expect(pauseBeforeReplay).toBeGreaterThan(firstAudiblePlay);
+            expect(pauseBeforeReplay).toBeLessThan(secondGestureReservation);
+            expect(events.filter(event => event === audiblePlay)).toHaveLength(2);
+        } finally {
+            playSpy.mockRestore();
+            pauseSpy.mockRestore();
+            loadSpy.mockRestore();
+        }
+    });
+
     it('honors the configured source order in shuffle mode even when a later source prepares faster', async () => {
         const played: string[] = [];
         const requested: string[] = [];
