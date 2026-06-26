@@ -9,6 +9,26 @@ vi.mock('../../src/reader/network/http', () => ({ requestJson, requestText }));
 
 const CLIENT_ID = 'abc123.apps.googleusercontent.com';
 
+type FakePort = {
+    onmessage: ((event: { data: unknown }) => void) | null;
+    close: ReturnType<typeof vi.fn>;
+    start: ReturnType<typeof vi.fn>;
+};
+
+function stubMessageChannel(): Array<{ port1: FakePort; port2: FakePort }> {
+    const channels: Array<{ port1: FakePort; port2: FakePort }> = [];
+    class FakeMessageChannel {
+        port1: FakePort = { onmessage: null, close: vi.fn(), start: vi.fn() };
+        port2: FakePort = { onmessage: null, close: vi.fn(), start: vi.fn() };
+
+        constructor() {
+            channels.push({ port1: this.port1, port2: this.port2 });
+        }
+    }
+    vi.stubGlobal('MessageChannel', FakeMessageChannel);
+    return channels;
+}
+
 function stubGoogleToken(token = 'tok-123', expiresIn = 3600): void {
     vi.stubGlobal('google', {
         accounts: {
@@ -66,6 +86,52 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
         expect(create?.[1]?.allowDirectCrossOrigin).toBe(true);
         expect(String(create?.[1]?.data)).toContain('appDataFolder');
         expect(String(create?.[1]?.data)).toContain('"theme":"dark"');
+    });
+
+    it('opens the hosted OAuth broker from userscript contexts', async () => {
+        const channels = stubMessageChannel();
+        const popup = { closed: false, close: vi.fn(), postMessage: vi.fn() };
+        const open = vi.spyOn(window, 'open').mockReturnValue(popup as never);
+        vi.stubGlobal('GM_info', { script: { name: 'Yomu' } });
+        requestJson.mockImplementation(async (url: string) => {
+            if (url.includes('uploadType=multipart')) return { id: 'file-broker', modifiedTime: '2026-06-25T00:00:00Z' };
+            if (url.includes('spaces=appDataFolder')) return { files: [] };
+            throw new Error(`unexpected ${url}`);
+        });
+        const mod = await loadModule();
+
+        const upload = mod.uploadCloudSettingsToCloud({ theme: 'dark' } as never);
+        await vi.waitFor(() => expect(open).toHaveBeenCalled());
+        const brokerUrl = new URL(String(open.mock.calls[0]?.[0]));
+        expect(brokerUrl.origin + brokerUrl.pathname).toBe('https://yomureader.com/oauth/google-drive.html');
+        expect(brokerUrl.searchParams.get('client_id')).toBe(CLIENT_ID);
+        expect(brokerUrl.searchParams.get('origin')).toBe(window.location.origin);
+        const state = brokerUrl.searchParams.get('state') ?? '';
+        expect(state).toMatch(/^[a-z0-9]+$/i);
+
+        const ready = new MessageEvent('message', {
+            origin: 'https://yomureader.com',
+            data: { type: 'yomu-drive-oauth-ready', state },
+        });
+        Object.defineProperty(ready, 'source', { value: popup });
+        window.dispatchEvent(ready);
+
+        expect(channels).toHaveLength(1);
+        expect(popup.postMessage).toHaveBeenCalledWith(
+            { type: 'yomu-drive-oauth-init', state },
+            'https://yomureader.com',
+            [channels[0].port2],
+        );
+
+        channels[0].port1.onmessage?.({
+            data: { type: 'yomu-drive-oauth-token', state, accessToken: 'broker-token', expiresIn: 1200 },
+        });
+
+        const meta = await upload;
+        const create = requestJson.mock.calls.find(([u]) => String(u).includes('uploadType=multipart'));
+        expect(meta.fileId).toBe('file-broker');
+        expect(create?.[1]?.headers?.Authorization).toBe('Bearer broker-token');
+        expect(popup.close).toHaveBeenCalled();
     });
 
     it('updates the existing appData file when one is already present', async () => {

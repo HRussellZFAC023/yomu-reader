@@ -3689,7 +3689,7 @@ recommendedJiten	Jiten頻度です。
   function gmStorageSyncRead(key, getValue) {
     try {
       const value = getValue(key, MISSING);
-      if (isPromiseLike$2(value)) return { kind: "fallback" };
+      if (isPromiseLike$1(value)) return { kind: "fallback" };
       if (value !== MISSING) return { kind: "found", value };
       return migratedLocalStorageSyncValue(key);
     } catch (error) {
@@ -3716,7 +3716,7 @@ recommendedJiten	Jiten頻度です。
     if (typeof GM_setValue === "function") {
       try {
         const result = GM_setValue(key, value);
-        if (!isPromiseLike$2(result)) {
+        if (!isPromiseLike$1(result)) {
           mirrorManagedValueToHostedStorage(key, value);
           return;
         }
@@ -3742,7 +3742,7 @@ recommendedJiten	Jiten頻度です。
     if (typeof GM_deleteValue === "function") {
       try {
         const result = GM_deleteValue(key);
-        if (isPromiseLike$2(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
+        if (isPromiseLike$1(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
       } catch (error) {
         debugStorageError("GM storage sync delete failed", key, error);
       }
@@ -4016,7 +4016,7 @@ recommendedJiten	Jiten頻度です。
       }
     });
   }
-  function isPromiseLike$2(value) {
+  function isPromiseLike$1(value) {
     return Boolean(value) && typeof value.then === "function";
   }
   function asyncGmGetValue() {
@@ -10264,7 +10264,7 @@ ${item.sequence ?? ""}`;
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$7(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord$8(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -10295,7 +10295,7 @@ ${item.sequence ?? ""}`;
   function shouldReadRecordTextKey(key, options) {
     return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
   }
-  function isRecord$7(value) {
+  function isRecord$8(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const STRUCTURED_CONTENT_TAGS = /* @__PURE__ */ new Set([
@@ -10361,7 +10361,7 @@ ${item.sequence ?? ""}`;
     if (value == null) return "";
     if (isStructuredPrimitive(value)) return escapeHtml(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context);
-    if (!isRecord$6(value)) return "";
+    if (!isRecord$7(value)) return "";
     return renderGlossaryRecord(value, context);
   }
   function isStructuredPrimitive(value) {
@@ -10661,7 +10661,7 @@ ${item.sequence ?? ""}`;
   function camelToKebabCase(value) {
     return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
   }
-  function isRecord$6(value) {
+  function isRecord$7(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function escapeHtml(value) {
@@ -26092,101 +26092,298 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const [link] = links.splice(from, 1);
     links.splice(to, 0, link);
   }
-  const EXTENSION_BUILD_FLAG = typeof __YOMU_EXTENSION_BUILD__ === "boolean" ? __YOMU_EXTENSION_BUILD__ : false;
-  const CLOUD_SETTINGS_SYNC_ENABLED = EXTENSION_BUILD_FLAG;
-  const GOOGLE_DRIVE_SYNC_MESSAGE = "yomu.googleDriveSettingsSync";
-  const GOOGLE_DRIVE_SYNC_TIMEOUT_MS = 2e4;
+  const DEFAULT_WEB_OAUTH_CLIENT_ID = "697885991868-bj7l5ja9vgbgk5i2ojcf5jfnkdg5h47g.apps.googleusercontent.com";
+  const WEB_OAUTH_CLIENT_ID = DEFAULT_WEB_OAUTH_CLIENT_ID;
+  const CLOUD_SETTINGS_SYNC_ENABLED = Boolean(WEB_OAUTH_CLIENT_ID);
+  const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
+  const SETTINGS_FILE_NAME = "yomu-settings.json";
+  const SETTINGS_MIME_TYPE = "application/json";
+  const GIS_SCRIPT_URL = "https://accounts.google.com/gsi/client";
+  const OAUTH_BROKER_URL = "https://yomureader.com/oauth/google-drive.html";
+  const OAUTH_BROKER_ORIGIN = "https://yomureader.com";
+  const TOKEN_EARLY_REFRESH_MS = 6e4;
+  const DRIVE_TIMEOUT_MS = 2e4;
+  const POPUP_TIMEOUT_MS = 12e4;
+  let cachedToken = null;
   function cloudSettingsSyncAvailable() {
-    const extension = extensionRuntime$1();
-    return CLOUD_SETTINGS_SYNC_ENABLED && Boolean(extension?.runtime.id && extension.runtime.sendMessage);
+    return CLOUD_SETTINGS_SYNC_ENABLED;
   }
   async function uploadCloudSettingsToCloud(settings) {
+    requireConfigured();
     const snapshot = {
       formatName: "yomu-google-drive-settings-sync",
       formatVersion: 1,
       syncedAt: (/* @__PURE__ */ new Date()).toISOString(),
       settings
     };
-    const response = await sendCloudSettingsSyncMessage({ command: "upload", snapshot });
-    return response.metadata ?? { syncedAt: snapshot.syncedAt };
+    const serialized = JSON.stringify(snapshot);
+    const existing = await findSettingsFile();
+    const file = existing ? await updateSettingsFile(existing.id, serialized) : await createSettingsFile(serialized);
+    return { syncedAt: snapshot.syncedAt, fileId: file.id, modifiedTime: file.modifiedTime };
   }
   async function downloadCloudSettingsFromCloud() {
-    const response = await sendCloudSettingsSyncMessage({ command: "download" });
-    return response.snapshot ?? null;
+    requireConfigured();
+    const existing = await findSettingsFile();
+    if (!existing?.id) return null;
+    const body = await driveRequestText(`/drive/v3/files/${encodeURIComponent(existing.id)}?alt=media`);
+    return parseSettingsSnapshot(body);
   }
-  async function sendCloudSettingsSyncMessage(message) {
-    const extension = extensionRuntime$1();
-    if (!CLOUD_SETTINGS_SYNC_ENABLED || !extension?.runtime.id || typeof extension.runtime.sendMessage !== "function") {
-      throw new Error("Google Drive settings sync is available only in the Yomu extension.");
+  function requireConfigured() {
+    if (!CLOUD_SETTINGS_SYNC_ENABLED) {
+      throw new Error("Google Drive settings sync is not configured for this build.");
     }
-    const response = cloudSettingsSyncResponse(await sendExtensionMessage$1(extension, {
-      type: GOOGLE_DRIVE_SYNC_MESSAGE,
-      ...message
-    }));
-    if (!response?.ok) {
-      throw new Error(response?.error || "Google Drive settings sync is unavailable in this extension build.");
-    }
-    return response;
   }
-  function sendExtensionMessage$1(extension, message) {
-    if (extension.promiseBased) {
-      try {
-        return withTimeout$1(Promise.resolve(extension.runtime.sendMessage?.(message)), GOOGLE_DRIVE_SYNC_TIMEOUT_MS);
-      } catch (error) {
-        return Promise.reject(error);
-      }
-    }
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      const finish = (response) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timer);
-        const lastError = extension.runtime.lastError;
-        if (lastError) reject(new Error(lastError.message || "Google Drive settings sync failed."));
-        else resolve(response);
-      };
-      const fail = (error) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timer);
-        reject(error);
-      };
-      const timer = window.setTimeout(() => fail(new Error("Google Drive settings sync timed out.")), GOOGLE_DRIVE_SYNC_TIMEOUT_MS);
-      try {
-        const maybePromise = extension.runtime.sendMessage?.(message, finish);
-        if (isPromiseLike$1(maybePromise)) void maybePromise.then(finish, fail);
-      } catch (error) {
-        fail(error);
-      }
+  async function findSettingsFile() {
+    const params = new URLSearchParams({
+      spaces: "appDataFolder",
+      pageSize: "1",
+      fields: "files(id,name,modifiedTime,size)",
+      q: `name = '${SETTINGS_FILE_NAME.replace(/'/g, "\\'")}'`
     });
+    const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`);
+    const files = isRecord$6(body) && Array.isArray(body.files) ? body.files : [];
+    const first2 = files[0];
+    return isRecord$6(first2) && typeof first2.id === "string" ? first2 : null;
   }
-  function extensionRuntime$1() {
-    const global = globalThis;
-    if (global.browser?.runtime) return { promiseBased: true, runtime: global.browser.runtime };
-    if (global.chrome?.runtime) return { promiseBased: false, runtime: global.chrome.runtime };
-    return void 0;
+  async function createSettingsFile(serialized) {
+    const boundary = `yomu_drive_sync_${randomBoundary()}`;
+    const metadata = { name: SETTINGS_FILE_NAME, mimeType: SETTINGS_MIME_TYPE, parents: ["appDataFolder"] };
+    const body = [
+      `--${boundary}`,
+      "Content-Type: application/json; charset=UTF-8",
+      "",
+      JSON.stringify(metadata),
+      `--${boundary}`,
+      `Content-Type: ${SETTINGS_MIME_TYPE}`,
+      "",
+      serialized,
+      `--${boundary}--`,
+      ""
+    ].join("\r\n");
+    const result = await driveRequestJson("/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime,size", {
+      method: "POST",
+      headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+      data: body
+    });
+    return driveFileFromResponse(result);
   }
-  function cloudSettingsSyncResponse(value) {
-    return value && typeof value === "object" ? value : null;
+  async function updateSettingsFile(fileId, serialized) {
+    const result = await driveRequestJson(
+      `/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media&fields=id,name,modifiedTime,size`,
+      { method: "PATCH", headers: { "Content-Type": SETTINGS_MIME_TYPE }, data: serialized }
+    );
+    return driveFileFromResponse(result);
   }
-  function withTimeout$1(promise, timeoutMs) {
-    return new Promise((resolve, reject) => {
-      const timer = window.setTimeout(() => reject(new Error("Google Drive settings sync timed out.")), timeoutMs);
-      promise.then(
-        (value) => {
-          window.clearTimeout(timer);
-          resolve(value);
-        },
-        (error) => {
-          window.clearTimeout(timer);
-          reject(error);
+  async function driveRequestJson(path, options = {}) {
+    return driveRequest(options, (body) => requestJson$3(driveUrl(path), body));
+  }
+  async function driveRequestText(path, options = {}) {
+    return driveRequest(options, (body) => requestText$7(driveUrl(path), body));
+  }
+  async function driveRequest(options, run) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const token = await acquireAccessToken(attempt === 0);
+      try {
+        return await run({
+          method: options.method ?? "GET",
+          headers: { ...options.headers ?? {}, Authorization: `Bearer ${token}` },
+          data: options.data,
+          responseType: "json",
+          timeoutMs: DRIVE_TIMEOUT_MS,
+          allowDirectCrossOrigin: true,
+          preferFetch: true,
+          failureLabel: "Google Drive settings sync"
+        });
+      } catch (error) {
+        if (attempt === 0 && isUnauthorized(error)) {
+          cachedToken = null;
+          continue;
         }
-      );
+        throw error;
+      }
+    }
+    throw new Error("Google Drive settings sync failed to authorise.");
+  }
+  function driveUrl(path) {
+    return `https://www.googleapis.com${path}`;
+  }
+  async function acquireAccessToken(allowCached) {
+    if (allowCached && cachedToken && Date.now() < cachedToken.expiresAt - TOKEN_EARLY_REFRESH_MS) {
+      return cachedToken.token;
+    }
+    const token = isUserscriptContext() ? await tokenViaBroker() : await tokenViaIdentityServices();
+    cachedToken = { token: token.accessToken, expiresAt: Date.now() + token.expiresInSeconds * 1e3 };
+    return cachedToken.token;
+  }
+  async function tokenViaIdentityServices() {
+    const gis = await loadIdentityServices();
+    return new Promise((resolve, reject) => {
+      try {
+        const client = gis.accounts.oauth2.initTokenClient({
+          client_id: WEB_OAUTH_CLIENT_ID,
+          scope: DRIVE_SCOPE,
+          callback: (response) => {
+            if (response.error || !response.access_token) {
+              reject(new Error(googleTokenError(response)));
+              return;
+            }
+            resolve({ accessToken: response.access_token, expiresInSeconds: Number(response.expires_in) || 3600 });
+          },
+          error_callback: (error) => reject(new Error(error?.message || "Google authorization was cancelled."))
+        });
+        client.requestAccessToken({ prompt: "" });
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error("Google authorization failed to start."));
+      }
     });
   }
-  function isPromiseLike$1(value) {
-    return Boolean(value && typeof value.then === "function");
+  function tokenViaBroker() {
+    return new Promise((resolve, reject) => {
+      const opener = typeof window !== "undefined" ? window : void 0;
+      if (!opener?.open) {
+        reject(new Error("Google Drive settings sync needs a browser window."));
+        return;
+      }
+      if (typeof MessageChannel !== "function") {
+        reject(new Error("Google Drive settings sync needs a browser with secure channel support."));
+        return;
+      }
+      const state2 = randomBoundary();
+      const channel = new MessageChannel();
+      const brokerUrl = `${OAUTH_BROKER_URL}?origin=${encodeURIComponent(opener.location.origin)}&client_id=${encodeURIComponent(WEB_OAUTH_CLIENT_ID)}&state=${encodeURIComponent(state2)}`;
+      const popup = opener.open(brokerUrl, "yomu-drive-oauth", "width=480,height=640,menubar=no,toolbar=no");
+      if (!popup) {
+        reject(new Error("Allow pop-ups for this site to sign in to Google Drive."));
+        return;
+      }
+      let settled = false;
+      let channelTransferred = false;
+      const finish = (run) => {
+        if (settled) return;
+        settled = true;
+        opener.removeEventListener("message", onReadyMessage);
+        try {
+          channel.port1.close();
+        } catch {
+        }
+        if (!channelTransferred) {
+          try {
+            channel.port2.close();
+          } catch {
+          }
+        }
+        opener.clearTimeout(timer);
+        opener.clearInterval(closedPoll);
+        run();
+      };
+      const onReadyMessage = (event) => {
+        if (event.origin !== OAUTH_BROKER_ORIGIN || event.source !== popup) return;
+        const data = event.data;
+        if (!isRecord$6(data) || data.type !== "yomu-drive-oauth-ready" || data.state !== state2) return;
+        if (channelTransferred) return;
+        try {
+          popup.postMessage({ type: "yomu-drive-oauth-init", state: state2 }, OAUTH_BROKER_ORIGIN, [channel.port2]);
+          channelTransferred = true;
+        } catch {
+          finish(() => reject(new Error("Google authorization failed to establish a secure channel.")));
+        }
+      };
+      channel.port1.onmessage = (event) => {
+        const data = event.data;
+        if (!isRecord$6(data) || data.type !== "yomu-drive-oauth-token" || data.state !== state2) return;
+        if (typeof data.accessToken === "string" && data.accessToken) {
+          const expiresInSeconds = Number(data.expiresIn) || 3600;
+          finish(() => {
+            try {
+              popup.close();
+            } catch {
+            }
+            resolve({ accessToken: data.accessToken, expiresInSeconds });
+          });
+        } else {
+          finish(() => {
+            try {
+              popup.close();
+            } catch {
+            }
+            reject(new Error(typeof data.error === "string" ? data.error : "Google authorization failed."));
+          });
+        }
+      };
+      channel.port1.start();
+      opener.addEventListener("message", onReadyMessage);
+      const timer = opener.setTimeout(() => finish(() => {
+        try {
+          popup.close();
+        } catch {
+        }
+        reject(new Error("Google authorization timed out."));
+      }), POPUP_TIMEOUT_MS);
+      const closedPoll = opener.setInterval(() => {
+        if (popup.closed) finish(() => reject(new Error("Google authorization was cancelled.")));
+      }, 500);
+    });
+  }
+  let identityServicesPromise = null;
+  function loadIdentityServices() {
+    const existing = googleIdentityServices();
+    if (existing) return Promise.resolve(existing);
+    if (identityServicesPromise) return identityServicesPromise;
+    identityServicesPromise = new Promise((resolve, reject) => {
+      if (typeof document === "undefined") {
+        reject(new Error("Google Identity Services is unavailable in this context."));
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = GIS_SCRIPT_URL;
+      script.async = true;
+      script.onload = () => {
+        const gis = googleIdentityServices();
+        if (gis) resolve(gis);
+        else reject(new Error("Google Identity Services failed to initialise."));
+      };
+      script.onerror = () => {
+        identityServicesPromise = null;
+        reject(new Error("Failed to load Google Identity Services."));
+      };
+      document.head.appendChild(script);
+    });
+    return identityServicesPromise;
+  }
+  function googleIdentityServices() {
+    const candidate = globalThis.google;
+    return candidate?.accounts?.oauth2 ? candidate : null;
+  }
+  function isUserscriptContext() {
+    const global = globalThis;
+    return typeof GM_xmlhttpRequest === "function" || typeof global.GM?.xmlHttpRequest === "function" || typeof global.GM?.xmlhttpRequest === "function" || Boolean(global.GM_info);
+  }
+  function parseSettingsSnapshot(body) {
+    let parsed;
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      return null;
+    }
+    if (!isRecord$6(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
+    if (!isRecord$6(parsed.settings)) return null;
+    return parsed;
+  }
+  function driveFileFromResponse(value) {
+    if (isRecord$6(value) && typeof value.id === "string") return value;
+    throw new Error("Google Drive did not return the saved file.");
+  }
+  function isUnauthorized(error) {
+    return error instanceof Error && /\(401\)|unauthor/i.test(error.message);
+  }
+  function googleTokenError(response) {
+    return response.error_description || response.error || "Google authorization failed.";
+  }
+  function randomBoundary() {
+    return Math.random().toString(36).slice(2) + Date.now().toString(36);
+  }
+  function isRecord$6(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function renderAnkiTagsEditor(value, language) {
     const tags = ankiTagList(value);

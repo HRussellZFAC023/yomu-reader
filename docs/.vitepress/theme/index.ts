@@ -155,6 +155,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Shipped Google Drive settings sync live for hosted and userscript settings surfaces with the public web OAuth client configured; hosted reader auth runs on Yomu directly, userscripts authenticate through the hosted broker from arbitrary pages, and extension builds keep the extension bridge.': '公開Web OAuthクライアントを設定し、ホスト版とユーザースクリプトの設定画面でGoogle Drive設定同期を有効化しました。ホスト版リーダーはYomu上で直接認証し、ユーザースクリプトは任意のページからホストされたブローカー経由で認証し、拡張機能ビルドは従来の拡張機能ブリッジを使い続けます。',
     'Added a clearer hosted Yomu Video empty state for dropping anime and subtitle files together, with desktop and mobile Playwright screenshots.': '動画と字幕ファイルを一緒にドロップするための、よりわかりやすいホスト版Yomu Videoの空の状態を追加し、デスクトップとモバイルのPlaywrightスクリーンショットを追加しました。',
     'Added "Pause video when mining subtitle" setting option.': '「字幕マイニング時に動画を一時停止」設定オプションを追加しました。',
     'Added Hiragino/Yu Gothic and System UI font family preset settings options.': 'ヒラギノ・遊ゴシックおよびシステムUIのフォントファミリープリセット設定オプションを追加しました。',
