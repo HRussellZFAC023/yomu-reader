@@ -27,6 +27,19 @@ Add it to よむ:
 5. Paste the personal URL you were given.
 6. Save, look up a word, and press the speaker button.
 
+## Cloudflare Hosting Status
+
+よむ does not ship a default public Ultimate audio proxy. A Cloudflare Worker can technically proxy or serve Yomitan-compatible audio, and Wrangler is available for this repository's existing Cloudflare Worker, but it is not safe to deploy a default shared audio source without an explicit audio license, storage plan, and traffic budget.
+
+The safe deployment plan is:
+
+1. Confirm the audio source license allows public redistribution or provide a private upstream URL/token.
+2. Store only licensed audio in a Cloudflare R2 bucket or proxy only a private, authenticated upstream.
+3. Put a Worker in front of the bucket/upstream that accepts `term` and `reading`, returns Yomitan-compatible JSON, and adds CORS for よむ.
+4. Keep the Worker URL opt-in as a Custom URL source until the usage and legal constraints are known.
+
+Cost-wise, the public default remains blocked. Workers Free is limited to 100,000 requests per day and R2's free tier is limited to 10 GB-month storage, 1 million Class A operations, and 10 million Class B operations per month. A public pronunciation source can exceed request limits long before it looks large, and a full audio corpus may exceed free storage. See Cloudflare's current [Workers limits](https://developers.cloudflare.com/workers/platform/limits/) and [R2 pricing](https://developers.cloudflare.com/r2/pricing/) before deploying.
+
 ## Local Audio: What You Need
 
 Local audio means よむ asks a helper app on your computer for the sound file.

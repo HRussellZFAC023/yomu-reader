@@ -1644,6 +1644,30 @@ Watch the cat
         });
     });
 
+    it('resolves modern streaming player wrappers to their player frame', () => {
+        withViewport(1365, 768, () => {
+            document.body.innerHTML = `
+                <main>
+                    <section class="watch-shell">
+                        <media-player class="artplayer xgplayer stream-container">
+                            <video></video>
+                            <media-control-bar part="controls">
+                                <button type="button" aria-label="Play">Play</button>
+                            </media-control-bar>
+                        </media-player>
+                    </section>
+                </main>
+            `;
+            const frame = document.querySelector<HTMLElement>('media-player')!;
+            const video = document.querySelector<HTMLVideoElement>('video')!;
+            video.controls = false;
+            mockElementRect(frame, new DOMRect(42, 64, 960, 540));
+            mockElementRect(video, new DOMRect(42, 64, 960, 540));
+
+            expect(subtitleVideoLayoutTarget(video)).toBe(frame);
+        });
+    });
+
     it('still ignores an oversized page container that merely wraps a small video', () => {
         withViewport(834, 1194, () => {
             document.body.innerHTML = `
@@ -1819,6 +1843,32 @@ Watch the cat
             expect(settings.subtitleTranscriptVisible).toBe(false);
             expect(onSettingsChange).toHaveBeenCalled();
         } finally {
+            controller.destroy();
+        }
+    });
+
+    it('cleans streaming-site title noise from the anime subtitle lookup query', () => {
+        const previousTitle = document.title;
+        document.title = 'Watch Sousou no Frieren Episode 12 English Subbed Online - AnimeVerse';
+        const onSettingsChange = vi.fn();
+        const { settings, controller } = createInstalledSubtitleController({ subtitleTranscriptVisible: false }, { onSettingsChange });
+
+        try {
+            attachVideo(controller);
+            setSingleJapaneseSubtitleTrack(controller);
+            controller.refresh();
+
+            const { panel, button } = subtitlePanelToggleElements();
+
+            button.click();
+
+            expectJapaneseTracksPanelOpen(panel);
+            const jimakuSearch = panel.querySelector<HTMLAnchorElement>('[data-jimaku-anime-search]')!;
+            expect(jimakuSearch.href).toBe('https://jimaku.cc/opensearch/redirect?anime=true&query=Sousou%20no%20Frieren');
+            expect(settings.subtitleTranscriptVisible).toBe(false);
+            expect(onSettingsChange).toHaveBeenCalled();
+        } finally {
+            document.title = previousTitle;
             controller.destroy();
         }
     });
@@ -3439,6 +3489,34 @@ Watch the cat
         });
 
         expect(readPageCaptionText(video)).toBe('今日は花を見ます。');
+    });
+
+    it('reads Netflix-shaped timed-text captions without treating player chrome as subtitles', () => {
+        document.body.innerHTML = `
+            <div class="watch-video">
+                <video></video>
+                <div class="player-timedtext-text-container">
+                    <span data-uia="player-subtitle-text">今日は映画を見ます。</span>
+                </div>
+                <button type="button" aria-label="Pause">Pause</button>
+            </div>
+        `;
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const caption = document.querySelector<HTMLElement>('[data-uia="player-subtitle-text"]')!;
+        const captionContainer = document.querySelector<HTMLElement>('.player-timedtext-text-container')!;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 80, right: 1040, top: 40, bottom: 580, width: 960, height: 540 }),
+        });
+        Object.defineProperty(caption, 'innerText', { value: caption.textContent ?? '' });
+        Object.defineProperty(caption, 'getBoundingClientRect', {
+            value: () => ({ left: 320, right: 800, top: 470, bottom: 520, width: 480, height: 50 }),
+        });
+        Object.defineProperty(captionContainer, 'innerText', { value: caption.textContent ?? '' });
+        Object.defineProperty(captionContainer, 'getBoundingClientRect', {
+            value: () => ({ left: 300, right: 820, top: 452, bottom: 530, width: 520, height: 78 }),
+        });
+
+        expect(readPageCaptionText(video)).toBe('今日は映画を見ます。');
     });
 
     it('collapses layout-only page caption line breaks before rendering the overlay', () => {

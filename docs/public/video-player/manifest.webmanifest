@@ -1,0 +1,29 @@
+{
+  "name": "Yomu Video Player",
+  "short_name": "Yomu Video",
+  "description": "Open local videos and Japanese subtitles for lookup, furigana, and mining without uploading files.",
+  "lang": "en",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101316",
+  "theme_color": "#5ea780",
+  "icons": [
+    {
+      "src": "../yomu-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "../apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "../favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    }
+  ]
+}

@@ -12021,17 +12021,24 @@ ${spelling}`);
     return likelyPlayerWithChrome || hasInsetSpace && likelyPlayerFrame;
   }
   function isLikelyGenericPlayerFrame(element) {
-    const text = `${element.id} ${String(element.className)} ${element.getAttribute("aria-label") ?? ""}`;
-    return /(^|[-_\s])(player|video|media|embed|lesson-player|video-card|jwplayer|brightcove|vjs|video-js|plyr|mux|playback|wistia|vimeo|dailymotion|kaltura|shaka|cld-video-player)([-_\s]|$)/i.test(text);
+    const text = `${element.tagName.toLowerCase()} ${element.id} ${String(element.className)} ${element.getAttribute("aria-label") ?? ""}`;
+    return /(^|[-_\s])(player|video|media|stream|watch|episode|embed|lesson-player|video-card|media-player|media-provider|artplayer|xgplayer|vidstack|clappr|flowplayer|jw|jwplayer|brightcove|vjs|video-js|plyr|mux|playback|mediaelement|mejs|wistia|vimeo|dailymotion|kaltura|hls|dash|shaka|shaka-player|cld-video-player)([-_\s]|$)/i.test(text);
   }
   const PLAYER_CHROME_SELECTOR = [
     "button",
+    "media-control-bar",
+    "media-controls",
     '[role="button"]',
     '[role="slider"]',
     '[role="progressbar"]',
+    '[part*="controls" i]',
+    "[data-media-controls]",
     '[aria-label*="play" i]',
     '[aria-label*="pause" i]',
+    '[aria-label*="seek" i]',
+    '[aria-label*="volume" i]',
     '[class*="control" i]',
+    '[class*="controlbar" i]',
     '[class*="controls" i]',
     '[class*="play" i]',
     '[class*="pause" i]',
@@ -14487,7 +14494,7 @@ ${spelling}`);
   }
   function subtitleAnimeSearchQuery(video) {
     const raw = video?.dataset.yomuAnimeSearch || video?.dataset.yomuVideoTitle || video?.title || document.title || "";
-    return raw.replace(/\.(?:mkv|mp4|m4v|mov|webm|ogv)$/iu, "").replace(/[-|]\s*(?:YouTube|Yomu Video|よむ 動画)\s*$/iu, "").replace(/\[[^\]]*\]/gu, " ").replace(/[._]+/gu, " ").replace(/\s+/gu, " ").trim().slice(0, 120);
+    return raw.replace(/\.(?:mkv|mp4|m4v|mov|webm|ogv)$/iu, "").replace(/[-|]\s*(?:YouTube|Yomu Video|よむ 動画)\s*$/iu, "").replace(/\[[^\]]*\]/gu, " ").replace(/[._]+/gu, " ").replace(/^\s*(?:watch|stream)\s+/iu, "").replace(/\s+(?:episode|ep\.?)\s*\d+(?:\.\d+)?\b.*$/iu, "").replace(/\s*[-|·]\s*(?:watch|stream|free|anime|online|subbed|dubbed|hd)\b.*$/iu, "").replace(/\b(?:english|eng)\s+(?:subbed|sub|dubbed|dub)\b/giu, " ").replace(/\b(?:subbed|dubbed)\b/giu, " ").replace(/\s+\b(?:online|free|hd)\b\s*$/iu, "").replace(/\s+/gu, " ").trim().slice(0, 120);
   }
   function clearWindowTimeout(id) {
     if (id !== void 0) window.clearTimeout(id);

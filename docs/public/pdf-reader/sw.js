@@ -1,8 +1,17 @@
-const APP_HASH = '__YOMU_NEW_TAB_APP_HASH__';
-const CACHE_NAME = `yomu-newtab-${APP_HASH}`;
-const SHELL = ['./', './index.html', './manifest.webmanifest', './app.js', './styles.css', '../yomu.user.js'];
+const CACHE_NAME = 'yomu-pdf-reader-v1';
+const SHELL = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  '../yomu-icon.svg',
+  '../favicon-16x16.png',
+  '../favicon-32x32.png',
+  '../apple-touch-icon.png',
+];
 const CACHEABLE_PATH_SUFFIXES = [
-  '/manifest.webmanifest',
+  '/pdf-reader/',
+  '/pdf-reader/index.html',
+  '/pdf-reader/manifest.webmanifest',
   '/yomu.css',
   '/yomu.user.js',
   '/yomu-icon.svg',
@@ -19,14 +28,14 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => Promise.all(keys
-      .filter(key => key.startsWith('yomu-newtab-') && key !== CACHE_NAME)
+      .filter(key => key.startsWith('yomu-pdf-reader-') && key !== CACHE_NAME)
       .map(key => caches.delete(key)))),
   );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
+  if (event.request.method !== 'GET' || !isSameOrigin(event.request)) return;
   if (event.request.mode === 'navigate') {
     event.respondWith(networkFirstIndex(event.request));
     return;
@@ -38,10 +47,7 @@ self.addEventListener('fetch', event => {
 async function networkFirstIndex(request) {
   try {
     const response = await fetch(request, { cache: 'no-store' });
-    if (response.ok) {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put('./index.html', copy)).catch(() => undefined);
-    }
+    if (response.ok) cacheNetworkResponse('./index.html', response);
     return response;
   } catch {
     return await caches.match('./index.html') || Response.error();
@@ -54,37 +60,22 @@ async function networkFirst(request) {
     cacheNetworkResponse(request, response);
     return response;
   } catch {
-    return await cachedResponseFallback(request);
+    return await caches.match(request, { ignoreSearch: true }) || Response.error();
   }
 }
 
 function cacheNetworkResponse(request, response) {
-  if (!shouldStoreNetworkResponse(request, response)) return;
+  if (!response.ok) return;
   const copy = response.clone();
   caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(() => undefined);
 }
 
-function shouldStoreNetworkResponse(request, response) {
-  return response.ok && isSameOrigin(request);
-}
-
-async function cachedResponseFallback(request) {
-  return await caches.match(request, { ignoreSearch: true })
-    || await caches.match('./index.html')
-    || Response.error();
-}
-
 function shouldCacheRequest(request) {
-  if (!isSameOrigin(request)) return false;
-  const url = new URL(request.url);
-  return isNewTabPath(url.pathname)
-    || CACHEABLE_PATH_SUFFIXES.some(suffix => url.pathname.endsWith(suffix));
+  const pathname = new URL(request.url).pathname;
+  return pathname.includes('/pdf-reader/vendor/')
+    || CACHEABLE_PATH_SUFFIXES.some(suffix => pathname.endsWith(suffix));
 }
 
 function isSameOrigin(request) {
   return new URL(request.url).origin === self.location.origin;
-}
-
-function isNewTabPath(pathname) {
-  return pathname.includes('/newtab/');
 }

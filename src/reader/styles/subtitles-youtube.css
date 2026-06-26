@@ -446,6 +446,9 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending {
   filter: saturate(.72);
 }
+:is(.jpdb-subtitle-primary, .jpdb-reader-subtitle-surface) .jpdb-reader-word.jpdb-reader-has-furi {
+  line-height: 1.72;
+}
 /* Second selector matches the same element in light mode at higher specificity
    than the on-page furigana reset (`:is(.theme-light) .jpdb-reader-word rt` in
    reader-words-ocr.css), which would otherwise strip the outline. That reset

@@ -492,6 +492,12 @@ function subtitleAnimeSearchQuery(video?: HTMLVideoElement): string {
         .replace(/[-|]\s*(?:YouTube|Yomu Video|よむ 動画)\s*$/iu, '')
         .replace(/\[[^\]]*\]/gu, ' ')
         .replace(/[._]+/gu, ' ')
+        .replace(/^\s*(?:watch|stream)\s+/iu, '')
+        .replace(/\s+(?:episode|ep\.?)\s*\d+(?:\.\d+)?\b.*$/iu, '')
+        .replace(/\s*[-|·]\s*(?:watch|stream|free|anime|online|subbed|dubbed|hd)\b.*$/iu, '')
+        .replace(/\b(?:english|eng)\s+(?:subbed|sub|dubbed|dub)\b/giu, ' ')
+        .replace(/\b(?:subbed|dubbed)\b/giu, ' ')
+        .replace(/\s+\b(?:online|free|hd)\b\s*$/iu, '')
         .replace(/\s+/gu, ' ')
         .trim()
         .slice(0, 120);

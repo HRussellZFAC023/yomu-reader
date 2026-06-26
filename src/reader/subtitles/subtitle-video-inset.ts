@@ -881,18 +881,25 @@ function shouldUseGenericVideoParent(parent: HTMLElement, parentRect: DOMRect, v
 }
 
 function isLikelyGenericPlayerFrame(element: HTMLElement): boolean {
-    const text = `${element.id} ${String(element.className)} ${element.getAttribute('aria-label') ?? ''}`;
-    return /(^|[-_\s])(player|video|media|embed|lesson-player|video-card|jwplayer|brightcove|vjs|video-js|plyr|mux|playback|wistia|vimeo|dailymotion|kaltura|shaka|cld-video-player)([-_\s]|$)/i.test(text);
+    const text = `${element.tagName.toLowerCase()} ${element.id} ${String(element.className)} ${element.getAttribute('aria-label') ?? ''}`;
+    return /(^|[-_\s])(player|video|media|stream|watch|episode|embed|lesson-player|video-card|media-player|media-provider|artplayer|xgplayer|vidstack|clappr|flowplayer|jw|jwplayer|brightcove|vjs|video-js|plyr|mux|playback|mediaelement|mejs|wistia|vimeo|dailymotion|kaltura|hls|dash|shaka|shaka-player|cld-video-player)([-_\s]|$)/i.test(text);
 }
 
 const PLAYER_CHROME_SELECTOR = [
     'button',
+    'media-control-bar',
+    'media-controls',
     '[role="button"]',
     '[role="slider"]',
     '[role="progressbar"]',
+    '[part*="controls" i]',
+    '[data-media-controls]',
     '[aria-label*="play" i]',
     '[aria-label*="pause" i]',
+    '[aria-label*="seek" i]',
+    '[aria-label*="volume" i]',
     '[class*="control" i]',
+    '[class*="controlbar" i]',
     '[class*="controls" i]',
     '[class*="play" i]',
     '[class*="pause" i]',
