@@ -64,7 +64,7 @@ export function renderedWordExpansionLookup(
     return { sentence, offset, surfaceLength };
 }
 
-export function renderedWordCacheMatches(word: HTMLElement, card: JPDBCard): boolean {
+function renderedWordCacheMatches(word: HTMLElement, card: JPDBCard): boolean {
     const expression = normalizedLookupText(word.dataset.expression ?? '');
     const reading = normalizedLookupText(word.dataset.reading ?? '');
     if (expression && !cardMatchesRenderedLookupValue(card, expression)) return false;
