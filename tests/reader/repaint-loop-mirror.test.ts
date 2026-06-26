@@ -70,6 +70,28 @@ describe('repaint-loop mirror fallback', () => {
         expect(mirroredAt).toBeLessThanOrEqual(4);
     });
 
+    it('keeps volatile forced-inline targets inline when repaint-loop mirrors are suppressed', () => {
+        document.body.innerHTML = `<div id="comment">${TEXT}</div>`;
+        const host = document.getElementById('comment')!;
+
+        paintForcedInline(host);
+        expect(host.querySelector('.jpdb-reader-word')).toBeTruthy();
+
+        for (let i = 0; i < 6; i++) {
+            host.textContent = TEXT;
+            const target = collectTextTargetsIn(host, 40, false).find(t => t.text.trim() === TEXT);
+            expect(target).toBeTruthy();
+            applyTokensToScanTarget({
+                ...target!,
+                forceInlineRender: true,
+                suppressRepaintLoopMirror: true,
+            }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        }
+
+        expect(host.querySelector('.jpdb-reader-word')).toBeTruthy();
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+    });
+
     it('stretches text mirrors across inline attributed-string hosts without width or ruby clipping', () => {
         document.body.innerHTML = `<span id="title" class="ytAttributedStringHost" style="display:inline;overflow:hidden">${TEXT}</span>`;
         const host = document.getElementById('title')!;

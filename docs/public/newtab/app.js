@@ -7658,7 +7658,8 @@ recommendedJiten	Jiten頻度です。
     const nonDestructiveHost = nonDestructiveScanHost(target);
     const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
     const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
-    if ((!target.forceInlineRender || repaintLooping) && (target.nonDestructive || liveFrameworkRegion || repaintLooping)) {
+    const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
+    if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (target.nonDestructive || liveFrameworkRegion || repaintLooping)) {
       applyTokensToNonDestructiveScanTarget(target, tokens, settings);
       return;
     }

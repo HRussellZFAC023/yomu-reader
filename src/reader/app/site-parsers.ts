@@ -1134,6 +1134,7 @@ function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: Fr
         singlePassScan: profile.singlePassScan || undefined,
         nonDestructive: siteScanTargetUsesNonDestructive(profile, youtubeCommentBody) || undefined,
         forceInlineRender: youtubeCommentBody || undefined,
+        suppressRepaintLoopMirror: youtubeCommentBody || undefined,
     };
     return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
 }

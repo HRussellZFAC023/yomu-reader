@@ -4370,7 +4370,8 @@ function applyTokensToScanTarget(target, tokens, settings) {
   const nonDestructiveHost = nonDestructiveScanHost(target);
   const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
   const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
-  if ((!target.forceInlineRender || repaintLooping) && (target.nonDestructive || liveFrameworkRegion || repaintLooping)) {
+  const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
+  if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (target.nonDestructive || liveFrameworkRegion || repaintLooping)) {
     applyTokensToNonDestructiveScanTarget(target, tokens, settings);
     return;
   }
@@ -32125,7 +32126,8 @@ function siteScanTargetWithProfileOptions(profile, target) {
     passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || void 0,
     singlePassScan: profile.singlePassScan || void 0,
     nonDestructive: siteScanTargetUsesNonDestructive(profile, youtubeCommentBody) || void 0,
-    forceInlineRender: youtubeCommentBody || void 0
+    forceInlineRender: youtubeCommentBody || void 0,
+    suppressRepaintLoopMirror: youtubeCommentBody || void 0
   };
   return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
 }
@@ -32591,6 +32593,7 @@ const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 64;
 const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 24;
 const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
 const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
+const DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS = 180;
 const DEFERRED_PUBLIC_PITCH_PER_URL_CAP = 128;
 const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
 const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 3e4;
@@ -43466,9 +43469,10 @@ class ReaderApp {
       const publicLookupCandidateLimit = this.reserveBackgroundPublicPitchLookups(requestedPublicTotal, options);
       const publicLookupCandidates = uniqueTokens.slice(0, publicLookupCandidateLimit);
       const localOnlyTokens = uniqueTokens.slice(publicLookupCandidateLimit);
-      const publicTokens = publicLookupCandidates.slice(0, publicLookupLimit);
-      const deferredPublicTokens = publicLookupCandidates.slice(publicLookupLimit);
-      const shouldDeferPublicLookup = options.deferPublicLookup !== false;
+      const pausePublicLookupForHover = this.shouldPauseBackgroundPublicPitchLookup(options);
+      const publicTokens = pausePublicLookupForHover ? [] : publicLookupCandidates.slice(0, publicLookupLimit);
+      const deferredPublicTokens = pausePublicLookupForHover ? publicLookupCandidates : publicLookupCandidates.slice(publicLookupLimit);
+      const shouldDeferPublicLookup = pausePublicLookupForHover || options.deferPublicLookup !== false;
       const localOnlyRetryTokens = [...deferredPublicTokens, ...localOnlyTokens];
       const localOnly = runLimited(
         localOnlyRetryTokens,
@@ -43609,10 +43613,17 @@ class ReaderApp {
   async runDeferredPublicPitchQueue() {
     while (!this.isDestroyed && this.shouldRunPitchOrReadingEnrichment() && this.deferredPublicPitchQueue.length) {
       await this.waitForIdle(DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS);
+      if (this.shouldPauseBackgroundPublicPitchLookup({})) {
+        await wait(DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS);
+        continue;
+      }
       const batch = this.deferredPublicPitchQueue.splice(0, DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE);
       batch.forEach((token) => this.deferredPublicPitchQueuedKeys.delete(cardKey(token.card)));
       await this.enrichPitchWords(batch, { publicLookupLimit: batch.length });
     }
+  }
+  shouldPauseBackgroundPublicPitchLookup(options) {
+    return !options.urgent && this.activePopoverMode === "hover" && Boolean(this.activePopover?.isConnected);
   }
   queuePitchEnrichmentTokens(tokens, options = {}) {
     for (const token of tokens) {
