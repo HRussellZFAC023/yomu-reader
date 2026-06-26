@@ -62,6 +62,7 @@
     "smoke:anki": "node scripts/anki-mining-smoke.mjs",
     "smoke:anki-template": "node scripts/anki-template-render-smoke.mjs",
     "smoke:anki-wikipedia": "node scripts/anki-wikipedia-smoke.mjs",
+    "smoke:audio-csp-fallback": "node scripts/audio-csp-fallback-smoke.mjs",
     "smoke:audio-real-page": "node scripts/audio-real-page-smoke.mjs",
     "smoke:bookwalker-carousel": "node scripts/bookwalker-carousel-overflow-smoke.mjs",
     "smoke:audio-newtab": "node scripts/audio-newtab-smoke.mjs",

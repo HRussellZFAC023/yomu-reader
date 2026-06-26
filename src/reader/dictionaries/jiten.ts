@@ -492,7 +492,6 @@ export class JitenApiClient {
 
     // Jiten Cards parity: the new-tab Search browser needs the full deck, not
     // the current review batch. /vocabulary is paginated by the API at 100 rows.
-    // fallow-ignore-next-line unused-class-member
     async listStudyDeckVocabularyCards(deckId: number, limit = 5000): Promise<JPDBCard[]> {
         const normalizedDeckId = normalizeJitenStudyDeckId(deckId);
         const cardLimit = Math.max(1, Math.floor(limit));
