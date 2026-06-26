@@ -38282,6 +38282,22 @@ const TOKEN_LIST_POPOVER_CONTROL_SELECTOR = [
   ".jpdb-reader-popover a.jpdb-reader-pill",
   ".jpdb-reader-popover .jpdb-reader-action-pill"
 ].join(",");
+const READER_CONTROL_POINTER_ACTIVATION_SELECTOR = [
+  "button",
+  "a[href]",
+  "summary",
+  '[role="button"]',
+  '[role="checkbox"]',
+  '[role="link"]',
+  '[role="menuitem"]',
+  '[role="option"]',
+  '[role="radio"]',
+  '[role="switch"]',
+  '[role="tab"]',
+  "[data-action]",
+  "[data-token-choice]"
+].join(",");
+const READER_CONTROL_POINTER_TAP_SLOP_PX = 12;
 const NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR = [
   ".ytp-caption-segment",
   ".caption-window",
@@ -38609,6 +38625,8 @@ class ReaderApp {
   dismissedSelectionText = "";
   suppressWordClickUntil = 0;
   suppressPenHoverUntil = 0;
+  readerControlPointerTap;
+  readerControlClickGuard;
   pageHasJapaneseText = false;
   embeddedFrame = false;
   pressLookup;
@@ -39237,7 +39255,68 @@ class ReaderApp {
   installJpdbPageAddonHandlers(root, fallbackCard) {
     if (root.dataset.yomuHandlersInstalled === "true") return;
     root.dataset.yomuHandlersInstalled = "true";
+    this.installReaderControlPointerActivation(root);
     root.addEventListener("click", (event) => this.handleJpdbPageAddonClick(event, root, fallbackCard));
+  }
+  installReaderControlPointerActivation(root) {
+    if (root.dataset.yomuPointerActivationInstalled === "true") return;
+    root.dataset.yomuPointerActivationInstalled = "true";
+    root.addEventListener("pointerdown", (event) => this.trackReaderControlPointerTap(event, root), { capture: true });
+    root.addEventListener("pointerup", (event) => this.activateReaderControlPointerTap(event, root), { capture: true });
+    root.addEventListener("pointercancel", (event) => this.clearReaderControlPointerTap(event), { capture: true });
+    root.addEventListener("click", (event) => this.consumeReaderControlDuplicateClick(event, root), { capture: true });
+  }
+  trackReaderControlPointerTap(event, root) {
+    if (!this.isPenControlPointer(event) || event.button !== 0) {
+      if (this.readerControlPointerTap?.pointerId === event.pointerId) this.readerControlPointerTap = void 0;
+      return;
+    }
+    const target = this.readerControlPointerTarget(event.target, root);
+    this.readerControlPointerTap = target ? { pointerId: event.pointerId, root, target, x: event.clientX, y: event.clientY } : void 0;
+  }
+  activateReaderControlPointerTap(event, root) {
+    const tap = this.readerControlPointerTap;
+    if (!tap || tap.root !== root || tap.pointerId !== event.pointerId) return;
+    this.readerControlPointerTap = void 0;
+    if (!this.isPenControlPointer(event)) return;
+    const target = this.readerControlPointerTarget(event.target, root);
+    if (!target || target !== tap.target) return;
+    if (Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > READER_CONTROL_POINTER_TAP_SLOP_PX) return;
+    event.preventDefault();
+    event.stopPropagation();
+    target.click();
+    this.readerControlClickGuard = { target, expiresAt: Date.now() + 750 };
+  }
+  clearReaderControlPointerTap(event) {
+    if (this.readerControlPointerTap?.pointerId === event.pointerId) this.readerControlPointerTap = void 0;
+  }
+  consumeReaderControlDuplicateClick(event, root) {
+    const guard = this.readerControlClickGuard;
+    if (!guard) return;
+    if (Date.now() > guard.expiresAt) {
+      this.readerControlClickGuard = void 0;
+      return;
+    }
+    const target = this.readerControlPointerTarget(event.target, root);
+    if (target !== guard.target) return;
+    if (event.detail === 0 && !event.isTrusted) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    this.readerControlClickGuard = void 0;
+  }
+  isPenControlPointer(event) {
+    return event.pointerType === "pen" && event.isPrimary !== false;
+  }
+  readerControlPointerTarget(target, root) {
+    const element2 = target instanceof Element ? target : null;
+    const control = element2?.closest(READER_CONTROL_POINTER_ACTIVATION_SELECTOR) ?? null;
+    if (!control || !root.contains(control) || this.isDisabledReaderControl(control)) return null;
+    return control;
+  }
+  isDisabledReaderControl(control) {
+    if (control.getAttribute("aria-disabled") === "true") return true;
+    if (control.closest('[aria-disabled="true"]')) return true;
+    return control.matches(":disabled, fieldset[disabled] *");
   }
   handleJpdbPageAddonClick(event, root, fallbackCard) {
     if (!(event instanceof MouseEvent)) return;
@@ -42350,6 +42429,7 @@ class ReaderApp {
   }
   installCardPopoverHandlers(popover, card, sentence, anchor, trigger) {
     installMiningDrawerHandle(popover, (button2, expanded) => this.setMiningControlsExpanded(button2, expanded));
+    this.installReaderControlPointerActivation(popover);
     popover.addEventListener("click", (event) => this.handleCardPopoverClick(event, card, sentence, anchor, trigger));
     popover.addEventListener("change", (event) => this.handlePopoverReviewTargetChange(event, popover));
   }
@@ -42542,6 +42622,7 @@ class ReaderApp {
   }
   installKanjiCardActions(popover, card, kanji, sentence, anchor) {
     installMiningDrawerHandle(popover, (button2, expanded) => this.setMiningControlsExpanded(button2, expanded));
+    this.installReaderControlPointerActivation(popover);
     popover.addEventListener("click", (event) => this.handleKanjiCardActionClick(event, card, kanji, sentence, anchor));
     popover.addEventListener("change", (event) => this.handlePopoverReviewTargetChange(event, popover));
   }
@@ -44169,6 +44250,7 @@ class ReaderApp {
     }
   }
   installMountedPopoverSurface(popover, state) {
+    this.installReaderControlPointerActivation(popover);
     this.installPopoverBodyStabilizers(popover);
     if (!popover.classList.contains("jpdb-reader-sheet")) {
       if (typeof ResizeObserver === "function") {

@@ -5,6 +5,8 @@
 ### Fixed
 
 - Speaker replays now restart single-source term audio deterministically, including Jiten-only audio setups, instead of sometimes leaving the previous clip unmanaged and producing silence until repeated clicks.
+- Hover autoplay now keeps playing across consecutive word hovers instead of letting earlier audio state dead-end later eligible words.
+- Apple Pencil/stylus taps now activate reader popup controls on the first tap, including dictionary links, kanji buttons, and Show trace / Hide trace toggles, without double-firing follow-up clicks.
 
 ## [1.4.132] - 2026-06-26
 

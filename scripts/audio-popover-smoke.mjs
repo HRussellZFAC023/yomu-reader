@@ -72,6 +72,7 @@ try {
     await pushScenario('fixture-click-open-blob', () => runFixtureClickBlobScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-hover-direct', () => runFixtureHoverScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-hover-mode-hover', () => runFixtureHoverModeHoverScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-hover-sequential-words-audio', () => runFixtureSequentialHoverAudioScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-tap-mode-no-hover-autoplay', () => runFixtureTapModeNoHoverScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-paused-video-hover-plays', () => runFixturePausedVideoHoverScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-playing-video-hover-suppressed', () => runFixturePlayingVideoHoverScenario(browser, fixture.baseUrl));
@@ -168,6 +169,46 @@ async function runFixtureHoverModeHoverScenario(browser, baseUrl) {
         },
         assertResult: result => {
             assert(result.audiblePlays.some(play => play.src.includes('/hover-')), 'hover-only mode did not play the hover source', result);
+        },
+    });
+}
+
+async function runFixtureSequentialHoverAudioScenario(browser, baseUrl) {
+    const hoverTargets = [
+        { selector: '.jpdb-reader-word[data-expression="日本語"]', label: '日本語', urlFragment: encodeURIComponent('日本語') },
+        { selector: TARGET_SELECTOR, label: '読む', urlFragment: encodeURIComponent('読む') },
+        { selector: '.jpdb-reader-word[data-expression="練習"]', label: '練習', urlFragment: encodeURIComponent('練習') },
+    ];
+    return await runReaderScenario(browser, {
+        name: 'fixture-hover-sequential-words-audio',
+        url: `${baseUrl}/fixture.html`,
+        settings: {
+            ...baseSettings,
+            audioAutoPlayMode: 'hover',
+            audioViaBlob: true,
+            hoverCloseDelayMs: 0,
+            audioSources: [{ type: 'custom', url: 'https://audio.test/hover-{term}.mp3', voice: '', enabled: true }],
+        },
+        action: async page => {
+            await page.mouse.click(12, 12);
+            for (const [index, target] of hoverTargets.entries()) {
+                const box = await targetWordBox(page, target.selector);
+                await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+                await page.waitForSelector('.jpdb-reader-popover', { timeout: 8000 });
+                await waitForAudibleAudioCount(page, index + 1, `sequential hover audio did not play for ${target.label}`);
+                await page.mouse.move(12, 12);
+                await page.waitForTimeout(120);
+            }
+        },
+        assertResult: result => {
+            const playUrls = result.audiblePlays.map(play => play.sourceUrl || play.src);
+            for (const target of hoverTargets) {
+                assert(playUrls.some(url => url.includes(target.urlFragment)), `sequential hover did not play audio for ${target.label}`, result);
+            }
+            assert(result.audiblePlays.length >= hoverTargets.length, 'sequential hover did not produce an audible play for every target', result);
+            assert(result.rejectedPlays.length === 0, 'sequential hover produced rejected audio plays', result);
+            assert(result.pendingPlays.length === 0, 'sequential hover left audio plays pending', result);
+            assert(result.speech.length === 0, 'sequential hover fell back to TTS despite real audio sources', result);
         },
     });
 }
@@ -790,9 +831,9 @@ async function injectPageVideo(page, { playing }) {
     }, { playing });
 }
 
-async function targetWordBox(page) {
-    await page.waitForSelector(TARGET_SELECTOR, { timeout: 10_000 });
-    const box = await page.locator(TARGET_SELECTOR).first().boundingBox();
+async function targetWordBox(page, selector = TARGET_SELECTOR) {
+    await page.waitForSelector(selector, { timeout: 10_000 });
+    const box = await page.locator(selector).first().boundingBox();
     assert(box, 'target word has no bounding box');
     return box;
 }

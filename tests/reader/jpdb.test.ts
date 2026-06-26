@@ -135,6 +135,25 @@ function createMiningDrawerTestSurface(innerHtml: string): {
     };
 }
 
+function dispatchPenControlTap(target: HTMLElement, pointerId = 91): PointerEvent {
+    target.dispatchEvent(createPointerEvent('pointerdown', {
+        button: 0,
+        clientX: 24,
+        clientY: 18,
+        pointerId,
+        pointerType: 'pen',
+    }));
+    const up = createPointerEvent('pointerup', {
+        button: 0,
+        clientX: 25,
+        clientY: 18,
+        pointerId,
+        pointerType: 'pen',
+    });
+    target.dispatchEvent(up);
+    return up;
+}
+
 function hostedDocsCardToken(sentence: string, spelling: string, reading: string): JPDBToken {
     const start = sentence.indexOf(spelling);
     expect(start).toBeGreaterThanOrEqual(0);
@@ -6812,6 +6831,80 @@ describe('reader helpers', () => {
             expect(dragStart.defaultPrevented).toBe(true);
             expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
             expect(handle.getAttribute('aria-expanded')).toBe('false');
+        } finally {
+            app.destroy();
+            popover.remove();
+        }
+    });
+
+    it('activates popup links from Apple Pencil pointer taps without double-clicking', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = '<a href="https://example.test/dictionary" data-test-popup-link>Dictionary</a>';
+        document.body.append(popover);
+        const link = popover.querySelector<HTMLAnchorElement>('[data-test-popup-link]')!;
+        const clicks = vi.fn((event: MouseEvent) => event.preventDefault());
+        link.addEventListener('click', clicks);
+        const internals = app as unknown as {
+            installReaderControlPointerActivation(root: HTMLElement): void;
+        };
+        internals.installReaderControlPointerActivation(popover);
+
+        try {
+            const up = dispatchPenControlTap(link, 41);
+            expect(up.defaultPrevented).toBe(true);
+            expect(clicks).toHaveBeenCalledTimes(1);
+
+            const duplicateClick = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+            link.dispatchEvent(duplicateClick);
+            expect(duplicateClick.defaultPrevented).toBe(true);
+            expect(clicks).toHaveBeenCalledTimes(1);
+        } finally {
+            app.destroy();
+            popover.remove();
+        }
+    });
+
+    it('activates popup kanji buttons and trace toggles from Apple Pencil pointer taps', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = `
+            <button type="button" data-action="kanji" data-kanji="読">読</button>
+            <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>Show trace</button>
+        `;
+        document.body.append(popover);
+        const kanjiButton = popover.querySelector<HTMLButtonElement>('[data-action="kanji"]')!;
+        const trace = popover.querySelector<HTMLButtonElement>('[data-doodle-trace]')!;
+        const anchor = document.createElement('span');
+        const showKanjiCard = vi.fn(async () => undefined);
+        trace.addEventListener('click', () => {
+            trace.textContent = trace.textContent === 'Show trace' ? 'Hide trace' : 'Show trace';
+        });
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            showKanjiCard: typeof showKanjiCard;
+            installCardPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS };
+        internals.showKanjiCard = showKanjiCard;
+        internals.installCardPopoverHandlers(popover, card, '読む。', anchor, 'modal');
+
+        try {
+            const kanjiUp = dispatchPenControlTap(kanjiButton, 42);
+            expect(kanjiUp.defaultPrevented).toBe(true);
+            expect(showKanjiCard).toHaveBeenCalledTimes(1);
+            expect(showKanjiCard).toHaveBeenCalledWith(card, '読', '読む。', anchor, { preservePosition: true });
+
+            const traceUp = dispatchPenControlTap(trace, 43);
+            expect(traceUp.defaultPrevented).toBe(true);
+            expect(trace.textContent).toBe('Hide trace');
+
+            const duplicateTraceClick = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+            trace.dispatchEvent(duplicateTraceClick);
+            expect(duplicateTraceClick.defaultPrevented).toBe(true);
+            expect(trace.textContent).toBe('Hide trace');
         } finally {
             app.destroy();
             popover.remove();
