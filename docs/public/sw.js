@@ -1,3 +1,4 @@
+// fallow-ignore-file unused-file
 const CACHE_NAME = 'yomu-docs-shell-v1';
 const SHELL = [
   '/',
