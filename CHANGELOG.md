@@ -1,10 +1,17 @@
 # Changelog
 
-## [1.4.144] - 2026-06-27
+## [1.4.145] - 2026-06-27
 
 ### Changed
 
 - Renamed the root installable docs PWA manifest to visible よむ branding and added the compat live-site smoke command for YomuYomu and current anime player targets.
+
+## [1.4.144] - 2026-06-27
+
+### Added
+
+- Added a Steam Deck and PC gaming guide that replaces the YomiNinja-only workflow, explains the current PWA/no-install boundary, and compares Decky/native OCR helpers for game text handoff.
+- Recorded ADR 0004 for the gaming distribution strategy and the first Gaming Text Bridge contract sketch.
 
 ## [1.4.143] - 2026-06-27
 

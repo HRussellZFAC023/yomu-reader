@@ -1,10 +1,10 @@
 ---
 title: Japanese Immersion Guides
-description: Free, practical guides to learning Japanese by reading and watching what you like — read raw manga, mine sentences from anime and YouTube to Anki, find comprehensible-input channels, and choose between Yomitan, Jiten, JPDB, and Anki.
+description: Free, practical guides to learning Japanese by reading, watching, and playing what you like — read raw manga, mine sentences from anime and YouTube to Anki, set up Steam Deck or PC game text handoff, find comprehensible-input channels, and choose between Yomitan, Jiten, JPDB, and Anki.
 head:
   - - meta
     - name: keywords
-      content: learn japanese by immersion, japanese immersion guide, read manga in japanese, sentence mining, comprehensible input japanese, yomitan jiten jpdb anki
+      content: learn japanese by immersion, japanese immersion guide, read manga in japanese, read japanese games, steam deck japanese OCR, sentence mining, comprehensible input japanese, yomitan jiten jpdb anki
 ---
 
 # Japanese Immersion Guides
@@ -27,9 +27,9 @@ New here? Start with the [setup guide](/getting-started), then pick a workflow:
     <strong>Comprehensible-input YouTube</strong>
     <span>Filter YouTube into a Japanese feed, plus a levelled list of channels from N5 to N1.</span>
   </a>
-  <a class="yomu-link-card" href="/guides/read-games-with-yomininja">
-    <strong>Read games with YomiNinja</strong>
-    <span>Use YomiNinja to OCR Japanese game dialogue, then bring useful lines into your browser study flow.</span>
+  <a class="yomu-link-card" href="/guides/read-games-on-steam-deck">
+    <strong>Read games on Steam Deck and PC</strong>
+    <span>Choose the right handoff path for browser games, copied lines, desktop OCR helpers, and Steam Deck Game Mode.</span>
   </a>
   <a class="yomu-link-card" href="/guides/study-setup">
     <strong>Yomitan vs Jiten vs JPDB vs Anki</strong>
