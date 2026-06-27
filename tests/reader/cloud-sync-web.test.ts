@@ -9,26 +9,6 @@ vi.mock('../../src/reader/network/http', () => ({ requestJson, requestText }));
 
 const CLIENT_ID = 'abc123.apps.googleusercontent.com';
 
-type FakePort = {
-    onmessage: ((event: { data: unknown }) => void) | null;
-    close: ReturnType<typeof vi.fn>;
-    start: ReturnType<typeof vi.fn>;
-};
-
-function stubMessageChannel(): Array<{ port1: FakePort; port2: FakePort }> {
-    const channels: Array<{ port1: FakePort; port2: FakePort }> = [];
-    class FakeMessageChannel {
-        port1: FakePort = { onmessage: null, close: vi.fn(), start: vi.fn() };
-        port2: FakePort = { onmessage: null, close: vi.fn(), start: vi.fn() };
-
-        constructor() {
-            channels.push({ port1: this.port1, port2: this.port2 });
-        }
-    }
-    vi.stubGlobal('MessageChannel', FakeMessageChannel);
-    return channels;
-}
-
 function stubGoogleToken(token = 'tok-123', expiresIn = 3600): void {
     vi.stubGlobal('google', {
         accounts: {
@@ -61,7 +41,10 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
 
     afterEach(() => {
         vi.unstubAllGlobals();
+        window.name = '';
+        history.replaceState(null, '', '/');
         delete (globalThis as Record<string, unknown>).__YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__;
+        delete (globalThis as Record<string, unknown>).__YOMU_TEST_NAVIGATE_TO_OAUTH__;
     });
 
     it('is enabled when a web OAuth client id is configured', async () => {
@@ -88,50 +71,48 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
         expect(String(create?.[1]?.data)).toContain('"theme":"dark"');
     });
 
-    it('opens the hosted OAuth broker from userscript contexts', async () => {
-        const channels = stubMessageChannel();
-        const popup = { closed: false, close: vi.fn(), postMessage: vi.fn() };
-        const open = vi.spyOn(window, 'open').mockReturnValue(popup as never);
+    it('navigates the current tab to the hosted OAuth broker from userscript contexts', async () => {
+        const navigate = vi.fn();
+        const open = vi.spyOn(window, 'open');
+        vi.stubGlobal('__YOMU_TEST_NAVIGATE_TO_OAUTH__', navigate);
         vi.stubGlobal('GM_info', { script: { name: 'Yomu' } });
+        const mod = await loadModule();
+
+        void mod.uploadCloudSettingsToCloud({ theme: 'dark' } as never);
+        await vi.waitFor(() => expect(navigate).toHaveBeenCalled());
+        const brokerUrl = new URL(String(navigate.mock.calls[0]?.[0]));
+        expect(brokerUrl.origin + brokerUrl.pathname).toBe('https://yomureader.com/oauth/google-drive.html');
+        expect(brokerUrl.searchParams.get('client_id')).toBe(CLIENT_ID);
+        expect(brokerUrl.searchParams.get('return_url')).toBe(window.location.href);
+        const state = brokerUrl.searchParams.get('state') ?? '';
+        expect(state).toMatch(/^[a-z0-9]+$/i);
+        expect(open).not.toHaveBeenCalled();
+        expect(requestJson).not.toHaveBeenCalled();
+    });
+
+    it('consumes a same-tab OAuth return token and resumes Drive requests without a popup', async () => {
+        window.name = JSON.stringify({
+            type: 'yomu-drive-oauth-token',
+            state: 'returnstate',
+            accessToken: 'returned-token',
+            expiresIn: 1200,
+        });
+        history.replaceState(null, '', '/reader/#chapter=1&yomu-drive-oauth-return=returnstate');
         requestJson.mockImplementation(async (url: string) => {
-            if (url.includes('uploadType=multipart')) return { id: 'file-broker', modifiedTime: '2026-06-25T00:00:00Z' };
+            if (url.includes('uploadType=multipart')) return { id: 'file-return', modifiedTime: '2026-06-25T00:00:00Z' };
             if (url.includes('spaces=appDataFolder')) return { files: [] };
             throw new Error(`unexpected ${url}`);
         });
         const mod = await loadModule();
 
-        const upload = mod.uploadCloudSettingsToCloud({ theme: 'dark' } as never);
-        await vi.waitFor(() => expect(open).toHaveBeenCalled());
-        const brokerUrl = new URL(String(open.mock.calls[0]?.[0]));
-        expect(brokerUrl.origin + brokerUrl.pathname).toBe('https://yomureader.com/oauth/google-drive.html');
-        expect(brokerUrl.searchParams.get('client_id')).toBe(CLIENT_ID);
-        expect(brokerUrl.searchParams.get('origin')).toBe(window.location.origin);
-        const state = brokerUrl.searchParams.get('state') ?? '';
-        expect(state).toMatch(/^[a-z0-9]+$/i);
+        expect(mod.cloudSettingsAuthRedirectResult()).toEqual({ ok: true, state: 'returnstate' });
+        expect(window.name).toBe('');
+        expect(location.hash).toBe('#chapter=1');
 
-        const ready = new MessageEvent('message', {
-            origin: 'https://yomureader.com',
-            data: { type: 'yomu-drive-oauth-ready', state },
-        });
-        Object.defineProperty(ready, 'source', { value: popup });
-        window.dispatchEvent(ready);
-
-        expect(channels).toHaveLength(1);
-        expect(popup.postMessage).toHaveBeenCalledWith(
-            { type: 'yomu-drive-oauth-init', state },
-            'https://yomureader.com',
-            [channels[0].port2],
-        );
-
-        channels[0].port1.onmessage?.({
-            data: { type: 'yomu-drive-oauth-token', state, accessToken: 'broker-token', expiresIn: 1200 },
-        });
-
-        const meta = await upload;
+        const meta = await mod.uploadCloudSettingsToCloud({ theme: 'dark' } as never);
         const create = requestJson.mock.calls.find(([u]) => String(u).includes('uploadType=multipart'));
-        expect(meta.fileId).toBe('file-broker');
-        expect(create?.[1]?.headers?.Authorization).toBe('Bearer broker-token');
-        expect(popup.close).toHaveBeenCalled();
+        expect(meta.fileId).toBe('file-return');
+        expect(create?.[1]?.headers?.Authorization).toBe('Bearer returned-token');
     });
 
     it('updates the existing appData file when one is already present', async () => {

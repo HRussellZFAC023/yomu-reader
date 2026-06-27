@@ -423,6 +423,7 @@ export class NewTabRuntime {
         this.scheduleAnkiStatusWarmup();
         this.installCardStateSignalSubscription();
         this.installSettingsStorageSubscription();
+        void this.settingsDialog.resumePendingCloudSettingsSync();
     }
 
     // Cross-tab card-state mutation bus: grading or mining a card on a page

@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
   <meta name="robots" content="noindex" />
   <title>Yomu · Google Drive settings sync</title>
   <style>
@@ -40,123 +41,158 @@
   <h1 style="font-size: 1.1rem; margin: 0;">Google Drive settings sync</h1>
   <p class="status" id="status">Connecting to Google…</p>
   <button id="retry" hidden>Try again</button>
-  <script src="https://accounts.google.com/gsi/client" async></script>
   <script>
     // Static OAuth broker for the Yomu userscript. The userscript runs on
-    // third-party origins Google will not authorise, so it opens this page on the
-    // authorised yomureader.com origin, which performs the consent popup and posts
-    // the access token back to the opener. No token is persisted here.
+    // third-party origins Google will not authorise, so it navigates the current
+    // tab through this authorised yomureader.com origin. This page performs a
+    // redirect-based Drive appData authorization and returns to the original page
+    // with the short-lived token in window.name, not in the URL.
     (function () {
       'use strict';
       var DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+      var GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+      var STORAGE_PREFIX = 'yomu-drive-oauth:';
+      var RETURN_HASH_KEY = 'yomu-drive-oauth-return';
+      var WINDOW_NAME_TYPE = 'yomu-drive-oauth-token';
       var params = new URLSearchParams(location.search);
       var clientId = params.get('client_id') || '';
-      var openerOrigin = params.get('origin') || '';
+      var returnUrl = params.get('return_url') || '';
       var state = params.get('state') || '';
       var statusEl = document.getElementById('status');
       var retryEl = document.getElementById('retry');
-      var channelPort = null;
-      var readyTimer = null;
-      var started = false;
+      var finishedReturn = false;
 
       function setStatus(text, isError) {
         statusEl.textContent = text;
         statusEl.className = isError ? 'status error' : 'status';
       }
 
-      function postReady() {
-        if (!window.opener || !openerOrigin || channelPort) return;
-        try { window.opener.postMessage({ type: 'yomu-drive-oauth-ready', state: state }, openerOrigin); } catch (_) { /* ignore */ }
-      }
-
-      function postToOpener(message) {
-        if (!channelPort) return;
-        message.state = state;
-        try { channelPort.postMessage(message); } catch (_) { /* ignore */ }
-      }
-
       function fail(reason) {
         setStatus(reason, true);
         retryEl.hidden = false;
-        postToOpener({ type: 'yomu-drive-oauth-token', error: reason });
       }
 
-      // Only proxy Google client ids, and only post back to a real web origin.
-      if (!/^[-\w]+\.apps\.googleusercontent\.com$/.test(clientId)) {
+      function storageKey(value) {
+        return STORAGE_PREFIX + value;
+      }
+
+      function saveTransaction(transaction) {
+        var raw = JSON.stringify(transaction);
+        try { localStorage.setItem(storageKey(transaction.state), raw); } catch (_) { /* ignore */ }
+        try { sessionStorage.setItem(storageKey(transaction.state), raw); } catch (_) { /* ignore */ }
+      }
+
+      function loadTransactionFrom(store, value) {
+        try {
+          var raw = store.getItem(storageKey(value));
+          return raw ? JSON.parse(raw) : null;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function loadTransaction(value) {
+        return loadTransactionFrom(localStorage, value) || loadTransactionFrom(sessionStorage, value);
+      }
+
+      function clearTransaction(value) {
+        try { localStorage.removeItem(storageKey(value)); } catch (_) { /* ignore */ }
+        try { sessionStorage.removeItem(storageKey(value)); } catch (_) { /* ignore */ }
+      }
+
+      function cleanBrokerUrl() {
+        return location.origin + location.pathname;
+      }
+
+      function authRedirectUrl(transaction) {
+        var auth = new URL(GOOGLE_AUTH_URL);
+        auth.searchParams.set('client_id', transaction.clientId);
+        auth.searchParams.set('redirect_uri', cleanBrokerUrl());
+        auth.searchParams.set('response_type', 'token');
+        auth.searchParams.set('scope', DRIVE_SCOPE);
+        auth.searchParams.set('include_granted_scopes', 'true');
+        auth.searchParams.set('state', transaction.state);
+        return auth.href;
+      }
+
+      function returnUrlWithMarker(url, value) {
+        var target = new URL(url);
+        var marker = RETURN_HASH_KEY + '=' + encodeURIComponent(value);
+        var existing = target.hash ? target.hash.slice(1) : '';
+        target.hash = existing ? existing + '&' + marker : marker;
+        return target.href;
+      }
+
+      function returnToYomu(transaction, message) {
+        message.type = WINDOW_NAME_TYPE;
+        message.state = transaction.state;
+        window.name = JSON.stringify(message);
+        location.replace(returnUrlWithMarker(transaction.returnUrl, transaction.state));
+      }
+
+      function hashParams() {
+        return new URLSearchParams(location.hash.replace(/^#/, ''));
+      }
+
+      function finishReturnedAuthorization() {
+        if (finishedReturn) return true;
+        finishedReturn = true;
+        var hash = hashParams();
+        var returnedState = hash.get('state') || '';
+        var transaction = returnedState ? loadTransaction(returnedState) : null;
+        if (!transaction || !transaction.returnUrl || !transaction.clientId) {
+          fail('Could not find the Yomu authorization request. Please start sync again.');
+          return true;
+        }
+        clearTransaction(returnedState);
+        var error = hash.get('error_description') || hash.get('error') || '';
+        if (error) {
+          returnToYomu(transaction, { error: error });
+          return true;
+        }
+        var token = hash.get('access_token') || '';
+        if (!token) {
+          returnToYomu(transaction, { error: 'Google did not return an access token.' });
+          return true;
+        }
+        setStatus('Connected. Returning to Yomu…');
+        returnToYomu(transaction, {
+          accessToken: token,
+          expiresIn: Number(hash.get('expires_in')) || 3600,
+        });
+        return true;
+      }
+
+      function maybeFinishReturnedAuthorization() {
+        return location.hash ? finishReturnedAuthorization() : false;
+      }
+
+      // OAuth returns to the registered URL without the startup query string.
+      // Handle the fragment before validating the query parameters used to
+      // start a fresh authorization.
+      if (maybeFinishReturnedAuthorization()) {
+        // Authorization result consumed.
+      } else if (!/^[-\w]+\.apps\.googleusercontent\.com$/.test(clientId)) {
         fail('Missing or invalid Google client id.');
-        return;
-      }
-      if (!/^https?:\/\//.test(openerOrigin)) {
-        setStatus('This window must be opened by Yomu.', true);
-        return;
-      }
-      if (!/^[a-z0-9]+$/i.test(state)) {
-        setStatus('This window must be opened by Yomu.', true);
-        return;
+      } else if (!/^https?:\/\//.test(returnUrl)) {
+        fail('This page must be opened by Yomu.');
+      } else if (!/^[a-z0-9]+$/i.test(state)) {
+        fail('This page must be opened by Yomu.');
+      } else {
+        start();
       }
 
       function start() {
-        if (!channelPort) {
-          setStatus('Connecting to Yomu…');
-          return;
-        }
-        if (!(window.google && google.accounts && google.accounts.oauth2)) {
-          setStatus('Loading Google sign-in…');
-          window.setTimeout(start, 200);
-          return;
-        }
-        setStatus('Waiting for Google authorization…');
+        setStatus('Opening Google authorization…');
         retryEl.hidden = true;
-        try {
-          var client = google.accounts.oauth2.initTokenClient({
-            client_id: clientId,
-            scope: DRIVE_SCOPE,
-            callback: function (response) {
-              if (response && response.access_token) {
-                setStatus('Connected. You can close this window.');
-                postToOpener({
-                  type: 'yomu-drive-oauth-token',
-                  accessToken: response.access_token,
-                  expiresIn: Number(response.expires_in) || 3600,
-                });
-                window.setTimeout(function () { try { window.close(); } catch (_) {} }, 400);
-              } else {
-                fail((response && (response.error_description || response.error)) || 'Authorization failed.');
-              }
-            },
-            error_callback: function (error) {
-              fail((error && error.message) || 'Authorization was cancelled.');
-            },
-          });
-          client.requestAccessToken({ prompt: '' });
-        } catch (error) {
-          fail((error && error.message) || 'Could not start Google authorization.');
-        }
+        var transaction = { clientId: clientId, returnUrl: returnUrl, state: state };
+        saveTransaction(transaction);
+        location.replace(authRedirectUrl(transaction));
       }
 
-      window.addEventListener('message', function (event) {
-        if (event.source !== window.opener || event.origin !== openerOrigin) return;
-        var data = event.data || {};
-        if (data.type !== 'yomu-drive-oauth-init' || data.state !== state) return;
-        if (!event.ports || !event.ports[0]) {
-          fail('Could not establish a secure authorization channel.');
-          return;
-        }
-        channelPort = event.ports[0];
-        if (readyTimer) window.clearInterval(readyTimer);
-        if (!started) {
-          started = true;
-          start();
-        }
-      });
-
       retryEl.addEventListener('click', start);
-      window.addEventListener('beforeunload', function () {
-        postToOpener({ type: 'yomu-drive-oauth-token', error: 'Window closed before authorization completed.' });
-      });
-      readyTimer = window.setInterval(postReady, 250);
-      postReady();
-      start();
+      window.addEventListener('pageshow', maybeFinishReturnedAuthorization);
+      window.addEventListener('hashchange', maybeFinishReturnedAuthorization);
     })();
   </script>
 </body>

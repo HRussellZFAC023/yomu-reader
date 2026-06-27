@@ -949,6 +949,7 @@ export class ReaderApp {
         this.setupAutoScan();
         this.initJpdbPageEnhancements();
         this.installCardStateSignalSubscription();
+        this.resumePendingCloudSettingsSync();
         if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
         if (this.shouldScanInitialPage()) {
             void this.pageScanner.scanVisiblePage({ silent: true })
@@ -7770,6 +7771,11 @@ export class ReaderApp {
     private showSettings(panel?: string): void {
         const dialog = this.getSettingsDialog();
         if (dialog) dialog.open(panel);
+    }
+
+    private resumePendingCloudSettingsSync(): void {
+        const dialog = this.getSettingsDialog();
+        if (dialog) void dialog.resumePendingCloudSettingsSync();
     }
 
     private getSettingsDialog(): SettingsDialogControllerInstance | undefined {

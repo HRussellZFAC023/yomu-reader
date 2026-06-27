@@ -1,5 +1,5 @@
 import type { ReaderSettings } from '../app/types';
-import type { CloudSettingsSyncMetadata, CloudSettingsSyncSnapshot } from './cloud-sync';
+import type { CloudSettingsAuthRedirectResult, CloudSettingsSyncMetadata, CloudSettingsSyncSnapshot } from './cloud-sync';
 import { requestJson, requestText } from '../network/http';
 
 // Serverless Google Drive settings sync for the userscript and hosted reader.
@@ -24,14 +24,14 @@ const SETTINGS_FILE_NAME = 'yomu-settings.json';
 const SETTINGS_MIME_TYPE = 'application/json';
 const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 // Static broker page on the hosted origin. The userscript runs on third-party
-// origins Google will not authorise, so it cannot run GIS directly; it opens
-// this page (served from the authorised yomureader.com origin) which performs
-// the consent popup and posts the access token back.
+// origins Google will not authorise, so it cannot run OAuth directly. Instead
+// it navigates the current tab through this authorised page, which performs a
+// redirect-based Google flow and returns to the original page without popups.
 const OAUTH_BROKER_URL = 'https://yomureader.com/oauth/google-drive.html';
-const OAUTH_BROKER_ORIGIN = 'https://yomureader.com';
+const OAUTH_RETURN_HASH_KEY = 'yomu-drive-oauth-return';
+const OAUTH_WINDOW_NAME_TYPE = 'yomu-drive-oauth-token';
 const TOKEN_EARLY_REFRESH_MS = 60_000;
 const DRIVE_TIMEOUT_MS = 20_000;
-const POPUP_TIMEOUT_MS = 120_000;
 
 interface DriveFile {
     id: string;
@@ -46,9 +46,14 @@ interface CachedAccessToken {
 }
 
 let cachedToken: CachedAccessToken | null = null;
+let lastAuthRedirectResult: CloudSettingsAuthRedirectResult | null = consumeAuthRedirectResult();
 
 export function cloudSettingsSyncAvailable(): boolean {
     return CLOUD_SETTINGS_SYNC_ENABLED;
+}
+
+export function cloudSettingsAuthRedirectResult(): CloudSettingsAuthRedirectResult | null {
+    return lastAuthRedirectResult;
 }
 
 // fallow-ignore-next-line unused-export
@@ -179,7 +184,7 @@ async function acquireAccessToken(allowCached: boolean): Promise<string> {
     if (allowCached && cachedToken && Date.now() < cachedToken.expiresAt - TOKEN_EARLY_REFRESH_MS) {
         return cachedToken.token;
     }
-    const token = isUserscriptContext() ? await tokenViaBroker() : await tokenViaIdentityServices();
+    const token = isUserscriptContext() ? await tokenViaPageRedirect() : await tokenViaIdentityServices();
     cachedToken = { token: token.accessToken, expiresAt: Date.now() + token.expiresInSeconds * 1000 };
     return cachedToken.token;
 }
@@ -213,73 +218,100 @@ async function tokenViaIdentityServices(): Promise<AcquiredToken> {
     });
 }
 
-// Userscript on a third-party page: open the hosted broker which runs GIS on the
-// authorised origin and posts the token back. We validate the message origin and
-// that it came from the window we opened.
-function tokenViaBroker(): Promise<AcquiredToken> {
+// Userscript on a third-party page: navigate the current tab to the hosted
+// broker. The current JS context will unload; the settings controller resumes
+// the pending sync/restore once the broker returns to the original page.
+function tokenViaPageRedirect(): Promise<AcquiredToken> {
     return new Promise<AcquiredToken>((resolve, reject) => {
-        const opener = typeof window !== 'undefined' ? window : undefined;
-        if (!opener?.open) {
-            reject(new Error('Google Drive settings sync needs a browser window.'));
-            return;
-        }
-        if (typeof MessageChannel !== 'function') {
-            reject(new Error('Google Drive settings sync needs a browser with secure channel support.'));
+        void resolve;
+        const browserWindow = typeof window !== 'undefined' ? window : undefined;
+        if (!browserWindow?.location?.href) {
+            reject(new Error('Google Drive settings sync needs a browser page.'));
             return;
         }
         const state = randomBoundary();
-        const channel = new MessageChannel();
-        const brokerUrl = `${OAUTH_BROKER_URL}?origin=${encodeURIComponent(opener.location.origin)}`
-            + `&client_id=${encodeURIComponent(WEB_OAUTH_CLIENT_ID)}`
-            + `&state=${encodeURIComponent(state)}`;
-        const popup = opener.open(brokerUrl, 'yomu-drive-oauth', 'width=480,height=640,menubar=no,toolbar=no');
-        if (!popup) {
-            reject(new Error('Allow pop-ups for this site to sign in to Google Drive.'));
-            return;
+        const brokerUrl = new URL(OAUTH_BROKER_URL);
+        brokerUrl.searchParams.set('return_url', browserWindow.location.href);
+        brokerUrl.searchParams.set('client_id', WEB_OAUTH_CLIENT_ID);
+        brokerUrl.searchParams.set('state', state);
+        try {
+            navigateToOAuthBroker(browserWindow, brokerUrl.href);
+        } catch (error) {
+            reject(error instanceof Error ? error : new Error('Google authorization failed to start.'));
         }
-        let settled = false;
-        let channelTransferred = false;
-        const finish = (run: () => void) => {
-            if (settled) return;
-            settled = true;
-            opener.removeEventListener('message', onReadyMessage);
-            try { channel.port1.close(); } catch { /* ignore */ }
-            if (!channelTransferred) {
-                try { channel.port2.close(); } catch { /* ignore */ }
-            }
-            opener.clearTimeout(timer);
-            opener.clearInterval(closedPoll);
-            run();
-        };
-        const onReadyMessage = (event: MessageEvent) => {
-            if (event.origin !== OAUTH_BROKER_ORIGIN || event.source !== popup) return;
-            const data = event.data;
-            if (!isRecord(data) || data.type !== 'yomu-drive-oauth-ready' || data.state !== state) return;
-            if (channelTransferred) return;
-            try {
-                popup.postMessage({ type: 'yomu-drive-oauth-init', state }, OAUTH_BROKER_ORIGIN, [channel.port2]);
-                channelTransferred = true;
-            } catch {
-                finish(() => reject(new Error('Google authorization failed to establish a secure channel.')));
-            }
-        };
-        channel.port1.onmessage = event => {
-            const data = event.data;
-            if (!isRecord(data) || data.type !== 'yomu-drive-oauth-token' || data.state !== state) return;
-            if (typeof data.accessToken === 'string' && data.accessToken) {
-                const expiresInSeconds = Number(data.expiresIn) || 3600;
-                finish(() => { try { popup.close(); } catch { /* ignore */ } resolve({ accessToken: data.accessToken as string, expiresInSeconds }); });
-            } else {
-                finish(() => { try { popup.close(); } catch { /* ignore */ } reject(new Error(typeof data.error === 'string' ? data.error : 'Google authorization failed.')); });
-            }
-        };
-        channel.port1.start();
-        opener.addEventListener('message', onReadyMessage);
-        const timer = opener.setTimeout(() => finish(() => { try { popup.close(); } catch { /* ignore */ } reject(new Error('Google authorization timed out.')); }), POPUP_TIMEOUT_MS);
-        const closedPoll = opener.setInterval(() => {
-            if (popup.closed) finish(() => reject(new Error('Google authorization was cancelled.')));
-        }, 500);
     });
+}
+
+function navigateToOAuthBroker(browserWindow: Window, url: string): void {
+    const testNavigate = (globalThis as { __YOMU_TEST_NAVIGATE_TO_OAUTH__?: (url: string) => void }).__YOMU_TEST_NAVIGATE_TO_OAUTH__;
+    if (testNavigate) {
+        testNavigate(url);
+        return;
+    }
+    browserWindow.location.assign(url);
+}
+
+interface OAuthWindowNamePayload {
+    type?: string;
+    state?: string;
+    accessToken?: string;
+    expiresIn?: number | string;
+    error?: string;
+}
+
+function consumeAuthRedirectResult(): CloudSettingsAuthRedirectResult | null {
+    const browserWindow = typeof window !== 'undefined' ? window : undefined;
+    if (!browserWindow?.location?.href) return null;
+    const state = oauthReturnState(browserWindow.location.href);
+    if (!state) return null;
+
+    const payload = parseOAuthWindowName(browserWindow.name);
+    clearOAuthReturnHash(browserWindow);
+    if (!payload || payload.type !== OAUTH_WINDOW_NAME_TYPE || payload.state !== state) {
+        return { ok: false, state, error: 'Google authorization returned without a Yomu token.' };
+    }
+
+    browserWindow.name = '';
+    if (typeof payload.accessToken === 'string' && payload.accessToken) {
+        const expiresInSeconds = Number(payload.expiresIn) || 3600;
+        cachedToken = { token: payload.accessToken, expiresAt: Date.now() + expiresInSeconds * 1000 };
+        return { ok: true, state };
+    }
+    return { ok: false, state, error: payload.error || 'Google authorization failed.' };
+}
+
+function parseOAuthWindowName(value: string): OAuthWindowNamePayload | null {
+    try {
+        const parsed = JSON.parse(value);
+        return isRecord(parsed) ? parsed as OAuthWindowNamePayload : null;
+    } catch {
+        return null;
+    }
+}
+
+function oauthReturnState(href: string): string {
+    let hash = '';
+    try {
+        hash = new URL(href).hash.slice(1);
+    } catch {
+        return '';
+    }
+    const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
+    const entry = hash.split('&').find(part => part.startsWith(prefix));
+    return entry ? decodeURIComponent(entry.slice(prefix.length)) : '';
+}
+
+function clearOAuthReturnHash(browserWindow: Window): void {
+    if (!browserWindow.history?.replaceState) return;
+    try {
+        const url = new URL(browserWindow.location.href);
+        const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
+        const remainingHash = url.hash.slice(1).split('&').filter(part => part && !part.startsWith(prefix)).join('&');
+        url.hash = remainingHash ? `#${remainingHash}` : '';
+        browserWindow.history.replaceState(browserWindow.history.state, document.title, url.toString());
+    } catch {
+        // Best effort only; the token has already been consumed from window.name.
+    }
 }
 
 let identityServicesPromise: Promise<GoogleIdentityServices> | null = null;
