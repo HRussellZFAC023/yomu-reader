@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Hover lookup now follows a moving mouse pointer across parsed words instead of restarting the open delay on every word, so the popup opens without requiring the cursor to stop.': 'ホバー検索が、解析済み単語の上を移動中のマウスポインターにも追従するようになりました。単語ごとに開く遅延を最初からやり直さないため、カーソルを止めなくてもポップアップが開きます。',
     'Fixed Discord and other modern dark app shells whose computed colors use OKLab, so Yomu uses the real dark surface instead of falling back to white and turning passive highlights or text black.': 'Discordなど、算出色にOKLabを使う新しいダークUIで、Yomuが実際の暗い面を使うように修正しました。白背景にフォールバックしてパッシブハイライトや文字が黒くなる問題を防ぎます。',
     "Kept Reddit's web-component app shell on non-destructive page-text mirrors, so scrolling feeds and sidebars keep their native DOM while Yomu annotations remain visible.": 'RedditのWeb Componentアプリシェルでは、ページ本文の注釈を非破壊テキストミラーで表示するようにしました。スクロール中のフィードやサイドバーはサイト本来のDOMを保ちつつ、よむの注釈も表示されます。',
     "Added Reddit's Japanese translation parameter to the Japanese site-language preference.": '日本語サイト言語の優先設定に、Redditの日本語翻訳パラメーターを追加しました。',
@@ -233,7 +234,8 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Study answer backs now surface furigana, pitch accents, frequency pills, and audio controls at the top of the revealed word card, matching the popup dictionary layout more closely.': '学習カードの答え面では、表示された単語カードの上部にふりがな、ピッチアクセント、頻度ピル、音声操作を表示し、ポップアップ辞書のレイアウトに近づけました。',
     'Sources settings now includes local pitch and frequency dictionary guidance, a Kanjium pitch guide row, and a JPDBv2 Kana frequency install button so pitch/frequency can be local instead of fetched every time.': 'ソース設定にローカルのピッチ/頻度辞書ガイド、Kanjiumピッチガイド行、JPDBv2 Kana頻度インストールボタンを追加し、ピッチや頻度を毎回取得せずローカルで使えるようにしました。',
     'Two-point Study grading is available in Study settings, and Pass/Fail review controls use the available width with a centered mobile layout.': '学習設定で2段階採点を選べるようになり、Pass/Fail復習操作は利用可能な幅を使ってモバイルでも中央に整うレイアウトになりました。',
-    'Homepage CTAs now say Install and link directly to Watch and Read/PDF tools.': 'ホームページのCTAはInstallと表示し、WatchとRead/PDFツールへ直接リンクするようになりました。',
+    'Fixed hosted Japanese localization coverage for the homepage hero, Read CTA, support cards, updated game-text metadata, media labels, and latest release notes.': 'ホスト版の日本語ローカライズ対象を補強し、ホームページのヒーロー、Read CTA、サポートカード、更新されたゲームテキストのメタデータ、メディアラベル、最新リリースノートが日本語に切り替わるようにしました。',
+    'Homepage CTAs now say Install and link directly to Watch and Read tools.': 'ホームページのCTAはInstallと表示し、WatchとReadツールへ直接リンクするようになりました。',
     'Dictionary empty states and recommended dictionary copy now explain that term dictionaries add definitions, while pitch and frequency dictionaries add accents and badges.': '辞書の空状態とおすすめ辞書の文言で、語句辞書は定義を追加し、ピッチ/頻度辞書はアクセントやバッジを追加するものだと説明するようになりました。',
     'Hosted Study now degrades gracefully when userscript bridge, CORS, audio, pitch, or furigana requests are unavailable, including browser coverage for the no-userscript Study reveal path.': 'ホスト版Studyは、ユーザースクリプトブリッジ、CORS、音声、ピッチ、ふりがなのリクエストが使えない場合でも穏やかにフォールバックするようになり、ユーザースクリプトなしのStudy答え表示パスもブラウザでカバーしました。',
     'Offline Study status now makes cached cards and queued grade sync visible after a prior visit.': 'オフラインStudyの状態表示で、以前の訪問後にキャッシュ済みカードと未送信採点の同期が見えるようになりました。',
@@ -968,6 +970,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Study': '学習',
     'Watch': '見る',
     'Read/PDF': '読む/PDF',
+    'Read': '読む',
     'New Tab': '新しいタブ',
     'More': 'その他',
     '/': '/',
@@ -1079,6 +1082,8 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Read Japanese without leaving the page': 'ページを離れずに日本語を読む',
     'Look up words on web pages, manga, PDFs, and subtitles, then save useful sentences for study. Connect your SRS to practice your words, find new words by visiting the Japanese versions of the websites you use daily, and filter YouTube for Japanese content. Yomu brings the perfect immersion environment, no matter your level.': 'Webページ、漫画、PDF、字幕の単語を調べ、役に立つ文を学習用に保存できます。SRSと接続して単語を練習し、毎日使うWebサイトの日本語版を開いて新しい単語を見つけ、YouTubeを日本語コンテンツに絞り込めます。Yomuはレベルを問わず、理想的な没入環境を届けます。',
     'Look up words on web pages, manga, game text, PDFs, and subtitles, then save useful sentences for study. Connect your SRS to practice your words, find new words by visiting the Japanese versions of the websites you use daily, and filter YouTube for Japanese content. Yomu brings the perfect immersion environment, no matter your level.': 'Webページ、漫画、ゲームテキスト、PDF、字幕の単語を調べ、役に立つ文を学習用に保存できます。SRSと接続して単語を練習し、毎日使うWebサイトの日本語版を開いて新しい単語を見つけ、YouTubeを日本語コンテンツに絞り込めます。Yomuはレベルを問わず、理想的な没入環境を届けます。',
+    'Look up words on web pages, manga, game text, PDFs, and subtitles, then save useful sentences for study. Connect your SRS to practice your words, find new words by visiting the Japanese versions of the websites you use daily, and filter YouTube for Japanese content.': 'Webページ、漫画、ゲームテキスト、PDF、字幕の単語を調べ、役に立つ文を学習用に保存できます。SRSと接続して単語を練習し、毎日使うWebサイトの日本語版を開いて新しい単語を見つけ、YouTubeを日本語コンテンツに絞り込めます。',
+    'Yomu brings the perfect immersion environment, no matter your level.': 'Yomuはレベルを問わず、理想的な没入環境を届けます。',
     'Get よむ': 'よむを入手',
     'Setup guide': 'セットアップガイド',
     'Install よむ in about two minutes': '約2分でよむをインストール',

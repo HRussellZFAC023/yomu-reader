@@ -3401,6 +3401,11 @@ export class ReaderApp {
     }
 
     private cancelPendingHoverLookupForWord(word: HTMLElement, hoverLookupKey: string): void {
+        const pointer = this.lastPointerPosition;
+        const pointerWord = pointer && this.isPendingHoverLookup(word, hoverLookupKey)
+            ? this.hoverReaderWordFromElement(document.elementFromPoint(pointer.x, pointer.y) as HTMLElement | null)
+            : null;
+        if (pointerWord && pointerWord !== word) return;
         if (this.hoverPendingWord === word || this.hoverPendingLookupKey === hoverLookupKey || this.hoverLookupInFlightKey === hoverLookupKey) {
             this.cancelPendingHoverLookup();
         }
@@ -3444,14 +3449,10 @@ export class ReaderApp {
     }
 
     private scheduleHoverLookupAtPointer(event: KeyboardEvent): void {
-        const pointer = this.activeHoverPointerPosition();
-        if (!pointer) return;
+        if (this.isDestroyed || !this.lastPointerPosition) return;
+        const pointer = this.lastPointerPosition;
         this.hoverPopoverPointerPosition = { ...pointer };
         this.scheduleHoverLookupForPointer(pointer, event);
-    }
-
-    private activeHoverPointerPosition(): { x: number; y: number } | null {
-        return !this.isDestroyed && this.lastPointerPosition ? this.lastPointerPosition : null;
     }
 
     private scheduleHoverLookupForPointer(pointer: { x: number; y: number }, event: KeyboardEvent): void {
@@ -3461,17 +3462,13 @@ export class ReaderApp {
             this.scheduleHoverLookup(word, event);
             return;
         }
-        this.schedulePointerTextLookupForPointer(pointer, target, event);
+        const candidate = this.lookupCandidateFromPoint(pointer.x, pointer.y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
+        if (candidate) this.schedulePointerTextLookup(candidate, event);
     }
 
     private hoverReaderWordFromElement(element: HTMLElement | null): HTMLElement | null {
         const word = element?.closest?.('.jpdb-reader-word') as HTMLElement | null;
         return word && this.canHoverLookupReaderWord(word) ? word : null;
-    }
-
-    private schedulePointerTextLookupForPointer(pointer: { x: number; y: number }, target: EventTarget | null, event: KeyboardEvent): void {
-        const candidate = this.lookupCandidateFromPoint(pointer.x, pointer.y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
-        if (candidate) this.schedulePointerTextLookup(candidate, event);
     }
 
     private dismissModalPopoverForOutsidePointer(event: PointerEvent): void {
@@ -3550,11 +3547,21 @@ export class ReaderApp {
         if (this.shouldSkipHoverLookupSchedule(word, hoverLookupKey)) return;
 
         this.cancelHoverClose();
+        if (this.hoverLookupTimer && this.hoverPendingWord) {
+            this.hoverPendingWord = word;
+            this.hoverPendingLookupKey = hoverLookupKey;
+            return;
+        }
         window.clearTimeout(this.hoverLookupTimer);
         const hoverLookupGeneration = this.nextHoverLookupGeneration();
         this.hoverPendingWord = word;
         this.hoverPendingLookupKey = hoverLookupKey;
-        this.installHoverLookupTimer(word, () => this.runScheduledHoverLookup(word, event, hoverLookupGeneration));
+        const runLookup = () => this.runScheduledHoverLookup(word, event, hoverLookupGeneration);
+        const delay = this.activePopoverMode === 'hover' && this.activeHoverWord && this.activeHoverWord !== word
+            ? 0
+            : Math.max(0, this.settings.hoverOpenDelayMs);
+        if (delay === 0) runLookup();
+        else this.hoverLookupTimer = window.setTimeout(runLookup, delay);
     }
 
     private shouldSkipHoverLookupSchedule(word: HTMLElement, hoverLookupKey: string): boolean {
@@ -3563,36 +3570,17 @@ export class ReaderApp {
             this.refreshActiveHoverAnchor(word);
             return true;
         }
-        return this.isSameActiveHoverWord(word)
+        return (this.activePopoverMode === 'hover' && this.activeHoverWord === word)
             || this.isPendingHoverLookup(word, hoverLookupKey)
-            || this.isInFlightHoverLookup(hoverLookupKey);
+            || Boolean(hoverLookupKey && this.hoverLookupInFlightKey === hoverLookupKey);
     }
 
     private isSuppressedHoverLookup(word: HTMLElement, hoverLookupKey: string): boolean {
         return this.suppressedHoverWord === word || Boolean(hoverLookupKey && this.suppressedHoverLookupKey === hoverLookupKey);
     }
 
-    private isSameActiveHoverWord(word: HTMLElement): boolean {
-        return this.activePopoverMode === 'hover' && this.activeHoverWord === word;
-    }
-
     private isPendingHoverLookup(word: HTMLElement, hoverLookupKey: string): boolean {
         return Boolean((this.hoverPendingWord === word || (hoverLookupKey && this.hoverPendingLookupKey === hoverLookupKey)) && this.hoverLookupTimer);
-    }
-
-    private isInFlightHoverLookup(hoverLookupKey: string): boolean {
-        return Boolean(hoverLookupKey && this.hoverLookupInFlightKey === hoverLookupKey);
-    }
-
-    private installHoverLookupTimer(word: HTMLElement, runLookup: () => void): void {
-        const delay = this.hoverLookupDelayMs(word);
-        if (delay === 0) runLookup();
-        else this.hoverLookupTimer = window.setTimeout(runLookup, delay);
-    }
-
-    private hoverLookupDelayMs(word: HTMLElement): number {
-        if (this.activePopoverMode === 'hover' && this.activeHoverWord && this.activeHoverWord !== word) return 0;
-        return Math.max(0, this.settings.hoverOpenDelayMs);
     }
 
     private runScheduledHoverLookup(word: HTMLElement, event: MouseEvent | KeyboardEvent, hoverLookupGeneration: number): void {
@@ -3600,28 +3588,16 @@ export class ReaderApp {
         this.hoverLookupTimer = undefined;
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = '';
-        const activeWord = this.resolveScheduledHoverWord(word);
+        const pointer = this.lastPointerPosition;
+        const activeWord = (pointer
+            ? this.hoverReaderWordFromElement(document.elementFromPoint(pointer.x, pointer.y) as HTMLElement | null)
+            : null) ?? (word.isConnected ? word : null);
         if (!activeWord || !this.canRunScheduledHoverLookup(activeWord, event)) return;
         const activeHoverLookupKey = this.hoverLookupKeyForWord(activeWord);
         if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
         void this.showWord(activeWord, { trigger: 'hover', hoverLookupGeneration }).finally(() => {
             if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = '';
         });
-    }
-
-    private resolveScheduledHoverWord(word: HTMLElement): HTMLElement | null {
-        if (word.isConnected) return word;
-        return this.lastPointerPosition
-            ? this.hoverWordFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y) ?? null
-            : null;
-    }
-
-    private hoverWordFromPoint(x: number, y: number): HTMLElement | null {
-        for (const element of document.elementsFromPoint(x, y)) {
-            const word = this.hoverReaderWordFromElement(element as HTMLElement);
-            if (word) return word;
-        }
-        return null;
     }
 
     private canRunScheduledHoverLookup(activeWord: HTMLElement, event: MouseEvent | KeyboardEvent): boolean {

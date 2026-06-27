@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.160
+// @version 1.4.161
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.160
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.160
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.160
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.160
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.161
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.161
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.161
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.161
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -37777,7 +37777,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.160"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.161"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],
@@ -41286,6 +41286,9 @@ class ReaderApp {
     return word && !(related && word.contains(related)) ? word : null;
   }
   cancelPendingHoverLookupForWord(word, hoverLookupKey) {
+    const pointer = this.lastPointerPosition;
+    const pointerWord = pointer && this.isPendingHoverLookup(word, hoverLookupKey) ? this.hoverReaderWordFromElement(document.elementFromPoint(pointer.x, pointer.y)) : null;
+    if (pointerWord && pointerWord !== word) return;
     if (this.hoverPendingWord === word || this.hoverPendingLookupKey === hoverLookupKey || this.hoverLookupInFlightKey === hoverLookupKey) {
       this.cancelPendingHoverLookup();
     }
@@ -41318,13 +41321,10 @@ class ReaderApp {
     return Boolean(relatedElement && control.contains(relatedElement));
   }
   scheduleHoverLookupAtPointer(event) {
-    const pointer = this.activeHoverPointerPosition();
-    if (!pointer) return;
+    if (this.isDestroyed || !this.lastPointerPosition) return;
+    const pointer = this.lastPointerPosition;
     this.hoverPopoverPointerPosition = { ...pointer };
     this.scheduleHoverLookupForPointer(pointer, event);
-  }
-  activeHoverPointerPosition() {
-    return !this.isDestroyed && this.lastPointerPosition ? this.lastPointerPosition : null;
   }
   scheduleHoverLookupForPointer(pointer, event) {
     const target = document.elementFromPoint(pointer.x, pointer.y);
@@ -41333,15 +41333,12 @@ class ReaderApp {
       this.scheduleHoverLookup(word, event);
       return;
     }
-    this.schedulePointerTextLookupForPointer(pointer, target, event);
+    const candidate = this.lookupCandidateFromPoint(pointer.x, pointer.y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
+    if (candidate) this.schedulePointerTextLookup(candidate, event);
   }
   hoverReaderWordFromElement(element2) {
     const word = element2?.closest?.(".jpdb-reader-word");
     return word && this.canHoverLookupReaderWord(word) ? word : null;
-  }
-  schedulePointerTextLookupForPointer(pointer, target, event) {
-    const candidate = this.lookupCandidateFromPoint(pointer.x, pointer.y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
-    if (candidate) this.schedulePointerTextLookup(candidate, event);
   }
   dismissModalPopoverForOutsidePointer(event) {
     if (this.isDestroyed || this.activePopoverMode !== "modal" || !this.activePopover) return;
@@ -41401,11 +41398,19 @@ class ReaderApp {
     const hoverLookupKey = this.hoverLookupKeyForWord(word);
     if (this.shouldSkipHoverLookupSchedule(word, hoverLookupKey)) return;
     this.cancelHoverClose();
+    if (this.hoverLookupTimer && this.hoverPendingWord) {
+      this.hoverPendingWord = word;
+      this.hoverPendingLookupKey = hoverLookupKey;
+      return;
+    }
     window.clearTimeout(this.hoverLookupTimer);
     const hoverLookupGeneration = this.nextHoverLookupGeneration();
     this.hoverPendingWord = word;
     this.hoverPendingLookupKey = hoverLookupKey;
-    this.installHoverLookupTimer(word, () => this.runScheduledHoverLookup(word, event, hoverLookupGeneration));
+    const runLookup = () => this.runScheduledHoverLookup(word, event, hoverLookupGeneration);
+    const delay2 = this.activePopoverMode === "hover" && this.activeHoverWord && this.activeHoverWord !== word ? 0 : Math.max(0, this.settings.hoverOpenDelayMs);
+    if (delay2 === 0) runLookup();
+    else this.hoverLookupTimer = window.setTimeout(runLookup, delay2);
   }
   shouldSkipHoverLookupSchedule(word, hoverLookupKey) {
     if (this.isSuppressedHoverLookup(word, hoverLookupKey)) return true;
@@ -41413,52 +41418,27 @@ class ReaderApp {
       this.refreshActiveHoverAnchor(word);
       return true;
     }
-    return this.isSameActiveHoverWord(word) || this.isPendingHoverLookup(word, hoverLookupKey) || this.isInFlightHoverLookup(hoverLookupKey);
+    return this.activePopoverMode === "hover" && this.activeHoverWord === word || this.isPendingHoverLookup(word, hoverLookupKey) || Boolean(hoverLookupKey && this.hoverLookupInFlightKey === hoverLookupKey);
   }
   isSuppressedHoverLookup(word, hoverLookupKey) {
     return this.suppressedHoverWord === word || Boolean(hoverLookupKey && this.suppressedHoverLookupKey === hoverLookupKey);
   }
-  isSameActiveHoverWord(word) {
-    return this.activePopoverMode === "hover" && this.activeHoverWord === word;
-  }
   isPendingHoverLookup(word, hoverLookupKey) {
     return Boolean((this.hoverPendingWord === word || hoverLookupKey && this.hoverPendingLookupKey === hoverLookupKey) && this.hoverLookupTimer);
-  }
-  isInFlightHoverLookup(hoverLookupKey) {
-    return Boolean(hoverLookupKey && this.hoverLookupInFlightKey === hoverLookupKey);
-  }
-  installHoverLookupTimer(word, runLookup) {
-    const delay2 = this.hoverLookupDelayMs(word);
-    if (delay2 === 0) runLookup();
-    else this.hoverLookupTimer = window.setTimeout(runLookup, delay2);
-  }
-  hoverLookupDelayMs(word) {
-    if (this.activePopoverMode === "hover" && this.activeHoverWord && this.activeHoverWord !== word) return 0;
-    return Math.max(0, this.settings.hoverOpenDelayMs);
   }
   runScheduledHoverLookup(word, event, hoverLookupGeneration) {
     if (this.hoverLookupGeneration !== hoverLookupGeneration) return;
     this.hoverLookupTimer = void 0;
     this.hoverPendingWord = void 0;
     this.hoverPendingLookupKey = "";
-    const activeWord = this.resolveScheduledHoverWord(word);
+    const pointer = this.lastPointerPosition;
+    const activeWord = (pointer ? this.hoverReaderWordFromElement(document.elementFromPoint(pointer.x, pointer.y)) : null) ?? (word.isConnected ? word : null);
     if (!activeWord || !this.canRunScheduledHoverLookup(activeWord, event)) return;
     const activeHoverLookupKey = this.hoverLookupKeyForWord(activeWord);
     if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
     void this.showWord(activeWord, { trigger: "hover", hoverLookupGeneration }).finally(() => {
       if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = "";
     });
-  }
-  resolveScheduledHoverWord(word) {
-    if (word.isConnected) return word;
-    return this.lastPointerPosition ? this.hoverWordFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y) ?? null : null;
-  }
-  hoverWordFromPoint(x, y) {
-    for (const element2 of document.elementsFromPoint(x, y)) {
-      const word = this.hoverReaderWordFromElement(element2);
-      if (word) return word;
-    }
-    return null;
   }
   canRunScheduledHoverLookup(activeWord, event) {
     const hoverLookupKey = this.hoverLookupKeyForWord(activeWord);

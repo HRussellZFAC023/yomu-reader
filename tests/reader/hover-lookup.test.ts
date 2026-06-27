@@ -1147,6 +1147,50 @@ describe('hover lookup', () => {
         }
     });
 
+    it('keeps the hover delay running while the pointer moves to another parsed word', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const firstWord = readerWordFixture('今日は読む', '今日');
+        const secondWord = readerWordFixture('静かな喫茶店', '静か');
+        secondWord.dataset.vid = '3';
+        secondWord.dataset.sid = '4';
+        const internals = app as unknown as HoverLookupInternals;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const restorePoint = stubElementFromPoint(secondWord);
+        const restoreStack = stubElementsFromPoint([secondWord]);
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            hoverOpenDelayMs: 80,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.showWord = showWord;
+        internals.lastPointerPosition = { x: 40, y: 24 };
+
+        try {
+            internals.scheduleHoverLookup(firstWord, hoverPointerEvent(firstWord));
+            await vi.advanceTimersByTimeAsync(30);
+            internals.handleHoverPointerOut(hoverPointerEvent(firstWord, 'mouse', 'pointerout', {}, secondWord));
+            internals.scheduleHoverLookup(secondWord, hoverPointerEvent(secondWord, 'mouse', 'pointermove'));
+            await vi.advanceTimersByTimeAsync(49);
+            expect(showWord).not.toHaveBeenCalled();
+
+            await vi.advanceTimersByTimeAsync(1);
+
+            expect(showWord).toHaveBeenCalledTimes(1);
+            expect(showWord).toHaveBeenCalledWith(
+                secondWord,
+                expect.objectContaining({ trigger: 'hover', hoverLookupGeneration: 1 }),
+            );
+        } finally {
+            restorePoint();
+            restoreStack();
+            vi.useRealTimers();
+            cleanupReaderApp(app);
+        }
+    });
+
     it('treats a hovered single-word OCR line frame as the parsed OCR word', () => {
         const app = new ReaderApp();
         const { line, word } = appendSingleWordOcrLine();

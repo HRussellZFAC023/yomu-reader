@@ -1,11 +1,23 @@
 # Changelog
 
+## [1.4.161] - 2026-06-27
+
+### Fixed
+
+- Hover lookup now follows a moving mouse pointer across parsed words instead of restarting the open delay on every word, so the popup opens without requiring the cursor to stop.
+
 ## [1.4.160] - 2026-06-27
 
 ### Fixed
 
 - Kept Reddit's web-component app shell on non-destructive page-text mirrors, so scrolling feeds and sidebars keep their native DOM while Yomu annotations remain visible.
 - Added Reddit's Japanese translation parameter to the Japanese site-language preference.
+
+## [1.4.159] - 2026-06-27
+
+### Fixed
+
+- Fixed hosted Japanese localization coverage for the homepage hero, Read CTA, support cards, updated game-text metadata, media labels, and latest release notes.
 
 ## [1.4.158] - 2026-06-27
 
@@ -172,7 +184,7 @@
 ### Changed
 
 - Two-point Study grading is available in Study settings, and Pass/Fail review controls use the available width with a centered mobile layout.
-- Homepage CTAs now say Install and link directly to Watch and Read/PDF tools.
+- Homepage CTAs now say Install and link directly to Watch and Read tools.
 - Dictionary empty states and recommended dictionary copy now explain that term dictionaries add definitions, while pitch and frequency dictionaries add accents and badges.
 
 ### Fixed
