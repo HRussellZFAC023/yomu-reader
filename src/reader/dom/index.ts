@@ -1310,6 +1310,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
 
     const text = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text.length);
+    const renderPlan = whitespaceCollapsedNonDestructiveRender(text, safeTokens);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
@@ -1331,7 +1332,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     const state = styleTextMirrorHost(host);
     try {
         styleTextMirror(mirror, host, hasRenderedRuby);
-        mirror.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
+        mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
             parent: host,
             hasNativeRuby: targetHasNativeRuby(target),
             suppressRuby,
@@ -1348,6 +1349,59 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
         removeTextMirror(host);
         throw error;
     }
+}
+
+function whitespaceCollapsedNonDestructiveRender(text: string, tokens: JPDBToken[]): { text: string; tokens: JPDBToken[] } {
+    if (!/\s{2,}|\r|\n/u.test(text)) return { text, tokens };
+    const { normalized, offsets } = collapseWhitespaceWithOffsets(text);
+    if (normalized === text) return { text, tokens };
+    return {
+        text: normalized,
+        tokens: tokens.map(token => remapTokenOffsets(token, offsets, normalized)),
+    };
+}
+
+function collapseWhitespaceWithOffsets(text: string): { normalized: string; offsets: number[] } {
+    const offsets = new Array<number>(text.length + 1);
+    let normalized = '';
+    let index = 0;
+    while (index < text.length) {
+        if (/\s/u.test(text[index] ?? '')) {
+            const start = index;
+            while (index < text.length && /\s/u.test(text[index] ?? '')) index += 1;
+            const mapped = normalized.length;
+            if (normalized.length > 0 && index < text.length) normalized += ' ';
+            for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
+            continue;
+        }
+        offsets[index] = normalized.length;
+        normalized += text[index];
+        index += 1;
+    }
+    offsets[text.length] = normalized.length;
+    return { normalized, offsets };
+}
+
+function remapTokenOffsets(token: JPDBToken, offsets: number[], sentence: string): JPDBToken {
+    const start = offsets[token.start] ?? token.start;
+    const end = offsets[token.end] ?? token.end;
+    return {
+        ...token,
+        start,
+        end,
+        length: Math.max(0, end - start),
+        sentence,
+        rubies: token.rubies.map(ruby => {
+            const rubyStart = offsets[ruby.start] ?? ruby.start;
+            const rubyEnd = offsets[ruby.end] ?? ruby.end;
+            return {
+                ...ruby,
+                start: rubyStart,
+                end: rubyEnd,
+                length: Math.max(0, rubyEnd - rubyStart),
+            };
+        }),
+    };
 }
 
 function currentTextMirror(host: HTMLElement): HTMLElement | null {
@@ -1777,8 +1831,9 @@ function hasCompactCenteredMediaChrome(parent: HTMLElement, link: HTMLElement): 
 
 function isLayoutFragileMediaTileText(parent: HTMLElement): boolean {
     if (isReadableProseContext(parent)) return false;
-    if (!hasCompactMediaRubyRisk(parent)) return false;
-    return Boolean(closestCompactMediaContext(parent));
+    const context = closestCompactMediaContext(parent);
+    if (!context) return false;
+    return hasCompactMediaRubyRisk(parent) || hasCompactMediaSizingRisk(parent, context);
 }
 
 function hasCompactMediaRubyRisk(parent: HTMLElement): boolean {
@@ -1819,6 +1874,29 @@ function isCompactMediaContext(element: HTMLElement): boolean {
     const structured = display.includes('grid') || display.includes('flex') || display === 'block';
     const compact = rect.width === 0 || rect.width <= 560;
     return structured && compact;
+}
+
+function hasCompactMediaSizingRisk(parent: HTMLElement, context: HTMLElement): boolean {
+    const textLength = compactLength(parent.textContent ?? '');
+    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
+    if (context.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return true;
+    return Boolean(closestMediaLayoutContainer(parent));
+}
+
+function closestMediaLayoutContainer(parent: HTMLElement): HTMLElement | null {
+    let current: HTMLElement | null = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 8; depth++) {
+        if (mediaCarouselMatch(current)) return current;
+        if (current.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return current;
+        if (isPositionedUiContainer(current)) return current;
+        current = current.parentElement;
+    }
+    return null;
+}
+
+function isPositionedUiContainer(element: HTMLElement): boolean {
+    const position = safeComputedStyle(element).position;
+    return position === 'absolute' || position === 'fixed' || position === 'sticky';
 }
 
 function nonDestructiveScanHost(target: ScanTextTarget): HTMLElement {

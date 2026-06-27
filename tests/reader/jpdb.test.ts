@@ -1492,6 +1492,20 @@ function collectYouTubeWatchTargets(html: string, limit = 10) {
     return collectYouTubeTargets(html, YOUTUBE_WATCH_TEST_URL, limit);
 }
 
+function youtubeSubscriberToken(sentence: string): JPDBToken[] {
+    const start = sentence.indexOf('登録者数');
+    expect(start).toBeGreaterThanOrEqual(0);
+    return [{
+        card: { ...card, cardState: ['known'], spelling: '登録者数', reading: 'とうろくしゃすう', source: 'jpdb' },
+        start,
+        end: start + 4,
+        length: 4,
+        rubies: [{ text: 'とうろくしゃすう', start, end: start + 4, length: 4 }],
+        pitchClass: 'heiban',
+        sentence,
+    }];
+}
+
 function expectBodyTextTargets(html: string, expected: string[]): void {
     document.body.innerHTML = html;
     expect(collectTextTargetsIn(document.body, 10, false).map(target => target.text)).toEqual(expected);
@@ -5585,6 +5599,11 @@ describe('reader helpers', () => {
         const metaText = readerMetaText();
 
         expect(metaText).toContain('#2600');
+        const frequencyPill = document.querySelector<HTMLElement>('.jpdb-reader-meta .jpdb-reader-pill.jpdb-reader-frequency-pill')!;
+        expect(frequencyPill).not.toBeNull();
+        expect(frequencyPill.classList.contains('jpdb-reader-meta-pill')).toBe(true);
+        expect(frequencyPill.dataset.dictionary).toBe('JPDB');
+        expect(frequencyPill.getAttribute('aria-label')).toBe('Frequency: #2600');
         expect(metaText).not.toContain('Not in deck');
         expect(metaText).not.toContain('Anki');
     });
@@ -35314,6 +35333,54 @@ describe('reader helpers', () => {
         expectRenderedPitchWord(metadataWord, 'heiban');
         expect(document.querySelector('.jpdb-reader-word .jpdb-reader-word')).toBeNull();
         expect(document.querySelector('ruby ruby')).toBeNull();
+    });
+
+    it('collapses YouTube owner formatting whitespace in non-destructive mirrors across rescans', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 1000, height: 240 });
+        try {
+            document.body.innerHTML = `
+                <ytd-watch-metadata>
+                    <div id="owner">
+                        <ytd-channel-name>
+                            <yt-formatted-string id="text">
+                                にほんごのじかん
+                            </yt-formatted-string>
+                        </ytd-channel-name>
+                        <yt-formatted-string id="owner-sub-count">
+                            チャンネル登録者数 2040人
+                        </yt-formatted-string>
+                    </div>
+                </ytd-watch-metadata>
+            `;
+
+            const owner = collectScanTargets(10, YOUTUBE_WATCH_TEST_URL)
+                .find(target => target.text.includes('チャンネル登録者数 2040人'))!;
+            expect(owner).toMatchObject({ nonDestructive: true });
+            expect(owner.text).toMatch(/\n\s+/);
+
+            const settings: ReaderSettings = { ...DEFAULT_SETTINGS, furiganaMode: 'all' };
+            applyTokensToScanTarget(owner, youtubeSubscriberToken(owner.text), settings);
+
+            const ownerHost = document.querySelector<HTMLElement>('#owner')!;
+            let mirror = ownerHost.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror')!;
+            expect(mirror.textContent).not.toMatch(/\n|\s{2,}/u);
+            expect(readerWordSurfaceText(mirror.querySelector<HTMLElement>('.jpdb-reader-word')!)).toBe('登録者数');
+
+            const rescannedOwner = {
+                ...owner,
+                text: owner.text.replace('2040人', '2041人'),
+            };
+            applyTokensToScanTarget(rescannedOwner, youtubeSubscriberToken(rescannedOwner.text), settings);
+
+            mirror = ownerHost.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror')!;
+            expect(ownerHost.querySelectorAll(':scope > .jpdb-reader-text-mirror')).toHaveLength(1);
+            expect(mirror.textContent).not.toMatch(/\n|\s{2,}/u);
+            expect(mirror.textContent).toContain('2041人');
+            expect(document.querySelector('.jpdb-reader-word .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('ruby ruby')).toBeNull();
+        } finally {
+            rectSpy.mockRestore();
+        }
     });
 
     it('scans YouTube live-chat frame fallback text', () => {

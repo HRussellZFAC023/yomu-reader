@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.147] - 2026-06-27
+
+### Fixed
+
+- Kept compact media carousels, absolute-positioned slides, product cards, and sidebar cards from growing or overflowing when page annotations render, while normal article text still keeps furigana.
+- Collapsed framework formatting whitespace in YouTube owner/subscriber mirrors so channel rows do not gain visible newline gaps during annotation refreshes.
+- Rendered JPDB frequency ranks in popup headers as frequency metadata pills instead of bare #rank text, matching lookup pill wrapping, contrast, and accessibility labels.
+
 ## [1.4.146] - 2026-06-27
 
 ### Changed

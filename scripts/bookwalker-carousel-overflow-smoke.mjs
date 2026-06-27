@@ -72,6 +72,24 @@ writeFileSync(entryPath, `
         };
     }
 
+    function productGridMetrics() {
+        const grid = document.querySelector<HTMLElement>('[data-product-grid]');
+        const firstCard = document.querySelector<HTMLElement>('[data-product-card]');
+        const firstTitle = document.querySelector<HTMLElement>('[data-product-title]');
+        const positioned = document.querySelector<HTMLElement>('[data-positioned-card]');
+        return {
+            gridClientWidth: grid?.clientWidth ?? 0,
+            gridScrollWidth: grid?.scrollWidth ?? 0,
+            gridClientHeight: grid?.clientHeight ?? 0,
+            gridScrollHeight: grid?.scrollHeight ?? 0,
+            cardHeight: firstCard?.getBoundingClientRect().height ?? 0,
+            titleHeight: firstTitle?.getBoundingClientRect().height ?? 0,
+            positionedHeight: positioned?.getBoundingClientRect().height ?? 0,
+            rubyCount: document.querySelectorAll('[data-product-title] rt,[data-product-title] .jpdb-reader-furi,[data-positioned-title] rt,[data-positioned-title] .jpdb-reader-furi').length,
+            passiveCount: document.querySelectorAll('[data-product-title] .jpdb-reader-passive-word,[data-positioned-title] .jpdb-reader-passive-word').length,
+        };
+    }
+
     Object.assign(window, {
         runYomuBookwalkerCarouselProbe() {
             const before = carouselMetrics();
@@ -113,6 +131,39 @@ writeFileSync(entryPath, `
                 },
             };
         },
+        runYomuProductGridProbe() {
+            const before = productGridMetrics();
+            const sentences = ['日本語漫画第1巻', '今日のおすすめ漫画'];
+            const targets = collectScanTargets(20, 'https://bookwalker.jp/');
+            const gridTarget = targets.find(candidate => candidate.text.includes(sentences[0]));
+            const positionedTarget = targets.find(candidate => candidate.text.includes(sentences[1]));
+            if (!gridTarget) throw new Error('Product grid title target was not collected.');
+            if (!positionedTarget) throw new Error('Positioned card title target was not collected.');
+            applyTokensToScanTarget(gridTarget, [
+                token(sentences[0], '日本語', 'にほんごのことば', 0, 3),
+                token(sentences[0], '漫画', 'まんがたいとる', 3, 5),
+            ], { ...DEFAULT_SETTINGS, interfaceLanguage: 'en', showFurigana: true, furiganaMode: 'all' });
+            applyTokensToScanTarget(positionedTarget, [
+                token(sentences[1], '今日', 'きょう', 0, 2),
+                token(sentences[1], 'おすすめ', 'おすすめ', 3, 7),
+            ], { ...DEFAULT_SETTINGS, interfaceLanguage: 'en', showFurigana: true, furiganaMode: 'all' });
+            return {
+                before,
+                after: productGridMetrics(),
+                targets: {
+                    grid: {
+                        text: gridTarget.text,
+                        suppressRuby: gridTarget.suppressRuby === true,
+                        passiveInteraction: gridTarget.passiveInteraction === true,
+                    },
+                    positioned: {
+                        text: positionedTarget.text,
+                        suppressRuby: positionedTarget.suppressRuby === true,
+                        passiveInteraction: positionedTarget.passiveInteraction === true,
+                    },
+                },
+            };
+        },
     });
 `);
 
@@ -132,6 +183,8 @@ try {
         const result = await runBrowserProbe(browser, bookwalkerCarouselFixture(), 'runYomuBookwalkerCarouselProbe', 'bookwalker-carousel-overflow-smoke.png');
         const forcedRuby = await runBrowserProbe(browser, bookwalkerCarouselFixture({ forceRuby: true }), 'runYomuBookwalkerCarouselProbe');
         const readableScroll = await runBrowserProbe(browser, readableScrollFixture(), 'runYomuReadableScrollProbe');
+        const productGrid = await runBrowserProbe(browser, productGridFixture(), 'runYomuProductGridProbe', 'bookwalker-card-grid-smoke.png');
+        const forcedProductGrid = await runBrowserProbe(browser, productGridFixture({ forceRuby: true }), 'runYomuProductGridProbe');
 
         assert(result.before.viewportScrollWidth <= result.before.viewportClientWidth + 2, 'fixture starts without overflow', result);
         assert(result.target.suppressRuby, 'wide image carousel target should suppress ruby generically', result);
@@ -153,7 +206,26 @@ try {
         assert(!readableScroll.target.passiveInteraction, 'readable prose in a scroll/banner container should stay interactive', readableScroll);
         assert(readableScroll.after.rubyCount > 0, 'readable prose lost furigana in a scroll/banner container', readableScroll);
 
-        console.log(JSON.stringify({ result, forcedRuby, readableScroll }, null, 2));
+        assert(productGrid.targets.grid.suppressRuby, 'compact product-grid title should suppress ruby generically', productGrid);
+        assert(productGrid.targets.grid.passiveInteraction, 'compact product-grid title should be passive', productGrid);
+        assert(productGrid.targets.positioned.suppressRuby, 'positioned media card title should suppress ruby generically', productGrid);
+        assert(productGrid.targets.positioned.passiveInteraction, 'positioned media card title should be passive', productGrid);
+        assert(productGrid.after.rubyCount === 0, 'compact product/card grid rendered ruby and can change card sizing', productGrid);
+        assert(productGrid.after.passiveCount >= 3, 'compact product/card words should remain lookupable as passive words', productGrid);
+        assert(Math.abs(productGrid.after.gridScrollHeight - productGrid.before.gridScrollHeight) <= 2, 'product grid height changed after Yomu rendered words', productGrid);
+        assert(Math.abs(productGrid.after.cardHeight - productGrid.before.cardHeight) <= 2, 'product card height changed after Yomu rendered words', productGrid);
+        assert(Math.abs(productGrid.after.positionedHeight - productGrid.before.positionedHeight) <= 2, 'positioned card height changed after Yomu rendered words', productGrid);
+
+        assert(forcedProductGrid.after.rubyCount > 0, 'product-grid control fixture did not render ruby', forcedProductGrid);
+        assert(
+            forcedProductGrid.after.gridScrollHeight > forcedProductGrid.before.gridScrollHeight + 2
+                || forcedProductGrid.after.cardHeight > forcedProductGrid.before.cardHeight + 2
+                || forcedProductGrid.after.positionedHeight > forcedProductGrid.before.positionedHeight + 2,
+            'product-grid control fixture with forced ruby should demonstrate the sizing risk',
+            forcedProductGrid,
+        );
+
+        console.log(JSON.stringify({ result, forcedRuby, readableScroll, productGrid, forcedProductGrid }, null, 2));
         console.log('BookWalker carousel overflow smoke passed');
     } finally {
         await browser.close();
@@ -272,6 +344,84 @@ function readableScrollFixture() {
                     <img alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='110'%3E%3Crect width='180' height='110' fill='%23d6e8f0'/%3E%3C/svg%3E">
                     <p data-readable-scroll-prose>今日は新しい本を読みました。</p>
                 </article>
+            </main>
+        </body>
+        </html>
+    `;
+}
+
+function productGridFixture({ forceRuby = false } = {}) {
+    const forceRubyAttribute = forceRuby ? ' data-yomu-furigana-mode="all"' : '';
+    return `
+        <!doctype html>
+        <html lang="ja">
+        <head>
+            <meta charset="utf-8">
+            <style>
+                * { box-sizing: border-box; }
+                body { margin: 0; font-family: system-ui, sans-serif; }
+                main { position: relative; width: 760px; margin: 32px auto; padding-right: 0; }
+                .product-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                    gap: 14px;
+                    align-items: start;
+                    width: 520px;
+                    overflow: visible;
+                }
+                .product-card,
+                .positioned-card {
+                    display: grid;
+                    grid-template-rows: 176px auto;
+                    gap: 7px;
+                    width: 164px;
+                    min-width: 0;
+                    padding: 8px;
+                    border: 1px solid #d8dee8;
+                    background: #fff;
+                }
+                .product-card img,
+                .positioned-card img {
+                    width: 100%;
+                    height: 176px;
+                    object-fit: cover;
+                    background: linear-gradient(135deg, #3c4a66, #c7deec);
+                }
+                .product-card h3,
+                .positioned-card span {
+                    margin: 0;
+                    color: #172033;
+                    font-size: 16px;
+                    font-weight: 800;
+                    line-height: 1.2;
+                }
+                .sidebar-rail {
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    width: 190px;
+                    min-height: 1px;
+                }
+            </style>
+        </head>
+        <body>
+            <main>
+                <section class="product-grid" data-product-grid>
+                    <article class="product-card" data-product-card>
+                        <img alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='148' height='176'%3E%3Crect width='148' height='176' fill='%23c7deec'/%3E%3C/svg%3E">
+                        <h3 data-product-title${forceRubyAttribute}>日本語漫画第1巻</h3>
+                    </article>
+                    <article class="product-card">
+                        <img alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='148' height='176'%3E%3Crect width='148' height='176' fill='%23d8dee8'/%3E%3C/svg%3E">
+                        <h3>English title</h3>
+                    </article>
+                </section>
+                <aside class="sidebar-rail">
+                    <article class="positioned-card" data-positioned-card>
+                        <img alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='148' height='176'%3E%3Crect width='148' height='176' fill='%23c7deec'/%3E%3C/svg%3E">
+                        <span data-positioned-title${forceRubyAttribute}>今日のおすすめ漫画</span>
+                    </article>
+                </aside>
             </main>
         </body>
         </html>

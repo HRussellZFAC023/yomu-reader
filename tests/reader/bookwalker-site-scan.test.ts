@@ -96,6 +96,49 @@ describe('BookWalker site scan boundaries', () => {
         }
     });
 
+    it('marks compact card-grid and positioned storefront titles as passive ruby-suppressed targets', () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = `
+            <main>
+                <section class="product-grid" style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));">
+                    <article class="product-card">
+                        <img alt="" src="/cover-a.jpg">
+                        <h3 data-grid-title>日本語漫画フェア</h3>
+                    </article>
+                    <article class="product-card">
+                        <img alt="" src="/cover-b.jpg">
+                        <h3>英語タイトル</h3>
+                    </article>
+                </section>
+                <aside class="sidebar-rail" style="position:absolute;right:0;top:0;width:220px;">
+                    <article class="compact-card">
+                        <img alt="" src="/banner.jpg">
+                        <span data-positioned-title>今日のおすすめ漫画</span>
+                    </article>
+                </aside>
+            </main>
+        `;
+
+        try {
+            const targets = collectScanTargets(20, BOOKWALKER_HOME_URL);
+            const gridTitle = targets.find(target => target.text === '日本語漫画フェア');
+            const positionedTitle = targets.find(target => target.text === '今日のおすすめ漫画');
+
+            expect(gridTitle).toMatchObject({
+                parserId: 'residual-visible-japanese-parser',
+                suppressRuby: true,
+                passiveInteraction: true,
+            });
+            expect(positionedTitle).toMatchObject({
+                parserId: 'residual-visible-japanese-parser',
+                suppressRuby: true,
+                passiveInteraction: true,
+            });
+        } finally {
+            restoreRects();
+        }
+    });
+
     it('keeps the same generic DOM scan available away from BookWalker storefronts', () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `

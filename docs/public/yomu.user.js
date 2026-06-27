@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.146
+// @version 1.4.147
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.146
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.146
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.146
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.146
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.147
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.147
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.147
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.147
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -4446,6 +4446,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   if (!host.isConnected) return;
   const text2 = target.text;
   const safeTokens = nonOverlappingTokens(tokens, text2.length);
+  const renderPlan = whitespaceCollapsedNonDestructiveRender(text2, safeTokens);
   const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
   const renderSettings = furiganaSettingsForTarget(settings, host);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
@@ -4466,7 +4467,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   const state = styleTextMirrorHost(host);
   try {
     styleTextMirror(mirror, host, hasRenderedRuby);
-    mirror.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
+    mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
       parent: host,
       hasNativeRuby: targetHasNativeRuby(target),
       suppressRuby,
@@ -4483,6 +4484,56 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
     removeTextMirror(host);
     throw error;
   }
+}
+function whitespaceCollapsedNonDestructiveRender(text2, tokens) {
+  if (!/\s{2,}|\r|\n/u.test(text2)) return { text: text2, tokens };
+  const { normalized, offsets } = collapseWhitespaceWithOffsets(text2);
+  if (normalized === text2) return { text: text2, tokens };
+  return {
+    text: normalized,
+    tokens: tokens.map((token) => remapTokenOffsets(token, offsets, normalized))
+  };
+}
+function collapseWhitespaceWithOffsets(text2) {
+  const offsets = new Array(text2.length + 1);
+  let normalized = "";
+  let index = 0;
+  while (index < text2.length) {
+    if (/\s/u.test(text2[index] ?? "")) {
+      const start = index;
+      while (index < text2.length && /\s/u.test(text2[index] ?? "")) index += 1;
+      const mapped = normalized.length;
+      if (normalized.length > 0 && index < text2.length) normalized += " ";
+      for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
+      continue;
+    }
+    offsets[index] = normalized.length;
+    normalized += text2[index];
+    index += 1;
+  }
+  offsets[text2.length] = normalized.length;
+  return { normalized, offsets };
+}
+function remapTokenOffsets(token, offsets, sentence) {
+  const start = offsets[token.start] ?? token.start;
+  const end = offsets[token.end] ?? token.end;
+  return {
+    ...token,
+    start,
+    end,
+    length: Math.max(0, end - start),
+    sentence,
+    rubies: token.rubies.map((ruby) => {
+      const rubyStart = offsets[ruby.start] ?? ruby.start;
+      const rubyEnd = offsets[ruby.end] ?? ruby.end;
+      return {
+        ...ruby,
+        start: rubyStart,
+        end: rubyEnd,
+        length: Math.max(0, rubyEnd - rubyStart)
+      };
+    })
+  };
 }
 function currentTextMirror(host) {
   return Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)) ?? null;
@@ -4840,8 +4891,9 @@ function hasCompactCenteredMediaChrome(parent, link) {
 }
 function isLayoutFragileMediaTileText(parent) {
   if (isReadableProseContext(parent)) return false;
-  if (!hasCompactMediaRubyRisk(parent)) return false;
-  return Boolean(closestCompactMediaContext(parent));
+  const context = closestCompactMediaContext(parent);
+  if (!context) return false;
+  return hasCompactMediaRubyRisk(parent) || hasCompactMediaSizingRisk(parent, context);
 }
 function hasCompactMediaRubyRisk(parent) {
   if (isLayoutSensitiveScanElement(parent)) return true;
@@ -4878,6 +4930,26 @@ function isCompactMediaContext(element2) {
   const structured = display.includes("grid") || display.includes("flex") || display === "block";
   const compact = rect.width === 0 || rect.width <= 560;
   return structured && compact;
+}
+function hasCompactMediaSizingRisk(parent, context) {
+  const textLength = compactLength(parent.textContent ?? "");
+  if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
+  if (context.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return true;
+  return Boolean(closestMediaLayoutContainer(parent));
+}
+function closestMediaLayoutContainer(parent) {
+  let current = parent;
+  for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 8; depth++) {
+    if (mediaCarouselMatch(current)) return current;
+    if (current.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return current;
+    if (isPositionedUiContainer(current)) return current;
+    current = current.parentElement;
+  }
+  return null;
+}
+function isPositionedUiContainer(element2) {
+  const position = safeComputedStyle(element2).position;
+  return position === "absolute" || position === "fixed" || position === "sticky";
 }
 function nonDestructiveScanHost(target) {
   if (!isFragmentTextTarget$1(target)) return target.parent;
@@ -20836,7 +20908,7 @@ class CardPopoverRenderer {
     const canShowProviderStatus = Boolean(provider?.hasApiKey);
     return [
       renderMetaReading(card, settings),
-      card.frequencyRank && !canShowProviderStatus ? `<span>#${card.frequencyRank}</span>` : "",
+      card.frequencyRank && !canShowProviderStatus ? renderMetaFrequencyRank(card.frequencyRank, settings.interfaceLanguage) : "",
       canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state, settings.interfaceLanguage))}</span>` : "",
       renderAnkiMeta(data.ankiLookup, settings)
     ].filter(Boolean);
@@ -20976,6 +21048,11 @@ function renderMetaReading(card, settings) {
   const reading = cardPronunciationReading(card);
   if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return "";
   return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$1(reading)}</span>` : "";
+}
+function renderMetaFrequencyRank(rank, language) {
+  const label = uiText(language, "factFrequency");
+  const value = `#${rank}`;
+  return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill jpdb-reader-meta-pill" data-dictionary="JPDB" style="${pillStyle("frequency:JPDB")}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(`${label}: ${value}`)}">${escapeHtml$1(value)}</span>`;
 }
 function renderAnkiMeta(lookup, settings) {
   if (!settings.ankiEnabled) return "";
@@ -37568,7 +37645,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.146"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.147"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],
