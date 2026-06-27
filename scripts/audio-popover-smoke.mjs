@@ -73,6 +73,7 @@ try {
     await pushScenario('fixture-hover-direct', () => runFixtureHoverScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-hover-mode-hover', () => runFixtureHoverModeHoverScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-hover-sequential-words-audio', () => runFixtureSequentialHoverAudioScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-hover-sequential-shared-source-audio', () => runFixtureSequentialSharedSourceHoverAudioScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-tap-mode-no-hover-autoplay', () => runFixtureTapModeNoHoverScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-paused-video-hover-plays', () => runFixturePausedVideoHoverScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-playing-video-hover-suppressed', () => runFixturePlayingVideoHoverScenario(browser, fixture.baseUrl));
@@ -209,6 +210,46 @@ async function runFixtureSequentialHoverAudioScenario(browser, baseUrl) {
             assert(result.rejectedPlays.length === 0, 'sequential hover produced rejected audio plays', result);
             assert(result.pendingPlays.length === 0, 'sequential hover left audio plays pending', result);
             assert(result.speech.length === 0, 'sequential hover fell back to TTS despite real audio sources', result);
+        },
+    });
+}
+
+async function runFixtureSequentialSharedSourceHoverAudioScenario(browser, baseUrl) {
+    const hoverTargets = [
+        { selector: '.jpdb-reader-word[data-expression="日本語"]', label: '日本語' },
+        { selector: TARGET_SELECTOR, label: '読む' },
+        { selector: '.jpdb-reader-word[data-expression="練習"]', label: '練習' },
+    ];
+    const sharedUrl = 'https://audio.test/shared-hover.mp3';
+    return await runReaderScenario(browser, {
+        name: 'fixture-hover-sequential-shared-source-audio',
+        url: `${baseUrl}/fixture.html`,
+        settings: {
+            ...baseSettings,
+            audioAutoPlayMode: 'hover',
+            audioViaBlob: true,
+            hoverCloseDelayMs: 0,
+            audioSelectionMode: 'random',
+            audioSources: [{ type: 'custom', url: sharedUrl, voice: '', enabled: true }],
+        },
+        action: async page => {
+            await page.mouse.click(12, 12);
+            for (const [index, target] of hoverTargets.entries()) {
+                const box = await targetWordBox(page, target.selector);
+                await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+                await page.waitForSelector('.jpdb-reader-popover', { timeout: 8000 });
+                await waitForAudibleAudioCount(page, index + 1, `shared-source hover audio did not replay for ${target.label}`);
+                await page.mouse.move(12, 12);
+                await page.waitForTimeout(120);
+            }
+        },
+        assertResult: result => {
+            const urls = result.audiblePlays.map(play => play.sourceUrl || play.src).filter(url => url === sharedUrl);
+            assert(urls.length >= hoverTargets.length, 'shared-source hover did not play the same source for every target', result);
+            assert(result.pauseEvents.length >= hoverTargets.length - 1, 'shared-source hover did not stop/restart the active audio between targets', result);
+            assert(result.rejectedPlays.length === 0, 'shared-source hover produced rejected audio plays', result);
+            assert(result.pendingPlays.length === 0, 'shared-source hover left audio plays pending', result);
+            assert(result.speech.length === 0, 'shared-source hover fell back to TTS despite a playable source', result);
         },
     });
 }
