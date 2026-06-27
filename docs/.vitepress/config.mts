@@ -13,7 +13,7 @@ const pdfReaderLink = '/pdf-reader/';
 
 const siteTitle = 'よむ - Japanese popup reader';
 const siteDescription =
-    'Yomu helps you read real Japanese in the browser. Look up words on web pages, manga, PDFs, and subtitles, save useful sentences, connect your SRS, prefer Japanese site versions, and filter YouTube for Japanese content.';
+    'Yomu helps you read real Japanese in the browser. Look up words on web pages, manga, game text, PDFs, and subtitles, save useful sentences, connect your SRS, prefer Japanese site versions, and filter YouTube for Japanese content.';
 const siteVerificationHead = siteVerificationMetaHead([
     { name: 'google-site-verification', value: process.env.YOMU_GOOGLE_SITE_VERIFICATION },
     { name: 'msvalidate.01', value: process.env.YOMU_BING_SITE_VERIFICATION },
@@ -105,6 +105,7 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string): HeadConfig[] {
             featureList: [
                 'Japanese popup dictionary lookup',
                 'Manga and image OCR',
+                'PC and Steam Deck game text handoff guide',
                 'Video subtitle mining',
                 'Yomitan dictionary import',
                 'Anki card creation',
@@ -277,7 +278,7 @@ export default defineConfig({
                     { text: 'All guides', link: '/guides/' },
                     { text: 'Read manga in Japanese', link: '/guides/read-manga-in-japanese' },
                     { text: 'Comprehensible-input YouTube', link: '/guides/comprehensible-input-youtube' },
-                    { text: 'Read games with YomiNinja', link: '/guides/read-games-with-yomininja' },
+                    { text: 'Read games on Steam Deck and PC', link: '/guides/read-games-on-steam-deck' },
                     { text: 'Mine sentences to Anki', link: '/guides/mine-sentences-to-anki' },
                     { text: 'Study setup', link: '/guides/study-setup' },
                 ],

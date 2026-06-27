@@ -10,6 +10,13 @@
 - Study term pitch underlines render through the pseudo underline without stacking native underlines, text shadows, or box shadows.
 - Settings now puts the review rating scale directly in Study and clarifies Jiten/JPDB credential separation, provider-scoped Study decks, and AnkiConnect setup/CORS guidance.
 
+## [1.4.144] - 2026-06-27
+
+### Added
+
+- Added a Steam Deck and PC gaming guide that replaces the YomiNinja-only workflow, explains the current PWA/no-install boundary, and compares Decky/native OCR helpers for game text handoff.
+- Recorded ADR 0004 for the gaming distribution strategy and the first Gaming Text Bridge contract sketch.
+
 ## [1.4.143] - 2026-06-27
 
 ### Fixed

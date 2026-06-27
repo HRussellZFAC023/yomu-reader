@@ -1,15 +1,15 @@
 ---
 title: Free Japanese Learning Tools
-description: A free toolkit for reading real Japanese — popup dictionary, manga and image OCR, furigana, kanji stroke order, subtitle mining, study, and a YouTube immersion filter. Every tool runs after installing the よむ userscript; no account required.
+description: A free toolkit for reading real Japanese — popup dictionary, manga and image OCR, game text handoff, furigana, kanji stroke order, subtitle mining, study, and a YouTube immersion filter. Every tool runs after installing the よむ userscript; no account required.
 head:
   - - meta
     - name: keywords
-      content: Japanese learning tools, free Japanese reader, popup dictionary, manga OCR, furigana, kanji stroke order, subtitle mining, Yomitan, Jiten, JPDB, Anki
+      content: Japanese learning tools, free Japanese reader, popup dictionary, manga OCR, Japanese game OCR, Steam Deck Japanese, furigana, kanji stroke order, subtitle mining, Yomitan, Jiten, JPDB, Anki
 ---
 
 # Free Japanese Learning Tools
 
-Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and save actions consistent across text, images, video, PDFs, and study.
+Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and save actions consistent across text, images, games, video, PDFs, and study.
 
 <div class="yomu-link-grid">
   <a class="yomu-link-card" href="/tools/furigana-reader">
@@ -24,9 +24,9 @@ Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and sa
     <strong>Video</strong>
     <span>Parse Japanese subtitles and transcripts for lookup on YouTube or local files.</span>
   </a>
-  <a class="yomu-link-card" href="/guides/read-games-with-yomininja">
+  <a class="yomu-link-card" href="/guides/read-games-on-steam-deck">
     <strong>Games</strong>
-    <span>Use YomiNinja for desktop game OCR, then bring useful text into your study flow.</span>
+    <span>Use よむ with Steam Deck, PC games, and OCR or text-hook helpers when game text needs capture.</span>
   </a>
   <a class="yomu-link-card" href="/pdf-reader/">
     <strong>PDF</strong>
