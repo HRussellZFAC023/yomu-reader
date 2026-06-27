@@ -7169,7 +7169,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
-  const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],[contenteditable=true],[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-word,.subsection-pitch-accent .subsection';
+  const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],[contenteditable=true],[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection';
   const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
   const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
   const PLAYER_CHROME_SKIP_SELECTOR = '[class*="control" i],[class*="toggle" i],[class*="player" i]';
@@ -7202,7 +7202,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
   const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},[data-jpdb-reader-root]`;
   const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},button,summary,a[href],[role="button"]`;
-  const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable="true"],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
+  const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable="true"],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
   const FORM_CHROME_BOUNDARY_TAGS = ",FORM,LABEL,FIELDSET,LEGEND,";
   const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
   const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
@@ -7248,6 +7248,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT = "jpdb-reader-text-mirror-stale";
   const renderedScanHosts = /* @__PURE__ */ new WeakMap();
   const textMirrorHosts = /* @__PURE__ */ new WeakMap();
+  const canvasFallbackTextLayers = /* @__PURE__ */ new WeakMap();
   function collectFragmentTextTargetsIn(root, limit = 40, visibleOnly = true, excludeSelector = "", options = {}) {
     const state2 = {
       targets: [],
@@ -7719,6 +7720,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       applyTokensToControlTextMirrorTarget(target, tokens, settings);
       return;
     }
+    if (target.parent instanceof HTMLCanvasElement) {
+      applyTokensToCanvasFallbackTarget(target, tokens, settings);
+      return;
+    }
     const nonDestructiveHost = nonDestructiveScanHost(target);
     const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
     const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
@@ -7876,6 +7881,87 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function currentControlTextMirror(host) {
     const sibling = host.nextElementSibling;
     return sibling instanceof HTMLElement && sibling.matches(READER_CONTROL_TEXT_MIRROR_SELECTOR) ? sibling : null;
+  }
+  function applyTokensToCanvasFallbackTarget(target, tokens, settings) {
+    const canvas = target.parent;
+    if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) return;
+    const host = canvas.parentElement;
+    if (!host) return;
+    const text2 = target.text;
+    const safeTokens = nonOverlappingTokens(tokens, text2.length);
+    const renderSettings = furiganaSettingsForTarget(settings, canvas);
+    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, Boolean(target.suppressRuby));
+    const existing = currentCanvasFallbackTextLayer(canvas);
+    if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) return;
+    removeCanvasFallbackTextLayer(canvas);
+    if (!safeTokens.length) return;
+    const layer = document.createElement("div");
+    layer.className = "jpdb-reader-canvas-text-layer";
+    layer.dataset.jpdbReaderCanvasTextLayer = "true";
+    layer.dataset.sourceText = text2;
+    layer.dataset.renderSignature = signature;
+    const hasRenderedRuby = safeTokens.some((token) => token.rubies.length > 0) && !target.suppressRuby;
+    styleCanvasFallbackTextLayer(layer, canvas, hasRenderedRuby);
+    layer.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
+      parent: canvas,
+      hasNativeRuby: targetHasNativeRuby(target),
+      suppressRuby: target.suppressRuby,
+      passiveInteraction: target.passiveInteraction
+    }));
+    if (!layer.textContent?.trim()) return;
+    const state2 = hideCanvasFallbackTextCanvas(canvas, host, layer);
+    canvasFallbackTextLayers.set(canvas, state2);
+    host.append(layer);
+  }
+  function currentCanvasFallbackTextLayer(canvas) {
+    const state2 = canvasFallbackTextLayers.get(canvas);
+    return state2?.layer.isConnected ? state2.layer : null;
+  }
+  function styleCanvasFallbackTextLayer(layer, canvas, hasRuby) {
+    const style = safeComputedStyle(canvas);
+    layer.style.setProperty("position", "absolute");
+    layer.style.setProperty("left", `${canvas.offsetLeft}px`);
+    layer.style.setProperty("top", `${canvas.offsetTop}px`);
+    layer.style.setProperty("width", `${canvas.offsetWidth || canvas.width}px`);
+    layer.style.setProperty("min-height", `${canvas.offsetHeight || canvas.height}px`);
+    layer.style.setProperty("box-sizing", "border-box");
+    layer.style.setProperty("overflow", "visible");
+    layer.style.setProperty("visibility", "visible", "important");
+    layer.style.setProperty("pointer-events", "auto");
+    layer.style.setProperty("white-space", "pre-wrap");
+    layer.style.setProperty("font", style.font);
+    layer.style.setProperty("font-size", style.fontSize);
+    layer.style.setProperty("font-weight", style.fontWeight);
+    layer.style.setProperty("line-height", hasRuby ? rubyFriendlyMirrorLineHeight(style) : style.lineHeight);
+    layer.style.setProperty("letter-spacing", style.letterSpacing);
+    layer.style.setProperty("text-align", style.textAlign);
+    layer.style.setProperty("color", style.color);
+    layer.style.setProperty("z-index", "1");
+    if (hasRuby) layer.dataset.jpdbReaderHasRuby = "true";
+  }
+  function hideCanvasFallbackTextCanvas(canvas, host, layer) {
+    const hostStyle = safeComputedStyle(host);
+    const state2 = {
+      layer,
+      canvasVisibility: canvas.style.getPropertyValue("visibility"),
+      canvasVisibilityPriority: canvas.style.getPropertyPriority("visibility"),
+      hostPosition: host.style.getPropertyValue("position"),
+      hostPositionPriority: host.style.getPropertyPriority("position"),
+      hostPositionAdjusted: hostStyle.position === "static"
+    };
+    if (state2.hostPositionAdjusted) host.style.setProperty("position", "relative", "important");
+    canvas.style.setProperty("visibility", "hidden", "important");
+    return state2;
+  }
+  function removeCanvasFallbackTextLayer(canvas) {
+    const state2 = canvasFallbackTextLayers.get(canvas);
+    state2?.layer.remove();
+    if (state2) {
+      restoreStyleProperty$1(canvas, "visibility", state2.canvasVisibility, state2.canvasVisibilityPriority);
+      const host = canvas.parentElement;
+      if (host && state2.hostPositionAdjusted) restoreStyleProperty$1(host, "position", state2.hostPosition, state2.hostPositionPriority);
+    }
+    canvasFallbackTextLayers.delete(canvas);
   }
   function isPlaceholderControlTextMirror(host, text2) {
     if (!(host instanceof HTMLInputElement || host instanceof HTMLTextAreaElement)) return false;
@@ -24121,7 +24207,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.140".trim() ? "1.4.140".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.141".trim() ? "1.4.141".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -38508,10 +38594,11 @@ ${spelling}`);
   function isGenericSubtitleLabel(value) {
     return /^(?:vtt|srt|ass|ssa|subtitles?|captions?|cc|closed captions?|日本語|英語|japanese|english|native|ja(?:panese)?|en(?:glish)?)$/i.test(value.trim());
   }
-  function inferSubtitleLanguage(label, url) {
+  function inferSubtitleLanguage(label, url = "") {
     const text2 = `${label} ${url}`;
-    if (/(^|[\s._/-])(ja|jp|jpn|japanese|日本語)(?=$|[\s._/-])/i.test(text2) || /[\u3040-\u30ff\u3400-\u9fff]/u.test(label)) return "ja";
-    if (/(^|[\s._/-])(en|eng|english|native)(?=$|[\s._/-])/i.test(text2)) return "en";
+    if (hasJapaneseSubtitleLanguageHint(text2)) return "ja";
+    if (hasEnglishSubtitleLanguageHint(text2)) return "en";
+    if (/[\u3040-\u30ff\u3400-\u9fff]/u.test(label)) return "ja";
     return void 0;
   }
   function normalizeSubtitleLanguage(language) {
@@ -38519,6 +38606,12 @@ ${spelling}`);
     if (/^(ja|jp|jpn)(?:[-_]|$)/i.test(language)) return "ja";
     if (/^(en|eng)(?:[-_]|$)/i.test(language)) return "en";
     return language;
+  }
+  function hasJapaneseSubtitleLanguageHint(text2) {
+    return /(^|[\s._/()[\]{}-])(?:ja|jp|jpn|japanese|nihongo|nihon-go)(?=$|[\s._/()[\]{}-])/i.test(text2) || /(?:日本語|日本字幕|日(?:本)?語字幕|日文|日語|日本語字幕)/u.test(text2);
+  }
+  function hasEnglishSubtitleLanguageHint(text2) {
+    return /(^|[\s._/()[\]{}-])(?:en|eng|english|native)(?=$|[\s._/()[\]{}-])/i.test(text2) || /英(?:語|文)(?:字幕)?/u.test(text2);
   }
   function pageSubtitleSourceKey(kind, url) {
     return `${kind}:${normalizedSubtitleUrl(url)}`;
@@ -40341,13 +40434,12 @@ ${spelling}`);
   function isJapaneseSubtitleTrack(track) {
     const language = explicitSubtitleLanguage(track);
     if (language) return language === "ja";
-    const label = track.label.toLowerCase();
-    return /日本語|japanese/.test(label);
+    return inferSubtitleLanguage(track.label, track.language) === "ja";
   }
   function isEnglishSubtitleTrack(track) {
     const language = explicitSubtitleLanguage(track);
     if (language) return language === "en";
-    return /(^|\b)(en|eng|english)(\b|$)/i.test(`${track.label} ${track.language ?? ""}`);
+    return inferSubtitleLanguage(track.label, track.language) === "en";
   }
   function shouldReplaceWaitingNativeTrack(selected, replacement, cues) {
     return isWaitingNativeTrack(selected, cues) && (hasSameSubtitleRole(selected, replacement) || hasSameNormalizedSubtitleLanguage(selected, replacement));

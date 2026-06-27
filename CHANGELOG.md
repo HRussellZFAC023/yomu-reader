@@ -1,12 +1,23 @@
 # Changelog
 
-## [1.4.140] - 2026-06-27
+## [1.4.141] - 2026-06-27
 
 ### Fixed
 
 - Repaired Yomu Video and YouTube subtitle layout regressions: left/right transcript panels now stay flush without covering the player, subtitles stay anchored to the player or hide while scrolling into comments, and fullscreen geometry updates immediately while video is playing.
 - Restored direct subtitle height dragging, stabilized subtitle font sizing, added a Reset defaults button to subtitle style controls, and contained style popover pointer events so controls no longer activate subtitles underneath.
 - Made the compact subtitle rail buttons consistent and highlighted active fullscreen/zoom state with the accent color.
+
+## [1.4.140] - 2026-06-27
+
+### Added
+
+- Made the docs homepage installable as the root Yomu PWA shell, with offline navigation fallback and shortcuts into Study, Video, PDF, and setup docs.
+- Added a YomuYomu reader parser for canvas-backed story pages, using the page's Japanese fallback text to provide popup lookup/mining without fighting the site's own custom reader controls.
+
+### Fixed
+
+- Broadened generic subtitle language inference so Japanese, JP/JPN, native, English, and Japanese-language labels are classified consistently across page tracks, local subtitle files, and Jimaku-style anime subtitle lookup flows.
 
 ## [1.4.139] - 2026-06-27
 

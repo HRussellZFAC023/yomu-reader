@@ -159,6 +159,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Repaired Yomu Video and YouTube subtitle layout regressions: left/right transcript panels now stay flush without covering the player, subtitles stay anchored to the player or hide while scrolling into comments, and fullscreen geometry updates immediately while video is playing.': 'Yomu VideoとYouTubeの字幕レイアウト退行を修正しました。左／右の文字起こしパネルはプレイヤーを覆わず端にそろい、字幕はプレイヤーに固定されるかコメント欄へスクロールしたときに非表示になり、再生中でも全画面切り替え直後に位置が更新されます。',
     'Restored direct subtitle height dragging, stabilized subtitle font sizing, added a Reset defaults button to subtitle style controls, and contained style popover pointer events so controls no longer activate subtitles underneath.': '字幕の高さを直接ドラッグ調整できる操作を復旧し、字幕フォントサイズを安定させ、字幕スタイル操作に「標準に戻す」ボタンを追加しました。スタイルポップオーバーのポインターイベントも閉じ込め、操作中に下の字幕が反応しないようにしました。',
     'Made the compact subtitle rail buttons consistent and highlighted active fullscreen/zoom state with the accent color.': 'コンパクト字幕レールのボタンサイズと形をそろえ、全画面／ズーム中の有効状態をアクセント色で表示するようにしました。',
+    'Made the docs homepage installable as the root Yomu PWA shell, with offline navigation fallback and shortcuts into Study, Video, PDF, and setup docs.': 'ドキュメントのホームページをYomu全体のルートPWAシェルとしてインストールできるようにし、オフライン時のナビゲーションフォールバックと、Study、Video、PDF、セットアップ手順へのショートカットを追加しました。',
+    'Added a YomuYomu reader parser for canvas-backed story pages, using the page\'s Japanese fallback text to provide popup lookup/mining without fighting the site\'s own custom reader controls.': 'キャンバスで描画されるYomuYomuのストーリーページ向けリーダーパーサーを追加し、ページ内の日本語フォールバックテキストを使って、サイト独自のリーダー操作と衝突せずにポップアップ検索/マイニングできるようにしました。',
+    'Broadened generic subtitle language inference so Japanese, JP/JPN, native, English, and Japanese-language labels are classified consistently across page tracks, local subtitle files, and Jimaku-style anime subtitle lookup flows.': '汎用字幕の言語推定を広げ、日本語、JP/JPN、native、English、日本語表記のラベルを、ページ内トラック、ローカル字幕ファイル、Jimaku形式のアニメ字幕検索フローで一貫して分類できるようにしました。',
     'BookWalker OCR now treats visible two-page spreads and vertical continuous-scroll page runs as active surfaces instead of collapsing to a stale currentScreen marker, so tapping either page in horizontal mode or the visible page in continuous mode triggers OCR.': 'BookWalkerのOCRは、表示中の見開きページや縦方向の連続スクロールのページ列を、古いcurrentScreenマーカーだけに絞り込まずアクティブな面として扱うようになりました。横方向モードでは左右どちらのページをタップしても、連続モードでは表示中のページをタップしてもOCRが起動します。',
     'Reduced BookWalker continuous-scroll churn by keeping scroll offset out of the page signature for persistent page stacks, preventing repeated OCR frame teardown while scrolling on iPad.': 'BookWalkerの連続スクロールで、永続的なページ列ではスクロール位置をページ署名から外し、iPadでスクロール中にOCRフレームの破棄と再作成が繰り返されないようにしました。',
     'Stopped Yomu from annotating BookWalker reader settings and menu chrome, so native labels like page movement direction remain compact and furigana no longer wraps controls.': 'よむがBookWalkerリーダーの設定やメニューのUI文字を注釈しないようにしました。ページ移動方向などのネイティブなラベルはコンパクトなまま保たれ、ふりがながコントロール内で折り返さなくなります。',
@@ -2704,6 +2707,7 @@ function browserPrefersJapanese(): boolean {
 }
 
 function installHostedDocsEnhancements(): void {
+    registerHostedDocsServiceWorker();
     syncLandmarks();
     installHostedLanguageToggle();
     installHostedOverflowMenu();
@@ -2741,6 +2745,11 @@ function installHostedDocsEnhancements(): void {
         installHostedHomepageInteractions();
         syncHostedAccent();
     }));
+}
+
+function registerHostedDocsServiceWorker(): void {
+    if (!('serviceWorker' in navigator)) return;
+    void navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => undefined);
 }
 
 function syncHostedLanguageFromSettingsEvent(event: Event): void {
