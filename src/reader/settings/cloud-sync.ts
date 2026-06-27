@@ -21,6 +21,12 @@ export interface CloudSettingsSyncMetadata {
     modifiedTime?: string;
 }
 
+export interface CloudSettingsAuthRedirectResult {
+    ok: boolean;
+    state: string;
+    error?: string;
+}
+
 interface CloudSettingsSyncResponse {
     ok?: boolean;
     error?: string;
@@ -36,6 +42,10 @@ const GOOGLE_DRIVE_SYNC_TIMEOUT_MS = 20_000;
 export function cloudSettingsSyncAvailable(): boolean {
     const extension = extensionRuntime();
     return CLOUD_SETTINGS_SYNC_ENABLED && Boolean(extension?.runtime.id && extension.runtime.sendMessage);
+}
+
+export function cloudSettingsAuthRedirectResult(): CloudSettingsAuthRedirectResult | null {
+    return null;
 }
 
 export async function uploadCloudSettingsToCloud(settings: ReaderSettings): Promise<CloudSettingsSyncMetadata> {

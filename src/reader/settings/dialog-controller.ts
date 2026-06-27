@@ -14,7 +14,7 @@ import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '..
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { mergeDictionaryPreferences, normalizeReaderSettings, saveSettings } from './index';
 import { effectiveJpdbApiKey, hasJitenApiCredential, mergeApiCredentialValues } from './api-credential';
-import { exportManagedStoredValues, importStoredValues } from '../app/storage';
+import { exportManagedStoredValues, gmStorageDelete, gmStorageGet, gmStorageSet, importStoredValues } from '../app/storage';
 import {
     activateSettingsPanel,
     applySettingsSearch,
@@ -53,7 +53,7 @@ import {
 } from './form';
 import type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './form';
 import { updateAnkiTagsEditor } from './form-tags';
-import { CLOUD_SETTINGS_SYNC_ENABLED, cloudSettingsSyncAvailable, downloadCloudSettingsFromCloud, uploadCloudSettingsToCloud } from './cloud-sync';
+import { CLOUD_SETTINGS_SYNC_ENABLED, cloudSettingsAuthRedirectResult, cloudSettingsSyncAvailable, downloadCloudSettingsFromCloud, uploadCloudSettingsToCloud } from './cloud-sync';
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
 import type { AnkiLibraryScanResult } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
@@ -96,6 +96,13 @@ interface SettingsDialogDependencies {
 
 type SettingsStatusSetter = (message: string) => void;
 type DictionarySummary = Awaited<ReturnType<YomitanDictionaryStore['summary']>>;
+type CloudSettingsAction = 'sync-cloud-settings' | 'restore-cloud-settings';
+
+interface PendingCloudSettingsAction {
+    action: CloudSettingsAction;
+    startedAt: number;
+    href: string;
+}
 
 interface DictionaryStatusElements {
     status: HTMLElement | null;
@@ -154,6 +161,8 @@ const SETTINGS_FOCUS_SCROLL_SELECTOR = [
 ].join(',');
 const SETTINGS_FOCUS_SCROLL_MARGIN_PX = 16;
 const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
+const CLOUD_SETTINGS_PENDING_ACTION_KEY = '__yomu_cloud_settings_sync_pending_action';
+const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1000;
 
 function settingsStatusSetter(status: HTMLElement | null): SettingsStatusSetter {
     return message => {
@@ -551,6 +560,33 @@ export class SettingsDialogController {
         void this.refreshAnkiConnectionStatus(form);
         syncSubtitlePreview(form);
         this.refreshSettingsJapaneseParse(form);
+    }
+
+    async resumePendingCloudSettingsSync(): Promise<boolean> {
+        if (!CLOUD_SETTINGS_SYNC_ENABLED || !cloudSettingsSyncAvailable()) return false;
+        const pending = await this.readPendingCloudSettingsAction();
+        if (!pending) return false;
+        const authResult = cloudSettingsAuthRedirectResult();
+        if (!authResult) return false;
+
+        await this.clearPendingCloudSettingsAction();
+        const language = this.settings.interfaceLanguage;
+        if (!authResult.ok) {
+            const message = authResult.error || 'Google authorization failed.';
+            this.dependencies.toast(message);
+            this.open('dictionaries');
+            return true;
+        }
+
+        try {
+            await this.performCloudSettingsAction(pending.action, language, undefined);
+            if (pending.action === 'sync-cloud-settings') this.open('dictionaries');
+        } catch (error) {
+            const message = errorMessage(error, uiText(language, 'actionFailed'));
+            this.dependencies.toast(message);
+            this.open('dictionaries');
+        }
+        return true;
     }
 
     private get settings(): ReaderSettings {
@@ -1578,7 +1614,7 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsCloudSyncAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
-        if (!CLOUD_SETTINGS_SYNC_ENABLED || (action !== 'sync-cloud-settings' && action !== 'restore-cloud-settings')) return false;
+        if (!CLOUD_SETTINGS_SYNC_ENABLED || !isCloudSettingsAction(action)) return false;
 
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         if (!cloudSettingsSyncAvailable()) {
@@ -1588,46 +1624,80 @@ export class SettingsDialogController {
 
         const button = settingsActionButton(control);
         button?.setAttribute('disabled', 'true');
+        await this.rememberPendingCloudSettingsAction(action);
         try {
-            if (action === 'sync-cloud-settings') {
-                this.settings = readFormSettings(new FormData(form), this.settings);
-                await saveSettings(this.settings);
-                const metadata = await uploadCloudSettingsToCloud(this.settings);
-                const message = cloudSettingsSyncedStatus(metadata.syncedAt, language);
-                setStatus(message);
-                this.dependencies.toast(message);
-                log.info('Cloud settings synced', { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
-                return true;
-            }
-
-            const snapshot = await downloadCloudSettingsFromCloud();
-            if (!snapshot) {
-                setStatus(cloudSettingsNotFoundStatus(language));
-                return true;
-            }
-            this.settings = normalizeReaderSettings({
-                ...this.settings,
-                ...snapshot.settings,
-                shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts },
-            });
-            await saveSettings(this.settings);
-            const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language);
-            setStatus(message);
-            this.dependencies.toast(message);
-            this.dependencies.applyTheme();
-            void this.dependencies.refreshDictionaryStyles();
-            this.dependencies.scheduleDictionaryRescan();
-            this.dependencies.installFab();
-            this.dependencies.subtitles.refresh();
-            this.dependencies.ocr.refresh();
-            this.dependencies.youtube.refresh();
-            this.dependencies.clearSettingsPreview();
-            log.info('Cloud settings restored', { syncedAt: snapshot.syncedAt });
-            this.open('dictionaries');
+            if (action === 'sync-cloud-settings') this.settings = readFormSettings(new FormData(form), this.settings);
+            await this.performCloudSettingsAction(action, language, setStatus);
+            await this.clearPendingCloudSettingsAction();
             return true;
+        } catch (error) {
+            await this.clearPendingCloudSettingsAction();
+            throw error;
         } finally {
             button?.removeAttribute('disabled');
         }
+    }
+
+    private async performCloudSettingsAction(action: CloudSettingsAction, language: InterfaceLanguage, setStatus?: SettingsStatusSetter): Promise<void> {
+        if (action === 'sync-cloud-settings') {
+            await saveSettings(this.settings);
+            const metadata = await uploadCloudSettingsToCloud(this.settings);
+            const message = cloudSettingsSyncedStatus(metadata.syncedAt, language);
+            setStatus?.(message);
+            this.dependencies.toast(message);
+            log.info('Cloud settings synced', { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
+            return;
+        }
+
+        const snapshot = await downloadCloudSettingsFromCloud();
+        if (!snapshot) {
+            setStatus?.(cloudSettingsNotFoundStatus(language));
+            return;
+        }
+        this.settings = normalizeReaderSettings({
+            ...this.settings,
+            ...snapshot.settings,
+            shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts },
+        });
+        await saveSettings(this.settings);
+        const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language);
+        setStatus?.(message);
+        this.dependencies.toast(message);
+        this.dependencies.applyTheme();
+        void this.dependencies.refreshDictionaryStyles();
+        this.dependencies.scheduleDictionaryRescan();
+        this.dependencies.installFab();
+        this.dependencies.subtitles.refresh();
+        this.dependencies.ocr.refresh();
+        this.dependencies.youtube.refresh();
+        this.dependencies.clearSettingsPreview();
+        log.info('Cloud settings restored', { syncedAt: snapshot.syncedAt });
+        this.open('dictionaries');
+    }
+
+    private async rememberPendingCloudSettingsAction(action: CloudSettingsAction): Promise<void> {
+        await gmStorageSet(CLOUD_SETTINGS_PENDING_ACTION_KEY, {
+            action,
+            startedAt: Date.now(),
+            href: location.href,
+        } satisfies PendingCloudSettingsAction);
+    }
+
+    private async clearPendingCloudSettingsAction(): Promise<void> {
+        await gmStorageDelete(CLOUD_SETTINGS_PENDING_ACTION_KEY);
+    }
+
+    private async readPendingCloudSettingsAction(): Promise<PendingCloudSettingsAction | null> {
+        const pending = await gmStorageGet<unknown>(CLOUD_SETTINGS_PENDING_ACTION_KEY, null);
+        if (!isPendingCloudSettingsAction(pending)) {
+            await this.clearPendingCloudSettingsAction();
+            return null;
+        }
+        if (Date.now() - pending.startedAt > CLOUD_SETTINGS_PENDING_ACTION_TTL_MS) {
+            await this.clearPendingCloudSettingsAction();
+            return null;
+        }
+        return pending;
     }
 
     private async handleSettingsImportExportAction(form: HTMLFormElement, action: string, setStatus: SettingsStatusSetter): Promise<boolean> {
@@ -2177,6 +2247,20 @@ function isAudioSourceEditorAction(action: string): boolean {
 
 function isLookupLinkEditorAction(action: string): boolean {
     return action === 'lookup-link-add' || action === 'lookup-link-remove' || action === 'lookup-link-up' || action === 'lookup-link-down';
+}
+
+function isCloudSettingsAction(action: string): action is CloudSettingsAction {
+    return action === 'sync-cloud-settings' || action === 'restore-cloud-settings';
+}
+
+function isPendingCloudSettingsAction(value: unknown): value is PendingCloudSettingsAction {
+    if (!value || typeof value !== 'object') return false;
+    const record = value as Partial<PendingCloudSettingsAction>;
+    return typeof record.startedAt === 'number'
+        && Number.isFinite(record.startedAt)
+        && typeof record.href === 'string'
+        && typeof record.action === 'string'
+        && isCloudSettingsAction(record.action);
 }
 
 function getReaderStorageExport(value: unknown): unknown {

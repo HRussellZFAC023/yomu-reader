@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.155] - 2026-06-27
+
+### Fixed
+
+- Reworked Google Drive settings sync/restore in userscript contexts to use same-tab OAuth redirects instead of popups, with automatic resume after returning from Google.
+
 ## [1.4.154] - 2026-06-27
 
 ### Fixed
