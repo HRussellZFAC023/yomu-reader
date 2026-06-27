@@ -40,7 +40,7 @@ hero:
 <div class="yomu-install-panel">
   <div class="yomu-install-copy">
     <strong>Ready in a few steps</strong>
-    <p>Choose a manager, add the userscript, then open a Japanese page.</p>
+    <p>Choose a manager, add the userscript, or install the Yomu site as one offline-friendly shell for docs and tools.</p>
   </div>
   <div class="yomu-install-steps" role="list" aria-label="Install steps">
     <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-1-install-a-userscript-manager" aria-label="Choose a userscript manager"><span class="yomu-install-step-number" aria-hidden="true">1</span> <span>Choose manager</span></a></div>

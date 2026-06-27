@@ -42,7 +42,7 @@ const EASY_FURIGANA_KANJI = new Set(
 // UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
 // letter soup, but "Kanji used" spellings are real JPDB links and should
 // keep the same ruby/color treatment as other dictionary terms.
-const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],[contenteditable=true],[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-word,.subsection-pitch-accent .subsection';
+const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],[contenteditable=true],[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection';
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(',[role=tab]', '');
 const FORM_BOUNDARY_SKIP_SELECTOR = 'form,label,fieldset,legend';
 const PLAYER_CHROME_SKIP_SELECTOR = '[class*="control" i],[class*="toggle" i],[class*="player" i]';
@@ -96,7 +96,7 @@ const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${PLAYER_CHROM
 // for every site profile root, incl. YouTube) once did not — so a rescan of a
 // mirror host re-collected the mirror's bare gap text nodes alongside hidden
 // host text and self-perpetuated into a duplicated, flashing caption strip.
-const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable="true"],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
+const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable="true"],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
 const FORM_CHROME_BOUNDARY_TAGS = ',FORM,LABEL,FIELDSET,LEGEND,';
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
 const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
@@ -263,9 +263,19 @@ interface ControlTextMirrorHostState {
     parentPositionAdjusted: boolean;
 }
 
+interface CanvasFallbackTextLayerState {
+    layer: HTMLElement;
+    canvasVisibility: string;
+    canvasVisibilityPriority: string;
+    hostPosition: string;
+    hostPositionPriority: string;
+    hostPositionAdjusted: boolean;
+}
+
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
 const READER_TEXT_MIRROR_SELECTOR = '.jpdb-reader-text-mirror';
 const READER_CONTROL_TEXT_MIRROR_SELECTOR = '.jpdb-reader-control-text-mirror';
+const READER_CANVAS_TEXT_LAYER_SELECTOR = '.jpdb-reader-canvas-text-layer';
 const READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE = 'data-jpdb-reader-control-placeholder-hidden';
 const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = 'yt-formatted-string,yt-attributed-string,.ytAttributedStringHost,.yt-core-attributed-string,.yt-core-attributed-string--white-space-pre-wrap';
 const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = `${READER_TEXT_MIRROR_SELECTOR},script,style,noscript,template,[hidden],[aria-hidden="true"]`;
@@ -277,6 +287,7 @@ const RENDERED_SCAN_HOST_RESCAN_DELAYS_MS = [700, 1600, 4000, 10000];
 export const NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT = 'jpdb-reader-text-mirror-stale';
 const renderedScanHosts = new WeakMap<HTMLElement, RenderedScanHost>();
 const textMirrorHosts = new WeakMap<HTMLElement, TextMirrorHostState>();
+const canvasFallbackTextLayers = new WeakMap<HTMLCanvasElement, CanvasFallbackTextLayerState>();
 
 export function getSelectionText(): string {
     return normalizedSelectedText(activeControlSelectionText(activeSelectableControl())) || documentSelectionText();
@@ -1220,6 +1231,10 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
         applyTokensToControlTextMirrorTarget(target, tokens, settings);
         return;
     }
+    if (target.parent instanceof HTMLCanvasElement) {
+        applyTokensToCanvasFallbackTarget(target, tokens, settings);
+        return;
+    }
     const nonDestructiveHost = nonDestructiveScanHost(target);
     const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
     const repaintLooping = !target.nonDestructive && !liveFrameworkRegion
@@ -1402,6 +1417,98 @@ function applyTokensToControlTextMirrorTarget(target: ScanTextTarget, tokens: JP
 function currentControlTextMirror(host: HTMLElement): HTMLElement | null {
     const sibling = host.nextElementSibling;
     return sibling instanceof HTMLElement && sibling.matches(READER_CONTROL_TEXT_MIRROR_SELECTOR) ? sibling : null;
+}
+
+function applyTokensToCanvasFallbackTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+    const canvas = target.parent;
+    if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) return;
+    const host = canvas.parentElement;
+    if (!host) return;
+
+    const text = target.text;
+    const safeTokens = nonOverlappingTokens(tokens, text.length);
+    const renderSettings = furiganaSettingsForTarget(settings, canvas);
+    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, Boolean(target.suppressRuby));
+    const existing = currentCanvasFallbackTextLayer(canvas);
+    if (existing?.dataset.sourceText === text && existing.dataset.renderSignature === signature) return;
+    removeCanvasFallbackTextLayer(canvas);
+    if (!safeTokens.length) return;
+
+    const layer = document.createElement('div');
+    layer.className = 'jpdb-reader-canvas-text-layer';
+    layer.dataset.jpdbReaderCanvasTextLayer = 'true';
+    layer.dataset.sourceText = text;
+    layer.dataset.renderSignature = signature;
+    const hasRenderedRuby = safeTokens.some(token => token.rubies.length > 0) && !target.suppressRuby;
+    styleCanvasFallbackTextLayer(layer, canvas, hasRenderedRuby);
+    layer.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
+        parent: canvas,
+        hasNativeRuby: targetHasNativeRuby(target),
+        suppressRuby: target.suppressRuby,
+        passiveInteraction: target.passiveInteraction,
+    }));
+    if (!layer.textContent?.trim()) return;
+    const state = hideCanvasFallbackTextCanvas(canvas, host, layer);
+    canvasFallbackTextLayers.set(canvas, state);
+    host.append(layer);
+}
+
+function currentCanvasFallbackTextLayer(canvas: HTMLCanvasElement): HTMLElement | null {
+    const state = canvasFallbackTextLayers.get(canvas);
+    return state?.layer.isConnected ? state.layer : null;
+}
+
+function styleCanvasFallbackTextLayer(layer: HTMLElement, canvas: HTMLCanvasElement, hasRuby: boolean): void {
+    const style = safeComputedStyle(canvas);
+    layer.style.setProperty('position', 'absolute');
+    layer.style.setProperty('left', `${canvas.offsetLeft}px`);
+    layer.style.setProperty('top', `${canvas.offsetTop}px`);
+    layer.style.setProperty('width', `${canvas.offsetWidth || canvas.width}px`);
+    layer.style.setProperty('min-height', `${canvas.offsetHeight || canvas.height}px`);
+    layer.style.setProperty('box-sizing', 'border-box');
+    layer.style.setProperty('overflow', 'visible');
+    layer.style.setProperty('visibility', 'visible', 'important');
+    layer.style.setProperty('pointer-events', 'auto');
+    layer.style.setProperty('white-space', 'pre-wrap');
+    layer.style.setProperty('font', style.font);
+    layer.style.setProperty('font-size', style.fontSize);
+    layer.style.setProperty('font-weight', style.fontWeight);
+    layer.style.setProperty('line-height', hasRuby ? rubyFriendlyMirrorLineHeight(style) : style.lineHeight);
+    layer.style.setProperty('letter-spacing', style.letterSpacing);
+    layer.style.setProperty('text-align', style.textAlign);
+    layer.style.setProperty('color', style.color);
+    layer.style.setProperty('z-index', '1');
+    if (hasRuby) layer.dataset.jpdbReaderHasRuby = 'true';
+}
+
+function hideCanvasFallbackTextCanvas(
+    canvas: HTMLCanvasElement,
+    host: HTMLElement,
+    layer: HTMLElement,
+): CanvasFallbackTextLayerState {
+    const hostStyle = safeComputedStyle(host);
+    const state: CanvasFallbackTextLayerState = {
+        layer,
+        canvasVisibility: canvas.style.getPropertyValue('visibility'),
+        canvasVisibilityPriority: canvas.style.getPropertyPriority('visibility'),
+        hostPosition: host.style.getPropertyValue('position'),
+        hostPositionPriority: host.style.getPropertyPriority('position'),
+        hostPositionAdjusted: hostStyle.position === 'static',
+    };
+    if (state.hostPositionAdjusted) host.style.setProperty('position', 'relative', 'important');
+    canvas.style.setProperty('visibility', 'hidden', 'important');
+    return state;
+}
+
+function removeCanvasFallbackTextLayer(canvas: HTMLCanvasElement): void {
+    const state = canvasFallbackTextLayers.get(canvas);
+    state?.layer.remove();
+    if (state) {
+        restoreStyleProperty(canvas, 'visibility', state.canvasVisibility, state.canvasVisibilityPriority);
+        const host = canvas.parentElement;
+        if (host && state.hostPositionAdjusted) restoreStyleProperty(host, 'position', state.hostPosition, state.hostPositionPriority);
+    }
+    canvasFallbackTextLayers.delete(canvas);
 }
 
 function isPlaceholderControlTextMirror(host: HTMLElement, text: string): host is HTMLInputElement | HTMLTextAreaElement {
@@ -1929,9 +2036,24 @@ export function removeNonDestructiveScanMirrors(root: ParentNode = document): nu
         if (host instanceof HTMLElement) controlHosts.add(host);
         else mirror.remove();
     });
+    const canvasHosts = new Set<HTMLCanvasElement>();
+    root.querySelectorAll<HTMLElement>(READER_CANVAS_TEXT_LAYER_SELECTOR).forEach(layer => {
+        const canvas = canvasForFallbackTextLayer(layer);
+        if (canvas) canvasHosts.add(canvas);
+        else layer.remove();
+    });
     hosts.forEach(removeTextMirror);
     controlHosts.forEach(removeControlTextMirror);
-    return hosts.size + controlHosts.size;
+    canvasHosts.forEach(removeCanvasFallbackTextLayer);
+    return hosts.size + controlHosts.size + canvasHosts.size;
+}
+
+function canvasForFallbackTextLayer(layer: HTMLElement): HTMLCanvasElement | null {
+    const host = layer.parentElement;
+    if (!host) return null;
+    return Array.from(host.querySelectorAll<HTMLCanvasElement>('canvas'))
+        .find(canvas => canvasFallbackTextLayers.get(canvas)?.layer === layer)
+        ?? null;
 }
 
 function appendPlainTextBeforeToken(fragment: DocumentFragment, text: string, start: number, end: number): void {

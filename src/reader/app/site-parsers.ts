@@ -459,6 +459,12 @@ const BLOOMEE_LANDING_ROOTS = [
 const BOOKWALKER_STOREFRONT_HOSTS = new Set(['bookwalker.jp', 'www.bookwalker.jp']);
 const BOOKWALKER_READER_PARSER_ID = 'bookwalker-reader-no-dom-parser';
 const BOOKWALKER_STOREFRONT_PARSER_ID = 'bookwalker-storefront-no-dom-parser';
+const YOMUYOMU_HOSTS = new Set(['yomuyomu.app', 'www.yomuyomu.app']);
+const YOMUYOMU_READER_ROOTS = [
+    '#du-reading-screen canvas[lang*="ja" i]',
+    '#du-lesson-container .lesson-canvas-container canvas[lang*="ja" i]',
+    '.lesson-content canvas[lang*="ja" i]',
+].join(',');
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
         id: YOMU_HOSTED_DOCS_PARSER_ID,
@@ -535,6 +541,16 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         disableGenericDomScan: true,
         includePassiveInteractionRoots: false,
         matches: url => isBookWalkerStorefrontUrl(url),
+    },
+    {
+        id: 'yomuyomu-reader-parser',
+        roots: [YOMUYOMU_READER_ROOTS],
+        exclude: COMMON_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
+        nonDestructive: true,
+        includeGenericPageText: true,
+        matches: url => YOMUYOMU_HOSTS.has(url.hostname.toLowerCase()),
     },
     {
         id: JPDB_PARSER_ID,
@@ -1127,6 +1143,7 @@ function normalizedAttributeText(element: HTMLElement, attribute: string): strin
 }
 
 function collectRootScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext, excludeSelector = siteScanExcludeSelector(profile)): void {
+    if (root instanceof HTMLCanvasElement && collectCanvasFallbackTextTarget(profile, root, context)) return;
     const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), profile.visibleOnly ?? true, excludeSelector, {
         allowUiText: true,
         minLength: profile.minLength,
@@ -1147,6 +1164,25 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
         if (!addUniqueSiteScanTarget(profile, target, context)) continue;
         if (!siteScanHasRoom(context)) break;
     }
+}
+
+function collectCanvasFallbackTextTarget(profile: SiteParserProfile, canvas: HTMLCanvasElement, context: SiteScanContext): boolean {
+    const text = canvasFallbackText(canvas);
+    if (!text || !hasJapaneseText(text)) return false;
+    context.targets.push(siteScanTargetWithProfileOptions(profile, {
+        text,
+        parent: canvas,
+        fragments: [],
+        layoutSensitive: true,
+        nonDestructive: true,
+    }));
+    return true;
+}
+
+function canvasFallbackText(canvas: HTMLCanvasElement): string {
+    return (canvas.textContent ?? '')
+        .replace(/\r\n?/gu, '\n')
+        .trim();
 }
 
 function collectProfilePassiveInteractionTargets(profile: SiteParserProfile, context: SiteScanContext): void {
