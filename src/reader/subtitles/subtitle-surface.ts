@@ -4,7 +4,7 @@ import { clampNumber } from '../core/number-utils';
 import { FONT_FAMILY_PRESETS } from '../settings/font-presets';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
-const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.2;
+const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.45;
 const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;
 const SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT = 80;
 const TRANSCRIPT_PLACEMENTS = ['left', 'bottom', 'right'] as const satisfies readonly ReaderSettings['subtitleTranscriptPlacement'][];

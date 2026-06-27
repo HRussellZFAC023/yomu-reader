@@ -462,12 +462,16 @@ function youtubeWatchPlayerMeaningfullyVisible(rect: DOMRect): boolean {
     const viewportHeight = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 0);
     const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
     const ratio = visibleHeight / Math.max(1, rect.height);
-    return visibleHeight >= Math.min(180, rect.height * 0.36) && ratio >= 0.32;
+    return visibleHeight >= Math.min(220, rect.height * 0.45) && ratio >= 0.45;
 }
 
 function subtitleElementOverflows(element: HTMLElement): boolean {
     return element.scrollHeight > element.clientHeight + 1
         || element.scrollWidth > element.clientWidth + 1;
+}
+
+function subtitleSecondaryFontSize(target: number): number {
+    return Math.max(13, Math.min(22, Math.round(target * 0.62)));
 }
 
 function nextSubtitleFontSize(element: HTMLElement, fitted: number, minimum: number): number {
@@ -2933,6 +2937,7 @@ export class SubtitlePlayerController {
         const target = subtitleFrameTargetFontSize(this.root, settings);
         let fitted = target;
         this.root.style.setProperty('--subtitle-font-size-target', `${target}px`);
+        this.root.style.setProperty('--subtitle-secondary-font-size', `${subtitleSecondaryFontSize(target)}px`);
         this.root.style.setProperty('--subtitle-font-size', `${fitted}px`);
         const primary = this.subtitleEl.querySelector<HTMLElement>('.jpdb-subtitle-primary');
         if (!primary) return;

@@ -6,6 +6,8 @@
 
 ## Setup
 
+The saved Codex project may open at `/Users/heru/Documents/Projects/yomu`, but the Git repository is the nested app at `/Users/heru/Documents/Projects/yomu/apps/yomu-reader`. Run Git, npm, release, and worktree commands from this directory or from a worktree created from this repository. Do not ask Codex to create a project worktree from the umbrella folder; it is not a Git repository. When starting a new Codex thread or worktree for Yomu, choose the saved project named `yomu-reader`, not the umbrella `yomu` project.
+
 ```bash
 npm ci
 npm run check

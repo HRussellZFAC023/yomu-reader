@@ -644,6 +644,7 @@ describe('SubtitlePlayerController', () => {
             controllerInternals<{ fitSubtitleTextToVideo: () => void }>(controller).fitSubtitleTextToVideo();
 
             expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('28px');
+            expect(root.style.getPropertyValue('--subtitle-secondary-font-size')).toBe('17px');
         } finally {
             controller.destroy();
         }
@@ -3087,6 +3088,11 @@ Watch the cat
 
                 expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(true);
 
+                mockElementRect(video, new DOMRect(140, -360, 720, 600));
+                internals.alignToVideo();
+
+                expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(true);
+
                 mockElementRect(video, new DOMRect(140, 80, 720, 600));
                 internals.alignToVideo();
 
@@ -3154,13 +3160,15 @@ Watch the cat
             .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open)');
     });
 
-    it('keeps the secondary subtitle line on the primary subtitle font', () => {
+    it('keeps the secondary subtitle line on its own stable font size', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss)
             .toContain('.jpdb-subtitle-secondary { --jpdb-subtitle-secondary-color: var(--jpdb-reader-video-text-muted); display: block; width: fit-content; max-width: 100%;');
         expect(normalizedCss)
-            .toContain('font: var(--subtitle-weight) .62em/1.25 var(--subtitle-family);');
+            .toContain('font-size: var(--subtitle-secondary-font-size);');
+        expect(normalizedCss)
+            .not.toContain('font: var(--subtitle-weight) .62em/1.25 var(--subtitle-family);');
     });
 
     it('reveals blurred secondary subtitles without the mobile-expensive CSS filter', () => {
