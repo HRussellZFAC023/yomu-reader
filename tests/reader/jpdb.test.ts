@@ -29945,6 +29945,94 @@ describe('reader helpers', () => {
         }
     });
 
+    it('parks keyless YouTube background public enrichment while a hover card is active', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=eWHIWDHkYW8',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        const app = new ReaderApp();
+        const hoverPopover = document.createElement('div');
+        hoverPopover.className = 'jpdb-reader-popover';
+        document.body.append(hoverPopover);
+        const fallbackCard: JPDBCard = {
+            ...card,
+            vid: 300500,
+            sid: 1,
+            rid: 0,
+            spelling: '背景語',
+            reading: '',
+            source: 'fallback',
+            pitchAccent: [],
+            fallbackLookupTerms: ['背景語'],
+        };
+        const resolvedCard = testPublicCard({
+            vid: 300501,
+            sid: 1,
+            spelling: '背景語',
+            reading: 'はいけいご',
+            source: 'jiten',
+            pitchAccent: ['LHHH'],
+        });
+        const lookupMany = vi.fn(async () => new Map([['背景語', resolvedCard]]));
+        const internals = app as unknown as {
+            activePopover?: HTMLElement;
+            activePopoverMode?: 'modal' | 'hover';
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { lookupMany: typeof lookupMany };
+            waitForIdle(timeoutMs?: number): Promise<void>;
+            backgroundPitchEnrichmentOptions(): {
+                publicLookup?: boolean;
+                jpdbPublicLookup?: boolean;
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                publicLookupTermLimit?: number;
+                substantivePublicLookupOnly?: boolean;
+                deferPublicLookup?: boolean;
+            };
+            drainDeferredPublicPitchQueue(): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[], options?: {
+                publicLookup?: boolean;
+                jpdbPublicLookup?: boolean;
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                publicLookupTermLimit?: number;
+                substantivePublicLookupOnly?: boolean;
+                deferPublicLookup?: boolean;
+            }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+        internals.jitenPublicVocabulary = { lookupMany };
+        internals.waitForIdle = vi.fn(async () => undefined);
+        internals.activePopover = hoverPopover;
+        internals.activePopoverMode = 'hover';
+
+        try {
+            await internals.enrichPitchWords([testTokenForCard(fallbackCard)], internals.backgroundPitchEnrichmentOptions());
+
+            expect(lookupMany).not.toHaveBeenCalled();
+
+            internals.activePopover = undefined;
+            internals.activePopoverMode = undefined;
+            await internals.drainDeferredPublicPitchQueue();
+
+            await waitForExpect(() => expect(lookupMany).toHaveBeenCalledTimes(1));
+        } finally {
+            hoverPopover.remove();
+            app.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('keeps keyless YouTube subtitle pre-render enrichment out of the shared page budget', () => {
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=eWHIWDHkYW8',
@@ -33154,6 +33242,33 @@ describe('reader helpers', () => {
         expect(title.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
     });
 
+    it('uses non-destructive generic targets on Vite-style app shells', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 640, height: 48 });
+        document.body.innerHTML = `
+            <div id="root">
+                <main>
+                    <h1>日本語の配信ページ</h1>
+                    <p>今日は字幕を探します。</p>
+                    <button type="button">保存</button>
+                </main>
+            </div>
+            <script type="module" src="/assets/index-abcd1234.js"></script>
+        `;
+
+        const targets = collectScanTargets(10, 'https://example.com/watch/episode-1');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '日本語の配信ページ',
+            '今日は字幕を探します。',
+            '保存',
+        ]));
+        expect(targets.every(target => target.nonDestructive === true)).toBe(true);
+        expect(targets.find(target => target.text === '日本語の配信ページ')).toMatchObject({
+            nonDestructive: true,
+        });
+    });
+
     it('sweeps visible Japanese comments controls and nav after generic prose', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
@@ -34830,6 +34945,7 @@ describe('reader helpers', () => {
         expect(comment).toMatchObject({ forceInlineRender: true });
         expect('passiveInteraction' in comment && comment.passiveInteraction).not.toBe(true);
         expect('nonDestructive' in comment && comment.nonDestructive).not.toBe(true);
+        expect(comment).toMatchObject({ suppressRepaintLoopMirror: true });
         expect(more).toMatchObject({ passiveInteraction: true, nonDestructive: true });
         applyTokensToScanTarget(title, [{
             card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
@@ -34943,7 +35059,7 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).not.toContain('押下中');
         expect('passiveInteraction' in comment! && comment.passiveInteraction).not.toBe(true);
         expect('nonDestructive' in comment! && comment.nonDestructive).not.toBe(true);
-        expect(comment).toMatchObject({ forceInlineRender: true });
+        expect(comment).toMatchObject({ forceInlineRender: true, suppressRepaintLoopMirror: true });
 
         applyTokensToScanTarget(comment!, [{
             card: { ...card, cardState: ['known'], spelling: '配信', reading: 'はいしん', source: 'jpdb' },

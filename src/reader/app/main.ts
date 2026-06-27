@@ -142,6 +142,7 @@ import {
     ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD,
     BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
     DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE,
+    DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS,
     DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS,
     DEFERRED_PUBLIC_PITCH_PER_URL_CAP,
     LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
@@ -7068,9 +7069,10 @@ export class ReaderApp {
             const publicLookupCandidateLimit = this.reserveBackgroundPublicPitchLookups(requestedPublicTotal, options);
             const publicLookupCandidates = uniqueTokens.slice(0, publicLookupCandidateLimit);
             const localOnlyTokens = uniqueTokens.slice(publicLookupCandidateLimit);
-            const publicTokens = publicLookupCandidates.slice(0, publicLookupLimit);
-            const deferredPublicTokens = publicLookupCandidates.slice(publicLookupLimit);
-            const shouldDeferPublicLookup = options.deferPublicLookup !== false;
+            const pausePublicLookupForHover = this.shouldPauseBackgroundPublicPitchLookup(options);
+            const publicTokens = pausePublicLookupForHover ? [] : publicLookupCandidates.slice(0, publicLookupLimit);
+            const deferredPublicTokens = pausePublicLookupForHover ? publicLookupCandidates : publicLookupCandidates.slice(publicLookupLimit);
+            const shouldDeferPublicLookup = pausePublicLookupForHover || options.deferPublicLookup !== false;
             // Tokens that only got a local-only pass: the deferred public-pitch
             // candidates AND the budget-denied tail. Keyless users (no local
             // dictionary) resolve nothing locally, so these must ALL be retried
@@ -7239,10 +7241,18 @@ export class ReaderApp {
     private async runDeferredPublicPitchQueue(): Promise<void> {
         while (!this.isDestroyed && this.shouldRunPitchOrReadingEnrichment() && this.deferredPublicPitchQueue.length) {
             await this.waitForIdle(DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS);
+            if (this.shouldPauseBackgroundPublicPitchLookup({})) {
+                await wait(DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS);
+                continue;
+            }
             const batch = this.deferredPublicPitchQueue.splice(0, DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE);
             batch.forEach(token => this.deferredPublicPitchQueuedKeys.delete(cardKey(token.card)));
             await this.enrichPitchWords(batch, { publicLookupLimit: batch.length });
         }
+    }
+
+    private shouldPauseBackgroundPublicPitchLookup(options: Pick<PitchEnrichmentOptions, 'urgent'>): boolean {
+        return !options.urgent && this.activePopoverMode === 'hover' && Boolean(this.activePopover?.isConnected);
     }
 
     private queuePitchEnrichmentTokens(tokens: JPDBToken[], options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {}): void {

@@ -7,7 +7,7 @@ import { hasJitenApiCredential, hasJpdbApiCredential, isJitenApiCredential } fro
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists, subscribeToStoredValueChanges } from '../app/storage';
-import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
+import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences } from './dictionary';
 
@@ -192,6 +192,7 @@ const AUDIO_TTS_MODES = ['source-order', 'fallback'] as const satisfies readonly
 const IMMERSION_KIT_CATEGORIES = ['anime', 'drama', 'games', 'all'] as const satisfies readonly ImmersionKitCategory[];
 const IMMERSION_KIT_SORTS = ['sentence_length:desc', 'sentence_length:asc'] as const satisfies readonly ImmersionKitSort[];
 const IMMERSION_EXAMPLE_SOURCES = ['nadeshiko', 'combined', 'immersion-kit'] as const satisfies readonly ImmersionExampleSource[];
+const OCR_OVERLAY_THEMES = ['auto', 'dark', 'light'] as const satisfies readonly OcrOverlayTheme[];
 const SUBTITLE_CONTROL_MODES = ['always', 'hidden', 'auto'] as const satisfies readonly ReaderSettings['subtitleControlsMode'][];
 const SUBTITLE_TRANSCRIPT_PLACEMENTS = ['left', 'bottom', 'right'] as const satisfies readonly ReaderSettings['subtitleTranscriptPlacement'][];
 const NEW_TAB_SOURCES = ['jpdb', 'anki', 'auto', 'dictionary'] as const satisfies readonly ReaderSettings['newTabSource'][];
@@ -340,6 +341,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ocrAutoScanImages: true,
     ocrVideoPauseFrames: true,
     ocrShowTextOverlay: false,
+    ocrOverlayTheme: 'auto',
     ocrProvider: 'google-lens',
     ocrEndpointUrl: '',
     ocrEngine: 'auto',
@@ -837,6 +839,7 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         immersionKitPlayOnHover: booleanSetting(value, 'immersionKitPlayOnHover'),
         immersionKitPlayOnImageClick: booleanSetting(value, 'immersionKitPlayOnImageClick'),
         ocrProvider: normalizeOcrProvider(settings.ocrProvider, value),
+        ocrOverlayTheme: normalizeOcrOverlayTheme(settings.ocrOverlayTheme),
         ocrEngine: normalizeOcrEngine(settings.ocrEngine),
         ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
         ocrTextColor: sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
@@ -992,6 +995,10 @@ function trimmedStringSetting(value: Partial<ReaderSettings> | null | undefined,
 
 function normalizeSubtitleControlsMode(value: unknown): ReaderSettings['subtitleControlsMode'] {
     return normalizeOption(value, SUBTITLE_CONTROL_MODES, DEFAULT_SETTINGS.subtitleControlsMode);
+}
+
+function normalizeOcrOverlayTheme(value: unknown): OcrOverlayTheme {
+    return normalizeOption(value, OCR_OVERLAY_THEMES, DEFAULT_SETTINGS.ocrOverlayTheme);
 }
 
 function normalizeSubtitleTranscriptPlacement(value: unknown): ReaderSettings['subtitleTranscriptPlacement'] {

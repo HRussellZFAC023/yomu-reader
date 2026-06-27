@@ -27,6 +27,7 @@ const newtabApp = path.join(newtab, 'app.js');
 const newtabIndex = path.join(newtab, 'index.html');
 const publicNewtab = path.join(root, 'public', 'newtab');
 const publicNewtabIndex = path.join(publicNewtab, 'index.html');
+const publicNewtabManifest = path.join(publicNewtab, 'manifest.webmanifest');
 const publicNewtabServiceWorker = path.join(publicNewtab, 'sw.js');
 const publicIcon = path.join(root, 'public', 'yomu-icon.svg');
 const publicFaviconFiles = ['favicon-16x16.png', 'favicon-32x32.png', 'apple-touch-icon.png'];
@@ -68,6 +69,7 @@ async function stageNewTabShell() {
     await writeFile(newtabIndex, extensionNewTabIndex(index, appHash, buildId));
     await writeFile(path.join(newtab, 'version-loader.js'), extensionNewTabVersionLoader(appHash, buildId));
     await writeFile(path.join(newtab, 'version.json'), `${JSON.stringify({ appHash, buildId, generatedAt: new Date().toISOString() }, null, 2)}\n`);
+    await stageNewTabWebManifest();
     await stageNewTabServiceWorker(appHash);
     await copyFileIfExists(publicIcon, path.join(newtab, 'yomu-icon.svg'));
     await stagePublicFavicons();
@@ -77,6 +79,12 @@ async function stageNewTabShell() {
 async function stageNewTabServiceWorker(appHash) {
     if (!existsSync(publicNewtabServiceWorker)) return;
     await writeFile(path.join(newtab, 'sw.js'), extensionNewTabServiceWorker(await readFile(publicNewtabServiceWorker, 'utf8'), appHash));
+}
+
+async function stageNewTabWebManifest() {
+    if (!existsSync(publicNewtabManifest)) return;
+    const manifest = await readFile(publicNewtabManifest, 'utf8');
+    await writeFile(path.join(newtab, 'manifest.webmanifest'), manifest.replaceAll('../', './'));
 }
 
 async function stagePublicFavicons() {
@@ -159,6 +167,7 @@ async function verifyReleaseArtifacts() {
         'popup.css',
         'newtab/index.html',
         'newtab/app.js',
+        'newtab/manifest.webmanifest',
         'newtab/version-loader.js',
         'newtab/sw.js',
         'newtab/version.json',

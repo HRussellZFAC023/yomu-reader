@@ -1,12 +1,12 @@
 {
-  "name": "Yomu Study",
-  "short_name": "よむ Study",
-  "description": "Review Jiten, JPDB, Anki, and local dictionary cards from the hosted Yomu Study page.",
+  "name": "Yomu PDF Reader",
+  "short_name": "Yomu PDF",
+  "description": "Read local PDFs with Yomu popup lookup, mining, and OCR without uploading files.",
   "lang": "en",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#181b20",
+  "background_color": "#101316",
   "theme_color": "#5ea780",
   "icons": [
     {

@@ -13,7 +13,7 @@ import { waitForExpect } from './test-utils';
 const OCR_CSS = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
 type ImageOcrControllerOptions = ConstructorParameters<typeof ImageOcrController>[0];
 type OcrLineFixtureBox = { left: number; top: number; width: number; height: number };
-type OcrRenderedImageFrameFixture = { imageLeft: number; imageTop: number; imageWidth: number; imageHeight: number };
+type OcrRenderedImageFrameFixture = { imageLeft: number; imageTop: number; imageWidth: number; imageHeight: number; safeBottomInset?: number };
 type ImageOcrControllerFrameInternals = {
     fitLineFrame(
         element: HTMLElement,
@@ -731,8 +731,10 @@ describe('OCR sentence focus', () => {
 
     it('keeps active OCR text readable on light themed image surfaces', () => {
         const normalizedCss = OCR_CSS.replace(/\s+/g, ' ');
-        expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) { color: var(--jpdb-reader-text); text-shadow: none;');
-        expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
+        expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active),');
+        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="light"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)');
+        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) { color: var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text));');
+        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="light"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
     });
 
     it('keeps the paused-frame OCR status pill readable in light mode', () => {
@@ -741,7 +743,10 @@ describe('OCR sentence focus', () => {
         expect(normalizedCss).toContain('position: fixed;');
         expect(normalizedCss).toContain('background: var(--jpdb-ocr-status-surface);');
         expect(normalizedCss).toContain('color: var(--jpdb-ocr-status-text);');
-        expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-video-frame-status { --jpdb-ocr-status-surface: color-mix( in srgb, var(--jpdb-reader-theme-light-surface, #f4f7fa) 96%, transparent ); --jpdb-ocr-status-text: var(--jpdb-reader-theme-light-text, #17202a); --jpdb-ocr-status-muted: var(--jpdb-reader-theme-light-muted, #4f5968); }');
+        expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-video-frame-status { --jpdb-ocr-status-surface: color-mix( in srgb, var(--jpdb-reader-theme-light-surface, #f4f7fa) 86%, transparent ); --jpdb-ocr-status-text: var(--jpdb-reader-theme-light-text, #17202a); --jpdb-ocr-status-muted: var(--jpdb-reader-theme-light-muted, #4f5968); }');
+        expect(normalizedCss).toContain('0 6px 16px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.22);');
+        expect(normalizedCss).toContain('.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status { width: auto; min-width: 0; max-width: 260px !important; height: auto; min-height: 28px; gap: 8px; padding: 6px 12px; border-radius: 999px;');
+        expect(normalizedCss).toContain('background: rgba(17, 19, 26, 0.68) !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);');
         expect(normalizedCss).toContain('font: 600 12px/1.15 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;');
     });
 
@@ -767,6 +772,34 @@ describe('OCR sentence focus', () => {
 
             expect(line.style.getPropertyValue('--jpdb-ocr-pad-bottom')).toBe('7px');
             expect(line.style.height).toBe('34px');
+        } finally {
+            controller.destroy();
+            line.remove();
+        }
+    });
+
+    it('clamps bottom OCR line frames above reserved reader chrome', () => {
+        const controller = createLocalServiceOcrController();
+        const line = measuredOcrLine({
+            fontSize: 24,
+            contentWidth: 72,
+            contentHeight: 24,
+        });
+
+        try {
+            (controller as unknown as ImageOcrControllerFrameInternals).fitLineFrame(
+                line,
+                48,
+                190,
+                64,
+                20,
+                { imageLeft: 0, imageTop: 0, imageWidth: 220, imageHeight: 240, safeBottomInset: 56 },
+                false,
+            );
+
+            const top = Number.parseFloat(line.style.top);
+            const height = Number.parseFloat(line.style.height);
+            expect(top + height).toBeLessThanOrEqual(184);
         } finally {
             controller.destroy();
             line.remove();

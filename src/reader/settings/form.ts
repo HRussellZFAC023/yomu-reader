@@ -4,12 +4,13 @@ import { audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../ap
 import { CURRENT_YOMU_VERSION } from '../app/version';
 import { runningAsBrowserExtension } from '../app/runtime-env';
 import { externalLinkIcon } from '../ui/icons';
-import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY, accentToRgba, effectiveFuriganaMode, formatShortcutEvent, sanitizeAccentColor } from './index';
+import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, accentToRgba, effectiveFuriganaMode, formatShortcutEvent, sanitizeAccentColor } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
 import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, mergeApiCredentialValues } from './api-credential';
 import { COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, colorSourceOptions, readOption, settingsColorSourceValue } from './form-read';
 import type { ColorSourceSettingName } from './form-read';
+import { FONT_FAMILY_PRESETS } from './font-presets';
 import { renderSourceRowsList } from './form-source-rows';
 import { CLOUD_SETTINGS_SYNC_ENABLED } from './cloud-sync';
 import { renderAnkiMiningSettingsPanel, renderDeckControls as renderJpdbDeckControls } from './anki-mining-panel';
@@ -56,16 +57,6 @@ const API_KEY_INPUT_ATTRIBUTES = {
 } as const;
 const API_KEY_INPUT_ATTRIBUTE_HTML = ' autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
 const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
-const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
-const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
-const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
-const FONT_FAMILY_PRESETS = [
-    { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: 'fontPresetYomuDefault', fallbackLabel: 'Built-in font' },
-    { value: JAPANESE_SANS_FONT_FAMILY, labelKey: 'fontPresetJapaneseSans', fallbackLabel: 'Japanese sans' },
-    { value: HIRAGINO_YU_GOTHIC_FONT_FAMILY, labelKey: 'fontPresetHiraginoYuGothic', fallbackLabel: 'Hiragino / Yu Gothic' },
-    { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: 'fontPresetJapaneseSerif', fallbackLabel: 'Japanese serif' },
-    { value: DEFAULT_READER_FONT_FAMILY, labelKey: 'fontPresetSystemUi', fallbackLabel: 'System UI' },
-] as const satisfies readonly { value: string; labelKey: Parameters<typeof uiText>[1]; fallbackLabel: string }[];
 const DEFAULT_SETTINGS_PANEL = 'appearance';
 const SETTINGS_TABS: readonly { panel: string; label: string; labelKey?: SettingsTextKey; active?: boolean }[] = [
     { panel: 'appearance', label: 'Appearance', active: true },
@@ -721,6 +712,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['google-lens', 'Google Lens — free, no setup (recommended)'], ['cloud-vision', 'Google Cloud Vision — needs API key'], ['local-service', 'Local OCR server — advanced'], ['off', 'Off']])}
+                    ${select('ocrOverlayTheme', 'OCR overlay theme', settings.ocrOverlayTheme, [['auto', 'Match app theme'], ['light', 'Light overlay'], ['dark', 'Dark overlay']])}
                     ${select('ocrMaxImagesPerPage', 'Images to read per page', String(settings.ocrMaxImagesPerPage), [['3', 'Light'], ['8', 'Normal'], ['16', 'More']])}
                     ${select('ocrMinImageArea', 'Smallest image to read', String(settings.ocrMinImageArea), [['80000', 'Large images only'], ['45000', 'Normal'], ['15000', 'Include small images']])}
                     ${select('ocrMaxImagePixels', 'Image detail', String(settings.ocrMaxImagePixels), [['640000', 'Faster'], ['1200000', 'Balanced'], ['2000000', 'Sharper']])}
@@ -1338,6 +1330,11 @@ function localizeOcrSettingsSelects(form: HTMLFormElement, text: SettingsText): 
         ['local-service', text('localOcr')],
         ['off', text('off')],
     ]);
+    setSelectOptionLabels(form, 'ocrOverlayTheme', [
+        ['auto', text('ocrOverlayThemeAuto')],
+        ['light', text('ocrOverlayThemeLight')],
+        ['dark', text('ocrOverlayThemeDark')],
+    ]);
     setSelectOptionLabels(form, 'ocrMaxImagesPerPage', [
         ['3', text('lightWork')],
         ['8', text('normal')],
@@ -1725,7 +1722,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
     'immersionKitPlayOnHover', 'immersionKitPlayOnImageClick', 'immersionKitCategory', 'immersionKitSort', 'immersionKitLimit',
     'immersionKitMinLength', 'immersionKitMaxLength', 'immersionKitPlaybackRate', 'immersionKitExactMatch', 'ocrEnabled',
-    'ocrAutoScanImages', 'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrInvertDarkPanels', 'ocrProvider', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
+    'ocrAutoScanImages', 'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrInvertDarkPanels', 'ocrProvider', 'ocrOverlayTheme', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
     'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundColor', 'ocrBackgroundOpacity',
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
     'subtitleOverlayVisible', 'subtitleSecondaryVisible', 'subtitleNativeBlurred', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',

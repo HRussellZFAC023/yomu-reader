@@ -136,6 +136,7 @@ export interface TextTarget {
     singlePassScan?: boolean;
     nonDestructive?: boolean;
     forceInlineRender?: boolean;
+    suppressRepaintLoopMirror?: boolean;
     controlTextMirror?: boolean;
     controlSelectTextMode?: 'options' | 'selected';
 }
@@ -160,6 +161,7 @@ export interface FragmentTextTarget {
     singlePassScan?: boolean;
     nonDestructive?: boolean;
     forceInlineRender?: boolean;
+    suppressRepaintLoopMirror?: boolean;
     controlTextMirror?: boolean;
     controlSelectTextMode?: 'options' | 'selected';
 }
@@ -1216,7 +1218,8 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     const repaintLooping = !target.nonDestructive && !liveFrameworkRegion
         ? scanHostIsRepaintLooping(nonDestructiveHost, target.text)
         : false;
-    if ((!target.forceInlineRender || repaintLooping)
+    const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
+    if ((!target.forceInlineRender || (repaintLooping && canUseRepaintLoopMirror))
         && (target.nonDestructive || liveFrameworkRegion || repaintLooping)) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;

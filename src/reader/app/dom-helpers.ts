@@ -90,6 +90,7 @@ const IMAGE_READING_MIN_VIEWPORT_RATIO = 0.35;
 const IMAGE_READING_MIN_EDGE = 240;
 
 export function documentLooksLikeImageReadingPage(): boolean {
+    if (document.querySelector('canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas')) return true;
     const images = Array.from(document.images).filter(image => !image.closest('[data-jpdb-reader-root]'));
     if (images.length === 1 && isStandaloneImageDocument(images[0])) return true;
     return images.some(imageLooksLikeReadableSurface);

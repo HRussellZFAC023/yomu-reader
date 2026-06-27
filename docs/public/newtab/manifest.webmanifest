@@ -2,6 +2,7 @@
   "name": "Yomu Study",
   "short_name": "よむ Study",
   "description": "Review Jiten, JPDB, Anki, and local dictionary cards from the hosted Yomu Study page.",
+  "lang": "en",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -9,21 +10,20 @@
   "theme_color": "#5ea780",
   "icons": [
     {
-      "src": "../favicon-32x32.png",
-      "sizes": "32x32",
-      "type": "image/png"
+      "src": "../yomu-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     },
     {
       "src": "../apple-touch-icon.png",
       "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     },
     {
-      "src": "../yomu-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "src": "../favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
     }
   ]
 }

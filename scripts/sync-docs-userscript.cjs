@@ -101,6 +101,19 @@ function syncNewTabServiceWorker(hash) {
   mkdirSync(dirname(swTarget), { recursive: true });
   writeFileSync(swTarget, js);
   console.log(`Synced ${swTarget}`);
+  syncNewTabManifest();
+}
+
+function syncNewTabManifest() {
+  const manifestSource = join(root, 'public', 'newtab', 'manifest.webmanifest');
+  const manifestDist = join(root, 'dist', 'newtab', 'manifest.webmanifest');
+  const manifestTarget = join(root, 'docs', 'public', 'newtab', 'manifest.webmanifest');
+  if (!existsSync(manifestSource)) return;
+  mkdirSync(dirname(manifestDist), { recursive: true });
+  copyFileSync(manifestSource, manifestDist);
+  mkdirSync(dirname(manifestTarget), { recursive: true });
+  copyFileSync(manifestSource, manifestTarget);
+  console.log(`Synced ${manifestTarget}`);
 }
 
 function syncNewTabManifest() {

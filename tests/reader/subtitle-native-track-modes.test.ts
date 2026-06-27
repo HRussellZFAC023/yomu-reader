@@ -90,6 +90,39 @@ describe('subtitle native track modes', () => {
         expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(true);
     });
 
+    it('can keep DOM caption sources readable without clicking host caption toggles', () => {
+        document.body.innerHTML = `
+            <div class="watch-video">
+                <video></video>
+                <button type="button" aria-label="Captions" aria-pressed="true"></button>
+                <div class="player-timedtext-text-container">
+                    <span data-uia="player-subtitle-text">今日は映画を見ます。</span>
+                </div>
+            </div>
+        `;
+        const video = document.querySelector('video')!;
+        const button = document.querySelector<HTMLButtonElement>('[aria-label="Captions"]')!;
+        const click = vi.fn();
+        button.addEventListener('click', click);
+
+        applySubtitleNativeTrackModes({
+            tracks: [],
+            selectedTrackId: '',
+            secondaryTrackId: '',
+            overlayVisible: true,
+            suppressNativeCaptions: true,
+            suppressCaptionPlayerUi: false,
+            video,
+            hasPrimaryCues: false,
+            currentCueText: '今日は映画を見ます。',
+            youtubeDomCaptionFallbackTrackId: '',
+            lastYomuCaptionsActive: false,
+        });
+
+        expect(click).not.toHaveBeenCalled();
+        expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(true);
+    });
+
     it('disables page CC even when Yomu has not selected a track yet', () => {
         const defaultCaption = { mode: 'showing' } as TextTrack;
 

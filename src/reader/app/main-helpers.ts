@@ -41,6 +41,7 @@ export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 64;
 export const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 24;
 export const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
 export const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
+export const DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS = 180;
 // Per-URL ceiling on tokens routed into the paced deferred public-pitch lane
 // (notably budget-denied YouTube comment words re-queued for a public retry).
 // Bounds total public-pitch lookups per page so the deferred retry can never

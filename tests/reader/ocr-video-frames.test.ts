@@ -9,6 +9,22 @@ afterEach(() => {
     document.body.replaceChildren();
 });
 
+function stubFullscreenElement(initial: Element | null): { set: (value: Element | null) => void; restore: () => void } {
+    let current = initial;
+    const descriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenElement');
+    Object.defineProperty(document, 'fullscreenElement', {
+        configurable: true,
+        get: () => current,
+    });
+    return {
+        set: value => { current = value; },
+        restore: () => {
+            if (descriptor) Object.defineProperty(document, 'fullscreenElement', descriptor);
+            else delete (document as unknown as { fullscreenElement?: unknown }).fullscreenElement;
+        },
+    };
+}
+
 // UT-27: pausing a visible video snapshots the frame into an OCR-able image
 // pinned over the player; resuming playback removes it again.
 describe('paused-video OCR frames', () => {
@@ -160,6 +176,210 @@ describe('paused-video OCR frames', () => {
 
         expect(document.querySelector('.jpdb-ocr-video-frame')).not.toBeNull();
         expect(document.querySelector('.jpdb-ocr-video-frame-status')).not.toBeNull();
+    });
+
+    it('keeps paused-frame OCR inside the active fullscreen host so OCR words remain tappable', async () => {
+        const fullscreen = stubFullscreenElement(null);
+        try {
+            document.body.innerHTML = '<section class="player-shell" data-yomu-video-frame><video></video></section>';
+            const host = document.querySelector<HTMLElement>('[data-yomu-video-frame]')!;
+            const video = host.querySelector('video')!;
+            host.getBoundingClientRect = () => new DOMRect(100, 50, 800, 450);
+            video.getBoundingClientRect = () => new DOMRect(120, 70, 640, 360);
+            Object.defineProperty(video, 'paused', { value: true, configurable: true });
+            fullscreen.set(host);
+            createController();
+
+            video.dispatchEvent(new Event('pause'));
+
+            const frame = host.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+            const status = host.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
+            expect(frame).not.toBeNull();
+            expect(frame.parentElement).toBe(host);
+            expect(frame.dataset.yomuOcrFullscreenHosted).toBe('true');
+            expect(frame.style.left).toBe('20px');
+            expect(frame.style.top).toBe('20px');
+            expect(status.parentElement).toBe(host);
+            expect(status.dataset.yomuOcrFullscreenHosted).toBe('true');
+
+            frame.getBoundingClientRect = () => new DOMRect(120, 70, 640, 360);
+            Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
+            Object.defineProperty(frame, 'naturalHeight', { value: 360, configurable: true });
+            frame.dataset.ocrLines = JSON.stringify([
+                { text: '日本語', box: { left: 64, top: 72, width: 192, height: 54 } },
+            ]);
+            frame.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                const overlay = host.querySelector<HTMLElement>('.jpdb-ocr-layer');
+                const line = overlay?.querySelector<HTMLElement>('.jpdb-ocr-line');
+                expect(overlay).not.toBeNull();
+                expect(overlay!.parentElement).toBe(host);
+                expect(overlay!.dataset.yomuOcrFullscreenHosted).toBe('true');
+                expect(overlay!.style.left).toBe('20px');
+                expect(overlay!.style.top).toBe('20px');
+                expect(line).not.toBeNull();
+                expect(line!.querySelector('.jpdb-reader-word')).not.toBeNull();
+            });
+
+            const line = host.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            line.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 180, clientY: 120 }));
+            line.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 180, clientY: 120 }));
+
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
+            expect(line.dataset.pinned).toBe('true');
+        } finally {
+            fullscreen.restore();
+        }
+    });
+
+    it('uses the player wrapper instead of appending OCR artifacts into a fullscreen video element', () => {
+        const fullscreen = stubFullscreenElement(null);
+        try {
+            document.body.innerHTML = '<section class="player-shell" data-yomu-video-frame><video></video></section>';
+            const host = document.querySelector<HTMLElement>('[data-yomu-video-frame]')!;
+            const video = host.querySelector('video')!;
+            host.getBoundingClientRect = () => new DOMRect(0, 0, 800, 450);
+            video.getBoundingClientRect = () => new DOMRect(0, 0, 800, 450);
+            Object.defineProperty(video, 'paused', { value: true, configurable: true });
+            fullscreen.set(video);
+            createController();
+
+            video.dispatchEvent(new Event('pause'));
+
+            const frame = host.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+            const status = host.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
+            expect(frame).not.toBeNull();
+            expect(frame.parentElement).toBe(host);
+            expect(status.parentElement).toBe(host);
+            expect(video.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+            expect(video.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
+        } finally {
+            fullscreen.restore();
+        }
+    });
+
+    it('moves paused-frame OCR out of the fullscreen host after fullscreen exits', async () => {
+        const fullscreen = stubFullscreenElement(null);
+        try {
+            document.body.innerHTML = '<section class="player-shell" data-yomu-video-frame><video></video></section>';
+            const host = document.querySelector<HTMLElement>('[data-yomu-video-frame]')!;
+            const video = host.querySelector('video')!;
+            host.getBoundingClientRect = () => new DOMRect(100, 50, 800, 450);
+            video.getBoundingClientRect = () => new DOMRect(120, 70, 640, 360);
+            Object.defineProperty(video, 'paused', { value: true, configurable: true });
+            fullscreen.set(host);
+            createController();
+            video.dispatchEvent(new Event('pause'));
+
+            const frame = host.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+            expect(frame.parentElement).toBe(host);
+            expect(host.dataset.yomuOcrFullscreenHost).toBe('true');
+            expect(host.style.position).toBe('relative');
+
+            fullscreen.set(null);
+            document.dispatchEvent(new Event('fullscreenchange'));
+
+            await waitForExpect(() => {
+                expect(frame.parentElement).toBe(document.body);
+                expect(frame.dataset.yomuOcrFullscreenHosted).toBe('false');
+                expect(host.dataset.yomuOcrFullscreenHost).toBeUndefined();
+                expect(host.style.position).toBe('');
+            });
+        } finally {
+            fullscreen.restore();
+        }
+    });
+
+    it('uses the detached mobile YouTube fullscreen shell for paused-frame OCR', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://m.youtube.com/watch?v=ocrfullscreen') as unknown as Location,
+        });
+
+        try {
+            document.body.innerHTML = `
+                <ytm-player fullscreen></ytm-player>
+                <div class="mobile-video-slot"><video></video></div>
+            `;
+            const host = document.querySelector<HTMLElement>('ytm-player')!;
+            const video = document.querySelector<HTMLVideoElement>('.mobile-video-slot video')!;
+            host.getBoundingClientRect = () => new DOMRect(0, 0, 390, 844);
+            video.getBoundingClientRect = () => new DOMRect(0, 220, 390, 219);
+            Object.defineProperty(video, 'paused', { value: true, configurable: true });
+            createController();
+
+            video.dispatchEvent(new Event('pause'));
+
+            const frame = host.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+            const status = host.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
+            expect(frame).not.toBeNull();
+            expect(frame.parentElement).toBe(host);
+            expect(frame.dataset.yomuOcrFullscreenHosted).toBe('true');
+            expect(status.parentElement).toBe(host);
+            expect(host.dataset.yomuOcrFullscreenHost).toBe('true');
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('uses the iPhone inline fullscreen host for paused-frame OCR when native video fullscreen is redirected', () => {
+        document.body.innerHTML = `
+            <div id="movie_player" class="html5-video-player ytp-fullscreen" data-yomu-inline-fullscreen="true">
+                <video></video>
+            </div>
+        `;
+        const host = document.getElementById('movie_player')!;
+        const video = host.querySelector('video')!;
+        host.getBoundingClientRect = () => new DOMRect(0, 0, 390, 844);
+        video.getBoundingClientRect = () => new DOMRect(0, 220, 390, 219);
+        Object.defineProperty(video, 'paused', { value: true, configurable: true });
+        createController();
+
+        video.dispatchEvent(new Event('pause'));
+
+        const frame = host.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+        const status = host.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
+        expect(frame).not.toBeNull();
+        expect(frame.parentElement).toBe(host);
+        expect(frame.dataset.yomuOcrFullscreenHosted).toBe('true');
+        expect(status.parentElement).toBe(host);
+        expect(host.dataset.yomuOcrFullscreenHost).toBe('true');
+    });
+
+    it('keeps the fullscreen fallback play control in the host when the only subtitle rail is outside fullscreen', () => {
+        const fullscreen = stubFullscreenElement(null);
+        try {
+            document.body.innerHTML = `
+                <div class="jpdb-subtitle-player" data-jpdb-reader-root="true">
+                    <div class="jpdb-subtitle-rail">
+                        <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel"></button>
+                    </div>
+                </div>
+                <section class="player-shell" data-yomu-video-frame><video></video></section>
+            `;
+            const host = document.querySelector<HTMLElement>('[data-yomu-video-frame]')!;
+            const video = host.querySelector('video')!;
+            host.getBoundingClientRect = () => new DOMRect(0, 0, 800, 450);
+            video.getBoundingClientRect = () => new DOMRect(0, 0, 800, 450);
+            Object.defineProperty(video, 'paused', { value: true, configurable: true });
+            fullscreen.set(host);
+            createController();
+
+            video.dispatchEvent(new Event('pause'));
+
+            const resume = host.querySelector<HTMLButtonElement>('.jpdb-ocr-video-frame-resume')!;
+            expect(resume).not.toBeNull();
+            expect(resume.parentElement).toBe(host);
+            expect(resume.classList.contains('jpdb-ocr-video-frame-resume-fallback')).toBe(true);
+            expect(document.querySelector('.jpdb-subtitle-rail .jpdb-ocr-video-frame-resume')).toBeNull();
+        } finally {
+            fullscreen.restore();
+        }
     });
 
     it('keeps the gate intact through the loading status update (status class must not clobber pending)', async () => {

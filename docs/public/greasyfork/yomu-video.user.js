@@ -2228,23 +2228,54 @@
     return `${sample.hash.toString(36)}:${sample.contrast}:${sample.buckets}`;
   }
   function isLikelyPageCanvas(canvas, lenient) {
+    if (shouldForceCanvasReaderSurface(canvas)) return hasForcedCanvasReaderShape(canvas);
     if (!hasPageShape(canvas)) return false;
     if (lenient) return true;
     return isViewportProminent(canvas) && looksLikeRenderedCanvasImage(canvas);
   }
   function pageCanvases(hostname = location.hostname) {
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
-    const canvases = Array.from(document.querySelectorAll("canvas")).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
+    const canvases = Array.from(document.querySelectorAll("canvas")).filter((canvas) => !shouldSkipCanvasReaderSurface(canvas)).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
     return isBookwalkerViewerHost(hostname) ? preferCurrentScreenCanvases(canvases) : canvases;
+  }
+  function shouldSkipCanvasReaderSurface(canvas) {
+    return canvas.dataset.yomuCanvasOcr === "off" || Boolean(canvas.closest('[data-yomu-canvas-ocr="off"]'));
+  }
+  function shouldForceCanvasReaderSurface(canvas) {
+    return canvas.dataset.yomuCanvasOcr === "on" || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
+  }
+  function hasForcedCanvasReaderShape(canvas) {
+    const { width, height } = canvas;
+    if (Math.max(width, height) < MIN_PAGE_CANVAS_DIMENSION || Math.min(width, height) < MIN_RENDERED_DIMENSION) return false;
+    const aspect = width / height;
+    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
   }
   function preferCurrentScreenCanvases(canvases) {
     if (canvases.length < 2) return canvases;
+    if (hasVerticallyStackedVisibleCanvases(canvases)) return canvases;
     const current = canvases.filter(isOnScreenViewportCanvas);
     if (!current.length) return canvases;
     const renderedCurrent = current.filter(looksLikeRenderedCanvasImage);
     if (renderedCurrent.length) return renderedCurrent;
     const renderedFallback = canvases.filter((canvas) => !current.includes(canvas)).filter(looksLikeRenderedCanvasImage);
     return renderedFallback.length ? renderedFallback : current;
+  }
+  function hasVerticallyStackedVisibleCanvases(canvases) {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!viewportWidth || !viewportHeight) return false;
+    const rects = canvases.map((canvas) => canvas.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.right >= 0 && rect.top <= viewportHeight && rect.left <= viewportWidth).sort((a, b) => a.top - b.top);
+    if (rects.length < 2) return false;
+    for (let index = 1; index < rects.length; index += 1) {
+      const previous = rects[index - 1];
+      const current = rects[index];
+      const smallerHeight = Math.max(1, Math.min(previous.height, current.height));
+      const smallerWidth = Math.max(1, Math.min(previous.width, current.width));
+      const verticalOverlap2 = Math.max(0, Math.min(previous.bottom, current.bottom) - Math.max(previous.top, current.top));
+      const horizontalOverlap2 = Math.max(0, Math.min(previous.right, current.right) - Math.max(previous.left, current.left));
+      if (Math.abs(current.top - previous.top) > smallerHeight * 0.45 && verticalOverlap2 / smallerHeight < 0.55 && horizontalOverlap2 / smallerWidth > 0.55) return true;
+    }
+    return false;
   }
   function isOnScreenViewportCanvas(canvas) {
     const viewport = canvas.closest(VIEWPORT_CONTAINER_SELECTOR);
@@ -3207,6 +3238,7 @@
       fontPresetYomuDefault: "Built-in font",
       fontPresetJapaneseSans: "Japanese sans",
       fontPresetHiraginoYuGothic: "Hiragino / Yu Gothic",
+      fontPresetJapaneseRounded: "Japanese rounded",
       fontPresetJapaneseSerif: "Japanese serif",
       fontPresetSystemUi: "System UI",
       fontPresetCustom: "Custom...",
@@ -3446,6 +3478,10 @@
       ocrVideoPauseFrames: "Read paused video frames",
       ocrInvertDarkPanels: "Read light text on dark panels",
       ocrProvider: "Image reading",
+      ocrOverlayTheme: "OCR overlay theme",
+      ocrOverlayThemeAuto: "Match app theme",
+      ocrOverlayThemeLight: "Light overlay",
+      ocrOverlayThemeDark: "Dark overlay",
       googleLens: "Google Lens (free, recommended)",
       cloudVision: "Google Cloud Vision (API key)",
       localOcr: "Local OCR server",
@@ -3720,8 +3756,11 @@
       nextLookupWord: "Next word",
       previousSubtitle: "Previous subtitle",
       nextSubtitle: "Next subtitle",
+      jumpToCurrentSubtitle: "Jump to current subtitle",
       playVideo: "Play video",
       pauseVideo: "Pause video",
+      enterFullscreen: "Enter fullscreen",
+      exitFullscreen: "Exit fullscreen",
       copySubtitle: "Copy subtitle",
       subtitleFallbackLabel: "Subtitle",
       subtitlesTitle: "Subtitles",
@@ -4486,8 +4525,11 @@ couldNotReadAudio	音声を読み取れませんでした。
 couldNotReadAudioBlob	音声データを読み取れませんでした。
 previousSubtitle	前の字幕
 nextSubtitle	次の字幕
+jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
+enterFullscreen	全画面表示
+exitFullscreen	全画面表示を終了
 copySubtitle	字幕をコピー
 subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
@@ -4824,6 +4866,7 @@ popupFontFamily	ポップアップの日本語フォント
 fontPresetYomuDefault	内蔵フォント
 fontPresetJapaneseSans	日本語サンセリフ
 fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
+fontPresetJapaneseRounded	日本語丸ゴシック
 fontPresetJapaneseSerif	日本語明朝
 fontPresetSystemUi	システムUI
 fontPresetCustom	カスタム...
@@ -5037,6 +5080,10 @@ ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
 ocrInvertDarkPanels	暗いコマの白い文字を読む
 ocrProvider	画像読み取り
+ocrOverlayTheme	OCRオーバーレイテーマ
+ocrOverlayThemeAuto	アプリのテーマに合わせる
+ocrOverlayThemeLight	ライトオーバーレイ
+ocrOverlayThemeDark	ダークオーバーレイ
 googleLens	Google Lens — 無料・設定不要（おすすめ）
 cloudVision	Google Cloud Vision — APIキーが必要
 localOcr	ローカルOCRサーバー — 上級者向け
@@ -6973,6 +7020,7 @@ ${candidate.depth}`;
   const READER_RASTER_RETRY_BASE_MS = 140;
   const READER_RASTER_RETRY_MAX_MS = 1100;
   const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
+  const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
   const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
@@ -7009,6 +7057,17 @@ ${candidate.depth}`;
     "#player-container",
     "#player-container-outer",
     "[data-yomu-video-frame]"
+  ].join(",");
+  const VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR = [
+    '[data-yomu-inline-fullscreen="true"]',
+    '[data-fullscreen-active="true"]',
+    "[fullscreen]",
+    "#movie_player.ytp-fullscreen",
+    ".html5-video-player.ytp-fullscreen",
+    "ytd-watch-flexy[fullscreen]",
+    "ytm-player[fullscreen]",
+    "ytm-player.fullscreen",
+    "ytm-player.ytp-fullscreen"
   ].join(",");
   const VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR = [
     "ytd-thumbnail",
@@ -7138,7 +7197,7 @@ ${candidate.depth}`;
     canvasReaderSignature;
     readerRasterPoll = 0;
     readerRasterRetryTimer = 0;
-    pendingCanvasSnapshots = /* @__PURE__ */ new WeakSet();
+    pendingCanvasSnapshots = /* @__PURE__ */ new WeakMap();
     // Map (not WeakMap) so a page turn can clear ALL readiness at once — NFBR reuses
     // the same canvas object across turns, so a stale readiness entry would let the
     // next page's first sample wrongly pass (or block). Bounded: cleared on every
@@ -7158,6 +7217,7 @@ ${candidate.depth}`;
     canvasTapRecapture = /* @__PURE__ */ new Map();
     ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
     pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
+    recentTouchOcrPoint;
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
     handleMediaResume = (event) => this.releaseVideoFrame(event.target);
     // Stepping subtitle lines while paused seeks the video — the snapshot
@@ -7166,6 +7226,10 @@ ${candidate.depth}`;
     handleDocumentPointerDown = (event) => {
       this.unpinOcrLinesFromDocumentEvent(event);
       this.requestOcrFromPointerEvent(event);
+    };
+    handleDocumentTouchStart = (event) => {
+      this.unpinOcrLinesFromDocumentEvent(event);
+      this.requestOcrFromTouchEvent(event);
     };
     handleDocumentPointerOver = (event) => this.requestOcrFromPointerEvent(event);
     handleDocumentPointerMove = (event) => this.requestOcrFromPointerEvent(event);
@@ -7178,6 +7242,7 @@ ${candidate.depth}`;
       this.destroyed = false;
       this.refresh();
       document.addEventListener("pointerdown", this.handleDocumentPointerDown, true);
+      document.addEventListener("touchstart", this.handleDocumentTouchStart, { capture: true, passive: true });
       document.addEventListener("pointerover", this.handleDocumentPointerOver, true);
       document.addEventListener("pointermove", this.handleDocumentPointerMove, true);
       document.addEventListener("click", this.handleDocumentClick, true);
@@ -7202,13 +7267,14 @@ ${candidate.depth}`;
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["style", "class", "hidden", "src", "srcset", "sizes", "loading", "poster"]
+        attributeFilter: ["style", "class", "hidden", "src", "srcset", "sizes", "loading", "poster", "data-yomu-canvas-ocr"]
       });
       this.startReaderRasterPollingIfNeeded();
     }
     destroy() {
       this.destroyed = true;
       document.removeEventListener("pointerdown", this.handleDocumentPointerDown, true);
+      document.removeEventListener("touchstart", this.handleDocumentTouchStart, true);
       document.removeEventListener("pointerover", this.handleDocumentPointerOver, true);
       document.removeEventListener("pointermove", this.handleDocumentPointerMove, true);
       document.removeEventListener("click", this.handleDocumentClick, true);
@@ -7280,7 +7346,7 @@ ${candidate.depth}`;
       if (this.destroyed) return;
       const settings = this.options.getSettings();
       if (!settings.ocrEnabled) return;
-      if (this.options.shouldAutoScan?.() === false) {
+      if (this.options.shouldAutoScan?.() === false && !hasCanvasOcrOptInSurface()) {
         this.clearAutoScannedOverlays();
         this.schedulePosition();
         return;
@@ -7402,7 +7468,7 @@ ${candidate.depth}`;
       overlay.dataset.ocrLayerId = String(++ocrLayerCounter);
       overlay.hidden = true;
       setOcrOverlayAccessibility(overlay, false);
-      document.body.append(overlay);
+      this.mountOcrOverlayForImage(overlay, image);
       const state2 = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
       image.addEventListener("load", () => {
         this.resetStateIfImageChanged(state2);
@@ -7416,6 +7482,10 @@ ${candidate.depth}`;
         if (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) this.enqueue(image);
       }
       return state2;
+    }
+    mountOcrOverlayForImage(overlay, image) {
+      const video = this.videoFrameVideos.get(image);
+      appendOcrArtifactToRoot(overlay, video ? videoFrameArtifactRoot(video) : document.body);
     }
     enqueue(image, userRequested = false) {
       if (isYouTubeThumbnailImage(image)) return;
@@ -7440,21 +7510,22 @@ ${candidate.depth}`;
       return true;
     }
     requestOcrFromPointerEvent(event) {
+      if (this.isDuplicateTouchPointerOcrEvent(event)) return false;
       const settings = this.options.getSettings();
       const image = ocrImageFromPointerEvent(event, settings);
       if (image) {
-        if (event.type === "pointermove" && image === this.lastPointerMoveImage) return;
+        if (event.type === "pointermove" && image === this.lastPointerMoveImage) return false;
         if (event.type === "pointermove") this.lastPointerMoveImage = image;
         else this.lastPointerMoveImage = void 0;
         this.lastPointerMoveReaderSurface = void 0;
         this.lastPointerMoveReaderSurfaceKey = void 0;
         this.enqueue(image, true);
-        return;
+        return true;
       }
       const surface = ocrReaderSurfaceFromPointerEvent(event, settings);
-      if (!surface) return;
+      if (!surface) return false;
       const surfaceKey = readerRasterSurfaceSnapshotKey(surface);
-      if (event.type === "pointermove" && surface === this.lastPointerMoveReaderSurface && surfaceKey === this.lastPointerMoveReaderSurfaceKey) return;
+      if (event.type === "pointermove" && surface === this.lastPointerMoveReaderSurface && surfaceKey === this.lastPointerMoveReaderSurfaceKey) return false;
       if (event.type === "pointermove") {
         this.lastPointerMoveReaderSurface = surface;
         this.lastPointerMoveReaderSurfaceKey = surfaceKey;
@@ -7465,6 +7536,24 @@ ${candidate.depth}`;
       void this.snapshotReaderSurface(surface, settings).then((frame) => {
         if (frame) this.enqueue(frame, true);
       });
+      return true;
+    }
+    requestOcrFromTouchEvent(event) {
+      const point = touchPointFromEvent(event);
+      if (!point) return;
+      if (this.requestOcrFromPointerEvent(eventWithPoint(event, point))) {
+        this.recentTouchOcrPoint = { ...point, at: Date.now() };
+      }
+    }
+    isDuplicateTouchPointerOcrEvent(event) {
+      if (event.type !== "pointerdown" || !isPointerLikeEvent(event) || event.pointerType !== "touch") return false;
+      const recent = this.recentTouchOcrPoint;
+      if (!recent) return false;
+      if (Date.now() - recent.at > 700) {
+        this.recentTouchOcrPoint = void 0;
+        return false;
+      }
+      return Math.abs(event.clientX - recent.clientX) <= 6 && Math.abs(event.clientY - recent.clientY) <= 6;
     }
     async snapshotReaderSurface(surface, settings) {
       if (surface instanceof HTMLCanvasElement) {
@@ -7585,7 +7674,11 @@ ${candidate.depth}`;
       log$2.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
     shouldSuppressAutoRenderedResult(state2, inlineFallback, manualRequested = state2.manualRequested) {
-      return !manualRequested && !state2.overlayRequested && !inlineFallback && this.options.shouldAutoScan?.() === false;
+      return !manualRequested && !state2.overlayRequested && !inlineFallback && !this.isReaderRasterOcrOptInFrame(state2.image) && this.options.shouldAutoScan?.() === false;
+    }
+    isReaderRasterOcrOptInFrame(image) {
+      const canvas = this.canvasFrameSources.get(image);
+      return Boolean(canvas && isCanvasOcrOptInSurface(canvas));
     }
     async renderOcrFailure(state2, image, provider, manualRequested, error) {
       this.requireCurrentState(state2);
@@ -7823,12 +7916,11 @@ ${candidate.depth}`;
       frame.dataset.yomuVideoFrame = "true";
       frame.dataset.ocrPending = "true";
       frame.alt = "";
-      positionVideoFrameImage(frame, rect, target);
       frame.addEventListener("load", () => {
         if (this.videoFrames.get(target) === frame) this.enqueue(frame, true);
       }, { once: true });
       frame.src = dataUrl;
-      document.body.append(frame);
+      appendOcrArtifactToRoot(frame, videoFrameArtifactRoot(target));
       this.videoFrames.set(target, frame);
       this.videoFrameVideos.set(frame, target);
       const status = this.createVideoFrameStatus("loading");
@@ -7837,6 +7929,9 @@ ${candidate.depth}`;
       positionVideoFrameStatus(status, rect, target);
       const resume = this.createVideoFrameResumeControl(target);
       this.videoFrameControls.set(target, resume);
+      this.syncVideoFrameArtifactMount(target, frame);
+      positionVideoFrameImage(frame, rect, target);
+      positionVideoFrameStatus(status, rect, target);
       positionVideoFrameResumeControl(resume, rect, target);
       this.schedulePosition();
     }
@@ -7891,7 +7986,7 @@ ${candidate.depth}`;
       label.className = "jpdb-ocr-video-frame-status-label";
       element.append(label);
       this.setVideoFrameStatus(element, status);
-      document.body.append(element);
+      appendOcrArtifactToRoot(element, document.body);
       return element;
     }
     setVideoFrameStatus(element, status) {
@@ -7941,7 +8036,7 @@ ${candidate.depth}`;
       const existing = this.imageStatuses.get(image);
       this.clearImageStatusTimer(image);
       if (status === "empty") {
-        existing?.remove();
+        if (existing) removeOcrArtifact(existing);
         this.imageStatuses.delete(image);
         return;
       }
@@ -7981,7 +8076,7 @@ ${candidate.depth}`;
       this.clearImageStatusTimer(image);
       const card = this.imageStatuses.get(image);
       if (!card) return;
-      card.remove();
+      removeOcrArtifact(card);
       this.imageStatuses.delete(image);
     }
     refreshVideoFrameAfterSeek(target) {
@@ -7999,13 +8094,13 @@ ${candidate.depth}`;
       if (control) removeVideoFrameResumeControl(control);
       this.videoFrameControls.delete(target);
       const status = this.videoFrameStatuses.get(target);
-      status?.remove();
+      if (status) removeOcrArtifact(status);
       this.videoFrameStatuses.delete(target);
       const state2 = this.states.get(frame);
       if (state2) this.releaseImageState(frame, state2);
       else this.forgetImageWork(frame);
       this.videoFrameVideos.delete(frame);
-      frame.remove();
+      removeOcrArtifact(frame);
     }
     releaseAllVideoFrames() {
       for (const video of [...this.videoFrames.keys()]) this.releaseVideoFrame(video);
@@ -8021,7 +8116,9 @@ ${candidate.depth}`;
     }
     refreshCanvasReaderSurfaces(settings, userRequested = false) {
       if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
-      if (this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested) {
+      const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested;
+      const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested) : void 0;
+      if (nativeTextLayerBlocksAutoScan && !ocrOptInCanvases?.length) {
         if (!isReaderRasterPage()) {
           this.releaseAllCanvasFrames();
           return;
@@ -8048,7 +8145,7 @@ ${candidate.depth}`;
         this.retryPendingUserRequestedCaptures(settings);
         return;
       }
-      const canvases = activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+      const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
       for (const canvas of [...this.canvasFrames.keys()]) {
         if (canvases.includes(canvas)) continue;
         if (this.canvasFrames.get(canvas)?.complete === false) continue;
@@ -8065,8 +8162,8 @@ ${candidate.depth}`;
         if (!userRequested || this.canvasFrameKeys.get(canvas) === key) return;
         this.releaseCanvasFrame(canvas);
       }
-      if (this.pendingCanvasSnapshots.has(canvas)) return;
-      this.pendingCanvasSnapshots.add(canvas);
+      if (this.pendingCanvasSnapshots.get(canvas) === key) return;
+      this.pendingCanvasSnapshots.set(canvas, key);
       try {
         const rect = canvas.getBoundingClientRect();
         if (rect.width * rect.height < settings.ocrMinImageArea) return;
@@ -8130,7 +8227,7 @@ ${candidate.depth}`;
         if (frameRect !== rect) this.canvasFrameStaticRects.set(frame, frameRect);
         this.schedulePosition();
       } finally {
-        this.pendingCanvasSnapshots.delete(canvas);
+        if (this.pendingCanvasSnapshots.get(canvas) === key) this.pendingCanvasSnapshots.delete(canvas);
       }
     }
     canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested) {
@@ -8333,6 +8430,7 @@ ${candidate.depth}`;
           continue;
         }
         const rect = video.getBoundingClientRect();
+        this.syncVideoFrameArtifactMount(video, frame);
         positionVideoFrameImage(frame, rect, video);
         const resume = this.videoFrameControls.get(video);
         if (resume) positionVideoFrameResumeControl(resume, rect, video);
@@ -8355,11 +8453,18 @@ ${candidate.depth}`;
       state2.overlay.hidden = !visible;
       setOcrOverlayAccessibility(state2.overlay, visible);
       if (!visible) return;
-      state2.overlay.style.left = `${rect.left}px`;
-      state2.overlay.style.top = `${rect.top}px`;
+      setOcrArtifactPosition(state2.overlay, rect.left, rect.top);
       state2.overlay.style.width = `${rect.width}px`;
       state2.overlay.style.height = `${rect.height}px`;
-      this.fitLineFonts(state2, renderedOcrImageFrame(image, rect, state2.result));
+      this.fitLineFonts(state2, this.renderedOcrImageFrameForState(image, rect, state2.result));
+    }
+    renderedOcrImageFrameForState(image, rect, result) {
+      const frame = renderedOcrImageFrame(image, rect, result);
+      if (!this.canvasFrameSources.has(image) && !this.backgroundFrameSources.has(image)) return frame;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      if (!viewportHeight || rect.bottom < viewportHeight - 2) return frame;
+      const reserved = Math.max(0, Math.min(READER_RASTER_BOTTOM_CHROME_RESERVE_PX, frame.imageHeight - 1));
+      return reserved ? { ...frame, safeBottomInset: reserved } : frame;
     }
     fitLineFonts(state2, frame) {
       const scale = this.options.getSettings().ocrFontScale;
@@ -8398,7 +8503,7 @@ ${candidate.depth}`;
       const minLeft = frame.imageLeft;
       const minTop = frame.imageTop;
       const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth - furiGutter);
-      const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - frameHeight);
+      const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - (frame.safeBottomInset ?? 0) - frameHeight);
       const left = clampNumber$1(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
       const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
       const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
@@ -8418,12 +8523,12 @@ ${candidate.depth}`;
       this.queue = [];
       this.inFlightKeys.clear();
       for (const state2 of this.states.values()) {
-        state2.overlay.remove();
+        removeOcrArtifact(state2.overlay);
       }
       this.states.clear();
       for (const timer of this.imageStatusTimers.values()) window.clearTimeout(timer);
       this.imageStatusTimers.clear();
-      for (const card of this.imageStatuses.values()) card.remove();
+      for (const card of this.imageStatuses.values()) removeOcrArtifact(card);
       this.imageStatuses.clear();
     }
     // Drop only the overlays the reader auto-painted, keeping panels the user
@@ -8511,10 +8616,20 @@ ${candidate.depth}`;
     releaseImageState(image, state2 = this.states.get(image)) {
       if (state2) {
         this.observer?.unobserve(image);
-        state2.overlay.remove();
+        removeOcrArtifact(state2.overlay);
         this.states.delete(image);
       }
       this.forgetImageWork(image, state2);
+    }
+    syncVideoFrameArtifactMount(video, frame) {
+      const root = videoFrameArtifactRoot(video);
+      appendOcrArtifactToRoot(frame, root);
+      const state2 = this.states.get(frame);
+      if (state2) appendOcrArtifactToRoot(state2.overlay, root);
+      const status = this.videoFrameStatuses.get(video);
+      if (status) appendOcrArtifactToRoot(status, root);
+      const resume = this.videoFrameControls.get(video);
+      if (resume?.classList.contains("jpdb-ocr-video-frame-resume-fallback")) appendOcrArtifactToRoot(resume, root);
     }
     forgetImageWork(image, state2) {
       this.queue = this.queue.filter((queued) => queued !== image);
@@ -8533,10 +8648,28 @@ ${candidate.depth}`;
     return error === STALE_OCR_STATE;
   }
   function applyOcrOverlayStyle(overlay, settings) {
+    const theme = effectiveOcrOverlayTheme(settings);
+    overlay.dataset.ocrOverlayTheme = theme;
+    if (theme === "light") {
+      overlay.style.setProperty("--jpdb-ocr-text-color", "#17202a");
+      overlay.style.setProperty("--jpdb-ocr-outline-color", "rgba(255, 255, 255, 0)");
+      overlay.style.setProperty("--jpdb-ocr-background-rgba", "rgba(248, 250, 252, 0.68)");
+      overlay.style.setProperty("--jpdb-ocr-background-active-rgba", "rgba(248, 250, 252, 0.86)");
+      return;
+    }
     overlay.style.setProperty("--jpdb-ocr-text-color", settings.ocrTextColor);
     overlay.style.setProperty("--jpdb-ocr-outline-color", settings.ocrOutlineColor);
     overlay.style.setProperty("--jpdb-ocr-background-rgba", accentToRgba(settings.ocrBackgroundColor, settings.ocrBackgroundOpacity));
     overlay.style.setProperty("--jpdb-ocr-background-active-rgba", accentToRgba(settings.ocrBackgroundColor, Math.min(1, settings.ocrBackgroundOpacity + 0.12)));
+  }
+  function effectiveOcrOverlayTheme(settings) {
+    if (settings.ocrOverlayTheme === "dark" || settings.ocrOverlayTheme === "light") return settings.ocrOverlayTheme;
+    if (settings.theme === "dark" || settings.theme === "light") return settings.theme;
+    try {
+      return matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    } catch {
+      return "dark";
+    }
   }
   function ocrParseOptions() {
     return {
@@ -9259,6 +9392,22 @@ ${spelling}`);
     if (pointerEventOverOcrOverlay(event)) return null;
     return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
   }
+  function touchPointFromEvent(event) {
+    const touchEvent = event;
+    const touch = touchEvent.changedTouches?.[0] ?? touchEvent.touches?.[0];
+    if (!touch || typeof touch.clientX !== "number" || typeof touch.clientY !== "number") return null;
+    return { clientX: touch.clientX, clientY: touch.clientY };
+  }
+  function eventWithPoint(event, point) {
+    return {
+      type: "pointerdown",
+      target: event.target,
+      button: 0,
+      clientX: point.clientX,
+      clientY: point.clientY,
+      pointerType: "touch"
+    };
+  }
   function pointerEventOverOcrOverlay(event) {
     const target = event.target;
     if (target?.closest?.("[data-jpdb-reader-root]")) return true;
@@ -9400,10 +9549,16 @@ ${spelling}`);
     return { touched, addedImage };
   }
   function canAutoRefreshOcrAfterMutation(settings, shouldAutoScan) {
-    return settings.ocrAutoScanImages && shouldAutoScan?.() !== false;
+    return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
   }
   function nodeContainsRenderableMedia(node) {
     return node instanceof HTMLImageElement || node instanceof HTMLVideoElement || node instanceof HTMLCanvasElement || node instanceof HTMLSourceElement || node instanceof HTMLElement && Boolean(backgroundImageReaderUrl(node)) || node instanceof Element && Boolean(node.querySelector('img, video, source, canvas, [data-page-index], [style*="background-image"], [style*="background:"][style*="url("]'));
+  }
+  function hasCanvasOcrOptInSurface() {
+    return Boolean(document.querySelector('canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas'));
+  }
+  function isCanvasOcrOptInSurface(canvas) {
+    return canvas.dataset.yomuCanvasOcr === "on" || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
   }
   function isImageOccludedByVideo(image, rect = image.getBoundingClientRect()) {
     if (image.dataset.yomuVideoFrame) return false;
@@ -9542,31 +9697,117 @@ ${spelling}`);
   }
   function positionVideoFrameImage(frame, rect, video) {
     const content = videoContentBox(rect, video);
-    frame.style.left = `${content.left}px`;
-    frame.style.top = `${content.top}px`;
+    setOcrArtifactPosition(frame, content.left, content.top);
     frame.style.width = `${content.width}px`;
     frame.style.height = `${content.height}px`;
   }
   function positionVideoFrameResumeControl(control, rect, video) {
-    if (hideVideoFrameResumeControlBehindSubtitlePlayback(control)) return;
-    if (attachVideoFrameResumeControlToSubtitleRail(control)) return;
-    attachVideoFrameResumeControlFallback(control);
+    const root = videoFrameArtifactRoot(video);
+    if (hideVideoFrameResumeControlBehindSubtitlePlayback(control, root)) return;
+    if (attachVideoFrameResumeControlToSubtitleRail(control, root)) return;
+    attachVideoFrameResumeControlFallback(control, root);
     const content = videoContentBox(rect, video);
-    control.style.left = `${content.left + content.width - 12}px`;
-    control.style.top = `${content.top + 12}px`;
+    setOcrArtifactPosition(control, content.left + content.width - 12, content.top + 12);
   }
   function positionVideoFrameStatus(status, rect, video) {
     const content = videoContentBox(rect, video);
     const maxWidth = Math.max(96, Math.min(Math.max(96, content.width - 24), 320));
-    status.style.left = `${Math.max(8, content.left + 12)}px`;
-    status.style.top = `${Math.max(8, content.top + 12)}px`;
+    setOcrArtifactPosition(status, Math.max(8, content.left + 12), Math.max(8, content.top + 12));
     status.style.maxWidth = `${maxWidth}px`;
   }
   function positionOcrImageStatus(status, rect) {
     const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
-    status.style.left = `${Math.max(8, rect.left + 12)}px`;
-    status.style.top = `${Math.max(8, rect.top + 12)}px`;
+    setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
     status.style.maxWidth = `${maxWidth}px`;
+  }
+  function setOcrArtifactPosition(element, viewportLeft, viewportTop) {
+    const offset = ocrArtifactRootOffset(element);
+    element.style.left = `${viewportLeft - offset.left}px`;
+    element.style.top = `${viewportTop - offset.top}px`;
+  }
+  function ocrArtifactRootOffset(element) {
+    if (element.dataset.yomuOcrFullscreenHosted !== "true") return { left: 0, top: 0 };
+    const root = element.parentElement;
+    if (!root || root === document.body || root === document.documentElement) return { left: 0, top: 0 };
+    const rect = root.getBoundingClientRect();
+    return { left: rect.left, top: rect.top };
+  }
+  function appendOcrArtifactToRoot(element, root) {
+    const oldRoot = element.parentElement;
+    const fullscreenHosted = root !== document.body;
+    if (fullscreenHosted) prepareOcrFullscreenHost(root);
+    element.dataset.yomuOcrFullscreenHosted = fullscreenHosted ? "true" : "false";
+    if (oldRoot !== root) root.append(element);
+    clearOcrFullscreenHostMarker(oldRoot);
+  }
+  function removeOcrArtifact(element) {
+    const oldRoot = element.parentElement;
+    element.remove();
+    clearOcrFullscreenHostMarker(oldRoot);
+  }
+  function clearOcrFullscreenHostMarker(root) {
+    if (!(root instanceof HTMLElement) || root === document.body) return;
+    if (root.querySelector('[data-yomu-ocr-fullscreen-hosted="true"]')) return;
+    delete root.dataset.yomuOcrFullscreenHost;
+    if (root.dataset.yomuOcrFullscreenHostPosition === "relative") {
+      root.style.position = "";
+      delete root.dataset.yomuOcrFullscreenHostPosition;
+    }
+  }
+  function prepareOcrFullscreenHost(root) {
+    root.dataset.yomuOcrFullscreenHost = "true";
+    const position = getComputedStyle(root).position;
+    if (position && position !== "static") return;
+    root.style.position = "relative";
+    root.dataset.yomuOcrFullscreenHostPosition = "relative";
+  }
+  function videoFrameArtifactRoot(video) {
+    return activeVideoFullscreenHost(video) ?? document.body;
+  }
+  function activeVideoFullscreenHost(video) {
+    const active = activeFullscreenElement();
+    if (active && (active === document.body || active === document.documentElement)) return document.body;
+    if (active instanceof HTMLVideoElement && active === video) return fullscreenVideoArtifactHost(video);
+    if (active && active.contains(video)) return active;
+    const host = video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR);
+    if (host && host.isConnected && host !== video && host.contains(video)) return host;
+    return youtubeFullscreenHostForOcrVideo(video);
+  }
+  function fullscreenVideoArtifactHost(video) {
+    const host = video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR) ?? video.closest(VIDEO_FRAME_PLAYER_SELECTOR);
+    if (host && host !== video && host.isConnected && host.contains(video)) return host;
+    return youtubeFullscreenHostForOcrVideo(video);
+  }
+  function youtubeFullscreenHostForOcrVideo(video) {
+    if (!isYouTubePageForOcr()) return null;
+    const scopedHost = [
+      video.closest('[data-yomu-inline-fullscreen="true"]'),
+      video.closest(".html5-video-player.ytp-fullscreen"),
+      video.closest("#movie_player.ytp-fullscreen"),
+      video.closest("ytd-watch-flexy[fullscreen] #movie_player"),
+      video.closest("ytd-watch-flexy[fullscreen] ytd-player"),
+      video.closest("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
+    ].find((element) => Boolean(element && element !== video));
+    if (scopedHost) return scopedHost;
+    return [
+      document.querySelector('[data-yomu-inline-fullscreen="true"]'),
+      document.querySelector(".html5-video-player.ytp-fullscreen"),
+      document.querySelector("#movie_player.ytp-fullscreen"),
+      document.querySelector("ytd-watch-flexy[fullscreen] #movie_player"),
+      document.querySelector("ytd-watch-flexy[fullscreen] ytd-player"),
+      document.querySelector("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
+    ].find((element) => Boolean(element && element !== video && (element.contains(video) || isYouTubeMobileFullscreenHostForOcr(element)))) ?? null;
+  }
+  function isYouTubePageForOcr() {
+    return /(^|\.)youtube\.com$/i.test(location.hostname) || /(^|\.)youtu\.be$/i.test(location.hostname);
+  }
+  function isYouTubeMobileFullscreenHostForOcr(element) {
+    return /^m\.youtube\.com$/i.test(location.hostname) && element.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen");
+  }
+  function activeFullscreenElement() {
+    const doc = document;
+    const element = doc.fullscreenElement ?? doc.webkitFullscreenElement ?? doc.mozFullScreenElement ?? doc.msFullscreenElement ?? null;
+    return element instanceof HTMLElement ? element : null;
   }
   function videoFrameStatusTextKey(status) {
     switch (status) {
@@ -9581,41 +9822,50 @@ ${spelling}`);
         return "ocrPausedFrameScanning";
     }
   }
-  function attachVideoFrameResumeControlToSubtitleRail(control) {
-    const rail = document.querySelector('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail');
+  function attachVideoFrameResumeControlToSubtitleRail(control, root) {
+    const rail = subtitleRailForOcrRoot(root);
     if (!rail?.isConnected) return false;
+    const oldParent = control.parentElement;
     const oldRoot = subtitlePlayerRoot(control);
     control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
+    control.dataset.yomuOcrFullscreenHosted = "false";
     control.style.left = "";
     control.style.top = "";
     const panelButton = rail.querySelector(".jpdb-subtitle-panel-toggle");
     if (control.parentElement !== rail) rail.insertBefore(control, panelButton ?? null);
+    clearOcrFullscreenHostMarker(oldParent);
     updateSubtitleRailResumeState(oldRoot);
     updateSubtitleRailResumeState(subtitlePlayerRoot(control));
     return true;
   }
-  function hideVideoFrameResumeControlBehindSubtitlePlayback(control) {
-    const rail = document.querySelector('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail');
+  function hideVideoFrameResumeControlBehindSubtitlePlayback(control, root) {
+    const rail = subtitleRailForOcrRoot(root);
     const playback = rail?.querySelector('[data-action="playback"]');
     if (!rail?.isConnected || !playback || playback.hidden || playback.disabled) return false;
     const oldRoot = subtitlePlayerRoot(control);
-    control.remove();
+    removeOcrArtifact(control);
     control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
+    control.dataset.yomuOcrFullscreenHosted = "false";
     control.style.left = "";
     control.style.top = "";
     updateSubtitleRailResumeState(oldRoot);
     return true;
   }
-  function attachVideoFrameResumeControlFallback(control) {
+  function attachVideoFrameResumeControlFallback(control, root) {
     const oldRoot = subtitlePlayerRoot(control);
-    if (control.parentElement !== document.body) document.body.append(control);
+    appendOcrArtifactToRoot(control, root);
     control.classList.add("jpdb-ocr-video-frame-resume-fallback");
     updateSubtitleRailResumeState(oldRoot);
   }
   function removeVideoFrameResumeControl(control) {
     const root = subtitlePlayerRoot(control);
-    control.remove();
+    removeOcrArtifact(control);
     updateSubtitleRailResumeState(root);
+  }
+  function subtitleRailForOcrRoot(root) {
+    const rails = Array.from(document.querySelectorAll('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail'));
+    if (root === document.body) return rails.find((rail) => rail.isConnected) ?? null;
+    return rails.find((rail) => rail.isConnected && root.contains(rail)) ?? null;
   }
   function subtitlePlayerRoot(control) {
     return control.closest(".jpdb-subtitle-player");
@@ -10763,32 +11013,23 @@ ${spelling}`);
   function withBreaks(value) {
     return value.replace(/\n/g, "<br>");
   }
+  const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
+  const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
+  const JAPANESE_ROUNDED_FONT_FAMILY = '"Hiragino Maru Gothic ProN", "Yu Gothic", "Noto Sans JP", Meiryo, sans-serif';
+  const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
+  const FONT_FAMILY_PRESETS = [
+    { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: "fontPresetYomuDefault", fallbackLabel: "Built-in font" },
+    { value: JAPANESE_SANS_FONT_FAMILY, labelKey: "fontPresetJapaneseSans", fallbackLabel: "Japanese sans" },
+    { value: HIRAGINO_YU_GOTHIC_FONT_FAMILY, labelKey: "fontPresetHiraginoYuGothic", fallbackLabel: "Hiragino / Yu Gothic" },
+    { value: JAPANESE_ROUNDED_FONT_FAMILY, labelKey: "fontPresetJapaneseRounded", fallbackLabel: "Japanese rounded" },
+    { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
+    { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
+  ];
   const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.2;
   const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;
   const SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT = 80;
   const TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
-  const SUBTITLE_STYLE_FONT_PRESETS = [
-    {
-      value: DEFAULT_POPUP_FONT_FAMILY,
-      labelKey: "fontPresetYomuDefault"
-    },
-    {
-      value: '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif',
-      labelKey: "fontPresetJapaneseSans"
-    },
-    {
-      value: '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif',
-      labelKey: "fontPresetHiraginoYuGothic"
-    },
-    {
-      value: '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif',
-      labelKey: "fontPresetJapaneseSerif"
-    },
-    {
-      value: DEFAULT_READER_FONT_FAMILY,
-      labelKey: "fontPresetSystemUi"
-    }
-  ];
+  const SUBTITLE_STYLE_FONT_PRESETS = FONT_FAMILY_PRESETS;
   const SUBTITLE_STYLE_FONT_FAMILY_VALUES = SUBTITLE_STYLE_FONT_PRESETS.map((preset) => preset.value);
   function renderPanelNavigationControls(enabled, language) {
     const previous = uiText(language, "previousSubtitle");
@@ -10823,6 +11064,7 @@ ${spelling}`);
         <button class="jpdb-subtitle-style-toggle" type="button" data-action="style" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="false" aria-controls="jpdb-subtitle-style-popover">${subtitleIcon("style")}</button>
         <div class="jpdb-subtitle-style-popover" id="jpdb-subtitle-style-popover" data-subtitle-style-popover role="group" aria-label="${escapeHtml(label)}" hidden>
             ${renderSubtitleStyleRange("subtitleFontSize", uiText(language, "subtitleFontSize"), settings.subtitleFontSize, 16, 64, 2, "px")}
+            ${renderSubtitleStyleRange("subtitleFontWeight", uiText(language, "subtitleFontWeight"), settings.subtitleFontWeight, 300, 900, 20, "weight")}
             ${renderSubtitleStyleRange("subtitleBottomOffset", uiText(language, "subtitleBottomOffset"), settings.subtitleBottomOffset, 2, 40, 1, "%")}
             ${renderSubtitleStyleRange("subtitleBackgroundOpacity", uiText(language, "subtitleBackgroundOpacity"), settings.subtitleBackgroundOpacity, 0, 0.7, 0.05, "")}
             <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
@@ -10855,6 +11097,7 @@ ${spelling}`);
     return `<option value="${escapeHtml(preset.value)}" ${preset.value === current ? "selected" : ""}>${escapeHtml(uiText(language, preset.labelKey))}</option>`;
   }
   function subtitleStyleDisplayValue(value, suffix) {
+    if (suffix === "weight") return String(Math.round(value));
     if (!suffix) return `${Math.round(value * 100)}%`;
     return `${Math.round(value)}${suffix}`;
   }
@@ -10911,6 +11154,9 @@ ${spelling}`);
       copy: '<path d="M14 3H6a2 2 0 0 0-2 2v12"/><path d="M10 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M14 11v6"/><path d="M11 14h6"/>',
       eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
       "eye-off": '<path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.2 3.8"/><path d="M6.6 6.8A18 18 0 0 0 2 12s3.5 6 10 6c1.5 0 2.8-.3 4-.8"/>',
+      fullscreen: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/>',
+      "fullscreen-exit": '<path d="M9 3v4a2 2 0 0 1-2 2H3"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M15 21v-4a2 2 0 0 1 2-2h4"/><path d="M9 21v-4a2 2 0 0 0-2-2H3"/>',
+      locate: '<path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
       menu: '<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',
       "panel-bottom": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 14h16"/>',
       "panel-left": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',
@@ -11933,17 +12179,24 @@ ${spelling}`);
     return likelyPlayerWithChrome || hasInsetSpace && likelyPlayerFrame;
   }
   function isLikelyGenericPlayerFrame(element) {
-    const text = `${element.id} ${String(element.className)} ${element.getAttribute("aria-label") ?? ""}`;
-    return /(^|[-_\s])(player|video|media|embed|lesson-player|video-card|jwplayer|brightcove|vjs|video-js|plyr|mux|playback|wistia|vimeo|dailymotion|kaltura|shaka|cld-video-player)([-_\s]|$)/i.test(text);
+    const text = `${element.tagName.toLowerCase()} ${element.id} ${String(element.className)} ${element.getAttribute("aria-label") ?? ""}`;
+    return /(^|[-_\s])(player|video|media|stream|watch|episode|embed|lesson-player|video-card|media-player|media-provider|artplayer|xgplayer|vidstack|clappr|flowplayer|jw|jwplayer|brightcove|vjs|video-js|plyr|mux|playback|mediaelement|mejs|wistia|vimeo|dailymotion|kaltura|hls|dash|shaka|shaka-player|cld-video-player)([-_\s]|$)/i.test(text);
   }
   const PLAYER_CHROME_SELECTOR = [
     "button",
+    "media-control-bar",
+    "media-controls",
     '[role="button"]',
     '[role="slider"]',
     '[role="progressbar"]',
+    '[part*="controls" i]',
+    "[data-media-controls]",
     '[aria-label*="play" i]',
     '[aria-label*="pause" i]',
+    '[aria-label*="seek" i]',
+    '[aria-label*="volume" i]',
     '[class*="control" i]',
+    '[class*="controlbar" i]',
     '[class*="controls" i]',
     '[class*="play" i]',
     '[class*="pause" i]',
@@ -12626,8 +12879,8 @@ ${spelling}`);
   }
   const REDIRECT_FLAG = "__yomuSubtitleFullscreenRedirect";
   const STYLE_ID = "yomu-subtitle-fullscreen-redirect-style";
-  const INLINE_FULLSCREEN_CLASS = "jpdb-subtitle-inline-fullscreen";
-  const INLINE_FULLSCREEN_ATTRIBUTE = "data-yomu-inline-fullscreen";
+  const INLINE_FULLSCREEN_CLASS$1 = "jpdb-subtitle-inline-fullscreen";
+  const INLINE_FULLSCREEN_ATTRIBUTE$1 = "data-yomu-inline-fullscreen";
   function fullscreenRedirectBootstrap(win) {
     const flag = "__yomuSubtitleFullscreenRedirect";
     const inlineKey = "__yomuSubtitleInlineFullscreenElement";
@@ -12674,7 +12927,7 @@ ${spelling}`);
           const container = fullscreenContainerForVideo(this);
           if (container && container !== this) return requestElementFullscreenOrInline(container, args);
         }
-        if (mode === "inline" || mode === "picture-in-picture") exitInlineFullscreen();
+        if (mode === "inline" || mode === "picture-in-picture") exitInlineFullscreen2();
         return native.apply(this, [mode, ...args]);
       };
     }
@@ -12684,7 +12937,7 @@ ${spelling}`);
       if (typeof original !== "function") continue;
       const native = original;
       videoProto[name] = function patchedVideoExitFullscreen(...args) {
-        if (activeInlineFullscreenElement()) return exitInlineFullscreen();
+        if (activeInlineFullscreenElement2()) return exitInlineFullscreen2();
         return native.apply(this, args);
       };
     }
@@ -12695,7 +12948,7 @@ ${spelling}`);
         if (typeof original !== "function") continue;
         const native = original;
         documentProto[name] = function patchedDocumentExitFullscreen(...args) {
-          if (activeInlineFullscreenElement()) return exitInlineFullscreen();
+          if (activeInlineFullscreenElement2()) return exitInlineFullscreen2();
           return native.apply(this, args);
         };
       }
@@ -12714,18 +12967,18 @@ ${spelling}`);
         try {
           return fallbackInlineOnRequestFailure(native.apply(target, args), target);
         } catch {
-          return enterInlineFullscreen(target);
+          return enterInlineFullscreen2(target);
         }
       }
-      return enterInlineFullscreen(target);
+      return enterInlineFullscreen2(target);
     }
     function fallbackInlineOnRequestFailure(result, target) {
       const promise = result;
-      return typeof promise?.catch === "function" ? promise.catch(() => enterInlineFullscreen(target)) : result;
+      return typeof promise?.catch === "function" ? promise.catch(() => enterInlineFullscreen2(target)) : result;
     }
-    function enterInlineFullscreen(target) {
-      const current = activeInlineFullscreenElement();
-      if (current && current !== target) clearInlineFullscreenElement(current);
+    function enterInlineFullscreen2(target) {
+      const current = activeInlineFullscreenElement2();
+      if (current && current !== target) clearInlineFullscreenElement2(current);
       target.setAttribute(inlineAttribute, "true");
       if (!target.hasAttribute("fullscreen")) {
         target.setAttribute("fullscreen", "");
@@ -12741,19 +12994,19 @@ ${spelling}`);
       }
       win.document.documentElement.classList.add(inlineClass);
       win[inlineKey] = target;
-      dispatchFullscreenLikeEvents();
+      dispatchFullscreenLikeEvents2();
       return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
     }
-    function exitInlineFullscreen() {
-      const current = activeInlineFullscreenElement();
+    function exitInlineFullscreen2() {
+      const current = activeInlineFullscreenElement2();
       if (!current) return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
-      clearInlineFullscreenElement(current);
+      clearInlineFullscreenElement2(current);
       win.document.documentElement.classList.remove(inlineClass);
       delete win[inlineKey];
-      dispatchFullscreenLikeEvents();
+      dispatchFullscreenLikeEvents2();
       return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
     }
-    function clearInlineFullscreenElement(element) {
+    function clearInlineFullscreenElement2(element) {
       element.removeAttribute(inlineAttribute);
       if (element.dataset.yomuInlineFullscreenAttr === "true") element.removeAttribute("fullscreen");
       if (element.dataset.yomuInlineYtpFullscreenClass === "true") element.classList.remove("ytp-fullscreen");
@@ -12762,11 +13015,12 @@ ${spelling}`);
       delete element.dataset.yomuInlineYtpFullscreenClass;
       delete element.dataset.yomuInlineFullscreenClass;
     }
-    function activeInlineFullscreenElement() {
+    function activeInlineFullscreenElement2() {
       const current = win[inlineKey];
-      return elementCtor && current instanceof elementCtor ? current : null;
+      if (elementCtor && current instanceof elementCtor) return current;
+      return win.document.querySelector(`[${inlineAttribute}="true"]`);
     }
-    function dispatchFullscreenLikeEvents() {
+    function dispatchFullscreenLikeEvents2() {
       for (const eventName of ["fullscreenchange", "webkitfullscreenchange"]) {
         try {
           win.document.dispatchEvent(new win.Event(eventName));
@@ -12791,10 +13045,10 @@ ${spelling}`);
       "#movie_player:-webkit-full-screen .html5-video-container{width:100%!important;height:100%!important;}",
       `[data-yomu-video-frame]:fullscreen video{${fill}}`,
       `[data-yomu-video-frame]:-webkit-full-screen video{${fill}}`,
-      `html.${INLINE_FULLSCREEN_CLASS},html.${INLINE_FULLSCREEN_CLASS} body{width:100%!important;height:100%!important;overflow:hidden!important;}`,
-      `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important;z-index:2147483640!important;background:#000!important;}`,
-      `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] video{${fill}object-fit:contain!important;}`,
-      `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] .html5-video-container{width:100%!important;height:100%!important;}`
+      `html.${INLINE_FULLSCREEN_CLASS$1},html.${INLINE_FULLSCREEN_CLASS$1} body{width:100%!important;height:100%!important;overflow:hidden!important;}`,
+      `[${INLINE_FULLSCREEN_ATTRIBUTE$1}="true"]{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important;z-index:2147483640!important;background:#000!important;}`,
+      `[${INLINE_FULLSCREEN_ATTRIBUTE$1}="true"] video{${fill}object-fit:contain!important;}`,
+      `[${INLINE_FULLSCREEN_ATTRIBUTE$1}="true"] .html5-video-container{width:100%!important;height:100%!important;}`
     ].join("\n");
   }
   function injectFullscreenRedirectStyle() {
@@ -13311,7 +13565,7 @@ ${spelling}`);
       }
       if (yomuCaptionsActive) option.track.mode = "disabled";
     }
-    if (yomuCaptionsActive) suppressGenericCaptionPlayerUi(state2.video);
+    if (yomuCaptionsActive && (state2.suppressCaptionPlayerUi ?? true)) suppressGenericCaptionPlayerUi(state2.video);
     document.documentElement.classList.toggle(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
     document.documentElement.classList.remove("jpdb-subtitle-yomu-captions-active");
     return false;
@@ -13651,10 +13905,14 @@ ${spelling}`);
     ".caption-visual-line",
     ".captions-text",
     '[data-purpose="captions-text"]',
+    '[data-uia="player-subtitle-text"]',
+    '[data-uia="player-captions-text"]',
+    ".player-timedtext-text-container",
+    ".player-timedtext-text-container span",
     ".ytp-caption-segment"
   ];
   const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(",");
-  const CAPTION_CONTAINER_SELECTORS = '.caption-visual-line,.captions-text,[data-purpose="captions-text"],.caption-window,.ytp-caption-segment';
+  const CAPTION_CONTAINER_SELECTORS = '.caption-visual-line,.captions-text,[data-purpose="captions-text"],[data-uia="player-subtitle-text"],[data-uia="player-captions-text"],.player-timedtext-text-container,.caption-window,.ytp-caption-segment';
   const PLAYER_CHROME_CONTAINER_SELECTOR = [
     "#player-control-overlay",
     ".ytp-chrome-bottom",
@@ -14245,6 +14503,8 @@ ${spelling}`);
     "jpdb-subtitle-dragging"
   ];
   const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = "jpdb-subtitle-yt-sheet-open";
+  const INLINE_FULLSCREEN_CLASS = "jpdb-subtitle-inline-fullscreen";
+  const INLINE_FULLSCREEN_ATTRIBUTE = "data-yomu-inline-fullscreen";
   function isYouTubeTheaterMode() {
     return isYouTubePage() && Boolean(document.querySelector("ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]"));
   }
@@ -14259,6 +14519,60 @@ ${spelling}`);
   function currentFullscreenElement() {
     const fullscreenDocument = document;
     return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
+  }
+  function exitCurrentFullscreen() {
+    const fullscreenDocument = document;
+    return document.exitFullscreen?.() ?? fullscreenDocument.webkitExitFullscreen?.() ?? fullscreenDocument.webkitCancelFullScreen?.() ?? fullscreenDocument.mozCancelFullScreen?.() ?? fullscreenDocument.msExitFullscreen?.();
+  }
+  function requestElementFullscreen(element) {
+    const target = element;
+    return target.requestFullscreen?.() ?? target.webkitRequestFullscreen?.() ?? target.webkitRequestFullScreen?.() ?? target.mozRequestFullScreen?.() ?? target.msRequestFullscreen?.();
+  }
+  function canRequestElementFullscreen(element) {
+    const target = element;
+    return Boolean(target.requestFullscreen || target.webkitRequestFullscreen || target.webkitRequestFullScreen || target.mozRequestFullScreen || target.msRequestFullscreen);
+  }
+  function enterInlineFullscreen(target) {
+    const current = activeInlineFullscreenElement();
+    if (current && current !== target) clearInlineFullscreenElement(current);
+    target.setAttribute(INLINE_FULLSCREEN_ATTRIBUTE, "true");
+    if (!target.hasAttribute("fullscreen")) {
+      target.setAttribute("fullscreen", "");
+      target.dataset.yomuInlineFullscreenAttr = "true";
+    }
+    if (!target.classList.contains("ytp-fullscreen")) {
+      target.classList.add("ytp-fullscreen");
+      target.dataset.yomuInlineYtpFullscreenClass = "true";
+    }
+    if (!target.classList.contains("fullscreen")) {
+      target.classList.add("fullscreen");
+      target.dataset.yomuInlineFullscreenClass = "true";
+    }
+    document.documentElement.classList.add(INLINE_FULLSCREEN_CLASS);
+    dispatchFullscreenLikeEvents();
+  }
+  function exitInlineFullscreen() {
+    const current = activeInlineFullscreenElement();
+    if (!current) return;
+    clearInlineFullscreenElement(current);
+    document.documentElement.classList.remove(INLINE_FULLSCREEN_CLASS);
+    dispatchFullscreenLikeEvents();
+  }
+  function activeInlineFullscreenElement() {
+    return document.querySelector(`[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]`);
+  }
+  function clearInlineFullscreenElement(element) {
+    element.removeAttribute(INLINE_FULLSCREEN_ATTRIBUTE);
+    if (element.dataset.yomuInlineFullscreenAttr === "true") element.removeAttribute("fullscreen");
+    if (element.dataset.yomuInlineYtpFullscreenClass === "true") element.classList.remove("ytp-fullscreen");
+    if (element.dataset.yomuInlineFullscreenClass === "true") element.classList.remove("fullscreen");
+    delete element.dataset.yomuInlineFullscreenAttr;
+    delete element.dataset.yomuInlineYtpFullscreenClass;
+    delete element.dataset.yomuInlineFullscreenClass;
+  }
+  function dispatchFullscreenLikeEvents() {
+    for (const eventName of ["fullscreenchange", "webkitfullscreenchange"]) document.dispatchEvent(new Event(eventName));
+    window.dispatchEvent(new Event("resize"));
   }
   function subtitleViewportRect() {
     return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
@@ -14310,13 +14624,8 @@ ${spelling}`);
     return Math.max(subtitleMinimumFontSize(root), Math.min(64, scaled));
   }
   const DEFAULT_SUBTITLE_BOTTOM_OFFSET = 16;
-  function effectiveSubtitleBottomPercent(settings, root) {
-    if (settings.subtitleBottomOffset !== DEFAULT_SUBTITLE_BOTTOM_OFFSET) return settings.subtitleBottomOffset;
-    const rect = root.getBoundingClientRect();
-    const portrait = rect.height > rect.width;
-    const narrow = rect.width < 700;
-    const floor = portrait ? 28 : narrow ? 22 : 0;
-    return Math.max(settings.subtitleBottomOffset, floor);
+  function effectiveSubtitleBottomPercent(settings) {
+    return settings.subtitleBottomOffset;
   }
   function subtitleElementOverflows(element) {
     return element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1;
@@ -14347,7 +14656,7 @@ ${spelling}`);
   }
   function subtitleAnimeSearchQuery(video) {
     const raw = video?.dataset.yomuAnimeSearch || video?.dataset.yomuVideoTitle || video?.title || document.title || "";
-    return raw.replace(/\.(?:mkv|mp4|m4v|mov|webm|ogv)$/iu, "").replace(/[-|]\s*(?:YouTube|Yomu Video|よむ 動画)\s*$/iu, "").replace(/\[[^\]]*\]/gu, " ").replace(/[._]+/gu, " ").replace(/\s+/gu, " ").trim().slice(0, 120);
+    return raw.replace(/\.(?:mkv|mp4|m4v|mov|webm|ogv)$/iu, "").replace(/[-|]\s*(?:YouTube|Yomu Video|よむ 動画)\s*$/iu, "").replace(/\[[^\]]*\]/gu, " ").replace(/[._]+/gu, " ").replace(/^\s*(?:watch|stream)\s+/iu, "").replace(/\s+(?:episode|ep\.?)\s*\d+(?:\.\d+)?\b.*$/iu, "").replace(/\s*[-|·]\s*(?:watch|stream|free|anime|online|subbed|dubbed|hd)\b.*$/iu, "").replace(/\b(?:english|eng)\s+(?:subbed|sub|dubbed|dub)\b/giu, " ").replace(/\b(?:subbed|dubbed)\b/giu, " ").replace(/\s+\b(?:online|free|hd)\b\s*$/iu, "").replace(/\s+/gu, " ").trim().slice(0, 120);
   }
   function clearWindowTimeout(id) {
     if (id !== void 0) window.clearTimeout(id);
@@ -14411,6 +14720,7 @@ ${spelling}`);
   const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
+  const DOM_CAPTION_MISSING_GRACE_MS = 1200;
   const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = "youtube-dom-caption-fallback";
   const SUBTITLE_FILE_ACCEPT = ".srt,.vtt,.ass,.ssa,text/vtt";
   const log = Logger.scope("Subtitles");
@@ -14605,7 +14915,8 @@ ${spelling}`);
     if (control && control.value !== nextValue) control.value = nextValue;
     const output = root.querySelector(`[data-subtitle-style-output="${key}"]`);
     if (!output) return;
-    output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
+    if (suffix === "weight") output.textContent = String(Math.round(value));
+    else output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
   }
   function isRecord(value) {
     return Boolean(value && typeof value === "object");
@@ -14648,6 +14959,7 @@ ${spelling}`);
     youtubeAutoSelectSuppressedVideoId = "";
     lastDomCaption = "";
     pendingDomCaption;
+    lastDomCaptionSeenAt = 0;
     parsedHtmlCache = /* @__PURE__ */ new Map();
     provisionalParsedHtmlCache = /* @__PURE__ */ new Map();
     enrichedProvisionalParsedHtmlKeys = /* @__PURE__ */ new Set();
@@ -14678,6 +14990,7 @@ ${spelling}`);
     transcriptViewportStabilizeTimer;
     transcriptPreviewPlayerResizeDeferred = false;
     transcriptResizeBackgroundResumeTimer;
+    transcriptAutoScrollResumeTimer;
     transcriptHydrationAfterResizeIndex;
     transcriptWarmupAfterResize = false;
     transcriptPanelHideTimer;
@@ -14729,6 +15042,7 @@ ${spelling}`);
       previous: () => this.seekSubtitle(-1),
       next: () => this.seekSubtitle(1),
       playback: () => this.toggleVideoPlayback(),
+      fullscreen: () => this.togglePlayerFullscreen(),
       copy: (target) => {
         void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target));
       },
@@ -14736,6 +15050,7 @@ ${spelling}`);
         void this.copyTranscriptRow(this.rowIndexFromTarget(target)).then(() => flashSubtitleCopyFeedback(target));
       },
       "peek-row": (target) => this.toggleRowTranslationPeek(target),
+      "jump-current": () => this.jumpToCurrentTranscriptRow(),
       load: () => this.openSubtitleFilePicker("primary"),
       "load-secondary": () => this.openSubtitleFilePicker("secondary"),
       panel: () => this.toggleTranscriptDrawer(),
@@ -14839,6 +15154,7 @@ ${spelling}`);
       this.transcriptInsetRealignFrame = clearWindowAnimationFrame(this.transcriptInsetRealignFrame);
       this.transcriptViewportStabilizeTimer = clearWindowTimeout(this.transcriptViewportStabilizeTimer);
       this.transcriptResizeBackgroundResumeTimer = clearWindowTimeout(this.transcriptResizeBackgroundResumeTimer);
+      this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
       this.clearTranscriptPanelAnimation();
       this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
       this.pendingPointerActivity = void 0;
@@ -14916,6 +15232,7 @@ ${spelling}`);
       const previousLabel = uiText(settings.interfaceLanguage, "previousSubtitle");
       const nextLabel = uiText(settings.interfaceLanguage, "nextSubtitle");
       const playLabel = uiText(settings.interfaceLanguage, "playVideo");
+      const fullscreenLabel = uiText(settings.interfaceLanguage, "enterFullscreen");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
       setInnerHtml(root, `
@@ -14925,6 +15242,7 @@ ${spelling}`);
                 <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
                 <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon("play")}</button>
+                <button class="jpdb-subtitle-fullscreen-toggle" type="button" data-action="fullscreen" title="${escapeHtml(fullscreenLabel)}" aria-label="${escapeHtml(fullscreenLabel)}">${subtitleIcon("fullscreen")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon("panel-right")}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
             </div>
@@ -15052,6 +15370,7 @@ ${spelling}`);
       this.secondaryCue = void 0;
       this.pendingDomCaption = void 0;
       this.lastDomCaption = "";
+      this.lastDomCaptionSeenAt = 0;
       this.lastAutoCopiedCueSignature = "";
       this.lastRenderedPrimaryText = "";
       this.lastRenderedPrimaryHtml = "";
@@ -15284,13 +15603,12 @@ ${spelling}`);
       if (primary?.track === track) {
         const cues = readTextTrackCues(track);
         if (cues.length) primary.cues = cues;
-        if (!this.cues.length && cues.length) this.cues = offsetSubtitleCues(cues, this.trackTimingOffsetSeconds(primary.id));
-        if (this.trackTimingOffsetSeconds(primary.id)) {
+        if (cues.length) {
+          this.cues = offsetSubtitleCues(cues, this.trackTimingOffsetSeconds(primary.id));
           this.updateFromLoadedCues();
           return;
         }
         this.currentCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getTextTrackCueText(active) }])[0];
-        if (!this.cues.length) this.cues = cues;
         void this.autoCopyCurrentCue();
       }
     }
@@ -15299,13 +15617,12 @@ ${spelling}`);
       if (secondary?.track === track) {
         const cues = readTextTrackCues(track);
         if (cues.length) secondary.cues = cues;
-        if (!this.secondaryCues.length && cues.length) this.secondaryCues = offsetSubtitleCues(cues, this.trackTimingOffsetSeconds(secondary.id));
-        if (this.trackTimingOffsetSeconds(secondary.id)) {
+        if (cues.length) {
+          this.secondaryCues = offsetSubtitleCues(cues, this.trackTimingOffsetSeconds(secondary.id));
           this.updateFromLoadedCues();
           return;
         }
         this.secondaryCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getTextTrackCueText(active), transcriptEligible: false }])[0];
-        if (!this.secondaryCues.length) this.secondaryCues = cues;
       }
     }
     tick() {
@@ -15608,6 +15925,7 @@ ${spelling}`);
     clearLoadedPrimaryCue() {
       this.currentCue = void 0;
       this.lastDomCaption = "";
+      this.lastDomCaptionSeenAt = 0;
       return true;
     }
     updateLoadedSecondaryCue(secondary) {
@@ -15643,6 +15961,7 @@ ${spelling}`);
     keepDomCaptionCueAlive(text) {
       if (this.cues.length || !this.currentCue) return;
       if (text !== this.lastDomCaption) return;
+      this.lastDomCaptionSeenAt = performance.now();
       const now = this.video?.currentTime ?? 0;
       if (now >= this.currentCue.start && this.currentCue.end < now + 1) this.currentCue.end = now + 4;
     }
@@ -15690,13 +16009,19 @@ ${spelling}`);
       return Boolean(selected?.kind === "youtube" && selected.sourceKey !== YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY && !isJapaneseSubtitleTrack(selected));
     }
     clearDomCaptionFallbackIfExpired() {
+      if (this.shouldHoldRecentDomCaption()) return;
       this.pendingDomCaption = void 0;
       if (!this.cues.length && this.currentCue && (this.video?.currentTime ?? 0) > this.currentCue.end) {
         this.currentCue = void 0;
         this.lastDomCaption = "";
+        this.lastDomCaptionSeenAt = 0;
         this.render();
         this.syncControls();
       }
+    }
+    shouldHoldRecentDomCaption() {
+      if (this.cues.length || !this.currentCue || !this.lastDomCaptionSeenAt) return false;
+      return performance.now() - this.lastDomCaptionSeenAt < DOM_CAPTION_MISSING_GRACE_MS;
     }
     isDomCaptionStable(text, nowMs2) {
       if (this.pendingDomCaption?.text !== text) {
@@ -15717,6 +16042,7 @@ ${spelling}`);
     }
     applyDomCaptionFallback(text, selected) {
       this.lastDomCaption = text;
+      this.lastDomCaptionSeenAt = performance.now();
       const now = this.video?.currentTime ?? 0;
       this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text }])[0];
       if (selected?.loadingState === "waiting") selected.loadingState = "ready";
@@ -16296,7 +16622,7 @@ ${spelling}`);
     }
     applyEffectiveSubtitleBottom() {
       if (!this.root) return;
-      this.root.style.setProperty("--subtitle-bottom", `${effectiveSubtitleBottomPercent(this.options.getSettings(), this.root)}%`);
+      this.root.style.setProperty("--subtitle-bottom", `${effectiveSubtitleBottomPercent(this.options.getSettings())}%`);
     }
     fitSubtitleTextToVideo() {
       if (!this.root || !this.subtitleEl) return;
@@ -16496,6 +16822,7 @@ ${spelling}`);
       const settings = this.options.getSettings();
       const setting = control.dataset.subtitleStyleSetting;
       if (setting === "subtitleFontSize") return updateNumberSetting(settings, "subtitleFontSize", control.value, 16, 64);
+      if (setting === "subtitleFontWeight") return updateNumberSetting(settings, "subtitleFontWeight", control.value, 300, 900);
       if (setting === "subtitleBottomOffset") return updateNumberSetting(settings, "subtitleBottomOffset", control.value, 2, 40);
       if (setting === "subtitleBackgroundOpacity") return updateNumberSetting(settings, "subtitleBackgroundOpacity", control.value, 0, 0.7);
       if (setting === "subtitleFontFamily") {
@@ -16591,8 +16918,10 @@ ${spelling}`);
         handle,
         dragFrame,
         dragRoot,
+        mode: handle.matches(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR) ? "transform" : "bottom-offset",
         startY,
-        startOffset: this.subtitleDragOffsetYPx
+        startOffset: this.subtitleDragOffsetYPx,
+        startBottomOffset: this.options.getSettings().subtitleBottomOffset
       };
       this.subtitleDragActive = true;
       handle.classList.add("jpdb-subtitle-dragging");
@@ -16603,7 +16932,11 @@ ${spelling}`);
     }
     updateSubtitleDrag(session, clientY, event) {
       if (event.cancelable) event.preventDefault();
-      this.setSubtitleDragOffset(session.startOffset + clientY - session.startY, session.dragFrame);
+      if (session.mode === "bottom-offset") {
+        this.setSubtitleBottomOffsetFromDrag(session.startBottomOffset, clientY - session.startY, session.dragFrame);
+      } else {
+        this.setSubtitleDragOffset(session.startOffset + clientY - session.startY, session.dragFrame);
+      }
       this.showControlsTemporarily();
     }
     endSubtitleDrag(session) {
@@ -16611,7 +16944,8 @@ ${spelling}`);
       session.handle.classList.remove("jpdb-subtitle-dragging");
       session.dragRoot?.classList.remove("jpdb-subtitle-dragging");
       if (session.dragRoot !== this.root) this.root?.classList.remove("jpdb-subtitle-dragging");
-      this.persistSubtitleDragOffset();
+      if (session.mode === "bottom-offset") this.resetLegacySubtitleDragOffset();
+      else this.persistSubtitleDragOffset();
       this.showControlsTemporarily();
     }
     moveSubtitleOverlayFromKeyboard(event) {
@@ -16628,13 +16962,44 @@ ${spelling}`);
       if (delta === void 0 && !shouldReset) return;
       event.preventDefault();
       event.stopPropagation();
+      const mode = event.currentTarget instanceof HTMLElement && event.currentTarget.matches(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR) ? "transform" : "bottom-offset";
       if (shouldReset) {
-        this.resetSubtitleDragOffset();
+        if (mode === "bottom-offset") this.resetSubtitleBottomOffset();
+        else this.resetSubtitleDragOffset();
       } else {
-        this.setSubtitleDragOffset(this.subtitleDragOffsetYPx + delta, dragFrame);
-        this.persistSubtitleDragOffset();
+        if (mode === "bottom-offset") this.adjustSubtitleBottomOffsetByPixels(delta, dragFrame);
+        else {
+          this.setSubtitleDragOffset(this.subtitleDragOffsetYPx + delta, dragFrame);
+          this.persistSubtitleDragOffset();
+        }
       }
       this.showControlsTemporarily();
+    }
+    setSubtitleBottomOffsetFromDrag(startPercent, deltaY, dragFrame) {
+      this.setSubtitleBottomOffset(startPercent - deltaY / this.subtitlePositionReferenceHeight(dragFrame) * 100);
+    }
+    adjustSubtitleBottomOffsetByPixels(deltaY, dragFrame) {
+      this.setSubtitleBottomOffset(this.options.getSettings().subtitleBottomOffset - deltaY / this.subtitlePositionReferenceHeight(dragFrame) * 100);
+    }
+    setSubtitleBottomOffset(value) {
+      if (!Number.isFinite(value)) return;
+      const settings = this.options.getSettings();
+      const next = Math.round(Math.min(Math.max(value, 2), 40));
+      if (settings.subtitleBottomOffset === next) return;
+      settings.subtitleBottomOffset = next;
+      this.applyEffectiveSubtitleBottom();
+      this.syncSubtitleStyleControls();
+      this.options.onSettingsChange();
+    }
+    resetSubtitleBottomOffset() {
+      this.setSubtitleBottomOffset(DEFAULT_SUBTITLE_BOTTOM_OFFSET);
+      this.resetLegacySubtitleDragOffset();
+    }
+    subtitlePositionReferenceHeight(dragFrame) {
+      const rect = this.root?.getBoundingClientRect() ?? dragFrame?.getBoundingClientRect();
+      const styledHeight = this.root?.style.height ?? "";
+      const styledRootHeight = styledHeight.endsWith("px") ? Number.parseFloat(styledHeight) : 0;
+      return Math.max(1, rect?.height || styledRootHeight || this.videoLayoutRect().height || dragFrame?.getBoundingClientRect().height || this.subtitleDragViewportHeight());
     }
     setSubtitleDragOffset(offsetPx, dragFrame) {
       const offset = Math.round(this.clampedSubtitleDragOffset(offsetPx, dragFrame));
@@ -16644,9 +17009,12 @@ ${spelling}`);
     }
     // Snap back to the configured bottom offset and forget the remembered nudge.
     resetSubtitleDragOffset() {
+      this.resetLegacySubtitleDragOffset();
+    }
+    resetLegacySubtitleDragOffset() {
       this.subtitleDragOffsetFraction = 0;
-      saveSubtitleDragOffsetFraction(0);
       this.subtitleDragOffsetYPx = 0;
+      saveSubtitleDragOffsetFraction(0);
       this.syncSubtitleDragOffsetStyle();
     }
     // Reproject the remembered nudge (a viewport-height fraction) into pixels
@@ -16672,7 +17040,7 @@ ${spelling}`);
     }
     syncSubtitleDragOffsetStyle() {
       const offset = `${this.subtitleDragOffsetYPx}px`;
-      if (this.root) setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", offset);
+      if (this.root) setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", "0px");
       for (const root of this.asbPlayerSubtitleMoveRoots()) {
         setStylePropertyIfChanged(root, "--jpdb-subtitle-asb-drag-offset-y", offset);
       }
@@ -16897,7 +17265,7 @@ ${spelling}`);
     seekToCueObject(cue, options = {}) {
       const padding = options.exact ? 0 : this.options.getSettings().subtitleSeekPadding;
       this.seekVideoTo(Math.max(0, cue.start + padding));
-      this.transcriptUserScrollAt = 0;
+      this.clearTranscriptManualScrollPause();
       this.currentCue = cue;
       this.secondaryCue = this.secondaryCues.find((item) => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
       this.render();
@@ -16910,6 +17278,51 @@ ${spelling}`);
       if (video.paused) void video.play().catch(() => void 0);
       else video.pause();
       this.syncControls();
+    }
+    togglePlayerFullscreen() {
+      const video = this.video;
+      if (!video) return;
+      if (this.isFullscreenActive()) {
+        this.exitPlayerFullscreen();
+        return;
+      }
+      const target = this.fullscreenRequestTarget(video);
+      if (target && target !== video) {
+        if (canRequestElementFullscreen(target)) void Promise.resolve(requestElementFullscreen(target)).catch(() => this.enterInlinePlayerFullscreen(target));
+        else this.enterInlinePlayerFullscreen(target);
+        return;
+      }
+      if (canRequestElementFullscreen(video)) void Promise.resolve(requestElementFullscreen(video)).catch(() => this.enterNativeVideoFullscreen(video));
+      else this.enterNativeVideoFullscreen(video);
+    }
+    exitPlayerFullscreen() {
+      if (activeInlineFullscreenElement()) {
+        exitInlineFullscreen();
+        this.syncFullscreenState();
+        this.scheduleAlignToVideo();
+        this.render();
+        return;
+      }
+      void Promise.resolve(exitCurrentFullscreen()).catch(() => void 0);
+    }
+    enterInlinePlayerFullscreen(target) {
+      enterInlineFullscreen(target);
+      this.syncFullscreenState();
+      this.scheduleAlignToVideo();
+      this.render();
+    }
+    fullscreenRequestTarget(video) {
+      return subtitleVideoLayoutTarget(video) ?? video;
+    }
+    enterNativeVideoFullscreen(video) {
+      try {
+        const fullscreenVideo = video;
+        (fullscreenVideo.webkitEnterFullscreen ?? fullscreenVideo.webkitEnterFullScreen)?.call(video);
+      } catch {
+      }
+    }
+    isFullscreenActive() {
+      return Boolean(this.fullscreen || currentFullscreenElement() || videoIsInNativeFullscreen(this.video));
     }
     seekVideoTo(time) {
       const video = this.video;
@@ -17067,6 +17480,8 @@ ${spelling}`);
       this.cues = [];
       this.currentCue = void 0;
       this.pendingDomCaption = void 0;
+      this.lastDomCaption = "";
+      this.lastDomCaptionSeenAt = 0;
       return requestId;
     }
     clearSecondaryTrackSelection() {
@@ -17155,6 +17570,8 @@ ${spelling}`);
         this.cues = [];
         this.currentCue = void 0;
         this.pendingDomCaption = void 0;
+        this.lastDomCaption = "";
+        this.lastDomCaptionSeenAt = 0;
         this.youtubeDomCaptionFallbackTrackId = "";
       }
       const requestId = this.beginTrackSelection("secondary");
@@ -17193,12 +17610,14 @@ ${spelling}`);
     }
     setNativeTrackModes() {
       const settings = this.options.getSettings();
+      const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
       this.lastYomuCaptionsActive = applySubtitleNativeTrackModes({
         tracks: this.tracks,
         selectedTrackId: this.selectedTrackId,
         secondaryTrackId: this.secondaryTrackId,
         overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
         suppressNativeCaptions: Boolean(settings.subtitlePlayerEnabled && this.video),
+        suppressCaptionPlayerUi: !this.shouldUseDomCaptionFallback(selected),
         video: this.video,
         hasPrimaryCues: Boolean(this.cues.length),
         currentCueText: this.currentCue?.text,
@@ -17353,6 +17772,8 @@ ${spelling}`);
       this.syncLineNavigationButtons(hasLines);
       this.syncDrawerButtons(hasLines);
       this.syncSubtitleStyleControls();
+      this.syncFullscreenRailButton();
+      this.syncTranscriptAutoScrollPausedClass();
       this.syncStatus();
       this.setNativeTrackModes();
     }
@@ -17363,6 +17784,17 @@ ${spelling}`);
       const status = this.root?.querySelector(".jpdb-subtitle-status");
       if (!status) return;
       syncSubtitleTrackStatus(status, this.tracks.length, this.options.getSettings().interfaceLanguage);
+    }
+    syncFullscreenRailButton() {
+      const button = this.root?.querySelector('[data-action="fullscreen"]');
+      if (!button) return;
+      const active = this.isFullscreenActive();
+      const label = uiText(this.options.getSettings().interfaceLanguage, active ? "exitFullscreen" : "enterFullscreen");
+      button.disabled = !this.video;
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      button.setAttribute("aria-pressed", String(active));
+      setInnerHtml(button, subtitleIcon(active ? "fullscreen-exit" : "fullscreen"));
     }
     syncLineNavigationButtons(hasLines) {
       const panelOpen = this.isTranscriptPanelDockedOpen();
@@ -17606,6 +18038,8 @@ ${spelling}`);
       const persist = options.persist ?? true;
       this.clearDeferredTranscriptPanelRender();
       this.clearTranscriptVirtualRender();
+      this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
+      this.transcriptUserScrollAt = 0;
       if (!options.autoPause) {
         this.pausePanelOpen = false;
         if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
@@ -17620,7 +18054,10 @@ ${spelling}`);
     }
     toggleSubtitleStylePanel() {
       const nextOpen = !this.subtitleStylePanelOpen;
-      if (nextOpen && this.isTranscriptPanelOpen()) this.closeTranscriptPanel({ persist: false, immediate: true });
+      if (nextOpen) {
+        if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
+        if (this.isTranscriptPanelOpen()) this.closeTranscriptPanel({ persist: false, immediate: true });
+      }
       this.subtitleStylePanelOpen = nextOpen;
       this.syncSubtitleStyleControls();
       this.showControlsTemporarily();
@@ -17646,6 +18083,7 @@ ${spelling}`);
       if (!popover) return;
       popover.hidden = !open;
       syncSubtitleStyleRangeControl(popover, "subtitleFontSize", settings.subtitleFontSize, "px");
+      syncSubtitleStyleRangeControl(popover, "subtitleFontWeight", settings.subtitleFontWeight, "weight");
       syncSubtitleStyleRangeControl(popover, "subtitleBottomOffset", settings.subtitleBottomOffset, "%");
       syncSubtitleStyleRangeControl(popover, "subtitleBackgroundOpacity", settings.subtitleBackgroundOpacity, "");
       const fontSelect = popover.querySelector('[data-subtitle-style-setting="subtitleFontFamily"]');
@@ -17794,16 +18232,18 @@ ${spelling}`);
       };
     }
     transcriptVirtualStartIndex(scrollTop, currentRowIndex, visibleRows) {
-      if (this.shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex)) {
+      if (this.shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex, visibleRows)) {
         return currentRowIndex - Math.floor(visibleRows / 2);
       }
       return Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
     }
-    shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex) {
+    shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex, visibleRows) {
       if (currentRowIndex < 0) return false;
       if (!this.options.getSettings().subtitleTranscriptAutoScroll) return false;
-      if (performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs()) return false;
-      return scrollTop <= 1 || currentRowIndex < Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
+      if (this.isTranscriptAutoScrollPaused()) return false;
+      const firstRendered = Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
+      const lastRendered = firstRendered + visibleRows - 1;
+      return scrollTop <= 1 || currentRowIndex < firstRendered || currentRowIndex > lastRendered;
     }
     refreshExistingTranscriptPanel(state2) {
       if (this.lastTranscriptSignature !== state2.signature) return false;
@@ -17834,6 +18274,7 @@ ${spelling}`);
                 <div class="jpdb-subtitle-drawer-actions">
                     ${renderPanelModeControls("lines", this.hasTranscriptSurface(), language)}
                     ${renderPanelNavigationControls(Boolean(this.video && rowCount), language)}
+                    <button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml(uiText(language, "jumpToCurrentSubtitle"))}" aria-label="${escapeHtml(uiText(language, "jumpToCurrentSubtitle"))}">${subtitleIcon("locate")}</button>
                     ${renderPanelPlacementControls(this.effectiveTranscriptPlacement, language)}
                     ${renderPausePanelToggle(settings.subtitlePausePanel, language)}
                 </div>
@@ -17917,9 +18358,9 @@ ${spelling}`);
       if (active) active.classList.add("active");
       this.scrollTranscriptToActive();
     }
-    scrollTranscriptToActive() {
-      if (!this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
-      if (performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs()) return;
+    scrollTranscriptToActive(options = {}) {
+      if (!options.force && !this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
+      if (!options.force && this.isTranscriptAutoScrollPaused()) return;
       if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
       this.transcriptScrollFrame = requestAnimationFrame(() => {
         this.transcriptScrollFrame = void 0;
@@ -17932,7 +18373,36 @@ ${spelling}`);
     }
     noteTranscriptScroll() {
       if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
+      if (!this.options.getSettings().subtitleTranscriptAutoScroll) return;
       this.transcriptUserScrollAt = performance.now();
+      this.syncTranscriptAutoScrollPausedClass();
+      this.scheduleTranscriptAutoScrollResume();
+    }
+    jumpToCurrentTranscriptRow() {
+      this.clearTranscriptManualScrollPause();
+      this.clearTranscriptVirtualRender();
+      this.renderTranscriptPanel(true);
+      this.scrollTranscriptToActive({ force: true });
+    }
+    clearTranscriptManualScrollPause() {
+      this.transcriptUserScrollAt = 0;
+      this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
+      this.syncTranscriptAutoScrollPausedClass();
+    }
+    scheduleTranscriptAutoScrollResume() {
+      this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
+      const remaining = Math.max(0, this.transcriptAutoScrollResumeMs() - (performance.now() - this.transcriptUserScrollAt));
+      this.transcriptAutoScrollResumeTimer = window.setTimeout(() => {
+        this.transcriptAutoScrollResumeTimer = void 0;
+        this.syncTranscriptAutoScrollPausedClass();
+        this.scrollTranscriptToActive();
+      }, remaining + 20);
+    }
+    syncTranscriptAutoScrollPausedClass() {
+      this.transcriptPanel?.classList.toggle("jpdb-subtitle-auto-scroll-paused", this.isTranscriptAutoScrollPaused());
+    }
+    isTranscriptAutoScrollPaused() {
+      return Boolean(this.options.getSettings().subtitleTranscriptAutoScroll && this.transcriptUserScrollAt && performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs());
     }
     transcriptAutoScrollResumeMs() {
       const seconds = this.options.getSettings().subtitleTranscriptAutoScrollResumeSeconds;
@@ -18461,6 +18931,7 @@ ${spelling}`);
       this.transcriptVirtualScrollTop = 0;
       this.clearTranscriptVirtualRender();
       this.lastDomCaption = "";
+      this.lastDomCaptionSeenAt = 0;
       this.pendingDomCaption = void 0;
       this.youtubeDomCaptionFallbackTrackId = "";
       this.lastAutoCopiedCueSignature = "";
@@ -18606,6 +19077,9 @@ ${spelling}`);
       if (!options.skipControlSync) this.syncDrawerButtons(this.hasVisibleSubtitleLines());
     }
     transcriptDrawerLayout(options, referenceVideoRect) {
+      if (this.shouldKeepVideoLayoutStableForTranscript()) {
+        return this.stableVideoTranscriptDrawerLayout(options, referenceVideoRect);
+      }
       const layoutOptions = this.withConstrainedSideTranscriptSize(options, referenceVideoRect);
       const layout = computeSubtitleDrawerLayout(layoutOptions);
       const resolvedLayout = this.shouldUseBottomTranscriptLayout(layout, referenceVideoRect) ? computeSubtitleDrawerLayout({
@@ -18614,6 +19088,49 @@ ${spelling}`);
         preferredPlacement: "bottom"
       }) : layout;
       return resolvedLayout;
+    }
+    shouldKeepVideoLayoutStableForTranscript() {
+      if (!this.video) return false;
+      return isYouTubePage() || Boolean(this.video.closest("[data-yomu-video-frame]"));
+    }
+    stableVideoTranscriptDrawerLayout(options, videoRect) {
+      const placement = options.preferredPlacement === "left" ? "left" : options.preferredPlacement === "bottom" ? "bottom" : "right";
+      if (options.compactPanel || placement === "bottom") {
+        return computeSubtitleDrawerLayout({
+          ...options,
+          compactPanel: true,
+          preferredPlacement: "bottom"
+        });
+      }
+      const sideLayout = this.stableSideTranscriptDrawerLayout(placement, options, videoRect);
+      return sideLayout ?? computeSubtitleDrawerLayout({
+        ...options,
+        compactPanel: true,
+        preferredPlacement: "bottom"
+      });
+    }
+    stableSideTranscriptDrawerLayout(placement, options, videoRect) {
+      if (videoRect.width <= 0 || videoRect.height <= 0) return null;
+      const margin = TRANSCRIPT_PANEL_MARGIN;
+      const availableWidth = Math.floor(placement === "left" ? videoRect.left - margin * 2 : options.viewportWidth - videoRect.right - margin * 2);
+      if (availableWidth < TRANSCRIPT_PANEL_MIN_SIDE_WIDTH) return null;
+      const desiredWidth = options.size?.sideWidth ?? Math.min(460, options.viewportWidth * 0.32);
+      const width = Math.round(Math.min(Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, desiredWidth), availableWidth));
+      const top = Math.round(Math.min(
+        Math.max(options.anchorTop ?? videoRect.top ?? 72, margin),
+        Math.max(margin, options.viewportHeight - 280)
+      ));
+      return {
+        placement,
+        left: placement === "left" ? Math.max(margin, Math.round(videoRect.left - margin - width)) : Math.min(options.viewportWidth - margin - width, Math.max(margin, Math.round(videoRect.right + margin))),
+        top,
+        width,
+        height: Math.max(260, options.viewportHeight - top - margin),
+        viewportWidth: options.viewportWidth,
+        viewportHeight: options.viewportHeight,
+        margin,
+        maxWidth: availableWidth
+      };
     }
     withConstrainedSideTranscriptSize(options, referenceVideoRect) {
       if (options.compactPanel || options.preferredPlacement === "bottom" || !this.video) return options;
@@ -18727,6 +19244,10 @@ ${spelling}`);
         return false;
       }
       if (layout.placement === "bottom") {
+        this.clearVideoInsetForTranscriptPanel();
+        return false;
+      }
+      if (this.shouldKeepVideoLayoutStableForTranscript()) {
         this.clearVideoInsetForTranscriptPanel();
         return false;
       }
@@ -19179,7 +19700,6 @@ ${spelling}`);
   const OEMBED_SESSION_CACHE_PREFIX = "yomu:youtube-oembed-title:v1:";
   const OEMBED_SESSION_CACHE_TTL_MS = 6 * 60 * 60 * 1e3;
   const OEMBED_BATCH_RESCAN_DELAY_MS = 180;
-  const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 4200;
   const YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS = 90;
   const YOUTUBE_FILTER_COLLAPSE_DELAY_MS = 80;
   const YOUTUBE_FILTER_SCROLL_COLLAPSE_DELAY_MS = 650;
@@ -19246,7 +19766,6 @@ ${spelling}`);
     events;
     timer;
     metadataRescanTimer;
-    noticeTimer;
     bar;
     channelShelf;
     revealed = false;
@@ -19685,11 +20204,9 @@ ${spelling}`);
       }
       const noticeScope = this.currentNoticeScope();
       if (!this.bar && this.dismissedNoticeScope === noticeScope) return;
-      const shouldStartTimer = !this.bar;
       const notice = this.ensureNoticeBar();
       this.updateNoticeSummary(notice.summary, filteredCount, shownCount, settings);
       this.updateNoticeActions(notice, settings);
-      if (shouldStartTimer) this.startNoticeTimer(noticeScope);
     }
     ensureNoticeBar() {
       if (!this.bar) {
@@ -20335,17 +20852,7 @@ ${spelling}`);
         this.schedule(0);
       }, OEMBED_BATCH_RESCAN_DELAY_MS);
     }
-    startNoticeTimer(noticeScope) {
-      window.clearTimeout(this.noticeTimer);
-      this.noticeTimer = window.setTimeout(() => {
-        if (this.currentNoticeScope() !== noticeScope) return;
-        this.dismissedNoticeScope = noticeScope;
-        this.removeNotice();
-      }, YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS);
-    }
     removeNotice() {
-      window.clearTimeout(this.noticeTimer);
-      this.noticeTimer = void 0;
       this.bar?.remove();
       this.bar = void 0;
     }

@@ -474,6 +474,7 @@ function readOcrFormSettings(reader: SettingsFormReader, current: ReaderSettings
         ocrShowTextOverlay: has('ocrShowTextOverlay'),
         ocrVideoPauseFrames: has('ocrVideoPauseFrames'),
         ocrInvertDarkPanels: has('ocrInvertDarkPanels'),
+        ocrOverlayTheme: readOption(get('ocrOverlayTheme'), ['auto', 'dark', 'light'] as const, current.ocrOverlayTheme),
         ocrProvider: normalizeOcrProvider(get('ocrProvider')),
         ocrEndpointUrl: get('ocrEndpointUrl').trim(),
         ocrEngine: get('ocrEngine').trim() || 'auto',

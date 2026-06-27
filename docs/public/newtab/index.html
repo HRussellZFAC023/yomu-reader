@@ -22,7 +22,10 @@
     <link rel="icon" type="image/png" sizes="16x16" href="../favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./styles.css?v=f021c8edc46e">
+    <meta name="theme-color" content="#181b20">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="stylesheet" href="./styles.css?v=df36e42c548b">
     <meta name="apple-mobile-web-app-title" content="よむ">
     <meta name="color-scheme" content="light dark">
     <meta http-equiv="Cache-Control" content="no-cache">
@@ -477,8 +480,8 @@
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
     <script>
       (() => {
-        const appHash = 'd8e098cb2196';
-        const buildId = '1.4.134-d8e098cb2196';
+        const appHash = 'b71ef3f19508';
+        const buildId = '1.4.137-b71ef3f19508';
         window.yomuNewTabAppHash = appHash;
         window.yomuNewTabBuildId = buildId;
         if (appHash.startsWith('__') || buildId.startsWith('__')) return;
@@ -508,7 +511,14 @@
           .catch(() => undefined);
       })();
     </script>
-    <script src="./app.js?v=d8e098cb2196"></script>
+    <script>
+      if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(() => undefined);
+        }, { once: true });
+      }
+    </script>
+    <script src="./app.js?v=b71ef3f19508"></script>
   </body>
 
 </html>

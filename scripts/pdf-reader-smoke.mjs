@@ -23,6 +23,7 @@ import {
     launchSmokeBrowser,
     serveFile,
     startLoopbackServer,
+    YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -31,6 +32,9 @@ const publicRoot = path.join(appRoot, 'docs', 'public');
 const pdfReaderHtml = path.join(publicRoot, 'pdf-reader', 'index.html');
 const userscript = path.join(publicRoot, 'yomu.user.js');
 const css = path.join(publicRoot, 'yomu.css');
+const OCR_SMOKE_TEXT = 'スキャンOCR本文';
+let ocrRequests = 0;
+const ocrPayloads = [];
 
 const MIME = {
     '.html': 'text/html; charset=utf-8',
@@ -51,6 +55,10 @@ function staticHandler(request, response) {
     try {
         const url = new URL(request.url, 'http://127.0.0.1');
         let pathname = decodeURIComponent(url.pathname);
+        if (pathname === '/ocr-smoke') {
+            serveMockOcr(request, response);
+            return;
+        }
         if (pathname.endsWith('/')) pathname += 'index.html';
         const filePath = path.join(publicRoot, pathname);
         if (!filePath.startsWith(publicRoot) || !existsSync(filePath)) {
@@ -61,6 +69,31 @@ function staticHandler(request, response) {
     } catch (error) {
         response.writeHead(500).end(String(error));
     }
+}
+
+function serveMockOcr(request, response) {
+    if (request.method !== 'POST') {
+        response.writeHead(405).end('method not allowed');
+        return;
+    }
+    let body = '';
+    request.setEncoding('utf8');
+    request.on('data', chunk => {
+        body += chunk;
+    });
+    request.on('end', () => {
+        ocrRequests += 1;
+        ocrPayloads.push({ bytes: Buffer.byteLength(body, 'utf8') });
+        response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({
+            width: 1000,
+            height: 1400,
+            lines: [{
+                text: OCR_SMOKE_TEXT,
+                box: { left: 120, top: 180, width: 360, height: 72 },
+            }],
+        }));
+    });
 }
 
 const TEXT_PAGES = [
@@ -238,10 +271,30 @@ function byteLength(chunks) {
     return chunks.reduce((total, chunk) => total + chunk.length, 0);
 }
 
-async function openInReader(browser, baseUrl, pdfBytes, fileName) {
+function pdfSmokeSettings(baseUrl) {
+    return {
+        onboardingSeen: true,
+        ocrEnabled: true,
+        ocrAutoScanImages: true,
+        ocrShowTextOverlay: true,
+        ocrProvider: 'local-service',
+        ocrEndpointUrl: `${baseUrl}/ocr-smoke`,
+        ocrMinImageArea: 1,
+        ocrMaxImagesPerPage: 8,
+        ocrMaxImagePixels: 640000,
+        lookupOnHover: false,
+        showFloatingButton: false,
+        enableLogging: false,
+    };
+}
+
+async function openInReader(browser, baseUrl, pdfBytes, fileName, settings = pdfSmokeSettings(baseUrl)) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
     const consoleErrors = [];
     page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+    await page.addInitScript(({ key, value }) => {
+        localStorage.setItem(key, JSON.stringify(value));
+    }, { key: YOMU_SETTINGS_KEY, value: settings });
     await page.goto(`${baseUrl}/pdf-reader/`, { waitUntil: 'domcontentloaded' });
     await page.setInputFiles('[data-pdf-input]', { name: fileName, mimeType: 'application/pdf', buffer: pdfBytes });
     // Wait for PDF.js to paint the first page canvas.
@@ -250,6 +303,26 @@ async function openInReader(browser, baseUrl, pdfBytes, fileName) {
         return canvas instanceof HTMLCanvasElement && canvas.width > 0 && canvas.height > 0;
     }, { timeout: 15000 });
     return { page, consoleErrors };
+}
+
+async function readEmptyLayout(page) {
+    return page.evaluate(() => {
+        const empty = document.querySelector('.empty');
+        const chrome = document.querySelector('.chrome');
+        const rect = empty?.getBoundingClientRect();
+        const chromeRect = chrome?.getBoundingClientRect();
+        if (!rect || !chromeRect) return { visible: false };
+        const remainingCenterY = chromeRect.bottom + (window.innerHeight - chromeRect.bottom) / 2;
+        const emptyCenterY = rect.top + rect.height / 2;
+        return {
+            visible: rect.width > 0 && rect.height > 0,
+            top: Math.round(rect.top),
+            chromeBottom: Math.round(chromeRect.bottom),
+            centerOffsetY: Math.round(emptyCenterY - remainingCenterY),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+        };
+    });
 }
 
 async function readState(page) {
@@ -261,7 +334,18 @@ async function readState(page) {
         renderedCanvas: [...document.querySelectorAll('.pdf-page canvas')].some(c => c.width > 0),
         textSpanCount: document.querySelectorAll('.textLayer span').length,
         textSample: (document.querySelector('.textLayer')?.textContent ?? '').replace(/\s+/g, '').slice(0, 40),
+        textPdfPages: document.querySelectorAll('.pdf-page.text-pdf').length,
         scannedPages: document.querySelectorAll('.pdf-page.scanned').length,
+        ocrOffCanvases: document.querySelectorAll('.pdf-page canvas[data-yomu-canvas-ocr="off"]').length,
+        ocrOnCanvases: document.querySelectorAll('.pdf-page canvas[data-yomu-canvas-ocr="on"]').length,
+        hiddenTextLayers: document.querySelectorAll('.textLayer[hidden], .textLayer[aria-hidden="true"]').length,
+        firstPageMode: document.querySelector('.pdf-page')?.getAttribute('data-pdf-text') ?? '',
+        firstPageOcr: document.querySelector('.pdf-page')?.getAttribute('data-yomu-canvas-ocr') ?? '',
+        ocrLineCount: document.querySelectorAll('.jpdb-ocr-line').length,
+        ocrTextSample: [...document.querySelectorAll('.jpdb-ocr-line')]
+            .map(line => line.textContent?.replace(/\s+/g, '') ?? '')
+            .join('')
+            .slice(0, 40),
         pageTotal: document.querySelector('[data-page-total]')?.textContent ?? '',
         runtimeLoaded: Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')),
         enhancedWords: document.querySelectorAll('.jpdb-reader-word, .textLayer ruby').length,
@@ -276,17 +360,33 @@ async function run() {
     const server = await startLoopbackServer(staticHandler, 'Could not bind PDF reader smoke server');
     const report = {};
     try {
+        {
+            const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
+            await page.goto(`${server.origin}/pdf-reader/`, { waitUntil: 'domcontentloaded' });
+            const emptyLayout = await readEmptyLayout(page);
+            report.empty = emptyLayout;
+            assert(emptyLayout.visible, 'empty PDF drop area should be visible on first load', emptyLayout);
+            assert(emptyLayout.top >= emptyLayout.chromeBottom, 'empty PDF drop area should sit below the sticky chrome', emptyLayout);
+            assert(Math.abs(emptyLayout.centerOffsetY) <= 24, 'empty PDF drop area should be centered in the remaining viewport', emptyLayout);
+            await page.screenshot({ path: path.join(appRoot, 'qa-artifacts', 'pdf-reader-empty.png') }).catch(() => {});
+            await page.close();
+        }
+
         const textPdf = textPdfBytes();
         const mixedPdf = mixedPdfBytes();
         const scannedPdf = imageOnlyPdfBytes();
 
         // --- 1) text PDF: canvas + selectable Japanese text layer + runtime ---
         {
+            const beforeOcr = ocrRequests;
             const { page, consoleErrors } = await openInReader(browser, server.origin, textPdf, 'text.pdf');
             const state = await readState(page);
             report.text = state;
             assert(state.hasPdf && state.renderedCanvas, 'text PDF should render a page canvas', state);
             assert(state.textSpanCount > 0 && /[぀-ヿ一-龯]/.test(state.textSample), 'text PDF should expose a Japanese text layer', state);
+            assert(state.textPdfPages > 0 && state.scannedPages === 0, 'text PDF should be classified as text, not scanned', state);
+            assert(state.ocrOffCanvases > 0 && state.ocrOnCanvases === 0, 'text PDF canvases should keep raster OCR disabled', state);
+            assert(ocrRequests === beforeOcr, 'text PDF should not call image OCR', { beforeOcr, ocrRequests, state });
             assert(/\/\s*2\b/.test(state.pageTotal) || state.canvasCount >= 2, 'text PDF should report multiple pages', state);
             assert(state.runtimeLoaded, 'よむ runtime should auto-load on the PDF reader page', state);
             assert(!consoleErrors.some(e => /pdf\.min|worker|import/i.test(e)), 'no PDF.js load errors', { consoleErrors });
@@ -296,6 +396,7 @@ async function run() {
 
         // --- 2) text+graphic PDF: painted content plus a text layer ---
         {
+            const beforeOcr = ocrRequests;
             const { page } = await openInReader(browser, server.origin, mixedPdf, 'mixed.pdf');
             const state = await readState(page);
             // Prove the embedded picture actually rasterised onto the canvas (the
@@ -314,6 +415,8 @@ async function run() {
             report.mixed = { ...state, greenishPixels: colorful };
             assert(state.renderedCanvas, 'mixed PDF should render a page canvas (image + text)', state);
             assert(state.textSpanCount > 0 && /[぀-ヿ一-龯]/.test(state.textSample), 'mixed PDF should expose a Japanese text layer', state);
+            assert(state.textPdfPages > 0 && state.ocrOffCanvases > 0, 'mixed text/image PDFs should use the text layer and keep canvas OCR disabled', state);
+            assert(ocrRequests === beforeOcr, 'mixed text/image PDF should not call image OCR', { beforeOcr, ocrRequests, state });
             assert(colorful > 500, 'mixed PDF image should rasterise in colour (not a black box)', { greenishPixels: colorful });
             await page.screenshot({ path: path.join(appRoot, 'qa-artifacts', 'pdf-reader-mixed.png') }).catch(() => {});
             await page.close();
@@ -321,12 +424,23 @@ async function run() {
 
         // --- 3) image-only/scanned PDF: canvas renders, flagged scanned, no text ---
         {
+            const beforeOcr = ocrRequests;
             const { page } = await openInReader(browser, server.origin, scannedPdf, 'scanned.pdf');
+            await page.waitForFunction(text => [...document.querySelectorAll('.jpdb-ocr-line')]
+                .some(line => line.textContent?.includes(text)), OCR_SMOKE_TEXT, { timeout: 15000 })
+                .catch(async error => {
+                    const state = await readState(page);
+                    throw new Error(`scanned PDF OCR overlay did not appear: ${error.message}\n${JSON.stringify({ beforeOcr, ocrRequests, ocrPayloads, state }, null, 2)}`);
+                });
             const state = await readState(page);
             report.scanned = state;
             assert(state.renderedCanvas, 'scanned PDF should still render the page image', state);
             assert(state.textSpanCount === 0, 'scanned PDF should have no selectable text layer', state);
             assert(state.scannedPages > 0, 'scanned PDF should be flagged as scanned (OCR hint)', state);
+            assert(state.ocrOnCanvases > 0 && state.firstPageOcr === 'on', 'scanned PDF canvases should opt into Yomu raster OCR', state);
+            assert(state.hiddenTextLayers > 0, 'scanned PDF should hide the empty text layer so OCR remains readable', state);
+            assert(ocrRequests > beforeOcr, 'scanned PDF should call the configured Yomu OCR endpoint', { beforeOcr, ocrRequests, ocrPayloads });
+            assert(state.ocrLineCount > 0 && state.ocrTextSample.includes(OCR_SMOKE_TEXT), 'scanned PDF should render the OCR overlay text', state);
             await page.screenshot({ path: path.join(appRoot, 'qa-artifacts', 'pdf-reader-scanned.png') }).catch(() => {});
             await page.close();
         }

@@ -51,6 +51,8 @@ export type AudioAutoPlayMode = 'off' | 'all' | 'hover' | 'tap';
 
 export type OcrProvider = 'google-lens' | 'cloud-vision' | 'local-service' | 'page-text' | 'off';
 
+export type OcrOverlayTheme = 'auto' | 'dark' | 'light';
+
 export type PopupActivationMode = 'click' | 'hover' | 'modifier' | 'off';
 
 export type ScanModifierKey = 'shift' | 'alt' | 'ctrl' | 'meta';
@@ -359,6 +361,7 @@ export interface ReaderSettings {
     ocrAutoScanImages: boolean;
     ocrVideoPauseFrames: boolean;
     ocrShowTextOverlay: boolean;
+    ocrOverlayTheme: OcrOverlayTheme;
     ocrProvider: OcrProvider;
     ocrEndpointUrl: string;
     ocrEngine: string;

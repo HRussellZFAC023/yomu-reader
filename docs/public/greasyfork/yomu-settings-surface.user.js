@@ -1941,6 +1941,7 @@
   const IMMERSION_KIT_CATEGORIES = ["anime", "drama", "games", "all"];
   const IMMERSION_KIT_SORTS = ["sentence_length:desc", "sentence_length:asc"];
   const IMMERSION_EXAMPLE_SOURCES = ["nadeshiko", "combined", "immersion-kit"];
+  const OCR_OVERLAY_THEMES = ["auto", "dark", "light"];
   const SUBTITLE_CONTROL_MODES = ["always", "hidden", "auto"];
   const SUBTITLE_TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
   const NEW_TAB_SOURCES = ["jpdb", "anki", "auto", "dictionary"];
@@ -2085,6 +2086,7 @@
     ocrAutoScanImages: true,
     ocrVideoPauseFrames: true,
     ocrShowTextOverlay: false,
+    ocrOverlayTheme: "auto",
     ocrProvider: "google-lens",
     ocrEndpointUrl: "",
     ocrEngine: "auto",
@@ -2514,6 +2516,7 @@
       immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
       immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
       ocrProvider: normalizeOcrProvider(settings.ocrProvider, value),
+      ocrOverlayTheme: normalizeOcrOverlayTheme(settings.ocrOverlayTheme),
       ocrEngine: normalizeOcrEngine(settings.ocrEngine),
       ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
       ocrTextColor: sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
@@ -2636,6 +2639,9 @@
   }
   function normalizeSubtitleControlsMode(value) {
     return normalizeOption(value, SUBTITLE_CONTROL_MODES, DEFAULT_SETTINGS.subtitleControlsMode);
+  }
+  function normalizeOcrOverlayTheme(value) {
+    return normalizeOption(value, OCR_OVERLAY_THEMES, DEFAULT_SETTINGS.ocrOverlayTheme);
   }
   function normalizeSubtitleTranscriptPlacement(value) {
     return normalizeOption(value, SUBTITLE_TRANSCRIPT_PLACEMENTS, DEFAULT_SETTINGS.subtitleTranscriptPlacement);
@@ -3545,6 +3551,7 @@
       fontPresetYomuDefault: "Built-in font",
       fontPresetJapaneseSans: "Japanese sans",
       fontPresetHiraginoYuGothic: "Hiragino / Yu Gothic",
+      fontPresetJapaneseRounded: "Japanese rounded",
       fontPresetJapaneseSerif: "Japanese serif",
       fontPresetSystemUi: "System UI",
       fontPresetCustom: "Custom...",
@@ -3784,6 +3791,10 @@
       ocrVideoPauseFrames: "Read paused video frames",
       ocrInvertDarkPanels: "Read light text on dark panels",
       ocrProvider: "Image reading",
+      ocrOverlayTheme: "OCR overlay theme",
+      ocrOverlayThemeAuto: "Match app theme",
+      ocrOverlayThemeLight: "Light overlay",
+      ocrOverlayThemeDark: "Dark overlay",
       googleLens: "Google Lens (free, recommended)",
       cloudVision: "Google Cloud Vision (API key)",
       localOcr: "Local OCR server",
@@ -4058,8 +4069,11 @@
       nextLookupWord: "Next word",
       previousSubtitle: "Previous subtitle",
       nextSubtitle: "Next subtitle",
+      jumpToCurrentSubtitle: "Jump to current subtitle",
       playVideo: "Play video",
       pauseVideo: "Pause video",
+      enterFullscreen: "Enter fullscreen",
+      exitFullscreen: "Exit fullscreen",
       copySubtitle: "Copy subtitle",
       subtitleFallbackLabel: "Subtitle",
       subtitlesTitle: "Subtitles",
@@ -4824,8 +4838,11 @@ couldNotReadAudio	音声を読み取れませんでした。
 couldNotReadAudioBlob	音声データを読み取れませんでした。
 previousSubtitle	前の字幕
 nextSubtitle	次の字幕
+jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
+enterFullscreen	全画面表示
+exitFullscreen	全画面表示を終了
 copySubtitle	字幕をコピー
 subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
@@ -5162,6 +5179,7 @@ popupFontFamily	ポップアップの日本語フォント
 fontPresetYomuDefault	内蔵フォント
 fontPresetJapaneseSans	日本語サンセリフ
 fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
+fontPresetJapaneseRounded	日本語丸ゴシック
 fontPresetJapaneseSerif	日本語明朝
 fontPresetSystemUi	システムUI
 fontPresetCustom	カスタム...
@@ -5375,6 +5393,10 @@ ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
 ocrInvertDarkPanels	暗いコマの白い文字を読む
 ocrProvider	画像読み取り
+ocrOverlayTheme	OCRオーバーレイテーマ
+ocrOverlayThemeAuto	アプリのテーマに合わせる
+ocrOverlayThemeLight	ライトオーバーレイ
+ocrOverlayThemeDark	ダークオーバーレイ
 googleLens	Google Lens — 無料・設定不要（おすすめ）
 cloudVision	Google Cloud Vision — APIキーが必要
 localOcr	ローカルOCRサーバー — 上級者向け
@@ -6736,6 +6758,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ocrShowTextOverlay: has("ocrShowTextOverlay"),
       ocrVideoPauseFrames: has("ocrVideoPauseFrames"),
       ocrInvertDarkPanels: has("ocrInvertDarkPanels"),
+      ocrOverlayTheme: readOption(get("ocrOverlayTheme"), ["auto", "dark", "light"], current.ocrOverlayTheme),
       ocrProvider: normalizeOcrProvider(get("ocrProvider")),
       ocrEndpointUrl: get("ocrEndpointUrl").trim(),
       ocrEngine: get("ocrEngine").trim() || "auto",
@@ -7318,6 +7341,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const [link] = links.splice(from, 1);
     links.splice(to, 0, link);
   }
+  const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
+  const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
+  const JAPANESE_ROUNDED_FONT_FAMILY = '"Hiragino Maru Gothic ProN", "Yu Gothic", "Noto Sans JP", Meiryo, sans-serif';
+  const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
+  const FONT_FAMILY_PRESETS = [
+    { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: "fontPresetYomuDefault", fallbackLabel: "Built-in font" },
+    { value: JAPANESE_SANS_FONT_FAMILY, labelKey: "fontPresetJapaneseSans", fallbackLabel: "Japanese sans" },
+    { value: HIRAGINO_YU_GOTHIC_FONT_FAMILY, labelKey: "fontPresetHiraginoYuGothic", fallbackLabel: "Hiragino / Yu Gothic" },
+    { value: JAPANESE_ROUNDED_FONT_FAMILY, labelKey: "fontPresetJapaneseRounded", fallbackLabel: "Japanese rounded" },
+    { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
+    { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
+  ];
   const DEFAULT_WEB_OAUTH_CLIENT_ID = "697885991868-bj7l5ja9vgbgk5i2ojcf5jfnkdg5h47g.apps.googleusercontent.com";
   const WEB_OAUTH_CLIENT_ID = DEFAULT_WEB_OAUTH_CLIENT_ID;
   const CLOUD_SETTINGS_SYNC_ENABLED = Boolean(WEB_OAUTH_CLIENT_ID);
@@ -8219,16 +8254,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const API_KEY_INPUT_ATTRIBUTE_HTML = ' autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
   const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
-  const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
-  const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
-  const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
-  const FONT_FAMILY_PRESETS = [
-    { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: "fontPresetYomuDefault", fallbackLabel: "Built-in font" },
-    { value: JAPANESE_SANS_FONT_FAMILY, labelKey: "fontPresetJapaneseSans", fallbackLabel: "Japanese sans" },
-    { value: HIRAGINO_YU_GOTHIC_FONT_FAMILY, labelKey: "fontPresetHiraginoYuGothic", fallbackLabel: "Hiragino / Yu Gothic" },
-    { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
-    { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
-  ];
   const DEFAULT_SETTINGS_PANEL = "appearance";
   const SETTINGS_TABS = [
     { panel: "appearance", label: "Appearance", active: true },
@@ -8819,6 +8844,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${select("ocrProvider", "Image reading", settings.ocrProvider, [["google-lens", "Google Lens — free, no setup (recommended)"], ["cloud-vision", "Google Cloud Vision — needs API key"], ["local-service", "Local OCR server — advanced"], ["off", "Off"]])}
+                    ${select("ocrOverlayTheme", "OCR overlay theme", settings.ocrOverlayTheme, [["auto", "Match app theme"], ["light", "Light overlay"], ["dark", "Dark overlay"]])}
                     ${select("ocrMaxImagesPerPage", "Images to read per page", String(settings.ocrMaxImagesPerPage), [["3", "Light"], ["8", "Normal"], ["16", "More"]])}
                     ${select("ocrMinImageArea", "Smallest image to read", String(settings.ocrMinImageArea), [["80000", "Large images only"], ["45000", "Normal"], ["15000", "Include small images"]])}
                     ${select("ocrMaxImagePixels", "Image detail", String(settings.ocrMaxImagePixels), [["640000", "Faster"], ["1200000", "Balanced"], ["2000000", "Sharper"]])}
@@ -9395,6 +9421,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ["local-service", text("localOcr")],
       ["off", text("off")]
     ]);
+    setSelectOptionLabels(form, "ocrOverlayTheme", [
+      ["auto", text("ocrOverlayThemeAuto")],
+      ["light", text("ocrOverlayThemeLight")],
+      ["dark", text("ocrOverlayThemeDark")]
+    ]);
     setSelectOptionLabels(form, "ocrMaxImagesPerPage", [
       ["3", text("lightWork")],
       ["8", text("normal")],
@@ -9817,6 +9848,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "ocrVideoPauseFrames",
     "ocrInvertDarkPanels",
     "ocrProvider",
+    "ocrOverlayTheme",
     "ocrMaxImagesPerPage",
     "ocrMinImageArea",
     "ocrMaxImagePixels",

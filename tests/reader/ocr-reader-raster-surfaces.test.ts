@@ -131,6 +131,62 @@ function mokuroBackgroundPageAt(index: number, rect: () => DOMRect): HTMLElement
 }
 
 describe('reader raster OCR surfaces', () => {
+    it('prefers BookWalker currentScreen canvases regardless of page movement direction', () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        const leftViewport = Object.assign(document.createElement('div'), { id: 'viewport-left' });
+        const rightViewport = Object.assign(document.createElement('div'), { id: 'viewport-right' });
+        const leftCanvas = pageCanvas(-420, 20);
+        const rightCanvas = pageCanvas(24, 20);
+        leftViewport.append(leftCanvas);
+        rightViewport.append(rightCanvas);
+        document.body.append(leftViewport, rightViewport);
+
+        leftViewport.classList.add('currentScreen');
+        expect(collectCanvasReaderSurfaces('viewer.bookwalker.jp')).toEqual([leftCanvas]);
+
+        leftViewport.classList.remove('currentScreen');
+        rightViewport.classList.add('currentScreen');
+        expect(collectCanvasReaderSurfaces('viewer.bookwalker.jp')).toEqual([rightCanvas]);
+    });
+
+    it('respects native text PDF pages opting canvas OCR off while allowing scanned pages to opt in', () => {
+        stubLocation('hrussellzfac023.github.io');
+        stubReadableCanvas();
+        const page = document.createElement('section');
+        page.dataset.yomuCanvasOcr = 'off';
+        const canvas = pageCanvas(24, 20);
+        page.append(canvas);
+        document.body.append(page);
+
+        expect(collectCanvasReaderSurfaces()).toEqual([]);
+
+        page.dataset.yomuCanvasOcr = 'on';
+        canvas.dataset.yomuCanvasOcr = 'on';
+        expect(collectCanvasReaderSurfaces()).toEqual([canvas]);
+    });
+
+    it('auto-captures scanned PDF canvases that opt in even when generic image OCR is suppressed', async () => {
+        stubLocation('hrussellzfac023.github.io');
+        stubReadableCanvas();
+        const page = document.createElement('section');
+        page.dataset.yomuCanvasOcr = 'on';
+        const canvas = pageCanvas(24, 20);
+        canvas.dataset.yomuCanvasOcr = 'on';
+        page.append(canvas);
+        document.body.append(page);
+        const controller = createController({}, undefined, undefined, () => false);
+        try {
+            await waitForExpect(() => {
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+                expect(frame!.dataset.yomuCanvasFrame).toBe('true');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('refreshes when a BookWalker canvas mounts after controller startup', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
@@ -609,6 +665,9 @@ describe('reader raster OCR surfaces', () => {
 
             counter.textContent = '2 / 12';
             controller.refresh();
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+            });
             resolveFirstCapture?.(mirrorCanvas('PAGE1'));
 
             await waitForExpect(() => {
@@ -700,6 +759,66 @@ describe('reader raster OCR surfaces', () => {
             await waitForExpect(() => {
                 expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src')).toBe('data:image/jpeg;base64,TAPPED');
             });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('OCRs a tainted BookWalker canvas when WebKit sends touchstart without pointerdown', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('TOUCHSTART'));
+        const controller = createController({ ocrAutoScanImages: false }, async () => undefined, captureCanvasMirror);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => canvas) });
+        try {
+            const event = new Event('touchstart', { bubbles: true }) as Event & Partial<TouchEvent>;
+            Object.defineProperties(event, {
+                changedTouches: { value: [{ clientX: 200, clientY: 300 }] },
+                touches: { value: [{ clientX: 200, clientY: 300 }] },
+            });
+            canvas.dispatchEvent(event);
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src')).toBe('data:image/jpeg;base64,TOUCHSTART');
+            });
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('does not double-capture when a touchstart is followed by the matching touch pointerdown', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('ONE_TAP'));
+        const controller = createController({ ocrAutoScanImages: false }, async () => undefined, captureCanvasMirror);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => canvas) });
+        try {
+            const touchEvent = new Event('touchstart', { bubbles: true }) as Event & Partial<TouchEvent>;
+            Object.defineProperties(touchEvent, {
+                changedTouches: { value: [{ clientX: 200, clientY: 300 }] },
+                touches: { value: [{ clientX: 200, clientY: 300 }] },
+            });
+            canvas.dispatchEvent(touchEvent);
+
+            const pointerEvent = new Event('pointerdown', { bubbles: true }) as Event & Partial<PointerEvent>;
+            Object.defineProperties(pointerEvent, {
+                clientX: { value: 200 }, clientY: { value: 300 },
+                button: { value: 0 }, pointerType: { value: 'touch' },
+            });
+            canvas.dispatchEvent(pointerEvent);
+
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src')).toBe('data:image/jpeg;base64,ONE_TAP');
+            });
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
         } finally {
             controller.destroy();
         }

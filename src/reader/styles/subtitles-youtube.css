@@ -33,8 +33,8 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: keep-all;
-  max-height: min(45%, calc(100% - 24px));
-  overflow: visible;
+  max-height: min(5.4em, 45%, calc(100% - 24px));
+  overflow: hidden;
   pointer-events: none;
   transform: translateY(var(--subtitle-drag-offset-y));
   -webkit-tap-highlight-color: transparent;
@@ -42,7 +42,7 @@
 .jpdb-subtitle-lines {
   min-height: 1.36em;
   max-height: inherit;
-  overflow: visible;
+  overflow: hidden;
   pointer-events: none;
 }
 .jpdb-subtitle-primary,
@@ -445,6 +445,9 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending {
   filter: saturate(.72);
+}
+:is(.jpdb-subtitle-primary, .jpdb-reader-subtitle-surface) .jpdb-reader-word.jpdb-reader-has-furi {
+  line-height: 1.72;
 }
 /* Second selector matches the same element in light mode at higher specificity
    than the on-page furigana reset (`:is(.theme-light) .jpdb-reader-word rt` in
@@ -935,6 +938,15 @@ html.jpdb-subtitle-native-captions-suppressed video::cue {
   visibility: hidden;
   opacity: 0;
 }
+html.jpdb-subtitle-native-captions-suppressed .player-timedtext-text-container,
+html.jpdb-subtitle-native-captions-suppressed .player-timedtext-text-container *,
+html.jpdb-subtitle-native-captions-suppressed [data-uia="player-subtitle-text"],
+html.jpdb-subtitle-native-captions-suppressed [data-uia="player-captions-text"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  text-shadow: none !important;
+}
 html.jpdb-subtitle-video-inset-right ytd-watch-flexy #secondary,
 html.jpdb-subtitle-video-inset-left ytd-watch-flexy #secondary,
 html.jpdb-subtitle-video-inset-right ytd-watch-flexy #secondary-inner,
@@ -1179,6 +1191,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   opacity: .42;
 }
 .jpdb-subtitle-panel-nav button,
+.jpdb-subtitle-jump-current,
 .jpdb-subtitle-panel-placement button {
   display: inline-grid;
   place-items: center;
@@ -1194,6 +1207,25 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   box-shadow: none;
   font-size: 19px;
   line-height: 0;
+}
+.jpdb-subtitle-jump-current {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-2px);
+  transition: opacity .12s ease, transform .12s ease;
+}
+.jpdb-subtitle-list.jpdb-subtitle-auto-scroll-paused .jpdb-subtitle-jump-current {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.jpdb-subtitle-list:not(.jpdb-subtitle-auto-scroll-paused) .jpdb-subtitle-jump-current {
+  width: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
 }
 .jpdb-subtitle-panel-placement button[aria-pressed="true"] {
   color: var(--jpdb-reader-text);

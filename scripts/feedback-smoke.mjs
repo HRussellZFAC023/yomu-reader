@@ -616,6 +616,49 @@ async function verifyHostedSubtitleFlow(page, baseUrl) {
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-pause-panel.png'), fullPage: false });
 }
 
+async function verifyHostedFullscreenPausedOcrTapabilityMobile(page, baseUrl) {
+    await openHostedVideoPlayer(page, baseUrl);
+    await loadHostedVideoAndSubtitleTogether(page);
+    await closeHostedTranscriptPanel(page);
+    await enterHostedInlineFullscreenFallback(page);
+    await installHostedPausedVideoCaptureStub(page);
+    await dispatchHostedVideoEvent(page, 'pause');
+    await injectHostedPausedFrameOcrLines(page);
+    await page.waitForSelector('[data-yomu-video-frame] .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word', { timeout: 6000 });
+    const ready = await readHostedFullscreenPausedOcrTapState(page);
+    assert(hostedFullscreenPausedOcrReady(ready), 'Fullscreen paused-frame OCR did not render tappable words in the active fullscreen host', ready);
+
+    const lineBox = await page.locator('[data-yomu-video-frame] .jpdb-ocr-layer .jpdb-ocr-line').first().boundingBox();
+    assert(lineBox && lineBox.width > 0 && lineBox.height > 0, 'Fullscreen paused-frame OCR line had no clickable browser box', { lineBox });
+    await page.evaluate(({ x, y }) => {
+        const line = document.querySelector('[data-yomu-video-frame] .jpdb-ocr-layer .jpdb-ocr-line');
+        if (!(line instanceof HTMLElement)) throw new Error('Fullscreen OCR line missing');
+        line.dispatchEvent(new PointerEvent('pointerdown', {
+            bubbles: true,
+            cancelable: true,
+            button: 0,
+            clientX: x,
+            clientY: y,
+        }));
+        line.dispatchEvent(new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            button: 0,
+            clientX: x,
+            clientY: y,
+        }));
+    }, { x: lineBox.x + lineBox.width / 2, y: lineBox.y + lineBox.height / 2 });
+    await page.waitForFunction(() => {
+        const line = document.querySelector('[data-yomu-video-frame] .jpdb-ocr-layer .jpdb-ocr-line');
+        return line?.classList.contains('jpdb-ocr-line-active') && line?.getAttribute('data-pinned') === 'true';
+    }, null, { timeout: 3000 });
+    const tapped = await readHostedFullscreenPausedOcrTapState(page);
+    assert(hostedFullscreenPausedOcrTapped(tapped), 'Fullscreen paused-frame OCR word tap did not activate the OCR line', tapped);
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-fullscreen-paused-ocr.png'), fullPage: false });
+    await page.locator('[data-fullscreen-toggle]').click();
+    await page.waitForFunction(() => document.querySelector('[data-yomu-video-frame]')?.getAttribute('data-yomu-inline-fullscreen') !== 'true', null, { timeout: 6000 });
+}
+
 async function openHostedVideoPlayer(page, baseUrl) {
     await page.goto(`${baseUrl}/video-player/index.html`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => Boolean(window.__yomuReaderAppInitialized && document.querySelector('.jpdb-subtitle-player')), { timeout: 6000 });
@@ -880,7 +923,7 @@ async function installHostedPausedVideoCaptureStub(page) {
                 value: () => 'data:image/jpeg;base64,ZmVhdHVyZS1wcmV2aWV3',
             });
         }
-        const originalCurrentTime = 42.25;
+        const originalCurrentTime = 1.25;
         let currentTime = originalCurrentTime;
         window.__yomuHostedPausedOcrTimeline = { originalCurrentTime, writes: [] };
         Object.defineProperty(video, 'currentTime', {
@@ -1215,6 +1258,15 @@ async function verifyHostedFullscreenInlineFallbackMobile(page, baseUrl) {
     await openHostedVideoPlayer(page, baseUrl);
     await loadHostedVideoAndSubtitleTogether(page);
     await closeHostedTranscriptPanel(page);
+    await enterHostedInlineFullscreenFallback(page);
+    const state = await readHostedFullscreenSubtitleState(page);
+    assert(hostedInlineFullscreenSubtitleReady(state), 'Hosted mobile inline fullscreen fallback did not keep Yomu subtitles inside the video frame', state);
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-fullscreen-mobile.png'), fullPage: false });
+    await page.locator('[data-fullscreen-toggle]').click();
+    await page.waitForFunction(() => document.querySelector('[data-yomu-video-frame]')?.getAttribute('data-yomu-inline-fullscreen') !== 'true', null, { timeout: 6000 });
+}
+
+async function enterHostedInlineFullscreenFallback(page) {
     await page.evaluate(() => {
         const stage = document.querySelector('[data-yomu-video-frame]');
         if (!stage) return;
@@ -1231,11 +1283,20 @@ async function verifyHostedFullscreenInlineFallbackMobile(page, baseUrl) {
             && root?.classList.contains('jpdb-subtitle-fullscreen')
             && !root?.classList.contains('jpdb-subtitle-video-out-of-view');
     }, null, { timeout: 6000 });
-    const state = await readHostedFullscreenSubtitleState(page);
-    assert(hostedInlineFullscreenSubtitleReady(state), 'Hosted mobile inline fullscreen fallback did not keep Yomu subtitles inside the video frame', state);
-    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-fullscreen-mobile.png'), fullPage: false });
-    await page.locator('[data-fullscreen-toggle]').click();
-    await page.waitForFunction(() => document.querySelector('[data-yomu-video-frame]')?.getAttribute('data-yomu-inline-fullscreen') !== 'true', null, { timeout: 6000 });
+}
+
+async function injectHostedPausedFrameOcrLines(page) {
+    await page.waitForSelector('[data-yomu-video-frame] .jpdb-ocr-video-frame', { state: 'attached', timeout: 5000 });
+    await page.evaluate(() => {
+        const frame = document.querySelector('[data-yomu-video-frame] .jpdb-ocr-video-frame');
+        if (!(frame instanceof HTMLImageElement)) throw new Error('Paused OCR frame missing');
+        Object.defineProperty(frame, 'naturalWidth', { configurable: true, value: 640 });
+        Object.defineProperty(frame, 'naturalHeight', { configurable: true, value: 360 });
+        frame.dataset.ocrLines = JSON.stringify([
+            { text: '日本語', box: { left: 64, top: 72, width: 192, height: 54 } },
+        ]);
+        frame.dispatchEvent(new Event('load'));
+    });
 }
 
 async function closeHostedTranscriptPanel(page) {
@@ -1243,6 +1304,75 @@ async function closeHostedTranscriptPanel(page) {
     if (hidden) return;
     await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click();
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true, null, { timeout: 6000 });
+}
+
+async function readHostedFullscreenPausedOcrTapState(page) {
+    return page.evaluate(() => {
+        const rect = element => {
+            const box = element?.getBoundingClientRect();
+            return box ? {
+                width: box.width,
+                height: box.height,
+                left: box.left,
+                top: box.top,
+                right: box.right,
+                bottom: box.bottom,
+            } : null;
+        };
+        const stage = document.querySelector('[data-yomu-video-frame]');
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const rail = document.querySelector('.jpdb-subtitle-rail');
+        const frame = document.querySelector('.jpdb-ocr-video-frame');
+        const overlay = document.querySelector('.jpdb-ocr-layer');
+        const line = document.querySelector('.jpdb-ocr-layer .jpdb-ocr-line');
+        const word = document.querySelector('.jpdb-ocr-layer .jpdb-reader-word');
+        const lineStyle = line ? getComputedStyle(line) : null;
+        return {
+            stageInline: stage?.getAttribute('data-yomu-inline-fullscreen') ?? null,
+            stageActive: stage?.hasAttribute('data-fullscreen-active') ?? false,
+            rootParentIsStage: Boolean(stage && root?.parentElement === stage),
+            rootFullscreenClass: root?.classList.contains('jpdb-subtitle-fullscreen') ?? false,
+            rootOutOfView: root?.classList.contains('jpdb-subtitle-video-out-of-view') ?? true,
+            railActions: [...document.querySelectorAll('.jpdb-subtitle-rail button')].map(button => button.getAttribute('data-action')),
+            railRect: rect(rail),
+            frameParentIsStage: Boolean(stage && frame?.parentElement === stage),
+            overlayParentIsStage: Boolean(stage && overlay?.parentElement === stage),
+            frameHosted: frame?.getAttribute('data-yomu-ocr-fullscreen-hosted') ?? null,
+            overlayHosted: overlay?.getAttribute('data-yomu-ocr-fullscreen-hosted') ?? null,
+            ocrWords: document.querySelectorAll('.jpdb-ocr-layer .jpdb-reader-word').length,
+            lineText: line?.textContent ?? '',
+            linePointerEvents: lineStyle?.pointerEvents ?? '',
+            lineActive: line?.classList.contains('jpdb-ocr-line-active') ?? false,
+            linePinned: line?.getAttribute('data-pinned') ?? '',
+            lineRect: rect(line),
+            wordRect: rect(word),
+        };
+    });
+}
+
+function hostedFullscreenPausedOcrReady(state) {
+    return state.stageInline === 'true'
+        && state.stageActive === true
+        && state.rootParentIsStage
+        && state.rootFullscreenClass
+        && !state.rootOutOfView
+        && state.railActions.includes('fullscreen')
+        && (state.railRect?.width ?? 0) > 0
+        && state.frameParentIsStage
+        && state.overlayParentIsStage
+        && state.frameHosted === 'true'
+        && state.overlayHosted === 'true'
+        && state.ocrWords > 0
+        && includesText(state.lineText, '日本語')
+        && state.linePointerEvents !== 'none'
+        && (state.lineRect?.width ?? 0) > 0
+        && (state.wordRect?.width ?? 0) > 0;
+}
+
+function hostedFullscreenPausedOcrTapped(state) {
+    return hostedFullscreenPausedOcrReady(state)
+        && state.lineActive === true
+        && state.linePinned === 'true';
 }
 
 async function openHostedLinesPanel(page) {
@@ -1778,6 +1908,10 @@ try {
     await verifyHostedFullscreenInlineFallbackMobile(mobileFullscreenPage, baseUrl);
     await mobileFullscreenPage.close();
 
+    const mobileFullscreenOcrPage = await newPage(browser, baseSettings, { width: 390, height: 844 });
+    await verifyHostedFullscreenPausedOcrTapabilityMobile(mobileFullscreenOcrPage, baseUrl);
+    await mobileFullscreenOcrPage.close();
+
     console.log(JSON.stringify({
         ok: true,
         artifacts: [
@@ -1794,6 +1928,7 @@ try {
             path.join(ARTIFACTS, 'feedback-video-style-controls-mobile.png'),
             path.join(ARTIFACTS, 'feedback-video-fullscreen-subtitles.png'),
             path.join(ARTIFACTS, 'feedback-video-fullscreen-mobile.png'),
+            path.join(ARTIFACTS, 'feedback-video-fullscreen-paused-ocr.png'),
             path.join(ARTIFACTS, 'feedback-video-pause-panel.png'),
         ],
     }, null, 2));

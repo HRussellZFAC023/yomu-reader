@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { findInitialLeadInCue, normalizeCaptionText, normalizeSubtitleCues } from '../../src/reader/subtitles/subtitle-cues';
+import { findInitialLeadInCue, normalizeCaptionText, normalizeSubtitleCues, parseSubtitleText } from '../../src/reader/subtitles/subtitle-cues';
 
 // UT-67: auto-translated YouTube tracks ship literal HTML entities — a
 // `&nbsp;` cue passed the word-content check and rendered as a blank row
@@ -43,5 +43,21 @@ describe('initial lead-in cue', () => {
 
     it('returns nothing when there are no cues', () => {
         expect(findInitialLeadInCue([], 0)).toBeUndefined();
+    });
+});
+
+describe('ASS subtitle parsing', () => {
+    it('parses dialogue timing while stripping ASS styling tags', () => {
+        const cues = parseSubtitleText(`
+[Script Info]
+Title: sample
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:01.00,0:00:03.50,Default,,0,0,0,,{\\an8}今日は\\N読む
+`);
+
+        expect(cues).toEqual([
+            { start: 1, end: 3.5, text: '今日は\n読む' },
+        ]);
     });
 });

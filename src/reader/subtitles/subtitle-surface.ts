@@ -1,35 +1,14 @@
 import { escapeHtml } from '../dom/index';
 import { uiText } from '../app/i18n';
 import { clampNumber } from '../core/number-utils';
-import { DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY } from '../settings/index';
+import { FONT_FAMILY_PRESETS } from '../settings/font-presets';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.2;
 const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;
 const SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT = 80;
 const TRANSCRIPT_PLACEMENTS = ['left', 'bottom', 'right'] as const satisfies readonly ReaderSettings['subtitleTranscriptPlacement'][];
-const SUBTITLE_STYLE_FONT_PRESETS = [
-    {
-        value: DEFAULT_POPUP_FONT_FAMILY,
-        labelKey: 'fontPresetYomuDefault',
-    },
-    {
-        value: '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif',
-        labelKey: 'fontPresetJapaneseSans',
-    },
-    {
-        value: '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif',
-        labelKey: 'fontPresetHiraginoYuGothic',
-    },
-    {
-        value: '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif',
-        labelKey: 'fontPresetJapaneseSerif',
-    },
-    {
-        value: DEFAULT_READER_FONT_FAMILY,
-        labelKey: 'fontPresetSystemUi',
-    },
-] as const satisfies readonly { value: string; labelKey: Parameters<typeof uiText>[1] }[];
+const SUBTITLE_STYLE_FONT_PRESETS = FONT_FAMILY_PRESETS;
 
 export const SUBTITLE_STYLE_FONT_FAMILY_VALUES: readonly string[] = SUBTITLE_STYLE_FONT_PRESETS.map(preset => preset.value);
 
@@ -76,6 +55,7 @@ export function renderSubtitleStyleControls(settings: ReaderSettings, language: 
         <button class="jpdb-subtitle-style-toggle" type="button" data-action="style" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="false" aria-controls="jpdb-subtitle-style-popover">${subtitleIcon('style')}</button>
         <div class="jpdb-subtitle-style-popover" id="jpdb-subtitle-style-popover" data-subtitle-style-popover role="group" aria-label="${escapeHtml(label)}" hidden>
             ${renderSubtitleStyleRange('subtitleFontSize', uiText(language, 'subtitleFontSize'), settings.subtitleFontSize, 16, 64, 2, 'px')}
+            ${renderSubtitleStyleRange('subtitleFontWeight', uiText(language, 'subtitleFontWeight'), settings.subtitleFontWeight, 300, 900, 20, 'weight')}
             ${renderSubtitleStyleRange('subtitleBottomOffset', uiText(language, 'subtitleBottomOffset'), settings.subtitleBottomOffset, 2, 40, 1, '%')}
             ${renderSubtitleStyleRange('subtitleBackgroundOpacity', uiText(language, 'subtitleBackgroundOpacity'), settings.subtitleBackgroundOpacity, 0, 0.7, 0.05, '')}
             <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
@@ -97,7 +77,7 @@ export function renderSubtitleStyleControls(settings: ReaderSettings, language: 
 }
 
 function renderSubtitleStyleRange(
-    setting: 'subtitleFontSize' | 'subtitleBottomOffset' | 'subtitleBackgroundOpacity',
+    setting: 'subtitleFontSize' | 'subtitleFontWeight' | 'subtitleBottomOffset' | 'subtitleBackgroundOpacity',
     label: string,
     value: number,
     min: number,
@@ -123,6 +103,7 @@ function renderSubtitleStyleFontOption(
 }
 
 function subtitleStyleDisplayValue(value: number, suffix: string): string {
+    if (suffix === 'weight') return String(Math.round(value));
     if (!suffix) return `${Math.round(value * 100)}%`;
     return `${Math.round(value)}${suffix}`;
 }
@@ -178,7 +159,7 @@ export function setStylePropertyIfChanged(element: HTMLElement, property: string
     element.style.setProperty(property, value);
 }
 
-export type SubtitleIconName = 'auto-hide' | 'close' | 'copy' | 'eye' | 'eye-off' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'pause' | 'play' | 'style' | 'tracks' | 'transcript';
+export type SubtitleIconName = 'auto-hide' | 'close' | 'copy' | 'eye' | 'eye-off' | 'fullscreen' | 'fullscreen-exit' | 'locate' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'pause' | 'play' | 'style' | 'tracks' | 'transcript';
 
 export function transcriptPlacementIcon(placement: ReaderSettings['subtitleTranscriptPlacement']): SubtitleIconName {
     if (placement === 'left') return 'panel-left';
@@ -193,6 +174,9 @@ export function subtitleIcon(name: SubtitleIconName): string {
         copy: '<path d="M14 3H6a2 2 0 0 0-2 2v12"/><path d="M10 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M14 11v6"/><path d="M11 14h6"/>',
         eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
         'eye-off': '<path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.2 3.8"/><path d="M6.6 6.8A18 18 0 0 0 2 12s3.5 6 10 6c1.5 0 2.8-.3 4-.8"/>',
+        fullscreen: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/>',
+        'fullscreen-exit': '<path d="M9 3v4a2 2 0 0 1-2 2H3"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M15 21v-4a2 2 0 0 1 2-2h4"/><path d="M9 21v-4a2 2 0 0 0-2-2H3"/>',
+        locate: '<path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
         menu: '<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',
         'panel-bottom': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 14h16"/>',
         'panel-left': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',
