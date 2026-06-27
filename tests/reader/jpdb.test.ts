@@ -135,6 +135,25 @@ function createMiningDrawerTestSurface(innerHtml: string): {
     };
 }
 
+function dispatchPenControlTap(target: HTMLElement, pointerId = 91): PointerEvent {
+    target.dispatchEvent(createPointerEvent('pointerdown', {
+        button: 0,
+        clientX: 24,
+        clientY: 18,
+        pointerId,
+        pointerType: 'pen',
+    }));
+    const up = createPointerEvent('pointerup', {
+        button: 0,
+        clientX: 25,
+        clientY: 18,
+        pointerId,
+        pointerType: 'pen',
+    });
+    target.dispatchEvent(up);
+    return up;
+}
+
 function hostedDocsCardToken(sentence: string, spelling: string, reading: string): JPDBToken {
     const start = sentence.indexOf(spelling);
     expect(start).toBeGreaterThanOrEqual(0);
@@ -3772,12 +3791,12 @@ describe('reader helpers', () => {
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; }');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; text-decoration-color: transparent !important; }');
-        expect(normalizedNewTabCss).toContain('@media (pointer: coarse) { .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom))); } .jpdb-reader-language-toggle { width: 44px !important; min-width: 44px !important; height: 44px !important; }');
+        expect(normalizedNewTabCss).toContain('@media (pointer: coarse) { .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom))); } .jpdb-reader-newtab-install-app, .jpdb-reader-language-toggle { width: 44px !important; min-width: 44px !important; height: 44px !important; }');
         // Immersion Kit controls stay compact on touch (user-reported: 44px
         // stacked controls wasted study-card space).
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini { width: 36px !important; min-width: 36px !important; height: 36px !important; min-height: 36px !important; }');
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-revealed .jpdb-reader-newtab-shell { padding-bottom: max(148px');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-appearance, .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch, .jpdb-reader-newtab .jpdb-reader-newtab-overflow, .jpdb-reader-newtab-more-menu button, .jpdb-reader-newtab-mode button, button.jpdb-reader-newtab-status:not(:disabled), .jpdb-reader-language-toggle, .jpdb-reader-newtab-searchbox button, .jpdb-reader-newtab-grade-target-select, .jpdb-reader-newtab-controls button:not([data-grade]), .jpdb-reader-newtab-search-links a, .jpdb-reader-newtab-search-links button, .jpdb-reader-newtab-handwriting summary, .jpdb-reader-newtab-handwriting-candidates button, .jpdb-reader-newtab-doodle-actions button, .jpdb-reader-newtab-search-card, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action, .jpdb-reader-newtab-install { min-height: 44px !important; }');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-appearance, .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch, .jpdb-reader-newtab-install-app, .jpdb-reader-newtab .jpdb-reader-newtab-overflow, .jpdb-reader-newtab-more-menu button, .jpdb-reader-newtab-mode button, button.jpdb-reader-newtab-status:not(:disabled), .jpdb-reader-language-toggle, .jpdb-reader-newtab-searchbox button, .jpdb-reader-newtab-grade-target-select, .jpdb-reader-newtab-controls button:not([data-grade]), .jpdb-reader-newtab-search-links a, .jpdb-reader-newtab-search-links button, .jpdb-reader-newtab-handwriting summary, .jpdb-reader-newtab-handwriting-candidates button, .jpdb-reader-newtab-doodle-actions button, .jpdb-reader-newtab-search-card, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action, .jpdb-reader-newtab-install { min-height: 44px !important; }');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls button { position: relative; min-height: 38px !important; overflow: visible; touch-action: manipulation; } .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls button::after { content: ""; position: absolute; inset: -3px 0; border-radius: 10px; }');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch { min-height: 24px !important; } .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch::after { content: ""; position: absolute; inset: -10px 0; border-radius: 999px; }');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-install { justify-self: end; display: inline-flex; align-items: center;');
@@ -6818,6 +6837,80 @@ describe('reader helpers', () => {
         }
     });
 
+    it('activates popup links from Apple Pencil pointer taps without double-clicking', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = '<a href="https://example.test/dictionary" data-test-popup-link>Dictionary</a>';
+        document.body.append(popover);
+        const link = popover.querySelector<HTMLAnchorElement>('[data-test-popup-link]')!;
+        const clicks = vi.fn((event: MouseEvent) => event.preventDefault());
+        link.addEventListener('click', clicks);
+        const internals = app as unknown as {
+            installReaderControlPointerActivation(root: HTMLElement): void;
+        };
+        internals.installReaderControlPointerActivation(popover);
+
+        try {
+            const up = dispatchPenControlTap(link, 41);
+            expect(up.defaultPrevented).toBe(true);
+            expect(clicks).toHaveBeenCalledTimes(1);
+
+            const duplicateClick = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+            link.dispatchEvent(duplicateClick);
+            expect(duplicateClick.defaultPrevented).toBe(true);
+            expect(clicks).toHaveBeenCalledTimes(1);
+        } finally {
+            app.destroy();
+            popover.remove();
+        }
+    });
+
+    it('activates popup kanji buttons and trace toggles from Apple Pencil pointer taps', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = `
+            <button type="button" data-action="kanji" data-kanji="読">読</button>
+            <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>Show trace</button>
+        `;
+        document.body.append(popover);
+        const kanjiButton = popover.querySelector<HTMLButtonElement>('[data-action="kanji"]')!;
+        const trace = popover.querySelector<HTMLButtonElement>('[data-doodle-trace]')!;
+        const anchor = document.createElement('span');
+        const showKanjiCard = vi.fn(async () => undefined);
+        trace.addEventListener('click', () => {
+            trace.textContent = trace.textContent === 'Show trace' ? 'Hide trace' : 'Show trace';
+        });
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            showKanjiCard: typeof showKanjiCard;
+            installCardPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS };
+        internals.showKanjiCard = showKanjiCard;
+        internals.installCardPopoverHandlers(popover, card, '読む。', anchor, 'modal');
+
+        try {
+            const kanjiUp = dispatchPenControlTap(kanjiButton, 42);
+            expect(kanjiUp.defaultPrevented).toBe(true);
+            expect(showKanjiCard).toHaveBeenCalledTimes(1);
+            expect(showKanjiCard).toHaveBeenCalledWith(card, '読', '読む。', anchor, { preservePosition: true });
+
+            const traceUp = dispatchPenControlTap(trace, 43);
+            expect(traceUp.defaultPrevented).toBe(true);
+            expect(trace.textContent).toBe('Hide trace');
+
+            const duplicateTraceClick = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+            trace.dispatchEvent(duplicateTraceClick);
+            expect(duplicateTraceClick.defaultPrevented).toBe(true);
+            expect(trace.textContent).toBe('Hide trace');
+        } finally {
+            app.destroy();
+            popover.remove();
+        }
+    });
+
     it('uses concrete color-channel defaults while preserving legacy automatic choices', () => {
         expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'auto')).toBe('off');
         expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'auto', 'pitch')).toBe('pitch');
@@ -8845,6 +8938,50 @@ describe('reader helpers', () => {
             expect(plays[1]?.element).toBe(plays[0]?.element);
             expect(plays[1]?.loop).toBe(false);
             expect(plays[1]?.src).toBe('http://x.test/tapped-word.mp3');
+        } finally {
+            playSpy.mockRestore();
+            pauseSpy.mockRestore();
+            loadSpy.mockRestore();
+        }
+    });
+
+    it('pauses active single-source audio before reserving a replay gesture', async () => {
+        const events: string[] = [];
+        const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function play(this: HTMLMediaElement) {
+            events.push(`play:${this.src}`);
+            return Promise.resolve();
+        });
+        const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function pause(this: HTMLMediaElement) {
+            events.push(`pause:${this.src}`);
+        });
+        const loadSpy = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'random',
+                audioViaBlob: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'custom', url: 'http://x.test/single-source.mp3', voice: '', enabled: true }],
+            }));
+
+            await expect(player.play(card, { userGesture: true })).resolves.toBe(true);
+            await expect(player.play(card, { userGesture: true })).resolves.toBe(true);
+
+            const audiblePlay = 'play:http://x.test/single-source.mp3';
+            const audiblePause = 'pause:http://x.test/single-source.mp3';
+            const firstAudiblePlay = events.indexOf(audiblePlay);
+            const secondGestureReservation = events.findIndex((event, index) =>
+                index > firstAudiblePlay && event.startsWith('play:data:audio/wav;base64,')
+            );
+            const pauseBeforeReplay = events.lastIndexOf(audiblePause, secondGestureReservation);
+
+            expect(firstAudiblePlay).toBeGreaterThan(-1);
+            expect(secondGestureReservation).toBeGreaterThan(firstAudiblePlay);
+            expect(pauseBeforeReplay).toBeGreaterThan(firstAudiblePlay);
+            expect(pauseBeforeReplay).toBeLessThan(secondGestureReservation);
+            expect(events.filter(event => event === audiblePlay)).toHaveLength(2);
         } finally {
             playSpy.mockRestore();
             pauseSpy.mockRestore();

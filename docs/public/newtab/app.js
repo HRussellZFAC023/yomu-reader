@@ -7688,7 +7688,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return;
     }
     const nonDestructiveHost = nonDestructiveScanHost(target);
-    if (!target.forceInlineRender && (target.nonDestructive || scanHostIsLiveFrameworkRegion(nonDestructiveHost) || scanHostIsRepaintLooping(nonDestructiveHost, target.text))) {
+    const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
+    const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
+    if ((!target.forceInlineRender || repaintLooping) && (target.nonDestructive || liveFrameworkRegion || repaintLooping)) {
       applyTokensToNonDestructiveScanTarget(target, tokens, settings);
       return;
     }
@@ -17792,6 +17794,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     reserveGestureAudioElement(request) {
       if (!shouldReserveGestureAudioElement(request)) return void 0;
+      this.stopCurrent();
       return this.reserveCurrentGestureAudioElement();
     }
     reserveCurrentGestureAudioElement() {
@@ -24030,7 +24033,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.133".trim() ? "1.4.133".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.134".trim() ? "1.4.134".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
