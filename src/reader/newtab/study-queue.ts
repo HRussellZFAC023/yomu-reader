@@ -1,4 +1,5 @@
 import { cardHighlightTargets, normalizedJapaneseCardReading } from '../cards/highlight';
+import { cardPronunciationReading } from '../popup/pitch';
 import { cardKey } from './index';
 import type { JPDBCard } from '../app/types';
 
@@ -8,7 +9,7 @@ export function normalizeNewTabCard(card: JPDBCard): JPDBCard {
 }
 
 export function newTabCardReading(card: JPDBCard): string {
-    return normalizedJapaneseCardReading(card.spelling, card.reading);
+    return normalizedJapaneseCardReading(card.spelling, cardPronunciationReading(card) || card.reading);
 }
 
 export function newTabCardOptionalReading(card: JPDBCard): string {

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.145] - 2026-06-27
+
+### Fixed
+
+- Study Pass/Fail grading now uses a dedicated two-button mobile layout, so Fail and Pass stay wide, centered, and inside the viewport.
+- Revealed Study answers recover kana readings from annotated card text such as `前方[ぜんぽう]`, while keeping the front side unspoiled.
+- Hosted/accountless Study search can fetch JPDB public vocabulary pages again, restoring public definitions and keeping recorded audio ahead of browser text-to-speech.
+- Study term pitch underlines render through the pseudo underline without stacking native underlines, text shadows, or box shadows.
+- Settings now puts the review rating scale directly in Study and clarifies Jiten/JPDB credential separation, provider-scoped Study decks, and AnkiConnect setup/CORS guidance.
+
 ## [1.4.143] - 2026-06-27
 
 ### Fixed

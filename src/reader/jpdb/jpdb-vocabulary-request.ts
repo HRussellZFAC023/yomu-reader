@@ -95,3 +95,18 @@ export function requestText(url: string, proxyUrl = '', timeoutMs = 8000): Promi
         timeoutLabel: 'JPDB vocabulary request timed out.',
     });
 }
+
+export function requestSearchText(url: string, proxyUrl = '', timeoutMs = 8000): Promise<string> {
+    return requestPublicJpdbText(url, {
+        proxyUrl,
+        timeoutMs,
+        credentials: 'same-origin',
+        withCredentials: true,
+        failureLabel: 'JPDB vocabulary request',
+        timeoutLabel: 'JPDB vocabulary request timed out.',
+        allowDirectCrossOrigin: true,
+        allowConfiguredProxy: true,
+        allowSensitiveConfiguredProxy: false,
+        preferFetch: true,
+    });
+}

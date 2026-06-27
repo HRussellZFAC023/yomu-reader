@@ -1244,7 +1244,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. You can use either service, both, or neither with local dictionaries.",
+      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       jpdbApiKeyConfigured: "JPDB key set.",
@@ -1692,7 +1692,7 @@
       ankiMappingHighConfidence: "High",
       ankiMappingMediumConfidence: "Medium",
       ankiMappingLowConfidence: "Low",
-      ankiHelp: "Full Anki uses AnkiConnect. Handoff creates notes.",
+      ankiHelp: "Install AnkiConnect, keep desktop Anki open, and add this site to webCorsOriginList if the status mentions CORS. Mobile handoff creates notes without full desktop review access.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
       localDictionariesEnabled: "Show imported dictionary definitions",
       dictionarySourcesInitiallyExpanded: "Open sources by default",
@@ -2899,7 +2899,7 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。どちらか一方、両方、またはローカル辞書のみでも使えます。
+apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。学習デッキは選択中のサービスにだけ適用され、どちらか一方、両方、またはローカル辞書のみでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
@@ -3315,7 +3315,7 @@ ankiMappingConfidenceHelp	フィールド名とサンプルで判断します。
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
-ankiHelp	AnkiConnectで全機能。受け渡しは新規ノートのみ。
+ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開いたままにします。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
@@ -24207,7 +24207,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.143".trim() ? "1.4.143".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.144".trim() ? "1.4.144".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -27223,7 +27223,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                         ${input("apiCredentialJiten", `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialJpdb", `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. You can use either service, both, or neither with local dictionaries.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
@@ -59775,6 +59775,20 @@ ${normalizedReading}`;
       timeoutLabel: "JPDB vocabulary request timed out."
     });
   }
+  function requestSearchText(url, proxyUrl = "", timeoutMs = 8e3) {
+    return requestPublicJpdbText(url, {
+      proxyUrl,
+      timeoutMs,
+      credentials: "same-origin",
+      withCredentials: true,
+      failureLabel: "JPDB vocabulary request",
+      timeoutLabel: "JPDB vocabulary request timed out.",
+      allowDirectCrossOrigin: true,
+      allowConfiguredProxy: true,
+      allowSensitiveConfiguredProxy: false,
+      preferFetch: true
+    });
+  }
   const log$5 = Logger.scope("JpdbVocabulary");
   class JpdbVocabularyClient {
     constructor(getCorsProxyUrl = () => "") {
@@ -59834,7 +59848,7 @@ ${normalizedReading}`;
     async fetchSearch(query, limit) {
       if (this.requestBackoff.isActive()) return [];
       const url = jpdbSearchUrl(query);
-      const html = await requestText$1(url, this.getCorsProxyUrl()).catch((error) => {
+      const html = await requestSearchText(url, this.getCorsProxyUrl()).catch((error) => {
         this.noteRequestFailure("Vocabulary search request failed", { query }, error);
         return "";
       });
@@ -61193,7 +61207,7 @@ ${reading}`);
     return reading === card.reading ? card : { ...card, reading };
   }
   function newTabCardReading(card) {
-    return normalizedJapaneseCardReading(card.spelling, card.reading);
+    return normalizedJapaneseCardReading(card.spelling, cardPronunciationReading(card) || card.reading);
   }
   function newTabCardOptionalReading(card) {
     const reading = newTabCardReading(card);
@@ -71667,8 +71681,13 @@ ${entry.url}`),
       const hasGrades = gradeCount > 0;
       slots.controls.classList.toggle("jpdb-reader-newtab-grade-controls", hasGrades);
       slots.controls.dataset.newtabGradeControls = String(hasGrades);
-      if (hasGrades) slots.controls.dataset.newtabGradeCount = String(gradeCount);
-      else delete slots.controls.dataset.newtabGradeCount;
+      if (hasGrades) {
+        slots.controls.dataset.newtabGradeCount = String(gradeCount);
+        slots.controls.dataset.newtabGradeScale = gradeCount === 2 ? "pass-fail" : "standard";
+      } else {
+        delete slots.controls.dataset.newtabGradeCount;
+        delete slots.controls.dataset.newtabGradeScale;
+      }
       replaceChildrenWith(slots.controls, buttons);
     }
     controlButtonsForCard(card) {
@@ -75693,7 +75712,7 @@ ${entry.url}`),
     async lookupCard(term, reading) {
       const localEntry = await this.localLookupEntry(term, reading);
       if (localEntry) return this.parser.localCardFromEntry(localEntry);
-      const allowJpdbPublicLookup = Boolean(effectiveJpdbApiKey(this.settings));
+      const allowJpdbPublicLookup = this.settings.jpdbDefinitionsEnabled;
       const publicCard = allowJpdbPublicLookup ? await this.publicLookupCard(term, true) : void 0;
       if (publicCard) return publicCard;
       const fallbackCard = this.parser.fallbackCardFromText(term);

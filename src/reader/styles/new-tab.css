@@ -1419,7 +1419,29 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   border-radius: 0;
   color: inherit !important;
   -webkit-text-fill-color: currentColor !important;
+  text-decoration-color: transparent !important;
   text-shadow: none;
+}
+
+.jpdb-reader-newtab-term .jpdb-reader-word:is(
+  .jpdb-pitch-heiban,
+  .jpdb-pitch-atamadaka,
+  .jpdb-pitch-nakadaka,
+  .jpdb-pitch-odaka,
+  .jpdb-pitch-kifuku
+) {
+  --jpdb-reader-word-decoration-source: var(
+    --jpdb-reader-source-pitch-decoration,
+    var(--jpdb-reader-pitch-color, transparent)
+  );
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-word-decoration-source,
+    transparent
+  );
+}
+
+.jpdb-reader-newtab-term .jpdb-reader-word::after {
+  border-block-end-color: var(--jpdb-reader-word-underline, transparent) !important;
 }
 
 .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
@@ -1731,10 +1753,18 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   scrollbar-width: none;
 }
 
+.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-scale="pass-fail"],
 .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-count="2"] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   width: min(680px, calc(100vw - 28px));
   max-width: calc(100vw - 28px);
+  gap: 10px;
+}
+
+.jpdb-reader-newtab-controls[data-newtab-grade-scale="pass-fail"] button[data-grade] {
+  min-height: 54px;
+  padding-inline: 14px;
+  font-size: 15px;
 }
 
 .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls::-webkit-scrollbar {

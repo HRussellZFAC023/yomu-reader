@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.143
+// @version 1.4.144
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.143
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.143
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.143
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.143
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.144
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.144
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.144
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.144
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -7119,7 +7119,7 @@ const COPY = {
     apiKey: "API key",
     jitenApiKey: "Jiten API key",
     apiAccess: "API access",
-    apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. You can use either service, both, or neither with local dictionaries.",
+    apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.",
     jpdbSettings: "JPDB settings",
     jitenSettings: "Jiten settings",
     jpdbApiKeyConfigured: "JPDB key set.",
@@ -7567,7 +7567,7 @@ const COPY = {
     ankiMappingHighConfidence: "High",
     ankiMappingMediumConfidence: "Medium",
     ankiMappingLowConfidence: "Low",
-    ankiHelp: "Full Anki uses AnkiConnect. Handoff creates notes.",
+    ankiHelp: "Install AnkiConnect, keep desktop Anki open, and add this site to webCorsOriginList if the status mentions CORS. Mobile handoff creates notes without full desktop review access.",
     jpdbDefinitionsEnabled: "Show JPDB definitions",
     localDictionariesEnabled: "Show imported dictionary definitions",
     dictionarySourcesInitiallyExpanded: "Open sources by default",
@@ -8774,7 +8774,7 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。どちらか一方、両方、またはローカル辞書のみでも使えます。
+apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。学習デッキは選択中のサービスにだけ適用され、どちらか一方、両方、またはローカル辞書のみでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
@@ -9190,7 +9190,7 @@ ankiMappingConfidenceHelp	フィールド名とサンプルで判断します。
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
-ankiHelp	AnkiConnectで全機能。受け渡しは新規ノートのみ。
+ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開いたままにします。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
@@ -30577,6 +30577,20 @@ function requestText(url, proxyUrl = "", timeoutMs = 8e3) {
     timeoutLabel: "JPDB vocabulary request timed out."
   });
 }
+function requestSearchText(url, proxyUrl = "", timeoutMs = 8e3) {
+  return requestPublicJpdbText(url, {
+    proxyUrl,
+    timeoutMs,
+    credentials: "same-origin",
+    withCredentials: true,
+    failureLabel: "JPDB vocabulary request",
+    timeoutLabel: "JPDB vocabulary request timed out.",
+    allowDirectCrossOrigin: true,
+    allowConfiguredProxy: true,
+    allowSensitiveConfiguredProxy: false,
+    preferFetch: true
+  });
+}
 const log$5 = Logger.scope("JpdbVocabulary");
 class JpdbVocabularyClient {
   constructor(getCorsProxyUrl = () => "") {
@@ -30636,7 +30650,7 @@ class JpdbVocabularyClient {
   async fetchSearch(query, limit) {
     if (this.requestBackoff.isActive()) return [];
     const url = jpdbSearchUrl(query);
-    const html = await requestText(url, this.getCorsProxyUrl()).catch((error) => {
+    const html = await requestSearchText(url, this.getCorsProxyUrl()).catch((error) => {
       this.noteRequestFailure("Vocabulary search request failed", { query }, error);
       return "";
     });
@@ -37554,7 +37568,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.143"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.144"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],
