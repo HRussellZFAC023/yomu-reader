@@ -7364,13 +7364,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const SETTINGS_MIME_TYPE = "application/json";
   const GIS_SCRIPT_URL = "https://accounts.google.com/gsi/client";
   const OAUTH_BROKER_URL = "https://yomureader.com/oauth/google-drive.html";
-  const OAUTH_BROKER_ORIGIN = "https://yomureader.com";
+  const OAUTH_RETURN_HASH_KEY = "yomu-drive-oauth-return";
+  const OAUTH_WINDOW_NAME_TYPE = "yomu-drive-oauth-token";
   const TOKEN_EARLY_REFRESH_MS = 6e4;
   const DRIVE_TIMEOUT_MS = 2e4;
-  const POPUP_TIMEOUT_MS = 12e4;
   let cachedToken = null;
+  let lastAuthRedirectResult = consumeAuthRedirectResult();
   function cloudSettingsSyncAvailable() {
     return CLOUD_SETTINGS_SYNC_ENABLED;
+  }
+  function cloudSettingsAuthRedirectResult() {
+    return lastAuthRedirectResult;
   }
   async function uploadCloudSettingsToCloud(settings) {
     requireConfigured();
@@ -7475,7 +7479,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (allowCached && cachedToken && Date.now() < cachedToken.expiresAt - TOKEN_EARLY_REFRESH_MS) {
       return cachedToken.token;
     }
-    const token = isUserscriptContext() ? await tokenViaBroker() : await tokenViaIdentityServices();
+    const token = isUserscriptContext() ? await tokenViaPageRedirect() : await tokenViaIdentityServices();
     cachedToken = { token: token.accessToken, expiresAt: Date.now() + token.expiresInSeconds * 1e3 };
     return cachedToken.token;
   }
@@ -7501,92 +7505,80 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     });
   }
-  function tokenViaBroker() {
+  function tokenViaPageRedirect() {
     return new Promise((resolve, reject) => {
-      const opener = typeof window !== "undefined" ? window : void 0;
-      if (!opener?.open) {
-        reject(new Error("Google Drive settings sync needs a browser window."));
-        return;
-      }
-      if (typeof MessageChannel !== "function") {
-        reject(new Error("Google Drive settings sync needs a browser with secure channel support."));
+      const browserWindow = typeof window !== "undefined" ? window : void 0;
+      if (!browserWindow?.location?.href) {
+        reject(new Error("Google Drive settings sync needs a browser page."));
         return;
       }
       const state = randomBoundary();
-      const channel = new MessageChannel();
-      const brokerUrl = `${OAUTH_BROKER_URL}?origin=${encodeURIComponent(opener.location.origin)}&client_id=${encodeURIComponent(WEB_OAUTH_CLIENT_ID)}&state=${encodeURIComponent(state)}`;
-      const popup = opener.open(brokerUrl, "yomu-drive-oauth", "width=480,height=640,menubar=no,toolbar=no");
-      if (!popup) {
-        reject(new Error("Allow pop-ups for this site to sign in to Google Drive."));
-        return;
+      const brokerUrl = new URL(OAUTH_BROKER_URL);
+      brokerUrl.searchParams.set("return_url", browserWindow.location.href);
+      brokerUrl.searchParams.set("client_id", WEB_OAUTH_CLIENT_ID);
+      brokerUrl.searchParams.set("state", state);
+      try {
+        navigateToOAuthBroker(browserWindow, brokerUrl.href);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error("Google authorization failed to start."));
       }
-      let settled = false;
-      let channelTransferred = false;
-      const finish = (run) => {
-        if (settled) return;
-        settled = true;
-        opener.removeEventListener("message", onReadyMessage);
-        try {
-          channel.port1.close();
-        } catch {
-        }
-        if (!channelTransferred) {
-          try {
-            channel.port2.close();
-          } catch {
-          }
-        }
-        opener.clearTimeout(timer);
-        opener.clearInterval(closedPoll);
-        run();
-      };
-      const onReadyMessage = (event) => {
-        if (event.origin !== OAUTH_BROKER_ORIGIN || event.source !== popup) return;
-        const data = event.data;
-        if (!isRecord(data) || data.type !== "yomu-drive-oauth-ready" || data.state !== state) return;
-        if (channelTransferred) return;
-        try {
-          popup.postMessage({ type: "yomu-drive-oauth-init", state }, OAUTH_BROKER_ORIGIN, [channel.port2]);
-          channelTransferred = true;
-        } catch {
-          finish(() => reject(new Error("Google authorization failed to establish a secure channel.")));
-        }
-      };
-      channel.port1.onmessage = (event) => {
-        const data = event.data;
-        if (!isRecord(data) || data.type !== "yomu-drive-oauth-token" || data.state !== state) return;
-        if (typeof data.accessToken === "string" && data.accessToken) {
-          const expiresInSeconds = Number(data.expiresIn) || 3600;
-          finish(() => {
-            try {
-              popup.close();
-            } catch {
-            }
-            resolve({ accessToken: data.accessToken, expiresInSeconds });
-          });
-        } else {
-          finish(() => {
-            try {
-              popup.close();
-            } catch {
-            }
-            reject(new Error(typeof data.error === "string" ? data.error : "Google authorization failed."));
-          });
-        }
-      };
-      channel.port1.start();
-      opener.addEventListener("message", onReadyMessage);
-      const timer = opener.setTimeout(() => finish(() => {
-        try {
-          popup.close();
-        } catch {
-        }
-        reject(new Error("Google authorization timed out."));
-      }), POPUP_TIMEOUT_MS);
-      const closedPoll = opener.setInterval(() => {
-        if (popup.closed) finish(() => reject(new Error("Google authorization was cancelled.")));
-      }, 500);
     });
+  }
+  function navigateToOAuthBroker(browserWindow, url) {
+    const testNavigate = globalThis.__YOMU_TEST_NAVIGATE_TO_OAUTH__;
+    if (testNavigate) {
+      testNavigate(url);
+      return;
+    }
+    browserWindow.location.assign(url);
+  }
+  function consumeAuthRedirectResult() {
+    const browserWindow = typeof window !== "undefined" ? window : void 0;
+    if (!browserWindow?.location?.href) return null;
+    const state = oauthReturnState(browserWindow.location.href);
+    if (!state) return null;
+    const payload = parseOAuthWindowName(browserWindow.name);
+    clearOAuthReturnHash(browserWindow);
+    if (!payload || payload.type !== OAUTH_WINDOW_NAME_TYPE || payload.state !== state) {
+      return { ok: false, state, error: "Google authorization returned without a Yomu token." };
+    }
+    browserWindow.name = "";
+    if (typeof payload.accessToken === "string" && payload.accessToken) {
+      const expiresInSeconds = Number(payload.expiresIn) || 3600;
+      cachedToken = { token: payload.accessToken, expiresAt: Date.now() + expiresInSeconds * 1e3 };
+      return { ok: true, state };
+    }
+    return { ok: false, state, error: payload.error || "Google authorization failed." };
+  }
+  function parseOAuthWindowName(value) {
+    try {
+      const parsed = JSON.parse(value);
+      return isRecord(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  function oauthReturnState(href) {
+    let hash = "";
+    try {
+      hash = new URL(href).hash.slice(1);
+    } catch {
+      return "";
+    }
+    const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
+    const entry = hash.split("&").find((part) => part.startsWith(prefix));
+    return entry ? decodeURIComponent(entry.slice(prefix.length)) : "";
+  }
+  function clearOAuthReturnHash(browserWindow) {
+    if (!browserWindow.history?.replaceState) return;
+    try {
+      const url = new URL(browserWindow.location.href);
+      const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
+      const remainingHash = url.hash.slice(1).split("&").filter((part) => part && !part.startsWith(prefix)).join("&");
+      url.hash = remainingHash ? `#${remainingHash}` : "";
+      browserWindow.history.replaceState(browserWindow.history.state, document.title, url.toString());
+    } catch {
+    }
   }
   let identityServicesPromise = null;
   function loadIdentityServices() {
@@ -10992,6 +10984,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ].join(",");
   const SETTINGS_FOCUS_SCROLL_MARGIN_PX = 16;
   const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
+  const CLOUD_SETTINGS_PENDING_ACTION_KEY = "__yomu_cloud_settings_sync_pending_action";
+  const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1e3;
   function settingsStatusSetter(status) {
     return (message) => {
       if (status) status.textContent = message;
@@ -11310,6 +11304,30 @@ recommendedJiten	Jiten由来の頻度バッジです。
       void this.refreshAnkiConnectionStatus(form);
       syncSubtitlePreview(form);
       this.refreshSettingsJapaneseParse(form);
+    }
+    async resumePendingCloudSettingsSync() {
+      if (!CLOUD_SETTINGS_SYNC_ENABLED || !cloudSettingsSyncAvailable()) return false;
+      const pending = await this.readPendingCloudSettingsAction();
+      if (!pending) return false;
+      const authResult = cloudSettingsAuthRedirectResult();
+      if (!authResult) return false;
+      await this.clearPendingCloudSettingsAction();
+      const language = this.settings.interfaceLanguage;
+      if (!authResult.ok) {
+        const message = authResult.error || "Google authorization failed.";
+        this.dependencies.toast(message);
+        this.open("dictionaries");
+        return true;
+      }
+      try {
+        await this.performCloudSettingsAction(pending.action, language, void 0);
+        if (pending.action === "sync-cloud-settings") this.open("dictionaries");
+      } catch (error) {
+        const message = errorMessage(error, uiText(language, "actionFailed"));
+        this.dependencies.toast(message);
+        this.open("dictionaries");
+      }
+      return true;
     }
     get settings() {
       return this.dependencies.getSettings();
@@ -12249,7 +12267,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return false;
     }
     async handleSettingsCloudSyncAction(form, action, control, setStatus) {
-      if (!CLOUD_SETTINGS_SYNC_ENABLED || action !== "sync-cloud-settings" && action !== "restore-cloud-settings") return false;
+      if (!CLOUD_SETTINGS_SYNC_ENABLED || !isCloudSettingsAction(action)) return false;
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
       if (!cloudSettingsSyncAvailable()) {
         setStatus(cloudSettingsSyncUnavailableStatus(language));
@@ -12257,45 +12275,75 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       const button = settingsActionButton(control);
       button?.setAttribute("disabled", "true");
+      await this.rememberPendingCloudSettingsAction(action);
       try {
-        if (action === "sync-cloud-settings") {
-          this.settings = readFormSettings(new FormData(form), this.settings);
-          await saveSettings(this.settings);
-          const metadata = await uploadCloudSettingsToCloud(this.settings);
-          const message2 = cloudSettingsSyncedStatus(metadata.syncedAt, language);
-          setStatus(message2);
-          this.dependencies.toast(message2);
-          log.info("Cloud settings synced", { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
-          return true;
-        }
-        const snapshot = await downloadCloudSettingsFromCloud();
-        if (!snapshot) {
-          setStatus(cloudSettingsNotFoundStatus(language));
-          return true;
-        }
-        this.settings = normalizeReaderSettings({
-          ...this.settings,
-          ...snapshot.settings,
-          shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts }
-        });
-        await saveSettings(this.settings);
-        const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language);
-        setStatus(message);
-        this.dependencies.toast(message);
-        this.dependencies.applyTheme();
-        void this.dependencies.refreshDictionaryStyles();
-        this.dependencies.scheduleDictionaryRescan();
-        this.dependencies.installFab();
-        this.dependencies.subtitles.refresh();
-        this.dependencies.ocr.refresh();
-        this.dependencies.youtube.refresh();
-        this.dependencies.clearSettingsPreview();
-        log.info("Cloud settings restored", { syncedAt: snapshot.syncedAt });
-        this.open("dictionaries");
+        if (action === "sync-cloud-settings") this.settings = readFormSettings(new FormData(form), this.settings);
+        await this.performCloudSettingsAction(action, language, setStatus);
+        await this.clearPendingCloudSettingsAction();
         return true;
+      } catch (error) {
+        await this.clearPendingCloudSettingsAction();
+        throw error;
       } finally {
         button?.removeAttribute("disabled");
       }
+    }
+    async performCloudSettingsAction(action, language, setStatus) {
+      if (action === "sync-cloud-settings") {
+        await saveSettings(this.settings);
+        const metadata = await uploadCloudSettingsToCloud(this.settings);
+        const message2 = cloudSettingsSyncedStatus(metadata.syncedAt, language);
+        setStatus?.(message2);
+        this.dependencies.toast(message2);
+        log.info("Cloud settings synced", { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
+        return;
+      }
+      const snapshot = await downloadCloudSettingsFromCloud();
+      if (!snapshot) {
+        setStatus?.(cloudSettingsNotFoundStatus(language));
+        return;
+      }
+      this.settings = normalizeReaderSettings({
+        ...this.settings,
+        ...snapshot.settings,
+        shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts }
+      });
+      await saveSettings(this.settings);
+      const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language);
+      setStatus?.(message);
+      this.dependencies.toast(message);
+      this.dependencies.applyTheme();
+      void this.dependencies.refreshDictionaryStyles();
+      this.dependencies.scheduleDictionaryRescan();
+      this.dependencies.installFab();
+      this.dependencies.subtitles.refresh();
+      this.dependencies.ocr.refresh();
+      this.dependencies.youtube.refresh();
+      this.dependencies.clearSettingsPreview();
+      log.info("Cloud settings restored", { syncedAt: snapshot.syncedAt });
+      this.open("dictionaries");
+    }
+    async rememberPendingCloudSettingsAction(action) {
+      await gmStorageSet(CLOUD_SETTINGS_PENDING_ACTION_KEY, {
+        action,
+        startedAt: Date.now(),
+        href: location.href
+      });
+    }
+    async clearPendingCloudSettingsAction() {
+      await gmStorageDelete(CLOUD_SETTINGS_PENDING_ACTION_KEY);
+    }
+    async readPendingCloudSettingsAction() {
+      const pending = await gmStorageGet(CLOUD_SETTINGS_PENDING_ACTION_KEY, null);
+      if (!isPendingCloudSettingsAction(pending)) {
+        await this.clearPendingCloudSettingsAction();
+        return null;
+      }
+      if (Date.now() - pending.startedAt > CLOUD_SETTINGS_PENDING_ACTION_TTL_MS) {
+        await this.clearPendingCloudSettingsAction();
+        return null;
+      }
+      return pending;
     }
     async handleSettingsImportExportAction(form, action, setStatus) {
       if (action === "import-yomitan-settings") {
@@ -12764,6 +12812,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function isLookupLinkEditorAction(action) {
     return action === "lookup-link-add" || action === "lookup-link-remove" || action === "lookup-link-up" || action === "lookup-link-down";
+  }
+  function isCloudSettingsAction(action) {
+    return action === "sync-cloud-settings" || action === "restore-cloud-settings";
+  }
+  function isPendingCloudSettingsAction(value) {
+    if (!value || typeof value !== "object") return false;
+    const record = value;
+    return typeof record.startedAt === "number" && Number.isFinite(record.startedAt) && typeof record.href === "string" && typeof record.action === "string" && isCloudSettingsAction(record.action);
   }
   function getReaderStorageExport(value) {
     if (!value || typeof value !== "object") return null;

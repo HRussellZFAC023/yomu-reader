@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.154
+// @version 1.4.155
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.154
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.154
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.154
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.154
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.155
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.155
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.155
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.155
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -37754,7 +37754,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.154"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.155"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],
@@ -39332,6 +39332,7 @@ class ReaderApp {
     this.setupAutoScan();
     this.initJpdbPageEnhancements();
     this.installCardStateSignalSubscription();
+    this.resumePendingCloudSettingsSync();
     if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
     if (this.shouldScanInitialPage()) {
       void this.pageScanner.scanVisiblePage({ silent: true }).finally(() => this.scheduleAnkiStatusWarmup());
@@ -44686,6 +44687,10 @@ class ReaderApp {
   showSettings(panel) {
     const dialog = this.getSettingsDialog();
     if (dialog) dialog.open(panel);
+  }
+  resumePendingCloudSettingsSync() {
+    const dialog = this.getSettingsDialog();
+    if (dialog) void dialog.resumePendingCloudSettingsSync();
   }
   getSettingsDialog() {
     const Controller = yomuSettingsDialogController();
