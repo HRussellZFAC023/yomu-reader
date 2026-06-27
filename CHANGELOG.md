@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.154] - 2026-06-27
+
+### Fixed
+
+- Kept BookWalker product and storefront text native while adding passive lookup spans, so enabling Yomu no longer hides titles, descriptions, cart buttons, registration cards, or sidebar text behind broken mirrors.
+- Kept BookWalker reader OCR status pills visible after a page finishes scanning, removing the Scanning → disappear → reappear flicker while the OCR layer is still current.
+- Reduced common BookWalker manga page scans to one OCR provider request when the normal pass already found text, while still retrying the inverted dark-panel pass for empty pages.
+
 ## [1.4.153] - 2026-06-27
 
 ### Fixed

@@ -8077,16 +8077,17 @@ ${candidate.depth}`;
       return this.recognizeWithDarkPass(image, settings, recognizer);
     }
     // Normal recognition always runs. A second, inverted pass is spent only when
-    // the page has a dark region (where white-on-black text could hide) AND that
-    // region came back UNREAD by the normal pass — i.e. genuinely missed text. So
-    // ordinary pages (and dark panels the recognizer already read) cost exactly one
-    // request, keeping speed and Lens volume unchanged; only a real missed dark
-    // panel pays for the extra pass, and its lines are merged in over the dark area.
+    // the image has a dark region (where white-on-black text could hide) AND that
+    // region came back unread by the normal pass. Full-page reader canvases are
+    // the latency-sensitive path: if the normal pass found text on a manga page,
+    // don't double the provider round-trip just to search dark art regions. If a
+    // reader page comes back empty, the inverted recovery still gets a chance.
     async recognizeWithDarkPass(image, settings, recognizer) {
       const normal = await this.runRecognizer(image, settings, recognizer, false);
       if (!settings.ocrInvertDarkPanels) return normal;
       const field = buildLuminanceField(image);
       if (!field || luminanceFieldDarkFraction(field) < DARK_REGION_TRIGGER) return normal;
+      if ((this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image)) && normal?.lines.length) return normal;
       if (darkAreaIsRead(field, normal)) return normal;
       const inverted = await this.runRecognizer(image, settings, recognizer, true).catch(() => null);
       return mergeDarkPassResult(normal, inverted, field);
@@ -8425,11 +8426,12 @@ ${candidate.depth}`;
       if (existing) this.setVideoFrameStatus(card, status);
       else this.imageStatuses.set(image, card);
       const isCanvasFrame = this.canvasFrameSources.has(image);
-      card.classList.toggle("jpdb-ocr-canvas-status", isCanvasFrame);
+      const isReaderRasterFrame = isCanvasFrame || this.backgroundFrameSources.has(image);
+      card.classList.toggle("jpdb-ocr-canvas-status", isReaderRasterFrame);
       const labelNode = card.querySelector(".jpdb-ocr-video-frame-status-label");
-      if (labelNode) labelNode.textContent = isCanvasFrame ? uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status)) : "";
+      if (labelNode) labelNode.textContent = isReaderRasterFrame ? uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status)) : "";
       this.positionImageStatusCard(image, card);
-      if (status === "ready") this.scheduleImageStatusFade(image, card);
+      if (status === "ready" && !isReaderRasterFrame) this.scheduleImageStatusFade(image, card);
     }
     scheduleImageStatusFade(image, card) {
       const dwell = window.setTimeout(() => {

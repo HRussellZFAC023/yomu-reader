@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.153
+// @version 1.4.154
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.153
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.153
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.153
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.153
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.154
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.154
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.154
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.154
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -32065,7 +32065,6 @@ const SITE_PARSER_PROFILES = [
     exclude: COMMON_EXCLUDE,
     allowUiText: true,
     minLength: 1,
-    nonDestructive: true,
     disableGenericDomScan: true,
     includePassiveInteractionRoots: false,
     matches: (url) => isBookWalkerStorefrontUrl(url)
@@ -32755,7 +32754,7 @@ function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.loc
       baseTargets,
       matchingProfiles
     );
-    return residualTargets.length ? [...baseTargets, ...markTargetsPassiveNonDestructive(residualTargets)] : baseTargets;
+    return residualTargets.length ? [...baseTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some((profile) => profile.nonDestructive) })] : baseTargets;
   }
   const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
   if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
@@ -32775,12 +32774,12 @@ function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.loc
   const visibleTargets = collectVisibleTextTargets(effectiveLimit);
   return useNonDestructiveGenericScan ? markTargetsNonDestructive(visibleTargets) : visibleTargets;
 }
-function markTargetsPassiveNonDestructive(targets) {
+function markTargetsPassive(targets, options = {}) {
   return targets.map((target) => ({
     ...target,
     suppressRuby: true,
     passiveInteraction: true,
-    nonDestructive: true,
+    nonDestructive: options.nonDestructive || void 0,
     ..."fragments" in target ? {
       fragments: target.fragments.map((fragment) => ({
         ...fragment,
@@ -37755,7 +37754,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.153"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.154"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],

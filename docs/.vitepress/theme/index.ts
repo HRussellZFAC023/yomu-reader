@@ -156,6 +156,9 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Kept BookWalker product and storefront text native while adding passive lookup spans, so enabling Yomu no longer hides titles, descriptions, cart buttons, registration cards, or sidebar text behind broken mirrors.': 'BookWalkerの商品ページとストアフロントの文字をネイティブのまま保ち、受け身の検索spanだけを追加するようにしました。よむを有効にしても、タイトル、説明文、カートボタン、会員登録カード、サイドバー文字が壊れたミラーの裏に隠れなくなります。',
+    'Kept BookWalker reader OCR status pills visible after a page finishes scanning, removing the Scanning → disappear → reappear flicker while the OCR layer is still current.': 'BookWalkerリーダーでページのスキャン完了後もOCR状態ピルを表示したままにし、OCRレイヤーが有効な間に「Scanning」→消える→再表示のようにちらつく問題をなくしました。',
+    'Reduced common BookWalker manga page scans to one OCR provider request when the normal pass already found text, while still retrying the inverted dark-panel pass for empty pages.': '通常パスですでに文字が見つかったBookWalker漫画ページでは、一般的なスキャンをOCRプロバイダー1回のリクエストに減らしました。空ページでは暗いコマ向けの反転パスを引き続き再試行します。',
     'Restored continuous side-panel resizing for Yomu Video and YouTube subtitles: hosted videos now use the generic video inset again, while YouTube stable side panels can grow past existing free space by shrinking the player width during resize.': 'Yomu VideoとYouTube字幕のサイドパネルを連続リサイズできるように戻しました。ホスト動画は再び汎用の動画インセットを使い、YouTubeの安定サイドパネルはリサイズ中にプレイヤー幅を縮めることで、既存の空きスペースを超えて広げられます。',
     'Kept the settings puck clickable when it overlaps the YouTube/Yomu Video transcript side panel.': 'YouTube/Yomu Videoの文字起こしサイドパネルに重なっているときも、設定ボタンをクリックできるようにしました。',
     'Kept signed-in YouTube comment bodies on non-destructive text mirrors so comments remain annotated without inline reader spans, preventing YouTube DOM churn from duplicating or rewriting comment text.': 'ログイン済みYouTubeのコメント本文を非破壊テキストミラーで表示し、コメントに注釈を残しながらインラインのリーダーspanを入れないようにしました。YouTube側のDOM更新でコメント文字が重複したり書き換わったりするのを防ぎます。',
