@@ -108,6 +108,7 @@ async function runScenario(browser, viewport, placement) {
         const afterResize = await snapshot(page);
         assertLayout(afterResize, viewport.name, assertedPlacementForState(placement, afterResize), 'resize');
         if (placement === 'bottom' || afterResize.placement === 'bottom') assertBottomResizePreservedPageContent(afterFullRender, afterResize, label);
+        else assertSideResizeReservedPlayerSpace(afterFullRender, afterResize, label);
         await page.screenshot({ path: join(outputDir, `${label}-resized.png`), fullPage: false });
 
         const switchTiming = viewport.name === 'ipad-pro-portrait' && placement === 'right'
@@ -463,6 +464,7 @@ async function snapshot(page) {
             columnsComputed: computed('#columns'),
             insetClasses: document.documentElement.className,
             insetValue: document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset'),
+            stablePlayerWidth: document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width'),
             setSizeCalls: globalThis.__yomuSetSizeCalls ?? [],
             resizeEvents: globalThis.__yomuResizeEvents ?? 0,
         };
@@ -522,6 +524,7 @@ function compactSnapshot(state) {
         moviePlayerStyle: state.moviePlayerStyle,
         insetClasses: state.insetClasses,
         insetValue: state.insetValue,
+        stablePlayerWidth: state.stablePlayerWidth,
         setSizeCallCount: state.setSizeCalls.length,
     };
 }
@@ -541,6 +544,28 @@ function assertBottomResizePreservedPageContent(before, after, label) {
             assert(after.description?.top < after.panel.top, `bottom drawer resize did not reveal the video description in ${label}`, compactSnapshot(after));
         }
     }
+}
+
+function assertSideResizeReservedPlayerSpace(before, after, label) {
+    assert(after.panel.width > before.panel.width + 20, `side transcript resize did not grow the panel in ${label}`, {
+        before: compactSnapshot(before),
+        after: compactSnapshot(after),
+    });
+    assert(after.video.width < before.video.width - 20, `stable YouTube video width did not shrink after panel resize in ${label}`, {
+        before: compactSnapshot(before),
+        after: compactSnapshot(after),
+    });
+    assert(after.setSizeCalls.length === before.setSizeCalls.length, `stable resize called YouTube setSize in ${label}`, {
+        before: compactSnapshot(before),
+        after: compactSnapshot(after),
+    });
+    const beforeStableWidth = Number.parseFloat(before.stablePlayerWidth || '');
+    const afterStableWidth = Number.parseFloat(after.stablePlayerWidth || '');
+    assert(Number.isFinite(beforeStableWidth) && Number.isFinite(afterStableWidth) && afterStableWidth < beforeStableWidth - 20,
+        `stable player width variable did not shrink after side resize in ${label}`, {
+            before: compactSnapshot(before),
+            after: compactSnapshot(after),
+        });
 }
 
 function rectDelta(a, b) {

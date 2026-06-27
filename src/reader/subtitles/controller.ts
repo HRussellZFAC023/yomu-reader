@@ -5864,7 +5864,7 @@ export class SubtitlePlayerController {
     }
 
     private transcriptDrawerLayout(options: SubtitleDrawerLayoutOptions, referenceVideoRect: DOMRect): TranscriptPanelLayout {
-        if (this.shouldKeepVideoLayoutStableForTranscript()) {
+        if (this.shouldUseStableYouTubeTranscriptLayout()) {
             return this.stableVideoTranscriptDrawerLayout(options, referenceVideoRect);
         }
         const layoutOptions = this.withConstrainedSideTranscriptSize(options, referenceVideoRect);
@@ -5879,9 +5879,9 @@ export class SubtitlePlayerController {
         return resolvedLayout;
     }
 
-    private shouldKeepVideoLayoutStableForTranscript(): boolean {
+    private shouldUseStableYouTubeTranscriptLayout(): boolean {
         if (!this.video) return false;
-        return isYouTubePage() || Boolean(this.video.closest('[data-yomu-video-frame]'));
+        return isYouTubePage();
     }
 
     private stableVideoTranscriptDrawerLayout(options: SubtitleDrawerLayoutOptions, videoRect: DOMRect): TranscriptPanelLayout {
@@ -5941,16 +5941,14 @@ export class SubtitlePlayerController {
     ): TranscriptPanelLayout | null {
         if (videoRect.width <= 0 || videoRect.height <= 0) return null;
         const margin = TRANSCRIPT_PANEL_MARGIN;
-        const videoWidth = Math.round(videoRect.width);
-        const availableWidth = Math.floor(placement === 'left'
-            ? options.viewportWidth - videoWidth - margin - Math.max(0, Math.round(videoRect.left))
-            : options.viewportWidth - Math.round(videoRect.right + margin));
-        if (availableWidth < TRANSCRIPT_PANEL_MIN_SIDE_WIDTH) return null;
+        const maxWidth = this.maxSideTranscriptWidthForVideo(placement, options, videoRect);
+        if (maxWidth < TRANSCRIPT_PANEL_MIN_SIDE_WIDTH) return null;
+        const currentRightFreeWidth = Math.floor(options.viewportWidth - Math.round(videoRect.right + margin));
         const defaultWidth = placement === 'right'
-            ? availableWidth
-            : Math.min(460, options.viewportWidth * 0.32);
+            ? Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, Math.min(maxWidth, currentRightFreeWidth))
+            : Math.min(460, maxWidth);
         const desiredWidth = options.size?.sideWidth ?? defaultWidth;
-        const width = Math.round(Math.min(Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, desiredWidth), availableWidth));
+        const width = Math.round(Math.min(Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, desiredWidth), maxWidth));
         const top = Math.round(Math.min(
             Math.max(options.anchorTop ?? videoRect.top ?? 72, margin),
             Math.max(margin, options.viewportHeight - 280),
@@ -5964,7 +5962,7 @@ export class SubtitlePlayerController {
             viewportWidth: options.viewportWidth,
             viewportHeight: options.viewportHeight,
             margin,
-            maxWidth: availableWidth,
+            maxWidth,
         };
     }
 
@@ -6120,7 +6118,7 @@ export class SubtitlePlayerController {
             this.clearVideoInsetForTranscriptPanel();
             return false;
         }
-        if (this.shouldKeepVideoLayoutStableForTranscript()) {
+        if (this.shouldUseStableYouTubeTranscriptLayout()) {
             const insetChanged = this.videoInset.clear(this.video);
             const stableChanged = this.applyStableYouTubeTranscriptLayout(layout, videoRect);
             return insetChanged || stableChanged;
@@ -6285,7 +6283,7 @@ export class SubtitlePlayerController {
         const offset = layout.placement === 'left'
             ? `${Math.max(0, Math.round(layout.left + layout.width + layout.margin))}px`
             : '0px';
-        const playerWidth = `${Math.max(0, Math.round(videoRect.width))}px`;
+        const playerWidth = `${Math.max(0, Math.round(this.availablePlayerWidthForSideLayout(layout, videoRect)))}px`;
         changed = setDocumentStylePropertyIfChanged(root, '--jpdb-subtitle-youtube-stable-offset', offset) || changed;
         changed = setDocumentStylePropertyIfChanged(root, '--jpdb-subtitle-youtube-stable-player-width', playerWidth) || changed;
         return changed;
