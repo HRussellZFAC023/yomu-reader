@@ -36136,32 +36136,37 @@ describe('reader helpers', () => {
         expectRenderedPitchWord(words[0]!, 'heiban');
     });
 
-    it('suppresses ruby in compact interactive chrome without affecting prose links', () => {
+    it('suppresses ruby in tight generic controls while preserving passive pitch styling', () => {
         document.head.innerHTML = `<style>${READER_WORD_CSS}</style>`;
-        const rectSpy = mockElementBoundingClientRect({ width: 96, height: 32 });
+        const rectSpy = mockElementBoundingClientRect({ width: 220, height: 34 });
         try {
             document.body.innerHTML = `
                 <header>
                     <nav class="market-categories" style="display:flex;gap:8px">
-                        <a data-category href="/category/elections" style="display:inline-flex;align-items:center;height:32px;max-height:32px;overflow:hidden;line-height:20px;white-space:nowrap">選挙</a>
-                        <a data-neighbor href="/category/sports" style="display:inline-flex;align-items:center;height:32px;max-height:32px;overflow:hidden;line-height:20px;white-space:nowrap">スポーツ</a>
+                        <a data-category-row href="/category/elections" style="display:inline-flex;align-items:center;height:32px;max-height:32px;overflow:hidden;line-height:20px;white-space:nowrap">選挙</a>
+                        <a data-neighbor-row href="/category/sports" style="display:inline-flex;align-items:center;height:32px;max-height:32px;overflow:hidden;line-height:20px;white-space:nowrap">スポーツ</a>
                     </nav>
                 </header>
-                <aside>
-                    <button data-trade type="button" style="display:inline-flex;align-items:center;height:32px;max-height:32px;overflow:hidden;line-height:20px;white-space:nowrap">注文確認</button>
-                </aside>
-                <article>
-                    <p><a data-prose href="/analysis/elections">選挙について詳しく読む</a></p>
-                </article>
+                <main>
+                    <article>
+                        <p><a data-prose-link href="/analysis/elections">選挙について詳しく読む</a></p>
+                    </article>
+                </main>
+                <div role="dialog" aria-label="reader settings">
+                    <button data-settings-row type="button" style="display:flex;align-items:center;height:34px;max-height:34px;overflow:hidden;line-height:20px;white-space:nowrap">表示設定</button>
+                    <button data-market-row type="button" style="display:flex;align-items:center;height:32px;max-height:32px;overflow:hidden;line-height:20px;white-space:nowrap">市場予測</button>
+                </div>
             `;
 
             const targets = collectScanTargets(20, 'https://markets.example/');
             const category = targets.find(candidate => candidate.text === '選挙')!;
-            const trade = targets.find(candidate => candidate.text === '注文確認')!;
+            const settings = targets.find(candidate => candidate.text === '表示設定')!;
+            const market = targets.find(candidate => candidate.text === '市場予測')!;
             const prose = targets.find(candidate => candidate.text === '選挙について詳しく読む')!;
 
             expect(category).toMatchObject({ suppressRuby: true, passiveInteraction: true });
-            expect(trade).toMatchObject({ suppressRuby: true, passiveInteraction: true });
+            expect(settings).toMatchObject({ suppressRuby: true, passiveInteraction: true });
+            expect(market).toMatchObject({ suppressRuby: true, passiveInteraction: true });
             expect(prose.suppressRuby).not.toBe(true);
 
             applyTokensToScanTarget(category, [{
@@ -36173,14 +36178,23 @@ describe('reader helpers', () => {
                 pitchClass: 'heiban',
                 sentence: '選挙',
             }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-            applyTokensToScanTarget(trade, [{
-                card: { ...card, cardState: ['known'], spelling: '注文', reading: 'ちゅうもん', source: 'jpdb' },
+            applyTokensToScanTarget(settings, [{
+                card: { ...card, cardState: ['known'], spelling: '表示', reading: 'ひょうじ', source: 'jpdb' },
                 start: 0,
                 end: 2,
                 length: 2,
-                rubies: [{ text: 'ちゅうもん', start: 0, end: 2, length: 2 }],
+                rubies: [{ text: 'ひょうじ', start: 0, end: 2, length: 2 }],
                 pitchClass: 'heiban',
-                sentence: '注文確認',
+                sentence: '表示設定',
+            }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+            applyTokensToScanTarget(market, [{
+                card: { ...card, cardState: ['known'], spelling: '市場', reading: 'しじょう', source: 'jpdb' },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [{ text: 'しじょう', start: 0, end: 2, length: 2 }],
+                pitchClass: 'heiban',
+                sentence: '市場予測',
             }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
             applyTokensToScanTarget(prose, [{
                 card: { ...card, cardState: ['known'], spelling: '選挙', reading: 'せんきょ', source: 'jpdb' },
@@ -36192,16 +36206,19 @@ describe('reader helpers', () => {
                 sentence: '選挙について詳しく読む',
             }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
-            const categoryWord = document.querySelector<HTMLElement>('[data-category] .jpdb-reader-word')!;
-            const tradeWord = document.querySelector<HTMLElement>('[data-trade] .jpdb-reader-word')!;
-            const proseWord = document.querySelector<HTMLElement>('[data-prose] .jpdb-reader-word')!;
-            expect(document.querySelector<HTMLElement>('[data-category]')?.dataset.jpdbReaderPassiveChrome).toBe('true');
-            expect(document.querySelector<HTMLElement>('[data-trade]')?.dataset.jpdbReaderPassiveChrome).toBe('true');
-            expect(document.querySelector<HTMLElement>('[data-prose]')?.dataset.jpdbReaderPassiveChrome).toBeUndefined();
-            expect(categoryWord.dataset.jpdbReaderPassive).toBe('true');
-            expect(tradeWord.dataset.jpdbReaderPassive).toBe('true');
-            expect(categoryWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
-            expect(tradeWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            const categoryWord = document.querySelector<HTMLElement>('[data-category-row] .jpdb-reader-word')!;
+            const settingsWord = document.querySelector<HTMLElement>('[data-settings-row] .jpdb-reader-word')!;
+            const marketWord = document.querySelector<HTMLElement>('[data-market-row] .jpdb-reader-word')!;
+            const proseWord = document.querySelector<HTMLElement>('[data-prose-link] .jpdb-reader-word')!;
+            expect(document.querySelector<HTMLElement>('[data-category-row]')?.dataset.jpdbReaderPassiveChrome).toBe('true');
+            expect(document.querySelector<HTMLElement>('[data-settings-row]')?.dataset.jpdbReaderPassiveChrome).toBe('true');
+            expect(document.querySelector<HTMLElement>('[data-market-row]')?.dataset.jpdbReaderPassiveChrome).toBe('true');
+            expect(document.querySelector<HTMLElement>('[data-prose-link]')?.dataset.jpdbReaderPassiveChrome).toBeUndefined();
+            [categoryWord, settingsWord, marketWord].forEach(word => {
+                expect(word.dataset.jpdbReaderPassive).toBe('true');
+                expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+                expectRenderedPitchWord(word, 'heiban');
+            });
             expect(proseWord.querySelector('rt')?.textContent).toBe('せんきょ');
         } finally {
             rectSpy.mockRestore();

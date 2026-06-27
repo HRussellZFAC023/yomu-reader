@@ -293,6 +293,23 @@ function testPointerEvent(type: string, clientX: number, clientY: number): Mouse
     return event;
 }
 
+function dispatchPenControlTap(target: HTMLElement, pointerId = 91): PointerEvent {
+    target.dispatchEvent(testControlPointerEvent('pointerdown', 24, 18, pointerId));
+    const up = testControlPointerEvent('pointerup', 25, 18, pointerId);
+    target.dispatchEvent(up);
+    return up;
+}
+
+function testControlPointerEvent(type: string, clientX: number, clientY: number, pointerId: number): PointerEvent {
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX, clientY }) as PointerEvent;
+    Object.defineProperties(event, {
+        isPrimary: { value: true },
+        pointerId: { value: pointerId },
+        pointerType: { value: 'pen' },
+    });
+    return event;
+}
+
 function readNewTabGradeQueue(): Array<{
     target: string;
     grade: string;
@@ -14390,6 +14407,36 @@ describe('new tab review helpers', () => {
             configurable: true,
             value: originalGetContext,
         });
+    });
+
+    it('activates new-tab doodle controls from Apple Pencil pointer taps without duplicate clicks', () => {
+        const controller = newTabBareController();
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.innerHTML = '<button type="button" data-doodle-trace>Show trace</button>';
+        document.body.append(root);
+        const trace = root.querySelector<HTMLButtonElement>('[data-doodle-trace]')!;
+        const clicks = vi.fn(() => {
+            trace.textContent = 'Hide trace';
+        });
+        trace.addEventListener('click', clicks);
+
+        try {
+            (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+
+            const up = dispatchPenControlTap(trace);
+            expect(up.defaultPrevented).toBe(true);
+            expect(clicks).toHaveBeenCalledTimes(1);
+            expect(trace.textContent).toBe('Hide trace');
+
+            const duplicateClick = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+            trace.dispatchEvent(duplicateClick);
+            expect(duplicateClick.defaultPrevented).toBe(true);
+            expect(clicks).toHaveBeenCalledTimes(1);
+        } finally {
+            root.remove();
+        }
     });
 
     it('keeps new-tab word readings and meanings off the front side until reveal', async () => {

@@ -1,0 +1,98 @@
+const CONTROL_POINTER_ACTIVATION_SELECTOR = [
+    'button',
+    'a[href]',
+    'summary',
+    '[role="button"]',
+    '[role="checkbox"]',
+    '[role="link"]',
+    '[role="menuitem"]',
+    '[role="option"]',
+    '[role="radio"]',
+    '[role="switch"]',
+    '[role="tab"]',
+    '[data-action]',
+    '[data-token-choice]',
+].join(',');
+
+const CONTROL_POINTER_TAP_SLOP_PX = 12;
+
+type ControlPointerTap = {
+    pointerId: number;
+    target: HTMLElement;
+    x: number;
+    y: number;
+};
+
+type ControlClickGuard = {
+    target: HTMLElement;
+    expiresAt: number;
+};
+
+export function installReaderControlPointerActivation(root: HTMLElement): void {
+    if (root.dataset.yomuPointerActivationInstalled === 'true') return;
+    root.dataset.yomuPointerActivationInstalled = 'true';
+
+    let tap: ControlPointerTap | undefined;
+    let clickGuard: ControlClickGuard | undefined;
+
+    root.addEventListener('pointerdown', event => {
+        if (!isPenControlPointer(event) || event.button !== 0) {
+            if (tap?.pointerId === event.pointerId) tap = undefined;
+            return;
+        }
+        const target = controlPointerTarget(event.target, root);
+        tap = target
+            ? { pointerId: event.pointerId, target, x: event.clientX, y: event.clientY }
+            : undefined;
+    }, { capture: true });
+
+    root.addEventListener('pointerup', event => {
+        const activeTap = tap;
+        if (!activeTap || activeTap.pointerId !== event.pointerId) return;
+        tap = undefined;
+        if (!isPenControlPointer(event)) return;
+        const target = controlPointerTarget(event.target, root);
+        if (!target || target !== activeTap.target) return;
+        if (Math.hypot(event.clientX - activeTap.x, event.clientY - activeTap.y) > CONTROL_POINTER_TAP_SLOP_PX) return;
+        event.preventDefault();
+        event.stopPropagation();
+        target.click();
+        clickGuard = { target, expiresAt: Date.now() + 750 };
+    }, { capture: true });
+
+    root.addEventListener('pointercancel', event => {
+        if (tap?.pointerId === event.pointerId) tap = undefined;
+    }, { capture: true });
+
+    root.addEventListener('click', event => {
+        const guard = clickGuard;
+        if (!guard) return;
+        if (Date.now() > guard.expiresAt) {
+            clickGuard = undefined;
+            return;
+        }
+        const target = controlPointerTarget(event.target, root);
+        if (target !== guard.target) return;
+        if (event.detail === 0 && !event.isTrusted) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        clickGuard = undefined;
+    }, { capture: true });
+}
+
+function isPenControlPointer(event: PointerEvent): boolean {
+    return event.pointerType === 'pen' && event.isPrimary !== false;
+}
+
+function controlPointerTarget(target: EventTarget | null, root: HTMLElement): HTMLElement | null {
+    const element = target instanceof Element ? target : null;
+    const control = element?.closest<HTMLElement>(CONTROL_POINTER_ACTIVATION_SELECTOR) ?? null;
+    if (!control || !root.contains(control) || isDisabledControl(control)) return null;
+    return control;
+}
+
+function isDisabledControl(control: HTMLElement): boolean {
+    if (control.getAttribute('aria-disabled') === 'true') return true;
+    if (control.closest('[aria-disabled="true"]')) return true;
+    return control.matches(':disabled, fieldset[disabled] *');
+}

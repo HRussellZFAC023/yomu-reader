@@ -19,6 +19,7 @@ interface HoverLookupInternals {
     activePopoverMode?: 'modal' | 'hover';
     activeHoverWord?: HTMLElement;
     activeHoverLookupKey: string;
+    hoverLookupGeneration: number;
     activePopoverAnchor?: HTMLElement;
     activePointerTextLookup?: { text: string; start: number; end: number; anchor: HTMLElement };
     lastPointerPosition?: { x: number; y: number };
@@ -755,6 +756,7 @@ describe('hover lookup', () => {
         internals.activeHoverWord = word;
         internals.activePopoverAnchor = word;
         internals.activeHoverLookupKey = 'word:1:2:今日は読む';
+        internals.hoverLookupGeneration = 9;
         internals.cardForRenderedWord = vi.fn(() => HOVER_LOOKUP_CARD);
         internals.audioActions = { playTermAudio };
 
@@ -766,6 +768,7 @@ describe('hover lookup', () => {
                 HOVER_LOOKUP_CARD,
                 expect.objectContaining({
                     autoPlay: true,
+                    hoverLookupGeneration: 9,
                     isCurrent: expect.any(Function),
                 }),
             );

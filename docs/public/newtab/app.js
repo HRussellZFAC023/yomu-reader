@@ -24207,7 +24207,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.141".trim() ? "1.4.141".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.142".trim() ? "1.4.142".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -61985,6 +61985,80 @@ ${newTabCardReading(card)}`;
     }
     return null;
   }
+  const CONTROL_POINTER_ACTIVATION_SELECTOR = [
+    "button",
+    "a[href]",
+    "summary",
+    '[role="button"]',
+    '[role="checkbox"]',
+    '[role="link"]',
+    '[role="menuitem"]',
+    '[role="option"]',
+    '[role="radio"]',
+    '[role="switch"]',
+    '[role="tab"]',
+    "[data-action]",
+    "[data-token-choice]"
+  ].join(",");
+  const CONTROL_POINTER_TAP_SLOP_PX = 12;
+  function installReaderControlPointerActivation(root) {
+    if (root.dataset.yomuPointerActivationInstalled === "true") return;
+    root.dataset.yomuPointerActivationInstalled = "true";
+    let tap;
+    let clickGuard;
+    root.addEventListener("pointerdown", (event) => {
+      if (!isPenControlPointer(event) || event.button !== 0) {
+        if (tap?.pointerId === event.pointerId) tap = void 0;
+        return;
+      }
+      const target = controlPointerTarget(event.target, root);
+      tap = target ? { pointerId: event.pointerId, target, x: event.clientX, y: event.clientY } : void 0;
+    }, { capture: true });
+    root.addEventListener("pointerup", (event) => {
+      const activeTap = tap;
+      if (!activeTap || activeTap.pointerId !== event.pointerId) return;
+      tap = void 0;
+      if (!isPenControlPointer(event)) return;
+      const target = controlPointerTarget(event.target, root);
+      if (!target || target !== activeTap.target) return;
+      if (Math.hypot(event.clientX - activeTap.x, event.clientY - activeTap.y) > CONTROL_POINTER_TAP_SLOP_PX) return;
+      event.preventDefault();
+      event.stopPropagation();
+      target.click();
+      clickGuard = { target, expiresAt: Date.now() + 750 };
+    }, { capture: true });
+    root.addEventListener("pointercancel", (event) => {
+      if (tap?.pointerId === event.pointerId) tap = void 0;
+    }, { capture: true });
+    root.addEventListener("click", (event) => {
+      const guard = clickGuard;
+      if (!guard) return;
+      if (Date.now() > guard.expiresAt) {
+        clickGuard = void 0;
+        return;
+      }
+      const target = controlPointerTarget(event.target, root);
+      if (target !== guard.target) return;
+      if (event.detail === 0 && !event.isTrusted) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      clickGuard = void 0;
+    }, { capture: true });
+  }
+  function isPenControlPointer(event) {
+    return event.pointerType === "pen" && event.isPrimary !== false;
+  }
+  function controlPointerTarget(target, root) {
+    const element = target instanceof Element ? target : null;
+    const control = element?.closest(CONTROL_POINTER_ACTIVATION_SELECTOR) ?? null;
+    if (!control || !root.contains(control) || isDisabledControl(control)) return null;
+    return control;
+  }
+  function isDisabledControl(control) {
+    if (control.getAttribute("aria-disabled") === "true") return true;
+    if (control.closest('[aria-disabled="true"]')) return true;
+    return control.matches(":disabled, fieldset[disabled] *");
+  }
   function renderNewTabImmersionSentence(card, example, settings, tokens) {
     const sentence = document.createElement("div");
     sentence.className = "jpdb-reader-example-sentence jpdb-reader-parseable";
@@ -65996,6 +66070,7 @@ ${entry.url}`),
     bindRootEvents(root) {
       this.rootEventController?.abort();
       const controller = new AbortController();
+      installReaderControlPointerActivation(root);
       root.addEventListener("click", (event) => this.handleRootClick(root, event), { signal: controller.signal });
       root.addEventListener("submit", (event) => {
         const form = event.target?.closest("[data-newtab-search]");

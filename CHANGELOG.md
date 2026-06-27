@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.142] - 2026-06-27
+
+### Fixed
+
+- Retried active hover audio with the current hover lookup generation so returning to the same hover card keeps real audio eligible instead of treating it as stale duplicate autoplay.
+- Shared Apple Pencil/stylus control activation across reader popovers and the hosted Study surface so kanji buttons, links, toggles, and trace controls respond on the first pen tap without duplicate clicks.
+
 ## [1.4.141] - 2026-06-27
 
 ### Fixed

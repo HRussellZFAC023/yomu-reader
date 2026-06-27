@@ -79,6 +79,7 @@ import { Logger } from '../app/logger';
 import { FIVE_BUTTON_REVIEW_SHORTCUTS, TWO_BUTTON_REVIEW_SHORTCUTS, handleReaderActionPillLink, matchedReviewShortcutGrade } from '../app/main-helpers';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
+import { installReaderControlPointerActivation } from '../ui/pointer-activation';
 import { matchesShortcut } from '../settings';
 import { openDeckPickerForCardAdd } from '../study/mining-controls';
 import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
@@ -1121,6 +1122,7 @@ export class NewTabController {
         this.rootEventController?.abort();
         const controller = new AbortController();
 
+        installReaderControlPointerActivation(root);
         root.addEventListener('click', event => this.handleRootClick(root, event), { signal: controller.signal });
 
         root.addEventListener('submit', event => {
