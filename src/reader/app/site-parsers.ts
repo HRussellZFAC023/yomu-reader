@@ -1389,9 +1389,17 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
     const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
     const baseTargets = siteTargets ?? [];
     if (matchingProfiles.some(profile => profile.disableGenericDomScan)) {
-        return matchingProfiles.some(profile => profile.suppressResidualVisibleScan)
-            ? baseTargets
-            : withResidualVisibleJapaneseTargets(baseTargets, effectiveLimit, matchingProfiles);
+        if (matchingProfiles.some(profile => profile.suppressResidualVisibleScan)) {
+            return baseTargets;
+        }
+        const residualTargets = collectResidualVisibleJapaneseTargets(
+            effectiveLimit - baseTargets.length,
+            baseTargets,
+            matchingProfiles,
+        );
+        return residualTargets.length
+            ? [...baseTargets, ...markTargetsPassiveNonDestructive(residualTargets)]
+            : baseTargets;
     }
     const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
     if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
@@ -1411,6 +1419,23 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
     if (broadWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(broadWithResidual) : broadWithResidual;
     const visibleTargets = collectVisibleTextTargets(effectiveLimit);
     return useNonDestructiveGenericScan ? markTargetsNonDestructive(visibleTargets) : visibleTargets;
+}
+
+function markTargetsPassiveNonDestructive(targets: ScanTextTarget[]): ScanTextTarget[] {
+    return targets.map(target => ({
+        ...target,
+        suppressRuby: true,
+        passiveInteraction: true,
+        nonDestructive: true,
+        ...('fragments' in target
+            ? {
+                fragments: target.fragments.map(fragment => ({
+                    ...fragment,
+                    passiveInteraction: true,
+                })),
+            }
+            : {}),
+    }));
 }
 
 function isGenericManagedAppShell(): boolean {

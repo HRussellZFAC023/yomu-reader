@@ -7808,7 +7808,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.dataset.sourceText = text2;
     mirror.dataset.renderSignature = signature;
     const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
-    const state2 = styleTextMirrorHost(host);
+    const state2 = styleTextMirrorHost(host, hasRenderedRuby);
     try {
       styleTextMirror(mirror, host, hasRenderedRuby);
       mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
@@ -8319,7 +8319,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function targetHasNativeRuby(target) {
     return isFragmentTextTarget(target) ? target.fragments.some((fragment2) => fragment2.hasNativeRuby) : Boolean(target.hasNativeRuby);
   }
-  function styleTextMirrorHost(host) {
+  function styleTextMirrorHost(host, allowOverflow = true) {
     const computed = safeComputedStyle(host);
     const state2 = {
       observer: new MutationObserver(() => void 0),
@@ -8328,6 +8328,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       visibilityPriority: host.style.getPropertyPriority("visibility"),
       overflow: host.style.getPropertyValue("overflow"),
       overflowPriority: host.style.getPropertyPriority("overflow"),
+      overflowAdjusted: allowOverflow,
       position: host.style.getPropertyValue("position"),
       positionPriority: host.style.getPropertyPriority("position"),
       positioned: computed.position === "static",
@@ -8336,7 +8337,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       displayAdjusted: computed.display === "inline"
     };
     textMirrorHosts.set(host, state2);
-    host.style.setProperty("overflow", "visible", "important");
+    if (state2.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
     if (state2.positioned) host.style.setProperty("position", "relative", "important");
     if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
     return state2;
@@ -8344,7 +8345,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hideTextMirrorHost(host, state2) {
     textMirrorHosts.set(host, state2);
     host.style.setProperty("visibility", "hidden", "important");
-    host.style.setProperty("overflow", "visible", "important");
+    if (state2.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
     if (state2.positioned) host.style.setProperty("position", "relative", "important");
     if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
   }
@@ -8439,7 +8440,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (host.style.getPropertyValue("visibility") !== "hidden") {
       host.style.setProperty("visibility", "hidden", "important");
     }
-    if (host.style.getPropertyValue("overflow") !== "visible") {
+    if (state2.overflowAdjusted && host.style.getPropertyValue("overflow") !== "visible") {
       host.style.setProperty("overflow", "visible", "important");
     }
     if (state2.positioned && host.style.getPropertyValue("position") !== "relative") {
@@ -8451,7 +8452,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function restoreTextMirrorHost(host, state2) {
     restoreStyleProperty$1(host, "visibility", state2.visibility, state2.visibilityPriority);
-    restoreStyleProperty$1(host, "overflow", state2.overflow, state2.overflowPriority);
+    if (state2.overflowAdjusted) restoreStyleProperty$1(host, "overflow", state2.overflow, state2.overflowPriority);
     if (state2.positioned) restoreStyleProperty$1(host, "position", state2.position, state2.positionPriority);
     if (state2.displayAdjusted) restoreStyleProperty$1(host, "display", state2.display, state2.displayPriority);
   }

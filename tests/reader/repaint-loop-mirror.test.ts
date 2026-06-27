@@ -118,6 +118,31 @@ describe('repaint-loop mirror fallback', () => {
         expect(host.style.position).toBe('');
     });
 
+    it('keeps ruby-suppressed passive mirrors clipped by native host overflow', () => {
+        document.body.innerHTML = `<a id="title" style="display:block;overflow:hidden;height:36px;line-height:18px">${TEXT}</a>`;
+        const host = document.getElementById('title')!;
+        const target = collectTextTargetsIn(document.body, 40, false).find(t => t.text.trim() === TEXT)!;
+
+        applyTokensToScanTarget({
+            ...target,
+            nonDestructive: true,
+            suppressRuby: true,
+            passiveInteraction: true,
+        }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror).toBeTruthy();
+        expect(host.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(host.style.getPropertyValue('overflow')).toBe('hidden');
+        expect(host.style.getPropertyPriority('overflow')).toBe('');
+        expect(mirror.querySelector('rt')).toBeNull();
+        expect(mirror.querySelector('.jpdb-reader-passive-word')).toBeTruthy();
+
+        expect(removeNonDestructiveScanMirrors(document)).toBe(1);
+        expect(host.style.overflow).toBe('hidden');
+        expect(host.style.visibility).toBe('');
+    });
+
     it('keeps broad YouTube comment containers visible by mirroring the attributed text host only', () => {
         document.body.innerHTML = `
             <ytd-comment-view-model>

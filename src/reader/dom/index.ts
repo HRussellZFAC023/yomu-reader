@@ -245,6 +245,7 @@ interface TextMirrorHostState {
     visibilityPriority: string;
     overflow: string;
     overflowPriority: string;
+    overflowAdjusted: boolean;
     position: string;
     positionPriority: string;
     positioned: boolean;
@@ -1329,7 +1330,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     mirror.dataset.sourceText = text;
     mirror.dataset.renderSignature = signature;
     const hasRenderedRuby = !suppressRuby && safeTokens.some(token => token.rubies.length > 0);
-    const state = styleTextMirrorHost(host);
+    const state = styleTextMirrorHost(host, hasRenderedRuby);
     try {
         styleTextMirror(mirror, host, hasRenderedRuby);
         mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
@@ -1931,7 +1932,7 @@ function targetHasNativeRuby(target: ScanTextTarget): boolean {
         : Boolean(target.hasNativeRuby);
 }
 
-function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
+function styleTextMirrorHost(host: HTMLElement, allowOverflow = true): TextMirrorHostState {
     const computed = safeComputedStyle(host);
     const state: TextMirrorHostState = {
         observer: new MutationObserver(() => undefined),
@@ -1940,6 +1941,7 @@ function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
         visibilityPriority: host.style.getPropertyPriority('visibility'),
         overflow: host.style.getPropertyValue('overflow'),
         overflowPriority: host.style.getPropertyPriority('overflow'),
+        overflowAdjusted: allowOverflow,
         position: host.style.getPropertyValue('position'),
         positionPriority: host.style.getPropertyPriority('position'),
         positioned: computed.position === 'static',
@@ -1948,7 +1950,7 @@ function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
         displayAdjusted: computed.display === 'inline',
     };
     textMirrorHosts.set(host, state);
-    host.style.setProperty('overflow', 'visible', 'important');
+    if (state.overflowAdjusted) host.style.setProperty('overflow', 'visible', 'important');
     if (state.positioned) host.style.setProperty('position', 'relative', 'important');
     if (state.displayAdjusted) host.style.setProperty('display', 'inline-block', 'important');
     return state;
@@ -1957,7 +1959,7 @@ function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
 function hideTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
     textMirrorHosts.set(host, state);
     host.style.setProperty('visibility', 'hidden', 'important');
-    host.style.setProperty('overflow', 'visible', 'important');
+    if (state.overflowAdjusted) host.style.setProperty('overflow', 'visible', 'important');
     if (state.positioned) host.style.setProperty('position', 'relative', 'important');
     if (state.displayAdjusted) host.style.setProperty('display', 'inline-block', 'important');
 }
@@ -2080,7 +2082,7 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
     if (host.style.getPropertyValue('visibility') !== 'hidden') {
         host.style.setProperty('visibility', 'hidden', 'important');
     }
-    if (host.style.getPropertyValue('overflow') !== 'visible') {
+    if (state.overflowAdjusted && host.style.getPropertyValue('overflow') !== 'visible') {
         host.style.setProperty('overflow', 'visible', 'important');
     }
     if (state.positioned && host.style.getPropertyValue('position') !== 'relative') {
@@ -2093,7 +2095,7 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
 
 function restoreTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
     restoreStyleProperty(host, 'visibility', state.visibility, state.visibilityPriority);
-    restoreStyleProperty(host, 'overflow', state.overflow, state.overflowPriority);
+    if (state.overflowAdjusted) restoreStyleProperty(host, 'overflow', state.overflow, state.overflowPriority);
     if (state.positioned) restoreStyleProperty(host, 'position', state.position, state.positionPriority);
     if (state.displayAdjusted) restoreStyleProperty(host, 'display', state.display, state.displayPriority);
 }

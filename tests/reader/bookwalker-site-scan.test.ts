@@ -51,6 +51,8 @@ describe('BookWalker site scan boundaries', () => {
                 expect(targets.map(target => target.text)).toEqual(expected);
                 expect(targets.every(target => 'parserId' in target && target.parserId === 'residual-visible-japanese-parser')).toBe(true);
                 expect(targets.every(target => target.passiveInteraction)).toBe(true);
+                expect(targets.every(target => target.suppressRuby)).toBe(true);
+                expect(targets.every(target => target.nonDestructive)).toBe(true);
             }
         } finally {
             restoreRects();
@@ -93,6 +95,7 @@ describe('BookWalker site scan boundaries', () => {
                 parserId: 'bookwalker-storefront-no-dom-parser',
                 suppressRuby: true,
                 passiveInteraction: true,
+                nonDestructive: true,
             });
         } finally {
             restoreRects();

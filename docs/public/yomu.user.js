@@ -4470,7 +4470,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   mirror.dataset.sourceText = text2;
   mirror.dataset.renderSignature = signature;
   const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
-  const state = styleTextMirrorHost(host);
+  const state = styleTextMirrorHost(host, hasRenderedRuby);
   try {
     styleTextMirror(mirror, host, hasRenderedRuby);
     mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
@@ -4981,7 +4981,7 @@ function commonFragmentTextHost(elements) {
 function targetHasNativeRuby(target) {
   return isFragmentTextTarget$1(target) ? target.fragments.some((fragment) => fragment.hasNativeRuby) : Boolean(target.hasNativeRuby);
 }
-function styleTextMirrorHost(host) {
+function styleTextMirrorHost(host, allowOverflow = true) {
   const computed = safeComputedStyle(host);
   const state = {
     observer: new MutationObserver(() => void 0),
@@ -4990,6 +4990,7 @@ function styleTextMirrorHost(host) {
     visibilityPriority: host.style.getPropertyPriority("visibility"),
     overflow: host.style.getPropertyValue("overflow"),
     overflowPriority: host.style.getPropertyPriority("overflow"),
+    overflowAdjusted: allowOverflow,
     position: host.style.getPropertyValue("position"),
     positionPriority: host.style.getPropertyPriority("position"),
     positioned: computed.position === "static",
@@ -4998,7 +4999,7 @@ function styleTextMirrorHost(host) {
     displayAdjusted: computed.display === "inline"
   };
   textMirrorHosts.set(host, state);
-  host.style.setProperty("overflow", "visible", "important");
+  if (state.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
   if (state.positioned) host.style.setProperty("position", "relative", "important");
   if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
   return state;
@@ -5006,7 +5007,7 @@ function styleTextMirrorHost(host) {
 function hideTextMirrorHost(host, state) {
   textMirrorHosts.set(host, state);
   host.style.setProperty("visibility", "hidden", "important");
-  host.style.setProperty("overflow", "visible", "important");
+  if (state.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
   if (state.positioned) host.style.setProperty("position", "relative", "important");
   if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
 }
@@ -5101,7 +5102,7 @@ function reassertTextMirrorHostStyles(host, state) {
   if (host.style.getPropertyValue("visibility") !== "hidden") {
     host.style.setProperty("visibility", "hidden", "important");
   }
-  if (host.style.getPropertyValue("overflow") !== "visible") {
+  if (state.overflowAdjusted && host.style.getPropertyValue("overflow") !== "visible") {
     host.style.setProperty("overflow", "visible", "important");
   }
   if (state.positioned && host.style.getPropertyValue("position") !== "relative") {
@@ -5113,7 +5114,7 @@ function reassertTextMirrorHostStyles(host, state) {
 }
 function restoreTextMirrorHost(host, state) {
   restoreStyleProperty(host, "visibility", state.visibility, state.visibilityPriority);
-  restoreStyleProperty(host, "overflow", state.overflow, state.overflowPriority);
+  if (state.overflowAdjusted) restoreStyleProperty(host, "overflow", state.overflow, state.overflowPriority);
   if (state.positioned) restoreStyleProperty(host, "position", state.position, state.positionPriority);
   if (state.displayAdjusted) restoreStyleProperty(host, "display", state.display, state.displayPriority);
 }
@@ -32744,7 +32745,15 @@ function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.loc
   const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
   const baseTargets = siteTargets ?? [];
   if (matchingProfiles.some((profile) => profile.disableGenericDomScan)) {
-    return matchingProfiles.some((profile) => profile.suppressResidualVisibleScan) ? baseTargets : withResidualVisibleJapaneseTargets(baseTargets, effectiveLimit, matchingProfiles);
+    if (matchingProfiles.some((profile) => profile.suppressResidualVisibleScan)) {
+      return baseTargets;
+    }
+    const residualTargets = collectResidualVisibleJapaneseTargets(
+      effectiveLimit - baseTargets.length,
+      baseTargets,
+      matchingProfiles
+    );
+    return residualTargets.length ? [...baseTargets, ...markTargetsPassiveNonDestructive(residualTargets)] : baseTargets;
   }
   const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
   if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
@@ -32763,6 +32772,20 @@ function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.loc
   if (broadWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(broadWithResidual) : broadWithResidual;
   const visibleTargets = collectVisibleTextTargets(effectiveLimit);
   return useNonDestructiveGenericScan ? markTargetsNonDestructive(visibleTargets) : visibleTargets;
+}
+function markTargetsPassiveNonDestructive(targets) {
+  return targets.map((target) => ({
+    ...target,
+    suppressRuby: true,
+    passiveInteraction: true,
+    nonDestructive: true,
+    ..."fragments" in target ? {
+      fragments: target.fragments.map((fragment) => ({
+        ...fragment,
+        passiveInteraction: true
+      }))
+    } : {}
+  }));
 }
 function isGenericManagedAppShell() {
   return Boolean(document.querySelector([

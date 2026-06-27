@@ -44,23 +44,64 @@ writeFileSync(entryPath, `
         };
     }
 
-    function carouselMetrics() {
+    function firstJapaneseToken(sentence: string): JPDBToken | null {
+        const match = /[一-龯ぁ-んァ-ヶー]{2,}/u.exec(sentence);
+        if (!match || match.index === undefined) return null;
+        const spelling = match[0].slice(0, Math.min(3, match[0].length));
+        return token(sentence, spelling, 'にほんごのことば', match.index, match.index + spelling.length);
+    }
+
+    function rectMetric(element: HTMLElement | null) {
+        const rect = element?.getBoundingClientRect();
+        if (!rect) return null;
+        return {
+            left: rect.left,
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom,
+            width: rect.width,
+            height: rect.height,
+        };
+    }
+
+    function rectMetrics(selector: string) {
+        return Array.from(document.querySelectorAll<HTMLElement>(selector)).map(rectMetric);
+    }
+
+    function storefrontMetrics() {
+        const root = document.querySelector<HTMLElement>('[data-bookwalker-storefront]');
         const viewport = document.querySelector<HTMLElement>('[data-carousel-viewport]');
         const track = document.querySelector<HTMLElement>('[data-carousel-track]');
         const title = document.querySelector<HTMLElement>('[data-bookwalker-title]');
         const viewportRect = viewport?.getBoundingClientRect();
         const titleRect = title?.getBoundingClientRect();
+        const scoped = root ?? document.body;
+        const inlineWordCount = Array.from(scoped.querySelectorAll<HTMLElement>('.jpdb-reader-word'))
+            .filter(word => !word.closest('.jpdb-reader-text-mirror')).length;
+        const overflowVisibleHosts = Array.from(scoped.querySelectorAll<HTMLElement>('[style]'))
+            .filter(element => !element.matches('.jpdb-reader-text-mirror')
+                && !element.closest('.jpdb-reader-text-mirror')
+                && element.style.getPropertyValue('overflow') === 'visible').length;
         return {
-            viewportClientWidth: viewport?.clientWidth ?? 0,
-            viewportScrollWidth: viewport?.scrollWidth ?? 0,
-            trackClientWidth: track?.clientWidth ?? 0,
-            trackScrollWidth: track?.scrollWidth ?? 0,
-            titleClientWidth: title?.clientWidth ?? 0,
-            titleScrollWidth: title?.scrollWidth ?? 0,
-            viewportRight: viewportRect?.right ?? 0,
-            titleRight: titleRect?.right ?? 0,
-            rubyCount: document.querySelectorAll('[data-bookwalker-title] rt,.jpdb-reader-furi').length,
-            passiveCount: document.querySelectorAll('[data-bookwalker-title] .jpdb-reader-passive-word').length,
+            carousel: {
+                viewportClientWidth: viewport?.clientWidth ?? 0,
+                viewportScrollWidth: viewport?.scrollWidth ?? 0,
+                trackClientWidth: track?.clientWidth ?? 0,
+                trackScrollWidth: track?.scrollWidth ?? 0,
+                titleClientWidth: title?.clientWidth ?? 0,
+                titleScrollWidth: title?.scrollWidth ?? 0,
+                viewportRight: viewportRect?.right ?? 0,
+                titleRight: titleRect?.right ?? 0,
+            },
+            layout: rectMetric(document.querySelector<HTMLElement>('[data-bookwalker-layout]')),
+            grid: rectMetrics('[data-bookwalker-grid-item]'),
+            titles: rectMetrics('[data-bookwalker-product-title]'),
+            side: rectMetrics('[data-bookwalker-side-card]'),
+            rubyCount: scoped.querySelectorAll('rt,.jpdb-reader-furi').length,
+            passiveCount: scoped.querySelectorAll('.jpdb-reader-passive-word').length,
+            mirrorCount: scoped.querySelectorAll('.jpdb-reader-text-mirror').length,
+            inlineWordCount,
+            overflowVisibleHosts,
         };
     }
 
@@ -72,43 +113,39 @@ writeFileSync(entryPath, `
         };
     }
 
-    function productGridMetrics() {
-        const grid = document.querySelector<HTMLElement>('[data-product-grid]');
-        const firstCard = document.querySelector<HTMLElement>('[data-product-card]');
-        const firstTitle = document.querySelector<HTMLElement>('[data-product-title]');
-        const positioned = document.querySelector<HTMLElement>('[data-positioned-card]');
-        return {
-            gridClientWidth: grid?.clientWidth ?? 0,
-            gridScrollWidth: grid?.scrollWidth ?? 0,
-            gridClientHeight: grid?.clientHeight ?? 0,
-            gridScrollHeight: grid?.scrollHeight ?? 0,
-            cardHeight: firstCard?.getBoundingClientRect().height ?? 0,
-            titleHeight: firstTitle?.getBoundingClientRect().height ?? 0,
-            positionedHeight: positioned?.getBoundingClientRect().height ?? 0,
-            rubyCount: document.querySelectorAll('[data-product-title] rt,[data-product-title] .jpdb-reader-furi,[data-positioned-title] rt,[data-positioned-title] .jpdb-reader-furi').length,
-            passiveCount: document.querySelectorAll('[data-product-title] .jpdb-reader-passive-word,[data-positioned-title] .jpdb-reader-passive-word').length,
-        };
-    }
-
     Object.assign(window, {
-        runYomuBookwalkerCarouselProbe() {
-            const before = carouselMetrics();
-            const sentence = '日本語漫画フェア';
-            const targets = collectScanTargets(20, 'https://bookwalker.jp/');
-            const target = targets.find(candidate => candidate.text.includes(sentence));
-            if (!target) throw new Error('BookWalker carousel title target was not collected.');
-            applyTokensToScanTarget(target, [
-                token(sentence, '日本語', 'にほんごのことば', 0, 3),
-                token(sentence, '漫画', 'まんがたいとる', 3, 5),
-            ], { ...DEFAULT_SETTINGS, interfaceLanguage: 'en', showFurigana: true, furiganaMode: 'all' });
+        runYomuBookwalkerStorefrontProbe() {
+            const before = storefrontMetrics();
+            const targets = collectScanTargets(80, 'https://bookwalker.jp/');
+            let applied = 0;
+            for (const target of targets) {
+                const candidate = firstJapaneseToken(target.text);
+                if (!candidate) continue;
+                applyTokensToScanTarget(target, [candidate], {
+                    ...DEFAULT_SETTINGS,
+                    interfaceLanguage: 'en',
+                    showFurigana: true,
+                    furiganaMode: 'all',
+                });
+                applied += 1;
+            }
             return {
                 before,
-                after: carouselMetrics(),
-                target: {
-                    text: target.text,
-                    suppressRuby: target.suppressRuby === true,
-                    passiveInteraction: target.passiveInteraction === true,
-                    parserId: 'parserId' in target ? target.parserId : null,
+                after: storefrontMetrics(),
+                applied,
+                targets: {
+                    count: targets.length,
+                    allResidual: targets.every(target => 'parserId' in target && target.parserId === 'residual-visible-japanese-parser'),
+                    allSuppressRuby: targets.every(target => target.suppressRuby === true),
+                    allPassive: targets.every(target => target.passiveInteraction === true),
+                    allNonDestructive: targets.every(target => target.nonDestructive === true),
+                    sample: targets.slice(0, 8).map(target => ({
+                        text: target.text,
+                        suppressRuby: target.suppressRuby === true,
+                        passiveInteraction: target.passiveInteraction === true,
+                        nonDestructive: target.nonDestructive === true,
+                        parserId: 'parserId' in target ? target.parserId : null,
+                    })),
                 },
             };
         },
@@ -131,39 +168,6 @@ writeFileSync(entryPath, `
                 },
             };
         },
-        runYomuProductGridProbe() {
-            const before = productGridMetrics();
-            const sentences = ['日本語漫画第1巻', '今日のおすすめ漫画'];
-            const targets = collectScanTargets(20, 'https://bookwalker.jp/');
-            const gridTarget = targets.find(candidate => candidate.text.includes(sentences[0]));
-            const positionedTarget = targets.find(candidate => candidate.text.includes(sentences[1]));
-            if (!gridTarget) throw new Error('Product grid title target was not collected.');
-            if (!positionedTarget) throw new Error('Positioned card title target was not collected.');
-            applyTokensToScanTarget(gridTarget, [
-                token(sentences[0], '日本語', 'にほんごのことば', 0, 3),
-                token(sentences[0], '漫画', 'まんがたいとる', 3, 5),
-            ], { ...DEFAULT_SETTINGS, interfaceLanguage: 'en', showFurigana: true, furiganaMode: 'all' });
-            applyTokensToScanTarget(positionedTarget, [
-                token(sentences[1], '今日', 'きょう', 0, 2),
-                token(sentences[1], 'おすすめ', 'おすすめ', 3, 7),
-            ], { ...DEFAULT_SETTINGS, interfaceLanguage: 'en', showFurigana: true, furiganaMode: 'all' });
-            return {
-                before,
-                after: productGridMetrics(),
-                targets: {
-                    grid: {
-                        text: gridTarget.text,
-                        suppressRuby: gridTarget.suppressRuby === true,
-                        passiveInteraction: gridTarget.passiveInteraction === true,
-                    },
-                    positioned: {
-                        text: positionedTarget.text,
-                        suppressRuby: positionedTarget.suppressRuby === true,
-                        passiveInteraction: positionedTarget.passiveInteraction === true,
-                    },
-                },
-            };
-        },
     });
 `);
 
@@ -180,24 +184,34 @@ try {
 
     const browser = await chromium.launch({ headless: true });
     try {
-        const result = await runBrowserProbe(browser, bookwalkerCarouselFixture(), 'runYomuBookwalkerCarouselProbe', 'bookwalker-carousel-overflow-smoke.png');
-        const forcedRuby = await runBrowserProbe(browser, bookwalkerCarouselFixture({ forceRuby: true }), 'runYomuBookwalkerCarouselProbe');
+        const result = await runBrowserProbe(browser, bookwalkerStorefrontFixture(), 'runYomuBookwalkerStorefrontProbe', 'bookwalker-carousel-overflow-smoke.png');
+        const forcedRuby = await runBrowserProbe(browser, bookwalkerStorefrontFixture({ forceRuby: true }), 'runYomuBookwalkerStorefrontProbe');
         const readableScroll = await runBrowserProbe(browser, readableScrollFixture(), 'runYomuReadableScrollProbe');
-        const productGrid = await runBrowserProbe(browser, productGridFixture(), 'runYomuProductGridProbe', 'bookwalker-card-grid-smoke.png');
-        const forcedProductGrid = await runBrowserProbe(browser, productGridFixture({ forceRuby: true }), 'runYomuProductGridProbe');
 
-        assert(result.before.viewportScrollWidth <= result.before.viewportClientWidth + 2, 'fixture starts without overflow', result);
-        assert(result.target.suppressRuby, 'wide image carousel target should suppress ruby generically', result);
-        assert(result.target.passiveInteraction, 'wide image carousel target should be passive', result);
-        assert(result.after.rubyCount === 0, 'carousel title rendered ruby and can widen the image carousel', result);
-        assert(result.after.passiveCount >= 2, 'carousel title words should still be lookupable as passive words', result);
-        assert(result.after.viewportScrollWidth <= result.after.viewportClientWidth + 2, 'carousel overflowed after Yomu rendered words', result);
-        assert(result.after.titleRight <= result.after.viewportRight + 2, 'carousel title painted outside the clipped viewport', result);
+        assert(result.before.carousel.viewportScrollWidth <= result.before.carousel.viewportClientWidth + 2, 'fixture starts without carousel overflow', result);
+        assert(result.targets.count >= 10, 'BookWalker fixture did not collect enough storefront targets', result);
+        assert(result.targets.allResidual, 'BookWalker storefront should use residual visible Japanese targets only', result);
+        assert(result.targets.allSuppressRuby, 'BookWalker storefront residual targets should suppress ruby', result);
+        assert(result.targets.allPassive, 'BookWalker storefront residual targets should be passive', result);
+        assert(result.targets.allNonDestructive, 'BookWalker storefront residual targets should be non-destructive', result);
+        assert(result.applied >= 8, 'BookWalker storefront smoke did not annotate enough targets', result);
+        assert(result.after.rubyCount === 0, 'BookWalker storefront rendered ruby in compact commerce layout', result);
+        assert(result.after.passiveCount >= 8, 'BookWalker storefront words should still be lookupable as passive words', result);
+        assert(result.after.mirrorCount >= 8, 'BookWalker storefront should preserve native layout with text mirrors', result);
+        assert(result.after.inlineWordCount === 0, 'BookWalker storefront injected inline words into native carousel/grid/sidebar DOM', result);
+        assert(result.after.overflowVisibleHosts === 0, 'ruby-suppressed passive mirrors should not force host overflow visible', result);
+        assert(result.after.carousel.viewportScrollWidth <= result.after.carousel.viewportClientWidth + 2, 'carousel overflowed after Yomu rendered words', result);
+        assert(result.after.carousel.titleRight <= result.after.carousel.viewportRight + 2, 'carousel title painted outside the clipped viewport', result);
+        assertStableRects(result.before.grid, result.after.grid, 'product grid item geometry changed', result);
+        assertStableRects(result.before.titles, result.after.titles, 'product title geometry changed', result);
+        assertStableRects(result.before.side, result.after.side, 'sidebar card geometry changed', result);
+        assertStableRect(result.before.layout, result.after.layout, 'two-column layout geometry changed', result);
 
-        assert(forcedRuby.after.rubyCount > 0, 'control fixture did not render ruby', forcedRuby);
+        assert(forcedRuby.after.rubyCount > 0, 'control fixture did not render forced ruby', forcedRuby);
+        assert(forcedRuby.after.overflowVisibleHosts > 0, 'control fixture did not exercise overflow-visible mirror hosts', forcedRuby);
         assert(
-            forcedRuby.after.viewportScrollWidth > forcedRuby.after.viewportClientWidth + 2
-                || forcedRuby.after.titleRight > forcedRuby.after.viewportRight + 2,
+            forcedRuby.after.carousel.viewportScrollWidth > forcedRuby.after.carousel.viewportClientWidth + 2
+                || forcedRuby.after.carousel.titleRight > forcedRuby.after.carousel.viewportRight + 2,
             'control fixture with forced ruby should demonstrate the overflow risk',
             forcedRuby,
         );
@@ -206,26 +220,7 @@ try {
         assert(!readableScroll.target.passiveInteraction, 'readable prose in a scroll/banner container should stay interactive', readableScroll);
         assert(readableScroll.after.rubyCount > 0, 'readable prose lost furigana in a scroll/banner container', readableScroll);
 
-        assert(productGrid.targets.grid.suppressRuby, 'compact product-grid title should suppress ruby generically', productGrid);
-        assert(productGrid.targets.grid.passiveInteraction, 'compact product-grid title should be passive', productGrid);
-        assert(productGrid.targets.positioned.suppressRuby, 'positioned media card title should suppress ruby generically', productGrid);
-        assert(productGrid.targets.positioned.passiveInteraction, 'positioned media card title should be passive', productGrid);
-        assert(productGrid.after.rubyCount === 0, 'compact product/card grid rendered ruby and can change card sizing', productGrid);
-        assert(productGrid.after.passiveCount >= 3, 'compact product/card words should remain lookupable as passive words', productGrid);
-        assert(Math.abs(productGrid.after.gridScrollHeight - productGrid.before.gridScrollHeight) <= 2, 'product grid height changed after Yomu rendered words', productGrid);
-        assert(Math.abs(productGrid.after.cardHeight - productGrid.before.cardHeight) <= 2, 'product card height changed after Yomu rendered words', productGrid);
-        assert(Math.abs(productGrid.after.positionedHeight - productGrid.before.positionedHeight) <= 2, 'positioned card height changed after Yomu rendered words', productGrid);
-
-        assert(forcedProductGrid.after.rubyCount > 0, 'product-grid control fixture did not render ruby', forcedProductGrid);
-        assert(
-            forcedProductGrid.after.gridScrollHeight > forcedProductGrid.before.gridScrollHeight + 2
-                || forcedProductGrid.after.cardHeight > forcedProductGrid.before.cardHeight + 2
-                || forcedProductGrid.after.positionedHeight > forcedProductGrid.before.positionedHeight + 2,
-            'product-grid control fixture with forced ruby should demonstrate the sizing risk',
-            forcedProductGrid,
-        );
-
-        console.log(JSON.stringify({ result, forcedRuby, readableScroll, productGrid, forcedProductGrid }, null, 2));
+        console.log(JSON.stringify({ result, forcedRuby, readableScroll }, null, 2));
         console.log('BookWalker carousel overflow smoke passed');
     } finally {
         await browser.close();
@@ -235,7 +230,7 @@ try {
 }
 
 async function runBrowserProbe(browser, html, probeName, screenshotName) {
-    const page = await browser.newPage({ viewport: { width: 900, height: 640 } });
+    const page = await browser.newPage({ viewport: { width: 940, height: 760 } });
     try {
         await page.setContent(html, { waitUntil: 'domcontentloaded' });
         await page.addStyleTag({ content: readFileSync(path.join(ROOT, 'src/reader/styles/reader-words-ocr.css'), 'utf8') });
@@ -248,7 +243,33 @@ async function runBrowserProbe(browser, html, probeName, screenshotName) {
     }
 }
 
-function bookwalkerCarouselFixture({ forceRuby = false } = {}) {
+function assert(condition, message, details) {
+    if (condition) return;
+    const error = new Error(message);
+    error.details = details;
+    console.error(JSON.stringify(details, null, 2));
+    throw error;
+}
+
+function assertStableRect(before, after, message, details) {
+    assert(before && after, message, details);
+    const maxDelta = Math.max(
+        Math.abs(before.left - after.left),
+        Math.abs(before.top - after.top),
+        Math.abs(before.width - after.width),
+        Math.abs(before.height - after.height),
+        Math.abs(before.right - after.right),
+        Math.abs(before.bottom - after.bottom),
+    );
+    assert(maxDelta <= 1, `${message}: max delta ${maxDelta}`, details);
+}
+
+function assertStableRects(before, after, message, details) {
+    assert(before.length === after.length, `${message}: element count changed`, details);
+    before.forEach((rect, index) => assertStableRect(rect, after[index], `${message} at ${index}`, details));
+}
+
+function bookwalkerStorefrontFixture({ forceRuby = false } = {}) {
     const forceRubyAttribute = forceRuby ? ' data-yomu-furigana-mode="all"' : '';
     return `
         <!doctype html>
@@ -257,57 +278,230 @@ function bookwalkerCarouselFixture({ forceRuby = false } = {}) {
             <meta charset="utf-8">
             <style>
                 * { box-sizing: border-box; }
-                body { margin: 0; font-family: system-ui, sans-serif; }
-                .bookwalker-home { width: 760px; margin: 32px auto; }
+                body { margin: 0; font-family: system-ui, sans-serif; color: #172033; background: #fff; }
+                .bookwalker-home { width: 880px; margin: 24px auto 48px; }
+                .global-nav {
+                    display: flex;
+                    gap: 18px;
+                    align-items: center;
+                    height: 42px;
+                    overflow: hidden;
+                    border-bottom: 1px solid #d8dee8;
+                }
+                .global-nav a,
+                .global-nav button {
+                    font: inherit;
+                    color: inherit;
+                    background: transparent;
+                    border: 0;
+                    text-decoration: none;
+                    white-space: nowrap;
+                }
                 .image-carousel {
-                    width: 760px;
+                    width: 880px;
                     overflow-x: hidden;
                     overflow-y: visible;
                     border: 1px solid #d8dee8;
+                    margin-top: 18px;
                 }
                 .image-carousel__track {
                     display: flex;
-                    width: 760px;
+                    width: 880px;
                 }
                 .image-carousel__slide {
                     display: flex;
                     align-items: center;
-                    flex: 0 0 760px;
+                    flex: 0 0 880px;
                     min-width: 0;
                     height: 214px;
                     background: #f6f8fb;
                 }
                 .image-carousel__art {
-                    flex: 0 0 518px;
-                    width: 518px;
+                    flex: 0 0 616px;
+                    width: 616px;
                     height: 214px;
                     object-fit: cover;
                     background: linear-gradient(135deg, #27364a, #8fc7d7);
                 }
                 .image-carousel__copy {
                     flex: 0 0 auto;
+                    max-width: 236px;
                     margin-left: 16px;
                     color: #172033;
                     font-size: 28px;
                     font-weight: 800;
                     line-height: 1.2;
                     white-space: nowrap;
+                    overflow: hidden;
+                }
+                .t-l-layout-2-column {
+                    display: grid;
+                    grid-template-columns: minmax(0, 1fr) 216px;
+                    gap: 24px;
+                    align-items: start;
+                    margin-top: 24px;
+                }
+                .t-c-main-section {
+                    min-width: 0;
+                    overflow: hidden;
+                }
+                .t-c-main-section__title {
+                    margin: 0 0 12px;
+                    font-size: 20px;
+                    line-height: 1.3;
+                    white-space: nowrap;
+                    overflow: hidden;
+                }
+                .t-c-grid-shelf {
+                    display: grid;
+                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                    gap: 16px;
+                }
+                .t-c-grid-shelf__item {
+                    min-width: 0;
+                    overflow: hidden;
+                    border: 1px solid #d8dee8;
+                    padding: 10px;
+                }
+                .t-c-tile-card__main {
+                    display: grid;
+                    grid-template-columns: 72px minmax(0, 1fr);
+                    gap: 10px;
+                    min-width: 0;
+                }
+                .t-c-book-cover-general {
+                    width: 72px;
+                    height: 102px;
+                    background: #c7d5e7;
+                }
+                .t-o-heading-book-title {
+                    margin: 0;
+                    min-width: 0;
+                    font-size: 13px;
+                    line-height: 18px;
+                }
+                .t-o-heading-book-title__link {
+                    display: -webkit-box;
+                    -webkit-box-orient: vertical;
+                    -webkit-line-clamp: 2;
+                    height: 36px;
+                    overflow: hidden;
+                    color: inherit;
+                    text-decoration: none;
+                }
+                .t-c-tile-card__badge {
+                    display: block;
+                    width: 82px;
+                    height: 20px;
+                    margin-top: 8px;
+                    overflow: hidden;
+                    font-size: 12px;
+                    line-height: 20px;
+                    white-space: nowrap;
+                }
+                .t-l-layout-2-column__side {
+                    position: relative;
+                    width: 216px;
+                    min-height: 250px;
+                }
+                .t-c-sidebar-login,
+                .t-c-sidebar-card {
+                    position: absolute;
+                    left: 0;
+                    width: 216px;
+                    border: 1px solid #d8dee8;
+                    background: #fff;
+                    overflow: hidden;
+                }
+                .t-c-sidebar-login {
+                    top: 0;
+                    height: 68px;
+                    padding: 10px;
+                }
+                .t-c-sidebar-card {
+                    top: 84px;
+                    height: 96px;
+                    padding: 10px;
+                }
+                .t-c-sidebar-card__title {
+                    margin: 0 0 8px;
+                    overflow: hidden;
+                    white-space: nowrap;
+                    font-size: 14px;
+                    line-height: 18px;
+                }
+                .t-c-sidebar-card a,
+                .t-c-sidebar-login a {
+                    display: block;
+                    overflow: hidden;
+                    white-space: nowrap;
+                    color: inherit;
+                    text-decoration: none;
+                    font-size: 13px;
+                    line-height: 20px;
                 }
             </style>
         </head>
         <body>
-            <main class="bookwalker-home">
+            <main class="bookwalker-home" data-bookwalker-storefront>
+                <nav class="global-nav">
+                    <a href="/top/">ストアトップ</a>
+                    <a href="/ranking/">ランキング</a>
+                    <a href="/genre/">ジャンルで探す</a>
+                    <button type="button">ログイン</button>
+                </nav>
                 <section class="image-carousel" data-carousel-viewport>
                     <div class="image-carousel__track" data-carousel-track>
                         <article class="image-carousel__slide">
-                            <img class="image-carousel__art" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='518' height='214'%3E%3Crect width='518' height='214' fill='%238fc7d7'/%3E%3C/svg%3E">
+                            <img class="image-carousel__art" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='616' height='214'%3E%3Crect width='616' height='214' fill='%238fc7d7'/%3E%3C/svg%3E">
                             <h2 class="image-carousel__copy" data-bookwalker-title${forceRubyAttribute}>日本語漫画フェア</h2>
                         </article>
                     </div>
                 </section>
+                <div class="t-l-layout-2-column" data-bookwalker-layout>
+                    <section class="t-c-main-section">
+                        <h2 class="t-c-main-section__title">注目の無料作品</h2>
+                        <div class="t-c-grid-shelf --pc">
+                            ${bookwalkerGridItem('あなた達それでも先生ですかっ！【期間限定無料】 1', '無料試し読み')}
+                            ${bookwalkerGridItem('異世界で姉に名前を奪われました【分冊版】', '人気作品')}
+                            ${bookwalkerGridItem('青春ブタ野郎はランドセルガールの夢を見ない', '新着おすすめ')}
+                            ${bookwalkerGridItem('転生王女と天才令嬢の魔法革命', '期間限定')}
+                            ${bookwalkerGridItem('本好きの下剋上 司書になるためには手段を選んでいられません', 'セール対象')}
+                            ${bookwalkerGridItem('魔導具師ダリヤはうつむかない 今日から自由な職人ライフ', '話題作')}
+                        </div>
+                    </section>
+                    <aside class="t-l-layout-2-column__side">
+                        <div class="t-c-sidebar-login" data-bookwalker-side-card>
+                            <a href="/login/">ログインして本棚を見る</a>
+                            <a href="/account/">無料会員登録はこちら</a>
+                        </div>
+                        <div class="t-c-sidebar-card" data-bookwalker-side-card>
+                            <h3 class="t-c-sidebar-card__title">電子書籍ランキング</h3>
+                            <a href="/rank/1/">少年漫画ランキング</a>
+                            <a href="/rank/2/">女性向け漫画ランキング</a>
+                            <a href="/rank/3/">ライトノベルランキング</a>
+                        </div>
+                    </aside>
+                </div>
             </main>
         </body>
         </html>
+    `;
+}
+
+function bookwalkerGridItem(title, badge) {
+    return `
+        <div class="t-c-grid-shelf__item" data-bookwalker-grid-item>
+            <article class="t-c-tile-card --free">
+                <div class="t-c-tile-card__main">
+                    <div class="t-c-book-cover-general"></div>
+                    <h3 class="t-o-heading-book-title">
+                        <a class="t-o-heading-book-title__link --12" href="/book/" data-bookwalker-product-title>${title}</a>
+                    </h3>
+                </div>
+                <span class="t-c-tile-card__badge">${badge}</span>
+            </article>
+        </div>
     `;
 }
 
@@ -348,88 +542,4 @@ function readableScrollFixture() {
         </body>
         </html>
     `;
-}
-
-function productGridFixture({ forceRuby = false } = {}) {
-    const forceRubyAttribute = forceRuby ? ' data-yomu-furigana-mode="all"' : '';
-    return `
-        <!doctype html>
-        <html lang="ja">
-        <head>
-            <meta charset="utf-8">
-            <style>
-                * { box-sizing: border-box; }
-                body { margin: 0; font-family: system-ui, sans-serif; }
-                main { position: relative; width: 760px; margin: 32px auto; padding-right: 0; }
-                .product-grid {
-                    display: grid;
-                    grid-template-columns: repeat(3, minmax(0, 1fr));
-                    gap: 14px;
-                    align-items: start;
-                    width: 520px;
-                    overflow: visible;
-                }
-                .product-card,
-                .positioned-card {
-                    display: grid;
-                    grid-template-rows: 176px auto;
-                    gap: 7px;
-                    width: 164px;
-                    min-width: 0;
-                    padding: 8px;
-                    border: 1px solid #d8dee8;
-                    background: #fff;
-                }
-                .product-card img,
-                .positioned-card img {
-                    width: 100%;
-                    height: 176px;
-                    object-fit: cover;
-                    background: linear-gradient(135deg, #3c4a66, #c7deec);
-                }
-                .product-card h3,
-                .positioned-card span {
-                    margin: 0;
-                    color: #172033;
-                    font-size: 16px;
-                    font-weight: 800;
-                    line-height: 1.2;
-                }
-                .sidebar-rail {
-                    position: absolute;
-                    top: 0;
-                    right: 0;
-                    width: 190px;
-                    min-height: 1px;
-                }
-            </style>
-        </head>
-        <body>
-            <main>
-                <section class="product-grid" data-product-grid>
-                    <article class="product-card" data-product-card>
-                        <img alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='148' height='176'%3E%3Crect width='148' height='176' fill='%23c7deec'/%3E%3C/svg%3E">
-                        <h3 data-product-title${forceRubyAttribute}>日本語漫画第1巻</h3>
-                    </article>
-                    <article class="product-card">
-                        <img alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='148' height='176'%3E%3Crect width='148' height='176' fill='%23d8dee8'/%3E%3C/svg%3E">
-                        <h3>English title</h3>
-                    </article>
-                </section>
-                <aside class="sidebar-rail">
-                    <article class="positioned-card" data-positioned-card>
-                        <img alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='148' height='176'%3E%3Crect width='148' height='176' fill='%23c7deec'/%3E%3C/svg%3E">
-                        <span data-positioned-title${forceRubyAttribute}>今日のおすすめ漫画</span>
-                    </article>
-                </aside>
-            </main>
-        </body>
-        </html>
-    `;
-}
-
-function assert(condition, message, details) {
-    if (!condition) {
-        throw new Error(`${message}\n${JSON.stringify(details, null, 2)}`);
-    }
 }
