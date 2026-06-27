@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.148
+// @version 1.4.149
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.148
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.148
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.148
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.148
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.149
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.149
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.149
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.149
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -540,7 +540,13 @@ function htmlToFirstElement(html) {
 }
 function appendToDocumentHead(element2) {
   const target = document.head || document.documentElement || document.body;
-  target.appendChild(element2);
+  if (target) {
+    target.appendChild(element2);
+    return;
+  }
+  document.addEventListener("DOMContentLoaded", () => {
+    if (!element2.isConnected) appendToDocumentHead(element2);
+  }, { once: true });
 }
 function escapeHtml$1(value) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -32661,31 +32667,22 @@ function siteScanTargetWithProfileOptions(profile, target) {
   const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
   const targetSuppressRuby = profileKeepsProfileRootRuby(profile) ? false : target.suppressRuby;
   const youtubePassiveChrome = isYouTubeSiteParserProfile(profile) && Boolean(target.parent.closest(YOUTUBE_PASSIVE_CHROME_SELECTOR));
-  const youtubeCommentBody = isYouTubeCommentBodyTarget(profile, target.parent);
   const baseTarget = {
     ...target,
     parserId: profile.id,
     suppressRuby: targetSuppressRuby || suppressRuby || void 0,
     passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || void 0,
     singlePassScan: profile.singlePassScan || void 0,
-    nonDestructive: siteScanTargetUsesNonDestructive(profile, youtubeCommentBody) || void 0,
-    forceInlineRender: youtubeCommentBody || void 0,
-    suppressRepaintLoopMirror: youtubeCommentBody || void 0
+    nonDestructive: siteScanTargetUsesNonDestructive(profile) || void 0
   };
   return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
 }
 function profileKeepsProfileRootRuby(profile) {
   return isYouTubeSiteParserProfile(profile) || profile.id === BOOKWALKER_READER_PARSER_ID;
 }
-function siteScanTargetUsesNonDestructive(profile, youtubeCommentBody = false) {
+function siteScanTargetUsesNonDestructive(profile) {
   if (!profile.nonDestructive) return false;
-  return !youtubeCommentBody;
-}
-function isYouTubeCommentBodyTarget(profile, parent) {
-  if (profile.id !== "youtube-comments-parser") return false;
-  const content = parent.closest("#content-text");
-  if (content?.closest("ytd-comment-view-model, ytm-comment-renderer")) return true;
-  return parent.matches("ytd-comment-view-model, ytm-comment-renderer") && Boolean(parent.querySelector("#content-text"));
+  return true;
 }
 function isYouTubeSiteParserProfile(profile) {
   return profile.id === "youtube-comments-parser" || profile.id === "youtube-chrome-parser" || profile.id === "youtube-watch-guide-parser" || profile.id === "youtube-live-chat-parser";
@@ -37376,6 +37373,7 @@ const COLOR_CHANNELS = ["highlight", "underline", "text"];
 const READER_THEME_COLORS = READER_THEME_COLOR_TOKENS;
 function applyReaderTheme(settings, root = document.documentElement) {
   const theme = appliedReaderTheme(settings);
+  if (!root) return theme;
   root.classList.toggle("jpdb-reader-theme-dark", settings.theme === "dark");
   root.classList.toggle("jpdb-reader-theme-light", settings.theme === "light");
   applyReaderAccentColor(settings.accentColor, root);
@@ -37732,7 +37730,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.148"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.149"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],
@@ -39246,6 +39244,30 @@ class ReaderApp {
     dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings: this.settings }));
     done();
   }
+  async waitForDocumentBody() {
+    if (document.body || this.isDestroyed) return;
+    await new Promise((resolve) => {
+      let timer;
+      const abortSignal = this.abortController.signal;
+      let check = () => void 0;
+      const cleanup = () => {
+        if (timer !== void 0) window.clearTimeout(timer);
+        document.removeEventListener("DOMContentLoaded", check);
+        abortSignal.removeEventListener("abort", check);
+      };
+      check = () => {
+        if (document.body || this.isDestroyed) {
+          cleanup();
+          resolve();
+          return;
+        }
+        timer = window.setTimeout(check, 25);
+      };
+      document.addEventListener("DOMContentLoaded", check, { once: true });
+      abortSignal.addEventListener("abort", check, { once: true });
+      timer = window.setTimeout(check, 0);
+    });
+  }
   async loadInitialSettings(options) {
     this.factoryReset.bind();
     const startup = await loadReaderStartupSettings(options);
@@ -39267,6 +39289,8 @@ class ReaderApp {
     installReaderStartupBridge();
   }
   async initReaderPage(shouldShowWelcome) {
+    await this.waitForDocumentBody();
+    if (this.isDestroyed || !document.body) return;
     if (this.embeddedFrame) {
       this.subtitles.init();
       if (this.shouldScanEmbeddedFrame()) {
@@ -40161,8 +40185,36 @@ class ReaderApp {
       bind("wheel", onScrollWheel, { capture: true, passive: false });
     };
     const syncScrollDrive = () => setScrollDrive(Boolean(document.querySelector(READER_ROOT_SCROLL_BODY_SELECTOR)));
-    syncScrollDrive();
-    new MutationObserver(syncScrollDrive).observe(document.body, { childList: true });
+    const scrollDriveObserver = new MutationObserver(syncScrollDrive);
+    let scrollDriveObservedRoot = null;
+    const observeScrollDriveRoot = () => {
+      const root = document.body ?? document.documentElement;
+      if (!root) {
+        document.addEventListener("DOMContentLoaded", () => {
+          if (!this.isDestroyed) observeScrollDriveRoot();
+        }, { once: true });
+        return;
+      }
+      if (scrollDriveObservedRoot === root) return;
+      scrollDriveObserver.disconnect();
+      scrollDriveObservedRoot = root;
+      scrollDriveObserver.observe(root, { childList: true });
+      syncScrollDrive();
+    };
+    const rebindScrollDriveRoot = () => {
+      syncScrollDrive();
+      observeScrollDriveRoot();
+    };
+    scrollDriveObserver.disconnect();
+    scrollDriveObserver.takeRecords();
+    const rootObserver = new MutationObserver(rebindScrollDriveRoot);
+    const htmlRoot = document.documentElement;
+    if (htmlRoot) rootObserver.observe(htmlRoot, { childList: true });
+    observeScrollDriveRoot();
+    this.abortController.signal.addEventListener("abort", () => {
+      scrollDriveObserver.disconnect();
+      rootObserver.disconnect();
+    }, { once: true });
     document.addEventListener("click", (event) => this.handleDocumentClick(event), { capture: true });
     document.addEventListener("mousedown", (event) => {
       if (this.isDestroyed) return;

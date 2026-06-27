@@ -1410,6 +1410,41 @@ Watch the cat
         });
     });
 
+    it('does not throw if fullscreen state sync runs before document.body exists', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        const fullscreen = stubFullscreenElement(null);
+        const body = document.body;
+        const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+        const internals = controllerInternals<{ syncFullscreenState: () => void }>(controller);
+
+        try {
+            document.documentElement.removeChild(body);
+            fullscreen.set(document.documentElement);
+
+            expect(() => internals.syncFullscreenState()).not.toThrow();
+            expect(root.parentElement).toBe(document.documentElement);
+            expect(panel.parentElement).toBe(document.documentElement);
+        } finally {
+            if (!document.body) document.documentElement.appendChild(body);
+            fullscreen.restore();
+            controller.destroy();
+        }
+    });
+
+    it('does not throw when clearing YouTube stable layout before document.documentElement exists', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        const rootSpy = vi.spyOn(document, 'documentElement', 'get').mockReturnValue(null as unknown as HTMLElement);
+        const internals = controllerInternals<{ clearStableYouTubeTranscriptLayout: () => boolean }>(controller);
+
+        try {
+            expect(internals.clearStableYouTubeTranscriptLayout()).toBe(false);
+        } finally {
+            rootSpy.mockRestore();
+            controller.destroy();
+        }
+    });
+
     it('does not mount the subtitle overlay inside a fullscreen video element', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         const fullscreen = stubFullscreenElement(null);

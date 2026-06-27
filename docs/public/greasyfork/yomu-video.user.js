@@ -7606,6 +7606,13 @@ ${candidate.depth}`;
     handleSpaNavigation = () => this.teardownForNavigation();
     init() {
       this.destroyed = false;
+      const body = document.body;
+      if (!body) {
+        document.addEventListener("DOMContentLoaded", () => {
+          if (!this.destroyed) this.init();
+        }, { once: true });
+        return;
+      }
       this.refresh();
       document.addEventListener("pointerdown", this.handleDocumentPointerDown, true);
       document.addEventListener("touchstart", this.handleDocumentTouchStart, { capture: true, passive: true });
@@ -7629,7 +7636,7 @@ ${candidate.depth}`;
         window.addEventListener(eventName, this.handleSpaNavigation);
       }
       this.mutationObserver = new MutationObserver((mutations) => this.handleRenderableMediaMutations(mutations));
-      this.mutationObserver.observe(document.body, {
+      this.mutationObserver.observe(body, {
         childList: true,
         subtree: true,
         attributes: true,
@@ -11886,14 +11893,16 @@ ${spelling}`);
         applyYouTubeVideoElementInset(options.video, options.side, metrics.width, metrics.height);
         return false;
       }
+      const root = document.documentElement;
+      if (!root) return false;
       const previousSignature = this.lastSignature;
       const preservesYouTubeBottomPlayer = shouldPreserveYouTubeBottomPlayerSize(options.side);
       if (!preservesYouTubeBottomPlayer) captureYouTubePlayerContainerBaseRects(youtubePlayerContainers(options.side));
       this.lastSignature = metrics.signature;
-      document.documentElement.classList.toggle("jpdb-subtitle-video-inset-left", options.side === "left");
-      document.documentElement.classList.toggle("jpdb-subtitle-video-inset-right", options.side === "right");
-      document.documentElement.classList.toggle("jpdb-subtitle-video-inset-bottom", options.side === "bottom");
-      document.documentElement.style.setProperty("--jpdb-subtitle-video-inset", metrics.inset);
+      root.classList.toggle("jpdb-subtitle-video-inset-left", options.side === "left");
+      root.classList.toggle("jpdb-subtitle-video-inset-right", options.side === "right");
+      root.classList.toggle("jpdb-subtitle-video-inset-bottom", options.side === "bottom");
+      root.style.setProperty("--jpdb-subtitle-video-inset", metrics.inset);
       applyYouTubePlayerInset(options.side, metrics.width, metrics.insetPixels, metrics.height, {
         clearStableBottom: !previousSignature.startsWith("bottom:")
       });
@@ -11906,8 +11915,9 @@ ${spelling}`);
     clear(video) {
       if (!hasActiveVideoInset(this.lastSignature)) return false;
       this.lastSignature = "";
-      document.documentElement.classList.remove("jpdb-subtitle-video-inset-left", "jpdb-subtitle-video-inset-right", "jpdb-subtitle-video-inset-bottom");
-      document.documentElement.style.removeProperty("--jpdb-subtitle-video-inset");
+      const root = document.documentElement;
+      root?.classList.remove("jpdb-subtitle-video-inset-left", "jpdb-subtitle-video-inset-right", "jpdb-subtitle-video-inset-bottom");
+      root?.style.removeProperty("--jpdb-subtitle-video-inset");
       const watchFlexy = document.querySelector("ytd-watch-flexy");
       watchFlexy?.style.removeProperty("--ytd-watch-flexy-player-width");
       watchFlexy?.style.removeProperty("--ytd-watch-flexy-player-height");
@@ -11930,7 +11940,8 @@ ${spelling}`);
     }
   }
   function hasActiveVideoInset(lastSignature) {
-    return Boolean(lastSignature) || document.documentElement.classList.contains("jpdb-subtitle-video-inset-left") || document.documentElement.classList.contains("jpdb-subtitle-video-inset-right") || document.documentElement.classList.contains("jpdb-subtitle-video-inset-bottom");
+    const root = document.documentElement;
+    return Boolean(lastSignature) || Boolean(root?.classList.contains("jpdb-subtitle-video-inset-left")) || Boolean(root?.classList.contains("jpdb-subtitle-video-inset-right")) || Boolean(root?.classList.contains("jpdb-subtitle-video-inset-bottom"));
   }
   function videoInsetMetrics(options) {
     const gap = options.side === "left" ? options.margin * 2 : options.margin;
@@ -15478,7 +15489,14 @@ ${spelling}`);
       this.destroy();
       this.destroyed = false;
       this.abortController = new AbortController();
-      this.install();
+      const body = document.body;
+      if (!body) {
+        document.addEventListener("DOMContentLoaded", () => {
+          if (!this.destroyed) this.init();
+        }, this.eventOptions({ once: true }));
+        return;
+      }
+      if (!this.install()) return;
       this.syncYouTubeMobileBottomSheetState();
       this.observer = new MutationObserver((mutations) => {
         this.syncYouTubeMobileBottomSheetState();
@@ -15490,7 +15508,7 @@ ${spelling}`);
         if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
         this.scheduleDiscoverVideo();
       });
-      this.observer.observe(document.body, {
+      this.observer.observe(body, {
         attributeFilter: ["aria-modal", "class", "data-yomu-inline-fullscreen", "fullscreen", "hidden"],
         attributes: true,
         childList: true,
@@ -15631,7 +15649,9 @@ ${spelling}`);
       this.renderTranscriptPanel(true);
     }
     install() {
-      if (this.root) return;
+      if (this.root) return true;
+      const body = document.body;
+      if (!body) return false;
       document.querySelectorAll('.jpdb-subtitle-player[data-jpdb-reader-root="true"], .jpdb-subtitle-list[data-jpdb-reader-root="true"]').forEach((element) => element.remove());
       if (isYouTubePage() || document.querySelector("[data-yomu-video-frame]")) installSubtitleFullscreenRedirect();
       const root = document.createElement("div");
@@ -15672,13 +15692,14 @@ ${spelling}`);
       for (const eventName of TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS) {
         this.transcriptPanel.addEventListener(eventName, (event) => this.stopTranscriptPanelPropagation(event), this.eventOptions());
       }
-      document.body.appendChild(root);
-      document.body.appendChild(this.transcriptPanel);
+      body.appendChild(root);
+      body.appendChild(this.transcriptPanel);
       this.root = root;
       this.bindSubtitleDragHandle();
       this.restoreSubtitleDragOffset();
       this.refresh();
       this.scheduleControlsIdle();
+      return true;
     }
     scheduleDiscoverVideo() {
       if (this.discoverTimer !== void 0) return;
@@ -19778,7 +19799,7 @@ ${spelling}`);
       if (this.transcriptPanel && this.transcriptPanel.parentElement !== parent) parent.appendChild(this.transcriptPanel);
     }
     fullscreenReaderRootParent(fullscreenHost) {
-      return !fullscreenHost || fullscreenHost === document.documentElement ? document.body : fullscreenHost;
+      return !fullscreenHost || fullscreenHost === document.documentElement ? document.body ?? document.documentElement : fullscreenHost;
     }
     syncTranscriptPanelFullscreenDisplayOverride() {
       const panel = this.transcriptPanel;
@@ -19850,6 +19871,7 @@ ${spelling}`);
     applyStableYouTubeTranscriptLayout(layout, videoRect) {
       if (!isYouTubePage() || layout.placement === "bottom") return this.clearStableYouTubeTranscriptLayout();
       const root = document.documentElement;
+      if (!root) return false;
       let changed = false;
       const setClass = (className, enabled) => {
         const hadClass = root.classList.contains(className);
@@ -19867,6 +19889,7 @@ ${spelling}`);
     }
     clearStableYouTubeTranscriptLayout() {
       const root = document.documentElement;
+      if (!root) return false;
       let changed = false;
       for (const className of YOUTUBE_STABLE_TRANSCRIPT_CLASSES) {
         if (!root.classList.contains(className)) continue;
@@ -19882,6 +19905,7 @@ ${spelling}`);
     }
     measureWithoutStableYouTubeTranscriptLayout(callback) {
       const root = document.documentElement;
+      if (!root) return callback();
       const classSnapshot = YOUTUBE_STABLE_TRANSCRIPT_CLASSES.map((className) => [className, root.classList.contains(className)]);
       const styleSnapshot = YOUTUBE_STABLE_TRANSCRIPT_STYLE_PROPERTIES.map((property) => [property, root.style.getPropertyValue(property)]);
       this.clearStableYouTubeTranscriptLayout();

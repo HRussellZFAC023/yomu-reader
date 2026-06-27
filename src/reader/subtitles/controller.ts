@@ -1076,7 +1076,14 @@ export class SubtitlePlayerController {
         this.destroy();
         this.destroyed = false;
         this.abortController = new AbortController();
-        this.install();
+        const body = document.body;
+        if (!body) {
+            document.addEventListener('DOMContentLoaded', () => {
+                if (!this.destroyed) this.init();
+            }, this.eventOptions({ once: true }));
+            return;
+        }
+        if (!this.install()) return;
         this.syncYouTubeMobileBottomSheetState();
         this.observer = new MutationObserver(mutations => {
             this.syncYouTubeMobileBottomSheetState();
@@ -1088,7 +1095,7 @@ export class SubtitlePlayerController {
             if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
             this.scheduleDiscoverVideo();
         });
-        this.observer.observe(document.body, {
+        this.observer.observe(body, {
             attributeFilter: ['aria-modal', 'class', 'data-yomu-inline-fullscreen', 'fullscreen', 'hidden'],
             attributes: true,
             childList: true,
@@ -1239,8 +1246,10 @@ export class SubtitlePlayerController {
         this.renderTranscriptPanel(true);
     }
 
-    private install(): void {
-        if (this.root) return;
+    private install(): boolean {
+        if (this.root) return true;
+        const body = document.body;
+        if (!body) return false;
         document.querySelectorAll<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"], .jpdb-subtitle-list[data-jpdb-reader-root="true"]').forEach(element => element.remove());
         if (isYouTubePage() || document.querySelector('[data-yomu-video-frame]')) installSubtitleFullscreenRedirect();
 
@@ -1282,8 +1291,8 @@ export class SubtitlePlayerController {
         for (const eventName of TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS) {
             this.transcriptPanel.addEventListener(eventName, event => this.stopTranscriptPanelPropagation(event), this.eventOptions());
         }
-        document.body.appendChild(root);
-        document.body.appendChild(this.transcriptPanel);
+        body.appendChild(root);
+        body.appendChild(this.transcriptPanel);
         this.root = root;
         this.bindSubtitleDragHandle();
         this.restoreSubtitleDragOffset();
@@ -1291,6 +1300,7 @@ export class SubtitlePlayerController {
         // Touch devices get no pointermove, so without this the rail stays
         // visible forever; tapping the video re-reveals it via pointerdown.
         this.scheduleControlsIdle();
+        return true;
     }
 
     private scheduleDiscoverVideo(): void {
@@ -6169,7 +6179,7 @@ export class SubtitlePlayerController {
 
     private fullscreenReaderRootParent(fullscreenHost: HTMLElement | null): HTMLElement {
         return !fullscreenHost || fullscreenHost === document.documentElement
-            ? document.body
+            ? (document.body ?? document.documentElement)
             : fullscreenHost;
     }
 
@@ -6262,6 +6272,7 @@ export class SubtitlePlayerController {
     private applyStableYouTubeTranscriptLayout(layout: TranscriptPanelLayout, videoRect: DOMRect): boolean {
         if (!isYouTubePage() || layout.placement === 'bottom') return this.clearStableYouTubeTranscriptLayout();
         const root = document.documentElement;
+        if (!root) return false;
         let changed = false;
         const setClass = (className: typeof YOUTUBE_STABLE_TRANSCRIPT_CLASSES[number], enabled: boolean): void => {
             const hadClass = root.classList.contains(className);
@@ -6282,6 +6293,7 @@ export class SubtitlePlayerController {
 
     private clearStableYouTubeTranscriptLayout(): boolean {
         const root = document.documentElement;
+        if (!root) return false;
         let changed = false;
         for (const className of YOUTUBE_STABLE_TRANSCRIPT_CLASSES) {
             if (!root.classList.contains(className)) continue;
@@ -6298,6 +6310,7 @@ export class SubtitlePlayerController {
 
     private measureWithoutStableYouTubeTranscriptLayout<T>(callback: () => T): T {
         const root = document.documentElement;
+        if (!root) return callback();
         const classSnapshot = YOUTUBE_STABLE_TRANSCRIPT_CLASSES.map(className => [className, root.classList.contains(className)] as const);
         const styleSnapshot = YOUTUBE_STABLE_TRANSCRIPT_STYLE_PROPERTIES.map(property => [property, root.style.getPropertyValue(property)] as const);
         this.clearStableYouTubeTranscriptLayout();

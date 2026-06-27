@@ -906,6 +906,31 @@ export class ReaderApp {
         done();
     }
 
+    private async waitForDocumentBody(): Promise<void> {
+        if (document.body || this.isDestroyed) return;
+        await new Promise<void>(resolve => {
+            let timer: number | undefined;
+            const abortSignal = this.abortController.signal;
+            let check: () => void = () => undefined;
+            const cleanup = (): void => {
+                if (timer !== undefined) window.clearTimeout(timer);
+                document.removeEventListener('DOMContentLoaded', check);
+                abortSignal.removeEventListener('abort', check);
+            };
+            check = (): void => {
+                if (document.body || this.isDestroyed) {
+                    cleanup();
+                    resolve();
+                    return;
+                }
+                timer = window.setTimeout(check, 25);
+            };
+            document.addEventListener('DOMContentLoaded', check, { once: true });
+            abortSignal.addEventListener('abort', check, { once: true });
+            timer = window.setTimeout(check, 0);
+        });
+    }
+
     private async loadInitialSettings(options?: ReaderAppInitOptions): Promise<boolean> {
         this.factoryReset.bind();
         const startup = await loadReaderStartupSettings(options);
@@ -929,6 +954,8 @@ export class ReaderApp {
     }
 
     private async initReaderPage(shouldShowWelcome: boolean): Promise<void> {
+        await this.waitForDocumentBody();
+        if (this.isDestroyed || !document.body) return;
         if (this.embeddedFrame) {
             this.subtitles.init();
             if (this.shouldScanEmbeddedFrame()) {
@@ -2010,8 +2037,36 @@ export class ReaderApp {
         // one carrying a scroll body is present (cheap querySelector, run only when body's
         // direct children change — never on every scroll).
         const syncScrollDrive = (): void => setScrollDrive(Boolean(document.querySelector(READER_ROOT_SCROLL_BODY_SELECTOR)));
-        syncScrollDrive();
-        new MutationObserver(syncScrollDrive).observe(document.body, { childList: true });
+        const scrollDriveObserver = new MutationObserver(syncScrollDrive);
+        let scrollDriveObservedRoot: Node | null = null;
+        const observeScrollDriveRoot = (): void => {
+            const root = document.body ?? document.documentElement;
+            if (!root) {
+                document.addEventListener('DOMContentLoaded', () => {
+                    if (!this.isDestroyed) observeScrollDriveRoot();
+                }, { once: true });
+                return;
+            }
+            if (scrollDriveObservedRoot === root) return;
+            scrollDriveObserver.disconnect();
+            scrollDriveObservedRoot = root;
+            scrollDriveObserver.observe(root, { childList: true });
+            syncScrollDrive();
+        };
+        const rebindScrollDriveRoot = (): void => {
+            syncScrollDrive();
+            observeScrollDriveRoot();
+        };
+        scrollDriveObserver.disconnect();
+        scrollDriveObserver.takeRecords();
+        const rootObserver = new MutationObserver(rebindScrollDriveRoot);
+        const htmlRoot = document.documentElement;
+        if (htmlRoot) rootObserver.observe(htmlRoot, { childList: true });
+        observeScrollDriveRoot();
+        this.abortController.signal.addEventListener('abort', () => {
+            scrollDriveObserver.disconnect();
+            rootObserver.disconnect();
+        }, { once: true });
 
         document.addEventListener('click', event => this.handleDocumentClick(event), { capture: true });
 

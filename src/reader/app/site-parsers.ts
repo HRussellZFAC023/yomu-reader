@@ -1289,16 +1289,13 @@ function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: Fr
     const targetSuppressRuby = profileKeepsProfileRootRuby(profile) ? false : target.suppressRuby;
     const youtubePassiveChrome = isYouTubeSiteParserProfile(profile)
         && Boolean(target.parent.closest(YOUTUBE_PASSIVE_CHROME_SELECTOR));
-    const youtubeCommentBody = isYouTubeCommentBodyTarget(profile, target.parent);
     const baseTarget = {
         ...target,
         parserId: profile.id,
         suppressRuby: targetSuppressRuby || suppressRuby || undefined,
         passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || undefined,
         singlePassScan: profile.singlePassScan || undefined,
-        nonDestructive: siteScanTargetUsesNonDestructive(profile, youtubeCommentBody) || undefined,
-        forceInlineRender: youtubeCommentBody || undefined,
-        suppressRepaintLoopMirror: youtubeCommentBody || undefined,
+        nonDestructive: siteScanTargetUsesNonDestructive(profile) || undefined,
     };
     return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
 }
@@ -1307,17 +1304,9 @@ function profileKeepsProfileRootRuby(profile: SiteParserProfile): boolean {
     return isYouTubeSiteParserProfile(profile) || profile.id === BOOKWALKER_READER_PARSER_ID;
 }
 
-function siteScanTargetUsesNonDestructive(profile: SiteParserProfile, youtubeCommentBody = false): boolean {
+function siteScanTargetUsesNonDestructive(profile: SiteParserProfile): boolean {
     if (!profile.nonDestructive) return false;
-    return !youtubeCommentBody;
-}
-
-function isYouTubeCommentBodyTarget(profile: SiteParserProfile, parent: HTMLElement): boolean {
-    if (profile.id !== 'youtube-comments-parser') return false;
-    const content = parent.closest<HTMLElement>('#content-text');
-    if (content?.closest('ytd-comment-view-model, ytm-comment-renderer')) return true;
-    return parent.matches('ytd-comment-view-model, ytm-comment-renderer')
-        && Boolean(parent.querySelector('#content-text'));
+    return true;
 }
 
 function isYouTubeSiteParserProfile(profile: SiteParserProfile): boolean {

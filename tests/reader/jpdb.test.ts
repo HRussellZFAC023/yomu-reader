@@ -8051,6 +8051,34 @@ describe('reader helpers', () => {
         }
     });
 
+    it('defers reader-page surfaces until document.body exists during early userscript startup', async () => {
+        const { app } = testReaderAppWithPageScanner('<main class="hosted-text-fixture">日本語を読む</main>');
+        const bodySpy = vi.spyOn(document, 'body', 'get').mockReturnValue(null as unknown as HTMLElement);
+        let resolved = false;
+
+        try {
+            const initPromise = app.init({ showWelcome: false }).then(() => {
+                resolved = true;
+            });
+
+            await new Promise(resolve => window.setTimeout(resolve, 20));
+            expect(resolved).toBe(false);
+            expect(document.querySelector('.jpdb-reader-fab')).toBeNull();
+
+            bodySpy.mockRestore();
+            document.dispatchEvent(new Event('DOMContentLoaded'));
+            await initPromise;
+
+            expect(resolved).toBe(true);
+            expect(document.querySelector('.jpdb-reader-fab')).not.toBeNull();
+            expect(document.querySelector('.jpdb-subtitle-player')).not.toBeNull();
+        } finally {
+            bodySpy.mockRestore();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('ignores obsolete disabled scan settings on hosted documentation pages', async () => {
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
             ...DEFAULT_SETTINGS,
@@ -17618,6 +17646,49 @@ describe('reader helpers', () => {
             expect(video.style.height).toBe('');
             expect(video.style.maxHeight).toBe('');
             expect(video.style.objectFit).toBe('');
+        });
+    });
+
+    it('clears video insets during early navigation teardown before document.documentElement exists', () => {
+        let originalRoot: HTMLElement | null = null;
+        const rootSpy = vi.spyOn(document, 'documentElement', 'get');
+        withViewport(1600, 900, () => {
+            document.body.innerHTML = '<main id="player"><video></video></main>';
+            const container = document.querySelector<HTMLElement>('#player')!;
+            const video = document.querySelector('video') as HTMLVideoElement;
+            Object.defineProperty(container, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(20, 30, 1200, 700),
+            });
+            Object.defineProperty(video, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(20, 30, 1200, 675),
+            });
+            Object.defineProperty(video, 'videoWidth', { configurable: true, value: 1600 });
+            Object.defineProperty(video, 'videoHeight', { configurable: true, value: 900 });
+
+            const adapter = createSubtitleVideoInsetAdapter();
+            try {
+                adapter.apply({
+                    video,
+                    side: 'right',
+                    playerSize: 1100,
+                    panelSize: 460,
+                    videoRect: new DOMRect(20, 30, 1200, 675),
+                    margin: 10,
+                });
+                originalRoot = document.documentElement;
+                rootSpy.mockReturnValue(null as unknown as HTMLElement);
+
+                expect(adapter.hasActiveInset()).toBe(true);
+                expect(adapter.clear(video)).toBe(true);
+                expect(adapter.hasActiveInset()).toBe(false);
+            } finally {
+                rootSpy.mockRestore();
+                originalRoot?.classList.remove('jpdb-subtitle-video-inset-left', 'jpdb-subtitle-video-inset-right', 'jpdb-subtitle-video-inset-bottom');
+                originalRoot?.style.removeProperty('--jpdb-subtitle-video-inset');
+                adapter.clear(video);
+            }
         });
     });
 
@@ -34947,10 +35018,10 @@ describe('reader helpers', () => {
         expect(ask).toMatchObject({ passiveInteraction: true, nonDestructive: true });
         expect(transcript).toMatchObject({ passiveInteraction: true, nonDestructive: true });
         expect(nav).toMatchObject({ passiveInteraction: true, nonDestructive: true });
-        expect(comment).toMatchObject({ forceInlineRender: true });
+        expect(comment).toMatchObject({ nonDestructive: true });
         expect('passiveInteraction' in comment && comment.passiveInteraction).not.toBe(true);
-        expect('nonDestructive' in comment && comment.nonDestructive).not.toBe(true);
-        expect(comment).toMatchObject({ suppressRepaintLoopMirror: true });
+        expect('forceInlineRender' in comment && comment.forceInlineRender).not.toBe(true);
+        expect('suppressRepaintLoopMirror' in comment && comment.suppressRepaintLoopMirror).not.toBe(true);
         expect(more).toMatchObject({ passiveInteraction: true, nonDestructive: true });
         applyTokensToScanTarget(title, [{
             card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
@@ -35010,7 +35081,7 @@ describe('reader helpers', () => {
         expect(readerWordSurfaceText(commentWord)).toBe('配信');
         expect(commentWord.querySelector('rt')?.textContent).toBe('はいしん');
         expectRenderedPitchWord(commentWord, 'heiban');
-        expect(document.querySelector('ytm-comment-renderer #content-text .jpdb-reader-text-mirror')).toBeNull();
+        expect(document.querySelector('ytm-comment-renderer #content-text .jpdb-reader-text-mirror')).not.toBeNull();
         expect(document.querySelector('.slim-video-metadata-info .jpdb-reader-word')).toBeNull();
     });
 
@@ -35063,8 +35134,9 @@ describe('reader helpers', () => {
         expect(reply).toMatchObject({ passiveInteraction: true, nonDestructive: true });
         expect(targets.map(target => target.text)).not.toContain('押下中');
         expect('passiveInteraction' in comment! && comment.passiveInteraction).not.toBe(true);
-        expect('nonDestructive' in comment! && comment.nonDestructive).not.toBe(true);
-        expect(comment).toMatchObject({ forceInlineRender: true, suppressRepaintLoopMirror: true });
+        expect(comment).toMatchObject({ nonDestructive: true });
+        expect('forceInlineRender' in comment! && comment.forceInlineRender).not.toBe(true);
+        expect('suppressRepaintLoopMirror' in comment! && comment.suppressRepaintLoopMirror).not.toBe(true);
 
         applyTokensToScanTarget(comment!, [{
             card: { ...card, cardState: ['known'], spelling: '配信', reading: 'はいしん', source: 'jpdb' },
@@ -35107,7 +35179,7 @@ describe('reader helpers', () => {
         expectRenderedPitchWord(commentWord, 'heiban');
         expect(commentWord.dataset.jpdbReaderPassive).toBeUndefined();
         expect(commentWord.tabIndex).toBe(-1);
-        expect(document.querySelector('#content-text .jpdb-reader-text-mirror')).toBeNull();
+        expect(document.querySelector('#content-text .jpdb-reader-text-mirror')).not.toBeNull();
         const moreWord = document.querySelector<HTMLElement>('.more-button .jpdb-reader-word')!;
         expect(readerWordSurfaceText(moreWord)).toBe('詳細');
         expect(moreWord.dataset.jpdbReaderPassive).toBe('true');

@@ -47,14 +47,16 @@ export class SubtitleVideoInsetAdapter {
             return false;
         }
 
+        const root = document.documentElement;
+        if (!root) return false;
         const previousSignature = this.lastSignature;
         const preservesYouTubeBottomPlayer = shouldPreserveYouTubeBottomPlayerSize(options.side);
         if (!preservesYouTubeBottomPlayer) captureYouTubePlayerContainerBaseRects(youtubePlayerContainers(options.side));
         this.lastSignature = metrics.signature;
-        document.documentElement.classList.toggle('jpdb-subtitle-video-inset-left', options.side === 'left');
-        document.documentElement.classList.toggle('jpdb-subtitle-video-inset-right', options.side === 'right');
-        document.documentElement.classList.toggle('jpdb-subtitle-video-inset-bottom', options.side === 'bottom');
-        document.documentElement.style.setProperty('--jpdb-subtitle-video-inset', metrics.inset);
+        root.classList.toggle('jpdb-subtitle-video-inset-left', options.side === 'left');
+        root.classList.toggle('jpdb-subtitle-video-inset-right', options.side === 'right');
+        root.classList.toggle('jpdb-subtitle-video-inset-bottom', options.side === 'bottom');
+        root.style.setProperty('--jpdb-subtitle-video-inset', metrics.inset);
         applyYouTubePlayerInset(options.side, metrics.width, metrics.insetPixels, metrics.height, {
             clearStableBottom: !previousSignature.startsWith('bottom:'),
         });
@@ -68,8 +70,9 @@ export class SubtitleVideoInsetAdapter {
     clear(video?: HTMLVideoElement): boolean {
         if (!hasActiveVideoInset(this.lastSignature)) return false;
         this.lastSignature = '';
-        document.documentElement.classList.remove('jpdb-subtitle-video-inset-left', 'jpdb-subtitle-video-inset-right', 'jpdb-subtitle-video-inset-bottom');
-        document.documentElement.style.removeProperty('--jpdb-subtitle-video-inset');
+        const root = document.documentElement;
+        root?.classList.remove('jpdb-subtitle-video-inset-left', 'jpdb-subtitle-video-inset-right', 'jpdb-subtitle-video-inset-bottom');
+        root?.style.removeProperty('--jpdb-subtitle-video-inset');
         const watchFlexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
         watchFlexy?.style.removeProperty('--ytd-watch-flexy-player-width');
         watchFlexy?.style.removeProperty('--ytd-watch-flexy-player-height');
@@ -97,10 +100,11 @@ export class SubtitleVideoInsetAdapter {
 }
 
 function hasActiveVideoInset(lastSignature: string): boolean {
+    const root = document.documentElement;
     return Boolean(lastSignature)
-        || document.documentElement.classList.contains('jpdb-subtitle-video-inset-left')
-        || document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')
-        || document.documentElement.classList.contains('jpdb-subtitle-video-inset-bottom');
+        || Boolean(root?.classList.contains('jpdb-subtitle-video-inset-left'))
+        || Boolean(root?.classList.contains('jpdb-subtitle-video-inset-right'))
+        || Boolean(root?.classList.contains('jpdb-subtitle-video-inset-bottom'));
 }
 
 interface VideoInsetMetrics {

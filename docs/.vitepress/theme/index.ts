@@ -156,6 +156,12 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Kept signed-in YouTube comment bodies on non-destructive text mirrors so comments remain annotated without inline reader spans, preventing YouTube DOM churn from duplicating or rewriting comment text.': 'ログイン済みYouTubeのコメント本文を非破壊テキストミラーで表示し、コメントに注釈を残しながらインラインのリーダーspanを入れないようにしました。YouTube側のDOM更新でコメント文字が重複したり書き換わったりするのを防ぎます。',
+    'Guarded early YouTube userscript startup before `document.documentElement`, `document.head`, or `document.body` exists, removing page-load theme/runtime errors during signed-in live/watch smoke runs.': '`document.documentElement`、`document.head`、または`document.body`がまだ存在しない早期のYouTube userscript起動を保護し、ログイン済みライブ／視聴ページのスモーク中に出ていた読み込み時のテーマ／ランタイムエラーを解消しました。',
+    'Guarded early YouTube userscript startup before': '早期のYouTube userscript起動で',
+    ',': '、',
+    ', or': '、または',
+    'exists, removing page-load theme/runtime errors during signed-in live/watch smoke runs.': 'がまだ存在しない段階を保護し、読み込み時のテーマ／ランタイムエラーをログイン済みライブ／視聴ページのスモーク中に出さないようにしました。',
     'Repaired BookWalker continuous-scroll OCR in Firefox, WebKit, and Chromium so visible vertical pages show scanning/status feedback and ready OCR words stay selectable.': 'Firefox、WebKit、ChromiumでBookWalkerの連続スクロールOCRを修正し、表示中の縦方向ページにスキャン／状態表示が出て、準備済みのOCR単語を選択できるようにしました。',
     'Kept normal BookWalker page taps working outside OCR text while routing taps on OCR words to lookup instead of page turns.': 'OCRテキスト外では通常のBookWalkerページタップを維持し、OCR単語上のタップはページ送りではなく辞書検索に送るようにしました。',
     'Restored BookWalker title and description annotation with furigana and pitch while keeping reader settings/menu controls passive.': 'BookWalkerのタイトルと説明文にふりがなとピッチ注釈を復旧しつつ、リーダー設定やメニュー操作はパッシブのまま保つようにしました。',

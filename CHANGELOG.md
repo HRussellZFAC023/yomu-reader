@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.149] - 2026-06-27
+
+### Fixed
+
+- Kept signed-in YouTube comment bodies on non-destructive text mirrors so comments remain annotated without inline reader spans, preventing YouTube DOM churn from duplicating or rewriting comment text.
+- Guarded early YouTube userscript startup before `document.documentElement`, `document.head`, or `document.body` exists, removing page-load theme/runtime errors during signed-in live/watch smoke runs.
+
 ## [1.4.148] - 2026-06-27
 
 ### Fixed

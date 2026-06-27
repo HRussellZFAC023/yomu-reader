@@ -371,6 +371,13 @@ export class ImageOcrController {
 
     init(): void {
         this.destroyed = false;
+        const body = document.body;
+        if (!body) {
+            document.addEventListener('DOMContentLoaded', () => {
+                if (!this.destroyed) this.init();
+            }, { once: true });
+            return;
+        }
         this.refresh();
         document.addEventListener('pointerdown', this.handleDocumentPointerDown, true);
         document.addEventListener('touchstart', this.handleDocumentTouchStart, { capture: true, passive: true });
@@ -407,7 +414,7 @@ export class ImageOcrController {
             window.addEventListener(eventName, this.handleSpaNavigation);
         }
         this.mutationObserver = new MutationObserver(mutations => this.handleRenderableMediaMutations(mutations));
-        this.mutationObserver.observe(document.body, {
+        this.mutationObserver.observe(body, {
             childList: true,
             subtree: true,
             attributes: true,
