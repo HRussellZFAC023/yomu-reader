@@ -4,6 +4,7 @@ import { ImageOcrController } from '../../src/reader/ocr/controller';
 import { collectCanvasReaderSurfaces, isBookwalkerViewerHost } from '../../src/reader/ocr/canvas-readers';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
+import type { OcrResult } from '../../src/reader/ocr/response-shared';
 import { waitForExpect } from './test-utils';
 
 const originalCanvasGetContext = HTMLCanvasElement.prototype.getContext;
@@ -150,6 +151,68 @@ describe('reader raster OCR surfaces', () => {
         expect(collectCanvasReaderSurfaces('viewer.bookwalker.jp')).toEqual([rightCanvas]);
     });
 
+    it('OCRs BookWalker when the viewer swaps an equivalent canvas between readiness checks', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        pageCounter('5/13');
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        viewport.append(pageCanvas(24, 20));
+        document.body.append(viewport);
+
+        const controller = createController();
+        const swapper = window.setInterval(() => {
+            if (document.querySelector('.jpdb-ocr-canvas-frame')) return;
+            viewport.replaceChildren(pageCanvas(24, 20));
+        }, 50);
+
+        try {
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull();
+            });
+        } finally {
+            window.clearInterval(swapper);
+            controller.destroy();
+        }
+    });
+
+    it('keeps the BookWalker page status visible when OCR returns no text', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        pageCounter('5/13');
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        viewport.append(pageCanvas(24, 20));
+        document.body.append(viewport);
+
+        const controller = createController();
+        (controller as unknown as { recognizeImage: () => Promise<OcrResult> }).recognizeImage = vi.fn(async () => ({
+            width: 1200,
+            height: 1600,
+            lines: [],
+        }));
+
+        try {
+            let frame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+            });
+            Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
+            frame!.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
+                expect(status).not.toBeNull();
+                expect(status!.dataset.status).toBe('empty');
+                expect(status!.classList.contains('jpdb-ocr-canvas-status')).toBe(true);
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps both visible BookWalker spread pages even when only one is currentScreen', () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
@@ -270,6 +333,89 @@ describe('reader raster OCR surfaces', () => {
             controller.destroy();
         }
     });
+
+    it('keeps BookWalker OCR text through a transient same-page blank canvas signature', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('24/195');
+        let sampleMode: 'blank' | 'changed' | 'readable' = 'readable';
+        const readableData = new Uint8ClampedArray(20 * 20 * 4);
+        const changedData = new Uint8ClampedArray(20 * 20 * 4);
+        const blankData = new Uint8ClampedArray(20 * 20 * 4);
+        for (let pixel = 0; pixel < 400; pixel++) {
+            const value = (pixel * 11) % 256;
+            const changedValue = (pixel * 17 + 31) % 256;
+            readableData[pixel * 4] = value;
+            readableData[pixel * 4 + 1] = value;
+            readableData[pixel * 4 + 2] = value;
+            readableData[pixel * 4 + 3] = 255;
+            changedData[pixel * 4] = changedValue;
+            changedData[pixel * 4 + 1] = changedValue;
+            changedData[pixel * 4 + 2] = changedValue;
+            changedData[pixel * 4 + 3] = 255;
+            blankData[pixel * 4] = 255;
+            blankData[pixel * 4 + 1] = 255;
+            blankData[pixel * 4 + 2] = 255;
+            blankData[pixel * 4 + 3] = 255;
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = () => ({
+            drawImage() { /* noop */ },
+            getImageData: () => ({
+                data: sampleMode === 'blank' ? blankData : sampleMode === 'changed' ? changedData : readableData,
+            }),
+        });
+
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport-visible' });
+        viewport.classList.add('currentScreen');
+        const canvas = pageCanvas(120, 64, 760, 1074);
+        viewport.append(canvas);
+        document.body.append(viewport);
+
+        const controller = createController();
+        try {
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
+                const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
+                expect(status?.dataset.status).toBe('loading');
+            });
+
+            const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
+            Object.defineProperty(frame, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(frame, 'naturalHeight', { value: 1600, configurable: true });
+            frame.dataset.ocrLines = JSON.stringify([
+                { text: 'ページ移動方向', box: { left: 0.12, top: 0.18, width: 0.46, height: 0.08 } },
+            ]);
+            frame.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
+            });
+
+            sampleMode = 'changed';
+            await new Promise(resolve => setTimeout(resolve, 4200));
+
+            expect(frame.isConnected).toBe(true);
+            expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
+
+            canvas.getBoundingClientRect = () => new DOMRect(120, -2400, 760, 1074);
+            controller.refresh();
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            expect(frame.isConnected).toBe(true);
+            expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+
+            sampleMode = 'blank';
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            expect(frame.isConnected).toBe(true);
+            expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
+        } finally {
+            controller.destroy();
+        }
+    }, 12_000);
 
     it('keeps the BookWalker canvas ready pill visible while the OCR frame is alive', async () => {
         stubLocation('viewer.bookwalker.jp');
@@ -769,14 +915,15 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
-    // P1-1: NFBR repaints one in-place canvas and the page counter can be unchanged
+    // P1-1: NFBR repaints one in-place canvas and the page counter can be absent
     // across a real turn. The mirror turn token must still change the page signature
     // so the stale frame is dropped and the new page re-OCR'd (the "stuck, must
     // refresh" bug — before this the snapshot key was identical so re-capture, by
-    // poll OR tap, was suppressed).
-    it('re-OCRs a tainted BookWalker canvas when the mirror epoch changes but the counter does not', async () => {
+    // poll OR tap, was suppressed). When BookWalker exposes a stable non-empty
+    // counter, that counter wins; late same-page mirror epoch churn must not blank
+    // the already-ready OCR layer.
+    it('re-OCRs a tainted BookWalker canvas when the mirror epoch changes without a page counter', async () => {
         stubLocation('viewer.bookwalker.jp');
-        pageCounter('1 / 12'); // counter stays fixed across the turn
         stubTaintedCanvas();
         const mirrors = [mirrorCanvas('PAGE1'), mirrorCanvas('PAGE2')];
         let mirrorIndex = 0;

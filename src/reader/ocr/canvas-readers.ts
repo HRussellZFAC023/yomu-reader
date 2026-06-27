@@ -92,7 +92,17 @@ function sampleCanvasContent(canvas: HTMLCanvasElement): CanvasContentSample | n
         // and drift the turn epoch the page signature depends on.
         const context = markCanvasMirrorSkip(sample.getContext('2d', { willReadFrequently: true }));
         if (!context) return null;
-        context.drawImage(canvas, 0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
+        context.drawImage(
+            canvas,
+            0,
+            0,
+            canvas.width,
+            canvas.height,
+            0,
+            0,
+            CONTENT_SAMPLE_SIZE,
+            CONTENT_SAMPLE_SIZE,
+        );
         const { data } = context.getImageData(0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
         const buckets = new Set<number>();
         let min = 255;
