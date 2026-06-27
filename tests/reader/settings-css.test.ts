@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
+import { TRANSCRIPT_PANEL_Z_INDEX } from '../../src/reader/subtitles/subtitle-layout';
+
 const BASE_CSS = readFileSync('src/reader/styles/base.css', 'utf8');
 const KANJI_CSS = readFileSync('src/reader/styles/kanji.css', 'utf8');
 const LOCAL_DICTIONARIES_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
@@ -13,6 +15,12 @@ const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.
 
 function normalizeCss(css: string): string {
     return css.replace(/\s+/g, ' ');
+}
+
+function normalizedRuleBlock(css: string, selector: string): string {
+    const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`).exec(css);
+    return normalizeCss(match?.[1] ?? '');
 }
 
 describe('settings CSS', () => {
@@ -61,6 +69,13 @@ describe('settings CSS', () => {
         expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-rail:hover, .jpdb-subtitle-style-open .jpdb-subtitle-rail { opacity: 1; }');
         expect(normalizedSubtitlesCss).not.toContain('jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open)');
         expect(normalizedSubtitlesCss).not.toContain('.jpdb-subtitle-panel-open .jpdb-subtitle-rail');
+    });
+
+    it('keeps the settings puck clickable when it overlaps the transcript side panel', () => {
+        const puckRule = normalizedRuleBlock(READER_WORDS_OCR_CSS, '.jpdb-reader-fab');
+
+        expect(puckRule).toContain(`z-index: ${TRANSCRIPT_PANEL_Z_INDEX + 1} !important;`);
+        expect(TRANSCRIPT_PANEL_Z_INDEX + 1).toBeLessThan(2147483647);
     });
 
     it('paints unknown-pitch page-word underlines with the neutral pitch color', () => {

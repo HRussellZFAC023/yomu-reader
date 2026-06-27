@@ -1,10 +1,16 @@
 # Changelog
 
-## [1.4.151] - 2026-06-27
+## [1.4.152] - 2026-06-27
 
 ### Fixed
 
 - Restored continuous side-panel resizing for Yomu Video and YouTube subtitles: hosted videos now use the generic video inset again, while YouTube stable side panels can grow past existing free space by shrinking the player width during resize.
+
+## [1.4.151] - 2026-06-27
+
+### Fixed
+
+- Kept the settings puck clickable when it overlaps the YouTube/Yomu Video transcript side panel.
 
 ## [1.4.150] - 2026-06-27
 

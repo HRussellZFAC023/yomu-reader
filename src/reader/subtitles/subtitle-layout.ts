@@ -17,6 +17,7 @@ export interface TranscriptPanelLayout {
 
 export const TRANSCRIPT_PANEL_MARGIN = 10;
 export const TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT = 220;
+export const TRANSCRIPT_PANEL_Z_INDEX = 2147483645;
 const TRANSCRIPT_PANEL_SIZE_KEY = 'jpdb-reader-transcript-panel-size';
 export const SUBTITLE_DRAG_OFFSET_KEY = 'jpdb-reader-subtitle-drag-offset';
 
@@ -120,7 +121,7 @@ export function applyTranscriptPanelLayout(panel: HTMLElement, layout: Transcrip
     setStylePropertyIfChanged(panel, 'right', 'auto');
     setStylePropertyIfChanged(panel, 'bottom', 'auto');
     setStylePropertyIfChanged(panel, 'box-sizing', 'border-box');
-    setStylePropertyIfChanged(panel, 'z-index', '2147483645');
+    setStylePropertyIfChanged(panel, 'z-index', String(TRANSCRIPT_PANEL_Z_INDEX));
     setStylePropertyIfChanged(panel, 'pointer-events', 'auto');
     setStylePropertyIfChanged(panel, 'width', `${Math.round(Math.max(260, Math.min(layout.width, layout.viewportWidth - layout.margin * 2)))}px`);
     const minHeight = layout.placement === 'bottom' ? 80 : 150;
