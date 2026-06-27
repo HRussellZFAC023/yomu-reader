@@ -1,6 +1,6 @@
 # よむ (Yomu)
 
-> よむ is a free, open-source Japanese immersion reader. It turns Japanese text, manga images, PDFs, and video subtitles into tappable lookup surfaces with readings, meanings, kanji details, audio, example sentences, and Anki/Jiten/JPDB study actions.
+> よむ is a free, open-source Japanese immersion reader. It turns Japanese text, manga images, game text, PDFs, and video subtitles into tappable lookup surfaces with readings, meanings, kanji details, audio, example sentences, and Anki/Jiten/JPDB study actions.
 
 ## Primary Links
 
@@ -14,6 +14,7 @@
 
 - [Japanese OCR reader](https://yomureader.com/tools/japanese-ocr): Manga and image OCR workflow.
 - [Japanese subtitle reader](https://yomureader.com/tools/japanese-subtitle-reader): Video subtitle lookup and mining workflow.
+- [Read Japanese games](https://yomureader.com/guides/read-games-on-steam-deck): Steam Deck and PC game text handoff workflow.
 - [Furigana reader](https://yomureader.com/tools/furigana-reader): Furigana and reading assistance.
 - [Kanji stroke order](https://yomureader.com/tools/kanji-stroke-order): Kanji drilldown and stroke diagrams.
 - [Study page](https://yomureader.com/tools/study-page): Browser new-tab study surface.
@@ -23,7 +24,7 @@
 
 - [Read manga in Japanese](https://yomureader.com/guides/read-manga-in-japanese): Manga reading setup with OCR.
 - [Comprehensible input on YouTube](https://yomureader.com/guides/comprehensible-input-youtube): Japanese YouTube immersion setup.
-- [Read games with YomiNinja](https://yomureader.com/guides/read-games-with-yomininja): Japanese game and visual novel OCR workflow.
+- [Read games on Steam Deck and PC](https://yomureader.com/guides/read-games-on-steam-deck): Japanese game and visual novel text handoff workflow.
 - [Mine sentences to Anki](https://yomureader.com/guides/mine-sentences-to-anki): Anki mining flow and card creation.
 - [Study setup](https://yomureader.com/guides/study-setup): Recommended learner setup.
 

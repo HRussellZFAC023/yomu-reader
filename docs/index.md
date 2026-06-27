@@ -1,12 +1,12 @@
 ---
 layout: home
-title: よむ - Japanese reader for web, manga, PDFs, and subtitles
+title: よむ - Japanese reader for web, manga, games, PDFs, and subtitles
 titleTemplate: false
-description: Yomu helps you read real Japanese in the browser. Look up words on web pages, manga, PDFs, and subtitles, save useful sentences, connect your SRS, prefer Japanese site versions, and filter YouTube for Japanese content.
+description: Yomu helps you read real Japanese in the browser. Look up words on web pages, manga, game text, PDFs, and subtitles, save useful sentences, connect your SRS, prefer Japanese site versions, and filter YouTube for Japanese content.
 hero:
   name: よむ
   text: Read Japanese without leaving the page
-  tagline: Look up words on web pages, manga, PDFs, and subtitles, then save useful sentences for study. Connect your SRS to practice your words, find new words by visiting the Japanese versions of the websites you use daily, and filter YouTube for Japanese content. Yomu brings the perfect immersion environment, no matter your level.
+  tagline: Look up words on web pages, manga, game text, PDFs, and subtitles, then save useful sentences for study. Connect your SRS to practice your words, find new words by visiting the Japanese versions of the websites you use daily, and filter YouTube for Japanese content. Yomu brings the perfect immersion environment, no matter your level.
   image:
     src: /yomu-icon.svg
     alt: よむ app icon
@@ -34,6 +34,10 @@ hero:
     - theme: alt
       text: Study
       link: /newtab/index.html
+      target: _self
+    - theme: alt
+      text: PC & Gaming
+      link: /guides/read-games-on-steam-deck
       target: _self
 ---
 
@@ -121,8 +125,8 @@ hero:
     <strong>Manga OCR</strong>
     <span>Look up words inside manga panels and screenshots.</span>
   </a>
-  <a class="yomu-link-card" href="/guides/read-games-with-yomininja">
+  <a class="yomu-link-card" href="/guides/read-games-on-steam-deck">
     <strong>Games</strong>
-    <span>Read game dialogue with YomiNinja and よむ-compatible study flows.</span>
+    <span>Use よむ with Steam Deck, PC games, and the lightest OCR or text-hook helper your setup needs.</span>
   </a>
 </div>

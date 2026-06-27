@@ -7,7 +7,7 @@
 <p><b>Read Japanese without leaving the page. Understand it, hear it, and save it for study.</b></p>
 
 <p>
-  よむ is a Japanese popup reader for websites, manga, PDFs, and subtitles.
+  よむ is a Japanese popup reader for websites, manga, game text, PDFs, and subtitles.
   It runs as a userscript, works on desktop and mobile, and connects to the tools
   Japanese learners already use: Yomitan dictionaries, Anki, Jiten, and JPDB.
 </p>
@@ -24,6 +24,7 @@
   <a href="https://yomureader.com/yomu.user.js"><b>Install よむ</b></a> ·
   <a href="https://yomureader.com/getting-started">Setup guide</a> ·
   <a href="https://yomureader.com/features">Features</a> ·
+  <a href="https://yomureader.com/guides/read-games-on-steam-deck">PC & gaming</a> ·
   <a href="https://yomureader.com/video-player/index.html">Video reader</a> ·
   <a href="https://yomureader.com/newtab/">Study app</a> ·
   <a href="https://discord.gg/jD6NPURewD">Discord</a>
@@ -43,7 +44,7 @@
 - **Lookup anywhere:** choose Japanese text on normal pages, OCR results, subtitles, and PDFs.
 - **Mine while reading:** create Anki cards, add/review words in Jiten or JPDB, and keep the source sentence/context.
 - **Bring your dictionaries:** import Yomitan ZIPs, JMdict, kanji dictionaries, pitch dictionaries, and frequency dictionaries.
-- **Read media, not only text:** manga/image OCR, YouTube subtitle mining, a local video reader, and a PDF reader.
+- **Read media, not only text:** manga/image OCR, game text handoff, YouTube subtitle mining, a local video reader, and a PDF reader.
 - **Mobile-friendly:** works on iPhone/iPad through userscript apps, with touch-first lookup and mobile Anki handoff.
 - **Free and open source:** MIT-licensed, no account needed to start.
 
@@ -69,6 +70,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 | --- | --- |
 | Web reading | Popup dictionary lookup, furigana, pitch/accent color, audio, examples, and kanji drilldown |
 | Manga and images | OCR overlays that make recognized Japanese lookup-ready without covering the page |
+| Games | Steam Deck and PC handoff guide for browser-readable text, copied lines, OCR helpers, and text-hook outputs |
 | Video | ASB-style subtitle overlay, transcript lookup, mining, and a hosted local-file video reader |
 | PDFs | Browser PDF reader with selectable text, OCR fallback, and the same popup/mining flow |
 | Study | AnkiConnect cards, mobile Anki handoff, Jiten/JPDB actions, offline cached reviews, and the hosted study page |
@@ -80,11 +82,14 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 - [Video reader](https://yomureader.com/video-player/index.html) for local video files and subtitles.
 - [PDF reader](https://yomureader.com/pdf-reader/) for Japanese PDFs and scanned pages.
 - [Study page](https://yomureader.com/newtab/) for review cards in a browser tab or mobile Home Screen shortcut.
+- [PC & gaming guide](https://yomureader.com/guides/read-games-on-steam-deck) for Steam Deck and desktop game text workflows.
 - [Feature guide](https://yomureader.com/features) for screenshots and detailed behavior.
 
 ## Privacy
 
 よむ keeps imported Yomitan dictionaries and settings in your browser. Anki mining talks to your local AnkiConnect endpoint. Jiten, JPDB, Immersion Kit, Nadeshiko, custom audio, local OCR, and optional kanji data sources are contacted only when their related features are enabled or used.
+
+Game OCR helpers, Decky plugins, clipboard capture, screenshot capture, audio capture, and cloud OCR or translation services are external to よむ unless you explicitly choose them.
 
 For the fuller privacy and setup notes, read the docs at [yomureader.com](https://yomureader.com/).
 
@@ -162,7 +167,7 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 - [Kanjium](https://github.com/mifunetoshiro/kanjium) for documented pitch-accent source data and licensing research around local pitch dictionaries.
 - [Kuuuube's Yomitan dictionaries](https://github.com/Kuuuube/yomitan-dictionaries) for the recommended JPDBv2㋕ local frequency package.
 - [asbplayer](https://github.com/asbplayer/asbplayer) for subtitle mining concepts and video-reader interaction patterns.
-- [YomiNinja](https://github.com/matt-m-o/YomiNinja) for compatible local OCR endpoint and image text references.
+- [YomiNinja](https://github.com/matt-m-o/YomiNinja), [Decky Translator](https://github.com/cat-in-a-box/Decky-Translator), [GameSentenceMiner](https://github.com/bpwhelan/GameSentenceMiner), [Kamite](https://github.com/fauu/Kamite), [Translumo](https://github.com/ramjke/Translumo), [Game2Text](https://github.com/mathewthe2/Game2Text), [Tango Lens](https://tango.acorntalk.com/help), and [Kamui](https://kamui.gg/) for game OCR, capture, overlay, and mining workflow references.
 - [KanjiVG](https://github.com/KanjiVG/kanjivg), [Kanji Canvas](https://github.com/asdfjkl/kanjicanvas), [Kanji Alive](https://github.com/kanjialive/kanji-data-media), [The Kanji Map](https://thekanjimap.com/), and [Uchisen](https://uchisen.com/) for kanji data, presentation, and study references.
 - [NihongoTube](https://www.nihongotube.app/) for the Japanese-only YouTube immersion idea as reference only.
 - [JPDB RTK Information Inserter](https://greasyfork.org/en/scripts/546314-jpdb-rtk-information-inserter), [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples), and [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) for optional JPDB-side behavior references.
@@ -180,6 +185,9 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 | [Kanji Alive data/media](https://github.com/kanjialive/kanji-data-media) | Creative Commons Attribution 4.0, with project-documented exceptions |
 | [The Kanji Map](https://github.com/gabor-kovacs/the-kanji-map) | MIT for the app; underlying data/media keep their upstream terms |
 | [Yomitan](https://github.com/yomidevs/yomitan), [fflate](https://github.com/101arrowz/fflate), [asbplayer](https://github.com/asbplayer/asbplayer), [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader), [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples), [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) | Upstream terms apply; used as compatible formats, libraries, or behavior references |
-| [AnkiConnect](https://foosoft.net/projects/anki-connect/), [YomiNinja](https://github.com/matt-m-o/YomiNinja), [NihongoTube](https://www.nihongotube.app/), [Immersion Kit](https://www.immersionkit.com/), [Nadeshiko](https://nadeshiko.co/), and optional local OCR/audio services | External/runtime services or references; よむ does not bundle their corpora |
+| [YomiNinja](https://github.com/matt-m-o/YomiNinja), [Decky Translator](https://github.com/cat-in-a-box/Decky-Translator), and [GameSentenceMiner](https://github.com/bpwhelan/GameSentenceMiner) | GPL-3.0 projects used as workflow references only; よむ does not bundle their code |
+| [Kamite](https://github.com/fauu/Kamite) | AGPL-3.0 project used as a workflow reference only; よむ does not bundle its code |
+| [Translumo](https://github.com/ramjke/Translumo) and [Game2Text](https://github.com/mathewthe2/Game2Text) | Apache-2.0 projects used as workflow references only; よむ does not bundle their code |
+| [Tango Lens](https://tango.acorntalk.com/help), [Kamui](https://kamui.gg/), [AnkiConnect](https://foosoft.net/projects/anki-connect/), [NihongoTube](https://www.nihongotube.app/), [Immersion Kit](https://www.immersionkit.com/), [Nadeshiko](https://nadeshiko.co/), and optional local OCR/audio services | External/runtime services or references; よむ does not bundle their corpora or service code |
 
 </details>
