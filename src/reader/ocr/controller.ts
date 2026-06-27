@@ -59,6 +59,7 @@ interface OcrRenderedImageFrame {
     imageTop: number;
     imageWidth: number;
     imageHeight: number;
+    safeBottomInset?: number;
 }
 
 interface OcrRenderableMediaMutationSummary {
@@ -102,6 +103,7 @@ const OCR_STATUS_FADE_MS = 360; // keep in sync with the CSS opacity transition
 const READER_RASTER_RETRY_BASE_MS = 140;
 const READER_RASTER_RETRY_MAX_MS = 1100;
 const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
+const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
 const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
 const GOOGLE_LENS_API_KEY = 'AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY';
 const DEFAULT_LOCAL_OCR_ENDPOINT_URL = 'http://127.0.0.1:7331/ocr';
@@ -319,7 +321,7 @@ export class ImageOcrController {
     private canvasReaderSignature?: string;
     private readerRasterPoll = 0;
     private readerRasterRetryTimer = 0;
-    private readonly pendingCanvasSnapshots = new WeakSet<HTMLCanvasElement>();
+    private readonly pendingCanvasSnapshots = new WeakMap<HTMLCanvasElement, string>();
     // Map (not WeakMap) so a page turn can clear ALL readiness at once — NFBR reuses
     // the same canvas object across turns, so a stale readiness entry would let the
     // next page's first sample wrongly pass (or block). Bounded: cleared on every
@@ -339,6 +341,7 @@ export class ImageOcrController {
     private readonly canvasTapRecapture = new Map<HTMLCanvasElement, number>();
     private readonly ocrWordRenderStates = new WeakMap<HTMLElement, OcrWordRenderState>();
     private readonly pointerActivatedOcrLines = new WeakMap<HTMLElement, number>();
+    private recentTouchOcrPoint?: { clientX: number; clientY: number; at: number };
     private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
     private readonly handleMediaResume = (event: Event) => this.releaseVideoFrame(event.target);
     // Stepping subtitle lines while paused seeks the video — the snapshot
@@ -347,6 +350,10 @@ export class ImageOcrController {
     private readonly handleDocumentPointerDown = (event: Event) => {
         this.unpinOcrLinesFromDocumentEvent(event);
         this.requestOcrFromPointerEvent(event);
+    };
+    private readonly handleDocumentTouchStart = (event: Event) => {
+        this.unpinOcrLinesFromDocumentEvent(event);
+        this.requestOcrFromTouchEvent(event);
     };
     private readonly handleDocumentPointerOver = (event: Event) => this.requestOcrFromPointerEvent(event);
     private readonly handleDocumentPointerMove = (event: Event) => this.requestOcrFromPointerEvent(event);
@@ -366,6 +373,7 @@ export class ImageOcrController {
         this.destroyed = false;
         this.refresh();
         document.addEventListener('pointerdown', this.handleDocumentPointerDown, true);
+        document.addEventListener('touchstart', this.handleDocumentTouchStart, { capture: true, passive: true });
         document.addEventListener('pointerover', this.handleDocumentPointerOver, true);
         document.addEventListener('pointermove', this.handleDocumentPointerMove, true);
         document.addEventListener('click', this.handleDocumentClick, true);
@@ -403,7 +411,7 @@ export class ImageOcrController {
             childList: true,
             subtree: true,
             attributes: true,
-            attributeFilter: ['style', 'class', 'hidden', 'src', 'srcset', 'sizes', 'loading', 'poster'],
+            attributeFilter: ['style', 'class', 'hidden', 'src', 'srcset', 'sizes', 'loading', 'poster', 'data-yomu-canvas-ocr'],
         });
         this.startReaderRasterPollingIfNeeded();
     }
@@ -411,6 +419,7 @@ export class ImageOcrController {
     destroy(): void {
         this.destroyed = true;
         document.removeEventListener('pointerdown', this.handleDocumentPointerDown, true);
+        document.removeEventListener('touchstart', this.handleDocumentTouchStart, true);
         document.removeEventListener('pointerover', this.handleDocumentPointerOver, true);
         document.removeEventListener('pointermove', this.handleDocumentPointerMove, true);
         document.removeEventListener('click', this.handleDocumentClick, true);
@@ -482,7 +491,7 @@ export class ImageOcrController {
         if (this.destroyed) return;
         const settings = this.options.getSettings();
         if (!settings.ocrEnabled) return;
-        if (this.options.shouldAutoScan?.() === false) {
+        if (this.options.shouldAutoScan?.() === false && !hasCanvasOcrOptInSurface()) {
             this.clearAutoScannedOverlays();
             this.schedulePosition();
             return;
@@ -675,22 +684,23 @@ export class ImageOcrController {
         return true;
     }
 
-    private requestOcrFromPointerEvent(event: Event): void {
+    private requestOcrFromPointerEvent(event: Event): boolean {
+        if (this.isDuplicateTouchPointerOcrEvent(event)) return false;
         const settings = this.options.getSettings();
         const image = ocrImageFromPointerEvent(event, settings);
         if (image) {
-            if (event.type === 'pointermove' && image === this.lastPointerMoveImage) return;
+            if (event.type === 'pointermove' && image === this.lastPointerMoveImage) return false;
             if (event.type === 'pointermove') this.lastPointerMoveImage = image;
             else this.lastPointerMoveImage = undefined;
             this.lastPointerMoveReaderSurface = undefined;
             this.lastPointerMoveReaderSurfaceKey = undefined;
             this.enqueue(image, true);
-            return;
+            return true;
         }
         const surface = ocrReaderSurfaceFromPointerEvent(event, settings);
-        if (!surface) return;
+        if (!surface) return false;
         const surfaceKey = readerRasterSurfaceSnapshotKey(surface);
-        if (event.type === 'pointermove' && surface === this.lastPointerMoveReaderSurface && surfaceKey === this.lastPointerMoveReaderSurfaceKey) return;
+        if (event.type === 'pointermove' && surface === this.lastPointerMoveReaderSurface && surfaceKey === this.lastPointerMoveReaderSurfaceKey) return false;
         if (event.type === 'pointermove') {
             this.lastPointerMoveReaderSurface = surface;
             this.lastPointerMoveReaderSurfaceKey = surfaceKey;
@@ -701,6 +711,26 @@ export class ImageOcrController {
         void this.snapshotReaderSurface(surface, settings).then(frame => {
             if (frame) this.enqueue(frame, true);
         });
+        return true;
+    }
+
+    private requestOcrFromTouchEvent(event: Event): void {
+        const point = touchPointFromEvent(event);
+        if (!point) return;
+        if (this.requestOcrFromPointerEvent(eventWithPoint(event, point))) {
+            this.recentTouchOcrPoint = { ...point, at: Date.now() };
+        }
+    }
+
+    private isDuplicateTouchPointerOcrEvent(event: Event): boolean {
+        if (event.type !== 'pointerdown' || !isPointerLikeEvent(event) || event.pointerType !== 'touch') return false;
+        const recent = this.recentTouchOcrPoint;
+        if (!recent) return false;
+        if (Date.now() - recent.at > 700) {
+            this.recentTouchOcrPoint = undefined;
+            return false;
+        }
+        return Math.abs(event.clientX - recent.clientX) <= 6 && Math.abs(event.clientY - recent.clientY) <= 6;
     }
 
     private async snapshotReaderSurface(surface: HTMLCanvasElement | HTMLElement, settings: ReaderSettings): Promise<HTMLImageElement | undefined> {
@@ -853,7 +883,13 @@ export class ImageOcrController {
         return !manualRequested
             && !state.overlayRequested
             && !inlineFallback
+            && !this.isReaderRasterOcrOptInFrame(state.image)
             && this.options.shouldAutoScan?.() === false;
+    }
+
+    private isReaderRasterOcrOptInFrame(image: HTMLImageElement): boolean {
+        const canvas = this.canvasFrameSources.get(image);
+        return Boolean(canvas && isCanvasOcrOptInSurface(canvas));
     }
 
     private async renderOcrFailure(
@@ -1408,9 +1444,15 @@ export class ImageOcrController {
 
     private refreshCanvasReaderSurfaces(settings: ReaderSettings, userRequested = false): void {
         if (!settings.ocrEnabled || settings.ocrProvider === 'off') return;
+        const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false
+            && settings.ocrAutoScanImages
+            && !userRequested;
+        const ocrOptInCanvases = nativeTextLayerBlocksAutoScan
+            ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested)
+            : undefined;
         // asked to scan, so a background poll must NOT wipe the frame they tapped to
         // create — only a genuine page turn (detected below) should drop it.
-        if (this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested) {
+        if (nativeTextLayerBlocksAutoScan && !ocrOptInCanvases?.length) {
             if (!isReaderRasterPage()) { this.releaseAllCanvasFrames(); return; }
             // Native-text-layer page (mokuro et al.): strip AUTO frames so we don't
             // double-paint the page's own text, but KEEP a frame the user explicitly
@@ -1447,7 +1489,7 @@ export class ImageOcrController {
             this.retryPendingUserRequestedCaptures(settings);
             return;
         }
-        const canvases = activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+        const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
         for (const canvas of [...this.canvasFrames.keys()]) {
             if (canvases.includes(canvas)) continue;
             // Don't drop a frame whose image is still loading — a transient off-screen
@@ -1468,8 +1510,8 @@ export class ImageOcrController {
             if (!userRequested || this.canvasFrameKeys.get(canvas) === key) return;
             this.releaseCanvasFrame(canvas);
         }
-        if (this.pendingCanvasSnapshots.has(canvas)) return;
-        this.pendingCanvasSnapshots.add(canvas);
+        if (this.pendingCanvasSnapshots.get(canvas) === key) return;
+        this.pendingCanvasSnapshots.set(canvas, key);
         try {
             const rect = canvas.getBoundingClientRect();
             if (rect.width * rect.height < settings.ocrMinImageArea) return;
@@ -1557,7 +1599,7 @@ export class ImageOcrController {
             if (frameRect !== rect) this.canvasFrameStaticRects.set(frame, frameRect);
             this.schedulePosition();
         } finally {
-            this.pendingCanvasSnapshots.delete(canvas);
+            if (this.pendingCanvasSnapshots.get(canvas) === key) this.pendingCanvasSnapshots.delete(canvas);
         }
     }
 
@@ -1811,7 +1853,16 @@ export class ImageOcrController {
         setOcrArtifactPosition(state.overlay, rect.left, rect.top);
         state.overlay.style.width = `${rect.width}px`;
         state.overlay.style.height = `${rect.height}px`;
-        this.fitLineFonts(state, renderedOcrImageFrame(image, rect, state.result));
+        this.fitLineFonts(state, this.renderedOcrImageFrameForState(image, rect, state.result));
+    }
+
+    private renderedOcrImageFrameForState(image: HTMLImageElement, rect: DOMRect, result: OcrResult | undefined): OcrRenderedImageFrame {
+        const frame = renderedOcrImageFrame(image, rect, result);
+        if (!this.canvasFrameSources.has(image) && !this.backgroundFrameSources.has(image)) return frame;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        if (!viewportHeight || rect.bottom < viewportHeight - 2) return frame;
+        const reserved = Math.max(0, Math.min(READER_RASTER_BOTTOM_CHROME_RESERVE_PX, frame.imageHeight - 1));
+        return reserved ? { ...frame, safeBottomInset: reserved } : frame;
     }
 
     private fitLineFonts(state: ImageState, frame: OcrRenderedImageFrame): void {
@@ -1872,7 +1923,7 @@ export class ImageOcrController {
         const minLeft = frame.imageLeft;
         const minTop = frame.imageTop;
         const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth - furiGutter);
-        const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - frameHeight);
+        const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - (frame.safeBottomInset ?? 0) - frameHeight);
         const left = clampNumber(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
         const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
         const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
@@ -2034,10 +2085,29 @@ function isStaleOcrState(error: unknown): error is typeof STALE_OCR_STATE {
 }
 
 function applyOcrOverlayStyle(overlay: HTMLElement, settings: ReaderSettings): void {
+    const theme = effectiveOcrOverlayTheme(settings);
+    overlay.dataset.ocrOverlayTheme = theme;
+    if (theme === 'light') {
+        overlay.style.setProperty('--jpdb-ocr-text-color', '#17202a');
+        overlay.style.setProperty('--jpdb-ocr-outline-color', 'rgba(255, 255, 255, 0)');
+        overlay.style.setProperty('--jpdb-ocr-background-rgba', 'rgba(248, 250, 252, 0.68)');
+        overlay.style.setProperty('--jpdb-ocr-background-active-rgba', 'rgba(248, 250, 252, 0.86)');
+        return;
+    }
     overlay.style.setProperty('--jpdb-ocr-text-color', settings.ocrTextColor);
     overlay.style.setProperty('--jpdb-ocr-outline-color', settings.ocrOutlineColor);
     overlay.style.setProperty('--jpdb-ocr-background-rgba', accentToRgba(settings.ocrBackgroundColor, settings.ocrBackgroundOpacity));
     overlay.style.setProperty('--jpdb-ocr-background-active-rgba', accentToRgba(settings.ocrBackgroundColor, Math.min(1, settings.ocrBackgroundOpacity + 0.12)));
+}
+
+function effectiveOcrOverlayTheme(settings: ReaderSettings): 'dark' | 'light' {
+    if (settings.ocrOverlayTheme === 'dark' || settings.ocrOverlayTheme === 'light') return settings.ocrOverlayTheme;
+    if (settings.theme === 'dark' || settings.theme === 'light') return settings.theme;
+    try {
+        return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    } catch {
+        return 'dark';
+    }
 }
 
 function ocrParseOptions(): ReaderParserParseOptions {
@@ -2939,6 +3009,27 @@ function ocrReaderSurfaceFromPointerEvent(event: Event, settings: ReaderSettings
     return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
 }
 
+function touchPointFromEvent(event: Event): { clientX: number; clientY: number } | null {
+    const touchEvent = event as Partial<TouchEvent>;
+    const touch = touchEvent.changedTouches?.[0] ?? touchEvent.touches?.[0];
+    if (!touch || typeof touch.clientX !== 'number' || typeof touch.clientY !== 'number') return null;
+    return { clientX: touch.clientX, clientY: touch.clientY };
+}
+
+function eventWithPoint(
+    event: Event,
+    point: { clientX: number; clientY: number },
+): Event & Pick<PointerEvent, 'button' | 'clientX' | 'clientY' | 'pointerType'> {
+    return {
+        type: 'pointerdown',
+        target: event.target,
+        button: 0,
+        clientX: point.clientX,
+        clientY: point.clientY,
+        pointerType: 'touch',
+    } as Event & Pick<PointerEvent, 'button' | 'clientX' | 'clientY' | 'pointerType'>;
+}
+
 function pointerEventOverOcrOverlay(event: Event & Pick<PointerEvent, 'clientX' | 'clientY'>): boolean {
     const target = event.target as Element | null;
     if (target?.closest?.('[data-jpdb-reader-root]')) return true;
@@ -3120,7 +3211,7 @@ function summarizeRenderableMediaMutations(mutations: MutationRecord[]): OcrRend
 }
 
 function canAutoRefreshOcrAfterMutation(settings: ReaderSettings, shouldAutoScan: (() => boolean) | undefined): boolean {
-    return settings.ocrAutoScanImages && shouldAutoScan?.() !== false;
+    return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
 }
 
 function nodeContainsRenderableMedia(node: Node): boolean {
@@ -3130,6 +3221,15 @@ function nodeContainsRenderableMedia(node: Node): boolean {
         || node instanceof HTMLSourceElement
         || (node instanceof HTMLElement && Boolean(backgroundImageReaderUrl(node)))
         || (node instanceof Element && Boolean(node.querySelector('img, video, source, canvas, [data-page-index], [style*="background-image"], [style*="background:"][style*="url("]')));
+}
+
+function hasCanvasOcrOptInSurface(): boolean {
+    return Boolean(document.querySelector('canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas'));
+}
+
+function isCanvasOcrOptInSurface(canvas: HTMLCanvasElement): boolean {
+    return canvas.dataset.yomuCanvasOcr === 'on'
+        || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
 }
 
 function isImageOccludedByVideo(image: HTMLImageElement, rect = image.getBoundingClientRect()): boolean {

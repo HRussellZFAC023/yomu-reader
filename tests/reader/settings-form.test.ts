@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { diagnoseAnkiConnectFailure } from '../../src/reader/anki/transport';
 import { uiText } from '../../src/reader/app/i18n';
 import { describe, expect, it } from 'vitest';
-import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../../src/reader/app/constants';
+import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, USERSCRIPT_INSTALL_URL } from '../../src/reader/app/constants';
+import { CURRENT_YOMU_VERSION } from '../../src/reader/app/version';
 import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
 import { activateSettingsPanel, applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings/form';
@@ -117,6 +118,19 @@ function recommendedDictionaryButton(form: HTMLFormElement, id: string): HTMLBut
     return button;
 }
 
+function recommendedDictionaryGuide(form: HTMLFormElement, id: string): HTMLAnchorElement {
+    const link = form.querySelector<HTMLAnchorElement>(`[data-recommended-dictionary-guide][data-dictionary-id="${id}"]`);
+    if (!link) throw new Error(`Missing recommended dictionary guide: ${id}`);
+    return link;
+}
+
+function recommendedDictionaryHelp(form: HTMLFormElement, id: string): string {
+    return form.querySelector<HTMLElement>(`[data-dictionary-id="${id}"]`)
+        ?.closest<HTMLElement>('.jpdb-reader-recommended-item')
+        ?.querySelector<HTMLElement>('.jpdb-reader-help')
+        ?.textContent ?? '';
+}
+
 function parsedAnkiFieldMappingsValue(form: HTMLFormElement): AnkiFieldMappings {
     const hidden = form.querySelector<HTMLInputElement>('input[name="ankiFieldMappings"]')!;
     expect(hidden.type).toBe('hidden');
@@ -170,7 +184,7 @@ describe('settings help panel', () => {
         const form = document.createElement('form');
         form.innerHTML = renderHelpLinksPanel();
 
-        for (const key of ['video-player', 'pdf-reader', 'new-tab', 'docs', 'donate', 'issues', 'discord']) {
+        for (const key of ['update-userscript', 'anki-connect-addon', 'anki-mobile-docs', 'video-player', 'pdf-reader', 'new-tab', 'docs', 'donate', 'issues', 'discord']) {
             expect(form.querySelector(`[data-help-link="${key}"] svg`)).not.toBeNull();
         }
         expect(form.querySelector('[data-help-link="factory-reset"] svg')).toBeNull();
@@ -181,6 +195,53 @@ describe('settings help panel', () => {
         expect(form.querySelector('[data-help-link="video-player"] svg')).not.toBeNull();
         expect(form.querySelector('[data-help-link="pdf-reader"]')?.textContent).toContain('PDFリーダー');
         expect(form.querySelector('[data-help-link="pdf-reader"] svg')).not.toBeNull();
+        expect(form.querySelector('[data-help-link="update-userscript"]')?.textContent).toContain('更新/再インストール');
+        expect(form.querySelector('[data-help-link="anki-connect-addon"]')?.textContent).toContain('AnkiConnect');
+    });
+
+    it('shows current version, latest-version status, update link, and duplicate/mobile notes', () => {
+        const marker = document.createElement('meta');
+        marker.id = 'jpdb-reader-runtime-owner';
+        marker.dataset.yomuRuntimeKind = 'userscript';
+        document.head.append(marker);
+        const form = document.createElement('form');
+        try {
+            form.innerHTML = renderHelpLinksPanel();
+
+            expect(form.querySelector<HTMLElement>('[data-yomu-current-version]')?.textContent).toBe(CURRENT_YOMU_VERSION);
+            expect(form.querySelector<HTMLElement>('[data-yomu-update-status]')?.textContent).toContain(CURRENT_YOMU_VERSION);
+            expect(form.querySelector<HTMLElement>('[data-yomu-duplicate-status]')?.textContent).toContain('userscript');
+            expect(form.querySelector<HTMLAnchorElement>('[data-help-link="update-userscript"]')?.href).toBe(USERSCRIPT_INSTALL_URL);
+            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('two Yomu scripts');
+            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('iPhone/iPad');
+
+            localizeSettingsForm(form, 'ja');
+
+            expect(form.querySelector<HTMLElement>('[data-help-update-title]')?.textContent).toBe('バージョンと更新');
+            expect(form.querySelector<HTMLElement>('[data-yomu-update-status]')?.textContent).toContain(CURRENT_YOMU_VERSION);
+            expect(form.querySelector<HTMLElement>('[data-yomu-duplicate-status]')?.textContent).toContain('userscript');
+            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('iPhone/iPad');
+        } finally {
+            marker.remove();
+        }
+    });
+
+    it('shows AnkiConnect CORS, mobile, and Brave setup help in Help', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderHelpLinksPanel();
+
+        expect(form.querySelector<HTMLElement>('[data-help-anki-title]')?.textContent).toBe('AnkiConnect setup');
+        expect(form.querySelector<HTMLElement>('.jpdb-reader-help-code')?.textContent).toContain('https://yomureader.com');
+        expect(form.querySelector<HTMLElement>('.jpdb-reader-help-code')?.textContent).toContain('http://localhost');
+        expect(form.querySelector<HTMLElement>('[data-help-anki-brave]')?.textContent).toContain('Brave');
+        expect(form.querySelector<HTMLAnchorElement>('[data-help-link="anki-connect-addon"]')?.href).toContain('ankiweb.net/shared/info/2055492159');
+        expect(form.querySelector<HTMLAnchorElement>('[data-help-link="anki-mobile-docs"]')?.href).toContain('getting-started#use-desktop-anki');
+
+        localizeSettingsForm(form, 'ja');
+
+        expect(form.querySelector<HTMLElement>('[data-help-anki-title]')?.textContent).toBe('AnkiConnect設定');
+        expect(form.querySelector<HTMLElement>('.jpdb-reader-help-code')?.textContent).toContain('https://yomureader.com');
+        expect(form.querySelector<HTMLElement>('[data-help-anki-mobile]')?.textContent).toContain('Tailscale');
     });
 
     it('does not render the removed Help glossary', () => {
@@ -201,12 +262,37 @@ describe('recommended dictionary settings buttons', () => {
             ...DEFAULT_SETTINGS,
             dictionaryPreferences: [
                 { name: 'Jitendex.org [2025-12-02]', alias: 'Jitendex', enabled: true, priority: 0, type: 'terms' },
+                { name: 'Kanjium Pitch Accents', alias: 'Pitch', enabled: true, priority: 1, type: 'metadata' },
                 { name: 'JPDB v2.2 Frequency Kana', alias: 'JPDB Frequency', enabled: true, priority: 1, type: 'frequency' },
             ],
         });
 
         expect(recommendedDictionaryButton(form, 'jitendex').textContent?.trim()).toBe('Update');
+        expect(recommendedDictionaryGuide(form, 'kanjium-pitch').textContent?.trim()).toContain('Guide');
         expect(recommendedDictionaryButton(form, 'jpdbv2-kana').textContent?.trim()).toBe('Update');
+    });
+
+    it('shows pitch dictionaries as their own recommended group before frequency dictionaries', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const groupTitles = Array.from(form.querySelectorAll<HTMLElement>('.jpdb-reader-recommended-group-title'), title => title.textContent);
+
+        expect(groupTitles).toEqual(['Term dictionaries', 'Kanji dictionaries', 'Pitch dictionaries', 'Frequency dictionaries']);
+        expect(settingsText(form, '[data-recommended-dictionary-help]')).toContain('Install a term dictionary first');
+        expect(settingsText(form, '[data-recommended-dictionary-help]')).toContain('not normal definition text');
+        expect(recommendedDictionaryHelp(form, 'kanjium-pitch')).toContain('Pitch accents only');
+        expect(recommendedDictionaryHelp(form, 'jpdbv2-kana')).toContain('frequency badges');
+        expect(recommendedDictionaryGuide(form, 'kanjium-pitch').href).toContain('tools/study-page#local-pitch-and-frequency-dictionaries');
+        expect(recommendedDictionaryButton(form, 'jpdbv2-kana').compareDocumentPosition(recommendedDictionaryButton(form, 'jiten')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('localizes guide-only pitch help and clarifies frequency dictionaries are badges', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        localizeSettingsForm(form, 'ja');
+
+        expect(settingsText(form, '[data-recommended-dictionary-help]')).toContain('通常の定義文は追加しません');
+        expect(recommendedDictionaryHelp(form, 'kanjium-pitch')).toContain('ピッチアクセント専用');
+        expect(recommendedDictionaryHelp(form, 'jpdbv2-kana')).toContain('頻度バッジ');
+        expect(settingsText(form, '[data-import-status]')).toContain('語句辞書は定義を追加');
     });
 
     it('does not treat Jitendex as the Jiten frequency dictionary', () => {
@@ -474,7 +560,8 @@ describe('settings form localization', () => {
         expect(jpdbInput.getAttribute('autocapitalize')).toBe('off');
         expect(jpdbInput.getAttribute('spellcheck')).toBe('false');
         expect(form.querySelector<HTMLAnchorElement>('a[href="https://jiten.moe/settings"]')?.textContent).toBe('Jiten settings');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Use separate Jiten and JPDB boxes');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Paste separate API keys here');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('JPDB keys come from JPDB settings');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Study deck choices stay scoped to the selected provider');
 
         jpdbInput.value = '  next-jpdb  ';
@@ -711,6 +798,22 @@ describe('settings form localization', () => {
         expect(saved.ocrAutoScanImages).toBe(false);
         expect(saved.shortcuts.scanPage).toBe('Ctrl+J');
         expect(saved.shortcuts.scanImages).toBe('Ctrl+I');
+    });
+
+    it('round-trips the OCR overlay theme setting', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, ocrOverlayTheme: 'light' }, 'https://jpdb.io/settings');
+        const select = form.querySelector<HTMLSelectElement>('select[name="ocrOverlayTheme"]')!;
+
+        expect(labelForControl(form, 'ocrOverlayTheme')).toContain('OCR overlay theme');
+        expect(optionText(form, 'ocrOverlayTheme', 'auto')).toBe('Match app theme');
+        expect(optionText(form, 'ocrOverlayTheme', 'light')).toBe('Light overlay');
+        expect(optionText(form, 'ocrOverlayTheme', 'dark')).toBe('Dark overlay');
+        expect(selectValue(form, 'ocrOverlayTheme')).toBe('light');
+
+        select.value = 'dark';
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(saved.ocrOverlayTheme).toBe('dark');
     });
 
     it('omits the old paused-frame OCR status card setting', () => {
@@ -1060,6 +1163,7 @@ describe('settings form localization', () => {
         expect(normalizedTheme).toContain('ocrEnabled: true');
         expect(normalizedTheme).toContain('ocrVideoPauseFrames: true');
         expect(normalizedTheme).toContain('ocrProvider: \'google-lens\'');
+        expect(normalizedTheme).toContain('ocrOverlayTheme: \'auto\'');
     });
 
     it('shows Immersion Kit reveal audio autoplay enabled by default', () => {
@@ -1765,8 +1869,9 @@ describe('settings form localization', () => {
         expect(optionText(form, 'newTabSource', 'auto')).toBe('自動: API/Anki後に学習語');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（Jiten / JPDB）');
         expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順）');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('JitenとJPDBは別々の欄に入力します');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('学習デッキは選択中のサービスにだけ適用されます');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('JitenとJPDBのAPIキーを別々に貼ります');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('JPDBキーはJPDB設定から取得します');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('学習デッキは選択中のサービスにだけ適用され');
         expect(labelForControl(form, 'newTabKanjiKeywordSource')).toContain('漢字キーワードのソース');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動: RTK、JPDB、ローカル');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（Jiten / JPDB）');

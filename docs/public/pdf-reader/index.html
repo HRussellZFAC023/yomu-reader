@@ -390,7 +390,8 @@
       min-height: 100vh;
       min-height: 100dvh;
       margin: 0;
-      display: block;
+      display: flex;
+      flex-direction: column;
     }
 
     .sr-only {
@@ -553,9 +554,10 @@
 
     .empty {
       width: auto;
+      flex: 1 1 auto;
       position: relative;
-      margin: 18px;
-      min-height: calc(100dvh - 100px);
+      margin: clamp(12px, 2vw, 18px);
+      min-height: min(520px, calc(100dvh - 100px));
       display: grid;
       place-items: center;
       border: 2px dashed var(--line);
@@ -789,8 +791,15 @@
     const runtimeScriptId = 'yomu-hosted-pdf-runtime';
     const runtimeCssAttribute = 'data-yomu-hosted-pdf-css';
     const runtimeScriptAttribute = 'data-yomu-hosted-pdf-script';
+    const runtimeCompanionAttribute = 'data-yomu-hosted-pdf-companion';
     const runtimeReadyTimeoutMs = 2600;
     const yomuRuntimeMarkerId = 'jpdb-reader-runtime-owner';
+    const runtimeCompanionFiles = [
+      'greasyfork/yomu-anki.user.js',
+      'greasyfork/yomu-kanji-study.user.js',
+      'greasyfork/yomu-settings-surface.user.js',
+      'greasyfork/yomu-video.user.js',
+    ];
     const colorTokens = { accent: '#5ea780', readableInk: '#11161d', white: '#ffffff' };
     const fallbackIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#181b20"/><text x="32" y="38" text-anchor="middle" dominant-baseline="central" font-family="Hiragino Sans, Yu Gothic, Noto Sans JP, system-ui, sans-serif" font-size="38" font-weight="800" fill="#f2f4f8">&#12424;</text></svg>';
 
@@ -1101,31 +1110,48 @@
       if (hasYomuRuntime()) return Promise.resolve(true);
       const existing = document.getElementById(runtimeScriptId) || document.querySelector(`script[${runtimeScriptAttribute}]`);
       if (existing) return waitForYomuRuntime();
-      return loadScriptCandidates(runtimeAssetCandidates('yomu.user.js'));
+      return loadScriptCandidates(runtimeAssetCandidates('yomu.user.js'), 0, { id: runtimeScriptId, attribute: runtimeScriptAttribute });
     }
-    function loadScriptCandidates(candidates, index = 0) {
+    async function loadYomuCompanions() {
+      for (const fileName of runtimeCompanionFiles) {
+        if (document.querySelector(`script[${runtimeCompanionAttribute}="${fileName}"]`)) continue;
+        const loaded = await loadScriptCandidates(runtimeAssetCandidates(fileName), 0, {
+          attribute: runtimeCompanionAttribute,
+          attributeValue: fileName,
+        });
+        if (!loaded) return false;
+      }
+      return true;
+    }
+    function loadScriptCandidates(candidates, index = 0, options = {}) {
       if (index >= candidates.length) return Promise.resolve(false);
       return new Promise(resolve => {
         const script = document.createElement('script');
-        script.id = runtimeScriptId;
-        script.async = true;
+        if (options.id) script.id = options.id;
+        script.async = false;
         script.src = candidates[index];
-        script.setAttribute(runtimeScriptAttribute, 'true');
+        script.setAttribute(options.attribute || runtimeScriptAttribute, options.attributeValue || 'true');
         script.addEventListener('load', () => {
+          if (!options.id) return resolve(true);
           void waitForYomuRuntime().then(ready => {
             if (ready) return resolve(true);
             script.remove();
-            void loadScriptCandidates(candidates, index + 1).then(resolve);
+            void loadScriptCandidates(candidates, index + 1, options).then(resolve);
           });
         }, { once: true });
-        script.addEventListener('error', () => { script.remove(); void loadScriptCandidates(candidates, index + 1).then(resolve); }, { once: true });
+        script.addEventListener('error', () => { script.remove(); void loadScriptCandidates(candidates, index + 1, options).then(resolve); }, { once: true });
         document.head.append(script);
       });
     }
     async function ensureYomuRuntime(options = {}) {
       if (hasYomuRuntime()) return true;
       if (!options.silent) setStatus(options.message || text().loadingRuntime);
-      runtimeLoadPromise ||= (async () => { await loadYomuCss(); return loadYomuScript(); })();
+      runtimeLoadPromise ||= (async () => {
+        await loadYomuCss();
+        const companionsLoaded = await loadYomuCompanions();
+        if (!companionsLoaded) return false;
+        return loadYomuScript();
+      })();
       const loaded = await runtimeLoadPromise.catch(() => false);
       const ready = loaded && await waitForYomuRuntime();
       if (!ready) runtimeLoadPromise = null;
@@ -1199,7 +1225,11 @@
         container.className = 'pdf-page';
         container.dataset.pageNumber = String(number);
         container.dataset.scannedLabel = text().scannedBadge;
+        container.dataset.pdfText = 'pending';
+        container.dataset.yomuCanvasOcr = 'off';
         const canvas = document.createElement('canvas');
+        canvas.dataset.pdfText = 'pending';
+        canvas.dataset.yomuCanvasOcr = 'off';
         const textLayerDiv = document.createElement('div');
         textLayerDiv.className = 'textLayer';
         container.append(canvas, textLayerDiv);
@@ -1302,6 +1332,8 @@
         const canvas = document.createElement('canvas');
         canvas.width = Math.floor(renderViewport.width);
         canvas.height = Math.floor(renderViewport.height);
+        canvas.dataset.pdfText = 'pending';
+        canvas.dataset.yomuCanvasOcr = 'off';
         const context = canvas.getContext('2d', { alpha: false });
         const task = page.render({ canvasContext: context, viewport: renderViewport });
         entry.renderTask = task;
@@ -1326,8 +1358,9 @@
         entry.status = 'done';
 
         const textLength = textLayerDiv.textContent.replace(/\s+/g, '').length;
-        entry.container.classList.toggle('scanned', textLength < SCANNED_TEXT_THRESHOLD);
-        if (textLength < SCANNED_TEXT_THRESHOLD) maybeShowScannedNotice();
+        const isScanned = textLength < SCANNED_TEXT_THRESHOLD;
+        markPdfPageTextMode(entry, isScanned, textLength);
+        if (isScanned) maybeShowScannedNotice();
         updateZoomLabel();
         evictDistantPages(); // free bitmaps left behind by fast scrolling
       } catch (error) {
@@ -1336,6 +1369,29 @@
         if (error?.name === 'RenderingCancelledException') return;
         console.warn(`[yomu-pdf] failed to render page ${number}`, error);
       }
+    }
+
+    function markPdfPageTextMode(entry, isScanned, textLength) {
+      entry.container.classList.toggle('scanned', isScanned);
+      entry.container.classList.toggle('text-pdf', !isScanned);
+      entry.container.dataset.pdfText = isScanned ? 'scanned' : 'text';
+      entry.container.dataset.pdfTextLength = String(textLength);
+      entry.container.dataset.yomuCanvasOcr = isScanned ? 'on' : 'off';
+      entry.canvas.dataset.pdfText = isScanned ? 'scanned' : 'text';
+      entry.canvas.dataset.yomuCanvasOcr = isScanned ? 'on' : 'off';
+      entry.textLayerDiv.hidden = isScanned;
+      entry.textLayerDiv.setAttribute('aria-hidden', String(isScanned));
+    }
+
+    function resetPdfPageTextMode(entry) {
+      entry.container.classList.remove('scanned', 'text-pdf');
+      entry.container.dataset.pdfText = 'pending';
+      entry.container.dataset.pdfTextLength = '0';
+      entry.container.dataset.yomuCanvasOcr = 'off';
+      entry.canvas.dataset.pdfText = 'pending';
+      entry.canvas.dataset.yomuCanvasOcr = 'off';
+      entry.textLayerDiv.hidden = false;
+      entry.textLayerDiv.setAttribute('aria-hidden', 'false');
     }
 
     function maybeShowScannedNotice() {
@@ -1355,7 +1411,7 @@
         entry.canvas.width = 0;
         entry.canvas.height = 0;
         entry.textLayerDiv.replaceChildren();
-        entry.container.classList.remove('scanned');
+        resetPdfPageTextMode(entry);
         entry.status = 'idle';
       }
       const i = renderQueue.length;
@@ -1371,6 +1427,7 @@
         cancelRender(entry);
         entry.status = 'idle';
         entry.textLayerDiv.replaceChildren();
+        resetPdfPageTextMode(entry);
         // Resize the box to the new scale up front (for pages we've measured) so
         // the scroll height stays consistent; keep the old bitmap visible (CSS-
         // scaled) until the fresh render swaps in — no black flash.

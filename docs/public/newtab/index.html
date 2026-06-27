@@ -25,7 +25,7 @@
     <meta name="theme-color" content="#181b20">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <link rel="stylesheet" href="./styles.css?v=a74a1d13f716">
+    <link rel="stylesheet" href="./styles.css?v=7998707c373a">
     <meta name="apple-mobile-web-app-title" content="よむ">
     <meta name="color-scheme" content="light dark">
     <meta http-equiv="Cache-Control" content="no-cache">
@@ -480,11 +480,16 @@
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
     <script>
       (() => {
-        const appHash = '3412f74426f0';
-        const buildId = '1.4.135-3412f74426f0';
+        const appHash = '3d846810c73e';
+        const buildId = '1.4.138-3d846810c73e';
         window.yomuNewTabAppHash = appHash;
         window.yomuNewTabBuildId = buildId;
         if (appHash.startsWith('__') || buildId.startsWith('__')) return;
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').catch(() => undefined);
+          }, { once: true });
+        }
         const current = new URL(location.href);
         if (current.searchParams.get('build') === buildId) return;
         fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' })
@@ -513,7 +518,7 @@
         }, { once: true });
       }
     </script>
-    <script src="./app.js?v=3412f74426f0"></script>
+    <script src="./app.js?v=3d846810c73e"></script>
   </body>
 
 </html>

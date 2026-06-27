@@ -2228,23 +2228,54 @@
     return `${sample.hash.toString(36)}:${sample.contrast}:${sample.buckets}`;
   }
   function isLikelyPageCanvas(canvas, lenient) {
+    if (shouldForceCanvasReaderSurface(canvas)) return hasForcedCanvasReaderShape(canvas);
     if (!hasPageShape(canvas)) return false;
     if (lenient) return true;
     return isViewportProminent(canvas) && looksLikeRenderedCanvasImage(canvas);
   }
   function pageCanvases(hostname = location.hostname) {
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
-    const canvases = Array.from(document.querySelectorAll("canvas")).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
+    const canvases = Array.from(document.querySelectorAll("canvas")).filter((canvas) => !shouldSkipCanvasReaderSurface(canvas)).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
     return isBookwalkerViewerHost(hostname) ? preferCurrentScreenCanvases(canvases) : canvases;
+  }
+  function shouldSkipCanvasReaderSurface(canvas) {
+    return canvas.dataset.yomuCanvasOcr === "off" || Boolean(canvas.closest('[data-yomu-canvas-ocr="off"]'));
+  }
+  function shouldForceCanvasReaderSurface(canvas) {
+    return canvas.dataset.yomuCanvasOcr === "on" || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
+  }
+  function hasForcedCanvasReaderShape(canvas) {
+    const { width, height } = canvas;
+    if (Math.max(width, height) < MIN_PAGE_CANVAS_DIMENSION || Math.min(width, height) < MIN_RENDERED_DIMENSION) return false;
+    const aspect = width / height;
+    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
   }
   function preferCurrentScreenCanvases(canvases) {
     if (canvases.length < 2) return canvases;
+    if (hasVerticallyStackedVisibleCanvases(canvases)) return canvases;
     const current = canvases.filter(isOnScreenViewportCanvas);
     if (!current.length) return canvases;
     const renderedCurrent = current.filter(looksLikeRenderedCanvasImage);
     if (renderedCurrent.length) return renderedCurrent;
     const renderedFallback = canvases.filter((canvas) => !current.includes(canvas)).filter(looksLikeRenderedCanvasImage);
     return renderedFallback.length ? renderedFallback : current;
+  }
+  function hasVerticallyStackedVisibleCanvases(canvases) {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!viewportWidth || !viewportHeight) return false;
+    const rects = canvases.map((canvas) => canvas.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.right >= 0 && rect.top <= viewportHeight && rect.left <= viewportWidth).sort((a, b) => a.top - b.top);
+    if (rects.length < 2) return false;
+    for (let index = 1; index < rects.length; index += 1) {
+      const previous = rects[index - 1];
+      const current = rects[index];
+      const smallerHeight = Math.max(1, Math.min(previous.height, current.height));
+      const smallerWidth = Math.max(1, Math.min(previous.width, current.width));
+      const verticalOverlap2 = Math.max(0, Math.min(previous.bottom, current.bottom) - Math.max(previous.top, current.top));
+      const horizontalOverlap2 = Math.max(0, Math.min(previous.right, current.right) - Math.max(previous.left, current.left));
+      if (Math.abs(current.top - previous.top) > smallerHeight * 0.45 && verticalOverlap2 / smallerHeight < 0.55 && horizontalOverlap2 / smallerWidth > 0.55) return true;
+    }
+    return false;
   }
   function isOnScreenViewportCanvas(canvas) {
     const viewport = canvas.closest(VIEWPORT_CONTAINER_SELECTOR);
@@ -3146,7 +3177,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Use separate Jiten and JPDB boxes. Jiten keys start with ak_; Study deck choices stay scoped to the selected provider.",
+      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       jpdbApiKeyConfigured: "JPDB key set.",
@@ -3447,6 +3478,10 @@
       ocrVideoPauseFrames: "Read paused video frames",
       ocrInvertDarkPanels: "Read light text on dark panels",
       ocrProvider: "Image reading",
+      ocrOverlayTheme: "OCR overlay theme",
+      ocrOverlayThemeAuto: "Match app theme",
+      ocrOverlayThemeLight: "Light overlay",
+      ocrOverlayThemeDark: "Dark overlay",
       googleLens: "Google Lens (free, recommended)",
       cloudVision: "Google Cloud Vision (API key)",
       localOcr: "Local OCR server",
@@ -3601,7 +3636,7 @@
       exportSettings: "Export settings JSON",
       importDictionaries: "Import dictionaries",
       exportDictionaries: "Export dictionaries",
-      dictionaryImportHelp: "Import settings or ZIPs.",
+      dictionaryImportHelp: "Import a Yomitan ZIP, Yomitan settings export, or backup. Term dictionaries add definitions; pitch and frequency dictionaries add accents and badges.",
       lookupPills: "Lookup pills",
       lookupPillsHelp: "Links and frequency badges. Tokens: {query}, {word}, {reading}.",
       frequencyLookupPillsHelp: "Show imported frequency dictionaries as badges.",
@@ -3615,17 +3650,19 @@
       recommendedDownloads: "Dictionaries",
       termDictionaries: "Term dictionaries",
       kanjiDictionaries: "Kanji dictionaries",
+      pitchDictionaries: "Pitch dictionaries",
       frequencyDictionaries: "Frequency dictionaries",
       install: "Install",
       installing: "Installing",
       queued: "Queued",
+      dictionaryGuide: "Guide",
       saveAfterInstall: "Save after install",
       download: "Download",
       downloadAndImport: "Download and import",
       update: "Update",
-      noLocalDictionaries: "No local dictionaries yet.",
+      noLocalDictionaries: "No term dictionary imported yet. Install JMdict, Jitendex, or WTY for definitions; pitch/frequency dictionaries only add accents or badges.",
       checkingDictionaries: "Checking imported dictionaries...",
-      dictionaryOnlyJpdb: "Only JPDB is enabled. Import Yomitan for local.",
+      dictionaryOnlyJpdb: "Only JPDB is enabled. Import JMdict, Jitendex, WTY, or another term dictionary for local definitions.",
       dictionaryDownloading: "Downloading",
       dictionaryReadingZip: "Reading dictionary ZIP...",
       dictionaryCheckingIndex: "Checking index...",
@@ -3644,14 +3681,14 @@
       dictionaryDownloadProgress: "Downloading",
       dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}",
       dictionaryStatusUnavailable: "Unavailable.",
-      noLocalDictionariesImported: "No dictionaries imported yet.",
+      noLocalDictionariesImported: "No dictionaries imported yet. Start with a term dictionary for definitions.",
       dictionaryDownloadFailed: "Dictionary download failed.",
       dictionaryDownloadTimedOut: "Dictionary download timed out.",
       dictionaryDownloadNotZip: "Download was not a ZIP.",
       dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
       dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
       dictionaryManualDownloadHint: "Enable userscript or import the ZIP.",
-      dictionaryInstallQueueHelp: "Installs take a few minutes.",
+      dictionaryInstallQueueHelp: "Install a term dictionary first for definitions. Pitch and frequency dictionaries add accents and badges, not normal definition text.",
       dictionaryInstallQueued: "{dictionary} queued.",
       dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
       dictionaryImportQueueStatus: "{count} install{plural} running.",
@@ -3842,6 +3879,22 @@
       gradePass: "Pass/fail: PASS",
       helpLinksTitle: "Useful pages",
       helpLinksCopy: "Open reader tools and docs from here.",
+      versionAndUpdates: "Version and updates",
+      currentYomuVersion: "Current Yomu version:",
+      updateStatusIdle: "Current {current}. Open Help to check latest available version.",
+      updateStatusChecking: "Current {current}. Checking latest available version...",
+      updateStatusCurrent: "Current {current}. Latest {latest}. You are up to date.",
+      updateStatusAvailable: "Current {current}. Latest {latest}. Update available.",
+      updateStatusUnknown: "Current {current}. Latest version could not be checked. Use the update link to reinstall.",
+      updateHelpNotes: "If two Yomu scripts are enabled, keep one. On iPhone/iPad, open the install link in Safari and replace the old Userscripts file if automatic updates do not apply.",
+      updateUserscript: "Update/Reinstall userscript",
+      duplicateStatusSingle: "Duplicate script check: one active Yomu runtime on this page ({kind}).",
+      duplicateStatusUnknown: "Duplicate script check: unavailable on this page. If you see two Yomu buttons or menus, disable the older script.",
+      ankiConnectSetupTitle: "AnkiConnect setup",
+      ankiConnectSetupCopy: "Keep desktop Anki open with AnkiConnect enabled. Hosted Study needs AnkiConnect to allow the Yomu origin.",
+      ankiConnectSetupConfig: "Add these origins to AnkiConnect's webCorsOriginList, keeping any existing entries:",
+      ankiConnectSetupMobile: "For phone or iPad, use the desktop computer's LAN or Tailscale URL; localhost on a phone means the phone itself.",
+      ankiConnectSetupBrave: "In Brave, disable Shields for the Study page if local Anki checks are blocked.",
       helpSupportTitle: "Support よむ",
       helpSupportCopy: SUPPORT_COPY,
       helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
@@ -4138,16 +4191,17 @@
       sourceHelpImportedKanjiDictionaries: "Imported Yomitan kanji entries.",
       sourceHelpWordsUsingKanji: "Related vocabulary.",
       sourceHelpComponentGraph: "Kanji facts, components, radical images.",
-      recommendedJitendex: "J-E with examples.",
-      recommendedJmdict: "Core J-E dictionary.",
+      recommendedJitendex: "Term definitions with examples.",
+      recommendedJmdict: "Core term definitions.",
       recommendedJmnedict: "Proper names.",
-      recommendedWtyJapaneseJapanese: "JA-JA Wiktionary.",
+      recommendedWtyJapaneseJapanese: "Japanese-to-Japanese term definitions.",
       recommendedPixivLight: "Pixiv terms.",
       recommendedKanjidic: "Kanji facts.",
       recommendedJpdbKanji: "JPDB kanji.",
-      recommendedJpdbv2Kana: "JPDB frequency.",
-      recommendedBccwj: "BCCWJ frequency.",
-      recommendedJiten: "Jiten frequency.",
+      recommendedKanjiumPitch: "Pitch accents only; add a term dictionary for definitions.",
+      recommendedJpdbv2Kana: "Recommended frequency badges from JPDB.",
+      recommendedBccwj: "Frequency badges from BCCWJ.",
+      recommendedJiten: "Frequency badges from Jiten.",
       recommendedMarvncMonolingual: "Monolingual collection.",
       fallbackSetupTitle: "Public lookup",
       fallbackSetupCopy: "Search without a JPDB key. Add dictionaries offline.",
@@ -4300,14 +4354,14 @@ dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得不可。
-noLocalDictionariesImported	ローカル辞書は未追加です。
+noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
 dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。
 dictionaryDownloadBlocked	ダウンロード不可。ZIPを追加。
 dictionaryManualDownloadHint	ユーザースクリプト有効化かZIP追加。
-dictionaryInstallQueueHelp	数分かかります。完了後に保存できます。
+dictionaryInstallQueueHelp	まず定義用の語句辞書をインストールしてください。ピッチ/頻度辞書はアクセントやバッジを追加しますが、通常の定義文は追加しません。
 dictionaryInstallQueued	{dictionary}待機中。
 dictionaryInstallSaveBlocked	インポート中。完了後に保存できます。
 dictionaryImportQueueStatus	{count}件インストール中。完了後に保存。
@@ -4333,7 +4387,7 @@ jpdbScanFailed	ページスキャンに失敗しました。
 pageCoverageSummary	{percent}%・{known}/{total}・新{unknown}・i+1 {iPlusOne}
 noImmersionExamples	イマージョンキットの例文が見つかりません。
 noImmersionExamplesCompact	例文なし
-noLocalDictionaries	JMdictかYomitan ZIPを追加してください。
+noLocalDictionaries	語句辞書は未追加です。定義にはJMdict、Jitendex、WTYなどを追加してください。ピッチ/頻度辞書だけでは定義文は増えません。
 kanjiMapData	漢字マップデータ
 kanjiAlive	カンジアライブ
 wiktionary	ウィクショナリー
@@ -4757,7 +4811,7 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenとJPDBは別々の欄に入力します。Jitenキーはak_で始まります。学習デッキは選択中のサービスにだけ適用されます。
+apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。学習デッキは選択中のサービスにだけ適用され、どちらか一方、両方、またはローカル辞書のみでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
@@ -5026,6 +5080,10 @@ ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
 ocrInvertDarkPanels	暗いコマの白い文字を読む
 ocrProvider	画像読み取り
+ocrOverlayTheme	OCRオーバーレイテーマ
+ocrOverlayThemeAuto	アプリのテーマに合わせる
+ocrOverlayThemeLight	ライトオーバーレイ
+ocrOverlayThemeDark	ダークオーバーレイ
 googleLens	Google Lens — 無料・設定不要（おすすめ）
 cloudVision	Google Cloud Vision — APIキーが必要
 localOcr	ローカルOCRサーバー — 上級者向け
@@ -5179,7 +5237,7 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	設定やZIPを読み込みます。
+dictionaryImportHelp	Yomitan ZIP、Yomitan設定エクスポート、バックアップを読み込みます。語句辞書は定義を追加し、ピッチ/頻度辞書はアクセントやバッジを追加します。
 lookupPills	検索ピル
 lookupPillsHelp	リンクと頻度バッジ。トークン: {query}、{word}、{reading}。
 frequencyLookupPillsHelp	頻度辞書を検索バッジに表示。
@@ -5193,15 +5251,17 @@ builtInAction	内蔵アクション
 recommendedDownloads	辞書
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
+pitchDictionaries	ピッチ辞書
 frequencyDictionaries	頻度辞書
 install	インストール
 installing	インストール中
 queued	待機中
+dictionaryGuide	ガイド
 download	ダウンロード
 downloadAndImport	ダウンロードしてよむにインポート
 update	更新
 checkingDictionaries	インポート済み辞書を確認中...
-dictionaryOnlyJpdb	JPDBのみです。Yomitan辞書でローカル定義を追加。
+dictionaryOnlyJpdb	JPDBのみです。JMdict、Jitendex、WTYなどの語句辞書でローカル定義を追加してください。
 localDictionaryText	辞書テキスト
 localSenseSingular	意味
 localSensePlural	意味
@@ -5253,6 +5313,22 @@ ankiMappingConfidenceLow	未対応
 ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
+versionAndUpdates	バージョンと更新
+currentYomuVersion	現在のYomuバージョン:
+updateStatusIdle	現在 {current}。ヘルプを開くと最新バージョンを確認します。
+updateStatusChecking	現在 {current}。最新バージョンを確認中...
+updateStatusCurrent	現在 {current}。最新 {latest}。最新です。
+updateStatusAvailable	現在 {current}。最新 {latest}。更新できます。
+updateStatusUnknown	現在 {current}。最新バージョンを確認できません。更新リンクで再インストールしてください。
+updateHelpNotes	よむスクリプトが2つ有効なら1つだけ残してください。iPhone/iPadではSafariでインストールリンクを開き、自動更新されない場合はUserscripts内の古いファイルを置き換えてください。
+updateUserscript	ユーザースクリプトを更新/再インストール
+duplicateStatusSingle	重複スクリプト確認: このページで有効なYomuランタイムは1つです（{kind}）。
+duplicateStatusUnknown	重複スクリプト確認: このページでは確認できません。よむボタンやメニューが2つ出る場合は古いスクリプトを無効にしてください。
+ankiConnectSetupTitle	AnkiConnect設定
+ankiConnectSetupCopy	デスクトップAnkiを開き、AnkiConnectを有効にしてください。ホスト版StudyではAnkiConnect側でYomuのオリジンを許可する必要があります。
+ankiConnectSetupConfig	AnkiConnectのwebCorsOriginListに次のオリジンを追加してください。既存の項目は残します:
+ankiConnectSetupMobile	スマホやiPadでは、デスクトップPCのLANまたはTailscale URLを使います。スマホ上のlocalhostはPCではなくスマホ自身を指します。
+ankiConnectSetupBrave	BraveでローカルAnki確認がブロックされる場合は、StudyページのShieldsをオフにしてください。
 helpSupportTitle	よむをサポート
 helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまとめた無料ユーザースクリプトです。
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
@@ -5326,17 +5402,18 @@ noStoryAvailable	ストーリーはありません
 sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。
-recommendedJitendex	例文付き日英辞書です。
-recommendedJmdict	基本日英辞書です。
+recommendedJitendex	例文付きの語句定義です。
+recommendedJmdict	基本語句定義です。
 recommendedJmnedict	固有名詞辞書です。
-recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
+recommendedWtyJapaneseJapanese	日本語で読む語句定義です。
 recommendedPixivLight	Pixiv用語辞書です。
 recommendedKanjidic	漢字情報です。
 recommendedMarvncMonolingual	日本語辞書集です。
 recommendedJpdbKanji	JPDB漢字情報です。
-recommendedJpdbv2Kana	JPDB頻度です。
-recommendedBccwj	BCCWJ頻度です。
-recommendedJiten	Jiten頻度です。
+recommendedKanjiumPitch	ピッチアクセント専用です。定義には語句辞書も追加してください。
+recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
+recommendedBccwj	BCCWJ由来の頻度バッジです。
+recommendedJiten	Jiten由来の頻度バッジです。
 `);
   function resolveUiLanguage(language) {
     if (language === "ja" || language === "en") return language;
@@ -6943,6 +7020,7 @@ ${candidate.depth}`;
   const READER_RASTER_RETRY_BASE_MS = 140;
   const READER_RASTER_RETRY_MAX_MS = 1100;
   const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
+  const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
   const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
@@ -7119,7 +7197,7 @@ ${candidate.depth}`;
     canvasReaderSignature;
     readerRasterPoll = 0;
     readerRasterRetryTimer = 0;
-    pendingCanvasSnapshots = /* @__PURE__ */ new WeakSet();
+    pendingCanvasSnapshots = /* @__PURE__ */ new WeakMap();
     // Map (not WeakMap) so a page turn can clear ALL readiness at once — NFBR reuses
     // the same canvas object across turns, so a stale readiness entry would let the
     // next page's first sample wrongly pass (or block). Bounded: cleared on every
@@ -7139,6 +7217,7 @@ ${candidate.depth}`;
     canvasTapRecapture = /* @__PURE__ */ new Map();
     ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
     pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
+    recentTouchOcrPoint;
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
     handleMediaResume = (event) => this.releaseVideoFrame(event.target);
     // Stepping subtitle lines while paused seeks the video — the snapshot
@@ -7147,6 +7226,10 @@ ${candidate.depth}`;
     handleDocumentPointerDown = (event) => {
       this.unpinOcrLinesFromDocumentEvent(event);
       this.requestOcrFromPointerEvent(event);
+    };
+    handleDocumentTouchStart = (event) => {
+      this.unpinOcrLinesFromDocumentEvent(event);
+      this.requestOcrFromTouchEvent(event);
     };
     handleDocumentPointerOver = (event) => this.requestOcrFromPointerEvent(event);
     handleDocumentPointerMove = (event) => this.requestOcrFromPointerEvent(event);
@@ -7159,6 +7242,7 @@ ${candidate.depth}`;
       this.destroyed = false;
       this.refresh();
       document.addEventListener("pointerdown", this.handleDocumentPointerDown, true);
+      document.addEventListener("touchstart", this.handleDocumentTouchStart, { capture: true, passive: true });
       document.addEventListener("pointerover", this.handleDocumentPointerOver, true);
       document.addEventListener("pointermove", this.handleDocumentPointerMove, true);
       document.addEventListener("click", this.handleDocumentClick, true);
@@ -7183,13 +7267,14 @@ ${candidate.depth}`;
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["style", "class", "hidden", "src", "srcset", "sizes", "loading", "poster"]
+        attributeFilter: ["style", "class", "hidden", "src", "srcset", "sizes", "loading", "poster", "data-yomu-canvas-ocr"]
       });
       this.startReaderRasterPollingIfNeeded();
     }
     destroy() {
       this.destroyed = true;
       document.removeEventListener("pointerdown", this.handleDocumentPointerDown, true);
+      document.removeEventListener("touchstart", this.handleDocumentTouchStart, true);
       document.removeEventListener("pointerover", this.handleDocumentPointerOver, true);
       document.removeEventListener("pointermove", this.handleDocumentPointerMove, true);
       document.removeEventListener("click", this.handleDocumentClick, true);
@@ -7261,7 +7346,7 @@ ${candidate.depth}`;
       if (this.destroyed) return;
       const settings = this.options.getSettings();
       if (!settings.ocrEnabled) return;
-      if (this.options.shouldAutoScan?.() === false) {
+      if (this.options.shouldAutoScan?.() === false && !hasCanvasOcrOptInSurface()) {
         this.clearAutoScannedOverlays();
         this.schedulePosition();
         return;
@@ -7425,21 +7510,22 @@ ${candidate.depth}`;
       return true;
     }
     requestOcrFromPointerEvent(event) {
+      if (this.isDuplicateTouchPointerOcrEvent(event)) return false;
       const settings = this.options.getSettings();
       const image = ocrImageFromPointerEvent(event, settings);
       if (image) {
-        if (event.type === "pointermove" && image === this.lastPointerMoveImage) return;
+        if (event.type === "pointermove" && image === this.lastPointerMoveImage) return false;
         if (event.type === "pointermove") this.lastPointerMoveImage = image;
         else this.lastPointerMoveImage = void 0;
         this.lastPointerMoveReaderSurface = void 0;
         this.lastPointerMoveReaderSurfaceKey = void 0;
         this.enqueue(image, true);
-        return;
+        return true;
       }
       const surface = ocrReaderSurfaceFromPointerEvent(event, settings);
-      if (!surface) return;
+      if (!surface) return false;
       const surfaceKey = readerRasterSurfaceSnapshotKey(surface);
-      if (event.type === "pointermove" && surface === this.lastPointerMoveReaderSurface && surfaceKey === this.lastPointerMoveReaderSurfaceKey) return;
+      if (event.type === "pointermove" && surface === this.lastPointerMoveReaderSurface && surfaceKey === this.lastPointerMoveReaderSurfaceKey) return false;
       if (event.type === "pointermove") {
         this.lastPointerMoveReaderSurface = surface;
         this.lastPointerMoveReaderSurfaceKey = surfaceKey;
@@ -7450,6 +7536,24 @@ ${candidate.depth}`;
       void this.snapshotReaderSurface(surface, settings).then((frame) => {
         if (frame) this.enqueue(frame, true);
       });
+      return true;
+    }
+    requestOcrFromTouchEvent(event) {
+      const point = touchPointFromEvent(event);
+      if (!point) return;
+      if (this.requestOcrFromPointerEvent(eventWithPoint(event, point))) {
+        this.recentTouchOcrPoint = { ...point, at: Date.now() };
+      }
+    }
+    isDuplicateTouchPointerOcrEvent(event) {
+      if (event.type !== "pointerdown" || !isPointerLikeEvent(event) || event.pointerType !== "touch") return false;
+      const recent = this.recentTouchOcrPoint;
+      if (!recent) return false;
+      if (Date.now() - recent.at > 700) {
+        this.recentTouchOcrPoint = void 0;
+        return false;
+      }
+      return Math.abs(event.clientX - recent.clientX) <= 6 && Math.abs(event.clientY - recent.clientY) <= 6;
     }
     async snapshotReaderSurface(surface, settings) {
       if (surface instanceof HTMLCanvasElement) {
@@ -7570,7 +7674,11 @@ ${candidate.depth}`;
       log$2.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
     shouldSuppressAutoRenderedResult(state2, inlineFallback, manualRequested = state2.manualRequested) {
-      return !manualRequested && !state2.overlayRequested && !inlineFallback && this.options.shouldAutoScan?.() === false;
+      return !manualRequested && !state2.overlayRequested && !inlineFallback && !this.isReaderRasterOcrOptInFrame(state2.image) && this.options.shouldAutoScan?.() === false;
+    }
+    isReaderRasterOcrOptInFrame(image) {
+      const canvas = this.canvasFrameSources.get(image);
+      return Boolean(canvas && isCanvasOcrOptInSurface(canvas));
     }
     async renderOcrFailure(state2, image, provider, manualRequested, error) {
       this.requireCurrentState(state2);
@@ -8008,7 +8116,9 @@ ${candidate.depth}`;
     }
     refreshCanvasReaderSurfaces(settings, userRequested = false) {
       if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
-      if (this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested) {
+      const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested;
+      const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested) : void 0;
+      if (nativeTextLayerBlocksAutoScan && !ocrOptInCanvases?.length) {
         if (!isReaderRasterPage()) {
           this.releaseAllCanvasFrames();
           return;
@@ -8035,7 +8145,7 @@ ${candidate.depth}`;
         this.retryPendingUserRequestedCaptures(settings);
         return;
       }
-      const canvases = activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+      const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
       for (const canvas of [...this.canvasFrames.keys()]) {
         if (canvases.includes(canvas)) continue;
         if (this.canvasFrames.get(canvas)?.complete === false) continue;
@@ -8052,8 +8162,8 @@ ${candidate.depth}`;
         if (!userRequested || this.canvasFrameKeys.get(canvas) === key) return;
         this.releaseCanvasFrame(canvas);
       }
-      if (this.pendingCanvasSnapshots.has(canvas)) return;
-      this.pendingCanvasSnapshots.add(canvas);
+      if (this.pendingCanvasSnapshots.get(canvas) === key) return;
+      this.pendingCanvasSnapshots.set(canvas, key);
       try {
         const rect = canvas.getBoundingClientRect();
         if (rect.width * rect.height < settings.ocrMinImageArea) return;
@@ -8117,7 +8227,7 @@ ${candidate.depth}`;
         if (frameRect !== rect) this.canvasFrameStaticRects.set(frame, frameRect);
         this.schedulePosition();
       } finally {
-        this.pendingCanvasSnapshots.delete(canvas);
+        if (this.pendingCanvasSnapshots.get(canvas) === key) this.pendingCanvasSnapshots.delete(canvas);
       }
     }
     canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested) {
@@ -8346,7 +8456,15 @@ ${candidate.depth}`;
       setOcrArtifactPosition(state2.overlay, rect.left, rect.top);
       state2.overlay.style.width = `${rect.width}px`;
       state2.overlay.style.height = `${rect.height}px`;
-      this.fitLineFonts(state2, renderedOcrImageFrame(image, rect, state2.result));
+      this.fitLineFonts(state2, this.renderedOcrImageFrameForState(image, rect, state2.result));
+    }
+    renderedOcrImageFrameForState(image, rect, result) {
+      const frame = renderedOcrImageFrame(image, rect, result);
+      if (!this.canvasFrameSources.has(image) && !this.backgroundFrameSources.has(image)) return frame;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      if (!viewportHeight || rect.bottom < viewportHeight - 2) return frame;
+      const reserved = Math.max(0, Math.min(READER_RASTER_BOTTOM_CHROME_RESERVE_PX, frame.imageHeight - 1));
+      return reserved ? { ...frame, safeBottomInset: reserved } : frame;
     }
     fitLineFonts(state2, frame) {
       const scale = this.options.getSettings().ocrFontScale;
@@ -8385,7 +8503,7 @@ ${candidate.depth}`;
       const minLeft = frame.imageLeft;
       const minTop = frame.imageTop;
       const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth - furiGutter);
-      const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - frameHeight);
+      const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - (frame.safeBottomInset ?? 0) - frameHeight);
       const left = clampNumber$1(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
       const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
       const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
@@ -8530,10 +8648,28 @@ ${candidate.depth}`;
     return error === STALE_OCR_STATE;
   }
   function applyOcrOverlayStyle(overlay, settings) {
+    const theme = effectiveOcrOverlayTheme(settings);
+    overlay.dataset.ocrOverlayTheme = theme;
+    if (theme === "light") {
+      overlay.style.setProperty("--jpdb-ocr-text-color", "#17202a");
+      overlay.style.setProperty("--jpdb-ocr-outline-color", "rgba(255, 255, 255, 0)");
+      overlay.style.setProperty("--jpdb-ocr-background-rgba", "rgba(248, 250, 252, 0.68)");
+      overlay.style.setProperty("--jpdb-ocr-background-active-rgba", "rgba(248, 250, 252, 0.86)");
+      return;
+    }
     overlay.style.setProperty("--jpdb-ocr-text-color", settings.ocrTextColor);
     overlay.style.setProperty("--jpdb-ocr-outline-color", settings.ocrOutlineColor);
     overlay.style.setProperty("--jpdb-ocr-background-rgba", accentToRgba(settings.ocrBackgroundColor, settings.ocrBackgroundOpacity));
     overlay.style.setProperty("--jpdb-ocr-background-active-rgba", accentToRgba(settings.ocrBackgroundColor, Math.min(1, settings.ocrBackgroundOpacity + 0.12)));
+  }
+  function effectiveOcrOverlayTheme(settings) {
+    if (settings.ocrOverlayTheme === "dark" || settings.ocrOverlayTheme === "light") return settings.ocrOverlayTheme;
+    if (settings.theme === "dark" || settings.theme === "light") return settings.theme;
+    try {
+      return matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    } catch {
+      return "dark";
+    }
   }
   function ocrParseOptions() {
     return {
@@ -9256,6 +9392,22 @@ ${spelling}`);
     if (pointerEventOverOcrOverlay(event)) return null;
     return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
   }
+  function touchPointFromEvent(event) {
+    const touchEvent = event;
+    const touch = touchEvent.changedTouches?.[0] ?? touchEvent.touches?.[0];
+    if (!touch || typeof touch.clientX !== "number" || typeof touch.clientY !== "number") return null;
+    return { clientX: touch.clientX, clientY: touch.clientY };
+  }
+  function eventWithPoint(event, point) {
+    return {
+      type: "pointerdown",
+      target: event.target,
+      button: 0,
+      clientX: point.clientX,
+      clientY: point.clientY,
+      pointerType: "touch"
+    };
+  }
   function pointerEventOverOcrOverlay(event) {
     const target = event.target;
     if (target?.closest?.("[data-jpdb-reader-root]")) return true;
@@ -9397,10 +9549,16 @@ ${spelling}`);
     return { touched, addedImage };
   }
   function canAutoRefreshOcrAfterMutation(settings, shouldAutoScan) {
-    return settings.ocrAutoScanImages && shouldAutoScan?.() !== false;
+    return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
   }
   function nodeContainsRenderableMedia(node) {
     return node instanceof HTMLImageElement || node instanceof HTMLVideoElement || node instanceof HTMLCanvasElement || node instanceof HTMLSourceElement || node instanceof HTMLElement && Boolean(backgroundImageReaderUrl(node)) || node instanceof Element && Boolean(node.querySelector('img, video, source, canvas, [data-page-index], [style*="background-image"], [style*="background:"][style*="url("]'));
+  }
+  function hasCanvasOcrOptInSurface() {
+    return Boolean(document.querySelector('canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas'));
+  }
+  function isCanvasOcrOptInSurface(canvas) {
+    return canvas.dataset.yomuCanvasOcr === "on" || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
   }
   function isImageOccludedByVideo(image, rect = image.getBoundingClientRect()) {
     if (image.dataset.yomuVideoFrame) return false;

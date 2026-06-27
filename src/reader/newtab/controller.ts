@@ -26,6 +26,7 @@ import {
 } from './search-view';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { renderApiMiningPanel, togglePopoverReviewTargetSelection } from '../cards/popover-renderer';
+import { isPlainReadingDuplicatedByVisibleRuby, renderCardSpellingWithFurigana } from '../cards/reading-display';
 import { apiSrsProviderViewForCard, isJitenBackedCard } from '../cards/srs-providers';
 import type { CardRenderData } from '../cards/render-data';
 import { isCardHighlightWord } from '../cards/highlight';
@@ -85,9 +86,12 @@ import {
     buildRtkComponentSummaries,
     renderKanjiKeywordLine,
     renderKanjiOrigins,
+    renderExpressionComponentPitches,
+    renderPitch,
     renderRtkInfo,
 } from '../popup/render';
 import { kanjiFactProviderTitle, kanjiSourceStateKey, renderKanjiDefinitions } from '../sources/definition-render';
+import { installAppIcon, speakerIcon } from '../ui/icons';
 import {
     cardKey,
     createNewTabStateChannel,
@@ -410,6 +414,7 @@ export interface NewTabControllerDependencies {
     renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null) => string;
     renderStudyDefinitionSources?: (card: JPDBCard, data: CardRenderData, sentence: string | undefined) => string;
     renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup']) => string;
+    renderStudyWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup']) => string;
     installSearchDetailSources?: (root: HTMLElement, card: JPDBCard, sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => void;
     preloadWordAudio?: (card: JPDBCard) => void;
     playWordAudio?: (card: JPDBCard) => Promise<void> | void;
@@ -514,6 +519,15 @@ interface RootClickRequest {
     target: HTMLElement;
     action: string | undefined;
 }
+
+interface BeforeInstallPromptChoice {
+    outcome?: 'accepted' | 'dismissed' | string;
+}
+
+type BeforeInstallPromptEvent = Event & {
+    prompt: () => Promise<void>;
+    userChoice?: Promise<BeforeInstallPromptChoice>;
+};
 
 type RootClickHandler = (root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined) => boolean;
 
@@ -662,6 +676,7 @@ export class NewTabController {
     private wordPitchCache = new Map<string, Promise<string[]>>();
     private doodlePreviewCache = new Map<string, string>();
     private immersionPrefetchGeneration = 0;
+    private installPrompt: BeforeInstallPromptEvent | null = null;
     private readonly immersionAudioPlayer: NewTabImmersionAudioPlayer;
     private reviewCountMode = false;
     private reviewHistoryCards: JPDBCard[] = [];
@@ -795,6 +810,7 @@ export class NewTabController {
             this.syncMode(root);
         }
         this.syncThemeToggle(root);
+        this.syncInstallAppButton(root);
 
         if (this.state.mode === 'search') {
             this.renderSearch(root);
@@ -993,6 +1009,7 @@ export class NewTabController {
                                 ),
                             )),
                         ),
+                        this.renderInstallAppButton(language),
                         el('button', {
                             class: 'jpdb-reader-language-toggle',
                             type: 'button',
@@ -1085,6 +1102,19 @@ export class NewTabController {
                 }, newTabText(language, 'getYomu')),
             ),
         );
+    }
+
+    private renderInstallAppButton(language: ReaderSettings['interfaceLanguage']): HTMLButtonElement {
+        const label = newTabText(language, 'installStudyApp');
+        const button = el('button', {
+            class: 'jpdb-reader-newtab-install-app',
+            type: 'button',
+            dataset: { newtabAction: 'install-app', newtabInstallApp: true, installPromptAvailable: false },
+            'aria-label': label,
+            title: label,
+        });
+        setInnerHtml(button, installAppIcon());
+        return button;
     }
 
     private bindRootEvents(root: HTMLElement): void {
@@ -1234,6 +1264,16 @@ export class NewTabController {
         window.addEventListener('focus', syncQueuedGrades, { signal: controller.signal });
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) syncQueuedGrades();
+        }, { signal: controller.signal });
+        window.addEventListener('beforeinstallprompt', event => {
+            event.preventDefault();
+            this.installPrompt = event as BeforeInstallPromptEvent;
+            this.syncInstallAppButton(root);
+        }, { signal: controller.signal });
+        window.addEventListener('appinstalled', () => {
+            this.installPrompt = null;
+            this.syncInstallAppButton(root);
+            this.dependencies.toast?.(this.text('installStudyAppInstalled'));
         }, { signal: controller.signal });
         this.rootEventController = controller;
     }
@@ -1427,7 +1467,52 @@ export class NewTabController {
             void this.toggleInterfaceLanguage(root);
             return true;
         }
+        if (action === 'install-app') {
+            event.preventDefault();
+            void this.installStudyApp(root);
+            return true;
+        }
         return false;
+    }
+
+    private async installStudyApp(root: HTMLElement): Promise<void> {
+        if (this.isStandalonePwa()) {
+            this.syncInstallAppButton(root);
+            this.dependencies.toast?.(this.text('installStudyAppInstalled'));
+            return;
+        }
+        const prompt = this.installPrompt;
+        if (!prompt) {
+            this.dependencies.toast?.(this.text('installStudyAppManual'));
+            return;
+        }
+        this.installPrompt = null;
+        this.syncInstallAppButton(root);
+        try {
+            await prompt.prompt();
+            const choice = await prompt.userChoice?.catch(() => null);
+            if (choice?.outcome === 'accepted') this.dependencies.toast?.(this.text('installStudyAppInstalled'));
+        } catch {
+            this.dependencies.toast?.(this.text('installStudyAppManual'));
+        }
+    }
+
+    private syncInstallAppButton(root: HTMLElement): void {
+        const button = root.querySelector<HTMLButtonElement>('[data-newtab-install-app]');
+        if (!button) return;
+        const standalone = this.isStandalonePwa();
+        const promptAvailable = Boolean(this.installPrompt);
+        button.hidden = standalone;
+        button.dataset.installPromptAvailable = String(promptAvailable);
+        button.title = this.text(promptAvailable ? 'installStudyAppReady' : 'installStudyAppManual');
+        button.setAttribute('aria-label', this.text('installStudyApp'));
+    }
+
+    private isStandalonePwa(): boolean {
+        if (typeof navigator === 'undefined') return false;
+        const nav = navigator as Navigator & { standalone?: boolean };
+        return Boolean(nav.standalone)
+            || (typeof matchMedia === 'function' && matchMedia('(display-mode: standalone)').matches);
     }
 
     private handleRootModeClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
@@ -1718,6 +1803,9 @@ export class NewTabController {
         if (action === 'search-word-audio') {
             return this.handleSearchWordAudioAction(actionTarget, event);
         }
+        if (action === 'study-word-audio') {
+            return this.handleStudyWordAudioAction(actionTarget, event);
+        }
         if (action === 'anki-media-audio') {
             return this.handleNestedAnkiMediaAudioAction(actionTarget, event);
         }
@@ -1867,6 +1955,15 @@ export class NewTabController {
         const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest<HTMLButtonElement>('button');
         const key = button?.dataset.newtabCard ?? '';
         const card = key ? this.searchWordCardCache.get(key) : undefined;
+        if (!button || !card) return false;
+        consumeNestedLookupEvent(event);
+        void this.dependencies.playWordAudio?.(card);
+        return true;
+    }
+
+    private handleStudyWordAudioAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
+        const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest<HTMLButtonElement>('button');
+        const card = this.visibleWords[this.index];
         if (!button || !card) return false;
         consumeNestedLookupEvent(event);
         void this.dependencies.playWordAudio?.(card);
@@ -4015,7 +4112,7 @@ export class NewTabController {
     }
 
     private newTabStatusLabel(card: JPDBCard): string {
-        return [this.newTabCountLabel(card), this.newTabStatusSourceLabel(card)].filter(Boolean).join(' · ');
+        return [this.newTabCountLabel(card), this.newTabStatusSourceLabel(card), this.newTabSyncStatusLabel(card)].filter(Boolean).join(' · ');
     }
 
     private newTabStatusSourceLabel(card: JPDBCard): string {
@@ -4024,6 +4121,21 @@ export class NewTabController {
         return labels.length
             ? labels.join(' + ')
             : newTabCardSourceLabel(card, this.language());
+    }
+
+    private newTabSyncStatusLabel(card: JPDBCard): string {
+        if (!this.shouldShowOfflineSyncStatus(card)) return '';
+        return this.text('offlineCache');
+    }
+
+    private shouldShowOfflineSyncStatus(card: JPDBCard): boolean {
+        if (this.isOfflineSourceLabel(this.sourceLabel)) return true;
+        const settings = this.dependencies.getSettings();
+        return settings.newTabOfflineEnabled
+            && this.canReviewCard(card)
+            && this.offlineGradeTargets(card).length > 0
+            && typeof navigator !== 'undefined'
+            && navigator.onLine === false;
     }
 
     private isExplicitReviewSourceFallbackCard(card: JPDBCard): boolean {
@@ -4537,8 +4649,14 @@ export class NewTabController {
     }
 
     private renderWordAnswer(answer: HTMLElement | null, card: JPDBCard): void {
-        const reading = newTabCardOptionalReading(card);
-        if (answer) answer.textContent = this.state.revealAnswer ? reading : '';
+        if (!answer) return;
+        if (!this.state.revealAnswer) {
+            answer.replaceChildren();
+            return;
+        }
+        delete answer.dataset.newtabAnswerDetailsRequest;
+        replaceChildrenWith(answer, this.renderWordAnswerHeader(card));
+        void this.renderWordAnswerDetails(answer, card);
     }
 
     private renderWordMeaning(meaning: HTMLElement | null, card: JPDBCard): void {
@@ -4646,6 +4764,106 @@ export class NewTabController {
             && this.state.mode === 'word'
             && this.state.revealAnswer
             && cardKey(this.visibleWords[this.index]) === key;
+    }
+
+    private async renderWordAnswerDetails(answer: HTMLElement, card: JPDBCard): Promise<void> {
+        const loadDetails = this.dependencies.loadCardRenderData;
+        if (!loadDetails) return;
+        const key = cardKey(card);
+        const requestId = `${key}:${performance.now()}:${Math.random()}`;
+        answer.dataset.newtabAnswerDetailsRequest = requestId;
+        const data = await loadDetails(card).catch(() => null);
+        if (!data || !this.canApplyWordAnswerDetails(answer, key, requestId)) return;
+        const header = this.renderWordAnswerHeader(card, data);
+        answer.querySelector<HTMLElement>('[data-newtab-answer-header]')?.replaceWith(header);
+    }
+
+    private canApplyWordAnswerDetails(answer: HTMLElement, key: string, requestId: string): boolean {
+        return answer.isConnected
+            && answer.dataset.newtabAnswerDetailsRequest === requestId
+            && this.state.mode === 'word'
+            && this.state.revealAnswer
+            && cardKey(this.visibleWords[this.index]) === key;
+    }
+
+    private renderWordAnswerHeader(card: JPDBCard, data?: CardRenderData): HTMLElement {
+        const settings = this.dependencies.getSettings();
+        const furiganaSettings = this.answerHeaderFuriganaSettings(settings);
+        const state = primaryCardState(card.cardState);
+        const pitchClass = newTabPitchClass(card);
+        const spelling = el('div', {
+            class: `jpdb-reader-spelling jpdb-${state} jpdb-pitch-${pitchClass} jpdb-reader-parseable`,
+            dataset: {
+                pitchClass,
+                jpdbReaderKanjiNav: true,
+                jpdbReaderKanjiNavLabel: this.text('showKanji'),
+            },
+        });
+        setInnerHtml(spelling, renderCardSpellingWithFurigana(card, furiganaSettings, { enabled: true, label: this.text('showKanji') }));
+
+        const reading = this.answerHeaderPlainReading(card, furiganaSettings);
+        const pills = data ? this.answerHeaderPills(card, data) : '';
+        const pitch = this.answerHeaderPitch(card, data);
+        const pitchNode = pitch ? htmlToFirstElement(pitch) : null;
+        const pillsNode = pills ? htmlToFirstElement(pills) : null;
+        const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled');
+        const audioButton = el('button', {
+            class: 'jpdb-reader-icon-btn jpdb-reader-audio-control',
+            type: 'button',
+            dataset: { action: 'study-word-audio' },
+            'aria-label': audioTitle,
+            title: audioTitle,
+            disabled: !settings.audioEnabled,
+        });
+        setInnerHtml(audioButton, speakerIcon());
+        return el('div', { class: 'jpdb-reader-newtab-answer-header jpdb-reader-header', dataset: { newtabAnswerHeader: true } },
+            el('div', { class: 'jpdb-reader-heading' },
+                el('div', { class: 'jpdb-reader-title-row' },
+                    spelling,
+                    reading ? el('div', { class: 'jpdb-reader-reading' }, reading) : null,
+                    this.answerHeaderFrequency(card),
+                ),
+                pillsNode,
+            ),
+            el('div', { class: 'jpdb-reader-card-tools' },
+                pitchNode,
+                audioButton,
+            ),
+        );
+    }
+
+    private answerHeaderPlainReading(card: JPDBCard, settings: ReaderSettings): string {
+        const reading = newTabCardOptionalReading(card);
+        if (!reading || isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return '';
+        return reading;
+    }
+
+    private answerHeaderFuriganaSettings(settings: ReaderSettings): ReaderSettings {
+        return {
+            ...settings,
+            furiganaMode: 'all',
+            showFurigana: true,
+        };
+    }
+
+    private answerHeaderFrequency(card: JPDBCard): HTMLElement | null {
+        return card.frequencyRank
+            ? el('div', { class: 'jpdb-reader-meta jpdb-reader-newtab-answer-meta' },
+                el('span', { class: 'jpdb-reader-frequency-pill' }, `#${card.frequencyRank}`))
+            : null;
+    }
+
+    private answerHeaderPills(card: JPDBCard, data: CardRenderData): string {
+        return this.dependencies.renderStudyWordPills?.(card, data.metaEntries, data.ankiLookup)
+            ?? this.dependencies.renderSearchWordPills?.(card, data.metaEntries, data.ankiLookup)
+            ?? '';
+    }
+
+    private answerHeaderPitch(card: JPDBCard, data?: CardRenderData): string {
+        if (!this.dependencies.getSettings().showPitchAccent) return '';
+        const whole = renderPitch(card, data?.metaEntries ?? []);
+        if (whole) return whole;
+        return data ? renderExpressionComponentPitches(data.componentPitches ?? []) : '';
     }
 
     private renderAnkiRenderedWordPrompt(slots: NewTabStudySlots, card: JPDBCard): boolean {
@@ -7513,12 +7731,17 @@ export class NewTabController {
         if (!slots.controls) return;
         slots.controls.hidden = false;
         const buttons = this.controlButtonsForCard(card);
-        const gradeButtons = buttons.filter((button): button is HTMLButtonElement => button instanceof HTMLButtonElement && Boolean(button.dataset.grade));
-        const hasGrades = gradeButtons.length > 0;
+        const gradeCount = buttons.filter(button => button instanceof HTMLButtonElement && Boolean(button.dataset.grade)).length;
+        const hasGrades = gradeCount > 0;
         slots.controls.classList.toggle('jpdb-reader-newtab-grade-controls', hasGrades);
         slots.controls.dataset.newtabGradeControls = String(hasGrades);
-        slots.controls.dataset.newtabGradeCount = String(gradeButtons.length);
-        slots.controls.dataset.newtabGradeScale = gradeButtons.length === 2 ? 'pass-fail' : hasGrades ? 'standard' : 'none';
+        if (hasGrades) {
+            slots.controls.dataset.newtabGradeCount = String(gradeCount);
+            slots.controls.dataset.newtabGradeScale = gradeCount === 2 ? 'pass-fail' : 'standard';
+        } else {
+            delete slots.controls.dataset.newtabGradeCount;
+            delete slots.controls.dataset.newtabGradeScale;
+        }
         replaceChildrenWith(slots.controls, buttons);
     }
 

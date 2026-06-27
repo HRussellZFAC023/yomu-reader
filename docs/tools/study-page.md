@@ -48,6 +48,20 @@ For full Anki status, note updates, deck scanning, and review queues, keep deskt
 2. Open the [study page](/newtab/index.html) and import a dictionary in **Settings → Dictionaries**.
 3. Optionally connect Jiten, [JPDB](https://jpdb.io), or Anki, then set the page as your new-tab or Home Screen shortcut.
 
+## Local pitch and frequency dictionaries
+
+The Study answer side now shows the reading with furigana, pitch accent, a frequency pill, and an audio button at the top of the card when those details are available. For the most private and reliable setup, keep those details local:
+
+- **Frequency:** install **JPDBv2㋕** from **Settings → Dictionaries**. Kuuuube documents it as the recommended JPDB v2.2 frequency package, with kana-frequency display and high corpus coverage.
+- **Pitch accent:** import a Yomitan-compatible pitch dictionary that matches your licensing comfort. The Kanjium source data documents pitch-accent additions under CC BY-SA 4.0, and MarvNC's current Yomitan dictionary guide recommends an NHK2016 pitch dictionary; よむ can read pitch metadata from imported Yomitan metadata dictionaries, but the automatic Kanjium/NHK install button is intentionally not shipped until there is a current, license-clear public ZIP URL.
+- **Jiten:** if you use Jiten, its frequency download remains available in Settings; JPDBv2㋕ is the default local frequency recommendation for users who do not want frequency to depend on a live service.
+
+When the hosted page has been visited once, the PWA cache keeps the Study shell available offline. Cached cards show an **Offline cache** status, and review grades that cannot reach Jiten, JPDB, or Anki are saved locally and retried when the provider reconnects.
+
+## Review settings
+
+Open **Settings → Study** to choose a review source and switch the rating scale between the normal five buttons and a thumb-friendly **Fail / Pass** mode. On phones, the two-button row uses the full available width so the actions stay centered and easy to hit.
+
 ## Questions
 
 **Do I need an account?** No — it works with a local Yomitan dictionary or JMdict. Connect Jiten, JPDB, or Anki for richer review and status.

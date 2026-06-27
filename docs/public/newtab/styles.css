@@ -767,6 +767,36 @@
   cursor: pointer;
 }
 
+.jpdb-reader-newtab-install-app {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jpdb-reader-muted);
+  cursor: pointer;
+}
+
+.jpdb-reader-newtab-install-app[hidden] {
+  display: none !important;
+}
+
+.jpdb-reader-newtab-install-app svg {
+  display: block;
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .jpdb-reader-newtab-mode button[data-active="true"] {
   background: color-mix(
     in srgb,
@@ -1903,6 +1933,123 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   overflow-wrap: anywhere;
 }
 
+.jpdb-reader-newtab-answer-header {
+  width: min(640px, 100%);
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  justify-items: stretch;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid
+    color-mix(in srgb, var(--jpdb-reader-border) 82%, transparent);
+  border-radius: 8px;
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface) 76%,
+    transparent
+  );
+  box-shadow: 0 10px 28px var(--jpdb-reader-shadow-subtle);
+  text-align: left;
+}
+
+.jpdb-reader-newtab-answer-header .jpdb-reader-heading,
+.jpdb-reader-newtab-answer-header .jpdb-reader-title-row {
+  min-width: 0;
+}
+
+.jpdb-reader-newtab-answer-header .jpdb-reader-heading {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.jpdb-reader-newtab-answer-header .jpdb-reader-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 9px;
+}
+
+.jpdb-reader-newtab-answer-header .jpdb-reader-spelling {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--jpdb-reader-newtab-study-text);
+  font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
+  font-size: clamp(1.45rem, 4.8vw, 2.15rem);
+  font-weight: 860;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.jpdb-reader-newtab-answer-header .jpdb-reader-spelling ruby {
+  ruby-position: over;
+}
+
+.jpdb-reader-newtab-answer-header .jpdb-reader-spelling rt {
+  color: var(--jpdb-reader-muted);
+  font-size: 0.44em;
+  font-weight: 720;
+  line-height: 1;
+}
+
+.jpdb-reader-newtab-answer-header .jpdb-reader-reading,
+.jpdb-reader-newtab-answer-header .jpdb-reader-meta {
+  min-width: 0;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.jpdb-reader-newtab-answer-header .jpdb-reader-meta span,
+.jpdb-reader-newtab-answer-header .jpdb-reader-word-pills :is(a, span) {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.jpdb-reader-newtab-answer-header .jpdb-reader-card-tools {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.jpdb-reader-newtab-answer-header .jpdb-reader-pitch {
+  max-width: min(38vw, 168px);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.jpdb-reader-newtab-answer-header .jpdb-reader-pitch svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.jpdb-reader-newtab-answer-header .jpdb-reader-icon-btn {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface-2) 78%,
+    transparent
+  );
+  color: var(--jpdb-reader-newtab-study-text);
+}
+
+.jpdb-reader-newtab-answer-header .jpdb-reader-icon-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
 .jpdb-reader-newtab-reading .jpdb-reader-word {
   --jpdb-reader-word-underline: transparent;
   background: transparent !important;
@@ -1947,15 +2094,18 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   width: min(860px, calc(100vw - 28px));
-  justify-content: start;
+  justify-content: center;
+  justify-items: stretch;
   align-items: center;
   overflow: visible;
   scrollbar-width: none;
 }
 
-.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-scale="pass-fail"] {
+.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-scale="pass-fail"],
+.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-count="2"] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  width: min(520px, calc(100vw - 20px));
+  width: min(680px, calc(100vw - 28px));
+  max-width: calc(100vw - 28px);
   gap: 10px;
 }
 
@@ -1972,6 +2122,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-controls button {
   display: grid;
   place-items: center;
+  width: 100%;
   min-height: 42px;
   padding: 0 12px;
   border: 1px solid
@@ -3482,6 +3633,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch:focus-visible,
+.jpdb-reader-newtab-install-app:focus-visible,
 .jpdb-reader-language-toggle:focus-visible,
 .jpdb-reader-newtab-overflow:focus-visible,
 .jpdb-reader-newtab-mode button:focus-visible,
@@ -3509,6 +3661,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 @media (hover: hover) and (pointer: fine) {
   .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch:hover,
+  .jpdb-reader-newtab-install-app:hover,
   .jpdb-reader-language-toggle:hover,
   .jpdb-reader-newtab-overflow:hover,
   .jpdb-reader-newtab-mode button:hover,
@@ -3528,6 +3681,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     );
   }
 
+  .jpdb-reader-newtab-install-app:hover,
   .jpdb-reader-language-toggle:hover {
     background: color-mix(
       in srgb,
@@ -3627,6 +3781,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     min-width: 44px;
   }
 
+  .jpdb-reader-newtab-install-app,
   .jpdb-reader-language-toggle {
     width: 32px;
     min-width: 32px;
@@ -3728,6 +3883,29 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     gap: 5px;
   }
 
+  .jpdb-reader-newtab-answer-header {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    text-align: center;
+  }
+
+  .jpdb-reader-newtab-answer-header .jpdb-reader-heading,
+  .jpdb-reader-newtab-answer-header .jpdb-reader-title-row,
+  .jpdb-reader-newtab-answer-header .jpdb-reader-card-tools {
+    justify-content: center;
+    justify-items: center;
+  }
+
+  .jpdb-reader-newtab-answer-header .jpdb-reader-card-tools {
+    width: 100%;
+  }
+
+  .jpdb-reader-newtab-answer-header .jpdb-reader-pitch {
+    max-width: min(58vw, 180px);
+  }
+
   .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-kanji-mode)
     .jpdb-reader-newtab-meaning {
     margin-top: 2px;
@@ -3748,6 +3926,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 5px;
+  }
+
+  .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-count="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls:has(
@@ -3932,6 +4114,11 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     gap: 4px;
   }
 
+  .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-count="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(420px, calc(100vw - 12px));
+  }
+
 }
 
 @media (pointer: coarse) {
@@ -3940,6 +4127,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom)));
   }
 
+  .jpdb-reader-newtab-install-app,
   .jpdb-reader-language-toggle {
     width: 44px !important;
     min-width: 44px !important;
@@ -3963,6 +4151,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
   .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-appearance,
   .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch,
+  .jpdb-reader-newtab-install-app,
   .jpdb-reader-newtab .jpdb-reader-newtab-overflow,
   .jpdb-reader-newtab-more-menu button,
   .jpdb-reader-newtab-mode button,
@@ -6187,7 +6376,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-video-frame-status {
   --jpdb-ocr-status-surface: color-mix(
     in srgb,
-    var(--jpdb-reader-surface, var(--jpdb-reader-theme-dark-surface, #20242b)) 94%,
+    var(--jpdb-reader-surface, var(--jpdb-reader-theme-dark-surface, #20242b)) 78%,
     transparent
   );
   --jpdb-ocr-status-text: var(--jpdb-reader-text, var(--jpdb-reader-theme-dark-text, #f2f4f8));
@@ -6212,15 +6401,15 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   opacity: 1;
   white-space: nowrap;
   box-shadow:
-    0 8px 22px rgba(15, 23, 42, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    0 6px 16px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
   transition: opacity 360ms ease;
 }
 
 :is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-video-frame-status {
   --jpdb-ocr-status-surface: color-mix(
     in srgb,
-    var(--jpdb-reader-theme-light-surface, #f4f7fa) 96%,
+    var(--jpdb-reader-theme-light-surface, #f4f7fa) 86%,
     transparent
   );
   --jpdb-ocr-status-text: var(--jpdb-reader-theme-light-text, #17202a);
@@ -6230,7 +6419,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 :is(.jpdb-reader-theme-dark, .yomu-page-theme-dark) .jpdb-ocr-video-frame-status {
   --jpdb-ocr-status-surface: color-mix(
     in srgb,
-    var(--jpdb-reader-theme-dark-surface, #20242b) 94%,
+    var(--jpdb-reader-theme-dark-surface, #20242b) 78%,
     transparent
   );
   --jpdb-ocr-status-text: var(--jpdb-reader-theme-dark-text, #f2f4f8);
@@ -6300,8 +6489,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
      reader's themed scope, so --jpdb-reader-bg/-fg are unreliable here and resolved
      to white-on-white in light mode. A fixed dark, semi-opaque chip with white text
      stays legible over any page background in both light and dark mode. */
-  background: rgba(17, 19, 26, 0.86) !important;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  background: rgba(17, 19, 26, 0.68) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
   color: #f5f7ff !important;
   font: 600 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
   white-space: nowrap;
@@ -6387,6 +6576,14 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-layer[hidden] {
   display: none;
 }
+.jpdb-ocr-layer[data-ocr-overlay-theme="dark"] {
+  --jpdb-reader-highlight-backdrop: rgba(255, 255, 255, 0.14);
+  --jpdb-reader-highlight-shadow: 0 1px 5px rgba(0, 0, 0, 0.42);
+}
+.jpdb-ocr-layer[data-ocr-overlay-theme="light"] {
+  --jpdb-reader-highlight-backdrop: rgba(255, 255, 255, 0.9);
+  --jpdb-reader-highlight-shadow: 0 1px 3px rgba(28, 42, 60, 0.16);
+}
 .jpdb-ocr-line {
   pointer-events: auto;
   box-sizing: border-box;
@@ -6460,6 +6657,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 
 :is(.jpdb-reader-theme-light, .yomu-page-theme-light)
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active),
+.jpdb-ocr-layer[data-ocr-overlay-theme="light"]
   .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
   color: var(--jpdb-reader-text);
   text-shadow: none;
@@ -6484,6 +6683,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 :is(.jpdb-reader-theme-light, .yomu-page-theme-light)
   .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word,
+.jpdb-ocr-layer[data-ocr-overlay-theme="light"]
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
   .jpdb-reader-word {
   --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);
   color: var(
@@ -6491,6 +6693,19 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     var(--jpdb-reader-word-color-source, var(--jpdb-reader-text))
   ) !important;
   text-shadow: none;
+}
+.jpdb-ocr-layer[data-ocr-overlay-theme="dark"]
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
+  color: var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text));
+  text-shadow:
+    0 2px 2px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
+    0 0 3px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
+    0 0 10px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline));
+  background: var(--jpdb-ocr-background-active-rgba, var(--jpdb-reader-ocr-active-bg));
+  border-color: var(--jpdb-reader-ocr-active-border);
+  box-shadow:
+    0 10px 24px var(--jpdb-reader-shadow),
+    inset 0 0 0 1px var(--jpdb-reader-ocr-active-inset);
 }
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word {
   background-color: transparent !important;
@@ -13229,6 +13444,19 @@ html.jpdb-reader-doodle-active * {
   gap: 8px;
   min-width: 0;
   margin-top: 12px;
+}
+.jpdb-reader-settings .jpdb-reader-help-code {
+  max-width: 100%;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 76%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 82%, transparent);
+  color: var(--jpdb-reader-text);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-x: auto;
+  white-space: pre;
 }
 .jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-btn {
   flex: 1 1 auto;

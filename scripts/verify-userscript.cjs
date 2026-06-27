@@ -218,6 +218,9 @@ function assertNewTabIndexCacheBusting(appHash, cssHash) {
   if (!index.includes(`./styles.css?v=${cssHash}`)) {
     fail('docs/public/newtab/index.html does not reference the current new-tab stylesheet hash.');
   }
+  if (!index.includes("navigator.serviceWorker.register('./sw.js')")) {
+    fail('docs/public/newtab/index.html does not register the new-tab service worker.');
+  }
 }
 
 function assertNewTabVersionCacheBusting(appHash) {

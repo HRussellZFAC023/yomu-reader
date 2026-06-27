@@ -60,7 +60,9 @@
   const ANKI_CONNECT_ADDON_URL = "https://ankiweb.net/shared/info/2055492159";
   const DISCORD_INVITE_URL = "https://discord.gg/jD6NPURewD";
   const DONATE_URL = "https://paypal.me/HenryRussell163";
+  const USERSCRIPT_INSTALL_URL = `${DOCS_BASE_URL}yomu.user.js`;
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
+  const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
   const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
   const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/`;
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
@@ -1939,6 +1941,7 @@
   const IMMERSION_KIT_CATEGORIES = ["anime", "drama", "games", "all"];
   const IMMERSION_KIT_SORTS = ["sentence_length:desc", "sentence_length:asc"];
   const IMMERSION_EXAMPLE_SOURCES = ["nadeshiko", "combined", "immersion-kit"];
+  const OCR_OVERLAY_THEMES = ["auto", "dark", "light"];
   const SUBTITLE_CONTROL_MODES = ["always", "hidden", "auto"];
   const SUBTITLE_TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
   const NEW_TAB_SOURCES = ["jpdb", "anki", "auto", "dictionary"];
@@ -2083,6 +2086,7 @@
     ocrAutoScanImages: true,
     ocrVideoPauseFrames: true,
     ocrShowTextOverlay: false,
+    ocrOverlayTheme: "auto",
     ocrProvider: "google-lens",
     ocrEndpointUrl: "",
     ocrEngine: "auto",
@@ -2512,6 +2516,7 @@
       immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
       immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
       ocrProvider: normalizeOcrProvider(settings.ocrProvider, value),
+      ocrOverlayTheme: normalizeOcrOverlayTheme(settings.ocrOverlayTheme),
       ocrEngine: normalizeOcrEngine(settings.ocrEngine),
       ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
       ocrTextColor: sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
@@ -2634,6 +2639,9 @@
   }
   function normalizeSubtitleControlsMode(value) {
     return normalizeOption(value, SUBTITLE_CONTROL_MODES, DEFAULT_SETTINGS.subtitleControlsMode);
+  }
+  function normalizeOcrOverlayTheme(value) {
+    return normalizeOption(value, OCR_OVERLAY_THEMES, DEFAULT_SETTINGS.ocrOverlayTheme);
   }
   function normalizeSubtitleTranscriptPlacement(value) {
     return normalizeOption(value, SUBTITLE_TRANSCRIPT_PLACEMENTS, DEFAULT_SETTINGS.subtitleTranscriptPlacement);
@@ -2881,81 +2889,6 @@
   const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
-  }
-  const RECOMMENDED_JAPANESE_DICTIONARIES = [
-    {
-      id: "jitendex",
-      category: "terms",
-      name: "Jitendex",
-      descriptionKey: "recommendedJitendex",
-      downloadUrl: "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"
-    },
-    {
-      id: "jmdict",
-      category: "terms",
-      name: "JMdict",
-      descriptionKey: "recommendedJmdict",
-      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip"
-    },
-    {
-      id: "jmnedict",
-      category: "terms",
-      name: "JMnedict",
-      descriptionKey: "recommendedJmnedict",
-      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"
-    },
-    {
-      id: "wty-ja-ja",
-      category: "terms",
-      name: "WTY JA-JA",
-      descriptionKey: "recommendedWtyJapaneseJapanese",
-      downloadUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip"
-    },
-    {
-      id: "pixiv-light",
-      category: "terms",
-      name: "Pixiv Light",
-      descriptionKey: "recommendedPixivLight",
-      downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BMonolingual%5D%20PixivLight.zip"
-    },
-    {
-      id: "kanjidic",
-      category: "kanji",
-      name: "KANJIDIC",
-      descriptionKey: "recommendedKanjidic",
-      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
-    },
-    {
-      id: "jpdb-kanji",
-      category: "kanji",
-      name: "JPDB Kanji",
-      descriptionKey: "recommendedJpdbKanji",
-      downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BKanji%5D%20JPDB%20Kanji.zip"
-    },
-    {
-      id: "jiten",
-      category: "frequency",
-      name: "Jiten",
-      descriptionKey: "recommendedJiten",
-      downloadUrl: "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"
-    },
-    {
-      id: "jpdbv2-kana",
-      category: "frequency",
-      name: "JPDBv2㋕",
-      descriptionKey: "recommendedJpdbv2Kana",
-      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip"
-    },
-    {
-      id: "bccwj",
-      category: "frequency",
-      name: "BCCWJ",
-      descriptionKey: "recommendedBccwj",
-      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"
-    }
-  ];
-  function findRecommendedDictionary(id) {
-    return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
   }
   const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
   const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
@@ -3378,6 +3311,121 @@
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
+  const CURRENT_YOMU_VERSION = typeof __YOMU_VERSION__ === "string" && __YOMU_VERSION__.trim() ? __YOMU_VERSION__.trim() : "dev";
+  function latestYomuVersionFromVersionJson(value) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    if (typeof record.buildId !== "string") return null;
+    return yomuVersionFromBuildId(record.buildId, typeof record.appHash === "string" ? record.appHash : void 0);
+  }
+  function yomuVersionFromBuildId(buildId, appHash) {
+    const value = buildId.trim();
+    const hash = appHash?.trim();
+    if (hash && value.endsWith(`-${hash}`)) return normalizedVersion(value.slice(0, -hash.length - 1));
+    const match = value.match(/^(.+)-[a-f0-9]{12}$/i);
+    return normalizedVersion(match?.[1] ?? value);
+  }
+  function compareYomuVersions(current, latest) {
+    const currentParts = semanticVersionParts(current);
+    const latestParts = semanticVersionParts(latest);
+    if (!currentParts || !latestParts) return null;
+    for (let index = 0; index < currentParts.length; index++) {
+      if (currentParts[index] < latestParts[index]) return -1;
+      if (currentParts[index] > latestParts[index]) return 1;
+    }
+    return 0;
+  }
+  function normalizedVersion(value) {
+    const version = value?.trim() ?? "";
+    return semanticVersionParts(version) ? version : null;
+  }
+  function semanticVersionParts(value) {
+    const match = value.match(/^(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?$/);
+    if (!match) return null;
+    return [Number(match[1]), Number(match[2]), Number(match[3])];
+  }
+  const RECOMMENDED_JAPANESE_DICTIONARIES = [
+    {
+      id: "jitendex",
+      category: "terms",
+      name: "Jitendex",
+      descriptionKey: "recommendedJitendex",
+      downloadUrl: "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"
+    },
+    {
+      id: "jmdict",
+      category: "terms",
+      name: "JMdict",
+      descriptionKey: "recommendedJmdict",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip"
+    },
+    {
+      id: "jmnedict",
+      category: "terms",
+      name: "JMnedict",
+      descriptionKey: "recommendedJmnedict",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"
+    },
+    {
+      id: "wty-ja-ja",
+      category: "terms",
+      name: "WTY JA-JA",
+      descriptionKey: "recommendedWtyJapaneseJapanese",
+      downloadUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip"
+    },
+    {
+      id: "pixiv-light",
+      category: "terms",
+      name: "Pixiv Light",
+      descriptionKey: "recommendedPixivLight",
+      downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BMonolingual%5D%20PixivLight.zip"
+    },
+    {
+      id: "kanjidic",
+      category: "kanji",
+      name: "KANJIDIC",
+      descriptionKey: "recommendedKanjidic",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
+    },
+    {
+      id: "jpdb-kanji",
+      category: "kanji",
+      name: "JPDB Kanji",
+      descriptionKey: "recommendedJpdbKanji",
+      downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BKanji%5D%20JPDB%20Kanji.zip"
+    },
+    {
+      id: "kanjium-pitch",
+      category: "pitch",
+      name: "Kanjium pitch accents",
+      descriptionKey: "recommendedKanjiumPitch",
+      helpUrl: `${DOCS_BASE_URL}tools/study-page#local-pitch-and-frequency-dictionaries`
+    },
+    {
+      id: "jpdbv2-kana",
+      category: "frequency",
+      name: "JPDBv2㋕",
+      descriptionKey: "recommendedJpdbv2Kana",
+      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip"
+    },
+    {
+      id: "jiten",
+      category: "frequency",
+      name: "Jiten",
+      descriptionKey: "recommendedJiten",
+      downloadUrl: "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"
+    },
+    {
+      id: "bccwj",
+      category: "frequency",
+      name: "BCCWJ",
+      descriptionKey: "recommendedBccwj",
+      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"
+    }
+  ];
+  function findRecommendedDictionary(id) {
+    return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
+  }
   const COPY = {
     en: {
       settingsTitle: `${APP_NAME} Settings`,
@@ -3442,7 +3490,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Use separate Jiten and JPDB boxes. Jiten keys start with ak_; Study deck choices stay scoped to the selected provider.",
+      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       jpdbApiKeyConfigured: "JPDB key set.",
@@ -3743,6 +3791,10 @@
       ocrVideoPauseFrames: "Read paused video frames",
       ocrInvertDarkPanels: "Read light text on dark panels",
       ocrProvider: "Image reading",
+      ocrOverlayTheme: "OCR overlay theme",
+      ocrOverlayThemeAuto: "Match app theme",
+      ocrOverlayThemeLight: "Light overlay",
+      ocrOverlayThemeDark: "Dark overlay",
       googleLens: "Google Lens (free, recommended)",
       cloudVision: "Google Cloud Vision (API key)",
       localOcr: "Local OCR server",
@@ -3897,7 +3949,7 @@
       exportSettings: "Export settings JSON",
       importDictionaries: "Import dictionaries",
       exportDictionaries: "Export dictionaries",
-      dictionaryImportHelp: "Import settings or ZIPs.",
+      dictionaryImportHelp: "Import a Yomitan ZIP, Yomitan settings export, or backup. Term dictionaries add definitions; pitch and frequency dictionaries add accents and badges.",
       lookupPills: "Lookup pills",
       lookupPillsHelp: "Links and frequency badges. Tokens: {query}, {word}, {reading}.",
       frequencyLookupPillsHelp: "Show imported frequency dictionaries as badges.",
@@ -3911,17 +3963,19 @@
       recommendedDownloads: "Dictionaries",
       termDictionaries: "Term dictionaries",
       kanjiDictionaries: "Kanji dictionaries",
+      pitchDictionaries: "Pitch dictionaries",
       frequencyDictionaries: "Frequency dictionaries",
       install: "Install",
       installing: "Installing",
       queued: "Queued",
+      dictionaryGuide: "Guide",
       saveAfterInstall: "Save after install",
       download: "Download",
       downloadAndImport: "Download and import",
       update: "Update",
-      noLocalDictionaries: "No local dictionaries yet.",
+      noLocalDictionaries: "No term dictionary imported yet. Install JMdict, Jitendex, or WTY for definitions; pitch/frequency dictionaries only add accents or badges.",
       checkingDictionaries: "Checking imported dictionaries...",
-      dictionaryOnlyJpdb: "Only JPDB is enabled. Import Yomitan for local.",
+      dictionaryOnlyJpdb: "Only JPDB is enabled. Import JMdict, Jitendex, WTY, or another term dictionary for local definitions.",
       dictionaryDownloading: "Downloading",
       dictionaryReadingZip: "Reading dictionary ZIP...",
       dictionaryCheckingIndex: "Checking index...",
@@ -3940,14 +3994,14 @@
       dictionaryDownloadProgress: "Downloading",
       dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}",
       dictionaryStatusUnavailable: "Unavailable.",
-      noLocalDictionariesImported: "No dictionaries imported yet.",
+      noLocalDictionariesImported: "No dictionaries imported yet. Start with a term dictionary for definitions.",
       dictionaryDownloadFailed: "Dictionary download failed.",
       dictionaryDownloadTimedOut: "Dictionary download timed out.",
       dictionaryDownloadNotZip: "Download was not a ZIP.",
       dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
       dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
       dictionaryManualDownloadHint: "Enable userscript or import the ZIP.",
-      dictionaryInstallQueueHelp: "Installs take a few minutes.",
+      dictionaryInstallQueueHelp: "Install a term dictionary first for definitions. Pitch and frequency dictionaries add accents and badges, not normal definition text.",
       dictionaryInstallQueued: "{dictionary} queued.",
       dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
       dictionaryImportQueueStatus: "{count} install{plural} running.",
@@ -4138,6 +4192,22 @@
       gradePass: "Pass/fail: PASS",
       helpLinksTitle: "Useful pages",
       helpLinksCopy: "Open reader tools and docs from here.",
+      versionAndUpdates: "Version and updates",
+      currentYomuVersion: "Current Yomu version:",
+      updateStatusIdle: "Current {current}. Open Help to check latest available version.",
+      updateStatusChecking: "Current {current}. Checking latest available version...",
+      updateStatusCurrent: "Current {current}. Latest {latest}. You are up to date.",
+      updateStatusAvailable: "Current {current}. Latest {latest}. Update available.",
+      updateStatusUnknown: "Current {current}. Latest version could not be checked. Use the update link to reinstall.",
+      updateHelpNotes: "If two Yomu scripts are enabled, keep one. On iPhone/iPad, open the install link in Safari and replace the old Userscripts file if automatic updates do not apply.",
+      updateUserscript: "Update/Reinstall userscript",
+      duplicateStatusSingle: "Duplicate script check: one active Yomu runtime on this page ({kind}).",
+      duplicateStatusUnknown: "Duplicate script check: unavailable on this page. If you see two Yomu buttons or menus, disable the older script.",
+      ankiConnectSetupTitle: "AnkiConnect setup",
+      ankiConnectSetupCopy: "Keep desktop Anki open with AnkiConnect enabled. Hosted Study needs AnkiConnect to allow the Yomu origin.",
+      ankiConnectSetupConfig: "Add these origins to AnkiConnect's webCorsOriginList, keeping any existing entries:",
+      ankiConnectSetupMobile: "For phone or iPad, use the desktop computer's LAN or Tailscale URL; localhost on a phone means the phone itself.",
+      ankiConnectSetupBrave: "In Brave, disable Shields for the Study page if local Anki checks are blocked.",
       helpSupportTitle: "Support よむ",
       helpSupportCopy: SUPPORT_COPY,
       helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
@@ -4434,16 +4504,17 @@
       sourceHelpImportedKanjiDictionaries: "Imported Yomitan kanji entries.",
       sourceHelpWordsUsingKanji: "Related vocabulary.",
       sourceHelpComponentGraph: "Kanji facts, components, radical images.",
-      recommendedJitendex: "J-E with examples.",
-      recommendedJmdict: "Core J-E dictionary.",
+      recommendedJitendex: "Term definitions with examples.",
+      recommendedJmdict: "Core term definitions.",
       recommendedJmnedict: "Proper names.",
-      recommendedWtyJapaneseJapanese: "JA-JA Wiktionary.",
+      recommendedWtyJapaneseJapanese: "Japanese-to-Japanese term definitions.",
       recommendedPixivLight: "Pixiv terms.",
       recommendedKanjidic: "Kanji facts.",
       recommendedJpdbKanji: "JPDB kanji.",
-      recommendedJpdbv2Kana: "JPDB frequency.",
-      recommendedBccwj: "BCCWJ frequency.",
-      recommendedJiten: "Jiten frequency.",
+      recommendedKanjiumPitch: "Pitch accents only; add a term dictionary for definitions.",
+      recommendedJpdbv2Kana: "Recommended frequency badges from JPDB.",
+      recommendedBccwj: "Frequency badges from BCCWJ.",
+      recommendedJiten: "Frequency badges from Jiten.",
       recommendedMarvncMonolingual: "Monolingual collection.",
       fallbackSetupTitle: "Public lookup",
       fallbackSetupCopy: "Search without a JPDB key. Add dictionaries offline.",
@@ -4596,14 +4667,14 @@ dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得不可。
-noLocalDictionariesImported	ローカル辞書は未追加です。
+noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
 dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。
 dictionaryDownloadBlocked	ダウンロード不可。ZIPを追加。
 dictionaryManualDownloadHint	ユーザースクリプト有効化かZIP追加。
-dictionaryInstallQueueHelp	数分かかります。完了後に保存できます。
+dictionaryInstallQueueHelp	まず定義用の語句辞書をインストールしてください。ピッチ/頻度辞書はアクセントやバッジを追加しますが、通常の定義文は追加しません。
 dictionaryInstallQueued	{dictionary}待機中。
 dictionaryInstallSaveBlocked	インポート中。完了後に保存できます。
 dictionaryImportQueueStatus	{count}件インストール中。完了後に保存。
@@ -4629,7 +4700,7 @@ jpdbScanFailed	ページスキャンに失敗しました。
 pageCoverageSummary	{percent}%・{known}/{total}・新{unknown}・i+1 {iPlusOne}
 noImmersionExamples	イマージョンキットの例文が見つかりません。
 noImmersionExamplesCompact	例文なし
-noLocalDictionaries	JMdictかYomitan ZIPを追加してください。
+noLocalDictionaries	語句辞書は未追加です。定義にはJMdict、Jitendex、WTYなどを追加してください。ピッチ/頻度辞書だけでは定義文は増えません。
 kanjiMapData	漢字マップデータ
 kanjiAlive	カンジアライブ
 wiktionary	ウィクショナリー
@@ -5053,7 +5124,7 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenとJPDBは別々の欄に入力します。Jitenキーはak_で始まります。学習デッキは選択中のサービスにだけ適用されます。
+apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。学習デッキは選択中のサービスにだけ適用され、どちらか一方、両方、またはローカル辞書のみでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
@@ -5322,6 +5393,10 @@ ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
 ocrInvertDarkPanels	暗いコマの白い文字を読む
 ocrProvider	画像読み取り
+ocrOverlayTheme	OCRオーバーレイテーマ
+ocrOverlayThemeAuto	アプリのテーマに合わせる
+ocrOverlayThemeLight	ライトオーバーレイ
+ocrOverlayThemeDark	ダークオーバーレイ
 googleLens	Google Lens — 無料・設定不要（おすすめ）
 cloudVision	Google Cloud Vision — APIキーが必要
 localOcr	ローカルOCRサーバー — 上級者向け
@@ -5475,7 +5550,7 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	設定やZIPを読み込みます。
+dictionaryImportHelp	Yomitan ZIP、Yomitan設定エクスポート、バックアップを読み込みます。語句辞書は定義を追加し、ピッチ/頻度辞書はアクセントやバッジを追加します。
 lookupPills	検索ピル
 lookupPillsHelp	リンクと頻度バッジ。トークン: {query}、{word}、{reading}。
 frequencyLookupPillsHelp	頻度辞書を検索バッジに表示。
@@ -5489,15 +5564,17 @@ builtInAction	内蔵アクション
 recommendedDownloads	辞書
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
+pitchDictionaries	ピッチ辞書
 frequencyDictionaries	頻度辞書
 install	インストール
 installing	インストール中
 queued	待機中
+dictionaryGuide	ガイド
 download	ダウンロード
 downloadAndImport	ダウンロードしてよむにインポート
 update	更新
 checkingDictionaries	インポート済み辞書を確認中...
-dictionaryOnlyJpdb	JPDBのみです。Yomitan辞書でローカル定義を追加。
+dictionaryOnlyJpdb	JPDBのみです。JMdict、Jitendex、WTYなどの語句辞書でローカル定義を追加してください。
 localDictionaryText	辞書テキスト
 localSenseSingular	意味
 localSensePlural	意味
@@ -5549,6 +5626,22 @@ ankiMappingConfidenceLow	未対応
 ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
+versionAndUpdates	バージョンと更新
+currentYomuVersion	現在のYomuバージョン:
+updateStatusIdle	現在 {current}。ヘルプを開くと最新バージョンを確認します。
+updateStatusChecking	現在 {current}。最新バージョンを確認中...
+updateStatusCurrent	現在 {current}。最新 {latest}。最新です。
+updateStatusAvailable	現在 {current}。最新 {latest}。更新できます。
+updateStatusUnknown	現在 {current}。最新バージョンを確認できません。更新リンクで再インストールしてください。
+updateHelpNotes	よむスクリプトが2つ有効なら1つだけ残してください。iPhone/iPadではSafariでインストールリンクを開き、自動更新されない場合はUserscripts内の古いファイルを置き換えてください。
+updateUserscript	ユーザースクリプトを更新/再インストール
+duplicateStatusSingle	重複スクリプト確認: このページで有効なYomuランタイムは1つです（{kind}）。
+duplicateStatusUnknown	重複スクリプト確認: このページでは確認できません。よむボタンやメニューが2つ出る場合は古いスクリプトを無効にしてください。
+ankiConnectSetupTitle	AnkiConnect設定
+ankiConnectSetupCopy	デスクトップAnkiを開き、AnkiConnectを有効にしてください。ホスト版StudyではAnkiConnect側でYomuのオリジンを許可する必要があります。
+ankiConnectSetupConfig	AnkiConnectのwebCorsOriginListに次のオリジンを追加してください。既存の項目は残します:
+ankiConnectSetupMobile	スマホやiPadでは、デスクトップPCのLANまたはTailscale URLを使います。スマホ上のlocalhostはPCではなくスマホ自身を指します。
+ankiConnectSetupBrave	BraveでローカルAnki確認がブロックされる場合は、StudyページのShieldsをオフにしてください。
 helpSupportTitle	よむをサポート
 helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまとめた無料ユーザースクリプトです。
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
@@ -5622,17 +5715,18 @@ noStoryAvailable	ストーリーはありません
 sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。
-recommendedJitendex	例文付き日英辞書です。
-recommendedJmdict	基本日英辞書です。
+recommendedJitendex	例文付きの語句定義です。
+recommendedJmdict	基本語句定義です。
 recommendedJmnedict	固有名詞辞書です。
-recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
+recommendedWtyJapaneseJapanese	日本語で読む語句定義です。
 recommendedPixivLight	Pixiv用語辞書です。
 recommendedKanjidic	漢字情報です。
 recommendedMarvncMonolingual	日本語辞書集です。
 recommendedJpdbKanji	JPDB漢字情報です。
-recommendedJpdbv2Kana	JPDB頻度です。
-recommendedBccwj	BCCWJ頻度です。
-recommendedJiten	Jiten頻度です。
+recommendedKanjiumPitch	ピッチアクセント専用です。定義には語句辞書も追加してください。
+recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
+recommendedBccwj	BCCWJ由来の頻度バッジです。
+recommendedJiten	Jiten由来の頻度バッジです。
 `);
   function resolveUiLanguage(language) {
     if (language === "ja" || language === "en") return language;
@@ -6664,6 +6758,7 @@ recommendedJiten	Jiten頻度です。
       ocrShowTextOverlay: has("ocrShowTextOverlay"),
       ocrVideoPauseFrames: has("ocrVideoPauseFrames"),
       ocrInvertDarkPanels: has("ocrInvertDarkPanels"),
+      ocrOverlayTheme: readOption(get("ocrOverlayTheme"), ["auto", "dark", "light"], current.ocrOverlayTheme),
       ocrProvider: normalizeOcrProvider(get("ocrProvider")),
       ocrEndpointUrl: get("ocrEndpointUrl").trim(),
       ocrEngine: get("ocrEngine").trim() || "auto",
@@ -8211,6 +8306,34 @@ recommendedJiten	Jiten頻度です。
     return `
         <div class="jpdb-reader-help-links-card" data-jpdb-reader-surface-ignore>
             <div class="jpdb-reader-settings-subsection">
+                <div class="jpdb-reader-local-title" data-help-update-title>Version and updates</div>
+                <div class="jpdb-reader-help" data-help-update-current>Current Yomu version: <span data-yomu-current-version>${escapeHtml(CURRENT_YOMU_VERSION)}</span></div>
+                <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-update-status data-status-tone="pending" role="status" aria-live="polite" data-help-update-status>${escapeHtml(formatUiText("en", "updateStatusIdle", { current: CURRENT_YOMU_VERSION }))}</div>
+                <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status>${escapeHtml(duplicateRuntimeStatusText("en"))}</div>
+                <div class="jpdb-reader-help" data-help-update-notes>Use Update/Reinstall if your userscript manager shows an older version. If two Yomu scripts are enabled, keep one. On iPhone/iPad, open the install link in Safari and replace the old Userscripts file if automatic updates do not apply.</div>
+                <div class="jpdb-reader-help-actions">
+                    <a class="jpdb-reader-btn" href="${USERSCRIPT_INSTALL_URL}" target="_blank" rel="noopener" data-help-link="update-userscript">${externalButtonLabel("Update/Reinstall userscript")}</a>
+                </div>
+            </div>
+            <div class="jpdb-reader-settings-subsection">
+                <div class="jpdb-reader-local-title" data-help-anki-title>AnkiConnect setup</div>
+                <div class="jpdb-reader-help" data-help-anki-copy>Keep desktop Anki open with AnkiConnect enabled. Hosted Study needs AnkiConnect to allow the Yomu origin.</div>
+                <div class="jpdb-reader-help" data-help-anki-config-copy>Add these origins to AnkiConnect's webCorsOriginList, keeping any existing entries:</div>
+                <pre class="jpdb-reader-help-code"><code>{
+  "webCorsOriginList": [
+    "https://yomureader.com",
+    "http://localhost",
+    "http://127.0.0.1"
+  ]
+}</code></pre>
+                <div class="jpdb-reader-help" data-help-anki-mobile>For phone or iPad, use the desktop computer's LAN or Tailscale URL; localhost on a phone means the phone itself.</div>
+                <div class="jpdb-reader-help" data-help-anki-brave>In Brave, disable Shields for the Study page if local Anki checks are blocked.</div>
+                <div class="jpdb-reader-help-actions">
+                    <a class="jpdb-reader-btn" href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener" data-help-link="anki-connect-addon">${externalButtonLabel("Open AnkiConnect add-on")}</a>
+                    <a class="jpdb-reader-btn" href="${MOBILE_ANKI_SETUP_DOCS_URL}" target="_blank" rel="noopener" data-help-link="anki-mobile-docs">${externalButtonLabel("Mobile Anki setup docs")}</a>
+                </div>
+            </div>
+            <div class="jpdb-reader-settings-subsection">
                 <div class="jpdb-reader-local-title" data-help-links-title>Useful pages</div>
                 <div class="jpdb-reader-help" data-help-links-copy>Open the hosted reader tools and docs from here.</div>
                 <div class="jpdb-reader-help-actions">
@@ -8299,7 +8422,7 @@ recommendedJiten	Jiten頻度です。
                         ${input("apiCredentialJiten", `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialJpdb", `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Use separate Jiten and JPDB boxes. Jiten keys start with ak_; Study deck choices stay scoped to the selected provider.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
@@ -8369,10 +8492,10 @@ recommendedJiten	Jiten頻度です。
                         ${checkbox("newTabAnkiEnabled", "Use Anki cards in Study", settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
                         ${select("newTabSource", "Study review source", settings.newTabSource, [["auto", "Auto: API/Anki, then study words"], ["jpdb", "API SRS (Jiten / JPDB)"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
+                        ${select("newTabJpdbReviewMode", "API review mode", settings.newTabJpdbReviewMode, [["auto", "Auto: live kanji + API vocabulary"], ["live-review", "Live JPDB review session"], ["api-vocabulary", "API vocabulary only"]])}
                         <div data-review-config ${settings.enableReviews ? "" : "hidden"}>
                             ${select("twoButtonReviews", "Review rating scale", settings.twoButtonReviews ? "true" : "false", [["false", "Five point: NOTHING to EASY"], ["true", "Two point: FAIL / PASS"]])}
                         </div>
-                        ${select("newTabJpdbReviewMode", "API review mode", settings.newTabJpdbReviewMode, [["auto", "Auto: live kanji + API vocabulary"], ["live-review", "Live JPDB review session"], ["api-vocabulary", "API vocabulary only"]])}
                         ${select("newTabKanjiKeywordSource", "Kanji keyword source", settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings))}
                         ${checkbox("newTabParsingEnabled", "Parse sentences on Study", settings.newTabParsingEnabled)}
                         ${checkbox("newTabKanjiUnlockEnabled", "Study kanji before unlocking words", settings.newTabKanjiUnlockEnabled)}
@@ -8721,6 +8844,7 @@ recommendedJiten	Jiten頻度です。
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${select("ocrProvider", "Image reading", settings.ocrProvider, [["google-lens", "Google Lens — free, no setup (recommended)"], ["cloud-vision", "Google Cloud Vision — needs API key"], ["local-service", "Local OCR server — advanced"], ["off", "Off"]])}
+                    ${select("ocrOverlayTheme", "OCR overlay theme", settings.ocrOverlayTheme, [["auto", "Match app theme"], ["light", "Light overlay"], ["dark", "Dark overlay"]])}
                     ${select("ocrMaxImagesPerPage", "Images to read per page", String(settings.ocrMaxImagesPerPage), [["3", "Light"], ["8", "Normal"], ["16", "More"]])}
                     ${select("ocrMinImageArea", "Smallest image to read", String(settings.ocrMinImageArea), [["80000", "Large images only"], ["45000", "Normal"], ["15000", "Include small images"]])}
                     ${select("ocrMaxImagePixels", "Image detail", String(settings.ocrMaxImagePixels), [["640000", "Faster"], ["1200000", "Balanced"], ["2000000", "Sharper"]])}
@@ -9008,6 +9132,7 @@ recommendedJiten	Jiten頻度です。
   }
   const LOCAL_TITLE_TEXT_KEYS = [
     [/API access|APIアクセス/, "apiAccess"],
+    [/Version and updates|バージョンと更新/, "versionAndUpdates"],
     [/Word colors|単語の色/, "wordColors"],
     [/Pitch accent colors|ピッチアクセント/, "pitchAccentColors"],
     [/Color channels|色チャンネル/, "colorChannels"],
@@ -9041,6 +9166,14 @@ recommendedJiten	Jiten頻度です。
     ['[data-action="cancel"]', "cancel"]
   ];
   const HELP_LINK_PANEL_TEXT_KEYS = [
+    ["[data-help-update-title]", "versionAndUpdates"],
+    ["[data-help-update-current]", "currentYomuVersion"],
+    ["[data-help-update-notes]", "updateHelpNotes"],
+    ["[data-help-anki-title]", "ankiConnectSetupTitle"],
+    ["[data-help-anki-copy]", "ankiConnectSetupCopy"],
+    ["[data-help-anki-config-copy]", "ankiConnectSetupConfig"],
+    ["[data-help-anki-mobile]", "ankiConnectSetupMobile"],
+    ["[data-help-anki-brave]", "ankiConnectSetupBrave"],
     ["[data-help-links-title]", "helpLinksTitle"],
     ["[data-help-links-copy]", "helpLinksCopy"],
     ["[data-help-support-title]", "helpSupportTitle"],
@@ -9049,6 +9182,9 @@ recommendedJiten	Jiten頻度です。
     ['[data-help-link="factory-reset"]', "factoryReset"]
   ];
   const HELP_LINK_BUTTON_TEXT_KEYS = [
+    ["update-userscript", "updateUserscript"],
+    ["anki-connect-addon", "ankiStatusInstallAddon"],
+    ["anki-mobile-docs", "ankiStatusMobileDocs"],
     ["video-player", "videoPlayer"],
     ["pdf-reader", "pdfReader"],
     ["new-tab", "newTabPage"],
@@ -9284,6 +9420,11 @@ recommendedJiten	Jiten頻度です。
       ["cloud-vision", text("cloudVision")],
       ["local-service", text("localOcr")],
       ["off", text("off")]
+    ]);
+    setSelectOptionLabels(form, "ocrOverlayTheme", [
+      ["auto", text("ocrOverlayThemeAuto")],
+      ["light", text("ocrOverlayThemeLight")],
+      ["dark", text("ocrOverlayThemeDark")]
     ]);
     setSelectOptionLabels(form, "ocrMaxImagesPerPage", [
       ["3", text("lightWork")],
@@ -9530,15 +9671,15 @@ recommendedJiten	Jiten頻度です。
     return value.includes(sourceName);
   }
   function localizeRecommendedDictionaryGroups(form, text) {
-    const labels = [text("termDictionaries"), text("kanjiDictionaries"), text("frequencyDictionaries")];
+    const labels = [text("termDictionaries"), text("kanjiDictionaries"), text("pitchDictionaries"), text("frequencyDictionaries")];
     form.querySelectorAll(".jpdb-reader-recommended-group-title").forEach((title, index) => {
       if (labels[index]) title.replaceChildren(labels[index]);
     });
   }
   function localizeRecommendedDictionaryDescriptions(form, text) {
     RECOMMENDED_JAPANESE_DICTIONARIES.forEach((dictionary) => {
-      const button = form.querySelector(`[data-action="download-recommended-dictionary"][data-dictionary-id="${dictionary.id}"]`);
-      button?.closest(".jpdb-reader-recommended-item")?.querySelector(".jpdb-reader-help")?.replaceChildren(text(dictionary.descriptionKey));
+      const control = form.querySelector(`[data-dictionary-id="${dictionary.id}"]`);
+      control?.closest(".jpdb-reader-recommended-item")?.querySelector(".jpdb-reader-help")?.replaceChildren(text(dictionary.descriptionKey));
     });
   }
   function localizeAnkiTemplatePreview(form, text) {
@@ -9593,6 +9734,9 @@ recommendedJiten	Jiten頻度です。
       button.textContent = label;
       button.title = button.dataset.importMessage || label;
       button.setAttribute("aria-label", button.title);
+    });
+    form.querySelectorAll("[data-recommended-dictionary-guide]").forEach((link) => {
+      setExternalButtonLabel(link, text("dictionaryGuide"));
     });
   }
   function localizeDictionaryStatus(form, text) {
@@ -9704,6 +9848,7 @@ recommendedJiten	Jiten頻度です。
     "ocrVideoPauseFrames",
     "ocrInvertDarkPanels",
     "ocrProvider",
+    "ocrOverlayTheme",
     "ocrMaxImagesPerPage",
     "ocrMinImageArea",
     "ocrMaxImagePixels",
@@ -9932,11 +10077,38 @@ recommendedJiten	Jiten頻度です。
     if (!panel) return;
     const text = (key) => uiText(language, key);
     HELP_LINK_PANEL_TEXT_KEYS.forEach(([selector, key]) => {
-      panel.querySelector(selector)?.replaceChildren(text(key));
+      const element = panel.querySelector(selector);
+      if (!element) return;
+      if (key === "currentYomuVersion") {
+        element.replaceChildren(text(key), " ", renderCurrentVersionElement());
+        return;
+      }
+      element.replaceChildren(text(key));
     });
     HELP_LINK_BUTTON_TEXT_KEYS.forEach(([link, key]) => {
       setExternalButtonLabel(panel.querySelector(`[data-help-link="${link}"]`), text(key));
     });
+    const status = panel.querySelector("[data-yomu-update-status]");
+    if (status && !status.dataset.updateChecked) {
+      status.textContent = formatUiText(language, "updateStatusIdle", { current: CURRENT_YOMU_VERSION });
+    }
+    const duplicateStatus = panel.querySelector("[data-yomu-duplicate-status]");
+    if (duplicateStatus) duplicateStatus.textContent = duplicateRuntimeStatusText(language);
+  }
+  function renderCurrentVersionElement() {
+    const element = document.createElement("span");
+    element.dataset.yomuCurrentVersion = "";
+    element.textContent = CURRENT_YOMU_VERSION;
+    return element;
+  }
+  function duplicateRuntimeStatusText(language) {
+    const kind = currentYomuRuntimeKind();
+    return kind ? formatUiText(language, "duplicateStatusSingle", { kind }) : uiText(language, "duplicateStatusUnknown");
+  }
+  function currentYomuRuntimeKind() {
+    if (typeof document === "undefined") return "";
+    const marker = document.getElementById("jpdb-reader-runtime-owner");
+    return marker?.dataset.yomuRuntimeKind || "";
   }
   function externalButtonLabel(label) {
     return `<span>${escapeHtml(label)}</span>${externalLinkIcon()}`;
@@ -10172,6 +10344,7 @@ recommendedJiten	Jiten頻度です。
     const groups = [
       ["terms", "Term dictionaries"],
       ["kanji", "Kanji dictionaries"],
+      ["pitch", "Pitch dictionaries"],
       ["frequency", "Frequency dictionaries"]
     ];
     return `
@@ -10193,7 +10366,7 @@ recommendedJiten	Jiten頻度です。
     const alreadyInstalled = isRecommendedDictionaryInstalled(dictionary, installed);
     const action = dictionary.downloadUrl ? `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
                 ${alreadyInstalled ? "Update" : "Install"}
-            </button>` : "";
+            </button>` : dictionary.helpUrl ? `<a class="jpdb-reader-btn" href="${escapeHtml(dictionary.helpUrl)}" target="_blank" rel="noopener" data-dictionary-id="${escapeHtml(dictionary.id)}" data-recommended-dictionary-guide>${externalButtonLabel("Guide")}</a>` : "";
     return `
         <div class="jpdb-reader-recommended-item">
             <div>
@@ -10232,6 +10405,7 @@ recommendedJiten	Jiten頻度です。
     "pixiv-light": [["pixiv", "light"]],
     kanjidic: [["kanjidic"]],
     "jpdb-kanji": [["jpdb", "kanji"]],
+    "kanjium-pitch": [["kanjium", "pitch"], ["kanjium"], ["pitch", "accents"]],
     jiten: [["jiten"]],
     "jpdbv2-kana": [["jpdb", "v2"], ["jpdbv2"]],
     bccwj: [["bccwj"]]
@@ -11095,6 +11269,7 @@ recommendedJiten	Jiten頻度です。
     ankiConnectionProbeId = 0;
     jpdbConnectionProbeId = 0;
     ankiLibraryScanId = 0;
+    yomuUpdateCheckId = 0;
     settingsJapaneseParseRefreshTimer;
     open(panel) {
       log.info("Opening settings", { panel: panel ?? "default" });
@@ -11119,6 +11294,7 @@ recommendedJiten	Jiten頻度です。
       void this.refreshJpdbConnectionStatus(form);
       void this.refreshDictionaryStatus(form);
       void this.refreshDeckControls(form);
+      if (panel === "help") void this.refreshYomuUpdateStatus(form);
       this.refreshSettingsJapaneseParse(form);
     }
     refreshLanguage(language = this.settings.interfaceLanguage) {
@@ -11814,6 +11990,41 @@ recommendedJiten	Jiten頻度です。
         setDictionaryStatusError(elements.status, error, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
       }
     }
+    async refreshYomuUpdateStatus(form) {
+      const status = form.querySelector("[data-yomu-update-status]");
+      if (!status) return;
+      const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+      const requestId = ++this.yomuUpdateCheckId;
+      status.dataset.statusTone = "pending";
+      status.dataset.updateChecked = "true";
+      status.textContent = formatUiText(language, "updateStatusChecking", { current: CURRENT_YOMU_VERSION });
+      try {
+        const version = await requestJson(`${NEW_TAB_VERSION_URL}?t=${Date.now()}`, {
+          allowDirectCrossOrigin: true,
+          anonymous: true,
+          credentials: "omit",
+          failureLabel: "Yomu update check",
+          preferFetch: true,
+          timeoutMs: 6e3,
+          withCredentials: false
+        });
+        if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
+        const latest = latestYomuVersionFromVersionJson(version);
+        if (!latest) throw new Error("Hosted version response did not include a build id.");
+        const comparison = compareYomuVersions(CURRENT_YOMU_VERSION, latest);
+        const updateAvailable = comparison !== null && comparison < 0;
+        status.dataset.statusTone = updateAvailable ? "pending" : "success";
+        status.textContent = formatUiText(language, updateAvailable ? "updateStatusAvailable" : "updateStatusCurrent", {
+          current: CURRENT_YOMU_VERSION,
+          latest
+        });
+      } catch (error) {
+        log.warn("Yomu update status unavailable", error);
+        if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
+        status.dataset.statusTone = "pending";
+        status.textContent = formatUiText(language, "updateStatusUnknown", { current: CURRENT_YOMU_VERSION });
+      }
+    }
     async applyDictionaryStatus(form, elements, summary) {
       await this.mergeDictionaryPreferencesFromSummary(summary);
       await this.dependencies.refreshDictionaryStyles();
@@ -11954,6 +12165,7 @@ recommendedJiten	Jiten頻度です。
       if (action === "settings-panel") {
         const panel = selectedSettingsPanel(control);
         activateSettingsPanel(form, panel);
+        if (panel === "help") void this.refreshYomuUpdateStatus(form);
         this.refreshSettingsJapaneseParse(form);
         return true;
       }

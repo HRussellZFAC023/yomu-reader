@@ -27,3 +27,12 @@ export function speakerIcon(): string {
         <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
     </svg>`;
 }
+
+export function installAppIcon(): string {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="5" y="3" width="14" height="18" rx="3"></rect>
+        <path d="M12 7v8"></path>
+        <path d="m8.8 11.8 3.2 3.2 3.2-3.2"></path>
+        <path d="M10 18h4"></path>
+    </svg>`;
+}

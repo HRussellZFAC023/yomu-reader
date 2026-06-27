@@ -1,6 +1,7 @@
-import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
+import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, USERSCRIPT_INSTALL_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
-import { audioSourceLabel, resolveUiLanguage, uiText } from '../app/i18n';
+import { audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
+import { CURRENT_YOMU_VERSION } from '../app/version';
 import { runningAsBrowserExtension } from '../app/runtime-env';
 import { externalLinkIcon } from '../ui/icons';
 import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, accentToRgba, effectiveFuriganaMode, formatShortcutEvent, sanitizeAccentColor } from './index';
@@ -110,6 +111,34 @@ export function renderHelpLinksPanel(): string {
     return `
         <div class="jpdb-reader-help-links-card" data-jpdb-reader-surface-ignore>
             <div class="jpdb-reader-settings-subsection">
+                <div class="jpdb-reader-local-title" data-help-update-title>Version and updates</div>
+                <div class="jpdb-reader-help" data-help-update-current>Current Yomu version: <span data-yomu-current-version>${escapeHtml(CURRENT_YOMU_VERSION)}</span></div>
+                <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-update-status data-status-tone="pending" role="status" aria-live="polite" data-help-update-status>${escapeHtml(formatUiText('en', 'updateStatusIdle', { current: CURRENT_YOMU_VERSION }))}</div>
+                <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status>${escapeHtml(duplicateRuntimeStatusText('en'))}</div>
+                <div class="jpdb-reader-help" data-help-update-notes>Use Update/Reinstall if your userscript manager shows an older version. If two Yomu scripts are enabled, keep one. On iPhone/iPad, open the install link in Safari and replace the old Userscripts file if automatic updates do not apply.</div>
+                <div class="jpdb-reader-help-actions">
+                    <a class="jpdb-reader-btn" href="${USERSCRIPT_INSTALL_URL}" target="_blank" rel="noopener" data-help-link="update-userscript">${externalButtonLabel('Update/Reinstall userscript')}</a>
+                </div>
+            </div>
+            <div class="jpdb-reader-settings-subsection">
+                <div class="jpdb-reader-local-title" data-help-anki-title>AnkiConnect setup</div>
+                <div class="jpdb-reader-help" data-help-anki-copy>Keep desktop Anki open with AnkiConnect enabled. Hosted Study needs AnkiConnect to allow the Yomu origin.</div>
+                <div class="jpdb-reader-help" data-help-anki-config-copy>Add these origins to AnkiConnect's webCorsOriginList, keeping any existing entries:</div>
+                <pre class="jpdb-reader-help-code"><code>{
+  "webCorsOriginList": [
+    "https://yomureader.com",
+    "http://localhost",
+    "http://127.0.0.1"
+  ]
+}</code></pre>
+                <div class="jpdb-reader-help" data-help-anki-mobile>For phone or iPad, use the desktop computer's LAN or Tailscale URL; localhost on a phone means the phone itself.</div>
+                <div class="jpdb-reader-help" data-help-anki-brave>In Brave, disable Shields for the Study page if local Anki checks are blocked.</div>
+                <div class="jpdb-reader-help-actions">
+                    <a class="jpdb-reader-btn" href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener" data-help-link="anki-connect-addon">${externalButtonLabel('Open AnkiConnect add-on')}</a>
+                    <a class="jpdb-reader-btn" href="${MOBILE_ANKI_SETUP_DOCS_URL}" target="_blank" rel="noopener" data-help-link="anki-mobile-docs">${externalButtonLabel('Mobile Anki setup docs')}</a>
+                </div>
+            </div>
+            <div class="jpdb-reader-settings-subsection">
                 <div class="jpdb-reader-local-title" data-help-links-title>Useful pages</div>
                 <div class="jpdb-reader-help" data-help-links-copy>Open the hosted reader tools and docs from here.</div>
                 <div class="jpdb-reader-help-actions">
@@ -203,7 +232,7 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                         ${input('apiCredentialJiten', `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
                         ${input('apiCredentialJpdb', `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Use separate Jiten and JPDB boxes. Jiten keys start with ak_; Study deck choices stay scoped to the selected provider.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
@@ -277,10 +306,10 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                         ${checkbox('newTabAnkiEnabled', 'Use Anki cards in Study', settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
                         ${select('newTabSource', 'Study review source', settings.newTabSource, [['auto', 'Auto: API/Anki, then study words'], ['jpdb', 'API SRS (Jiten / JPDB)'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
+                        ${select('newTabJpdbReviewMode', 'API review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
                         <div data-review-config ${settings.enableReviews ? '' : 'hidden'}>
                             ${select('twoButtonReviews', 'Review rating scale', settings.twoButtonReviews ? 'true' : 'false', [['false', 'Five point: NOTHING to EASY'], ['true', 'Two point: FAIL / PASS']])}
                         </div>
-                        ${select('newTabJpdbReviewMode', 'API review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
                         ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings))}
                         ${checkbox('newTabParsingEnabled', 'Parse sentences on Study', settings.newTabParsingEnabled)}
                         ${checkbox('newTabKanjiUnlockEnabled', 'Study kanji before unlocking words', settings.newTabKanjiUnlockEnabled)}
@@ -683,6 +712,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['google-lens', 'Google Lens — free, no setup (recommended)'], ['cloud-vision', 'Google Cloud Vision — needs API key'], ['local-service', 'Local OCR server — advanced'], ['off', 'Off']])}
+                    ${select('ocrOverlayTheme', 'OCR overlay theme', settings.ocrOverlayTheme, [['auto', 'Match app theme'], ['light', 'Light overlay'], ['dark', 'Dark overlay']])}
                     ${select('ocrMaxImagesPerPage', 'Images to read per page', String(settings.ocrMaxImagesPerPage), [['3', 'Light'], ['8', 'Normal'], ['16', 'More']])}
                     ${select('ocrMinImageArea', 'Smallest image to read', String(settings.ocrMinImageArea), [['80000', 'Large images only'], ['45000', 'Normal'], ['15000', 'Include small images']])}
                     ${select('ocrMaxImagePixels', 'Image detail', String(settings.ocrMaxImagePixels), [['640000', 'Faster'], ['1200000', 'Balanced'], ['2000000', 'Sharper']])}
@@ -992,6 +1022,7 @@ type SettingsText = (key: Parameters<typeof uiText>[1]) => string;
 type SettingsTextKey = Parameters<typeof uiText>[1];
 const LOCAL_TITLE_TEXT_KEYS = [
     [/API access|APIアクセス/, 'apiAccess'],
+    [/Version and updates|バージョンと更新/, 'versionAndUpdates'],
     [/Word colors|単語の色/, 'wordColors'],
     [/Pitch accent colors|ピッチアクセント/, 'pitchAccentColors'],
     [/Color channels|色チャンネル/, 'colorChannels'],
@@ -1025,6 +1056,14 @@ const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="cancel"]', 'cancel'],
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
 const HELP_LINK_PANEL_TEXT_KEYS = [
+    ['[data-help-update-title]', 'versionAndUpdates'],
+    ['[data-help-update-current]', 'currentYomuVersion'],
+    ['[data-help-update-notes]', 'updateHelpNotes'],
+    ['[data-help-anki-title]', 'ankiConnectSetupTitle'],
+    ['[data-help-anki-copy]', 'ankiConnectSetupCopy'],
+    ['[data-help-anki-config-copy]', 'ankiConnectSetupConfig'],
+    ['[data-help-anki-mobile]', 'ankiConnectSetupMobile'],
+    ['[data-help-anki-brave]', 'ankiConnectSetupBrave'],
     ['[data-help-links-title]', 'helpLinksTitle'],
     ['[data-help-links-copy]', 'helpLinksCopy'],
     ['[data-help-support-title]', 'helpSupportTitle'],
@@ -1033,6 +1072,9 @@ const HELP_LINK_PANEL_TEXT_KEYS = [
     ['[data-help-link="factory-reset"]', 'factoryReset'],
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
 const HELP_LINK_BUTTON_TEXT_KEYS = [
+    ['update-userscript', 'updateUserscript'],
+    ['anki-connect-addon', 'ankiStatusInstallAddon'],
+    ['anki-mobile-docs', 'ankiStatusMobileDocs'],
     ['video-player', 'videoPlayer'],
     ['pdf-reader', 'pdfReader'],
     ['new-tab', 'newTabPage'],
@@ -1287,6 +1329,11 @@ function localizeOcrSettingsSelects(form: HTMLFormElement, text: SettingsText): 
         ['cloud-vision', text('cloudVision')],
         ['local-service', text('localOcr')],
         ['off', text('off')],
+    ]);
+    setSelectOptionLabels(form, 'ocrOverlayTheme', [
+        ['auto', text('ocrOverlayThemeAuto')],
+        ['light', text('ocrOverlayThemeLight')],
+        ['dark', text('ocrOverlayThemeDark')],
     ]);
     setSelectOptionLabels(form, 'ocrMaxImagesPerPage', [
         ['3', text('lightWork')],
@@ -1566,7 +1613,7 @@ function sourceRowHelpMatches(value: string, sourceName: string): boolean {
 }
 
 function localizeRecommendedDictionaryGroups(form: HTMLFormElement, text: SettingsText): void {
-    const labels = [text('termDictionaries'), text('kanjiDictionaries'), text('frequencyDictionaries')];
+    const labels = [text('termDictionaries'), text('kanjiDictionaries'), text('pitchDictionaries'), text('frequencyDictionaries')];
     form.querySelectorAll<HTMLElement>('.jpdb-reader-recommended-group-title').forEach((title, index) => {
         if (labels[index]) title.replaceChildren(labels[index]);
     });
@@ -1574,8 +1621,8 @@ function localizeRecommendedDictionaryGroups(form: HTMLFormElement, text: Settin
 
 function localizeRecommendedDictionaryDescriptions(form: HTMLFormElement, text: SettingsText): void {
     RECOMMENDED_JAPANESE_DICTIONARIES.forEach(dictionary => {
-        const button = form.querySelector<HTMLButtonElement>(`[data-action="download-recommended-dictionary"][data-dictionary-id="${dictionary.id}"]`);
-        button?.closest<HTMLElement>('.jpdb-reader-recommended-item')
+        const control = form.querySelector<HTMLElement>(`[data-dictionary-id="${dictionary.id}"]`);
+        control?.closest<HTMLElement>('.jpdb-reader-recommended-item')
             ?.querySelector<HTMLElement>('.jpdb-reader-help')
             ?.replaceChildren(text(dictionary.descriptionKey));
     });
@@ -1645,6 +1692,9 @@ function localizeRecommendedDictionaryButtons(form: HTMLFormElement, text: Setti
         button.title = button.dataset.importMessage || label;
         button.setAttribute('aria-label', button.title);
     });
+    form.querySelectorAll<HTMLElement>('[data-recommended-dictionary-guide]').forEach(link => {
+        setExternalButtonLabel(link, text('dictionaryGuide'));
+    });
 }
 
 function localizeDictionaryStatus(form: HTMLFormElement, text: SettingsText): void {
@@ -1672,7 +1722,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
     'immersionKitPlayOnHover', 'immersionKitPlayOnImageClick', 'immersionKitCategory', 'immersionKitSort', 'immersionKitLimit',
     'immersionKitMinLength', 'immersionKitMaxLength', 'immersionKitPlaybackRate', 'immersionKitExactMatch', 'ocrEnabled',
-    'ocrAutoScanImages', 'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrInvertDarkPanels', 'ocrProvider', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
+    'ocrAutoScanImages', 'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrInvertDarkPanels', 'ocrProvider', 'ocrOverlayTheme', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
     'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundColor', 'ocrBackgroundOpacity',
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
     'subtitleOverlayVisible', 'subtitleSecondaryVisible', 'subtitleNativeBlurred', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',
@@ -1895,11 +1945,43 @@ function localizeHelpLinksPanel(form: HTMLFormElement, language: InterfaceLangua
     if (!panel) return;
     const text = (key: Parameters<typeof uiText>[1]) => uiText(language, key);
     HELP_LINK_PANEL_TEXT_KEYS.forEach(([selector, key]) => {
-        panel.querySelector<HTMLElement>(selector)?.replaceChildren(text(key));
+        const element = panel.querySelector<HTMLElement>(selector);
+        if (!element) return;
+        if (key === 'currentYomuVersion') {
+            element.replaceChildren(text(key), ' ', renderCurrentVersionElement());
+            return;
+        }
+        element.replaceChildren(text(key));
     });
     HELP_LINK_BUTTON_TEXT_KEYS.forEach(([link, key]) => {
         setExternalButtonLabel(panel.querySelector<HTMLElement>(`[data-help-link="${link}"]`), text(key));
     });
+    const status = panel.querySelector<HTMLElement>('[data-yomu-update-status]');
+    if (status && !status.dataset.updateChecked) {
+        status.textContent = formatUiText(language, 'updateStatusIdle', { current: CURRENT_YOMU_VERSION });
+    }
+    const duplicateStatus = panel.querySelector<HTMLElement>('[data-yomu-duplicate-status]');
+    if (duplicateStatus) duplicateStatus.textContent = duplicateRuntimeStatusText(language);
+}
+
+function renderCurrentVersionElement(): HTMLElement {
+    const element = document.createElement('span');
+    element.dataset.yomuCurrentVersion = '';
+    element.textContent = CURRENT_YOMU_VERSION;
+    return element;
+}
+
+function duplicateRuntimeStatusText(language: InterfaceLanguage): string {
+    const kind = currentYomuRuntimeKind();
+    return kind
+        ? formatUiText(language, 'duplicateStatusSingle', { kind })
+        : uiText(language, 'duplicateStatusUnknown');
+}
+
+function currentYomuRuntimeKind(): string {
+    if (typeof document === 'undefined') return '';
+    const marker = document.getElementById('jpdb-reader-runtime-owner') as HTMLElement | null;
+    return marker?.dataset.yomuRuntimeKind || '';
 }
 
 function externalButtonLabel(label: string): string {
@@ -2158,6 +2240,7 @@ export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]
     const groups: Array<[RecommendedDictionary['category'], string]> = [
         ['terms', 'Term dictionaries'],
         ['kanji', 'Kanji dictionaries'],
+        ['pitch', 'Pitch dictionaries'],
         ['frequency', 'Frequency dictionaries'],
     ];
 
@@ -2183,7 +2266,9 @@ function renderRecommendedDictionary(dictionary: RecommendedDictionary, installe
         ? `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
                 ${alreadyInstalled ? 'Update' : 'Install'}
             </button>`
-        : '';
+        : dictionary.helpUrl
+            ? `<a class="jpdb-reader-btn" href="${escapeHtml(dictionary.helpUrl)}" target="_blank" rel="noopener" data-dictionary-id="${escapeHtml(dictionary.id)}" data-recommended-dictionary-guide>${externalButtonLabel('Guide')}</a>`
+            : '';
     return `
         <div class="jpdb-reader-recommended-item">
             <div>
@@ -2228,6 +2313,7 @@ const RECOMMENDED_DICTIONARY_MATCH_TOKENS: Record<string, string[][]> = {
     'pixiv-light': [['pixiv', 'light']],
     kanjidic: [['kanjidic']],
     'jpdb-kanji': [['jpdb', 'kanji']],
+    'kanjium-pitch': [['kanjium', 'pitch'], ['kanjium'], ['pitch', 'accents']],
     jiten: [['jiten']],
     'jpdbv2-kana': [['jpdb', 'v2'], ['jpdbv2']],
     bccwj: [['bccwj']],
