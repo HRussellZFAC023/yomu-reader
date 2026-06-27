@@ -72,6 +72,7 @@ export function renderSubtitleStyleControls(settings: ReaderSettings, language: 
                 <input type="checkbox" data-subtitle-style-setting="subtitleHoverPause" ${settings.subtitleHoverPause ? 'checked' : ''}>
                 <span>${escapeHtml(uiText(language, 'subtitleHoverPause'))}</span>
             </label>
+            <button class="jpdb-subtitle-style-reset" type="button" data-action="style-reset">${escapeHtml(uiText(language, 'subtitleResetDefaults'))}</button>
         </div>
     `;
 }

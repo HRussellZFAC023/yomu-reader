@@ -79,14 +79,20 @@
   height: 9px;
   background: repeating-linear-gradient(to bottom, currentColor 0 1px, transparent 1px 4px);
 }
-.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-idle) .jpdb-subtitle-drag-handle,
-.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden) .jpdb-subtitle-text:hover .jpdb-subtitle-drag-handle,
-.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden) .jpdb-subtitle-drag-handle:focus-visible,
-.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden).jpdb-subtitle-dragging .jpdb-subtitle-drag-handle {
-  opacity: .7;
+.jpdb-subtitle-player.jpdb-subtitle-controls-hidden .jpdb-subtitle-drag-handle {
+  display: none !important;
+  pointer-events: none !important;
+}
+.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle {
+  opacity: .56;
   pointer-events: auto;
 }
-.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden) .jpdb-subtitle-drag-handle:is(:hover, :focus-visible, .jpdb-subtitle-dragging) {
+.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden):not(.jpdb-subtitle-controls-idle) .jpdb-subtitle-drag-handle,
+.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:focus-visible,
+.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden).jpdb-subtitle-dragging .jpdb-subtitle-drag-handle {
+  opacity: .76;
+}
+.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:is(:hover, :focus-visible, .jpdb-subtitle-dragging) {
   border-color: var(--jpdb-reader-accent);
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
@@ -707,11 +713,14 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border)) !important;
   background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface)) !important;
 }
-.jpdb-subtitle-playback-toggle[aria-pressed="true"] {
+.jpdb-subtitle-playback-toggle[aria-pressed="true"],
+.jpdb-subtitle-fullscreen-toggle[aria-pressed="true"] {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 42%, var(--jpdb-reader-border));
   background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, var(--jpdb-reader-surface));
+  color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
 }
 .jpdb-subtitle-icon {
+  display: block;
   width: 17px;
   height: 17px;
   fill: none;
@@ -802,6 +811,18 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   height: 18px;
   margin: 0;
   accent-color: var(--jpdb-reader-accent);
+}
+.jpdb-subtitle-rail .jpdb-subtitle-style-reset {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  height: 34px;
+  max-height: 34px;
+  justify-self: stretch;
+  padding: 0 12px;
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 36%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 10%, var(--jpdb-reader-surface)) !important;
+  color: var(--jpdb-reader-text);
 }
 .jpdb-subtitle-rail button[hidden] {
   display: none !important;
@@ -985,6 +1006,33 @@ html.jpdb-subtitle-video-inset-right ytd-watch-flexy #primary {
   margin-left: 0 !important;
 }
 html.jpdb-subtitle-video-inset-left ytd-watch-flexy #primary {
+  margin-right: 0 !important;
+}
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #secondary,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #secondary-inner {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #columns {
+  justify-content: flex-start !important;
+}
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #primary,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #primary-inner,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container-outer,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container-inner,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player {
+  width: var(--jpdb-subtitle-youtube-stable-player-width, auto) !important;
+  max-width: var(--jpdb-subtitle-youtube-stable-player-width, none) !important;
+  min-width: 0 !important;
+}
+html.jpdb-subtitle-youtube-stable-left ytd-watch-flexy #primary {
+  margin-left: var(--jpdb-subtitle-youtube-stable-offset, 0px) !important;
+  margin-right: 0 !important;
+}
+html.jpdb-subtitle-youtube-stable-right ytd-watch-flexy #primary {
+  margin-left: 0 !important;
   margin-right: 0 !important;
 }
 html.jpdb-subtitle-fullscreen .jpdb-reader-fab {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.136
+// @version 1.4.137
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.136
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.136
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.136
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.136
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.137
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.137
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.137
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.137
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -7549,6 +7549,7 @@ const COPY = {
     openSubtitlePanel: "Open subtitle panel",
     closeSubtitlePanel: "Close subtitle panel",
     subtitleStyle: "Subtitle style",
+    subtitleResetDefaults: "Reset defaults",
     closeSubtitleDrawer: "Close subtitle drawer",
     enableSubtitleAutoHide: "Auto-hide panel while playing",
     disableSubtitleAutoHide: "Keep panel open while playing",
@@ -8320,6 +8321,7 @@ subtitlesTitle	字幕
 openSubtitlePanel	字幕パネルを開く
 closeSubtitlePanel	字幕パネルを閉じる
 subtitleStyle	字幕スタイル
+subtitleResetDefaults	標準に戻す
 closeSubtitleDrawer	字幕ドロワーを閉じる
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
@@ -8913,6 +8915,7 @@ subtitleMiningPause	字幕クリック時に動画を一時停止
 subtitleHoverPause	字幕ホバー時に動画を一時停止
 subtitleControlsMode	字幕コントロール
 subtitleStyle	字幕スタイル
+subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
 right	右
 left	左
@@ -37231,7 +37234,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.136"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.137"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.137] - 2026-06-27
+
+### Fixed
+
+- Repaired Yomu Video and YouTube subtitle layout regressions: left/right transcript panels now stay flush without covering the player, subtitles stay anchored to the player or hide while scrolling into comments, and fullscreen geometry updates immediately while video is playing.
+- Restored direct subtitle height dragging, stabilized subtitle font sizing, added a Reset defaults button to subtitle style controls, and contained style popover pointer events so controls no longer activate subtitles underneath.
+- Made the compact subtitle rail buttons consistent and highlighted active fullscreen/zoom state with the accent color.
+
 ## [1.4.136] - 2026-06-26
 
 ### Fixed

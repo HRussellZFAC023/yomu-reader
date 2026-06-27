@@ -4036,6 +4036,7 @@
       openSubtitlePanel: "Open subtitle panel",
       closeSubtitlePanel: "Close subtitle panel",
       subtitleStyle: "Subtitle style",
+      subtitleResetDefaults: "Reset defaults",
       closeSubtitleDrawer: "Close subtitle drawer",
       enableSubtitleAutoHide: "Auto-hide panel while playing",
       disableSubtitleAutoHide: "Keep panel open while playing",
@@ -4788,6 +4789,7 @@ subtitlesTitle	字幕
 openSubtitlePanel	字幕パネルを開く
 closeSubtitlePanel	字幕パネルを閉じる
 subtitleStyle	字幕スタイル
+subtitleResetDefaults	標準に戻す
 closeSubtitleDrawer	字幕ドロワーを閉じる
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
@@ -5381,6 +5383,7 @@ subtitleMiningPause	字幕クリック時に動画を一時停止
 subtitleHoverPause	字幕ホバー時に動画を一時停止
 subtitleControlsMode	字幕コントロール
 subtitleStyle	字幕スタイル
+subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
 right	右
 left	左

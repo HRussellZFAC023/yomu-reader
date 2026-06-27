@@ -503,11 +503,38 @@
     });
   }
   const CORE_COLOR_TOKENS = {
+    black: "#000000",
     white: "#ffffff"
   };
   const BRAND_COLOR_TOKENS = {
     accent: "#5ea780",
     consoleAccent: "#247a58"
+  };
+  const READER_THEME_COLOR_TOKENS = {
+    dark: {
+      bg: "#181b20"
+    }
+  };
+  const OVERLAY_COLOR_TOKENS = {
+    text: CORE_COLOR_TOKENS.white,
+    outline: CORE_COLOR_TOKENS.black,
+    background: READER_THEME_COLOR_TOKENS.dark.bg
+  };
+  const DEFAULT_WORD_COLOR_TOKENS = {
+    new: "#ffffff",
+    learning: "#ffd166",
+    known: "#7bd88f",
+    due: "#5fb3b3",
+    failed: "#ff6b6b",
+    ignored: "#b8a7ff"
+  };
+  const DEFAULT_PITCH_COLOR_TOKENS = {
+    heiban: "#359eff",
+    atamadaka: "#fe4b74",
+    nakadaka: "#fba840",
+    odaka: "#57ccb7",
+    kifuku: "#9050f6",
+    unknown: "#94a3b8"
   };
   const LOGGER_COLOR_TOKENS = {
     debug: "#6b7280",
@@ -1570,9 +1597,16 @@
     return key === "Alt" || key === "Ctrl" || key === "Meta" || key === "Shift";
   }
   Logger.scope("Settings");
+  const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
   const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
+  const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
+  const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
+  const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
   const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
   const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
+  const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
+  const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
+  const DEFAULT_PITCH_COLORS = DEFAULT_PITCH_COLOR_TOKENS;
   const AUDIO_SOURCE_TYPE_VALUES = [
     "jpod101",
     "language-pod-101",
@@ -1586,11 +1620,281 @@
     "custom",
     "custom-json"
   ];
+  const DEFAULT_AUDIO_SOURCES = [
+    { type: "jpod101", url: "", voice: "", enabled: true },
+    { type: "language-pod-101", url: "", voice: "", enabled: true },
+    { type: "jisho", url: "", voice: "", enabled: true },
+    { type: "jiten-tts", url: "", voice: "", enabled: true },
+    { type: "jpdb-tts", url: "", voice: "", enabled: true },
+    { type: "text-to-speech", url: "", voice: "", enabled: true }
+  ];
   new Set(AUDIO_SOURCE_TYPE_VALUES);
   const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status", "hover"]);
-  ({
-    dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
-  });
+  const DEFAULT_COLOR_CHANNELS = {
+    wordHighlightColorSource: "jpdb",
+    wordUnderlineColorSource: "pitch",
+    wordTextColorSource: "anki",
+    subtitleHighlightColorSource: "jpdb",
+    subtitleUnderlineColorSource: "pitch",
+    subtitleTextColorSource: "anki"
+  };
+  const DEFAULT_SETTINGS = {
+    apiKey: "",
+    jitenApiKey: "",
+    onboardingSeen: false,
+    interfaceLanguage: "en",
+    accentColor: DEFAULT_ACCENT_COLOR,
+    wordColorNew: DEFAULT_WORD_COLORS.new,
+    wordColorLearning: DEFAULT_WORD_COLORS.learning,
+    wordColorKnown: DEFAULT_WORD_COLORS.known,
+    wordColorDue: DEFAULT_WORD_COLORS.due,
+    wordColorFailed: DEFAULT_WORD_COLORS.failed,
+    wordColorIgnored: DEFAULT_WORD_COLORS.ignored,
+    pitchColorHeiban: DEFAULT_PITCH_COLORS.heiban,
+    pitchColorAtamadaka: DEFAULT_PITCH_COLORS.atamadaka,
+    pitchColorNakadaka: DEFAULT_PITCH_COLORS.nakadaka,
+    pitchColorOdaka: DEFAULT_PITCH_COLORS.odaka,
+    pitchColorKifuku: DEFAULT_PITCH_COLORS.kifuku,
+    pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
+    ...DEFAULT_COLOR_CHANNELS,
+    jpdbDefinitionsEnabled: true,
+    jpdbDefinitionsAlias: "",
+    jpdbDefinitionsPriority: 1,
+    jitenDefinitionsEnabled: true,
+    jitenDefinitionsAlias: "",
+    jitenDefinitionsPriority: 0,
+    jpdbPageEnhancementsEnabled: true,
+    jpdbPageWordEnhancementsEnabled: true,
+    jpdbPageKanjiEnhancementsEnabled: true,
+    jpdbKanjiEnabled: true,
+    jpdbKanjiAlias: "",
+    jpdbKanjiPriority: 10,
+    kanjiImmersionKitEnabled: true,
+    kanjiImmersionKitAlias: "",
+    kanjiImmersionKitPriority: 60,
+    uchisenEnabled: true,
+    uchisenAlias: "",
+    uchisenPriority: 50,
+    rtkEnabled: true,
+    rtkAlias: "",
+    rtkPriority: 20,
+    kanjivgEnabled: true,
+    kanjivgAlias: "",
+    kanjivgPriority: 0,
+    kanjiOriginsEnabled: true,
+    kanjiOriginsAlias: "",
+    kanjiOriginsPriority: 30,
+    kanjiOriginKanjiMapEnabled: true,
+    kanjiOriginGraphEnabled: true,
+    kanjiOriginRadicalImagesEnabled: true,
+    similarKanjiWords: true,
+    similarKanjiWordsPriority: 40,
+    similarKanjiWordLimit: 8,
+    audioEnabled: true,
+    autoPlayAudio: true,
+    suppressAutoAudioOnVideo: true,
+    audioAutoPlayMode: "all",
+    audioSources: DEFAULT_AUDIO_SOURCES,
+    audioEnableDefaultSources: true,
+    audioSourceUrl: DEFAULT_AUDIO_URL,
+    audioViaBlob: true,
+    audioFallbackChimeEnabled: true,
+    audioTimeoutMs: 6e3,
+    audioSelectionMode: "random",
+    audioTtsMode: "fallback",
+    immersionKitEnabled: true,
+    immersionKitAlias: "",
+    immersionKitExampleSource: "immersion-kit",
+    nadeshikoApiKey: "",
+    immersionKitPriority: 80,
+    immersionKitLimitEnabled: true,
+    immersionKitLimit: 3,
+    immersionKitMinLength: 8,
+    immersionKitMaxLength: 80,
+    immersionKitCategory: "all",
+    immersionKitSort: "sentence_length:asc",
+    immersionKitExactMatch: false,
+    immersionKitShowTranslation: true,
+    immersionKitRevealTranslationOnClick: true,
+    immersionKitShowImages: true,
+    immersionKitAutoPlayAudio: true,
+    immersionKitPlayOnHover: true,
+    immersionKitPlayOnImageClick: true,
+    immersionKitPlaybackRate: 1,
+    selectionPopoverShowTranslation: true,
+    parseSelection: true,
+    lookupOnClick: true,
+    lookupOnHover: true,
+    lookupOnMiddleMouse: true,
+    hoverOpenDelayMs: 0,
+    hoverCloseDelayMs: 80,
+    popupActivationMode: "hover",
+    scanModifierKey: "shift",
+    showFloatingButton: true,
+    newTabEnabled: false,
+    newTabAnkiEnabled: false,
+    newTabAnkiDisabledDecks: [],
+    newTabSource: "auto",
+    newTabJpdbDeck: "all",
+    newTabJpdbReviewMode: "auto",
+    corsProxyUrl: "",
+    newTabKanjiKeywordSource: "auto",
+    newTabParsingEnabled: true,
+    newTabFrontSentenceEnabled: true,
+    newTabOfflineEnabled: true,
+    newTabOfflineLimit: 50,
+    newTabDailyGoalMinutes: 60,
+    newTabKanjiUnlockEnabled: true,
+    newTabStopAtBatchEnd: false,
+    newTabSwipeReviews: true,
+    newTabKanjiAutogradeEnabled: true,
+    newTabKanjiAutoSubmit: false,
+    puckPositionX: void 0,
+    puckPositionY: void 0,
+    manualScanEnabled: false,
+    annotationsPaused: false,
+    showFurigana: true,
+    furiganaMode: "difficult-kanji",
+    furiganaHiddenStateGroups: ["known", "due", "failed"],
+    wordColorStates: "all",
+    showPitchAccent: true,
+    suppressRedundantWordUi: false,
+    sheetCloseButtonOnLeft: false,
+    hideKnownFurigana: true,
+    ocrEnabled: true,
+    ocrAutoScanImages: true,
+    ocrVideoPauseFrames: true,
+    ocrShowTextOverlay: false,
+    ocrOverlayTheme: "auto",
+    ocrProvider: "google-lens",
+    ocrEndpointUrl: "",
+    ocrEngine: "auto",
+    ocrCloudVisionApiKey: "",
+    ocrLanguage: "ja-JP",
+    ocrMaxImagePixels: 12e5,
+    ocrMinImageArea: 45e3,
+    ocrMaxImagesPerPage: 3,
+    ocrPrefetchMargin: 700,
+    ocrPrefetchPages: 2,
+    ocrConcurrency: 3,
+    ocrInvertDarkPanels: true,
+    ocrTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
+    ocrOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
+    ocrBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
+    ocrBackgroundOpacity: 0.32,
+    ocrFontScale: 1,
+    localDictionariesEnabled: true,
+    localDictionaryMaxResults: 12,
+    localDictionaryShowKanji: true,
+    kanjiDictionariesAlias: "",
+    kanjiDictionariesPriority: 30,
+    dictionarySourcesInitiallyExpanded: true,
+    dictionaryPreferences: [],
+    dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link })),
+    subtitlePlayerEnabled: true,
+    subtitleAutoDetect: true,
+    subtitleOverlayVisible: false,
+    subtitleSecondaryVisible: false,
+    subtitleNativeBlurred: true,
+    subtitleKaraokeMode: true,
+    subtitleTranscriptVisible: false,
+    subtitlePausePanel: false,
+    subtitleTranscriptPlacement: "right",
+    subtitleTranscriptAutoScroll: true,
+    subtitleTranscriptAutoScrollResumeSeconds: 30,
+    subtitleAutoCopyLine: false,
+    subtitleCopyIncludeTranslation: true,
+    subtitleControlsMode: "auto",
+    subtitleFontSize: 28,
+    subtitleBottomOffset: 16,
+    subtitleTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
+    subtitleOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
+    subtitleBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
+    subtitleBackgroundOpacity: 0,
+    subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
+    subtitleFontWeight: 760,
+    subtitleMiningPause: true,
+    subtitleHoverPause: true,
+    subtitleSeekPadding: 0.08,
+    youtubeImmersionEnabled: true,
+    youtubeShowFilterNotice: true,
+    youtubeShowChannelRecommendations: true,
+    preferJapaneseSiteLanguage: true,
+    // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
+    ankiEnabled: false,
+    ankiSectionEnabled: false,
+    ankiSectionAlias: "",
+    ankiSectionPriority: 90,
+    ankiConnectUrl: "http://127.0.0.1:8765",
+    ankiDeck: "よむ",
+    ankiModel: "よむ Japanese",
+    ankiTemplateMode: "recognition",
+    ankiFrontReading: true,
+    ankiFrontSentence: true,
+    ankiFrontImage: true,
+    ankiMobileHandoff: false,
+    studyTranslationEnabled: true,
+    studyTranslationAlias: "",
+    studyGrammarEnabled: true,
+    studyGrammarAlias: "",
+    enableLogging: false,
+    ankiTags: "yomu",
+    ankiMineWithJpdb: false,
+    ankiCaptureScreenshot: true,
+    ankiFieldMappings: {},
+    theme: "light",
+    popupMode: "auto",
+    stickyBottomSheet: false,
+    popoverBackdropEnabled: true,
+    popoverWidth: 520,
+    popoverHeight: 540,
+    popoverHeightMode: "fixed",
+    readerFontFamily: DEFAULT_READER_FONT_FAMILY,
+    popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
+    popupFontWeight: 400,
+    jpdbMiningEnabled: true,
+    apiGradingProvider: "jiten",
+    miningDeck: "forq",
+    autoMineOnReview: false,
+    neverForgetDeck: "never-forget",
+    blacklistDeck: "blacklist",
+    addToForq: false,
+    enableReviews: true,
+    twoButtonReviews: false,
+    studyTranslationPriority: 10,
+    studyGrammarPriority: 20,
+    shortcuts: {
+      scanPage: "Alt+J",
+      hoverLookup: "",
+      openSettings: "Alt+Shift+J",
+      playAudio: "A",
+      closePopup: "Escape",
+      previousLookupWord: "Alt+Shift+ArrowLeft",
+      nextLookupWord: "Alt+Shift+ArrowRight",
+      previousSubtitle: "A",
+      nextSubtitle: "D",
+      copySubtitle: "Alt+C",
+      toggleOcr: "Alt+O",
+      toggleSubtitleOverlay: "Shift+H",
+      toggleYoutubeImmersion: "Alt+Y",
+      scanImages: "Alt+I",
+      massReviewVisible: "Alt+M",
+      studyReveal: "Space",
+      studyRevealAlternate: "Enter",
+      studyUndo: "U",
+      studyPrevious: "ArrowLeft",
+      studyPreviousAlternate: "P",
+      studyNext: "ArrowRight",
+      studyNextAlternate: "N",
+      gradeNothing: "1",
+      gradeSomething: "2",
+      gradeHard: "3",
+      gradeOkay: "4",
+      gradeEasy: "5",
+      gradeFail: "1",
+      gradePass: "2"
+    }
+  };
   function hasPersonalizedFuriganaSource(settings) {
     const credentials = {
       apiKey: settings.apiKey ?? "",
@@ -3765,6 +4069,7 @@
       openSubtitlePanel: "Open subtitle panel",
       closeSubtitlePanel: "Close subtitle panel",
       subtitleStyle: "Subtitle style",
+      subtitleResetDefaults: "Reset defaults",
       closeSubtitleDrawer: "Close subtitle drawer",
       enableSubtitleAutoHide: "Auto-hide panel while playing",
       disableSubtitleAutoHide: "Keep panel open while playing",
@@ -4517,6 +4822,7 @@ subtitlesTitle	字幕
 openSubtitlePanel	字幕パネルを開く
 closeSubtitlePanel	字幕パネルを閉じる
 subtitleStyle	字幕スタイル
+subtitleResetDefaults	標準に戻す
 closeSubtitleDrawer	字幕ドロワーを閉じる
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
@@ -5110,6 +5416,7 @@ subtitleMiningPause	字幕クリック時に動画を一時停止
 subtitleHoverPause	字幕ホバー時に動画を一時停止
 subtitleControlsMode	字幕コントロール
 subtitleStyle	字幕スタイル
+subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
 right	右
 left	左
@@ -11043,6 +11350,7 @@ ${spelling}`);
                 <input type="checkbox" data-subtitle-style-setting="subtitleHoverPause" ${settings.subtitleHoverPause ? "checked" : ""}>
                 <span>${escapeHtml(uiText(language, "subtitleHoverPause"))}</span>
             </label>
+            <button class="jpdb-subtitle-style-reset" type="button" data-action="style-reset">${escapeHtml(uiText(language, "subtitleResetDefaults"))}</button>
         </div>
     `;
   }
@@ -14452,6 +14760,15 @@ ${spelling}`);
     "touchend",
     "touchcancel"
   ];
+  const YOUTUBE_STABLE_TRANSCRIPT_CLASSES = [
+    "jpdb-subtitle-youtube-stable-side",
+    "jpdb-subtitle-youtube-stable-left",
+    "jpdb-subtitle-youtube-stable-right"
+  ];
+  const YOUTUBE_STABLE_TRANSCRIPT_STYLE_PROPERTIES = [
+    "--jpdb-subtitle-youtube-stable-offset",
+    "--jpdb-subtitle-youtube-stable-player-width"
+  ];
   const ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR = ".asbplayer-subtitles-container-bottom";
   const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = `.asbplayer-offscreen, ${ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR}`;
   const ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR = '[data-yomu-asb-subtitle-drag-handle="true"]';
@@ -14581,13 +14898,24 @@ ${spelling}`);
     const baseline = Math.max(16, Math.min(64, settings.subtitleFontSize));
     const portrait = height > width;
     const frameScale = portrait ? Math.sqrt(width / 720) : Math.sqrt(Math.min(width / 1280, height / 720));
-    const minScale = portrait || width < 700 ? 0.82 : 0.62;
-    const scaled = Math.round(baseline * Math.max(minScale, Math.min(1.45, frameScale)));
-    return Math.max(subtitleMinimumFontSize(root), Math.min(64, scaled));
+    const minScale = portrait || width < 700 ? 0.82 : 0.74;
+    const scaled = Math.round(baseline * Math.max(minScale, Math.min(1, frameScale)));
+    return Math.max(subtitleMinimumFontSize(root), Math.min(baseline, scaled));
   }
-  const DEFAULT_SUBTITLE_BOTTOM_OFFSET = 16;
+  const DEFAULT_SUBTITLE_BOTTOM_OFFSET = DEFAULT_SETTINGS.subtitleBottomOffset;
   function effectiveSubtitleBottomPercent(settings) {
     return settings.subtitleBottomOffset;
+  }
+  function setDocumentStylePropertyIfChanged(element, property, value) {
+    if (element.style.getPropertyValue(property) === value) return false;
+    element.style.setProperty(property, value);
+    return true;
+  }
+  function youtubeWatchPlayerMeaningfullyVisible(rect) {
+    const viewportHeight = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 0);
+    const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
+    const ratio = visibleHeight / Math.max(1, rect.height);
+    return visibleHeight >= Math.min(180, rect.height * 0.36) && ratio >= 0.32;
   }
   function subtitleElementOverflows(element) {
     return element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1;
@@ -14677,6 +15005,7 @@ ${spelling}`);
   const SUBTITLE_TICK_ACTIVE_MS = 500;
   const SUBTITLE_TICK_PAUSED_MS = 600;
   const SUBTITLE_TICK_IDLE_MS = 1500;
+  const SUBTITLE_FRAME_GEOMETRY_SYNC_MS = 120;
   const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
   const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1e3;
   const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
@@ -14906,6 +15235,7 @@ ${spelling}`);
     // bound video plays; cancelled on pause/seek-away/destroy/hidden.
     frameSyncHandle;
     frameSyncVideo;
+    lastFrameGeometrySampleAt = 0;
     // Dirty-check for the per-frame karaoke pass: classes only flip at integer
     // character boundaries, so skip the class churn between crossings.
     lastKaraokeProgressKey;
@@ -15017,6 +15347,7 @@ ${spelling}`);
       "load-secondary": () => this.openSubtitleFilePicker("secondary"),
       panel: () => this.toggleTranscriptDrawer(),
       style: () => this.toggleSubtitleStylePanel(),
+      "style-reset": () => this.resetSubtitleStyleDefaults(),
       "panel-lines": () => this.openLinesPanel({ deferRender: true }),
       "panel-tracks": () => this.openTracksPanel(),
       "close-panel": () => this.closeTranscriptPanel(),
@@ -15068,10 +15399,7 @@ ${spelling}`);
       }
       for (const eventName of SUBTITLE_FULLSCREEN_CHANGE_EVENTS) {
         document.addEventListener(eventName, () => {
-          this.fullscreen = Boolean(currentFullscreenElement());
-          this.syncFullscreenState();
-          this.scheduleAlignToVideo();
-          this.render();
+          this.handleFullscreenLayoutChange();
         }, this.eventOptions());
       }
       window.addEventListener("scroll", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
@@ -15095,6 +15423,17 @@ ${spelling}`);
       this.scheduleDiscoverVideo();
       void this.discoverYouTubeTracksThrottled(true);
       this.scheduleAlignToVideo();
+    }
+    handleFullscreenLayoutChange() {
+      this.syncFullscreenState();
+      if (this.video && !this.video.paused) this.startFrameSync(this.video);
+      this.alignToVideo();
+      this.scheduleAlignToVideo();
+      window.setTimeout(() => {
+        if (!this.destroyed) this.scheduleAlignToVideo();
+      }, 80);
+      this.render();
+      this.syncControls();
     }
     destroy() {
       this.destroyed = true;
@@ -15213,6 +15552,10 @@ ${spelling}`);
       root.addEventListener("click", (event) => this.handleClick(event));
       root.addEventListener("input", (event) => this.handleSubtitleStyleInput(event), this.eventOptions());
       root.addEventListener("change", (event) => this.handleSubtitleStyleInput(event), this.eventOptions());
+      const stylePopover = root.querySelector("[data-subtitle-style-popover]");
+      for (const eventName of TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS) {
+        stylePopover?.addEventListener(eventName, (event) => this.stopSubtitleStylePopoverPropagation(event), this.eventOptions());
+      }
       this.subtitleEl = root.querySelector(".jpdb-subtitle-lines");
       this.transcriptPanel = root.querySelector(".jpdb-subtitle-list");
       this.transcriptPanel.dataset.jpdbReaderRoot = "true";
@@ -15384,6 +15727,9 @@ ${spelling}`);
         this.scheduleAlignToVideo();
       }, this.eventOptions({ passive: true }));
       video.addEventListener("loadeddata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
+      for (const eventName of ["webkitbeginfullscreen", "webkitendfullscreen", "webkitpresentationmodechanged"]) {
+        video.addEventListener(eventName, () => this.handleFullscreenLayoutChange(), this.eventOptions({ passive: true }));
+      }
       const handlePlaybackTimeChanged = () => this.syncSubtitleToPlaybackTime();
       video.addEventListener("timeupdate", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
       video.addEventListener("seeking", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
@@ -15662,9 +16008,16 @@ ${spelling}`);
       const settings = this.options.getSettings();
       if (!settings.subtitlePlayerEnabled) return;
       this.updateFromLoadedCues();
+      this.syncPlayingVideoGeometry();
       if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) {
         this.applyKaraokeStateToPrimary(this.currentCue, video.currentTime);
       }
+    }
+    syncPlayingVideoGeometry() {
+      const now = performance.now();
+      if (now - this.lastFrameGeometrySampleAt < SUBTITLE_FRAME_GEOMETRY_SYNC_MS) return;
+      this.lastFrameGeometrySampleAt = now;
+      this.realignIfVideoMoved();
     }
     // The video the subtitle controller is currently bound to, when it is still
     // in the DOM. Consumed by the mining-pause path so it pauses the exact
@@ -15789,7 +16142,7 @@ ${spelling}`);
       if (!firstSync) this.handleYouTubeNavigation();
     }
     isVideoOverlayVisible(rect) {
-      return isSubtitleOverlayVideoVisible(rect) && (!this.video || isSubtitleVideoElementRenderable(this.video)) && this.videoHasPlayerAffordances();
+      return isSubtitleOverlayVideoVisible(rect) && (!isYouTubePage() || this.fullscreen || youtubeWatchPlayerMeaningfullyVisible(rect)) && (!this.video || isSubtitleVideoElementRenderable(this.video)) && this.videoHasPlayerAffordances();
     }
     applyVideoLayout(rect) {
       if (!this.root) return;
@@ -16596,15 +16949,24 @@ ${spelling}`);
       this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
       const primary = this.subtitleEl.querySelector(".jpdb-subtitle-primary");
       if (!primary) return;
-      const minimum = subtitleMinimumFontSize(this.root);
-      fitted = this.fitSubtitleFontSize(fitted, minimum);
+      const minimum = Math.max(subtitleMinimumFontSize(this.root), Math.round(target * 0.82));
+      fitted = this.fitPrimarySubtitleFontSize(fitted, minimum);
       this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
     }
-    fitSubtitleFontSize(fitted, minimum) {
+    fitPrimarySubtitleFontSize(fitted, minimum) {
       if (!this.root || !this.subtitleEl) return fitted;
-      return fittedSubtitleFontSize(this.subtitleEl, fitted, minimum, (value) => {
-        this.root?.style.setProperty("--subtitle-font-size", `${value}px`);
-      });
+      const secondaryLines = Array.from(this.subtitleEl.querySelectorAll(".jpdb-subtitle-secondary"));
+      const previousDisplay = secondaryLines.map((element) => element.style.display);
+      for (const element of secondaryLines) element.style.display = "none";
+      try {
+        return fittedSubtitleFontSize(this.subtitleEl, fitted, minimum, (value) => {
+          this.root?.style.setProperty("--subtitle-font-size", `${value}px`);
+        });
+      } finally {
+        secondaryLines.forEach((element, index) => {
+          element.style.display = previousDisplay[index] ?? "";
+        });
+      }
     }
     applyKaraokeStateToPrimary(cue, time) {
       const state2 = this.primaryKaraokeState(cue);
@@ -16632,10 +16994,18 @@ ${spelling}`);
       return words.length && wordElements.length ? { words, wordElements } : null;
     }
     handleClick(event) {
-      if (event.target.closest?.(".jpdb-reader-word")) return;
-      const target = event.target.closest("[data-action]");
+      const eventTarget = event.target;
+      if (eventTarget.closest?.(".jpdb-reader-word")) return;
+      const insideStylePopover = Boolean(eventTarget.closest?.("[data-subtitle-style-popover]"));
+      const target = eventTarget.closest("[data-action]");
       const action = target?.dataset.action;
-      if (!action) return;
+      if (!action) {
+        if (insideStylePopover) {
+          event.stopPropagation();
+          this.showControlsTemporarily();
+        }
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
       this.showControlsTemporarily();
@@ -16662,6 +17032,10 @@ ${spelling}`);
     }
     stopTranscriptPanelPropagation(event) {
       event.stopPropagation();
+    }
+    stopSubtitleStylePopoverPropagation(event) {
+      event.stopPropagation();
+      this.showControlsTemporarily();
     }
     handleTranscriptPanelKeydown(event) {
       if (event.key !== "Enter" && event.key !== " ") return;
@@ -16776,7 +17150,7 @@ ${spelling}`);
         this.lastTranscriptSignature = "";
         this.syncPanelPlacementButtons();
       }
-      this.videoInset.clear(this.video);
+      this.clearVideoInsetForTranscriptPanel();
       this.positionTranscriptPanel({ realignAfterInset: true });
       this.syncControls();
     }
@@ -16804,6 +17178,28 @@ ${spelling}`);
         return true;
       }
       return false;
+    }
+    resetSubtitleStyleDefaults() {
+      const settings = this.options.getSettings();
+      let changed = false;
+      const reset = (key) => {
+        if (settings[key] === DEFAULT_SETTINGS[key]) return;
+        settings[key] = DEFAULT_SETTINGS[key];
+        changed = true;
+      };
+      reset("subtitleFontSize");
+      reset("subtitleFontWeight");
+      reset("subtitleBottomOffset");
+      reset("subtitleBackgroundOpacity");
+      reset("subtitleFontFamily");
+      reset("subtitleMiningPause");
+      reset("subtitleHoverPause");
+      this.resetLegacySubtitleDragOffset();
+      this.syncRootStyleSettings(settings);
+      this.syncSubtitleStyleControls();
+      this.render();
+      if (changed) this.options.onSettingsChange();
+      this.showControlsTemporarily();
     }
     handlePointerActivity(event) {
       if (event.type === "pointermove") {
@@ -19072,6 +19468,7 @@ ${spelling}`);
       });
     }
     stableSideTranscriptDrawerLayout(placement, options, videoRect) {
+      if (isYouTubePage()) return this.stableYouTubeSideTranscriptDrawerLayout(placement, options, videoRect);
       if (videoRect.width <= 0 || videoRect.height <= 0) return null;
       const margin = TRANSCRIPT_PANEL_MARGIN;
       const availableWidth = Math.floor(placement === "left" ? videoRect.left - margin * 2 : options.viewportWidth - videoRect.right - margin * 2);
@@ -19085,6 +19482,31 @@ ${spelling}`);
       return {
         placement,
         left: placement === "left" ? Math.max(margin, Math.round(videoRect.left - margin - width)) : Math.min(options.viewportWidth - margin - width, Math.max(margin, Math.round(videoRect.right + margin))),
+        top,
+        width,
+        height: Math.max(260, options.viewportHeight - top - margin),
+        viewportWidth: options.viewportWidth,
+        viewportHeight: options.viewportHeight,
+        margin,
+        maxWidth: availableWidth
+      };
+    }
+    stableYouTubeSideTranscriptDrawerLayout(placement, options, videoRect) {
+      if (videoRect.width <= 0 || videoRect.height <= 0) return null;
+      const margin = TRANSCRIPT_PANEL_MARGIN;
+      const videoWidth = Math.round(videoRect.width);
+      const availableWidth = Math.floor(placement === "left" ? options.viewportWidth - videoWidth - margin - Math.max(0, Math.round(videoRect.left)) : options.viewportWidth - Math.round(videoRect.right + margin));
+      if (availableWidth < TRANSCRIPT_PANEL_MIN_SIDE_WIDTH) return null;
+      const defaultWidth = placement === "right" ? availableWidth : Math.min(460, options.viewportWidth * 0.32);
+      const desiredWidth = options.size?.sideWidth ?? defaultWidth;
+      const width = Math.round(Math.min(Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, desiredWidth), availableWidth));
+      const top = Math.round(Math.min(
+        Math.max(options.anchorTop ?? videoRect.top ?? 72, margin),
+        Math.max(margin, options.viewportHeight - 280)
+      ));
+      return {
+        placement,
+        left: placement === "left" ? 0 : Math.max(0, options.viewportWidth - width),
         top,
         width,
         height: Math.max(260, options.viewportHeight - top - margin),
@@ -19169,6 +19591,7 @@ ${spelling}`);
     handleTranscriptViewportChange(options = {}) {
       this.syncFullscreenState();
       this.resetTranscriptLayoutReference();
+      this.alignToVideo();
       this.scheduleAlignToVideo();
       this.scheduleTranscriptHydration();
       this.scheduleTranscriptCacheWarmup();
@@ -19190,7 +19613,7 @@ ${spelling}`);
       this.transcriptLayoutReferenceViewport = "";
     }
     transcriptLayoutReferenceVideoRect(viewportWidth, viewportHeight) {
-      const current = this.videoInset.measureWithoutInset(this.video, () => this.videoLayoutRect());
+      const current = this.measureWithoutStableYouTubeTranscriptLayout(() => this.videoInset.measureWithoutInset(this.video, () => this.videoLayoutRect()));
       const viewportKey = `${viewportWidth}x${viewportHeight}`;
       const degenerate = current.width < 200 || current.height < 120;
       if (degenerate) return this.transcriptLayoutReferenceRect ?? current;
@@ -19210,9 +19633,11 @@ ${spelling}`);
         return false;
       }
       if (this.shouldKeepVideoLayoutStableForTranscript()) {
-        this.clearVideoInsetForTranscriptPanel();
-        return false;
+        const insetChanged = this.videoInset.clear(this.video);
+        const stableChanged = this.applyStableYouTubeTranscriptLayout(layout, videoRect);
+        return insetChanged || stableChanged;
       }
+      this.clearStableYouTubeTranscriptLayout();
       const availableWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);
       return this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect, options);
     }
@@ -19309,7 +19734,57 @@ ${spelling}`);
     clearVideoInsetForTranscriptPanel() {
       this.transcriptLayoutReferenceRect = void 0;
       this.transcriptLayoutReferenceViewport = "";
-      return this.videoInset.clear(this.video);
+      const stableChanged = this.clearStableYouTubeTranscriptLayout();
+      const insetChanged = this.videoInset.clear(this.video);
+      return stableChanged || insetChanged;
+    }
+    applyStableYouTubeTranscriptLayout(layout, videoRect) {
+      if (!isYouTubePage() || layout.placement === "bottom") return this.clearStableYouTubeTranscriptLayout();
+      const root = document.documentElement;
+      let changed = false;
+      const setClass = (className, enabled) => {
+        const hadClass = root.classList.contains(className);
+        root.classList.toggle(className, enabled);
+        changed = changed || hadClass !== enabled;
+      };
+      setClass("jpdb-subtitle-youtube-stable-side", true);
+      setClass("jpdb-subtitle-youtube-stable-left", layout.placement === "left");
+      setClass("jpdb-subtitle-youtube-stable-right", layout.placement === "right");
+      const offset = layout.placement === "left" ? `${Math.max(0, Math.round(layout.left + layout.width + layout.margin))}px` : "0px";
+      const playerWidth = `${Math.max(0, Math.round(videoRect.width))}px`;
+      changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-offset", offset) || changed;
+      changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-player-width", playerWidth) || changed;
+      return changed;
+    }
+    clearStableYouTubeTranscriptLayout() {
+      const root = document.documentElement;
+      let changed = false;
+      for (const className of YOUTUBE_STABLE_TRANSCRIPT_CLASSES) {
+        if (!root.classList.contains(className)) continue;
+        root.classList.remove(className);
+        changed = true;
+      }
+      for (const property of YOUTUBE_STABLE_TRANSCRIPT_STYLE_PROPERTIES) {
+        if (!root.style.getPropertyValue(property)) continue;
+        root.style.removeProperty(property);
+        changed = true;
+      }
+      return changed;
+    }
+    measureWithoutStableYouTubeTranscriptLayout(callback) {
+      const root = document.documentElement;
+      const classSnapshot = YOUTUBE_STABLE_TRANSCRIPT_CLASSES.map((className) => [className, root.classList.contains(className)]);
+      const styleSnapshot = YOUTUBE_STABLE_TRANSCRIPT_STYLE_PROPERTIES.map((property) => [property, root.style.getPropertyValue(property)]);
+      this.clearStableYouTubeTranscriptLayout();
+      try {
+        return callback();
+      } finally {
+        for (const [className, enabled] of classSnapshot) root.classList.toggle(className, enabled);
+        for (const [property, value] of styleSnapshot) {
+          if (value) root.style.setProperty(property, value);
+          else root.style.removeProperty(property);
+        }
+      }
     }
     applyPageVideoInset(side, playerSize, panelSize, videoRect = this.videoLayoutRect(), options = {}) {
       if (this.fullscreen) {

@@ -17,10 +17,12 @@ import { installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 const { scriptPath, cssPath, root, artifacts } = createSmokePaths(import.meta.dirname);
 const REQUEST_BRIDGE_NAME = '__yomuYoutubeSidebarLayoutRequest';
 const JPDB_PARSE_URL = 'https://jpdb.io/api/v1/parse';
-const companionDir = resolve(process.env.YOMU_YOUTUBE_SIDEBAR_COMPANION_DIR ?? join(root, 'dist/greasyfork'));
+const defaultCompanionDir = existsSync(join(root, 'dist/greasyfork'))
+    ? join(root, 'dist/greasyfork')
+    : join(root, 'docs/public/greasyfork');
+const companionDir = resolve(process.env.YOMU_YOUTUBE_SIDEBAR_COMPANION_DIR ?? defaultCompanionDir);
 const companionPaths = ['yomu-anki.user.js', 'yomu-kanji-study.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
-    .map(name => join(companionDir, name))
-    .filter(existsSync);
+    .map(name => join(companionDir, name));
 const outputDir = resolve(process.env.YOMU_YOUTUBE_SIDEBAR_OUTPUT_DIR ?? join(artifacts, 'youtube-sidebar-matrix', 'working'));
 const headed = process.env.YOMU_YOUTUBE_SIDEBAR_HEADED === '1';
 const placements = ['right', 'left', 'bottom'];
@@ -139,9 +141,7 @@ async function runScenario(browser, viewport, placement) {
 }
 
 function assertedPlacementForState(requestedPlacement, state) {
-    return requestedPlacement !== 'bottom' && state.placement === 'bottom'
-        ? 'bottom'
-        : requestedPlacement;
+    return state.viewport.width < 700 && requestedPlacement !== 'bottom' ? 'bottom' : requestedPlacement;
 }
 
 async function runCurrentLineStabilitySequence(page) {
@@ -242,7 +242,7 @@ async function runSwitchSequence(page) {
             await page.waitForTimeout(120);
         });
         const state = await snapshot(page);
-        const assertedPlacement = state.placement === 'bottom' && placement !== 'bottom' ? 'bottom' : placement;
+        const assertedPlacement = assertedPlacementForState(placement, state);
         assertLayout(state, 'ipad-pro-portrait', assertedPlacement, `switch-${placement}`);
         await page.screenshot({ path: join(outputDir, `ipad-pro-portrait-switch-${placement}.png`), fullPage: false });
         timings.push({
@@ -466,11 +466,13 @@ function assertLayout(state, viewportName, requestedPlacement, phase) {
     assert(state.placement === requestedPlacement, `unexpected side placement in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
     assertStableYouTubePlayerSizing(state, `${viewportName}/${requestedPlacement}/${phase}`);
     if (requestedPlacement === 'left') {
+        assert(Math.abs(state.panel.left) <= 1, `left panel has a viewport gap in ${viewportName}/${phase}`, compactSnapshot(state));
         assert(state.panel.right <= state.video.left + 1, `left panel covers video in ${viewportName}/${phase}`, compactSnapshot(state));
         assert(state.panel.right <= state.title.left + 1, `left panel covers title area in ${viewportName}/${phase}`, compactSnapshot(state));
         assert(sideDockGap(state.panel, state.video, 'left') <= 80, `left video is not docked against the panel in ${viewportName}/${phase}`, compactSnapshot(state));
         assert(sideDockGap(state.panel, state.title, 'left') <= 80, `left title is not docked against the panel in ${viewportName}/${phase}`, compactSnapshot(state));
     } else {
+        assert(Math.abs(state.panel.right - state.viewport.width) <= 1, `right panel has a viewport gap in ${viewportName}/${phase}`, compactSnapshot(state));
         assert(state.video.right <= state.panel.left + 1, `right panel covers video in ${viewportName}/${phase}`, compactSnapshot(state));
         assert(state.title.right <= state.panel.left + 1, `right panel covers title area in ${viewportName}/${phase}`, compactSnapshot(state));
         assert(sideDockGap(state.panel, state.video, 'right') <= 80, `right video is not docked against the panel in ${viewportName}/${phase}`, compactSnapshot(state));

@@ -21,6 +21,7 @@ const smokeSettings = {
     interfaceLanguage: 'en',
     apiKey: '',
     jitenApiKey: '',
+    preferJapaneseSiteLanguage: false,
     ankiEnabled: false,
     localDictionariesEnabled: false,
     audioEnabled: false,
@@ -576,7 +577,9 @@ async function readMobileSubtitleControlsState(page) {
         const handleRect = handle?.getBoundingClientRect();
         return {
             rootClass: root?.className ?? '',
-            actions: [...document.querySelectorAll('.jpdb-subtitle-rail button')].map(button => button.dataset.action),
+            actions: [...(rail?.children ?? [])]
+                .filter(element => element instanceof HTMLButtonElement)
+                .map(button => button.dataset.action),
             previousHidden: previous?.hidden ?? true,
             nextHidden: next?.hidden ?? true,
             playbackHidden: playback?.hidden ?? true,
