@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Fixed Discord and other modern dark app shells whose computed colors use OKLab, so Yomu uses the real dark surface instead of falling back to white and turning passive highlights or text black.': 'Discordなど、算出色にOKLabを使う新しいダークUIで、Yomuが実際の暗い面を使うように修正しました。白背景にフォールバックしてパッシブハイライトや文字が黒くなる問題を防ぎます。',
     'Fixed same-tab Google Drive authorization on Chrome by returning the OAuth token through the URL fragment instead of window.name, so Sync and Restore resume after Google sign-in.': 'Chromeで同じタブのGoogle Drive認証が失敗していた問題を修正しました。OAuthトークンをwindow.nameではなくURLフラグメント経由で返すことで、Googleログイン後に同期と復元が再開されます。',
     'Refreshed fast reader popups after fallback words resolve through the API, so first-load lookups immediately show JPDB/Jiten status and pitch accent details instead of needing repeated taps.': 'フォールバック単語がAPI経由で解決されたあと、高速表示のリーダーポップアップを自動更新するようにしました。初回読み込みの検索でも、何度もタップし直さずにJPDB/Jitenの状態とピッチアクセント詳細がすぐ表示されます。',
     'Preserved kanji popup back navigation when dictionary lookup links wrap an already parsed Yomu word.': '辞書検索リンクがすでに解析済みのYomu単語を包んでいる場合でも、漢字ポップアップの戻るナビゲーションを保つようにしました。',
@@ -1070,9 +1071,12 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Permalink to "Back up your settings"': '「設定をバックアップ」への固定リンク',
     'Permalink to "If something does not work"': '「うまく動かない場合」への固定リンク',
     'よむ - Japanese reader for web, manga, PDFs, and subtitles': 'よむ - Web、漫画、PDF、字幕向け日本語リーダー',
+    'よむ - Japanese reader for web, manga, games, PDFs, and subtitles': 'よむ - Web、漫画、ゲーム、PDF、字幕向け日本語リーダー',
     'Yomu helps you read real Japanese in the browser. Look up words on web pages, manga, PDFs, and subtitles, save useful sentences, connect your SRS, prefer Japanese site versions, and filter YouTube for Japanese content.': 'Yomuはブラウザで本物の日本語を読む手助けをします。Webページ、漫画、PDF、字幕の単語を調べ、役に立つ文を保存し、SRSと接続し、日本語版サイトを優先して、YouTubeを日本語コンテンツに絞り込めます。',
+    'Yomu helps you read real Japanese in the browser. Look up words on web pages, manga, game text, PDFs, and subtitles, save useful sentences, connect your SRS, prefer Japanese site versions, and filter YouTube for Japanese content.': 'Yomuはブラウザで本物の日本語を読む手助けをします。Webページ、漫画、ゲームテキスト、PDF、字幕の単語を調べ、役に立つ文を保存し、SRSと接続し、日本語版サイトを優先して、YouTubeを日本語コンテンツに絞り込めます。',
     'Read Japanese without leaving the page': 'ページを離れずに日本語を読む',
     'Look up words on web pages, manga, PDFs, and subtitles, then save useful sentences for study. Connect your SRS to practice your words, find new words by visiting the Japanese versions of the websites you use daily, and filter YouTube for Japanese content. Yomu brings the perfect immersion environment, no matter your level.': 'Webページ、漫画、PDF、字幕の単語を調べ、役に立つ文を学習用に保存できます。SRSと接続して単語を練習し、毎日使うWebサイトの日本語版を開いて新しい単語を見つけ、YouTubeを日本語コンテンツに絞り込めます。Yomuはレベルを問わず、理想的な没入環境を届けます。',
+    'Look up words on web pages, manga, game text, PDFs, and subtitles, then save useful sentences for study. Connect your SRS to practice your words, find new words by visiting the Japanese versions of the websites you use daily, and filter YouTube for Japanese content. Yomu brings the perfect immersion environment, no matter your level.': 'Webページ、漫画、ゲームテキスト、PDF、字幕の単語を調べ、役に立つ文を学習用に保存できます。SRSと接続して単語を練習し、毎日使うWebサイトの日本語版を開いて新しい単語を見つけ、YouTubeを日本語コンテンツに絞り込めます。Yomuはレベルを問わず、理想的な没入環境を届けます。',
     'Get よむ': 'よむを入手',
     'Setup guide': 'セットアップガイド',
     'Install よむ in about two minutes': '約2分でよむをインストール',
@@ -1098,6 +1102,8 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Read captions in any player': 'どのプレイヤーでも字幕を読む',
     'Follow along with your favourite shows, looking up any words you dont understand. If there is some text on the screen, you can pause and read it with OCR': 'お気に入りの番組を見ながら、わからない単語を調べられます。画面上にテキストがあれば、一時停止してOCRで読むこともできます。',
     'Captioned Japanese sample video': '字幕付き日本語サンプル動画',
+    'Captioned Peppa Pig Japanese sample video': '字幕付きPeppa Pig日本語サンプル動画',
+    'Captioned Peppa Pig Japanese shopping sample video': '字幕付きPeppa Pig日本語ショッピングサンプル動画',
     'YouTube video': 'YouTube動画',
     'Permalink to "Next"': '「次に」への固定リンク',
     'Permalink to "Choose a reading surface"': '「読む対象を選ぶ」への固定リンク',
@@ -1859,6 +1865,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'If iPad playback fails, use the Tailscale URL, not': 'iPadでの再生が失敗する場合は、以下ではなくTailscale URLを使用してください：',
     'If this setup feels like too much, use the hosted audio option at the top of this page. It is much easier.': 'このセットアップが難しく感じられる場合は、このページの上部にあるホスト版の音声オプションを使用してください。そちらの方がはるかに簡単です。',
     'Open local browser-supported video and subtitle files in the player.': 'ブラウザがサポートするローカル動画および字幕ファイルをプレイヤーで開きます。',
+    'Open PDFs in the hosted reader and use よむ lookup, mining, and OCR where supported.': 'ホスト版PDFリーダーでPDFを開き、対応している場所ではよむの検索、マイニング、OCRを使えます。',
     'Return to the main documentation hub for setup, features, and changelog pages.': 'セットアップ、機能、変更履歴ページのためにメインのドキュメントハブに戻ります。',
     'currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.': 'などは現在月額10ドルからの有料プランを宣伝していますが、よむは同様の核となる読書およびマイニングのワークフローを無料で提供します。',
     'Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.': '寄付は任意です。寄付は、リーダーの磨き込みを維持するための時間、テスト端末、サービス、メンテナンス、およびAIトークンの費用を賄うのに役立ちます。現実的には、よむの開発でAI/APIトークンに費やした額は、寄付で回収できる見込みの額をはるかに上回っていますが、少額の寄付でもその負担を和らげることができます。個人的には、十分なお金を貯めて日本に移住し、遠距離恋愛中の日本人彼女と結婚するのが私の夢です。皆様からのご支援のすべてが、その未来を引き寄せ、よむのメンテナンス継続、バグ修正、および学習者が求める機能の追加への励みになります。',

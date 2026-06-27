@@ -172,6 +172,14 @@ describe('reader theme', () => {
         expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'off' });
     });
 
+    it('parses modern OKLab computed colors from dark app shells', () => {
+        const discordBody = cssColorToRgba('oklab(0.183087 0.00112148 -0.00387992)');
+        const discordText = cssColorToRgba('oklab(0.952693 0.000792831 -0.00253612)');
+
+        expect(discordBody && rgbaToHex(discordBody)).toBe('#121214');
+        expect(discordText && rgbaToHex(discordText)).toBe('#efeff1');
+    });
+
     it('adjusts page word colors and highlights against the actual website background', () => {
         document.body.innerHTML = `
             <p style="background: rgb(255, 255, 255); color: rgb(255, 255, 255);">
@@ -349,6 +357,50 @@ describe('reader theme', () => {
         expect(word.style.getPropertyValue('--jpdb-reader-highlight-backdrop')).toBe('rgb(24, 27, 32)');
         expect(text).toBe('#f2f3f5');
         expect(contrastRatio(text, '#181b20')).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('uses OKLab host backgrounds instead of falling back to a white Discord surface', () => {
+        document.body.innerHTML = `
+            <section id="discord-surface">
+                <div id="discord-control" role="button" data-jpdb-reader-passive-chrome="true">
+                    <span
+                        class="jpdb-reader-word jpdb-mastered jpdb-reader-scan-word jpdb-reader-passive-word jpdb-pitch-atamadaka"
+                        style="color: rgb(0, 0, 0); text-decoration-color: rgb(53, 158, 255);"
+                    >日本語</span>
+                </div>
+            </section>
+        `;
+        const surface = document.getElementById('discord-surface')!;
+        const control = document.getElementById('discord-control')!;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const realGetComputedStyle = window.getComputedStyle.bind(window);
+        const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElt) => {
+            const style = realGetComputedStyle(element, pseudoElt);
+            if (element !== surface && element !== control) return style;
+            return new Proxy(style, {
+                get(target, property, receiver) {
+                    if (property === 'backgroundColor') {
+                        return element === surface
+                            ? 'oklab(0.183087 0.00112148 -0.00387992)'
+                            : 'rgba(0, 0, 0, 0)';
+                    }
+                    if (property === 'color') return 'oklab(0.952693 0.000792831 -0.00253612)';
+                    return Reflect.get(target, property, receiver);
+                },
+            });
+        });
+
+        try {
+            refreshReaderWordContrastForWord(word);
+        } finally {
+            spy.mockRestore();
+        }
+
+        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        expect(word.style.getPropertyValue('--jpdb-reader-page-bg')).toBe('rgb(18, 18, 20)');
+        expect(text).toBe('#efeff1');
+        expect(text).not.toBe('#000000');
+        expect(contrastRatio(text, '#121214')).toBeGreaterThanOrEqual(4.5);
     });
 
     it('keeps passive content highlights readable while keeping furigana readable on the page surface', () => {

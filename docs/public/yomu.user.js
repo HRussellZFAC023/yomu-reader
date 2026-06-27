@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.157
+// @version 1.4.158
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.157
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.157
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.157
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.157
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.158
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.158
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.158
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.158
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -37036,6 +37036,7 @@ function cssColorToRgba(value) {
   if (hex) return hexToRgbaColor(expandHexColor(hex[1]));
   if (color.startsWith("rgb(") || color.startsWith("rgba(")) return parseRgbFunction(color);
   if (color.startsWith("color(srgb ")) return parseSrgbFunction(color);
+  if (color.startsWith("oklab(")) return oklab(color);
   return null;
 }
 function blendRgba(foreground, background) {
@@ -37079,6 +37080,15 @@ function parseSrgbFunction(value) {
     alpha: parts[3] ? parseAlpha(parts[3]) : 1
   };
 }
+function oklab(value) {
+  const parts = colorFunctionNumbers(value);
+  if (parts.length < 3) return null;
+  return oklabRgb(
+    Number.parseFloat(parts[0]),
+    Number.parseFloat(parts[1]),
+    Number.parseFloat(parts[2])
+  );
+}
 function colorFunctionNumbers(value) {
   return value.match(/-?\d*\.?\d+%?/g) ?? [];
 }
@@ -37091,6 +37101,24 @@ function parseSrgbChannel(value) {
 function parseAlpha(value) {
   const alpha = value.endsWith("%") ? Number.parseFloat(value) / 100 : Number.parseFloat(value);
   return Math.max(0, Math.min(1, Number.isFinite(alpha) ? alpha : 1));
+}
+function oklabRgb(lightness, a, b) {
+  const l = lightness + 0.39634 * a + 0.2158 * b;
+  const m = lightness - 0.10556 * a - 0.06385 * b;
+  const s = lightness - 0.08948 * a - 1.29149 * b;
+  const l3 = l ** 3;
+  const m3 = m ** 3;
+  const s3 = s ** 3;
+  return {
+    red: linearSrgb(4.07674 * l3 - 3.30771 * m3 + 0.23097 * s3),
+    green: linearSrgb(-1.26844 * l3 + 2.60976 * m3 - 0.34132 * s3),
+    blue: linearSrgb(-42e-4 * l3 - 0.70342 * m3 + 1.70761 * s3),
+    alpha: 1
+  };
+}
+function linearSrgb(value) {
+  const channel = value <= 31308e-7 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
+  return clampChannel(channel * 255);
 }
 function clampChannel(value) {
   return Math.max(0, Math.min(255, Math.round(Number.isFinite(value) ? value : 0)));
@@ -37754,7 +37782,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.157"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.158"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],

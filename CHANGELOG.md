@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.158] - 2026-06-27
+
+### Fixed
+
+- Fixed Discord and other modern dark app shells whose computed colors use OKLab, so Yomu uses the real dark surface instead of falling back to white and turning passive highlights or text black.
+
 ## [1.4.157] - 2026-06-27
 
 ### Fixed
