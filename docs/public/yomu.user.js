@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.138
+// @version 1.4.139
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.138
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.138
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.138
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.138
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.139
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.139
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.139
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.139
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -31661,6 +31661,7 @@ const BLOOMEE_LANDING_ROOTS = [
   ".ctaarea p"
 ].join(",");
 const BOOKWALKER_STOREFRONT_HOSTS = new Set(["bookwalker.jp", "www.bookwalker.jp"]);
+const BOOKWALKER_READER_PARSER_ID = "bookwalker-reader-no-dom-parser";
 const BOOKWALKER_STOREFRONT_PARSER_ID = "bookwalker-storefront-no-dom-parser";
 const SITE_PARSER_PROFILES = [
   {
@@ -31718,6 +31719,14 @@ const SITE_PARSER_PROFILES = [
     heading: true,
     allowShortCenteredHeadings: true,
     matches: (url) => isBloomeeLandingUrl(url)
+  },
+  {
+    id: BOOKWALKER_READER_PARSER_ID,
+    roots: [],
+    disableGenericDomScan: true,
+    suppressResidualVisibleScan: true,
+    includePassiveInteractionRoots: false,
+    matches: (url) => isBookWalkerReaderUrl(url)
   },
   {
     id: BOOKWALKER_STOREFRONT_PARSER_ID,
@@ -32101,11 +32110,20 @@ function getMatchingSiteParsers(href = window.location.href) {
 function isBookWalkerStorefrontPage(href = location.href) {
   return isBookWalkerStorefrontUrl(new URL(href, window.location.href));
 }
+function isBookWalkerReaderPage(href = location.href) {
+  return isBookWalkerReaderUrl(new URL(href, window.location.href));
+}
 function isBloomeeLandingUrl(url) {
   return BLOOMEE_LANDING_HOSTS.has(url.hostname.toLowerCase()) && (url.pathname === "/" || url.pathname === "") && Boolean(document.querySelector(".life-top-page-wrap,.home-index,.point__itembox-headline,.cv-step,.ctaarea"));
 }
 function isBookWalkerStorefrontUrl(url) {
-  return BOOKWALKER_STOREFRONT_HOSTS.has(url.hostname.toLowerCase());
+  return BOOKWALKER_STOREFRONT_HOSTS.has(url.hostname.toLowerCase()) && !isBookWalkerReaderUrl(url);
+}
+function isBookWalkerReaderUrl(url) {
+  const hostname = url.hostname.toLowerCase();
+  if (!/^(?:[^.]+\.)*bookwalker\.jp$/iu.test(hostname)) return false;
+  if (hostname !== "bookwalker.jp" && hostname !== "www.bookwalker.jp") return true;
+  return Boolean(document.querySelector('canvas, #pageSliderCounter, #viewer, #renderer, #bookContainer, [id^="viewport"]'));
 }
 function siteProvidesNativeTextLayer(href = window.location.href) {
   return getMatchingSiteParsers(href).some((profile) => {
@@ -32357,7 +32375,7 @@ function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.loc
   const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
   const baseTargets = siteTargets ?? [];
   if (matchingProfiles.some((profile) => profile.disableGenericDomScan)) {
-    return withResidualVisibleJapaneseTargets(baseTargets, effectiveLimit, matchingProfiles);
+    return matchingProfiles.some((profile) => profile.suppressResidualVisibleScan) ? baseTargets : withResidualVisibleJapaneseTargets(baseTargets, effectiveLimit, matchingProfiles);
   }
   const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
   if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
@@ -32835,7 +32853,7 @@ function hasVisibleSiteScanTargets() {
   return (collectSiteScanTargets(1)?.length ?? 0) > 0;
 }
 function allowsGenericVisibleAutoScan() {
-  return !isYouTubeHostForAutoScan() && !isBookWalkerStorefrontPage();
+  return !isYouTubeHostForAutoScan() && !isBookWalkerStorefrontPage() && !isBookWalkerReaderPage();
 }
 function allowsFrequentVisibleAutoScan() {
   return true;
@@ -37342,7 +37360,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.138"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.139"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],

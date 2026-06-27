@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.4.138",
+  "version": "1.4.139",
   "private": true,
   "type": "module",
   "description": "よむ: a small Jiten/JPDB/Yomitan popup dictionary and subtitle miner userscript.",
@@ -56,6 +56,7 @@
     "size:greasyfork-plan": "npm run build && npm run size:modules && node scripts/greasyfork-size-plan.mjs",
     "size:modules": "vite build --config config/vite/size.config.ts",
     "smoke:bookwalker-apex-ocr": "node scripts/bookwalker-apex-ocr-smoke.mjs",
+    "smoke:bookwalker-modes-ocr": "node scripts/bookwalker-modes-ocr-smoke.mjs",
     "smoke:bookwalker-tap-passthrough": "node scripts/bookwalker-tap-passthrough-smoke.mjs",
     "smoke:bookwalker-tap-retry": "node scripts/bookwalker-tap-retry-smoke.mjs",
     "smoke:overlay-scroll-lock": "node scripts/overlay-scroll-lock-smoke.mjs",

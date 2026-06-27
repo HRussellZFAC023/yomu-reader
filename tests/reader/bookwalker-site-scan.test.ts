@@ -4,6 +4,7 @@ import { allowsGenericVisibleAutoScan } from '../../src/reader/app/main-helpers'
 import {
     collectScanTargets,
     getMatchingSiteParsers,
+    isBookWalkerReaderPage,
     isBookWalkerStorefrontPage,
 } from '../../src/reader/app/site-parsers';
 import { isReaderRasterPage } from '../../src/reader/ocr/canvas-readers';
@@ -119,22 +120,57 @@ describe('BookWalker site scan boundaries', () => {
 
         expect(isBookWalkerStorefrontPage(viewerUrl)).toBe(false);
         expect(getMatchingSiteParsers(viewerUrl).map(profile => profile.id))
-            .not.toContain('bookwalker-storefront-no-dom-parser');
+            .toEqual(['bookwalker-reader-no-dom-parser']);
+        expect(isBookWalkerReaderPage(viewerUrl)).toBe(true);
         expect(isReaderRasterPage('viewer.bookwalker.jp')).toBe(true);
     });
 
-    it('disables generic visible auto-scan scheduling on BookWalker storefront pages only', () => {
+    it('does not annotate BookWalker reader settings chrome as residual page text', () => {
+        const restoreRects = mockVisibleElementRects();
+        const readerUrls = [
+            'https://viewer.bookwalker.jp/03/1/viewer.html',
+            'https://bookwalker.jp/de_modes/',
+        ];
+
+        try {
+            for (const url of readerUrls) {
+                document.body.innerHTML = `
+                    <div id="viewer"><div id="renderer">
+                        <div id="viewport0" class="currentScreen"><canvas width="1200" height="1600"></canvas></div>
+                    </div></div>
+                    <div class="settings-popover">
+                        <button type="button">ページ移動方向</button>
+                        <label>タップ設定</label>
+                        <span>見開き表示</span>
+                    </div>
+                    <span id="pageSliderCounter">13/195</span>`;
+                stubLocation(url);
+
+                expect(isBookWalkerReaderPage()).toBe(true);
+                expect(isBookWalkerStorefrontPage()).toBe(false);
+                expect(allowsGenericVisibleAutoScan()).toBe(false);
+                expect(collectScanTargets(20, url)).toEqual([]);
+            }
+        } finally {
+            restoreRects();
+        }
+    });
+
+    it('disables generic visible auto-scan scheduling on BookWalker storefront and reader pages', () => {
         stubLocation(BOOKWALKER_HOME_URL);
         expect(allowsGenericVisibleAutoScan()).toBe(false);
         expect(isBookWalkerStorefrontPage()).toBe(true);
+        expect(isBookWalkerReaderPage()).toBe(false);
 
         stubLocation(BOOKWALKER_WWW_HOME_URL);
         expect(allowsGenericVisibleAutoScan()).toBe(false);
         expect(isBookWalkerStorefrontPage()).toBe(true);
+        expect(isBookWalkerReaderPage()).toBe(false);
 
         stubLocation('https://viewer.bookwalker.jp/03/1/viewer.html');
-        expect(allowsGenericVisibleAutoScan()).toBe(true);
+        expect(allowsGenericVisibleAutoScan()).toBe(false);
         expect(isBookWalkerStorefrontPage()).toBe(false);
+        expect(isBookWalkerReaderPage()).toBe(true);
     });
 });
 
