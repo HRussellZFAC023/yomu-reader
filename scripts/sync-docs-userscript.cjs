@@ -74,6 +74,7 @@ function syncNewTabIndex() {
   writeFileSync(indexTarget, html);
   syncNewTabVersion(hash, buildId);
   console.log(`Synced ${indexTarget}`);
+  syncNewTabManifest();
   syncNewTabServiceWorker(hash);
 }
 
@@ -112,5 +113,18 @@ function syncNewTabManifest() {
   copyFileSync(manifestSource, manifestDist);
   mkdirSync(dirname(manifestTarget), { recursive: true });
   copyFileSync(manifestSource, manifestTarget);
+  console.log(`Synced ${manifestTarget}`);
+}
+
+function syncNewTabManifest() {
+  const manifestSource = join(root, 'public', 'newtab', 'manifest.webmanifest');
+  const manifestDist = join(root, 'dist', 'newtab', 'manifest.webmanifest');
+  const manifestTarget = join(root, 'docs', 'public', 'newtab', 'manifest.webmanifest');
+  if (!existsSync(manifestSource)) return;
+  const manifest = readFileSync(manifestSource, 'utf8');
+  mkdirSync(dirname(manifestDist), { recursive: true });
+  writeFileSync(manifestDist, manifest);
+  mkdirSync(dirname(manifestTarget), { recursive: true });
+  writeFileSync(manifestTarget, manifest);
   console.log(`Synced ${manifestTarget}`);
 }

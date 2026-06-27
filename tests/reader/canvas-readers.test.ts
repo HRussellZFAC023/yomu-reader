@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     backgroundImageReaderUrl,
@@ -62,7 +62,19 @@ function mountMokuroFixture(): HTMLElement {
     return page;
 }
 
-afterEach(() => { document.body.innerHTML = ''; });
+function stubLocation(hostname: string): void {
+    vi.stubGlobal('location', {
+        hostname,
+        href: `https://${hostname}/reader`,
+        origin: `https://${hostname}`,
+        protocol: 'https:',
+    });
+}
+
+afterEach(() => {
+    document.body.innerHTML = '';
+    vi.unstubAllGlobals();
+});
 
 describe('canvas readers (BookWalker)', () => {
     const originalGetContext = HTMLCanvasElement.prototype.getContext;
@@ -191,6 +203,62 @@ describe('canvas readers (BookWalker)', () => {
         const surfaces = collectCanvasReaderSurfaces('viewer.bookwalker.jp');
 
         expect(surfaces).toEqual(canvases);
+    });
+
+    it('keeps side-by-side visible BookWalker spread pages instead of collapsing to one currentScreen', () => {
+        document.body.innerHTML = `
+            <div id="renderer">
+                <div id="viewport0" class="currentScreen"><canvas width="1600" height="2260"></canvas></div>
+                <div id="viewport1"><canvas width="1600" height="2260"></canvas></div>
+            </div>
+            <span id="pageSliderCounter">13/195</span>`;
+        const canvases = [...document.querySelectorAll<HTMLCanvasElement>('canvas')];
+        canvases[0]!.getBoundingClientRect = () => new DOMRect(24, 40, 420, 594);
+        canvases[1]!.getBoundingClientRect = () => new DOMRect(470, 40, 420, 594);
+
+        const surfaces = collectCanvasReaderSurfaces('viewer.bookwalker.jp');
+
+        expect(surfaces).toEqual(canvases);
+    });
+
+    it('keeps the BookWalker page signature stable while persistent vertical pages scroll', () => {
+        stubLocation('viewer.bookwalker.jp');
+        vi.stubGlobal('scrollY', 1200);
+        document.body.innerHTML = `
+            <div id="renderer">
+                <div id="viewport0" class="currentScreen"><canvas width="1600" height="2260"></canvas></div>
+                <div id="viewport1"><canvas width="1600" height="2260"></canvas></div>
+                <div id="viewport2"><canvas width="1600" height="2260"></canvas></div>
+            </div>
+            <span id="pageSliderCounter">13/195</span>`;
+        const canvases = [...document.querySelectorAll<HTMLCanvasElement>('canvas')];
+        canvases[0]!.getBoundingClientRect = () => new DOMRect(120, -1200, 760, 1074);
+        canvases[1]!.getBoundingClientRect = () => new DOMRect(120, 64, 760, 1074);
+        canvases[2]!.getBoundingClientRect = () => new DOMRect(120, 1320, 760, 1074);
+        const before = canvasReaderPageSignature();
+
+        vi.stubGlobal('scrollY', 1480);
+        canvases[0]!.getBoundingClientRect = () => new DOMRect(120, -1480, 760, 1074);
+        canvases[1]!.getBoundingClientRect = () => new DOMRect(120, -216, 760, 1074);
+        canvases[2]!.getBoundingClientRect = () => new DOMRect(120, 1040, 760, 1074);
+
+        expect(canvasReaderPageSignature()).toBe(before);
+    });
+
+    it('keeps scroll in the BookWalker signature for a single repainting viewport canvas', () => {
+        stubLocation('viewer.bookwalker.jp');
+        document.body.innerHTML = `
+            <div id="renderer">
+                <div id="viewport0" class="currentScreen"><canvas width="1600" height="2260"></canvas></div>
+            </div>
+            <span id="pageSliderCounter">13/195</span>`;
+        document.querySelector<HTMLCanvasElement>('canvas')!.getBoundingClientRect = () => new DOMRect(120, 64, 760, 1074);
+
+        vi.stubGlobal('scrollY', 120);
+        const before = canvasReaderPageSignature();
+
+        vi.stubGlobal('scrollY', 280);
+        expect(canvasReaderPageSignature()).not.toBe(before);
     });
 
     it('collects explicit scanned PDF canvas OCR opt-in surfaces on generic hosts', () => {

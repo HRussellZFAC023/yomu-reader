@@ -1,12 +1,45 @@
 # Changelog
 
-## [1.4.137] - 2026-06-27
+## [1.4.140] - 2026-06-27
 
 ### Fixed
 
 - Repaired Yomu Video and YouTube subtitle layout regressions: left/right transcript panels now stay flush without covering the player, subtitles stay anchored to the player or hide while scrolling into comments, and fullscreen geometry updates immediately while video is playing.
 - Restored direct subtitle height dragging, stabilized subtitle font sizing, added a Reset defaults button to subtitle style controls, and contained style popover pointer events so controls no longer activate subtitles underneath.
 - Made the compact subtitle rail buttons consistent and highlighted active fullscreen/zoom state with the accent color.
+
+## [1.4.139] - 2026-06-27
+
+### Fixed
+
+- BookWalker OCR now treats visible two-page spreads and vertical continuous-scroll page runs as active surfaces instead of collapsing to a stale currentScreen marker, so tapping either page in horizontal mode or the visible page in continuous mode triggers OCR.
+- Reduced BookWalker continuous-scroll churn by keeping scroll offset out of the page signature for persistent page stacks, preventing repeated OCR frame teardown while scrolling on iPad.
+- Stopped Yomu from annotating BookWalker reader settings and menu chrome, so native labels like page movement direction remain compact and furigana no longer wraps controls.
+
+## [1.4.138] - 2026-06-27
+
+### Fixed
+
+- Kept compact app chrome labels and action buttons readable and tappable by suppressing furigana and hover highlight paint only inside short fixed-height navigation/control labels, while preserving ruby on normal prose links and ruby-capable content chips.
+
+## [1.4.137] - 2026-06-27
+
+### Added
+
+- Help now shows the current Yomu version, latest available version status, duplicate-script status, and an Update/Reinstall userscript link, with AnkiConnect CORS, mobile, and Brave setup guidance in the same panel.
+- Study answer backs now surface furigana, pitch accents, frequency pills, and audio controls at the top of the revealed word card, matching the popup dictionary layout more closely.
+- Sources settings now includes local pitch and frequency dictionary guidance, a Kanjium pitch guide row, and a JPDBv2 Kana frequency install button so pitch/frequency can be local instead of fetched every time.
+
+### Changed
+
+- Two-point Study grading is available in Study settings, and Pass/Fail review controls use the available width with a centered mobile layout.
+- Homepage CTAs now say Install and link directly to Watch and Read/PDF tools.
+- Dictionary empty states and recommended dictionary copy now explain that term dictionaries add definitions, while pitch and frequency dictionaries add accents and badges.
+
+### Fixed
+
+- Hosted Study now degrades gracefully when userscript bridge, CORS, audio, pitch, or furigana requests are unavailable, including browser coverage for the no-userscript Study reveal path.
+- Offline Study status now makes cached cards and queued grade sync visible after a prior visit.
 
 ## [1.4.136] - 2026-06-26
 

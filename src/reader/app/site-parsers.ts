@@ -28,6 +28,7 @@ export interface SiteParserProfile {
     singlePassScan?: boolean;
     nonDestructive?: boolean;
     disableGenericDomScan?: boolean;
+    suppressResidualVisibleScan?: boolean;
     includePassiveInteractionRoots?: boolean;
     /**
      * The site renders its own accurate, selectable Japanese text layer over the
@@ -456,6 +457,7 @@ const BLOOMEE_LANDING_ROOTS = [
     '.ctaarea p',
 ].join(',');
 const BOOKWALKER_STOREFRONT_HOSTS = new Set(['bookwalker.jp', 'www.bookwalker.jp']);
+const BOOKWALKER_READER_PARSER_ID = 'bookwalker-reader-no-dom-parser';
 const BOOKWALKER_STOREFRONT_PARSER_ID = 'bookwalker-storefront-no-dom-parser';
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
@@ -518,6 +520,14 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         heading: true,
         allowShortCenteredHeadings: true,
         matches: url => isBloomeeLandingUrl(url),
+    },
+    {
+        id: BOOKWALKER_READER_PARSER_ID,
+        roots: [],
+        disableGenericDomScan: true,
+        suppressResidualVisibleScan: true,
+        includePassiveInteractionRoots: false,
+        matches: url => isBookWalkerReaderUrl(url),
     },
     {
         id: BOOKWALKER_STOREFRONT_PARSER_ID,
@@ -932,6 +942,10 @@ export function isBookWalkerStorefrontPage(href = location.href): boolean {
     return isBookWalkerStorefrontUrl(new URL(href, window.location.href));
 }
 
+export function isBookWalkerReaderPage(href = location.href): boolean {
+    return isBookWalkerReaderUrl(new URL(href, window.location.href));
+}
+
 function isBloomeeLandingUrl(url: URL): boolean {
     return BLOOMEE_LANDING_HOSTS.has(url.hostname.toLowerCase())
         && (url.pathname === '/' || url.pathname === '')
@@ -939,7 +953,14 @@ function isBloomeeLandingUrl(url: URL): boolean {
 }
 
 function isBookWalkerStorefrontUrl(url: URL): boolean {
-    return BOOKWALKER_STOREFRONT_HOSTS.has(url.hostname.toLowerCase());
+    return BOOKWALKER_STOREFRONT_HOSTS.has(url.hostname.toLowerCase()) && !isBookWalkerReaderUrl(url);
+}
+
+function isBookWalkerReaderUrl(url: URL): boolean {
+    const hostname = url.hostname.toLowerCase();
+    if (!/^(?:[^.]+\.)*bookwalker\.jp$/iu.test(hostname)) return false;
+    if (hostname !== 'bookwalker.jp' && hostname !== 'www.bookwalker.jp') return true;
+    return Boolean(document.querySelector('canvas, #pageSliderCounter, #viewer, #renderer, #bookContainer, [id^="viewport"]'));
 }
 
 /**
@@ -1276,7 +1297,9 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
     const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
     const baseTargets = siteTargets ?? [];
     if (matchingProfiles.some(profile => profile.disableGenericDomScan)) {
-        return withResidualVisibleJapaneseTargets(baseTargets, effectiveLimit, matchingProfiles);
+        return matchingProfiles.some(profile => profile.suppressResidualVisibleScan)
+            ? baseTargets
+            : withResidualVisibleJapaneseTargets(baseTargets, effectiveLimit, matchingProfiles);
     }
     const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
     if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {

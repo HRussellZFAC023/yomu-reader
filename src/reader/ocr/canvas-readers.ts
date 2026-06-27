@@ -134,12 +134,17 @@ function isLikelyPageCanvas(canvas: HTMLCanvasElement, lenient: boolean): boolea
     return isViewportProminent(canvas) && looksLikeRenderedCanvasImage(canvas);
 }
 
-function pageCanvases(hostname: string = location.hostname): HTMLCanvasElement[] {
+function pageCanvases(
+    hostname: string = location.hostname,
+    options: { preferBookwalkerCurrent?: boolean } = {},
+): HTMLCanvasElement[] {
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
     const canvases = Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas'))
         .filter(canvas => !shouldSkipCanvasReaderSurface(canvas))
         .filter(canvas => isLikelyPageCanvas(canvas, lenient));
-    return isBookwalkerViewerHost(hostname) ? preferCurrentScreenCanvases(canvases) : canvases;
+    return isBookwalkerViewerHost(hostname) && options.preferBookwalkerCurrent !== false
+        ? preferCurrentScreenCanvases(canvases)
+        : canvases;
 }
 
 function shouldSkipCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {
@@ -171,8 +176,11 @@ function hasForcedCanvasReaderShape(canvas: HTMLCanvasElement): boolean {
 // marked current) so a page is never dropped.
 function preferCurrentScreenCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasElement[] {
     if (canvases.length < 2) return canvases;
-    if (hasVerticallyStackedVisibleCanvases(canvases)) return canvases;
+    const visible = visibleViewportCanvases(canvases);
+    if (hasDistinctVisiblePageLayout(visible)) return visible;
     const current = canvases.filter(isOnScreenViewportCanvas);
+    if (current.length && visible.length === 1 && !current.includes(visible[0]!)) return visible;
+    if (hasVerticallyStackedDocumentPageRun(canvases)) return canvases;
     if (!current.length) return canvases;
     const renderedCurrent = current.filter(looksLikeRenderedCanvasImage);
     if (renderedCurrent.length) return renderedCurrent;
@@ -182,18 +190,29 @@ function preferCurrentScreenCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasE
     return renderedFallback.length ? renderedFallback : current;
 }
 
-function hasVerticallyStackedVisibleCanvases(canvases: HTMLCanvasElement[]): boolean {
+function visibleViewportCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasElement[] {
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    if (!viewportWidth || !viewportHeight) return false;
-    const rects = canvases
-        .map(canvas => canvas.getBoundingClientRect())
-        .filter(rect => rect.width > 0
+    if (!viewportWidth || !viewportHeight) return [];
+    return canvases.filter(canvas => {
+        const rect = canvas.getBoundingClientRect();
+        return rect.width > 0
             && rect.height > 0
             && rect.bottom >= 0
             && rect.right >= 0
             && rect.top <= viewportHeight
-            && rect.left <= viewportWidth)
+            && rect.left <= viewportWidth;
+    });
+}
+
+function hasDistinctVisiblePageLayout(canvases: HTMLCanvasElement[]): boolean {
+    return hasDistinctPageLayout(canvases.map(canvas => canvas.getBoundingClientRect()));
+}
+
+function hasVerticallyStackedDocumentPageRun(canvases: HTMLCanvasElement[]): boolean {
+    const rects = canvases
+        .map(canvas => canvas.getBoundingClientRect())
+        .filter(rect => rect.width > 0 && rect.height > 0)
         .sort((a, b) => a.top - b.top);
     if (rects.length < 2) return false;
     for (let index = 1; index < rects.length; index += 1) {
@@ -206,6 +225,31 @@ function hasVerticallyStackedVisibleCanvases(canvases: HTMLCanvasElement[]): boo
         if (Math.abs(current.top - previous.top) > smallerHeight * 0.45
             && verticalOverlap / smallerHeight < 0.55
             && horizontalOverlap / smallerWidth > 0.55) return true;
+    }
+    return false;
+}
+
+function hasDistinctPageLayout(rects: DOMRect[]): boolean {
+    const usefulRects = rects.filter(rect => rect.width > 0 && rect.height > 0);
+    for (let i = 0; i < usefulRects.length; i += 1) {
+        for (let j = i + 1; j < usefulRects.length; j += 1) {
+            const a = usefulRects[i]!;
+            const b = usefulRects[j]!;
+            const smallerWidth = Math.max(1, Math.min(a.width, b.width));
+            const smallerHeight = Math.max(1, Math.min(a.height, b.height));
+            const largerWidth = Math.max(a.width, b.width);
+            const largerHeight = Math.max(a.height, b.height);
+            if (smallerWidth / largerWidth < 0.55 || smallerHeight / largerHeight < 0.55) continue;
+            const horizontalOverlap = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) / smallerWidth;
+            const verticalOverlap = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)) / smallerHeight;
+            const separatedHorizontally = Math.abs(a.left - b.left) > smallerWidth * 0.45
+                && horizontalOverlap < 0.55
+                && verticalOverlap > 0.55;
+            const separatedVertically = Math.abs(a.top - b.top) > smallerHeight * 0.45
+                && verticalOverlap < 0.55
+                && horizontalOverlap > 0.55;
+            if (separatedHorizontally || separatedVertically) return true;
+        }
     }
     return false;
 }
@@ -290,8 +334,11 @@ export function isReaderRasterPage(hostname: string = location.hostname): boolea
  */
 export function canvasReaderPageSignature(): string {
     const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? '';
-    const scroll = isBookwalkerViewerHost() ? Math.round((window.scrollY || 0) / 40) : 0;
     const canvases = pageCanvases();
+    const rawCanvases = isBookwalkerViewerHost() ? pageCanvases(location.hostname, { preferBookwalkerCurrent: false }) : canvases;
+    const scroll = isBookwalkerViewerHost() && shouldUseBookwalkerScrollSignature(rawCanvases)
+        ? Math.round((window.scrollY || 0) / 40)
+        : 0;
     // Key on DISTINCT page content, not raw canvas count: NFBR transiently mounts a
     // second blank/decoy canvas in the same viewport mid-turn, and a bare count would
     // flip the signature (spurious frame release + re-OCR) for what is still the same
@@ -305,6 +352,11 @@ export function canvasReaderPageSignature(): string {
         .map(element => `${element.getAttribute('data-page-index') ?? ''}:${backgroundImageReaderUrl(element) ?? ''}`)
         .join('|');
     return `${counter}|${scroll}|${surfaces}|${content}|${backgrounds}`;
+}
+
+function shouldUseBookwalkerScrollSignature(canvases: HTMLCanvasElement[]): boolean {
+    return !hasDistinctVisiblePageLayout(visibleViewportCanvases(canvases))
+        && !hasVerticallyStackedDocumentPageRun(canvases);
 }
 
 // Distinct content fingerprints for the page canvases, blank/duplicate tokens

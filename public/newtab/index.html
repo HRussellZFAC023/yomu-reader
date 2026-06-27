@@ -485,6 +485,11 @@
         window.yomuNewTabAppHash = appHash;
         window.yomuNewTabBuildId = buildId;
         if (appHash.startsWith('__') || buildId.startsWith('__')) return;
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').catch(() => undefined);
+          }, { once: true });
+        }
         const current = new URL(location.href);
         if (current.searchParams.get('build') === buildId) return;
         fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' })

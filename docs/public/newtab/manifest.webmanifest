@@ -1,7 +1,7 @@
 {
   "name": "Yomu Study",
-  "short_name": "Yomu Study",
-  "description": "Review Japanese dictionary cards and search local dictionaries from a browser new tab.",
+  "short_name": "よむ Study",
+  "description": "Review Jiten, JPDB, Anki, and local dictionary cards from the hosted Yomu Study page.",
   "lang": "en",
   "start_url": "./index.html",
   "scope": "./",

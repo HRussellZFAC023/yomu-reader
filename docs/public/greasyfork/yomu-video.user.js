@@ -2537,10 +2537,10 @@
     if (lenient) return true;
     return isViewportProminent(canvas) && looksLikeRenderedCanvasImage(canvas);
   }
-  function pageCanvases(hostname = location.hostname) {
+  function pageCanvases(hostname = location.hostname, options = {}) {
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
     const canvases = Array.from(document.querySelectorAll("canvas")).filter((canvas) => !shouldSkipCanvasReaderSurface(canvas)).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
-    return isBookwalkerViewerHost(hostname) ? preferCurrentScreenCanvases(canvases) : canvases;
+    return isBookwalkerViewerHost(hostname) && options.preferBookwalkerCurrent !== false ? preferCurrentScreenCanvases(canvases) : canvases;
   }
   function shouldSkipCanvasReaderSurface(canvas) {
     return canvas.dataset.yomuCanvasOcr === "off" || Boolean(canvas.closest('[data-yomu-canvas-ocr="off"]'));
@@ -2556,19 +2556,31 @@
   }
   function preferCurrentScreenCanvases(canvases) {
     if (canvases.length < 2) return canvases;
-    if (hasVerticallyStackedVisibleCanvases(canvases)) return canvases;
+    const visible = visibleViewportCanvases(canvases);
+    if (hasDistinctVisiblePageLayout(visible)) return visible;
     const current = canvases.filter(isOnScreenViewportCanvas);
+    if (current.length && visible.length === 1 && !current.includes(visible[0])) return visible;
+    if (hasVerticallyStackedDocumentPageRun(canvases)) return canvases;
     if (!current.length) return canvases;
     const renderedCurrent = current.filter(looksLikeRenderedCanvasImage);
     if (renderedCurrent.length) return renderedCurrent;
     const renderedFallback = canvases.filter((canvas) => !current.includes(canvas)).filter(looksLikeRenderedCanvasImage);
     return renderedFallback.length ? renderedFallback : current;
   }
-  function hasVerticallyStackedVisibleCanvases(canvases) {
+  function visibleViewportCanvases(canvases) {
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    if (!viewportWidth || !viewportHeight) return false;
-    const rects = canvases.map((canvas) => canvas.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.right >= 0 && rect.top <= viewportHeight && rect.left <= viewportWidth).sort((a, b) => a.top - b.top);
+    if (!viewportWidth || !viewportHeight) return [];
+    return canvases.filter((canvas) => {
+      const rect = canvas.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.right >= 0 && rect.top <= viewportHeight && rect.left <= viewportWidth;
+    });
+  }
+  function hasDistinctVisiblePageLayout(canvases) {
+    return hasDistinctPageLayout(canvases.map((canvas) => canvas.getBoundingClientRect()));
+  }
+  function hasVerticallyStackedDocumentPageRun(canvases) {
+    const rects = canvases.map((canvas) => canvas.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0).sort((a, b) => a.top - b.top);
     if (rects.length < 2) return false;
     for (let index = 1; index < rects.length; index += 1) {
       const previous = rects[index - 1];
@@ -2578,6 +2590,26 @@
       const verticalOverlap2 = Math.max(0, Math.min(previous.bottom, current.bottom) - Math.max(previous.top, current.top));
       const horizontalOverlap2 = Math.max(0, Math.min(previous.right, current.right) - Math.max(previous.left, current.left));
       if (Math.abs(current.top - previous.top) > smallerHeight * 0.45 && verticalOverlap2 / smallerHeight < 0.55 && horizontalOverlap2 / smallerWidth > 0.55) return true;
+    }
+    return false;
+  }
+  function hasDistinctPageLayout(rects) {
+    const usefulRects = rects.filter((rect) => rect.width > 0 && rect.height > 0);
+    for (let i = 0; i < usefulRects.length; i += 1) {
+      for (let j = i + 1; j < usefulRects.length; j += 1) {
+        const a = usefulRects[i];
+        const b = usefulRects[j];
+        const smallerWidth = Math.max(1, Math.min(a.width, b.width));
+        const smallerHeight = Math.max(1, Math.min(a.height, b.height));
+        const largerWidth = Math.max(a.width, b.width);
+        const largerHeight = Math.max(a.height, b.height);
+        if (smallerWidth / largerWidth < 0.55 || smallerHeight / largerHeight < 0.55) continue;
+        const horizontalOverlap2 = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) / smallerWidth;
+        const verticalOverlap2 = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)) / smallerHeight;
+        const separatedHorizontally = Math.abs(a.left - b.left) > smallerWidth * 0.45 && horizontalOverlap2 < 0.55 && verticalOverlap2 > 0.55;
+        const separatedVertically = Math.abs(a.top - b.top) > smallerHeight * 0.45 && verticalOverlap2 < 0.55 && horizontalOverlap2 > 0.55;
+        if (separatedHorizontally || separatedVertically) return true;
+      }
     }
     return false;
   }
@@ -2616,13 +2648,17 @@
   }
   function canvasReaderPageSignature() {
     const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
-    const scroll = isBookwalkerViewerHost() ? Math.round((window.scrollY || 0) / 40) : 0;
     const canvases = pageCanvases();
+    const rawCanvases = isBookwalkerViewerHost() ? pageCanvases(location.hostname, { preferBookwalkerCurrent: false }) : canvases;
+    const scroll = isBookwalkerViewerHost() && shouldUseBookwalkerScrollSignature(rawCanvases) ? Math.round((window.scrollY || 0) / 40) : 0;
     const tokens = canvasReaderContentTokens(canvases);
     const surfaces = tokens.length;
     const content = tokens.join(",");
     const backgrounds = backgroundImagePages().map((element) => `${element.getAttribute("data-page-index") ?? ""}:${backgroundImageReaderUrl(element) ?? ""}`).join("|");
     return `${counter}|${scroll}|${surfaces}|${content}|${backgrounds}`;
+  }
+  function shouldUseBookwalkerScrollSignature(canvases) {
+    return !hasDistinctVisiblePageLayout(visibleViewportCanvases(canvases)) && !hasVerticallyStackedDocumentPageRun(canvases);
   }
   function canvasReaderContentTokens(canvases) {
     let mirrorToken;
@@ -3481,7 +3517,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste a Jiten or JPDB API key. Jiten starts with ak_.",
+      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. You can use either service, both, or neither with local dictionaries.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       jpdbApiKeyConfigured: "JPDB key set.",
@@ -3940,7 +3976,7 @@
       exportSettings: "Export settings JSON",
       importDictionaries: "Import dictionaries",
       exportDictionaries: "Export dictionaries",
-      dictionaryImportHelp: "Import settings or ZIPs.",
+      dictionaryImportHelp: "Import a Yomitan ZIP, Yomitan settings export, or backup. Term dictionaries add definitions; pitch and frequency dictionaries add accents and badges.",
       lookupPills: "Lookup pills",
       lookupPillsHelp: "Links and frequency badges. Tokens: {query}, {word}, {reading}.",
       frequencyLookupPillsHelp: "Show imported frequency dictionaries as badges.",
@@ -3954,17 +3990,19 @@
       recommendedDownloads: "Dictionaries",
       termDictionaries: "Term dictionaries",
       kanjiDictionaries: "Kanji dictionaries",
+      pitchDictionaries: "Pitch dictionaries",
       frequencyDictionaries: "Frequency dictionaries",
       install: "Install",
       installing: "Installing",
       queued: "Queued",
+      dictionaryGuide: "Guide",
       saveAfterInstall: "Save after install",
       download: "Download",
       downloadAndImport: "Download and import",
       update: "Update",
-      noLocalDictionaries: "No local dictionaries yet.",
+      noLocalDictionaries: "No term dictionary imported yet. Install JMdict, Jitendex, or WTY for definitions; pitch/frequency dictionaries only add accents or badges.",
       checkingDictionaries: "Checking imported dictionaries...",
-      dictionaryOnlyJpdb: "Only JPDB is enabled. Import Yomitan for local.",
+      dictionaryOnlyJpdb: "Only JPDB is enabled. Import JMdict, Jitendex, WTY, or another term dictionary for local definitions.",
       dictionaryDownloading: "Downloading",
       dictionaryReadingZip: "Reading dictionary ZIP...",
       dictionaryCheckingIndex: "Checking index...",
@@ -3983,14 +4021,14 @@
       dictionaryDownloadProgress: "Downloading",
       dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}",
       dictionaryStatusUnavailable: "Unavailable.",
-      noLocalDictionariesImported: "No dictionaries imported yet.",
+      noLocalDictionariesImported: "No dictionaries imported yet. Start with a term dictionary for definitions.",
       dictionaryDownloadFailed: "Dictionary download failed.",
       dictionaryDownloadTimedOut: "Dictionary download timed out.",
       dictionaryDownloadNotZip: "Download was not a ZIP.",
       dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
       dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
       dictionaryManualDownloadHint: "Enable userscript or import the ZIP.",
-      dictionaryInstallQueueHelp: "Installs take a few minutes.",
+      dictionaryInstallQueueHelp: "Install a term dictionary first for definitions. Pitch and frequency dictionaries add accents and badges, not normal definition text.",
       dictionaryInstallQueued: "{dictionary} queued.",
       dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
       dictionaryImportQueueStatus: "{count} install{plural} running.",
@@ -4182,6 +4220,22 @@
       gradePass: "Pass/fail: PASS",
       helpLinksTitle: "Useful pages",
       helpLinksCopy: "Open reader tools and docs from here.",
+      versionAndUpdates: "Version and updates",
+      currentYomuVersion: "Current Yomu version:",
+      updateStatusIdle: "Current {current}. Open Help to check latest available version.",
+      updateStatusChecking: "Current {current}. Checking latest available version...",
+      updateStatusCurrent: "Current {current}. Latest {latest}. You are up to date.",
+      updateStatusAvailable: "Current {current}. Latest {latest}. Update available.",
+      updateStatusUnknown: "Current {current}. Latest version could not be checked. Use the update link to reinstall.",
+      updateHelpNotes: "If two Yomu scripts are enabled, keep one. On iPhone/iPad, open the install link in Safari and replace the old Userscripts file if automatic updates do not apply.",
+      updateUserscript: "Update/Reinstall userscript",
+      duplicateStatusSingle: "Duplicate script check: one active Yomu runtime on this page ({kind}).",
+      duplicateStatusUnknown: "Duplicate script check: unavailable on this page. If you see two Yomu buttons or menus, disable the older script.",
+      ankiConnectSetupTitle: "AnkiConnect setup",
+      ankiConnectSetupCopy: "Keep desktop Anki open with AnkiConnect enabled. Hosted Study needs AnkiConnect to allow the Yomu origin.",
+      ankiConnectSetupConfig: "Add these origins to AnkiConnect's webCorsOriginList, keeping any existing entries:",
+      ankiConnectSetupMobile: "For phone or iPad, use the desktop computer's LAN or Tailscale URL; localhost on a phone means the phone itself.",
+      ankiConnectSetupBrave: "In Brave, disable Shields for the Study page if local Anki checks are blocked.",
       helpSupportTitle: "Support よむ",
       helpSupportCopy: SUPPORT_COPY,
       helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
@@ -4478,16 +4532,17 @@
       sourceHelpImportedKanjiDictionaries: "Imported Yomitan kanji entries.",
       sourceHelpWordsUsingKanji: "Related vocabulary.",
       sourceHelpComponentGraph: "Kanji facts, components, radical images.",
-      recommendedJitendex: "J-E with examples.",
-      recommendedJmdict: "Core J-E dictionary.",
+      recommendedJitendex: "Term definitions with examples.",
+      recommendedJmdict: "Core term definitions.",
       recommendedJmnedict: "Proper names.",
-      recommendedWtyJapaneseJapanese: "JA-JA Wiktionary.",
+      recommendedWtyJapaneseJapanese: "Japanese-to-Japanese term definitions.",
       recommendedPixivLight: "Pixiv terms.",
       recommendedKanjidic: "Kanji facts.",
       recommendedJpdbKanji: "JPDB kanji.",
-      recommendedJpdbv2Kana: "JPDB frequency.",
-      recommendedBccwj: "BCCWJ frequency.",
-      recommendedJiten: "Jiten frequency.",
+      recommendedKanjiumPitch: "Pitch accents only; add a term dictionary for definitions.",
+      recommendedJpdbv2Kana: "Recommended frequency badges from JPDB.",
+      recommendedBccwj: "Frequency badges from BCCWJ.",
+      recommendedJiten: "Frequency badges from Jiten.",
       recommendedMarvncMonolingual: "Monolingual collection.",
       fallbackSetupTitle: "Public lookup",
       fallbackSetupCopy: "Search without a JPDB key. Add dictionaries offline.",
@@ -4640,14 +4695,14 @@ dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得不可。
-noLocalDictionariesImported	ローカル辞書は未追加です。
+noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
 dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。
 dictionaryDownloadBlocked	ダウンロード不可。ZIPを追加。
 dictionaryManualDownloadHint	ユーザースクリプト有効化かZIP追加。
-dictionaryInstallQueueHelp	数分かかります。完了後に保存できます。
+dictionaryInstallQueueHelp	まず定義用の語句辞書をインストールしてください。ピッチ/頻度辞書はアクセントやバッジを追加しますが、通常の定義文は追加しません。
 dictionaryInstallQueued	{dictionary}待機中。
 dictionaryInstallSaveBlocked	インポート中。完了後に保存できます。
 dictionaryImportQueueStatus	{count}件インストール中。完了後に保存。
@@ -4673,7 +4728,7 @@ jpdbScanFailed	ページスキャンに失敗しました。
 pageCoverageSummary	{percent}%・{known}/{total}・新{unknown}・i+1 {iPlusOne}
 noImmersionExamples	イマージョンキットの例文が見つかりません。
 noImmersionExamplesCompact	例文なし
-noLocalDictionaries	JMdictかYomitan ZIPを追加してください。
+noLocalDictionaries	語句辞書は未追加です。定義にはJMdict、Jitendex、WTYなどを追加してください。ピッチ/頻度辞書だけでは定義文は増えません。
 kanjiMapData	漢字マップデータ
 kanjiAlive	カンジアライブ
 wiktionary	ウィクショナリー
@@ -5098,7 +5153,7 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	Jiten/JPDB APIキーを貼ります。Jitenはak_で始まります。
+apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。どちらか一方、両方、またはローカル辞書のみでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
@@ -5525,7 +5580,7 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	設定やZIPを読み込みます。
+dictionaryImportHelp	Yomitan ZIP、Yomitan設定エクスポート、バックアップを読み込みます。語句辞書は定義を追加し、ピッチ/頻度辞書はアクセントやバッジを追加します。
 lookupPills	検索ピル
 lookupPillsHelp	リンクと頻度バッジ。トークン: {query}、{word}、{reading}。
 frequencyLookupPillsHelp	頻度辞書を検索バッジに表示。
@@ -5539,15 +5594,17 @@ builtInAction	内蔵アクション
 recommendedDownloads	辞書
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
+pitchDictionaries	ピッチ辞書
 frequencyDictionaries	頻度辞書
 install	インストール
 installing	インストール中
 queued	待機中
+dictionaryGuide	ガイド
 download	ダウンロード
 downloadAndImport	ダウンロードしてよむにインポート
 update	更新
 checkingDictionaries	インポート済み辞書を確認中...
-dictionaryOnlyJpdb	JPDBのみです。Yomitan辞書でローカル定義を追加。
+dictionaryOnlyJpdb	JPDBのみです。JMdict、Jitendex、WTYなどの語句辞書でローカル定義を追加してください。
 localDictionaryText	辞書テキスト
 localSenseSingular	意味
 localSensePlural	意味
@@ -5599,6 +5656,22 @@ ankiMappingConfidenceLow	未対応
 ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
+versionAndUpdates	バージョンと更新
+currentYomuVersion	現在のYomuバージョン:
+updateStatusIdle	現在 {current}。ヘルプを開くと最新バージョンを確認します。
+updateStatusChecking	現在 {current}。最新バージョンを確認中...
+updateStatusCurrent	現在 {current}。最新 {latest}。最新です。
+updateStatusAvailable	現在 {current}。最新 {latest}。更新できます。
+updateStatusUnknown	現在 {current}。最新バージョンを確認できません。更新リンクで再インストールしてください。
+updateHelpNotes	よむスクリプトが2つ有効なら1つだけ残してください。iPhone/iPadではSafariでインストールリンクを開き、自動更新されない場合はUserscripts内の古いファイルを置き換えてください。
+updateUserscript	ユーザースクリプトを更新/再インストール
+duplicateStatusSingle	重複スクリプト確認: このページで有効なYomuランタイムは1つです（{kind}）。
+duplicateStatusUnknown	重複スクリプト確認: このページでは確認できません。よむボタンやメニューが2つ出る場合は古いスクリプトを無効にしてください。
+ankiConnectSetupTitle	AnkiConnect設定
+ankiConnectSetupCopy	デスクトップAnkiを開き、AnkiConnectを有効にしてください。ホスト版StudyではAnkiConnect側でYomuのオリジンを許可する必要があります。
+ankiConnectSetupConfig	AnkiConnectのwebCorsOriginListに次のオリジンを追加してください。既存の項目は残します:
+ankiConnectSetupMobile	スマホやiPadでは、デスクトップPCのLANまたはTailscale URLを使います。スマホ上のlocalhostはPCではなくスマホ自身を指します。
+ankiConnectSetupBrave	BraveでローカルAnki確認がブロックされる場合は、StudyページのShieldsをオフにしてください。
 helpSupportTitle	よむをサポート
 helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまとめた無料ユーザースクリプトです。
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
@@ -5672,17 +5745,18 @@ noStoryAvailable	ストーリーはありません
 sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。
-recommendedJitendex	例文付き日英辞書です。
-recommendedJmdict	基本日英辞書です。
+recommendedJitendex	例文付きの語句定義です。
+recommendedJmdict	基本語句定義です。
 recommendedJmnedict	固有名詞辞書です。
-recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
+recommendedWtyJapaneseJapanese	日本語で読む語句定義です。
 recommendedPixivLight	Pixiv用語辞書です。
 recommendedKanjidic	漢字情報です。
 recommendedMarvncMonolingual	日本語辞書集です。
 recommendedJpdbKanji	JPDB漢字情報です。
-recommendedJpdbv2Kana	JPDB頻度です。
-recommendedBccwj	BCCWJ頻度です。
-recommendedJiten	Jiten頻度です。
+recommendedKanjiumPitch	ピッチアクセント専用です。定義には語句辞書も追加してください。
+recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
+recommendedBccwj	BCCWJ由来の頻度バッジです。
+recommendedJiten	Jiten由来の頻度バッジです。
 `);
   function resolveUiLanguage(language) {
     if (language === "ja" || language === "en") return language;

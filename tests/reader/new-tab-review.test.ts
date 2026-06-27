@@ -1451,7 +1451,7 @@ describe('new tab review helpers', () => {
         expect(normalizedCss)
             .toContain('button.jpdb-reader-newtab-status { display: inline-flex; align-items: center; justify-content: center; gap: 5px; max-width: min(360px, calc(100vw - 56px)); min-height: 26px; padding: 5px 10px; border: 1px solid rgba(139, 160, 177, 0.24); border-radius: 999px; background: var(--jpdb-reader-surface); color: var(--jpdb-reader-text);');
         expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-controls button { display: grid; place-items: center; min-height: 42px; padding: 0 12px; border: 1px solid rgba(139, 160, 177, 0.24); border-radius: 8px; background: linear-gradient( 180deg, color-mix(in srgb, var(--jpdb-reader-surface-2) 82%, var(--jpdb-reader-bg) 18%), color-mix(in srgb, var(--jpdb-reader-surface) 90%, var(--jpdb-reader-bg) 10%) ); color: var(--jpdb-reader-text);');
+            .toContain('.jpdb-reader-newtab-controls button { display: grid; place-items: center; width: 100%; min-height: 42px; padding: 0 12px; border: 1px solid rgba(139, 160, 177, 0.24); border-radius: 8px; background: linear-gradient( 180deg, color-mix(in srgb, var(--jpdb-reader-surface-2) 82%, var(--jpdb-reader-bg) 18%), color-mix(in srgb, var(--jpdb-reader-surface) 90%, var(--jpdb-reader-bg) 10%) ); color: var(--jpdb-reader-text);');
         expect(normalizedCss)
             .toContain('.jpdb-reader-theme-light .jpdb-reader-newtab-controls button:not([data-grade]), .yomu-page-theme-light .jpdb-reader-newtab-controls button:not([data-grade]) { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 20%, var(--jpdb-reader-border));');
         expect(newTabCssRule(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab'))
@@ -8404,6 +8404,63 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('renders the revealed study answer header with furigana, pitch, frequency pills, and audio', async () => {
+        const card = newTabTestCard({
+            spelling: '返す',
+            reading: 'かえす',
+            wordWithReading: '返[かえ]す',
+            pitchAccent: ['HLL'],
+            frequencyRank: 777,
+            meanings: [{ glosses: ['to return'], partOfSpeech: [] }],
+        });
+        const loadCardRenderData = vi.fn(async () => ({
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [{ expression: '返す', mode: 'freq', data: 123, dictionary: 'Freq Local' }],
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            jitenVocabularyInfo: null,
+        } as never));
+        const renderStudyWordPills = vi.fn(() => '<div class="jpdb-reader-word-pills"><span>Freq Local 123</span></div>');
+        const playWordAudio = vi.fn();
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            audioEnabled: true,
+            furiganaMode: 'off',
+            immersionKitEnabled: false,
+            showFurigana: false,
+            showPitchAccent: true,
+        }, {
+            loadCardRenderData,
+            renderStudyWordPills,
+            playWordAudio,
+        });
+        const root = renderSeededNewTabWord(controller, card, {
+            state: { revealAnswer: true },
+            bindRootEvents: true,
+        });
+
+        try {
+            const header = root.querySelector<HTMLElement>('[data-newtab-answer-header]')!;
+            expect(header.querySelector('ruby')?.textContent).toContain('かえ');
+            expect(header.textContent).toContain('#777');
+            expect(header.querySelector('.jpdb-reader-frequency-pill')?.textContent).toContain('#777');
+            expect(header.querySelector('.jpdb-reader-pitch svg')).not.toBeNull();
+            await waitForExpect(() => {
+                expect(loadCardRenderData).toHaveBeenCalledWith(card);
+                expect(renderStudyWordPills).toHaveBeenCalledWith(card, expect.any(Array), expect.objectContaining({ state: 'not-in-deck' }));
+                expect(root.querySelector('[data-newtab-answer-header]')?.textContent).toContain('Freq Local 123');
+            });
+
+            root.querySelector<HTMLButtonElement>('[data-action="study-word-audio"]')?.click();
+            expect(playWordAudio).toHaveBeenCalledWith(card);
+        } finally {
+            root.remove();
+        }
+    });
+
     it('does not expose stale JPDB supplemental slugs as new-tab readings', async () => {
         const publicPitch = vi.fn(async () => ['LHHH']);
         const card = newTabTestCard({ spelling: '日本語', reading: 'used-in', source: 'jpdb', pitchAccent: [] });
@@ -14366,7 +14423,9 @@ describe('new tab review helpers', () => {
         (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state = { mode: 'word', revealAnswer: true };
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
 
-        expect(root.querySelector('[data-newtab-reading]')?.textContent).toBe('かえす');
+        const answerHeader = root.querySelector<HTMLElement>('[data-newtab-answer-header]');
+        expect(answerHeader?.querySelector('ruby')?.textContent).toContain('かえ');
+        expect(answerHeader?.querySelector('.jpdb-reader-audio-control')).not.toBeNull();
         expect(root.querySelector('[data-newtab-meaning]')?.textContent).toContain('to return');
     });
 
@@ -14436,6 +14495,42 @@ describe('new tab review helpers', () => {
         expect(document.querySelector('[data-newtab-action="empty-fallback"]')?.textContent).toBe('Starter words');
         expect(document.querySelector('[data-newtab-action="settings"]')?.textContent).toBe('Settings');
         expect(document.querySelector('[data-newtab-action="mode"][data-mode="search"]')?.textContent).toBe('Search');
+        document.body.replaceChildren();
+    });
+
+    it('shows a Study app install affordance and uses the browser install prompt when available', async () => {
+        document.body.replaceChildren();
+        const toast = vi.fn();
+        const prompt = vi.fn(async () => undefined);
+        const controller = newTabBareController({
+            ...DEFAULT_SETTINGS,
+            newTabEnabled: true,
+            newTabSource: 'dictionary',
+            immersionKitEnabled: false,
+        }, {
+            toast,
+            dictionaries: { summary: vi.fn(async () => newTabEmptyDictionarySummary()) } as never,
+        });
+
+        await controller.renderPage();
+        const button = document.querySelector<HTMLButtonElement>('[data-newtab-install-app]')!;
+        expect(button).not.toBeNull();
+        expect(button.hidden).toBe(false);
+        expect(button.dataset.installPromptAvailable).toBe('false');
+
+        const event = new Event('beforeinstallprompt') as Event & {
+            prompt: () => Promise<void>;
+            userChoice: Promise<{ outcome: string }>;
+        };
+        event.prompt = prompt;
+        event.userChoice = Promise.resolve({ outcome: 'accepted' });
+        window.dispatchEvent(event);
+
+        expect(button.dataset.installPromptAvailable).toBe('true');
+        button.click();
+        await waitForExpect(() => expect(prompt).toHaveBeenCalledTimes(1));
+        await waitForExpect(() => expect(toast).toHaveBeenCalledWith('Study app installed.'));
+
         document.body.replaceChildren();
     });
 
@@ -15423,7 +15518,7 @@ describe('new tab review helpers', () => {
 
             await waitForExpect(() => {
                 expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('読む');
-                expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
+                expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary · Offline cache');
             });
             expect(cacheCards).toHaveBeenCalledWith([expect.objectContaining({ spelling: '読む', reading: 'よむ' })]);
 

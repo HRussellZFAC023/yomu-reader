@@ -17,11 +17,19 @@ hero:
     decoding: sync
   actions:
     - theme: brand
-      text: Install userscript
+      text: Install
       link: https://yomureader.com/yomu.user.js
     - theme: alt
       text: Setup guide
       link: /getting-started
+      target: _self
+    - theme: alt
+      text: Watch
+      link: /video-player/index.html
+      target: _self
+    - theme: alt
+      text: Read/PDF
+      link: /pdf-reader/
       target: _self
     - theme: alt
       text: Study
@@ -36,7 +44,7 @@ hero:
   </div>
   <div class="yomu-install-steps" role="list" aria-label="Install steps">
     <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-1-install-a-userscript-manager" aria-label="Choose a userscript manager"><span class="yomu-install-step-number" aria-hidden="true">1</span> <span>Choose manager</span></a></div>
-    <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="https://yomureader.com/yomu.user.js" aria-label="Install the よむ userscript"><span class="yomu-install-step-number" aria-hidden="true">2</span> <span>Install userscript</span></a></div>
+    <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="https://yomureader.com/yomu.user.js" aria-label="Install the よむ userscript"><span class="yomu-install-step-number" aria-hidden="true">2</span> <span>Install</span></a></div>
     <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-3-your-first-lookup" aria-label="Open a Japanese page"><span class="yomu-install-step-number" aria-hidden="true">3</span> <span>Read a page</span></a></div>
   </div>
 </div>
@@ -102,11 +110,11 @@ hero:
     <span>Review saved words, stats, and Anki-backed queues.</span>
   </a>
   <a class="yomu-link-card" href="/video-player/index.html" target="_self">
-    <strong>Video</strong>
+    <strong>Watch</strong>
     <span>Open local videos and Japanese subtitles in よむ.</span>
   </a>
   <a class="yomu-link-card" href="/pdf-reader/">
-    <strong>PDF</strong>
+    <strong>Read/PDF</strong>
     <span>Read PDFs with the same popup reader.</span>
   </a>
   <a class="yomu-link-card" href="/tools/japanese-ocr">
