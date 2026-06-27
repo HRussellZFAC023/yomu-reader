@@ -36136,6 +36136,80 @@ describe('reader helpers', () => {
         expectRenderedPitchWord(words[0]!, 'heiban');
     });
 
+    it('suppresses ruby in compact interactive chrome without affecting prose links', () => {
+        document.head.innerHTML = `<style>${READER_WORD_CSS}</style>`;
+        const rectSpy = mockElementBoundingClientRect({ width: 96, height: 32 });
+        try {
+            document.body.innerHTML = `
+                <header>
+                    <nav class="market-categories" style="display:flex;gap:8px">
+                        <a data-category href="/category/elections" style="display:inline-flex;align-items:center;height:32px;max-height:32px;overflow:hidden;line-height:20px;white-space:nowrap">選挙</a>
+                        <a data-neighbor href="/category/sports" style="display:inline-flex;align-items:center;height:32px;max-height:32px;overflow:hidden;line-height:20px;white-space:nowrap">スポーツ</a>
+                    </nav>
+                </header>
+                <aside>
+                    <button data-trade type="button" style="display:inline-flex;align-items:center;height:32px;max-height:32px;overflow:hidden;line-height:20px;white-space:nowrap">注文確認</button>
+                </aside>
+                <article>
+                    <p><a data-prose href="/analysis/elections">選挙について詳しく読む</a></p>
+                </article>
+            `;
+
+            const targets = collectScanTargets(20, 'https://markets.example/');
+            const category = targets.find(candidate => candidate.text === '選挙')!;
+            const trade = targets.find(candidate => candidate.text === '注文確認')!;
+            const prose = targets.find(candidate => candidate.text === '選挙について詳しく読む')!;
+
+            expect(category).toMatchObject({ suppressRuby: true, passiveInteraction: true });
+            expect(trade).toMatchObject({ suppressRuby: true, passiveInteraction: true });
+            expect(prose.suppressRuby).not.toBe(true);
+
+            applyTokensToScanTarget(category, [{
+                card: { ...card, cardState: ['known'], spelling: '選挙', reading: 'せんきょ', source: 'jpdb' },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [{ text: 'せんきょ', start: 0, end: 2, length: 2 }],
+                pitchClass: 'heiban',
+                sentence: '選挙',
+            }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+            applyTokensToScanTarget(trade, [{
+                card: { ...card, cardState: ['known'], spelling: '注文', reading: 'ちゅうもん', source: 'jpdb' },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [{ text: 'ちゅうもん', start: 0, end: 2, length: 2 }],
+                pitchClass: 'heiban',
+                sentence: '注文確認',
+            }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+            applyTokensToScanTarget(prose, [{
+                card: { ...card, cardState: ['known'], spelling: '選挙', reading: 'せんきょ', source: 'jpdb' },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [{ text: 'せんきょ', start: 0, end: 2, length: 2 }],
+                pitchClass: 'heiban',
+                sentence: '選挙について詳しく読む',
+            }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+            const categoryWord = document.querySelector<HTMLElement>('[data-category] .jpdb-reader-word')!;
+            const tradeWord = document.querySelector<HTMLElement>('[data-trade] .jpdb-reader-word')!;
+            const proseWord = document.querySelector<HTMLElement>('[data-prose] .jpdb-reader-word')!;
+            expect(document.querySelector<HTMLElement>('[data-category]')?.dataset.jpdbReaderPassiveChrome).toBe('true');
+            expect(document.querySelector<HTMLElement>('[data-trade]')?.dataset.jpdbReaderPassiveChrome).toBe('true');
+            expect(document.querySelector<HTMLElement>('[data-prose]')?.dataset.jpdbReaderPassiveChrome).toBeUndefined();
+            expect(categoryWord.dataset.jpdbReaderPassive).toBe('true');
+            expect(tradeWord.dataset.jpdbReaderPassive).toBe('true');
+            expect(categoryWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            expect(tradeWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            expect(proseWord.querySelector('rt')?.textContent).toBe('せんきょ');
+        } finally {
+            rectSpy.mockRestore();
+            document.head.innerHTML = '';
+            document.body.innerHTML = '';
+        }
+    });
+
     it('ignores aria-hidden feedback chrome while wrapping YouTube feed titles', () => {
         const targets = collectYouTubeTargets(`
             <ytd-rich-grid-renderer>

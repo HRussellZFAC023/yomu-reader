@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.138] - 2026-06-27
+
+### Fixed
+
+- Kept compact app chrome labels and action buttons readable and tappable by suppressing furigana and hover highlight paint only inside short fixed-height navigation/control labels, while preserving ruby on normal prose links and ruby-capable content chips.
+
 ## [1.4.137] - 2026-06-27
 
 ### Added

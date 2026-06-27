@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Kept compact app chrome labels and action buttons readable and tappable by suppressing furigana and hover highlight paint only inside short fixed-height navigation/control labels, while preserving ruby on normal prose links and ruby-capable content chips.': '短い固定高のナビゲーション／操作ラベルの中だけふりがなとホバーハイライト描画を抑えることで、コンパクトなアプリUIラベルやアクションボタンを読みやすくタップしやすいまま保ち、通常の本文リンクやルビ対応のコンテンツチップではルビを維持するようにしました。',
     'Local pitch and frequency dictionaries': 'ローカルのピッチ/頻度辞書',
     'The Study answer side now shows the reading with furigana, pitch accent, a frequency pill, and an audio button at the top of the card when those details are available. For the most private and reliable setup, keep those details local:': '学習カードの答え面では、利用可能な場合、カード上部にふりがな付きの読み、ピッチアクセント、頻度ピル、音声ボタンを表示します。もっともプライベートで安定した設定にするには、これらの情報をローカルに置いてください。',
     'Frequency: install JPDBv2㋕ from Settings → Dictionaries. Kuuuube documents it as the recommended JPDB v2.2 frequency package, with kana-frequency display and high corpus coverage.': '頻度: 設定 → 辞書からJPDBv2㋕をインストールします。Kuuuubeはこれを、かな頻度表示と高いコーパスカバー率を備えた推奨JPDB v2.2頻度パッケージとして説明しています。',

@@ -7213,6 +7213,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
   const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = "ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer";
   const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]";
+  const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]';
+  const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
+  const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
+  const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = 'header, nav, footer, [role="banner"], [role="navigation"], [role="contentinfo"], [role="menubar"], [role="tablist"], [role="toolbar"]';
   const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
   const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
   const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
@@ -7220,6 +7224,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
   const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
   const COMPACT_MEDIA_CHROME_TEXT_LIMIT = 40;
+  const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
+  const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
+  const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
   const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
   const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
   const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;
@@ -7364,7 +7371,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const parent = trimmedFragments[0]?.node.parentElement;
     if (!parent) return null;
     if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text2)) return null;
-    const suppressRuby = fragmentTargetSuppressesCompactMediaRuby(parent, trimmedFragments);
+    const suppressRuby = fragmentTargetSuppressesCompactScanRuby(parent, trimmedFragments);
     return {
       text: text2,
       parent,
@@ -7374,11 +7381,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       passiveInteraction: suppressRuby || trimmedFragments.every((fragment2) => fragment2.passiveInteraction)
     };
   }
-  function fragmentTargetSuppressesCompactMediaRuby(parent, fragments) {
-    if (shouldSuppressCompactMediaRuby(parent)) return true;
+  function fragmentTargetSuppressesCompactScanRuby(parent, fragments) {
+    if (shouldSuppressCompactScanRuby(parent)) return true;
     return fragments.some((fragment2) => {
       const element = fragment2.node.parentElement;
-      return Boolean(element && shouldSuppressCompactMediaRuby(element));
+      return Boolean(element && shouldSuppressCompactScanRuby(element));
     });
   }
   function isCollectableFragmentText(text2, fragments, options) {
@@ -7942,10 +7949,62 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function scanTargetSuppressesRuby(parent, suppressRuby) {
     if (targetForcesAllFurigana(parent)) return false;
-    return Boolean(suppressRuby || shouldSuppressCompactMediaRuby(parent));
+    return Boolean(suppressRuby || shouldSuppressCompactScanRuby(parent));
   }
   function targetForcesAllFurigana(parent) {
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
+  }
+  function shouldSuppressCompactScanRuby(parent) {
+    if (isYouTubeHost$1()) return shouldSuppressCompactMediaRuby(parent);
+    const compactChrome = compactInteractiveChromeElement(parent);
+    if (compactChrome) compactChrome.dataset.jpdbReaderPassiveChrome = "true";
+    return Boolean(compactChrome || shouldSuppressCompactMediaRuby(parent));
+  }
+  function compactInteractiveChromeElement(parent) {
+    if (parent.closest(READER_ROOT_SELECTOR)) return null;
+    const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
+    if (!chrome) return null;
+    const text2 = compactInteractiveChromeText(chrome);
+    if (!isCompactInteractiveChromeText(text2)) return null;
+    if (safeElementMatches(chrome, COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR)) {
+      return isCompactInteractiveChromeLink(chrome, parent, text2) ? chrome : null;
+    }
+    return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
+  }
+  function compactInteractiveChromeText(element) {
+    return element.textContent?.replace(/\s+/g, "").trim() ?? "";
+  }
+  function isCompactInteractiveChromeText(text2) {
+    const length = compactLength(text2);
+    return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && HAS_JAPANESE.test(text2);
+  }
+  function isCompactInteractiveChromeLink(link, parent, text2) {
+    if (isLikelyProseLink(link, parent)) return false;
+    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(link)) return false;
+    const chromeLike = isCompactInteractiveChromeContext(link) || isExplicitControlLink(link) || linkHasControlShape(link, text2);
+    return chromeLike && hasCompactInteractiveChromeRubyRisk(link);
+  }
+  function isCompactInteractiveChromeControl(control, parent) {
+    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(control)) return false;
+    if (safeElementMatches(control, '[role="button"]') && control.tagName !== "BUTTON" && !isCompactInteractiveChromeContext(control)) return false;
+    const chromeLike = isCompactInteractiveChromeContext(control) || hasCompactInteractiveChromeGeometry(control) || safeElementMatches(control, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"]');
+    return chromeLike && hasCompactInteractiveChromeRubyRisk(control);
+  }
+  function isCompactInteractiveChromeContext(element) {
+    return Boolean(element.closest(COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR));
+  }
+  function hasCompactInteractiveChromeGeometry(element) {
+    const style = safeComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    if (rect.width > 0 && rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT)) return true;
+    return hasInlineControlShape(style.display) && style.whiteSpace === "nowrap";
+  }
+  function hasCompactInteractiveChromeRubyRisk(element) {
+    const style = safeComputedStyle(element);
+    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
+    if (!hasCompactInteractiveChromeGeometry(element)) return false;
+    if (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) return true;
+    return clipsOverflow(style) && style.whiteSpace === "nowrap";
   }
   function shouldSuppressCompactMediaRuby(parent) {
     if (isYouTubeFeedbackChromeLinkText(parent)) return true;
@@ -9169,6 +9228,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isReadableProseUiClassText(element, text2) {
     if (compactLength(text2) < 8) return false;
     return isLikelyProseElement(element) && Boolean(element.closest('article, main, [role="main"]'));
+  }
+  function hasInlineControlShape(display) {
+    return display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
   }
   function isLikelyProseElement(element) {
     if (PROSE_TAGS.includes(`,${element.tagName},`)) return true;
@@ -24056,7 +24118,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.137".trim() ? "1.4.137".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.138".trim() ? "1.4.138".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

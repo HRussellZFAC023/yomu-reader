@@ -110,6 +110,10 @@ const COMPACT_PASSIVE_CHROME_SELECTOR = 'time,[datetime],[aria-label*="author" i
 const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
 const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = 'ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer';
 const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]';
+const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]';
+const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
+const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
+const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = 'header, nav, footer, [role="banner"], [role="navigation"], [role="contentinfo"], [role="menubar"], [role="tablist"], [role="toolbar"]';
 const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
 const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
@@ -117,6 +121,9 @@ const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = 'canvas,img,picture,svg,video,[class*=
 const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
 const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
 const COMPACT_MEDIA_CHROME_TEXT_LIMIT = 40;
+const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
+const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
+const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
 const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;
@@ -379,7 +386,7 @@ function canInspectTextNode(node: Node): boolean {
 // passivity classifier renders it as a click-transparent lookup word without
 // requiring per-site element lists.
 const CONTROL_LABEL_TEXT_LIMIT = 60;
-const ANNOTATABLE_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"]';
+const ANNOTATABLE_CONTROL_SELECTOR = COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR;
 
 function isAnnotatableChipControl(blocked: Element): boolean {
     if (!blocked.matches(ANNOTATABLE_CONTROL_SELECTOR)) return false;
@@ -477,7 +484,7 @@ function shouldRejectInvisibleTextTarget(parent: HTMLElement, visibleOnly: boole
 function textTargetFromAcceptedNode(node: Node): TextTarget | null {
     const parent = node.parentElement;
     if (!parent) return null;
-    const suppressRuby = shouldSuppressCompactMediaRuby(parent);
+    const suppressRuby = shouldSuppressCompactScanRuby(parent);
     const passiveInteraction = isPassiveInteractionElement(parent) || suppressRuby;
     const text = nodeTextContent(node).trim();
     return {
@@ -662,7 +669,7 @@ function fragmentTextTargetFrom(
     const parent = trimmedFragments[0]?.node.parentElement;
     if (!parent) return null;
     if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text)) return null;
-    const suppressRuby = fragmentTargetSuppressesCompactMediaRuby(parent, trimmedFragments);
+    const suppressRuby = fragmentTargetSuppressesCompactScanRuby(parent, trimmedFragments);
     return {
         text,
         parent,
@@ -673,11 +680,11 @@ function fragmentTextTargetFrom(
     };
 }
 
-function fragmentTargetSuppressesCompactMediaRuby(parent: HTMLElement, fragments: TextFragment[]): boolean {
-    if (shouldSuppressCompactMediaRuby(parent)) return true;
+function fragmentTargetSuppressesCompactScanRuby(parent: HTMLElement, fragments: TextFragment[]): boolean {
+    if (shouldSuppressCompactScanRuby(parent)) return true;
     return fragments.some(fragment => {
         const element = fragment.node.parentElement;
-        return Boolean(element && shouldSuppressCompactMediaRuby(element));
+        return Boolean(element && shouldSuppressCompactScanRuby(element));
     });
 }
 
@@ -1483,11 +1490,77 @@ function furiganaSettingsForTarget(settings: ReaderSettings, parent: HTMLElement
 
 function scanTargetSuppressesRuby(parent: HTMLElement, suppressRuby?: boolean): boolean {
     if (targetForcesAllFurigana(parent)) return false;
-    return Boolean(suppressRuby || shouldSuppressCompactMediaRuby(parent));
+    return Boolean(suppressRuby || shouldSuppressCompactScanRuby(parent));
 }
 
 function targetForcesAllFurigana(parent: HTMLElement): boolean {
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
+}
+
+function shouldSuppressCompactScanRuby(parent: HTMLElement): boolean {
+    if (isYouTubeHost()) return shouldSuppressCompactMediaRuby(parent);
+    const compactChrome = compactInteractiveChromeElement(parent);
+    if (compactChrome) compactChrome.dataset.jpdbReaderPassiveChrome = 'true';
+    return Boolean(compactChrome || shouldSuppressCompactMediaRuby(parent));
+}
+
+function compactInteractiveChromeElement(parent: HTMLElement): HTMLElement | null {
+    if (parent.closest(READER_ROOT_SELECTOR)) return null;
+    const chrome = parent.closest<HTMLElement>(COMPACT_INTERACTIVE_CHROME_SELECTOR);
+    if (!chrome) return null;
+    const text = compactInteractiveChromeText(chrome);
+    if (!isCompactInteractiveChromeText(text)) return null;
+    if (safeElementMatches(chrome, COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR)) {
+        return isCompactInteractiveChromeLink(chrome, parent, text) ? chrome : null;
+    }
+    return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
+}
+
+function compactInteractiveChromeText(element: HTMLElement): string {
+    return element.textContent?.replace(/\s+/g, '').trim() ?? '';
+}
+
+function isCompactInteractiveChromeText(text: string): boolean {
+    const length = compactLength(text);
+    return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && HAS_JAPANESE.test(text);
+}
+
+function isCompactInteractiveChromeLink(link: HTMLElement, parent: HTMLElement, text: string): boolean {
+    if (isLikelyProseLink(link, parent)) return false;
+    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(link)) return false;
+    const chromeLike = isCompactInteractiveChromeContext(link)
+        || isExplicitControlLink(link)
+        || linkHasControlShape(link, text);
+    return chromeLike && hasCompactInteractiveChromeRubyRisk(link);
+}
+
+function isCompactInteractiveChromeControl(control: HTMLElement, parent: HTMLElement): boolean {
+    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(control)) return false;
+    if (safeElementMatches(control, '[role="button"]') && control.tagName !== 'BUTTON' && !isCompactInteractiveChromeContext(control)) return false;
+    const chromeLike = isCompactInteractiveChromeContext(control)
+        || hasCompactInteractiveChromeGeometry(control)
+        || safeElementMatches(control, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"]');
+    return chromeLike && hasCompactInteractiveChromeRubyRisk(control);
+}
+
+function isCompactInteractiveChromeContext(element: HTMLElement): boolean {
+    return Boolean(element.closest(COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR));
+}
+
+function hasCompactInteractiveChromeGeometry(element: HTMLElement): boolean {
+    const style = safeComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    if (rect.width > 0 && rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH
+        && (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT)) return true;
+    return hasInlineControlShape(style.display) && style.whiteSpace === 'nowrap';
+}
+
+function hasCompactInteractiveChromeRubyRisk(element: HTMLElement): boolean {
+    const style = safeComputedStyle(element);
+    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
+    if (!hasCompactInteractiveChromeGeometry(element)) return false;
+    if (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) return true;
+    return clipsOverflow(style) && style.whiteSpace === 'nowrap';
 }
 
 function shouldSuppressCompactMediaRuby(parent: HTMLElement): boolean {
