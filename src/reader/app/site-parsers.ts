@@ -583,7 +583,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         exclude: COMMON_EXCLUDE,
         allowUiText: true,
         minLength: 1,
-        nonDestructive: true,
         disableGenericDomScan: true,
         includePassiveInteractionRoots: false,
         matches: url => isBookWalkerStorefrontUrl(url),
@@ -1400,7 +1399,7 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
             matchingProfiles,
         );
         return residualTargets.length
-            ? [...baseTargets, ...markTargetsPassiveNonDestructive(residualTargets)]
+            ? [...baseTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some(profile => profile.nonDestructive) })]
             : baseTargets;
     }
     const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
@@ -1423,12 +1422,12 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
     return useNonDestructiveGenericScan ? markTargetsNonDestructive(visibleTargets) : visibleTargets;
 }
 
-function markTargetsPassiveNonDestructive(targets: ScanTextTarget[]): ScanTextTarget[] {
+function markTargetsPassive(targets: ScanTextTarget[], options: { nonDestructive?: boolean } = {}): ScanTextTarget[] {
     return targets.map(target => ({
         ...target,
         suppressRuby: true,
         passiveInteraction: true,
-        nonDestructive: true,
+        nonDestructive: options.nonDestructive || undefined,
         ...('fragments' in target
             ? {
                 fragments: target.fragments.map(fragment => ({

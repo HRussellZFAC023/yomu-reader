@@ -210,6 +210,7 @@ describe('reader raster OCR surfaces', () => {
             expect(captureReaderSurface).not.toHaveBeenCalled();
 
             const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
+            frame.getBoundingClientRect = () => new DOMRect(120, 64, 760, 1074);
             Object.defineProperty(frame, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(frame, 'naturalHeight', { value: 1600, configurable: true });
             frame.dataset.ocrLines = JSON.stringify([
@@ -221,6 +222,48 @@ describe('reader raster OCR surfaces', () => {
                 expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
                 expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
             });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('keeps the BookWalker canvas ready pill visible while the OCR frame is alive', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        pageCounter('13 / 195');
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('PERSISTENT_STATUS'));
+        const visibleCanvas = pageCanvas(120, 64, 760, 1074);
+        visibleCanvas.toDataURL = TAINTED_CANVAS;
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport-visible' });
+        viewport.classList.add('currentScreen');
+        viewport.append(visibleCanvas);
+        document.body.append(viewport);
+
+        const controller = createController({}, undefined, captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
+            });
+
+            const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
+            Object.defineProperty(frame, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(frame, 'naturalHeight', { value: 1600, configurable: true });
+            frame.dataset.ocrLines = JSON.stringify([
+                { text: 'ページ移動方向', box: { left: 0.12, top: 0.18, width: 0.46, height: 0.08 } },
+            ]);
+            frame.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
+                expect(status?.dataset.status).toBe('ready');
+                expect(status?.textContent).toContain('Text ready');
+            });
+            await new Promise(resolve => setTimeout(resolve, 1600));
+
+            const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
+            expect(status?.dataset.status).toBe('ready');
+            expect(status?.classList.contains('jpdb-ocr-video-frame-status-fade-out')).toBe(false);
+            expect(status?.textContent).toContain('Text ready');
         } finally {
             controller.destroy();
         }

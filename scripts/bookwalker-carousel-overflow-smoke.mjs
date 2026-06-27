@@ -82,6 +82,10 @@ writeFileSync(entryPath, `
             .filter(element => !element.matches('.jpdb-reader-text-mirror')
                 && !element.closest('.jpdb-reader-text-mirror')
                 && element.style.getPropertyValue('overflow') === 'visible').length;
+        const hiddenNativeHosts = Array.from(scoped.querySelectorAll<HTMLElement>('[style]'))
+            .filter(element => !element.matches('.jpdb-reader-text-mirror')
+                && !element.closest('.jpdb-reader-text-mirror')
+                && element.style.getPropertyValue('visibility') === 'hidden').length;
         return {
             carousel: {
                 viewportClientWidth: viewport?.clientWidth ?? 0,
@@ -102,6 +106,8 @@ writeFileSync(entryPath, `
             mirrorCount: scoped.querySelectorAll('.jpdb-reader-text-mirror').length,
             inlineWordCount,
             overflowVisibleHosts,
+            hiddenNativeHosts,
+            text: scoped.textContent?.replace(/\\s+/g, ' ').trim() ?? '',
         };
     }
 
@@ -141,12 +147,12 @@ writeFileSync(entryPath, `
                     )),
                     allSuppressRuby: targets.every(target => target.suppressRuby === true),
                     allPassive: targets.every(target => target.passiveInteraction === true),
-                    allNonDestructive: targets.every(target => target.nonDestructive === true),
+                    allNativeInline: targets.every(target => target.nonDestructive !== true),
                     sample: targets.slice(0, 8).map(target => ({
                         text: target.text,
                         suppressRuby: target.suppressRuby === true,
                         passiveInteraction: target.passiveInteraction === true,
-                        nonDestructive: target.nonDestructive === true,
+                        nativeInline: target.nonDestructive !== true,
                         parserId: 'parserId' in target ? target.parserId : null,
                     })),
                 },
@@ -196,13 +202,16 @@ try {
         assert(result.targets.allStorefrontSafe, 'BookWalker storefront should use only storefront-safe target parsers', result);
         assert(result.targets.allSuppressRuby, 'BookWalker storefront targets should suppress ruby', result);
         assert(result.targets.allPassive, 'BookWalker storefront targets should be passive', result);
-        assert(result.targets.allNonDestructive, 'BookWalker storefront targets should be non-destructive', result);
+        assert(result.targets.allNativeInline, 'BookWalker storefront targets should keep native text visible instead of using mirrors', result);
         assert(result.applied >= 8, 'BookWalker storefront smoke did not annotate enough targets', result);
         assert(result.after.rubyCount === 0, 'BookWalker storefront rendered ruby in compact commerce layout', result);
         assert(result.after.passiveCount >= 8, 'BookWalker storefront words should still be lookupable as passive words', result);
-        assert(result.after.mirrorCount >= 8, 'BookWalker storefront should preserve native layout with text mirrors', result);
-        assert(result.after.inlineWordCount === 0, 'BookWalker storefront injected inline words into native carousel/grid/sidebar DOM', result);
-        assert(result.after.overflowVisibleHosts === 0, 'ruby-suppressed passive mirrors should not force host overflow visible', result);
+        assert(result.after.mirrorCount === 0, 'BookWalker storefront should not hide native text behind text mirrors', result);
+        assert(result.after.inlineWordCount >= 8, 'BookWalker storefront should render passive lookup words inline with native text', result);
+        assert(result.after.hiddenNativeHosts === 0, 'BookWalker storefront should not hide native text hosts', result);
+        assert(result.after.text.includes('無料会員登録はこちら'), 'BookWalker sidebar text disappeared after annotation', result);
+        assert(result.after.text.includes('あなた達それでも先生ですかっ！【期間限定無料】 1'), 'BookWalker product title disappeared after annotation', result);
+        assert(result.after.overflowVisibleHosts === 0, 'ruby-suppressed passive storefront words should not force host overflow visible', result);
         assert(result.after.carousel.viewportScrollWidth <= result.after.carousel.viewportClientWidth + 2, 'carousel overflowed after Yomu rendered words', result);
         assert(result.after.carousel.titleRight <= result.after.carousel.viewportRight + 2, 'carousel title painted outside the clipped viewport', result);
         assertStableRects(result.before.grid, result.after.grid, 'product grid item geometry changed', result);
@@ -211,11 +220,9 @@ try {
         assertStableRect(result.before.layout, result.after.layout, 'two-column layout geometry changed', result);
 
         assert(forcedRuby.after.rubyCount > 0, 'control fixture did not render forced ruby', forcedRuby);
-        assert(forcedRuby.after.overflowVisibleHosts > 0, 'control fixture did not exercise overflow-visible mirror hosts', forcedRuby);
         assert(
-            forcedRuby.after.carousel.viewportScrollWidth > forcedRuby.after.carousel.viewportClientWidth + 2
-                || forcedRuby.after.carousel.titleRight > forcedRuby.after.carousel.viewportRight + 2,
-            'control fixture with forced ruby should demonstrate the overflow risk',
+            forcedRuby.after.carousel.titleScrollWidth > forcedRuby.after.carousel.titleClientWidth + 2,
+            'control fixture with forced ruby should demonstrate compact-title sizing pressure',
             forcedRuby,
         );
 

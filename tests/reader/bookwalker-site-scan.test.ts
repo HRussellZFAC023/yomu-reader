@@ -52,7 +52,7 @@ describe('BookWalker site scan boundaries', () => {
                 expect(targets.every(target => 'parserId' in target && target.parserId === 'residual-visible-japanese-parser')).toBe(true);
                 expect(targets.every(target => target.passiveInteraction)).toBe(true);
                 expect(targets.every(target => target.suppressRuby)).toBe(true);
-                expect(targets.every(target => target.nonDestructive)).toBe(true);
+                expect(targets.every(target => target.nonDestructive !== true)).toBe(true);
             }
         } finally {
             restoreRects();
@@ -95,8 +95,64 @@ describe('BookWalker site scan boundaries', () => {
                 parserId: 'bookwalker-storefront-no-dom-parser',
                 suppressRuby: true,
                 passiveInteraction: true,
-                nonDestructive: true,
             });
+            expect(title?.nonDestructive).not.toBe(true);
+        } finally {
+            restoreRects();
+        }
+    });
+
+    it('keeps BookWalker product-page text native instead of hiding it behind mirrors', () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = `
+            <header>
+                <nav>
+                    <a href="/read/">読み放題</a>
+                    <a href="/novel/">小説・ビジネス</a>
+                    <button type="button">カート</button>
+                </nav>
+            </header>
+            <main>
+                <section class="book-detail">
+                    <h1 class="m-bookDetailTitle">あなた達それでも先生ですかっ！【期間限定無料】 1</h1>
+                    <p class="m-bookDetailLead">2026年6月30日までの期間限定無料お試し版です。新語校の女子教員として使用されることになった旅館。</p>
+                    <aside>
+                        <a href="/cart/" class="cart-button">カートを見る</a>
+                        <button type="button">無料会員登録</button>
+                        <button type="button">シリーズ予約</button>
+                    </aside>
+                </section>
+            </main>
+        `;
+
+        try {
+            const expectedText = [
+                '読み放題',
+                '小説・ビジネス',
+                'カート',
+                'あなた達それでも先生ですかっ！【期間限定無料】 1',
+                '2026年6月30日までの期間限定無料お試し版です。新語校の女子教員として使用されることになった旅館。',
+                'カートを見る',
+                '無料会員登録',
+                'シリーズ予約',
+            ];
+            const targets = collectScanTargets(40, BOOKWALKER_HOME_URL);
+            expect(targets.length).toBeGreaterThanOrEqual(expectedText.length);
+
+            for (const target of targets) {
+                const token = firstJapaneseToken(target.text);
+                if (!token) continue;
+                applyTokensToScanTarget(target, [token], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+            }
+
+            for (const text of expectedText) {
+                expect(document.body.textContent).toContain(text);
+            }
+            expect(document.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+            expect(Array.from(document.querySelectorAll<HTMLElement>('[style]'))
+                .filter(element => element.style.getPropertyValue('visibility') === 'hidden')).toEqual([]);
+            expect(document.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            expect(document.querySelectorAll('.jpdb-reader-passive-word').length).toBeGreaterThan(0);
         } finally {
             restoreRects();
         }
@@ -314,6 +370,34 @@ function bookWalkerTitleToken(sentence: string): JPDBToken {
         end: start + 1,
         length: 1,
         rubies: [{ text: 'たち', start, end: start + 1, length: 1 }],
+        pitchClass: 'heiban',
+        sentence,
+    };
+}
+
+function firstJapaneseToken(sentence: string): JPDBToken | null {
+    const match = /[一-龯ぁ-んァ-ヶー]{1,}/u.exec(sentence);
+    if (!match || match.index === undefined) return null;
+    const spelling = match[0].slice(0, Math.min(3, match[0].length));
+    return {
+        card: {
+            vid: match.index + 1,
+            sid: match.index + 1,
+            rid: 0,
+            spelling,
+            reading: 'よむ',
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [],
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'jpdb',
+        },
+        start: match.index,
+        end: match.index + spelling.length,
+        length: spelling.length,
+        rubies: [{ text: 'よむ', start: match.index, end: match.index + spelling.length, length: spelling.length }],
         pitchClass: 'heiban',
         sentence,
     };

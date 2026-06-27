@@ -8,7 +8,7 @@
 import { chromium, firefox, webkit } from 'playwright';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { createSmokePaths, addGmStorageBridgeInitScript, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
@@ -152,6 +152,22 @@ window.__watchFrameChurn = () => {
       for (const node of mutation.removedNodes) if (isFrame(node)) window.__yomuFrameRemovals++;
     }
   }).observe(document.body, { childList: true, subtree: true });
+};
+window.__yomuOcrReadiness = () => {
+  const statuses = Array.from(document.querySelectorAll('.jpdb-ocr-video-frame-status')).map(element => ({
+    status: element.dataset.status || '',
+    text: element.textContent.trim(),
+    hidden: element.hidden,
+    className: element.className,
+  }));
+  return {
+    status: statuses.length,
+    readyStatus: statuses.filter(status => status.status === 'ready' && !status.hidden).length,
+    loadingStatus: statuses.filter(status => status.status === 'loading' && !status.hidden).length,
+    frames: document.querySelectorAll('.jpdb-ocr-canvas-frame, .jpdb-ocr-background-frame').length,
+    lines: document.querySelectorAll('.jpdb-ocr-line').length,
+    statuses,
+  };
 };`;
 }
 
@@ -168,8 +184,15 @@ async function runCase(engineName, mode) {
     const engine = engineName === 'webkit' ? webkit : engineName === 'firefox' ? firefox : chromium;
     const label = `${engineName}/${mode}`;
     const browser = await engine.launch({ headless: true });
-    const context = await browser.newContext({ viewport: { width: 900, height: 1200 }, hasTouch: true, locale: 'ja-JP', bypassCSP: true });
+    const context = await browser.newContext({
+        viewport: { width: 900, height: 1200 },
+        hasTouch: true,
+        locale: 'ja-JP',
+        bypassCSP: true,
+        recordVideo: { dir: ARTIFACT_DIR, size: { width: 900, height: 1200 } },
+    });
     const page = await context.newPage();
+    const video = page.video();
     let ocrHits = 0;
     await page.exposeFunction(BRIDGE, async request => {
         const url = request.url || '';
@@ -210,19 +233,25 @@ async function runCase(engineName, mode) {
     let overlayMs = -1;
     let statusSeen = false;
     let frameSeen = false;
-    while (Date.now() - start < 8000) {
-        const readiness = await page.evaluate(() => ({
-            status: document.querySelectorAll('.jpdb-ocr-video-frame-status').length,
-            frames: document.querySelectorAll('.jpdb-ocr-canvas-frame, .jpdb-ocr-background-frame').length,
-            lines: document.querySelectorAll('.jpdb-ocr-line').length,
-        }));
+    const timeline = [];
+    const sampleReadiness = async phase => {
+        const readiness = await page.evaluate(() => window.__yomuOcrReadiness());
+        timeline.push({ t: Date.now() - start, phase, ...readiness });
         statusSeen ||= readiness.status >= 1;
         frameSeen ||= readiness.frames >= 1;
+        return readiness;
+    };
+    while (Date.now() - start < 8000) {
+        const readiness = await sampleReadiness('scan');
         if (readiness.lines >= 1) {
             overlayMs = Date.now() - start;
             break;
         }
         await page.waitForTimeout(100);
+    }
+    for (let index = 0; index < 9; index += 1) {
+        await page.waitForTimeout(220);
+        await sampleReadiness('post-ready');
     }
     let frameSurvived = true;
     let removals = 0;
@@ -230,23 +259,57 @@ async function runCase(engineName, mode) {
         const frame = await page.$('.jpdb-ocr-canvas-frame');
         await page.evaluate(() => window.__watchFrameChurn());
         await page.evaluate(() => window.scrollBy(0, 80));
-        await page.waitForTimeout(1700);
+        for (let index = 0; index < 8; index += 1) {
+            await page.waitForTimeout(220);
+            await sampleReadiness('scroll');
+        }
         frameSurvived = await frame.evaluate(node => node.isConnected).catch(() => false);
         removals = await page.evaluate(() => window.__yomuFrameRemovals || 0);
     }
-    const statusCount = await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-video-frame-status').length);
-    const frameCount = await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-canvas-frame, .jpdb-ocr-background-frame').length);
-    const lineCount = await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line').length);
+    const finalReadiness = await sampleReadiness('final');
+    const statusCount = finalReadiness.status;
+    const readyStatusCount = finalReadiness.readyStatus;
+    const frameCount = finalReadiness.frames;
+    const lineCount = finalReadiness.lines;
     const screenshot = path.join(ARTIFACT_DIR, `${engineName}-${mode}.png`);
     await page.screenshot({ path: screenshot, fullPage: false }).catch(() => undefined);
     statusSeen ||= statusCount >= 1;
     frameSeen ||= frameCount >= 1;
-    const ok = overlayMs >= 0 && ocrHits >= 1 && statusSeen && frameSeen && lineCount >= 1 && frameSurvived && removals === 0;
-    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — overlay ${overlayMs >= 0 ? overlayMs + 'ms' : 'NEVER'}, ocrHits=${ocrHits}, statusSeen=${statusSeen}, finalStatus=${statusCount}, frameSeen=${frameSeen}, finalFrames=${frameCount}, lines=${lineCount}, frameSurvived=${frameSurvived}, removals=${removals}`);
-    rows.push({ label, ok, overlayMs, ocrHits, statusSeen, statusCount, frameSeen, frameCount, lineCount, frameSurvived, removals, screenshot });
-    if (!ok) failures.push(label);
-    await context.close();
+    const videoPath = await closeContextWithVideo(context, video, `${engineName}-${mode}.webm`);
     await browser.close();
+    const ok = overlayMs >= 0 && ocrHits === 1 && statusSeen && readyStatusCount >= 1 && frameSeen && lineCount >= 1 && frameSurvived && removals === 0;
+    const statusChanges = compressTimeline(timeline);
+    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — overlay ${overlayMs >= 0 ? overlayMs + 'ms' : 'NEVER'}, ocrHits=${ocrHits}, statusSeen=${statusSeen}, finalReadyStatus=${readyStatusCount}, finalStatus=${statusCount}, frameSeen=${frameSeen}, finalFrames=${frameCount}, lines=${lineCount}, frameSurvived=${frameSurvived}, removals=${removals}`);
+    console.log(`  status timeline: ${statusChanges.map(item => `${item.t}ms:${item.phase}:${item.summary}`).join(' | ') || 'empty'}`);
+    rows.push({ label, ok, overlayMs, ocrHits, statusSeen, statusCount, readyStatusCount, frameSeen, frameCount, lineCount, frameSurvived, removals, screenshot, video: videoPath, timeline });
+    if (!ok) failures.push(label);
+}
+
+async function closeContextWithVideo(context, video, fileName) {
+    await context.close();
+    if (!video) return null;
+    const rawPath = await video.path().catch(() => null);
+    if (!rawPath || !existsSync(rawPath)) return null;
+    const finalPath = path.join(ARTIFACT_DIR, fileName);
+    try {
+        renameSync(rawPath, finalPath);
+        return finalPath;
+    } catch {
+        return rawPath;
+    }
+}
+
+function compressTimeline(timeline) {
+    const compressed = [];
+    let previous = '';
+    for (const sample of timeline) {
+        const summary = `${sample.status}/${sample.readyStatus}/${sample.frames}/${sample.lines}`;
+        const key = `${sample.phase}:${summary}`;
+        if (key === previous) continue;
+        previous = key;
+        compressed.push({ t: sample.t, phase: sample.phase, summary });
+    }
+    return compressed;
 }
 
 for (const engineName of ['firefox', 'webkit', 'chromium']) {
@@ -263,7 +326,7 @@ for (const engineName of ['firefox', 'webkit', 'chromium']) {
 
 console.log('\n================ SUMMARY ================');
 for (const row of rows) {
-    console.log(`${row.label.padEnd(26)} ${row.ok ? 'ok' : 'failed'} ${row.screenshot ? `(${row.screenshot})` : ''}`);
+    console.log(`${row.label.padEnd(26)} ${row.ok ? 'ok' : 'failed'} ${row.screenshot ? `(${row.screenshot})` : ''}${row.video ? ` video=${row.video}` : ''}`);
 }
 writeFileSync(path.join(ARTIFACT_DIR, 'summary.json'), JSON.stringify(rows, null, 2));
 console.log(failures.length
