@@ -1492,20 +1492,6 @@ function collectYouTubeWatchTargets(html: string, limit = 10) {
     return collectYouTubeTargets(html, YOUTUBE_WATCH_TEST_URL, limit);
 }
 
-function youtubeSubscriberToken(sentence: string): JPDBToken[] {
-    const start = sentence.indexOf('登録者数');
-    expect(start).toBeGreaterThanOrEqual(0);
-    return [{
-        card: { ...card, cardState: ['known'], spelling: '登録者数', reading: 'とうろくしゃすう', source: 'jpdb' },
-        start,
-        end: start + 4,
-        length: 4,
-        rubies: [{ text: 'とうろくしゃすう', start, end: start + 4, length: 4 }],
-        pitchClass: 'heiban',
-        sentence,
-    }];
-}
-
 function expectBodyTextTargets(html: string, expected: string[]): void {
     document.body.innerHTML = html;
     expect(collectTextTargetsIn(document.body, 10, false).map(target => target.text)).toEqual(expected);
@@ -35267,7 +35253,7 @@ describe('reader helpers', () => {
         expect(document.querySelector('ytd-watch-info-text .jpdb-reader-text-mirror')!.textContent).not.toContain('9876543210');
     });
 
-    it('keeps YouTube owner and metadata mirrors visible without duplicating', () => {
+    it('keeps YouTube channel and metadata mirrors narrow without annotating subscriber counts', () => {
         const targets = collectYouTubeWatchTargets(`
             <ytd-watch-metadata>
                 <div id="owner">
@@ -35285,24 +35271,23 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             '1 日前',
         ]));
-        expect(targets.some(target => target.text.includes('にほんごのじかん | Japanese Comprehensible Input')
-            && target.text.includes('チャンネル登録者数 2040人'))).toBe(true);
+        expect(targets.some(target => target.text.includes('にほんごのじかん | Japanese Comprehensible Input'))).toBe(true);
+        expect(targets.some(target => target.text.includes('チャンネル登録者数 2040人'))).toBe(false);
 
-        const owner = targets.find(target => target.text.includes('チャンネル登録者数 2040人'))!;
+        const channel = targets.find(target => target.text.includes('にほんごのじかん | Japanese Comprehensible Input'))!;
         const metadataAge = targets.find(target => target.text === '1 日前')!;
-        expect(owner).toMatchObject({ nonDestructive: true });
+        expect(channel).toMatchObject({ nonDestructive: true });
         expect(metadataAge).toMatchObject({ nonDestructive: true });
 
         const settings: ReaderSettings = { ...DEFAULT_SETTINGS, furiganaMode: 'all' };
-        const subscriberStart = owner.text.indexOf('登録者数');
-        const subscriberToken: JPDBToken = {
-            card: { ...card, cardState: ['known'], spelling: '登録者数', reading: 'とうろくしゃすう', source: 'jpdb' },
-            start: subscriberStart,
-            end: subscriberStart + 4,
+        const channelToken: JPDBToken = {
+            card: { ...card, cardState: ['known'], spelling: 'にほんご', reading: 'にほんご', source: 'jpdb' },
+            start: 0,
+            end: 4,
             length: 4,
-            rubies: [{ text: 'とうろくしゃすう', start: subscriberStart, end: subscriberStart + 4, length: 4 }],
+            rubies: [],
             pitchClass: 'heiban',
-            sentence: owner.text,
+            sentence: channel.text,
         };
         const ageToken: JPDBToken = {
             card: { ...card, cardState: ['known'], spelling: '日', reading: 'にち', source: 'jpdb' },
@@ -35314,28 +35299,32 @@ describe('reader helpers', () => {
             sentence: '1 日前',
         };
 
-        applyTokensToScanTarget(owner, [subscriberToken], settings);
+        applyTokensToScanTarget(channel, [channelToken], settings);
         applyTokensToScanTarget(metadataAge, [ageToken], settings);
-        applyTokensToScanTarget(owner, [subscriberToken], settings);
+        applyTokensToScanTarget(channel, [channelToken], settings);
         applyTokensToScanTarget(metadataAge, [ageToken], settings);
 
         const ownerHost = document.querySelector<HTMLElement>('#owner')!;
+        const channelHost = document.querySelector<HTMLElement>('ytd-channel-name yt-formatted-string')!;
+        const subscriberHost = document.querySelector<HTMLElement>('#owner-sub-count')!;
         const metadataHost = document.querySelector<HTMLElement>('.ytAttributedStringHost')!;
         expect(ownerHost.textContent).toContain('にほんごのじかん | Japanese Comprehensible Input');
         expect(ownerHost.textContent).toContain('チャンネル登録者数 2040人');
-        expect(ownerHost.querySelectorAll(':scope > .jpdb-reader-text-mirror')).toHaveLength(1);
+        expect(ownerHost.querySelectorAll(':scope > .jpdb-reader-text-mirror')).toHaveLength(0);
+        expect(channelHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
+        expect(subscriberHost.querySelector('.jpdb-reader-word')).toBeNull();
         expect(metadataHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
-        const subscriberWord = ownerHost.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror .jpdb-reader-word')!;
+        const channelWord = channelHost.querySelector<HTMLElement>('.jpdb-reader-text-mirror .jpdb-reader-word')!;
         const metadataWord = metadataHost.querySelector<HTMLElement>('.jpdb-reader-text-mirror .jpdb-reader-word')!;
-        expect(readerWordSurfaceText(subscriberWord)).toBe('登録者数');
+        expect(readerWordSurfaceText(channelWord)).toBe('にほんご');
         expect(readerWordSurfaceText(metadataWord)).toBe('日');
-        expectRenderedPitchWord(subscriberWord, 'heiban');
+        expectRenderedPitchWord(channelWord, 'heiban');
         expectRenderedPitchWord(metadataWord, 'heiban');
         expect(document.querySelector('.jpdb-reader-word .jpdb-reader-word')).toBeNull();
         expect(document.querySelector('ruby ruby')).toBeNull();
     });
 
-    it('collapses YouTube owner formatting whitespace in non-destructive mirrors across rescans', () => {
+    it('keeps YouTube owner subscriber chrome out of non-destructive mirrors across rescans', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 1000, height: 240 });
         try {
             document.body.innerHTML = `
@@ -35353,29 +35342,39 @@ describe('reader helpers', () => {
                 </ytd-watch-metadata>
             `;
 
-            const owner = collectScanTargets(10, YOUTUBE_WATCH_TEST_URL)
-                .find(target => target.text.includes('チャンネル登録者数 2040人'))!;
-            expect(owner).toMatchObject({ nonDestructive: true });
-            expect(owner.text).toMatch(/\n\s+/);
+            const targets = collectScanTargets(10, YOUTUBE_WATCH_TEST_URL);
+            const channel = targets.find(target => target.text.includes('にほんごのじかん'))!;
+            expect(channel).toMatchObject({ nonDestructive: true });
+            expect(channel.text).not.toContain('チャンネル登録者数');
+            expect(targets.find(target => target.text.includes('チャンネル登録者数 2040人'))).toBeUndefined();
 
             const settings: ReaderSettings = { ...DEFAULT_SETTINGS, furiganaMode: 'all' };
-            applyTokensToScanTarget(owner, youtubeSubscriberToken(owner.text), settings);
+            const channelToken: JPDBToken = {
+                card: { ...card, cardState: ['known'], spelling: 'にほんご', reading: 'にほんご', source: 'jpdb' },
+                start: channel.text.indexOf('にほんご'),
+                end: channel.text.indexOf('にほんご') + 'にほんご'.length,
+                length: 'にほんご'.length,
+                rubies: [],
+                pitchClass: 'heiban',
+                sentence: channel.text,
+            };
+            applyTokensToScanTarget(channel, [channelToken], settings);
 
             const ownerHost = document.querySelector<HTMLElement>('#owner')!;
-            let mirror = ownerHost.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror')!;
+            const channelHost = document.querySelector<HTMLElement>('ytd-channel-name yt-formatted-string')!;
+            const subscriberHost = document.querySelector<HTMLElement>('#owner-sub-count')!;
+            let mirror = channelHost.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror')!;
+            expect(ownerHost.querySelectorAll(':scope > .jpdb-reader-text-mirror')).toHaveLength(0);
+            expect(channelHost.querySelectorAll(':scope > .jpdb-reader-text-mirror')).toHaveLength(1);
             expect(mirror.textContent).not.toMatch(/\n|\s{2,}/u);
-            expect(readerWordSurfaceText(mirror.querySelector<HTMLElement>('.jpdb-reader-word')!)).toBe('登録者数');
+            expect(readerWordSurfaceText(mirror.querySelector<HTMLElement>('.jpdb-reader-word')!)).toBe('にほんご');
+            expect(subscriberHost.querySelector('.jpdb-reader-word')).toBeNull();
 
-            const rescannedOwner = {
-                ...owner,
-                text: owner.text.replace('2040人', '2041人'),
-            };
-            applyTokensToScanTarget(rescannedOwner, youtubeSubscriberToken(rescannedOwner.text), settings);
+            applyTokensToScanTarget(channel, [channelToken], settings);
 
-            mirror = ownerHost.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror')!;
-            expect(ownerHost.querySelectorAll(':scope > .jpdb-reader-text-mirror')).toHaveLength(1);
-            expect(mirror.textContent).not.toMatch(/\n|\s{2,}/u);
-            expect(mirror.textContent).toContain('2041人');
+            mirror = channelHost.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror')!;
+            expect(channelHost.querySelectorAll(':scope > .jpdb-reader-text-mirror')).toHaveLength(1);
+            expect(subscriberHost.querySelector('.jpdb-reader-word')).toBeNull();
             expect(document.querySelector('.jpdb-reader-word .jpdb-reader-word')).toBeNull();
             expect(document.querySelector('ruby ruby')).toBeNull();
         } finally {

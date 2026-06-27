@@ -156,7 +156,17 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Repaired BookWalker continuous-scroll OCR in Firefox, WebKit, and Chromium so visible vertical pages show scanning/status feedback and ready OCR words stay selectable.': 'Firefox、WebKit、ChromiumでBookWalkerの連続スクロールOCRを修正し、表示中の縦方向ページにスキャン／状態表示が出て、準備済みのOCR単語を選択できるようにしました。',
+    'Kept normal BookWalker page taps working outside OCR text while routing taps on OCR words to lookup instead of page turns.': 'OCRテキスト外では通常のBookWalkerページタップを維持し、OCR単語上のタップはページ送りではなく辞書検索に送るようにしました。',
+    'Restored BookWalker title and description annotation with furigana and pitch while keeping reader settings/menu controls passive.': 'BookWalkerのタイトルと説明文にふりがなとピッチ注釈を復旧しつつ、リーダー設定やメニュー操作はパッシブのまま保つようにしました。',
+    'Aligned dictionary furigana for mixed kana/kanji headwords such as `あなた達[たち]`, so kana outside the annotated kanji no longer pulls ruby out of position.': '`あなた達[たち]`のようなかな／漢字混在の辞書見出しでふりがなの位置をそろえ、注釈対象の漢字以外のかながルビ位置をずらさないようにしました。',
+    'Aligned dictionary furigana for mixed kana/kanji headwords such as': '次のようなかな／漢字混在の辞書見出しでふりがなの位置をそろえました:',
+    ', so kana outside the annotated kanji no longer pulls ruby out of position.': '。注釈対象の漢字以外のかながルビ位置をずらさないようにしました。',
+    'Kept the default dark-mode OCR word highlight on an accent-tinted background while preserving the explicit dark overlay setting.': 'ダークモードの既定OCR単語ハイライトをアクセント色ベースの背景に戻し、明示的なダークオーバーレイ設定はそのまま残しました。',
+    'Stabilized YouTube/Yomu Video side-panel resizing and native fullscreen control hit-testing after transcript rows are rendered.': '文字起こし行の描画後もYouTube/Yomu Videoのサイドパネルリサイズとネイティブ全画面操作のヒット判定が安定するようにしました。',
     'Renamed the root installable docs PWA manifest to visible よむ branding and added the compat live-site smoke command for YomuYomu and current anime player targets.': 'ルートのインストール可能なドキュメントPWAマニフェストを、表示名でもよむブランドになるように変更し、YomuYomuと現在のアニメプレイヤー対象を確認する互換ライブサイトスモークコマンドを追加しました。',
+    'Hid Yomu Video subtitles sooner when the tracked video is mostly scrolled away so captions do not follow the user into comments.': '追跡中の動画がほとんど画面外へスクロールされた時点でYomu Videoの字幕をより早く非表示にし、字幕がコメント欄まで付いてこないようにしました。',
+    'Kept native/secondary captions on a stable smaller font while Japanese subtitles retain the configured size/readable floor.': 'ネイティブ／第二字幕は安定した小さめのフォントサイズに保ち、日本語字幕は設定されたサイズと読みやすい最小値を維持するようにしました。',
     'Retried active hover audio with the current hover lookup generation so returning to the same hover card keeps real audio eligible instead of treating it as stale duplicate autoplay.': '同じホバーカードへ戻ったときに古い重複自動再生と誤判定されないよう、アクティブなホバー音声の再試行に現在のホバー検索世代を渡すようにしました。',
     'Shared Apple Pencil/stylus control activation across reader popovers and the hosted Study surface so kanji buttons, links, toggles, and trace controls respond on the first pen tap without duplicate clicks.': 'リーダーポップオーバーとホスト版学習画面でApple Pencil／スタイラス用のコントロール起動処理を共通化し、漢字ボタン、リンク、トグル、なぞり表示の操作がペンタップ1回で反応し、重複クリックしないようにしました。',
     'Repaired Yomu Video and YouTube subtitle layout regressions: left/right transcript panels now stay flush without covering the player, subtitles stay anchored to the player or hide while scrolling into comments, and fullscreen geometry updates immediately while video is playing.': 'Yomu VideoとYouTubeの字幕レイアウト退行を修正しました。左／右の文字起こしパネルはプレイヤーを覆わず端にそろい、字幕はプレイヤーに固定されるかコメント欄へスクロールしたときに非表示になり、再生中でも全画面切り替え直後に位置が更新されます。',

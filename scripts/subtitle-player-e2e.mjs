@@ -20,12 +20,14 @@ const transcriptPlacements = ['right', 'left', 'bottom'];
 const baseE2ESettings = {
     onboardingSeen: true,
     interfaceLanguage: 'ja',
+    preferJapaneseSiteLanguage: false,
     showFloatingButton: false,
     subtitlePlayerEnabled: true,
     subtitleAutoDetect: true,
     subtitleOverlayVisible: true,
     subtitleControlsMode: 'auto',
 };
+const defaultSubtitleBottomOffset = 16;
 
 const primaryVtt = `WEBVTT
 
@@ -834,6 +836,11 @@ async function panelAlreadyOpenOnLines(page) {
 
 async function resizePanel(page, placement) {
     const handleLocator = page.locator('[data-resize-transcript]');
+    const metrics = await handleLocator.evaluate(handle => ({
+        max: Number(handle.getAttribute('aria-valuemax') ?? '0'),
+        now: Number(handle.getAttribute('aria-valuenow') ?? '0'),
+    })).catch(() => ({ max: 0, now: 0 }));
+    const startsAtMax = metrics.max > 0 && metrics.now >= metrics.max - 2;
     if (placement === 'left') {
         await handleLocator.focus();
         await page.keyboard.press('ArrowLeft');
@@ -841,6 +848,8 @@ async function resizePanel(page, placement) {
         await page.waitForTimeout(350);
         return true;
     }
+    if (placement === 'right' && startsAtMax) return dragTranscriptResizeHandle(page, placement, { rightDelta: 140 });
+    if (placement === 'bottom' && startsAtMax) return dragTranscriptResizeHandle(page, placement, { bottomDelta: 120 });
     return dragTranscriptResizeHandle(page, placement);
 }
 
@@ -1017,11 +1026,15 @@ async function prepareDrawerLayoutPhase(page, site, phase) {
 }
 
 async function waitForDrawerLayoutSettled(page, site) {
-    await page.waitForFunction(anchorSelector => {
+    await page.waitForFunction(({ anchorSelector, expectedPlacement }) => {
         const panel = document.querySelector('.jpdb-subtitle-list')?.getBoundingClientRect();
         const player = playerRect(anchorSelector);
         if (!panel || !player) return false;
         if (!hasSubtitlePanelContent()) return false;
+        const placement = document.querySelector('.jpdb-subtitle-list')?.dataset.transcriptPlacement
+            || document.querySelector('.jpdb-subtitle-player')?.dataset.transcriptPlacement
+            || expectedPlacement;
+        if (placement === 'bottom') return bottomSheetSettled(panel);
         return boxesSeparated(panel, player);
 
         function playerRect(anchorSelector) {
@@ -1036,6 +1049,13 @@ async function waitForDrawerLayoutSettled(page, site) {
             return rows > 0 || tracks > 0;
         }
 
+        function bottomSheetSettled(panel) {
+            return panel.left >= -1
+                && panel.right <= window.innerWidth + 1
+                && panel.bottom >= window.innerHeight - 1
+                && panel.height >= 80;
+        }
+
         function boxesSeparated(panel, video) {
             return [
                 panel.right <= video.left + 1,
@@ -1044,7 +1064,7 @@ async function waitForDrawerLayoutSettled(page, site) {
                 video.bottom <= panel.top + 1,
             ].some(Boolean);
         }
-    }, site.anchorSelector ?? '', { timeout: site.readyTimeout ?? 25000 });
+    }, { anchorSelector: site.anchorSelector ?? '', expectedPlacement: site.expectPlacement ?? '' }, { timeout: site.readyTimeout ?? 25000 });
     await page.waitForTimeout(150);
 }
 
@@ -1062,14 +1082,16 @@ function assertDrawerLayoutState(site, phase, state, layout) {
     assert(hasUsableVideo(layout.video), `${site.name}: missing usable video during ${phase}`, state);
     if (site.expectPlacement) assert(isExpectedPlacementForPhase(site.expectPlacement, phase, layout.placement), `${site.name}: unexpected transcript placement during ${phase}`, state);
     if (site.expectEdgeToEdgePanel) assert(isEdgeToEdgePanel(layout.panel, state.viewport), `${site.name}: compact transcript panel is not edge-to-edge during ${phase}`, state);
-    assert(!rectsOverlap(layout.panel, layout.video), `${site.name}: transcript panel overlaps video during ${phase}`, state);
-    if (layout.anchor) assert(!rectsOverlap(layout.panel, layout.anchor), `${site.name}: transcript panel overlaps player frame during ${phase}`, {
-        placement: layout.placement,
-        panel: layout.panel,
-        anchor: layout.anchor,
-        video: layout.video,
-        viewport: state.viewport,
-    });
+    if (layout.placement !== 'bottom') {
+        assert(!rectsOverlap(layout.panel, layout.video), `${site.name}: transcript panel overlaps video during ${phase}`, state);
+        if (layout.anchor) assert(!rectsOverlap(layout.panel, layout.anchor), `${site.name}: transcript panel overlaps player frame during ${phase}`, {
+            placement: layout.placement,
+            panel: layout.panel,
+            anchor: layout.anchor,
+            video: layout.video,
+            viewport: state.viewport,
+        });
+    }
     assert(panelFitsViewport(layout.panel, state.viewport), `${site.name}: transcript panel leaves viewport during ${phase}`, state);
     assertTranscriptRowsWrap(site, phase, state);
     assertPlacementGeometry(site, phase, layout, state);
@@ -1115,7 +1137,8 @@ function assertTranscriptRowsWrap(site, phase, state) {
 
 function assertPlacementGeometry(site, phase, layout, state) {
     if (layout.placement === 'bottom') {
-        assert(layout.video.bottom <= layout.panel.top + 4, `${site.name}: bottom transcript panel did not leave the player above the sheet during ${phase}`, state);
+        assert(isEdgeToEdgePanel(layout.panel, state.viewport), `${site.name}: bottom transcript panel is not a viewport sheet during ${phase}`, state);
+        assert(layout.panel.bottom >= state.viewport.height - 1, `${site.name}: bottom transcript panel is not flush to the viewport edge during ${phase}`, state);
         if (state.viewport.width >= 700) {
             assert(layout.video.height >= 240, `${site.name}: bottom transcript panel made the player too short on a wide viewport during ${phase}`, state);
         }
@@ -1210,8 +1233,8 @@ async function assertSubtitleMoveHandle(page, site) {
     await page.waitForTimeout(150);
 
     const after = await subtitleDragSnapshot(page, site);
-    assert(Math.abs(after.offset) >= 24, `${site.name}: subtitle drag handle did not change the temporary offset`, { before, after, dragProbe: await subtitleDragProbeSnapshot(page) });
     assert(after.subtitle && before.subtitle && after.subtitle.top < before.subtitle.top - 18, `${site.name}: subtitle line did not move with the drag handle`, { before, after });
+    assert(after.bottomOffset > before.bottomOffset + 2, `${site.name}: subtitle drag handle did not sync to the bottom-offset setting`, { before, after, dragProbe: await subtitleDragProbeSnapshot(page) });
 
     await page.waitForTimeout(2700);
     const idle = await subtitleRailIdleSnapshot(page);
@@ -1304,20 +1327,36 @@ async function revealSubtitleControls(page, site) {
 }
 
 async function subtitleDragSnapshot(page, site) {
-    return page.evaluate(anchorSelector => {
+    return page.evaluate(({ anchorSelector, settingsKey, defaultBottomOffset }) => {
         const root = document.querySelector('.jpdb-subtitle-player');
         const subtitle = document.querySelector('.jpdb-subtitle-text');
         const rail = document.querySelector('.jpdb-subtitle-rail');
         const anchor = anchorSelector ? document.querySelector(anchorSelector) : document.querySelector('video');
         const offset = Number.parseFloat(root?.style.getPropertyValue('--subtitle-drag-offset-y') || '0');
+        const settings = readSettings();
+        const bottomOffset = Number.isFinite(settings.subtitleBottomOffset)
+            ? settings.subtitleBottomOffset
+            : defaultBottomOffset;
         return {
             offset,
+            bottomOffset,
             root: root?.getBoundingClientRect().toJSON(),
             subtitle: subtitle?.getBoundingClientRect().toJSON(),
             rail: rail?.getBoundingClientRect().toJSON(),
             anchor: anchor?.getBoundingClientRect().toJSON(),
         };
-    }, site.anchorSelector ?? '');
+        function readSettings() {
+            try {
+                return JSON.parse(localStorage.getItem(settingsKey) || '{}') || {};
+            } catch {
+                return {};
+            }
+        }
+    }, {
+        anchorSelector: site.anchorSelector ?? '',
+        settingsKey: settingsStorageKey,
+        defaultBottomOffset: defaultSubtitleBottomOffset,
+    });
 }
 
 async function subtitleRailIdleSnapshot(page) {

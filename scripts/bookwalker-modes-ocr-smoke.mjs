@@ -1,22 +1,26 @@
 #!/usr/bin/env node
 // Browser proof for the BookWalker modes Canna hit on iPad:
 // 1) two visible spread pages where only one viewport carries .currentScreen
-// 2) continuous vertical scroll where .currentScreen can be left on an offscreen
-//    viewport while the user taps a later visible page.
+// 2) continuous vertical scroll (BookWalker settings: ページ移動方向 = 縦) where
+//    .currentScreen can be left on an offscreen viewport while the user taps a
+//    later visible page.
 // Both cases use real Playwright touch events and the built userscript bundle.
-import { chromium, webkit } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { createSmokePaths, addGmStorageBridgeInitScript, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
-const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST } = createSmokePaths(import.meta.dirname);
+const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST, artifacts: ARTIFACTS } = createSmokePaths(import.meta.dirname);
+const ARTIFACT_DIR = path.join(ARTIFACTS, 'bookwalker-modes-ocr');
 const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video']
     .map(name => path.join(DIST, 'greasyfork', `${name}.user.js`));
 const BRIDGE = '__yomuBookwalkerModesRequest';
 const IMG_URL = 'https://c.bookwalker.jp/scrambled/page-mode.png';
 const failures = [];
 const rows = [];
+mkdirSync(ARTIFACT_DIR, { recursive: true });
 
 const CRC = (() => {
     const table = new Int32Array(256);
@@ -161,7 +165,7 @@ async function installYomu(page) {
 }
 
 async function runCase(engineName, mode) {
-    const engine = engineName === 'webkit' ? webkit : chromium;
+    const engine = engineName === 'webkit' ? webkit : engineName === 'firefox' ? firefox : chromium;
     const label = `${engineName}/${mode}`;
     const browser = await engine.launch({ headless: true });
     const context = await browser.newContext({ viewport: { width: 900, height: 1200 }, hasTouch: true, locale: 'ja-JP', bypassCSP: true });
@@ -204,8 +208,17 @@ async function runCase(engineName, mode) {
     await page.touchscreen.tap(point.x, point.y);
     const start = Date.now();
     let overlayMs = -1;
+    let statusSeen = false;
+    let frameSeen = false;
     while (Date.now() - start < 8000) {
-        if (await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line').length) >= 1) {
+        const readiness = await page.evaluate(() => ({
+            status: document.querySelectorAll('.jpdb-ocr-video-frame-status').length,
+            frames: document.querySelectorAll('.jpdb-ocr-canvas-frame, .jpdb-ocr-background-frame').length,
+            lines: document.querySelectorAll('.jpdb-ocr-line').length,
+        }));
+        statusSeen ||= readiness.status >= 1;
+        frameSeen ||= readiness.frames >= 1;
+        if (readiness.lines >= 1) {
             overlayMs = Date.now() - start;
             break;
         }
@@ -221,15 +234,22 @@ async function runCase(engineName, mode) {
         frameSurvived = await frame.evaluate(node => node.isConnected).catch(() => false);
         removals = await page.evaluate(() => window.__yomuFrameRemovals || 0);
     }
-    const ok = overlayMs >= 0 && ocrHits >= 1 && frameSurvived && removals === 0;
-    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — overlay ${overlayMs >= 0 ? overlayMs + 'ms' : 'NEVER'}, ocrHits=${ocrHits}, frameSurvived=${frameSurvived}, removals=${removals}`);
-    rows.push({ label, ok, overlayMs, ocrHits, frameSurvived, removals });
+    const statusCount = await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-video-frame-status').length);
+    const frameCount = await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-canvas-frame, .jpdb-ocr-background-frame').length);
+    const lineCount = await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line').length);
+    const screenshot = path.join(ARTIFACT_DIR, `${engineName}-${mode}.png`);
+    await page.screenshot({ path: screenshot, fullPage: false }).catch(() => undefined);
+    statusSeen ||= statusCount >= 1;
+    frameSeen ||= frameCount >= 1;
+    const ok = overlayMs >= 0 && ocrHits >= 1 && statusSeen && frameSeen && lineCount >= 1 && frameSurvived && removals === 0;
+    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — overlay ${overlayMs >= 0 ? overlayMs + 'ms' : 'NEVER'}, ocrHits=${ocrHits}, statusSeen=${statusSeen}, finalStatus=${statusCount}, frameSeen=${frameSeen}, finalFrames=${frameCount}, lines=${lineCount}, frameSurvived=${frameSurvived}, removals=${removals}`);
+    rows.push({ label, ok, overlayMs, ocrHits, statusSeen, statusCount, frameSeen, frameCount, lineCount, frameSurvived, removals, screenshot });
     if (!ok) failures.push(label);
     await context.close();
     await browser.close();
 }
 
-for (const engineName of ['webkit', 'chromium']) {
+for (const engineName of ['firefox', 'webkit', 'chromium']) {
     for (const mode of ['spread', 'continuous']) {
         try {
             await runCase(engineName, mode);
@@ -243,9 +263,10 @@ for (const engineName of ['webkit', 'chromium']) {
 
 console.log('\n================ SUMMARY ================');
 for (const row of rows) {
-    console.log(`${row.label.padEnd(26)} ${row.ok ? `OCR ${row.overlayMs}ms` : 'NO OCR / CHURN'}`);
+    console.log(`${row.label.padEnd(26)} ${row.ok ? 'ok' : 'failed'} ${row.screenshot ? `(${row.screenshot})` : ''}`);
 }
+writeFileSync(path.join(ARTIFACT_DIR, 'summary.json'), JSON.stringify(rows, null, 2));
 console.log(failures.length
     ? `\nFAILURES (${failures.length}): ${[...new Set(failures)].join('; ')}`
-    : '\nALL PASS — BookWalker spread and continuous-scroll taps OCR without frame churn');
+    : `\nALL PASS — BookWalker spread and continuous-scroll taps OCR without frame churn. Artifacts: ${ARTIFACT_DIR}`);
 process.exit(failures.length ? 1 : 0);

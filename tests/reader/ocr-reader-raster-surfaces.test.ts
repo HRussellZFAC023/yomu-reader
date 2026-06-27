@@ -180,6 +180,52 @@ describe('reader raster OCR surfaces', () => {
         expect(collectCanvasReaderSurfaces('viewer.bookwalker.jp')).toEqual([visibleCanvas]);
     });
 
+    it('OCRs the visible BookWalker page in continuous vertical scroll with tainted canvases', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        pageCounter('13 / 195');
+        const captureReaderSurface = vi.fn(async () => ({
+            dataUrl: 'data:image/jpeg;base64,SCREENSHOT',
+            rect: new DOMRect(120, 80, 760, 900),
+        }));
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('VERTICAL_PAGE'));
+        const viewports = [0, 1, 2].map(index => {
+            const viewport = Object.assign(document.createElement('div'), { id: `viewport${index}` });
+            if (index === 0) viewport.classList.add('currentScreen');
+            const canvas = pageCanvas(120, -1180 + index * 1260, 760, 1074);
+            canvas.toDataURL = TAINTED_CANVAS;
+            viewport.append(canvas);
+            document.body.append(viewport);
+            return { viewport, canvas };
+        });
+
+        const controller = createController({}, captureReaderSurface, captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledWith(viewports[1]!.canvas, expect.any(Function));
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+                expect(frame!.getAttribute('src')).toBe('data:image/jpeg;base64,VERTICAL_PAGE');
+            });
+            expect(captureReaderSurface).not.toHaveBeenCalled();
+
+            const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
+            Object.defineProperty(frame, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(frame, 'naturalHeight', { value: 1600, configurable: true });
+            frame.dataset.ocrLines = JSON.stringify([
+                { text: 'ページ移動方向', box: { left: 0.12, top: 0.18, width: 0.46, height: 0.08 } },
+            ]);
+            frame.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('respects native text PDF pages opting canvas OCR off while allowing scanned pages to opt in', () => {
         stubLocation('hrussellzfac023.github.io');
         stubReadableCanvas();

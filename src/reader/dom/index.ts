@@ -3304,11 +3304,35 @@ function appendRubyGap(parts: Array<{ text: string; start: number; end: number }
 function trimRubyPartToKanji(base: string, reading: string): Array<{ text: string; start: number; end: number }> {
     const trimmed = trimSharedKanaAffixes(base, reading);
     if (!trimmed.surface || !trimmed.reading || !KANJI_RE.test(trimmed.surface)) return [];
+    const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
+    if (kanjiOnly) {
+        return [{
+            text: trimmed.reading,
+            start: trimmed.offset + kanjiOnly.start,
+            end: trimmed.offset + kanjiOnly.end,
+        }];
+    }
     return [{
         text: trimmed.reading,
         start: trimmed.offset,
         end: trimmed.offset + trimmed.surface.length,
     }];
+}
+
+function kanaTrimmedKanjiRange(base: string, reading: string): { start: number; end: number } | null {
+    if (!KANA_RE.test(reading) || !KANA_CHAR_RE.test(base)) return null;
+    const chars = Array.from(base);
+    const first = chars.findIndex(char => KANJI_RE.test(char));
+    if (first < 0) return null;
+    let last = -1;
+    for (let index = chars.length - 1; index >= first; index -= 1) {
+        if (KANJI_RE.test(chars[index])) {
+            last = index;
+            break;
+        }
+    }
+    if (last < first || (first === 0 && last === chars.length - 1)) return null;
+    return { start: first, end: last + 1 };
 }
 
 function alignRubyKanaAnchors(base: string, reading: string): RubyKanaAnchor[] | null {

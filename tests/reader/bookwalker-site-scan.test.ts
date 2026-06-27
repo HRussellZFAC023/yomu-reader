@@ -7,6 +7,9 @@ import {
     isBookWalkerReaderPage,
     isBookWalkerStorefrontPage,
 } from '../../src/reader/app/site-parsers';
+import { applyTokensToScanTarget } from '../../src/reader/dom/index';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 import { isReaderRasterPage } from '../../src/reader/ocr/canvas-readers';
 
 const BOOKWALKER_HOME_URL = 'https://bookwalker.jp/?srsltid=AfmBOopUErpf8ha1DqKVCveBWJDa_h95s78MnReCkPmS9WOVKOouIfFX';
@@ -54,7 +57,7 @@ describe('BookWalker site scan boundaries', () => {
         }
     });
 
-    it('marks narrow storefront shelf titles beside cover links as passive ruby-suppressed targets', () => {
+    it('keeps narrow storefront shelf titles lookupable without adding ruby height', () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `
             <main>
@@ -87,10 +90,64 @@ describe('BookWalker site scan boundaries', () => {
 
             expect(title).toBeTruthy();
             expect(title).toMatchObject({
-                parserId: 'residual-visible-japanese-parser',
+                parserId: 'bookwalker-storefront-no-dom-parser',
                 suppressRuby: true,
                 passiveInteraction: true,
             });
+        } finally {
+            restoreRects();
+        }
+    });
+
+    it('scans BookWalker reader metadata while leaving settings controls alone', () => {
+        const restoreRects = mockVisibleElementRects();
+        const readerUrl = 'https://viewer.bookwalker.jp/03/1/viewer.html';
+        document.body.innerHTML = `
+            <div id="viewer"><div id="renderer">
+                <div id="viewport0" class="currentScreen"><canvas width="1200" height="1600"></canvas></div>
+            </div></div>
+            <header class="viewer-title-bar">
+                <div class="bookTitleText">あなた達それでも先生ですかっ！【期間限定無料】</div>
+                <div id="bookDescription">今日は静かな喫茶店で新しい本を読みました。</div>
+            </header>
+            <div class="settings-popover">
+                <button type="button">ページ移動方向</button>
+                <button type="button">横</button>
+                <button type="button">縦</button>
+                <label>タップ設定</label>
+                <label><input type="checkbox">ページ送り方向を反転</label>
+                <span>見開き表示</span>
+                <p>見開きはページ移動方向を横にした時のみ有効になります</p>
+            </div>
+            <span id="pageSliderCounter">13/195</span>`;
+        stubLocation(readerUrl);
+
+        try {
+            const targets = collectScanTargets(20, readerUrl);
+
+            expect(isBookWalkerReaderPage()).toBe(true);
+            expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+                'あなた達それでも先生ですかっ！【期間限定無料】',
+                '今日は静かな喫茶店で新しい本を読みました。',
+            ]));
+            expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
+                'ページ移動方向',
+                '横',
+                '縦',
+                'タップ設定',
+                '見開き表示',
+            ]));
+            expect(targets.every(target => 'parserId' in target && target.parserId === 'bookwalker-reader-no-dom-parser')).toBe(true);
+            expect(targets.every(target => target.suppressRuby !== true)).toBe(true);
+
+            const title = targets.find(target => target.text.includes('あなた達それでも先生ですかっ'))!;
+            applyTokensToScanTarget(title, [bookWalkerTitleToken(title.text)], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+            const titleHost = document.querySelector<HTMLElement>('.bookTitleText')!;
+            expect(titleHost.querySelector('ruby .jpdb-reader-ruby-base')?.textContent).toBe('達');
+            expect(titleHost.querySelector('rt')?.textContent).toBe('たち');
+            expect(titleHost.querySelector('.jpdb-reader-word')?.getAttribute('data-pitch-class')).toBe('heiban');
+            expect(document.querySelector('.settings-popover ruby')).toBeNull();
+            expect(document.querySelector('.settings-popover .jpdb-reader-word')).toBeNull();
         } finally {
             restoreRects();
         }
@@ -244,4 +301,34 @@ function stubLocation(href: string): void {
         pathname: url.pathname,
         protocol: url.protocol,
     });
+}
+
+function bookWalkerTitleToken(sentence: string): JPDBToken {
+    const start = sentence.indexOf('達');
+    return {
+        card: bookWalkerCard(),
+        start,
+        end: start + 1,
+        length: 1,
+        rubies: [{ text: 'たち', start, end: start + 1, length: 1 }],
+        pitchClass: 'heiban',
+        sentence,
+    };
+}
+
+function bookWalkerCard(): JPDBCard {
+    return {
+        vid: 1,
+        sid: 1,
+        rid: 0,
+        spelling: '達',
+        reading: 'たち',
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ['new'],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'jpdb',
+    };
 }

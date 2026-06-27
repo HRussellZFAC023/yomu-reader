@@ -1089,6 +1089,9 @@ Watch the cat
                     expect(Number.parseInt(panel.style.left, 10)).toBeGreaterThanOrEqual(1004);
                     expect(Number.parseInt(panel.style.left, 10) + Number.parseInt(panel.style.width, 10)).toBe(1440);
                     expect(Number.parseInt(panel.style.width, 10)).toBeLessThanOrEqual(436);
+                    const resizeHandle = panel.querySelector<HTMLElement>('[data-resize-transcript]')!;
+                    expect(resizeHandle.getAttribute('aria-valuemax')).toBe(String(Number.parseInt(panel.style.width, 10)));
+                    expect(resizeHandle.getAttribute('aria-valuenow')).toBe(String(Number.parseInt(panel.style.width, 10)));
                     expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-right')).toBe(true);
                     expect(movie.style.width).toBe('');
                     expect(movie.style.maxWidth).toBe('');
@@ -3155,7 +3158,9 @@ Watch the cat
         expect(SUBTITLES_YOUTUBE_CSS)
             .not.toContain('.jpdb-subtitle-panel-open .jpdb-subtitle-rail');
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('max-height: min(5.4em, 45%, calc(100% - 24px));\n  overflow: hidden;');
+            .toContain('max-height: min(5.4em, 45%, calc(100% - 24px));\n  overflow: visible;');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .toContain('.jpdb-subtitle-lines {\n  min-height: 1.36em;\n  max-height: inherit;\n  overflow: hidden;');
         expect(SUBTITLES_YOUTUBE_CSS)
             .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open)');
     });
@@ -3284,7 +3289,7 @@ Watch the cat
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('.jpdb-subtitle-drag-handle { position: absolute;');
-        expect(normalizedCss).toContain('max-height: min(5.4em, 45%, calc(100% - 24px)); overflow: hidden; pointer-events: none;');
+        expect(normalizedCss).toContain('max-height: min(5.4em, 45%, calc(100% - 24px)); overflow: visible; pointer-events: none;');
         expect(normalizedCss).toContain('.jpdb-subtitle-lines { min-height: 1.36em; max-height: inherit; overflow: hidden; pointer-events: none; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle');
         expect(normalizedCss).toContain('opacity: .56; pointer-events: auto;');
@@ -3695,6 +3700,46 @@ Watch the cat
 
         try {
             expect(readPageCaptionText(video, readerRoot)).toBe('今日は読む。');
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('reads mobile YouTube captions from the detached fullscreen control overlay', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://m.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <ytm-player fullscreen>
+                <video></video>
+            </ytm-player>
+            <div id="player-control-overlay" class="fadein">
+                <button type="button" aria-label="Pause">Pause</button>
+                <div class="caption-window"><span class="ytp-caption-segment">先生いつもありがとうございました。</span></div>
+                <button type="button" aria-label="Exit fullscreen">Exit fullscreen</button>
+            </div>
+            <div class="jpdb-subtitle-player" data-jpdb-reader-root="true">
+                <div class="jpdb-subtitle-status">字幕トラックはまだ検出されていません。</div>
+            </div>
+        `;
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const caption = document.querySelector('.ytp-caption-segment') as HTMLElement;
+        const readerRoot = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 0, right: 390, top: 0, bottom: 664, width: 390, height: 664 }),
+        });
+        Object.defineProperty(caption, 'innerText', { value: caption.textContent ?? '' });
+        Object.defineProperty(caption, 'getBoundingClientRect', {
+            value: () => ({ left: 48, right: 342, top: 548, bottom: 584, width: 294, height: 36 }),
+        });
+
+        try {
+            expect(readPageCaptionText(video, readerRoot)).toBe('先生いつもありがとうございました。');
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,

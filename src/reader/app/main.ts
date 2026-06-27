@@ -3227,7 +3227,8 @@ export class ReaderApp {
     }
 
     private ocrLineWordForPointer(target: Element | null, x: number, y: number): HTMLElement | null {
-        const line = target?.closest?.('.jpdb-ocr-line') as HTMLElement | null;
+        const line = (target?.closest?.('.jpdb-ocr-line')
+            ?? document.elementFromPoint(x, y)?.closest?.('.jpdb-ocr-line')) as HTMLElement | null;
         return line ? ocrLineWordAtPoint(line, x, y) : null;
     }
 

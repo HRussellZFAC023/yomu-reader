@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.148] - 2026-06-27
+
+### Fixed
+
+- Repaired BookWalker continuous-scroll OCR in Firefox, WebKit, and Chromium so visible vertical pages show scanning/status feedback and ready OCR words stay selectable.
+- Kept normal BookWalker page taps working outside OCR text while routing taps on OCR words to lookup instead of page turns.
+- Restored BookWalker title and description annotation with furigana and pitch while keeping reader settings/menu controls passive.
+- Aligned dictionary furigana for mixed kana/kanji headwords such as `あなた達[たち]`, so kana outside the annotated kanji no longer pulls ruby out of position.
+- Kept the default dark-mode OCR word highlight on an accent-tinted background while preserving the explicit dark overlay setting.
+- Stabilized YouTube/Yomu Video side-panel resizing and native fullscreen control hit-testing after transcript rows are rendered.
+
 ## [1.4.147] - 2026-06-27
 
 ### Fixed

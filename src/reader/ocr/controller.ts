@@ -2087,6 +2087,7 @@ function isStaleOcrState(error: unknown): error is typeof STALE_OCR_STATE {
 function applyOcrOverlayStyle(overlay: HTMLElement, settings: ReaderSettings): void {
     const theme = effectiveOcrOverlayTheme(settings);
     overlay.dataset.ocrOverlayTheme = theme;
+    overlay.dataset.ocrOverlayVariant = settings.ocrOverlayTheme === 'auto' ? 'auto' : 'custom';
     if (theme === 'light') {
         overlay.style.setProperty('--jpdb-ocr-text-color', '#17202a');
         overlay.style.setProperty('--jpdb-ocr-outline-color', 'rgba(255, 255, 255, 0)');

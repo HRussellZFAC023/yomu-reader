@@ -9245,11 +9245,34 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function trimRubyPartToKanji(base, reading) {
     const trimmed = trimSharedKanaAffixes(base, reading);
     if (!trimmed.surface || !trimmed.reading || !KANJI_RE$3.test(trimmed.surface)) return [];
+    const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
+    if (kanjiOnly) {
+      return [{
+        text: trimmed.reading,
+        start: trimmed.offset + kanjiOnly.start,
+        end: trimmed.offset + kanjiOnly.end
+      }];
+    }
     return [{
       text: trimmed.reading,
       start: trimmed.offset,
       end: trimmed.offset + trimmed.surface.length
     }];
+  }
+  function kanaTrimmedKanjiRange(base, reading) {
+    if (!KANA_RE$1.test(reading) || !KANA_CHAR_RE.test(base)) return null;
+    const chars = Array.from(base);
+    const first2 = chars.findIndex((char) => KANJI_RE$3.test(char));
+    if (first2 < 0) return null;
+    let last = -1;
+    for (let index = chars.length - 1; index >= first2; index -= 1) {
+      if (KANJI_RE$3.test(chars[index])) {
+        last = index;
+        break;
+      }
+    }
+    if (last < first2 || first2 === 0 && last === chars.length - 1) return null;
+    return { start: first2, end: last + 1 };
   }
   function alignRubyKanaAnchors(base, reading) {
     const runs = rubyBaseKanaRuns(base);
@@ -24279,7 +24302,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.147".trim() ? "1.4.147".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.148".trim() ? "1.4.148".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -35873,6 +35896,7 @@ ${spelling}`);
   function applyOcrOverlayStyle(overlay, settings) {
     const theme = effectiveOcrOverlayTheme(settings);
     overlay.dataset.ocrOverlayTheme = theme;
+    overlay.dataset.ocrOverlayVariant = settings.ocrOverlayTheme === "auto" ? "auto" : "custom";
     if (theme === "light") {
       overlay.style.setProperty("--jpdb-ocr-text-color", "#17202a");
       overlay.style.setProperty("--jpdb-ocr-outline-color", "rgba(255, 255, 255, 0)");
@@ -41282,7 +41306,8 @@ ${spelling}`);
     return allowsChildText || !hasCaptionChildText(element, options);
   }
   function containsReaderRootOrPlayerChrome(element) {
-    return Boolean(element.querySelector("[data-jpdb-reader-root]")) || Boolean(element.matches(PLAYER_CHROME_CONTAINER_SELECTOR) || element.closest(PLAYER_CHROME_CONTAINER_SELECTOR)) || Boolean(element.querySelector(PLAYER_CHROME_INTERACTIVE_SELECTOR));
+    const knownCaptionInPlayerChrome = element.matches(".ytp-caption-segment, .caption-window");
+    return Boolean(element.querySelector("[data-jpdb-reader-root]")) || Boolean(element.matches(PLAYER_CHROME_CONTAINER_SELECTOR)) || Boolean(element.querySelector(PLAYER_CHROME_INTERACTIVE_SELECTOR)) || Boolean(element.closest(PLAYER_CHROME_CONTAINER_SELECTOR) && !knownCaptionInPlayerChrome);
   }
   function isLikelyPlayerChromeText(text2) {
     const hits = PLAYER_CHROME_TEXT_PATTERNS.filter((pattern) => pattern.test(text2)).length;
@@ -41825,7 +41850,7 @@ ${spelling}`);
   function transcriptSideResizeHandleMetrics(options) {
     return {
       current: options.layout?.width ?? options.panelRect?.width ?? 0,
-      max: options.bounds.maxSideWidth,
+      max: options.layout?.maxWidth ?? options.bounds.maxSideWidth,
       min: TRANSCRIPT_PANEL_MIN_SIDE_WIDTH,
       orientation: "vertical"
     };

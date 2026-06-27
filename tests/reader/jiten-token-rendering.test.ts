@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { renderTokensToHtml } from '../../src/reader/dom/index';
+import { renderCardSpellingWithFurigana } from '../../src/reader/cards/reading-display';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 
@@ -71,6 +72,39 @@ describe('Jiten token rendering', () => {
         expect(word.dataset.deckMember).toBe('true');
         expect(word.dataset.deckSource).toBe('jiten');
         expect(word.dataset.deckNames).toBe('Yomu E2E Seed');
+    });
+
+    it('anchors full-surface ruby readings to the kanji inside kana-mixed tokens', () => {
+        const html = renderTokensToHtml('あなた達', [{
+            ...jitenToken('あなた達', 'young', {
+                spelling: 'あなた達',
+                reading: 'あなたたち',
+            }),
+            rubies: [{ text: 'たち', start: 0, end: 4, length: 4 }],
+        }], { ...JITEN_SETTINGS, furiganaMode: 'all' });
+
+        document.body.innerHTML = html;
+        const ruby = document.querySelector('ruby')!;
+
+        expect(ruby.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('達');
+        expect(ruby.querySelector('rt')?.textContent).toBe('たち');
+        expect(document.body.textContent).toContain('あなた達');
+    });
+
+    it('anchors popup wordWithReading ruby to 達 instead of all of あなた達', () => {
+        const html = renderCardSpellingWithFurigana({
+            ...jitenCard('young'),
+            spelling: 'あなた達',
+            reading: 'あなたたち',
+            wordWithReading: 'あなた達[たち]',
+        }, { ...JITEN_SETTINGS, furiganaMode: 'all' });
+
+        document.body.innerHTML = html;
+        const ruby = document.querySelector('ruby')!;
+
+        expect(ruby.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('達');
+        expect(ruby.querySelector('rt')?.textContent).toBe('たち');
+        expect(document.body.textContent).toContain('あなた達');
     });
 });
 

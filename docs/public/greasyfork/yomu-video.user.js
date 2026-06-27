@@ -2235,11 +2235,34 @@
   function trimRubyPartToKanji(base, reading) {
     const trimmed = trimSharedKanaAffixes(base, reading);
     if (!trimmed.surface || !trimmed.reading || !KANJI_RE.test(trimmed.surface)) return [];
+    const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
+    if (kanjiOnly) {
+      return [{
+        text: trimmed.reading,
+        start: trimmed.offset + kanjiOnly.start,
+        end: trimmed.offset + kanjiOnly.end
+      }];
+    }
     return [{
       text: trimmed.reading,
       start: trimmed.offset,
       end: trimmed.offset + trimmed.surface.length
     }];
+  }
+  function kanaTrimmedKanjiRange(base, reading) {
+    if (!KANA_RE.test(reading) || !KANA_CHAR_RE.test(base)) return null;
+    const chars = Array.from(base);
+    const first = chars.findIndex((char) => KANJI_RE.test(char));
+    if (first < 0) return null;
+    let last = -1;
+    for (let index = chars.length - 1; index >= first; index -= 1) {
+      if (KANJI_RE.test(chars[index])) {
+        last = index;
+        break;
+      }
+    }
+    if (last < first || first === 0 && last === chars.length - 1) return null;
+    return { start: first, end: last + 1 };
   }
   function alignRubyKanaAnchors(base, reading) {
     const runs = rubyBaseKanaRuns(base);
@@ -8993,6 +9016,7 @@ ${candidate.depth}`;
   function applyOcrOverlayStyle(overlay, settings) {
     const theme = effectiveOcrOverlayTheme(settings);
     overlay.dataset.ocrOverlayTheme = theme;
+    overlay.dataset.ocrOverlayVariant = settings.ocrOverlayTheme === "auto" ? "auto" : "custom";
     if (theme === "light") {
       overlay.style.setProperty("--jpdb-ocr-text-color", "#17202a");
       overlay.style.setProperty("--jpdb-ocr-outline-color", "rgba(255, 255, 255, 0)");
@@ -14430,7 +14454,8 @@ ${spelling}`);
     return allowsChildText || !hasCaptionChildText(element, options);
   }
   function containsReaderRootOrPlayerChrome(element) {
-    return Boolean(element.querySelector("[data-jpdb-reader-root]")) || Boolean(element.matches(PLAYER_CHROME_CONTAINER_SELECTOR) || element.closest(PLAYER_CHROME_CONTAINER_SELECTOR)) || Boolean(element.querySelector(PLAYER_CHROME_INTERACTIVE_SELECTOR));
+    const knownCaptionInPlayerChrome = element.matches(".ytp-caption-segment, .caption-window");
+    return Boolean(element.querySelector("[data-jpdb-reader-root]")) || Boolean(element.matches(PLAYER_CHROME_CONTAINER_SELECTOR)) || Boolean(element.querySelector(PLAYER_CHROME_INTERACTIVE_SELECTOR)) || Boolean(element.closest(PLAYER_CHROME_CONTAINER_SELECTOR) && !knownCaptionInPlayerChrome);
   }
   function isLikelyPlayerChromeText(text) {
     const hits = PLAYER_CHROME_TEXT_PATTERNS.filter((pattern) => pattern.test(text)).length;
@@ -14789,7 +14814,7 @@ ${spelling}`);
   function transcriptSideResizeHandleMetrics(options) {
     return {
       current: options.layout?.width ?? options.panelRect?.width ?? 0,
-      max: options.bounds.maxSideWidth,
+      max: options.layout?.maxWidth ?? options.bounds.maxSideWidth,
       min: TRANSCRIPT_PANEL_MIN_SIDE_WIDTH,
       orientation: "vertical"
     };

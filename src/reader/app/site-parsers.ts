@@ -401,6 +401,24 @@ const YOUTUBE_PASSIVE_CHROME_SELECTOR = [
     YOUTUBE_MOBILE_CHROME_ROOTS,
     YOUTUBE_CHROME_ROOTS.join(','),
 ].join(',');
+const YOUTUBE_STABLE_TEXT_HOST_SELECTOR = [
+    'yt-formatted-string',
+    'yt-attributed-string',
+    '.ytAttributedStringHost',
+    '.yt-core-attributed-string',
+    '.yt-core-attributed-string--white-space-pre-wrap',
+].join(',');
+const YOUTUBE_VOLATILE_WATCH_METADATA_SELECTOR = [
+    'ytd-watch-metadata #owner-sub-count',
+    'ytd-watch-metadata #owner #subscribe-button',
+    'ytd-watch-metadata #owner button',
+    'ytd-watch-metadata ytd-video-description-transcript-section-renderer',
+    'ytd-watch-metadata ytd-video-description-infocards-section-renderer',
+    'ytd-watch-metadata ytd-video-description-music-section-renderer',
+    'ytd-watch-metadata ytd-video-description-course-section-renderer',
+    'ytd-watch-metadata #description ytd-channel-name',
+    'ytd-watch-metadata #description #owner-sub-count',
+].join(',');
 const YOUTUBE_COMMENT_CONTROL_SELECTORS = [
     'button',
     '[role="button"]',
@@ -459,6 +477,27 @@ const BLOOMEE_LANDING_ROOTS = [
 const BOOKWALKER_STOREFRONT_HOSTS = new Set(['bookwalker.jp', 'www.bookwalker.jp']);
 const BOOKWALKER_READER_PARSER_ID = 'bookwalker-reader-no-dom-parser';
 const BOOKWALKER_STOREFRONT_PARSER_ID = 'bookwalker-storefront-no-dom-parser';
+const BOOKWALKER_TEXT_METADATA_ROOTS = [
+    '#bookTitle',
+    '#book-title',
+    '#book_title',
+    '#bookDescription',
+    '[data-book-title]',
+    '[data-book-description]',
+    '[id*="bookTitle"]',
+    '[id*="book-title"]',
+    '[class*="bookTitle"]',
+    '[class*="book-title"]',
+    '.book-title',
+    '.book-description',
+    '.t-o-heading-book-title',
+    '.t-o-heading-book-title__link',
+    '.t-c-tile-card__title',
+    '.t-c-tile-card__catch',
+    '.m-bookDetailTitle',
+    '.m-bookDetailLead',
+    '.m-bookDetailDescription',
+];
 const YOMUYOMU_HOSTS = new Set(['yomuyomu.app', 'www.yomuyomu.app']);
 const YOMUYOMU_READER_ROOTS = [
     '#du-reading-screen canvas[lang*="ja" i]',
@@ -529,7 +568,10 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     },
     {
         id: BOOKWALKER_READER_PARSER_ID,
-        roots: [],
+        roots: BOOKWALKER_TEXT_METADATA_ROOTS,
+        exclude: COMMON_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
         disableGenericDomScan: true,
         suppressResidualVisibleScan: true,
         includePassiveInteractionRoots: false,
@@ -537,7 +579,10 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     },
     {
         id: BOOKWALKER_STOREFRONT_PARSER_ID,
-        roots: [],
+        roots: BOOKWALKER_TEXT_METADATA_ROOTS,
+        exclude: COMMON_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
         disableGenericDomScan: true,
         includePassiveInteractionRoots: false,
         matches: url => isBookWalkerStorefrontUrl(url),
@@ -741,13 +786,11 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytm-transcript-segment-renderer',
             'ytd-watch-metadata h1',
             'ytd-watch-metadata #title',
-            'ytd-watch-metadata #owner',
-            'ytd-watch-metadata #info',
-            'ytd-watch-metadata #info-strings',
-            'ytd-watch-metadata #info-container',
-            'ytd-watch-metadata #info-text',
+            'ytd-watch-metadata #owner ytd-channel-name yt-formatted-string',
+            'ytd-watch-metadata #owner ytd-channel-name .ytAttributedStringHost',
+            'ytd-watch-metadata #owner ytd-channel-name',
             'ytd-watch-info-text',
-            'ytd-watch-metadata #metadata',
+            'ytd-watch-metadata #info-strings',
             'ytd-watch-metadata #metadata-line',
             'ytd-watch-metadata #teaser-carousel',
             'ytd-watch-metadata yt-video-metadata-carousel-view-model',
@@ -755,8 +798,9 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-watch-metadata yt-text-carousel-item-view-model',
             'ytd-watch-metadata .ytAttributedStringHost',
             'ytd-watch-metadata #description-inline-expander',
-            'ytd-watch-metadata #description yt-attributed-string',
-            'ytd-watch-metadata #description .yt-core-attributed-string',
+            'ytd-watch-metadata #description yt-attributed-string#attributed-snippet-text',
+            'ytd-watch-metadata #description yt-attributed-string#attributed-description-text',
+            'ytd-watch-metadata #description .yt-core-attributed-string:not(#owner-sub-count)',
             'ytd-watch-metadata #description-text',
             'ytd-watch-metadata ytd-text-inline-expander',
             'ytd-watch-metadata #attributed-snippet-text',
@@ -1217,13 +1261,32 @@ function addUniqueSiteScanTarget(
     context: SiteScanContext,
 ): boolean {
     return appendAdmittedFragmentTarget(context.targets, context.seen, target, {
+        reject: candidate => shouldRejectProfileScanTarget(profile, candidate),
         transform: candidate => siteScanTargetWithProfileOptions(profile, candidate),
     });
 }
 
+function shouldRejectProfileScanTarget(profile: SiteParserProfile, target: FragmentTextTarget): boolean {
+    if (!isYouTubeSiteParserProfile(profile)) return false;
+    if (target.parent.closest(YOUTUBE_VOLATILE_WATCH_METADATA_SELECTOR)) return true;
+    if (targetSpansMultipleYouTubeWatchMetadataTextHosts(target)) return true;
+    return false;
+}
+
+function targetSpansMultipleYouTubeWatchMetadataTextHosts(target: FragmentTextTarget): boolean {
+    if (!target.parent.closest('ytd-watch-metadata')) return false;
+    const hosts = new Set<HTMLElement>();
+    for (const fragment of target.fragments) {
+        const parent = fragment.node.parentElement;
+        const host = parent?.closest<HTMLElement>(YOUTUBE_STABLE_TEXT_HOST_SELECTOR);
+        if (host?.closest('ytd-watch-metadata')) hosts.add(host);
+    }
+    return hosts.size > 1;
+}
+
 function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: FragmentTextTarget): FragmentTextTarget {
     const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
-    const targetSuppressRuby = isYouTubeSiteParserProfile(profile) ? false : target.suppressRuby;
+    const targetSuppressRuby = profileKeepsProfileRootRuby(profile) ? false : target.suppressRuby;
     const youtubePassiveChrome = isYouTubeSiteParserProfile(profile)
         && Boolean(target.parent.closest(YOUTUBE_PASSIVE_CHROME_SELECTOR));
     const youtubeCommentBody = isYouTubeCommentBodyTarget(profile, target.parent);
@@ -1238,6 +1301,10 @@ function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: Fr
         suppressRepaintLoopMirror: youtubeCommentBody || undefined,
     };
     return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
+}
+
+function profileKeepsProfileRootRuby(profile: SiteParserProfile): boolean {
+    return isYouTubeSiteParserProfile(profile) || profile.id === BOOKWALKER_READER_PARSER_ID;
 }
 
 function siteScanTargetUsesNonDestructive(profile: SiteParserProfile, youtubeCommentBody = false): boolean {

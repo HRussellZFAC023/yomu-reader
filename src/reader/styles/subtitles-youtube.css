@@ -35,7 +35,7 @@
   overflow-wrap: anywhere;
   word-break: keep-all;
   max-height: min(5.4em, 45%, calc(100% - 24px));
-  overflow: hidden;
+  overflow: visible;
   pointer-events: none;
   transform: translateY(var(--subtitle-drag-offset-y));
   -webkit-tap-highlight-color: transparent;
