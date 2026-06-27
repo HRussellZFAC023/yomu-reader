@@ -1456,6 +1456,7 @@ function isGenericManagedAppShell(): boolean {
         'script[type="module"][src*="/build/assets/"]',
         'script[src*="/build/assets/"]',
         'astro-island',
+        'shreddit-app',
         '[ng-version]',
     ].join(',')));
 }

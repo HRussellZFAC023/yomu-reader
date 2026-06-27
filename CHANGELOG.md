@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.160] - 2026-06-27
+
+### Fixed
+
+- Kept Reddit's web-component app shell on non-destructive page-text mirrors, so scrolling feeds and sidebars keep their native DOM while Yomu annotations remain visible.
+- Added Reddit's Japanese translation parameter to the Japanese site-language preference.
+
 ## [1.4.158] - 2026-06-27
 
 ### Fixed

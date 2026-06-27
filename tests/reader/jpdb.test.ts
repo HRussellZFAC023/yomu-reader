@@ -33345,6 +33345,52 @@ describe('reader helpers', () => {
         });
     });
 
+    it('uses non-destructive generic targets on web-component app shells', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 640, height: 64 });
+        document.body.innerHTML = `
+            <shreddit-app>
+                <main>
+                    <shreddit-feed>
+                        <shreddit-post>
+                            <article>
+                                <h2>日本語ニュースを読む</h2>
+                                <p>今日はコメントを確認します。</p>
+                            </article>
+                        </shreddit-post>
+                    </shreddit-feed>
+                </main>
+                <reddit-sidebar-nav>
+                    <button type="button">詳細</button>
+                </reddit-sidebar-nav>
+            </shreddit-app>
+        `;
+
+        const targets = collectScanTargets(10, 'https://www.reddit.com/r/newsokur/');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '日本語ニュースを読む',
+            '今日はコメントを確認します。',
+            '詳細',
+        ]));
+        expect(targets.every(target => target.nonDestructive === true)).toBe(true);
+
+        applyTokensToScanTarget(targets.find(target => target.text === '日本語ニュースを読む')!, [{
+            card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご' },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [{ text: 'にほんご', start: 0, end: 3, length: 3 }],
+            pitchClass: 'heiban',
+            sentence: '日本語ニュースを読む',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const title = document.querySelector<HTMLElement>('h2')!;
+        expect(Array.from(title.childNodes).some(node => node.nodeType === Node.TEXT_NODE
+            && node.textContent?.includes('日本語ニュースを読む'))).toBe(true);
+        expect(title.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
+    });
+
     it('sweeps visible Japanese comments controls and nav after generic prose', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `

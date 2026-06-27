@@ -76,13 +76,20 @@ function parseSrgbFunction(value: string): RgbaColor | null {
 }
 
 function oklab(value: string): RgbaColor | null {
-    const parts = colorFunctionNumbers(value);
-    if (parts.length < 3) return null;
-    return oklabRgb(
-        Number.parseFloat(parts[0]),
-        Number.parseFloat(parts[1]),
-        Number.parseFloat(parts[2]),
-    );
+    const p = colorFunctionNumbers(value);
+    if (p.length < 3) return null;
+    const L = parseFloat(p[0]);
+    const a = parseFloat(p[1]);
+    const b = parseFloat(p[2]);
+    const l = (L + 0.39634 * a + 0.2158 * b) ** 3;
+    const m = (L - 0.10556 * a - 0.06385 * b) ** 3;
+    const s = (L - 0.08948 * a - 1.29149 * b) ** 3;
+    return {
+        red: okc(+4.07674 * l - 3.30771 * m + 0.23097 * s),
+        green: okc(-1.26844 * l + 2.60976 * m - 0.34132 * s),
+        blue: okc(-0.0042 * l - 0.70342 * m + 1.70761 * s),
+        alpha: 1,
+    };
 }
 
 function colorFunctionNumbers(value: string): string[] {
@@ -102,26 +109,11 @@ function parseAlpha(value: string): number {
     return Math.max(0, Math.min(1, Number.isFinite(alpha) ? alpha : 1));
 }
 
-function oklabRgb(lightness: number, a: number, b: number): RgbaColor {
-    const l = lightness + 0.39634 * a + 0.2158 * b;
-    const m = lightness - 0.10556 * a - 0.06385 * b;
-    const s = lightness - 0.08948 * a - 1.29149 * b;
-    const l3 = l ** 3;
-    const m3 = m ** 3;
-    const s3 = s ** 3;
-    return {
-        red: linearSrgb(+4.07674 * l3 - 3.30771 * m3 + 0.23097 * s3),
-        green: linearSrgb(-1.26844 * l3 + 2.60976 * m3 - 0.34132 * s3),
-        blue: linearSrgb(-0.0042 * l3 - 0.70342 * m3 + 1.70761 * s3),
-        alpha: 1,
-    };
-}
-
-function linearSrgb(value: number): number {
-    const channel = value <= 0.0031308
+function okc(value: number): number {
+    const c = value <= 0.0031308
         ? 12.92 * value
         : 1.055 * (value ** (1 / 2.4)) - 0.055;
-    return clampChannel(channel * 255);
+    return clampChannel(c * 255);
 }
 
 function clampChannel(value: number): number {

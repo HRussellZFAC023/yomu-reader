@@ -157,6 +157,8 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
     'Fixed Discord and other modern dark app shells whose computed colors use OKLab, so Yomu uses the real dark surface instead of falling back to white and turning passive highlights or text black.': 'Discordなど、算出色にOKLabを使う新しいダークUIで、Yomuが実際の暗い面を使うように修正しました。白背景にフォールバックしてパッシブハイライトや文字が黒くなる問題を防ぎます。',
+    "Kept Reddit's web-component app shell on non-destructive page-text mirrors, so scrolling feeds and sidebars keep their native DOM while Yomu annotations remain visible.": 'RedditのWeb Componentアプリシェルでは、ページ本文の注釈を非破壊テキストミラーで表示するようにしました。スクロール中のフィードやサイドバーはサイト本来のDOMを保ちつつ、よむの注釈も表示されます。',
+    "Added Reddit's Japanese translation parameter to the Japanese site-language preference.": '日本語サイト言語の優先設定に、Redditの日本語翻訳パラメーターを追加しました。',
     'Fixed same-tab Google Drive authorization on Chrome by returning the OAuth token through the URL fragment instead of window.name, so Sync and Restore resume after Google sign-in.': 'Chromeで同じタブのGoogle Drive認証が失敗していた問題を修正しました。OAuthトークンをwindow.nameではなくURLフラグメント経由で返すことで、Googleログイン後に同期と復元が再開されます。',
     'Refreshed fast reader popups after fallback words resolve through the API, so first-load lookups immediately show JPDB/Jiten status and pitch accent details instead of needing repeated taps.': 'フォールバック単語がAPI経由で解決されたあと、高速表示のリーダーポップアップを自動更新するようにしました。初回読み込みの検索でも、何度もタップし直さずにJPDB/Jitenの状態とピッチアクセント詳細がすぐ表示されます。',
     'Preserved kanji popup back navigation when dictionary lookup links wrap an already parsed Yomu word.': '辞書検索リンクがすでに解析済みのYomu単語を包んでいる場合でも、漢字ポップアップの戻るナビゲーションを保つようにしました。',

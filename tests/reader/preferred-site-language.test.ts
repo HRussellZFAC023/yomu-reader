@@ -91,6 +91,7 @@ describe('preferred Japanese site language', () => {
         expect(preferredJapaneseSiteUrl('https://youtu.be/abc123?t=14')).toBe('https://www.youtube.com/watch?v=abc123&t=14&hl=ja&gl=JP');
         expect(preferredJapaneseSiteUrl('https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E&hl=en')).toBe('https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E&hl=ja&gl=JP');
         expect(preferredJapaneseSiteUrl('https://news.google.com/home?hl=en-US&gl=US&ceid=US%3Aen')).toBe('https://news.google.com/home?hl=ja&gl=JP&ceid=JP%3Aja');
+        expect(preferredJapaneseSiteUrl('https://www.reddit.com/r/newsokur/?feed=home')).toBe('https://www.reddit.com/r/newsokur/?feed=home&tl=ja');
         expect(preferredJapaneseSiteUrl('https://developer.mozilla.org/en-US/docs/Web/JavaScript')).toBe('https://developer.mozilla.org/ja/docs/Web/JavaScript');
         expect(preferredJapaneseSiteUrl('https://docs.github.com/en/get-started/start-your-journey/about-github-and-git')).toBe('https://docs.github.com/ja/get-started/start-your-journey/about-github-and-git');
         expect(preferredJapaneseSiteUrl('https://learn.microsoft.com/en-us/windows/apps/')).toBe('https://learn.microsoft.com/ja-jp/windows/apps/');

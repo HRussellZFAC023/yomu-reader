@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
-import { detectGrammarHints, listLocalGrammarRuleExamples, listLocalGrammarRules, renderGrammarHints, type GrammarHint } from '../../src/reader/study/tools';
+import { detectGrammarHints, listLocalGrammarRuleExamples, listLocalGrammarRules, renderGrammarHints, resetGrammarRuleDataCacheForTests, type GrammarHint } from '../../src/reader/study/tools';
 
 const ENGLISH_WORD_RE = /\b[A-Za-z]{3,}\b/u;
 const EN_GRAMMAR_RULE_COPY = fs.readFileSync(path.resolve('docs/public/data/en-grammar-rule-copy.json'), 'utf8');
@@ -37,6 +37,7 @@ function grammarHint(overrides: Partial<GrammarHint> & Pick<GrammarHint, 'ruleId
 
 describe('local Japanese grammar hints', () => {
     beforeAll(() => {
+        resetGrammarRuleDataCacheForTests();
         vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
             const url = String(input instanceof Request ? input.url : input);
             const body = url.includes('/data/en-grammar-rule-copy.json') ? EN_GRAMMAR_RULE_COPY : JA_GRAMMAR_RULE_COPY;

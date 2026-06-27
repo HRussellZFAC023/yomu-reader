@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.158
+// @version 1.4.160
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.158
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.158
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.158
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.158
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.160
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.160
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.160
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.160
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -32805,6 +32805,7 @@ function isGenericManagedAppShell() {
     'script[type="module"][src*="/build/assets/"]',
     'script[src*="/build/assets/"]',
     "astro-island",
+    "shreddit-app",
     "[ng-version]"
   ].join(",")));
 }
@@ -36126,6 +36127,7 @@ function siteRuleJapaneseUrl(current) {
   if (hostname === "consent.google.com") return googleConsentJapaneseUrl(current);
   if (hostname === "news.google.com") return withSearchParams(current, JAPANESE_NEWS_SEARCH_PARAMS);
   if (isGooglePreferenceHost(hostname)) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
+  if (/^(?:reddit|www\.reddit|new\.reddit|sh\.reddit)\.com$/.test(hostname)) return withSearchParams(current, { tl: "ja" });
   if (hostname === "wikipedia.org") return withHostname(current, "ja.wikipedia.org");
   if (hostname.endsWith(".wikipedia.org") && hostname !== "ja.wikipedia.org" && (current.pathname === "" || current.pathname === "/")) {
     return withHostname(current, "ja.wikipedia.org");
@@ -37081,13 +37083,20 @@ function parseSrgbFunction(value) {
   };
 }
 function oklab(value) {
-  const parts = colorFunctionNumbers(value);
-  if (parts.length < 3) return null;
-  return oklabRgb(
-    Number.parseFloat(parts[0]),
-    Number.parseFloat(parts[1]),
-    Number.parseFloat(parts[2])
-  );
+  const p = colorFunctionNumbers(value);
+  if (p.length < 3) return null;
+  const L = parseFloat(p[0]);
+  const a = parseFloat(p[1]);
+  const b = parseFloat(p[2]);
+  const l = (L + 0.39634 * a + 0.2158 * b) ** 3;
+  const m = (L - 0.10556 * a - 0.06385 * b) ** 3;
+  const s = (L - 0.08948 * a - 1.29149 * b) ** 3;
+  return {
+    red: okc(4.07674 * l - 3.30771 * m + 0.23097 * s),
+    green: okc(-1.26844 * l + 2.60976 * m - 0.34132 * s),
+    blue: okc(-42e-4 * l - 0.70342 * m + 1.70761 * s),
+    alpha: 1
+  };
 }
 function colorFunctionNumbers(value) {
   return value.match(/-?\d*\.?\d+%?/g) ?? [];
@@ -37102,23 +37111,9 @@ function parseAlpha(value) {
   const alpha = value.endsWith("%") ? Number.parseFloat(value) / 100 : Number.parseFloat(value);
   return Math.max(0, Math.min(1, Number.isFinite(alpha) ? alpha : 1));
 }
-function oklabRgb(lightness, a, b) {
-  const l = lightness + 0.39634 * a + 0.2158 * b;
-  const m = lightness - 0.10556 * a - 0.06385 * b;
-  const s = lightness - 0.08948 * a - 1.29149 * b;
-  const l3 = l ** 3;
-  const m3 = m ** 3;
-  const s3 = s ** 3;
-  return {
-    red: linearSrgb(4.07674 * l3 - 3.30771 * m3 + 0.23097 * s3),
-    green: linearSrgb(-1.26844 * l3 + 2.60976 * m3 - 0.34132 * s3),
-    blue: linearSrgb(-42e-4 * l3 - 0.70342 * m3 + 1.70761 * s3),
-    alpha: 1
-  };
-}
-function linearSrgb(value) {
-  const channel = value <= 31308e-7 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
-  return clampChannel(channel * 255);
+function okc(value) {
+  const c = value <= 31308e-7 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
+  return clampChannel(c * 255);
 }
 function clampChannel(value) {
   return Math.max(0, Math.min(255, Math.round(Number.isFinite(value) ? value : 0)));
@@ -37782,7 +37777,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.158"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.160"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],
