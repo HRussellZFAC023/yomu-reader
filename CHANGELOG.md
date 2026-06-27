@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.151] - 2026-06-27
+
+### Fixed
+
+- Kept the settings puck clickable when it overlaps the YouTube/Yomu Video transcript side panel.
+
 ## [1.4.150] - 2026-06-27
 
 ### Fixed

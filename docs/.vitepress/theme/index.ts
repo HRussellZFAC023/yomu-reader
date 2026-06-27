@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Kept the settings puck clickable when it overlaps the YouTube/Yomu Video transcript side panel.': 'YouTube/Yomu Videoの文字起こしサイドパネルに重なっているときも、設定ボタンをクリックできるようにしました。',
     'Kept signed-in YouTube comment bodies on non-destructive text mirrors so comments remain annotated without inline reader spans, preventing YouTube DOM churn from duplicating or rewriting comment text.': 'ログイン済みYouTubeのコメント本文を非破壊テキストミラーで表示し、コメントに注釈を残しながらインラインのリーダーspanを入れないようにしました。YouTube側のDOM更新でコメント文字が重複したり書き換わったりするのを防ぎます。',
     'Guarded early YouTube userscript startup before `document.documentElement`, `document.head`, or `document.body` exists, removing page-load theme/runtime errors during signed-in live/watch smoke runs.': '`document.documentElement`、`document.head`、または`document.body`がまだ存在しない早期のYouTube userscript起動を保護し、ログイン済みライブ／視聴ページのスモーク中に出ていた読み込み時のテーマ／ランタイムエラーを解消しました。',
     'Guarded early YouTube userscript startup before': '早期のYouTube userscript起動で',

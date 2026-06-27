@@ -6924,7 +6924,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   justify-content: center !important;
   right: max(14px, env(safe-area-inset-right)) !important;
   bottom: max(14px, env(safe-area-inset-bottom)) !important;
-  z-index: 2147483645 !important;
+  /* Above the subtitle transcript panel, below popovers/settings. */
+  z-index: 2147483646 !important;
   flex: 0 0 auto !important;
   inline-size: 52px !important;
   block-size: 52px !important;
