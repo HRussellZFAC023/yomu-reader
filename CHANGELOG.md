@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.144] - 2026-06-27
+
+### Changed
+
+- Renamed the root installable docs PWA manifest to visible よむ branding and added the compat live-site smoke command for YomuYomu and current anime player targets.
+
 ## [1.4.143] - 2026-06-27
 
 ### Fixed

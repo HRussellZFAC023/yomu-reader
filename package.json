@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.4.143",
+  "version": "1.4.144",
   "private": true,
   "type": "module",
   "description": "よむ: a small Jiten/JPDB/Yomitan popup dictionary and subtitle miner userscript.",
@@ -101,6 +101,7 @@
     "smoke:reader-sites": "node scripts/reader-sites-smoke.mjs",
     "smoke:settings-layout": "node scripts/settings-layout-smoke.mjs",
     "smoke:subtitle-live-sites": "node scripts/subtitle-live-video-site-smoke.mjs",
+    "smoke:subtitle-live-compat": "YOMU_LIVE_VIDEO_SITE_SET=compat node scripts/subtitle-live-video-site-smoke.mjs",
     "smoke:study-personas": "node scripts/study-personas-smoke.mjs",
     "smoke:subtitles": "node scripts/subtitle-player-smoke.mjs",
     "smoke:youtube": "node scripts/youtube-feature-smoke.mjs",

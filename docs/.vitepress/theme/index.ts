@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Renamed the root installable docs PWA manifest to visible よむ branding and added the compat live-site smoke command for YomuYomu and current anime player targets.': 'ルートのインストール可能なドキュメントPWAマニフェストを、表示名でもよむブランドになるように変更し、YomuYomuと現在のアニメプレイヤー対象を確認する互換ライブサイトスモークコマンドを追加しました。',
     'Retried active hover audio with the current hover lookup generation so returning to the same hover card keeps real audio eligible instead of treating it as stale duplicate autoplay.': '同じホバーカードへ戻ったときに古い重複自動再生と誤判定されないよう、アクティブなホバー音声の再試行に現在のホバー検索世代を渡すようにしました。',
     'Shared Apple Pencil/stylus control activation across reader popovers and the hosted Study surface so kanji buttons, links, toggles, and trace controls respond on the first pen tap without duplicate clicks.': 'リーダーポップオーバーとホスト版学習画面でApple Pencil／スタイラス用のコントロール起動処理を共通化し、漢字ボタン、リンク、トグル、なぞり表示の操作がペンタップ1回で反応し、重複クリックしないようにしました。',
     'Repaired Yomu Video and YouTube subtitle layout regressions: left/right transcript panels now stay flush without covering the player, subtitles stay anchored to the player or hide while scrolling into comments, and fullscreen geometry updates immediately while video is playing.': 'Yomu VideoとYouTubeの字幕レイアウト退行を修正しました。左／右の文字起こしパネルはプレイヤーを覆わず端にそろい、字幕はプレイヤーに固定されるかコメント欄へスクロールしたときに非表示になり、再生中でも全画面切り替え直後に位置が更新されます。',

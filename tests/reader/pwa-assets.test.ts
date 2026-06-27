@@ -25,7 +25,8 @@ describe('hosted PWA assets', () => {
         expect(serviceWorker).toContain("return Response.redirect('/', 302);");
         expect(serviceWorker).toContain("if (path === '/') return pathname === '/'");
         expect(manifest).toMatchObject({
-            name: 'Yomu Japanese Reader',
+            name: 'よむ Japanese Reader',
+            short_name: 'よむ',
             display: 'standalone',
             start_url: '/',
             scope: '/',
