@@ -387,13 +387,19 @@ describe('settings form localization', () => {
         expect(form.querySelector('[name="newTabEnabled"]')).toBeNull();
         expect(topLevelLegendForControl(form, 'newTabAnkiEnabled')).toBe('Study');
         expect(topLevelLegendForControl(form, 'newTabJpdbReviewMode')).toBe('Study');
+        expect(topLevelLegendsForControl(form, 'twoButtonReviews')).toEqual(['Study']);
+        expect(labelForControl(form, 'twoButtonReviews')).toContain('Review rating scale');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API review mode');
         expect(optionText(form, 'newTabSource', 'auto')).toBe('Auto: API/Anki, then study words');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS (Jiten / JPDB)');
+        expect(optionText(form, 'twoButtonReviews', 'true')).toBe('Two point: FAIL / PASS');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then JPDB kanji facts, then local');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB kanji facts (Jiten / JPDB)');
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="newTab"]')?.hidden).toBe(true);
         expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="newTab"]')).not.toBeNull();
+
+        form.querySelector<HTMLSelectElement>('select[name="twoButtonReviews"]')!.value = 'true';
+        expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).twoButtonReviews).toBe(true);
     });
 
     it('splits the old Basics bucket into API, Appearance, and Sources sections', () => {
@@ -468,6 +474,8 @@ describe('settings form localization', () => {
         expect(jpdbInput.getAttribute('autocapitalize')).toBe('off');
         expect(jpdbInput.getAttribute('spellcheck')).toBe('false');
         expect(form.querySelector<HTMLAnchorElement>('a[href="https://jiten.moe/settings"]')?.textContent).toBe('Jiten settings');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Use separate Jiten and JPDB boxes');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Study deck choices stay scoped to the selected provider');
 
         jpdbInput.value = '  next-jpdb  ';
         jitenInput.value = '';
@@ -1224,8 +1232,9 @@ describe('settings form localization', () => {
         const docsLink = help.querySelector<HTMLAnchorElement>('a[href$="getting-started#use-desktop-anki-from-a-phone-ipad-or-android"]');
         expect(helpLink?.textContent).toContain('Open AnkiConnect add-on');
         expect(docsLink?.textContent).toContain('Mobile Anki setup docs');
-        expect(help.textContent).toContain('Full Anki uses AnkiConnect. Handoff creates notes.');
-        expect(help.textContent).not.toContain('webCorsOriginList');
+        expect(help.textContent).toContain('Install AnkiConnect, keep desktop Anki open');
+        expect(help.textContent).toContain('webCorsOriginList');
+        expect(help.textContent).toContain('Mobile handoff creates notes without full desktop review access.');
         expect(form.textContent).not.toContain('Scan Anki to choose from your decks and note types');
     });
 
@@ -1656,8 +1665,9 @@ describe('settings form localization', () => {
         const help = form.querySelector<HTMLElement>('[data-anki-setup-help]')!;
         const docsLink = help.querySelector<HTMLAnchorElement>('a[href$="getting-started#use-desktop-anki-from-a-phone-ipad-or-android"]');
         expect(docsLink?.textContent).toContain('Mobile Anki setup docs');
-        expect(help.textContent).toContain('Full Anki uses AnkiConnect. Handoff creates notes.');
-        expect(help.textContent).not.toContain('webCorsOriginList');
+        expect(help.textContent).toContain('Install AnkiConnect, keep desktop Anki open');
+        expect(help.textContent).toContain('webCorsOriginList');
+        expect(help.textContent).toContain('Mobile handoff creates notes without full desktop review access.');
         expect(form.textContent).not.toContain('Handoff does not read your existing collection');
         expect(form.textContent).not.toContain('review queues require desktop Anki');
     });
@@ -1755,6 +1765,8 @@ describe('settings form localization', () => {
         expect(optionText(form, 'newTabSource', 'auto')).toBe('自動: API/Anki後に学習語');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（Jiten / JPDB）');
         expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順）');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('JitenとJPDBは別々の欄に入力します');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('学習デッキは選択中のサービスにだけ適用されます');
         expect(labelForControl(form, 'newTabKanjiKeywordSource')).toContain('漢字キーワードのソース');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動: RTK、JPDB、ローカル');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（Jiten / JPDB）');

@@ -1497,6 +1497,11 @@ describe('new tab review helpers', () => {
 
         expect(termRule).toContain('text-shadow: none;');
         expect(termRule).toContain('box-shadow: none !important;');
+        expect(termRule).toContain('text-decoration-color: transparent !important;');
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('.jpdb-reader-newtab-term .jpdb-reader-word::after { border-block-end-color: var(--jpdb-reader-word-underline, transparent) !important; }');
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-scale="pass-fail"] { grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(520px, calc(100vw - 20px)); gap: 10px; }');
     });
 
     it('keeps generic new-tab accent surfaces on accent tokens', () => {
@@ -6847,6 +6852,33 @@ describe('new tab review helpers', () => {
         expect(controller.lookupGradeOptions(card)).toEqual([['fail', 'Fail'], ['pass', 'Pass']]);
         (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state = { mode: 'word', revealAnswer: false };
         expect(controller.lookupGradeOptions(card)).toEqual([]);
+    });
+
+    it('marks two-button Study controls with pass/fail layout metadata', () => {
+        const card = newTabTestCard({ spelling: '安定', reading: 'あんてい', source: 'jpdb', reviewSource: 'jpdb-api' });
+        const controller = newTabBareController(() => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'jpdb-key',
+                jpdbMiningEnabled: true,
+                enableReviews: true,
+                twoButtonReviews: true,
+            }));
+        const root = renderSeededNewTabWord(controller, card, {
+            sourceLabel: 'JPDB',
+            state: { mode: 'word', revealAnswer: true },
+        });
+
+        try {
+            const controls = root.querySelector<HTMLElement>('[data-newtab-controls]');
+            const gradeButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"]'));
+
+            expect(controls?.dataset.newtabGradeControls).toBe('true');
+            expect(controls?.dataset.newtabGradeCount).toBe('2');
+            expect(controls?.dataset.newtabGradeScale).toBe('pass-fail');
+            expect(gradeButtons.map(button => button.dataset.grade)).toEqual(['fail', 'pass']);
+        } finally {
+            root.remove();
+        }
     });
 
     it('queues offline JPDB grades without returning navigation to the graded card', async () => {
@@ -14368,6 +14400,37 @@ describe('new tab review helpers', () => {
 
         expect(root.querySelector('[data-newtab-reading]')?.textContent).toBe('かえす');
         expect(root.querySelector('[data-newtab-meaning]')?.textContent).toContain('to return');
+    });
+
+    it('recovers revealed Study readings from annotated wordWithReading text', async () => {
+        const card = newTabTestCard({
+            spelling: '前方',
+            reading: '',
+            meanings: [{ glosses: ['front; ahead'], partOfSpeech: [] }],
+            wordWithReading: '前方[ぜんぽう]',
+            source: 'jpdb',
+        });
+        const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, immersionKitEnabled: false }));
+        const root = renderEnabledNewTabRoot(controller);
+        Object.assign(controller as unknown as { visibleWords: JPDBCard[]; sourceLabel: string; state: { mode: string; revealAnswer: boolean } }, {
+            visibleWords: [card],
+            sourceLabel: 'JPDB',
+            state: { mode: 'word', revealAnswer: false },
+        });
+
+        try {
+            (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
+
+            expect(root.querySelector('[data-newtab-reading]')?.textContent).toBe('');
+
+            (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state = { mode: 'word', revealAnswer: true };
+            (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
+
+            expect(root.querySelector('[data-newtab-reading]')?.textContent).toBe('ぜんぽう');
+            expect(root.querySelector('[data-newtab-meaning]')?.textContent).toContain('front; ahead');
+        } finally {
+            root.remove();
+        }
     });
 
     it('shows the full Jiten word on revealed kanji cards because Jiten grades that word', async () => {

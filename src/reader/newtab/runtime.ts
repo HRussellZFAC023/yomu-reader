@@ -1686,7 +1686,7 @@ export class NewTabRuntime {
     private async lookupCard(term: string, reading: string): Promise<JPDBCard> {
         const localEntry = await this.localLookupEntry(term, reading);
         if (localEntry) return this.parser.localCardFromEntry(localEntry);
-        const allowJpdbPublicLookup = Boolean(effectiveJpdbApiKey(this.settings));
+        const allowJpdbPublicLookup = this.settings.jpdbDefinitionsEnabled;
         const publicCard = allowJpdbPublicLookup ? await this.publicLookupCard(term, true) : undefined;
         if (publicCard) return publicCard;
         const fallbackCard = this.parser.fallbackCardFromText(term);

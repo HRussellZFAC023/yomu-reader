@@ -1242,7 +1242,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste a Jiten or JPDB API key. Jiten starts with ak_.",
+      apiAccessHelp: "Use separate Jiten and JPDB boxes. Jiten keys start with ak_; Study deck choices stay scoped to the selected provider.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       jpdbApiKeyConfigured: "JPDB key set.",
@@ -1686,7 +1686,7 @@
       ankiMappingHighConfidence: "High",
       ankiMappingMediumConfidence: "Medium",
       ankiMappingLowConfidence: "Low",
-      ankiHelp: "Full Anki uses AnkiConnect. Handoff creates notes.",
+      ankiHelp: "Install AnkiConnect, keep desktop Anki open, and add this site to webCorsOriginList if the status mentions CORS. Mobile handoff creates notes without full desktop review access.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
       localDictionariesEnabled: "Show imported dictionary definitions",
       dictionarySourcesInitiallyExpanded: "Open sources by default",
@@ -2872,7 +2872,7 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	Jiten/JPDB APIキーを貼ります。Jitenはak_で始まります。
+apiAccessHelp	JitenとJPDBは別々の欄に入力します。Jitenキーはak_で始まります。学習デッキは選択中のサービスにだけ適用されます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
@@ -3283,7 +3283,7 @@ ankiMappingConfidenceHelp	フィールド名とサンプルで判断します。
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
-ankiHelp	AnkiConnectで全機能。受け渡しは新規ノートのみ。
+ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開いたままにします。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
@@ -26941,7 +26941,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                         ${input("apiCredentialJiten", `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialJpdb", `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste a Jiten or JPDB API key. Jiten starts with ak_.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Use separate Jiten and JPDB boxes. Jiten keys start with ak_; Study deck choices stay scoped to the selected provider.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
@@ -26950,9 +26950,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 ${checkbox("jpdbMiningEnabled", "Allow API review/deck changes", settings.jpdbMiningEnabled)}
                 ${checkbox("addToForq", "Also copy JPDB adds to forq", settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
                 ${checkbox("enableReviews", "Show review buttons", settings.enableReviews)}
-                <div data-review-config ${settings.enableReviews ? "" : "hidden"}>
-                    ${select("twoButtonReviews", "Review rating scale", settings.twoButtonReviews ? "true" : "false", [["false", "Five point: NOTHING to EASY"], ["true", "Two point: FAIL / PASS"]])}
-                </div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Dictionary site enhancements</div>
                     <div class="grid">
@@ -27014,6 +27011,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                         ${checkbox("newTabAnkiEnabled", "Use Anki cards in Study", settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
                         ${select("newTabSource", "Study review source", settings.newTabSource, [["auto", "Auto: API/Anki, then study words"], ["jpdb", "API SRS (Jiten / JPDB)"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
+                        <div data-review-config ${settings.enableReviews ? "" : "hidden"}>
+                            ${select("twoButtonReviews", "Review rating scale", settings.twoButtonReviews ? "true" : "false", [["false", "Five point: NOTHING to EASY"], ["true", "Two point: FAIL / PASS"]])}
+                        </div>
                         ${select("newTabJpdbReviewMode", "API review mode", settings.newTabJpdbReviewMode, [["auto", "Auto: live kanji + API vocabulary"], ["live-review", "Live JPDB review session"], ["api-vocabulary", "API vocabulary only"]])}
                         ${select("newTabKanjiKeywordSource", "Kanji keyword source", settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings))}
                         ${checkbox("newTabParsingEnabled", "Parse sentences on Study", settings.newTabParsingEnabled)}
@@ -59070,6 +59070,20 @@ ${normalizedReading}`;
       timeoutLabel: "JPDB vocabulary request timed out."
     });
   }
+  function requestSearchText(url, proxyUrl = "", timeoutMs = 8e3) {
+    return requestPublicJpdbText(url, {
+      proxyUrl,
+      timeoutMs,
+      credentials: "same-origin",
+      withCredentials: true,
+      failureLabel: "JPDB vocabulary request",
+      timeoutLabel: "JPDB vocabulary request timed out.",
+      allowDirectCrossOrigin: true,
+      allowConfiguredProxy: true,
+      allowSensitiveConfiguredProxy: false,
+      preferFetch: true
+    });
+  }
   const log$5 = Logger.scope("JpdbVocabulary");
   class JpdbVocabularyClient {
     constructor(getCorsProxyUrl = () => "") {
@@ -59129,7 +59143,7 @@ ${normalizedReading}`;
     async fetchSearch(query, limit) {
       if (this.requestBackoff.isActive()) return [];
       const url = jpdbSearchUrl(query);
-      const html = await requestText$1(url, this.getCorsProxyUrl()).catch((error) => {
+      const html = await requestSearchText(url, this.getCorsProxyUrl()).catch((error) => {
         this.noteRequestFailure("Vocabulary search request failed", { query }, error);
         return "";
       });
@@ -60488,7 +60502,7 @@ ${reading}`);
     return reading === card.reading ? card : { ...card, reading };
   }
   function newTabCardReading(card) {
-    return normalizedJapaneseCardReading(card.spelling, card.reading);
+    return normalizedJapaneseCardReading(card.spelling, cardPronunciationReading(card) || card.reading);
   }
   function newTabCardOptionalReading(card) {
     const reading = newTabCardReading(card);
@@ -70697,9 +70711,12 @@ ${entry.url}`),
       if (!slots.controls) return;
       slots.controls.hidden = false;
       const buttons = this.controlButtonsForCard(card);
-      const hasGrades = buttons.some((button) => button instanceof HTMLButtonElement && Boolean(button.dataset.grade));
+      const gradeButtons = buttons.filter((button) => button instanceof HTMLButtonElement && Boolean(button.dataset.grade));
+      const hasGrades = gradeButtons.length > 0;
       slots.controls.classList.toggle("jpdb-reader-newtab-grade-controls", hasGrades);
       slots.controls.dataset.newtabGradeControls = String(hasGrades);
+      slots.controls.dataset.newtabGradeCount = String(gradeButtons.length);
+      slots.controls.dataset.newtabGradeScale = gradeButtons.length === 2 ? "pass-fail" : hasGrades ? "standard" : "none";
       replaceChildrenWith(slots.controls, buttons);
     }
     controlButtonsForCard(card) {
@@ -74715,7 +74732,7 @@ ${entry.url}`),
     async lookupCard(term, reading) {
       const localEntry = await this.localLookupEntry(term, reading);
       if (localEntry) return this.parser.localCardFromEntry(localEntry);
-      const allowJpdbPublicLookup = Boolean(effectiveJpdbApiKey(this.settings));
+      const allowJpdbPublicLookup = this.settings.jpdbDefinitionsEnabled;
       const publicCard = allowJpdbPublicLookup ? await this.publicLookupCard(term, true) : void 0;
       if (publicCard) return publicCard;
       const fallbackCard = this.parser.fallbackCardFromText(term);

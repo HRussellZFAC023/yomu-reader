@@ -7513,9 +7513,12 @@ export class NewTabController {
         if (!slots.controls) return;
         slots.controls.hidden = false;
         const buttons = this.controlButtonsForCard(card);
-        const hasGrades = buttons.some(button => button instanceof HTMLButtonElement && Boolean(button.dataset.grade));
+        const gradeButtons = buttons.filter((button): button is HTMLButtonElement => button instanceof HTMLButtonElement && Boolean(button.dataset.grade));
+        const hasGrades = gradeButtons.length > 0;
         slots.controls.classList.toggle('jpdb-reader-newtab-grade-controls', hasGrades);
         slots.controls.dataset.newtabGradeControls = String(hasGrades);
+        slots.controls.dataset.newtabGradeCount = String(gradeButtons.length);
+        slots.controls.dataset.newtabGradeScale = gradeButtons.length === 2 ? 'pass-fail' : hasGrades ? 'standard' : 'none';
         replaceChildrenWith(slots.controls, buttons);
     }
 

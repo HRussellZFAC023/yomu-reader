@@ -154,6 +154,11 @@ async function handleMockedApiRoute(route, requests) {
         await route.fulfill(mockedRouteResponse(publicJpdb));
         return;
     }
+    const publicJiten = publicJitenResponse(url, request.method(), request.headers());
+    if (publicJiten) {
+        await route.fulfill(mockedRouteResponse(publicJiten));
+        return;
+    }
     const immersionKit = immersionKitResponse(url, request.method(), requests);
     if (immersionKit) {
         await route.fulfill(mockedRouteResponse(immersionKit));
@@ -206,6 +211,49 @@ function publicJpdbResponse(url, method) {
     if (url.pathname === '/search') return jpdbPublicSearchResponse(url.searchParams.get('q') ?? '');
     if (url.pathname.startsWith('/vocabulary/')) return jpdbPublicVocabularyResponse(url);
     return null;
+}
+
+function publicJitenResponse(url, method, headers = {}) {
+    if (method !== 'GET' || url.origin !== JITEN_API_ORIGIN) return null;
+    const pathname = url.pathname.replace(/^\/api\/?/, '');
+    if (pathname === 'vocabulary/parse') return jitenPublicParseResponse(url.searchParams.get('text') ?? '');
+    if (/^vocabulary\/\d+\/\d+\/info$/.test(pathname)) {
+        if (hasAuthorizationHeader(headers)) return null;
+        const fixture = jitenFixtureFromVocabularyUrl(url);
+        return fixture ? jitenPublicVocabularyInfoResponse(fixture) : null;
+    }
+    return null;
+}
+
+function hasAuthorizationHeader(headers) {
+    return Boolean(headers?.authorization ?? headers?.Authorization);
+}
+
+function jitenPublicParseResponse(text) {
+    const words = [];
+    for (const fixture of JITEN_SEARCH_FIXTURES.values()) {
+        if (!text.includes(fixture.expression)) continue;
+        words.push({
+            wordId: fixture.wordId,
+            readingIndex: fixture.readingIndex,
+            originalText: fixture.expression,
+        });
+    }
+    return jsonHttpResponse(words);
+}
+
+function jitenPublicVocabularyInfoResponse(fixture) {
+    return jsonHttpResponse({
+        wordId: fixture.wordId,
+        mainReading: {
+            text: fixture.annotated,
+            readingIndex: fixture.readingIndex,
+            frequencyRank: 250,
+        },
+        partsOfSpeech: ['noun'],
+        definitions: [{ englishMeanings: [fixture.meaning], pos: ['noun'] }],
+        pitchAccents: [0],
+    });
 }
 
 function jpdbPublicSearchResponse(query) {
@@ -302,6 +350,8 @@ function mockedApiRequestInner(request, requests) {
     const url = new URL(request.url);
     const publicJpdb = publicJpdbResponse(url, request.method);
     if (publicJpdb) return publicJpdb;
+    const publicJiten = publicJitenResponse(url, request.method, request.headers);
+    if (publicJiten) return publicJiten;
     const immersionKit = immersionKitResponse(url, request.method, requests);
     if (immersionKit) return immersionKit;
     if (url.origin === JITEN_API_ORIGIN) return mockedJitenRequest(url, request, requests);
@@ -576,8 +626,11 @@ async function runJitenOnlySmoke(browser, fixture) {
         assert(failedReview, 'Failed Jiten review request was not submitted', { requests });
         assert(failedReview.body.rating === 1, 'Failed Jiten review should submit rating 1', failedReview.body);
         await expectText(page, '[data-newtab-prompt]', 'たっぷり');
-        // Undo affordance appears once a Jiten review has been graded.
-        await page.waitForSelector('[data-newtab-action="undo-review"]', { timeout: 8_000 });
+        // Undo stays on Previous after a grade; the separate undo button was
+        // retired to keep mobile controls compact.
+        await page.waitForSelector('[data-newtab-action="previous"]', { timeout: 8_000 });
+        const separateUndoButtons = await page.locator('[data-newtab-action="undo-review"]').count();
+        assert(separateUndoButtons === 0, 'Study rendered the retired separate undo button', { separateUndoButtons });
         await page.click('[data-newtab-action="reveal"]');
         await page.click('[data-newtab-action="grade"][data-grade="okay"]');
         const review = await waitForRequest(requests, item => item.kind === 'jiten-review' && item.body.rating === 3, 8_000);

@@ -155,6 +155,14 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Unreleased': '未リリース',
+    'Study Pass/Fail grading now uses a dedicated two-button mobile layout, so Fail and Pass stay wide, centered, and inside the viewport.': 'StudyのPass/Fail採点は専用の2ボタンモバイルレイアウトを使うようになり、FailとPassが広く中央に配置され、画面内に収まります。',
+    'Revealed Study answers recover kana readings from annotated card text such as `前方[ぜんぽう]`, while keeping the front side unspoiled.': 'Studyで答えを表示したとき、`前方[ぜんぽう]`のような注釈付きカードテキストからかな読みを復元します。表面では答えを出さないままです。',
+    'Revealed Study answers recover kana readings from annotated card text such as': 'Studyで答えを表示したとき、次のような注釈付きカードテキストからかな読みを復元します:',
+    ', while keeping the front side unspoiled.': '。表面では答えを出さないままです。',
+    'Hosted/accountless Study search can fetch JPDB public vocabulary pages again, restoring public definitions and keeping recorded audio ahead of browser text-to-speech.': 'ホスト版/アカウントなしのStudy検索でJPDB公開語彙ページを再び取得できるようになり、公開定義が復活し、録音音声がブラウザ読み上げより優先されます。',
+    'Study term pitch underlines render through the pseudo underline without stacking native underlines, text shadows, or box shadows.': 'Studyの語句ピッチ下線は疑似下線で描画され、ネイティブ下線、テキストシャドウ、ボックスシャドウが重ならなくなりました。',
+    'Settings now puts the review rating scale directly in Study and clarifies Jiten/JPDB credential separation, provider-scoped Study decks, and AnkiConnect setup/CORS guidance.': '設定ではレビュー評価スケールをStudy内に直接配置し、Jiten/JPDB認証情報の分離、サービスごとのStudyデッキ、AnkiConnect設定/CORS案内を明確にしました。',
     'Made Yomu Study, Yomu Video, and Yomu PDF installable with web app manifests and offline service-worker shells.': 'Yomu Study、Yomu Video、Yomu PDFをWebアプリマニフェストとオフライン用サービスワーカーシェルでインストール可能にしました。',
     'Documented the Cloudflare/Wrangler blocker for a default public Ultimate audio source, including the safe deployment plan and free-tier limits to check before opting in.': '既定の公開Ultimate音声ソースに関するCloudflare/Wrangler上のブロッカーを文書化しました。安全なデプロイ計画と、任意で有効化する前に確認すべき無料枠の制限も含めています。',
     'Improved compatibility with modern anime and app-style sites by treating Vite/Svelte/Astro-style shells as non-destructive scan targets and recognizing more custom video player frames such as Vidstack, Artplayer, XGPlayer, Clappr, and MediaElement wrappers.': 'Vite/Svelte/Astro風のアプリシェルを非破壊スキャン対象として扱い、Vidstack、Artplayer、XGPlayer、Clappr、MediaElementなどのカスタム動画プレーヤーフレームをより多く認識することで、現代的なアニメサイトやアプリ型サイトとの互換性を高めました。',
