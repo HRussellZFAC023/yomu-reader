@@ -1053,8 +1053,9 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); align-items: stretch;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-tgrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 8px 14px; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-cgrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 225px), 1fr)); gap: 12px 14px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) { display: flex; flex-direction: column;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) { min-height: 0; display: block; }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline), .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) { display: flex; flex-direction: column;');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi), .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) { min-height: 0; display: block; }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group { grid-column: 1 / -1; display: grid; grid-template-columns: inherit; align-items: stretch; gap: inherit; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-cgrid > label:not(.inline) > .jpdb-reader-settings-label-text, .jpdb-reader-settings .jpdb-reader-settings-cgrid > * > label:not(.inline) > .jpdb-reader-settings-label-text { min-height: 0; display: block; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label.inline { align-self: end; margin: 0; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid:has(> label:not(.inline)) > label.inline { align-self: start; margin-top: 28px; }');

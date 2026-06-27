@@ -12905,19 +12905,22 @@ html.jpdb-reader-doodle-active * {
    the label sits at the top and the control is pinned to the bottom of the
    cell, so every control on a row lines up regardless of how many lines the
    label above it wraps to. */
-.jpdb-reader-settings .grid > label:not(.inline) {
+.jpdb-reader-settings .grid > label:not(.inline),
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
   margin: 0;
 }
-.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text {
+.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text,
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text {
   min-height: 2.75em;
   display: flex;
   align-items: flex-end;
 }
-.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) {
+.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi),
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) {
   min-height: 0;
   display: block;
 }
@@ -13382,8 +13385,15 @@ html.jpdb-reader-doodle-active * {
   outline: 2px solid var(--jpdb-reader-accent-soft);
   outline-offset: 3px;
 }
-.jpdb-reader-shortcut-group {
-  display: contents;
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: inherit;
+  align-items: stretch;
+  gap: inherit;
+}
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group[hidden] {
+  display: none !important;
 }
 .jpdb-reader-settings .footer {
   flex: 0 0 auto;
@@ -14254,11 +14264,13 @@ html.jpdb-reader-doodle-active * {
     gap: 10px 12px;
   }
 
-  .jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text {
+  .jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text,
+  .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text {
     min-height: 1.35em;
   }
 
-  .jpdb-reader-settings .grid > label:not(.inline) {
+  .jpdb-reader-settings .grid > label:not(.inline),
+  .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) {
     gap: 4px;
   }
 

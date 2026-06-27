@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.153] - 2026-06-27
+
+### Fixed
+
+- Aligned review grading shortcuts in Settings > Shortcuts so grade controls start together instead of sharing the row with Study navigation keys.
+
 ## [1.4.152] - 2026-06-27
 
 ### Fixed

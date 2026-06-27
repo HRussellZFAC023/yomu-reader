@@ -78,6 +78,15 @@ describe('settings CSS', () => {
         expect(TRANSCRIPT_PANEL_Z_INDEX + 1).toBeLessThan(2147483647);
     });
 
+    it('starts review shortcut groups on their own settings-grid row', () => {
+        const normalizedSettingsCss = normalizeCss(SETTINGS_CSS);
+
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group { grid-column: 1 / -1; display: grid; grid-template-columns: inherit; align-items: stretch; gap: inherit; }');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group[hidden] { display: none !important; }');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings .grid > label:not(.inline), .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin: 0; }');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text, .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text { min-height: 2.75em; display: flex; align-items: flex-end; }');
+    });
+
     it('paints unknown-pitch page-word underlines with the neutral pitch color', () => {
         const normalizedReaderWordsOcrCss = normalizeCss(READER_WORDS_OCR_CSS);
 
