@@ -24309,7 +24309,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.149".trim() ? "1.4.149".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.150".trim() ? "1.4.150".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -34766,7 +34766,7 @@ ${spelling}`);
     }
     renderExistingOcrResult(state2, userRequested) {
       if (!state2.result) return false;
-      if (userRequested) void this.renderResult(state2, state2.result, true);
+      if (userRequested) void this.renderResult(state2, state2.result, true, state2.key);
       return true;
     }
     requestOcrFromPointerEvent(event) {
@@ -34874,14 +34874,19 @@ ${spelling}`);
       const manualRequested = state2.manualRequested;
       this.resetStateIfImageChanged(state2);
       if (await this.tryRenderCachedOcrResult(state2, key)) return;
-      if (!this.isCurrentState(state2)) return;
+      if (!this.isCurrentContentState(state2, key)) return;
       this.updateOcrStatus(image, "loading");
       const scan = beginOcrScan(state2, image, settings, manualRequested);
       try {
         await this.scanUncachedImage(state2, image, key, settings, scan.provider, manualRequested);
       } catch (error) {
         if (isStaleOcrState(error)) return;
-        await this.renderOcrFailure(state2, image, scan.provider, manualRequested, error);
+        try {
+          await this.renderOcrFailure(state2, image, key, scan.provider, manualRequested, error);
+        } catch (renderError) {
+          if (isStaleOcrState(renderError)) return;
+          throw renderError;
+        }
       } finally {
         finishOcrScan(state2);
         scan.done();
@@ -34894,14 +34899,14 @@ ${spelling}`);
         return true;
       }
       const cached = this.cache.get(key);
-      this.requireCurrentState(state2);
+      this.requireCurrentContentState(state2, key);
       if (!cached) {
         renderNoOcrLines(state2);
         this.updateOcrStatus(state2.image, "empty");
         state2.manualRequested = false;
         return true;
       }
-      await this.renderResult(state2, cached);
+      await this.renderResult(state2, cached, false, key);
       state2.manualRequested = false;
       return true;
     }
@@ -34920,17 +34925,19 @@ ${spelling}`);
       const result = inlineFallback ?? providerResult;
       if (!result?.lines.length) {
         this.remember(key, null);
+        this.requireCurrentContentState(state2, key);
         renderNoOcrLines(state2);
         this.updateOcrStatus(image, "empty");
         return;
       }
       this.remember(key, result);
+      this.requireCurrentContentState(state2, key);
       state2.key = key;
       if (this.shouldSuppressAutoRenderedResult(state2, Boolean(inlineFallback), manualRequested)) {
         this.clearAutoScannedOverlays();
         return;
       }
-      await this.renderResult(state2, result);
+      await this.renderResult(state2, result, false, key);
       log$l.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
     shouldSuppressAutoRenderedResult(state2, inlineFallback, manualRequested = state2.manualRequested) {
@@ -34940,12 +34947,12 @@ ${spelling}`);
       const canvas = this.canvasFrameSources.get(image);
       return Boolean(canvas && isCanvasOcrOptInSurface(canvas));
     }
-    async renderOcrFailure(state2, image, provider, manualRequested, error) {
-      this.requireCurrentState(state2);
+    async renderOcrFailure(state2, image, key, provider, manualRequested, error) {
+      this.requireCurrentContentState(state2, key);
       const fallback = readFallbackOcrResult(image, false);
       if (fallback?.lines.length) {
         log$l.warn("OCR provider failed", { provider }, error);
-        await this.renderResult(state2, fallback);
+        await this.renderResult(state2, fallback, false, key);
         return;
       }
       logOcrFailure(state2, provider, manualRequested, error);
@@ -35000,14 +35007,14 @@ ${spelling}`);
     clearLocalOcrUnavailable(endpointUrl2) {
       if (this.localOcrUnavailable?.endpointUrl === endpointUrl2) this.localOcrUnavailable = void 0;
     }
-    async renderResult(state2, result, forceOverlay = false) {
-      this.requireCurrentState(state2);
+    async renderResult(state2, result, forceOverlay = false, expectedKey = state2.key) {
+      this.requireCurrentContentState(state2, expectedKey);
       state2.result = result;
       state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
       const settings = this.options.getSettings();
       const showText = settings.ocrShowTextOverlay || forceOverlay;
       const initialParsed = await this.parseOcrLines(result.lines);
-      this.requireCurrentState(state2);
+      this.requireCurrentContentState(state2, expectedKey);
       const lines = cleanOcrLookupLines(result.lines, initialParsed);
       if (!lines.length) {
         renderNoOcrLines(state2);
@@ -35015,7 +35022,7 @@ ${spelling}`);
         return;
       }
       const parsed = ocrLinesChanged(result.lines, lines) ? await this.parseOcrLines(lines) : initialParsed;
-      this.requireCurrentState(state2);
+      this.requireCurrentContentState(state2, expectedKey);
       const sentence = lines.map((line) => line.text).join("\n");
       const vocabulary2 = ocrVocabularyCards(state2.image);
       const fallbackCardFromText = ocrFallbackCardFromImage(
@@ -35029,7 +35036,7 @@ ${spelling}`);
       ));
       const flatTokens = renderedTokens.flat();
       await this.options.enrichTokensBeforeRender?.(flatTokens);
-      this.requireCurrentState(state2);
+      this.requireCurrentContentState(state2, expectedKey);
       applyOcrOverlayStyle(state2.overlay, settings);
       for (const [index, line] of lines.entries()) {
         state2.overlay.append(this.renderOcrLineElement(state2, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
@@ -35127,6 +35134,7 @@ ${spelling}`);
       state2.manualRequested = false;
       state2.autoSkipped = false;
       state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+      this.removeImageStatusCard(state2.image);
     }
     remember(key, result) {
       if (key.startsWith("data:")) return;
@@ -35902,6 +35910,12 @@ ${spelling}`);
     }
     requireCurrentState(state2) {
       if (!this.isCurrentState(state2)) throw STALE_OCR_STATE;
+    }
+    isCurrentContentState(state2, key) {
+      return this.isCurrentState(state2) && state2.key === key && imageCacheKey(state2.image) === key;
+    }
+    requireCurrentContentState(state2, key) {
+      if (!this.isCurrentContentState(state2, key)) throw STALE_OCR_STATE;
     }
   }
   function isStaleOcrState(error) {

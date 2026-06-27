@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.149
+// @version 1.4.150
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.149
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.149
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.149
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.149
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.150
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.150
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.150
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.150
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -32065,6 +32065,7 @@ const SITE_PARSER_PROFILES = [
     exclude: COMMON_EXCLUDE,
     allowUiText: true,
     minLength: 1,
+    nonDestructive: true,
     disableGenericDomScan: true,
     includePassiveInteractionRoots: false,
     matches: (url) => isBookWalkerStorefrontUrl(url)
@@ -32689,6 +32690,7 @@ function isYouTubeSiteParserProfile(profile) {
   return profile.id === "youtube-comments-parser" || profile.id === "youtube-chrome-parser" || profile.id === "youtube-watch-guide-parser" || profile.id === "youtube-live-chat-parser";
 }
 function shouldSuppressSiteScanRuby(profile, target) {
+  if (profile.id === BOOKWALKER_STOREFRONT_PARSER_ID) return true;
   if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
   if (profile.id === "jiten-parser") return isJitenStudyPromptTarget(target.parent, target.text);
   return false;
@@ -37753,7 +37755,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.149"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.150"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],

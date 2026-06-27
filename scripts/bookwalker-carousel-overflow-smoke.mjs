@@ -135,7 +135,10 @@ writeFileSync(entryPath, `
                 applied,
                 targets: {
                     count: targets.length,
-                    allResidual: targets.every(target => 'parserId' in target && target.parserId === 'residual-visible-japanese-parser'),
+                    allStorefrontSafe: targets.every(target => 'parserId' in target && (
+                        target.parserId === 'bookwalker-storefront-no-dom-parser'
+                        || target.parserId === 'residual-visible-japanese-parser'
+                    )),
                     allSuppressRuby: targets.every(target => target.suppressRuby === true),
                     allPassive: targets.every(target => target.passiveInteraction === true),
                     allNonDestructive: targets.every(target => target.nonDestructive === true),
@@ -190,10 +193,10 @@ try {
 
         assert(result.before.carousel.viewportScrollWidth <= result.before.carousel.viewportClientWidth + 2, 'fixture starts without carousel overflow', result);
         assert(result.targets.count >= 10, 'BookWalker fixture did not collect enough storefront targets', result);
-        assert(result.targets.allResidual, 'BookWalker storefront should use residual visible Japanese targets only', result);
-        assert(result.targets.allSuppressRuby, 'BookWalker storefront residual targets should suppress ruby', result);
-        assert(result.targets.allPassive, 'BookWalker storefront residual targets should be passive', result);
-        assert(result.targets.allNonDestructive, 'BookWalker storefront residual targets should be non-destructive', result);
+        assert(result.targets.allStorefrontSafe, 'BookWalker storefront should use only storefront-safe target parsers', result);
+        assert(result.targets.allSuppressRuby, 'BookWalker storefront targets should suppress ruby', result);
+        assert(result.targets.allPassive, 'BookWalker storefront targets should be passive', result);
+        assert(result.targets.allNonDestructive, 'BookWalker storefront targets should be non-destructive', result);
         assert(result.applied >= 8, 'BookWalker storefront smoke did not annotate enough targets', result);
         assert(result.after.rubyCount === 0, 'BookWalker storefront rendered ruby in compact commerce layout', result);
         assert(result.after.passiveCount >= 8, 'BookWalker storefront words should still be lookupable as passive words', result);

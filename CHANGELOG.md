@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.150] - 2026-06-27
+
+### Fixed
+
+- Contained BookWalker storefront annotations in passive, ruby-free text mirrors so enabling Yomu no longer shifts homepage carousels, product grids, clamped titles, or sidebar cards.
+- Dropped stale OCR status/results when BookWalker swaps a canvas frame to a new page, preventing previous-page “Text ready” overlays from surviving page turns.
+
 ## [1.4.149] - 2026-06-27
 
 ### Fixed

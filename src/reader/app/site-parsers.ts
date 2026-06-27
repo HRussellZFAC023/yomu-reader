@@ -583,6 +583,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         exclude: COMMON_EXCLUDE,
         allowUiText: true,
         minLength: 1,
+        nonDestructive: true,
         disableGenericDomScan: true,
         includePassiveInteractionRoots: false,
         matches: url => isBookWalkerStorefrontUrl(url),
@@ -1317,6 +1318,7 @@ function isYouTubeSiteParserProfile(profile: SiteParserProfile): boolean {
 }
 
 function shouldSuppressSiteScanRuby(profile: SiteParserProfile, target: FragmentTextTarget): boolean {
+    if (profile.id === BOOKWALKER_STOREFRONT_PARSER_ID) return true;
     if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
     if (profile.id === 'jiten-parser') return isJitenStudyPromptTarget(target.parent, target.text);
     return false;

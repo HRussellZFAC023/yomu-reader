@@ -687,7 +687,7 @@ export class ImageOcrController {
 
     private renderExistingOcrResult(state: ImageState, userRequested: boolean): boolean {
         if (!state.result) return false;
-        if (userRequested) void this.renderResult(state, state.result, true);
+        if (userRequested) void this.renderResult(state, state.result, true, state.key);
         return true;
     }
 
@@ -809,7 +809,7 @@ export class ImageOcrController {
         const manualRequested = state.manualRequested;
         this.resetStateIfImageChanged(state);
         if (await this.tryRenderCachedOcrResult(state, key)) return;
-        if (!this.isCurrentState(state)) return;
+        if (!this.isCurrentContentState(state, key)) return;
 
         this.updateOcrStatus(image, 'loading');
         const scan = beginOcrScan(state, image, settings, manualRequested);
@@ -818,7 +818,12 @@ export class ImageOcrController {
             await this.scanUncachedImage(state, image, key, settings, scan.provider, manualRequested);
         } catch (error) {
             if (isStaleOcrState(error)) return;
-            await this.renderOcrFailure(state, image, scan.provider, manualRequested, error);
+            try {
+                await this.renderOcrFailure(state, image, key, scan.provider, manualRequested, error);
+            } catch (renderError) {
+                if (isStaleOcrState(renderError)) return;
+                throw renderError;
+            }
         } finally {
             finishOcrScan(state);
             scan.done();
@@ -832,14 +837,14 @@ export class ImageOcrController {
             return true;
         }
         const cached = this.cache.get(key);
-        this.requireCurrentState(state);
+        this.requireCurrentContentState(state, key);
         if (!cached) {
             renderNoOcrLines(state);
             this.updateOcrStatus(state.image, 'empty');
             state.manualRequested = false;
             return true;
         }
-        await this.renderResult(state, cached);
+        await this.renderResult(state, cached, false, key);
         state.manualRequested = false;
         return true;
     }
@@ -867,12 +872,14 @@ export class ImageOcrController {
         const result = inlineFallback ?? providerResult;
         if (!result?.lines.length) {
             this.remember(key, null);
+            this.requireCurrentContentState(state, key);
             renderNoOcrLines(state);
             this.updateOcrStatus(image, 'empty');
             return;
         }
 
         this.remember(key, result);
+        this.requireCurrentContentState(state, key);
         state.key = key;
         // The page may have started providing its own native text layer while
         // this auto scan was in flight (e.g. mokuro OCR toggled on). Keep the
@@ -882,7 +889,7 @@ export class ImageOcrController {
             this.clearAutoScannedOverlays();
             return;
         }
-        await this.renderResult(state, result);
+        await this.renderResult(state, result, false, key);
         log.info('OCR result rendered', { provider, lines: result.lines.length, manualRequested });
     }
 
@@ -902,15 +909,16 @@ export class ImageOcrController {
     private async renderOcrFailure(
         state: ImageState,
         image: HTMLImageElement,
+        key: string,
         provider: string,
         manualRequested: boolean,
         error: unknown,
     ): Promise<void> {
-        this.requireCurrentState(state);
+        this.requireCurrentContentState(state, key);
         const fallback = readFallbackOcrResult(image, false);
         if (fallback?.lines.length) {
             log.warn('OCR provider failed', { provider }, error);
-            await this.renderResult(state, fallback);
+            await this.renderResult(state, fallback, false, key);
             return;
         }
         logOcrFailure(state, provider, manualRequested, error);
@@ -987,8 +995,8 @@ export class ImageOcrController {
         if (this.localOcrUnavailable?.endpointUrl === endpointUrl) this.localOcrUnavailable = undefined;
     }
 
-    private async renderResult(state: ImageState, result: OcrResult, forceOverlay = false): Promise<void> {
-        this.requireCurrentState(state);
+    private async renderResult(state: ImageState, result: OcrResult, forceOverlay = false, expectedKey = state.key): Promise<void> {
+        this.requireCurrentContentState(state, expectedKey);
         state.result = result;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
 
@@ -996,7 +1004,7 @@ export class ImageOcrController {
         const showText = settings.ocrShowTextOverlay || forceOverlay;
 
         const initialParsed = await this.parseOcrLines(result.lines);
-        this.requireCurrentState(state);
+        this.requireCurrentContentState(state, expectedKey);
         const lines = cleanOcrLookupLines(result.lines, initialParsed);
         if (!lines.length) {
             renderNoOcrLines(state);
@@ -1006,7 +1014,7 @@ export class ImageOcrController {
         const parsed = ocrLinesChanged(result.lines, lines)
             ? await this.parseOcrLines(lines)
             : initialParsed;
-        this.requireCurrentState(state);
+        this.requireCurrentContentState(state, expectedKey);
         const sentence = lines.map(line => line.text).join('\n');
         const vocabulary = ocrVocabularyCards(state.image);
         const fallbackCardFromText = ocrFallbackCardFromImage(
@@ -1020,7 +1028,7 @@ export class ImageOcrController {
         ));
         const flatTokens = renderedTokens.flat();
         await this.options.enrichTokensBeforeRender?.(flatTokens);
-        this.requireCurrentState(state);
+        this.requireCurrentContentState(state, expectedKey);
         applyOcrOverlayStyle(state.overlay, settings);
 
         for (const [index, line] of lines.entries()) {
@@ -1147,6 +1155,7 @@ export class ImageOcrController {
         state.manualRequested = false;
         state.autoSkipped = false;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
+        this.removeImageStatusCard(state.image);
     }
 
     private remember(key: string, result: OcrResult | null): void {
@@ -2084,6 +2093,14 @@ export class ImageOcrController {
 
     private requireCurrentState(state: ImageState): void {
         if (!this.isCurrentState(state)) throw STALE_OCR_STATE;
+    }
+
+    private isCurrentContentState(state: ImageState, key: string): boolean {
+        return this.isCurrentState(state) && state.key === key && imageCacheKey(state.image) === key;
+    }
+
+    private requireCurrentContentState(state: ImageState, key: string): void {
+        if (!this.isCurrentContentState(state, key)) throw STALE_OCR_STATE;
     }
 }
 

@@ -185,6 +185,49 @@ describe('OCR reassessAutoScan (mokuro OCR toggle)', () => {
         }
     });
 
+    it('clears stale OCR lines and status when an image content key changes', async () => {
+        const controller = makeController(() => true, { ocrShowTextOverlay: true });
+        const image = makeImage('/page-1.png');
+        image.dataset.ocrContentKey = 'page-1';
+        document.body.replaceChildren(image);
+        try {
+            await scanImage(controller, image);
+            expect(document.querySelectorAll('.jpdb-ocr-line').length).toBeGreaterThan(0);
+            expect(document.querySelector('.jpdb-ocr-video-frame-status-ready')).not.toBeNull();
+
+            image.dataset.ocrContentKey = 'page-2';
+            image.dispatchEvent(new Event('load'));
+
+            expect(document.querySelectorAll('.jpdb-ocr-line').length).toBe(0);
+            expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('does not paint an OCR result that completes after the image content key changes', async () => {
+        const controller = makeController(() => true, { ocrShowTextOverlay: true });
+        const pending = controlledResult();
+        (controller as unknown as { recognizeImage: () => Promise<OcrResult> }).recognizeImage = vi.fn(() => pending.promise);
+        const image = makeImage('/page-1.png');
+        image.dataset.ocrContentKey = 'page-1';
+        document.body.replaceChildren(image);
+        try {
+            const scan = scanImage(controller, image);
+            await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-video-frame-status-loading')).not.toBeNull());
+
+            image.dataset.ocrContentKey = 'page-2';
+            image.dispatchEvent(new Event('load'));
+            pending.resolve();
+            await scan;
+
+            expect(document.querySelectorAll('.jpdb-ocr-line').length).toBe(0);
+            expect(document.querySelector('.jpdb-ocr-video-frame-status-ready')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('does not repaint a cached auto OCR result while mokuro OCR is on', async () => {
         let defer = false; // mokuro OCR off → reader scans
         const controller = makeController(() => !defer);
