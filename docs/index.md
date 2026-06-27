@@ -6,7 +6,7 @@ description: Yomu helps you read real Japanese in the browser. Look up words on 
 hero:
   name: よむ
   text: Read Japanese without leaving the page
-  tagline: Look up words on web pages, manga, game text, PDFs, and subtitles, then save useful sentences for study. Connect your SRS to practice your words, find new words by visiting the Japanese versions of the websites you use daily, and filter YouTube for Japanese content. Yomu brings the perfect immersion environment, no matter your level.
+  tagline: Look up words on web pages, manga, game text, PDFs, and subtitles, then save useful sentences for study. Connect your SRS to practice your words, find new words by visiting the Japanese versions of the websites you use daily, and filter YouTube for Japanese content.<br>Yomu brings the perfect immersion environment, no matter your level.
   image:
     src: /yomu-icon.svg
     alt: よむ app icon
@@ -28,7 +28,7 @@ hero:
       link: /video-player/index.html
       target: _self
     - theme: alt
-      text: Read/PDF
+      text: Read
       link: /pdf-reader/
       target: _self
     - theme: alt
@@ -118,7 +118,7 @@ hero:
     <span>Open local videos and Japanese subtitles in よむ.</span>
   </a>
   <a class="yomu-link-card" href="/pdf-reader/">
-    <strong>Read/PDF</strong>
+    <strong>Read</strong>
     <span>Read PDFs with the same popup reader.</span>
   </a>
   <a class="yomu-link-card" href="/tools/japanese-ocr">
