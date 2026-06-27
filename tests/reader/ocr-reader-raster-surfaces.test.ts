@@ -227,6 +227,50 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('does not let hidden BookWalker buffers starve the visible continuous-scroll page', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        pageCounter('19/195');
+
+        const dummy = pageCanvas(0, 0, 1440, 2048);
+        dummy.className = 'dummy';
+        dummy.style.visibility = 'hidden';
+        dummy.style.opacity = '0';
+        document.body.append(dummy);
+
+        for (let index = 0; index < 2; index += 1) {
+            const viewport = Object.assign(document.createElement('div'), { id: `viewport${index}` });
+            if (index === 0) viewport.classList.add('currentScreen');
+            const hiddenBuffer = pageCanvas(0, -1, 1280, 720);
+            hiddenBuffer.style.visibility = 'hidden';
+            viewport.append(hiddenBuffer);
+            document.body.append(viewport);
+        }
+
+        const continuousViewport = Object.assign(document.createElement('div'), { id: 'viewportW' });
+        const visiblePage = pageCanvas(0, -1, 1280, 1820);
+        visiblePage.className = 'default';
+        visiblePage.toDataURL = () => 'data:image/jpeg;base64,VISIBLE_PAGE';
+        const nextPage = pageCanvas(0, 1819, 1280, 1820);
+        nextPage.className = 'default';
+        nextPage.toDataURL = () => 'data:image/jpeg;base64,NEXT_PAGE';
+        continuousViewport.append(visiblePage, nextPage);
+        document.body.append(continuousViewport);
+
+        expect(collectCanvasReaderSurfaces('viewer.bookwalker.jp')).toEqual([visiblePage, nextPage]);
+
+        const controller = createController({}, undefined, undefined, () => false);
+        try {
+            await waitForExpect(() => {
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+                expect(frame!.getAttribute('src')).toBe('data:image/jpeg;base64,VISIBLE_PAGE');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps the BookWalker canvas ready pill visible while the OCR frame is alive', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubTaintedCanvas();

@@ -141,6 +141,7 @@ function pageCanvases(
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
     const canvases = Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas'))
         .filter(canvas => !shouldSkipCanvasReaderSurface(canvas))
+        .filter(isVisibleCanvasReaderSurface)
         .filter(canvas => isLikelyPageCanvas(canvas, lenient));
     return isBookwalkerViewerHost(hostname) && options.preferBookwalkerCurrent !== false
         ? preferCurrentScreenCanvases(canvases)
@@ -150,6 +151,14 @@ function pageCanvases(
 function shouldSkipCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {
     return canvas.dataset.yomuCanvasOcr === 'off'
         || Boolean(canvas.closest('[data-yomu-canvas-ocr="off"]'));
+}
+
+function isVisibleCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {
+    if (canvas.hidden || canvas.getAttribute('aria-hidden') === 'true') return false;
+    const style = getComputedStyle(canvas);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return false;
+    if (Number(style.opacity || '1') <= 0) return false;
+    return true;
 }
 
 function shouldForceCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {
