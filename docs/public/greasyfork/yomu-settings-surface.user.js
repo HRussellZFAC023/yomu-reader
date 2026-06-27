@@ -7365,6 +7365,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const GIS_SCRIPT_URL = "https://accounts.google.com/gsi/client";
   const OAUTH_BROKER_URL = "https://yomureader.com/oauth/google-drive.html";
   const OAUTH_RETURN_HASH_KEY = "yomu-drive-oauth-return";
+  const OAUTH_TOKEN_HASH_KEY = "yomu-drive-oauth-token";
   const OAUTH_WINDOW_NAME_TYPE = "yomu-drive-oauth-token";
   const TOKEN_EARLY_REFRESH_MS = 6e4;
   const DRIVE_TIMEOUT_MS = 2e4;
@@ -7537,7 +7538,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!browserWindow?.location?.href) return null;
     const state = oauthReturnState(browserWindow.location.href);
     if (!state) return null;
-    const payload = parseOAuthWindowName(browserWindow.name);
+    const payload = parseOAuthReturnPayload(browserWindow.location.href) ?? parseOAuthWindowName(browserWindow.name);
     clearOAuthReturnHash(browserWindow);
     if (!payload || payload.type !== OAUTH_WINDOW_NAME_TYPE || payload.state !== state) {
       return { ok: false, state, error: "Google authorization returned without a Yomu token." };
@@ -7558,23 +7559,45 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return null;
     }
   }
+  function parseOAuthReturnPayload(href) {
+    const encoded = oauthHashParam(href, OAUTH_TOKEN_HASH_KEY);
+    if (!encoded) return null;
+    try {
+      const parsed = JSON.parse(encoded);
+      return isRecord(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
   function oauthReturnState(href) {
+    return oauthHashParam(href, OAUTH_RETURN_HASH_KEY);
+  }
+  function oauthHashParam(href, key) {
     let hash = "";
     try {
       hash = new URL(href).hash.slice(1);
     } catch {
       return "";
     }
-    const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
+    const prefix = `${key}=`;
     const entry = hash.split("&").find((part) => part.startsWith(prefix));
-    return entry ? decodeURIComponent(entry.slice(prefix.length)) : "";
+    if (!entry) return "";
+    try {
+      return decodeURIComponent(entry.slice(prefix.length));
+    } catch {
+      return "";
+    }
   }
   function clearOAuthReturnHash(browserWindow) {
     if (!browserWindow.history?.replaceState) return;
     try {
       const url = new URL(browserWindow.location.href);
-      const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
-      const remainingHash = url.hash.slice(1).split("&").filter((part) => part && !part.startsWith(prefix)).join("&");
+      const removedKeys = /* @__PURE__ */ new Set([OAUTH_RETURN_HASH_KEY, OAUTH_TOKEN_HASH_KEY]);
+      const remainingHash = url.hash.slice(1).split("&").filter((part) => {
+        if (!part) return false;
+        const key = part.includes("=") ? part.slice(0, part.indexOf("=")) : part;
+        return !removedKeys.has(key);
+      }).join("&");
       url.hash = remainingHash ? `#${remainingHash}` : "";
       browserWindow.history.replaceState(browserWindow.history.state, document.title, url.toString());
     } catch {

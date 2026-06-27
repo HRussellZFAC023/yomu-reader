@@ -24309,7 +24309,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.156".trim() ? "1.4.156".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.157".trim() ? "1.4.157".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -26481,6 +26481,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const GIS_SCRIPT_URL = "https://accounts.google.com/gsi/client";
   const OAUTH_BROKER_URL = "https://yomureader.com/oauth/google-drive.html";
   const OAUTH_RETURN_HASH_KEY = "yomu-drive-oauth-return";
+  const OAUTH_TOKEN_HASH_KEY = "yomu-drive-oauth-token";
   const OAUTH_WINDOW_NAME_TYPE = "yomu-drive-oauth-token";
   const TOKEN_EARLY_REFRESH_MS = 6e4;
   const DRIVE_TIMEOUT_MS = 2e4;
@@ -26653,7 +26654,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!browserWindow?.location?.href) return null;
     const state2 = oauthReturnState(browserWindow.location.href);
     if (!state2) return null;
-    const payload = parseOAuthWindowName(browserWindow.name);
+    const payload = parseOAuthReturnPayload(browserWindow.location.href) ?? parseOAuthWindowName(browserWindow.name);
     clearOAuthReturnHash(browserWindow);
     if (!payload || payload.type !== OAUTH_WINDOW_NAME_TYPE || payload.state !== state2) {
       return { ok: false, state: state2, error: "Google authorization returned without a Yomu token." };
@@ -26674,23 +26675,45 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return null;
     }
   }
+  function parseOAuthReturnPayload(href) {
+    const encoded = oauthHashParam(href, OAUTH_TOKEN_HASH_KEY);
+    if (!encoded) return null;
+    try {
+      const parsed = JSON.parse(encoded);
+      return isRecord$6(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
   function oauthReturnState(href) {
+    return oauthHashParam(href, OAUTH_RETURN_HASH_KEY);
+  }
+  function oauthHashParam(href, key) {
     let hash = "";
     try {
       hash = new URL(href).hash.slice(1);
     } catch {
       return "";
     }
-    const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
+    const prefix = `${key}=`;
     const entry = hash.split("&").find((part) => part.startsWith(prefix));
-    return entry ? decodeURIComponent(entry.slice(prefix.length)) : "";
+    if (!entry) return "";
+    try {
+      return decodeURIComponent(entry.slice(prefix.length));
+    } catch {
+      return "";
+    }
   }
   function clearOAuthReturnHash(browserWindow) {
     if (!browserWindow.history?.replaceState) return;
     try {
       const url = new URL(browserWindow.location.href);
-      const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
-      const remainingHash = url.hash.slice(1).split("&").filter((part) => part && !part.startsWith(prefix)).join("&");
+      const removedKeys = /* @__PURE__ */ new Set([OAUTH_RETURN_HASH_KEY, OAUTH_TOKEN_HASH_KEY]);
+      const remainingHash = url.hash.slice(1).split("&").filter((part) => {
+        if (!part) return false;
+        const key = part.includes("=") ? part.slice(0, part.indexOf("=")) : part;
+        return !removedKeys.has(key);
+      }).join("&");
       url.hash = remainingHash ? `#${remainingHash}` : "";
       browserWindow.history.replaceState(browserWindow.history.state, document.title, url.toString());
     } catch {

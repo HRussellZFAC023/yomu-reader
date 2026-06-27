@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.157] - 2026-06-27
+
+### Fixed
+
+- Fixed same-tab Google Drive authorization on Chrome by returning the OAuth token through the URL fragment instead of window.name, so Sync and Restore resume after Google sign-in.
+
 ## [1.4.156] - 2026-06-27
 
 ### Fixed

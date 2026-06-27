@@ -90,14 +90,14 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
         expect(requestJson).not.toHaveBeenCalled();
     });
 
-    it('consumes a same-tab OAuth return token and resumes Drive requests without a popup', async () => {
-        window.name = JSON.stringify({
+    it('consumes a same-tab OAuth return token from the URL fragment and resumes Drive requests without a popup', async () => {
+        const tokenPayload = JSON.stringify({
             type: 'yomu-drive-oauth-token',
             state: 'returnstate',
             accessToken: 'returned-token',
             expiresIn: 1200,
         });
-        history.replaceState(null, '', '/reader/#chapter=1&yomu-drive-oauth-return=returnstate');
+        history.replaceState(null, '', `/reader/#chapter=1&yomu-drive-oauth-return=returnstate&yomu-drive-oauth-token=${encodeURIComponent(tokenPayload)}`);
         requestJson.mockImplementation(async (url: string) => {
             if (url.includes('uploadType=multipart')) return { id: 'file-return', modifiedTime: '2026-06-25T00:00:00Z' };
             if (url.includes('spaces=appDataFolder')) return { files: [] };
@@ -113,6 +113,30 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
         const create = requestJson.mock.calls.find(([u]) => String(u).includes('uploadType=multipart'));
         expect(meta.fileId).toBe('file-return');
         expect(create?.[1]?.headers?.Authorization).toBe('Bearer returned-token');
+    });
+
+    it('still accepts the legacy window.name OAuth return fallback', async () => {
+        window.name = JSON.stringify({
+            type: 'yomu-drive-oauth-token',
+            state: 'returnstate',
+            accessToken: 'window-name-token',
+            expiresIn: 1200,
+        });
+        history.replaceState(null, '', '/reader/#yomu-drive-oauth-return=returnstate');
+        requestJson.mockImplementation(async (url: string) => {
+            if (url.includes('uploadType=multipart')) return { id: 'file-window-name', modifiedTime: '2026-06-25T00:00:00Z' };
+            if (url.includes('spaces=appDataFolder')) return { files: [] };
+            throw new Error(`unexpected ${url}`);
+        });
+        const mod = await loadModule();
+
+        expect(mod.cloudSettingsAuthRedirectResult()).toEqual({ ok: true, state: 'returnstate' });
+        expect(window.name).toBe('');
+        expect(location.hash).toBe('');
+
+        await mod.uploadCloudSettingsToCloud({ theme: 'dark' } as never);
+        const create = requestJson.mock.calls.find(([u]) => String(u).includes('uploadType=multipart'));
+        expect(create?.[1]?.headers?.Authorization).toBe('Bearer window-name-token');
     });
 
     it('updates the existing appData file when one is already present', async () => {
