@@ -76,6 +76,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 
 ## Hosted Tools
 
+- [Homepage PWA](https://yomureader.com/) installs as one Yomu shell with offline docs fallback and shortcuts to Study, Video, PDF, and setup.
 - [Video reader](https://yomureader.com/video-player/index.html) for local video files and subtitles.
 - [PDF reader](https://yomureader.com/pdf-reader/) for Japanese PDFs and scanned pages.
 - [Study page](https://yomureader.com/newtab/) for review cards in a browser tab or mobile Home Screen shortcut.

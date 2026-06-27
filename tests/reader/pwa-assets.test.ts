@@ -11,6 +11,32 @@ function readManifest(path: string): Record<string, unknown> {
 }
 
 describe('hosted PWA assets', () => {
+    it('makes the docs and homepage one installable Yomu PWA shell', () => {
+        const config = readText('docs/.vitepress/config.mts');
+        const theme = readText('docs/.vitepress/theme/index.ts');
+        const serviceWorker = readText('docs/public/sw.js');
+        const manifest = readManifest('docs/public/manifest.webmanifest');
+
+        expect(config).toContain("rel: 'manifest', href: `${base}manifest.webmanifest`");
+        expect(theme).toContain("navigator.serviceWorker.register('/sw.js', { scope: '/' })");
+        expect(serviceWorker).toContain("const CACHE_NAME = 'yomu-docs-shell-v1';");
+        expect(serviceWorker).toContain("'/manifest.webmanifest'");
+        expect(serviceWorker).toContain('if (!response.ok) return await cachedNavigationFallback(request);');
+        expect(serviceWorker).toContain("return Response.redirect('/', 302);");
+        expect(serviceWorker).toContain("if (path === '/') return pathname === '/'");
+        expect(manifest).toMatchObject({
+            name: 'Yomu Japanese Reader',
+            display: 'standalone',
+            start_url: '/',
+            scope: '/',
+        });
+        expect(manifest.shortcuts).toEqual(expect.arrayContaining([
+            expect.objectContaining({ url: '/newtab/index.html' }),
+            expect.objectContaining({ url: '/video-player/index.html' }),
+            expect.objectContaining({ url: '/pdf-reader/' }),
+        ]));
+    });
+
     it('makes the Study page installable and caches its manifest with the versioned shell', () => {
         const html = readText('public/newtab/index.html');
         const serviceWorker = readText('public/newtab/sw.js');

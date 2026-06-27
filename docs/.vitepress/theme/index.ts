@@ -156,6 +156,9 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Made the docs homepage installable as the root Yomu PWA shell, with offline navigation fallback and shortcuts into Study, Video, PDF, and setup docs.': 'ドキュメントのホームページをYomu全体のルートPWAシェルとしてインストールできるようにし、オフライン時のナビゲーションフォールバックと、Study、Video、PDF、セットアップ手順へのショートカットを追加しました。',
+    'Added a YomuYomu reader parser for canvas-backed story pages, using the page\'s Japanese fallback text to provide popup lookup/mining without fighting the site\'s own custom reader controls.': 'キャンバスで描画されるYomuYomuのストーリーページ向けリーダーパーサーを追加し、ページ内の日本語フォールバックテキストを使って、サイト独自のリーダー操作と衝突せずにポップアップ検索/マイニングできるようにしました。',
+    'Broadened generic subtitle language inference so Japanese, JP/JPN, native, English, and Japanese-language labels are classified consistently across page tracks, local subtitle files, and Jimaku-style anime subtitle lookup flows.': '汎用字幕の言語推定を広げ、日本語、JP/JPN、native、English、日本語表記のラベルを、ページ内トラック、ローカル字幕ファイル、Jimaku形式のアニメ字幕検索フローで一貫して分類できるようにしました。',
     'BookWalker OCR now treats visible two-page spreads and vertical continuous-scroll page runs as active surfaces instead of collapsing to a stale currentScreen marker, so tapping either page in horizontal mode or the visible page in continuous mode triggers OCR.': 'BookWalkerのOCRは、表示中の見開きページや縦方向の連続スクロールのページ列を、古いcurrentScreenマーカーだけに絞り込まずアクティブな面として扱うようになりました。横方向モードでは左右どちらのページをタップしても、連続モードでは表示中のページをタップしてもOCRが起動します。',
     'Reduced BookWalker continuous-scroll churn by keeping scroll offset out of the page signature for persistent page stacks, preventing repeated OCR frame teardown while scrolling on iPad.': 'BookWalkerの連続スクロールで、永続的なページ列ではスクロール位置をページ署名から外し、iPadでスクロール中にOCRフレームの破棄と再作成が繰り返されないようにしました。',
     'Stopped Yomu from annotating BookWalker reader settings and menu chrome, so native labels like page movement direction remain compact and furigana no longer wraps controls.': 'よむがBookWalkerリーダーの設定やメニューのUI文字を注釈しないようにしました。ページ移動方向などのネイティブなラベルはコンパクトなまま保たれ、ふりがながコントロール内で折り返さなくなります。',
@@ -2701,6 +2704,7 @@ function browserPrefersJapanese(): boolean {
 }
 
 function installHostedDocsEnhancements(): void {
+    registerHostedDocsServiceWorker();
     syncLandmarks();
     installHostedLanguageToggle();
     installHostedOverflowMenu();
@@ -2738,6 +2742,11 @@ function installHostedDocsEnhancements(): void {
         installHostedHomepageInteractions();
         syncHostedAccent();
     }));
+}
+
+function registerHostedDocsServiceWorker(): void {
+    if (!('serviceWorker' in navigator)) return;
+    void navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => undefined);
 }
 
 function syncHostedLanguageFromSettingsEvent(event: Event): void {

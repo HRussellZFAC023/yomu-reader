@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.139
+// @version 1.4.140
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.139
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.139
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.139
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.139
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.140
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.140
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.140
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.140
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -3647,7 +3647,7 @@ const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAIL
 const EASY_FURIGANA_KANJI = new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
 );
-const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],[contenteditable=true],[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-word,.subsection-pitch-accent .subsection';
+const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],[contenteditable=true],[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection';
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
 const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
 const PLAYER_CHROME_SKIP_SELECTOR = '[class*="control" i],[class*="toggle" i],[class*="player" i]';
@@ -3681,7 +3681,7 @@ const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${
 const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
 const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},[data-jpdb-reader-root]`;
 const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},button,summary,a[href],[role="button"]`;
-const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable="true"],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
+const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable="true"],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
 const FORM_CHROME_BOUNDARY_TAGS = ",FORM,LABEL,FIELDSET,LEGEND,";
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
 const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
@@ -3719,6 +3719,7 @@ const BLOCK_TAGS = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALO
 const READER_WORD_SELECTOR$1 = ".jpdb-reader-word";
 const READER_TEXT_MIRROR_SELECTOR = ".jpdb-reader-text-mirror";
 const READER_CONTROL_TEXT_MIRROR_SELECTOR = ".jpdb-reader-control-text-mirror";
+const READER_CANVAS_TEXT_LAYER_SELECTOR = ".jpdb-reader-canvas-text-layer";
 const READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE = "data-jpdb-reader-control-placeholder-hidden";
 const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = "yt-formatted-string,yt-attributed-string,.ytAttributedStringHost,.yt-core-attributed-string,.yt-core-attributed-string--white-space-pre-wrap";
 const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = `${READER_TEXT_MIRROR_SELECTOR},script,style,noscript,template,[hidden],[aria-hidden="true"]`;
@@ -3730,6 +3731,7 @@ const RENDERED_SCAN_HOST_RESCAN_DELAYS_MS = [700, 1600, 4e3, 1e4];
 const NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT = "jpdb-reader-text-mirror-stale";
 const renderedScanHosts = new WeakMap();
 const textMirrorHosts = new WeakMap();
+const canvasFallbackTextLayers = new WeakMap();
 function getSelectionText() {
   return normalizedSelectedText(activeControlSelectionText(activeSelectableControl())) || documentSelectionText();
 }
@@ -4380,6 +4382,10 @@ function applyTokensToScanTarget(target, tokens, settings) {
     applyTokensToControlTextMirrorTarget(target, tokens, settings);
     return;
   }
+  if (target.parent instanceof HTMLCanvasElement) {
+    applyTokensToCanvasFallbackTarget(target, tokens, settings);
+    return;
+  }
   const nonDestructiveHost = nonDestructiveScanHost(target);
   const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
   const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
@@ -4537,6 +4543,87 @@ function applyTokensToControlTextMirrorTarget(target, tokens, settings) {
 function currentControlTextMirror(host) {
   const sibling = host.nextElementSibling;
   return sibling instanceof HTMLElement && sibling.matches(READER_CONTROL_TEXT_MIRROR_SELECTOR) ? sibling : null;
+}
+function applyTokensToCanvasFallbackTarget(target, tokens, settings) {
+  const canvas = target.parent;
+  if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) return;
+  const host = canvas.parentElement;
+  if (!host) return;
+  const text2 = target.text;
+  const safeTokens = nonOverlappingTokens(tokens, text2.length);
+  const renderSettings = furiganaSettingsForTarget(settings, canvas);
+  const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, Boolean(target.suppressRuby));
+  const existing = currentCanvasFallbackTextLayer(canvas);
+  if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) return;
+  removeCanvasFallbackTextLayer(canvas);
+  if (!safeTokens.length) return;
+  const layer = document.createElement("div");
+  layer.className = "jpdb-reader-canvas-text-layer";
+  layer.dataset.jpdbReaderCanvasTextLayer = "true";
+  layer.dataset.sourceText = text2;
+  layer.dataset.renderSignature = signature;
+  const hasRenderedRuby = safeTokens.some((token) => token.rubies.length > 0) && !target.suppressRuby;
+  styleCanvasFallbackTextLayer(layer, canvas, hasRenderedRuby);
+  layer.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
+    parent: canvas,
+    hasNativeRuby: targetHasNativeRuby(target),
+    suppressRuby: target.suppressRuby,
+    passiveInteraction: target.passiveInteraction
+  }));
+  if (!layer.textContent?.trim()) return;
+  const state = hideCanvasFallbackTextCanvas(canvas, host, layer);
+  canvasFallbackTextLayers.set(canvas, state);
+  host.append(layer);
+}
+function currentCanvasFallbackTextLayer(canvas) {
+  const state = canvasFallbackTextLayers.get(canvas);
+  return state?.layer.isConnected ? state.layer : null;
+}
+function styleCanvasFallbackTextLayer(layer, canvas, hasRuby) {
+  const style = safeComputedStyle(canvas);
+  layer.style.setProperty("position", "absolute");
+  layer.style.setProperty("left", `${canvas.offsetLeft}px`);
+  layer.style.setProperty("top", `${canvas.offsetTop}px`);
+  layer.style.setProperty("width", `${canvas.offsetWidth || canvas.width}px`);
+  layer.style.setProperty("min-height", `${canvas.offsetHeight || canvas.height}px`);
+  layer.style.setProperty("box-sizing", "border-box");
+  layer.style.setProperty("overflow", "visible");
+  layer.style.setProperty("visibility", "visible", "important");
+  layer.style.setProperty("pointer-events", "auto");
+  layer.style.setProperty("white-space", "pre-wrap");
+  layer.style.setProperty("font", style.font);
+  layer.style.setProperty("font-size", style.fontSize);
+  layer.style.setProperty("font-weight", style.fontWeight);
+  layer.style.setProperty("line-height", hasRuby ? rubyFriendlyMirrorLineHeight(style) : style.lineHeight);
+  layer.style.setProperty("letter-spacing", style.letterSpacing);
+  layer.style.setProperty("text-align", style.textAlign);
+  layer.style.setProperty("color", style.color);
+  layer.style.setProperty("z-index", "1");
+  if (hasRuby) layer.dataset.jpdbReaderHasRuby = "true";
+}
+function hideCanvasFallbackTextCanvas(canvas, host, layer) {
+  const hostStyle = safeComputedStyle(host);
+  const state = {
+    layer,
+    canvasVisibility: canvas.style.getPropertyValue("visibility"),
+    canvasVisibilityPriority: canvas.style.getPropertyPriority("visibility"),
+    hostPosition: host.style.getPropertyValue("position"),
+    hostPositionPriority: host.style.getPropertyPriority("position"),
+    hostPositionAdjusted: hostStyle.position === "static"
+  };
+  if (state.hostPositionAdjusted) host.style.setProperty("position", "relative", "important");
+  canvas.style.setProperty("visibility", "hidden", "important");
+  return state;
+}
+function removeCanvasFallbackTextLayer(canvas) {
+  const state = canvasFallbackTextLayers.get(canvas);
+  state?.layer.remove();
+  if (state) {
+    restoreStyleProperty(canvas, "visibility", state.canvasVisibility, state.canvasVisibilityPriority);
+    const host = canvas.parentElement;
+    if (host && state.hostPositionAdjusted) restoreStyleProperty(host, "position", state.hostPosition, state.hostPositionPriority);
+  }
+  canvasFallbackTextLayers.delete(canvas);
 }
 function isPlaceholderControlTextMirror(host, text2) {
   if (!(host instanceof HTMLInputElement || host instanceof HTMLTextAreaElement)) return false;
@@ -4967,9 +5054,21 @@ function removeNonDestructiveScanMirrors(root = document) {
     if (host instanceof HTMLElement) controlHosts.add(host);
     else mirror.remove();
   });
+  const canvasHosts = new Set();
+  root.querySelectorAll(READER_CANVAS_TEXT_LAYER_SELECTOR).forEach((layer) => {
+    const canvas = canvasForFallbackTextLayer(layer);
+    if (canvas) canvasHosts.add(canvas);
+    else layer.remove();
+  });
   hosts.forEach(removeTextMirror);
   controlHosts.forEach(removeControlTextMirror);
-  return hosts.size + controlHosts.size;
+  canvasHosts.forEach(removeCanvasFallbackTextLayer);
+  return hosts.size + controlHosts.size + canvasHosts.size;
+}
+function canvasForFallbackTextLayer(layer) {
+  const host = layer.parentElement;
+  if (!host) return null;
+  return Array.from(host.querySelectorAll("canvas")).find((canvas) => canvasFallbackTextLayers.get(canvas)?.layer === layer) ?? null;
 }
 function appendPlainTextBeforeToken(fragment, text2, start, end) {
   if (end > start) fragment.append(document.createTextNode(text2.slice(start, end)));
@@ -31649,6 +31748,12 @@ const BLOOMEE_LANDING_ROOTS = [
 const BOOKWALKER_STOREFRONT_HOSTS = new Set(["bookwalker.jp", "www.bookwalker.jp"]);
 const BOOKWALKER_READER_PARSER_ID = "bookwalker-reader-no-dom-parser";
 const BOOKWALKER_STOREFRONT_PARSER_ID = "bookwalker-storefront-no-dom-parser";
+const YOMUYOMU_HOSTS = new Set(["yomuyomu.app", "www.yomuyomu.app"]);
+const YOMUYOMU_READER_ROOTS = [
+  '#du-reading-screen canvas[lang*="ja" i]',
+  '#du-lesson-container .lesson-canvas-container canvas[lang*="ja" i]',
+  '.lesson-content canvas[lang*="ja" i]'
+].join(",");
 const SITE_PARSER_PROFILES = [
   {
     id: YOMU_HOSTED_DOCS_PARSER_ID,
@@ -31720,6 +31825,16 @@ const SITE_PARSER_PROFILES = [
     disableGenericDomScan: true,
     includePassiveInteractionRoots: false,
     matches: (url) => isBookWalkerStorefrontUrl(url)
+  },
+  {
+    id: "yomuyomu-reader-parser",
+    roots: [YOMUYOMU_READER_ROOTS],
+    exclude: COMMON_EXCLUDE,
+    allowUiText: true,
+    minLength: 1,
+    nonDestructive: true,
+    includeGenericPageText: true,
+    matches: (url) => YOMUYOMU_HOSTS.has(url.hostname.toLowerCase())
   },
   {
     id: JPDB_PARSER_ID,
@@ -32232,6 +32347,7 @@ function normalizedAttributeText(element2, attribute) {
   return element2.getAttribute(attribute)?.replace(/\s+/g, " ").trim() ?? "";
 }
 function collectRootScanTargets(profile, root, context, excludeSelector = siteScanExcludeSelector(profile)) {
+  if (root instanceof HTMLCanvasElement && collectCanvasFallbackTextTarget(profile, root, context)) return;
   const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), profile.visibleOnly ?? true, excludeSelector, {
     allowUiText: true,
     minLength: profile.minLength,
@@ -32248,6 +32364,21 @@ function collectRootScanTargets(profile, root, context, excludeSelector = siteSc
     if (!addUniqueSiteScanTarget(profile, target, context)) continue;
     if (!siteScanHasRoom(context)) break;
   }
+}
+function collectCanvasFallbackTextTarget(profile, canvas, context) {
+  const text2 = canvasFallbackText(canvas);
+  if (!text2 || !hasJapaneseText(text2)) return false;
+  context.targets.push(siteScanTargetWithProfileOptions(profile, {
+    text: text2,
+    parent: canvas,
+    fragments: [],
+    layoutSensitive: true,
+    nonDestructive: true
+  }));
+  return true;
+}
+function canvasFallbackText(canvas) {
+  return (canvas.textContent ?? "").replace(/\r\n?/gu, "\n").trim();
 }
 function collectProfilePassiveInteractionTargets(profile, context) {
   if (!siteScanHasRoom(context)) return;
@@ -37346,7 +37477,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.139"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.140"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],

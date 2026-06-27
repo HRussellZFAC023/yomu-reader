@@ -1,0 +1,60 @@
+{
+  "name": "Yomu Japanese Reader",
+  "short_name": "Yomu",
+  "description": "Read Japanese web pages, manga, PDFs, subtitles, and study cards with one Yomu reader shell.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#5ea780",
+  "icons": [
+    {
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/yomu-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Study",
+      "short_name": "Study",
+      "url": "/newtab/index.html",
+      "icons": [{ "src": "/favicon-32x32.png", "sizes": "32x32", "type": "image/png" }]
+    },
+    {
+      "name": "Video Player",
+      "short_name": "Video",
+      "url": "/video-player/index.html",
+      "icons": [{ "src": "/favicon-32x32.png", "sizes": "32x32", "type": "image/png" }]
+    },
+    {
+      "name": "PDF Reader",
+      "short_name": "PDF",
+      "url": "/pdf-reader/",
+      "icons": [{ "src": "/favicon-32x32.png", "sizes": "32x32", "type": "image/png" }]
+    },
+    {
+      "name": "Install Guide",
+      "short_name": "Install",
+      "url": "/getting-started",
+      "icons": [{ "src": "/favicon-32x32.png", "sizes": "32x32", "type": "image/png" }]
+    }
+  ]
+}

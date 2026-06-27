@@ -173,10 +173,11 @@ function isGenericSubtitleLabel(value: string): boolean {
     return /^(?:vtt|srt|ass|ssa|subtitles?|captions?|cc|closed captions?|日本語|英語|japanese|english|native|ja(?:panese)?|en(?:glish)?)$/i.test(value.trim());
 }
 
-function inferSubtitleLanguage(label: string, url: string): string | undefined {
+export function inferSubtitleLanguage(label: string, url = ''): string | undefined {
     const text = `${label} ${url}`;
-    if (/(^|[\s._/-])(ja|jp|jpn|japanese|日本語)(?=$|[\s._/-])/i.test(text) || /[\u3040-\u30ff\u3400-\u9fff]/u.test(label)) return 'ja';
-    if (/(^|[\s._/-])(en|eng|english|native)(?=$|[\s._/-])/i.test(text)) return 'en';
+    if (hasJapaneseSubtitleLanguageHint(text)) return 'ja';
+    if (hasEnglishSubtitleLanguageHint(text)) return 'en';
+    if (/[\u3040-\u30ff\u3400-\u9fff]/u.test(label)) return 'ja';
     return undefined;
 }
 
@@ -185,6 +186,16 @@ export function normalizeSubtitleLanguage(language: string | undefined): string 
     if (/^(ja|jp|jpn)(?:[-_]|$)/i.test(language)) return 'ja';
     if (/^(en|eng)(?:[-_]|$)/i.test(language)) return 'en';
     return language;
+}
+
+function hasJapaneseSubtitleLanguageHint(text: string): boolean {
+    return /(^|[\s._/()[\]{}-])(?:ja|jp|jpn|japanese|nihongo|nihon-go)(?=$|[\s._/()[\]{}-])/i.test(text)
+        || /(?:日本語|日本字幕|日(?:本)?語字幕|日文|日語|日本語字幕)/u.test(text);
+}
+
+function hasEnglishSubtitleLanguageHint(text: string): boolean {
+    return /(^|[\s._/()[\]{}-])(?:en|eng|english|native)(?=$|[\s._/()[\]{}-])/i.test(text)
+        || /英(?:語|文)(?:字幕)?/u.test(text);
 }
 
 function pageSubtitleSourceKey(kind: 'link' | 'track', url: string): string {
