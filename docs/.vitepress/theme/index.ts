@@ -156,6 +156,8 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Refreshed fast reader popups after fallback words resolve through the API, so first-load lookups immediately show JPDB/Jiten status and pitch accent details instead of needing repeated taps.': 'フォールバック単語がAPI経由で解決されたあと、高速表示のリーダーポップアップを自動更新するようにしました。初回読み込みの検索でも、何度もタップし直さずにJPDB/Jitenの状態とピッチアクセント詳細がすぐ表示されます。',
+    'Preserved kanji popup back navigation when dictionary lookup links wrap an already parsed Yomu word.': '辞書検索リンクがすでに解析済みのYomu単語を包んでいる場合でも、漢字ポップアップの戻るナビゲーションを保つようにしました。',
     'Reworked Google Drive settings sync/restore in userscript contexts to use same-tab OAuth redirects instead of popups, with automatic resume after returning from Google.': 'ユーザースクリプト環境のGoogle Drive設定同期／復元を、ポップアップではなく同じタブのOAuthリダイレクトで行うように作り直しました。Googleから戻ったあとに自動で同期／復元を再開します。',
     'Kept BookWalker product and storefront text native while adding passive lookup spans, so enabling Yomu no longer hides titles, descriptions, cart buttons, registration cards, or sidebar text behind broken mirrors.': 'BookWalkerの商品ページとストアフロントの文字をネイティブのまま保ち、受け身の検索spanだけを追加するようにしました。よむを有効にしても、タイトル、説明文、カートボタン、会員登録カード、サイドバー文字が壊れたミラーの裏に隠れなくなります。',
     'Kept BookWalker reader OCR status pills visible after a page finishes scanning, removing the Scanning → disappear → reappear flicker while the OCR layer is still current.': 'BookWalkerリーダーでページのスキャン完了後もOCR状態ピルを表示したままにし、OCRレイヤーが有効な間に「Scanning」→消える→再表示のようにちらつく問題をなくしました。',

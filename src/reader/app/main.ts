@@ -4244,9 +4244,12 @@ export class ReaderApp {
     }
 
     private shouldLookupNestedDictionaryWord(nestedWord: HTMLElement, query: string): boolean {
-        return !dictionaryLookupWordMatchesLink(nestedWord, query)
-            && !isOcrLineFrameWord(nestedWord)
-            && !isNativePageLookupBlocked(nestedWord);
+        if (isOcrLineFrameWord(nestedWord) || isNativePageLookupBlocked(nestedWord)) return false;
+        if (!dictionaryLookupWordMatchesLink(nestedWord, query)) return true;
+        return this.isInsideActivePopover(nestedWord)
+            && nestedWord.hasAttribute('data-vid')
+            && nestedWord.hasAttribute('data-sid')
+            && nestedWord.dataset.jpdbReaderRelatedWord !== 'true';
     }
 
     private handleDictionaryReferenceLookup(
@@ -5260,6 +5263,9 @@ export class ReaderApp {
             done();
             return;
         }
+        if (options.skipInitialCardResolution) {
+            void this.refreshSkippedInitialCardResolution(popover, card, sentence, anchor, options, mounted.requestId, isCurrentHoverCard);
+        }
 
         try {
             if (trigger === 'hover') {
@@ -5278,6 +5284,44 @@ export class ReaderApp {
         } finally {
             done();
         }
+    }
+
+    private async refreshSkippedInitialCardResolution(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        anchor: HTMLElement | undefined,
+        options: CardDisplayOptions,
+        requestId: number,
+        isCurrentHoverCard: () => boolean,
+    ): Promise<void> {
+        if (!this.shouldResolveAfterSkippedInitialCardResolution(card)) return;
+        const resolved = await this.resolveLookupCard(card).catch(error => {
+            log.warn('Skipped initial card resolution failed', { term: card.spelling }, error);
+            return null;
+        });
+        if (!resolved || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+        if (!this.isResolvedCardRefresh(card, resolved)) return;
+        this.applyPublicVocabularyToRenderedWords(card, resolved);
+        await this.showCard(resolved, sentence, anchor, {
+            ...options,
+            autoPlay: false,
+            navigation: 'preserve',
+            preservePosition: true,
+            previousNavigationEntry: undefined,
+            skipInitialCardResolution: false,
+        });
+    }
+
+    private shouldResolveAfterSkippedInitialCardResolution(card: JPDBCard): boolean {
+        return card.source === 'fallback'
+            || (card.source === 'jpdb' && Boolean(card.sourceCardKey));
+    }
+
+    private isResolvedCardRefresh(card: JPDBCard, resolved: JPDBCard): boolean {
+        return resolved !== card
+            && (cardKey(resolved) !== cardKey(card)
+                || (resolved.source ?? 'jpdb') !== (card.source ?? 'jpdb'));
     }
 
     private cardHoverLookupContext(

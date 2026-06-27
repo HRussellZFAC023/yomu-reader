@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.156] - 2026-06-27
+
+### Fixed
+
+- Refreshed fast reader popups after fallback words resolve through the API, so first-load lookups immediately show JPDB/Jiten status and pitch accent details instead of needing repeated taps.
+- Preserved kanji popup back navigation when dictionary lookup links wrap an already parsed Yomu word.
+
 ## [1.4.155] - 2026-06-27
 
 ### Fixed

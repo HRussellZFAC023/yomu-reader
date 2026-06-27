@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.155
+// @version 1.4.156
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.155
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.155
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.155
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.155
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.156
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.156
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.156
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.156
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -37754,7 +37754,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.155"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.156"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],
@@ -41913,7 +41913,9 @@ class ReaderApp {
     return true;
   }
   shouldLookupNestedDictionaryWord(nestedWord, query) {
-    return !dictionaryLookupWordMatchesLink(nestedWord, query) && !isOcrLineFrameWord(nestedWord) && !isNativePageLookupBlocked(nestedWord);
+    if (isOcrLineFrameWord(nestedWord) || isNativePageLookupBlocked(nestedWord)) return false;
+    if (!dictionaryLookupWordMatchesLink(nestedWord, query)) return true;
+    return this.isInsideActivePopover(nestedWord) && nestedWord.hasAttribute("data-vid") && nestedWord.hasAttribute("data-sid") && nestedWord.dataset.jpdbReaderRelatedWord !== "true";
   }
   handleDictionaryReferenceLookup(event, link, query, anchor, trigger) {
     event.preventDefault();
@@ -42632,6 +42634,9 @@ class ReaderApp {
       done();
       return;
     }
+    if (options.skipInitialCardResolution) {
+      void this.refreshSkippedInitialCardResolution(popover, card, sentence, anchor, options, mounted.requestId, isCurrentHoverCard);
+    }
     try {
       if (trigger === "hover") {
         await waitForHoverCardInitialPaint();
@@ -42648,6 +42653,30 @@ class ReaderApp {
     } finally {
       done();
     }
+  }
+  async refreshSkippedInitialCardResolution(popover, card, sentence, anchor, options, requestId, isCurrentHoverCard) {
+    if (!this.shouldResolveAfterSkippedInitialCardResolution(card)) return;
+    const resolved = await this.resolveLookupCard(card).catch((error) => {
+      log.warn("Skipped initial card resolution failed", { term: card.spelling }, error);
+      return null;
+    });
+    if (!resolved || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+    if (!this.isResolvedCardRefresh(card, resolved)) return;
+    this.applyPublicVocabularyToRenderedWords(card, resolved);
+    await this.showCard(resolved, sentence, anchor, {
+      ...options,
+      autoPlay: false,
+      navigation: "preserve",
+      preservePosition: true,
+      previousNavigationEntry: void 0,
+      skipInitialCardResolution: false
+    });
+  }
+  shouldResolveAfterSkippedInitialCardResolution(card) {
+    return card.source === "fallback" || card.source === "jpdb" && Boolean(card.sourceCardKey);
+  }
+  isResolvedCardRefresh(card, resolved) {
+    return resolved !== card && (cardKey(resolved) !== cardKey(card) || (resolved.source ?? "jpdb") !== (card.source ?? "jpdb"));
   }
   cardHoverLookupContext(trigger, options) {
     return trigger === "hover" ? { generation: options.hoverLookupGeneration, key: options.hoverLookupKey ?? "" } : { generation: void 0, key: "" };
