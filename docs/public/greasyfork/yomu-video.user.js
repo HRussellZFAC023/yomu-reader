@@ -11368,7 +11368,7 @@ ${spelling}`);
     { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
     { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
   ];
-  const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.2;
+  const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.45;
   const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;
   const SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT = 80;
   const TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
@@ -14995,10 +14995,13 @@ ${spelling}`);
     const viewportHeight = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 0);
     const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
     const ratio = visibleHeight / Math.max(1, rect.height);
-    return visibleHeight >= Math.min(180, rect.height * 0.36) && ratio >= 0.32;
+    return visibleHeight >= Math.min(220, rect.height * 0.45) && ratio >= 0.45;
   }
   function subtitleElementOverflows(element) {
     return element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1;
+  }
+  function subtitleSecondaryFontSize(target) {
+    return Math.max(13, Math.min(22, Math.round(target * 0.62)));
   }
   function nextSubtitleFontSize(element, fitted, minimum) {
     const heightScale = element.clientHeight / Math.max(1, element.scrollHeight);
@@ -17026,6 +17029,7 @@ ${spelling}`);
       const target = subtitleFrameTargetFontSize(this.root, settings);
       let fitted = target;
       this.root.style.setProperty("--subtitle-font-size-target", `${target}px`);
+      this.root.style.setProperty("--subtitle-secondary-font-size", `${subtitleSecondaryFontSize(target)}px`);
       this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
       const primary = this.subtitleEl.querySelector(".jpdb-subtitle-primary");
       if (!primary) return;

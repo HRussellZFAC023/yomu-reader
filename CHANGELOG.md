@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.143] - 2026-06-27
+
+### Fixed
+
+- Hid Yomu Video subtitles sooner when the tracked video is mostly scrolled away so captions do not follow the user into comments.
+- Kept native/secondary captions on a stable smaller font while Japanese subtitles retain the configured size/readable floor.
+
 ## [1.4.142] - 2026-06-27
 
 ### Fixed

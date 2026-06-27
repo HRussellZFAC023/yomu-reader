@@ -14738,6 +14738,7 @@ html.jpdb-reader-doodle-active * {
   pointer-events: none;
   --subtitle-font-size-target: 28px;
   --subtitle-font-size: var(--subtitle-font-size-target);
+  --subtitle-secondary-font-size: 17px;
   --subtitle-bottom: 16%;
   --subtitle-drag-offset-y: 0px;
   --subtitle-color: var(--jpdb-reader-video-text);
@@ -14905,7 +14906,10 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   border: 0 !important;
   background: transparent !important;
   color: var(--jpdb-subtitle-secondary-color);
-  font: var(--subtitle-weight) .62em/1.25 var(--subtitle-family);
+  font-family: var(--subtitle-family);
+  font-size: var(--subtitle-secondary-font-size);
+  font-weight: var(--subtitle-weight);
+  line-height: 1.25;
   min-height: 24px;
   text-shadow: 0 2px 2px var(--jpdb-reader-black), 0 0 7px var(--jpdb-reader-video-shadow-heavy);
   cursor: pointer;
