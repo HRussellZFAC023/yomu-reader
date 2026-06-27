@@ -131,12 +131,12 @@ function mokuroBackgroundPageAt(index: number, rect: () => DOMRect): HTMLElement
 }
 
 describe('reader raster OCR surfaces', () => {
-    it('prefers BookWalker currentScreen canvases regardless of page movement direction', () => {
+    it('prefers BookWalker currentScreen among overlapping page buffers', () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
         const leftViewport = Object.assign(document.createElement('div'), { id: 'viewport-left' });
         const rightViewport = Object.assign(document.createElement('div'), { id: 'viewport-right' });
-        const leftCanvas = pageCanvas(-420, 20);
+        const leftCanvas = pageCanvas(24, 20);
         const rightCanvas = pageCanvas(24, 20);
         leftViewport.append(leftCanvas);
         rightViewport.append(rightCanvas);
@@ -148,6 +148,36 @@ describe('reader raster OCR surfaces', () => {
         leftViewport.classList.remove('currentScreen');
         rightViewport.classList.add('currentScreen');
         expect(collectCanvasReaderSurfaces('viewer.bookwalker.jp')).toEqual([rightCanvas]);
+    });
+
+    it('keeps both visible BookWalker spread pages even when only one is currentScreen', () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        const leftViewport = Object.assign(document.createElement('div'), { id: 'viewport-left' });
+        const rightViewport = Object.assign(document.createElement('div'), { id: 'viewport-right' });
+        const leftCanvas = pageCanvas(24, 20);
+        const rightCanvas = pageCanvas(470, 20);
+        leftViewport.classList.add('currentScreen');
+        leftViewport.append(leftCanvas);
+        rightViewport.append(rightCanvas);
+        document.body.append(leftViewport, rightViewport);
+
+        expect(collectCanvasReaderSurfaces('viewer.bookwalker.jp')).toEqual([leftCanvas, rightCanvas]);
+    });
+
+    it('uses the visible BookWalker canvas when continuous scroll leaves currentScreen behind', () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        const staleViewport = Object.assign(document.createElement('div'), { id: 'viewport-stale' });
+        const visibleViewport = Object.assign(document.createElement('div'), { id: 'viewport-visible' });
+        const staleCanvas = pageCanvas(24, -1300, 760, 1074);
+        const visibleCanvas = pageCanvas(24, 64, 760, 1074);
+        staleViewport.classList.add('currentScreen');
+        staleViewport.append(staleCanvas);
+        visibleViewport.append(visibleCanvas);
+        document.body.append(staleViewport, visibleViewport);
+
+        expect(collectCanvasReaderSurfaces('viewer.bookwalker.jp')).toEqual([visibleCanvas]);
     });
 
     it('respects native text PDF pages opting canvas OCR off while allowing scanned pages to opt in', () => {

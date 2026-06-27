@@ -24118,7 +24118,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.138".trim() ? "1.4.138".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.139".trim() ? "1.4.139".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -31685,10 +31685,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (lenient) return true;
     return isViewportProminent(canvas) && looksLikeRenderedCanvasImage(canvas);
   }
-  function pageCanvases(hostname = location.hostname) {
+  function pageCanvases(hostname = location.hostname, options = {}) {
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
     const canvases = Array.from(document.querySelectorAll("canvas")).filter((canvas) => !shouldSkipCanvasReaderSurface(canvas)).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
-    return isBookwalkerViewerHost(hostname) ? preferCurrentScreenCanvases(canvases) : canvases;
+    return isBookwalkerViewerHost(hostname) && options.preferBookwalkerCurrent !== false ? preferCurrentScreenCanvases(canvases) : canvases;
   }
   function shouldSkipCanvasReaderSurface(canvas) {
     return canvas.dataset.yomuCanvasOcr === "off" || Boolean(canvas.closest('[data-yomu-canvas-ocr="off"]'));
@@ -31704,19 +31704,31 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function preferCurrentScreenCanvases(canvases) {
     if (canvases.length < 2) return canvases;
-    if (hasVerticallyStackedVisibleCanvases(canvases)) return canvases;
+    const visible = visibleViewportCanvases(canvases);
+    if (hasDistinctVisiblePageLayout(visible)) return visible;
     const current = canvases.filter(isOnScreenViewportCanvas);
+    if (current.length && visible.length === 1 && !current.includes(visible[0])) return visible;
+    if (hasVerticallyStackedDocumentPageRun(canvases)) return canvases;
     if (!current.length) return canvases;
     const renderedCurrent = current.filter(looksLikeRenderedCanvasImage);
     if (renderedCurrent.length) return renderedCurrent;
     const renderedFallback = canvases.filter((canvas) => !current.includes(canvas)).filter(looksLikeRenderedCanvasImage);
     return renderedFallback.length ? renderedFallback : current;
   }
-  function hasVerticallyStackedVisibleCanvases(canvases) {
+  function visibleViewportCanvases(canvases) {
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    if (!viewportWidth || !viewportHeight) return false;
-    const rects = canvases.map((canvas) => canvas.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.right >= 0 && rect.top <= viewportHeight && rect.left <= viewportWidth).sort((a, b) => a.top - b.top);
+    if (!viewportWidth || !viewportHeight) return [];
+    return canvases.filter((canvas) => {
+      const rect = canvas.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.right >= 0 && rect.top <= viewportHeight && rect.left <= viewportWidth;
+    });
+  }
+  function hasDistinctVisiblePageLayout(canvases) {
+    return hasDistinctPageLayout(canvases.map((canvas) => canvas.getBoundingClientRect()));
+  }
+  function hasVerticallyStackedDocumentPageRun(canvases) {
+    const rects = canvases.map((canvas) => canvas.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0).sort((a, b) => a.top - b.top);
     if (rects.length < 2) return false;
     for (let index = 1; index < rects.length; index += 1) {
       const previous = rects[index - 1];
@@ -31726,6 +31738,26 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const verticalOverlap2 = Math.max(0, Math.min(previous.bottom, current.bottom) - Math.max(previous.top, current.top));
       const horizontalOverlap2 = Math.max(0, Math.min(previous.right, current.right) - Math.max(previous.left, current.left));
       if (Math.abs(current.top - previous.top) > smallerHeight * 0.45 && verticalOverlap2 / smallerHeight < 0.55 && horizontalOverlap2 / smallerWidth > 0.55) return true;
+    }
+    return false;
+  }
+  function hasDistinctPageLayout(rects) {
+    const usefulRects = rects.filter((rect) => rect.width > 0 && rect.height > 0);
+    for (let i2 = 0; i2 < usefulRects.length; i2 += 1) {
+      for (let j = i2 + 1; j < usefulRects.length; j += 1) {
+        const a = usefulRects[i2];
+        const b = usefulRects[j];
+        const smallerWidth = Math.max(1, Math.min(a.width, b.width));
+        const smallerHeight = Math.max(1, Math.min(a.height, b.height));
+        const largerWidth = Math.max(a.width, b.width);
+        const largerHeight = Math.max(a.height, b.height);
+        if (smallerWidth / largerWidth < 0.55 || smallerHeight / largerHeight < 0.55) continue;
+        const horizontalOverlap2 = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) / smallerWidth;
+        const verticalOverlap2 = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)) / smallerHeight;
+        const separatedHorizontally = Math.abs(a.left - b.left) > smallerWidth * 0.45 && horizontalOverlap2 < 0.55 && verticalOverlap2 > 0.55;
+        const separatedVertically = Math.abs(a.top - b.top) > smallerHeight * 0.45 && verticalOverlap2 < 0.55 && horizontalOverlap2 > 0.55;
+        if (separatedHorizontally || separatedVertically) return true;
+      }
     }
     return false;
   }
@@ -31764,13 +31796,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function canvasReaderPageSignature() {
     const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
-    const scroll = isBookwalkerViewerHost() ? Math.round((window.scrollY || 0) / 40) : 0;
     const canvases = pageCanvases();
+    const rawCanvases = isBookwalkerViewerHost() ? pageCanvases(location.hostname, { preferBookwalkerCurrent: false }) : canvases;
+    const scroll = isBookwalkerViewerHost() && shouldUseBookwalkerScrollSignature(rawCanvases) ? Math.round((window.scrollY || 0) / 40) : 0;
     const tokens = canvasReaderContentTokens(canvases);
     const surfaces = tokens.length;
     const content = tokens.join(",");
     const backgrounds = backgroundImagePages().map((element) => `${element.getAttribute("data-page-index") ?? ""}:${backgroundImageReaderUrl(element) ?? ""}`).join("|");
     return `${counter}|${scroll}|${surfaces}|${content}|${backgrounds}`;
+  }
+  function shouldUseBookwalkerScrollSignature(canvases) {
+    return !hasDistinctVisiblePageLayout(visibleViewportCanvases(canvases)) && !hasVerticallyStackedDocumentPageRun(canvases);
   }
   function canvasReaderContentTokens(canvases) {
     let mirrorToken;

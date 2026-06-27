@@ -10,7 +10,7 @@ import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigati
 import type { RtkInfo } from '../kanji/rtk';
 import { matchesShortcut } from '../settings/index';
 import { openUrlInNewTab } from '../ui/browser';
-import { collectSiteScanTargets, isBookWalkerStorefrontPage } from './site-parsers';
+import { collectSiteScanTargets, isBookWalkerReaderPage, isBookWalkerStorefrontPage } from './site-parsers';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import type { YomitanKanjiEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 
@@ -165,7 +165,7 @@ export function hasVisibleSiteScanTargets(): boolean {
 }
 
 export function allowsGenericVisibleAutoScan(): boolean {
-    return !isYouTubeHostForAutoScan() && !isBookWalkerStorefrontPage();
+    return !isYouTubeHostForAutoScan() && !isBookWalkerStorefrontPage() && !isBookWalkerReaderPage();
 }
 
 export function allowsFrequentVisibleAutoScan(): boolean {

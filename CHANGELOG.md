@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.139] - 2026-06-27
+
+### Fixed
+
+- BookWalker OCR now treats visible two-page spreads and vertical continuous-scroll page runs as active surfaces instead of collapsing to a stale currentScreen marker, so tapping either page in horizontal mode or the visible page in continuous mode triggers OCR.
+- Reduced BookWalker continuous-scroll churn by keeping scroll offset out of the page signature for persistent page stacks, preventing repeated OCR frame teardown while scrolling on iPad.
+- Stopped Yomu from annotating BookWalker reader settings and menu chrome, so native labels like page movement direction remain compact and furigana no longer wraps controls.
+
 ## [1.4.138] - 2026-06-27
 
 ### Fixed
