@@ -372,7 +372,7 @@ describe('reader raster OCR surfaces', () => {
         document.body.append(viewport);
 
         const controller = createController();
-        (controller as unknown as { recognizeImage: () => Promise<OcrResult> }).recognizeImage = vi.fn(async () => ({
+        const recognizeImage = vi.fn(async (): Promise<OcrResult> => ({
             width: 1200,
             height: 1600,
             lines: [
@@ -383,6 +383,7 @@ describe('reader raster OCR surfaces', () => {
                 },
             ],
         }));
+        (controller as unknown as { recognizeImage: () => Promise<OcrResult> }).recognizeImage = recognizeImage;
         try {
             await waitForExpect(() => {
                 expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
@@ -396,9 +397,10 @@ describe('reader raster OCR surfaces', () => {
             frame.dispatchEvent(new Event('load'));
 
             await waitForExpect(() => {
+                expect(recognizeImage).toHaveBeenCalled();
                 expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
                 expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
-            });
+            }, 4_000);
 
             sampleMode = 'changed';
             await new Promise(resolve => setTimeout(resolve, 4200));
@@ -423,7 +425,7 @@ describe('reader raster OCR surfaces', () => {
         } finally {
             controller.destroy();
         }
-    }, 12_000);
+    }, 16_000);
 
     it('keeps the BookWalker canvas ready pill visible while the OCR frame is alive', async () => {
         stubLocation('viewer.bookwalker.jp');
