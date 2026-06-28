@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.191] - 2026-06-28
+
+### Fixed
+
+- Fixed the Yomu Gaming release gates so CI recognizes the Electron app entrypoints and the desktop artifact workflow verifies Electron before smoke testing and packaging release downloads.
+
 ## [1.4.190] - 2026-06-28
 
 ### Fixed

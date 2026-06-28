@@ -415,6 +415,7 @@ async function persistCaptureShortcutFromInput(form: HTMLFormElement, shortcut: 
         syncCaptureShortcutInputValues(form, hotkeyLabel());
         updateHotkeyCopy();
         updateCaptureOnboardingStatus();
+        setShellStatus(`Capture shortcut saved: ${hotkeyLabel()}.`, 'success');
     } catch (error) {
         if (token !== captureShortcutPersistToken) return;
         syncCaptureShortcutInputValues(form, hotkeyLabel());
