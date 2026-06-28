@@ -41,7 +41,7 @@ jobs:
       - name: Install Yomu dependencies
         run: npm ci
       - name: Ensure Electron runtime
-        run: npm rebuild electron
+        run: node node_modules/electron/install.js
       - run: npm run check
       - run: npm run smoke:p0
         env:

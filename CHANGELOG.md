@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.199] - 2026-06-28
+
+### Fixed
+
+- Collapsed the Help tab's long AnkiConnect setup guidance behind an accessible disclosure so the Help section stays compact until setup details are needed.
+- Moved Help's current version, latest-version check, duplicate-script status, and update link into a compact top strip with shorter copy.
+- Repaired Study/Newtab reveal so the answer keeps furigana, pitch, frequency, dictionary links, and the study audio button inline without rendering the old duplicate lookup card; local audio clips play/restart without localhost fetch/CORS spam, and optional lookup failures keep their debug logging without surfacing noisy console errors.
+- Smoothed the YouTube transcript sidebar so the green current-line highlight no longer flickers when playback advances between lines on long transcripts; the virtualized list now keeps its window steady while auto-following instead of re-rendering and recreating the highlighted row each line.
+- Fixed the hosted PDF Reader's initial page navigation state so multi-page PDFs enable Next/Previous immediately after opening, and hardened the scanned-PDF smoke around deterministic page-turn OCR checks.
+- Fixed the Yomu Gaming onboarding page-scan controls and release asset checksum job so Manual mode persists through the current settings form and desktop downloads publish to GitHub Releases.
+- Installed Electron directly before the Yomu Gaming smoke so GitHub Actions release runners have the Electron runtime binary before launching and packaging the desktop app.
+
 ## [1.4.198] - 2026-06-28
 
 ### Fixed
