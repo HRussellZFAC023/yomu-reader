@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.162] - 2026-06-27
+
+### Fixed
+
+- Stabilized BookWalker manga OCR in normal and continuous-scroll modes by ignoring hidden canvas buffers, fingerprinting the whole visible page instead of one corner, keeping readiness through equivalent canvas swaps, and preserving the current OCR layer/status through same-page blank or hidden-buffer flicker.
+
 ## [1.4.161] - 2026-06-27
 
 ### Fixed

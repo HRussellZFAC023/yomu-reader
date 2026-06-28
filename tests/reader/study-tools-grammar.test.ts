@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { detectGrammarHints, listLocalGrammarRuleExamples, listLocalGrammarRules, renderGrammarHints, resetGrammarRuleDataCacheForTests, type GrammarHint } from '../../src/reader/study/tools';
 
@@ -36,7 +36,7 @@ function grammarHint(overrides: Partial<GrammarHint> & Pick<GrammarHint, 'ruleId
 }
 
 describe('local Japanese grammar hints', () => {
-    beforeAll(() => {
+    beforeEach(() => {
         resetGrammarRuleDataCacheForTests();
         vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
             const url = String(input instanceof Request ? input.url : input);
@@ -46,6 +46,7 @@ describe('local Japanese grammar hints', () => {
                 headers: { 'Content-Type': 'application/json' },
             }));
         }));
+        vi.stubGlobal('GM_xmlhttpRequest', undefined);
     });
 
     it('loads Japanese grammar copy through the userscript request path when page fetch is blocked', async () => {

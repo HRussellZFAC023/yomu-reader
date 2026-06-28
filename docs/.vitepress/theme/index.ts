@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Stabilized BookWalker manga OCR in normal and continuous-scroll modes by ignoring hidden canvas buffers, fingerprinting the whole visible page instead of one corner, keeping readiness through equivalent canvas swaps, and preserving the current OCR layer/status through same-page blank or hidden-buffer flicker.': 'BookWalkerマンガのOCRを通常表示と連続スクロール表示で安定化しました。非表示キャンバスバッファを無視し、ページの一部ではなく表示ページ全体でフィンガープリントを作り、同等のキャンバス差し替えでも読み取り準備状態を保ち、同一ページの一時的な空白や非表示バッファのちらつきでも現在のOCRレイヤーとステータスを維持します。',
     'Hover lookup now follows a moving mouse pointer across parsed words instead of restarting the open delay on every word, so the popup opens without requiring the cursor to stop.': 'ホバー検索が、解析済み単語の上を移動中のマウスポインターにも追従するようになりました。単語ごとに開く遅延を最初からやり直さないため、カーソルを止めなくてもポップアップが開きます。',
     'Fixed Discord and other modern dark app shells whose computed colors use OKLab, so Yomu uses the real dark surface instead of falling back to white and turning passive highlights or text black.': 'Discordなど、算出色にOKLabを使う新しいダークUIで、Yomuが実際の暗い面を使うように修正しました。白背景にフォールバックしてパッシブハイライトや文字が黒くなる問題を防ぎます。',
     "Kept Reddit's web-component app shell on non-destructive page-text mirrors, so scrolling feeds and sidebars keep their native DOM while Yomu annotations remain visible.": 'RedditのWeb Componentアプリシェルでは、ページ本文の注釈を非破壊テキストミラーで表示するようにしました。スクロール中のフィードやサイドバーはサイト本来のDOMを保ちつつ、よむの注釈も表示されます。',
