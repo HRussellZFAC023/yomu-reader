@@ -7223,6 +7223,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const KANJI_RE$3 = /[\u3400-\u9fff]/u;
   const KANA_CHAR_RE$1 = /[\u3040-\u30ffー・]/u;
   const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
+  const TRAILING_DIGITS_RE = /[0-9０-９]$/u;
+  const WORD_JOINER = "⁠";
+  function bindTrailingNumberToFollowingToken(text2) {
+    return TRAILING_DIGITS_RE.test(text2) ? `${text2}${WORD_JOINER}` : text2;
+  }
   const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
@@ -7851,7 +7856,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const miningInsightKeys = miningInsightTokenKeys(tokenPlans.map((plan) => plan.tokenWithSentence));
     for (const plan of tokenPlans) {
       const { token, tokenWithSentence } = plan;
-      appendPlainTextBeforeToken(fragment2, text2, offset, token.start);
+      appendPlainTextBeforeToken(fragment2, text2, offset, token.start, true);
       fragment2.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, renderSettings, {
         allowRuby: !target.hasNativeRuby && !suppressRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -8600,8 +8605,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (value) host.style.setProperty(property, value, priority);
     else host.style.removeProperty(property);
   }
-  function appendPlainTextBeforeToken(fragment2, text2, start, end) {
-    if (end > start) fragment2.append(document.createTextNode(text2.slice(start, end)));
+  function appendPlainTextBeforeToken(fragment2, text2, start, end, followedByToken = false) {
+    if (end <= start) return;
+    const slice = text2.slice(start, end);
+    fragment2.append(document.createTextNode(followedByToken ? bindTrailingNumberToFollowingToken(slice) : slice));
   }
   function markRenderedScanTarget(target) {
     const text2 = normalizedRenderedHostText(target.text);
@@ -8617,7 +8624,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function normalizedRenderedHostText(text2) {
-    return text2.replace(/\s+/g, " ").trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
+    return text2.split(WORD_JOINER).join("").replace(/\s+/g, " ").trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
   }
   function applyTokensToFragmentTarget(target, tokens, settings) {
     if (!hasFragmentTokenWork(target, tokens)) return;
@@ -8682,7 +8689,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const text2 = fragment2.node.data;
     let offset = fragment2.start;
     for (const plan of plans) {
-      appendPlainTextBeforeToken(replacement, text2, offset, plan.localStart);
+      appendPlainTextBeforeToken(replacement, text2, offset, plan.localStart, true);
       replacement.append(renderSingleFragmentToken(target, fragment2, plan, settings, miningInsightKeys));
       offset = plan.localEnd;
     }
@@ -9017,7 +9024,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
     const miningInsightKeys = miningInsightTokenKeys(safeTokens);
     for (const token of safeTokens) {
-      if (token.start > offset) html += escapeHtml$1(text2.slice(offset, token.start));
+      if (token.start > offset) html += escapeHtml$1(bindTrailingNumberToFollowingToken(text2.slice(offset, token.start)));
       html += renderTokenHtml(text2.slice(token.start, token.end), token, settings, miningInsightKeys);
       offset = token.end;
     }
@@ -25451,7 +25458,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.211".trim() ? "1.4.211".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.212".trim() ? "1.4.212".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
