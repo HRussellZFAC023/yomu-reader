@@ -1,11 +1,17 @@
 # Changelog
 
-## [1.4.177] - 2026-06-28
+## [1.4.178] - 2026-06-28
 
 ### Fixed
 
 - Kept Yomu annotations from breaking compact controls, composer/editable placeholders, and carousel/card layouts by skipping placeholder-like surfaces, suppressing ruby in constrained chrome, and preserving native form-control text.
 - Added regression coverage for ChatGPT/Claude-like composers, account-picker controls, form placeholders, visible-page scanning, and BookWalker-style carousel overflow.
+
+## [1.4.177] - 2026-06-28
+
+### Fixed
+
+- Repaired scanned/image-backed PDFs in the hosted PDF reader so broken embedded OCR text layers are hidden, Yomu image OCR is used for lookup, and passive OCR text/furigana stay invisible until hover or focus.
 
 ## [1.4.176] - 2026-06-28
 

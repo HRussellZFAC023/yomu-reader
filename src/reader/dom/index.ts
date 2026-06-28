@@ -113,7 +113,8 @@ const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=tr
 const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]';
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-const COMPOSER_CHROME_SELECTOR = '[class*=composer i],[id*=composer i]';
+const COMPOSER_CHROME_RE = /composer/i;
+const EDITABLE_COMPOSER_SURFACE_SELECTOR = 'input,textarea,[contenteditable],[data-placeholder],[aria-placeholder]';
 const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = 'header, nav, footer, [role="banner"], [role="navigation"], [role="contentinfo"], [role="menubar"], [role="tablist"], [role="toolbar"]';
 const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
@@ -404,9 +405,22 @@ const ANNOTATABLE_CONTROL_SELECTOR = COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR
 function isAnnotatableChipControl(blocked: Element): boolean {
     if (!blocked.matches(ANNOTATABLE_CONTROL_SELECTOR)) return false;
     const control = blocked.closest(ANNOTATABLE_CONTROL_SELECTOR) ?? blocked;
-    if (control.closest(COMPOSER_CHROME_SELECTOR)) return false;
+    if (isComposerActionControl(control)) return false;
     const text = control.textContent?.replace(/\s+/g, '').trim() ?? '';
     return text.length > 0 && text.length <= CONTROL_LABEL_TEXT_LIMIT && HAS_JAPANESE.test(text);
+}
+
+function isComposerActionControl(control: Element): boolean {
+    return Boolean(closestEditableComposerChrome(control));
+}
+
+function closestEditableComposerChrome(element: Element): Element | null {
+    for (let current: Element | null = element; current; current = current.parentElement) {
+        const className = typeof current.className === 'string' ? current.className : '';
+        if ((COMPOSER_CHROME_RE.test(current.id) || COMPOSER_CHROME_RE.test(className))
+            && current.querySelector(EDITABLE_COMPOSER_SURFACE_SELECTOR)) return current;
+    }
+    return null;
 }
 
 function textWalkerHasJapanese(walker: TreeWalker, limit: number): boolean {
@@ -807,7 +821,7 @@ function matchesSkippedFragmentElement(
     isRoot: boolean,
 ): boolean {
     if (state.excludeSelector && safeElementMatches(element, state.excludeSelector)) return true;
-    if (element.closest(COMPOSER_CHROME_SELECTOR)) return true;
+    if (isComposerActionControl(element)) return true;
     return !isRoot && shouldSkipFragmentElement(element, state.options);
 }
 

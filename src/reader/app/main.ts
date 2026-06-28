@@ -4373,7 +4373,6 @@ export class ReaderApp {
         return (!options.allowPassiveInteractionText && isPassiveInteractionElement(target))
             || this.isReaderImmersionExampleSentenceText(target)
             || !!target.closest('input,textarea,select,[contenteditable],.jpdb-reader-word')
-            || !!target.closest('[class*=composer i],[id*=composer i]')
             || this.isSettingsNativeControlText(target);
     }
 

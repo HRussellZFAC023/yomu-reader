@@ -7226,7 +7226,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]';
   const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
   const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-  const COMPOSER_CHROME_SELECTOR = "[class*=composer i],[id*=composer i]";
+  const COMPOSER_CHROME_RE = /composer/i;
+  const EDITABLE_COMPOSER_SURFACE_SELECTOR = "input,textarea,[contenteditable],[data-placeholder],[aria-placeholder]";
   const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = 'header, nav, footer, [role="banner"], [role="navigation"], [role="contentinfo"], [role="menubar"], [role="tablist"], [role="toolbar"]';
   const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
   const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
@@ -7257,6 +7258,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const renderedScanHosts = /* @__PURE__ */ new WeakMap();
   const textMirrorHosts = /* @__PURE__ */ new WeakMap();
   const canvasFallbackTextLayers = /* @__PURE__ */ new WeakMap();
+  function isComposerActionControl(control) {
+    return Boolean(closestEditableComposerChrome(control));
+  }
+  function closestEditableComposerChrome(element) {
+    for (let current = element; current; current = current.parentElement) {
+      const className = typeof current.className === "string" ? current.className : "";
+      if ((COMPOSER_CHROME_RE.test(current.id) || COMPOSER_CHROME_RE.test(className)) && current.querySelector(EDITABLE_COMPOSER_SURFACE_SELECTOR)) return current;
+    }
+    return null;
+  }
   function collectFragmentTextTargetsIn(root, limit = 40, visibleOnly = true, excludeSelector = "", options = {}) {
     const state2 = {
       targets: [],
@@ -7456,7 +7467,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function matchesSkippedFragmentElement(element, state2, isRoot) {
     if (state2.excludeSelector && safeElementMatches(element, state2.excludeSelector)) return true;
-    if (element.closest(COMPOSER_CHROME_SELECTOR)) return true;
+    if (isComposerActionControl(element)) return true;
     return !isRoot && shouldSkipFragmentElement(element, state2.options);
   }
   function shouldSkipInvisibleFragmentElement(element, visibleOnly) {
@@ -24297,7 +24308,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.177".trim() ? "1.4.177".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.178".trim() ? "1.4.178".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

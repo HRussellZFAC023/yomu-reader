@@ -83,6 +83,20 @@ describe('generic reader layout overflow guards', () => {
         expect(collectTextTargetsIn(document.body, 20, false, { includeReaderRoot: false }).map(target => target.text)).not.toContain('送信');
     });
 
+    it('keeps readable prose under composer-named containers annotatable', () => {
+        document.body.innerHTML = `
+            <section class="article-composer-notes">
+                <p>作曲家についての日本語本文です。</p>
+                <button type="button">閉じる</button>
+            </section>
+        `;
+
+        const targets = collectTargets();
+
+        expect(targets.map(target => target.text)).toContain('作曲家についての日本語本文です。');
+        expect(collectTextTargetsIn(document.body, 20, false, { includeReaderRoot: false }).map(target => target.text)).toContain('作曲家についての日本語本文です。');
+    });
+
     it('does not collect input or textarea placeholders as control mirrors', () => {
         document.body.innerHTML = `
             <form>
