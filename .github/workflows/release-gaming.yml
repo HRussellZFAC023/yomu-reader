@@ -51,8 +51,8 @@ jobs:
 
       - name: Verify Electron runtime
         run: |
-          node node_modules/electron/install.js
-          npx electron --version
+          npm rebuild electron --foreground-scripts
+          node -e "const fs = require('node:fs'); const electron = require('electron'); if (!fs.existsSync(electron)) throw new Error('Missing Electron binary: ' + electron); console.log(electron);"
 
       - name: Smoke Yomu Gaming
         shell: bash

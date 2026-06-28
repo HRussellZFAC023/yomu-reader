@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.192] - 2026-06-28
+
+### Fixed
+
+- Fixed the Yomu Gaming desktop artifact workflow to rebuild Electron through npm before smoke testing, so GitHub Actions installs the Electron runtime binary before packaging AppImage, Windows, and macOS downloads.
+
 ## [1.4.191] - 2026-06-28
 
 ### Fixed
