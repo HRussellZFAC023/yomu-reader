@@ -1,11 +1,17 @@
 # Changelog
 
-## [1.4.179] - 2026-06-28
+## [1.4.190] - 2026-06-28
 
 ### Fixed
 
 - Kept Yomu annotations from breaking compact controls, composer/editable placeholders, and carousel/card layouts by skipping placeholder-like surfaces, suppressing ruby in constrained chrome, and preserving native form-control text.
 - Added regression coverage for ChatGPT/Claude-like composers, account-picker controls, form placeholders, visible-page scanning, and BookWalker-style carousel overflow.
+
+## [1.4.179] - 2026-06-28
+
+### Fixed
+
+- Fixed BookWalker single-viewport vertical reading (cty=2) where OCR re-scanned on every small scroll and never settled past the first page: scroll position and mirror-epoch churn no longer count as a page turn, so the OCR overlay and its hover lookup survive within-page scrolling while genuine page turns still re-OCR the new page.
 
 ## [1.4.178] - 2026-06-28
 
