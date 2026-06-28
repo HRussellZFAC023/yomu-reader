@@ -530,12 +530,21 @@
   const READER_THEME_COLOR_TOKENS = {
     dark: {
       bg: "#181b20"
+    },
+    light: {
+      surface: "#f4f7fa",
+      text: "#17202a"
     }
   };
   const OVERLAY_COLOR_TOKENS = {
     text: CORE_COLOR_TOKENS.white,
     outline: CORE_COLOR_TOKENS.black,
     background: READER_THEME_COLOR_TOKENS.dark.bg
+  };
+  const OCR_OVERLAY_COLOR_TOKENS = {
+    text: READER_THEME_COLOR_TOKENS.light.text,
+    outline: CORE_COLOR_TOKENS.white,
+    background: READER_THEME_COLOR_TOKENS.light.surface
   };
   const DEFAULT_WORD_COLOR_TOKENS = {
     new: "#ffffff",
@@ -907,8 +916,7 @@
   }
   function readerWordSurfaceText(element) {
     const surface = readerWordChildSurfaceText(element);
-    if (surface || !isReaderWordElement(element)) return surface;
-    return element.dataset.surface ?? "";
+    return surface || element.getAttribute("data-surface") || "";
   }
   function readerWordChildSurfaceText(element) {
     let text = "";
@@ -923,9 +931,6 @@
       text += readerWordChildSurfaceText(child);
     });
     return text;
-  }
-  function isReaderWordElement(element) {
-    return element instanceof HTMLElement && element.classList.contains("jpdb-reader-word");
   }
   function isSurfaceIgnoredElement(element) {
     return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
@@ -1294,6 +1299,7 @@
   const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
   const RUNTIME_LOG_KEY = "yomu:enable-logs";
   const REDACTED = "[redacted]";
+  const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
   const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
   const env = __vite_import_meta_env__;
   const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
@@ -1310,7 +1316,8 @@
       this.parent.write(this.scopeName, message, args, console.info, "");
     }
     warn(message, ...args) {
-      this.parent.write(this.scopeName, message, args, console.warn, WARN_STYLE);
+      const optional = args.some(isOptionalCorsBridgeError);
+      this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
     }
     error(message, ...args) {
       this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
@@ -1378,6 +1385,9 @@
   function writeDebugToConsole(...args) {
     if (isDevMode()) console.log(...args);
     else console.debug(...args);
+  }
+  function isOptionalCorsBridgeError(value) {
+    return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
   }
   function getRuntimeLoggingOverride() {
     try {
@@ -1635,6 +1645,9 @@
   const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
   const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
   const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
+  const DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
+  const DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
+  const DEFAULT_OCR_BACKGROUND_COLOR = OCR_OVERLAY_COLOR_TOKENS.background;
   const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
   const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
   const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
@@ -1811,10 +1824,10 @@
     ocrPrefetchPages: 2,
     ocrConcurrency: 3,
     ocrInvertDarkPanels: true,
-    ocrTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
-    ocrOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
-    ocrBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
-    ocrBackgroundOpacity: 0.32,
+    ocrTextColor: DEFAULT_OCR_TEXT_COLOR,
+    ocrOutlineColor: DEFAULT_OCR_OUTLINE_COLOR,
+    ocrBackgroundColor: DEFAULT_OCR_BACKGROUND_COLOR,
+    ocrBackgroundOpacity: 0.68,
     ocrFontScale: 1,
     localDictionariesEnabled: true,
     localDictionaryMaxResults: 12,
@@ -1965,6 +1978,10 @@
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
+  const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
+  const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
+  `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],${selectorPairs("composer,prompt-textarea", ["data-testid", "data-test-id", "class", "id"])},[class*="placeholder" i],[class*="ProseMirror" i]`;
+  selectorPairs("control,toggle,player", ["class"]);
   const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka,kifuku".split(","));
   const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
   const MINING_INSIGHT_UNKNOWN_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
@@ -1988,6 +2005,14 @@
     if (mode === "off") return true;
     return mode === "known-status" && furiganaHiddenStates(settings).has(state2);
   }
+  `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+  `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
+  `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
+  `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch")}`;
+  `header,nav,footer,aside,[role="banner"],[role="navigation"],[role="contentinfo"],[role="complementary"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,appearance,chooser,dialog,dropdown,login,menu,modal,picker,pinnable,profile,prefs,sidebar,signin,tabs,toc,toolbar")}`;
+  selectorPairs("banner,book,card,carousel,gallery,grid,item,lockup,movie,poster,product,rail,scroll,shelf,slick,slider,splide,swiper,thumb,tile,video,volume,work", ["class"]);
+  `canvas,img,picture,svg,video,${selectorPairs("cover,image,poster,thumb", ["class"])}`;
+  `[role="alert"],[role="status"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])}`;
   new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   function renderTokensToHtml(text, tokens, settings) {
     let html = "";
@@ -2417,6 +2442,11 @@
   function isPersistableOcrCacheKey(key) {
     return !key.startsWith("data:") && !key.startsWith("blob:");
   }
+  function isPersistableOcrCacheEntry(key, result) {
+    if (!isPersistableOcrCacheKey(key)) return false;
+    if (result === null && (key.startsWith("cv:") || key.startsWith("src:"))) return false;
+    return true;
+  }
   function loadPersistedOcrCache() {
     const map = /* @__PURE__ */ new Map();
     const store = storage();
@@ -2426,8 +2456,9 @@
       if (!raw) return map;
       const parsed = JSON.parse(raw);
       for (const [key, entry] of Object.entries(parsed).sort((a, b) => (a[1]?.at ?? 0) - (b[1]?.at ?? 0))) {
-        if (!isPersistableOcrCacheKey(key)) continue;
-        map.set(key, entry?.r ?? null);
+        const result = entry?.r ?? null;
+        if (!isPersistableOcrCacheEntry(key, result)) continue;
+        map.set(key, result);
       }
     } catch {
       try {
@@ -2487,6 +2518,7 @@
       let bytes = 0;
       for (const key of keys) {
         const result = cache.get(key) ?? null;
+        if (!isPersistableOcrCacheEntry(key, result)) continue;
         const serialized = JSON.stringify(result);
         bytes += key.length + serialized.length + 24;
         if (bytes > MAX_BYTES) break;
@@ -3126,7 +3158,7 @@
   }
   async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", options = {}) {
     const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
-    if (!candidates.length) throw new Error("Cross-origin request needs a configured proxy or userscript HTTP bridge.");
+    if (!candidates.length) throw new Error("No configured proxy.");
     let lastError;
     for (const [index, candidate] of candidates.entries()) {
       try {
@@ -3565,8 +3597,6 @@
       featureControlBody: "Tune features, shortcuts, and color.",
       featureStudy: "Study",
       featureStudyBody: "Review words and kanji on the study page.",
-      featureGame: "Game",
-      featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
@@ -3607,7 +3637,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.",
+      apiAccessHelp: "Paste separate Jiten and JPDB keys. Study decks stay scoped to the selected provider; local dictionaries still work without keys.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       jpdbApiKeyConfigured: "JPDB key set.",
@@ -4063,7 +4093,7 @@
       ankiMappingHighConfidence: "High",
       ankiMappingMediumConfidence: "Medium",
       ankiMappingLowConfidence: "Low",
-      ankiHelp: "Install AnkiConnect, keep desktop Anki open, and add this site to webCorsOriginList if the status mentions CORS. Mobile handoff creates notes without full desktop review access.",
+      ankiHelp: "Install AnkiConnect and keep desktop Anki open. If CORS appears, add this site to webCorsOriginList. Mobile handoff creates notes only.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
       localDictionariesEnabled: "Show imported dictionary definitions",
       dictionarySourcesInitiallyExpanded: "Open sources by default",
@@ -4074,9 +4104,9 @@
       exportSettings: "Export settings JSON",
       importDictionaries: "Import dictionaries",
       exportDictionaries: "Export dictionaries",
-      dictionaryImportHelp: "Import a Yomitan ZIP, Yomitan settings export, or backup. Term dictionaries add definitions; pitch and frequency dictionaries add accents and badges.",
+      dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pitch, and frequency dictionaries add definitions, accents, and badges.",
       lookupPills: "Lookup pills",
-      lookupPillsHelp: "External links and frequency badges in one order. Live Jiten/JPDB badges come from site lookup; installed frequency dictionaries are local and replace the matching live badge. Tokens: {query}, {word}, {reading}.",
+      lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -4324,7 +4354,7 @@
       updateStatusCurrent: "Current {current}. Latest {latest}. You are up to date.",
       updateStatusAvailable: "Current {current}. Latest {latest}. Update available.",
       updateStatusUnknown: "Current {current}. Latest version could not be checked. Use the update link to reinstall.",
-      updateHelpNotes: "If two Yomu scripts are enabled, keep one. On iPhone/iPad, open the install link in Safari and replace the old Userscripts file if automatic updates do not apply.",
+      updateHelpNotes: "If two Yomu scripts are enabled, keep one. On iPhone/iPad, open the install link in Safari if automatic updates do not apply.",
       updateUserscript: "Update/Reinstall userscript",
       duplicateStatusSingle: "Duplicate script check: one active Yomu runtime on this page ({kind}).",
       duplicateStatusUnknown: "Duplicate script check: unavailable on this page. If you see two Yomu buttons or menus, disable the older script.",
@@ -4727,8 +4757,6 @@ featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
 featureStudyBody	学習ページで単語と漢字を復習。
-featureGame	ゲーム
-featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -5253,7 +5281,7 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。学習デッキは選択中のサービスにだけ適用され、どちらか一方、両方、またはローカル辞書のみでも使えます。
+apiAccessHelp	JitenとJPDBのキーを別々に貼ります。学習デッキは選択中のサービスに適用され、キーなしでもローカル辞書は使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
@@ -5678,7 +5706,7 @@ ankiMappingConfidenceHelp	フィールド名とサンプルで判断します。
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
-ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開いたままにします。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
+ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開きます。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
@@ -5689,9 +5717,9 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	Yomitan ZIP、Yomitan設定エクスポート、バックアップを読み込みます。語句辞書は定義を追加し、ピッチ/頻度辞書はアクセントやバッジを追加します。
+dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/ピッチ/頻度辞書で定義、アクセント、バッジを追加します。
 lookupPills	検索ピル
-lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。Jiten/JPDBのライブバッジはサイト検索由来、インストール済み頻度辞書はローカルで一致するライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
+lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -5771,7 +5799,7 @@ updateStatusChecking	現在 {current}。最新バージョンを確認中...
 updateStatusCurrent	現在 {current}。最新 {latest}。最新です。
 updateStatusAvailable	現在 {current}。最新 {latest}。更新できます。
 updateStatusUnknown	現在 {current}。最新バージョンを確認できません。更新リンクで再インストールしてください。
-updateHelpNotes	よむスクリプトが2つ有効なら1つだけ残してください。iPhone/iPadではSafariでインストールリンクを開き、自動更新されない場合はUserscripts内の古いファイルを置き換えてください。
+updateHelpNotes	よむスクリプトが2つ有効なら1つだけ残してください。iPhone/iPadで自動更新されない場合はSafariでインストールリンクを開いてください。
 updateUserscript	ユーザースクリプトを更新/再インストール
 duplicateStatusSingle	重複スクリプト確認: このページで有効なYomuランタイムは1つです（{kind}）。
 duplicateStatusUnknown	重複スクリプト確認: このページでは確認できません。よむボタンやメニューが2つ出る場合は古いスクリプトを無効にしてください。
@@ -7471,8 +7499,11 @@ ${candidate.depth}`;
   const READER_RASTER_RETRY_BASE_MS = 140;
   const READER_RASTER_RETRY_MAX_MS = 1100;
   const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
+  const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
+  const READER_RASTER_EMPTY_RETRY_MS = 650;
   const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
   const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
+  const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
   const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
@@ -7639,6 +7670,7 @@ ${candidate.depth}`;
     canvasFrameSources = /* @__PURE__ */ new Map();
     canvasFrameStaticRects = /* @__PURE__ */ new Map();
     canvasFrameKeys = /* @__PURE__ */ new Map();
+    canvasPendingStatuses = /* @__PURE__ */ new Map();
     // Canvases whose frame the user explicitly tapped to create. A native-text-layer
     // page (shouldAutoScan=false) strips AUTO frames on the poll, but a frame the user
     // tapped to make must survive that poll — only a real page turn drops it.
@@ -7658,6 +7690,7 @@ ${candidate.depth}`;
     canvasContentReadiness = /* @__PURE__ */ new Map();
     // Per-canvas failed-capture counter driving the backoff retry above.
     canvasCaptureAttempts = /* @__PURE__ */ new Map();
+    readerRasterEmptyScans = /* @__PURE__ */ new Map();
     // Canvas -> remaining tap-driven recapture attempts. In tap/manual mode the poll
     // never captures, so a tap whose capture wasn't ready (the tainted-canvas mirror
     // rebuild momentarily failed: the origin-clean page image was still loading, or
@@ -8053,7 +8086,7 @@ ${candidate.depth}`;
       this.activeScans++;
       this.inFlightKeys.add(key);
       const hasFastText = Boolean(readFallbackOcrResult(image, false));
-      const isReaderRasterFrame = this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
+      const isReaderRasterFrame = this.isReaderRasterFrame(image);
       const delay = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
       void waitForIdle(delay, delay).then(() => this.scanImage(image)).finally(() => {
         this.activeScans = Math.max(0, this.activeScans - 1);
@@ -8070,9 +8103,9 @@ ${candidate.depth}`;
       }
       const state2 = existingState ?? this.ensureState(image);
       const settings = this.options.getSettings();
-      const key = imageCacheKey(image);
       const manualRequested = state2.manualRequested;
       this.resetStateIfImageChanged(state2);
+      const key = state2.key;
       if (await this.tryRenderCachedOcrResult(state2, key)) return;
       if (!this.isCurrentContentState(state2, key)) return;
       this.updateOcrStatus(image, "loading");
@@ -8101,6 +8134,11 @@ ${candidate.depth}`;
       const cached = this.cache.get(key);
       this.requireCurrentContentState(state2, key);
       if (!cached) {
+        if (this.isReaderRasterFrame(state2.image)) {
+          this.forget(key);
+          this.readerRasterEmptyScans.delete(key);
+          return false;
+        }
         if (this.shouldPreserveReaderRasterResult(state2)) return true;
         renderNoOcrLines(state2);
         this.updateOcrStatus(state2.image, "empty");
@@ -8129,13 +8167,16 @@ ${candidate.depth}`;
           this.updateOcrStatus(image, "ready");
           return;
         }
-        this.remember(key, null);
+        if (this.isReaderRasterFrame(image)) this.forget(key);
+        else this.remember(key, null);
         this.requireCurrentContentState(state2, key);
         renderNoOcrLines(state2);
         this.updateOcrStatus(image, "empty");
+        this.scheduleReaderRasterEmptyRetry(state2, key, manualRequested);
         return;
       }
       this.remember(key, result);
+      this.readerRasterEmptyScans.delete(key);
       this.requireCurrentContentState(state2, key);
       state2.key = key;
       if (this.shouldSuppressAutoRenderedResult(state2, Boolean(inlineFallback), manualRequested)) {
@@ -8221,7 +8262,7 @@ ${candidate.depth}`;
       }
       state2.result = result;
       const settings = this.options.getSettings();
-      const showText = settings.ocrShowTextOverlay || forceOverlay;
+      const showText = this.shouldShowOcrTextOverlay(state2, settings, forceOverlay);
       const initialParsed = await this.parseOcrLines(result.lines);
       this.requireCurrentContentState(state2, expectedKey);
       const lines = cleanOcrLookupLines(result.lines, initialParsed);
@@ -8263,6 +8304,14 @@ ${candidate.depth}`;
       }
       this.updateOcrStatus(state2.image, "ready");
       void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).finally(() => this.schedulePosition());
+    }
+    shouldShowOcrTextOverlay(state2, settings, forceOverlay) {
+      if (this.isScannedPdfCanvasFrame(state2.image)) return false;
+      return settings.ocrShowTextOverlay || forceOverlay;
+    }
+    isScannedPdfCanvasFrame(image) {
+      const canvas = this.canvasFrameSources.get(image);
+      return Boolean(canvas && (canvas.dataset.pdfText === "scanned" || canvas.closest('.pdf-page[data-pdf-text="scanned"]')));
     }
     async parseOcrLines(lines) {
       const options = ocrParseOptions();
@@ -8358,7 +8407,30 @@ ${candidate.depth}`;
       }
     }
     shouldPreserveReaderRasterResult(state2) {
-      return Boolean(state2.result && (this.canvasFrameSources.has(state2.image) || this.backgroundFrameSources.has(state2.image)));
+      return Boolean(state2.result && this.isReaderRasterFrame(state2.image));
+    }
+    isReaderRasterFrame(image) {
+      return this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
+    }
+    scheduleReaderRasterEmptyRetry(state2, key, userRequested) {
+      if (!this.isReaderRasterFrame(state2.image)) return;
+      const attempts = (this.readerRasterEmptyScans.get(key) ?? 0) + 1;
+      this.readerRasterEmptyScans.set(key, attempts);
+      if (!userRequested && attempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) return;
+      window.setTimeout(() => {
+        if (!this.isCurrentContentState(state2, key)) return;
+        const canvas = this.canvasFrameSources.get(state2.image);
+        if (canvas) {
+          this.releaseCanvasFrame(canvas);
+          this.scheduleCanvasCaptureRetry(canvas, userRequested);
+          return;
+        }
+        const background = this.backgroundFrameSources.get(state2.image);
+        if (background) {
+          this.releaseBackgroundFrame(background);
+          this.scheduleReaderRasterRefresh(READER_RASTER_RETRY_BASE_MS);
+        }
+      }, READER_RASTER_EMPTY_RETRY_MS);
     }
     remember(key, result) {
       if (key.startsWith("data:")) return;
@@ -8368,6 +8440,10 @@ ${candidate.depth}`;
         if (!oldest) break;
         this.cache.delete(oldest);
       }
+      persistOcrCacheSoon(this.cache, Date.now());
+    }
+    forget(key) {
+      if (!this.cache.delete(key)) return;
       persistOcrCacheSoon(this.cache, Date.now());
     }
     schedulePosition() {
@@ -8508,6 +8584,8 @@ ${candidate.depth}`;
         this.applyVideoFrameStatusTransition(image, status);
         return;
       }
+      const canvas = this.canvasFrameSources.get(image);
+      if (canvas) this.removeCanvasPendingStatus(canvas);
       this.updateImageStatusCard(image, status);
     }
     // Paused-frame overlays keep the image + status gated while OCR runs (the
@@ -8609,9 +8687,8 @@ ${candidate.depth}`;
     }
     refreshCanvasReaderSurfaces(settings, userRequested = false) {
       if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
-      const collectedCanvases = userRequested ? collectPointerCanvasReaderSurfaces() : collectCanvasReaderSurfaces();
       const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested;
-      const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectedCanvases, settings, userRequested) : void 0;
+      const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested) : void 0;
       if (nativeTextLayerBlocksAutoScan && !ocrOptInCanvases?.length) {
         if (!isReaderRasterPage()) {
           this.releaseAllCanvasFrames();
@@ -8625,8 +8702,8 @@ ${candidate.depth}`;
         }
         return;
       }
-      if (!isReaderRasterPage() && !collectedCanvases.length) {
-        this.releaseAutoCanvasFrames();
+      if (!isReaderRasterPage()) {
+        this.releaseAllCanvasFrames();
         return;
       }
       this.startReaderRasterPollingIfNeeded();
@@ -8646,10 +8723,12 @@ ${candidate.depth}`;
         this.retryPendingUserRequestedCaptures(settings);
         return;
       }
-      const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectedCanvases, settings, userRequested);
+      const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+      for (const canvas of [...this.canvasPendingStatuses.keys()]) {
+        if (!canvases.includes(canvas)) this.removeCanvasPendingStatus(canvas);
+      }
       for (const canvas of [...this.canvasFrames.keys()]) {
         if (canvases.includes(canvas)) continue;
-        if (!userRequested && this.canvasFrameUserRequested.has(canvas)) continue;
         if (this.shouldKeepCanvasFrameThroughStablePageSurfaceFlicker(canvas, signature)) continue;
         if (this.canvasFrames.get(canvas)?.complete === false) continue;
         this.releaseCanvasFrame(canvas);
@@ -8671,6 +8750,7 @@ ${candidate.depth}`;
         const rect = canvas.getBoundingClientRect();
         if (rect.width * rect.height < settings.ocrMinImageArea) return;
         if (!isNearViewport(canvas, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(canvas)) return;
+        this.updateCanvasPendingStatus(canvas, rect, "loading");
         let frameSrc;
         let frameRect = rect;
         let contentKey;
@@ -8716,7 +8796,10 @@ ${candidate.depth}`;
         frame.alt = "";
         positionCanvasFrameImage(frame, frameRect);
         frame.addEventListener("load", () => {
-          if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
+          if (this.canvasFrames.get(canvas) === frame) {
+            this.removeCanvasPendingStatus(canvas);
+            this.enqueue(frame, userRequested);
+          }
         }, { once: true });
         document.body.append(frame);
         this.canvasFrames.set(canvas, frame);
@@ -8797,12 +8880,7 @@ ${candidate.depth}`;
         }
         const attempt = READER_RASTER_MAX_CAPTURE_ATTEMPTS - remaining;
         const delay2 = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** attempt, READER_RASTER_RETRY_MAX_MS);
-        this.canvasTapRecapture.set(canvas, remaining - 1);
-        window.setTimeout(() => {
-          if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
-          const settings = this.options.getSettings();
-          void this.snapshotCanvasSurface(canvas, settings, true);
-        }, delay2);
+        this.scheduleReaderRasterRefresh(delay2);
         return;
       }
       const attempts = (this.canvasCaptureAttempts.get(canvas) ?? 0) + 1;
@@ -8830,8 +8908,26 @@ ${candidate.depth}`;
       this.canvasCaptureAttempts.delete(canvas);
       this.canvasTapRecapture.delete(canvas);
     }
+    updateCanvasPendingStatus(canvas, rect, status) {
+      const existing = this.canvasPendingStatuses.get(canvas);
+      const card = existing ?? this.createVideoFrameStatus(status);
+      if (existing) this.setVideoFrameStatus(card, status);
+      else this.canvasPendingStatuses.set(canvas, card);
+      card.classList.add("jpdb-ocr-canvas-status");
+      const labelNode = card.querySelector(".jpdb-ocr-video-frame-status-label");
+      if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
+      card.hidden = false;
+      positionOcrImageStatus(card, this.visibleViewportIntersection(rect) ?? rect);
+    }
+    removeCanvasPendingStatus(canvas) {
+      const card = this.canvasPendingStatuses.get(canvas);
+      if (!card) return;
+      removeOcrArtifact(card);
+      this.canvasPendingStatuses.delete(canvas);
+    }
     releaseCanvasFrame(canvas) {
       const frame = this.canvasFrames.get(canvas);
+      this.removeCanvasPendingStatus(canvas);
       if (!frame) return;
       this.canvasFrames.delete(canvas);
       const state2 = this.states.get(frame);
@@ -8848,28 +8944,39 @@ ${candidate.depth}`;
     }
     releaseAllCanvasFrames() {
       for (const canvas of [...this.canvasFrames.keys()]) this.releaseCanvasFrame(canvas);
+      for (const canvas of [...this.canvasPendingStatuses.keys()]) this.removeCanvasPendingStatus(canvas);
       this.canvasContentReadiness.clear();
       this.canvasCaptureAttempts.clear();
       this.canvasReaderSignature = void 0;
       this.canvasReaderSamePageSignatureSkips = 0;
     }
-    releaseAutoCanvasFrames() {
-      for (const canvas of [...this.canvasFrames.keys()]) {
-        if (this.canvasFrameUserRequested.has(canvas) && canvas.isConnected) continue;
-        this.releaseCanvasFrame(canvas);
-      }
-      this.canvasContentReadiness.clear();
-      this.canvasCaptureAttempts.clear();
-    }
     positionCanvasFrames() {
+      for (const [canvas, status] of [...this.canvasPendingStatuses]) {
+        if (!canvas.isConnected) {
+          this.removeCanvasPendingStatus(canvas);
+          continue;
+        }
+        const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+        if (!rect) {
+          status.hidden = true;
+          continue;
+        }
+        status.hidden = false;
+        positionOcrImageStatus(status, rect);
+      }
       for (const [canvas, frame] of [...this.canvasFrames]) {
         if (!canvas.isConnected) {
           this.releaseCanvasFrame(canvas);
           continue;
         }
+        const rect = canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height || isHiddenByCss(canvas) || isInsideHiddenAncestor(canvas)) {
+          this.releaseCanvasFrame(canvas);
+          continue;
+        }
         const staticRect = this.canvasFrameStaticRects.get(frame);
         if (staticRect) {
-          const currentRect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+          const currentRect = this.visibleViewportIntersection(rect);
           if (!currentRect || !rectsNearlyEqual(staticRect, currentRect)) {
             this.releaseCanvasFrame(canvas);
             this.scheduleReaderRasterRefresh(40);
@@ -8878,7 +8985,7 @@ ${candidate.depth}`;
           positionCanvasFrameImage(frame, staticRect);
           continue;
         }
-        positionCanvasFrameImage(frame, canvas.getBoundingClientRect());
+        positionCanvasFrameImage(frame, rect);
       }
     }
     visibleViewportIntersection(rect) {
@@ -8998,11 +9105,18 @@ ${candidate.depth}`;
     }
     renderedOcrImageFrameForState(image, rect, result) {
       const frame = renderedOcrImageFrame(image, rect, result);
-      if (!this.canvasFrameSources.has(image) && !this.backgroundFrameSources.has(image)) return frame;
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-      if (!viewportHeight || rect.bottom < viewportHeight - 2) return frame;
-      const reserved = Math.max(0, Math.min(READER_RASTER_BOTTOM_CHROME_RESERVE_PX, frame.imageHeight - 1));
-      return reserved ? { ...frame, safeBottomInset: reserved } : frame;
+      let reserve = 0;
+      if (image.dataset.yomuVideoFrame === "true" && isYouTubePageForOcr()) {
+        reserve = Math.max(reserve, YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX);
+      }
+      if (this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image)) {
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        if (viewportHeight && rect.bottom >= viewportHeight - 2) {
+          reserve = Math.max(reserve, READER_RASTER_BOTTOM_CHROME_RESERVE_PX);
+        }
+      }
+      if (!reserve) return frame;
+      return { ...frame, safeBottomInset: Math.max(0, Math.min(reserve, frame.imageHeight - 1)) };
     }
     fitLineFonts(state2, frame) {
       const scale = this.options.getSettings().ocrFontScale;
@@ -9683,14 +9797,15 @@ ${spelling}`);
     const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88, invert);
     const protobuf = await recognizeViaGoogleLensProtobuf(blob, canvas, settings).catch((error) => {
       log$2.warn("Google Lens protobuf failed", error);
-      return null;
+      return void 0;
     });
     if (protobuf?.lines.length) return protobuf;
     const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs).catch((error) => {
       log$2.warn("Google Lens upload failed", error);
-      return null;
+      return void 0;
     });
-    return upload?.lines.length ? upload : upload ?? protobuf;
+    if (protobuf === void 0 && upload === void 0) throw new Error("Google Lens OCR failed.");
+    return upload?.lines.length ? upload : upload ?? protobuf ?? null;
   }
   async function recognizeViaGoogleLensProtobuf(blob, canvas, settings) {
     const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -9995,25 +10110,16 @@ ${spelling}`);
   }
   function readerSurfaceFromElement(element, settings) {
     const canvas = element instanceof HTMLCanvasElement ? element : element.closest("canvas");
-    if (canvas && collectPointerCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
+    if (canvas && collectCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
     const background = collectBackgroundImageReaderSurfaces().find((surface) => (surface === element || surface.contains(element)) && isReaderSurfaceCandidate(surface, settings));
     return background ?? null;
   }
   function readerSurfaceAtPoint(clientX, clientY, settings) {
     const surfaces = [
-      ...collectPointerCanvasReaderSurfaces(),
+      ...collectCanvasReaderSurfaces(),
       ...collectBackgroundImageReaderSurfaces()
     ].filter((surface) => isReaderSurfaceCandidate(surface, settings));
     return surfaces.find((surface) => rectContainsPoint(surface.getBoundingClientRect(), clientX, clientY)) ?? null;
-  }
-  function collectPointerCanvasReaderSurfaces() {
-    return [.../* @__PURE__ */ new Set([
-      ...collectCanvasReaderSurfaces(),
-      ...manualCanvasReaderSurfaces()
-    ])];
-  }
-  function manualCanvasReaderSurfaces() {
-    return Array.from(document.querySelectorAll("canvas")).filter(isManualCanvasOcrSurface);
   }
   function isReaderSurfaceCandidate(surface, settings) {
     const rect = surface.getBoundingClientRect();
@@ -10113,9 +10219,6 @@ ${spelling}`);
   }
   function isCanvasOcrOptInSurface(canvas) {
     return canvas.dataset.yomuCanvasOcr === "on" || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
-  }
-  function isManualCanvasOcrSurface(canvas) {
-    return canvas.dataset.yomuCanvasOcr === "manual" || Boolean(canvas.closest('[data-yomu-canvas-ocr="manual"]'));
   }
   function isImageOccludedByVideo(image, rect = image.getBoundingClientRect()) {
     if (image.dataset.yomuVideoFrame) return false;
@@ -12166,7 +12269,7 @@ ${spelling}`);
       if (video) clearGenericVideoInset(video);
       resetYouTubePlayerResizeTracking();
       this.lastResizeSignature = "";
-      dispatchVideoLayoutResize();
+      dispatchSubtitleVideoLayoutResize();
       return true;
     }
     applyResizeIfNeeded(options, metrics) {
@@ -12175,7 +12278,7 @@ ${spelling}`);
       if (mode === "none" || this.lastResizeSignature === metrics.signature) return;
       this.lastResizeSignature = metrics.signature;
       scheduleYouTubePlayerResize(metrics.width, metrics.height, mode);
-      dispatchVideoLayoutResize(mode);
+      dispatchSubtitleVideoLayoutResize(mode);
     }
   }
   function hasActiveVideoInset(lastSignature) {
@@ -12364,6 +12467,8 @@ ${spelling}`);
   }
   const youtubePlayerContainerBaseRects = /* @__PURE__ */ new WeakMap();
   const youtubeVideoElementInsetStyles = /* @__PURE__ */ new WeakMap();
+  const youtubeStablePlayerSizeStyles = /* @__PURE__ */ new WeakMap();
+  const youtubeStablePlayerSizeElements = /* @__PURE__ */ new Set();
   function captureYouTubePlayerContainerBaseRects(elements) {
     const viewportWidth = visibleViewportWidth();
     for (const element of elements) {
@@ -12534,26 +12639,116 @@ ${spelling}`);
       if (size) resizeYouTubePlayer(size.width, size.height);
     }, 80);
   }
+  function resizeYouTubePlayerForSubtitleLayout(width, height, mode = "immediate") {
+    if (mode === "none" || !isYouTubePage$1()) return;
+    scheduleYouTubePlayerResize(width, height, mode);
+    dispatchSubtitleVideoLayoutResize(mode);
+  }
+  function applyStableYouTubePlayerVideoSize(video, width, height) {
+    if (!isYouTubePage$1() || width <= 0 || height <= 0) return clearStableYouTubePlayerVideoSize();
+    let changed = false;
+    const widthValue = `${Math.round(width)}px`;
+    const heightValue = `${Math.round(height)}px`;
+    for (const element of stableYouTubePlayerVideoSizeTargets(video)) {
+      rememberStableYouTubePlayerVideoSizeStyles(element);
+      changed = setStableYouTubePlayerStyleIfChanged(element, "width", widthValue) || changed;
+      changed = setStableYouTubePlayerStyleIfChanged(element, "height", heightValue) || changed;
+      changed = setStableYouTubePlayerStyleIfChanged(element, "max-width", widthValue) || changed;
+      changed = setStableYouTubePlayerStyleIfChanged(element, "max-height", heightValue) || changed;
+      changed = setStableYouTubePlayerStyleIfChanged(element, "min-width", "0px") || changed;
+      changed = setStableYouTubePlayerStyleIfChanged(element, "min-height", "0px") || changed;
+      if (element.matches(".html5-video-container, video")) {
+        changed = setStableYouTubePlayerStyleIfChanged(element, "left", "0px") || changed;
+        changed = setStableYouTubePlayerStyleIfChanged(element, "top", "0px") || changed;
+      }
+      if (element instanceof HTMLVideoElement) {
+        changed = setStableYouTubePlayerStyleIfChanged(element, "object-fit", "contain") || changed;
+      }
+    }
+    return changed;
+  }
+  function clearStableYouTubePlayerVideoSize() {
+    if (!youtubeStablePlayerSizeElements.size) return false;
+    let changed = false;
+    for (const element of Array.from(youtubeStablePlayerSizeElements)) {
+      const previous = youtubeStablePlayerSizeStyles.get(element);
+      if (!previous) continue;
+      for (const [property, style] of Object.entries(previous)) {
+        const cssProperty = property;
+        const value = style.value;
+        const priority = style.priority;
+        if (value) element.style.setProperty(cssProperty, value, priority);
+        else element.style.removeProperty(cssProperty);
+        changed = true;
+      }
+      youtubeStablePlayerSizeStyles.delete(element);
+      youtubeStablePlayerSizeElements.delete(element);
+    }
+    return changed;
+  }
+  function stableYouTubePlayerVideoSizeTargets(video) {
+    const player = video?.closest("#movie_player, .html5-video-player") ?? document.querySelector("#movie_player, .html5-video-player");
+    const container = player?.querySelector(".html5-video-container") ?? video?.closest(".html5-video-container");
+    const media = video ?? player?.querySelector("video.html5-main-video, video") ?? document.querySelector("#movie_player video.html5-main-video, .html5-video-player video.html5-main-video, #movie_player video, .html5-video-player video");
+    return uniqueElements([player, container, media].filter((element) => Boolean(element)));
+  }
+  function rememberStableYouTubePlayerVideoSizeStyles(element) {
+    if (youtubeStablePlayerSizeStyles.has(element)) return;
+    const properties = [
+      "width",
+      "height",
+      "max-width",
+      "max-height",
+      "min-width",
+      "min-height",
+      "left",
+      "top",
+      "object-fit"
+    ];
+    youtubeStablePlayerSizeStyles.set(element, Object.fromEntries(properties.map((property) => [
+      property,
+      {
+        value: element.style.getPropertyValue(property),
+        priority: element.style.getPropertyPriority(property)
+      }
+    ])));
+    youtubeStablePlayerSizeElements.add(element);
+  }
+  function setStableYouTubePlayerStyleIfChanged(element, property, value) {
+    if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === "important") return false;
+    element.style.setProperty(property, value, "important");
+    return true;
+  }
   function resizeYouTubePlayer(width, height) {
     if (!isYouTubePage$1()) return;
     const signature = youtubeResizeSignature(width, height);
     if (signature === lastYouTubePlayerResizeSignature) return;
-    lastYouTubePlayerResizeSignature = signature;
     const player = youtubeMoviePlayer();
     try {
-      if (canResizeYouTubePlayer(player, width, height)) player.setSize(Math.round(width), Math.round(height));
+      if (canResizeYouTubePlayer(player, width, height)) {
+        player.setSize(Math.round(width), Math.round(height));
+        lastYouTubePlayerResizeSignature = signature;
+      }
     } catch {
     }
   }
   let lastYouTubePlayerResizeSignature = "";
+  let pendingImmediateVideoLayoutResize;
   let pendingVideoLayoutResize;
   let pendingYouTubePlayerResize;
   let pendingYouTubePlayerResizeSize;
   function youtubeResizeSignature(width, height) {
     return `${Math.round(width)}:${Math.round(height)}`;
   }
-  function dispatchVideoLayoutResize(mode = "immediate") {
-    if (mode === "immediate") dispatchWindowEvent(createWindowEvent("resize"));
+  function dispatchSubtitleVideoLayoutResize(mode = "immediate") {
+    if (mode === "immediate") {
+      if (pendingImmediateVideoLayoutResize !== void 0) window.clearTimeout(pendingImmediateVideoLayoutResize);
+      pendingImmediateVideoLayoutResize = window.setTimeout(() => {
+        pendingImmediateVideoLayoutResize = void 0;
+        if (typeof window === "undefined") return;
+        dispatchWindowEvent(createWindowEvent("resize"));
+      }, 0);
+    }
     if (pendingVideoLayoutResize !== void 0) window.clearTimeout(pendingVideoLayoutResize);
     pendingVideoLayoutResize = window.setTimeout(() => {
       pendingVideoLayoutResize = void 0;
@@ -12563,6 +12758,8 @@ ${spelling}`);
   }
   function resetYouTubePlayerResizeTracking() {
     lastYouTubePlayerResizeSignature = "";
+    if (pendingImmediateVideoLayoutResize !== void 0) window.clearTimeout(pendingImmediateVideoLayoutResize);
+    pendingImmediateVideoLayoutResize = void 0;
     if (pendingYouTubePlayerResize !== void 0) window.clearTimeout(pendingYouTubePlayerResize);
     pendingYouTubePlayerResize = void 0;
     pendingYouTubePlayerResizeSize = void 0;
@@ -15118,11 +15315,14 @@ ${spelling}`);
   const YOUTUBE_STABLE_TRANSCRIPT_CLASSES = [
     "jpdb-subtitle-youtube-stable-side",
     "jpdb-subtitle-youtube-stable-left",
-    "jpdb-subtitle-youtube-stable-right"
+    "jpdb-subtitle-youtube-stable-right",
+    "jpdb-subtitle-youtube-stable-player-fallback",
+    "jpdb-subtitle-youtube-stable-full-bleed"
   ];
   const YOUTUBE_STABLE_TRANSCRIPT_STYLE_PROPERTIES = [
     "--jpdb-subtitle-youtube-stable-offset",
-    "--jpdb-subtitle-youtube-stable-player-width"
+    "--jpdb-subtitle-youtube-stable-player-width",
+    "--jpdb-subtitle-youtube-stable-player-height"
   ];
   const ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR = ".asbplayer-subtitles-container-bottom";
   const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = `.asbplayer-offscreen, ${ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR}`;
@@ -15223,8 +15423,8 @@ ${spelling}`);
     if (!isYouTubePage()) return null;
     const scopedHost = [
       video?.closest('[data-yomu-inline-fullscreen="true"]'),
-      video?.closest(".html5-video-player.ytp-fullscreen, .html5-video-player.fullscreen"),
-      video?.closest("#movie_player.ytp-fullscreen, #movie_player.fullscreen"),
+      video?.closest(".html5-video-player.ytp-fullscreen"),
+      video?.closest("#movie_player.ytp-fullscreen"),
       video?.closest("ytd-watch-flexy[fullscreen] #movie_player"),
       video?.closest("ytd-watch-flexy[fullscreen] ytd-player"),
       video?.closest("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
@@ -15232,8 +15432,8 @@ ${spelling}`);
     if (scopedHost) return scopedHost;
     return [
       document.querySelector('[data-yomu-inline-fullscreen="true"]'),
-      document.querySelector(".html5-video-player.ytp-fullscreen, .html5-video-player.fullscreen"),
-      document.querySelector("#movie_player.ytp-fullscreen, #movie_player.fullscreen"),
+      document.querySelector(".html5-video-player.ytp-fullscreen"),
+      document.querySelector("#movie_player.ytp-fullscreen"),
       document.querySelector("ytd-watch-flexy[fullscreen] #movie_player"),
       document.querySelector("ytd-watch-flexy[fullscreen] ytd-player"),
       document.querySelector("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
@@ -15274,18 +15474,6 @@ ${spelling}`);
   }
   function subtitleElementOverflows(element) {
     return element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1;
-  }
-  function elementFullyVisibleWithinScroller(element, scroller, margin = 0) {
-    const elementRect = element.getBoundingClientRect();
-    const scrollerRect = scroller.getBoundingClientRect();
-    return elementRect.top >= scrollerRect.top + margin && elementRect.bottom <= scrollerRect.bottom - margin;
-  }
-  function setElementScrollTop(element, top) {
-    if (typeof element.scrollTo === "function") {
-      element.scrollTo({ top, behavior: "auto" });
-      return;
-    }
-    element.scrollTop = top;
   }
   function subtitleSecondaryFontSize(target) {
     return Math.max(13, Math.min(22, Math.round(target * 0.62)));
@@ -15355,6 +15543,7 @@ ${spelling}`);
   const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 8;
   const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
   const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
+  const YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD = 240;
   const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 96;
   const SUBTITLE_PARSE_CACHE_MIN_ENTRIES = 180;
   const SUBTITLE_PARSE_CACHE_MAX_ENTRIES = 5e3;
@@ -15366,13 +15555,12 @@ ${spelling}`);
   const SUBTITLE_FURIGANA_KANA_RE = /^[぀-ヿー・]+$/u;
   const SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT = 6;
   const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
-  const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 240;
+  const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 64;
   const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
-  const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 8;
-  const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 48;
+  const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 3;
+  const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 21;
   const TRANSCRIPT_AUTO_SCROLL_RESUME_FALLBACK_SECONDS = 30;
   const TRANSCRIPT_AUTO_SCROLL_RESUME_LEGACY_DEFAULT_SECONDS = 4;
-  const SUBTITLE_CURRENT_CUE_HOLD_GRACE_SECONDS = 0.12;
   const SUBTITLE_TICK_ACTIVE_MS = 500;
   const SUBTITLE_TICK_PAUSED_MS = 600;
   const SUBTITLE_TICK_IDLE_MS = 1500;
@@ -15612,8 +15800,6 @@ ${spelling}`);
     lastKaraokeProgressKey;
     lastKaraokePrimaryWord;
     alignFrame;
-    fullscreenLayoutFrame;
-    fullscreenStabilizeTimer;
     alignAfterTranscriptResize = false;
     lastAlignedVideoRectKey = "";
     lastShortsNavVideoId = "";
@@ -15698,6 +15884,7 @@ ${spelling}`);
     // configured bottom offset. Persisted via gmStorage; see subtitle-layout.
     subtitleDragOffsetFraction = loadSubtitleDragOffsetFraction();
     subtitleDragActive = false;
+    subtitleDragPreviewOffsetYPx;
     transcriptResizeActive = false;
     asbMoveHandlesActive = false;
     asbSubtitleDragHandles = /* @__PURE__ */ new WeakSet();
@@ -15755,7 +15942,8 @@ ${spelling}`);
       this.observer = new MutationObserver((mutations) => {
         this.syncYouTubeMobileBottomSheetState();
         if (mutations.some((mutation) => this.mutationCouldAffectFullscreenState(mutation))) {
-          this.scheduleFullscreenLayoutChange();
+          this.syncFullscreenState();
+          this.scheduleAlignToVideo();
         }
         if (mutations.every(mutationInsideReaderRoot$1)) return;
         if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
@@ -15778,7 +15966,7 @@ ${spelling}`);
       }
       for (const eventName of SUBTITLE_FULLSCREEN_CHANGE_EVENTS) {
         document.addEventListener(eventName, () => {
-          this.scheduleFullscreenLayoutChange();
+          this.handleFullscreenLayoutChange();
         }, this.eventOptions());
       }
       window.addEventListener("scroll", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
@@ -15804,25 +15992,11 @@ ${spelling}`);
       this.scheduleAlignToVideo();
     }
     handleFullscreenLayoutChange() {
-      this.fullscreenLayoutFrame = clearWindowAnimationFrame(this.fullscreenLayoutFrame);
-      this.runFullscreenLayoutChange();
-    }
-    scheduleFullscreenLayoutChange() {
-      if (this.fullscreenLayoutFrame !== void 0) return;
-      this.fullscreenLayoutFrame = requestAnimationFrame(() => {
-        this.fullscreenLayoutFrame = void 0;
-        this.handleFullscreenLayoutChange();
-      });
-    }
-    runFullscreenLayoutChange() {
-      if (this.destroyed) return;
       this.syncFullscreenState();
       if (this.video && !this.video.paused) this.startFrameSync(this.video);
       this.alignToVideo();
       this.scheduleAlignToVideo();
-      this.fullscreenStabilizeTimer = clearWindowTimeout(this.fullscreenStabilizeTimer);
-      this.fullscreenStabilizeTimer = window.setTimeout(() => {
-        this.fullscreenStabilizeTimer = void 0;
+      window.setTimeout(() => {
         if (!this.destroyed) this.scheduleAlignToVideo();
       }, 80);
       this.render();
@@ -15841,8 +16015,6 @@ ${spelling}`);
       this.stopFrameSync();
       this.clearControlsIdleTimer();
       this.alignFrame = clearWindowAnimationFrame(this.alignFrame);
-      this.fullscreenLayoutFrame = clearWindowAnimationFrame(this.fullscreenLayoutFrame);
-      this.fullscreenStabilizeTimer = clearWindowTimeout(this.fullscreenStabilizeTimer);
       this.transcriptScrollFrame = clearWindowAnimationFrame(this.transcriptScrollFrame);
       this.transcriptHydrateFrame = clearWindowAnimationFrame(this.transcriptHydrateFrame);
       this.transcriptVirtualRenderFrame = clearWindowAnimationFrame(this.transcriptVirtualRenderFrame);
@@ -16126,7 +16298,7 @@ ${spelling}`);
       }, this.eventOptions({ passive: true }));
       video.addEventListener("loadeddata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
       for (const eventName of ["webkitbeginfullscreen", "webkitendfullscreen", "webkitpresentationmodechanged"]) {
-        video.addEventListener(eventName, () => this.scheduleFullscreenLayoutChange(), this.eventOptions({ passive: true }));
+        video.addEventListener(eventName, () => this.handleFullscreenLayoutChange(), this.eventOptions({ passive: true }));
       }
       const handlePlaybackTimeChanged = () => this.syncSubtitleToPlaybackTime();
       video.addEventListener("timeupdate", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
@@ -16574,17 +16746,9 @@ ${spelling}`);
       if (!this.video) return;
       const time = this.video.currentTime;
       const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) ?? findInitialLeadInCue(this.secondaryCues, time) : void 0;
-      const cue = this.selectedTrackId ? this.stablePrimaryCueAtTime(time, this.findRenderablePrimaryCue(time, secondary)) : void 0;
+      const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time, secondary) : void 0;
       if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
       else this.warmParseOnGapAnchorJump();
-    }
-    stablePrimaryCueAtTime(time, cue) {
-      const current = this.currentCue;
-      if (!cue || !current || cue === current) return cue;
-      if (cue.start <= current.start || time >= cue.start) return cue;
-      if (cue.start < current.end) return cue;
-      if (time < current.start - 0.05 || time >= current.end + SUBTITLE_CURRENT_CUE_HOLD_GRACE_SECONDS) return cue;
-      return current;
     }
     // Auto-generated YouTube captions and their `&tlang=` translations are
     // segmented independently, so the primary (JP) cue often begins a beat
@@ -16832,12 +16996,16 @@ ${spelling}`);
       });
     }
     primaryParsedHtmlForRender(text, settings, key) {
-      const cached = this.parsedHtmlCache.get(key);
+      const cached = this.cachedParsedCueHtml(key, settings);
       if (cached !== void 0) return cached;
       const provisional = this.provisionalParsedHtmlCache.get(key);
       if (provisional !== void 0) {
         if (this.shouldUseProvisionalSubtitleParse(settings)) {
           if (!this.enrichedProvisionalParsedHtmlKeys.has(key)) {
+            if (this.hasAuthoritativeParseTier(settings)) {
+              this.ensureAuthoritativeParsedCueHtml(text, settings, key);
+              return void 0;
+            }
             this.ensureEnrichedProvisionalParsedCueHtml(text, settings, key);
             if (!this.parsedTokenCache.has(key)) return void 0;
           } else {
@@ -16931,9 +17099,12 @@ ${spelling}`);
     }
     async parseCueHtml(text, settings = this.options.getSettings(), options = {}) {
       const key = this.parseCacheKey(text, settings);
-      const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
+      const cached = this.cachedParsedCueHtml(key, settings);
       if (cached) {
         return cached;
+      }
+      if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings) && this.shouldBypassProvisionalForAuthoritative(settings, options)) {
+        return await this.parseAuthoritativeCueHtml(text, settings, key);
       }
       const emptyCached = this.freshEmptyParsedHtml(key);
       if (emptyCached) return emptyCached;
@@ -16941,7 +17112,7 @@ ${spelling}`);
       const pending = this.pendingParsedCueHtml(key, "authoritative");
       if (pending) return pending;
       const promise = (async () => {
-        const tokens = await this.options.parseJapanese(text, subtitleParseOptions());
+        const tokens = await this.options.parseJapanese(text, this.finalSubtitleParseOptions(settings));
         if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
         const html = withBreaks(renderTokensToHtml(text, tokens, settings));
         this.rememberParsedCueHtml(key, html, tokens);
@@ -16952,6 +17123,27 @@ ${spelling}`);
         return await promise;
       } finally {
         this.pendingParsedHtml.delete(key);
+      }
+    }
+    async parseAuthoritativeCueHtml(text, settings, key) {
+      this.ensureAuthoritativeParsedCueHtml(text, settings, key);
+      const pending = this.pendingParsedHtml.get(key);
+      if (pending) return pending;
+      const cached = this.cachedParsedCueHtml(key, settings);
+      if (cached) return cached;
+      const promise = (async () => {
+        const tokens = await this.options.parseJapanese(text, authoritativeSubtitleParseOptions());
+        await this.beforeRenderParsedTokens(tokens);
+        const html = withBreaks(renderTokensToHtml(text, tokens, settings));
+        this.rememberParsedCueHtml(key, html, tokens, { forceNotify: true });
+        this.applyAuthoritativeParsedCueHtml(key, text, html);
+        return html;
+      })();
+      this.pendingParsedHtml.set(key, promise);
+      try {
+        return await promise;
+      } finally {
+        if (this.pendingParsedHtml.get(key) === promise) this.pendingParsedHtml.delete(key);
       }
     }
     async parseProvisionalCueHtml(text, settings, key, options = {}) {
@@ -17003,13 +17195,13 @@ ${spelling}`);
       this.ensureAuthoritativeParsedCueHtmlBatch([{ text, key }], settings);
     }
     ensureAuthoritativeParsedCueHtmlBatch(items, settings) {
-      if (!hasJpdbApiCredential(settings) && !hasJitenApiCredential(settings)) return;
-      const missing = items.filter((item) => !this.parsedHtmlCache.has(item.key) && !this.pendingParsedHtml.has(item.key));
+      if (!this.hasAuthoritativeParseTier(settings)) return;
+      const missing = items.filter((item) => this.cachedParsedCueHtml(item.key, settings) === void 0 && !this.pendingParsedHtml.has(item.key));
       if (!missing.length) return;
       const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(missing.map((item) => item.text), authoritativeSubtitleParseOptions()) : Promise.all(missing.map((item) => this.options.parseJapanese(item.text, authoritativeSubtitleParseOptions())));
-      const parsedHtml = missing.map((item, index) => parsed.then(async (tokens) => {
+      const enriched = this.enrichParsedTokenBatchBeforeRender(parsed);
+      const parsedHtml = missing.map((item, index) => enriched.then((tokens) => {
         const tokenList = tokens[index] ?? [];
-        await this.beforeRenderParsedTokens(tokenList);
         const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
         this.rememberParsedCueHtml(item.key, html, tokenList, { forceNotify: true });
         this.applyAuthoritativeParsedCueHtml(item.key, item.text, html);
@@ -17072,14 +17264,17 @@ ${spelling}`);
     }
     async parseCueHtmlBatch(texts, settings = this.options.getSettings(), options = {}) {
       const items = uniqueSubtitleParseTexts(texts).map((text) => ({ text, key: this.parseCacheKey(text, settings) }));
-      if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseCueHtmlBatchWithProvisionalFallback(items, settings, options);
+      if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) {
+        if (this.shouldBypassProvisionalForAuthoritative(settings, options)) return await this.parseAuthoritativeCueHtmlBatch(items, settings);
+        return await this.parseCueHtmlBatchWithProvisionalFallback(items, settings, options);
+      }
       const { ready, batch } = planSubtitleParseBatch(
         items,
         // Keyless there is nothing to upgrade to, so a provisional hit is
         // final here too — without it the transcript-tail warmup
         // (allowProvisional: false) re-parsed every already-parsed cue a
         // second time through the local tokenizer.
-        (key) => this.parsedHtmlCache.get(key) ?? this.freshEmptyParsedHtml(key) ?? (this.hasAuthoritativeParseTier() ? void 0 : this.provisionalParsedHtmlCache.get(key)),
+        (key) => this.cachedParsedCueHtml(key, settings) ?? this.freshEmptyParsedHtml(key) ?? (this.hasAuthoritativeParseTier(settings) ? void 0 : this.provisionalParsedHtmlCache.get(key)),
         (key) => this.pendingParsedCueHtml(key, "authoritative")
       );
       if (!batch.length) return Promise.all(ready);
@@ -17089,9 +17284,19 @@ ${spelling}`);
           html: await this.parseCueHtml(item.text, settings, options)
         }))]);
       }
-      const parsed = this.options.parseJapaneseBatch(batch.map((item) => item.text), subtitleParseOptions());
+      const parsed = this.options.parseJapaneseBatch(batch.map((item) => item.text), this.finalSubtitleParseOptions(settings));
       const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { enrichBeforeRender: options.enrichBeforeRender });
       return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingParsedHtml);
+    }
+    async parseAuthoritativeCueHtmlBatch(items, settings) {
+      if (!items.length) return [];
+      this.ensureAuthoritativeParsedCueHtmlBatch(items, settings);
+      return await Promise.all(items.map(async (item) => {
+        const cached = this.cachedParsedCueHtml(item.key, settings);
+        if (cached) return { key: item.key, html: cached };
+        const pending = this.pendingParsedHtml.get(item.key);
+        return { key: item.key, html: pending ? await pending : await this.parseAuthoritativeCueHtml(item.text, settings, item.key) };
+      }));
     }
     async parseCueHtmlBatchWithProvisionalFallback(items, settings, options = {}) {
       const shouldUpgradeAuthoritative = options.authoritativeUpgrade !== false;
@@ -17114,13 +17319,18 @@ ${spelling}`);
       return results;
     }
     renderParsedHtmlBatch(batch, parsed, settings, options = {}) {
-      return batch.map((item, index) => parsed.then(async (tokens) => {
+      const prepared = options.enrichBeforeRender ? this.enrichParsedTokenBatchBeforeRender(parsed) : parsed;
+      return batch.map((item, index) => prepared.then((tokens) => {
         const tokenList = tokens[index] ?? [];
-        if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokenList);
         const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
         this.rememberParsedCueHtml(item.key, html, tokenList, { ...options, enriched: this.shouldMarkCueEnriched(item.key, tokenList, options.enrichBeforeRender === true) });
         return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
       }));
+    }
+    async enrichParsedTokenBatchBeforeRender(parsed) {
+      const tokenRows = await parsed;
+      await this.beforeRenderParsedTokens(tokenRows.flat());
+      return tokenRows;
     }
     async beforeRenderParsedTokens(tokens) {
       if (!tokens.length || !this.options.beforeRenderTokens) return;
@@ -17217,9 +17427,14 @@ ${spelling}`);
         Math.max(SUBTITLE_PARSE_CACHE_MIN_ENTRIES, transcriptRows + SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM)
       );
     }
-    hasAuthoritativeParseTier() {
-      const settings = this.options.getSettings();
+    hasAuthoritativeParseTier(settings = this.options.getSettings()) {
       return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings);
+    }
+    finalSubtitleParseOptions(settings) {
+      return this.hasAuthoritativeParseTier(settings) ? authoritativeSubtitleParseOptions() : subtitleParseOptions();
+    }
+    shouldBypassProvisionalForAuthoritative(settings, options) {
+      return options.requireEnrichedProvisional === true && this.hasAuthoritativeParseTier(settings);
     }
     // UT-48 session persistence: parsed cue html survives reloads of the
     // same video/session. Quota errors and disabled storage degrade to the
@@ -17319,7 +17534,7 @@ ${spelling}`);
         const text = this.cues[index]?.text.trim();
         if (!text) continue;
         const key = this.parseCacheKey(text, settings);
-        if (seen.has(key) || this.isWarmParsedCueKey(key)) continue;
+        if (seen.has(key) || this.isWarmParsedCueKey(key, settings)) continue;
         seen.add(key);
         texts.push(text);
       }
@@ -17328,9 +17543,18 @@ ${spelling}`);
     // Keyless there is no authoritative tier, so a provisional hit is final
     // and the cue counts as warm; keyed the provisional tier stays listed so
     // a failed authoritative upgrade is retried by the next warmup turn.
-    isWarmParsedCueKey(key) {
-      if (this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) return true;
-      return !this.hasAuthoritativeParseTier() && this.enrichedProvisionalParsedHtmlKeys.has(key);
+    isWarmParsedCueKey(key, settings = this.options.getSettings()) {
+      if (this.cachedParsedCueHtml(key, settings) !== void 0 || this.hasFreshEmptyParsedHtml(key)) return true;
+      return !this.hasAuthoritativeParseTier(settings) && this.enrichedProvisionalParsedHtmlKeys.has(key);
+    }
+    cachedParsedCueHtml(key, settings) {
+      const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
+      if (!cached) return void 0;
+      if (this.hasAuthoritativeParseTier(settings) && cached.includes('data-card-source="fallback"')) {
+        this.parsedHtmlCache.delete(key);
+        return void 0;
+      }
+      return cached;
     }
     // Keyless both tiers produce the same local-tokenizer result, so an
     // in-flight parse on EITHER tier satisfies the other — without this the
@@ -17686,32 +17910,64 @@ ${spelling}`);
         mode: handle.matches(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR) ? "transform" : "bottom-offset",
         startY,
         startOffset: this.subtitleDragOffsetYPx,
-        startBottomOffset: this.options.getSettings().subtitleBottomOffset
+        startBottomOffset: this.options.getSettings().subtitleBottomOffset,
+        referenceHeight: this.subtitlePositionReferenceHeight(dragFrame),
+        bounds: this.subtitleDragOffsetBounds(dragFrame),
+        lastClientY: startY
       };
       this.subtitleDragActive = true;
       handle.classList.add("jpdb-subtitle-dragging");
       dragRoot?.classList.add("jpdb-subtitle-dragging");
       if (dragRoot !== this.root) this.root?.classList.add("jpdb-subtitle-dragging");
-      this.showControlsTemporarily();
+      document.documentElement.classList.add("jpdb-subtitle-dragging");
+      this.showControlsDuringSubtitleDrag();
       return session;
     }
     updateSubtitleDrag(session, clientY, event) {
       if (event.cancelable) event.preventDefault();
-      if (session.mode === "bottom-offset") {
-        this.setSubtitleBottomOffsetFromDrag(session.startBottomOffset, clientY - session.startY, session.dragFrame);
-      } else {
-        this.setSubtitleDragOffset(session.startOffset + clientY - session.startY, session.dragFrame);
-      }
-      this.showControlsTemporarily();
+      event.stopPropagation();
+      session.lastClientY = clientY;
+      if (session.frame !== void 0) return;
+      this.applySubtitleDragPreview(session, clientY);
+      session.frame = window.requestAnimationFrame(() => {
+        session.frame = void 0;
+        if (session.appliedClientY !== session.lastClientY) this.applySubtitleDragPreview(session, session.lastClientY);
+      });
     }
     endSubtitleDrag(session) {
+      this.flushSubtitleDragPreview(session);
       this.subtitleDragActive = false;
       session.handle.classList.remove("jpdb-subtitle-dragging");
       session.dragRoot?.classList.remove("jpdb-subtitle-dragging");
       if (session.dragRoot !== this.root) this.root?.classList.remove("jpdb-subtitle-dragging");
-      if (session.mode === "bottom-offset") this.resetLegacySubtitleDragOffset();
-      else this.persistSubtitleDragOffset();
+      document.documentElement.classList.remove("jpdb-subtitle-dragging");
+      if (session.mode === "bottom-offset") {
+        this.commitSubtitleBottomOffsetFromDrag(session);
+        this.resetLegacySubtitleDragOffset();
+      } else this.persistSubtitleDragOffset();
       this.showControlsTemporarily();
+    }
+    applySubtitleDragPreview(session, clientY) {
+      session.appliedClientY = clientY;
+      const deltaY = clientY - session.startY;
+      if (session.mode === "bottom-offset") {
+        const next = this.subtitleBottomOffsetFromDelta(session.startBottomOffset, deltaY, session.referenceHeight);
+        session.previewBottomOffset = next;
+        session.previewOffset = Math.round((session.startBottomOffset - next) / 100 * session.referenceHeight);
+        this.subtitleDragPreviewOffsetYPx = session.previewOffset;
+        this.syncYomuSubtitleDragOffsetStyle();
+      } else {
+        this.setSubtitleDragOffset(session.startOffset + deltaY, session.dragFrame, session.bounds);
+        session.previewOffset = this.subtitleDragOffsetYPx;
+      }
+      this.showControlsDuringSubtitleDrag();
+    }
+    flushSubtitleDragPreview(session) {
+      if (session.frame !== void 0) {
+        window.cancelAnimationFrame(session.frame);
+        session.frame = void 0;
+      }
+      if (session.appliedClientY !== session.lastClientY) this.applySubtitleDragPreview(session, session.lastClientY);
     }
     moveSubtitleOverlayFromKeyboard(event) {
       const dragFrame = event.currentTarget instanceof HTMLElement ? this.subtitleDragFrameForHandle(event.currentTarget) : void 0;
@@ -17740,8 +17996,12 @@ ${spelling}`);
       }
       this.showControlsTemporarily();
     }
-    setSubtitleBottomOffsetFromDrag(startPercent, deltaY, dragFrame) {
-      this.setSubtitleBottomOffset(startPercent - deltaY / this.subtitlePositionReferenceHeight(dragFrame) * 100);
+    commitSubtitleBottomOffsetFromDrag(session) {
+      if (session.previewBottomOffset === void 0) return;
+      this.setSubtitleBottomOffset(session.previewBottomOffset);
+    }
+    subtitleBottomOffsetFromDelta(startPercent, deltaY, referenceHeight) {
+      return this.clampedSubtitleBottomOffset(startPercent - deltaY / referenceHeight * 100);
     }
     adjustSubtitleBottomOffsetByPixels(deltaY, dragFrame) {
       this.setSubtitleBottomOffset(this.options.getSettings().subtitleBottomOffset - deltaY / this.subtitlePositionReferenceHeight(dragFrame) * 100);
@@ -17749,7 +18009,7 @@ ${spelling}`);
     setSubtitleBottomOffset(value) {
       if (!Number.isFinite(value)) return;
       const settings = this.options.getSettings();
-      const next = Math.round(Math.min(Math.max(value, 2), 40));
+      const next = this.clampedSubtitleBottomOffset(value);
       if (settings.subtitleBottomOffset === next) return;
       settings.subtitleBottomOffset = next;
       this.applyEffectiveSubtitleBottom();
@@ -17766,11 +18026,11 @@ ${spelling}`);
       const styledRootHeight = styledHeight.endsWith("px") ? Number.parseFloat(styledHeight) : 0;
       return Math.max(1, rect?.height || styledRootHeight || this.videoLayoutRect().height || dragFrame?.getBoundingClientRect().height || this.subtitleDragViewportHeight());
     }
-    setSubtitleDragOffset(offsetPx, dragFrame) {
-      const offset = Math.round(this.clampedSubtitleDragOffset(offsetPx, dragFrame));
+    setSubtitleDragOffset(offsetPx, dragFrame, bounds) {
+      const offset = Math.round(this.clampedSubtitleDragOffset(offsetPx, dragFrame, bounds));
       if (offset === this.subtitleDragOffsetYPx) return;
       this.subtitleDragOffsetYPx = offset;
-      this.syncSubtitleDragOffsetStyle();
+      this.syncAsbSubtitleDragOffsetStyle();
     }
     // Snap back to the configured bottom offset and forget the remembered nudge.
     resetSubtitleDragOffset() {
@@ -17779,6 +18039,7 @@ ${spelling}`);
     resetLegacySubtitleDragOffset() {
       this.subtitleDragOffsetFraction = 0;
       this.subtitleDragOffsetYPx = 0;
+      this.subtitleDragPreviewOffsetYPx = void 0;
       saveSubtitleDragOffsetFraction(0);
       this.syncSubtitleDragOffsetStyle();
     }
@@ -17804,15 +18065,25 @@ ${spelling}`);
       return Math.max(240, window.innerHeight || document.documentElement.clientHeight || 0);
     }
     syncSubtitleDragOffsetStyle() {
+      this.syncYomuSubtitleDragOffsetStyle();
+      this.syncAsbSubtitleDragOffsetStyle();
+    }
+    syncYomuSubtitleDragOffsetStyle() {
+      const yomuOffset = `${this.subtitleDragPreviewOffsetYPx ?? 0}px`;
+      if (this.root) setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", yomuOffset);
+    }
+    syncAsbSubtitleDragOffsetStyle() {
       const offset = `${this.subtitleDragOffsetYPx}px`;
-      if (this.root) setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", "0px");
       for (const root of this.asbPlayerSubtitleMoveRoots()) {
         setStylePropertyIfChanged(root, "--jpdb-subtitle-asb-drag-offset-y", offset);
       }
     }
-    clampedSubtitleDragOffset(offsetPx, dragFrame) {
+    clampedSubtitleBottomOffset(value) {
+      return Math.round(Math.min(Math.max(value, 2), 40));
+    }
+    clampedSubtitleDragOffset(offsetPx, dragFrame, bounds) {
       if (!Number.isFinite(offsetPx)) return this.subtitleDragOffsetYPx;
-      const { min, max } = this.subtitleDragOffsetBounds(dragFrame);
+      const { min, max } = bounds ?? this.subtitleDragOffsetBounds(dragFrame);
       return Math.min(max, Math.max(min, offsetPx));
     }
     subtitleDragOffsetBounds(dragFrame) {
@@ -17917,6 +18188,11 @@ ${spelling}`);
       if (!this.root) return;
       this.root.classList.remove("jpdb-subtitle-controls-idle");
       this.syncAsbPlayerSubtitleMoveHandles();
+      this.scheduleControlsIdle();
+    }
+    showControlsDuringSubtitleDrag() {
+      if (!this.root) return;
+      this.root.classList.remove("jpdb-subtitle-controls-idle");
       this.scheduleControlsIdle();
     }
     hideControlsImmediately() {
@@ -18900,36 +19176,25 @@ ${spelling}`);
     renderTranscriptPanelPreview() {
       const panel = this.renderableTranscriptPanel();
       if (!panel) return;
-      const state2 = this.transcriptPanelPreviewState();
-      this.transcriptPreviewPlayerResizeDeferred = false;
+      const fullState = this.transcriptPanelRenderState();
+      const state2 = this.transcriptPanelPreviewState(fullState);
+      this.transcriptPreviewPlayerResizeDeferred = true;
       this.lastTranscriptSignature = "";
       setInnerHtml(panel, this.renderTranscriptPanelHtml(state2));
-      this.afterTranscriptPanelRender(state2);
+      this.afterTranscriptPanelRender(state2, { deferPlayerResize: true });
     }
-    transcriptPanelPreviewState() {
-      const rows = this.transcriptRows();
-      const currentCueIndex = this.activeTranscriptIndex();
-      const currentRowIndex = this.activeTranscriptRowIndex(rows, currentCueIndex);
-      const settings = this.options.getSettings();
-      const rowCount = rows.length;
-      const signature = [
-        "preview",
-        rowCount,
-        this.selectedTrackId,
-        this.tracks.find((track) => track.id === this.selectedTrackId)?.loadingState ?? "",
-        !this.cues.length && this.currentCue ? subtitleCueSignature(this.currentCue) : "",
-        this.parseCacheKey("", settings)
-      ].join(":");
-      if (!rowCount) return { rows: [], currentRowIndex, signature, totalRowCount: 0 };
-      const activeIndex = currentRowIndex >= 0 ? currentRowIndex : 0;
+    transcriptPanelPreviewState(state2) {
+      const rowCount = state2.rows.length;
+      if (!rowCount) return { ...state2, signature: `preview:${state2.signature}`, totalRowCount: 0 };
+      const activeIndex = state2.currentRowIndex >= 0 ? state2.currentRowIndex : 0;
       const clampedActive = Math.min(Math.max(activeIndex, 0), rowCount - 1);
       const previewStart = Math.max(0, Math.min(clampedActive - 1, rowCount - 3));
       const previewEnd = Math.min(rowCount, previewStart + 3);
       return {
-        rows: rows.slice(previewStart, previewEnd),
-        warmupRows: rows.slice(previewStart, Math.min(rowCount, previewStart + TRANSCRIPT_ACTIVE_HYDRATION_AHEAD + 2)),
-        currentRowIndex,
-        signature: `${signature}:${previewStart}`,
+        rows: state2.rows.slice(previewStart, previewEnd),
+        warmupRows: state2.warmupRows,
+        currentRowIndex: state2.currentRowIndex,
+        signature: `preview:${state2.signature}:${previewStart}`,
         rowIndexOffset: previewStart,
         totalRowCount: rowCount
       };
@@ -19086,7 +19351,10 @@ ${spelling}`);
       const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
       if (!scroller) return;
       const scrollTop = Math.max(0, state2.virtual.scrollTop);
-      if (Math.abs(scroller.scrollTop - scrollTop) > 1) scroller.scrollTop = scrollTop;
+      if (Math.abs(scroller.scrollTop - scrollTop) > 1) {
+        this.markTranscriptProgrammaticScroll();
+        scroller.scrollTop = scrollTop;
+      }
       this.transcriptVirtualScrollTop = scrollTop;
     }
     renderTranscriptRow(row, index, currentIndex) {
@@ -19128,18 +19396,11 @@ ${spelling}`);
       const activeRows = Array.from(this.transcriptPanel.querySelectorAll(".jpdb-subtitle-list-row.active"));
       const active = this.transcriptPanel.querySelector(`.jpdb-subtitle-list-row[data-row-index="${currentIndex}"]`);
       if (active && activeRows.length === 1 && activeRows[0] === active) return;
-      if (!active && currentIndex >= 0 && this.shouldRenderActiveTranscriptRow()) {
-        this.renderTranscriptPanel(true);
-        return;
-      }
       activeRows.forEach((row) => {
         if (row !== active) row.classList.remove("active");
       });
       if (active) active.classList.add("active");
       this.scrollTranscriptToActive();
-    }
-    shouldRenderActiveTranscriptRow() {
-      return Boolean(this.options.getSettings().subtitleTranscriptAutoScroll && !this.isTranscriptAutoScrollPaused());
     }
     scrollTranscriptToActive(options = {}) {
       if (!options.force && !this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
@@ -19150,17 +19411,12 @@ ${spelling}`);
         if (this.destroyed) return;
         const active = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-row.active");
         if (!active) return;
-        const scroller = active.closest(".jpdb-subtitle-list-scroll");
-        this.transcriptProgrammaticScrollUntil = performance.now() + TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
-        if (scroller) {
-          if (!options.force && elementFullyVisibleWithinScroller(active, scroller, 14)) return;
-          const top = active.offsetTop - Math.max(0, (scroller.clientHeight - active.offsetHeight) / 2);
-          setElementScrollTop(scroller, Math.max(0, top));
-          this.transcriptVirtualScrollTop = scroller.scrollTop;
-          return;
-        }
+        this.markTranscriptProgrammaticScroll();
         active.scrollIntoView?.({ block: "center", inline: "nearest" });
       });
+    }
+    markTranscriptProgrammaticScroll() {
+      this.transcriptProgrammaticScrollUntil = performance.now() + TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
     }
     noteTranscriptScroll() {
       if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
@@ -19186,8 +19442,7 @@ ${spelling}`);
       this.transcriptAutoScrollResumeTimer = window.setTimeout(() => {
         this.transcriptAutoScrollResumeTimer = void 0;
         this.syncTranscriptAutoScrollPausedClass();
-        this.renderTranscriptPanel(true);
-        this.scrollTranscriptToActive({ force: true });
+        this.scrollTranscriptToActive();
       }, remaining + 20);
     }
     syncTranscriptAutoScrollPausedClass() {
@@ -19278,12 +19533,7 @@ ${spelling}`);
         resizeFrame = requestAnimationFrame(() => {
           resizeFrame = void 0;
           if (this.destroyed) return;
-          this.positionTranscriptPanel({
-            skipInset: true,
-            skipControlSync: true,
-            skipResizeHandle: true,
-            resizeEventMode: "immediate"
-          });
+          this.positionTranscriptPanel({ skipInset: true, skipControlSync: true, skipResizeHandle: true });
         });
       };
       const finish = (mode, clientX = lastClientX, clientY = lastClientY) => {
@@ -19320,6 +19570,7 @@ ${spelling}`);
         saveTranscriptPanelSize(this.transcriptPanelSize);
         this.positionTranscriptPanel({ realignAfterInset: true, resizeEventMode: "settled" });
         const shouldAlignAfterResize = this.finishTranscriptResize();
+        this.scrollTranscriptToActive();
         if (shouldAlignAfterResize) this.scheduleAlignToVideo();
       };
       const onPointerUp = (upEvent) => finish("commit", upEvent.clientX, upEvent.clientY);
@@ -19382,6 +19633,7 @@ ${spelling}`);
       }));
       saveTranscriptPanelSize(this.transcriptPanelSize);
       this.positionTranscriptPanel();
+      this.scrollTranscriptToActive();
     }
     syncTranscriptResizeHandle(layout) {
       const handle = this.transcriptPanel?.querySelector("[data-resize-transcript]");
@@ -19400,16 +19652,17 @@ ${spelling}`);
       handle.setAttribute("aria-valuemax", String(metrics.max));
       handle.setAttribute("aria-valuenow", String(Math.round(metrics.current)));
     }
-    scheduleTranscriptHydration(preferredIndex = this.activeTranscriptRowIndex()) {
+    scheduleTranscriptHydration(preferredIndex) {
       if (this.transcriptResizeActive) {
         this.transcriptHydrationAfterResizeIndex = preferredIndex;
         return;
       }
+      const index = preferredIndex ?? this.activeTranscriptRowIndex();
       if (this.transcriptHydrateFrame) return;
       this.transcriptHydrateFrame = requestAnimationFrame(() => {
         this.transcriptHydrateFrame = void 0;
         if (this.destroyed) return;
-        void this.hydrateTranscriptRows(preferredIndex);
+        void this.hydrateTranscriptRows(index);
       });
     }
     activeTranscriptIndex() {
@@ -19505,18 +19758,20 @@ ${spelling}`);
       delete hydration.target.dataset.parseFailedAt;
       setInnerHtml(hydration.target, html);
     }
-    scheduleTranscriptCacheWarmup(rows = this.transcriptRows(), preferredIndex = this.activeTranscriptRowIndex(rows)) {
+    scheduleTranscriptCacheWarmup(rows, preferredIndex) {
       if (this.transcriptResizeActive) {
         this.transcriptWarmupAfterResize = true;
         return;
       }
+      const warmupRows = rows ?? this.transcriptRows();
+      const index = preferredIndex ?? this.activeTranscriptRowIndex(warmupRows);
       const settings = this.options.getSettings();
-      if (!this.shouldParseSubtitles(settings) || !rows.length) return;
-      const signature = this.transcriptCacheWarmupKey(rows, settings, preferredIndex);
+      if (!this.shouldParseSubtitles(settings) || !warmupRows.length) return;
+      const signature = this.transcriptCacheWarmupKey(warmupRows, settings, index);
       if (signature === this.transcriptCacheWarmupSignature) return;
       this.transcriptCacheWarmupSignature = signature;
       const serial = ++this.transcriptCacheWarmupSerial;
-      void this.warmTranscriptParseCache(rows, preferredIndex, settings, serial);
+      void this.warmTranscriptParseCache(warmupRows, index, settings, serial);
     }
     transcriptCacheWarmupKey(rows, settings, preferredIndex) {
       const first = rows[0]?.cue;
@@ -19539,7 +19794,7 @@ ${spelling}`);
       const worker = async () => {
         while (cursor < planned.length) {
           if (serial !== this.transcriptCacheWarmupSerial) return;
-          const batch = this.nextTranscriptWarmupBatch(planned, () => cursor++);
+          const batch = this.nextTranscriptWarmupBatch(planned, settings, () => cursor++);
           if (!batch.length) continue;
           try {
             const parsed = await this.parseCueHtmlBatch(batch.map((item) => item.text), settings, parseOptions);
@@ -19572,15 +19827,15 @@ ${spelling}`);
       };
     }
     shouldUseCheapYouTubeTranscriptWarmup(totalRows) {
-      return isYouTubePage() && totalRows > TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD;
+      return isYouTubePage() && totalRows > YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD;
     }
-    nextTranscriptWarmupBatch(planned, takeNextIndex) {
+    nextTranscriptWarmupBatch(planned, settings, takeNextIndex) {
       const batchSize = this.options.parseJapaneseBatch ? TRANSCRIPT_BACKGROUND_PARSE_BATCH : 1;
       const batch = [];
       while (batch.length < batchSize) {
         const item = planned[takeNextIndex()];
         if (!item) break;
-        if (this.isWarmParsedCueKey(item.key)) continue;
+        if (this.isWarmParsedCueKey(item.key, settings)) continue;
         batch.push(item);
       }
       return batch;
@@ -19599,7 +19854,7 @@ ${spelling}`);
       return plan;
     }
     transcriptBackgroundParseLimit(rowCount) {
-      if (isYouTubePage() && rowCount > TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD) {
+      if (isYouTubePage() && rowCount > YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD) {
         return Math.min(YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT, TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS);
       }
       if (isYouTubePage() && rowCount > YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT) {
@@ -19611,7 +19866,7 @@ ${spelling}`);
       const text = rows[rowIndex]?.cue.text.trim();
       if (!text) return;
       const key = this.parseCacheKey(text, settings);
-      if (seen.has(key) || this.isWarmParsedCueKey(key)) return;
+      if (seen.has(key) || this.isWarmParsedCueKey(key, settings)) return;
       seen.add(key);
       plan.push({ rowIndex, text, key });
     }
@@ -19843,7 +20098,7 @@ ${spelling}`);
       }, referenceVideoRect);
       this.commitTranscriptPanelLayout(panel, layout, options);
       const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect, {
-        resizeEventMode: options.resizeEventMode ?? (this.transcriptPreviewPlayerResizeDeferred ? "none" : options.skipInset ? "settled" : "immediate")
+        resizeEventMode: options.resizeEventMode ?? (this.transcriptPreviewPlayerResizeDeferred || options.skipInset ? "none" : "immediate")
       });
       if (!options.skipInset && options.realignAfterInset && insetChanged) this.scheduleTranscriptPanelRealignAfterInset();
     }
@@ -19893,28 +20148,17 @@ ${spelling}`);
     stableVideoTranscriptDrawerLayout(options, videoRect) {
       const placement = options.preferredPlacement === "left" ? "left" : options.preferredPlacement === "bottom" ? "bottom" : "right";
       if (options.compactPanel || placement === "bottom") {
-        return this.stableBottomTranscriptDrawerLayout(options, videoRect);
+        return computeSubtitleDrawerLayout({
+          ...options,
+          compactPanel: true,
+          preferredPlacement: "bottom"
+        });
       }
       const sideLayout = this.stableSideTranscriptDrawerLayout(placement, options, videoRect);
       return sideLayout ?? computeSubtitleDrawerLayout({
         ...options,
         compactPanel: true,
         preferredPlacement: "bottom"
-      });
-    }
-    stableBottomTranscriptDrawerLayout(options, videoRect) {
-      const desiredBottomHeight = options.size?.bottomHeight ?? Math.min(420, options.viewportHeight * 0.46);
-      const videoBottom = Number.isFinite(videoRect.bottom) ? Math.max(0, videoRect.bottom) : 0;
-      const availableBelowVideo = Math.floor(options.viewportHeight - videoBottom - TRANSCRIPT_PANEL_MARGIN);
-      const bottomHeight = availableBelowVideo >= TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT ? Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT, Math.min(desiredBottomHeight, availableBelowVideo)) : desiredBottomHeight;
-      return computeSubtitleDrawerLayout({
-        ...options,
-        compactPanel: true,
-        preferredPlacement: "bottom",
-        size: {
-          ...options.size,
-          bottomHeight
-        }
       });
     }
     stableSideTranscriptDrawerLayout(placement, options, videoRect) {
@@ -20039,14 +20283,6 @@ ${spelling}`);
       return Boolean(!this.destroyed && this.transcriptPanel && !this.transcriptPanel.hidden && !this.transcriptPanelClosing);
     }
     handleTranscriptViewportChange(options = {}) {
-      if (this.shouldDeferViewportLayoutForFullscreen()) {
-        this.resetTranscriptLayoutReference();
-        this.scheduleFullscreenLayoutChange();
-        this.scheduleTranscriptHydration();
-        this.scheduleTranscriptCacheWarmup();
-        if (options.stabilize) this.scheduleTranscriptViewportStabilizeAlign();
-        return;
-      }
       this.syncFullscreenState();
       this.resetTranscriptLayoutReference();
       this.alignToVideo();
@@ -20054,9 +20290,6 @@ ${spelling}`);
       this.scheduleTranscriptHydration();
       this.scheduleTranscriptCacheWarmup();
       if (options.stabilize) this.scheduleTranscriptViewportStabilizeAlign();
-    }
-    shouldDeferViewportLayoutForFullscreen() {
-      return Boolean(this.fullscreen || currentFullscreenElement() || this.subtitleFullscreenHost() || videoIsInNativeFullscreen(this.video));
     }
     scheduleTranscriptViewportStabilizeAlign() {
       this.transcriptViewportStabilizeTimer = clearWindowTimeout(this.transcriptViewportStabilizeTimer);
@@ -20095,12 +20328,12 @@ ${spelling}`);
       }
       if (this.shouldUseStableYouTubeTranscriptLayout()) {
         const insetChanged = this.videoInset.clear(this.video);
-        const stableChanged = this.applyStableYouTubeTranscriptLayout(layout, videoRect);
+        const stableChanged = this.applyStableYouTubeTranscriptLayout(layout, videoRect, options.resizeEventMode);
         return insetChanged || stableChanged;
       }
       this.clearStableYouTubeTranscriptLayout();
       const availableWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);
-      return this.applyPageVideoInset(layout.placement, Math.max(0, Math.min(videoRect.width, availableWidth)), layout.width, videoRect, options);
+      return this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect, options);
     }
     availablePlayerWidthForSideLayout(layout, videoRect) {
       const viewportWidth = this.transcriptViewportWidth();
@@ -20199,7 +20432,7 @@ ${spelling}`);
       const insetChanged = this.videoInset.clear(this.video);
       return stableChanged || insetChanged;
     }
-    applyStableYouTubeTranscriptLayout(layout, videoRect) {
+    applyStableYouTubeTranscriptLayout(layout, videoRect, resizeEventMode = "immediate") {
       if (!isYouTubePage() || layout.placement === "bottom") return this.clearStableYouTubeTranscriptLayout();
       const root = document.documentElement;
       if (!root) return false;
@@ -20212,13 +20445,48 @@ ${spelling}`);
       setClass("jpdb-subtitle-youtube-stable-side", true);
       setClass("jpdb-subtitle-youtube-stable-left", layout.placement === "left");
       setClass("jpdb-subtitle-youtube-stable-right", layout.placement === "right");
-      const offset = layout.placement === "left" ? `${Math.max(0, Math.round(layout.left + layout.width + layout.margin))}px` : "0px";
-      const availablePlayerWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);
-      const maxWidthAfterOffset = layout.placement === "left" ? layout.viewportWidth - Math.max(0, Math.round(layout.left + layout.width + layout.margin)) : availablePlayerWidth;
-      const playerWidth = `${Math.max(0, Math.round(Math.min(videoRect.width, availablePlayerWidth, maxWidthAfterOffset)))}px`;
+      const playerOffsetTarget = this.stableYouTubePlayerOffsetTarget();
+      setClass("jpdb-subtitle-youtube-stable-player-fallback", layout.placement === "left" && playerOffsetTarget === "player");
+      setClass("jpdb-subtitle-youtube-stable-full-bleed", layout.placement === "left" && playerOffsetTarget === "full-bleed");
+      const offsetPx = layout.placement === "left" ? Math.max(0, Math.round(layout.left + layout.width + layout.margin)) : 0;
+      const playerSize = this.stableYouTubePlayerSizeForLayout(layout, videoRect);
+      const playerWidth = `${playerSize.width}px`;
+      const playerHeight = `${playerSize.height}px`;
+      const offset = `${offsetPx}px`;
       changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-offset", offset) || changed;
       changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-player-width", playerWidth) || changed;
-      return changed;
+      changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-player-height", playerHeight) || changed;
+      const mediaChanged = applyStableYouTubePlayerVideoSize(this.video, playerSize.width, playerSize.height);
+      if (changed && resizeEventMode !== "none") {
+        resizeYouTubePlayerForSubtitleLayout(
+          playerSize.width,
+          playerSize.height,
+          resizeEventMode
+        );
+      }
+      return changed || mediaChanged;
+    }
+    stableYouTubePlayerOffsetTarget() {
+      if (!isYouTubePage()) return null;
+      const fullBleed = document.querySelector("ytd-watch-flexy[is-single-column] #full-bleed-container #player-container");
+      if (fullBleed) {
+        const position = getComputedStyle(fullBleed).position;
+        if (position === "absolute" || position === "fixed") return "full-bleed";
+      }
+      const primary = document.querySelector("ytd-watch-flexy #primary");
+      const player = document.querySelector("#movie_player, .html5-video-player");
+      return !primary && player ? "player" : null;
+    }
+    stableYouTubePlayerSizeForLayout(layout, videoRect) {
+      const width = Math.max(0, Math.round(this.availablePlayerWidthForSideLayout(layout, videoRect)));
+      return {
+        width,
+        height: this.stableYouTubePlayerHeightForWidth(width, videoRect)
+      };
+    }
+    stableYouTubePlayerHeightForWidth(width, videoRect) {
+      const aspectRatio = videoRect.width > 0 && videoRect.height > 0 ? videoRect.height / videoRect.width : 9 / 16;
+      return Math.max(180, Math.round(width * aspectRatio));
     }
     clearStableYouTubeTranscriptLayout() {
       const root = document.documentElement;
@@ -20234,7 +20502,7 @@ ${spelling}`);
         root.style.removeProperty(property);
         changed = true;
       }
-      return changed;
+      return clearStableYouTubePlayerVideoSize() || changed;
     }
     measureWithoutStableYouTubeTranscriptLayout(callback) {
       const root = document.documentElement;
@@ -20250,6 +20518,15 @@ ${spelling}`);
           if (value) root.style.setProperty(property, value);
           else root.style.removeProperty(property);
         }
+        this.restoreStableYouTubePlayerVideoSizeFromRoot(root);
+      }
+    }
+    restoreStableYouTubePlayerVideoSizeFromRoot(root) {
+      if (!root.classList.contains("jpdb-subtitle-youtube-stable-side")) return;
+      const width = Number.parseFloat(root.style.getPropertyValue("--jpdb-subtitle-youtube-stable-player-width"));
+      const height = Number.parseFloat(root.style.getPropertyValue("--jpdb-subtitle-youtube-stable-player-height"));
+      if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+        applyStableYouTubePlayerVideoSize(this.video, width, height);
       }
     }
     applyPageVideoInset(side, playerSize, panelSize, videoRect = this.videoLayoutRect(), options = {}) {

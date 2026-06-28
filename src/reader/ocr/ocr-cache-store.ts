@@ -27,6 +27,12 @@ function isPersistableOcrCacheKey(key: string): boolean {
     return !key.startsWith('data:') && !key.startsWith('blob:');
 }
 
+function isPersistableOcrCacheEntry(key: string, result: OcrResult | null): boolean {
+    if (!isPersistableOcrCacheKey(key)) return false;
+    if (result === null && (key.startsWith('cv:') || key.startsWith('src:'))) return false;
+    return true;
+}
+
 /** Hydrate the controller's in-memory cache from a previous session. */
 export function loadPersistedOcrCache(): Map<string, OcrResult | null> {
     const map = new Map<string, OcrResult | null>();
@@ -39,8 +45,9 @@ export function loadPersistedOcrCache(): Map<string, OcrResult | null> {
         // Oldest first so Map insertion order tracks recency (newest last) — the
         // controller's own eviction keeps the freshest entries.
         for (const [key, entry] of Object.entries(parsed).sort((a, b) => (a[1]?.at ?? 0) - (b[1]?.at ?? 0))) {
-            if (!isPersistableOcrCacheKey(key)) continue;
-            map.set(key, entry?.r ?? null);
+            const result = entry?.r ?? null;
+            if (!isPersistableOcrCacheEntry(key, result)) continue;
+            map.set(key, result);
         }
     } catch {
         // Corrupt cache — drop it rather than block OCR.
@@ -107,6 +114,7 @@ function writeOcrCache(cache: Map<string, OcrResult | null>, now: number): void 
         let bytes = 0;
         for (const key of keys) {
             const result = cache.get(key) ?? null;
+            if (!isPersistableOcrCacheEntry(key, result)) continue;
             const serialized = JSON.stringify(result);
             bytes += key.length + serialized.length + 24;
             if (bytes > MAX_BYTES) break;

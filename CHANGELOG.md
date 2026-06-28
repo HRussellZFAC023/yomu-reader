@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.4.175] - 2026-06-28
+
+### Fixed
+
+- Kept OCR overlay text dark by default in dark mode too, using a light readable highlight instead of falling back to white text.
+- Kept generated page-word highlights light on NHK Easy and other bright pages while still measuring them for readable text contrast, so hover no longer appears to fix an overly dark normal highlight.
+- Let active scanned page text wrap normally in narrow prose, card, and sidebar containers while keeping passive controls and text mirrors on their compact wrapping rules.
+
+## [1.4.174] - 2026-06-28
+
+### Fixed
+
+- Fixed YouTube subtitle side-panel resizing so left-docked panels reserve space immediately, the video frame shrinks with the panel instead of being overlaid, and transcript current-line/programmatic scrolling no longer disables auto-follow.
+- Reduced YouTube transcript lookup churn by enriching subtitle parse batches together before rendering rows, so furigana, pitch, and word status apply line-by-line instead of trickling in word-by-word.
+- Kept paused-frame OCR hitboxes above YouTube's native control strip so native controls remain usable while OCR is visible.
+- Fixed Jiten/dictionary furigana rendering so ruby readings align to their matching kanji instead of spanning the whole referenced word.
+- Kept BookWalker and other reader-raster OCR status accurate while canvas captures prepare, and handed the scanning pill off to the ready OCR layer without leaving stale loading UI.
+- Kept automatic dark-mode OCR word highlights accent-tinted by default, avoiding the unreadable white-text-on-light-highlight combination while preserving the custom color option.
+
+## [1.4.173] - 2026-06-28
+
+### Fixed
+
+- Treated image-backed PDF OCR text layers as scanned pages, hiding the broken embedded text layer and routing lookup through Yomu image OCR without visible passive overlays.
+
+## [1.4.172] - 2026-06-28
+
+### Fixed
+
+- Published the Reddit Japanese locale fix with the OCR release regression focused on rendered text instead of runner-specific provider timing.
+- Fixed BookWalker raster OCR rescans on real reader pages by auto-scanning canvas-only viewers, dropping poisoned empty raster cache entries, retrying transient empty captures, reporting OCR transport failures as failures, and releasing collapsed recycled canvases instead of leaving stale Text ready or No text found pills.
+
+## [1.4.171] - 2026-06-28
+
+### Fixed
+
+- Published the Reddit Japanese locale fix with a deterministic OCR release regression test across CI runners.
+
+## [1.4.170] - 2026-06-28
+
+### Fixed
+
+- Published the Reddit Japanese locale fix after hardening the release OCR regression test against jsdom image-load timing.
+
 ## [1.4.169] - 2026-06-28
 
 ### Fixed

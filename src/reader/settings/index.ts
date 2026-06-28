@@ -1,7 +1,7 @@
 import { Logger } from '../app/logger';
 import { SETTINGS_CHANGE_EVENT } from '../app/constants';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
-import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
+import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OCR_OVERLAY_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { hasJitenApiCredential, hasJpdbApiCredential, isJitenApiCredential } from './api-credential';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
@@ -32,6 +32,9 @@ const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
 export const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
 export const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
 export const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
+export const DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
+export const DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
+export const DEFAULT_OCR_BACKGROUND_COLOR = OCR_OVERLAY_COLOR_TOKENS.background;
 export const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 export const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
 const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
@@ -354,10 +357,10 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ocrPrefetchPages: 2,
     ocrConcurrency: 3,
     ocrInvertDarkPanels: true,
-    ocrTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
-    ocrOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
-    ocrBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
-    ocrBackgroundOpacity: 0.32,
+    ocrTextColor: DEFAULT_OCR_TEXT_COLOR,
+    ocrOutlineColor: DEFAULT_OCR_OUTLINE_COLOR,
+    ocrBackgroundColor: DEFAULT_OCR_BACKGROUND_COLOR,
+    ocrBackgroundOpacity: 0.68,
     ocrFontScale: 1,
     localDictionariesEnabled: true,
     localDictionaryMaxResults: 12,

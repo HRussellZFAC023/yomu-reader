@@ -10,7 +10,8 @@ import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigati
 import type { RtkInfo } from '../kanji/rtk';
 import { matchesShortcut } from '../settings/index';
 import { openUrlInNewTab } from '../ui/browser';
-import { collectSiteScanTargets, isBookWalkerReaderPage, isBookWalkerStorefrontPage } from './site-parsers';
+import { documentLooksLikeImageReadingPage } from './dom-helpers';
+import { collectSiteScanTargets, isBookWalkerReaderPage, isBookWalkerStorefrontPage, siteProvidesNativeTextLayer } from './site-parsers';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import type { YomitanKanjiEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 
@@ -168,6 +169,11 @@ export function allowsGenericVisibleAutoScan(): boolean {
     return !isYouTubeHostForAutoScan() && !isBookWalkerStorefrontPage() && !isBookWalkerReaderPage();
 }
 
+export function shouldAutoScanImageOcr(pageHasJapaneseText: boolean): boolean {
+    return !siteProvidesNativeTextLayer()
+        && (pageHasJapaneseText || documentLooksLikeImageReadingPage() || (isBookWalkerReaderPage() && Boolean(document.querySelector('canvas'))));
+}
+
 export function allowsFrequentVisibleAutoScan(): boolean {
     // YouTube still opts out of the generic visible-text fallback above, but
     // its site parser is narrow enough to rescan on mutations/scroll. Keeping
@@ -204,11 +210,11 @@ export function nestedPitchEnrichmentOptionsForHost(hostname: string): PitchEnri
 }
 
 export function visibleAutoScanMutationDelay(defaultDelay = 450): number {
-    return isYouTubeHostForAutoScan() ? 120 : defaultDelay;
+    return isYouTubeHostForAutoScan() ? 320 : defaultDelay;
 }
 
 export function visibleAutoScanInitialDelay(defaultDelay = 600): number {
-    return isYouTubeHostForAutoScan() ? 160 : defaultDelay;
+    return isYouTubeHostForAutoScan() ? 220 : defaultDelay;
 }
 
 function isYouTubeHostForAutoScan(hostname = location.hostname): boolean {
@@ -450,6 +456,7 @@ export interface DismissOptions {
     preserveNavigation?: boolean;
     preserveHoverGeneration?: boolean;
     preserveKeyboardActive?: boolean;
+    deferSubtitleMiningResume?: boolean;
     forceAll?: boolean;
 }
 

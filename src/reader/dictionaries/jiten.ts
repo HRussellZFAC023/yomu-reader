@@ -791,6 +791,9 @@ export function jitenRatingForGrade(grade: JPDBGrade): number {
 
 function jitenCardFromVocabulary(vocabulary: JitenRawVocabulary): JPDBCard {
     const reading = cleanJitenAnnotatedReading(vocabulary.reading);
+    const wordWithReading = cleanJitenAnnotatedSpelling(vocabulary.reading).trim() === vocabulary.spelling
+        ? vocabulary.reading
+        : null;
     const pitchAccent = jitenPitchAccentPatterns(vocabulary.pitchAccents, reading);
     const reviewGradeIntervals = jitenReviewGradeIntervals(vocabulary);
     const deckNames = jitenVocabularyDeckNames(vocabulary);
@@ -808,7 +811,7 @@ function jitenCardFromVocabulary(vocabulary: JitenRawVocabulary): JPDBCard {
         })),
         cardState: jitenKnownStateToCardStates(vocabulary.knownState),
         pitchAccent,
-        wordWithReading: null,
+        wordWithReading,
         source: 'jiten',
         reviewSource: 'jiten-api',
         jitenWordId: vocabulary.wordId,

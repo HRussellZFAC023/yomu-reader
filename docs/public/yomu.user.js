@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.169
+// @version 1.4.175
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.169
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.169
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.169
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.169
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.175
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.175
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.175
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.175
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -202,6 +202,7 @@ const READER_THEME_COLOR_TOKENS = {
     bg: "#fbfcfe",
     surface: "#f4f7fa",
     surface2: "#e8edf3",
+    text: "#17202a",
     accentText: CORE_COLOR_TOKENS.white
   }
 };
@@ -209,6 +210,11 @@ const OVERLAY_COLOR_TOKENS = {
   text: CORE_COLOR_TOKENS.white,
   outline: CORE_COLOR_TOKENS.black,
   background: READER_THEME_COLOR_TOKENS.dark.bg
+};
+const OCR_OVERLAY_COLOR_TOKENS = {
+  text: READER_THEME_COLOR_TOKENS.light.text,
+  outline: CORE_COLOR_TOKENS.white,
+  background: READER_THEME_COLOR_TOKENS.light.surface
 };
 const DEFAULT_WORD_COLOR_TOKENS = {
   new: "#ffffff",
@@ -609,8 +615,7 @@ function unwrapReaderWords(root = document, options = {}) {
 }
 function readerWordSurfaceText(element2) {
   const surface = readerWordChildSurfaceText(element2);
-  if (surface || !isReaderWordElement(element2)) return surface;
-  return element2.dataset.surface ?? "";
+  return surface || element2.getAttribute("data-surface") || "";
 }
 function readerWordChildSurfaceText(element2) {
   let text2 = "";
@@ -640,7 +645,7 @@ function readerWordAtPointInScope(scope, x, y, accepts = () => true) {
   return best?.word ?? null;
 }
 function readerWordsInScope(scope) {
-  const ownWord = scope instanceof HTMLElement && scope.matches(".jpdb-reader-word") ? [scope] : [];
+  const ownWord = scope instanceof HTMLElement && isReaderWordElement(scope) ? [scope] : [];
   return [...ownWord, ...Array.from(scope.querySelectorAll(".jpdb-reader-word"))];
 }
 function readerWordPointScore(word, x, y) {
@@ -1863,6 +1868,7 @@ const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
 const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
 const RUNTIME_LOG_KEY = "yomu:enable-logs";
 const REDACTED = "[redacted]";
+const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
 const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
 const env = __vite_import_meta_env__;
 const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
@@ -1879,7 +1885,8 @@ class ScopedLogger {
     this.parent.write(this.scopeName, message, args, console.info, "");
   }
   warn(message, ...args) {
-    this.parent.write(this.scopeName, message, args, console.warn, WARN_STYLE);
+    const optional = args.some(isOptionalCorsBridgeError);
+    this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
   }
   error(message, ...args) {
     this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
@@ -1965,6 +1972,9 @@ function isDevMode() {
 function writeDebugToConsole(...args) {
   if (isDevMode()) console.log(...args);
   else console.debug(...args);
+}
+function isOptionalCorsBridgeError(value) {
+  return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
 }
 function getRuntimeLoggingOverride() {
   try {
@@ -2403,21 +2413,6 @@ function matchesShortcut(event, shortcut = "") {
 function shortcutModifiersMatch(event, modifiers) {
   return event.altKey === modifiers.has("alt") && event.ctrlKey === modifiers.has("ctrl") && event.metaKey === modifiers.has("meta") && event.shiftKey === modifiers.has("shift");
 }
-function formatShortcutEvent(event) {
-  const parts = [];
-  addShortcutModifierParts(parts, event);
-  addShortcutKeyPart(parts, normalizeEventKey(event.key));
-  return dedupeShortcutParts(parts).join("+");
-}
-function addShortcutModifierParts(parts, event) {
-  if (event.ctrlKey) parts.push("Ctrl");
-  if (event.altKey) parts.push("Alt");
-  if (event.shiftKey) parts.push("Shift");
-  if (event.metaKey) parts.push("Meta");
-}
-function addShortcutKeyPart(parts, key) {
-  if (!isModifierKey(key)) parts.push(key);
-}
 function shortcutIsPressed(shortcut = "", event, pressedKeys = new Set()) {
   if (!shortcut.trim()) return true;
   const parts = parseShortcut(shortcut);
@@ -2468,9 +2463,6 @@ function normalizeEventKey(key) {
 function isModifierKey(key) {
   return key === "Alt" || key === "Ctrl" || key === "Meta" || key === "Shift";
 }
-function dedupeShortcutParts(parts) {
-  return parts.filter((part, index) => parts.indexOf(part) === index);
-}
 const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
 const LEGACY_SETTINGS_STORAGE_KEYS = [
   "jpdb-reader-settings",
@@ -2488,6 +2480,9 @@ const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
 const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
 const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
 const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
+const DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
+const DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
+const DEFAULT_OCR_BACKGROUND_COLOR = OCR_OVERLAY_COLOR_TOKENS.background;
 const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
 const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
@@ -2784,10 +2779,10 @@ const DEFAULT_SETTINGS = {
   ocrPrefetchPages: 2,
   ocrConcurrency: 3,
   ocrInvertDarkPanels: true,
-  ocrTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
-  ocrOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
-  ocrBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
-  ocrBackgroundOpacity: 0.32,
+  ocrTextColor: DEFAULT_OCR_TEXT_COLOR,
+  ocrOutlineColor: DEFAULT_OCR_OUTLINE_COLOR,
+  ocrBackgroundColor: DEFAULT_OCR_BACKGROUND_COLOR,
+  ocrBackgroundOpacity: 0.68,
   ocrFontScale: 1,
   localDictionariesEnabled: true,
   localDictionaryMaxResults: 12,
@@ -3698,12 +3693,14 @@ const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAIL
 const EASY_FURIGANA_KANJI = new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
 );
-const EDITABLE_TEXT_SURFACE_SELECTOR = '[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[data-testid*="composer" i],[data-testid*="prompt-textarea" i],[data-test-id*="composer" i],[data-test-id*="prompt-textarea" i],[class*="composer" i],[id*="composer" i],[class*="placeholder" i],[class*="prompt-textarea" i],[id*="prompt-textarea" i],[class*="ProseMirror" i]';
+const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
+const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
+const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],${selectorPairs("composer,prompt-textarea", ["data-testid", "data-test-id", "class", "id"])},[class*="placeholder" i],[class*="ProseMirror" i]`;
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
 const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
 const GENERIC_CONTROL_TEXT_SKIP_SELECTOR = `${FORM_BOUNDARY_SKIP_SELECTOR},[role=form],[role=search]`;
-const PLAYER_CHROME_SKIP_SELECTOR = '[class*="control" i],[class*="toggle" i],[class*="player" i]';
+const PLAYER_CHROME_SKIP_SELECTOR = selectorPairs("control,toggle,player", ["class"]);
 const SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
 const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka,kifuku".split(","));
 const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
@@ -3742,70 +3739,20 @@ const CONVERSATION_TEXT_CLASS_RE = /(^|[-_\s])(chat|comment|message|post|reply)(
 const READABLE_PROSE_CONTAINER_SELECTOR = "article,main,[role=main],[role=article]";
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6";
-const PASSIVE_INTERACTION_SELECTOR = 'a[href],button,summary,label,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[role="checkbox"],[role="radio"],[role="switch"],[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less';
-const COMPACT_PASSIVE_INTERACTION_SELECTOR = '[onclick],[tabindex]:not([tabindex="-1"]),[class*="audio" i],[class*="button" i],[class*="control" i],[class*="play" i],[class*="sound" i],[class*="speaker" i],[class*="toggle" i]';
-const COMPACT_PASSIVE_CHROME_SELECTOR = 'time,[datetime],[aria-label*="author" i],[aria-label*="username" i],[class*="author" i],[class*="byline" i],[class*="display-name" i],[class*="handle" i],[class*="header" i],[class*="meta" i],[class*="nickname" i],[class*="screen-name" i],[class*="user-name" i],[class*="username" i]';
+const PASSIVE_INTERACTION_SELECTOR = `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+const COMPACT_PASSIVE_INTERACTION_SELECTOR = `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
+const COMPACT_PASSIVE_CHROME_SELECTOR = `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
 const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
 const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = "ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer";
 const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]";
-const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = 'button, label, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="checkbox"], [role="radio"], [role="switch"]';
+const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch")}`;
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = [
-  "header",
-  "nav",
-  "footer",
-  "aside",
-  '[role="banner"]',
-  '[role="navigation"]',
-  '[role="contentinfo"]',
-  '[role="complementary"]',
-  '[role="dialog"]',
-  '[role="listbox"]',
-  '[role="menu"]',
-  '[role="menubar"]',
-  '[role="tablist"]',
-  '[role="toolbar"]',
-  '[aria-modal="true"]',
-  '[class*="account" i]',
-  '[id*="account" i]',
-  '[class*="appearance" i]',
-  '[id*="appearance" i]',
-  '[class*="chooser" i]',
-  '[id*="chooser" i]',
-  '[class*="dialog" i]',
-  '[id*="dialog" i]',
-  '[class*="dropdown" i]',
-  '[id*="dropdown" i]',
-  '[class*="login" i]',
-  '[id*="login" i]',
-  '[class*="menu" i]',
-  '[id*="menu" i]',
-  '[class*="modal" i]',
-  '[id*="modal" i]',
-  '[class*="picker" i]',
-  '[id*="picker" i]',
-  '[class*="pinnable" i]',
-  '[id*="pinnable" i]',
-  '[class*="profile" i]',
-  '[id*="profile" i]',
-  '[class*="prefs" i]',
-  '[id*="prefs" i]',
-  '[class*="sidebar" i]',
-  '[id*="sidebar" i]',
-  '[class*="signin" i]',
-  '[id*="signin" i]',
-  '[class*="tabs" i]',
-  '[id*="tabs" i]',
-  '[class*="toc" i]',
-  '[id*="toc" i]',
-  '[class*="toolbar" i]',
-  '[id*="toolbar" i]'
-].join(",");
-const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="book" i],[class*="card" i],[class*="gallery" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="product" i],[class*="shelf" i],[class*="thumb" i],[class*="tile" i],[class*="video" i],[class*="volume" i],[class*="work" i]';
+const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,aside,[role="banner"],[role="navigation"],[role="contentinfo"],[role="complementary"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,appearance,chooser,dialog,dropdown,login,menu,modal,picker,pinnable,profile,prefs,sidebar,signin,tabs,toc,toolbar")}`;
+const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = selectorPairs("banner,book,card,carousel,gallery,grid,item,lockup,movie,poster,product,rail,scroll,shelf,slick,slider,splide,swiper,thumb,tile,video,volume,work", ["class"]);
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
 const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
-const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = 'canvas,img,picture,svg,video,[class*="cover" i],[class*="image" i],[class*="poster" i],[class*="thumb" i]';
+const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = `canvas,img,picture,svg,video,${selectorPairs("cover,image,poster,thumb", ["class"])}`;
 const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
 const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
 const COMPACT_MEDIA_CHROME_TEXT_LIMIT = 40;
@@ -3818,17 +3765,7 @@ const COMPACT_MEDIA_RUBY_RISK_ANCESTOR_LIMIT = 8;
 const COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT = 10;
 const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
 const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
-const CONSTRAINED_NOTIFICATION_SELECTOR = [
-  '[role="alert"]',
-  '[role="status"]',
-  "[aria-live]",
-  '[class*="alert" i]',
-  '[class*="banner" i]',
-  '[class*="notice" i]',
-  '[class*="notification" i]',
-  '[class*="snackbar" i]',
-  '[class*="toast" i]'
-].join(",");
+const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])}`;
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
 const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;
@@ -3994,12 +3931,17 @@ function textTargetParentFilterResult(parent, text2, visibleOnly, options) {
   return NodeFilter.FILTER_ACCEPT;
 }
 function shouldRejectTextTargetParent(parent, text2, visibleOnly, options) {
-  if (!options.includeFormChrome && parent.closest(GENERIC_CONTROL_TEXT_SKIP_SELECTOR)) return true;
+  const genericControl = parent.closest(GENERIC_CONTROL_TEXT_SKIP_SELECTOR);
+  if (!options.includeFormChrome && genericControl && !isCompactControlDescendantTextTarget(parent, text2)) return true;
   const blocked = parent.closest(SKIP_SELECTOR);
   if (blocked && !isAnnotatableChipControl(blocked)) return true;
   if (isInsideExcludedReaderRoot(parent, options)) return true;
   if (isShortCenteredDisplayHeading(parent, text2)) return true;
   return shouldRejectTextTargetPresentation(parent, text2, visibleOnly);
+}
+function isCompactControlDescendantTextTarget(parent, text2) {
+  if (!isCompactInteractiveChromeText(text2.replace(/\s+/g, ""))) return false;
+  return Boolean(compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent));
 }
 function isInsideExcludedReaderRoot(parent, options) {
   if (options.includeReaderRoot) return false;
@@ -4253,8 +4195,11 @@ function shouldFlushAndSkipFragmentElement(element2, state, isRoot) {
 }
 function matchesSkippedFragmentElement(element2, state, isRoot) {
   if (state.excludeSelector && safeElementMatches$1(element2, state.excludeSelector)) return true;
-  if (isRoot && element2.closest(EDITABLE_TEXT_SURFACE_SELECTOR)) return true;
+  if (isRoot && element2.closest(EDITABLE_TEXT_SURFACE_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element2, state.options)) return true;
   return !isRoot && shouldSkipFragmentElement(element2, state.options);
+}
+function isSafeEditableSurfaceFragmentRoot(element2, options) {
+  return Boolean(options.includePassiveInteractions && safeElementMatches$1(element2, PASSIVE_INTERACTION_SELECTOR) && isNavigationChromeContext(element2));
 }
 function shouldSkipInvisibleFragmentElement(element2, visibleOnly) {
   if (!hasVisibleTextStyle(element2) && !hasVisibleTextMirror(element2)) return true;
@@ -6867,7 +6812,7 @@ function isReadMethod(method) {
 }
 async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", options = {}) {
   const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
-  if (!candidates.length) throw new Error("Cross-origin request needs a configured proxy or userscript HTTP bridge.");
+  if (!candidates.length) throw new Error("No configured proxy.");
   let lastError;
   for (const [index, candidate] of candidates.entries()) {
     try {
@@ -7406,8 +7351,6 @@ const COPY = {
     featureControlBody: "Tune features, shortcuts, and color.",
     featureStudy: "Study",
     featureStudyBody: "Review words and kanji on the study page.",
-    featureGame: "Game",
-    featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
     scanPage: "Scan page",
     noUnscannedJapaneseText: "No unscanned Japanese text found.",
     jpdbScanFailed: "Page scan failed.",
@@ -7448,7 +7391,7 @@ const COPY = {
     apiKey: "API key",
     jitenApiKey: "Jiten API key",
     apiAccess: "API access",
-    apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.",
+    apiAccessHelp: "Paste separate Jiten and JPDB keys. Study decks stay scoped to the selected provider; local dictionaries still work without keys.",
     jpdbSettings: "JPDB settings",
     jitenSettings: "Jiten settings",
     jpdbApiKeyConfigured: "JPDB key set.",
@@ -7904,7 +7847,7 @@ const COPY = {
     ankiMappingHighConfidence: "High",
     ankiMappingMediumConfidence: "Medium",
     ankiMappingLowConfidence: "Low",
-    ankiHelp: "Install AnkiConnect, keep desktop Anki open, and add this site to webCorsOriginList if the status mentions CORS. Mobile handoff creates notes without full desktop review access.",
+    ankiHelp: "Install AnkiConnect and keep desktop Anki open. If CORS appears, add this site to webCorsOriginList. Mobile handoff creates notes only.",
     jpdbDefinitionsEnabled: "Show JPDB definitions",
     localDictionariesEnabled: "Show imported dictionary definitions",
     dictionarySourcesInitiallyExpanded: "Open sources by default",
@@ -7915,9 +7858,9 @@ const COPY = {
     exportSettings: "Export settings JSON",
     importDictionaries: "Import dictionaries",
     exportDictionaries: "Export dictionaries",
-    dictionaryImportHelp: "Import a Yomitan ZIP, Yomitan settings export, or backup. Term dictionaries add definitions; pitch and frequency dictionaries add accents and badges.",
+    dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pitch, and frequency dictionaries add definitions, accents, and badges.",
     lookupPills: "Lookup pills",
-    lookupPillsHelp: "External links and frequency badges in one order. Live Jiten/JPDB badges come from site lookup; installed frequency dictionaries are local and replace the matching live badge. Tokens: {query}, {word}, {reading}.",
+    lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
     copiesCurrentWord: "Copies the current word",
     lookupPillLabel: "Lookup pill label",
     lookupPillLabelNumber: "Lookup pill {number} label",
@@ -8165,7 +8108,7 @@ const COPY = {
     updateStatusCurrent: "Current {current}. Latest {latest}. You are up to date.",
     updateStatusAvailable: "Current {current}. Latest {latest}. Update available.",
     updateStatusUnknown: "Current {current}. Latest version could not be checked. Use the update link to reinstall.",
-    updateHelpNotes: "If two Yomu scripts are enabled, keep one. On iPhone/iPad, open the install link in Safari and replace the old Userscripts file if automatic updates do not apply.",
+    updateHelpNotes: "If two Yomu scripts are enabled, keep one. On iPhone/iPad, open the install link in Safari if automatic updates do not apply.",
     updateUserscript: "Update/Reinstall userscript",
     duplicateStatusSingle: "Duplicate script check: one active Yomu runtime on this page ({kind}).",
     duplicateStatusUnknown: "Duplicate script check: unavailable on this page. If you see two Yomu buttons or menus, disable the older script.",
@@ -8587,8 +8530,6 @@ featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
 featureStudyBody	学習ページで単語と漢字を復習。
-featureGame	ゲーム
-featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -9113,7 +9054,7 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。学習デッキは選択中のサービスにだけ適用され、どちらか一方、両方、またはローカル辞書のみでも使えます。
+apiAccessHelp	JitenとJPDBのキーを別々に貼ります。学習デッキは選択中のサービスに適用され、キーなしでもローカル辞書は使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
@@ -9538,7 +9479,7 @@ ankiMappingConfidenceHelp	フィールド名とサンプルで判断します。
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
-ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開いたままにします。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
+ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開きます。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
@@ -9549,9 +9490,9 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	Yomitan ZIP、Yomitan設定エクスポート、バックアップを読み込みます。語句辞書は定義を追加し、ピッチ/頻度辞書はアクセントやバッジを追加します。
+dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/ピッチ/頻度辞書で定義、アクセント、バッジを追加します。
 lookupPills	検索ピル
-lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。Jiten/JPDBのライブバッジはサイト検索由来、インストール済み頻度辞書はローカルで一致するライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
+lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -9631,7 +9572,7 @@ updateStatusChecking	現在 {current}。最新バージョンを確認中...
 updateStatusCurrent	現在 {current}。最新 {latest}。最新です。
 updateStatusAvailable	現在 {current}。最新 {latest}。更新できます。
 updateStatusUnknown	現在 {current}。最新バージョンを確認できません。更新リンクで再インストールしてください。
-updateHelpNotes	よむスクリプトが2つ有効なら1つだけ残してください。iPhone/iPadではSafariでインストールリンクを開き、自動更新されない場合はUserscripts内の古いファイルを置き換えてください。
+updateHelpNotes	よむスクリプトが2つ有効なら1つだけ残してください。iPhone/iPadで自動更新されない場合はSafariでインストールリンクを開いてください。
 updateUserscript	ユーザースクリプトを更新/再インストール
 duplicateStatusSingle	重複スクリプト確認: このページで有効なYomuランタイムは1つです（{kind}）。
 duplicateStatusUnknown	重複スクリプト確認: このページでは確認できません。よむボタンやメニューが2つ出る場合は古いスクリプトを無効にしてください。
@@ -22892,7 +22833,30 @@ ${glossaryKey}`;
     return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="Jiten" data-pitch-class="" data-sentence="${escapeHtml$1(options.sentence ?? reference.text)}" data-expression="${escapeHtml$1(reference.text)}"${readingAttribute} tabindex="-1">${content}</span>`;
   }
   function renderJitenReferenceContent(text2, reading) {
-    return reading ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(text2)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(reading)}</rt><rp>)</rp></ruby>` : escapeHtml$1(text2);
+    return reading ? renderRuby(text2, refRubyToken(text2, reading)) : escapeHtml$1(text2);
+  }
+  function refRubyToken(text2, reading) {
+    return {
+      card: {
+        vid: 0,
+        sid: 0,
+        rid: 0,
+        spelling: text2,
+        reading,
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ["not-in-deck"],
+        pitchAccent: [],
+        wordWithReading: null
+      },
+      start: 0,
+      end: text2.length,
+      length: text2.length,
+      rubies: [],
+      pitchClass: "",
+      sentence: text2
+    };
   }
   function visibleJitenReferenceReading(text2, reading) {
     const normalizedText = text2.trim();
@@ -27105,6 +27069,7 @@ ${spelling}`);
   }
   function jitenCardFromVocabulary(vocabulary) {
     const reading = cleanJitenAnnotatedReading$1(vocabulary.reading);
+    const wordWithReading = cleanJitenAnnotatedSpelling(vocabulary.reading).trim() === vocabulary.spelling ? vocabulary.reading : null;
     const pitchAccent = jitenPitchAccentPatterns(vocabulary.pitchAccents, reading);
     const reviewGradeIntervals = jitenReviewGradeIntervals(vocabulary);
     const deckNames = jitenVocabularyDeckNames(vocabulary);
@@ -27122,7 +27087,7 @@ ${spelling}`);
       })),
       cardState: jitenKnownStateToCardStates(vocabulary.knownState),
       pitchAccent,
-      wordWithReading: null,
+      wordWithReading,
       source: "jiten",
       reviewSource: "jiten-api",
       jitenWordId: vocabulary.wordId,
@@ -28130,7 +28095,7 @@ ${key}`] = { t: now, v: value };
       await mapLimited(pending, DETAIL_CONCURRENCY, async (item) => {
         const card = await this.lookupDetail(item.word, item.requestedTerm).catch((error) => {
           this.noteFailure(error);
-          log$9.warn("Jiten parsed detail", { wordId: item.word.wordId, readingIndex: item.word.readingIndex }, error);
+          logPublicJitenFailure("Jiten parsed detail", { wordId: item.word.wordId, readingIndex: item.word.readingIndex }, error);
           return null;
         });
         if (!card) return;
@@ -28226,7 +28191,7 @@ ${key}`] = { t: now, v: value };
         statusFailureMessage: (status) => `Jiten fail (${status}).`,
         proxyUrl: this.proxyUrl(),
         anonymous: true,
-        allowDirectCrossOrigin: true,
+        allowDirectCrossOrigin: false,
         allowConfiguredProxy: true,
         allowSensitiveConfiguredProxy: false,
         allowPublicProxies: false,
@@ -28453,11 +28418,7 @@ ${key}`] = { t: now, v: value };
     return /\b(?:429|5\d\d|too many requests|rate[- ]?limited|timed out|aborted|abort|upstream)\b|cloudflare/i.test(message);
   }
   function logPublicJitenFailure(message, context, error) {
-    if (isPublicJitenQuietNetworkMiss(error)) return;
     log$9.warn(message, context, error);
-  }
-  function isPublicJitenQuietNetworkMiss(error) {
-    return /failed to fetch|networkerror|load failed|cors|blocked/i.test(errorMessage(error));
   }
   function errorName(error) {
     return isRecord(error) && typeof error.name === "string" ? error.name : "";
@@ -30832,6 +30793,433 @@ function rectContainsPoint(rect, x, y) {
   const slack = 1;
   return hasPositiveRectArea(rect, right, bottom) && coordinateInRange(x, rect.left, right, slack) && coordinateInRange(y, rect.top, bottom, slack);
 }
+const READER_DOCUMENT_CLICK_IGNORE_SELECTOR = [
+  '[data-jpdb-reader-root] [data-action="kanji"][data-kanji]',
+  "[data-yomu-jpdb-addon] [data-action]",
+  "[data-settings-preview-lookup]",
+  ".jpdb-reader-settings .jpdb-reader-word"
+].join(",");
+const NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR = [
+  "a[href]",
+  "button",
+  "input",
+  "textarea",
+  "select",
+  "summary",
+  '[role="button"]',
+  '[contenteditable="true"]',
+  "[data-audio]",
+  "[onclick]",
+  ".subsection-immersion-kit",
+  '[class*="immersion" i]',
+  '[class*="audio" i]',
+  '[class*="sound" i]',
+  '[class*="speaker" i]',
+  '[class~="play" i]',
+  '[class*="-play" i]',
+  '[class*="play-" i]',
+  '[class~="control" i]',
+  '[class*="-control" i]',
+  '[class*="control-" i]',
+  '[class~="button" i]',
+  '[class*="-button" i]',
+  '[class*="button-" i]',
+  '[class~="icon" i]',
+  '[class*="-icon" i]',
+  '[class*="icon-" i]'
+].join(",");
+const NATIVE_CLICKABLE_SELECTOR = 'a[href], button, [role="button"], summary, [onclick]';
+const READER_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-reader-popover";
+function nativeClickableAncestor(target) {
+  const link = navigableLinkAncestor(target);
+  if (link) return link;
+  if (target && isJpdbHost() && isActiveNativePageReaderWord(target)) return null;
+  const clickable = closestTarget(target, NATIVE_CLICKABLE_SELECTOR);
+  if (!clickable || clickable.closest(READER_SURFACE_SELECTOR)) return null;
+  if (clickable instanceof HTMLAnchorElement && !hasNavigableHref(clickable)) return null;
+  return clickable;
+}
+function navigableLinkAncestor(target) {
+  const anchor = closestTarget(target, "a[href]");
+  if (!anchor || anchor.closest(READER_SURFACE_SELECTOR) || !hasNavigableHref(anchor)) return null;
+  return anchor;
+}
+function hasNavigableHref(anchor) {
+  const href = anchor.getAttribute("href")?.trim() ?? "";
+  return Boolean(href) && href !== "#" && !href.toLowerCase().startsWith("javascript:");
+}
+function shouldIgnoreDocumentClickTarget(target) {
+  return Boolean(closestTarget(target, READER_DOCUMENT_CLICK_IGNORE_SELECTOR)) || isNativePageLookupBlocked(target);
+}
+function isNativePageLookupBlocked(target) {
+  if (!isJpdbHost() || !target || closestTarget(target, "[data-jpdb-reader-root]")) return false;
+  if (isActiveNativePageReaderWord(target)) return false;
+  return Boolean(closestTarget(target, NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR));
+}
+function isActiveNativePageReaderWord(target) {
+  const word = closestTarget(target, ".jpdb-reader-word");
+  return Boolean(word && word.dataset.jpdbReaderPassive !== "true" && !closestTarget(word, "[data-jpdb-reader-root]"));
+}
+function closestTarget(target, selector) {
+  const closest = target?.closest;
+  return typeof closest === "function" ? closest.call(target, selector) : null;
+}
+const RENDERED_WORD_CONTRAST_VARS = [
+  "--jpdb-reader-page-bg",
+  "--jpdb-reader-highlight-backdrop",
+  "--jpdb-reader-furi-accessible-color",
+  "--jpdb-reader-word-accessible-color",
+  "--jpdb-reader-word-accessible-highlight",
+  "--jpdb-reader-word-accessible-underline",
+  "--jpdb-reader-word-highlight-text",
+  "--jpdb-reader-word-contrast-shadow"
+];
+const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
+  (name) => name !== "--jpdb-reader-word-contrast-shadow"
+);
+const RENDERED_WORD_CARD_STATES = [
+  "new",
+  "learning",
+  "young",
+  "mature",
+  "known",
+  "mastered",
+  "due",
+  "failed",
+  "locked",
+  "never-forget",
+  "blacklisted",
+  "suspended",
+  "in-deck",
+  "not-in-deck",
+  "redundant",
+  "frequent",
+  "unparsed"
+];
+const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback"];
+const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
+const RENDERED_WORD_MINING_INSIGHT_STATES = new Set(["new", "not-in-deck", "in-deck"]);
+function clearRenderedWordAnkiState(word) {
+  Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
+  delete word.dataset.ankiState;
+  delete word.dataset.ankiDecks;
+  RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+  if (word.title.startsWith("Anki:")) word.removeAttribute("title");
+}
+function renderedWordHasAnkiState(word) {
+  return Boolean(word.dataset.ankiState || word.dataset.ankiDecks || Array.from(word.classList).some((className) => className.startsWith("anki-")));
+}
+function renderedWordCardKey(vid, sid) {
+  return `${vid}:${sid}`;
+}
+function renderedWordElementKey(word) {
+  return renderedWordCardKey(Number(word.dataset.vid), Number(word.dataset.sid));
+}
+function isValidRenderedWordKey(key) {
+  const parts = key.split(":");
+  return parts.length === 2 && parts.every((part) => part.trim() !== "" && Number.isFinite(Number(part)));
+}
+function renderedWordSelectorForKey(key) {
+  if (!isValidRenderedWordKey(key)) return null;
+  const [vid, sid] = key.split(":");
+  return `.jpdb-reader-word[data-vid="${escapeCssAttributeValue(vid ?? "")}"][data-sid="${escapeCssAttributeValue(sid ?? "")}"]`;
+}
+function rootContainsRenderedWord(root, word) {
+  return root === document || root === word || root instanceof Node && root.contains(word);
+}
+function renderedWordsInRoot(root) {
+  const words = new Set();
+  if (root instanceof HTMLElement && root.matches(".jpdb-reader-word[data-vid][data-sid]")) words.add(root);
+  root.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => words.add(word));
+  return [...words];
+}
+async function* renderedWordsInRootChunked(root, chunkSize) {
+  let yielded = 0;
+  const maybeYield = async () => {
+    yielded += 1;
+    if (yielded % chunkSize === 0) await yieldToNextTask();
+  };
+  if (root instanceof HTMLElement && root.matches(".jpdb-reader-word[data-vid][data-sid]")) {
+    yield root;
+    await maybeYield();
+  }
+  const ownerDocument = root instanceof Document ? root : root.ownerDocument ?? document;
+  const walker = ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+    acceptNode(node2) {
+      return node2 instanceof HTMLElement && node2.matches(".jpdb-reader-word[data-vid][data-sid]") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+    }
+  });
+  let node = walker.nextNode();
+  while (node) {
+    yield node;
+    await maybeYield();
+    node = walker.nextNode();
+  }
+}
+function uniqueParentNodes(roots) {
+  return [...new Set(roots)];
+}
+function renderedFallbackVocabularyCacheKey(word) {
+  const vid = Number(word.dataset.vid);
+  const sid = Number(word.dataset.sid);
+  const spelling = word.dataset.expression?.trim() ?? "";
+  return Number.isFinite(vid) && Number.isFinite(sid) && spelling ? `${vid}:${sid}:${spelling}:` : "";
+}
+function setRenderedWordPitchClass(word, pitchClass) {
+  Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
+  word.dataset.pitchClass = pitchClass;
+  if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
+}
+function setRenderedWordCardIdentity(word, card) {
+  const source = renderedWordCardSource(card);
+  const state = primaryCardState(card.cardState);
+  clearRenderedWordCardStateClasses(word);
+  clearRenderedWordDeckMembershipClasses(word, ["anki"]);
+  word.dataset.vid = String(card.vid);
+  word.dataset.sid = String(card.sid);
+  word.dataset.cardSource = source;
+  word.dataset.cardId = String(renderedWordCardId(card, source));
+  word.dataset.readingIndex = String(renderedWordReadingIndex(card, source));
+  word.dataset.cardState = state;
+  word.dataset.expression = card.spelling;
+  word.dataset.reading = card.reading;
+  if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
+  const pitchAccent = card.pitchAccent.join("|");
+  if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
+  else delete word.dataset.pitchAccent;
+  word.classList.add(`jpdb-${state}`);
+  if (source !== "jpdb") word.classList.add(`${source}-${state}`);
+  applyRenderedWordDeckMembership(word, card);
+}
+function clearRenderedWordMiningInsight(word) {
+  word.classList.remove("jpdb-reader-i-plus-one");
+  delete word.dataset.miningInsight;
+}
+function escapeCssAttributeValue(value) {
+  return value.replace(/["\\]/g, "\\$&");
+}
+function clearRenderedWordCardStateClasses(word) {
+  Array.from(word.classList).filter(isRenderedWordCardStateClass).forEach((className) => word.classList.remove(className));
+}
+function clearRenderedWordDeckMembershipClasses(word, preserveSources = []) {
+  Array.from(word.classList).filter((className) => isRenderedWordDeckMembershipClass(className, preserveSources)).forEach((className) => word.classList.remove(className));
+  if (preserveSources.length) return;
+  delete word.dataset.deckMember;
+  delete word.dataset.deckSource;
+  delete word.dataset.deckNames;
+}
+function isRenderedWordCardStateClass(className) {
+  return RENDERED_WORD_CARD_STATE_PREFIXES.some((prefix) => RENDERED_WORD_CARD_STATES.some((state) => className === `${prefix}-${state}`));
+}
+function isRenderedWordDeckMembershipClass(className, preserveSources) {
+  if (className === "yomu-deck-member") return false;
+  if (className.startsWith("yomu-deck-")) return true;
+  return RENDERED_WORD_DECK_SOURCE_PREFIXES.some((prefix) => {
+    if (preserveSources.includes(prefix)) return false;
+    return className === `${prefix}-deck-member` || className.startsWith(`${prefix}-deck-`);
+  });
+}
+function applyRenderedWordDeckMembership(word, card) {
+  const membership = cardDeckMembership(card);
+  if (!membership.member) {
+    if (!word.classList.contains("anki-deck-member")) {
+      word.classList.remove("yomu-deck-member");
+      delete word.dataset.deckMember;
+      delete word.dataset.deckSource;
+      delete word.dataset.deckNames;
+    }
+    return;
+  }
+  word.classList.add(...cardDeckMembershipClassNames(card));
+  word.dataset.deckMember = "true";
+  word.dataset.deckSource = membership.source;
+  if (membership.names.length) word.dataset.deckNames = membership.names.join(", ");
+  else delete word.dataset.deckNames;
+}
+function renderedWordCardSource(card) {
+  return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
+}
+function renderedWordCardId(card, source = renderedWordCardSource(card)) {
+  return source === "jiten" ? card.jitenWordId ?? card.vid : card.vid;
+}
+function renderedWordReadingIndex(card, source = renderedWordCardSource(card)) {
+  return source === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
+}
+function yieldToNextTask() {
+  return new Promise((resolve) => window.setTimeout(resolve, 0));
+}
+function isOcrLineFrameWord(word) {
+  return word.classList.contains("jpdb-ocr-line") && !word.dataset.vid && !word.dataset.sid;
+}
+function ocrLineWordAtPoint(line, x, y) {
+  const words = Array.from(line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]"));
+  if (!words.length) return null;
+  return words.find((word) => pointInsideExpandedRect(word.getBoundingClientRect(), x, y, 8)) ?? null;
+}
+function singleKanjiOcrLookupCharacter(word) {
+  if (!word.closest(".jpdb-ocr-line")) return "";
+  const surface = normalizedLookupText(readerWordSurfaceText(word) || word.dataset.expression || "");
+  const characters = Array.from(surface);
+  return characters.length === 1 && isKanjiCharacter(characters[0] ?? "") ? characters[0] : "";
+}
+function canLookupReaderWordElement(word) {
+  if (isOcrLineFrameWord(word)) return false;
+  if (word.dataset.jpdbReaderPassive === "true") return false;
+  if (word.closest(".jpdb-reader-control-text-mirror")) return true;
+  if (isNativePageLookupBlocked(word)) return false;
+  if (!word.closest("[data-jpdb-reader-root]")) return true;
+  return Boolean(word.closest(".jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-popover, .yomu-jpdb-page-addon"));
+}
+function canClickLookupPassiveReaderWordElement(word) {
+  if (isOcrLineFrameWord(word)) return false;
+  if (word.dataset.jpdbReaderPassive !== "true") return false;
+  if (!word.classList.contains("jpdb-reader-scan-word")) return false;
+  return !isNativePageLookupBlocked(word);
+}
+function canHoverLookupReaderWordElement(word, hasHoverLookupShortcut) {
+  if (isOcrLineFrameWord(word)) return false;
+  if (word.closest(".jpdb-reader-popover")) return false;
+  if (word.closest(".jpdb-reader-control-text-mirror")) return !word.closest("[data-jpdb-reader-root]") || hasHoverLookupShortcut;
+  if (isSettingsReaderWord(word)) return hasHoverLookupShortcut;
+  if (isSettingsNativeControlWord(word)) return false;
+  if (isNativePageLookupBlocked(word) && word.dataset.jpdbReaderPassive !== "true") return false;
+  if (!word.closest("[data-jpdb-reader-root]")) return true;
+  if (word.closest(".jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .yomu-jpdb-page-addon")) return true;
+  return hasHoverLookupShortcut && Boolean(word.closest(".jpdb-reader-newtab, .jpdb-reader-settings"));
+}
+function isSettingsReaderWord(word) {
+  return Boolean(word.closest(".jpdb-reader-settings"));
+}
+function isSettingsNativeControlWord(word) {
+  return Boolean(word.closest(".jpdb-reader-settings") && word.closest('a[href],button,input,label,select,textarea,[role="button"],[role="checkbox"],[role="link"],[role="menuitem"],[role="option"],[role="radio"],[role="switch"],[role="tab"],[data-action]'));
+}
+function currentLookupNavigationWord(words, activePopoverAnchor, keyboardActiveWord) {
+  const activeAnchor = activePopoverAnchor?.isConnected ? activePopoverAnchor : void 0;
+  if (activeAnchor && words.includes(activeAnchor)) return activeAnchor;
+  if (keyboardActiveWord?.isConnected && words.includes(keyboardActiveWord)) return keyboardActiveWord;
+  return void 0;
+}
+const IMAGE_READING_MIN_AREA = 15e4;
+const IMAGE_READING_MIN_VIEWPORT_RATIO = 0.35;
+const IMAGE_READING_MIN_EDGE = 240;
+function documentLooksLikeImageReadingPage() {
+  if (document.querySelector('canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas')) return true;
+  const images = Array.from(document.images).filter((image) => !image.closest("[data-jpdb-reader-root]"));
+  if (images.length === 1 && isStandaloneImageDocument(images[0])) return true;
+  return images.some(imageLooksLikeReadableSurface);
+}
+function isStandaloneImageDocument(image) {
+  const bodyText = document.body?.textContent?.replace(/\s+/g, "").trim() ?? "";
+  return !bodyText && Boolean(image.currentSrc || image.src);
+}
+function imageLooksLikeReadableSurface(image) {
+  if (!image.currentSrc && !image.src) return false;
+  const rect = image.getBoundingClientRect();
+  const visibleWidth = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
+  const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+  const visibleArea = visibleWidth * visibleHeight;
+  const viewportArea = Math.max(1, window.innerWidth * window.innerHeight);
+  return visibleArea >= IMAGE_READING_MIN_AREA && visibleArea / viewportArea >= IMAGE_READING_MIN_VIEWPORT_RATIO && Math.min(visibleWidth, visibleHeight) >= IMAGE_READING_MIN_EDGE;
+}
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+function replaceOptionalElement(parent, selector, html, before = null) {
+  const existing = parent.querySelector(selector);
+  const next = htmlToFirstElement(html);
+  if (existing && next) {
+    existing.replaceWith(next);
+    return;
+  }
+  if (existing) {
+    existing.remove();
+    return;
+  }
+  if (next) parent.insertBefore(next, before);
+}
+function updateRenderedPitch(popover, card, metaEntries, showPitchAccent) {
+  const tools = popover.querySelector(".jpdb-reader-card-tools");
+  if (!tools || !showPitchAccent) return;
+  replaceOptionalElement(tools, ".jpdb-reader-pitch", renderPitch(card, metaEntries), tools.firstElementChild);
+}
+function applyPublicVocabularyFurigana(word, card, settings) {
+  if (word.closest("ruby")) return;
+  const ocrLine = word.closest(".jpdb-ocr-line");
+  const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
+  const renderSettings = publicVocabularyFuriganaSettings(word, settings);
+  if (shouldHideFuriganaForCardState(renderSettings, primaryCardState(card.cardState))) {
+    clearPublicVocabularyFurigana(word, surface, ocrLine);
+    return;
+  }
+  const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
+  const token = {
+    card,
+    start: 0,
+    end: surface.length,
+    length: surface.length,
+    rubies,
+    pitchClass: word.dataset.pitchClass ?? "",
+    sentence: word.dataset.sentence
+  };
+  if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
+  const html = renderRuby(surface, token);
+  if (!html.includes("<rt")) return;
+  setInnerHtml(word, html);
+  if (ocrLine) yomuNormalizeOcrRenderedText()?.(word);
+  word.classList.add("jpdb-reader-has-furi");
+  if (ocrLine) ocrLine.dataset.hasFuri = "true";
+}
+function clearPublicVocabularyFurigana(word, surface, ocrLine) {
+  if (!word.classList.contains("jpdb-reader-has-furi") && !word.querySelector(".jpdb-reader-furi, rt")) return;
+  word.textContent = surface;
+  word.classList.remove("jpdb-reader-has-furi");
+  if (!ocrLine) return;
+  yomuNormalizeOcrRenderedText()?.(word);
+  if (!ocrLine.querySelector(".jpdb-reader-word.jpdb-reader-has-furi")) delete ocrLine.dataset.hasFuri;
+}
+function publicVocabularyFuriganaSettings(word, settings) {
+  if (!word.closest('[data-yomu-furigana-mode="all"]')) return settings;
+  if (settings.showFurigana && settings.furiganaMode === "all") return settings;
+  return { ...settings, showFurigana: true, furiganaMode: "all" };
+}
+function applyAnkiLookupToRenderedWord(word, ankiLookup, language, options = {}) {
+  if (!ankiLookup.primary) {
+    if (ankiLookup.trusted === false) return;
+    if (options.preserveExistingEmpty && renderedWordHasAnkiState(word)) {
+      word.dataset.ankiPreserveContrast = "true";
+      return;
+    }
+    clearRenderedWordAnkiState(word);
+    word.classList.add(`anki-${ankiLookup.state}`);
+    word.dataset.ankiState = ankiLookup.state;
+    word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}`;
+    return;
+  }
+  clearRenderedWordAnkiState(word);
+  word.classList.add(`anki-${ankiLookup.state}`);
+  word.dataset.ankiState = ankiLookup.state;
+  word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(", ") ?? "";
+  applyAnkiDeckMembershipToRenderedWord(word, ankiLookup.primary?.deckNames ?? []);
+  word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ""}`;
+}
+function applyAnkiDeckMembershipToRenderedWord(word, deckNames) {
+  if (!deckNames.length) return;
+  word.classList.add(...cardDeckMembershipClassNames({
+    cardState: ["in-deck"],
+    source: "anki",
+    ankiDeckNames: deckNames
+  }).filter((className) => !className.startsWith("yomu-")));
+}
+function shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rubies = []) {
+  const surfaceMatchesSpelling = surface.trim() === card.spelling.trim();
+  if (!surfaceMatchesSpelling && !rubies.length) return false;
+  if (!card.reading.trim() || card.reading.trim() === card.spelling.trim()) return false;
+  if (!shouldRenderRuby(surface, token, settings)) return false;
+  return !surfaceMatchesSpelling || Array.from(card.spelling).some(isKanjiCharacter);
+}
+function pointInsideExpandedRect(rect, x, y, pad) {
+  return x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad;
+}
 const STRUCTURAL_EXCLUDE_ENTRIES = [
   "[data-jpdb-reader-root]",
   ".jpdb-reader-text-mirror",
@@ -31216,6 +31604,14 @@ const YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS = [
   ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map((selector) => `ytd-comment-view-model ${selector}`),
   ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map((selector) => `ytm-comment-renderer ${selector}`)
 ].join(",");
+const YOUTUBE_COMMENT_HEADER_ROOTS = [
+  "ytd-comments-header-renderer #title",
+  "ytd-comments-header-renderer #count",
+  "ytd-comments-header-renderer .count-text",
+  "ytm-comments-header-renderer",
+  "ytm-comment-section-header-renderer",
+  "ytm-comments-entry-point-header-renderer"
+].join(",");
 const YOUTUBE_SYNTHETIC_TEXT_ROOTS = [
   "ytd-watch-info-text"
 ].join(",");
@@ -31553,8 +31949,6 @@ const SITE_PARSER_PROFILES = [
   {
     id: "youtube-comments-parser",
     roots: [
-      "ytd-transcript-segment-renderer",
-      "ytm-transcript-segment-renderer",
       "ytd-watch-metadata h1",
       "ytd-watch-metadata #title",
       "ytd-watch-metadata #owner ytd-channel-name yt-formatted-string",
@@ -31581,6 +31975,9 @@ const SITE_PARSER_PROFILES = [
       "ytm-slim-video-metadata-section-renderer #title",
       "ytm-expandable-video-description-body-renderer",
       "ytm-structured-description-content-renderer",
+      YOUTUBE_COMMENT_HEADER_ROOTS,
+      "ytd-transcript-segment-renderer",
+      "ytm-transcript-segment-renderer",
       ".ytp-ce-element .ytp-ce-video-title",
       ".ytp-ce-element .ytp-ce-playlist-title",
       ".ytp-pause-overlay .ytp-videowall-still-info-title",
@@ -32561,6 +32958,9 @@ function hasVisibleSiteScanTargets() {
 function allowsGenericVisibleAutoScan() {
   return !isYouTubeHostForAutoScan() && !isBookWalkerStorefrontPage() && !isBookWalkerReaderPage();
 }
+function shouldAutoScanImageOcr(pageHasJapaneseText) {
+  return !siteProvidesNativeTextLayer() && (pageHasJapaneseText || documentLooksLikeImageReadingPage() || isBookWalkerReaderPage() && Boolean(document.querySelector("canvas")));
+}
 function allowsFrequentVisibleAutoScan() {
   return true;
 }
@@ -32585,10 +32985,10 @@ function nestedPitchEnrichmentOptionsForHost(hostname) {
   return { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT };
 }
 function visibleAutoScanMutationDelay(defaultDelay = 450) {
-  return isYouTubeHostForAutoScan() ? 120 : defaultDelay;
+  return isYouTubeHostForAutoScan() ? 320 : defaultDelay;
 }
 function visibleAutoScanInitialDelay(defaultDelay = 600) {
-  return isYouTubeHostForAutoScan() ? 160 : defaultDelay;
+  return isYouTubeHostForAutoScan() ? 220 : defaultDelay;
 }
 function isYouTubeHostForAutoScan(hostname = location.hostname) {
   return hostname === "youtu.be" || hostname === "youtube.com" || hostname.endsWith(".youtube.com");
@@ -32976,439 +33376,12 @@ class PopupNavigationController {
 }
 function renderModalNavigation(options) {
   return `
-        <div class="jpdb-reader-modal-nav">
-            <button class="jpdb-reader-icon-mini" type="button" data-action="${escapeHtml$1(options.backAction)}" title="${escapeHtml$1(options.backTitle)}" aria-label="${escapeHtml$1(options.backTitle)}">←</button>
-            <span title="${escapeHtml$1(options.label)}">${escapeHtml$1(options.label)}</span>
-            ${options.controlsHtml ?? ""}
-        </div>
-    `;
-}
-const READER_DOCUMENT_CLICK_IGNORE_SELECTOR = [
-  '[data-jpdb-reader-root] [data-action="kanji"][data-kanji]',
-  "[data-yomu-jpdb-addon] [data-action]",
-  "[data-settings-preview-lookup]",
-  ".jpdb-reader-settings .jpdb-reader-word"
-].join(",");
-const NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR = [
-  "a[href]",
-  "button",
-  "input",
-  "textarea",
-  "select",
-  "summary",
-  '[role="button"]',
-  '[contenteditable="true"]',
-  "[data-audio]",
-  "[onclick]",
-  ".subsection-immersion-kit",
-  '[class*="immersion" i]',
-  '[class*="audio" i]',
-  '[class*="sound" i]',
-  '[class*="speaker" i]',
-  '[class~="play" i]',
-  '[class*="-play" i]',
-  '[class*="play-" i]',
-  '[class~="control" i]',
-  '[class*="-control" i]',
-  '[class*="control-" i]',
-  '[class~="button" i]',
-  '[class*="-button" i]',
-  '[class*="button-" i]',
-  '[class~="icon" i]',
-  '[class*="-icon" i]',
-  '[class*="icon-" i]'
-].join(",");
-const NATIVE_CLICKABLE_SELECTOR = 'a[href], button, [role="button"], summary, [onclick]';
-const READER_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-reader-popover";
-function nativeClickableAncestor(target) {
-  const link = navigableLinkAncestor(target);
-  if (link) return link;
-  if (target && isJpdbHost() && isActiveNativePageReaderWord(target)) return null;
-  const clickable = closestTarget(target, NATIVE_CLICKABLE_SELECTOR);
-  if (!clickable || clickable.closest(READER_SURFACE_SELECTOR)) return null;
-  if (clickable instanceof HTMLAnchorElement && !hasNavigableHref(clickable)) return null;
-  return clickable;
-}
-function navigableLinkAncestor(target) {
-  const anchor = closestTarget(target, "a[href]");
-  if (!anchor || anchor.closest(READER_SURFACE_SELECTOR) || !hasNavigableHref(anchor)) return null;
-  return anchor;
-}
-function hasNavigableHref(anchor) {
-  const href = anchor.getAttribute("href")?.trim() ?? "";
-  return Boolean(href) && href !== "#" && !href.toLowerCase().startsWith("javascript:");
-}
-function shouldIgnoreDocumentClickTarget(target) {
-  return Boolean(closestTarget(target, READER_DOCUMENT_CLICK_IGNORE_SELECTOR)) || isNativePageLookupBlocked(target);
-}
-function isNativePageLookupBlocked(target) {
-  if (!isJpdbHost() || !target || closestTarget(target, "[data-jpdb-reader-root]")) return false;
-  if (isActiveNativePageReaderWord(target)) return false;
-  return Boolean(closestTarget(target, NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR));
-}
-function isActiveNativePageReaderWord(target) {
-  const word = closestTarget(target, ".jpdb-reader-word");
-  return Boolean(word && word.dataset.jpdbReaderPassive !== "true" && !closestTarget(word, "[data-jpdb-reader-root]"));
-}
-function closestTarget(target, selector) {
-  const closest = target?.closest;
-  return typeof closest === "function" ? closest.call(target, selector) : null;
-}
-const RENDERED_WORD_CONTRAST_VARS = [
-  "--jpdb-reader-page-bg",
-  "--jpdb-reader-highlight-backdrop",
-  "--jpdb-reader-furi-accessible-color",
-  "--jpdb-reader-word-accessible-color",
-  "--jpdb-reader-word-accessible-highlight",
-  "--jpdb-reader-word-accessible-underline",
-  "--jpdb-reader-word-highlight-text",
-  "--jpdb-reader-word-contrast-shadow"
-];
-const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
-  (name) => name !== "--jpdb-reader-word-contrast-shadow"
-);
-const RENDERED_WORD_CARD_STATES = [
-  "new",
-  "learning",
-  "young",
-  "mature",
-  "known",
-  "mastered",
-  "due",
-  "failed",
-  "locked",
-  "never-forget",
-  "blacklisted",
-  "suspended",
-  "in-deck",
-  "not-in-deck",
-  "redundant",
-  "frequent",
-  "unparsed"
-];
-const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback"];
-const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
-const RENDERED_WORD_MINING_INSIGHT_STATES = new Set(["new", "not-in-deck", "in-deck"]);
-function clearRenderedWordAnkiState(word) {
-  Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
-  delete word.dataset.ankiState;
-  delete word.dataset.ankiDecks;
-  RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
-  if (word.title.startsWith("Anki:")) word.removeAttribute("title");
-}
-function renderedWordHasAnkiState(word) {
-  return Boolean(word.dataset.ankiState || word.dataset.ankiDecks || Array.from(word.classList).some((className) => className.startsWith("anki-")));
-}
-function renderedWordCardKey(vid, sid) {
-  return `${vid}:${sid}`;
-}
-function renderedWordElementKey(word) {
-  return renderedWordCardKey(Number(word.dataset.vid), Number(word.dataset.sid));
-}
-function isValidRenderedWordKey(key) {
-  const parts = key.split(":");
-  return parts.length === 2 && parts.every((part) => part.trim() !== "" && Number.isFinite(Number(part)));
-}
-function renderedWordSelectorForKey(key) {
-  if (!isValidRenderedWordKey(key)) return null;
-  const [vid, sid] = key.split(":");
-  return `.jpdb-reader-word[data-vid="${escapeCssAttributeValue(vid ?? "")}"][data-sid="${escapeCssAttributeValue(sid ?? "")}"]`;
-}
-function rootContainsRenderedWord(root, word) {
-  return root === document || root === word || root instanceof Node && root.contains(word);
-}
-function renderedWordsInRoot(root) {
-  const words = new Set();
-  if (root instanceof HTMLElement && root.matches(".jpdb-reader-word[data-vid][data-sid]")) words.add(root);
-  root.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => words.add(word));
-  return [...words];
-}
-async function* renderedWordsInRootChunked(root, chunkSize) {
-  let yielded = 0;
-  const maybeYield = async () => {
-    yielded += 1;
-    if (yielded % chunkSize === 0) await yieldToNextTask();
-  };
-  if (root instanceof HTMLElement && root.matches(".jpdb-reader-word[data-vid][data-sid]")) {
-    yield root;
-    await maybeYield();
-  }
-  const ownerDocument = root instanceof Document ? root : root.ownerDocument ?? document;
-  const walker = ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
-    acceptNode(node2) {
-      return node2 instanceof HTMLElement && node2.matches(".jpdb-reader-word[data-vid][data-sid]") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
-    }
-  });
-  let node = walker.nextNode();
-  while (node) {
-    yield node;
-    await maybeYield();
-    node = walker.nextNode();
-  }
-}
-function uniqueParentNodes(roots) {
-  return [...new Set(roots)];
-}
-function renderedFallbackVocabularyCacheKey(word) {
-  const vid = Number(word.dataset.vid);
-  const sid = Number(word.dataset.sid);
-  const spelling = word.dataset.expression?.trim() ?? "";
-  return Number.isFinite(vid) && Number.isFinite(sid) && spelling ? `${vid}:${sid}:${spelling}:` : "";
-}
-function setRenderedWordPitchClass(word, pitchClass) {
-  Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
-  word.dataset.pitchClass = pitchClass;
-  if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
-}
-function setRenderedWordCardIdentity(word, card) {
-  const source = renderedWordCardSource(card);
-  const state = primaryCardState(card.cardState);
-  clearRenderedWordCardStateClasses(word);
-  clearRenderedWordDeckMembershipClasses(word, ["anki"]);
-  word.dataset.vid = String(card.vid);
-  word.dataset.sid = String(card.sid);
-  word.dataset.cardSource = source;
-  word.dataset.cardId = String(renderedWordCardId(card, source));
-  word.dataset.readingIndex = String(renderedWordReadingIndex(card, source));
-  word.dataset.cardState = state;
-  word.dataset.expression = card.spelling;
-  word.dataset.reading = card.reading;
-  if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
-  const pitchAccent = card.pitchAccent.join("|");
-  if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
-  else delete word.dataset.pitchAccent;
-  word.classList.add(`jpdb-${state}`);
-  if (source !== "jpdb") word.classList.add(`${source}-${state}`);
-  applyRenderedWordDeckMembership(word, card);
-}
-function clearRenderedWordMiningInsight(word) {
-  word.classList.remove("jpdb-reader-i-plus-one");
-  delete word.dataset.miningInsight;
-}
-function escapeCssAttributeValue(value) {
-  return value.replace(/["\\]/g, "\\$&");
-}
-function clearRenderedWordCardStateClasses(word) {
-  Array.from(word.classList).filter(isRenderedWordCardStateClass).forEach((className) => word.classList.remove(className));
-}
-function clearRenderedWordDeckMembershipClasses(word, preserveSources = []) {
-  Array.from(word.classList).filter((className) => isRenderedWordDeckMembershipClass(className, preserveSources)).forEach((className) => word.classList.remove(className));
-  if (preserveSources.length) return;
-  delete word.dataset.deckMember;
-  delete word.dataset.deckSource;
-  delete word.dataset.deckNames;
-}
-function isRenderedWordCardStateClass(className) {
-  return RENDERED_WORD_CARD_STATE_PREFIXES.some((prefix) => RENDERED_WORD_CARD_STATES.some((state) => className === `${prefix}-${state}`));
-}
-function isRenderedWordDeckMembershipClass(className, preserveSources) {
-  if (className === "yomu-deck-member") return false;
-  if (className.startsWith("yomu-deck-")) return true;
-  return RENDERED_WORD_DECK_SOURCE_PREFIXES.some((prefix) => {
-    if (preserveSources.includes(prefix)) return false;
-    return className === `${prefix}-deck-member` || className.startsWith(`${prefix}-deck-`);
-  });
-}
-function applyRenderedWordDeckMembership(word, card) {
-  const membership = cardDeckMembership(card);
-  if (!membership.member) {
-    if (!word.classList.contains("anki-deck-member")) {
-      word.classList.remove("yomu-deck-member");
-      delete word.dataset.deckMember;
-      delete word.dataset.deckSource;
-      delete word.dataset.deckNames;
-    }
-    return;
-  }
-  word.classList.add(...cardDeckMembershipClassNames(card));
-  word.dataset.deckMember = "true";
-  word.dataset.deckSource = membership.source;
-  if (membership.names.length) word.dataset.deckNames = membership.names.join(", ");
-  else delete word.dataset.deckNames;
-}
-function renderedWordCardSource(card) {
-  return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
-}
-function renderedWordCardId(card, source = renderedWordCardSource(card)) {
-  return source === "jiten" ? card.jitenWordId ?? card.vid : card.vid;
-}
-function renderedWordReadingIndex(card, source = renderedWordCardSource(card)) {
-  return source === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
-}
-function yieldToNextTask() {
-  return new Promise((resolve) => window.setTimeout(resolve, 0));
-}
-function isOcrLineFrameWord(word) {
-  return word.classList.contains("jpdb-ocr-line") && !word.dataset.vid && !word.dataset.sid;
-}
-function ocrLineWordAtPoint(line, x, y) {
-  const words = Array.from(line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]"));
-  if (!words.length) return null;
-  return words.find((word) => pointInsideExpandedRect(word.getBoundingClientRect(), x, y, 8)) ?? null;
-}
-function singleKanjiOcrLookupCharacter(word) {
-  if (!word.closest(".jpdb-ocr-line")) return "";
-  const surface = normalizedLookupText(readerWordSurfaceText(word) || word.dataset.expression || "");
-  const characters = Array.from(surface);
-  return characters.length === 1 && isKanjiCharacter(characters[0] ?? "") ? characters[0] : "";
-}
-function canLookupReaderWordElement(word) {
-  if (isOcrLineFrameWord(word)) return false;
-  if (word.dataset.jpdbReaderPassive === "true") return false;
-  if (word.closest(".jpdb-reader-control-text-mirror")) return true;
-  if (isNativePageLookupBlocked(word)) return false;
-  if (!word.closest("[data-jpdb-reader-root]")) return true;
-  return Boolean(word.closest(".jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-popover, .yomu-jpdb-page-addon"));
-}
-function canClickLookupPassiveReaderWordElement(word) {
-  if (isOcrLineFrameWord(word)) return false;
-  if (word.dataset.jpdbReaderPassive !== "true") return false;
-  if (!word.classList.contains("jpdb-reader-scan-word")) return false;
-  return !isNativePageLookupBlocked(word);
-}
-function canHoverLookupReaderWordElement(word, hasHoverLookupShortcut) {
-  if (isOcrLineFrameWord(word)) return false;
-  if (word.closest(".jpdb-reader-popover")) return false;
-  if (word.closest(".jpdb-reader-control-text-mirror")) return !word.closest("[data-jpdb-reader-root]") || hasHoverLookupShortcut;
-  if (isSettingsReaderWord(word)) return hasHoverLookupShortcut;
-  if (isSettingsNativeControlWord(word)) return false;
-  if (isNativePageLookupBlocked(word) && word.dataset.jpdbReaderPassive !== "true") return false;
-  if (!word.closest("[data-jpdb-reader-root]")) return true;
-  if (word.closest(".jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .yomu-jpdb-page-addon")) return true;
-  return hasHoverLookupShortcut && Boolean(word.closest(".jpdb-reader-newtab, .jpdb-reader-settings"));
-}
-function isSettingsReaderWord(word) {
-  return Boolean(word.closest(".jpdb-reader-settings"));
-}
-function isSettingsNativeControlWord(word) {
-  return Boolean(word.closest(".jpdb-reader-settings") && word.closest('a[href],button,input,label,select,textarea,[role="button"],[role="checkbox"],[role="link"],[role="menuitem"],[role="option"],[role="radio"],[role="switch"],[role="tab"],[data-action]'));
-}
-function currentLookupNavigationWord(words, activePopoverAnchor, keyboardActiveWord) {
-  const activeAnchor = activePopoverAnchor?.isConnected ? activePopoverAnchor : void 0;
-  if (activeAnchor && words.includes(activeAnchor)) return activeAnchor;
-  if (keyboardActiveWord?.isConnected && words.includes(keyboardActiveWord)) return keyboardActiveWord;
-  return void 0;
-}
-const IMAGE_READING_MIN_AREA = 15e4;
-const IMAGE_READING_MIN_VIEWPORT_RATIO = 0.35;
-const IMAGE_READING_MIN_EDGE = 240;
-function documentLooksLikeImageReadingPage() {
-  if (document.querySelector('canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas')) return true;
-  const images = Array.from(document.images).filter((image) => !image.closest("[data-jpdb-reader-root]"));
-  if (images.length === 1 && isStandaloneImageDocument(images[0])) return true;
-  return images.some(imageLooksLikeReadableSurface);
-}
-function isStandaloneImageDocument(image) {
-  const bodyText = document.body?.textContent?.replace(/\s+/g, "").trim() ?? "";
-  return !bodyText && Boolean(image.currentSrc || image.src);
-}
-function imageLooksLikeReadableSurface(image) {
-  if (!image.currentSrc && !image.src) return false;
-  const rect = image.getBoundingClientRect();
-  const visibleWidth = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
-  const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
-  const visibleArea = visibleWidth * visibleHeight;
-  const viewportArea = Math.max(1, window.innerWidth * window.innerHeight);
-  return visibleArea >= IMAGE_READING_MIN_AREA && visibleArea / viewportArea >= IMAGE_READING_MIN_VIEWPORT_RATIO && Math.min(visibleWidth, visibleHeight) >= IMAGE_READING_MIN_EDGE;
-}
-function wait(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-function replaceOptionalElement(parent, selector, html, before = null) {
-  const existing = parent.querySelector(selector);
-  const next = htmlToFirstElement(html);
-  if (existing && next) {
-    existing.replaceWith(next);
-    return;
-  }
-  if (existing) {
-    existing.remove();
-    return;
-  }
-  if (next) parent.insertBefore(next, before);
-}
-function updateRenderedPitch(popover, card, metaEntries, showPitchAccent) {
-  const tools = popover.querySelector(".jpdb-reader-card-tools");
-  if (!tools || !showPitchAccent) return;
-  replaceOptionalElement(tools, ".jpdb-reader-pitch", renderPitch(card, metaEntries), tools.firstElementChild);
-}
-function applyPublicVocabularyFurigana(word, card, settings) {
-  if (word.closest("ruby")) return;
-  const ocrLine = word.closest(".jpdb-ocr-line");
-  const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
-  const renderSettings = publicVocabularyFuriganaSettings(word, settings);
-  if (shouldHideFuriganaForCardState(renderSettings, primaryCardState(card.cardState))) {
-    clearPublicVocabularyFurigana(word, surface, ocrLine);
-    return;
-  }
-  const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
-  const token = {
-    card,
-    start: 0,
-    end: surface.length,
-    length: surface.length,
-    rubies,
-    pitchClass: word.dataset.pitchClass ?? "",
-    sentence: word.dataset.sentence
-  };
-  if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
-  const html = renderRuby(surface, token);
-  if (!html.includes("<rt")) return;
-  setInnerHtml(word, html);
-  if (ocrLine) yomuNormalizeOcrRenderedText()?.(word);
-  word.classList.add("jpdb-reader-has-furi");
-  if (ocrLine) ocrLine.dataset.hasFuri = "true";
-}
-function clearPublicVocabularyFurigana(word, surface, ocrLine) {
-  if (!word.classList.contains("jpdb-reader-has-furi") && !word.querySelector(".jpdb-reader-furi, rt")) return;
-  word.textContent = surface;
-  word.classList.remove("jpdb-reader-has-furi");
-  if (!ocrLine) return;
-  yomuNormalizeOcrRenderedText()?.(word);
-  if (!ocrLine.querySelector(".jpdb-reader-word.jpdb-reader-has-furi")) delete ocrLine.dataset.hasFuri;
-}
-function publicVocabularyFuriganaSettings(word, settings) {
-  if (!word.closest('[data-yomu-furigana-mode="all"]')) return settings;
-  if (settings.showFurigana && settings.furiganaMode === "all") return settings;
-  return { ...settings, showFurigana: true, furiganaMode: "all" };
-}
-function applyAnkiLookupToRenderedWord(word, ankiLookup, language, options = {}) {
-  if (!ankiLookup.primary) {
-    if (ankiLookup.trusted === false) return;
-    if (options.preserveExistingEmpty && renderedWordHasAnkiState(word)) {
-      word.dataset.ankiPreserveContrast = "true";
-      return;
-    }
-    clearRenderedWordAnkiState(word);
-    word.classList.add(`anki-${ankiLookup.state}`);
-    word.dataset.ankiState = ankiLookup.state;
-    word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}`;
-    return;
-  }
-  clearRenderedWordAnkiState(word);
-  word.classList.add(`anki-${ankiLookup.state}`);
-  word.dataset.ankiState = ankiLookup.state;
-  word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(", ") ?? "";
-  applyAnkiDeckMembershipToRenderedWord(word, ankiLookup.primary?.deckNames ?? []);
-  word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ""}`;
-}
-function applyAnkiDeckMembershipToRenderedWord(word, deckNames) {
-  if (!deckNames.length) return;
-  word.classList.add(...cardDeckMembershipClassNames({
-    cardState: ["in-deck"],
-    source: "anki",
-    ankiDeckNames: deckNames
-  }).filter((className) => !className.startsWith("yomu-")));
-}
-function shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rubies = []) {
-  const surfaceMatchesSpelling = surface.trim() === card.spelling.trim();
-  if (!surfaceMatchesSpelling && !rubies.length) return false;
-  if (!card.reading.trim() || card.reading.trim() === card.spelling.trim()) return false;
-  if (!shouldRenderRuby(surface, token, settings)) return false;
-  return !surfaceMatchesSpelling || Array.from(card.spelling).some(isKanjiCharacter);
-}
-function pointInsideExpandedRect(rect, x, y, pad) {
-  return x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad;
+      <div class="jpdb-reader-modal-nav">
+          <button class="jpdb-reader-icon-mini" type="button" data-action="${escapeHtml$1(options.backAction)}" title="${escapeHtml$1(options.backTitle)}" aria-label="${escapeHtml$1(options.backTitle)}">←</button>
+          <span title="${escapeHtml$1(options.label)}">${escapeHtml$1(options.label)}</span>
+          ${options.controlsHtml ?? ""}
+      </div>
+  `;
 }
 function renderWordPills(options) {
   const context = wordPillContext(options.card, options.overrideQuery);
@@ -34734,19 +34707,6 @@ function addSettingsRubyFromRenderedReadings(form, settings) {
     word.classList.add("jpdb-reader-has-furi");
   }
 }
-function ocrInteractionModeFromSettings(settings) {
-  if (!settings.ocrEnabled) return "off";
-  return settings.ocrAutoScanImages ? "auto" : "manual";
-}
-function nextOcrInteractionMode(mode) {
-  if (mode === "auto") return "manual";
-  if (mode === "manual") return "off";
-  return "auto";
-}
-function applyOcrInteractionMode(settings, mode) {
-  settings.ocrEnabled = mode !== "off";
-  settings.ocrAutoScanImages = mode === "auto";
-}
 const log$4 = Logger.scope("Onboarding");
 const ONBOARDING_ACCENT_SWATCHES = ["#5ea780", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
 const ONBOARDING_FEATURE_KEYS = [
@@ -34754,8 +34714,7 @@ const ONBOARDING_FEATURE_KEYS = [
   ["featureImages", "featureImagesBody"],
   ["featureVideo", "featureVideoBody"],
   ["featureControl", "featureControlBody"],
-  ["featureStudy", "featureStudyBody"],
-  ["featureGame", "featureGameBody"]
+  ["featureStudy", "featureStudyBody"]
 ];
 function selectedOnboardingLanguage(value, fallback) {
   return value === "en" || value === "ja" || value === "auto" ? value : fallback;
@@ -34773,11 +34732,7 @@ class OnboardingController {
   accentPreviewFrame;
   youtubeImmersionInput;
   preferJapaneseSiteLanguageInput;
-  pageScanModeInputs = [];
-  ocrModeInputs = [];
-  manualPageScanShortcutInput;
-  manualPageScanShortcutLabel;
-  hoverLookupShortcutInput;
+  manualScanInput;
   async showIfNeeded() {
     if (this.options.getSettings().onboardingSeen) {
       return false;
@@ -34879,68 +34834,14 @@ class OnboardingController {
     immersionOptions.className = "jpdb-reader-onboarding-options";
     const immersionLegend = document.createElement("legend");
     immersionLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, "onboardingImmersionOptions");
-    this.hoverLookupShortcutInput = shortcutTextInput(
-      "shortcuts.hoverLookup",
-      this.options.getSettings().shortcuts.hoverLookup,
-      this.options.getSettings().interfaceLanguage,
-      "blankPlainHover"
-    );
-    this.manualPageScanShortcutInput = shortcutTextInput(
-      "shortcuts.scanPage",
-      this.options.getSettings().shortcuts.scanPage,
-      this.options.getSettings().interfaceLanguage,
-      "pressKeys"
-    );
     this.youtubeImmersionInput = checkboxInput("youtubeImmersionEnabled", this.options.getSettings().youtubeImmersionEnabled);
     this.preferJapaneseSiteLanguageInput = checkboxInput("preferJapaneseSiteLanguage", this.options.getSettings().preferJapaneseSiteLanguage);
-    const pageScanMode = createModeGroup(
-      "pageScanMode",
-      uiText(this.options.getSettings().interfaceLanguage, "pageScanMode"),
-      pageScanModeFromSettings(this.options.getSettings()),
-      [
-        ["off", uiText(this.options.getSettings().interfaceLanguage, "pageScanModeOff")],
-        ["auto", uiText(this.options.getSettings().interfaceLanguage, "pageScanModeAuto")],
-        ["manual", uiText(this.options.getSettings().interfaceLanguage, "pageScanModeManual")]
-      ]
-    );
-    this.pageScanModeInputs = pageScanMode.inputs;
-    this.pageScanModeInputs.forEach((input) => {
-      input.addEventListener("change", () => this.syncManualPageScanShortcut());
-    });
-    const ocrMode = createModeGroup(
-      "ocrInteractionMode",
-      uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionMode"),
-      ocrInteractionModeFromSettings(this.options.getSettings()),
-      [
-        ["auto", uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionModeAuto")],
-        ["manual", uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionModeManual")],
-        ["off", uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionModeOff")]
-      ]
-    );
-    this.ocrModeInputs = ocrMode.inputs;
-    const immersionGrid = document.createElement("div");
-    immersionGrid.className = "jpdb-reader-onboarding-immersion-grid";
-    const defaultColumn = document.createElement("div");
-    defaultColumn.className = "jpdb-reader-onboarding-option-column";
-    defaultColumn.append(
-      checkboxLabel(this.youtubeImmersionInput, uiText(this.options.getSettings().interfaceLanguage, "youtubeImmersionEnabled")),
-      checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, "preferJapaneseSiteLanguage"))
-    );
-    const scanColumn = document.createElement("div");
-    scanColumn.className = "jpdb-reader-onboarding-option-column";
-    scanColumn.append(pageScanMode.fieldset, ocrMode.fieldset);
-    const shortcutColumn = document.createElement("div");
-    shortcutColumn.className = "jpdb-reader-onboarding-option-column";
-    this.manualPageScanShortcutLabel = shortcutLabel(this.manualPageScanShortcutInput, uiText(this.options.getSettings().interfaceLanguage, "manualPageScanShortcut"));
-    this.manualPageScanShortcutLabel.dataset.manualPageScanShortcut = "true";
-    shortcutColumn.append(
-      shortcutLabel(this.hoverLookupShortcutInput, uiText(this.options.getSettings().interfaceLanguage, "onboardingHoverShortcut")),
-      this.manualPageScanShortcutLabel
-    );
-    immersionGrid.append(defaultColumn, scanColumn, shortcutColumn);
+    this.manualScanInput = checkboxInput("manualScanEnabled", this.options.getSettings().manualScanEnabled);
     immersionOptions.append(
       immersionLegend,
-      immersionGrid
+      checkboxLabel(this.youtubeImmersionInput, uiText(this.options.getSettings().interfaceLanguage, "youtubeImmersionEnabled")),
+      checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, "preferJapaneseSiteLanguage")),
+      checkboxLabel(this.manualScanInput, uiText(this.options.getSettings().interfaceLanguage, "manualScanEnabled"))
     );
     const actions = document.createElement("div");
     actions.className = "jpdb-reader-onboarding-actions";
@@ -34969,7 +34870,6 @@ class OnboardingController {
     this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, actions, featureList);
     this.syncThemeSwitch();
     this.syncAccentPicker(this.accentColorInput.value);
-    this.syncManualPageScanShortcut();
     document.body.append(this.backdrop, this.panel);
     this.panel.focus();
     this.annotateJapanese();
@@ -34999,20 +34899,9 @@ class OnboardingController {
     panel.querySelector(".jpdb-reader-onboarding-language span")?.replaceChildren(uiText(language, "onboardingLanguage"));
     panel.querySelector('[data-onboarding-copy="theme"]')?.replaceChildren(uiText(language, "theme"));
     panel.querySelector(".jpdb-reader-onboarding-options legend")?.replaceChildren(uiText(language, "onboardingImmersionOptions"));
-    panel.querySelector('[data-onboarding-copy="shortcuts.hoverLookup"]')?.replaceChildren(uiText(language, "onboardingHoverShortcut"));
-    this.hoverLookupShortcutInput?.setAttribute("placeholder", uiText(language, "blankPlainHover"));
-    panel.querySelector('[data-onboarding-copy="shortcuts.scanPage"]')?.replaceChildren(uiText(language, "manualPageScanShortcut"));
-    this.manualPageScanShortcutInput?.setAttribute("placeholder", uiText(language, "pressKeys"));
     panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, "youtubeImmersionEnabled"));
     panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, "preferJapaneseSiteLanguage"));
-    panel.querySelector('[data-onboarding-mode-legend="pageScanMode"]')?.replaceChildren(uiText(language, "pageScanMode"));
-    setOnboardingModeLabel(panel, "pageScanMode", "off", uiText(language, "pageScanModeOff"));
-    setOnboardingModeLabel(panel, "pageScanMode", "auto", uiText(language, "pageScanModeAuto"));
-    setOnboardingModeLabel(panel, "pageScanMode", "manual", uiText(language, "pageScanModeManual"));
-    panel.querySelector('[data-onboarding-mode-legend="ocrInteractionMode"]')?.replaceChildren(uiText(language, "ocrInteractionMode"));
-    setOnboardingModeLabel(panel, "ocrInteractionMode", "auto", uiText(language, "ocrInteractionModeAuto"));
-    setOnboardingModeLabel(panel, "ocrInteractionMode", "manual", uiText(language, "ocrInteractionModeManual"));
-    setOnboardingModeLabel(panel, "ocrInteractionMode", "off", uiText(language, "ocrInteractionModeOff"));
+    panel.querySelector('[data-onboarding-copy="manualScanEnabled"]')?.replaceChildren(uiText(language, "manualScanEnabled"));
     panel.querySelector(".jpdb-reader-onboarding-accent legend")?.replaceChildren(uiText(language, "onboardingAccentColor"));
     panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(uiText(language, "customAccentColor"));
     this.accentColorInput?.setAttribute("aria-label", uiText(language, "onboardingAccentColor"));
@@ -35064,8 +34953,6 @@ class OnboardingController {
   }
   completedOnboardingSettings(openSettings) {
     const current = this.options.getSettings();
-    const pageScanMode = selectedMode(this.pageScanModeInputs, pageScanModeFromSettings(current));
-    const ocrMode = selectedMode(this.ocrModeInputs, ocrInteractionModeFromSettings(current));
     return {
       ...current,
       onboardingSeen: true,
@@ -35073,15 +34960,7 @@ class OnboardingController {
       localDictionariesEnabled: openSettings !== true,
       youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
       preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
-      annotationsPaused: pageScanMode === "off",
-      manualScanEnabled: pageScanMode === "manual",
-      ocrEnabled: ocrMode !== "off",
-      ocrAutoScanImages: ocrMode === "auto",
-      shortcuts: {
-        ...current.shortcuts,
-        hoverLookup: this.hoverLookupShortcutInput?.value.trim() ?? current.shortcuts.hoverLookup,
-        scanPage: this.manualPageScanShortcutInput?.value.trim() ?? current.shortcuts.scanPage
-      },
+      manualScanEnabled: this.manualScanInput?.checked ?? current.manualScanEnabled,
       dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? "jpdb" : "local"),
       interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage),
       accentColor: sanitizeAccentColor(this.accentColorInput?.value, current.accentColor)
@@ -35102,11 +34981,7 @@ class OnboardingController {
     this.accentColorInput = void 0;
     this.youtubeImmersionInput = void 0;
     this.preferJapaneseSiteLanguageInput = void 0;
-    this.pageScanModeInputs = [];
-    this.ocrModeInputs = [];
-    this.manualPageScanShortcutInput = void 0;
-    this.manualPageScanShortcutLabel = void 0;
-    this.hoverLookupShortcutInput = void 0;
+    this.manualScanInput = void 0;
   }
   createThemeToggle() {
     const wrapper = document.createElement("div");
@@ -35187,17 +35062,6 @@ class OnboardingController {
       button2.setAttribute("aria-pressed", String(selected));
     });
   }
-  syncManualPageScanShortcut() {
-    if (!this.manualPageScanShortcutLabel) return;
-    this.manualPageScanShortcutLabel.hidden = selectedMode(this.pageScanModeInputs, "auto") !== "manual";
-  }
-}
-function pageScanModeFromSettings(settings) {
-  if (settings.annotationsPaused) return "off";
-  return settings.manualScanEnabled ? "manual" : "auto";
-}
-function selectedMode(inputs, fallback) {
-  return inputs.find((input) => input.checked)?.value ?? fallback;
 }
 function normalizeLanguage(value, fallback) {
   return value === "en" || value === "ja" || value === "auto" ? value : fallback;
@@ -35233,62 +35097,6 @@ function checkboxLabel(input, text2) {
   copy.dataset.onboardingCopy = input.name;
   copy.textContent = text2;
   label.append(input, copy);
-  return label;
-}
-function shortcutTextInput(name, value, language, placeholderKey) {
-  const input = document.createElement("input");
-  input.type = "text";
-  input.name = name;
-  input.value = value;
-  input.placeholder = uiText(language, placeholderKey);
-  input.autocomplete = "off";
-  input.inputMode = "none";
-  input.dataset.shortcutInput = "true";
-  input.setAttribute("aria-labelledby", onboardingCopyId(name));
-  input.addEventListener("keydown", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    input.value = event.key === "Backspace" || event.key === "Delete" ? "" : formatShortcutEvent(event);
-  });
-  input.addEventListener("paste", (event) => event.preventDefault());
-  return input;
-}
-function createModeGroup(name, legendText, selectedValue, options) {
-  const fieldset = document.createElement("fieldset");
-  fieldset.className = "jpdb-reader-onboarding-mode-group";
-  const legend = document.createElement("legend");
-  legend.dataset.onboardingModeLegend = name;
-  legend.textContent = legendText;
-  const inputs = options.map(([value, text2]) => {
-    const input = document.createElement("input");
-    input.type = "radio";
-    input.name = name;
-    input.value = value;
-    input.checked = value === selectedValue;
-    const label = document.createElement("label");
-    label.className = "inline";
-    label.dataset.onboardingModeLabel = `${name}.${value}`;
-    label.append(input, document.createTextNode(text2));
-    fieldset.append(label);
-    return input;
-  });
-  fieldset.prepend(legend);
-  return { fieldset, inputs };
-}
-function setOnboardingModeLabel(panel, name, value, text2) {
-  const label = panel.querySelector(`[data-onboarding-mode-label="${name}.${value}"]`);
-  const input = label?.querySelector("input");
-  if (!label || !input) return;
-  label.replaceChildren(input, document.createTextNode(text2));
-}
-function shortcutLabel(input, text2) {
-  const label = document.createElement("label");
-  label.className = "jpdb-reader-onboarding-shortcut";
-  const copy = document.createElement("span");
-  copy.id = onboardingCopyId(input.name);
-  copy.dataset.onboardingCopy = input.name;
-  copy.textContent = text2;
-  label.append(copy, input);
   return label;
 }
 function onboardingCopyId(name) {
@@ -35947,6 +35755,19 @@ function defineUntrackedValue(target, key, value) {
     } catch {
     }
   }
+}
+function ocrInteractionModeFromSettings(settings) {
+  if (!settings.ocrEnabled) return "off";
+  return settings.ocrAutoScanImages ? "auto" : "manual";
+}
+function nextOcrInteractionMode(mode) {
+  if (mode === "auto") return "manual";
+  if (mode === "manual") return "off";
+  return "auto";
+}
+function applyOcrInteractionMode(settings, mode) {
+  settings.ocrEnabled = mode !== "off";
+  settings.ocrAutoScanImages = mode === "auto";
 }
 const log$3 = Logger.scope("ReaderAudioActions");
 class ReaderAudioActions {
@@ -36806,13 +36627,13 @@ function refreshReaderWordContrast(root = document) {
     const furi = word.querySelector("rt.jpdb-reader-furi");
     const furiStyle = furi ? getComputedStyle(furi) : null;
     return {
-      bgColor: style.backgroundColor,
-      highlightColor: style.getPropertyValue("--jpdb-reader-word-highlight-source"),
-      color: style.color,
-      decoration: style.textDecorationColor,
-      parentColor: parentStyle.color,
-      furiColor: furiStyle?.color,
-      hoverColor: style.getPropertyValue("--jpdb-reader-hover"),
+      bg: style.backgroundColor,
+      hl: style.getPropertyValue("--jpdb-reader-word-highlight-source"),
+      fg: style.color,
+      deco: style.textDecorationColor,
+      parentFg: parentStyle.color,
+      furiFg: furiStyle?.color,
+      hover: style.getPropertyValue("--jpdb-reader-hover"),
       hovered: word.matches(":hover, :focus")
     };
   });
@@ -36831,12 +36652,13 @@ function applyWordContrastVars(word, background, m) {
   word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
   const passiveWord = word.classList.contains("jpdb-reader-passive-word");
   const preserveHostPaint = isPassiveChromeWord(word);
-  const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor, m.highlightColor, preserveHostPaint);
+  const accessibleRgba = resolveHighlight(word, background, m.bg, m.hl, preserveHostPaint);
+  const accessibleHex = rgbaToHex(accessibleRgba);
   const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
-  const sourceText = cssColorToHex(m.color, accessibleRgba);
-  const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(textBackdropHex);
-  const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
-  const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
+  const sourceText = cssColorToHex(m.fg, accessibleRgba);
+  const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
+  const decoration = resolveDecorationHex(m.deco, accessibleRgba);
+  const furiText = m.furiFg ? cssColorToHex(m.furiFg, accessibleRgba) : null;
   const textSource = passiveWord ? nativeText : sourceText ?? nativeText;
   const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
   const furiBackgrounds = [background.hex];
@@ -36854,7 +36676,7 @@ function uniqueHexes(colors) {
   return [...new Set(colors)];
 }
 function textBackdropsForMeasurement(m, textBackdropHex) {
-  const hoverBackdrop = hoveredTextBackdropHex(m.hoverColor, textBackdropHex, m.hovered);
+  const hoverBackdrop = hoveredTextBackdropHex(m.hover, textBackdropHex, m.hovered);
   return uniqueHexes(hoverBackdrop ? [textBackdropHex, hoverBackdrop] : [textBackdropHex]);
 }
 function existingAccessibleColorRemainsReadableOnHover(word, background) {
@@ -36872,49 +36694,27 @@ function hoveredTextBackdropHex(hoverColor, textBackdropHex, hovered) {
   if (!hover || !backdrop || hover.alpha <= 0) return null;
   return rgbaToHex(blendRgba(hover, backdrop));
 }
-function resolveAccessibleHighlight(word, background, wordBgColor, highlightColor, preserveHostPaint = false) {
-  const colorRgba = cssPaintToRgba(wordBgColor, word);
-  const highlightRgba = preserveHostPaint ? null : cssPaintToRgba(highlightColor, word);
-  const hasPaint = Boolean(colorRgba && colorRgba.alpha > 0);
-  const paintRgba = hasPaint ? colorRgba : highlightRgba;
-  const rgba = paintRgba && paintRgba.alpha > 0 ? blendRgba(paintRgba, background.rgba) : background.rgba;
-  const paintBackgroundHex = rgbaToHex(rgba);
-  let accessibleHighlightColor = null;
+function resolveHighlight(word, background, wordBgColor, highlight, preserveHostPaint = false) {
+  const colorRgba = cssColorToRgba(wordBgColor);
+  const hasPaint = !!colorRgba?.alpha;
+  const highlightRgba = hasPaint || preserveHostPaint ? null : paintRgba(highlight, word);
+  const rgba = hasPaint ? blendRgba(colorRgba, background.rgba) : highlightRgba && highlightRgba.alpha > 0 ? blendRgba(highlightRgba, background.rgba) : background.rgba;
   if (hasPaint && !preserveHostPaint) {
-    accessibleHighlightColor = readableHighlightBackground(paintBackgroundHex, background.hex);
-    word.style.setProperty("--jpdb-reader-word-accessible-highlight", accessibleHighlightColor);
-  } else {
-    word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
+    const highlightHex = readableHighlightBackground(rgbaToHex(rgba), background.hex);
+    word.style.setProperty("--jpdb-reader-word-accessible-highlight", highlightHex);
+    return cssColorToRgba(highlightHex) ?? rgba;
   }
-  const accessibleRgba = accessibleHighlightColor ? cssColorToRgba(accessibleHighlightColor) ?? rgba : rgba;
-  const accessibleHex = accessibleHighlightColor ? rgbaToHex(accessibleRgba) : paintBackgroundHex;
-  return { accessibleHex, accessibleRgba };
+  word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
+  return rgba;
 }
-function cssPaintToRgba(value, context) {
+function paintRgba(value, el) {
   const direct = cssColorToRgba(value);
   if (direct) return direct;
-  const resolved = resolveComputedCssColor(value, context);
-  return resolved ? cssColorToRgba(resolved) : null;
-}
-function resolveComputedCssColor(value, context) {
-  const color = value.trim();
-  if (!color || typeof document === "undefined" || typeof getComputedStyle !== "function") return "";
-  const probe = document.createElement("span");
-  probe.style.setProperty("position", "absolute");
-  probe.style.setProperty("inline-size", "0");
-  probe.style.setProperty("block-size", "0");
-  probe.style.setProperty("overflow", "hidden");
-  probe.style.setProperty("pointer-events", "none");
-  probe.style.setProperty("color", color);
-  if (!probe.style.color && !color.includes("var(") && !color.startsWith("color-mix(")) return "";
-  try {
-    context.append(probe);
-    return getComputedStyle(probe).color;
-  } catch {
-    return "";
-  } finally {
-    probe.remove();
-  }
+  const probe = el.appendChild(document.createElement("span"));
+  probe.style.color = value;
+  const rgba = cssColorToRgba(getComputedStyle(probe).color);
+  probe.remove();
+  return rgba;
 }
 function resolveDecorationHex(decorationColor, accessibleRgba) {
   const decorationColorRgba = cssColorToRgba(decorationColor);
@@ -37362,179 +37162,29 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.169"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.175"}`;
 const READER_CSS = resourceReaderCss();
-const CRITICAL_STATES = [
-  ["new", ["new", "in-deck"]],
-  ["not-in-deck", ["not-in-deck"], "20%"],
-  ["learning", ["learning", "young"]],
-  ["known", ["known", "mature", "mastered", "never-forget", "redundant"]],
-  ["due", ["due"]],
-  ["failed", ["failed"]],
-  ["ignored", ["suspended", "blacklisted", "locked"]]
-];
-const CRITICAL_PITCHES = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
-function criticalSelector(states) {
-  return states.map((state) => `[data-card-state=${state}]`).join(",");
-}
-function criticalAnkiSelector(states) {
-  return states.flatMap((state) => [`.anki-${state}`, `[data-anki-state=${state}]`]).join(",");
-}
-function criticalPitchSelector(pattern) {
-  return `.jpdb-pitch-${pattern},[data-pitch-class=${pattern}]`;
-}
-function criticalVars(color, highlightAlpha = "36%") {
-  return `--ysc:var(--jpdb-reader-state-${color});--ysr:var(--jpdb-reader-state-${color}-readable);--hs:color-mix(in srgb,var(--ysc,#0000) ${highlightAlpha},var(--yb))`;
-}
-function criticalAnkiVars(color, highlightAlpha = "36%") {
-  return `--ac:var(--jpdb-reader-state-${color});--ar:var(--jpdb-reader-state-${color}-readable);--ah:color-mix(in srgb,var(--ac,#0000) ${highlightAlpha},var(--yb))`;
-}
 function criticalWordCss() {
-  const states = CRITICAL_STATES.map(([color, group, highlightAlpha]) => `.jpdb-reader-word:is(${criticalSelector(group)}){${criticalVars(color, highlightAlpha)}}`).join("");
-  const ankiStates = CRITICAL_STATES.map(([color, group, highlightAlpha]) => `.jpdb-reader-word:is(${criticalAnkiSelector(group)}){${criticalAnkiVars(color, highlightAlpha)}}`).join("");
-  const pitches = CRITICAL_PITCHES.map((pattern) => `.jpdb-reader-word:is(${criticalPitchSelector(pattern)}){--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`).join("");
+  const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
+  const pitchSelector = (pattern) => `.jpdb-pitch-${pattern},[data-pitch-class=${pattern}]`;
+  const pitches = pitchClasses.map((pattern) => `.jpdb-reader-word:is(${pitchSelector(pattern)}){--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`).join("");
   const unknownPitch = ".jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown]){--pc:var(--jpdb-reader-pitch-unknown);--pr:var(--jpdb-reader-pitch-unknown-readable);--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,#0000)}";
-  const pitchSelector = CRITICAL_PITCHES.map(criticalPitchSelector).join(",");
+  const allPitches = pitchClasses.map(pitchSelector).join(",");
   return [
-    states,
-    ankiStates,
-    ".jpdb-reader-word:is([data-card-source=jpdb],[data-card-source=jiten]){--h1:var(--hs,color-mix(in srgb,var(--ysc,#0000) 36%,var(--yb)))}",
     pitches,
     unknownPitch,
-    `.jpdb-reader-word:is(${pitchSelector}){--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,#0000);--h2:color-mix(in srgb,var(--pc) 36%,var(--yb))}`,
-    criticalChannelCss()
-  ].join("");
-}
-function criticalChannelCss() {
-  return [
-    ".jpdb-reader-word-highlight-status .jpdb-reader-word{--yh:var(--hs,#0000)}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{--yh:var(--h1,#0000)}.jpdb-reader-word-highlight-anki .jpdb-reader-word{--yh:var(--ah,#0000)}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{--yh:var(--h2,#0000)}",
-    ":is(.jpdb-reader-word-highlight-status,.jpdb-reader-word-highlight-jpdb,.jpdb-reader-word-highlight-anki,.jpdb-reader-word-highlight-pitch) .jpdb-reader-word{background:linear-gradient(var(--yh),var(--yh)) center/var(--yz) 100% no-repeat!important}",
-    ":is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror,[data-jpdb-reader-passive-chrome=true]) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}",
-    ".jpdb-reader-word-underline-status .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-anki .jpdb-reader-word{--yu:var(--ac,#0000)}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--yu:var(--d2,#0000)}",
-    ".jpdb-reader-word-text-status .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-jpdb .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-anki .jpdb-reader-word{--yt:var(--ar,var(--ac,currentColor))}.jpdb-reader-word-text-pitch .jpdb-reader-word{--yt:var(--c2,currentColor)}",
-    ":is(.jpdb-reader-word-text-status,.jpdb-reader-word-text-jpdb,.jpdb-reader-word-text-anki,.jpdb-reader-word-text-pitch) .jpdb-reader-word{color:var(--yt,currentColor)!important;-webkit-text-fill-color:var(--yt,currentColor)}",
-    ":is(.jpdb-reader-word-text-status,.jpdb-reader-word-text-jpdb,.jpdb-reader-word-text-anki,.jpdb-reader-word-text-pitch) .jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor;color:var(--jpdb-reader-word-accessible-color,currentColor)!important;-webkit-text-fill-color:var(--jpdb-reader-word-accessible-color,currentColor)}"
+    `.jpdb-reader-word:is(${allPitches}){--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,#0000)}`,
+    ".jpdb-reader-word-underline-pitch .jpdb-reader-word{--yu:var(--d2,#0000)}.jpdb-reader-word-text-pitch .jpdb-reader-word{--yt:var(--c2,currentColor);color:var(--yt,currentColor)!important;-webkit-text-fill-color:var(--yt,currentColor)}"
   ].join("");
 }
 const CRITICAL_READER_CSS = `
-[data-jpdb-reader-root],
-[data-jpdb-reader-root] *,
-[data-jpdb-reader-root]::before,
-[data-jpdb-reader-root]::after,
-[data-jpdb-reader-root] *::before,
-[data-jpdb-reader-root] *::after {
-  box-sizing: border-box;
-}
-.jpdb-reader-popover,
-.jpdb-reader-settings,
-.jpdb-reader-backdrop {
-  pointer-events: auto !important;
-}
-.jpdb-reader-popover-body,
-.jpdb-reader-word-pills,
-.jpdb-reader-popover :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action], .jpdb-reader-word, .jpdb-reader-action-pill),
-.jpdb-reader-settings :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action]) {
-  pointer-events: auto !important;
-}
-[data-jpdb-reader-root]:where(button),
-[data-jpdb-reader-root] :where(button) {
-  appearance: none;
-  -webkit-appearance: none;
-  background: #0000;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  color: inherit;
-  cursor: pointer;
-  display: inline-block;
-  font: inherit;
-  height: auto;
-  min-height: 0;
-  width: auto;
-  min-width: 0;
-  max-width: none;
-  line-height: normal;
-  margin: 0;
-  padding: 0;
-  text-align: inherit;
-  text-decoration: none;
-  transform: none;
-  transition: none;
-  white-space: normal;
-}
-.jpdb-reader-popover .jpdb-reader-icon-btn,
-.jpdb-reader-settings .jpdb-reader-icon-btn {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  box-sizing: border-box;
-  width: 36px !important;
-  min-width: 36px !important;
-  max-width: 36px !important;
-  height: 36px !important;
-  min-height: 36px !important;
-  max-height: 36px !important;
-  flex: 0 0 auto;
-  padding: 0 !important;
-  border: 1px solid var(--jpdb-reader-border, rgba(37, 52, 73, 0.18));
-  border-radius: 50%;
-  background: var(--jpdb-reader-surface, #f4f7fa);
-  color: var(--jpdb-reader-text, #17202a);
-  cursor: pointer;
-  overflow: hidden;
-  transform: translateY(-0.01rem);
-  -webkit-appearance: none;
-  appearance: none;
-  -webkit-tap-highlight-color: #0000;
-}
-.jpdb-reader-popover .jpdb-reader-icon-btn svg,
-.jpdb-reader-settings .jpdb-reader-icon-btn svg {
-  display: block;
-  width: 20px !important;
-  height: 20px !important;
-  max-width: 20px !important;
-  max-height: 20px !important;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.jpdb-reader-actions .jpdb-reader-mining-collapse {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: 72px;
-  height: 30px;
-  min-width: 72px;
-  min-height: 30px;
-  flex: none;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: #0000;
-  color: var(--jpdb-reader-muted, #4f5968);
-  cursor: pointer;
-  pointer-events: auto;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-appearance: none;
-  appearance: none;
-  -webkit-tap-highlight-color: #0000;
-}
-.jpdb-reader-actions .jpdb-reader-mining-collapse::before {
-  content: "";
-  position: relative;
-  z-index: 1;
-  display: block;
-  width: 42px;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--jpdb-reader-faint, #687384);
-}
+[data-jpdb-reader-root],[data-jpdb-reader-root] *,[data-jpdb-reader-root]::before,[data-jpdb-reader-root]::after,[data-jpdb-reader-root] *::before,[data-jpdb-reader-root] *::after{box-sizing:border-box}
+.jpdb-reader-popover,.jpdb-reader-settings,.jpdb-reader-backdrop,.jpdb-reader-popover-body,.jpdb-reader-word-pills,.jpdb-reader-popover :is(a[href],button,input,select,textarea,summary,[role=button],[data-action],.jpdb-reader-word,.jpdb-reader-action-pill),.jpdb-reader-settings :is(a[href],button,input,select,textarea,summary,[role=button],[data-action]){pointer-events:auto!important}
+[data-jpdb-reader-root]:where(button),[data-jpdb-reader-root] :where(button){all:unset;box-sizing:border-box;color:inherit;cursor:pointer;font:inherit}
+:is(.jpdb-reader-popover,.jpdb-reader-settings) .jpdb-reader-icon-btn{position:relative;display:inline-grid;place-items:center;box-sizing:border-box;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important;flex:0 0 auto;border:1px solid var(--jpdb-reader-border,rgba(37,52,73,.18));border-radius:50%;background:var(--jpdb-reader-surface,#f4f7fa);color:var(--jpdb-reader-text,#17202a);overflow:hidden;-webkit-tap-highlight-color:#0000}
+:is(.jpdb-reader-popover,.jpdb-reader-settings) .jpdb-reader-icon-btn svg{display:block;width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.jpdb-reader-actions .jpdb-reader-mining-collapse{position:relative;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:72px;height:30px;min-width:72px;min-height:30px;flex:none;border:0;border-radius:999px;background:#0000;color:var(--jpdb-reader-muted,#4f5968);cursor:pointer;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:#0000}
+.jpdb-reader-actions .jpdb-reader-mining-collapse::before{content:"";position:relative;z-index:1;display:block;width:42px;height:5px;border-radius:999px;background:var(--jpdb-reader-faint,#687384)}
 .jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}.jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor}:is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror,[data-jpdb-reader-passive-chrome=true]) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}
 .jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,#0000);pointer-events:none}
 ${criticalWordCss()}
@@ -38426,6 +38076,7 @@ function manualScrollReaderBody(body, deltaY) {
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
 const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
+const SUBTITLE_HOVER_MINING_RESUME_GRACE_MS = 520;
 const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
   ".textBox",
   ".ocr-line",
@@ -38753,6 +38404,7 @@ class ReaderApp {
   activePopoverMode;
   subtitleMiningPausedVideo;
   miningPauseReassert;
+  subtitleHoverMiningResumeTimer;
   activePopoverAnchor;
   activePopoverAnchorRect;
   keyboardActiveWord;
@@ -38856,7 +38508,7 @@ class ReaderApp {
       parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
       parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
       onToast: (message) => this.toast(message),
-      shouldAutoScan: () => !siteProvidesNativeTextLayer() && (this.pageHasJapaneseText || documentLooksLikeImageReadingPage()),
+      shouldAutoScan: () => shouldAutoScanImageOcr(this.pageHasJapaneseText),
       enrichTokensBeforeRender: (tokens) => this.enrichOcrTokensBeforeRender(tokens),
       enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
       fallbackCardFromText: (text2) => this.parser.fallbackCardFromText(text2)
@@ -39613,6 +39265,7 @@ class ReaderApp {
     document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
     this.autoScanObserver?.disconnect();
     this.clearMiningPauseReassert();
+    this.clearSubtitleHoverMiningResumeTimer();
     this.ocr.destroy();
     this.subtitles.destroy();
     this.youtube.destroy();
@@ -39680,7 +39333,10 @@ class ReaderApp {
       else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
       else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
         this.pageHasJapaneseText = true;
-        this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: isBookWalkerStorefrontPage() });
+        this.scheduleAutoScan(visibleAutoScanMutationDelay(), {
+          force: isBookWalkerStorefrontPage(),
+          debounce: isYouTubeHostname()
+        });
       }
       if (isJitenHost()) {
         if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
@@ -39690,10 +39346,14 @@ class ReaderApp {
     });
     this.observeAutoScanMutations();
     window.addEventListener("scroll", () => {
-      this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true });
+      {
+        this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: isYouTubeHostname() });
+      }
     }, { passive: true });
     window.addEventListener("resize", () => {
-      this.scheduleAutoScan(250, { force: true });
+      {
+        this.scheduleAutoScan(250, { force: true, debounce: isYouTubeHostname() });
+      }
     }, { passive: true });
     window.addEventListener("resize", () => this.scheduleJpdbPageEnhancements(700), { passive: true });
     if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
@@ -40084,6 +39744,7 @@ class ReaderApp {
   }
   pauseVideoForSubtitleMining() {
     if (!this.settings.subtitleMiningPause) return;
+    this.clearSubtitleHoverMiningResumeTimer();
     const bound = this.boundSubtitleVideo();
     let paused;
     if (bound?.isConnected && !bound.paused) {
@@ -40124,7 +39785,23 @@ class ReaderApp {
     this.miningPauseReassert?.off();
     this.miningPauseReassert = void 0;
   }
+  scheduleSubtitleMiningVideoResume(delayMs = 0) {
+    this.clearSubtitleHoverMiningResumeTimer();
+    if (delayMs <= 0) {
+      this.resumeSubtitleMiningVideo();
+      return;
+    }
+    this.subtitleHoverMiningResumeTimer = window.setTimeout(() => {
+      this.subtitleHoverMiningResumeTimer = void 0;
+      this.resumeSubtitleMiningVideo();
+    }, delayMs);
+  }
+  clearSubtitleHoverMiningResumeTimer() {
+    window.clearTimeout(this.subtitleHoverMiningResumeTimer);
+    this.subtitleHoverMiningResumeTimer = void 0;
+  }
   resumeSubtitleMiningVideo() {
+    this.clearSubtitleHoverMiningResumeTimer();
     this.clearMiningPauseReassert();
     const stored = this.subtitleMiningPausedVideo;
     this.subtitleMiningPausedVideo = void 0;
@@ -40652,6 +40329,15 @@ class ReaderApp {
     return canHoverLookupReaderWordElement(word, this.hasHoverLookupShortcut());
   }
   queueHoverPointerMove(event) {
+    if (event.buttons) {
+      if (this.hoverPointerMoveFrame !== void 0) {
+        window.cancelAnimationFrame(this.hoverPointerMoveFrame);
+        this.hoverPointerMoveFrame = void 0;
+      }
+      this.pendingHoverPointerMove = void 0;
+      this.cancelPendingHoverLookup();
+      return;
+    }
     this.pendingHoverPointerMove = event;
     if (this.hoverPointerMoveFrame !== void 0) return;
     this.hoverPointerMoveFrame = requestAnimationFrame(() => {
@@ -40827,9 +40513,15 @@ class ReaderApp {
       return;
     }
     if (!this.shouldLookupOnHover(event)) return;
+    this.keepSubtitleMiningPauseForPendingHover(word);
     this.pageScanner.interruptVisiblePageScan();
     this.preloadHoverWordAudio(word);
     this.scheduleHoverLookup(word, event);
+  }
+  keepSubtitleMiningPauseForPendingHover(word) {
+    if (!this.settings.subtitleMiningPause || !this.settings.subtitleHoverPause) return;
+    if (!word.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR)) return;
+    this.pauseVideoForSubtitleMining();
   }
   shouldRetryHoverAudio(word, event) {
     if (event.type !== "pointerover" || !this.shouldPrepareHoverWordAudio(word)) return false;
@@ -41087,8 +40779,21 @@ class ReaderApp {
     this.hoverCloseTimer = window.setTimeout(() => {
       this.hoverCloseTimer = void 0;
       if (this.isHoverContextActive(options)) return;
-      this.dismiss({ suppressHoverTarget: false });
+      this.dismiss({
+        suppressHoverTarget: false,
+        deferSubtitleMiningResume: this.shouldDeferSubtitleMiningResumeForHoverClose()
+      });
     }, Math.max(0, delay2));
+  }
+  shouldDeferSubtitleMiningResumeForHoverClose() {
+    if (this.activePopoverMode !== "hover" || !this.subtitleMiningPausedVideo) return false;
+    if (this.activeHoverWord?.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR)) return true;
+    const pointer = this.lastPointerPosition;
+    if (!pointer) return false;
+    const target = document.elementFromPoint(pointer.x, pointer.y);
+    if (target instanceof Element && target.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR)) return true;
+    const liveWord = this.hoverReaderWordFromPointStack(pointer.x, pointer.y) ?? (target instanceof Element ? this.readerWordFromRenderedGeometry(target, pointer.x, pointer.y, (item) => this.canHoverLookupReaderWord(item)) : null);
+    return Boolean(liveWord?.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR));
   }
   isHoverContextActive(options = {}) {
     if (this.isMiddlePressHoverContextActive()) return true;
@@ -42376,12 +42081,7 @@ class ReaderApp {
     });
   }
   async resolveInitialCardForAutoAudio(card, context) {
-    if (context.trigger !== "hover" || !context.options.skipInitialCardResolution) return card;
-    try {
-      return await this.resolveLookupCardForInitialRender(card);
-    } catch {
-      return card;
-    }
+    return card;
   }
   maybePreloadLookupCardAudio(card, options, anchor) {
     if (!this.canPreloadReaderAudio()) return;
@@ -44596,7 +44296,10 @@ class ReaderApp {
       this.hoverWatchTimer = void 0;
       if (this.activePopoverMode !== "hover") return;
       if (!this.isHoverContextActive({ ignorePointerPosition: true })) {
-        this.dismiss({ suppressHoverTarget: false });
+        this.dismiss({
+          suppressHoverTarget: false,
+          deferSubtitleMiningResume: this.shouldDeferSubtitleMiningResumeForHoverClose()
+        });
         return;
       }
       this.hoverWatchTimer = window.setTimeout(tick, Math.max(90, this.settings.hoverCloseDelayMs));
@@ -44649,7 +44352,9 @@ class ReaderApp {
   }
   prepareActivePopoverDismiss(options) {
     if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
-    if (!options.preserveNavigation) this.resumeSubtitleMiningVideo();
+    if (!options.preserveNavigation) {
+      this.scheduleSubtitleMiningVideoResume(options.deferSubtitleMiningResume ? SUBTITLE_HOVER_MINING_RESUME_GRACE_MS : 0);
+    }
     this.clearHoverDismissState(options);
     this.audio.stop();
     this.immersionPopover.stopAudio();

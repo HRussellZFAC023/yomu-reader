@@ -17,7 +17,6 @@ import {
 } from './subtitle-cues';
 import {
     TRANSCRIPT_PANEL_MARGIN,
-    TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT,
     applyTranscriptPanelLayout,
     computeSubtitleDrawerLayout,
     loadSubtitleDragOffsetFraction,
@@ -35,7 +34,10 @@ import {
     type PageSubtitleSource,
 } from './subtitle-sources';
 import {
+    applyStableYouTubePlayerVideoSize,
+    clearStableYouTubePlayerVideoSize,
     createSubtitleVideoInsetAdapter,
+    resizeYouTubePlayerForSubtitleLayout,
     subtitleVisibleViewportSize,
     subtitleVideoLayoutRect,
     subtitleVideoLayoutTarget,
@@ -212,10 +214,13 @@ const YOUTUBE_STABLE_TRANSCRIPT_CLASSES = [
     'jpdb-subtitle-youtube-stable-side',
     'jpdb-subtitle-youtube-stable-left',
     'jpdb-subtitle-youtube-stable-right',
+    'jpdb-subtitle-youtube-stable-player-fallback',
+    'jpdb-subtitle-youtube-stable-full-bleed',
 ] as const;
 const YOUTUBE_STABLE_TRANSCRIPT_STYLE_PROPERTIES = [
     '--jpdb-subtitle-youtube-stable-offset',
     '--jpdb-subtitle-youtube-stable-player-width',
+    '--jpdb-subtitle-youtube-stable-player-height',
 ] as const;
 const ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR = '.asbplayer-subtitles-container-bottom';
 const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = `.asbplayer-offscreen, ${ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR}`;
@@ -396,8 +401,8 @@ function youtubeFullscreenHostForVideo(video: HTMLVideoElement | undefined): HTM
     if (!isYouTubePage()) return null;
     const scopedHost = [
         video?.closest<HTMLElement>('[data-yomu-inline-fullscreen="true"]'),
-        video?.closest<HTMLElement>('.html5-video-player.ytp-fullscreen, .html5-video-player.fullscreen'),
-        video?.closest<HTMLElement>('#movie_player.ytp-fullscreen, #movie_player.fullscreen'),
+        video?.closest<HTMLElement>('.html5-video-player.ytp-fullscreen'),
+        video?.closest<HTMLElement>('#movie_player.ytp-fullscreen'),
         video?.closest<HTMLElement>('ytd-watch-flexy[fullscreen] #movie_player'),
         video?.closest<HTMLElement>('ytd-watch-flexy[fullscreen] ytd-player'),
         video?.closest<HTMLElement>('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen'),
@@ -406,8 +411,8 @@ function youtubeFullscreenHostForVideo(video: HTMLVideoElement | undefined): HTM
 
     return [
         document.querySelector<HTMLElement>('[data-yomu-inline-fullscreen="true"]'),
-        document.querySelector<HTMLElement>('.html5-video-player.ytp-fullscreen, .html5-video-player.fullscreen'),
-        document.querySelector<HTMLElement>('#movie_player.ytp-fullscreen, #movie_player.fullscreen'),
+        document.querySelector<HTMLElement>('.html5-video-player.ytp-fullscreen'),
+        document.querySelector<HTMLElement>('#movie_player.ytp-fullscreen'),
         document.querySelector<HTMLElement>('ytd-watch-flexy[fullscreen] #movie_player'),
         document.querySelector<HTMLElement>('ytd-watch-flexy[fullscreen] ytd-player'),
         document.querySelector<HTMLElement>('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen'),
@@ -469,21 +474,6 @@ function youtubeWatchPlayerMeaningfullyVisible(rect: DOMRect): boolean {
 function subtitleElementOverflows(element: HTMLElement): boolean {
     return element.scrollHeight > element.clientHeight + 1
         || element.scrollWidth > element.clientWidth + 1;
-}
-
-function elementFullyVisibleWithinScroller(element: HTMLElement, scroller: HTMLElement, margin = 0): boolean {
-    const elementRect = element.getBoundingClientRect();
-    const scrollerRect = scroller.getBoundingClientRect();
-    return elementRect.top >= scrollerRect.top + margin
-        && elementRect.bottom <= scrollerRect.bottom - margin;
-}
-
-function setElementScrollTop(element: HTMLElement, top: number): void {
-    if (typeof element.scrollTo === 'function') {
-        element.scrollTo({ top, behavior: 'auto' });
-        return;
-    }
-    element.scrollTop = top;
 }
 
 function subtitleSecondaryFontSize(target: number): number {
@@ -597,6 +587,7 @@ const TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY = 2;
 const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 8;
 const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
 const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
+const YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD = 240;
 const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 96;
 const SUBTITLE_PARSE_CACHE_MIN_ENTRIES = 180;
 const SUBTITLE_PARSE_CACHE_MAX_ENTRIES = 5000;
@@ -619,13 +610,12 @@ const SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT = 6;
 // Cues near the playhead must colorise immediately; only the whole-transcript
 // tail of the warmup queue is paced.
 const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
-const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 240;
+const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 64;
 const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
-const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 8;
-const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 48;
+const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 3;
+const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 21;
 const TRANSCRIPT_AUTO_SCROLL_RESUME_FALLBACK_SECONDS = 30;
 const TRANSCRIPT_AUTO_SCROLL_RESUME_LEGACY_DEFAULT_SECONDS = 4;
-const SUBTITLE_CURRENT_CUE_HOLD_GRACE_SECONDS = 0.12;
 // Housekeeping cadence while playing (track discovery, realign backstop, chrome
 // idle). Cue + karaoke precision is owned by the per-frame sampler
 // (startFrameSync), so this no longer needs to run at 250ms.
@@ -680,6 +670,13 @@ interface SubtitleDragSession {
     startY: number;
     startOffset: number;
     startBottomOffset: number;
+    referenceHeight: number;
+    bounds: { min: number; max: number };
+    lastClientY: number;
+    frame?: number;
+    previewBottomOffset?: number;
+    previewOffset?: number;
+    appliedClientY?: number;
 }
 
 interface TranscriptPanelRenderState {
@@ -968,8 +965,6 @@ export class SubtitlePlayerController {
     private lastKaraokeProgressKey?: number;
     private lastKaraokePrimaryWord?: HTMLElement | null;
     private alignFrame?: number;
-    private fullscreenLayoutFrame?: number;
-    private fullscreenStabilizeTimer?: number;
     private alignAfterTranscriptResize = false;
     private lastAlignedVideoRectKey = '';
     private lastShortsNavVideoId = '';
@@ -1054,6 +1049,7 @@ export class SubtitlePlayerController {
     // configured bottom offset. Persisted via gmStorage; see subtitle-layout.
     private subtitleDragOffsetFraction = loadSubtitleDragOffsetFraction();
     private subtitleDragActive = false;
+    private subtitleDragPreviewOffsetYPx?: number;
     private transcriptResizeActive = false;
     private asbMoveHandlesActive = false;
     private readonly asbSubtitleDragHandles = new WeakSet<HTMLElement>();
@@ -1107,7 +1103,8 @@ export class SubtitlePlayerController {
         this.observer = new MutationObserver(mutations => {
             this.syncYouTubeMobileBottomSheetState();
             if (mutations.some(mutation => this.mutationCouldAffectFullscreenState(mutation))) {
-                this.scheduleFullscreenLayoutChange();
+                this.syncFullscreenState();
+                this.scheduleAlignToVideo();
             }
             if (mutations.every(mutationInsideReaderRoot)) return;
             if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
@@ -1130,7 +1127,7 @@ export class SubtitlePlayerController {
         }
         for (const eventName of SUBTITLE_FULLSCREEN_CHANGE_EVENTS) {
             document.addEventListener(eventName, () => {
-                this.scheduleFullscreenLayoutChange();
+                this.handleFullscreenLayoutChange();
             }, this.eventOptions());
         }
         window.addEventListener('scroll', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
@@ -1160,27 +1157,11 @@ export class SubtitlePlayerController {
     }
 
     private handleFullscreenLayoutChange(): void {
-        this.fullscreenLayoutFrame = clearWindowAnimationFrame(this.fullscreenLayoutFrame);
-        this.runFullscreenLayoutChange();
-    }
-
-    private scheduleFullscreenLayoutChange(): void {
-        if (this.fullscreenLayoutFrame !== undefined) return;
-        this.fullscreenLayoutFrame = requestAnimationFrame(() => {
-            this.fullscreenLayoutFrame = undefined;
-            this.handleFullscreenLayoutChange();
-        });
-    }
-
-    private runFullscreenLayoutChange(): void {
-        if (this.destroyed) return;
         this.syncFullscreenState();
         if (this.video && !this.video.paused) this.startFrameSync(this.video);
         this.alignToVideo();
         this.scheduleAlignToVideo();
-        this.fullscreenStabilizeTimer = clearWindowTimeout(this.fullscreenStabilizeTimer);
-        this.fullscreenStabilizeTimer = window.setTimeout(() => {
-            this.fullscreenStabilizeTimer = undefined;
+        window.setTimeout(() => {
             if (!this.destroyed) this.scheduleAlignToVideo();
         }, 80);
         this.render();
@@ -1200,8 +1181,6 @@ export class SubtitlePlayerController {
         this.stopFrameSync();
         this.clearControlsIdleTimer();
         this.alignFrame = clearWindowAnimationFrame(this.alignFrame);
-        this.fullscreenLayoutFrame = clearWindowAnimationFrame(this.fullscreenLayoutFrame);
-        this.fullscreenStabilizeTimer = clearWindowTimeout(this.fullscreenStabilizeTimer);
         this.transcriptScrollFrame = clearWindowAnimationFrame(this.transcriptScrollFrame);
         this.transcriptHydrateFrame = clearWindowAnimationFrame(this.transcriptHydrateFrame);
         this.transcriptVirtualRenderFrame = clearWindowAnimationFrame(this.transcriptVirtualRenderFrame);
@@ -1520,7 +1499,7 @@ export class SubtitlePlayerController {
         }, this.eventOptions({ passive: true }));
         video.addEventListener('loadeddata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         for (const eventName of ['webkitbeginfullscreen', 'webkitendfullscreen', 'webkitpresentationmodechanged'] as const) {
-            video.addEventListener(eventName, () => this.scheduleFullscreenLayoutChange(), this.eventOptions({ passive: true }));
+            video.addEventListener(eventName, () => this.handleFullscreenLayoutChange(), this.eventOptions({ passive: true }));
         }
         const handlePlaybackTimeChanged = () => this.syncSubtitleToPlaybackTime();
         video.addEventListener('timeupdate', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
@@ -2052,18 +2031,9 @@ export class SubtitlePlayerController {
         const secondary = this.secondaryTrackId
             ? (findActiveSubtitleCue(this.secondaryCues, time) ?? findInitialLeadInCue(this.secondaryCues, time))
             : undefined;
-        const cue = this.selectedTrackId ? this.stablePrimaryCueAtTime(time, this.findRenderablePrimaryCue(time, secondary)) : undefined;
+        const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time, secondary) : undefined;
         if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
         else this.warmParseOnGapAnchorJump();
-    }
-
-    private stablePrimaryCueAtTime(time: number, cue: SubtitleCue | undefined): SubtitleCue | undefined {
-        const current = this.currentCue;
-        if (!cue || !current || cue === current) return cue;
-        if (cue.start <= current.start || time >= cue.start) return cue;
-        if (cue.start < current.end) return cue;
-        if (time < current.start - 0.05 || time >= current.end + SUBTITLE_CURRENT_CUE_HOLD_GRACE_SECONDS) return cue;
-        return current;
     }
 
     // Auto-generated YouTube captions and their `&tlang=` translations are
@@ -2367,12 +2337,16 @@ export class SubtitlePlayerController {
     }
 
     private primaryParsedHtmlForRender(text: string, settings: ReaderSettings, key: string): string | undefined {
-        const cached = this.parsedHtmlCache.get(key);
+        const cached = this.cachedParsedCueHtml(key, settings);
         if (cached !== undefined) return cached;
         const provisional = this.provisionalParsedHtmlCache.get(key);
         if (provisional !== undefined) {
             if (this.shouldUseProvisionalSubtitleParse(settings)) {
                 if (!this.enrichedProvisionalParsedHtmlKeys.has(key)) {
+                    if (this.hasAuthoritativeParseTier(settings)) {
+                        this.ensureAuthoritativeParsedCueHtml(text, settings, key);
+                        return undefined;
+                    }
                     this.ensureEnrichedProvisionalParsedCueHtml(text, settings, key);
                     if (!this.parsedTokenCache.has(key)) return undefined;
                 } else {
@@ -2491,9 +2465,12 @@ export class SubtitlePlayerController {
 
     private async parseCueHtml(text: string, settings = this.options.getSettings(), options: ParseCueHtmlOptions = {}): Promise<string> {
         const key = this.parseCacheKey(text, settings);
-        const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
+        const cached = this.cachedParsedCueHtml(key, settings);
         if (cached) {
             return cached;
+        }
+        if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings) && this.shouldBypassProvisionalForAuthoritative(settings, options)) {
+            return await this.parseAuthoritativeCueHtml(text, settings, key);
         }
         const emptyCached = this.freshEmptyParsedHtml(key);
         if (emptyCached) return emptyCached;
@@ -2501,7 +2478,7 @@ export class SubtitlePlayerController {
         const pending = this.pendingParsedCueHtml(key, 'authoritative');
         if (pending) return pending;
         const promise = (async () => {
-            const tokens = await this.options.parseJapanese(text, subtitleParseOptions(settings));
+            const tokens = await this.options.parseJapanese(text, this.finalSubtitleParseOptions(settings));
             if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
             const html = withBreaks(renderTokensToHtml(text, tokens, settings));
             this.rememberParsedCueHtml(key, html, tokens);
@@ -2512,6 +2489,28 @@ export class SubtitlePlayerController {
             return await promise;
         } finally {
             this.pendingParsedHtml.delete(key);
+        }
+    }
+
+    private async parseAuthoritativeCueHtml(text: string, settings: ReaderSettings, key: string): Promise<string> {
+        this.ensureAuthoritativeParsedCueHtml(text, settings, key);
+        const pending = this.pendingParsedHtml.get(key);
+        if (pending) return pending;
+        const cached = this.cachedParsedCueHtml(key, settings);
+        if (cached) return cached;
+        const promise = (async () => {
+            const tokens = await this.options.parseJapanese(text, authoritativeSubtitleParseOptions());
+            await this.beforeRenderParsedTokens(tokens);
+            const html = withBreaks(renderTokensToHtml(text, tokens, settings));
+            this.rememberParsedCueHtml(key, html, tokens, { forceNotify: true });
+            this.applyAuthoritativeParsedCueHtml(key, text, html);
+            return html;
+        })();
+        this.pendingParsedHtml.set(key, promise);
+        try {
+            return await promise;
+        } finally {
+            if (this.pendingParsedHtml.get(key) === promise) this.pendingParsedHtml.delete(key);
         }
     }
 
@@ -2573,15 +2572,15 @@ export class SubtitlePlayerController {
     private ensureAuthoritativeParsedCueHtmlBatch(items: SubtitleParseBatchItem[], settings: ReaderSettings): void {
         // Without an API credential there is no authoritative tier to upgrade
         // to; the provisional parse is the final result for both surfaces.
-        if (!hasJpdbApiCredential(settings) && !hasJitenApiCredential(settings)) return;
-        const missing = items.filter(item => !this.parsedHtmlCache.has(item.key) && !this.pendingParsedHtml.has(item.key));
+        if (!this.hasAuthoritativeParseTier(settings)) return;
+        const missing = items.filter(item => this.cachedParsedCueHtml(item.key, settings) === undefined && !this.pendingParsedHtml.has(item.key));
         if (!missing.length) return;
         const parsed = this.options.parseJapaneseBatch
             ? this.options.parseJapaneseBatch(missing.map(item => item.text), authoritativeSubtitleParseOptions())
             : Promise.all(missing.map(item => this.options.parseJapanese(item.text, authoritativeSubtitleParseOptions())));
-        const parsedHtml = missing.map((item, index) => parsed.then(async tokens => {
+        const enriched = this.enrichParsedTokenBatchBeforeRender(parsed);
+        const parsedHtml = missing.map((item, index) => enriched.then(tokens => {
             const tokenList = tokens[index] ?? [];
-            await this.beforeRenderParsedTokens(tokenList);
             const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
             this.rememberParsedCueHtml(item.key, html, tokenList, { forceNotify: true });
             this.applyAuthoritativeParsedCueHtml(item.key, item.text, html);
@@ -2650,7 +2649,10 @@ export class SubtitlePlayerController {
 
     private async parseCueHtmlBatch(texts: string[], settings = this.options.getSettings(), options: ParseCueHtmlOptions = {}): Promise<ParsedSubtitleHtmlResult[]> {
         const items = uniqueSubtitleParseTexts(texts).map(text => ({ text, key: this.parseCacheKey(text, settings) }));
-        if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseCueHtmlBatchWithProvisionalFallback(items, settings, options);
+        if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) {
+            if (this.shouldBypassProvisionalForAuthoritative(settings, options)) return await this.parseAuthoritativeCueHtmlBatch(items, settings);
+            return await this.parseCueHtmlBatchWithProvisionalFallback(items, settings, options);
+        }
 
         const { ready, batch } = planSubtitleParseBatch(
             items,
@@ -2658,9 +2660,9 @@ export class SubtitlePlayerController {
             // final here too — without it the transcript-tail warmup
             // (allowProvisional: false) re-parsed every already-parsed cue a
             // second time through the local tokenizer.
-            key => this.parsedHtmlCache.get(key)
+            key => this.cachedParsedCueHtml(key, settings)
                 ?? this.freshEmptyParsedHtml(key)
-                ?? (this.hasAuthoritativeParseTier() ? undefined : this.provisionalParsedHtmlCache.get(key)),
+                ?? (this.hasAuthoritativeParseTier(settings) ? undefined : this.provisionalParsedHtmlCache.get(key)),
             key => this.pendingParsedCueHtml(key, 'authoritative'),
         );
         if (!batch.length) return Promise.all(ready);
@@ -2671,9 +2673,20 @@ export class SubtitlePlayerController {
             }))]);
         }
 
-        const parsed = this.options.parseJapaneseBatch(batch.map(item => item.text), subtitleParseOptions(settings));
+        const parsed = this.options.parseJapaneseBatch(batch.map(item => item.text), this.finalSubtitleParseOptions(settings));
         const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { enrichBeforeRender: options.enrichBeforeRender });
         return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingParsedHtml);
+    }
+
+    private async parseAuthoritativeCueHtmlBatch(items: SubtitleParseBatchItem[], settings: ReaderSettings): Promise<ParsedSubtitleHtmlResult[]> {
+        if (!items.length) return [];
+        this.ensureAuthoritativeParsedCueHtmlBatch(items, settings);
+        return await Promise.all(items.map(async item => {
+            const cached = this.cachedParsedCueHtml(item.key, settings);
+            if (cached) return { key: item.key, html: cached };
+            const pending = this.pendingParsedHtml.get(item.key);
+            return { key: item.key, html: pending ? await pending : await this.parseAuthoritativeCueHtml(item.text, settings, item.key) };
+        }));
     }
 
     private async parseCueHtmlBatchWithProvisionalFallback(
@@ -2709,13 +2722,19 @@ export class SubtitlePlayerController {
         settings: ReaderSettings,
         options: { provisional?: boolean; enrichBeforeRender?: boolean } = {},
     ): Promise<ParsedSubtitleHtmlResult>[] {
-        return batch.map((item, index) => parsed.then(async tokens => {
+        const prepared = options.enrichBeforeRender ? this.enrichParsedTokenBatchBeforeRender(parsed) : parsed;
+        return batch.map((item, index) => prepared.then(tokens => {
             const tokenList = tokens[index] ?? [];
-            if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokenList);
             const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
             this.rememberParsedCueHtml(item.key, html, tokenList, { ...options, enriched: this.shouldMarkCueEnriched(item.key, tokenList, options.enrichBeforeRender === true) });
             return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
         }));
+    }
+
+    private async enrichParsedTokenBatchBeforeRender(parsed: Promise<JPDBToken[][]>): Promise<JPDBToken[][]> {
+        const tokenRows = await parsed;
+        await this.beforeRenderParsedTokens(tokenRows.flat());
+        return tokenRows;
     }
 
     private async beforeRenderParsedTokens(tokens: JPDBToken[]): Promise<void> {
@@ -2834,9 +2853,16 @@ export class SubtitlePlayerController {
         );
     }
 
-    private hasAuthoritativeParseTier(): boolean {
-        const settings = this.options.getSettings();
+    private hasAuthoritativeParseTier(settings = this.options.getSettings()): boolean {
         return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings);
+    }
+
+    private finalSubtitleParseOptions(settings: ReaderSettings): SubtitleParseOptions {
+        return this.hasAuthoritativeParseTier(settings) ? authoritativeSubtitleParseOptions() : subtitleParseOptions(settings);
+    }
+
+    private shouldBypassProvisionalForAuthoritative(settings: ReaderSettings, options: ParseCueHtmlOptions): boolean {
+        return options.requireEnrichedProvisional === true && this.hasAuthoritativeParseTier(settings);
     }
 
     // UT-48 session persistence: parsed cue html survives reloads of the
@@ -2953,7 +2979,7 @@ export class SubtitlePlayerController {
             const text = this.cues[index]?.text.trim();
             if (!text) continue;
             const key = this.parseCacheKey(text, settings);
-            if (seen.has(key) || this.isWarmParsedCueKey(key)) continue;
+            if (seen.has(key) || this.isWarmParsedCueKey(key, settings)) continue;
             seen.add(key);
             texts.push(text);
         }
@@ -2963,9 +2989,19 @@ export class SubtitlePlayerController {
     // Keyless there is no authoritative tier, so a provisional hit is final
     // and the cue counts as warm; keyed the provisional tier stays listed so
     // a failed authoritative upgrade is retried by the next warmup turn.
-    private isWarmParsedCueKey(key: string): boolean {
-        if (this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) return true;
-        return !this.hasAuthoritativeParseTier() && this.enrichedProvisionalParsedHtmlKeys.has(key);
+    private isWarmParsedCueKey(key: string, settings = this.options.getSettings()): boolean {
+        if (this.cachedParsedCueHtml(key, settings) !== undefined || this.hasFreshEmptyParsedHtml(key)) return true;
+        return !this.hasAuthoritativeParseTier(settings) && this.enrichedProvisionalParsedHtmlKeys.has(key);
+    }
+
+    private cachedParsedCueHtml(key: string, settings: ReaderSettings): string | undefined {
+        const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
+        if (!cached) return undefined;
+        if (this.hasAuthoritativeParseTier(settings) && cached.includes('data-card-source="fallback"')) {
+            this.parsedHtmlCache.delete(key);
+            return undefined;
+        }
+        return cached;
     }
 
     // Keyless both tiers produce the same local-tokenizer result, so an
@@ -3380,33 +3416,68 @@ export class SubtitlePlayerController {
             startY,
             startOffset: this.subtitleDragOffsetYPx,
             startBottomOffset: this.options.getSettings().subtitleBottomOffset,
+            referenceHeight: this.subtitlePositionReferenceHeight(dragFrame),
+            bounds: this.subtitleDragOffsetBounds(dragFrame),
+            lastClientY: startY,
         };
         this.subtitleDragActive = true;
         handle.classList.add('jpdb-subtitle-dragging');
         dragRoot?.classList.add('jpdb-subtitle-dragging');
         if (dragRoot !== this.root) this.root?.classList.add('jpdb-subtitle-dragging');
-        this.showControlsTemporarily();
+        document.documentElement.classList.add('jpdb-subtitle-dragging');
+        this.showControlsDuringSubtitleDrag();
         return session;
     }
 
     private updateSubtitleDrag(session: SubtitleDragSession, clientY: number, event: Event): void {
         if (event.cancelable) event.preventDefault();
-        if (session.mode === 'bottom-offset') {
-            this.setSubtitleBottomOffsetFromDrag(session.startBottomOffset, clientY - session.startY, session.dragFrame);
-        } else {
-            this.setSubtitleDragOffset(session.startOffset + clientY - session.startY, session.dragFrame);
-        }
-        this.showControlsTemporarily();
+        event.stopPropagation();
+        session.lastClientY = clientY;
+        if (session.frame !== undefined) return;
+        this.applySubtitleDragPreview(session, clientY);
+        session.frame = window.requestAnimationFrame(() => {
+            session.frame = undefined;
+            if (session.appliedClientY !== session.lastClientY) this.applySubtitleDragPreview(session, session.lastClientY);
+        });
     }
 
     private endSubtitleDrag(session: SubtitleDragSession): void {
+        this.flushSubtitleDragPreview(session);
         this.subtitleDragActive = false;
         session.handle.classList.remove('jpdb-subtitle-dragging');
         session.dragRoot?.classList.remove('jpdb-subtitle-dragging');
         if (session.dragRoot !== this.root) this.root?.classList.remove('jpdb-subtitle-dragging');
-        if (session.mode === 'bottom-offset') this.resetLegacySubtitleDragOffset();
+        document.documentElement.classList.remove('jpdb-subtitle-dragging');
+        if (session.mode === 'bottom-offset') {
+            this.commitSubtitleBottomOffsetFromDrag(session);
+            this.resetLegacySubtitleDragOffset();
+        }
         else this.persistSubtitleDragOffset();
         this.showControlsTemporarily();
+    }
+
+    private applySubtitleDragPreview(session: SubtitleDragSession, clientY: number): void {
+        session.appliedClientY = clientY;
+        const deltaY = clientY - session.startY;
+        if (session.mode === 'bottom-offset') {
+            const next = this.subtitleBottomOffsetFromDelta(session.startBottomOffset, deltaY, session.referenceHeight);
+            session.previewBottomOffset = next;
+            session.previewOffset = Math.round(((session.startBottomOffset - next) / 100) * session.referenceHeight);
+            this.subtitleDragPreviewOffsetYPx = session.previewOffset;
+            this.syncYomuSubtitleDragOffsetStyle();
+        } else {
+            this.setSubtitleDragOffset(session.startOffset + deltaY, session.dragFrame, session.bounds);
+            session.previewOffset = this.subtitleDragOffsetYPx;
+        }
+        this.showControlsDuringSubtitleDrag();
+    }
+
+    private flushSubtitleDragPreview(session: SubtitleDragSession): void {
+        if (session.frame !== undefined) {
+            window.cancelAnimationFrame(session.frame);
+            session.frame = undefined;
+        }
+        if (session.appliedClientY !== session.lastClientY) this.applySubtitleDragPreview(session, session.lastClientY);
     }
 
     private moveSubtitleOverlayFromKeyboard(event: KeyboardEvent): void {
@@ -3442,8 +3513,13 @@ export class SubtitlePlayerController {
         this.showControlsTemporarily();
     }
 
-    private setSubtitleBottomOffsetFromDrag(startPercent: number, deltaY: number, dragFrame?: HTMLElement): void {
-        this.setSubtitleBottomOffset(startPercent - (deltaY / this.subtitlePositionReferenceHeight(dragFrame)) * 100);
+    private commitSubtitleBottomOffsetFromDrag(session: SubtitleDragSession): void {
+        if (session.previewBottomOffset === undefined) return;
+        this.setSubtitleBottomOffset(session.previewBottomOffset);
+    }
+
+    private subtitleBottomOffsetFromDelta(startPercent: number, deltaY: number, referenceHeight: number): number {
+        return this.clampedSubtitleBottomOffset(startPercent - (deltaY / referenceHeight) * 100);
     }
 
     private adjustSubtitleBottomOffsetByPixels(deltaY: number, dragFrame?: HTMLElement): void {
@@ -3453,7 +3529,7 @@ export class SubtitlePlayerController {
     private setSubtitleBottomOffset(value: number): void {
         if (!Number.isFinite(value)) return;
         const settings = this.options.getSettings();
-        const next = Math.round(Math.min(Math.max(value, 2), 40));
+        const next = this.clampedSubtitleBottomOffset(value);
         if (settings.subtitleBottomOffset === next) return;
         settings.subtitleBottomOffset = next;
         this.applyEffectiveSubtitleBottom();
@@ -3473,11 +3549,11 @@ export class SubtitlePlayerController {
         return Math.max(1, rect?.height || styledRootHeight || this.videoLayoutRect().height || dragFrame?.getBoundingClientRect().height || this.subtitleDragViewportHeight());
     }
 
-    private setSubtitleDragOffset(offsetPx: number, dragFrame?: HTMLElement): void {
-        const offset = Math.round(this.clampedSubtitleDragOffset(offsetPx, dragFrame));
+    private setSubtitleDragOffset(offsetPx: number, dragFrame?: HTMLElement, bounds?: { min: number; max: number }): void {
+        const offset = Math.round(this.clampedSubtitleDragOffset(offsetPx, dragFrame, bounds));
         if (offset === this.subtitleDragOffsetYPx) return;
         this.subtitleDragOffsetYPx = offset;
-        this.syncSubtitleDragOffsetStyle();
+        this.syncAsbSubtitleDragOffsetStyle();
     }
 
     // Snap back to the configured bottom offset and forget the remembered nudge.
@@ -3488,6 +3564,7 @@ export class SubtitlePlayerController {
     private resetLegacySubtitleDragOffset(): void {
         this.subtitleDragOffsetFraction = 0;
         this.subtitleDragOffsetYPx = 0;
+        this.subtitleDragPreviewOffsetYPx = undefined;
         saveSubtitleDragOffsetFraction(0);
         this.syncSubtitleDragOffsetStyle();
     }
@@ -3517,16 +3594,29 @@ export class SubtitlePlayerController {
     }
 
     private syncSubtitleDragOffsetStyle(): void {
+        this.syncYomuSubtitleDragOffsetStyle();
+        this.syncAsbSubtitleDragOffsetStyle();
+    }
+
+    private syncYomuSubtitleDragOffsetStyle(): void {
+        const yomuOffset = `${this.subtitleDragPreviewOffsetYPx ?? 0}px`;
+        if (this.root) setStylePropertyIfChanged(this.root, '--subtitle-drag-offset-y', yomuOffset);
+    }
+
+    private syncAsbSubtitleDragOffsetStyle(): void {
         const offset = `${this.subtitleDragOffsetYPx}px`;
-        if (this.root) setStylePropertyIfChanged(this.root, '--subtitle-drag-offset-y', '0px');
         for (const root of this.asbPlayerSubtitleMoveRoots()) {
             setStylePropertyIfChanged(root, '--jpdb-subtitle-asb-drag-offset-y', offset);
         }
     }
 
-    private clampedSubtitleDragOffset(offsetPx: number, dragFrame?: HTMLElement): number {
+    private clampedSubtitleBottomOffset(value: number): number {
+        return Math.round(Math.min(Math.max(value, 2), 40));
+    }
+
+    private clampedSubtitleDragOffset(offsetPx: number, dragFrame?: HTMLElement, bounds?: { min: number; max: number }): number {
         if (!Number.isFinite(offsetPx)) return this.subtitleDragOffsetYPx;
-        const { min, max } = this.subtitleDragOffsetBounds(dragFrame);
+        const { min, max } = bounds ?? this.subtitleDragOffsetBounds(dragFrame);
         return Math.min(max, Math.max(min, offsetPx));
     }
 
@@ -3658,6 +3748,12 @@ export class SubtitlePlayerController {
         if (!this.root) return;
         this.root.classList.remove('jpdb-subtitle-controls-idle');
         this.syncAsbPlayerSubtitleMoveHandles();
+        this.scheduleControlsIdle();
+    }
+
+    private showControlsDuringSubtitleDrag(): void {
+        if (!this.root) return;
+        this.root.classList.remove('jpdb-subtitle-controls-idle');
         this.scheduleControlsIdle();
     }
 
@@ -4807,37 +4903,26 @@ export class SubtitlePlayerController {
     private renderTranscriptPanelPreview(): void {
         const panel = this.renderableTranscriptPanel();
         if (!panel) return;
-        const state = this.transcriptPanelPreviewState();
-        this.transcriptPreviewPlayerResizeDeferred = false;
+        const fullState = this.transcriptPanelRenderState();
+        const state = this.transcriptPanelPreviewState(fullState);
+        this.transcriptPreviewPlayerResizeDeferred = true;
         this.lastTranscriptSignature = '';
         setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
-        this.afterTranscriptPanelRender(state);
+        this.afterTranscriptPanelRender(state, { deferPlayerResize: true });
     }
 
-    private transcriptPanelPreviewState(): TranscriptPanelRenderState {
-        const rows = this.transcriptRows();
-        const currentCueIndex = this.activeTranscriptIndex();
-        const currentRowIndex = this.activeTranscriptRowIndex(rows, currentCueIndex);
-        const settings = this.options.getSettings();
-        const rowCount = rows.length;
-        const signature = [
-            'preview',
-            rowCount,
-            this.selectedTrackId,
-            this.tracks.find(track => track.id === this.selectedTrackId)?.loadingState ?? '',
-            !this.cues.length && this.currentCue ? subtitleCueSignature(this.currentCue) : '',
-            this.parseCacheKey('', settings),
-        ].join(':');
-        if (!rowCount) return { rows: [], currentRowIndex, signature, totalRowCount: 0 };
-        const activeIndex = currentRowIndex >= 0 ? currentRowIndex : 0;
+    private transcriptPanelPreviewState(state: TranscriptPanelRenderState): TranscriptPanelRenderState {
+        const rowCount = state.rows.length;
+        if (!rowCount) return { ...state, signature: `preview:${state.signature}`, totalRowCount: 0 };
+        const activeIndex = state.currentRowIndex >= 0 ? state.currentRowIndex : 0;
         const clampedActive = Math.min(Math.max(activeIndex, 0), rowCount - 1);
         const previewStart = Math.max(0, Math.min(clampedActive - 1, rowCount - 3));
         const previewEnd = Math.min(rowCount, previewStart + 3);
         return {
-            rows: rows.slice(previewStart, previewEnd),
-            warmupRows: rows.slice(previewStart, Math.min(rowCount, previewStart + TRANSCRIPT_ACTIVE_HYDRATION_AHEAD + 2)),
-            currentRowIndex,
-            signature: `${signature}:${previewStart}`,
+            rows: state.rows.slice(previewStart, previewEnd),
+            warmupRows: state.warmupRows,
+            currentRowIndex: state.currentRowIndex,
+            signature: `preview:${state.signature}:${previewStart}`,
             rowIndexOffset: previewStart,
             totalRowCount: rowCount,
         };
@@ -5011,7 +5096,10 @@ export class SubtitlePlayerController {
         const scroller = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll');
         if (!scroller) return;
         const scrollTop = Math.max(0, state.virtual.scrollTop);
-        if (Math.abs(scroller.scrollTop - scrollTop) > 1) scroller.scrollTop = scrollTop;
+        if (Math.abs(scroller.scrollTop - scrollTop) > 1) {
+            this.markTranscriptProgrammaticScroll();
+            scroller.scrollTop = scrollTop;
+        }
         this.transcriptVirtualScrollTop = scrollTop;
     }
 
@@ -5061,19 +5149,11 @@ export class SubtitlePlayerController {
         const activeRows = Array.from(this.transcriptPanel.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row.active'));
         const active = this.transcriptPanel.querySelector<HTMLElement>(`.jpdb-subtitle-list-row[data-row-index="${currentIndex}"]`);
         if (active && activeRows.length === 1 && activeRows[0] === active) return;
-        if (!active && currentIndex >= 0 && this.shouldRenderActiveTranscriptRow()) {
-            this.renderTranscriptPanel(true);
-            return;
-        }
         activeRows.forEach(row => {
             if (row !== active) row.classList.remove('active');
         });
         if (active) active.classList.add('active');
         this.scrollTranscriptToActive();
-    }
-
-    private shouldRenderActiveTranscriptRow(): boolean {
-        return Boolean(this.options.getSettings().subtitleTranscriptAutoScroll && !this.isTranscriptAutoScrollPaused());
     }
 
     private scrollTranscriptToActive(options: { force?: boolean } = {}): void {
@@ -5088,19 +5168,15 @@ export class SubtitlePlayerController {
             if (this.destroyed) return;
             const active = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-row.active');
             if (!active) return;
-            const scroller = active.closest<HTMLElement>('.jpdb-subtitle-list-scroll');
             // Mark the self-induced scroll so its scroll events are not counted
             // as a manual scroll that would pause auto-follow.
-            this.transcriptProgrammaticScrollUntil = performance.now() + TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
-            if (scroller) {
-                if (!options.force && elementFullyVisibleWithinScroller(active, scroller, 14)) return;
-                const top = active.offsetTop - Math.max(0, (scroller.clientHeight - active.offsetHeight) / 2);
-                setElementScrollTop(scroller, Math.max(0, top));
-                this.transcriptVirtualScrollTop = scroller.scrollTop;
-                return;
-            }
+            this.markTranscriptProgrammaticScroll();
             active.scrollIntoView?.({ block: 'center', inline: 'nearest' });
         });
+    }
+
+    private markTranscriptProgrammaticScroll(): void {
+        this.transcriptProgrammaticScrollUntil = performance.now() + TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
     }
 
     private noteTranscriptScroll(): void {
@@ -5130,8 +5206,7 @@ export class SubtitlePlayerController {
         this.transcriptAutoScrollResumeTimer = window.setTimeout(() => {
             this.transcriptAutoScrollResumeTimer = undefined;
             this.syncTranscriptAutoScrollPausedClass();
-            this.renderTranscriptPanel(true);
-            this.scrollTranscriptToActive({ force: true });
+            this.scrollTranscriptToActive();
         }, remaining + 20);
     }
 
@@ -5242,12 +5317,7 @@ export class SubtitlePlayerController {
             resizeFrame = requestAnimationFrame(() => {
                 resizeFrame = undefined;
                 if (this.destroyed) return;
-                this.positionTranscriptPanel({
-                    skipInset: true,
-                    skipControlSync: true,
-                    skipResizeHandle: true,
-                    resizeEventMode: 'immediate',
-                });
+                this.positionTranscriptPanel({ skipInset: true, skipControlSync: true, skipResizeHandle: true });
             });
         };
 
@@ -5286,6 +5356,7 @@ export class SubtitlePlayerController {
             saveTranscriptPanelSize(this.transcriptPanelSize);
             this.positionTranscriptPanel({ realignAfterInset: true, resizeEventMode: 'settled' });
             const shouldAlignAfterResize = this.finishTranscriptResize();
+            this.scrollTranscriptToActive();
             if (shouldAlignAfterResize) this.scheduleAlignToVideo();
         };
         const onPointerUp = (upEvent: PointerEvent) => finish('commit', upEvent.clientX, upEvent.clientY);
@@ -5354,6 +5425,7 @@ export class SubtitlePlayerController {
         }));
         saveTranscriptPanelSize(this.transcriptPanelSize);
         this.positionTranscriptPanel();
+        this.scrollTranscriptToActive();
     }
 
     private syncTranscriptResizeHandle(layout?: TranscriptPanelLayout): void {
@@ -5374,16 +5446,17 @@ export class SubtitlePlayerController {
         handle.setAttribute('aria-valuenow', String(Math.round(metrics.current)));
     }
 
-    private scheduleTranscriptHydration(preferredIndex = this.activeTranscriptRowIndex()): void {
+    private scheduleTranscriptHydration(preferredIndex?: number): void {
         if (this.transcriptResizeActive) {
             this.transcriptHydrationAfterResizeIndex = preferredIndex;
             return;
         }
+        const index = preferredIndex ?? this.activeTranscriptRowIndex();
         if (this.transcriptHydrateFrame) return;
         this.transcriptHydrateFrame = requestAnimationFrame(() => {
             this.transcriptHydrateFrame = undefined;
             if (this.destroyed) return;
-            void this.hydrateTranscriptRows(preferredIndex);
+            void this.hydrateTranscriptRows(index);
         });
     }
 
@@ -5496,18 +5569,20 @@ export class SubtitlePlayerController {
         setInnerHtml(hydration.target, html);
     }
 
-    private scheduleTranscriptCacheWarmup(rows = this.transcriptRows(), preferredIndex = this.activeTranscriptRowIndex(rows)): void {
+    private scheduleTranscriptCacheWarmup(rows?: TranscriptRow[], preferredIndex?: number): void {
         if (this.transcriptResizeActive) {
             this.transcriptWarmupAfterResize = true;
             return;
         }
+        const warmupRows = rows ?? this.transcriptRows();
+        const index = preferredIndex ?? this.activeTranscriptRowIndex(warmupRows);
         const settings = this.options.getSettings();
-        if (!this.shouldParseSubtitles(settings) || !rows.length) return;
-        const signature = this.transcriptCacheWarmupKey(rows, settings, preferredIndex);
+        if (!this.shouldParseSubtitles(settings) || !warmupRows.length) return;
+        const signature = this.transcriptCacheWarmupKey(warmupRows, settings, index);
         if (signature === this.transcriptCacheWarmupSignature) return;
         this.transcriptCacheWarmupSignature = signature;
         const serial = ++this.transcriptCacheWarmupSerial;
-        void this.warmTranscriptParseCache(rows, preferredIndex, settings, serial);
+        void this.warmTranscriptParseCache(warmupRows, index, settings, serial);
     }
 
     private transcriptCacheWarmupKey(rows: TranscriptRow[], settings: ReaderSettings, preferredIndex: number): string {
@@ -5533,7 +5608,7 @@ export class SubtitlePlayerController {
         const worker = async () => {
             while (cursor < planned.length) {
                 if (serial !== this.transcriptCacheWarmupSerial) return;
-                const batch = this.nextTranscriptWarmupBatch(planned, () => cursor++);
+                const batch = this.nextTranscriptWarmupBatch(planned, settings, () => cursor++);
                 if (!batch.length) continue;
                 try {
                     const parsed = await this.parseCueHtmlBatch(batch.map(item => item.text), settings, parseOptions);
@@ -5571,11 +5646,12 @@ export class SubtitlePlayerController {
     }
 
     private shouldUseCheapYouTubeTranscriptWarmup(totalRows: number): boolean {
-        return isYouTubePage() && totalRows > TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD;
+        return isYouTubePage() && totalRows > YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD;
     }
 
     private nextTranscriptWarmupBatch(
         planned: Array<{ rowIndex: number; text: string; key: string }>,
+        settings: ReaderSettings,
         takeNextIndex: () => number,
     ): Array<{ rowIndex: number; text: string; key: string }> {
         const batchSize = this.options.parseJapaneseBatch ? TRANSCRIPT_BACKGROUND_PARSE_BATCH : 1;
@@ -5583,7 +5659,7 @@ export class SubtitlePlayerController {
         while (batch.length < batchSize) {
             const item = planned[takeNextIndex()];
             if (!item) break;
-            if (this.isWarmParsedCueKey(item.key)) continue;
+            if (this.isWarmParsedCueKey(item.key, settings)) continue;
             batch.push(item);
         }
         return batch;
@@ -5604,7 +5680,7 @@ export class SubtitlePlayerController {
     }
 
     private transcriptBackgroundParseLimit(rowCount: number): number {
-        if (isYouTubePage() && rowCount > TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD) {
+        if (isYouTubePage() && rowCount > YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD) {
             return Math.min(YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT, TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS);
         }
         if (isYouTubePage() && rowCount > YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT) {
@@ -5623,7 +5699,7 @@ export class SubtitlePlayerController {
         const text = rows[rowIndex]?.cue.text.trim();
         if (!text) return;
         const key = this.parseCacheKey(text, settings);
-        if (seen.has(key) || this.isWarmParsedCueKey(key)) return;
+        if (seen.has(key) || this.isWarmParsedCueKey(key, settings)) return;
         seen.add(key);
         plan.push({ rowIndex, text, key });
     }
@@ -5898,7 +5974,7 @@ export class SubtitlePlayerController {
         }, referenceVideoRect);
         this.commitTranscriptPanelLayout(panel, layout, options);
         const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect, {
-            resizeEventMode: options.resizeEventMode ?? (this.transcriptPreviewPlayerResizeDeferred ? 'none' : options.skipInset ? 'settled' : 'immediate'),
+            resizeEventMode: options.resizeEventMode ?? (this.transcriptPreviewPlayerResizeDeferred || options.skipInset ? 'none' : 'immediate'),
         });
         if (!options.skipInset && options.realignAfterInset && insetChanged) this.scheduleTranscriptPanelRealignAfterInset();
     }
@@ -5965,31 +6041,17 @@ export class SubtitlePlayerController {
     private stableVideoTranscriptDrawerLayout(options: SubtitleDrawerLayoutOptions, videoRect: DOMRect): TranscriptPanelLayout {
         const placement = options.preferredPlacement === 'left' ? 'left' : options.preferredPlacement === 'bottom' ? 'bottom' : 'right';
         if (options.compactPanel || placement === 'bottom') {
-            return this.stableBottomTranscriptDrawerLayout(options, videoRect);
+            return computeSubtitleDrawerLayout({
+                ...options,
+                compactPanel: true,
+                preferredPlacement: 'bottom',
+            });
         }
         const sideLayout = this.stableSideTranscriptDrawerLayout(placement, options, videoRect);
         return sideLayout ?? computeSubtitleDrawerLayout({
             ...options,
             compactPanel: true,
             preferredPlacement: 'bottom',
-        });
-    }
-
-    private stableBottomTranscriptDrawerLayout(options: SubtitleDrawerLayoutOptions, videoRect: DOMRect): TranscriptPanelLayout {
-        const desiredBottomHeight = options.size?.bottomHeight ?? Math.min(420, options.viewportHeight * 0.46);
-        const videoBottom = Number.isFinite(videoRect.bottom) ? Math.max(0, videoRect.bottom) : 0;
-        const availableBelowVideo = Math.floor(options.viewportHeight - videoBottom - TRANSCRIPT_PANEL_MARGIN);
-        const bottomHeight = availableBelowVideo >= TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT
-            ? Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT, Math.min(desiredBottomHeight, availableBelowVideo))
-            : desiredBottomHeight;
-        return computeSubtitleDrawerLayout({
-            ...options,
-            compactPanel: true,
-            preferredPlacement: 'bottom',
-            size: {
-                ...options.size,
-                bottomHeight,
-            },
         });
     }
 
@@ -6154,14 +6216,6 @@ export class SubtitlePlayerController {
     }
 
     private handleTranscriptViewportChange(options: { stabilize?: boolean } = {}): void {
-        if (this.shouldDeferViewportLayoutForFullscreen()) {
-            this.resetTranscriptLayoutReference();
-            this.scheduleFullscreenLayoutChange();
-            this.scheduleTranscriptHydration();
-            this.scheduleTranscriptCacheWarmup();
-            if (options.stabilize) this.scheduleTranscriptViewportStabilizeAlign();
-            return;
-        }
         this.syncFullscreenState();
         this.resetTranscriptLayoutReference();
         this.alignToVideo();
@@ -6169,13 +6223,6 @@ export class SubtitlePlayerController {
         this.scheduleTranscriptHydration();
         this.scheduleTranscriptCacheWarmup();
         if (options.stabilize) this.scheduleTranscriptViewportStabilizeAlign();
-    }
-
-    private shouldDeferViewportLayoutForFullscreen(): boolean {
-        return Boolean(this.fullscreen
-            || currentFullscreenElement()
-            || this.subtitleFullscreenHost()
-            || videoIsInNativeFullscreen(this.video));
     }
 
     private scheduleTranscriptViewportStabilizeAlign(): void {
@@ -6227,12 +6274,12 @@ export class SubtitlePlayerController {
         }
         if (this.shouldUseStableYouTubeTranscriptLayout()) {
             const insetChanged = this.videoInset.clear(this.video);
-            const stableChanged = this.applyStableYouTubeTranscriptLayout(layout, videoRect);
+            const stableChanged = this.applyStableYouTubeTranscriptLayout(layout, videoRect, options.resizeEventMode);
             return insetChanged || stableChanged;
         }
         this.clearStableYouTubeTranscriptLayout();
         const availableWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);
-        return this.applyPageVideoInset(layout.placement, Math.max(0, Math.min(videoRect.width, availableWidth)), layout.width, videoRect, options);
+        return this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect, options);
     }
 
     private availablePlayerWidthForSideLayout(layout: TranscriptPanelLayout, videoRect: DOMRect): number {
@@ -6374,7 +6421,11 @@ export class SubtitlePlayerController {
         return stableChanged || insetChanged;
     }
 
-    private applyStableYouTubeTranscriptLayout(layout: TranscriptPanelLayout, videoRect: DOMRect): boolean {
+    private applyStableYouTubeTranscriptLayout(
+        layout: TranscriptPanelLayout,
+        videoRect: DOMRect,
+        resizeEventMode: SubtitleVideoInsetResizeEventMode = 'immediate',
+    ): boolean {
         if (!isYouTubePage() || layout.placement === 'bottom') return this.clearStableYouTubeTranscriptLayout();
         const root = document.documentElement;
         if (!root) return false;
@@ -6387,17 +6438,55 @@ export class SubtitlePlayerController {
         setClass('jpdb-subtitle-youtube-stable-side', true);
         setClass('jpdb-subtitle-youtube-stable-left', layout.placement === 'left');
         setClass('jpdb-subtitle-youtube-stable-right', layout.placement === 'right');
-        const offset = layout.placement === 'left'
-            ? `${Math.max(0, Math.round(layout.left + layout.width + layout.margin))}px`
-            : '0px';
-        const availablePlayerWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);
-        const maxWidthAfterOffset = layout.placement === 'left'
-            ? layout.viewportWidth - Math.max(0, Math.round(layout.left + layout.width + layout.margin))
-            : availablePlayerWidth;
-        const playerWidth = `${Math.max(0, Math.round(Math.min(videoRect.width, availablePlayerWidth, maxWidthAfterOffset)))}px`;
+        const playerOffsetTarget = this.stableYouTubePlayerOffsetTarget();
+        setClass('jpdb-subtitle-youtube-stable-player-fallback', layout.placement === 'left' && playerOffsetTarget === 'player');
+        setClass('jpdb-subtitle-youtube-stable-full-bleed', layout.placement === 'left' && playerOffsetTarget === 'full-bleed');
+        const offsetPx = layout.placement === 'left'
+            ? Math.max(0, Math.round(layout.left + layout.width + layout.margin))
+            : 0;
+        const playerSize = this.stableYouTubePlayerSizeForLayout(layout, videoRect);
+        const playerWidth = `${playerSize.width}px`;
+        const playerHeight = `${playerSize.height}px`;
+        const offset = `${offsetPx}px`;
         changed = setDocumentStylePropertyIfChanged(root, '--jpdb-subtitle-youtube-stable-offset', offset) || changed;
         changed = setDocumentStylePropertyIfChanged(root, '--jpdb-subtitle-youtube-stable-player-width', playerWidth) || changed;
-        return changed;
+        changed = setDocumentStylePropertyIfChanged(root, '--jpdb-subtitle-youtube-stable-player-height', playerHeight) || changed;
+        const mediaChanged = applyStableYouTubePlayerVideoSize(this.video, playerSize.width, playerSize.height);
+        if (changed && resizeEventMode !== 'none') {
+            resizeYouTubePlayerForSubtitleLayout(
+                playerSize.width,
+                playerSize.height,
+                resizeEventMode,
+            );
+        }
+        return changed || mediaChanged;
+    }
+
+    private stableYouTubePlayerOffsetTarget(): 'player' | 'full-bleed' | null {
+        if (!isYouTubePage()) return null;
+        const fullBleed = document.querySelector<HTMLElement>('ytd-watch-flexy[is-single-column] #full-bleed-container #player-container');
+        if (fullBleed) {
+            const position = getComputedStyle(fullBleed).position;
+            if (position === 'absolute' || position === 'fixed') return 'full-bleed';
+        }
+        const primary = document.querySelector<HTMLElement>('ytd-watch-flexy #primary');
+        const player = document.querySelector<HTMLElement>('#movie_player, .html5-video-player');
+        return !primary && player ? 'player' : null;
+    }
+
+    private stableYouTubePlayerSizeForLayout(layout: TranscriptPanelLayout, videoRect: DOMRect): { width: number; height: number } {
+        const width = Math.max(0, Math.round(this.availablePlayerWidthForSideLayout(layout, videoRect)));
+        return {
+            width,
+            height: this.stableYouTubePlayerHeightForWidth(width, videoRect),
+        };
+    }
+
+    private stableYouTubePlayerHeightForWidth(width: number, videoRect: DOMRect): number {
+        const aspectRatio = videoRect.width > 0 && videoRect.height > 0
+            ? videoRect.height / videoRect.width
+            : 9 / 16;
+        return Math.max(180, Math.round(width * aspectRatio));
     }
 
     private clearStableYouTubeTranscriptLayout(): boolean {
@@ -6414,7 +6503,7 @@ export class SubtitlePlayerController {
             root.style.removeProperty(property);
             changed = true;
         }
-        return changed;
+        return clearStableYouTubePlayerVideoSize() || changed;
     }
 
     private measureWithoutStableYouTubeTranscriptLayout<T>(callback: () => T): T {
@@ -6431,6 +6520,16 @@ export class SubtitlePlayerController {
                 if (value) root.style.setProperty(property, value);
                 else root.style.removeProperty(property);
             }
+            this.restoreStableYouTubePlayerVideoSizeFromRoot(root);
+        }
+    }
+
+    private restoreStableYouTubePlayerVideoSizeFromRoot(root: HTMLElement): void {
+        if (!root.classList.contains('jpdb-subtitle-youtube-stable-side')) return;
+        const width = Number.parseFloat(root.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width'));
+        const height = Number.parseFloat(root.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-height'));
+        if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+            applyStableYouTubePlayerVideoSize(this.video, width, height);
         }
     }
 

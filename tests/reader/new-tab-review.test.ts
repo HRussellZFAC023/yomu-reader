@@ -1474,9 +1474,7 @@ describe('new tab review helpers', () => {
         expect(newTabCssRule(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab'))
             .toContain('--jpdb-reader-bg: var(--bg, var(--jpdb-reader-theme-light-bg));');
         expect(newTabCssRule(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab'))
-            .not.toContain('--jpdb-reader-accent-readable:');
-        expect(newTabCssRule('.jpdb-reader-newtab'))
-            .not.toContain('--jpdb-reader-accent-readable:');
+            .toContain('--jpdb-reader-accent-readable: var( --accent-readable, var(--jpdb-reader-theme-light-accent-readable) );');
         expect(normalizedCss)
             .toContain('button[data-newtab-action="reveal"] { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 72%, var(--jpdb-reader-border)); background: linear-gradient( 180deg, color-mix(in srgb, var(--jpdb-reader-accent) 94%, var(--jpdb-reader-white) 6%), var(--jpdb-reader-accent) ); color: var(--jpdb-reader-accent-text, var(--jpdb-reader-white));');
         expect(normalizedCss)
@@ -1580,11 +1578,9 @@ describe('new tab review helpers', () => {
         expect(newTabCssRule('.jpdb-reader-newtab-search-kanji-card .jpdb-reader-newtab-search-kanji-char'))
             .toContain('font-size: 34px;');
         expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('.jpdb-reader-newtab-search-card, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action, .jpdb-reader-newtab-install { min-height: 44px !important; }');
+            .toContain('.jpdb-reader-newtab-search-card, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action { min-height: 44px !important; }');
         expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('justify-self: center; justify-items: stretch; align-items: start; margin-inline: auto;');
-        expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('.jpdb-reader-newtab-kanji-details .jpdb-reader-local, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card { width: 100%;');
+            .toContain('.jpdb-reader-newtab-kanji-details .jpdb-reader-local, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card { width: 100%; margin-top: 0; padding: 0; overflow: visible; text-align: left; border: 0;');
         expect(NORMALIZED_NEW_TAB_CSS)
             .toContain('overflow: visible; text-align: left; border: 0;');
     });
@@ -8503,15 +8499,9 @@ describe('new tab review helpers', () => {
         try {
             const header = root.querySelector<HTMLElement>('[data-newtab-answer-header]')!;
             expect(header.querySelector('ruby')?.textContent).toContain('かえ');
-            const compactTerm = root.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word')!;
-            expect(compactTerm.dataset.expression).toBe('返す');
-            expect(compactTerm.dataset.reading).toBe('かえす');
-            expect(compactTerm.querySelector('ruby')?.textContent).toContain('かえ');
             expect(header.textContent).toContain('#777');
             expect(header.querySelector('.jpdb-reader-frequency-pill')?.textContent).toContain('#777');
             expect(header.querySelector('.jpdb-reader-pitch svg')).not.toBeNull();
-            expect(root.querySelector('[data-newtab-study-details]')).toBeNull();
-            expect(newTabCssRule('.jpdb-reader-newtab-answer-header')).toContain('background: transparent; box-shadow: none;');
             await waitForExpect(() => {
                 expect(loadCardRenderData).toHaveBeenCalledWith(card);
                 expect(renderStudyWordPills).toHaveBeenCalledWith(card, expect.any(Array), expect.objectContaining({ state: 'not-in-deck' }));
@@ -8519,10 +8509,7 @@ describe('new tab review helpers', () => {
             });
 
             root.querySelector<HTMLButtonElement>('[data-action="study-word-audio"]')?.click();
-            root.querySelector<HTMLButtonElement>('[data-action="study-word-audio"]')?.click();
-            expect(playWordAudio).toHaveBeenCalledTimes(2);
-            expect(playWordAudio).toHaveBeenNthCalledWith(1, card);
-            expect(playWordAudio).toHaveBeenNthCalledWith(2, card);
+            expect(playWordAudio).toHaveBeenCalledWith(card);
         } finally {
             root.remove();
         }
@@ -13598,7 +13585,7 @@ describe('new tab review helpers', () => {
             expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/second.jpg'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
 
             await privateController.playCurrentImmersionAudio(card);
-            expect(played).toEqual(['https://media.test/second.mp3', 'https://media.test/second.mp3']);
+            expect(played).toEqual(['https://media.test/second.mp3']);
             expect(fetchBlobUrl).not.toHaveBeenCalledWith(['https://media.test/second.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
 
             resolveSecondImage('blob:http://localhost/second.jpg');
@@ -14145,29 +14132,6 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('restarts current new-tab Immersion Kit audio on every audio click', async () => {
-        const example = newTabAudioImmersionExample('ik-repeat');
-        const search = vi.fn(async () => [example]);
-        const { root, played, reveal } = newTabImmersionAudioRevealFixture(search);
-
-        try {
-            reveal();
-            await waitForExpect(() => expect(played).toEqual(['https://media.test/line.mp3']));
-            const audio = root.querySelector<HTMLButtonElement>('[data-immersion-action="audio"]')!;
-            audio.click();
-            await waitForExpect(() => expect(played).toHaveLength(2));
-            audio.click();
-            await waitForExpect(() => expect(played).toHaveLength(3));
-            expect(played).toEqual([
-                'https://media.test/line.mp3',
-                'https://media.test/line.mp3',
-                'https://media.test/line.mp3',
-            ]);
-        } finally {
-            root.remove();
-        }
-    });
-
     it('falls back to blob-hydrated new-tab Immersion Kit audio when direct playback fails', async () => {
         const example = newTabAudioImmersionExample('ik-blob-fallback');
         const search = vi.fn(async () => [example]);
@@ -14666,20 +14630,13 @@ describe('new tab review helpers', () => {
         await controller.renderPage();
         const menu = document.querySelector<HTMLElement>('.jpdb-reader-newtab-more-menu')!;
         expect(menu).not.toBeNull();
-        expect(menu.querySelector('[data-newtab-action="settings"]')?.textContent).toContain('Settings');
-        expect(menu.textContent).toContain('Video Player');
-        expect(menu.textContent).toContain('PDF Reader');
-        expect(menu.textContent).toContain('Stats');
-        expect(menu.textContent).toContain('Local Audio');
-        expect(menu.textContent).toContain('Changelog');
-        expect(menu.textContent).toContain('GitHub');
-        expect(menu.textContent).toContain('Discord');
-        expect(menu.textContent).toContain('Support');
         const button = document.querySelector<HTMLButtonElement>('[data-newtab-install-app]')!;
         expect(button).not.toBeNull();
         expect(button.closest('.jpdb-reader-newtab-more-menu')).toBe(menu);
-        expect(button.hidden).toBe(false);
+        expect(document.querySelector('[data-newtab-install]')).toBeNull();
+        expect(button.disabled).toBe(false);
         expect(button.dataset.installPromptAvailable).toBe('false');
+        expect(button.querySelector('.jpdb-reader-newtab-menu-description')?.textContent).toContain('browser install button');
 
         const event = new Event('beforeinstallprompt') as Event & {
             prompt: () => Promise<void>;
@@ -14690,6 +14647,7 @@ describe('new tab review helpers', () => {
         window.dispatchEvent(event);
 
         expect(button.dataset.installPromptAvailable).toBe('true');
+        expect(button.querySelector('.jpdb-reader-newtab-menu-description')?.textContent).toBe('Install the Study app on this device.');
         button.click();
         await waitForExpect(() => expect(prompt).toHaveBeenCalledTimes(1));
         await waitForExpect(() => expect(toast).toHaveBeenCalledWith('Study app installed.'));

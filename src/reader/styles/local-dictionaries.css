@@ -3,14 +3,18 @@
   margin-top: 12px;
   padding-top: 12px;
   display: grid;
+  justify-items: stretch;
   gap: 8px;
   font-size: 13px;
   line-height: 1.45;
+  text-align: left;
 }
 .jpdb-reader-definition-stack {
   display: grid;
+  justify-items: stretch;
   gap: 0;
   margin-top: 12px;
+  text-align: left;
 }
 .jpdb-reader-definition-stack .jpdb-reader-local {
   margin-top: 0;
@@ -42,6 +46,7 @@
   gap: 0;
   padding-top: 0;
   position: relative;
+  text-align: left;
 }
 .jpdb-reader-source-card .jpdb-reader-meanings {
   margin: 0;
@@ -121,12 +126,15 @@
 }
 .jpdb-reader-dictionary-source-list {
   display: grid;
+  justify-items: stretch;
+  text-align: left;
 }
 .jpdb-reader-dictionary-group > .jpdb-reader-dictionary-source-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  text-align: left;
 }
 .jpdb-reader-dictionary-group
   > .jpdb-reader-dictionary-source-title

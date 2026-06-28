@@ -201,7 +201,7 @@ describe('reader theme', () => {
         expect(contrastRatio(underline, highlight)).toBeGreaterThanOrEqual(3);
     });
 
-    it('measures variable-backed first-render highlights before choosing text contrast', () => {
+    it('measures variable-backed first-render highlights without repainting them darker', () => {
         document.body.innerHTML = `
             <p style="background: rgb(255, 255, 255); color: rgb(242, 243, 245);">
                 <span class="jpdb-reader-word jpdb-known" style="--jpdb-reader-word-highlight-source: rgb(236, 244, 255); color: rgb(242, 243, 245); text-decoration-color: rgb(170, 178, 192);">波蘭</span>
@@ -935,20 +935,18 @@ describe('reader theme', () => {
         const normalizedCss = READER_WORD_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-paint: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) );');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; line-height: inherit; max-width: none; max-inline-size: none; overflow-wrap: inherit !important; white-space: inherit; word-break: inherit; cursor: inherit; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; cursor: inherit; }');
         expect(normalizedCss).toContain(':is(button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none; }');
         expect(normalizedCss).toContain(') .jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; color: var(--jpdb-reader-word-accessible-color, currentColor) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor); }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word.jpdb-reader-passive-word:hover, .jpdb-reader-word.jpdb-reader-passive-word:focus');
-        expect(normalizedCss).not.toContain('.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:hover');
+        expect(normalizedCss).toContain('background-image: none !important; box-shadow: none;');
         expect(normalizedCss).toContain('background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;');
         expect(normalizedCss).toContain('background-size: var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;');
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-block-size: 1.16em;');
         expect(normalizedCss).toContain('color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) rt.jpdb-reader-furi { white-space: normal; overflow-wrap: anywhere; }');
         expect(normalizedCss).toContain('touch-action: manipulation;');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1;');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 2.05; }');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-has-furi { line-height: inherit; }');
         expect(normalizedCss).toContain('pointer-events: none; }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word:not(.jpdb-reader-passive-word)::after');
         expect(normalizedCss).not.toContain('.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after');

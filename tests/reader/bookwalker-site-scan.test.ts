@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { allowsGenericVisibleAutoScan } from '../../src/reader/app/main-helpers';
+import { allowsGenericVisibleAutoScan, shouldAutoScanImageOcr } from '../../src/reader/app/main-helpers';
 import {
     collectScanTargets,
     getMatchingSiteParsers,
@@ -400,6 +400,25 @@ describe('BookWalker site scan boundaries', () => {
             .toEqual(['bookwalker-reader-no-dom-parser']);
         expect(isBookWalkerReaderPage(viewerUrl)).toBe(true);
         expect(isReaderRasterPage('viewer.bookwalker.jp')).toBe(true);
+    });
+
+    it('allows image OCR auto-scan on BookWalker reader canvases, not storefront pages', () => {
+        stubLocation(BOOKWALKER_HOME_URL);
+        document.body.innerHTML = '<main><h1>本を探す</h1><img src="/cover.jpg" width="240" height="340"></main>';
+
+        expect(isBookWalkerStorefrontPage()).toBe(true);
+        expect(shouldAutoScanImageOcr(false)).toBe(false);
+
+        stubLocation('https://viewer.bookwalker.jp/03/1/viewer.html?cty=2');
+        document.body.innerHTML = `
+            <div id="viewer"><div id="renderer">
+                <div id="viewport0" class="currentScreen"><canvas width="1200" height="1600"></canvas></div>
+            </div></div>
+            <span id="pageSliderCounter">13/195</span>`;
+
+        expect(isBookWalkerReaderPage()).toBe(true);
+        expect(allowsGenericVisibleAutoScan()).toBe(false);
+        expect(shouldAutoScanImageOcr(false)).toBe(true);
     });
 
     it('does not annotate BookWalker reader settings chrome as residual page text', () => {

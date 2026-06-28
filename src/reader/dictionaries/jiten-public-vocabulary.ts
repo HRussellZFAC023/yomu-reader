@@ -181,7 +181,7 @@ export class JitenPublicVocabularyClient {
         await mapLimited(pending, DETAIL_CONCURRENCY, async item => {
             const card = await this.lookupDetail(item.word, item.requestedTerm).catch(error => {
                 this.noteFailure(error);
-                log.warn('Jiten parsed detail', { wordId: item.word.wordId, readingIndex: item.word.readingIndex }, error);
+                logPublicJitenFailure('Jiten parsed detail', { wordId: item.word.wordId, readingIndex: item.word.readingIndex }, error);
                 return null;
             });
             if (!card) return;
@@ -292,7 +292,7 @@ export class JitenPublicVocabularyClient {
             statusFailureMessage: status => `Jiten fail (${status}).`,
             proxyUrl: this.proxyUrl(),
             anonymous: true,
-            allowDirectCrossOrigin: true,
+            allowDirectCrossOrigin: false,
             allowConfiguredProxy: true,
             allowSensitiveConfiguredProxy: false,
             allowPublicProxies: false,
@@ -557,12 +557,7 @@ function isPublicJitenBackoffError(error: unknown): boolean {
 }
 
 function logPublicJitenFailure(message: string, context: Record<string, unknown>, error: unknown): void {
-    if (isPublicJitenQuietNetworkMiss(error)) return;
     log.warn(message, context, error);
-}
-
-function isPublicJitenQuietNetworkMiss(error: unknown): boolean {
-    return /failed to fetch|networkerror|load failed|cors|blocked/i.test(errorMessage(error));
 }
 
 function errorName(error: unknown): string {

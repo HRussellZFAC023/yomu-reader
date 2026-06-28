@@ -434,6 +434,9 @@ async function verifyGenericPassiveStyleContainment(page, baseUrl) {
     await page.goto(`${baseUrl}/reader-fixture.html`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
     await page.waitForSelector('[data-style-conflict] .username .jpdb-reader-word', { timeout: 6000 });
+    await page.waitForFunction(() => document
+        .querySelector('[data-style-conflict] .messageContent .jpdb-reader-word rt.jpdb-reader-furi')
+        ?.textContent?.trim() === 'こきょう', null, { timeout: 6000 });
 
     const state = await readGenericPassiveStyleState(page);
     assert(state.passive === 'true', 'Compact author/name word was not marked passive', state);
@@ -461,7 +464,8 @@ async function readGenericPassiveStyleState(page) {
     return page.evaluate(() => {
         const username = document.querySelector('[data-style-conflict] .username');
         const authorWord = document.querySelector('[data-style-conflict] .username .jpdb-reader-word');
-        const messageWord = document.querySelector('[data-style-conflict] .messageContent .jpdb-reader-word');
+        const messageWords = Array.from(document.querySelectorAll('[data-style-conflict] .messageContent .jpdb-reader-word'));
+        const messageWord = messageWords.find(word => word.dataset.expression === '故郷' || word.querySelector('rt.jpdb-reader-furi')) ?? messageWords[0];
         const usernameStyle = username ? getComputedStyle(username) : null;
         const authorStyle = authorWord ? getComputedStyle(authorWord) : null;
         const messageStyle = messageWord ? getComputedStyle(messageWord) : null;

@@ -91,6 +91,9 @@ const MOCK_OCR = {
     height: 1130,
     lines: [{ text: 'ページ移動方向', box: { x: 64, y: 180, w: 420, h: 88 }, vertical: false }],
 };
+const ENGINE_NAMES = (process.env.YOMU_BOOKWALKER_ENGINES || 'firefox,webkit,chromium')
+    .split(/[,\s]+/)
+    .filter(Boolean);
 
 function spreadFixtureHtml() {
     return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
@@ -267,6 +270,26 @@ async function runCase(engineName, mode) {
         removals = await page.evaluate(() => window.__yomuFrameRemovals || 0);
     }
     const finalReadiness = await sampleReadiness('final');
+    const wordHitGeometry = await page.evaluate(() => {
+        const word = document.querySelector('.jpdb-ocr-line .jpdb-reader-word');
+        const line = word?.closest('.jpdb-ocr-line');
+        if (!(word instanceof HTMLElement) || !(line instanceof HTMLElement)) return { ok: false, reason: 'missing-word' };
+        const wordRect = word.getBoundingClientRect();
+        const lineRect = line.getBoundingClientRect();
+        const center = { x: wordRect.left + wordRect.width / 2, y: wordRect.top + wordRect.height / 2 };
+        const box = rect => ({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height });
+        return {
+            ok: wordRect.width > 0
+                && wordRect.height > 0
+                && center.x >= lineRect.left - 8
+                && center.x <= lineRect.right + 8
+                && center.y >= lineRect.top - 8
+                && center.y <= lineRect.bottom + 8,
+            wordRect: box(wordRect),
+            lineRect: box(lineRect),
+            center,
+        };
+    });
     const statusCount = finalReadiness.status;
     const readyStatusCount = finalReadiness.readyStatus;
     const frameCount = finalReadiness.frames;
@@ -277,11 +300,11 @@ async function runCase(engineName, mode) {
     frameSeen ||= frameCount >= 1;
     const videoPath = await closeContextWithVideo(context, video, `${engineName}-${mode}.webm`);
     await browser.close();
-    const ok = overlayMs >= 0 && ocrHits === 1 && statusSeen && readyStatusCount >= 1 && frameSeen && lineCount >= 1 && frameSurvived && removals === 0;
+    const ok = overlayMs >= 0 && ocrHits === 1 && statusSeen && readyStatusCount >= 1 && frameSeen && lineCount >= 1 && wordHitGeometry.ok && frameSurvived && removals === 0;
     const statusChanges = compressTimeline(timeline);
-    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — overlay ${overlayMs >= 0 ? overlayMs + 'ms' : 'NEVER'}, ocrHits=${ocrHits}, statusSeen=${statusSeen}, finalReadyStatus=${readyStatusCount}, finalStatus=${statusCount}, frameSeen=${frameSeen}, finalFrames=${frameCount}, lines=${lineCount}, frameSurvived=${frameSurvived}, removals=${removals}`);
+    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — overlay ${overlayMs >= 0 ? overlayMs + 'ms' : 'NEVER'}, ocrHits=${ocrHits}, statusSeen=${statusSeen}, finalReadyStatus=${readyStatusCount}, finalStatus=${statusCount}, frameSeen=${frameSeen}, finalFrames=${frameCount}, lines=${lineCount}, wordGeometry=${wordHitGeometry.ok}, frameSurvived=${frameSurvived}, removals=${removals}`);
     console.log(`  status timeline: ${statusChanges.map(item => `${item.t}ms:${item.phase}:${item.summary}`).join(' | ') || 'empty'}`);
-    rows.push({ label, ok, overlayMs, ocrHits, statusSeen, statusCount, readyStatusCount, frameSeen, frameCount, lineCount, frameSurvived, removals, screenshot, video: videoPath, timeline });
+    rows.push({ label, ok, overlayMs, ocrHits, statusSeen, statusCount, readyStatusCount, frameSeen, frameCount, lineCount, wordHitGeometry, frameSurvived, removals, screenshot, video: videoPath, timeline });
     if (!ok) failures.push(label);
 }
 
@@ -312,7 +335,7 @@ function compressTimeline(timeline) {
     return compressed;
 }
 
-for (const engineName of ['firefox', 'webkit', 'chromium']) {
+for (const engineName of ENGINE_NAMES) {
     for (const mode of ['spread', 'continuous']) {
         try {
             await runCase(engineName, mode);

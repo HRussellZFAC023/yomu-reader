@@ -1,9 +1,9 @@
 import { cardHighlightScopeAttributes, renderCardHighlightedTextHtml, type CardHighlightTarget } from '../cards/highlight';
 import { JITEN_DEFINITION_SOURCE_ID } from '../app/constants';
-import { escapeHtml } from '../dom';
+import { escapeHtml, renderRuby } from '../dom';
 import { speakerIcon } from '../ui/icons';
 import { uiText } from '../app/i18n';
-import type { InterfaceLanguage, JPDBCard } from '../app/types';
+import type { InterfaceLanguage, JPDBCard, JPDBToken } from '../app/types';
 import type { JitenVocabularyDefinition, JitenVocabularyExample, JitenVocabularyInfo, JitenVocabularyReading, JitenVocabularyWordSummary } from '../dictionaries/jiten';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
@@ -446,8 +446,32 @@ function renderPassiveJitenReference(reference: JitenTextReference, options: Ren
 
 function renderJitenReferenceContent(text: string, reading: string): string {
     return reading
-        ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml(text)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(reading)}</rt><rp>)</rp></ruby>`
+        ? renderRuby(text, refRubyToken(text, reading))
         : escapeHtml(text);
+}
+
+function refRubyToken(text: string, reading: string): JPDBToken {
+    return {
+        card: {
+            vid: 0,
+            sid: 0,
+            rid: 0,
+            spelling: text,
+            reading,
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [],
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            wordWithReading: null,
+        } as JPDBCard,
+        start: 0,
+        end: text.length,
+        length: text.length,
+        rubies: [],
+        pitchClass: '',
+        sentence: text,
+    };
 }
 
 function visibleJitenReferenceReading(text: string, reading: string): string {

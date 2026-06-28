@@ -24,8 +24,7 @@ export function unwrapReaderWords(root: ParentNode = document, options: { includ
 
 export function readerWordSurfaceText(element: Element): string {
     const surface = readerWordChildSurfaceText(element);
-    if (surface || !isReaderWordElement(element)) return surface;
-    return element.dataset.surface ?? '';
+    return surface || element.getAttribute('data-surface') || '';
 }
 
 function readerWordChildSurfaceText(element: Element): string {
@@ -64,7 +63,7 @@ export function readerWordAtPointInScope(
 }
 
 function readerWordsInScope(scope: ParentNode): HTMLElement[] {
-    const ownWord = scope instanceof HTMLElement && scope.matches('.jpdb-reader-word') ? [scope] : [];
+    const ownWord = scope instanceof HTMLElement && isReaderWordElement(scope) ? [scope] : [];
     return [...ownWord, ...Array.from(scope.querySelectorAll<HTMLElement>('.jpdb-reader-word'))];
 }
 

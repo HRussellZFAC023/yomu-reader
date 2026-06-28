@@ -42,12 +42,14 @@ const EASY_FURIGANA_KANJI = new Set(
 // UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
 // letter soup, but "Kanji used" spellings are real JPDB links and should
 // keep the same ruby/color treatment as other dictionary terms.
-const EDITABLE_TEXT_SURFACE_SELECTOR = '[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[data-testid*="composer" i],[data-testid*="prompt-textarea" i],[data-test-id*="composer" i],[data-test-id*="prompt-textarea" i],[class*="composer" i],[id*="composer" i],[class*="placeholder" i],[class*="prompt-textarea" i],[id*="prompt-textarea" i],[class*="ProseMirror" i]';
+const selectorPairs = (names: string, attributes = ['class', 'id']): string => names.split(',').flatMap(name => attributes.map(attribute => `[${attribute}*="${name}" i]`)).join(',');
+const roleSelectors = (names: string): string => names.split(',').map(name => `[role="${name}"]`).join(',');
+const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],${selectorPairs('composer,prompt-textarea', ['data-testid', 'data-test-id', 'class', 'id'])},[class*="placeholder" i],[class*="ProseMirror" i]`;
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(',[role=tab]', '');
 const FORM_BOUNDARY_SKIP_SELECTOR = 'form,label,fieldset,legend';
 const GENERIC_CONTROL_TEXT_SKIP_SELECTOR = `${FORM_BOUNDARY_SKIP_SELECTOR},[role=form],[role=search]`;
-const PLAYER_CHROME_SKIP_SELECTOR = '[class*="control" i],[class*="toggle" i],[class*="player" i]';
+const PLAYER_CHROME_SKIP_SELECTOR = selectorPairs('control,toggle,player', ['class']);
 
 const SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
 const PITCH_CLASSES = new Set('heiban,atamadaka,nakadaka,odaka,kifuku'.split(','));
@@ -106,70 +108,20 @@ const CONVERSATION_TEXT_CLASS_RE = /(^|[-_\s])(chat|comment|message|post|reply)(
 const READABLE_PROSE_CONTAINER_SELECTOR = 'article,main,[role=main],[role=article]';
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = 'h1,h2,h3,h4,h5,h6';
-const PASSIVE_INTERACTION_SELECTOR = 'a[href],button,summary,label,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[role="checkbox"],[role="radio"],[role="switch"],[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less';
-const COMPACT_PASSIVE_INTERACTION_SELECTOR = '[onclick],[tabindex]:not([tabindex="-1"]),[class*="audio" i],[class*="button" i],[class*="control" i],[class*="play" i],[class*="sound" i],[class*="speaker" i],[class*="toggle" i]';
-const COMPACT_PASSIVE_CHROME_SELECTOR = 'time,[datetime],[aria-label*="author" i],[aria-label*="username" i],[class*="author" i],[class*="byline" i],[class*="display-name" i],[class*="handle" i],[class*="header" i],[class*="meta" i],[class*="nickname" i],[class*="screen-name" i],[class*="user-name" i],[class*="username" i]';
+const PASSIVE_INTERACTION_SELECTOR = `a[href],button,summary,label,${roleSelectors('button,link,menuitem,option,tab,checkbox,radio,switch')},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+const COMPACT_PASSIVE_INTERACTION_SELECTOR = `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs('audio,button,control,play,sound,speaker,toggle', ['class'])}`;
+const COMPACT_PASSIVE_CHROME_SELECTOR = `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs('author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username', ['class'])}`;
 const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
 const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = 'ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer';
 const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]';
-const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = 'button, label, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="checkbox"], [role="radio"], [role="switch"]';
+const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors('button,tab,menuitem,option,checkbox,radio,switch')}`;
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = [
-    'header',
-    'nav',
-    'footer',
-    'aside',
-    '[role="banner"]',
-    '[role="navigation"]',
-    '[role="contentinfo"]',
-    '[role="complementary"]',
-    '[role="dialog"]',
-    '[role="listbox"]',
-    '[role="menu"]',
-    '[role="menubar"]',
-    '[role="tablist"]',
-    '[role="toolbar"]',
-    '[aria-modal="true"]',
-    '[class*="account" i]',
-    '[id*="account" i]',
-    '[class*="appearance" i]',
-    '[id*="appearance" i]',
-    '[class*="chooser" i]',
-    '[id*="chooser" i]',
-    '[class*="dialog" i]',
-    '[id*="dialog" i]',
-    '[class*="dropdown" i]',
-    '[id*="dropdown" i]',
-    '[class*="login" i]',
-    '[id*="login" i]',
-    '[class*="menu" i]',
-    '[id*="menu" i]',
-    '[class*="modal" i]',
-    '[id*="modal" i]',
-    '[class*="picker" i]',
-    '[id*="picker" i]',
-    '[class*="pinnable" i]',
-    '[id*="pinnable" i]',
-    '[class*="profile" i]',
-    '[id*="profile" i]',
-    '[class*="prefs" i]',
-    '[id*="prefs" i]',
-    '[class*="sidebar" i]',
-    '[id*="sidebar" i]',
-    '[class*="signin" i]',
-    '[id*="signin" i]',
-    '[class*="tabs" i]',
-    '[id*="tabs" i]',
-    '[class*="toc" i]',
-    '[id*="toc" i]',
-    '[class*="toolbar" i]',
-    '[id*="toolbar" i]',
-].join(',');
-const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="book" i],[class*="card" i],[class*="gallery" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="product" i],[class*="shelf" i],[class*="thumb" i],[class*="tile" i],[class*="video" i],[class*="volume" i],[class*="work" i]';
+const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,aside,[role="banner"],[role="navigation"],[role="contentinfo"],[role="complementary"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs('account,appearance,chooser,dialog,dropdown,login,menu,modal,picker,pinnable,profile,prefs,sidebar,signin,tabs,toc,toolbar')}`;
+const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = selectorPairs('banner,book,card,carousel,gallery,grid,item,lockup,movie,poster,product,rail,scroll,shelf,slick,slider,splide,swiper,thumb,tile,video,volume,work', ['class']);
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
 const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
-const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = 'canvas,img,picture,svg,video,[class*="cover" i],[class*="image" i],[class*="poster" i],[class*="thumb" i]';
+const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = `canvas,img,picture,svg,video,${selectorPairs('cover,image,poster,thumb', ['class'])}`;
 const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
 const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
 const COMPACT_MEDIA_CHROME_TEXT_LIMIT = 40;
@@ -182,17 +134,7 @@ const COMPACT_MEDIA_RUBY_RISK_ANCESTOR_LIMIT = 8;
 const COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT = 10;
 const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
 const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
-const CONSTRAINED_NOTIFICATION_SELECTOR = [
-    '[role="alert"]',
-    '[role="status"]',
-    '[aria-live]',
-    '[class*="alert" i]',
-    '[class*="banner" i]',
-    '[class*="notice" i]',
-    '[class*="notification" i]',
-    '[class*="snackbar" i]',
-    '[class*="toast" i]',
-].join(',');
+const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[aria-live],${selectorPairs('alert,banner,notice,notification,snackbar,toast', ['class'])}`;
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
 const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;

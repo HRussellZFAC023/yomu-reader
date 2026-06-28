@@ -36,6 +36,7 @@ interface HoverLookupInternals {
     suppressPenHoverUntil: number;
     canBeginPrimaryPressLookup(event: PointerEvent): boolean;
     handleHoverPointer(event: PointerEvent): void;
+    queueHoverPointerMove(event: PointerEvent): void;
     handleHoverPointerOut(event: PointerEvent): void;
     handleDocumentClick(event: MouseEvent): void;
     pauseForSubtitleSurfaceTap(event: MouseEvent): boolean;
@@ -128,7 +129,7 @@ function hoverPointerEvent(
     target: HTMLElement,
     pointerType = 'mouse',
     type = 'pointerover',
-    modifiers: Partial<Pick<PointerEvent, 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey'>> = {},
+    modifiers: Partial<Pick<PointerEvent, 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'buttons'>> = {},
     relatedTarget: Node | null = null,
 ): PointerEvent {
     const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
@@ -138,6 +139,7 @@ function hoverPointerEvent(
         clientX: { value: 40 },
         clientY: { value: 24 },
         button: { value: 0 },
+        buttons: { value: modifiers.buttons ?? 0 },
         pointerType: { value: pointerType },
         altKey: { value: modifiers.altKey ?? false },
         ctrlKey: { value: modifiers.ctrlKey ?? false },
@@ -360,6 +362,24 @@ function expectNoHoverLookup({
 }
 
 describe('hover lookup', () => {
+    it('does not schedule hover work while the pointer is dragging', () => {
+        const app = new ReaderApp();
+        const hoverLookup = setupHoverLookupSpies(app);
+        const word = readerWordFixture('読む');
+        const rafSpy = vi.spyOn(window, 'requestAnimationFrame');
+        try {
+            hoverLookup.internals.queueHoverPointerMove(
+                hoverPointerEvent(word, 'mouse', 'pointermove', { buttons: 1 }),
+            );
+
+            expect(rafSpy).not.toHaveBeenCalled();
+            expectNoHoverLookup(hoverLookup);
+        } finally {
+            rafSpy.mockRestore();
+            cleanupReaderApp(app);
+        }
+    });
+
     it('pauses a playing video for modal lookups opened from ASB subtitle words', () => {
         const app = new ReaderApp();
         const internals = app as unknown as HoverLookupInternals;
@@ -416,6 +436,101 @@ describe('hover lookup', () => {
             expect(play).toHaveBeenCalledTimes(1);
         } finally {
             cleanupReaderApp(app);
+        }
+    });
+
+    it('keeps a subtitle hover mining pause alive while moving to the next caption word', () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true, hoverCloseDelayMs: 0 };
+        const { pause, play } = appendPlayingVideo();
+        const asbRoot = document.createElement('div');
+        asbRoot.className = 'asbplayer-subtitles-container-bottom';
+        asbRoot.innerHTML = `
+            <span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">今日</span>
+            <span class="jpdb-reader-word" data-vid="3" data-sid="4" data-sentence="今日は読む">読む</span>
+        `;
+        document.body.append(asbRoot);
+        const words = Array.from(asbRoot.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        const firstWord = words[0]!;
+        const nextWord = words[1]!;
+        const firstPopover = document.createElement('div');
+        firstPopover.className = 'jpdb-reader-popover';
+        const nextPopover = document.createElement('div');
+        nextPopover.className = 'jpdb-reader-popover';
+
+        try {
+            internals.mountPopover(firstPopover, firstWord, { mode: 'hover', focusOnMount: false });
+            expect(pause).toHaveBeenCalledTimes(1);
+
+            internals.scheduleHoverClose(0, { ignoreCssHover: true });
+            vi.advanceTimersByTime(0);
+            expect(play).not.toHaveBeenCalled();
+
+            vi.advanceTimersByTime(480);
+            expect(play).not.toHaveBeenCalled();
+
+            const scheduleHoverLookup = vi.fn();
+            internals.scheduleHoverLookup = scheduleHoverLookup;
+            internals.handleHoverPointer(hoverPointerEvent(nextWord));
+            expect(scheduleHoverLookup).toHaveBeenCalledWith(nextWord, expect.any(Event));
+            vi.advanceTimersByTime(520);
+            expect(play).not.toHaveBeenCalled();
+
+            internals.mountPopover(nextPopover, nextWord, { mode: 'hover', focusOnMount: false });
+            vi.advanceTimersByTime(520);
+            expect(play).not.toHaveBeenCalled();
+
+            internals.dismiss();
+            expect(play).toHaveBeenCalledTimes(1);
+        } finally {
+            cleanupReaderApp(app);
+            vi.useRealTimers();
+        }
+    });
+
+    it('defers subtitle hover resume when the old caption word detaches under the pointer', () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true, hoverCloseDelayMs: 0 };
+        const { pause, play } = appendPlayingVideo();
+        const asbRoot = document.createElement('div');
+        asbRoot.className = 'asbplayer-subtitles-container-bottom';
+        asbRoot.innerHTML = `
+            <span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">今日</span>
+            <span class="jpdb-reader-word" data-vid="3" data-sid="4" data-sentence="今日は読む">読む</span>
+        `;
+        document.body.append(asbRoot);
+        const words = Array.from(asbRoot.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        const firstWord = words[0]!;
+        const nextWord = words[1]!;
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        const restorePoint = stubElementFromPoint(nextWord);
+        const restoreStack = stubElementsFromPoint([nextWord]);
+
+        try {
+            internals.mountPopover(popover, firstWord, { mode: 'hover', focusOnMount: false });
+            expect(pause).toHaveBeenCalledTimes(1);
+            internals.lastPointerPosition = { x: 40, y: 24 };
+            firstWord.remove();
+
+            internals.scheduleHoverClose(0, { ignoreCssHover: true });
+            vi.advanceTimersByTime(0);
+            expect(play).not.toHaveBeenCalled();
+
+            vi.advanceTimersByTime(519);
+            expect(play).not.toHaveBeenCalled();
+
+            vi.advanceTimersByTime(1);
+            expect(play).toHaveBeenCalledTimes(1);
+        } finally {
+            restoreStack();
+            restorePoint();
+            cleanupReaderApp(app);
+            vi.useRealTimers();
         }
     });
 
@@ -660,7 +775,7 @@ describe('hover lookup', () => {
         }
     });
 
-    it('resolves fallback hover cards before initial autoplay so recorded audio can win', async () => {
+    it('starts hover autoplay from the already-painted card instead of waiting for fallback resolution', async () => {
         const app = new ReaderApp();
         const word = readerWordFixture('青空を見る', '青空');
         const internals = app as unknown as HoverLookupInternals;
@@ -706,9 +821,9 @@ describe('hover lookup', () => {
             });
 
             await vi.waitFor(() => expect(playTermAudio).toHaveBeenCalledTimes(1));
-            expect(resolveLookupCard).toHaveBeenCalledWith(fallbackCard);
+            expect(resolveLookupCard).not.toHaveBeenCalled();
             expect(playTermAudio).toHaveBeenCalledWith(
-                publicCard,
+                fallbackCard,
                 expect.objectContaining({
                     autoPlay: true,
                     hoverLookupGeneration: 7,

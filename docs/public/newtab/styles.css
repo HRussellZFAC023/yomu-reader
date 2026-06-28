@@ -366,6 +366,10 @@
   --jpdb-reader-muted: var(--muted, var(--jpdb-reader-theme-dark-muted));
   --jpdb-reader-faint: var(--faint, var(--jpdb-reader-theme-dark-faint));
   --jpdb-reader-border: var(--border, var(--jpdb-reader-theme-dark-border));
+  --jpdb-reader-accent-readable: var(
+    --accent-readable,
+    var(--jpdb-reader-theme-dark-accent-readable)
+  );
   --jpdb-reader-newtab-content-width: min(760px, 100%);
   display: block;
   min-height: 100dvh;
@@ -388,6 +392,10 @@
   --jpdb-reader-muted: var(--muted, var(--jpdb-reader-theme-light-muted));
   --jpdb-reader-faint: var(--faint, var(--jpdb-reader-theme-light-faint));
   --jpdb-reader-border: var(--border, var(--jpdb-reader-theme-light-border));
+  --jpdb-reader-accent-readable: var(
+    --accent-readable,
+    var(--jpdb-reader-theme-light-accent-readable)
+  );
 }
 
 /* Swipe-grade edge glows (UT-21): hidden at rest, fade in only while a drag
@@ -581,8 +589,8 @@
   top: calc(100% + 8px);
   right: 0;
   z-index: 20;
-  min-width: min(230px, calc(100vw - 28px));
-  padding: 8px;
+  min-width: 132px;
+  padding: 6px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: var(--jpdb-reader-surface);
@@ -596,19 +604,41 @@
 .jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item {
   width: 100%;
   min-height: 40px;
-  display: flex;
+  display: grid;
+  align-content: center;
   align-items: center;
+  justify-items: start;
   justify-content: flex-start;
+  gap: 2px;
   border: 0;
   border-radius: 6px;
-  padding: 0 12px;
+  padding: 7px 12px;
   background: transparent;
   color: var(--jpdb-reader-text);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 760;
   text-align: left;
-  text-decoration: none;
   cursor: pointer;
+}
+
+.jpdb-reader-newtab-menu-label,
+.jpdb-reader-newtab-menu-description {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.jpdb-reader-newtab-menu-description {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item:disabled {
+  color: var(--jpdb-reader-muted);
+  cursor: default;
+  opacity: 0.78;
 }
 
 .jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item[data-active="true"] {
@@ -618,17 +648,6 @@
     transparent
   );
   color: var(--jpdb-reader-text);
-}
-
-.jpdb-reader-newtab-more-divider {
-  height: 1px;
-  margin: 6px 0;
-  border: 0;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-border) 86%,
-    transparent
-  );
 }
 
 .jpdb-reader-newtab-mode {
@@ -664,119 +683,9 @@
   cursor: pointer;
 }
 
-.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-appearance {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  min-width: 48px;
-  height: 36px;
-}
-
-.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch {
-  position: relative;
-  display: block;
-  width: 44px;
-  min-width: 44px;
-  height: 24px;
-  min-height: 24px;
-  padding: 0;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 999px;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 86%,
-    transparent
-  );
-  cursor: pointer;
-}
-
-.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch .check {
-  position: absolute;
-  top: 1px;
-  left: 1px;
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  background: var(--jpdb-reader-bg);
-  box-shadow: 0 1px 3px var(--jpdb-reader-shadow);
-}
-
-.jpdb-reader-newtab-theme-controls
-  .jpdb-reader-theme-switch[aria-checked="true"]
-  .check {
-  transform: translateX(20px);
-}
-
-.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch .icon {
-  position: relative;
-  display: block;
-  width: 14px;
-  height: 14px;
-  color: var(--jpdb-reader-muted);
-}
-
-.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch .sun,
-.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch .moon {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 11px;
-  line-height: 1;
-}
-
-.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch .sun::before {
-  content: "☀";
-}
-.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch .moon::before {
-  content: "☾";
-}
-.jpdb-reader-newtab-theme-controls
-  .jpdb-reader-theme-switch[aria-checked="false"]
-  .sun,
-.jpdb-reader-newtab-theme-controls
-  .jpdb-reader-theme-switch[aria-checked="true"]
-  .moon {
-  opacity: 0;
-}
-.jpdb-reader-newtab-theme-controls
-  .jpdb-reader-theme-switch[aria-checked="true"]
-  .sun,
-.jpdb-reader-newtab-theme-controls
-  .jpdb-reader-theme-switch[aria-checked="false"]
-  .moon {
-  opacity: 1;
-}
-
-.jpdb-reader-language-toggle {
-  width: 32px;
-  min-width: 32px;
-  height: 32px;
-  min-height: 32px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--jpdb-reader-muted);
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 620;
-  line-height: 1;
-  text-align: center;
-  cursor: pointer;
-}
-
-.jpdb-reader-newtab-install-app {
-  color: var(--jpdb-reader-text);
-}
-
-.jpdb-reader-newtab-install-app[hidden] {
-  display: none !important;
+.jpdb-reader-newtab-install-app[data-install-prompt-available="true"]
+  .jpdb-reader-newtab-menu-description {
+  color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
 }
 
 .jpdb-reader-newtab-mode button[data-active="true"] {
@@ -1737,7 +1646,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   --jpdb-reader-word-color-source: currentColor;
   --jpdb-reader-word-accessible-color: currentColor;
   --jpdb-reader-word-decoration-source: transparent;
-  --jpdb-reader-word-underline: var(--jpdb-reader-pitch-color, currentColor);
+  --jpdb-reader-word-underline: transparent;
   --jpdb-reader-word-highlight-source: transparent;
   --jpdb-reader-word-highlight-paint: transparent;
   --jpdb-reader-word-accessible-highlight: transparent;
@@ -1923,11 +1832,16 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   align-items: center;
   justify-items: stretch;
   gap: 10px;
-  padding: 2px 0 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  padding: 10px 12px;
+  border: 1px solid
+    color-mix(in srgb, var(--jpdb-reader-border) 82%, transparent);
+  border-radius: 8px;
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface) 76%,
+    transparent
+  );
+  box-shadow: 0 10px 28px var(--jpdb-reader-shadow-subtle);
   text-align: left;
 }
 
@@ -2038,15 +1952,15 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   width: min(640px, 100%);
   max-width: min(640px, 100%);
   display: grid;
-  justify-items: start;
+  justify-items: center;
   gap: 12px;
   color: var(--jpdb-reader-newtab-study-text);
   font-size: clamp(14px, 2.1vw, 18px);
   font-weight: 650;
   line-height: 1.42;
-  text-align: left;
+  text-align: center;
   overflow-wrap: anywhere;
-  text-wrap: pretty;
+  text-wrap: balance;
 }
 
 .jpdb-reader-newtab-controls {
@@ -2712,8 +2626,6 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   max-width: 100%;
   min-width: 0;
   justify-self: center;
-  justify-items: stretch;
-  align-items: start;
   margin-inline: auto;
   margin-top: 12px;
   margin-bottom: 34px;
@@ -3599,22 +3511,6 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   filter: blur(3px);
 }
 
-.jpdb-reader-newtab-install {
-  justify-self: end;
-  display: inline-flex;
-  align-items: center;
-  color: var(--jpdb-reader-faint);
-  font-size: 11px;
-  font-weight: 760;
-  text-decoration: none;
-}
-
-.jpdb-reader-newtab-install[hidden] {
-  display: none !important;
-}
-
-.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch:focus-visible,
-.jpdb-reader-language-toggle:focus-visible,
 .jpdb-reader-newtab-overflow:focus-visible,
 .jpdb-reader-newtab-mode button:focus-visible,
 .jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item:focus-visible,
@@ -3640,8 +3536,6 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch:hover,
-  .jpdb-reader-language-toggle:hover,
   .jpdb-reader-newtab-overflow:hover,
   .jpdb-reader-newtab-mode button:hover,
   .jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item:hover,
@@ -3658,16 +3552,6 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
       var(--jpdb-reader-accent) 60%,
       var(--jpdb-reader-border)
     );
-  }
-
-  .jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item:hover,
-  .jpdb-reader-language-toggle:hover {
-    background: color-mix(
-      in srgb,
-      var(--jpdb-reader-surface) 84%,
-      transparent
-    );
-    color: var(--jpdb-reader-text);
   }
 }
 
@@ -3754,17 +3638,9 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     white-space: nowrap;
   }
 
-  .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-appearance,
   .jpdb-reader-newtab .jpdb-reader-newtab-overflow {
     width: 44px;
     min-width: 44px;
-  }
-
-  .jpdb-reader-language-toggle {
-    width: 32px;
-    min-width: 32px;
-    padding: 0;
-    font-size: 15px;
   }
 
   .jpdb-reader-newtab-search-mode .jpdb-reader-newtab-study {
@@ -3863,22 +3739,21 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
   .jpdb-reader-newtab-answer-header {
     grid-template-columns: minmax(0, 1fr);
-    justify-items: stretch;
+    justify-items: center;
     gap: 8px;
     padding: 9px 10px;
-    text-align: left;
+    text-align: center;
   }
 
   .jpdb-reader-newtab-answer-header .jpdb-reader-heading,
-  .jpdb-reader-newtab-answer-header .jpdb-reader-title-row {
-    justify-content: flex-start;
-    justify-items: start;
+  .jpdb-reader-newtab-answer-header .jpdb-reader-title-row,
+  .jpdb-reader-newtab-answer-header .jpdb-reader-card-tools {
+    justify-content: center;
+    justify-items: center;
   }
 
   .jpdb-reader-newtab-answer-header .jpdb-reader-card-tools {
     width: 100%;
-    justify-content: flex-start;
-    justify-items: start;
   }
 
   .jpdb-reader-newtab-answer-header .jpdb-reader-pitch {
@@ -3904,11 +3779,15 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
     grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: min(100%, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
     gap: 5px;
   }
 
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-count="2"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(100%, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
   }
 
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls:has(
@@ -4089,13 +3968,15 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    width: min(420px, calc(100vw - 12px));
+    width: min(100%, calc(100vw - 12px));
+    max-width: calc(100vw - 12px);
     gap: 4px;
   }
 
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-count="2"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: min(420px, calc(100vw - 12px));
+    width: min(100%, calc(100vw - 12px));
+    max-width: calc(100vw - 12px);
   }
 
 }
@@ -4104,12 +3985,6 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode)
     .jpdb-reader-newtab-shell {
     padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom)));
-  }
-
-  .jpdb-reader-language-toggle {
-    width: 44px !important;
-    min-width: 44px !important;
-    height: 44px !important;
   }
 
   .jpdb-reader-newtab-brand .title {
@@ -4127,13 +4002,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     min-height: 36px !important;
   }
 
-  .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-appearance,
-  .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch,
   .jpdb-reader-newtab .jpdb-reader-newtab-overflow,
   .jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item,
   .jpdb-reader-newtab-mode button,
   button.jpdb-reader-newtab-status:not(:disabled),
-  .jpdb-reader-language-toggle,
   .jpdb-reader-newtab-searchbox button,
   .jpdb-reader-newtab-grade-target-select,
   .jpdb-reader-newtab-controls button:not([data-grade]),
@@ -4148,8 +4020,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     > summary.jpdb-reader-local-title,
   .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button,
   .jpdb-reader-newtab-kanji-vocab > button,
-  .jpdb-reader-newtab-mini-action,
-  .jpdb-reader-newtab-install {
+  .jpdb-reader-newtab-mini-action {
     min-height: 44px !important;
   }
 
@@ -4165,17 +4036,6 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     position: absolute;
     inset: -3px 0;
     border-radius: 10px;
-  }
-
-  .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch {
-    min-height: 24px !important;
-  }
-
-  .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch::after {
-    content: "";
-    position: absolute;
-    inset: -10px 0;
-    border-radius: 999px;
   }
 }
 
@@ -5471,14 +5331,15 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   pointer-events: none;
 }
 
-/* Long annotated prose may wrap even when the host says nowrap, but each
-   parsed token stays atomic. Letting the browser break inside short Japanese
-   names/messages creates one-character stacks on dense app surfaces. */
-.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) {
+/* Long annotated page text may wrap even when the host says nowrap. Passive
+   controls and text mirrors keep their own atomic wrapping rules below so
+   compact Japanese labels do not stack one character per line. */
+.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word),
+.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word {
   white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: normal !important;
-  line-break: strict;
+  word-break: normal;
+  overflow-wrap: anywhere !important;
+  line-break: auto;
   /* Scan words keep the absolutely-positioned ::after underline like every other
      reader word, so the pitch underline sits exactly on the highlight box's
      bottom edge and stays within its inline bounds (requested look; matches the
@@ -5490,52 +5351,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 .jpdb-reader-word.jpdb-reader-scan-word ruby,
 .jpdb-reader-word.jpdb-reader-scan-word rt {
-  white-space: nowrap;
-  overflow-wrap: normal;
-}
-
-/* Google Search result snippets are passive links, not compact controls. Keep
-   their annotated Japanese wrapping on small WebKit viewports. */
-.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word {
   white-space: normal;
-  word-break: normal;
-  overflow-wrap: anywhere !important;
-  line-break: auto;
-}
-
-/* Readable article/prose targets need normal browser wrapping on narrow mobile
-   viewports. Keep compact UI/chrome words atomic elsewhere so buttons, cards,
-   and metadata rows do not grow or collapse into one-character stacks. */
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word:not(.jpdb-reader-passive-word) {
-  display: inline !important;
-  vertical-align: baseline;
-  white-space: normal;
-  word-break: break-word;
-  overflow-wrap: anywhere !important;
-  line-break: anywhere;
-  max-width: 100%;
-  max-inline-size: min(100%, calc(100vw - 2rem));
-}
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) {
-  line-height: 2.05;
-}
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word ruby,
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word rt {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) ruby,
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) .jpdb-reader-ruby-base {
-  display: inline !important;
-  max-width: 100%;
-  max-inline-size: 100%;
-  white-space: normal;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  line-break: anywhere;
 }
 
 /* Text mirrors preserve app-owned DOM/layout. Let surrounding mirrored text wrap
@@ -5640,12 +5456,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 .jpdb-reader-word.jpdb-reader-passive-word {
   --jpdb-reader-word-color-source: currentColor;
-  line-height: inherit;
-  max-width: none;
-  max-inline-size: none;
-  overflow-wrap: inherit !important;
-  white-space: inherit;
-  word-break: inherit;
   cursor: inherit;
 }
 
@@ -5708,6 +5518,14 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
   outline: none;
+}
+
+:is(button, [role="button"], [role="tab"], summary, label, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:hover,
+:is(button, [role="button"], [role="tab"], summary, label, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:focus,
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:hover,
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:focus {
+  background-image: none !important;
+  box-shadow: none;
 }
 
 .jpdb-reader-word.jpdb-reader-keyboard-active {
@@ -6078,9 +5896,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent);
   --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-unknown, transparent);
 }
-/* The card headword (.jpdb-reader-spelling) reuses the same pitch colors so it
-   shows the pitch-accent underline like words on the page; previously the card
-   header only rendered the pitch graph and never the underline. */
 .jpdb-reader-spelling.jpdb-pitch-heiban { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban); }
 .jpdb-reader-spelling.jpdb-pitch-atamadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka); }
 .jpdb-reader-spelling.jpdb-pitch-nakadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka); }
@@ -6215,10 +6030,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 2.05;
 }
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-has-furi {
-  line-height: inherit;
-}
 .jpdb-reader-furi {
   font-size: 0.52em;
   color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;
@@ -6264,15 +6075,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   text-align: center;
 }
 .jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi {
-  white-space: nowrap;
-  overflow-wrap: normal;
-}
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) rt.jpdb-reader-furi {
   white-space: normal;
   overflow-wrap: anywhere;
 }
-
 /* User feedback: the word contrast shadow (a white glow + a 2px dark drop) bleeds
    into the thin furigana strokes and makes the reading harder to read. Furigana
    takes a single tight outline instead — enough contrast on busy manga
@@ -6604,17 +6409,17 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] {
   --jpdb-ocr-auto-dark-surface: color-mix(
     in srgb,
-    var(--jpdb-reader-theme-dark-surface, #20242b) 78%,
-    var(--jpdb-reader-accent, #5ea780) 22%
+    var(--jpdb-reader-accent, #5ea780) 72%,
+    var(--jpdb-reader-theme-dark-surface, #20242b) 28%
   );
   --jpdb-ocr-auto-dark-active: color-mix(
     in srgb,
-    var(--jpdb-ocr-auto-dark-surface) 84%,
+    var(--jpdb-ocr-auto-dark-surface) 88%,
     transparent
   );
   --jpdb-ocr-auto-dark-border: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 34%,
+    var(--jpdb-reader-accent, #5ea780) 70%,
     rgba(255, 255, 255, 0.16)
   );
 }
@@ -6747,7 +6552,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
   .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
-  color: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  color: var(--jpdb-reader-accent-text, #11161d);
   text-shadow: none;
   background: var(--jpdb-ocr-auto-dark-active);
   border-color: var(--jpdb-ocr-auto-dark-border);
@@ -6758,16 +6563,17 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
   .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
   .jpdb-reader-word {
-  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-accent-text, #11161d);
   color: var(
     --jpdb-reader-word-accessible-color,
-    var(--jpdb-reader-word-color-source, var(--jpdb-reader-theme-dark-text, #f2f4f8))
+    var(--jpdb-reader-word-color-source, var(--jpdb-reader-accent-text, #11161d))
   ) !important;
   text-shadow: none;
 }
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word {
   background-color: transparent !important;
   background-image: none !important;
+  --jpdb-reader-word-accessible-color: currentColor;
   --jpdb-reader-word-underline: transparent;
   --jpdb-reader-word-underline-offset: 0.12em;
   --jpdb-reader-word-underline-thickness: 0.12em;
@@ -6781,6 +6587,43 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   pointer-events: auto;
   cursor: pointer;
   line-height: 1 !important;
+}
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-reader-word,
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line-text,
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-plain,
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-ruby-base,
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-ruby-base-text {
+  --jpdb-reader-word-accessible-color: transparent;
+  --jpdb-reader-word-accessible-highlight: transparent;
+  --jpdb-reader-word-accessible-underline: transparent;
+  --jpdb-reader-word-color-source: transparent;
+  --jpdb-reader-word-decoration-source: transparent;
+  --jpdb-reader-word-highlight-source: transparent;
+  --jpdb-reader-word-highlight-shadow-source: none;
+  --jpdb-reader-word-underline: transparent;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-decoration-color: transparent !important;
+  text-shadow: none !important;
+}
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-reader-word::after {
+  border-block-end-color: transparent !important;
+  opacity: 0 !important;
 }
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word:is(
   .jpdb-pitch-heiban,
@@ -6881,6 +6724,14 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-ocr-furi {
   opacity: 0.9;
+}
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-furi {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  opacity: 0 !important;
+  text-shadow: none !important;
 }
 
 /* Vertical-text OCR (mokuro / vertical manga & light novels): the reading
@@ -7816,18 +7667,6 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   font-size: 12px;
   font-weight: 850;
 }
-.jpdb-reader-onboarding-immersion-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 0.78fr) minmax(220px, 1fr) minmax(180px, 0.68fr);
-  gap: 14px 24px;
-  align-items: start;
-  min-width: 0;
-}
-.jpdb-reader-onboarding-option-column {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-}
 .jpdb-reader-onboarding-options label {
   display: flex;
   align-items: center;
@@ -7881,70 +7720,6 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   outline: 2px solid var(--jpdb-reader-accent);
   outline-offset: 3px;
 }
-.jpdb-reader-onboarding-mode-group {
-  display: grid;
-  gap: 7px;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-.jpdb-reader-onboarding-mode-group legend {
-  padding: 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 12px;
-  font-weight: 850;
-}
-.jpdb-reader-onboarding-mode-group label {
-  min-width: 0;
-  min-height: 32px;
-  justify-content: center;
-  padding: 5px 8px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 7px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-muted);
-  font-size: 12px;
-  line-height: 1.15;
-  text-align: center;
-}
-.jpdb-reader-onboarding-mode-group input[type="radio"] {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-.jpdb-reader-onboarding-mode-group label:has(input[type="radio"]:checked) {
-  border-color: var(--jpdb-reader-accent);
-  background: var(--jpdb-reader-accent-soft);
-  color: var(--jpdb-reader-text);
-}
-.jpdb-reader-onboarding-mode-group label:has(input[type="radio"]:focus-visible) {
-  outline: 2px solid var(--jpdb-reader-accent);
-  outline-offset: 2px;
-}
-.jpdb-reader-onboarding-shortcut {
-  display: grid !important;
-  gap: 6px !important;
-  align-items: stretch !important;
-}
-.jpdb-reader-onboarding-shortcut input {
-  width: 100%;
-  min-width: 0;
-  min-height: 38px;
-  border: 1px solid var(--jpdb-reader-border) !important;
-  border-radius: 7px;
-  background-color: var(--jpdb-reader-surface) !important;
-  color: var(--jpdb-reader-text) !important;
-  padding: 7px 10px;
-  font: 750 13px/1.2 var(--jpdb-reader-font);
-}
-.jpdb-reader-onboarding-shortcut input:focus-visible {
-  border-color: var(--jpdb-reader-accent) !important;
-  outline: 2px solid var(--jpdb-reader-accent-soft);
-  outline-offset: 2px;
-}
 .jpdb-reader-onboarding-actions {
   display: flex;
   flex-wrap: wrap;
@@ -7969,7 +7744,6 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
     font-size: 40px;
   }
   .jpdb-reader-onboarding-basics,
-  .jpdb-reader-onboarding-immersion-grid,
   .jpdb-reader-onboarding-features {
     grid-template-columns: 1fr;
   }
@@ -8092,15 +7866,8 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   display: none;
 }
 .jpdb-reader-spelling .jpdb-reader-ruby-base {
-  display: inline;
+  display: ruby-base;
 }
-/* Pitch is signaled exactly once on the card. The headword carries a jpdb-pitch-*
-   class that (under the pitch-underline display mode) draws a pitch-colored
-   underline, while the card tools also render the canonical mora-labelled pitch
-   graph — so the accent shows up on both the headword (left) and the graph
-   (right) (user feedback: "pitch accent is appearing confusingly on both
-   sides"). When the graph is present it is the single source of truth, so the
-   redundant headword underline is dropped. */
 .jpdb-reader-header:has(.jpdb-reader-pitch) .jpdb-reader-spelling {
   text-decoration: none !important;
 }
@@ -8809,14 +8576,18 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   margin-top: 12px;
   padding-top: 12px;
   display: grid;
+  justify-items: stretch;
   gap: 8px;
   font-size: 13px;
   line-height: 1.45;
+  text-align: left;
 }
 .jpdb-reader-definition-stack {
   display: grid;
+  justify-items: stretch;
   gap: 0;
   margin-top: 12px;
+  text-align: left;
 }
 .jpdb-reader-definition-stack .jpdb-reader-local {
   margin-top: 0;
@@ -8848,6 +8619,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   gap: 0;
   padding-top: 0;
   position: relative;
+  text-align: left;
 }
 .jpdb-reader-source-card .jpdb-reader-meanings {
   margin: 0;
@@ -8927,12 +8699,15 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 }
 .jpdb-reader-dictionary-source-list {
   display: grid;
+  justify-items: stretch;
+  text-align: left;
 }
 .jpdb-reader-dictionary-group > .jpdb-reader-dictionary-source-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  text-align: left;
 }
 .jpdb-reader-dictionary-group
   > .jpdb-reader-dictionary-source-title
@@ -15958,18 +15733,48 @@ html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #columns {
   justify-content: flex-start !important;
 }
 html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #primary,
-html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #primary-inner,
-html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player,
-html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container-outer,
-html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container-inner,
-html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player {
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #primary-inner {
   width: var(--jpdb-subtitle-youtube-stable-player-width, auto) !important;
   max-width: var(--jpdb-subtitle-youtube-stable-player-width, none) !important;
   min-width: 0 !important;
 }
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container-outer,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container-inner,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy ytd-player,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player {
+  width: var(--jpdb-subtitle-youtube-stable-player-width, auto) !important;
+  max-width: var(--jpdb-subtitle-youtube-stable-player-width, none) !important;
+  min-width: 0 !important;
+  height: var(--jpdb-subtitle-youtube-stable-player-height, auto) !important;
+  max-height: var(--jpdb-subtitle-youtube-stable-player-height, none) !important;
+  min-height: 0 !important;
+}
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player .html5-video-container,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player video.html5-main-video {
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+}
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player video.html5-main-video {
+  object-fit: contain !important;
+}
 html.jpdb-subtitle-youtube-stable-left ytd-watch-flexy #primary {
   margin-left: var(--jpdb-subtitle-youtube-stable-offset, 0px) !important;
   margin-right: 0 !important;
+}
+html.jpdb-subtitle-youtube-stable-left.jpdb-subtitle-youtube-stable-player-fallback #movie_player,
+html.jpdb-subtitle-youtube-stable-left.jpdb-subtitle-youtube-stable-player-fallback .html5-video-player {
+  margin-left: var(--jpdb-subtitle-youtube-stable-offset, 0px) !important;
+}
+html.jpdb-subtitle-youtube-stable-left.jpdb-subtitle-youtube-stable-full-bleed ytd-watch-flexy[is-single-column] #full-bleed-container #player-container {
+  margin-left: var(--jpdb-subtitle-youtube-stable-offset, 0px) !important;
 }
 html.jpdb-subtitle-youtube-stable-right ytd-watch-flexy #primary {
   margin-left: 0 !important;
@@ -16576,7 +16381,6 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     right: 16px;
   }
   .jpdb-reader-onboarding-basics { grid-template-columns: 1fr; }
-  .jpdb-reader-onboarding-immersion-grid { grid-template-columns: 1fr; gap: 10px; }
   .jpdb-reader-onboarding-features { grid-template-columns: 1fr; }
   .jpdb-reader-onboarding-actions { display: grid; grid-template-columns: 1fr; }
   .jpdb-ocr-line { min-width: 0; min-height: 0; border-radius: 8px; }
@@ -16741,19 +16545,6 @@ html.jpdb-youtube-filter-active ytd-rich-grid-renderer ytd-continuation-item-ren
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.jpdb-youtube-filter-bar [data-role="summary"].jpdb-reader-sr-only {
-    position: absolute !important;
-    width: 1px !important;
-    height: 1px !important;
-    margin: -1px !important;
-    padding: 0 !important;
-    border: 0 !important;
-    overflow: hidden !important;
-    white-space: nowrap !important;
-    clip: rect(0 0 0 0) !important;
-    clip-path: inset(50%) !important;
 }
 
 .jpdb-youtube-filter-actions {

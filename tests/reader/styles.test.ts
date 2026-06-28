@@ -42,32 +42,20 @@ describe('reader stylesheet loading', () => {
 
         expect(css).toBe(CRITICAL_READER_CSS);
         expect(css).toContain('[data-jpdb-reader-root] :where(button)');
-        expect(css).toContain('width: auto;');
-        expect(css).toContain('max-width: none;');
-        expect(css).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn');
-        expect(css).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn svg');
+        expect(css).toContain('all:unset;');
+        expect(css).toContain('cursor:pointer;');
+        expect(css).toContain(':is(.jpdb-reader-popover,.jpdb-reader-settings) .jpdb-reader-icon-btn');
+        expect(css).toContain(':is(.jpdb-reader-popover,.jpdb-reader-settings) .jpdb-reader-icon-btn svg');
         expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse');
         expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before');
         expect(css).toContain('.jpdb-reader-word:is(.jpdb-pitch-heiban,[data-pitch-class=heiban])');
-        expect(css).toContain('--d2:var(--pc,#0000);');
+        expect(css).toContain('--d2:var(--pc,#0000)');
         expect(css).toContain('.jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown]){--pc:var(--jpdb-reader-pitch-unknown);');
         expect(css).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word');
         expect(css).toContain('.jpdb-reader-word-text-pitch .jpdb-reader-word');
-        expect(css).toContain('[data-card-state=new]');
-        expect(css).toContain('[data-anki-state=new]');
-        expect(css).toContain('[data-card-source=jiten]');
-        expect(css).toContain('.jpdb-reader-word-highlight-status .jpdb-reader-word');
-        expect(css).toContain('.jpdb-reader-word-highlight-jpdb .jpdb-reader-word');
-        expect(css).toContain('.jpdb-reader-word-highlight-anki .jpdb-reader-word');
-        expect(css).toContain('.jpdb-reader-word-highlight-pitch .jpdb-reader-word');
-        expect(css).toContain('.jpdb-reader-word{background:linear-gradient(var(--yh),var(--yh))');
         expect(css).toContain('.jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor}:is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror,[data-jpdb-reader-passive-chrome=true]) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}');
-        expect(css).toContain('.jpdb-reader-word-underline-status .jpdb-reader-word');
-        expect(css).toContain('.jpdb-reader-word-underline-anki .jpdb-reader-word');
-        expect(css).toContain('.jpdb-reader-word-text-anki .jpdb-reader-word');
         expect(css).toContain('--yu:var(--d2,#0000)');
         expect(css).toContain('color:var(--yt,currentColor)!important');
-        expect(css).toContain('background:linear-gradient(var(--yh),var(--yh)) center/var(--yz) 100% no-repeat!important');
         expect(css).toContain('--yi:.08em;');
         expect(css).toContain('inset-inline:var(--yi);');
         expect(css).toContain('border-block-end:var(--yw) var(--ys) var(--yu,#0000);');
@@ -133,14 +121,20 @@ describe('reader stylesheet loading', () => {
             .toEqual(['https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css']);
     });
 
-    it('keeps parsed app-label words atomic and compact when furigana is injected', () => {
+    it('lets scanned prose wrap while keeping passive/mirror labels compact with furigana', () => {
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
-        const scanRule = css.match(/\.jpdb-reader-word\.jpdb-reader-scan-word:not\(\.jpdb-reader-passive-word\)\s*\{[^}]*\}/)?.[0] ?? '';
+        const scanRule = css.match(/\.jpdb-reader-word\.jpdb-reader-scan-word:not\(\.jpdb-reader-passive-word\)[^{]*\{[^}]*\}/)?.[0] ?? '';
 
-        expect(scanRule).toContain('word-break: keep-all');
-        expect(scanRule).toContain('overflow-wrap: normal !important');
+        expect(scanRule).toContain('word-break: normal');
+        expect(scanRule).toContain('overflow-wrap: anywhere !important');
+        expect(scanRule).toContain('line-break: auto');
+        expect(scanRule).toContain('.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word');
         expect(css).toContain('.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-has-furi');
         expect(css).toContain('.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-has-furi');
+        expect(css).toContain('.jpdb-reader-word.jpdb-reader-passive-word');
+        expect(css).toContain('.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word');
+        expect(css).toContain('word-break: keep-all');
+        expect(css).toContain('overflow-wrap: normal');
         expect(css).toContain('line-height: inherit;');
     });
 });

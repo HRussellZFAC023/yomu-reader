@@ -59,14 +59,15 @@
   pointer-events: none;
 }
 
-/* Long annotated prose may wrap even when the host says nowrap, but each
-   parsed token stays atomic. Letting the browser break inside short Japanese
-   names/messages creates one-character stacks on dense app surfaces. */
-.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) {
+/* Long annotated page text may wrap even when the host says nowrap. Passive
+   controls and text mirrors keep their own atomic wrapping rules below so
+   compact Japanese labels do not stack one character per line. */
+.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word),
+.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word {
   white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: normal !important;
-  line-break: strict;
+  word-break: normal;
+  overflow-wrap: anywhere !important;
+  line-break: auto;
   /* Scan words keep the absolutely-positioned ::after underline like every other
      reader word, so the pitch underline sits exactly on the highlight box's
      bottom edge and stays within its inline bounds (requested look; matches the
@@ -78,52 +79,7 @@
 
 .jpdb-reader-word.jpdb-reader-scan-word ruby,
 .jpdb-reader-word.jpdb-reader-scan-word rt {
-  white-space: nowrap;
-  overflow-wrap: normal;
-}
-
-/* Google Search result snippets are passive links, not compact controls. Keep
-   their annotated Japanese wrapping on small WebKit viewports. */
-.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word {
   white-space: normal;
-  word-break: normal;
-  overflow-wrap: anywhere !important;
-  line-break: auto;
-}
-
-/* Readable article/prose targets need normal browser wrapping on narrow mobile
-   viewports. Keep compact UI/chrome words atomic elsewhere so buttons, cards,
-   and metadata rows do not grow or collapse into one-character stacks. */
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word:not(.jpdb-reader-passive-word) {
-  display: inline !important;
-  vertical-align: baseline;
-  white-space: normal;
-  word-break: break-word;
-  overflow-wrap: anywhere !important;
-  line-break: anywhere;
-  max-width: 100%;
-  max-inline-size: min(100%, calc(100vw - 2rem));
-}
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) {
-  line-height: 2.05;
-}
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word ruby,
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word rt {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) ruby,
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) .jpdb-reader-ruby-base {
-  display: inline !important;
-  max-width: 100%;
-  max-inline-size: 100%;
-  white-space: normal;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  line-break: anywhere;
 }
 
 /* Text mirrors preserve app-owned DOM/layout. Let surrounding mirrored text wrap
@@ -228,12 +184,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 .jpdb-reader-word.jpdb-reader-passive-word {
   --jpdb-reader-word-color-source: currentColor;
-  line-height: inherit;
-  max-width: none;
-  max-inline-size: none;
-  overflow-wrap: inherit !important;
-  white-space: inherit;
-  word-break: inherit;
   cursor: inherit;
 }
 
@@ -296,6 +246,14 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
   outline: none;
+}
+
+:is(button, [role="button"], [role="tab"], summary, label, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:hover,
+:is(button, [role="button"], [role="tab"], summary, label, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:focus,
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:hover,
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:focus {
+  background-image: none !important;
+  box-shadow: none;
 }
 
 .jpdb-reader-word.jpdb-reader-keyboard-active {
@@ -666,9 +624,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent);
   --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-unknown, transparent);
 }
-/* The card headword (.jpdb-reader-spelling) reuses the same pitch colors so it
-   shows the pitch-accent underline like words on the page; previously the card
-   header only rendered the pitch graph and never the underline. */
 .jpdb-reader-spelling.jpdb-pitch-heiban { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban); }
 .jpdb-reader-spelling.jpdb-pitch-atamadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka); }
 .jpdb-reader-spelling.jpdb-pitch-nakadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka); }
@@ -803,10 +758,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 2.05;
 }
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-has-furi {
-  line-height: inherit;
-}
 .jpdb-reader-furi {
   font-size: 0.52em;
   color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;
@@ -852,15 +803,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   text-align: center;
 }
 .jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi {
-  white-space: nowrap;
-  overflow-wrap: normal;
-}
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) rt.jpdb-reader-furi {
   white-space: normal;
   overflow-wrap: anywhere;
 }
-
 /* User feedback: the word contrast shadow (a white glow + a 2px dark drop) bleeds
    into the thin furigana strokes and makes the reading harder to read. Furigana
    takes a single tight outline instead — enough contrast on busy manga
@@ -1192,17 +1137,17 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] {
   --jpdb-ocr-auto-dark-surface: color-mix(
     in srgb,
-    var(--jpdb-reader-theme-dark-surface, #20242b) 78%,
-    var(--jpdb-reader-accent, #5ea780) 22%
+    var(--jpdb-reader-accent, #5ea780) 72%,
+    var(--jpdb-reader-theme-dark-surface, #20242b) 28%
   );
   --jpdb-ocr-auto-dark-active: color-mix(
     in srgb,
-    var(--jpdb-ocr-auto-dark-surface) 84%,
+    var(--jpdb-ocr-auto-dark-surface) 88%,
     transparent
   );
   --jpdb-ocr-auto-dark-border: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 34%,
+    var(--jpdb-reader-accent, #5ea780) 70%,
     rgba(255, 255, 255, 0.16)
   );
 }
@@ -1335,7 +1280,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
   .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
-  color: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  color: var(--jpdb-reader-accent-text, #11161d);
   text-shadow: none;
   background: var(--jpdb-ocr-auto-dark-active);
   border-color: var(--jpdb-ocr-auto-dark-border);
@@ -1346,16 +1291,17 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
   .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
   .jpdb-reader-word {
-  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-accent-text, #11161d);
   color: var(
     --jpdb-reader-word-accessible-color,
-    var(--jpdb-reader-word-color-source, var(--jpdb-reader-theme-dark-text, #f2f4f8))
+    var(--jpdb-reader-word-color-source, var(--jpdb-reader-accent-text, #11161d))
   ) !important;
   text-shadow: none;
 }
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word {
   background-color: transparent !important;
   background-image: none !important;
+  --jpdb-reader-word-accessible-color: currentColor;
   --jpdb-reader-word-underline: transparent;
   --jpdb-reader-word-underline-offset: 0.12em;
   --jpdb-reader-word-underline-thickness: 0.12em;
@@ -1369,6 +1315,43 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   pointer-events: auto;
   cursor: pointer;
   line-height: 1 !important;
+}
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-reader-word,
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line-text,
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-plain,
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-ruby-base,
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-ruby-base-text {
+  --jpdb-reader-word-accessible-color: transparent;
+  --jpdb-reader-word-accessible-highlight: transparent;
+  --jpdb-reader-word-accessible-underline: transparent;
+  --jpdb-reader-word-color-source: transparent;
+  --jpdb-reader-word-decoration-source: transparent;
+  --jpdb-reader-word-highlight-source: transparent;
+  --jpdb-reader-word-highlight-shadow-source: none;
+  --jpdb-reader-word-underline: transparent;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-decoration-color: transparent !important;
+  text-shadow: none !important;
+}
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-reader-word::after {
+  border-block-end-color: transparent !important;
+  opacity: 0 !important;
 }
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word:is(
   .jpdb-pitch-heiban,
@@ -1469,6 +1452,14 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-ocr-furi {
   opacity: 0.9;
+}
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-furi {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  opacity: 0 !important;
+  text-shadow: none !important;
 }
 
 /* Vertical-text OCR (mokuro / vertical manga & light novels): the reading

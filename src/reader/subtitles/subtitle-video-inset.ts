@@ -14,6 +14,22 @@ export interface ApplySubtitleVideoInsetOptions {
     resizeEventMode?: SubtitleVideoInsetResizeEventMode;
 }
 
+type YouTubeStablePlayerSizeProperty =
+    | 'width'
+    | 'height'
+    | 'max-width'
+    | 'max-height'
+    | 'min-width'
+    | 'min-height'
+    | 'left'
+    | 'top'
+    | 'object-fit';
+
+interface YouTubeStablePlayerSizeStyle {
+    value: string;
+    priority: string;
+}
+
 export class SubtitleVideoInsetAdapter {
     private lastSignature = '';
     private lastResizeSignature = '';
@@ -85,7 +101,7 @@ export class SubtitleVideoInsetAdapter {
         // Restoring the player box does not, on its own, make a site's player
         // recompute the <video> element size, so it keeps the stale inset size
         // until something forces a relayout. Nudge it like exiting fullscreen does.
-        dispatchVideoLayoutResize();
+        dispatchSubtitleVideoLayoutResize();
         return true;
     }
 
@@ -95,7 +111,7 @@ export class SubtitleVideoInsetAdapter {
         if (mode === 'none' || this.lastResizeSignature === metrics.signature) return;
         this.lastResizeSignature = metrics.signature;
         scheduleYouTubePlayerResize(metrics.width, metrics.height, mode);
-        dispatchVideoLayoutResize(mode);
+        dispatchSubtitleVideoLayoutResize(mode);
     }
 }
 
@@ -357,6 +373,8 @@ function bottomInsetHeight(side: SubtitleVideoInsetSide, height: number): number
 
 const youtubePlayerContainerBaseRects = new WeakMap<HTMLElement, { left: number; right: number; viewportWidth: number }>();
 const youtubeVideoElementInsetStyles = new WeakMap<HTMLElement, Partial<Record<YoutubeVideoElementInsetProperty, string>>>();
+const youtubeStablePlayerSizeStyles = new WeakMap<HTMLElement, Partial<Record<YouTubeStablePlayerSizeProperty, YouTubeStablePlayerSizeStyle>>>();
+const youtubeStablePlayerSizeElements = new Set<HTMLElement>();
 type YoutubeVideoElementInsetProperty = 'width' | 'height' | 'maxWidth' | 'maxHeight' | 'minWidth' | 'minHeight' | 'left' | 'top' | 'objectFit';
 
 function captureYouTubePlayerContainerBaseRects(elements: HTMLElement[]): void {
@@ -557,20 +575,117 @@ function scheduleYouTubePlayerResize(width: number, height: number, mode: Subtit
     }, 80);
 }
 
+export function resizeYouTubePlayerForSubtitleLayout(
+    width: number,
+    height: number,
+    mode: SubtitleVideoInsetResizeEventMode = 'immediate',
+): void {
+    if (mode === 'none' || !isYouTubePage()) return;
+    scheduleYouTubePlayerResize(width, height, mode);
+    dispatchSubtitleVideoLayoutResize(mode);
+}
+
+export function applyStableYouTubePlayerVideoSize(video: HTMLVideoElement | undefined, width: number, height: number): boolean {
+    if (!isYouTubePage() || width <= 0 || height <= 0) return clearStableYouTubePlayerVideoSize();
+    let changed = false;
+    const widthValue = `${Math.round(width)}px`;
+    const heightValue = `${Math.round(height)}px`;
+    for (const element of stableYouTubePlayerVideoSizeTargets(video)) {
+        rememberStableYouTubePlayerVideoSizeStyles(element);
+        changed = setStableYouTubePlayerStyleIfChanged(element, 'width', widthValue) || changed;
+        changed = setStableYouTubePlayerStyleIfChanged(element, 'height', heightValue) || changed;
+        changed = setStableYouTubePlayerStyleIfChanged(element, 'max-width', widthValue) || changed;
+        changed = setStableYouTubePlayerStyleIfChanged(element, 'max-height', heightValue) || changed;
+        changed = setStableYouTubePlayerStyleIfChanged(element, 'min-width', '0px') || changed;
+        changed = setStableYouTubePlayerStyleIfChanged(element, 'min-height', '0px') || changed;
+        if (element.matches('.html5-video-container, video')) {
+            changed = setStableYouTubePlayerStyleIfChanged(element, 'left', '0px') || changed;
+            changed = setStableYouTubePlayerStyleIfChanged(element, 'top', '0px') || changed;
+        }
+        if (element instanceof HTMLVideoElement) {
+            changed = setStableYouTubePlayerStyleIfChanged(element, 'object-fit', 'contain') || changed;
+        }
+    }
+    return changed;
+}
+
+export function clearStableYouTubePlayerVideoSize(): boolean {
+    if (!youtubeStablePlayerSizeElements.size) return false;
+    let changed = false;
+    for (const element of Array.from(youtubeStablePlayerSizeElements)) {
+        const previous = youtubeStablePlayerSizeStyles.get(element);
+        if (!previous) continue;
+        for (const [property, style] of Object.entries(previous)) {
+            const cssProperty = property as YouTubeStablePlayerSizeProperty;
+            const value = style.value;
+            const priority = style.priority;
+            if (value) element.style.setProperty(cssProperty, value, priority);
+            else element.style.removeProperty(cssProperty);
+            changed = true;
+        }
+        youtubeStablePlayerSizeStyles.delete(element);
+        youtubeStablePlayerSizeElements.delete(element);
+    }
+    return changed;
+}
+
+function stableYouTubePlayerVideoSizeTargets(video: HTMLVideoElement | undefined): HTMLElement[] {
+    const player = video?.closest<HTMLElement>('#movie_player, .html5-video-player')
+        ?? document.querySelector<HTMLElement>('#movie_player, .html5-video-player');
+    const container = player?.querySelector<HTMLElement>('.html5-video-container')
+        ?? video?.closest<HTMLElement>('.html5-video-container');
+    const media = video
+        ?? player?.querySelector<HTMLVideoElement>('video.html5-main-video, video')
+        ?? document.querySelector<HTMLVideoElement>('#movie_player video.html5-main-video, .html5-video-player video.html5-main-video, #movie_player video, .html5-video-player video');
+    return uniqueElements([player, container, media].filter((element): element is HTMLElement => Boolean(element)));
+}
+
+function rememberStableYouTubePlayerVideoSizeStyles(element: HTMLElement): void {
+    if (youtubeStablePlayerSizeStyles.has(element)) return;
+    const properties: YouTubeStablePlayerSizeProperty[] = [
+        'width',
+        'height',
+        'max-width',
+        'max-height',
+        'min-width',
+        'min-height',
+        'left',
+        'top',
+        'object-fit',
+    ];
+    youtubeStablePlayerSizeStyles.set(element, Object.fromEntries(properties.map(property => [
+        property,
+        {
+            value: element.style.getPropertyValue(property),
+            priority: element.style.getPropertyPriority(property),
+        },
+    ])) as Partial<Record<YouTubeStablePlayerSizeProperty, YouTubeStablePlayerSizeStyle>>);
+    youtubeStablePlayerSizeElements.add(element);
+}
+
+function setStableYouTubePlayerStyleIfChanged(element: HTMLElement, property: YouTubeStablePlayerSizeProperty, value: string): boolean {
+    if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === 'important') return false;
+    element.style.setProperty(property, value, 'important');
+    return true;
+}
+
 function resizeYouTubePlayer(width: number, height: number): void {
     if (!isYouTubePage()) return;
     const signature = youtubeResizeSignature(width, height);
     if (signature === lastYouTubePlayerResizeSignature) return;
-    lastYouTubePlayerResizeSignature = signature;
     const player = youtubeMoviePlayer();
     try {
-        if (canResizeYouTubePlayer(player, width, height)) player.setSize(Math.round(width), Math.round(height));
+        if (canResizeYouTubePlayer(player, width, height)) {
+            player.setSize(Math.round(width), Math.round(height));
+            lastYouTubePlayerResizeSignature = signature;
+        }
     } catch {
         // YouTube's player API is private and best-effort.
     }
 }
 
 let lastYouTubePlayerResizeSignature = '';
+let pendingImmediateVideoLayoutResize: number | undefined;
 let pendingVideoLayoutResize: number | undefined;
 let pendingYouTubePlayerResize: number | undefined;
 let pendingYouTubePlayerResizeSize: { width: number; height: number } | undefined;
@@ -583,8 +698,15 @@ function youtubeResizeSignature(width: number, height: number): string {
 // response to viewport resize, not from a style mutation. Dispatch a resize
 // (now and after layout settles) so the player re-fits the video to the box we
 // just changed — the same recompute that entering/exiting fullscreen forces.
-function dispatchVideoLayoutResize(mode: SubtitleVideoInsetResizeEventMode = 'immediate'): void {
-    if (mode === 'immediate') dispatchWindowEvent(createWindowEvent('resize'));
+function dispatchSubtitleVideoLayoutResize(mode: SubtitleVideoInsetResizeEventMode = 'immediate'): void {
+    if (mode === 'immediate') {
+        if (pendingImmediateVideoLayoutResize !== undefined) window.clearTimeout(pendingImmediateVideoLayoutResize);
+        pendingImmediateVideoLayoutResize = window.setTimeout(() => {
+            pendingImmediateVideoLayoutResize = undefined;
+            if (typeof window === 'undefined') return;
+            dispatchWindowEvent(createWindowEvent('resize'));
+        }, 0);
+    }
     if (pendingVideoLayoutResize !== undefined) window.clearTimeout(pendingVideoLayoutResize);
     pendingVideoLayoutResize = window.setTimeout(() => {
         pendingVideoLayoutResize = undefined;
@@ -595,6 +717,8 @@ function dispatchVideoLayoutResize(mode: SubtitleVideoInsetResizeEventMode = 'im
 
 function resetYouTubePlayerResizeTracking(): void {
     lastYouTubePlayerResizeSignature = '';
+    if (pendingImmediateVideoLayoutResize !== undefined) window.clearTimeout(pendingImmediateVideoLayoutResize);
+    pendingImmediateVideoLayoutResize = undefined;
     if (pendingYouTubePlayerResize !== undefined) window.clearTimeout(pendingYouTubePlayerResize);
     pendingYouTubePlayerResize = undefined;
     pendingYouTubePlayerResizeSize = undefined;

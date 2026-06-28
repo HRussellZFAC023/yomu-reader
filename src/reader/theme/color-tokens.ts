@@ -36,6 +36,12 @@ export const OVERLAY_COLOR_TOKENS = {
     background: READER_THEME_COLOR_TOKENS.dark.bg,
 } as const;
 
+export const OCR_OVERLAY_COLOR_TOKENS = {
+    text: READER_THEME_COLOR_TOKENS.light.text,
+    outline: CORE_COLOR_TOKENS.white,
+    background: READER_THEME_COLOR_TOKENS.light.surface,
+} as const;
+
 export const DEFAULT_WORD_COLOR_TOKENS = {
     new: '#ffffff',
     learning: '#ffd166',

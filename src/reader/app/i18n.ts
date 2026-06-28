@@ -30,8 +30,6 @@ const COPY = {
         featureControlBody: 'Tune features, shortcuts, and color.',
         featureStudy: 'Study',
         featureStudyBody: 'Review words and kanji on the study page.',
-        featureGame: 'Game',
-        featureGameBody: 'Install the Yomu app to use in games or anywhere on the PC.',
         scanPage: 'Scan page',
         noUnscannedJapaneseText: 'No unscanned Japanese text found.',
         jpdbScanFailed: 'Page scan failed.',
@@ -72,7 +70,7 @@ const COPY = {
         apiKey: 'API key',
         jitenApiKey: 'Jiten API key',
         apiAccess: 'API access',
-        apiAccessHelp: 'Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.',
+        apiAccessHelp: 'Paste separate Jiten and JPDB keys. Study decks stay scoped to the selected provider; local dictionaries still work without keys.',
         jpdbSettings: 'JPDB settings',
         jitenSettings: 'Jiten settings',
         jpdbApiKeyConfigured: 'JPDB key set.',
@@ -528,7 +526,7 @@ const COPY = {
         ankiMappingHighConfidence: 'High',
         ankiMappingMediumConfidence: 'Medium',
         ankiMappingLowConfidence: 'Low',
-        ankiHelp: 'Install AnkiConnect, keep desktop Anki open, and add this site to webCorsOriginList if the status mentions CORS. Mobile handoff creates notes without full desktop review access.',
+        ankiHelp: 'Install AnkiConnect and keep desktop Anki open. If CORS appears, add this site to webCorsOriginList. Mobile handoff creates notes only.',
         jpdbDefinitionsEnabled: 'Show JPDB definitions',
         localDictionariesEnabled: 'Show imported dictionary definitions',
         dictionarySourcesInitiallyExpanded: 'Open sources by default',
@@ -539,9 +537,9 @@ const COPY = {
         exportSettings: 'Export settings JSON',
         importDictionaries: 'Import dictionaries',
         exportDictionaries: 'Export dictionaries',
-        dictionaryImportHelp: 'Import a Yomitan ZIP, Yomitan settings export, or backup. Term dictionaries add definitions; pitch and frequency dictionaries add accents and badges.',
+        dictionaryImportHelp: 'Import a Yomitan ZIP, settings export, or backup. Term, pitch, and frequency dictionaries add definitions, accents, and badges.',
         lookupPills: 'Lookup pills',
-        lookupPillsHelp: 'External links and frequency badges in one order. Live Jiten/JPDB badges come from site lookup; installed frequency dictionaries are local and replace the matching live badge. Tokens: {query}, {word}, {reading}.',
+        lookupPillsHelp: 'External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.',
         copiesCurrentWord: 'Copies the current word',
         lookupPillLabel: 'Lookup pill label',
         lookupPillLabelNumber: 'Lookup pill {number} label',
@@ -789,7 +787,7 @@ const COPY = {
         updateStatusCurrent: 'Current {current}. Latest {latest}. You are up to date.',
         updateStatusAvailable: 'Current {current}. Latest {latest}. Update available.',
         updateStatusUnknown: 'Current {current}. Latest version could not be checked. Use the update link to reinstall.',
-        updateHelpNotes: 'If two Yomu scripts are enabled, keep one. On iPhone/iPad, open the install link in Safari and replace the old Userscripts file if automatic updates do not apply.',
+        updateHelpNotes: 'If two Yomu scripts are enabled, keep one. On iPhone/iPad, open the install link in Safari if automatic updates do not apply.',
         updateUserscript: 'Update/Reinstall userscript',
         duplicateStatusSingle: 'Duplicate script check: one active Yomu runtime on this page ({kind}).',
         duplicateStatusUnknown: 'Duplicate script check: unavailable on this page. If you see two Yomu buttons or menus, disable the older script.',
@@ -1216,8 +1214,6 @@ featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
 featureStudyBody	学習ページで単語と漢字を復習。
-featureGame	ゲーム
-featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -1743,7 +1739,7 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。学習デッキは選択中のサービスにだけ適用され、どちらか一方、両方、またはローカル辞書のみでも使えます。
+apiAccessHelp	JitenとJPDBのキーを別々に貼ります。学習デッキは選択中のサービスに適用され、キーなしでもローカル辞書は使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
@@ -2168,7 +2164,7 @@ ankiMappingConfidenceHelp	フィールド名とサンプルで判断します。
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
-ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開いたままにします。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
+ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開きます。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
@@ -2179,9 +2175,9 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	Yomitan ZIP、Yomitan設定エクスポート、バックアップを読み込みます。語句辞書は定義を追加し、ピッチ/頻度辞書はアクセントやバッジを追加します。
+dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/ピッチ/頻度辞書で定義、アクセント、バッジを追加します。
 lookupPills	検索ピル
-lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。Jiten/JPDBのライブバッジはサイト検索由来、インストール済み頻度辞書はローカルで一致するライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
+lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -2261,7 +2257,7 @@ updateStatusChecking	現在 {current}。最新バージョンを確認中...
 updateStatusCurrent	現在 {current}。最新 {latest}。最新です。
 updateStatusAvailable	現在 {current}。最新 {latest}。更新できます。
 updateStatusUnknown	現在 {current}。最新バージョンを確認できません。更新リンクで再インストールしてください。
-updateHelpNotes	よむスクリプトが2つ有効なら1つだけ残してください。iPhone/iPadではSafariでインストールリンクを開き、自動更新されない場合はUserscripts内の古いファイルを置き換えてください。
+updateHelpNotes	よむスクリプトが2つ有効なら1つだけ残してください。iPhone/iPadで自動更新されない場合はSafariでインストールリンクを開いてください。
 updateUserscript	ユーザースクリプトを更新/再インストール
 duplicateStatusSingle	重複スクリプト確認: このページで有効なYomuランタイムは1つです（{kind}）。
 duplicateStatusUnknown	重複スクリプト確認: このページでは確認できません。よむボタンやメニューが2つ出る場合は古いスクリプトを無効にしてください。

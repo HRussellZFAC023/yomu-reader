@@ -884,6 +884,13 @@ describe('settings form localization', () => {
         expect(saved.ocrOverlayTheme).toBe('dark');
     });
 
+    it('defaults OCR text to dark ink on a light readable highlight', () => {
+        expect(BASE_DEFAULT_SETTINGS.ocrTextColor).toBe('#17202a');
+        expect(BASE_DEFAULT_SETTINGS.ocrOutlineColor).toBe('#ffffff');
+        expect(BASE_DEFAULT_SETTINGS.ocrBackgroundColor).toBe('#f4f7fa');
+        expect(BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity).toBe(0.68);
+    });
+
     it('omits the old paused-frame OCR status card setting', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');

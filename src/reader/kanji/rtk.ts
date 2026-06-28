@@ -1,6 +1,5 @@
 import { Logger } from '../app/logger';
 import { requestText as requestReaderText } from '../network/http';
-import { isProxyOrBridgeUnavailableError } from '../network/proxy-fetch';
 import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkElementGlyph } from './rtk-elements';
 import { parseHtmlDocument } from '../dom';
 
@@ -42,7 +41,6 @@ export class RtkClient {
 
     private async fetchInfo(kanji: string): Promise<RtkInfo | null> {
         const html = await requestText(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch(error => {
-            if (isProxyOrBridgeUnavailableError(error)) return '';
             log.warn('RTK request failed', { kanji }, error);
             return '';
         });

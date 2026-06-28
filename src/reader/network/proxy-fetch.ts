@@ -46,7 +46,7 @@ export async function fetchWithCorsFallbacks(
     options: ProxyFetchOptions = {},
 ): Promise<Response> {
     const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
-    if (!candidates.length) throw new Error('Cross-origin request needs a configured proxy or userscript HTTP bridge.');
+    if (!candidates.length) throw new Error('No configured proxy.');
     let lastError: unknown;
     for (const [index, candidate] of candidates.entries()) {
         try {
@@ -62,11 +62,6 @@ export async function fetchWithCorsFallbacks(
         }
     }
     throw lastError instanceof Error ? lastError : new Error('Cross-origin request failed.');
-}
-
-export function isProxyOrBridgeUnavailableError(error: unknown): boolean {
-    return error instanceof Error
-        && /Cross-origin request needs a configured proxy or userscript HTTP bridge/i.test(error.message);
 }
 
 function fetchAttemptForCandidate(targetUrl: string, candidate: FetchUrlCandidate, options: ProxyFetchOptions): FetchAttempt {

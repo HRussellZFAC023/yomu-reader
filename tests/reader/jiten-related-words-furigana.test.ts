@@ -27,6 +27,34 @@ function relatedHeads(html: string): HTMLElement[] {
 }
 
 describe('Jiten related-words furigana', () => {
+    it('anchors fallback reference ruby to kanji inside kana-mixed text', () => {
+        const html = renderJitenDefinitionSource({
+            ...card,
+            spelling: 'あなた達',
+            reading: 'あなたたち',
+            meanings: [{ glosses: ['あなた達'], partOfSpeech: [] }],
+        }, () => '', null, 'en');
+
+        document.body.innerHTML = html;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-meaning .jpdb-reader-word')!;
+        expect(word.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('達');
+        expect(word.querySelector('rt')?.textContent).toBe('たち');
+    });
+
+    it('anchors short fallback reference readings to the kanji run', () => {
+        const html = renderJitenDefinitionSource({
+            ...card,
+            spelling: 'あなた達',
+            reading: 'たち',
+            meanings: [{ glosses: ['あなた達'], partOfSpeech: [] }],
+        }, () => '', null, 'en');
+
+        document.body.innerHTML = html;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-meaning .jpdb-reader-word')!;
+        expect(word.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('達');
+        expect(word.querySelector('rt')?.textContent).toBe('たち');
+    });
+
     it('distributes ruby per kanji and keeps okurigana as base text', () => {
         // 読み取る (よみとる): よ over 読, と over 取; み and る stay as base kana.
         const [head] = relatedHeads(renderJitenDefinitionSource(card, () => '', infoWith([

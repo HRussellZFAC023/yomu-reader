@@ -8,12 +8,14 @@ import type { OcrResult } from '../../src/reader/ocr/response-shared';
 import { waitForExpect } from './test-utils';
 
 const originalCanvasGetContext = HTMLCanvasElement.prototype.getContext;
+const originalCanvasToBlob = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'toBlob');
 
 afterEach(() => {
     document.body.replaceChildren();
     document.documentElement.removeAttribute('data-yomu-mirror-epoch');
     document.documentElement.removeAttribute('data-yomu-mirror-recorder');
     HTMLCanvasElement.prototype.getContext = originalCanvasGetContext;
+    restoreCanvasToBlob();
     vi.unstubAllGlobals();
 });
 
@@ -87,6 +89,23 @@ function stubReadableCanvas(): void {
         drawImage() { /* noop */ },
         getImageData: () => ({ data }),
     });
+}
+
+function stubCanvasEncoding(): void {
+    Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
+        configurable: true,
+        value(callback: BlobCallback) {
+            callback(new Blob(['image'], { type: 'image/jpeg' }));
+        },
+    });
+}
+
+function restoreCanvasToBlob(): void {
+    if (originalCanvasToBlob) {
+        Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', originalCanvasToBlob);
+        return;
+    }
+    delete (HTMLCanvasElement.prototype as { toBlob?: unknown }).toBlob;
 }
 
 function pageCanvas(left: number, top: number, width = 420, height = 560): HTMLCanvasElement {
@@ -209,6 +228,97 @@ describe('reader raster OCR surfaces', () => {
                 expect(status).not.toBeNull();
                 expect(status!.dataset.status).toBe('empty');
                 expect(status!.classList.contains('jpdb-ocr-canvas-status')).toBe(true);
+            });
+            const contentKey = frame!.dataset.ocrContentKey!;
+            const internals = controller as unknown as { cache: Map<string, OcrResult | null> };
+            expect(contentKey).toMatch(/^cv:/);
+            expect(internals.cache.has(contentKey)).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('retries a BookWalker reader frame after a transient empty OCR result', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        pageCounter('5/13');
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        viewport.append(pageCanvas(24, 20));
+        document.body.append(viewport);
+
+        const controller = createController();
+        const recognizeImage = vi.fn()
+            .mockResolvedValueOnce({ width: 1200, height: 1600, lines: [] } satisfies OcrResult)
+            .mockResolvedValue({ width: 1200, height: 1600, lines: [
+                { text: 'ページ移動方向', box: { left: 144, top: 288, width: 552, height: 128 }, vertical: false },
+            ] } satisfies OcrResult);
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+
+        try {
+            let firstFrame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                firstFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(firstFrame).not.toBeNull();
+            });
+            Object.defineProperty(firstFrame!, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(firstFrame!, 'naturalHeight', { value: 1600, configurable: true });
+            firstFrame!.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                expect(recognizeImage).toHaveBeenCalledTimes(1);
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('empty');
+            });
+
+            await waitForExpect(() => {
+                const nextFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(nextFrame).not.toBeNull();
+                expect(nextFrame).not.toBe(firstFrame);
+            }, 3_000);
+            const secondFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
+            Object.defineProperty(secondFrame, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(secondFrame, 'naturalHeight', { value: 1600, configurable: true });
+            secondFrame.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                expect(recognizeImage).toHaveBeenCalledTimes(2);
+                expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('reports failed BookWalker OCR when both Google Lens transports fail', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        stubCanvasEncoding();
+        pageCounter('5/13');
+        const fetchMock = vi.fn(async () => {
+            throw new TypeError('Failed to fetch');
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        viewport.append(pageCanvas(24, 20));
+        document.body.append(viewport);
+
+        const controller = createController({ ocrInvertDarkPanels: false });
+        try {
+            let frame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+            });
+            Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
+            frame!.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                expect(fetchMock).toHaveBeenCalled();
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
+                expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
             });
         } finally {
             controller.destroy();
@@ -336,6 +446,42 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('releases BookWalker OCR frames when vertical scroll recycling collapses the source canvas', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        pageCounter('19/195');
+        let rect = new DOMRect(0, 0, 923, 1313);
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewportW' });
+        const canvas = pageCanvas(0, 0, 923, 1313);
+        canvas.className = 'default';
+        canvas.getBoundingClientRect = () => rect;
+        viewport.append(canvas);
+        document.body.append(viewport);
+
+        const controller = createController();
+        (controller as unknown as { recognizeImage: () => Promise<OcrResult> }).recognizeImage = vi.fn(async () => ({
+            width: 1200,
+            height: 1600,
+            lines: [],
+        }));
+        try {
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull();
+                expect(document.querySelector('.jpdb-ocr-video-frame-status')).not.toBeNull();
+            });
+
+            rect = new DOMRect(0, 0, 0, 0);
+            window.dispatchEvent(new Event('scroll'));
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull();
+                expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps BookWalker OCR text through a transient same-page blank canvas signature', async () => {
         stubLocation('viewer.bookwalker.jp');
         pageCounter('24/195');
@@ -373,22 +519,12 @@ describe('reader raster OCR surfaces', () => {
         viewport.append(canvas);
         document.body.append(viewport);
 
-        const recognizeImage = vi.fn(async (): Promise<OcrResult> => ({
-            width: 1200,
-            height: 1600,
-            lines: [
-                {
-                    text: 'ページ移動方向',
-                    box: { left: 144, top: 288, width: 552, height: 128 },
-                    vertical: false,
-                },
-            ],
-        }));
+        const ocrLines = [
+            { text: 'ページ移動方向', box: { left: 0.12, top: 0.18, width: 0.46, height: 0.08 } },
+        ];
         const naturalWidth = vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(1200);
         const naturalHeight = vi.spyOn(HTMLImageElement.prototype, 'naturalHeight', 'get').mockReturnValue(1600);
-        const controller = createController({}, undefined, undefined, undefined, controller => {
-            (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
-        });
+        const controller = createController();
         try {
             await waitForExpect(() => {
                 expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
@@ -399,10 +535,10 @@ describe('reader raster OCR surfaces', () => {
             const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
             Object.defineProperty(frame, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(frame, 'naturalHeight', { value: 1600, configurable: true });
-            frame.dispatchEvent(new Event('load'));
+            frame.dataset.ocrLines = JSON.stringify(ocrLines);
+            await (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage(frame);
 
             await waitForExpect(() => {
-                expect(recognizeImage).toHaveBeenCalled();
                 expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
                 expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
             }, 4_000);

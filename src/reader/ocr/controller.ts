@@ -105,8 +105,11 @@ const OCR_STATUS_FADE_MS = 360; // keep in sync with the CSS opacity transition
 const READER_RASTER_RETRY_BASE_MS = 140;
 const READER_RASTER_RETRY_MAX_MS = 1100;
 const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
+const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
+const READER_RASTER_EMPTY_RETRY_MS = 650;
 const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
 const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
+const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
 const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
 const GOOGLE_LENS_API_KEY = 'AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY';
 const DEFAULT_LOCAL_OCR_ENDPOINT_URL = 'http://127.0.0.1:7331/ocr';
@@ -314,6 +317,7 @@ export class ImageOcrController {
     private canvasFrameSources = new Map<HTMLImageElement, HTMLCanvasElement>();
     private canvasFrameStaticRects = new Map<HTMLImageElement, DOMRect>();
     private canvasFrameKeys = new Map<HTMLCanvasElement, string>();
+    private canvasPendingStatuses = new Map<HTMLCanvasElement, HTMLElement>();
     // Canvases whose frame the user explicitly tapped to create. A native-text-layer
     // page (shouldAutoScan=false) strips AUTO frames on the poll, but a frame the user
     // tapped to make must survive that poll — only a real page turn drops it.
@@ -333,6 +337,7 @@ export class ImageOcrController {
     private readonly canvasContentReadiness = new Map<string, string>();
     // Per-canvas failed-capture counter driving the backoff retry above.
     private readonly canvasCaptureAttempts = new Map<HTMLCanvasElement, number>();
+    private readonly readerRasterEmptyScans = new Map<string, number>();
     // Canvas -> remaining tap-driven recapture attempts. In tap/manual mode the poll
     // never captures, so a tap whose capture wasn't ready (the tainted-canvas mirror
     // rebuild momentarily failed: the origin-clean page image was still loading, or
@@ -789,7 +794,7 @@ export class ImageOcrController {
         // Canvas / background reader frames are dedicated manga pages where OCR is
         // the entire point, so skip the 900ms batching idle that only earns its
         // keep on incidental page images — the page is already on screen and waiting.
-        const isReaderRasterFrame = this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
+        const isReaderRasterFrame = this.isReaderRasterFrame(image);
         const delay = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
         void waitForIdle(delay, delay)
             .then(() => this.scanImage(image))
@@ -809,9 +814,9 @@ export class ImageOcrController {
         }
         const state = existingState ?? this.ensureState(image);
         const settings = this.options.getSettings();
-        const key = imageCacheKey(image);
         const manualRequested = state.manualRequested;
         this.resetStateIfImageChanged(state);
+        const key = state.key;
         if (await this.tryRenderCachedOcrResult(state, key)) return;
         if (!this.isCurrentContentState(state, key)) return;
 
@@ -843,6 +848,11 @@ export class ImageOcrController {
         const cached = this.cache.get(key);
         this.requireCurrentContentState(state, key);
         if (!cached) {
+            if (this.isReaderRasterFrame(state.image)) {
+                this.forget(key);
+                this.readerRasterEmptyScans.delete(key);
+                return false;
+            }
             if (this.shouldPreserveReaderRasterResult(state)) return true;
             renderNoOcrLines(state);
             this.updateOcrStatus(state.image, 'empty');
@@ -880,14 +890,17 @@ export class ImageOcrController {
                 this.updateOcrStatus(image, 'ready');
                 return;
             }
-            this.remember(key, null);
+            if (this.isReaderRasterFrame(image)) this.forget(key);
+            else this.remember(key, null);
             this.requireCurrentContentState(state, key);
             renderNoOcrLines(state);
             this.updateOcrStatus(image, 'empty');
+            this.scheduleReaderRasterEmptyRetry(state, key, manualRequested);
             return;
         }
 
         this.remember(key, result);
+        this.readerRasterEmptyScans.delete(key);
         this.requireCurrentContentState(state, key);
         state.key = key;
         // The page may have started providing its own native text layer while
@@ -1018,7 +1031,7 @@ export class ImageOcrController {
         state.result = result;
 
         const settings = this.options.getSettings();
-        const showText = settings.ocrShowTextOverlay || forceOverlay;
+        const showText = this.shouldShowOcrTextOverlay(state, settings, forceOverlay);
 
         const initialParsed = await this.parseOcrLines(result.lines);
         this.requireCurrentContentState(state, expectedKey);
@@ -1066,6 +1079,18 @@ export class ImageOcrController {
         }
         this.updateOcrStatus(state.image, 'ready');
         void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => this.schedulePosition());
+    }
+
+    private shouldShowOcrTextOverlay(state: ImageState, settings: ReaderSettings, forceOverlay: boolean): boolean {
+        if (this.isScannedPdfCanvasFrame(state.image)) return false;
+        return settings.ocrShowTextOverlay || forceOverlay;
+    }
+
+    private isScannedPdfCanvasFrame(image: HTMLImageElement): boolean {
+        const canvas = this.canvasFrameSources.get(image);
+        return Boolean(canvas
+            && (canvas.dataset.pdfText === 'scanned'
+                || canvas.closest('.pdf-page[data-pdf-text="scanned"]')));
     }
 
     private async parseOcrLines(lines: OcrLine[]): Promise<JPDBToken[][]> {
@@ -1190,7 +1215,32 @@ export class ImageOcrController {
     }
 
     private shouldPreserveReaderRasterResult(state: ImageState): boolean {
-        return Boolean(state.result && (this.canvasFrameSources.has(state.image) || this.backgroundFrameSources.has(state.image)));
+        return Boolean(state.result && this.isReaderRasterFrame(state.image));
+    }
+
+    private isReaderRasterFrame(image: HTMLImageElement): boolean {
+        return this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
+    }
+
+    private scheduleReaderRasterEmptyRetry(state: ImageState, key: string, userRequested: boolean): void {
+        if (!this.isReaderRasterFrame(state.image)) return;
+        const attempts = (this.readerRasterEmptyScans.get(key) ?? 0) + 1;
+        this.readerRasterEmptyScans.set(key, attempts);
+        if (!userRequested && attempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) return;
+        window.setTimeout(() => {
+            if (!this.isCurrentContentState(state, key)) return;
+            const canvas = this.canvasFrameSources.get(state.image);
+            if (canvas) {
+                this.releaseCanvasFrame(canvas);
+                this.scheduleCanvasCaptureRetry(canvas, userRequested);
+                return;
+            }
+            const background = this.backgroundFrameSources.get(state.image);
+            if (background) {
+                this.releaseBackgroundFrame(background);
+                this.scheduleReaderRasterRefresh(READER_RASTER_RETRY_BASE_MS);
+            }
+        }, READER_RASTER_EMPTY_RETRY_MS);
     }
 
     private remember(key: string, result: OcrResult | null): void {
@@ -1203,6 +1253,11 @@ export class ImageOcrController {
             this.cache.delete(oldest);
         }
         // Mirror to storage so the result survives a page refresh.
+        persistOcrCacheSoon(this.cache, Date.now());
+    }
+
+    private forget(key: string): void {
+        if (!this.cache.delete(key)) return;
         persistOcrCacheSoon(this.cache, Date.now());
     }
 
@@ -1375,6 +1430,8 @@ export class ImageOcrController {
             this.applyVideoFrameStatusTransition(image, status);
             return;
         }
+        const canvas = this.canvasFrameSources.get(image);
+        if (canvas) this.removeCanvasPendingStatus(canvas);
         this.updateImageStatusCard(image, status);
     }
 
@@ -1502,12 +1559,11 @@ export class ImageOcrController {
 
     private refreshCanvasReaderSurfaces(settings: ReaderSettings, userRequested = false): void {
         if (!settings.ocrEnabled || settings.ocrProvider === 'off') return;
-        const collectedCanvases = userRequested ? collectPointerCanvasReaderSurfaces() : collectCanvasReaderSurfaces();
         const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false
             && settings.ocrAutoScanImages
             && !userRequested;
         const ocrOptInCanvases = nativeTextLayerBlocksAutoScan
-            ? activeReaderRasterSurfaces(collectedCanvases, settings, userRequested)
+            ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested)
             : undefined;
         // asked to scan, so a background poll must NOT wipe the frame they tapped to
         // create — only a genuine page turn (detected below) should drop it.
@@ -1526,8 +1582,8 @@ export class ImageOcrController {
             }
             return;
         }
-        if (!isReaderRasterPage() && !collectedCanvases.length) {
-            this.releaseAutoCanvasFrames();
+        if (!isReaderRasterPage()) {
+            this.releaseAllCanvasFrames();
             return;
         }
         this.startReaderRasterPollingIfNeeded();
@@ -1555,10 +1611,12 @@ export class ImageOcrController {
             this.retryPendingUserRequestedCaptures(settings);
             return;
         }
-        const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectedCanvases, settings, userRequested);
+        const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+        for (const canvas of [...this.canvasPendingStatuses.keys()]) {
+            if (!canvases.includes(canvas)) this.removeCanvasPendingStatus(canvas);
+        }
         for (const canvas of [...this.canvasFrames.keys()]) {
             if (canvases.includes(canvas)) continue;
-            if (!userRequested && this.canvasFrameUserRequested.has(canvas)) continue;
             if (this.shouldKeepCanvasFrameThroughStablePageSurfaceFlicker(canvas, signature)) continue;
             // Don't drop a frame whose image is still loading — a transient off-screen
             // blip (layout shift right after capture, before the mirror image decodes)
@@ -1586,6 +1644,7 @@ export class ImageOcrController {
             // Prefetch a sliding window of upcoming pages (canvasPrefetchMargin), but
             // never spend an OCR call on a page the reader hasn't painted yet.
             if (!isNearViewport(canvas, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(canvas)) return;
+            this.updateCanvasPendingStatus(canvas, rect, 'loading');
             // A readable canvas is snapshotted directly. A tainted one can only fall
             // back to a fetched source image on readers where that resource is the
             // same page the user sees; BookWalker source assets may be scrambled, so
@@ -1647,7 +1706,10 @@ export class ImageOcrController {
             frame.alt = '';
             positionCanvasFrameImage(frame, frameRect);
             frame.addEventListener('load', () => {
-                if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
+                if (this.canvasFrames.get(canvas) === frame) {
+                    this.removeCanvasPendingStatus(canvas);
+                    this.enqueue(frame, userRequested);
+                }
             }, { once: true });
             document.body.append(frame);
             this.canvasFrames.set(canvas, frame);
@@ -1741,12 +1803,7 @@ export class ImageOcrController {
             if (remaining <= 0) { this.canvasTapRecapture.delete(canvas); return; }
             const attempt = READER_RASTER_MAX_CAPTURE_ATTEMPTS - remaining; // 0,1,2…
             const delay = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** attempt, READER_RASTER_RETRY_MAX_MS);
-            this.canvasTapRecapture.set(canvas, remaining - 1);
-            window.setTimeout(() => {
-                if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
-                const settings = this.options.getSettings();
-                void this.snapshotCanvasSurface(canvas, settings, true);
-            }, delay);
+            this.scheduleReaderRasterRefresh(delay);
             return;
         }
         const attempts = (this.canvasCaptureAttempts.get(canvas) ?? 0) + 1;
@@ -1777,8 +1834,28 @@ export class ImageOcrController {
         this.canvasTapRecapture.delete(canvas);
     }
 
+    private updateCanvasPendingStatus(canvas: HTMLCanvasElement, rect: DOMRect, status: OcrVideoFrameStatus): void {
+        const existing = this.canvasPendingStatuses.get(canvas);
+        const card = existing ?? this.createVideoFrameStatus(status);
+        if (existing) this.setVideoFrameStatus(card, status);
+        else this.canvasPendingStatuses.set(canvas, card);
+        card.classList.add('jpdb-ocr-canvas-status');
+        const labelNode = card.querySelector('.jpdb-ocr-video-frame-status-label');
+        if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
+        card.hidden = false;
+        positionOcrImageStatus(card, this.visibleViewportIntersection(rect) ?? rect);
+    }
+
+    private removeCanvasPendingStatus(canvas: HTMLCanvasElement): void {
+        const card = this.canvasPendingStatuses.get(canvas);
+        if (!card) return;
+        removeOcrArtifact(card);
+        this.canvasPendingStatuses.delete(canvas);
+    }
+
     private releaseCanvasFrame(canvas: HTMLCanvasElement): void {
         const frame = this.canvasFrames.get(canvas);
+        this.removeCanvasPendingStatus(canvas);
         if (!frame) return;
         this.canvasFrames.delete(canvas);
         const state = this.states.get(frame);
@@ -1796,6 +1873,7 @@ export class ImageOcrController {
 
     private releaseAllCanvasFrames(): void {
         for (const canvas of [...this.canvasFrames.keys()]) this.releaseCanvasFrame(canvas);
+        for (const canvas of [...this.canvasPendingStatuses.keys()]) this.removeCanvasPendingStatus(canvas);
         // NFBR reuses the same canvas object across turns; a stale readiness entry
         // (or capture-attempt count) would carry into the next page, so clear both.
         this.canvasContentReadiness.clear();
@@ -1809,24 +1887,30 @@ export class ImageOcrController {
         this.canvasReaderSamePageSignatureSkips = 0;
     }
 
-    private releaseAutoCanvasFrames(): void {
-        for (const canvas of [...this.canvasFrames.keys()]) {
-            if (this.canvasFrameUserRequested.has(canvas) && canvas.isConnected) continue;
-            this.releaseCanvasFrame(canvas);
-        }
-        this.canvasContentReadiness.clear();
-        this.canvasCaptureAttempts.clear();
-    }
-
     private positionCanvasFrames(): void {
+        for (const [canvas, status] of [...this.canvasPendingStatuses]) {
+            if (!canvas.isConnected) {
+                this.removeCanvasPendingStatus(canvas);
+                continue;
+            }
+            const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+            if (!rect) { status.hidden = true; continue; }
+            status.hidden = false;
+            positionOcrImageStatus(status, rect);
+        }
         for (const [canvas, frame] of [...this.canvasFrames]) {
             if (!canvas.isConnected) {
                 this.releaseCanvasFrame(canvas);
                 continue;
             }
+            const rect = canvas.getBoundingClientRect();
+            if (!rect.width || !rect.height || isHiddenByCss(canvas) || isInsideHiddenAncestor(canvas)) {
+                this.releaseCanvasFrame(canvas);
+                continue;
+            }
             const staticRect = this.canvasFrameStaticRects.get(frame);
             if (staticRect) {
-                const currentRect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+                const currentRect = this.visibleViewportIntersection(rect);
                 if (!currentRect || !rectsNearlyEqual(staticRect, currentRect)) {
                     this.releaseCanvasFrame(canvas);
                     this.scheduleReaderRasterRefresh(40);
@@ -1835,7 +1919,7 @@ export class ImageOcrController {
                 positionCanvasFrameImage(frame, staticRect);
                 continue;
             }
-            positionCanvasFrameImage(frame, canvas.getBoundingClientRect());
+            positionCanvasFrameImage(frame, rect);
         }
     }
 
@@ -1965,11 +2049,18 @@ export class ImageOcrController {
 
     private renderedOcrImageFrameForState(image: HTMLImageElement, rect: DOMRect, result: OcrResult | undefined): OcrRenderedImageFrame {
         const frame = renderedOcrImageFrame(image, rect, result);
-        if (!this.canvasFrameSources.has(image) && !this.backgroundFrameSources.has(image)) return frame;
-        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-        if (!viewportHeight || rect.bottom < viewportHeight - 2) return frame;
-        const reserved = Math.max(0, Math.min(READER_RASTER_BOTTOM_CHROME_RESERVE_PX, frame.imageHeight - 1));
-        return reserved ? { ...frame, safeBottomInset: reserved } : frame;
+        let reserve = 0;
+        if (image.dataset.yomuVideoFrame === 'true' && isYouTubePageForOcr()) {
+            reserve = Math.max(reserve, YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX);
+        }
+        if (this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image)) {
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+            if (viewportHeight && rect.bottom >= viewportHeight - 2) {
+                reserve = Math.max(reserve, READER_RASTER_BOTTOM_CHROME_RESERVE_PX);
+            }
+        }
+        if (!reserve) return frame;
+        return { ...frame, safeBottomInset: Math.max(0, Math.min(reserve, frame.imageHeight - 1)) };
     }
 
     private fitLineFonts(state: ImageState, frame: OcrRenderedImageFrame): void {
@@ -2804,21 +2895,17 @@ async function recognizeViaCloudVision(image: HTMLImageElement, settings: Reader
 
 async function recognizeViaGoogleLens(image: HTMLImageElement, settings: ReaderSettings, invert = false): Promise<OcrResult | null> {
     const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, 'image/jpeg', 0.88, invert);
-    // Endpoint chain: the keyless protobuf endpoint is fast and returns structured
-    // boxes but shares one hardcoded API key across all users, so it throttles
-    // first. When it errors OR comes back empty we fall through to the cookie'd
-    // lens.google.com upload endpoint (per-user quota) — so a rate-limited or
-    // dark-text page still gets read.
     const protobuf = await recognizeViaGoogleLensProtobuf(blob, canvas, settings).catch(error => {
         log.warn('Google Lens protobuf failed', error);
-        return null;
+        return undefined;
     });
     if (protobuf?.lines.length) return protobuf;
     const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs).catch(error => {
         log.warn('Google Lens upload failed', error);
-        return null;
+        return undefined;
     });
-    return upload?.lines.length ? upload : (upload ?? protobuf);
+    if (protobuf === undefined && upload === undefined) throw new Error('Google Lens OCR failed.');
+    return upload?.lines.length ? upload : (upload ?? protobuf ?? null);
 }
 
 async function recognizeViaGoogleLensProtobuf(blob: Blob, canvas: HTMLCanvasElement, settings: ReaderSettings): Promise<OcrResult | null> {
@@ -2855,7 +2942,7 @@ async function imageToBlobPayload(image: HTMLImageElement, maxPixels: number, ty
 async function recognizeViaGoogleLensUpload(blob: Blob, width: number, height: number, timeout: number): Promise<OcrResult | null> {
     const data = new FormData();
     data.append('encoded_image', blob, 'image.jpg');
-    // Match the real Lens web client: this endpoint is
+    // Match the real Lens web client (cf. references/YomiNinja): this endpoint is
     // hit with the user's own .google.com session cookies (GM_xmlhttpRequest sends
     // them automatically) plus an Origin/Referer of lens.google.com, so it draws
     // on a per-user quota instead of the shared, easily throttled keyless protobuf
@@ -3196,7 +3283,7 @@ function pointerEventReaderSurfaceAtPoint(event: Event & Pick<PointerEvent, 'cli
 
 function readerSurfaceFromElement(element: Element, settings: ReaderSettings): HTMLCanvasElement | HTMLElement | null {
     const canvas = element instanceof HTMLCanvasElement ? element : element.closest<HTMLCanvasElement>('canvas');
-    if (canvas && collectPointerCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
+    if (canvas && collectCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
     const background = collectBackgroundImageReaderSurfaces()
         .find(surface => (surface === element || surface.contains(element)) && isReaderSurfaceCandidate(surface, settings));
     return background ?? null;
@@ -3204,22 +3291,10 @@ function readerSurfaceFromElement(element: Element, settings: ReaderSettings): H
 
 function readerSurfaceAtPoint(clientX: number, clientY: number, settings: ReaderSettings): HTMLCanvasElement | HTMLElement | null {
     const surfaces = [
-        ...collectPointerCanvasReaderSurfaces(),
+        ...collectCanvasReaderSurfaces(),
         ...collectBackgroundImageReaderSurfaces(),
     ].filter(surface => isReaderSurfaceCandidate(surface, settings));
     return surfaces.find(surface => rectContainsPoint(surface.getBoundingClientRect(), clientX, clientY)) ?? null;
-}
-
-function collectPointerCanvasReaderSurfaces(): HTMLCanvasElement[] {
-    return [...new Set([
-        ...collectCanvasReaderSurfaces(),
-        ...manualCanvasReaderSurfaces(),
-    ])];
-}
-
-function manualCanvasReaderSurfaces(): HTMLCanvasElement[] {
-    return Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas'))
-        .filter(isManualCanvasOcrSurface);
 }
 
 function isReaderSurfaceCandidate(surface: Element, settings: ReaderSettings): boolean {
@@ -3358,11 +3433,6 @@ function hasCanvasOcrOptInSurface(): boolean {
 function isCanvasOcrOptInSurface(canvas: HTMLCanvasElement): boolean {
     return canvas.dataset.yomuCanvasOcr === 'on'
         || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
-}
-
-function isManualCanvasOcrSurface(canvas: HTMLCanvasElement): boolean {
-    return canvas.dataset.yomuCanvasOcr === 'manual'
-        || Boolean(canvas.closest('[data-yomu-canvas-ocr="manual"]'));
 }
 
 function isImageOccludedByVideo(image: HTMLImageElement, rect = image.getBoundingClientRect()): boolean {

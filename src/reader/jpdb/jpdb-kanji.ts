@@ -1,6 +1,5 @@
 import { Logger } from '../app/logger';
 import { requestText as requestReaderText } from '../network/http';
-import { isProxyOrBridgeUnavailableError } from '../network/proxy-fetch';
 import { parseHtmlDocument } from '../dom';
 import { absoluteJpdbUrl, cleanText, JAPANESE_RE, parseJpdbVocabularyUrl } from './jpdb-text';
 
@@ -93,7 +92,6 @@ export class JpdbKanjiClient {
 
     private async fetchInfo(kanji: string): Promise<JpdbKanjiInfo | null> {
         const html = await requestText(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch(error => {
-            if (isProxyOrBridgeUnavailableError(error)) return '';
             log.warn('Kanji page request failed', { kanji }, error);
             return '';
         });

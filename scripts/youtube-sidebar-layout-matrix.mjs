@@ -98,6 +98,9 @@ async function runScenario(browser, viewport, placement) {
         assert(afterOpen.rowCount <= 4, `panel open did not use the lightweight preview path in ${label}`, compactSnapshot(afterOpen));
         assert(afterFullRender.rowCount >= 50, `full transcript did not render after the preview in ${label}`, compactSnapshot(afterFullRender));
         assertLayout(afterFullRender, viewport.name, assertedPlacementForState(placement, afterFullRender), 'full-render');
+        const subtitleHoverLookup = viewport.name === 'desktop-1440' && placement === 'right'
+            ? await runSubtitleHoverLookup(page, label)
+            : null;
         const activeCueStability = viewport.name === 'ipad-pro-portrait' && placement === 'right'
             ? await runCurrentLineStabilitySequence(page)
             : null;
@@ -128,6 +131,7 @@ async function runScenario(browser, viewport, placement) {
             fullRows: afterFullRender.rowCount,
             switchTiming,
             autoTiming,
+            subtitleHoverLookup,
             activeCueStability,
             coercedToBottom: placement !== 'bottom' && afterOpen.placement === 'bottom',
             beforeSetSizeCount: afterOpen.setSizeCalls.length,
@@ -370,6 +374,26 @@ async function timePageAction(page, action) {
     return { durationMs: Math.round((ended - started) * 10) / 10 };
 }
 
+async function runSubtitleHoverLookup(page, label) {
+    await page.evaluate(() => {
+        const video = document.querySelector('video');
+        if (!video) return;
+        Object.defineProperty(video, 'currentTime', { configurable: true, writable: true, value: 1.4 });
+        video.dispatchEvent(new Event('timeupdate'));
+    });
+    const firstWord = page.locator('.jpdb-subtitle-primary .jpdb-reader-word').first();
+    await firstWord.waitFor({ state: 'visible', timeout: 5000 });
+    const timing = await timePageAction(page, async () => {
+        await firstWord.hover({ force: true });
+        await page.locator('.jpdb-reader-popover .jpdb-reader-spelling').first().waitFor({ state: 'visible', timeout: 1000 });
+    });
+    const spelling = await page.locator('.jpdb-reader-popover .jpdb-reader-spelling').first().textContent();
+    assert(timing.durationMs <= 350, `subtitle hover lookup opened too slowly in ${label}`, { timing, spelling });
+    await page.keyboard.press('Escape').catch(() => undefined);
+    await page.waitForTimeout(60);
+    return { durationMs: timing.durationMs, spelling: String(spelling ?? '').trim() };
+}
+
 async function resizeTranscriptPanelByKeyboard(page, placement) {
     const handle = page.locator('[data-resize-transcript]').first();
     const before = await panelSize(page);
@@ -448,6 +472,8 @@ async function snapshot(page) {
             viewport: { width: innerWidth, height: innerHeight },
             panel: rect('.jpdb-subtitle-list'),
             video: rect('#movie_player'),
+            videoContainer: rect('#movie_player .html5-video-container'),
+            actualVideo: rect('#movie_player video.html5-main-video, #movie_player video'),
             primary: rect('#primary'),
             columns: rect('#columns'),
             title: rect('ytd-watch-metadata h1'),
@@ -460,6 +486,8 @@ async function snapshot(page) {
             primaryInnerStyle: style('#primary-inner'),
             playerStyle: style('#player'),
             moviePlayerStyle: style('#movie_player'),
+            videoContainerStyle: style('#movie_player .html5-video-container'),
+            actualVideoStyle: style('#movie_player video.html5-main-video, #movie_player video'),
             columnsStyle: style('#columns'),
             columnsComputed: computed('#columns'),
             insetClasses: document.documentElement.className,
@@ -522,6 +550,10 @@ function compactSnapshot(state) {
         primaryInnerStyle: state.primaryInnerStyle,
         playerStyle: state.playerStyle,
         moviePlayerStyle: state.moviePlayerStyle,
+        videoContainer: roundRect(state.videoContainer),
+        actualVideo: roundRect(state.actualVideo),
+        videoContainerStyle: state.videoContainerStyle,
+        actualVideoStyle: state.actualVideoStyle,
         insetClasses: state.insetClasses,
         insetValue: state.insetValue,
         stablePlayerWidth: state.stablePlayerWidth,
@@ -555,7 +587,7 @@ function assertSideResizeReservedPlayerSpace(before, after, label) {
         before: compactSnapshot(before),
         after: compactSnapshot(after),
     });
-    assert(after.setSizeCalls.length === before.setSizeCalls.length, `stable resize called YouTube setSize in ${label}`, {
+    assert(after.setSizeCalls.length > before.setSizeCalls.length, `stable resize did not refit the native YouTube player in ${label}`, {
         before: compactSnapshot(before),
         after: compactSnapshot(after),
     });
@@ -579,15 +611,14 @@ function rectDelta(a, b) {
 }
 
 function assertStableYouTubePlayerSizing(state, label) {
-    assert(state.setSizeCalls.length === 0, `stable transcript layout called YouTube setSize in ${label}`, compactSnapshot(state));
     assert(!/jpdb-subtitle-video-inset-(?:left|right|bottom)/.test(state.insetClasses), `stable transcript layout left an inset class in ${label}`, compactSnapshot(state));
     assert(!state.insetValue, `stable transcript layout left an inset variable in ${label}`, compactSnapshot(state));
+    assertVideoContentFitsPlayer(state, label);
     for (const [name, style] of [
         ['primary', state.primaryStyle],
         ['primary-inner', state.primaryInnerStyle],
         ['columns', state.columnsStyle],
         ['player', state.playerStyle],
-        ['movie_player', state.moviePlayerStyle],
     ]) {
         assert(!style?.width, `stable transcript layout set ${name} width in ${label}`, compactSnapshot(state));
         assert(!style?.maxWidth, `stable transcript layout set ${name} max-width in ${label}`, compactSnapshot(state));
@@ -596,6 +627,19 @@ function assertStableYouTubePlayerSizing(state, label) {
         assert(!style?.minHeight, `stable transcript layout set ${name} min-height in ${label}`, compactSnapshot(state));
         assert(!style?.marginLeft, `stable transcript layout shifted ${name} left margin in ${label}`, compactSnapshot(state));
         assert(!style?.marginRight, `stable transcript layout shifted ${name} right margin in ${label}`, compactSnapshot(state));
+    }
+}
+
+function assertVideoContentFitsPlayer(state, label) {
+    if (!/jpdb-subtitle-youtube-stable-side/.test(state.insetClasses)) return;
+    for (const [name, box] of [
+        ['video container', state.videoContainer],
+        ['actual video', state.actualVideo],
+    ]) {
+        if (!box) continue;
+        assert(box.left >= state.video.left - 2, `${name} starts before the stable player in ${label}`, compactSnapshot(state));
+        assert(box.right <= state.video.right + 2, `${name} extends past the stable player in ${label}`, compactSnapshot(state));
+        assert(box.width <= state.video.width + 2, `${name} stayed wider than the stable player in ${label}`, compactSnapshot(state));
     }
 }
 
@@ -673,7 +717,8 @@ function youtubeFixtureHtml() {
     #primary, #primary-inner { min-width: 0; box-sizing: border-box; }
     #player, #player-container-outer, #player-container-inner, ytd-player { display: block; min-width: 0; }
     #movie_player { position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 320px; background: #000; overflow: hidden; }
-    #movie_player video { display: block; width: 100%; height: 100%; background: linear-gradient(135deg, #111, #252525); }
+    #movie_player .html5-video-container { position: absolute; inset: 0; width: 100%; height: 100%; }
+    #movie_player video { position: absolute; display: block; width: 100%; height: 100%; background: linear-gradient(135deg, #111, #252525); }
     .ytp-caption-window-container { position: absolute; left: 20%; right: 20%; bottom: 64px; text-align: center; font-size: 28px; text-shadow: 0 2px 4px #000; }
     ytd-watch-metadata { display: block; min-width: 0; padding-top: 18px; }
     ytd-watch-metadata h1 { margin: 0 0 14px; font-size: 24px; line-height: 1.28; font-weight: 650; overflow-wrap: anywhere; }
@@ -704,7 +749,9 @@ function youtubeFixtureHtml() {
         <div id="primary-inner">
           <div id="player"><div id="player-container-outer"><div id="player-container-inner"><ytd-player>
             <div id="movie_player">
-              <video controls muted playsinline></video>
+              <div class="html5-video-container" style="width:1008px;height:567px">
+                <video class="html5-main-video" controls muted playsinline style="left:0;top:0;width:1008px;height:567px;object-fit:cover"></video>
+              </div>
               <div class="ytp-caption-window-container"><span class="ytp-caption-segment">今日は日本語字幕を確認します</span></div>
             </div>
           </ytd-player></div></div></div>

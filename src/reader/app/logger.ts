@@ -19,6 +19,7 @@ const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
 const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
 const RUNTIME_LOG_KEY = 'yomu:enable-logs';
 const REDACTED = '[redacted]';
+const OPTIONAL_CORS_BRIDGE_MESSAGE = 'No configured proxy.';
 const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
 
 const env = (import.meta as ImportMeta & { env?: { DEV?: boolean; MODE?: string; PROD?: boolean } }).env;
@@ -37,7 +38,8 @@ class ScopedLogger {
     }
 
     warn(message: string, ...args: unknown[]): void {
-        this.parent.write(this.scopeName, message, args, console.warn, WARN_STYLE);
+        const optional = args.some(isOptionalCorsBridgeError);
+        this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
     }
 
     error(message: string, ...args: unknown[]): void {
@@ -141,6 +143,10 @@ function isDevMode(): boolean {
 function writeDebugToConsole(...args: unknown[]): void {
     if (isDevMode()) console.log(...args);
     else console.debug(...args);
+}
+
+function isOptionalCorsBridgeError(value: unknown): boolean {
+    return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
 }
 
 function getRuntimeLoggingOverride(): boolean {

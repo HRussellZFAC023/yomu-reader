@@ -70,4 +70,9 @@ describe('card pitch de-duplication', () => {
         const css = normalizeCss(POPOVER_CORE_CSS);
         expect(css).toContain('.jpdb-reader-header:has(.jpdb-reader-pitch) .jpdb-reader-spelling { text-decoration: none !important;');
     });
+
+    it('uses an explicit ruby base for popup headword furigana alignment', () => {
+        const css = normalizeCss(POPOVER_CORE_CSS);
+        expect(css).toContain('.jpdb-reader-spelling .jpdb-reader-ruby-base { display: ruby-base; }');
+    });
 });
