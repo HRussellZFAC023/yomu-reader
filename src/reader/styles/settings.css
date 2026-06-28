@@ -763,6 +763,45 @@
   line-height: 1.45;
   margin-top: 8px;
 }
+.jpdb-reader-settings .jpdb-reader-help-update-strip {
+  display: grid;
+  gap: 8px;
+  margin-top: 0;
+  padding: 0 0 12px;
+  border-top: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
+}
+.jpdb-reader-settings .jpdb-reader-help-version-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.jpdb-reader-settings .jpdb-reader-help-version-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.jpdb-reader-settings .jpdb-reader-help-version-current {
+  color: var(--jpdb-reader-text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.jpdb-reader-settings .jpdb-reader-help-update-meta {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.jpdb-reader-settings .jpdb-reader-help-update-meta .jpdb-reader-help,
+.jpdb-reader-settings .jpdb-reader-help-update-note {
+  margin-top: 0;
+}
+.jpdb-reader-settings .jpdb-reader-help-update-link {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding-inline: 12px;
+}
 .jpdb-reader-settings .jpdb-reader-help-disclosure > summary {
   cursor: pointer;
   list-style-position: inside;
@@ -2008,6 +2047,14 @@
 
   .jpdb-reader-settings .jpdb-reader-help-actions {
     gap: 6px;
+  }
+
+  .jpdb-reader-settings .jpdb-reader-help-version-row {
+    grid-template-columns: 1fr;
+  }
+
+  .jpdb-reader-settings .jpdb-reader-help-update-link {
+    justify-self: stretch;
   }
 
   .jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-btn {

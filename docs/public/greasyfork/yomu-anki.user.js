@@ -1855,17 +1855,17 @@
       gradePass: "Pass/fail: PASS",
       helpLinksTitle: "Useful pages",
       helpLinksCopy: "Open reader tools and docs from here.",
-      versionAndUpdates: "Version and updates",
-      currentYomuVersion: "Current Yomu version:",
-      updateStatusIdle: "Current {current}. Open Help to check latest available version.",
-      updateStatusChecking: "Current {current}. Checking latest available version...",
-      updateStatusCurrent: "Current {current}. Latest {latest}. You are up to date.",
+      versionAndUpdates: "Version",
+      currentYomuVersion: "Yomu",
+      updateStatusIdle: "Current {current}. Latest check pending.",
+      updateStatusChecking: "Current {current}. Checking latest...",
+      updateStatusCurrent: "Current {current}. Latest {latest}. Up to date.",
       updateStatusAvailable: "Current {current}. Latest {latest}. Update available.",
-      updateStatusUnknown: "Current {current}. Latest version could not be checked. Use the update link to reinstall.",
-      updateHelpNotes: "If two Yomu scripts are enabled, keep one. On iPhone/iPad, open the install link in Safari if automatic updates do not apply.",
-      updateUserscript: "Update/Reinstall userscript",
-      duplicateStatusSingle: "Duplicate script check: one active Yomu runtime on this page ({kind}).",
-      duplicateStatusUnknown: "Duplicate script check: unavailable on this page. If you see two Yomu buttons or menus, disable the older script.",
+      updateStatusUnknown: "Current {current}. Latest check failed; reinstall if needed.",
+      updateHelpNotes: "Keep one Yomu script enabled. If updates stall on iPhone/iPad, open this link in Safari.",
+      updateUserscript: "Update",
+      duplicateStatusSingle: "One Yomu runtime active ({kind}).",
+      duplicateStatusUnknown: "Duplicate check unavailable. If Yomu appears twice, disable the older script.",
       ankiConnectSetupTitle: "AnkiConnect setup",
       ankiConnectSetupCopy: "Keep desktop Anki open with AnkiConnect enabled. Hosted Study needs AnkiConnect to allow the Yomu origin.",
       ankiConnectSetupConfig: "Add these origins to AnkiConnect's webCorsOriginList, keeping any existing entries:",
@@ -3319,17 +3319,17 @@ ankiMappingConfidenceLow	未対応
 ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
-versionAndUpdates	バージョンと更新
-currentYomuVersion	現在のYomuバージョン:
-updateStatusIdle	現在 {current}。ヘルプを開くと最新バージョンを確認します。
-updateStatusChecking	現在 {current}。最新バージョンを確認中...
+versionAndUpdates	バージョン
+currentYomuVersion	Yomu
+updateStatusIdle	現在 {current}。確認待ち。
+updateStatusChecking	現在 {current}。確認中...
 updateStatusCurrent	現在 {current}。最新 {latest}。最新です。
 updateStatusAvailable	現在 {current}。最新 {latest}。更新できます。
-updateStatusUnknown	現在 {current}。最新バージョンを確認できません。更新リンクで再インストールしてください。
-updateHelpNotes	よむスクリプトが2つ有効なら1つだけ残してください。iPhone/iPadで自動更新されない場合はSafariでインストールリンクを開いてください。
-updateUserscript	ユーザースクリプトを更新/再インストール
-duplicateStatusSingle	重複スクリプト確認: このページで有効なYomuランタイムは1つです（{kind}）。
-duplicateStatusUnknown	重複スクリプト確認: このページでは確認できません。よむボタンやメニューが2つ出る場合は古いスクリプトを無効にしてください。
+updateStatusUnknown	現在 {current}。確認できません。必要なら再インストールしてください。
+updateHelpNotes	よむスクリプトは1つだけ有効にしてください。iPhone/iPadで更新が止まる場合は、このリンクをSafariで開いてください。
+updateUserscript	更新
+duplicateStatusSingle	有効なYomuランタイムは1つです（{kind}）。
+duplicateStatusUnknown	重複確認はできません。よむが2つ表示される場合は古いスクリプトを無効にしてください。
 ankiConnectSetupTitle	AnkiConnect設定
 ankiConnectSetupCopy	デスクトップAnkiを開き、AnkiConnectを有効にしてください。ホスト版StudyではAnkiConnect側でYomuのオリジンを許可する必要があります。
 ankiConnectSetupConfig	AnkiConnectのwebCorsOriginListに次のオリジンを追加してください。既存の項目は残します:

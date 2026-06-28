@@ -66,18 +66,6 @@ export function yomuStudySearchUrl(term: string): string {
     return url.toString();
 }
 
-export function jpdbSearchUrl(term: string): string {
-    const url = new URL('/search', 'https://jpdb.io');
-    url.searchParams.set('q', term);
-    return url.toString();
-}
-
-export function jitenSearchUrl(term: string): string {
-    const url = new URL('/search', 'https://jiten.moe');
-    url.searchParams.set('query', term);
-    return url.toString();
-}
-
 function normalizeRawLines(value: unknown, width: number, height: number): GamingOcrLine[] {
     if (!Array.isArray(value)) return [];
     return value.map(item => normalizeRawLine(item, width, height)).filter((line): line is GamingOcrLine => Boolean(line));

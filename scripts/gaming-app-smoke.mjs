@@ -329,8 +329,12 @@ async function configureCaptureShortcut(page, shortcut) {
     const shortcutInput = page.locator('[data-yomu-gaming-first-run] [data-capture-shortcut-input]').first();
     await shortcutInput.fill(shortcut);
     await shortcutInput.blur();
-    await page.locator('[data-settings-save-status]').filter({ hasText: shortcut }).waitFor({ timeout: 10_000 });
+    await page.locator('[data-settings-save-status]').filter({ hasText: `Capture shortcut saved: ${shortcut}` }).waitFor({ timeout: 10_000 });
     await page.locator('[data-action="settings-panel"][data-panel="shortcuts"]').click();
+    await page.waitForFunction(expected => {
+        const input = document.querySelector('[data-native-capture-shortcut] [data-capture-shortcut-input]');
+        return input instanceof HTMLInputElement && input.value === expected;
+    }, shortcut);
     const settingsShortcut = await page.locator('[data-native-capture-shortcut] [data-capture-shortcut-input]').inputValue();
     if (settingsShortcut !== shortcut) {
         throw new Error(`Capture shortcut settings input did not sync: ${settingsShortcut}`);

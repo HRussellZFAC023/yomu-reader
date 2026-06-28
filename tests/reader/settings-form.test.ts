@@ -199,29 +199,40 @@ describe('settings help panel', () => {
         expect(form.querySelector('[data-help-link="video-player"] svg')).not.toBeNull();
         expect(form.querySelector('[data-help-link="pdf-reader"]')?.textContent).toContain('PDFリーダー');
         expect(form.querySelector('[data-help-link="pdf-reader"] svg')).not.toBeNull();
-        expect(form.querySelector('[data-help-link="update-userscript"]')?.textContent).toContain('更新/再インストール');
+        expect(form.querySelector('[data-help-link="update-userscript"]')?.textContent).toContain('更新');
         expect(form.querySelector('[data-help-link="anki-connect-addon"]')?.textContent).toContain('AnkiConnect');
     });
 
-    it('shows current version, latest-version status, update link, and duplicate/mobile notes', () => {
+    it('shows a compact version and update strip at the top of Help', () => {
         const marker = document.createElement('meta');
         marker.id = 'jpdb-reader-runtime-owner';
         marker.dataset.yomuRuntimeKind = 'userscript';
         document.head.append(marker);
         const form = document.createElement('form');
         try {
-            form.innerHTML = renderHelpLinksPanel();
+            form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+            const helpPanel = form.querySelector<HTMLElement>('[data-settings-panel="help"]')!;
+            const firstHelpBlock = Array.from(helpPanel.children)
+                .find((child): child is HTMLElement => child instanceof HTMLElement && child.tagName !== 'LEGEND');
+            expect(firstHelpBlock?.matches('.jpdb-reader-help-links-card')).toBe(true);
+
+            const strip = helpPanel.querySelector<HTMLElement>('[data-help-update-strip]')!;
+            expect(strip).not.toBeNull();
+            expect(strip.parentElement?.firstElementChild).toBe(strip);
 
             expect(form.querySelector<HTMLElement>('[data-yomu-current-version]')?.textContent).toBe(CURRENT_YOMU_VERSION);
             expect(form.querySelector<HTMLElement>('[data-yomu-update-status]')?.textContent).toContain(CURRENT_YOMU_VERSION);
             expect(form.querySelector<HTMLElement>('[data-yomu-duplicate-status]')?.textContent).toContain('userscript');
             expect(form.querySelector<HTMLAnchorElement>('[data-help-link="update-userscript"]')?.href).toBe(USERSCRIPT_INSTALL_URL);
-            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('two Yomu scripts');
+            expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('Keep one Yomu script');
             expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('iPhone/iPad');
+            expect(form.querySelector<HTMLElement>('[data-diagnostics-title]')?.compareDocumentPosition(strip) ?? 0)
+                .toBe(Node.DOCUMENT_POSITION_PRECEDING);
 
             localizeSettingsForm(form, 'ja');
 
-            expect(form.querySelector<HTMLElement>('[data-help-update-title]')?.textContent).toBe('バージョンと更新');
+            expect(form.querySelector<HTMLElement>('[data-help-update-title]')?.textContent).toBe('バージョン');
             expect(form.querySelector<HTMLElement>('[data-yomu-update-status]')?.textContent).toContain(CURRENT_YOMU_VERSION);
             expect(form.querySelector<HTMLElement>('[data-yomu-duplicate-status]')?.textContent).toContain('userscript');
             expect(form.querySelector<HTMLElement>('[data-help-update-notes]')?.textContent).toContain('iPhone/iPad');

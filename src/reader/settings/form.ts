@@ -112,15 +112,19 @@ function escapedUiText(language: InterfaceLanguage, key: Parameters<typeof uiTex
 export function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string {
     return `
         <div class="jpdb-reader-help-links-card" data-jpdb-reader-surface-ignore>
-            <div class="jpdb-reader-settings-subsection">
-                <div class="jpdb-reader-local-title" data-help-update-title>Version and updates</div>
-                <div class="jpdb-reader-help" data-help-update-current>Current Yomu version: <span data-yomu-current-version>${escapeHtml(CURRENT_YOMU_VERSION)}</span></div>
-                <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-update-status data-status-tone="pending" role="status" aria-live="polite" data-help-update-status>${escapeHtml(formatUiText('en', 'updateStatusIdle', { current: CURRENT_YOMU_VERSION }))}</div>
-                <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status>${escapeHtml(duplicateRuntimeStatusText('en'))}</div>
-                <div class="jpdb-reader-help" data-help-update-notes>Use Update/Reinstall if your userscript manager shows an older version. If two Yomu scripts are enabled, keep one. On iPhone/iPad, open the install link in Safari if automatic updates do not apply.</div>
-                <div class="jpdb-reader-help-actions">
-                    <a class="jpdb-reader-btn" href="${USERSCRIPT_INSTALL_URL}" target="_blank" rel="noopener" data-help-link="update-userscript">${externalButtonLabel('Update/Reinstall userscript')}</a>
+            <div class="jpdb-reader-settings-subsection jpdb-reader-help-update-strip" data-help-update-strip>
+                <div class="jpdb-reader-help-version-row">
+                    <div class="jpdb-reader-help-version-copy">
+                        <div class="jpdb-reader-local-title" data-help-update-title>Version</div>
+                        <div class="jpdb-reader-help-version-current" data-help-update-current>Yomu <span data-yomu-current-version>${escapeHtml(CURRENT_YOMU_VERSION)}</span></div>
+                    </div>
+                    <a class="jpdb-reader-btn jpdb-reader-help-update-link" href="${USERSCRIPT_INSTALL_URL}" target="_blank" rel="noopener" data-help-link="update-userscript">${externalButtonLabel('Update')}</a>
                 </div>
+                <div class="jpdb-reader-help-update-meta">
+                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-update-status data-status-tone="pending" role="status" aria-live="polite" data-help-update-status>${escapeHtml(formatUiText('en', 'updateStatusIdle', { current: CURRENT_YOMU_VERSION }))}</div>
+                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status>${escapeHtml(duplicateRuntimeStatusText('en'))}</div>
+                </div>
+                <div class="jpdb-reader-help jpdb-reader-help-update-note" data-help-update-notes>Keep one Yomu script enabled. If updates stall on iPhone/iPad, open this link in Safari.</div>
             </div>
             <details class="jpdb-reader-settings-subsection jpdb-reader-help-disclosure" data-help-anki-disclosure>
                 <summary class="jpdb-reader-local-title" data-help-anki-title>AnkiConnect setup</summary>
@@ -910,6 +914,7 @@ function renderHelpSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-help" role="tabpanel" data-settings-panel="help" data-legend-key="help" hidden>
                 <legend>Help</legend>
+                ${renderHelpLinksPanel(settings.interfaceLanguage)}
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title" data-diagnostics-title>Diagnostics</div>
                     <div class="grid">
@@ -917,7 +922,6 @@ function renderHelpSettingsPanel(settings: ReaderSettings): string {
                     </div>
                     <div class="jpdb-reader-help" data-diagnostics-help>Print diagnostics to the console.</div>
                 </div>
-                ${renderHelpLinksPanel(settings.interfaceLanguage)}
             </fieldset>
     `;
 }
@@ -1040,7 +1044,7 @@ type SettingsText = (key: Parameters<typeof uiText>[1]) => string;
 type SettingsTextKey = Parameters<typeof uiText>[1];
 const LOCAL_TITLE_TEXT_KEYS = [
     [/API access|APIアクセス/, 'apiAccess'],
-    [/Version and updates|バージョンと更新/, 'versionAndUpdates'],
+    [/Version and updates|Version|バージョンと更新|バージョン/, 'versionAndUpdates'],
     [/Word colors|単語の色/, 'wordColors'],
     [/Pitch accent colors|ピッチアクセント/, 'pitchAccentColors'],
     [/Color channels|色チャンネル/, 'colorChannels'],

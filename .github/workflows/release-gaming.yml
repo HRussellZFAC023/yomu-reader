@@ -49,8 +49,19 @@ jobs:
 
       - run: npm ci
 
+      - name: Verify Electron runtime
+        run: |
+          node node_modules/electron/install.js
+          npx electron --version
+
       - name: Smoke Yomu Gaming
-        run: npm run smoke:gaming
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            xvfb-run -a npm run smoke:gaming
+          else
+            npm run smoke:gaming
+          fi
 
       - name: Package Yomu Gaming
         run: node scripts/package-gaming-electron.mjs --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --target=${{ matrix.target }}
