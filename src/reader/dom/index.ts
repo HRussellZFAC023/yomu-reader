@@ -32,16 +32,14 @@ const KANJI_RE = /[\u3400-\u9fff]/u;
 const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
 const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
 // A bare number must not wrap away from the counter/unit that follows it
-// ("7件" -> "7" / "件..."): the digits arrive as untokenized gap text between two
-// reader-word spans, so the kinsoku break opportunity sits at the text-node/span
-// boundary where CSS on the spans cannot bind across it. A zero-width WORD JOINER
-// welds a trailing number to the next token instead. It is stripped back out in
-// normalizedRenderedHostText so re-scan text comparisons still match the source.
-const TRAILING_DIGITS_RE = /[0-9０-９]$/u;
-const WORD_JOINER = '\u2060';
-function bindTrailingNumberToFollowingToken(text: string): string {
-    return TRAILING_DIGITS_RE.test(text) ? `${text}${WORD_JOINER}` : text;
-}
+// ("7件" -> "7" / "件..."): the digits arrive as untokenized gap text right before
+// a reader-word span, so the kinsoku break opportunity sits at that text/span
+// boundary where word-break on the span cannot reach. Wrapping the trailing digits
+// in this element lets a CSS ::after WORD JOINER (see .jpdb-reader-number-bind in
+// reader-words-ocr.css) weld them to the next token. The joiner lives in generated
+// content, so textContent stays clean for copy, mining, and re-scan comparisons.
+const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
+const NUMBER_BIND_CLASS = 'jpdb-reader-number-bind';
 const BLOCK_FLOW_TAG_NAMES = new Set('ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL'.split(','));
 const EASY_FURIGANA_KANJI = new Set(
     '一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒'
@@ -2387,7 +2385,17 @@ function canvasForFallbackTextLayer(layer: HTMLElement): HTMLCanvasElement | nul
 function appendPlainTextBeforeToken(fragment: DocumentFragment, text: string, start: number, end: number, followedByToken = false): void {
     if (end <= start) return;
     const slice = text.slice(start, end);
-    fragment.append(document.createTextNode(followedByToken ? bindTrailingNumberToFollowingToken(slice) : slice));
+    const digits = followedByToken ? TRAILING_DIGITS_RE.exec(slice)?.[0] : undefined;
+    if (!digits) {
+        fragment.append(document.createTextNode(slice));
+        return;
+    }
+    const prefix = slice.slice(0, slice.length - digits.length);
+    if (prefix) fragment.append(document.createTextNode(prefix));
+    const bind = document.createElement('span');
+    bind.className = NUMBER_BIND_CLASS;
+    bind.textContent = digits;
+    fragment.append(bind);
 }
 
 function markRenderedScanTarget(target: ScanTextTarget): void {
@@ -2467,9 +2475,7 @@ function textMatchesRenderedHost(candidate: string, previousText: string): boole
 }
 
 function normalizedRenderedHostText(text: string): string {
-    // Drop the zero-width WORD JOINER we weld between numbers and counters so a
-    // re-collected host string still matches the joiner-free source text.
-    return text.split(WORD_JOINER).join('').replace(/\s+/g, ' ').trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
+    return text.replace(/\s+/g, ' ').trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
 }
 
 function normalizedRenderedHostSurfaceText(element: Element): string {
@@ -3100,12 +3106,21 @@ export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: 
     const safeTokens = nonOverlappingTokens(tokens, text.length);
     const miningInsightKeys = miningInsightTokenKeys(safeTokens);
     for (const token of safeTokens) {
-        if (token.start > offset) html += escapeHtml(bindTrailingNumberToFollowingToken(text.slice(offset, token.start)));
+        if (token.start > offset) html += plainTextBeforeTokenHtml(text.slice(offset, token.start));
         html += renderTokenHtml(text.slice(token.start, token.end), token, settings, miningInsightKeys);
         offset = token.end;
     }
     if (offset < text.length) html += escapeHtml(text.slice(offset));
     return html;
+}
+
+// Mirror appendPlainTextBeforeToken for the HTML render path: wrap a trailing
+// number so the CSS ::after WORD JOINER keeps it from wrapping off its counter.
+function plainTextBeforeTokenHtml(gap: string): string {
+    const digits = TRAILING_DIGITS_RE.exec(gap)?.[0];
+    if (!digits) return escapeHtml(gap);
+    const prefix = gap.slice(0, gap.length - digits.length);
+    return `${escapeHtml(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml(digits)}</span>`;
 }
 
 export function renderHighlightedTextHtml(text: string, targets: string[], className: string): string {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.217] - 2026-06-28
+
+### Fixed
+
+- Kept a number bound to the counter or unit that follows it when Japanese text wraps, so labels such as the Google video key-moments row no longer leave a digit stranded at the end of a line.
+
 ## [1.4.216] - 2026-06-28
 
 ### Fixed

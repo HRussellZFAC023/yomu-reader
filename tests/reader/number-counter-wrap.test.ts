@@ -4,37 +4,43 @@ import { renderTokensToHtml } from '../../src/reader/dom/index';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { CardState, JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
-const WORD_JOINER = '\u2060';
-
 // Renders `text` where the substring [start,end) is a single token and the rest is
 // untokenized gap text, mirroring how Google "key moments" labels reach the reader
-// (e.g. "この動画の7件…" arrives with 7 as a bare digit between word spans).
+// (e.g. "この動画の7件…" arrives with 7 as a bare digit before a word span).
 function renderWithToken(text: string, start: number, end: number): string {
     return renderTokensToHtml(text, [counterToken(text.slice(start, end), start, end)], DEFAULT_SETTINGS);
 }
 
 describe('number/counter line breaking', () => {
-    it('welds a trailing number to the following counter token with a WORD JOINER', () => {
+    it('wraps a trailing number before its counter token in a bind element', () => {
         const html = renderWithToken('7件', 1, 2);
-        // The digit keeps its joiner so "7件" cannot wrap between the number and 件.
-        expect(html).toContain(`7${WORD_JOINER}<span`);
-        expect(html).not.toContain('>7<'); // the bare 7 is never emitted joiner-free before a span
+        // The digit sits in .jpdb-reader-number-bind, whose ::after WORD JOINER keeps
+        // "7件" from wrapping between the number and 件.
+        expect(html).toContain('<span class="jpdb-reader-number-bind">7</span>');
+        // …immediately followed by the counter word, with no bare digit in between.
+        expect(html).toMatch(/<span class="jpdb-reader-number-bind">7<\/span><span class="jpdb-reader-word/);
     });
 
-    it('welds a multi-digit and full-width number to its counter', () => {
-        expect(renderWithToken('100人', 3, 4)).toContain(`100${WORD_JOINER}<span`);
-        expect(renderWithToken('３つ', 1, 2)).toContain(`３${WORD_JOINER}<span`);
+    it('binds multi-digit and full-width numbers to their counter', () => {
+        expect(renderWithToken('100人', 3, 4)).toContain('<span class="jpdb-reader-number-bind">100</span>');
+        expect(renderWithToken('３つ', 1, 2)).toContain('<span class="jpdb-reader-number-bind">３</span>');
+    });
+
+    it('keeps the rendered text content free of join markers', () => {
+        // The joiner lives in CSS generated content, never in the DOM text, so copy,
+        // mining, and re-scan comparisons still see the clean source.
+        document.body.innerHTML = renderWithToken('7件', 1, 2);
+        expect(document.body.textContent).toContain('7件');
+        expect(document.body.textContent).not.toContain('\u2060');
     });
 
     it('leaves non-numeric gap text untouched', () => {
-        const html = renderWithToken('の件', 1, 2);
-        expect(html).not.toContain(WORD_JOINER);
+        expect(renderWithToken('の件', 1, 2)).not.toContain('jpdb-reader-number-bind');
     });
 
-    it('does not weld a trailing number when no token follows it', () => {
+    it('does not bind a trailing number when no token follows it', () => {
         // "件7": 件 is the token, the digit is trailing gap text with nothing after it.
-        const html = renderWithToken('件7', 0, 1);
-        expect(html).not.toContain(WORD_JOINER);
+        expect(renderWithToken('件7', 0, 1)).not.toContain('jpdb-reader-number-bind');
     });
 });
 
