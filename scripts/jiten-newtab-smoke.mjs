@@ -624,8 +624,13 @@ async function runJitenOnlySmoke(browser, fixture) {
         await page.waitForSelector('[data-newtab-study-tools]', { timeout: 12_000 });
         await expectText(page, '[data-newtab-prompt] .jpdb-reader-newtab-term', 'たっぷり');
         await expectText(page, '[data-newtab-study-tools]', '#1800');
-        await expectText(page, '[data-newtab-study-tools]', 'Jiten');
-        await page.waitForSelector('[data-newtab-study-tools] [data-action="study-word-audio"]:not([disabled])', { timeout: 12_000 });
+        // Source pills (Jiten/JPDB/Jisho/…) are intentionally hidden on the card
+        // front now; they stay in the lookup/detail view.
+        const frontPills = await page.locator('[data-newtab-prompt] .jpdb-reader-word-pills, [data-newtab-prompt] .jpdb-reader-pill').count();
+        assert(frontPills === 0, 'Source pills should not render on the study card front', { frontPills });
+        // The audio button now sits inline next to the headword (term row), not in
+        // the meta tools row.
+        await page.waitForSelector('.jpdb-reader-newtab-term-row [data-action="study-word-audio"]:not([disabled])', { timeout: 12_000 });
         await page.waitForSelector('[data-newtab-study-tools] .jpdb-reader-pitch svg', { timeout: 12_000 });
         const answerHeaders = await page.locator('[data-newtab-answer-header]').count();
         assert(answerHeaders === 0, 'Study rendered the retired answer header card', { answerHeaders });

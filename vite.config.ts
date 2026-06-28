@@ -125,6 +125,9 @@ function shouldUseGreasyForkCompanions(command: string): boolean {
 function readerDefines(command: string) {
     const defines = {
         __YOMU_VERSION__: JSON.stringify(pkg.version),
+        // Userscript/companion builds are not the new-tab PWA, so the offline-first
+        // network guard dead-code-eliminates out of the size-limited bundle.
+        __YOMU_NEWTAB_BUILD__: JSON.stringify(false),
     };
     if (command === 'build') {
         return {

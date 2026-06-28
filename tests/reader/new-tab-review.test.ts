@@ -8485,7 +8485,7 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('renders compact study prompt tools with furigana, pitch, frequency pills, and audio', async () => {
+    it('renders compact study prompt tools with furigana, pitch, frequency, and inline audio (no source pills on front)', async () => {
         const card = newTabTestCard({
             spelling: '返す',
             reading: 'かえす',
@@ -8535,13 +8535,17 @@ describe('new tab review helpers', () => {
             expect(tools.querySelector('.jpdb-reader-pitch svg')).not.toBeNull();
             await waitForExpect(() => {
                 expect(loadCardRenderData).toHaveBeenCalledWith(card);
-                expect(renderStudyWordPills).toHaveBeenCalledWith(card, expect.any(Array), expect.objectContaining({ state: 'not-in-deck' }));
                 expect(renderStudyDefinitionSources).not.toHaveBeenCalled();
-                expect(root.querySelector('[data-newtab-study-tools]')?.textContent).toContain('Freq Local 123');
+                // Source pills are intentionally NOT rendered on the card front now
+                // (they live in the lookup/detail view), so the pill renderer is
+                // never invoked for the front and no pill markup appears.
+                expect(renderStudyWordPills).not.toHaveBeenCalled();
+                expect(root.querySelector('[data-newtab-prompt] .jpdb-reader-word-pills')).toBeNull();
                 expect(root.querySelector('[data-newtab-answer] .jpdb-reader-source-card')).toBeNull();
             });
 
-            root.querySelector<HTMLButtonElement>('[data-newtab-study-tools] [data-action="study-word-audio"]')?.click();
+            // Audio sits inline next to the headword (term row), not in the meta row.
+            root.querySelector<HTMLButtonElement>('.jpdb-reader-newtab-term-row [data-action="study-word-audio"]')?.click();
             expect(playWordAudio).toHaveBeenCalledWith(card);
         } finally {
             root.remove();
@@ -14586,7 +14590,7 @@ describe('new tab review helpers', () => {
         const term = root.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-newtab-term .jpdb-reader-word');
         expect(root.querySelector('[data-newtab-answer-header]')).toBeNull();
         expect(term?.querySelector('ruby')?.textContent).toContain('かえ');
-        expect(root.querySelector('[data-newtab-study-tools] .jpdb-reader-audio-control')).not.toBeNull();
+        expect(root.querySelector('.jpdb-reader-newtab-term-row .jpdb-reader-audio-control')).not.toBeNull();
         expect(root.querySelector('[data-newtab-meaning]')?.textContent).toContain('to return');
     });
 

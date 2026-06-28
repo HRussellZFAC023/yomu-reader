@@ -10,6 +10,7 @@ export default defineConfig({
     define: {
         __YOMU_VERSION__: JSON.stringify(pkg.version),
         __YOMU_EXTENSION_BUILD__: JSON.stringify(extensionBuild),
+        __YOMU_NEWTAB_BUILD__: JSON.stringify(true),
         __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__: JSON.stringify(process.env.YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID ?? ''),
     },
     resolve: extensionBuild ? undefined : {

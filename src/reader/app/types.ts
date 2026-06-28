@@ -508,6 +508,9 @@ export interface ReaderSettings {
 declare global {
     const __YOMU_VERSION__: string;
     const __YOMU_EXTENSION_BUILD__: undefined | boolean;
+    // True only in the new-tab study PWA build; lets the offline-first network
+    // guard tree-shake out of the size-limited userscript bundle.
+    const __YOMU_NEWTAB_BUILD__: undefined | boolean;
     const __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__: undefined | string;
 
     type UserscriptHttpResponse = { status: number; response: unknown; responseText?: string; finalUrl?: string };

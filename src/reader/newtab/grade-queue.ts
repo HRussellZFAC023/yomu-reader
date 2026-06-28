@@ -45,9 +45,15 @@ export class NewTabGradeQueue {
         return true;
     }
 
-    async flush(): Promise<void> {
+    // Number of grades waiting to sync back to the providers (for the sync-status UI).
+    async pendingCount(): Promise<number> {
+        return (await this.read()).length;
+    }
+
+    // Flushes the queue and returns how many grades still remain unsynced.
+    async flush(): Promise<number> {
         const queue = await this.read();
-        if (!queue.length) return;
+        if (!queue.length) return 0;
         const pending: QueuedNewTabGrade[] = [];
         for (const item of queue) {
             if (!item) continue;
@@ -63,6 +69,7 @@ export class NewTabGradeQueue {
             }
         }
         await this.write(pending);
+        return pending.length;
     }
 
     private key(item: Pick<QueuedNewTabGrade, 'target' | 'card'>): string {
