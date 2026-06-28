@@ -42,9 +42,11 @@ const EASY_FURIGANA_KANJI = new Set(
 // UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
 // letter soup, but "Kanji used" spellings are real JPDB links and should
 // keep the same ruby/color treatment as other dictionary terms.
-const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],[contenteditable=true],[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection';
+const EDITABLE_TEXT_SURFACE_SELECTOR = '[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[data-testid*="composer" i],[data-testid*="prompt-textarea" i],[data-test-id*="composer" i],[data-test-id*="prompt-textarea" i],[class*="composer" i],[id*="composer" i],[class*="placeholder" i],[class*="prompt-textarea" i],[id*="prompt-textarea" i],[class*="ProseMirror" i]';
+const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(',[role=tab]', '');
 const FORM_BOUNDARY_SKIP_SELECTOR = 'form,label,fieldset,legend';
+const GENERIC_CONTROL_TEXT_SKIP_SELECTOR = `${FORM_BOUNDARY_SKIP_SELECTOR},[role=form],[role=search]`;
 const PLAYER_CHROME_SKIP_SELECTOR = '[class*="control" i],[class*="toggle" i],[class*="player" i]';
 
 const SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
@@ -96,7 +98,7 @@ const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${PLAYER_CHROM
 // for every site profile root, incl. YouTube) once did not — so a rescan of a
 // mirror host re-collected the mirror's bare gap text nodes alongside hidden
 // host text and self-perpetuated into a duplicated, flashing caption strip.
-const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable="true"],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
+const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],${EDITABLE_TEXT_SURFACE_SELECTOR},.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]`;
 const FORM_CHROME_BOUNDARY_TAGS = ',FORM,LABEL,FIELDSET,LEGEND,';
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
 const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
@@ -110,11 +112,61 @@ const COMPACT_PASSIVE_CHROME_SELECTOR = 'time,[datetime],[aria-label*="author" i
 const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
 const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = 'ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer';
 const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]';
-const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]';
+const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = 'button, label, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="checkbox"], [role="radio"], [role="switch"]';
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = 'header, nav, footer, [role="banner"], [role="navigation"], [role="contentinfo"], [role="menubar"], [role="tablist"], [role="toolbar"]';
-const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
+const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = [
+    'header',
+    'nav',
+    'footer',
+    'aside',
+    '[role="banner"]',
+    '[role="navigation"]',
+    '[role="contentinfo"]',
+    '[role="complementary"]',
+    '[role="dialog"]',
+    '[role="listbox"]',
+    '[role="menu"]',
+    '[role="menubar"]',
+    '[role="tablist"]',
+    '[role="toolbar"]',
+    '[aria-modal="true"]',
+    '[class*="account" i]',
+    '[id*="account" i]',
+    '[class*="appearance" i]',
+    '[id*="appearance" i]',
+    '[class*="chooser" i]',
+    '[id*="chooser" i]',
+    '[class*="dialog" i]',
+    '[id*="dialog" i]',
+    '[class*="dropdown" i]',
+    '[id*="dropdown" i]',
+    '[class*="login" i]',
+    '[id*="login" i]',
+    '[class*="menu" i]',
+    '[id*="menu" i]',
+    '[class*="modal" i]',
+    '[id*="modal" i]',
+    '[class*="picker" i]',
+    '[id*="picker" i]',
+    '[class*="pinnable" i]',
+    '[id*="pinnable" i]',
+    '[class*="profile" i]',
+    '[id*="profile" i]',
+    '[class*="prefs" i]',
+    '[id*="prefs" i]',
+    '[class*="sidebar" i]',
+    '[id*="sidebar" i]',
+    '[class*="signin" i]',
+    '[id*="signin" i]',
+    '[class*="tabs" i]',
+    '[id*="tabs" i]',
+    '[class*="toc" i]',
+    '[id*="toc" i]',
+    '[class*="toolbar" i]',
+    '[id*="toolbar" i]',
+].join(',');
+const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="book" i],[class*="card" i],[class*="gallery" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="product" i],[class*="shelf" i],[class*="thumb" i],[class*="tile" i],[class*="video" i],[class*="volume" i],[class*="work" i]';
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
 const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
 const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = 'canvas,img,picture,svg,video,[class*="cover" i],[class*="image" i],[class*="poster" i],[class*="thumb" i]';
@@ -124,6 +176,23 @@ const COMPACT_MEDIA_CHROME_TEXT_LIMIT = 40;
 const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
 const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
 const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
+const COMPACT_VERTICAL_CHROME_MAX_WIDTH = 96;
+const COMPACT_VERTICAL_CHROME_MAX_HEIGHT = 360;
+const COMPACT_MEDIA_RUBY_RISK_ANCESTOR_LIMIT = 8;
+const COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT = 10;
+const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
+const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
+const CONSTRAINED_NOTIFICATION_SELECTOR = [
+    '[role="alert"]',
+    '[role="status"]',
+    '[aria-live]',
+    '[class*="alert" i]',
+    '[class*="banner" i]',
+    '[class*="notice" i]',
+    '[class*="notification" i]',
+    '[class*="snackbar" i]',
+    '[class*="toast" i]',
+].join(',');
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
 const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;
@@ -138,6 +207,7 @@ export interface TextTarget {
     parent: HTMLElement;
     hasNativeRuby?: boolean;
     suppressRuby?: boolean;
+    proseWrap?: boolean;
     layoutSensitive?: boolean;
     passiveInteraction?: boolean;
     singlePassScan?: boolean;
@@ -163,6 +233,7 @@ export interface FragmentTextTarget {
     fragments: TextFragment[];
     parserId?: string;
     suppressRuby?: boolean;
+    proseWrap?: boolean;
     layoutSensitive?: boolean;
     passiveInteraction?: boolean;
     singlePassScan?: boolean;
@@ -196,6 +267,7 @@ interface RubyBaseKanaRun {
 
 interface TextTargetCollectionOptions {
     includeReaderRoot?: boolean;
+    includeFormChrome?: boolean;
 }
 
 interface FragmentTextTargetCollectionOptions {
@@ -466,6 +538,7 @@ function textTargetParentFilterResult(parent: HTMLElement, text: string, visible
 }
 
 function shouldRejectTextTargetParent(parent: HTMLElement, text: string, visibleOnly: boolean, options: TextTargetCollectionOptions): boolean {
+    if (!options.includeFormChrome && parent.closest(GENERIC_CONTROL_TEXT_SKIP_SELECTOR)) return true;
     const blocked = parent.closest(SKIP_SELECTOR);
     if (blocked && !isAnnotatableChipControl(blocked)) return true;
     if (isInsideExcludedReaderRoot(parent, options)) return true;
@@ -504,9 +577,15 @@ function textTargetFromAcceptedNode(node: Node): TextTarget | null {
         parent,
         hasNativeRuby: Boolean(parent.closest('ruby')),
         suppressRuby,
+        proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
         layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text),
         passiveInteraction,
     };
+}
+
+function shouldWrapScanTargetAsProse(parent: HTMLElement, suppressRuby?: boolean, passiveInteraction?: boolean): boolean {
+    if (suppressRuby || passiveInteraction) return false;
+    return isReadableProseContext(parent);
 }
 
 export function collectFragmentTextTargetsIn(
@@ -574,9 +653,21 @@ function isCollectableFormControlTextElement(
 ): boolean {
     if (control.closest(READER_CONTROL_TEXT_MIRROR_SELECTOR)) return false;
     if (!options.includeReaderRoot && control.closest(READER_ROOT_SELECTOR)) return false;
+    if (visibleOnly && !options.includeReaderRoot && isTextEntryFormControl(control)) return false;
     if (options.excludeSelector && (safeElementMatches(control, options.excludeSelector) || control.closest(options.excludeSelector))) return false;
     if (isDisabledFormControl(control) || isUnlookupableFormControl(control)) return false;
     return !visibleOnly || isVisible(control);
+}
+
+function isTextEntryFormControl(control: HTMLElement): boolean {
+    return control instanceof HTMLTextAreaElement
+        || (control instanceof HTMLInputElement && isTextEntryInput(control));
+}
+
+function isTextEntryInput(input: HTMLInputElement): boolean {
+    const type = input.type.toLowerCase();
+    return type === ''
+        || ['email', 'number', 'search', 'tel', 'text', 'url'].includes(type);
 }
 
 function isDisabledFormControl(control: HTMLElement): boolean {
@@ -681,13 +772,15 @@ function fragmentTextTargetFrom(
     if (!parent) return null;
     if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text)) return null;
     const suppressRuby = fragmentTargetSuppressesCompactScanRuby(parent, trimmedFragments);
+    const passiveInteraction = suppressRuby || trimmedFragments.every(fragment => fragment.passiveInteraction);
     return {
         text,
         parent,
         fragments: trimmedFragments,
         suppressRuby,
+        proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
         layoutSensitive: trimmedFragments.some(fragment => fragment.layoutSensitive),
-        passiveInteraction: suppressRuby || trimmedFragments.every(fragment => fragment.passiveInteraction),
+        passiveInteraction,
     };
 }
 
@@ -812,6 +905,7 @@ function matchesSkippedFragmentElement(
     isRoot: boolean,
 ): boolean {
     if (state.excludeSelector && safeElementMatches(element, state.excludeSelector)) return true;
+    if (isRoot && element.closest(EDITABLE_TEXT_SURFACE_SELECTOR)) return true;
     return !isRoot && shouldSkipFragmentElement(element, state.options);
 }
 
@@ -1266,6 +1360,7 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
         parent: target.parent,
         hasNativeRuby: target.hasNativeRuby,
         suppressRuby: target.suppressRuby,
+        proseWrap: target.proseWrap,
         passiveInteraction: target.passiveInteraction,
     });
     return wrapDirectFlexGridTextRun(fragment, target.parent);
@@ -1275,7 +1370,7 @@ function renderTokenizedScanText(
     text: string,
     tokens: JPDBToken[],
     settings: ReaderSettings,
-    target: { parent: HTMLElement; hasNativeRuby?: boolean; suppressRuby?: boolean; passiveInteraction?: boolean; suppressRubyDoesNotImplyPassive?: boolean },
+    target: { parent: HTMLElement; hasNativeRuby?: boolean; suppressRuby?: boolean; proseWrap?: boolean; passiveInteraction?: boolean; suppressRubyDoesNotImplyPassive?: boolean },
 ): DocumentFragment {
     const fragment = document.createDocumentFragment();
     const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby);
@@ -1294,6 +1389,7 @@ function renderTokenizedScanText(
             allowRuby: !target.hasNativeRuby && !suppressRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
+            proseWrap: target.proseWrap === true,
             passiveInteraction,
             preserveTokenRubies: true,
             miningInsightKeys,
@@ -1606,9 +1702,11 @@ function targetForcesAllFurigana(parent: HTMLElement): boolean {
 
 function shouldSuppressCompactScanRuby(parent: HTMLElement): boolean {
     if (isYouTubeHost()) return shouldSuppressCompactMediaRuby(parent);
-    const compactChrome = compactInteractiveChromeElement(parent);
+    const compactChrome = compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent);
     if (compactChrome) compactChrome.dataset.jpdbReaderPassiveChrome = 'true';
-    return Boolean(compactChrome || shouldSuppressCompactMediaRuby(parent));
+    const constrainedNotification = compactConstrainedNotificationElement(parent);
+    if (constrainedNotification) constrainedNotification.dataset.jpdbReaderPassiveChrome = 'true';
+    return Boolean(compactChrome || constrainedNotification || shouldSuppressCompactMediaRuby(parent));
 }
 
 function compactInteractiveChromeElement(parent: HTMLElement): HTMLElement | null {
@@ -1625,6 +1723,15 @@ function compactInteractiveChromeElement(parent: HTMLElement): HTMLElement | nul
 
 function compactInteractiveChromeText(element: HTMLElement): string {
     return element.textContent?.replace(/\s+/g, '').trim() ?? '';
+}
+
+function compactPassiveChromeElement(parent: HTMLElement): HTMLElement | null {
+    if (parent.closest(READER_ROOT_SELECTOR)) return null;
+    if (isReadableProseContext(parent)) return null;
+    if (!isCompactInteractiveChromeContext(parent)) return null;
+    const text = compactInteractiveChromeText(parent);
+    if (!isCompactInteractiveChromeText(text)) return null;
+    return hasCompactInteractiveChromeRubyRisk(parent) ? parent : null;
 }
 
 function isCompactInteractiveChromeText(text: string): boolean {
@@ -1659,15 +1766,73 @@ function hasCompactInteractiveChromeGeometry(element: HTMLElement): boolean {
     const rect = element.getBoundingClientRect();
     if (rect.width > 0 && rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH
         && (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT)) return true;
+    if (isVerticalWritingMode(style.writingMode)
+        && rect.width > 0
+        && rect.width <= COMPACT_VERTICAL_CHROME_MAX_WIDTH
+        && (rect.height === 0 || rect.height <= COMPACT_VERTICAL_CHROME_MAX_HEIGHT)) return true;
     return hasInlineControlShape(style.display) && style.whiteSpace === 'nowrap';
 }
 
 function hasCompactInteractiveChromeRubyRisk(element: HTMLElement): boolean {
     const style = safeComputedStyle(element);
+    if (isVerticalWritingMode(style.writingMode)) return true;
     if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
+    if (isCompactInteractiveChromeContext(element)) return true;
+    if (safeElementMatches(element, COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR)
+        && hasCompactInteractiveChromeGeometry(element)) return true;
     if (!hasCompactInteractiveChromeGeometry(element)) return false;
     if (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) return true;
     return clipsOverflow(style) && style.whiteSpace === 'nowrap';
+}
+
+function compactConstrainedNotificationElement(parent: HTMLElement): HTMLElement | null {
+    if (parent.closest(READER_ROOT_SELECTOR)) return null;
+    const textLength = compactLength(parent.textContent ?? '');
+    if (textLength < 2 || textLength > CONSTRAINED_NOTIFICATION_TEXT_LIMIT) return null;
+
+    let current: HTMLElement | null = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
+        if (isReadableProseContext(current) && !current.closest(CONSTRAINED_NOTIFICATION_SELECTOR)) return null;
+        if (isConstrainedNotificationContainer(current, parent)) return current;
+        current = current.parentElement;
+    }
+    return null;
+}
+
+function isConstrainedNotificationContainer(container: HTMLElement, textElement: HTMLElement): boolean {
+    if (!isNotificationLikeContainer(container)) return false;
+    if (!hasConstrainedNotificationGeometry(container, textElement)) return false;
+    return hasNotificationActionPeer(container, textElement);
+}
+
+function isNotificationLikeContainer(container: HTMLElement): boolean {
+    return safeElementMatches(container, CONSTRAINED_NOTIFICATION_SELECTOR);
+}
+
+function hasConstrainedNotificationGeometry(container: HTMLElement, textElement: HTMLElement): boolean {
+    const containerStyle = safeComputedStyle(container);
+    const textStyle = safeComputedStyle(textElement);
+    const rect = container.getBoundingClientRect();
+    const textRect = textElement.getBoundingClientRect();
+    const constrainedText = hasLineClamp(textStyle) || isEllipsisTextRow(textStyle) || hasClippedTextConstraint(textStyle);
+    const constrainedContainer = hasLineClamp(containerStyle) || isEllipsisTextRow(containerStyle) || hasClippedTextConstraint(containerStyle);
+    const compactHeight = (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT)
+        && (textRect.height === 0 || textRect.height <= LAYOUT_SENSITIVE_MAX_BOX_HEIGHT);
+    return compactHeight && (constrainedText || constrainedContainer) && !notificationContainerLooksLikePageSection(container);
+}
+
+function notificationContainerLooksLikePageSection(container: HTMLElement): boolean {
+    const rect = container.getBoundingClientRect();
+    if (rect.height > CONSTRAINED_NOTIFICATION_MAX_HEIGHT) return true;
+    return Boolean(container.closest('article, main, [role="main"]') && isLikelyProseElement(container));
+}
+
+function hasNotificationActionPeer(container: HTMLElement, textElement: HTMLElement): boolean {
+    const selector = 'a[href],button,[role="button"],[role="link"],[data-action]';
+    if (Array.from(container.querySelectorAll<HTMLElement>(selector)).some(action => !action.contains(textElement))) return true;
+    const row = container.parentElement;
+    if (!row) return false;
+    return Array.from(row.querySelectorAll<HTMLElement>(selector)).some(action => !container.contains(action));
 }
 
 function shouldSuppressCompactMediaRuby(parent: HTMLElement): boolean {
@@ -1713,7 +1878,7 @@ function isCompactPeerMediaCardLinkText(parent: HTMLElement): boolean {
     if (compactLength(link.textContent ?? '') > COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT) return false;
 
     const context = closestCompactMediaContext(parent);
-    if (!context || !context.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
+    if (!context || !context.closest(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
     const linkWidth = link.getBoundingClientRect().width;
     return linkWidth === 0 || linkWidth <= 260;
 }
@@ -1784,9 +1949,9 @@ function isLayoutFragileMediaTileText(parent: HTMLElement): boolean {
 function hasCompactMediaRubyRisk(parent: HTMLElement): boolean {
     if (isLayoutSensitiveScanElement(parent)) return true;
     let current: HTMLElement | null = parent;
-    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 4; depth++) {
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < COMPACT_MEDIA_RUBY_RISK_ANCESTOR_LIMIT; depth++) {
         const style = safeComputedStyle(current);
-        if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
+        if (isVerticalWritingMode(style.writingMode) || hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
         current = current.parentElement;
     }
     return false;
@@ -1794,12 +1959,16 @@ function hasCompactMediaRubyRisk(parent: HTMLElement): boolean {
 
 function closestCompactMediaContext(parent: HTMLElement): HTMLElement | null {
     let current: HTMLElement | null = parent;
-    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT; depth++) {
         if (isReadableProseContext(current)) return null;
         if (hasMediaPeer(current, parent) && isCompactMediaContext(current)) return current;
         current = current.parentElement;
     }
     return null;
+}
+
+function isVerticalWritingMode(writingMode: string): boolean {
+    return writingMode.startsWith('vertical-') || writingMode.startsWith('sideways-');
 }
 
 function hasMediaPeer(container: HTMLElement, textElement: HTMLElement): boolean {
@@ -2046,6 +2215,22 @@ export function removeNonDestructiveScanMirrors(root: ParentNode = document): nu
     controlHosts.forEach(removeControlTextMirror);
     canvasHosts.forEach(removeCanvasFallbackTextLayer);
     return hosts.size + controlHosts.size + canvasHosts.size;
+}
+
+export function removeStaleControlTextMirrors(root: ParentNode = document): number {
+    let removed = 0;
+    root.querySelectorAll<HTMLElement>(READER_CONTROL_TEXT_MIRROR_SELECTOR).forEach(mirror => {
+        const host = mirror.previousElementSibling;
+        if (!(host instanceof HTMLElement)) {
+            mirror.remove();
+            removed += 1;
+            return;
+        }
+        if (isVisible(host)) return;
+        removeControlTextMirror(host);
+        removed += 1;
+    });
+    return removed;
 }
 
 function canvasForFallbackTextLayer(layer: HTMLElement): HTMLCanvasElement | null {
@@ -2330,6 +2515,7 @@ function renderSingleFragmentToken(
         allowRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
+        proseWrap: target.proseWrap === true,
         passiveInteraction: plan.passiveInteraction,
         preserveTokenRubies: true,
         miningInsightKeys,
@@ -2372,6 +2558,7 @@ function applyTokenToIndexedFragments(
         if (nativeRubyRange) {
             insertMultiFragmentToken(nativeRubyRange, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
                 scanWord: true,
+                proseWrap: target.proseWrap === true,
                 passiveInteraction,
                 allowRuby: false,
                 preserveTokenRubies: true,
@@ -2403,6 +2590,7 @@ function applyTokenToIndexedFragments(
     range.setEnd(bounds.end.fragment.node, bounds.end.localOffset);
     insertMultiFragmentToken(range, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         scanWord: true,
+        proseWrap: target.proseWrap === true,
         passiveInteraction,
         allowRuby: !target.suppressRuby,
         preserveTokenRubies: true,
@@ -2428,6 +2616,7 @@ function insertSplitFragmentTokenPieces(
             allowRuby: !target.suppressRuby && scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
+            proseWrap: target.proseWrap === true,
             passiveInteraction,
             preserveTokenRubies: true,
             miningInsightKeys,
@@ -2653,6 +2842,7 @@ function insertSingleFragmentToken(
         allowRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
+        proseWrap: target.proseWrap === true,
         passiveInteraction,
         preserveTokenRubies: true,
         miningInsightKeys,
@@ -2910,7 +3100,8 @@ function renderToken(
     span.dataset.surface = surface;
     if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = -1;
 
-    const hasRuby = shouldRenderRuby(surface, token, settings, options.allowRuby, options.preserveTokenRubies);
+    const allowRuby = options.allowRuby !== false && !shouldSuppressLongProseRuby(surface, token, options);
+    const hasRuby = shouldRenderRuby(surface, token, settings, allowRuby, options.preserveTokenRubies);
     if (hasRuby) {
         span.classList.add('jpdb-reader-has-furi');
         setInnerHtml(span, renderRuby(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
@@ -2922,10 +3113,19 @@ function renderToken(
     return span;
 }
 
+function shouldSuppressLongProseRuby(surface: string, token: JPDBToken, options: TokenRenderOptions): boolean {
+    if (!options.scanWord || !options.proseWrap || options.passiveInteraction) return false;
+    if (surface.length <= 16) return false;
+    const rubyLength = effectiveTokenRubies(surface, token, options.preserveTokenRubies)
+        .reduce((total, ruby) => total + ruby.text.length, 0);
+    return rubyLength > 20 || /[A-Za-z0-9]/.test(surface);
+}
+
 interface TokenRenderOptions {
     allowRuby?: boolean;
     kanjiNavigation?: KanjiNavigationRenderOptions;
     scanWord?: boolean;
+    proseWrap?: boolean;
     passiveInteraction?: boolean;
     // Scan-word renders keep the JPDB-provided ruby spans intact (e.g. 読む -> よむ) instead of
     // re-centering furigana onto bare kanji, which is reserved for the popup token renderers.
@@ -2975,7 +3175,11 @@ function applyDeckMembershipDataset(span: HTMLElement, card: JPDBCard): void {
 function applyTokenRenderOptions(span: HTMLElement, token: JPDBToken, options: TokenRenderOptions): void {
     if (options.scanWord) {
         span.classList.add('jpdb-reader-scan-word');
-        span.style.setProperty('display', 'inline', 'important');
+        if (!options.proseWrap) span.style.setProperty('display', 'inline', 'important');
+    }
+    if (options.proseWrap && !options.passiveInteraction) {
+        span.classList.add('jpdb-reader-prose-word');
+        span.dataset.jpdbReaderProse = 'true';
     }
     if (options.miningInsightKeys?.has(miningInsightTokenKey(token))) {
         span.classList.add('jpdb-reader-i-plus-one');

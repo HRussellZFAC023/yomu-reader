@@ -27,17 +27,9 @@ New here? Start with the [setup guide](/getting-started), then pick a workflow:
     <strong>Comprehensible-input YouTube</strong>
     <span>Filter YouTube into a Japanese feed, plus a levelled list of channels from N5 to N1.</span>
   </a>
-  <a class="yomu-link-card" href="/guides/read-games-with-yomininja">
-    <strong>Read games with YomiNinja</strong>
-    <span>Use YomiNinja to OCR Japanese game dialogue, then bring useful lines into your browser study flow.</span>
-  </a>
   <a class="yomu-link-card" href="/guides/study-setup">
     <strong>Yomitan vs Jiten vs JPDB vs Anki</strong>
     <span>What each one is for, and how to use any or all of them from one popup.</span>
-  </a>
-  <a class="yomu-link-card" href="/compare/migaku-alternative">
-    <strong>A free Migaku alternative</strong>
-    <span>How よむ covers the core immersion loop for free, and where a paid suite differs.</span>
   </a>
 </div>
 
@@ -50,6 +42,6 @@ If you haven't installed よむ yet, that's step zero for all of them:
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/getting-started">Setup guide</a>
+  <a class="yomu-cta-button" href="/getting-started">Setup</a>
   <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>

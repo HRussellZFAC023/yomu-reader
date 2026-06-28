@@ -1444,11 +1444,12 @@ export class ImageOcrController {
 
     private refreshCanvasReaderSurfaces(settings: ReaderSettings, userRequested = false): void {
         if (!settings.ocrEnabled || settings.ocrProvider === 'off') return;
+        const collectedCanvases = userRequested ? collectPointerCanvasReaderSurfaces() : collectCanvasReaderSurfaces();
         const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false
             && settings.ocrAutoScanImages
             && !userRequested;
         const ocrOptInCanvases = nativeTextLayerBlocksAutoScan
-            ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested)
+            ? activeReaderRasterSurfaces(collectedCanvases, settings, userRequested)
             : undefined;
         // asked to scan, so a background poll must NOT wipe the frame they tapped to
         // create — only a genuine page turn (detected below) should drop it.
@@ -1467,8 +1468,8 @@ export class ImageOcrController {
             }
             return;
         }
-        if (!isReaderRasterPage()) {
-            this.releaseAllCanvasFrames();
+        if (!isReaderRasterPage() && !collectedCanvases.length) {
+            this.releaseAutoCanvasFrames();
             return;
         }
         this.startReaderRasterPollingIfNeeded();
@@ -1489,9 +1490,10 @@ export class ImageOcrController {
             this.retryPendingUserRequestedCaptures(settings);
             return;
         }
-        const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+        const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectedCanvases, settings, userRequested);
         for (const canvas of [...this.canvasFrames.keys()]) {
             if (canvases.includes(canvas)) continue;
+            if (!userRequested && this.canvasFrameUserRequested.has(canvas)) continue;
             // Don't drop a frame whose image is still loading — a transient off-screen
             // blip (layout shift right after capture, before the mirror image decodes)
             // would otherwise waste the in-flight capture and leave the page un-OCR'd.
@@ -1649,7 +1651,12 @@ export class ImageOcrController {
             if (remaining <= 0) { this.canvasTapRecapture.delete(canvas); return; }
             const attempt = READER_RASTER_MAX_CAPTURE_ATTEMPTS - remaining; // 0,1,2…
             const delay = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** attempt, READER_RASTER_RETRY_MAX_MS);
-            this.scheduleReaderRasterRefresh(delay);
+            this.canvasTapRecapture.set(canvas, remaining - 1);
+            window.setTimeout(() => {
+                if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
+                const settings = this.options.getSettings();
+                void this.snapshotCanvasSurface(canvas, settings, true);
+            }, delay);
             return;
         }
         const attempts = (this.canvasCaptureAttempts.get(canvas) ?? 0) + 1;
@@ -1709,6 +1716,15 @@ export class ImageOcrController {
         // whose capture wasn't ready (the no-OCR bug). The window is self-bounding (it
         // expires after its attempt budget) so a genuine turn can't leave it auto-OCRing.
         this.canvasReaderSignature = undefined;
+    }
+
+    private releaseAutoCanvasFrames(): void {
+        for (const canvas of [...this.canvasFrames.keys()]) {
+            if (this.canvasFrameUserRequested.has(canvas) && canvas.isConnected) continue;
+            this.releaseCanvasFrame(canvas);
+        }
+        this.canvasContentReadiness.clear();
+        this.canvasCaptureAttempts.clear();
     }
 
     private positionCanvasFrames(): void {
@@ -2739,7 +2755,7 @@ async function imageToBlobPayload(image: HTMLImageElement, maxPixels: number, ty
 async function recognizeViaGoogleLensUpload(blob: Blob, width: number, height: number, timeout: number): Promise<OcrResult | null> {
     const data = new FormData();
     data.append('encoded_image', blob, 'image.jpg');
-    // Match the real Lens web client (cf. references/YomiNinja): this endpoint is
+    // Match the real Lens web client: this endpoint is
     // hit with the user's own .google.com session cookies (GM_xmlhttpRequest sends
     // them automatically) plus an Origin/Referer of lens.google.com, so it draws
     // on a per-user quota instead of the shared, easily throttled keyless protobuf
@@ -3080,7 +3096,7 @@ function pointerEventReaderSurfaceAtPoint(event: Event & Pick<PointerEvent, 'cli
 
 function readerSurfaceFromElement(element: Element, settings: ReaderSettings): HTMLCanvasElement | HTMLElement | null {
     const canvas = element instanceof HTMLCanvasElement ? element : element.closest<HTMLCanvasElement>('canvas');
-    if (canvas && collectCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
+    if (canvas && collectPointerCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
     const background = collectBackgroundImageReaderSurfaces()
         .find(surface => (surface === element || surface.contains(element)) && isReaderSurfaceCandidate(surface, settings));
     return background ?? null;
@@ -3088,10 +3104,22 @@ function readerSurfaceFromElement(element: Element, settings: ReaderSettings): H
 
 function readerSurfaceAtPoint(clientX: number, clientY: number, settings: ReaderSettings): HTMLCanvasElement | HTMLElement | null {
     const surfaces = [
-        ...collectCanvasReaderSurfaces(),
+        ...collectPointerCanvasReaderSurfaces(),
         ...collectBackgroundImageReaderSurfaces(),
     ].filter(surface => isReaderSurfaceCandidate(surface, settings));
     return surfaces.find(surface => rectContainsPoint(surface.getBoundingClientRect(), clientX, clientY)) ?? null;
+}
+
+function collectPointerCanvasReaderSurfaces(): HTMLCanvasElement[] {
+    return [...new Set([
+        ...collectCanvasReaderSurfaces(),
+        ...manualCanvasReaderSurfaces(),
+    ])];
+}
+
+function manualCanvasReaderSurfaces(): HTMLCanvasElement[] {
+    return Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas'))
+        .filter(isManualCanvasOcrSurface);
 }
 
 function isReaderSurfaceCandidate(surface: Element, settings: ReaderSettings): boolean {
@@ -3230,6 +3258,11 @@ function hasCanvasOcrOptInSurface(): boolean {
 function isCanvasOcrOptInSurface(canvas: HTMLCanvasElement): boolean {
     return canvas.dataset.yomuCanvasOcr === 'on'
         || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
+}
+
+function isManualCanvasOcrSurface(canvas: HTMLCanvasElement): boolean {
+    return canvas.dataset.yomuCanvasOcr === 'manual'
+        || Boolean(canvas.closest('[data-yomu-canvas-ocr="manual"]'));
 }
 
 function isImageOccludedByVideo(image: HTMLImageElement, rect = image.getBoundingClientRect()): boolean {

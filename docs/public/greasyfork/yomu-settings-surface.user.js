@@ -1420,12 +1420,26 @@
   function booleanValue(value, fallback) {
     return typeof value === "boolean" ? value : fallback;
   }
-  const MAX_DICTIONARY_LOOKUP_LINKS = 12;
+  const MAX_DICTIONARY_LOOKUP_LINKS = 16;
   const JPDB_LOOKUP_LINK = {
     id: "jpdb",
     label: "JPDB",
     urlTemplate: "https://jpdb.io/search?q={query}",
     enabled: true
+  };
+  const JITEN_LIVE_FREQUENCY_PILL = {
+    id: "jiten-frequency",
+    label: "Jiten live",
+    urlTemplate: "",
+    enabled: true,
+    action: "frequency-live"
+  };
+  const JPDB_LIVE_FREQUENCY_PILL = {
+    id: "jpdb-frequency",
+    label: "JPDB live",
+    urlTemplate: "",
+    enabled: false,
+    action: "frequency-live"
   };
   const JISHO_LOOKUP_LINK = {
     id: "jisho",
@@ -1491,7 +1505,9 @@
   };
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
     JITEN_LOOKUP_LINK,
+    JITEN_LIVE_FREQUENCY_PILL,
     JPDB_LOOKUP_LINK,
+    JPDB_LIVE_FREQUENCY_PILL,
     YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
@@ -1575,9 +1591,10 @@
     };
   }
   function defaultDictionaryLookupLinks(mode = "local") {
-    return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({
+    return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
       ...link,
-      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" : link.enabled
+      priority: index,
+      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "jiten-frequency" : link.enabled
     }));
   }
   function legacyDefaultLookupLinksWithNewBuiltIns(links) {
@@ -1633,7 +1650,7 @@
       if (link && !isRemovedBuiltInLookupLink(link)) add(link);
     }
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
-    return ensureJitenBeforeJpdb(normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS));
+    return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS)));
   }
   function isRemovedBuiltInLookupLink(link) {
     return isRemovedBuiltInLookupLinkId(link.id);
@@ -1646,7 +1663,13 @@
   }
   function savedLookupLinksInDefaultOrder(links) {
     const linkById = new Map(links.map((link) => [link.id, link]));
-    return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((defaultLink) => linkById.get(defaultLink.id) ?? defaultLink);
+    return withLookupLinkPriorities(DEFAULT_DICTIONARY_LOOKUP_LINKS.map((defaultLink) => linkById.get(defaultLink.id) ?? defaultLink));
+  }
+  function withLookupLinkPriorities(links) {
+    return links.map((link, index) => ({
+      ...link,
+      priority: link.priority === void 0 || link.priority === Number.MAX_SAFE_INTEGER ? index : link.priority
+    }));
   }
   function ensureJitenBeforeJpdb(links) {
     const jitenIndex = links.findIndex((link) => link.id === JITEN_LOOKUP_LINK.id);
@@ -1676,7 +1699,8 @@
       label,
       urlTemplate,
       enabled: normalizedLookupLinkEnabled(record),
-      action
+      action,
+      priority: finiteNumber(record.priority, Number.MAX_SAFE_INTEGER)
     };
   }
   function normalizedLookupLinkUrlTemplate(record) {
@@ -1687,7 +1711,7 @@
   }
   function isUsableDictionaryLookupLink(id, label, urlTemplate, action) {
     if (!id || !label) return false;
-    return action === "copy" || Boolean(urlTemplate && isSafeLookupUrlTemplate(urlTemplate));
+    return action === "copy" || action === "frequency-live" || action === "frequency-local" || Boolean(urlTemplate && isSafeLookupUrlTemplate(urlTemplate));
   }
   function normalizedLookupLinkId(record) {
     if (typeof record.id === "string" && record.id.trim()) return record.id.trim();
@@ -1697,7 +1721,10 @@
     return typeof record.label === "string" && record.label.trim() ? record.label.trim().slice(0, 24) : id;
   }
   function normalizedLookupLinkAction(record, id) {
-    return record.action === "copy" || id === "copy" ? "copy" : "open";
+    if (record.action === "copy" || id === "copy") return "copy";
+    if (record.action === "frequency-live" || id === "jiten-frequency" || id === "jpdb-frequency") return "frequency-live";
+    if (record.action === "frequency-local" || id.startsWith("frequency-local:")) return "frequency-local";
+    return "open";
   }
   function stableLookupLinkId(value) {
     const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24);
@@ -3399,7 +3426,7 @@
       category: "pitch",
       name: "Kanjium pitch accents",
       descriptionKey: "recommendedKanjiumPitch",
-      helpUrl: `${DOCS_BASE_URL}tools/study-page#local-pitch-and-frequency-dictionaries`
+      downloadUrl: "https://raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip"
     },
     {
       id: "jpdbv2-kana",
@@ -3436,6 +3463,8 @@
       onboardingAccentColor: "Accent color",
       customAccentColor: "Custom color",
       onboardingImmersionOptions: "Immersion defaults",
+      onboardingHoverShortcut: "Lookup hover modifier",
+      manualPageScanShortcut: "Manual page scan shortcut",
       onboardingAddApiKey: "Add API key",
       onboardingAddLocalDictionaries: "Add local dictionaries",
       onboardingUseWithoutApiKey: "Use without API key",
@@ -3450,6 +3479,8 @@
       featureControlBody: "Tune features, shortcuts, and color.",
       featureStudy: "Study",
       featureStudyBody: "Review words and kanji on the study page.",
+      featureGame: "Game",
+      featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
@@ -3631,7 +3662,15 @@
       lookupOnHover: "Look up on hover",
       lookupOnMiddleMouse: "Look up with middle-mouse hold",
       showFloatingButton: "Show settings puck",
-      manualScanEnabled: "Manual scan only",
+      pageScanMode: "Page scanning",
+      pageScanModeOff: "Off",
+      pageScanModeAuto: "Auto",
+      pageScanModeManual: "Manual",
+      manualScanEnabled: "Manual page scanning",
+      ocrInteractionMode: "Image OCR scanning",
+      ocrInteractionModeAuto: "Auto",
+      ocrInteractionModeManual: "Tap or hover",
+      ocrInteractionModeOff: "Off",
       puckMenuLabel: `${APP_NAME} menu`,
       puckStudyPage: "Study page",
       puckPauseAnnotations: "Pause annotations",
@@ -3951,8 +3990,7 @@
       exportDictionaries: "Export dictionaries",
       dictionaryImportHelp: "Import a Yomitan ZIP, Yomitan settings export, or backup. Term dictionaries add definitions; pitch and frequency dictionaries add accents and badges.",
       lookupPills: "Lookup pills",
-      lookupPillsHelp: "Links and frequency badges. Tokens: {query}, {word}, {reading}.",
-      frequencyLookupPillsHelp: "Show imported frequency dictionaries as badges.",
+      lookupPillsHelp: "External links and frequency badges in one order. Live Jiten/JPDB badges come from site lookup; installed frequency dictionaries are local and replace the matching live badge. Tokens: {query}, {word}, {reading}.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -4214,7 +4252,7 @@
       helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
       videoPlayer: "Video Player",
       pdfReader: "PDF Reader",
-      newTabPage: "New Tab",
+      newTabPage: "Study",
       word: "Word",
       search: "Search",
       statsImportJpdbHistory: "Import JPDB review history",
@@ -4588,6 +4626,7 @@ onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
+onboardingHoverShortcut	ホバー検索の修飾キー
 onboardingAddApiKey	APIキーを追加
 onboardingAddLocalDictionaries	ローカル辞書を追加
 onboardingUseWithoutApiKey	APIキーなしで使う
@@ -4602,6 +4641,8 @@ featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
 featureStudyBody	学習ページで単語と漢字を復習。
+featureGame	ゲーム
+featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -4616,7 +4657,7 @@ kanji	漢字
 audio	音声
 front	表面
 back	裏面
-newTabPage	新しいタブ
+newTabPage	学習
 word	単語
 search	検索
 statsImportJpdbHistory	JPDB復習履歴を読み込む
@@ -5261,7 +5302,16 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-manualScanEnabled	手動スキャンのみ
+pageScanMode	ページスキャン
+pageScanModeOff	オフ
+pageScanModeAuto	自動
+pageScanModeManual	手動
+manualPageScanShortcut	手動ページスキャンのショートカット
+manualScanEnabled	手動ページスキャン
+ocrInteractionMode	画像OCRスキャン
+ocrInteractionModeAuto	自動
+ocrInteractionModeManual	タップ/ホバー
+ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
 puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
@@ -5555,8 +5605,7 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	Yomitan ZIP、Yomitan設定エクスポート、バックアップを読み込みます。語句辞書は定義を追加し、ピッチ/頻度辞書はアクセントやバッジを追加します。
 lookupPills	検索ピル
-lookupPillsHelp	リンクと頻度バッジ。トークン: {query}、{word}、{reading}。
-frequencyLookupPillsHelp	頻度辞書を検索バッジに表示。
+lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。Jiten/JPDBのライブバッジはサイト検索由来、インストール済み頻度辞書はローカルで一致するライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -5650,7 +5699,7 @@ helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまと
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
-newTabPage	新しいタブ
+newTabPage	学習
 docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除。
@@ -6359,6 +6408,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
   }
+  function ocrInteractionModeFromSettings(settings) {
+    if (!settings.ocrEnabled) return "off";
+    return settings.ocrAutoScanImages ? "auto" : "manual";
+  }
   const log$3 = Logger.scope("SettingsForm");
   const CUSTOM_FONT_FAMILY_VALUE = "__custom_font_family__";
   const COLOR_SOURCE_VALUES = ["status", "jpdb", "anki", "pitch", "off"];
@@ -6590,7 +6643,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return settings;
   }
   function readLookupBehaviorFormSettings(reader, current) {
-    const { has, clamped } = reader;
+    const { get, has, clamped } = reader;
+    const pageScanMode = readOption(get("pageScanMode"), ["off", "auto", "manual"], pageScanModeFromSettings$1(current));
     return {
       parseSelection: has("parseSelection"),
       lookupOnClick: has("lookupOnClick"),
@@ -6601,8 +6655,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       popupActivationMode: has("popupLookupEnabled") ? current.popupActivationMode === "off" ? DEFAULT_SETTINGS.popupActivationMode : current.popupActivationMode : "off",
       scanModifierKey: current.scanModifierKey,
       showFloatingButton: has("showFloatingButton"),
-      manualScanEnabled: has("manualScanEnabled")
+      annotationsPaused: pageScanMode === "off",
+      manualScanEnabled: pageScanMode === "manual"
     };
+  }
+  function pageScanModeFromSettings$1(settings) {
+    if (settings.annotationsPaused) return "off";
+    return settings.manualScanEnabled ? "manual" : "auto";
   }
   function readNewTabFormSettings(reader, current) {
     const { get, has, clamped } = reader;
@@ -6755,9 +6814,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function readOcrFormSettings(reader, current) {
     const { get, has, clamped } = reader;
+    const ocrInteractionMode = readOption(get("ocrInteractionMode"), ["auto", "manual", "off"], ocrInteractionModeFromSettings(current));
     return {
-      ocrEnabled: has("ocrEnabled"),
-      ocrAutoScanImages: formReaderValuePresent(reader, "ocrAutoScanImages") ? has("ocrAutoScanImages") : current.ocrAutoScanImages,
+      ocrEnabled: ocrInteractionMode !== "off",
+      ocrAutoScanImages: ocrInteractionMode === "auto",
       ocrShowTextOverlay: has("ocrShowTextOverlay"),
       ocrVideoPauseFrames: has("ocrVideoPauseFrames"),
       ocrInvertDarkPanels: has("ocrInvertDarkPanels"),
@@ -6920,20 +6980,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
       label: dictionaryLookupLinkLabel(label, action),
       urlTemplate: dictionaryLookupLinkUrlTemplate(urlTemplate, action),
       enabled: data.has(`dictionaryLookupLinks.${index}.enabled`),
-      action
+      action,
+      priority: Number(get(`dictionaryLookupLinks.${index}.priority`)) || index
     };
   }
   function dictionaryLookupLinkAction(value) {
-    return value === "copy" ? "copy" : "open";
+    if (value === "copy") return "copy";
+    if (value === "frequency-live") return "frequency-live";
+    if (value === "frequency-local") return "frequency-local";
+    return "open";
   }
   function shouldKeepDictionaryLookupLink(label, urlTemplate, action) {
-    return Boolean(label || urlTemplate || action === "copy");
+    return Boolean(label || urlTemplate || action === "copy" || action === "frequency-live" || action === "frequency-local");
   }
   function dictionaryLookupLinkLabel(label, action) {
     return action === "copy" && !label ? COPY_LOOKUP_LINK.label : label;
   }
   function dictionaryLookupLinkUrlTemplate(urlTemplate, action) {
-    return action === "copy" ? "" : urlTemplate;
+    return action === "copy" || action === "frequency-live" || action === "frequency-local" ? "" : urlTemplate;
   }
   const SOURCE_ROW_COPY_KEYS_BY_ID = {
     __jpdb__: { helpKey: "sourceHelpJpdb" },
@@ -7266,8 +7330,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function removeAudioSourceRow(sources, index) {
     if (index >= 0 && sources.length > 1) sources.splice(index, 1);
   }
-  function renderDictionaryLookupLinkEditor(links) {
-    const rows = normalizeDictionaryLookupLinks(links);
+  function renderDictionaryLookupLinkEditor(links, localFrequencyPreferences = []) {
+    const rows = lookupPillEditorRows(links, localFrequencyPreferences);
     return `
         <div class="jpdb-reader-lookup-link-head jpdb-reader-order-head">
             <span>On</span>
@@ -7293,8 +7357,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         <input type="hidden" name="dictionaryLookupLinkCount" value="${rows.length}">
         ${rows.map((link, index) => {
       const isCopyAction = link.action === "copy";
-      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">`;
-      const removeControl = isCopyAction ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>' : miniIconButton("remove", "Remove", 'data-action="lookup-link-remove"');
+      const isFrequencyAction = link.action === "frequency-live" || link.action === "frequency-local";
+      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : isFrequencyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">`;
+      const removeControl = isCopyAction || isFrequencyAction ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>' : miniIconButton("remove", "Remove", 'data-action="lookup-link-remove"');
       return `
                 <div class="jpdb-reader-lookup-link-row jpdb-reader-order-row" data-source-row data-lookup-link-row data-source-id="lookup-link-${index}" data-index="${index}">
                     <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
@@ -7305,12 +7370,43 @@ recommendedJiten	Jiten由来の頻度バッジです。
                     ${urlControl}
                     <input name="dictionaryLookupLinks.${index}.id" type="hidden" value="${escapeHtml(link.id)}">
                     <input name="dictionaryLookupLinks.${index}.action" type="hidden" value="${escapeHtml(link.action ?? "open")}">
+                    <input name="dictionaryLookupLinks.${index}.priority" type="hidden" value="${escapeHtml(String(link.priority ?? index))}">
                     ${orderTools}
                     ${renderRowRemoveTools(removeControl)}
                 </div>
             `;
     }).join("")}
     `;
+  }
+  function lookupPillEditorRows(links, localFrequencyPreferences) {
+    const normalized = normalizeDictionaryLookupLinks(links);
+    const byId = new Map(normalized.map((link) => [link.id, link]));
+    for (const preference of localFrequencyPreferences) {
+      const id = localFrequencyLookupPillId(preference.name);
+      if (!byId.has(id)) {
+        byId.set(id, {
+          id,
+          label: preference.alias || preference.name,
+          urlTemplate: "",
+          enabled: true,
+          action: "frequency-local",
+          priority: preference.priority
+        });
+      }
+    }
+    return Array.from(byId.values()).sort(compareLookupPillEditorRows).slice(0, MAX_DICTIONARY_LOOKUP_LINKS);
+  }
+  function compareLookupPillEditorRows(a, b) {
+    const priority = (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER);
+    if (priority) return priority;
+    return a.id.localeCompare(b.id);
+  }
+  function localFrequencyLookupPillId(dictionary) {
+    return `frequency-local:${dictionary}`;
+  }
+  function frequencyLookupPillNote(link) {
+    if (link.action === "frequency-local") return "Installed local frequency dictionary badge. Replaces matching live site frequency.";
+    return link.id === "jpdb-frequency" ? "Live JPDB frequency from site lookup; no local dictionary install." : "Live Jiten frequency from site lookup; no local dictionary install.";
   }
   function updateDictionaryLookupLinkEditor(form, action, control) {
     const container = form.querySelector(".jpdb-reader-lookup-links");
@@ -7364,13 +7460,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const SETTINGS_MIME_TYPE = "application/json";
   const GIS_SCRIPT_URL = "https://accounts.google.com/gsi/client";
   const OAUTH_BROKER_URL = "https://yomureader.com/oauth/google-drive.html";
-  const OAUTH_BROKER_ORIGIN = "https://yomureader.com";
+  const OAUTH_RETURN_HASH_KEY = "yomu-drive-oauth-return";
+  const OAUTH_WINDOW_NAME_TYPE = "yomu-drive-oauth-token";
   const TOKEN_EARLY_REFRESH_MS = 6e4;
   const DRIVE_TIMEOUT_MS = 2e4;
-  const POPUP_TIMEOUT_MS = 12e4;
   let cachedToken = null;
+  let lastAuthRedirectResult = consumeAuthRedirectResult();
   function cloudSettingsSyncAvailable() {
     return CLOUD_SETTINGS_SYNC_ENABLED;
+  }
+  function cloudSettingsAuthRedirectResult() {
+    return lastAuthRedirectResult;
   }
   async function uploadCloudSettingsToCloud(settings) {
     requireConfigured();
@@ -7475,7 +7575,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (allowCached && cachedToken && Date.now() < cachedToken.expiresAt - TOKEN_EARLY_REFRESH_MS) {
       return cachedToken.token;
     }
-    const token = isUserscriptContext() ? await tokenViaBroker() : await tokenViaIdentityServices();
+    const token = isUserscriptContext() ? await tokenViaPageRedirect() : await tokenViaIdentityServices();
     cachedToken = { token: token.accessToken, expiresAt: Date.now() + token.expiresInSeconds * 1e3 };
     return cachedToken.token;
   }
@@ -7501,92 +7601,80 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     });
   }
-  function tokenViaBroker() {
+  function tokenViaPageRedirect() {
     return new Promise((resolve, reject) => {
-      const opener = typeof window !== "undefined" ? window : void 0;
-      if (!opener?.open) {
-        reject(new Error("Google Drive settings sync needs a browser window."));
-        return;
-      }
-      if (typeof MessageChannel !== "function") {
-        reject(new Error("Google Drive settings sync needs a browser with secure channel support."));
+      const browserWindow = typeof window !== "undefined" ? window : void 0;
+      if (!browserWindow?.location?.href) {
+        reject(new Error("Google Drive settings sync needs a browser page."));
         return;
       }
       const state = randomBoundary();
-      const channel = new MessageChannel();
-      const brokerUrl = `${OAUTH_BROKER_URL}?origin=${encodeURIComponent(opener.location.origin)}&client_id=${encodeURIComponent(WEB_OAUTH_CLIENT_ID)}&state=${encodeURIComponent(state)}`;
-      const popup = opener.open(brokerUrl, "yomu-drive-oauth", "width=480,height=640,menubar=no,toolbar=no");
-      if (!popup) {
-        reject(new Error("Allow pop-ups for this site to sign in to Google Drive."));
-        return;
+      const brokerUrl = new URL(OAUTH_BROKER_URL);
+      brokerUrl.searchParams.set("return_url", browserWindow.location.href);
+      brokerUrl.searchParams.set("client_id", WEB_OAUTH_CLIENT_ID);
+      brokerUrl.searchParams.set("state", state);
+      try {
+        navigateToOAuthBroker(browserWindow, brokerUrl.href);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error("Google authorization failed to start."));
       }
-      let settled = false;
-      let channelTransferred = false;
-      const finish = (run) => {
-        if (settled) return;
-        settled = true;
-        opener.removeEventListener("message", onReadyMessage);
-        try {
-          channel.port1.close();
-        } catch {
-        }
-        if (!channelTransferred) {
-          try {
-            channel.port2.close();
-          } catch {
-          }
-        }
-        opener.clearTimeout(timer);
-        opener.clearInterval(closedPoll);
-        run();
-      };
-      const onReadyMessage = (event) => {
-        if (event.origin !== OAUTH_BROKER_ORIGIN || event.source !== popup) return;
-        const data = event.data;
-        if (!isRecord(data) || data.type !== "yomu-drive-oauth-ready" || data.state !== state) return;
-        if (channelTransferred) return;
-        try {
-          popup.postMessage({ type: "yomu-drive-oauth-init", state }, OAUTH_BROKER_ORIGIN, [channel.port2]);
-          channelTransferred = true;
-        } catch {
-          finish(() => reject(new Error("Google authorization failed to establish a secure channel.")));
-        }
-      };
-      channel.port1.onmessage = (event) => {
-        const data = event.data;
-        if (!isRecord(data) || data.type !== "yomu-drive-oauth-token" || data.state !== state) return;
-        if (typeof data.accessToken === "string" && data.accessToken) {
-          const expiresInSeconds = Number(data.expiresIn) || 3600;
-          finish(() => {
-            try {
-              popup.close();
-            } catch {
-            }
-            resolve({ accessToken: data.accessToken, expiresInSeconds });
-          });
-        } else {
-          finish(() => {
-            try {
-              popup.close();
-            } catch {
-            }
-            reject(new Error(typeof data.error === "string" ? data.error : "Google authorization failed."));
-          });
-        }
-      };
-      channel.port1.start();
-      opener.addEventListener("message", onReadyMessage);
-      const timer = opener.setTimeout(() => finish(() => {
-        try {
-          popup.close();
-        } catch {
-        }
-        reject(new Error("Google authorization timed out."));
-      }), POPUP_TIMEOUT_MS);
-      const closedPoll = opener.setInterval(() => {
-        if (popup.closed) finish(() => reject(new Error("Google authorization was cancelled.")));
-      }, 500);
     });
+  }
+  function navigateToOAuthBroker(browserWindow, url) {
+    const testNavigate = globalThis.__YOMU_TEST_NAVIGATE_TO_OAUTH__;
+    if (testNavigate) {
+      testNavigate(url);
+      return;
+    }
+    browserWindow.location.assign(url);
+  }
+  function consumeAuthRedirectResult() {
+    const browserWindow = typeof window !== "undefined" ? window : void 0;
+    if (!browserWindow?.location?.href) return null;
+    const state = oauthReturnState(browserWindow.location.href);
+    if (!state) return null;
+    const payload = parseOAuthWindowName(browserWindow.name);
+    clearOAuthReturnHash(browserWindow);
+    if (!payload || payload.type !== OAUTH_WINDOW_NAME_TYPE || payload.state !== state) {
+      return { ok: false, state, error: "Google authorization returned without a Yomu token." };
+    }
+    browserWindow.name = "";
+    if (typeof payload.accessToken === "string" && payload.accessToken) {
+      const expiresInSeconds = Number(payload.expiresIn) || 3600;
+      cachedToken = { token: payload.accessToken, expiresAt: Date.now() + expiresInSeconds * 1e3 };
+      return { ok: true, state };
+    }
+    return { ok: false, state, error: payload.error || "Google authorization failed." };
+  }
+  function parseOAuthWindowName(value) {
+    try {
+      const parsed = JSON.parse(value);
+      return isRecord(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  function oauthReturnState(href) {
+    let hash = "";
+    try {
+      hash = new URL(href).hash.slice(1);
+    } catch {
+      return "";
+    }
+    const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
+    const entry = hash.split("&").find((part) => part.startsWith(prefix));
+    return entry ? decodeURIComponent(entry.slice(prefix.length)) : "";
+  }
+  function clearOAuthReturnHash(browserWindow) {
+    if (!browserWindow.history?.replaceState) return;
+    try {
+      const url = new URL(browserWindow.location.href);
+      const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
+      const remainingHash = url.hash.slice(1).split("&").filter((part) => part && !part.startsWith(prefix)).join("&");
+      url.hash = remainingHash ? `#${remainingHash}` : "";
+      browserWindow.history.replaceState(browserWindow.history.state, document.title, url.toString());
+    } catch {
+    }
   }
   let identityServicesPromise = null;
   function loadIdentityServices() {
@@ -8126,20 +8214,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }))
     ].filter((row) => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled).sort(compareSourceRows);
   }
-  function frequencySourceRows(settings) {
-    return settings.dictionaryPreferences.filter((preference) => preference.type === "frequency").map((preference) => ({
-      id: preference.name,
-      name: preference.name,
-      alias: preference.alias,
-      enabled: preference.enabled,
-      priority: preference.priority,
-      prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
-      readonly: false,
-      removable: true,
-      dictionaryType: "frequency",
-      help: ""
-    })).sort(compareSourceRows);
-  }
   function kanjiSourceRows(settings) {
     const language = settings.interfaceLanguage;
     const apiSource = activeKanjiFactSource(settings);
@@ -8305,7 +8379,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function escapedUiText(language, key) {
     return escapeHtml(uiText(language, key));
   }
-  function renderHelpLinksPanel() {
+  function renderHelpLinksPanel(language = "en") {
     return `
         <div class="jpdb-reader-help-links-card" data-jpdb-reader-surface-ignore>
             <div class="jpdb-reader-settings-subsection">
@@ -8342,7 +8416,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                 <div class="jpdb-reader-help-actions">
                     <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">${externalButtonLabel("Video Player")}</a>
                     <a class="jpdb-reader-btn" href="${PDF_READER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="pdf-reader">${externalButtonLabel("PDF Reader")}</a>
-                    <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">${externalButtonLabel("New Tab")}</a>
+                    <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">${externalButtonLabel(uiText(language, "newTabPage"))}</a>
                     <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">${externalButtonLabel("Docs")}</a>
                     <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="factory-reset" data-help-link="factory-reset">Factory Reset</button>
                 </div>
@@ -8768,6 +8842,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return settings.popupActivationMode !== "off" && (settings.parseSelection || settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
   }
   function renderReaderSettingsPanel(settings) {
+    const pageScanMode = pageScanModeFromSettings(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>Reader</legend>
@@ -8784,7 +8859,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
                     ${checkbox("lookupOnHover", "Look up on hover", settings.lookupOnHover)}
                     ${checkbox("lookupOnMiddleMouse", "Look up with middle-mouse hold", settings.lookupOnMiddleMouse)}
                     ${checkbox("showFloatingButton", uiText(settings.interfaceLanguage, "showFloatingButton"), settings.showFloatingButton)}
-                    ${checkbox("manualScanEnabled", uiText(settings.interfaceLanguage, "manualScanEnabled"), settings.manualScanEnabled)}
+                    ${radioGroup("pageScanMode", uiText(settings.interfaceLanguage, "pageScanMode"), pageScanMode, [
+      ["off", uiText(settings.interfaceLanguage, "pageScanModeOff")],
+      ["auto", uiText(settings.interfaceLanguage, "pageScanModeAuto")],
+      ["manual", uiText(settings.interfaceLanguage, "pageScanModeManual")]
+    ])}
+                    <div class="jpdb-reader-shortcut-group" data-page-scan-manual-shortcut ${pageScanMode === "manual" ? "" : "hidden"}>
+                        <div data-manual-page-scan-shortcut-label>${shortcutInput("shortcuts.scanPage", uiText(settings.interfaceLanguage, "manualPageScanShortcut"), settings.shortcuts.scanPage)}</div>
+                    </div>
                     ${select("appearancePreset", "Quick setup", "", APPEARANCE_PRESET_OPTIONS)}
                     ${select("furiganaMode", "Furigana", effectiveFuriganaMode(settings), FURIGANA_MODE_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
@@ -8798,6 +8880,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
                 <div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">Set a hover key. Blank means plain hover.</div>
             </fieldset>
     `;
+  }
+  function pageScanModeFromSettings(settings) {
+    if (settings.annotationsPaused) return "off";
+    return settings.manualScanEnabled ? "manual" : "auto";
   }
   function renderHoverLookupSettingsSubsection(settings) {
     return `
@@ -8840,7 +8926,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
             <fieldset id="jpdb-reader-settings-panel-ocr" role="tabpanel" data-settings-panel="media" data-legend-key="images" aria-describedby="settings-help-ocr" hidden>
                 <legend>Image text (OCR)</legend>
                 <div class="grid jpdb-reader-settings-tgrid">
-                    ${checkbox("ocrEnabled", "Read text in images", settings.ocrEnabled)}
+                    ${radioGroup("ocrInteractionMode", uiText(settings.interfaceLanguage, "ocrInteractionMode"), ocrInteractionModeFromSettings(settings), [
+      ["auto", uiText(settings.interfaceLanguage, "ocrInteractionModeAuto")],
+      ["manual", uiText(settings.interfaceLanguage, "ocrInteractionModeManual")],
+      ["off", uiText(settings.interfaceLanguage, "ocrInteractionModeOff")]
+    ])}
                     ${checkbox("ocrShowTextOverlay", "Show recognized text on images", settings.ocrShowTextOverlay)}
                     ${checkbox("ocrVideoPauseFrames", "Read paused video frames", settings.ocrVideoPauseFrames)}
                     ${checkbox("ocrInvertDarkPanels", "Read light text on dark panels", settings.ocrInvertDarkPanels)}
@@ -8941,15 +9031,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>Sources</legend>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">Checking imported dictionaries...</div>
-                <div class="jpdb-reader-dictionary-priorities" data-source-editor>
+                <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
-                    <div class="jpdb-reader-help">External links and imported frequency badges. Tokens: {query}, {word}, {reading}.</div>
-                    <div data-frequency-lookup-pills>${renderFrequencyLookupPillRows(settings)}</div>
+                    <div class="jpdb-reader-help">External links and frequency badges in one order. Live Jiten/JPDB badges come from site lookup; installed frequency dictionaries are local and replace the matching live badge. Tokens: {query}, {word}, {reading}.</div>
                     <div class="jpdb-reader-lookup-links" data-source-editor>
-                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks)}
+                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, installedFrequencyDictionaryPreferences(settings, installedDictionariesFromPreferences(settings.dictionaryPreferences)))}
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
@@ -9026,7 +9115,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                     </div>
                     <div class="jpdb-reader-help" data-diagnostics-help>Print diagnostics to the console.</div>
                 </div>
-                ${renderHelpLinksPanel()}
+                ${renderHelpLinksPanel(settings.interfaceLanguage)}
             </fieldset>
     `;
   }
@@ -9472,6 +9561,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
     form.querySelectorAll("[data-shortcut-input]").forEach((inputEl) => {
       if (inputEl.name !== "shortcuts.hoverLookup") inputEl.placeholder = text("pressKeys");
     });
+    const pageScanLegend = getNamedControl(form, "pageScanMode")?.closest(".jpdb-reader-radio-group")?.querySelector("legend");
+    pageScanLegend?.replaceChildren(text("pageScanMode"));
+    setRadioLabel(form, "pageScanMode", "off", text("pageScanModeOff"));
+    setRadioLabel(form, "pageScanMode", "auto", text("pageScanModeAuto"));
+    setRadioLabel(form, "pageScanMode", "manual", text("pageScanModeManual"));
+    const manualPageScanShortcutLabel = form.querySelector("[data-manual-page-scan-shortcut-label] label");
+    if (manualPageScanShortcutLabel) setBlockLabelText(manualPageScanShortcutLabel, text("manualPageScanShortcut"));
+    const ocrModeLegend = getNamedControl(form, "ocrInteractionMode")?.closest(".jpdb-reader-radio-group")?.querySelector("legend");
+    ocrModeLegend?.replaceChildren(text("ocrInteractionMode"));
+    setRadioLabel(form, "ocrInteractionMode", "auto", text("ocrInteractionModeAuto"));
+    setRadioLabel(form, "ocrInteractionMode", "manual", text("ocrInteractionModeManual"));
+    setRadioLabel(form, "ocrInteractionMode", "off", text("ocrInteractionModeOff"));
     const immersionLimitLegend = getNamedControl(form, "immersionKitLimitEnabled")?.closest(".jpdb-reader-radio-group")?.querySelector("legend");
     immersionLimitLegend?.replaceChildren(text("immersionKitLimitEnabled"));
     setRadioLabel(form, "immersionKitLimitEnabled", "off", text("allExamples"));
@@ -9574,7 +9675,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     lookupHead[2]?.replaceChildren(text("lookupUrlTemplate"));
     lookupHead[3]?.replaceChildren(text("orderHeader"));
     lookupHead[4]?.replaceChildren(text("removeHeader"));
-    form.querySelectorAll(".jpdb-reader-lookup-link-note").forEach((note) => note.replaceChildren(text("copiesCurrentWord")));
+    form.querySelectorAll('.jpdb-reader-lookup-link-note[data-lookup-link-note="copy"]').forEach((note) => note.replaceChildren(text("copiesCurrentWord")));
     form.querySelectorAll(".jpdb-reader-lookup-link-fixed").forEach((note) => note.setAttribute("aria-label", text("builtInAction")));
     form.querySelectorAll('input[name^="dictionaryLookupLinks."][name$=".label"]').forEach((input2, index) => {
       input2.setAttribute("aria-label", text("lookupPillLabelNumber").replace("{number}", String(index + 1)));
@@ -9662,7 +9763,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function sourceHeadLabel(value, text) {
     if (value === "Kanji section") return text("kanjiSection");
-    if (value === "Frequency pill") return text("lookupPills");
     return text("definitionSource");
   }
   function replaceSourceHelp(form, pattern, value) {
@@ -9814,7 +9914,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "lookupOnHover",
     "lookupOnMiddleMouse",
     "showFloatingButton",
-    "manualScanEnabled",
+    "pageScanMode",
     "furiganaMode",
     "wordColorStates",
     "showPitchAccent",
@@ -9845,8 +9945,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "immersionKitMaxLength",
     "immersionKitPlaybackRate",
     "immersionKitExactMatch",
-    "ocrEnabled",
-    "ocrAutoScanImages",
+    "ocrInteractionMode",
     "ocrShowTextOverlay",
     "ocrVideoPauseFrames",
     "ocrInvertDarkPanels",
@@ -10256,6 +10355,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     input2.disabled = unavailable;
     if (unavailable) input2.checked = false;
   }
+  function syncPageScanModeControls(form) {
+    const mode = form.querySelector('input[name="pageScanMode"]:checked')?.value ?? "auto";
+    form.querySelectorAll("[data-page-scan-manual-shortcut]").forEach((node) => {
+      node.hidden = mode !== "manual";
+    });
+  }
   function syncFontFamilyControls(form) {
     form.querySelectorAll("[data-font-family-control]").forEach((control) => {
       const selectElement = control.querySelector("select");
@@ -10307,8 +10412,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const rows = definitionSourceRows(settings);
     const showAlias = true;
     const visibleNames = /* @__PURE__ */ new Set([
-      ...rows.filter((row) => row.removable).map((row) => row.name),
-      ...frequencySourceRows(settings).map((row) => row.name)
+      ...rows.filter((row) => row.removable).map((row) => row.name)
     ]);
     const hiddenPreferences = settings.dictionaryPreferences.filter((preference) => !visibleNames.has(preference.name));
     const hidden = hiddenPreferences.map((preference) => {
@@ -10333,15 +10437,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function renderKanjiSourceRows(settings) {
     return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: "Kanji section", showAlias: true });
   }
-  function renderFrequencyLookupPillRows(settings) {
-    const rows = frequencySourceRows(settings);
-    if (!rows.length) return "";
-    return `
-        <div class="jpdb-reader-help" data-help-key="frequencyLookupPillsHelp">Imported frequency dictionaries show as badge pills when a lookup has matching data.</div>
-        <div class="jpdb-reader-dictionary-priorities" data-source-editor>
-            ${renderSourceRowsList(rows, { sourceLabel: "Frequency pill", showAlias: true })}
-        </div>
-    `;
+  function renderLookupPillsEditor(settings, installed = installedDictionariesFromPreferences(settings.dictionaryPreferences)) {
+    return renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, installedFrequencyDictionaryPreferences(settings, installed));
+  }
+  function installedFrequencyDictionaryPreferences(settings, installed) {
+    const installedFrequencyNames = new Set(installed.filter((dictionary) => dictionary.type === "frequency").map((dictionary) => dictionary.title));
+    return settings.dictionaryPreferences.filter((preference) => preference.type === "frequency" && installedFrequencyNames.has(preference.name));
   }
   function renderRecommendedDictionaries(installed) {
     const groups = [
@@ -10992,6 +11093,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ].join(",");
   const SETTINGS_FOCUS_SCROLL_MARGIN_PX = 16;
   const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
+  const CLOUD_SETTINGS_PENDING_ACTION_KEY = "__yomu_cloud_settings_sync_pending_action";
+  const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1e3;
   function settingsStatusSetter(status) {
     return (message) => {
       if (status) status.textContent = message;
@@ -11223,15 +11326,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function dictionaryStatusElements(form) {
     return {
       status: form.querySelector("[data-dictionary-status]"),
-      priorities: form.querySelector(".jpdb-reader-dictionary-priorities"),
-      frequencyLookupPills: form.querySelector("[data-frequency-lookup-pills]"),
+      priorities: form.querySelector("[data-definition-source-editor]"),
+      lookupPills: form.querySelector(".jpdb-reader-lookup-links"),
       recommended: form.querySelector("[data-recommended-dictionaries]")
     };
   }
   function renderDictionaryStatusElements(elements, summary, settings) {
     if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
-    if (elements.frequencyLookupPills) setInnerHtml(elements.frequencyLookupPills, renderFrequencyLookupPillRows(settings));
+    if (elements.lookupPills) setInnerHtml(elements.lookupPills, renderLookupPillsEditor(settings, summary.dictionaries));
     if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
   }
   function dictionaryStatusText(summary, language) {
@@ -11310,6 +11413,30 @@ recommendedJiten	Jiten由来の頻度バッジです。
       void this.refreshAnkiConnectionStatus(form);
       syncSubtitlePreview(form);
       this.refreshSettingsJapaneseParse(form);
+    }
+    async resumePendingCloudSettingsSync() {
+      if (!CLOUD_SETTINGS_SYNC_ENABLED || !cloudSettingsSyncAvailable()) return false;
+      const pending = await this.readPendingCloudSettingsAction();
+      if (!pending) return false;
+      const authResult = cloudSettingsAuthRedirectResult();
+      if (!authResult) return false;
+      await this.clearPendingCloudSettingsAction();
+      const language = this.settings.interfaceLanguage;
+      if (!authResult.ok) {
+        const message = authResult.error || "Google authorization failed.";
+        this.dependencies.toast(message);
+        this.open("dictionaries");
+        return true;
+      }
+      try {
+        await this.performCloudSettingsAction(pending.action, language, void 0);
+        if (pending.action === "sync-cloud-settings") this.open("dictionaries");
+      } catch (error) {
+        const message = errorMessage(error, uiText(language, "actionFailed"));
+        this.dependencies.toast(message);
+        this.open("dictionaries");
+      }
+      return true;
     }
     get settings() {
       return this.dependencies.getSettings();
@@ -11623,6 +11750,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
           node.hidden = value !== "cloud-vision";
         });
       });
+      form.querySelectorAll('input[name="pageScanMode"]').forEach((input2) => {
+        input2.addEventListener("change", () => syncPageScanModeControls(form));
+      });
+      syncPageScanModeControls(form);
     }
     bindEditorControls(form) {
       suppressCredentialAutofill(form);
@@ -12249,7 +12380,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return false;
     }
     async handleSettingsCloudSyncAction(form, action, control, setStatus) {
-      if (!CLOUD_SETTINGS_SYNC_ENABLED || action !== "sync-cloud-settings" && action !== "restore-cloud-settings") return false;
+      if (!CLOUD_SETTINGS_SYNC_ENABLED || !isCloudSettingsAction(action)) return false;
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
       if (!cloudSettingsSyncAvailable()) {
         setStatus(cloudSettingsSyncUnavailableStatus(language));
@@ -12257,45 +12388,75 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       const button = settingsActionButton(control);
       button?.setAttribute("disabled", "true");
+      await this.rememberPendingCloudSettingsAction(action);
       try {
-        if (action === "sync-cloud-settings") {
-          this.settings = readFormSettings(new FormData(form), this.settings);
-          await saveSettings(this.settings);
-          const metadata = await uploadCloudSettingsToCloud(this.settings);
-          const message2 = cloudSettingsSyncedStatus(metadata.syncedAt, language);
-          setStatus(message2);
-          this.dependencies.toast(message2);
-          log.info("Cloud settings synced", { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
-          return true;
-        }
-        const snapshot = await downloadCloudSettingsFromCloud();
-        if (!snapshot) {
-          setStatus(cloudSettingsNotFoundStatus(language));
-          return true;
-        }
-        this.settings = normalizeReaderSettings({
-          ...this.settings,
-          ...snapshot.settings,
-          shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts }
-        });
-        await saveSettings(this.settings);
-        const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language);
-        setStatus(message);
-        this.dependencies.toast(message);
-        this.dependencies.applyTheme();
-        void this.dependencies.refreshDictionaryStyles();
-        this.dependencies.scheduleDictionaryRescan();
-        this.dependencies.installFab();
-        this.dependencies.subtitles.refresh();
-        this.dependencies.ocr.refresh();
-        this.dependencies.youtube.refresh();
-        this.dependencies.clearSettingsPreview();
-        log.info("Cloud settings restored", { syncedAt: snapshot.syncedAt });
-        this.open("dictionaries");
+        if (action === "sync-cloud-settings") this.settings = readFormSettings(new FormData(form), this.settings);
+        await this.performCloudSettingsAction(action, language, setStatus);
+        await this.clearPendingCloudSettingsAction();
         return true;
+      } catch (error) {
+        await this.clearPendingCloudSettingsAction();
+        throw error;
       } finally {
         button?.removeAttribute("disabled");
       }
+    }
+    async performCloudSettingsAction(action, language, setStatus) {
+      if (action === "sync-cloud-settings") {
+        await saveSettings(this.settings);
+        const metadata = await uploadCloudSettingsToCloud(this.settings);
+        const message2 = cloudSettingsSyncedStatus(metadata.syncedAt, language);
+        setStatus?.(message2);
+        this.dependencies.toast(message2);
+        log.info("Cloud settings synced", { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
+        return;
+      }
+      const snapshot = await downloadCloudSettingsFromCloud();
+      if (!snapshot) {
+        setStatus?.(cloudSettingsNotFoundStatus(language));
+        return;
+      }
+      this.settings = normalizeReaderSettings({
+        ...this.settings,
+        ...snapshot.settings,
+        shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts }
+      });
+      await saveSettings(this.settings);
+      const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language);
+      setStatus?.(message);
+      this.dependencies.toast(message);
+      this.dependencies.applyTheme();
+      void this.dependencies.refreshDictionaryStyles();
+      this.dependencies.scheduleDictionaryRescan();
+      this.dependencies.installFab();
+      this.dependencies.subtitles.refresh();
+      this.dependencies.ocr.refresh();
+      this.dependencies.youtube.refresh();
+      this.dependencies.clearSettingsPreview();
+      log.info("Cloud settings restored", { syncedAt: snapshot.syncedAt });
+      this.open("dictionaries");
+    }
+    async rememberPendingCloudSettingsAction(action) {
+      await gmStorageSet(CLOUD_SETTINGS_PENDING_ACTION_KEY, {
+        action,
+        startedAt: Date.now(),
+        href: location.href
+      });
+    }
+    async clearPendingCloudSettingsAction() {
+      await gmStorageDelete(CLOUD_SETTINGS_PENDING_ACTION_KEY);
+    }
+    async readPendingCloudSettingsAction() {
+      const pending = await gmStorageGet(CLOUD_SETTINGS_PENDING_ACTION_KEY, null);
+      if (!isPendingCloudSettingsAction(pending)) {
+        await this.clearPendingCloudSettingsAction();
+        return null;
+      }
+      if (Date.now() - pending.startedAt > CLOUD_SETTINGS_PENDING_ACTION_TTL_MS) {
+        await this.clearPendingCloudSettingsAction();
+        return null;
+      }
+      return pending;
     }
     async handleSettingsImportExportAction(form, action, setStatus) {
       if (action === "import-yomitan-settings") {
@@ -12764,6 +12925,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function isLookupLinkEditorAction(action) {
     return action === "lookup-link-add" || action === "lookup-link-remove" || action === "lookup-link-up" || action === "lookup-link-down";
+  }
+  function isCloudSettingsAction(action) {
+    return action === "sync-cloud-settings" || action === "restore-cloud-settings";
+  }
+  function isPendingCloudSettingsAction(value) {
+    if (!value || typeof value !== "object") return false;
+    const record = value;
+    return typeof record.startedAt === "number" && Number.isFinite(record.startedAt) && typeof record.href === "string" && typeof record.action === "string" && isCloudSettingsAction(record.action);
   }
   function getReaderStorageExport(value) {
     if (!value || typeof value !== "object") return null;

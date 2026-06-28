@@ -102,7 +102,11 @@ export function shouldForceBlobAudioCandidate(candidate: AudioCandidate): boolea
 }
 
 export function shouldFetchDirectMediaAsBlob(url: string): boolean {
-    return /^https?:\/\//i.test(url);
+    return /^https?:\/\//i.test(url) && !isLoopbackAudioUrl(url);
+}
+
+export function shouldFetchMediaUrlAsBlobBeforePlayback(url: string): boolean {
+    return isKnownCorsBlockedPublicAudioCdnUrl(url);
 }
 
 function structuredAudioUrlsForValue(value: unknown, sourceUrl?: string): string[] | null {
@@ -187,6 +191,7 @@ export async function getAudioCandidates(source: AudioSourceSetting, card: JPDBC
 }
 
 export function shouldCacheAudioCandidates(source: AudioSourceSetting, candidates: AudioCandidate[]): boolean {
+    if (!candidates.length) return false;
     return source.type !== 'jpdb-tts' || candidates.length > 1;
 }
 
@@ -949,7 +954,8 @@ export function shouldFetchCandidateAsBlob(candidate: AudioCandidate, audioViaBl
 function canFetchAudioCandidateAsBlob(candidate: AudioCandidate, audioViaBlob: boolean): boolean {
     return audioViaBlob
         && !candidate.url.startsWith('blob:')
-        && !candidate.url.startsWith('data:audio/');
+        && !candidate.url.startsWith('data:audio/')
+        && !isLoopbackAudioUrl(candidate.url);
 }
 
 function isBlobFetchableAudioCandidate(candidate: AudioCandidate): boolean {
@@ -957,6 +963,15 @@ function isBlobFetchableAudioCandidate(candidate: AudioCandidate): boolean {
         || isAppleTouchBrowser()
         || isJapanesePod101Url(candidate.url)
         || isJapanesePod101Url(candidate.sourceUrl);
+}
+
+export function isLoopbackAudioUrl(value: string): boolean {
+    try {
+        const base = typeof location === 'undefined' ? undefined : location.href;
+        return isLoopbackAudioHost(new URL(value, base).hostname);
+    } catch {
+        return false;
+    }
 }
 
 export function preconnectAudioUrl(value: string): void {

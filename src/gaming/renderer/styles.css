@@ -1,0 +1,636 @@
+:root {
+    color-scheme: light;
+    background: var(--jpdb-reader-bg);
+    color: var(--jpdb-reader-text);
+    font-family: var(--jpdb-reader-font);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+    min-width: 320px;
+    min-height: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--jpdb-reader-bg);
+}
+
+html.yomu-gaming-overlay-document,
+body.yomu-gaming-overlay-document,
+body.yomu-gaming-overlay-document #app {
+    background: transparent;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+.yomu-gaming-shell {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--jpdb-reader-bg);
+    color: var(--jpdb-reader-text);
+    overflow: hidden;
+}
+
+.yomu-gaming-settings.jpdb-reader-settings {
+    position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
+    width: min(1180px, calc(100vw - 24px));
+    height: calc(100vh - 24px);
+    height: calc(100dvh - 24px);
+    max-height: none;
+    margin: 12px auto;
+    border: 1px solid var(--jpdb-reader-border);
+    border-radius: 12px;
+    background: var(--jpdb-reader-surface);
+    box-shadow: 0 20px 46px var(--jpdb-reader-shadow);
+}
+
+.yomu-gaming-settings .jpdb-reader-settings-head {
+    padding-top: 16px;
+}
+
+.yomu-gaming-settings .jpdb-reader-settings-drag-handle {
+    display: none;
+}
+
+.yomu-gaming-onboarding {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.1fr) minmax(240px, 0.9fr);
+    gap: 14px;
+    margin: 0 18px 12px;
+    padding: 14px;
+    border: 1px solid var(--jpdb-reader-border);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--jpdb-reader-surface-2) 72%, transparent);
+}
+
+.yomu-gaming-onboarding[data-first-run-dismissed="true"] .yomu-gaming-first-run-copy,
+.yomu-gaming-onboarding[data-first-run-dismissed="true"] .yomu-gaming-first-run-controls,
+.yomu-gaming-onboarding[data-first-run-dismissed="true"] .yomu-gaming-first-run-features,
+.yomu-gaming-onboarding[data-first-run-dismissed="true"] [data-action="dismiss-gaming-first-run"] {
+    display: none;
+}
+
+.yomu-gaming-onboarding[data-first-run-dismissed="true"] {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding-block: 10px;
+}
+
+.yomu-gaming-first-run-copy {
+    display: grid;
+    gap: 5px;
+    align-content: start;
+}
+
+.yomu-gaming-kicker {
+    margin: 0;
+    color: var(--jpdb-reader-accent);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.yomu-gaming-first-run-copy h1 {
+    margin: 0;
+    color: var(--jpdb-reader-text);
+    font-size: 24px;
+    line-height: 1.1;
+}
+
+.yomu-gaming-first-run-copy p:not(.yomu-gaming-kicker) {
+    margin: 0;
+    max-width: 58ch;
+    color: var(--jpdb-reader-muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.yomu-gaming-first-run-controls {
+    display: grid;
+    gap: 8px;
+    align-content: start;
+}
+
+.yomu-gaming-first-run-controls label {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+}
+
+.yomu-gaming-first-run-controls label span {
+    color: var(--jpdb-reader-muted);
+    font-size: 11px;
+    font-weight: 850;
+}
+
+.yomu-gaming-first-run-controls input {
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    padding: 0 11px;
+    border: 1px solid var(--jpdb-reader-border);
+    border-radius: 8px;
+    background: var(--jpdb-reader-surface);
+    color: var(--jpdb-reader-text);
+    font-weight: 800;
+}
+
+.yomu-gaming-page-scan-setup {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    margin: 0;
+    padding: 10px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 78%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--jpdb-reader-surface) 58%, transparent);
+}
+
+.yomu-gaming-page-scan-setup legend {
+    padding: 0 4px;
+    color: var(--jpdb-reader-text);
+    font-size: 12px;
+    font-weight: 850;
+}
+
+.yomu-gaming-segmented {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    min-height: 34px;
+    overflow: hidden;
+    border: 1px solid var(--jpdb-reader-border);
+    border-radius: 8px;
+    background: var(--jpdb-reader-surface);
+}
+
+.yomu-gaming-segmented label {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+}
+
+.yomu-gaming-segmented label + label {
+    border-left: 1px solid var(--jpdb-reader-border);
+}
+
+.yomu-gaming-segmented input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.yomu-gaming-segmented span {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-height: 34px;
+    color: var(--jpdb-reader-muted);
+    font-size: 12px;
+    font-weight: 850;
+}
+
+.yomu-gaming-segmented input:checked + span {
+    background: var(--jpdb-reader-accent);
+    color: var(--jpdb-reader-accent-text);
+}
+
+.yomu-gaming-segmented input:focus-visible + span {
+    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 24%, var(--jpdb-reader-white));
+}
+
+.yomu-gaming-first-run-controls input:disabled,
+.yomu-gaming-native-shortcut input:disabled {
+    color: var(--jpdb-reader-muted);
+    cursor: progress;
+}
+
+.yomu-gaming-first-run-controls input:focus,
+.yomu-gaming-native-shortcut input:focus {
+    border-color: var(--jpdb-reader-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
+    outline: none;
+}
+
+.yomu-gaming-native-shortcut {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.yomu-gaming-native-shortcut label {
+    display: grid;
+    gap: 5px;
+}
+
+.yomu-gaming-native-shortcut input {
+    min-height: 38px;
+    padding: 0 11px;
+    border: 1px solid var(--jpdb-reader-border);
+    border-radius: 8px;
+    background: var(--jpdb-reader-surface);
+    color: var(--jpdb-reader-text);
+    font-weight: 800;
+}
+
+.yomu-gaming-first-run-features {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.yomu-gaming-first-run-features > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    padding: 8px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--jpdb-reader-surface) 74%, transparent);
+}
+
+.yomu-gaming-first-run-features span {
+    white-space: normal;
+}
+
+.yomu-gaming-onboarding-summary {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    min-width: 0;
+}
+
+.yomu-gaming-onboarding-summary > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.yomu-gaming-onboarding strong {
+    color: var(--jpdb-reader-text);
+    font-size: 12px;
+    font-weight: 850;
+}
+
+.yomu-gaming-onboarding span {
+    overflow: hidden;
+    color: var(--jpdb-reader-muted);
+    font-size: 12px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.yomu-gaming-first-run-actions {
+    display: flex;
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.yomu-gaming-settings .jpdb-reader-settings-scroll {
+    padding-bottom: 112px;
+}
+
+.yomu-gaming-capture-button.jpdb-reader-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.yomu-gaming-capture-button kbd {
+    max-width: 136px;
+    overflow: hidden;
+    padding: 3px 7px;
+    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
+    color: inherit;
+    font: 800 10px/1 var(--jpdb-reader-font);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.overlay-shell {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    cursor: crosshair;
+    background: transparent;
+    user-select: none;
+}
+
+.overlay-shell[data-overlay-mode="selecting"],
+.overlay-shell[data-overlay-mode="busy"],
+.overlay-shell[data-overlay-mode="error"] {
+    background: color-mix(in srgb, var(--jpdb-reader-black) 4%, transparent);
+}
+
+.overlay-status {
+    position: fixed;
+    left: max(14px, env(safe-area-inset-left));
+    top: max(14px, env(safe-area-inset-top));
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    max-width: calc(100vw - 28px);
+    min-height: 38px;
+    padding: 0 7px 0 12px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 22%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jpdb-reader-black) 64%, transparent);
+    color: var(--jpdb-reader-white);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--jpdb-reader-black) 42%, transparent);
+    cursor: default;
+    font: 800 13px/1 var(--jpdb-reader-font);
+    backdrop-filter: blur(8px);
+}
+
+.overlay-status strong {
+    color: var(--jpdb-reader-accent);
+    font-weight: 900;
+}
+
+.overlay-status span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.overlay-actions button,
+.overlay-term-pills button,
+.overlay-primary-term {
+    min-height: 32px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jpdb-reader-black) 42%, transparent);
+    color: var(--jpdb-reader-white);
+    cursor: pointer;
+    font-weight: 850;
+}
+
+.overlay-selection {
+    position: fixed;
+    z-index: 2;
+    border: 2px solid var(--jpdb-reader-accent);
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
+    box-shadow:
+        0 0 0 9999px color-mix(in srgb, var(--jpdb-reader-black) 18%, transparent),
+        0 10px 28px color-mix(in srgb, var(--jpdb-reader-black) 36%, transparent);
+    pointer-events: none;
+}
+
+.overlay-result {
+    position: fixed;
+    z-index: 6;
+    display: grid;
+    gap: 9px;
+    max-width: calc(100vw - 24px);
+    max-height: min(280px, calc(100vh - 24px));
+    overflow: auto;
+    padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, #111820 92%, transparent);
+    color: var(--jpdb-reader-white);
+    box-shadow: 0 18px 42px color-mix(in srgb, var(--jpdb-reader-black) 52%, transparent);
+    cursor: default;
+    backdrop-filter: blur(10px);
+}
+
+.overlay-result-compact {
+    align-content: start;
+    width: max-content;
+    padding: 8px;
+    border-radius: 16px;
+    background: color-mix(in srgb, #101820 72%, transparent);
+}
+
+.overlay-result strong {
+    font-size: 13px;
+    line-height: 1.3;
+}
+
+.overlay-result p {
+    margin: 0;
+    max-height: 88px;
+    overflow: auto;
+    color: color-mix(in srgb, var(--jpdb-reader-white) 84%, transparent);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.overlay-caption {
+    max-width: min(680px, calc(100vw - 48px));
+    overflow: hidden;
+    padding: 8px 12px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 26%, var(--jpdb-reader-black) 52%);
+    color: var(--jpdb-reader-white);
+    font-size: 20px;
+    font-weight: 850;
+    line-height: 1.22;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 2px color-mix(in srgb, var(--jpdb-reader-black) 72%, transparent);
+    white-space: nowrap;
+}
+
+.overlay-primary-term {
+    width: auto;
+    padding: 8px 11px;
+    border-color: color-mix(in srgb, var(--jpdb-reader-accent) 60%, transparent);
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 28%, transparent);
+    color: var(--jpdb-reader-white);
+    font-size: 22px;
+    line-height: 1.15;
+    text-align: left;
+}
+
+.overlay-actions,
+.overlay-term-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.overlay-actions button,
+.overlay-term-pills button {
+    padding: 0 11px;
+}
+
+.overlay-term-pills button {
+    max-width: 118px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.overlay-term-pills-primary {
+    align-items: center;
+}
+
+.overlay-result-compact .overlay-term-pills button {
+    background: color-mix(in srgb, var(--jpdb-reader-black) 50%, transparent);
+}
+
+.overlay-inline-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+}
+
+.overlay-inline-toolbar {
+    position: fixed;
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 30px;
+    padding: 3px 4px 3px 10px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jpdb-reader-black) 48%, transparent);
+    color: var(--jpdb-reader-white);
+    font-size: 12px;
+    font-weight: 850;
+    pointer-events: auto;
+    backdrop-filter: blur(8px);
+}
+
+.overlay-inline-toolbar strong {
+    color: var(--jpdb-reader-accent);
+    font-weight: 900;
+}
+
+.overlay-inline-toolbar button,
+.overlay-inline-line button {
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 22%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jpdb-reader-black) 48%, transparent);
+    color: var(--jpdb-reader-white);
+    cursor: pointer;
+    font-weight: 850;
+}
+
+.overlay-inline-toolbar button {
+    min-height: 24px;
+    padding: 0 9px;
+    font-size: 11px;
+}
+
+.overlay-inline-line {
+    position: fixed;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+    padding: 2px;
+    border-radius: 9px;
+    pointer-events: auto;
+}
+
+.overlay-inline-line[data-vertical="true"] {
+    align-items: flex-start;
+}
+
+.overlay-inline-text {
+    max-width: min(100%, 680px);
+    min-height: 30px;
+    overflow: hidden;
+    padding: 4px 9px;
+    background: color-mix(in srgb, var(--jpdb-reader-black) 54%, transparent);
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--jpdb-reader-accent) 30%, transparent),
+        0 8px 18px color-mix(in srgb, var(--jpdb-reader-black) 30%, transparent);
+    font-size: 15px;
+    line-height: 1.25;
+    text-align: left;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 2px color-mix(in srgb, var(--jpdb-reader-black) 80%, transparent);
+    white-space: nowrap;
+    backdrop-filter: blur(4px);
+}
+
+.overlay-inline-terms {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.overlay-inline-terms button {
+    min-height: 25px;
+    max-width: 108px;
+    overflow: hidden;
+    padding: 0 8px;
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 34%, var(--jpdb-reader-black) 48%);
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+    .yomu-gaming-settings.jpdb-reader-settings {
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        margin: 0;
+        border-width: 0;
+        border-radius: 0;
+    }
+
+    .yomu-gaming-capture-button.jpdb-reader-btn {
+        justify-content: center;
+    }
+
+    .yomu-gaming-onboarding {
+        align-items: stretch;
+        grid-template-columns: 1fr;
+        margin: 0 12px 12px;
+    }
+
+    .yomu-gaming-onboarding[data-first-run-dismissed="true"] {
+        grid-template-columns: 1fr;
+    }
+
+    .yomu-gaming-onboarding-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .yomu-gaming-first-run-features {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .yomu-gaming-onboarding span {
+        white-space: normal;
+    }
+
+    .overlay-inline-text {
+        max-width: min(100%, calc(100vw - 24px));
+        font-size: 13px;
+    }
+}

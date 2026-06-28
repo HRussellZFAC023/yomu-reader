@@ -17,6 +17,7 @@ import {
 } from './subtitle-cues';
 import {
     TRANSCRIPT_PANEL_MARGIN,
+    TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT,
     applyTranscriptPanelLayout,
     computeSubtitleDrawerLayout,
     loadSubtitleDragOffsetFraction,
@@ -395,8 +396,8 @@ function youtubeFullscreenHostForVideo(video: HTMLVideoElement | undefined): HTM
     if (!isYouTubePage()) return null;
     const scopedHost = [
         video?.closest<HTMLElement>('[data-yomu-inline-fullscreen="true"]'),
-        video?.closest<HTMLElement>('.html5-video-player.ytp-fullscreen'),
-        video?.closest<HTMLElement>('#movie_player.ytp-fullscreen'),
+        video?.closest<HTMLElement>('.html5-video-player.ytp-fullscreen, .html5-video-player.fullscreen'),
+        video?.closest<HTMLElement>('#movie_player.ytp-fullscreen, #movie_player.fullscreen'),
         video?.closest<HTMLElement>('ytd-watch-flexy[fullscreen] #movie_player'),
         video?.closest<HTMLElement>('ytd-watch-flexy[fullscreen] ytd-player'),
         video?.closest<HTMLElement>('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen'),
@@ -405,8 +406,8 @@ function youtubeFullscreenHostForVideo(video: HTMLVideoElement | undefined): HTM
 
     return [
         document.querySelector<HTMLElement>('[data-yomu-inline-fullscreen="true"]'),
-        document.querySelector<HTMLElement>('.html5-video-player.ytp-fullscreen'),
-        document.querySelector<HTMLElement>('#movie_player.ytp-fullscreen'),
+        document.querySelector<HTMLElement>('.html5-video-player.ytp-fullscreen, .html5-video-player.fullscreen'),
+        document.querySelector<HTMLElement>('#movie_player.ytp-fullscreen, #movie_player.fullscreen'),
         document.querySelector<HTMLElement>('ytd-watch-flexy[fullscreen] #movie_player'),
         document.querySelector<HTMLElement>('ytd-watch-flexy[fullscreen] ytd-player'),
         document.querySelector<HTMLElement>('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen'),
@@ -468,6 +469,21 @@ function youtubeWatchPlayerMeaningfullyVisible(rect: DOMRect): boolean {
 function subtitleElementOverflows(element: HTMLElement): boolean {
     return element.scrollHeight > element.clientHeight + 1
         || element.scrollWidth > element.clientWidth + 1;
+}
+
+function elementFullyVisibleWithinScroller(element: HTMLElement, scroller: HTMLElement, margin = 0): boolean {
+    const elementRect = element.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+    return elementRect.top >= scrollerRect.top + margin
+        && elementRect.bottom <= scrollerRect.bottom - margin;
+}
+
+function setElementScrollTop(element: HTMLElement, top: number): void {
+    if (typeof element.scrollTo === 'function') {
+        element.scrollTo({ top, behavior: 'auto' });
+        return;
+    }
+    element.scrollTop = top;
 }
 
 function subtitleSecondaryFontSize(target: number): number {
@@ -609,6 +625,7 @@ const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 8;
 const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 48;
 const TRANSCRIPT_AUTO_SCROLL_RESUME_FALLBACK_SECONDS = 30;
 const TRANSCRIPT_AUTO_SCROLL_RESUME_LEGACY_DEFAULT_SECONDS = 4;
+const SUBTITLE_CURRENT_CUE_HOLD_GRACE_SECONDS = 0.12;
 // Housekeeping cadence while playing (track discovery, realign backstop, chrome
 // idle). Cue + karaoke precision is owned by the per-frame sampler
 // (startFrameSync), so this no longer needs to run at 250ms.
@@ -951,6 +968,8 @@ export class SubtitlePlayerController {
     private lastKaraokeProgressKey?: number;
     private lastKaraokePrimaryWord?: HTMLElement | null;
     private alignFrame?: number;
+    private fullscreenLayoutFrame?: number;
+    private fullscreenStabilizeTimer?: number;
     private alignAfterTranscriptResize = false;
     private lastAlignedVideoRectKey = '';
     private lastShortsNavVideoId = '';
@@ -1081,8 +1100,7 @@ export class SubtitlePlayerController {
         this.observer = new MutationObserver(mutations => {
             this.syncYouTubeMobileBottomSheetState();
             if (mutations.some(mutation => this.mutationCouldAffectFullscreenState(mutation))) {
-                this.syncFullscreenState();
-                this.scheduleAlignToVideo();
+                this.scheduleFullscreenLayoutChange();
             }
             if (mutations.every(mutationInsideReaderRoot)) return;
             if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
@@ -1105,7 +1123,7 @@ export class SubtitlePlayerController {
         }
         for (const eventName of SUBTITLE_FULLSCREEN_CHANGE_EVENTS) {
             document.addEventListener(eventName, () => {
-                this.handleFullscreenLayoutChange();
+                this.scheduleFullscreenLayoutChange();
             }, this.eventOptions());
         }
         window.addEventListener('scroll', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
@@ -1135,11 +1153,27 @@ export class SubtitlePlayerController {
     }
 
     private handleFullscreenLayoutChange(): void {
+        this.fullscreenLayoutFrame = clearWindowAnimationFrame(this.fullscreenLayoutFrame);
+        this.runFullscreenLayoutChange();
+    }
+
+    private scheduleFullscreenLayoutChange(): void {
+        if (this.fullscreenLayoutFrame !== undefined) return;
+        this.fullscreenLayoutFrame = requestAnimationFrame(() => {
+            this.fullscreenLayoutFrame = undefined;
+            this.handleFullscreenLayoutChange();
+        });
+    }
+
+    private runFullscreenLayoutChange(): void {
+        if (this.destroyed) return;
         this.syncFullscreenState();
         if (this.video && !this.video.paused) this.startFrameSync(this.video);
         this.alignToVideo();
         this.scheduleAlignToVideo();
-        window.setTimeout(() => {
+        this.fullscreenStabilizeTimer = clearWindowTimeout(this.fullscreenStabilizeTimer);
+        this.fullscreenStabilizeTimer = window.setTimeout(() => {
+            this.fullscreenStabilizeTimer = undefined;
             if (!this.destroyed) this.scheduleAlignToVideo();
         }, 80);
         this.render();
@@ -1159,6 +1193,8 @@ export class SubtitlePlayerController {
         this.stopFrameSync();
         this.clearControlsIdleTimer();
         this.alignFrame = clearWindowAnimationFrame(this.alignFrame);
+        this.fullscreenLayoutFrame = clearWindowAnimationFrame(this.fullscreenLayoutFrame);
+        this.fullscreenStabilizeTimer = clearWindowTimeout(this.fullscreenStabilizeTimer);
         this.transcriptScrollFrame = clearWindowAnimationFrame(this.transcriptScrollFrame);
         this.transcriptHydrateFrame = clearWindowAnimationFrame(this.transcriptHydrateFrame);
         this.transcriptVirtualRenderFrame = clearWindowAnimationFrame(this.transcriptVirtualRenderFrame);
@@ -1474,7 +1510,7 @@ export class SubtitlePlayerController {
         }, this.eventOptions({ passive: true }));
         video.addEventListener('loadeddata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         for (const eventName of ['webkitbeginfullscreen', 'webkitendfullscreen', 'webkitpresentationmodechanged'] as const) {
-            video.addEventListener(eventName, () => this.handleFullscreenLayoutChange(), this.eventOptions({ passive: true }));
+            video.addEventListener(eventName, () => this.scheduleFullscreenLayoutChange(), this.eventOptions({ passive: true }));
         }
         const handlePlaybackTimeChanged = () => this.syncSubtitleToPlaybackTime();
         video.addEventListener('timeupdate', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
@@ -2006,9 +2042,18 @@ export class SubtitlePlayerController {
         const secondary = this.secondaryTrackId
             ? (findActiveSubtitleCue(this.secondaryCues, time) ?? findInitialLeadInCue(this.secondaryCues, time))
             : undefined;
-        const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time, secondary) : undefined;
+        const cue = this.selectedTrackId ? this.stablePrimaryCueAtTime(time, this.findRenderablePrimaryCue(time, secondary)) : undefined;
         if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
         else this.warmParseOnGapAnchorJump();
+    }
+
+    private stablePrimaryCueAtTime(time: number, cue: SubtitleCue | undefined): SubtitleCue | undefined {
+        const current = this.currentCue;
+        if (!cue || !current || cue === current) return cue;
+        if (cue.start <= current.start || time >= cue.start) return cue;
+        if (cue.start < current.end) return cue;
+        if (time < current.start - 0.05 || time >= current.end + SUBTITLE_CURRENT_CUE_HOLD_GRACE_SECONDS) return cue;
+        return current;
     }
 
     // Auto-generated YouTube captions and their `&tlang=` translations are
@@ -4752,26 +4797,37 @@ export class SubtitlePlayerController {
     private renderTranscriptPanelPreview(): void {
         const panel = this.renderableTranscriptPanel();
         if (!panel) return;
-        const fullState = this.transcriptPanelRenderState();
-        const state = this.transcriptPanelPreviewState(fullState);
-        this.transcriptPreviewPlayerResizeDeferred = true;
+        const state = this.transcriptPanelPreviewState();
+        this.transcriptPreviewPlayerResizeDeferred = false;
         this.lastTranscriptSignature = '';
         setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
-        this.afterTranscriptPanelRender(state, { deferPlayerResize: true });
+        this.afterTranscriptPanelRender(state);
     }
 
-    private transcriptPanelPreviewState(state: TranscriptPanelRenderState): TranscriptPanelRenderState {
-        const rowCount = state.rows.length;
-        if (!rowCount) return { ...state, signature: `preview:${state.signature}`, totalRowCount: 0 };
-        const activeIndex = state.currentRowIndex >= 0 ? state.currentRowIndex : 0;
+    private transcriptPanelPreviewState(): TranscriptPanelRenderState {
+        const rows = this.transcriptRows();
+        const currentCueIndex = this.activeTranscriptIndex();
+        const currentRowIndex = this.activeTranscriptRowIndex(rows, currentCueIndex);
+        const settings = this.options.getSettings();
+        const rowCount = rows.length;
+        const signature = [
+            'preview',
+            rowCount,
+            this.selectedTrackId,
+            this.tracks.find(track => track.id === this.selectedTrackId)?.loadingState ?? '',
+            !this.cues.length && this.currentCue ? subtitleCueSignature(this.currentCue) : '',
+            this.parseCacheKey('', settings),
+        ].join(':');
+        if (!rowCount) return { rows: [], currentRowIndex, signature, totalRowCount: 0 };
+        const activeIndex = currentRowIndex >= 0 ? currentRowIndex : 0;
         const clampedActive = Math.min(Math.max(activeIndex, 0), rowCount - 1);
         const previewStart = Math.max(0, Math.min(clampedActive - 1, rowCount - 3));
         const previewEnd = Math.min(rowCount, previewStart + 3);
         return {
-            rows: state.rows.slice(previewStart, previewEnd),
-            warmupRows: state.warmupRows,
-            currentRowIndex: state.currentRowIndex,
-            signature: `preview:${state.signature}:${previewStart}`,
+            rows: rows.slice(previewStart, previewEnd),
+            warmupRows: rows.slice(previewStart, Math.min(rowCount, previewStart + TRANSCRIPT_ACTIVE_HYDRATION_AHEAD + 2)),
+            currentRowIndex,
+            signature: `${signature}:${previewStart}`,
             rowIndexOffset: previewStart,
             totalRowCount: rowCount,
         };
@@ -4995,11 +5051,19 @@ export class SubtitlePlayerController {
         const activeRows = Array.from(this.transcriptPanel.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row.active'));
         const active = this.transcriptPanel.querySelector<HTMLElement>(`.jpdb-subtitle-list-row[data-row-index="${currentIndex}"]`);
         if (active && activeRows.length === 1 && activeRows[0] === active) return;
+        if (!active && currentIndex >= 0 && this.shouldRenderActiveTranscriptRow()) {
+            this.renderTranscriptPanel(true);
+            return;
+        }
         activeRows.forEach(row => {
             if (row !== active) row.classList.remove('active');
         });
         if (active) active.classList.add('active');
         this.scrollTranscriptToActive();
+    }
+
+    private shouldRenderActiveTranscriptRow(): boolean {
+        return Boolean(this.options.getSettings().subtitleTranscriptAutoScroll && !this.isTranscriptAutoScrollPaused());
     }
 
     private scrollTranscriptToActive(options: { force?: boolean } = {}): void {
@@ -5014,9 +5078,17 @@ export class SubtitlePlayerController {
             if (this.destroyed) return;
             const active = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-row.active');
             if (!active) return;
+            const scroller = active.closest<HTMLElement>('.jpdb-subtitle-list-scroll');
             // Mark the self-induced scroll so its scroll events are not counted
             // as a manual scroll that would pause auto-follow.
             this.transcriptProgrammaticScrollUntil = performance.now() + TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
+            if (scroller) {
+                if (!options.force && elementFullyVisibleWithinScroller(active, scroller, 14)) return;
+                const top = active.offsetTop - Math.max(0, (scroller.clientHeight - active.offsetHeight) / 2);
+                setElementScrollTop(scroller, Math.max(0, top));
+                this.transcriptVirtualScrollTop = scroller.scrollTop;
+                return;
+            }
             active.scrollIntoView?.({ block: 'center', inline: 'nearest' });
         });
     }
@@ -5048,7 +5120,8 @@ export class SubtitlePlayerController {
         this.transcriptAutoScrollResumeTimer = window.setTimeout(() => {
             this.transcriptAutoScrollResumeTimer = undefined;
             this.syncTranscriptAutoScrollPausedClass();
-            this.scrollTranscriptToActive();
+            this.renderTranscriptPanel(true);
+            this.scrollTranscriptToActive({ force: true });
         }, remaining + 20);
     }
 
@@ -5159,7 +5232,12 @@ export class SubtitlePlayerController {
             resizeFrame = requestAnimationFrame(() => {
                 resizeFrame = undefined;
                 if (this.destroyed) return;
-                this.positionTranscriptPanel({ skipInset: true, skipControlSync: true, skipResizeHandle: true });
+                this.positionTranscriptPanel({
+                    skipInset: true,
+                    skipControlSync: true,
+                    skipResizeHandle: true,
+                    resizeEventMode: 'immediate',
+                });
             });
         };
 
@@ -5871,23 +5949,37 @@ export class SubtitlePlayerController {
 
     private shouldKeepVideoLayoutStableForTranscript(): boolean {
         if (!this.video) return false;
-        return isYouTubePage() || Boolean(this.video.closest('[data-yomu-video-frame]'));
+        return isYouTubePage();
     }
 
     private stableVideoTranscriptDrawerLayout(options: SubtitleDrawerLayoutOptions, videoRect: DOMRect): TranscriptPanelLayout {
         const placement = options.preferredPlacement === 'left' ? 'left' : options.preferredPlacement === 'bottom' ? 'bottom' : 'right';
         if (options.compactPanel || placement === 'bottom') {
-            return computeSubtitleDrawerLayout({
-                ...options,
-                compactPanel: true,
-                preferredPlacement: 'bottom',
-            });
+            return this.stableBottomTranscriptDrawerLayout(options, videoRect);
         }
         const sideLayout = this.stableSideTranscriptDrawerLayout(placement, options, videoRect);
         return sideLayout ?? computeSubtitleDrawerLayout({
             ...options,
             compactPanel: true,
             preferredPlacement: 'bottom',
+        });
+    }
+
+    private stableBottomTranscriptDrawerLayout(options: SubtitleDrawerLayoutOptions, videoRect: DOMRect): TranscriptPanelLayout {
+        const desiredBottomHeight = options.size?.bottomHeight ?? Math.min(420, options.viewportHeight * 0.46);
+        const videoBottom = Number.isFinite(videoRect.bottom) ? Math.max(0, videoRect.bottom) : 0;
+        const availableBelowVideo = Math.floor(options.viewportHeight - videoBottom - TRANSCRIPT_PANEL_MARGIN);
+        const bottomHeight = availableBelowVideo >= TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT
+            ? Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT, Math.min(desiredBottomHeight, availableBelowVideo))
+            : desiredBottomHeight;
+        return computeSubtitleDrawerLayout({
+            ...options,
+            compactPanel: true,
+            preferredPlacement: 'bottom',
+            size: {
+                ...options.size,
+                bottomHeight,
+            },
         });
     }
 
@@ -5935,12 +6027,16 @@ export class SubtitlePlayerController {
         const availableWidth = Math.floor(placement === 'left'
             ? options.viewportWidth - videoWidth - margin - Math.max(0, Math.round(videoRect.left))
             : options.viewportWidth - Math.round(videoRect.right + margin));
-        if (availableWidth < TRANSCRIPT_PANEL_MIN_SIDE_WIDTH) return null;
+        const maxWidth = this.maxSideTranscriptWidthForVideo(placement, options, videoRect);
+        if (Math.max(availableWidth, maxWidth) < TRANSCRIPT_PANEL_MIN_SIDE_WIDTH) return null;
+        const panelMaxWidth = availableWidth >= TRANSCRIPT_PANEL_MIN_SIDE_WIDTH
+            ? availableWidth
+            : maxWidth;
         const defaultWidth = placement === 'right'
             ? availableWidth
             : Math.min(460, options.viewportWidth * 0.32);
         const desiredWidth = options.size?.sideWidth ?? defaultWidth;
-        const width = Math.round(Math.min(Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, desiredWidth), availableWidth));
+        const width = Math.round(Math.min(Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, desiredWidth), panelMaxWidth));
         const top = Math.round(Math.min(
             Math.max(options.anchorTop ?? videoRect.top ?? 72, margin),
             Math.max(margin, options.viewportHeight - 280),
@@ -6054,6 +6150,14 @@ export class SubtitlePlayerController {
     }
 
     private handleTranscriptViewportChange(options: { stabilize?: boolean } = {}): void {
+        if (this.shouldDeferViewportLayoutForFullscreen()) {
+            this.resetTranscriptLayoutReference();
+            this.scheduleFullscreenLayoutChange();
+            this.scheduleTranscriptHydration();
+            this.scheduleTranscriptCacheWarmup();
+            if (options.stabilize) this.scheduleTranscriptViewportStabilizeAlign();
+            return;
+        }
         this.syncFullscreenState();
         this.resetTranscriptLayoutReference();
         this.alignToVideo();
@@ -6061,6 +6165,13 @@ export class SubtitlePlayerController {
         this.scheduleTranscriptHydration();
         this.scheduleTranscriptCacheWarmup();
         if (options.stabilize) this.scheduleTranscriptViewportStabilizeAlign();
+    }
+
+    private shouldDeferViewportLayoutForFullscreen(): boolean {
+        return Boolean(this.fullscreen
+            || currentFullscreenElement()
+            || this.subtitleFullscreenHost()
+            || videoIsInNativeFullscreen(this.video));
     }
 
     private scheduleTranscriptViewportStabilizeAlign(): void {
@@ -6117,7 +6228,7 @@ export class SubtitlePlayerController {
         }
         this.clearStableYouTubeTranscriptLayout();
         const availableWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);
-        return this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect, options);
+        return this.applyPageVideoInset(layout.placement, Math.max(0, Math.min(videoRect.width, availableWidth)), layout.width, videoRect, options);
     }
 
     private availablePlayerWidthForSideLayout(layout: TranscriptPanelLayout, videoRect: DOMRect): number {
@@ -6274,7 +6385,11 @@ export class SubtitlePlayerController {
         const offset = layout.placement === 'left'
             ? `${Math.max(0, Math.round(layout.left + layout.width + layout.margin))}px`
             : '0px';
-        const playerWidth = `${Math.max(0, Math.round(videoRect.width))}px`;
+        const availablePlayerWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);
+        const maxWidthAfterOffset = layout.placement === 'left'
+            ? layout.viewportWidth - Math.max(0, Math.round(layout.left + layout.width + layout.margin))
+            : availablePlayerWidth;
+        const playerWidth = `${Math.max(0, Math.round(Math.min(videoRect.width, availablePlayerWidth, maxWidthAfterOffset)))}px`;
         changed = setDocumentStylePropertyIfChanged(root, '--jpdb-subtitle-youtube-stable-offset', offset) || changed;
         changed = setDocumentStylePropertyIfChanged(root, '--jpdb-subtitle-youtube-stable-player-width', playerWidth) || changed;
         return changed;

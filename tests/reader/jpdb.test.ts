@@ -18,7 +18,7 @@ import { DictionarySourceStateController } from '../../src/reader/sources/state'
 import { NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, mutationLooksLikeReaderRenderRejection, nearestReadableSentenceForElement, readerRenderRejectionRescanDelay, readerWordAtPointInScope, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords, type ScanTextTarget } from '../../src/reader/dom/index';
 import { FloatingButtonController, type FloatingButtonActions } from '../../src/reader/ui/floating-button';
 import { ImmersionKitClient, type ImmersionKitExample } from '../../src/reader/immersion/kit';
-import type { JitenApiClient, JitenKanjiInfo } from '../../src/reader/dictionaries/jiten';
+import type { JitenApiClient, JitenKanjiInfo, JitenVocabularyInfo } from '../../src/reader/dictionaries/jiten';
 import type { MiningContext } from '../../src/reader/study/mining-context';
 import { ImmersionPopoverController } from '../../src/reader/immersion/popover-controller';
 import { JpdbClient, splitJapaneseSentences } from '../../src/reader/jpdb/jpdb';
@@ -3633,10 +3633,12 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1; inset-inline: var(--jpdb-reader-word-inline-gap); inset-block-end: 0; border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent); pointer-events: none; }');
         expect(normalizedCss).not.toContain('.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 2.05; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-has-furi { line-height: inherit; }');
         expect(normalizedCss).toContain('.jpdb-reader-word ruby {');
         expect(normalizedCss).toContain('display: ruby !important;');
         expect(normalizedCss).toContain('.jpdb-reader-word rt {');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi { white-space: normal; overflow-wrap: anywhere; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi { white-space: nowrap; overflow-wrap: normal; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) rt.jpdb-reader-furi { white-space: normal; overflow-wrap: anywhere; }');
         expect(normalizedCss).toContain('display: ruby-text !important;');
         // UT-47: hiding is per state group now.
         expect(normalizedCss).toContain('.yomu-furi-hide-known .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
@@ -3751,6 +3753,8 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto; }');
         expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto; }');
         expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word rt, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word rt { white-space: normal; overflow-wrap: anywhere; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word ruby, .jpdb-reader-word.jpdb-reader-scan-word rt { white-space: nowrap; overflow-wrap: normal; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) rt.jpdb-reader-furi { white-space: normal; overflow-wrap: anywhere; }');
         expect(normalizedCss).not.toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word::after, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word::after { border-block-end-color: transparent; }');
         expect(normalizedCss).not.toContain('} .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal;');
     });
@@ -3791,12 +3795,12 @@ describe('reader helpers', () => {
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; }');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; text-decoration-color: transparent !important; }');
-        expect(normalizedNewTabCss).toContain('@media (pointer: coarse) { .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom))); } .jpdb-reader-newtab-install-app, .jpdb-reader-language-toggle { width: 44px !important; min-width: 44px !important; height: 44px !important; }');
+        expect(normalizedNewTabCss).toContain('@media (pointer: coarse) { .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom))); } .jpdb-reader-language-toggle { width: 44px !important; min-width: 44px !important; height: 44px !important; }');
         // Immersion Kit controls stay compact on touch (user-reported: 44px
         // stacked controls wasted study-card space).
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-icon-mini { width: 36px !important; min-width: 36px !important; height: 36px !important; min-height: 36px !important; }');
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-revealed .jpdb-reader-newtab-shell { padding-bottom: max(148px');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-appearance, .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch, .jpdb-reader-newtab-install-app, .jpdb-reader-newtab .jpdb-reader-newtab-overflow, .jpdb-reader-newtab-more-menu button, .jpdb-reader-newtab-mode button, button.jpdb-reader-newtab-status:not(:disabled), .jpdb-reader-language-toggle, .jpdb-reader-newtab-searchbox button, .jpdb-reader-newtab-grade-target-select, .jpdb-reader-newtab-controls button:not([data-grade]), .jpdb-reader-newtab-search-links a, .jpdb-reader-newtab-search-links button, .jpdb-reader-newtab-handwriting summary, .jpdb-reader-newtab-handwriting-candidates button, .jpdb-reader-newtab-doodle-actions button, .jpdb-reader-newtab-search-card, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action, .jpdb-reader-newtab-install { min-height: 44px !important; }');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-appearance, .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch, .jpdb-reader-newtab .jpdb-reader-newtab-overflow, .jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item, .jpdb-reader-newtab-mode button, button.jpdb-reader-newtab-status:not(:disabled), .jpdb-reader-language-toggle, .jpdb-reader-newtab-searchbox button, .jpdb-reader-newtab-grade-target-select, .jpdb-reader-newtab-controls button:not([data-grade]), .jpdb-reader-newtab-search-links a, .jpdb-reader-newtab-search-links button, .jpdb-reader-newtab-handwriting summary, .jpdb-reader-newtab-handwriting-candidates button, .jpdb-reader-newtab-doodle-actions button, .jpdb-reader-newtab-search-card, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action, .jpdb-reader-newtab-install { min-height: 44px !important; }');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls button { position: relative; min-height: 38px !important; overflow: visible; touch-action: manipulation; } .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls button::after { content: ""; position: absolute; inset: -3px 0; border-radius: 10px; }');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch { min-height: 24px !important; } .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch::after { content: ""; position: absolute; inset: -10px 0; border-radius: 999px; }');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-install { justify-self: end; display: inline-flex; align-items: center;');
@@ -5703,6 +5707,130 @@ describe('reader helpers', () => {
         expect(disabledHtml).not.toContain('data-dictionary="Jiten"');
     });
 
+    it('renders live Jiten frequency by default without a local dictionary install', () => {
+        const jitenVocabularyInfo: JitenVocabularyInfo = {
+            wordId: 42,
+            mainReading: {
+                text: card.reading,
+                readingIndex: 0,
+                frequencyRank: 321,
+                usedInMediaAmount: null,
+            },
+            alternativeReadings: [],
+            partsOfSpeech: [],
+            definitions: [],
+            pitchAccents: [],
+            knownStates: [],
+            composedOf: [],
+            usedIn: [],
+            usedInTotal: 0,
+            examples: [],
+        };
+        const html = renderWordPills({
+            card: { ...card, frequencyRank: null },
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings: {
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'en',
+                dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
+            },
+            jitenVocabularyInfo,
+            isJpdbBackedCard: () => true,
+            dictionaryLabel: name => name,
+        });
+
+        expect(html).toContain('data-dictionary="Jiten" data-frequency-source="live"');
+        expect(html).toContain('>Jiten live #321</span>');
+        expect(html).not.toContain('data-dictionary="JPDB" data-frequency-source="live"');
+    });
+
+    it('keeps live JPDB frequency off by default until its lookup pill is enabled', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'en' as const,
+            dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
+        };
+        const disabledHtml = renderWordPills({
+            card,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings,
+            isJpdbBackedCard: () => true,
+            dictionaryLabel: name => name,
+        });
+
+        expect(disabledHtml).not.toContain('data-dictionary="JPDB" data-frequency-source="live"');
+
+        const enabledHtml = renderWordPills({
+            card,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings: {
+                ...settings,
+                dictionaryLookupLinks: settings.dictionaryLookupLinks.map(link => (
+                    link.id === 'jpdb-frequency' ? { ...link, enabled: true } : link
+                )),
+            },
+            isJpdbBackedCard: () => true,
+            dictionaryLabel: name => name,
+        });
+
+        expect(enabledHtml).toContain('data-dictionary="JPDB" data-frequency-source="live"');
+        expect(enabledHtml).toContain('>JPDB live #100</span>');
+    });
+
+    it('lets installed local frequency dictionaries replace matching live site badges', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'en' as const,
+            dictionaryPreferences: [
+                { name: 'JPDBv2㋕', alias: 'JPDBv2㋕', enabled: true, priority: 0, type: 'frequency' as const },
+                { name: 'Jiten', alias: 'Jiten', enabled: true, priority: 1, type: 'frequency' as const },
+            ],
+            dictionaryLookupLinks: [
+                ...defaultDictionaryLookupLinks('local').map(link => (
+                    link.id === 'jpdb-frequency' ? { ...link, enabled: true } : link
+                )),
+                { id: 'frequency-local:JPDBv2㋕', label: 'JPDBv2㋕', urlTemplate: '', enabled: true, action: 'frequency-local' as const, priority: 2 },
+                { id: 'frequency-local:Jiten', label: 'Jiten', urlTemplate: '', enabled: true, action: 'frequency-local' as const, priority: 3 },
+            ],
+        };
+        const html = renderWordPills({
+            card,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings,
+            metaEntries: [
+                { expression: card.spelling, mode: 'freq', data: { frequency: 234 }, dictionary: 'JPDBv2㋕' },
+                { expression: card.spelling, mode: 'freq', data: { frequency: 345 }, dictionary: 'Jiten' },
+            ],
+            jitenVocabularyInfo: {
+                wordId: 42,
+                mainReading: {
+                    text: card.reading,
+                    readingIndex: 0,
+                    frequencyRank: 321,
+                    usedInMediaAmount: null,
+                },
+                alternativeReadings: [],
+                partsOfSpeech: [],
+                definitions: [],
+                pitchAccents: [],
+                knownStates: [],
+                composedOf: [],
+                usedIn: [],
+                usedInTotal: 0,
+                examples: [],
+            },
+            isJpdbBackedCard: () => true,
+            dictionaryLabel: name => settings.dictionaryPreferences.find(preference => preference.name === name)?.alias ?? name,
+        });
+
+        expect(html).toContain('data-dictionary="JPDBv2㋕" data-frequency-source="local"');
+        expect(html).toContain('data-dictionary="Jiten" data-frequency-source="local"');
+        expect(html).toContain('>JPDBv2㋕ #234</span>');
+        expect(html).toContain('>Jiten #345</span>');
+        expect(html).not.toContain('data-dictionary="JPDB" data-frequency-source="live"');
+        expect(html).not.toContain('data-dictionary="Jiten" data-frequency-source="live"');
+    });
+
     it('keeps hover lookup pills visible and actionable', () => {
         const html = renderWordPills({
             card,
@@ -5900,6 +6028,7 @@ describe('reader helpers', () => {
             undefined,
             'hover',
             { state: 'not-in-deck', notes: [], primary: null },
+            null,
         );
     });
 
@@ -11733,7 +11862,9 @@ describe('reader helpers', () => {
     it('sets external dictionary lookup pill defaults for Jiten-first and local-first setup', () => {
         expect(defaultDictionaryLookupLinks('jpdb').map(link => [link.id, link.enabled])).toEqual([
             ['jiten', true],
+            ['jiten-frequency', true],
             ['jpdb', true],
+            ['jpdb-frequency', false],
             ['yomu-search', true],
             ['jisho', false],
             ['weblio', false],
@@ -11746,7 +11877,9 @@ describe('reader helpers', () => {
         ]);
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.enabled])).toEqual([
             ['jiten', true],
+            ['jiten-frequency', true],
             ['jpdb', true],
+            ['jpdb-frequency', false],
             ['yomu-search', true],
             ['jisho', false],
             ['weblio', false],
@@ -11759,7 +11892,9 @@ describe('reader helpers', () => {
         ]);
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.label, link.urlTemplate])).toEqual([
             ['jiten', 'Jiten', 'https://jiten.moe/parse?text={query}'],
+            ['jiten-frequency', 'Jiten live', ''],
             ['jpdb', 'JPDB', 'https://jpdb.io/search?q={query}'],
+            ['jpdb-frequency', 'JPDB live', ''],
             ['yomu-search', 'Yomu', `${NEW_TAB_PAGE_URL}index.html?q={query}`],
             ['jisho', 'Jisho', 'https://jisho.org/search/{query}'],
             ['weblio', 'Weblio', 'https://www.weblio.jp/content/{query}'],
@@ -11775,7 +11910,9 @@ describe('reader helpers', () => {
         ])).toMatchObject([
             { id: 'takoboto', label: 'Takoboto', urlTemplate: 'https://takoboto.jp/?q={QUERY}', enabled: true },
             { id: 'jiten' },
+            { id: 'jiten-frequency' },
             { id: 'jpdb' },
+            { id: 'jpdb-frequency' },
             { id: 'yomu-search' },
             { id: 'jisho' },
             { id: 'weblio' },
@@ -11807,7 +11944,9 @@ describe('reader helpers', () => {
 
             expect(settings.dictionaryLookupLinks.map(link => [link.id, link.enabled])).toEqual([
                 ['jiten', true],
+                ['jiten-frequency', true],
                 ['jpdb', true],
+                ['jpdb-frequency', false],
                 ['yomu-search', true],
                 ['jisho', false],
                 ['weblio', false],
@@ -11853,7 +11992,7 @@ describe('reader helpers', () => {
         try {
             const settings = await loadSettings();
 
-            expect(settings.dictionaryLookupLinks.map(link => link.id).slice(0, 3)).toEqual(['jiten', 'jpdb', 'yomu-search']);
+            expect(settings.dictionaryLookupLinks.map(link => link.id).slice(0, 5)).toEqual(['jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency', 'yomu-search']);
             expect(settings.dictionaryLookupLinks.find(link => link.id === 'jisho')?.enabled).toBe(true);
             expect(settings.dictionaryLookupLinks.map(link => link.id)).not.toContain('goo');
         } finally {
@@ -21226,7 +21365,7 @@ describe('reader helpers', () => {
         expect(findRecommendedDictionary('wty-ja-ja')?.downloadUrl).toContain('wty-ja-ja.zip');
         expect(findRecommendedDictionary('pixiv-light')?.downloadUrl).toContain('PixivLight.zip');
         expect(findRecommendedDictionary('jpdb-kanji')?.downloadUrl).toContain('JPDB%20Kanji.zip');
-        expect(findRecommendedDictionary('kanjium-pitch')?.helpUrl).toContain('tools/study-page#local-pitch-and-frequency-dictionaries');
+        expect(findRecommendedDictionary('kanjium-pitch')?.downloadUrl).toBe('https://raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip');
         expect(findRecommendedDictionary('jpdbv2-kana')?.downloadUrl).toContain('JPDB_v2.2_Frequency_Kana.zip');
         expect(RECOMMENDED_JAPANESE_DICTIONARIES.every(item => Boolean(item.downloadUrl || item.helpUrl))).toBe(true);
         expect(RECOMMENDED_JAPANESE_DICTIONARIES.map(item => item.name)).toEqual([
@@ -32775,9 +32914,10 @@ describe('reader helpers', () => {
     it('renders mixed single-fragment and cross-fragment words in one pass', () => {
         document.body.innerHTML = '<p>言語は文法<span>的</span>です。</p>';
         const [target] = collectFragmentTextTargetsIn(document.body, 10, false, '', { allowUiText: true, minLength: 1 });
+        const proseTarget = { ...target, proseWrap: true };
         expect(target.text).toBe('言語は文法的です。');
 
-        applyTokensToScanTarget(target, [
+        applyTokensToScanTarget(proseTarget, [
             {
                 card: { ...card, spelling: '言語', reading: 'げんご', cardState: ['known'] },
                 start: 0,
@@ -32801,6 +32941,9 @@ describe('reader helpers', () => {
         const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
         expect(words.map(word => readerWordSurfaceText(word))).toEqual(['言語', '文法的']);
         expect(words.map(word => word.querySelector('rt')?.textContent ?? '')).toEqual(['げんご', 'ぶんぽうてき']);
+        expect(words.every(word => word.classList.contains('jpdb-reader-prose-word'))).toBe(true);
+        expect(words.every(word => word.dataset.jpdbReaderProse === 'true')).toBe(true);
+        expect(words.every(word => word.style.getPropertyValue('display') === '')).toBe(true);
     });
 
     it('does not leave cross-fragment tokens raw in a partially rendered block', () => {
@@ -33354,6 +33497,7 @@ describe('reader helpers', () => {
             'おすすめ',
         ]));
         expect(targets.every(target => 'parserId' in target && target.parserId === 'residual-visible-japanese-parser')).toBe(true);
+        expect(targets.every(target => target.nonDestructive)).toBe(true);
     });
 
     it('keeps split inline kana as one automatic scan target', () => {
@@ -33511,7 +33655,7 @@ describe('reader helpers', () => {
         expect(targets.at(-1)?.text).toBe('日本語の文章2004');
     });
 
-    it('adds safe UI chrome labels after prose as passive ruby scan targets', () => {
+    it('adds safe UI chrome labels after prose as passive compact scan targets', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
             <header><nav><a href="/help">ヘルプセンター</a></nav></header>
@@ -33545,16 +33689,14 @@ describe('reader helpers', () => {
             '検索履歴を管理する',
             '設定を保存する',
             '続きを読む',
-            '登録する',
         ]);
         const uiTarget = targets.find(target => target.text === '検索履歴を管理する')!;
         const buttonTarget = targets.find(target => target.text === '設定を保存する')!;
         const summaryTarget = targets.find(target => target.text === '続きを読む')!;
-        const submitTarget = targets.find(target => target.text === '登録する')!;
         expect(uiTarget).toMatchObject({ passiveInteraction: true });
         expect(buttonTarget).toMatchObject({ passiveInteraction: true });
         expect(summaryTarget).toMatchObject({ passiveInteraction: true });
-        expect(submitTarget).toMatchObject({ passiveInteraction: true });
+        expect(targets.some(target => target.text === '登録する')).toBe(false);
 
         applyTokensToScanTarget(uiTarget, [{
             card: { ...card, cardState: ['known'], spelling: '検索履歴', reading: 'けんさくりれき' },
@@ -33583,20 +33725,9 @@ describe('reader helpers', () => {
             pitchClass: '',
             sentence: '続きを読む',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        applyTokensToScanTarget(submitTarget, [{
-            card: { ...card, cardState: ['known'], spelling: '登録', reading: 'とうろく' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'とうろく', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '登録する',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-
         const word = document.querySelector<HTMLElement>('a[href="/history"] .jpdb-reader-word')!;
         const buttonWord = document.querySelector<HTMLElement>('button[type="button"] .jpdb-reader-word')!;
         const summaryWord = document.querySelector<HTMLElement>('summary .jpdb-reader-word')!;
-        const submitWord = document.querySelector<HTMLElement>('button[type="submit"] .jpdb-reader-word')!;
         expect(word.classList.contains('jpdb-reader-passive-word')).toBe(true);
         expect(word.classList.contains('jpdb-reader-scan-word')).toBe(true);
         expect(word.tabIndex).toBe(-1);
@@ -33609,10 +33740,9 @@ describe('reader helpers', () => {
         expect(summaryWord.classList.contains('jpdb-reader-passive-word')).toBe(true);
         expect(summaryWord.classList.contains('jpdb-reader-scan-word')).toBe(true);
         expect(summaryWord.tabIndex).toBe(-1);
-        expect(buttonWord.querySelector('rt')?.textContent).toBe('せってい');
-        expect(summaryWord.querySelector('rt')?.textContent).toBe('つづ');
-        expect(submitWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(submitWord.querySelector('rt')?.textContent).toBe('とうろく');
+        expect(buttonWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(summaryWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(document.querySelector('form .jpdb-reader-word')).toBeNull();
         const app = new ReaderApp();
         const readerWordAccess = app as unknown as {
             canLookupReaderWord: (word: HTMLElement) => boolean;
@@ -33626,7 +33756,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('adds host role-tab and checkbox chrome labels as passive ruby scan targets', () => {
+    it('adds host role-tab and checkbox chrome labels as passive compact scan targets', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 240, height: 40 });
         document.body.innerHTML = `
             <main><article><p>今日は静かな喫茶店で新しい本を読みました。</p></article></main>
@@ -33672,12 +33802,12 @@ describe('reader helpers', () => {
         const tabWord = document.querySelector<HTMLElement>('[role="tab"] .jpdb-reader-word')!;
         const checkboxWord = document.querySelector<HTMLElement>('[role="checkbox"] .jpdb-reader-word')!;
         expect(tabWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(tabWord.querySelector('rt')?.textContent).toBe('がいかん');
+        expect(tabWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
         expect(checkboxWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(checkboxWord.querySelector('rt')?.textContent).toBe('けんさく');
+        expect(checkboxWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
     });
 
-    it('adds compact parser-page chrome labels after site text as passive ruby scan targets', () => {
+    it('adds compact parser-page chrome labels after site text as passive compact scan targets', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
             <header class="vector-header">
@@ -33764,23 +33894,21 @@ describe('reader helpers', () => {
             'サイドバーに移動',
             '非表示',
             'テキスト',
-            '標準',
-            'ライト',
         ]));
         expect(texts.some(text => text.includes('参考文献'))).toBe(true);
         expect(texts.some(text => text.includes('関連項目'))).toBe(true);
 
         const article = targets.find(target => target.text === '原子の質量を表す。')!;
         const edit = targets.find(target => target.text === '編集')!;
-        const light = targets.find(target => target.text === 'ライト')!;
         const pinButton = targets.find(target => target.text === 'サイドバーに移動'
             && target.parent.closest('.vector-pinnable-header-pin-button'))!;
         expect('parserId' in article && article.parserId).toBe('wikipedia-parser');
         expect('parserId' in edit && edit.parserId).toBe('wikipedia-parser');
         expect('parserId' in pinButton && pinButton.parserId).toBe('wikipedia-parser');
         expect('passiveInteraction' in edit && edit.passiveInteraction).toBe(true);
-        expect('passiveInteraction' in light && light.passiveInteraction).toBe(true);
         expect('passiveInteraction' in pinButton && pinButton.passiveInteraction).toBe(true);
+        expect(targets.some(target => target.text === '標準')).toBe(false);
+        expect(targets.some(target => target.text === 'ライト')).toBe(false);
 
         applyTokensToScanTarget(edit, [{
             card: { ...card, cardState: ['known'], spelling: '編集', reading: 'へんしゅう' },
@@ -33790,15 +33918,6 @@ describe('reader helpers', () => {
             rubies: [{ text: 'へんしゅう', start: 0, end: 2, length: 2 }],
             pitchClass: '',
             sentence: '編集',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        applyTokensToScanTarget(light, [{
-            card: { ...card, cardState: ['known'], spelling: 'ライト', reading: 'ライト' },
-            start: 0,
-            end: 3,
-            length: 3,
-            rubies: [],
-            pitchClass: '',
-            sentence: 'ライト',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         applyTokensToScanTarget(pinButton, [{
             card: { ...card, cardState: ['known'], spelling: 'サイドバー', reading: 'サイドバー' },
@@ -33811,18 +33930,15 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const editWord = document.querySelector<HTMLElement>('#ca-edit .jpdb-reader-word')!;
-        const lightWord = Array.from(document.querySelectorAll<HTMLElement>('#vector-appearance label .jpdb-reader-word'))
-            .find(word => readerWordSurfaceText(word) === 'ライト')!;
         const pinWord = document.querySelector<HTMLElement>('.vector-pinnable-header-pin-button .jpdb-reader-word')!;
         expect(editWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(editWord.querySelector('rt')?.textContent).toBe('へんしゅう');
-        expect(lightWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(readerWordSurfaceText(lightWord)).toBe('ライト');
+        expect(editWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(document.querySelector('#vector-appearance label .jpdb-reader-word')).toBeNull();
         expect(pinWord.dataset.jpdbReaderPassive).toBe('true');
         expect(readerWordSurfaceText(pinWord)).toBe('サイドバー');
     });
 
-    it('scans Google Docs menubar entries as passive ruby targets', () => {
+    it('scans Google Docs menubar entries as passive compact targets', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 96, height: 28 });
         document.body.innerHTML = `
             <div id="docs-menubar" role="menubar" class="docs-menubar goog-container goog-container-horizontal" tabindex="0" style="user-select: none; max-width: 840px;">
@@ -33855,7 +33971,7 @@ describe('reader helpers', () => {
         const word = document.querySelector<HTMLElement>('#docs-edit-menu .jpdb-reader-word')!;
         expect(word.dataset.jpdbReaderPassive).toBe('true');
         expect(word.tabIndex).toBe(-1);
-        expect(word.querySelector('rt')?.textContent).toBe('へんしゅう');
+        expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
     });
 
     it('keeps inline prose links clickable without making surrounding prose passive', () => {

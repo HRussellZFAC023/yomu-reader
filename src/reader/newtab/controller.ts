@@ -25,13 +25,23 @@ import {
     type NewTabSearchWordDetailData,
 } from './search-view';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
-import { renderApiMiningPanel, togglePopoverReviewTargetSelection } from '../cards/popover-renderer';
+import { togglePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { isPlainReadingDuplicatedByVisibleRuby, renderCardSpellingWithFurigana } from '../cards/reading-display';
-import { apiSrsProviderViewForCard, isJitenBackedCard } from '../cards/srs-providers';
+import { isJitenBackedCard } from '../cards/srs-providers';
 import type { CardRenderData } from '../cards/render-data';
 import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
-import { APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
+import {
+    APP_NAME,
+    DISCORD_INVITE_URL,
+    DOCS_BASE_URL,
+    GITHUB_REPOSITORY_URL,
+    IMMERSION_KIT_SOURCE_ID,
+    JITEN_DEFINITION_SOURCE_ID,
+    JPDB_DEFINITION_SOURCE_ID,
+    PDF_READER_PAGE_URL,
+    VIDEO_PLAYER_PAGE_URL,
+} from '../app/constants';
 import { htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
 import { nearestElementByPoint, pointerPointFromEvent, pointInElementClientRects } from '../dom/pointer-geometry';
@@ -92,7 +102,7 @@ import {
     renderRtkInfo,
 } from '../popup/render';
 import { kanjiFactProviderTitle, kanjiSourceStateKey, renderKanjiDefinitions } from '../sources/definition-render';
-import { installAppIcon, speakerIcon } from '../ui/icons';
+import { speakerIcon } from '../ui/icons';
 import {
     cardKey,
     createNewTabStateChannel,
@@ -252,6 +262,7 @@ import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, ReaderSetting
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import { gmStorageGet, gmStorageSet } from '../app/storage';
 import { nextExplicitUiLanguage, resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
+import { pillStyle } from '../dictionaries/display';
 import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './i18n';
 import { NEW_TAB_CACHE_KEY } from './cache';
 import {
@@ -1010,7 +1021,6 @@ export class NewTabController {
                                 ),
                             )),
                         ),
-                        this.renderInstallAppButton(language),
                         el('button', {
                             class: 'jpdb-reader-language-toggle',
                             type: 'button',
@@ -1023,9 +1033,7 @@ export class NewTabController {
                                 class: 'jpdb-reader-newtab-overflow',
                                 'aria-label': uiText(language, 'more'),
                             }, '...'),
-                            el('div', { class: 'jpdb-reader-newtab-more-menu' },
-                                el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'settings' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, uiText(language, 'settings')),
-                            ),
+                            this.renderOverflowMenu(language),
                         ),
                     ),
                 ),
@@ -1105,17 +1113,57 @@ export class NewTabController {
         );
     }
 
-    private renderInstallAppButton(language: ReaderSettings['interfaceLanguage']): HTMLButtonElement {
-        const label = newTabText(language, 'installStudyApp');
-        const button = el('button', {
-            class: 'jpdb-reader-newtab-install-app',
+    private renderOverflowMenu(language: ReaderSettings['interfaceLanguage']): HTMLElement {
+        return el('div', { class: 'jpdb-reader-newtab-more-menu', role: 'menu' },
+            this.renderOverflowMenuButton(uiText(language, 'settings'), 'settings', language),
+            this.renderOverflowMenuButton(newTabText(language, 'installStudyApp'), 'install-app', language, {
+                className: 'jpdb-reader-newtab-install-app',
+                dataset: { newtabInstallApp: true, installPromptAvailable: false },
+            }),
+            el('hr', { class: 'jpdb-reader-newtab-more-divider' }),
+            this.renderOverflowMenuLink(uiText(language, 'videoPlayer'), VIDEO_PLAYER_PAGE_URL, language),
+            this.renderOverflowMenuLink(uiText(language, 'pdfReader'), PDF_READER_PAGE_URL, language),
+            this.renderOverflowMenuButton(newTabText(language, 'stats'), 'mode', language, {
+                dataset: { mode: 'stats' },
+            }),
+            this.renderOverflowMenuLink('Local Audio', `${DOCS_BASE_URL}local-audio/`, language),
+            this.renderOverflowMenuLink('Changelog', `${DOCS_BASE_URL}changelog`, language),
+            el('hr', { class: 'jpdb-reader-newtab-more-divider' }),
+            this.renderOverflowMenuLink('GitHub', GITHUB_REPOSITORY_URL, language),
+            this.renderOverflowMenuLink(uiText(language, 'discord'), DISCORD_INVITE_URL, language),
+            this.renderOverflowMenuLink('Support', `${DOCS_BASE_URL}support`, language),
+        );
+    }
+
+    private renderOverflowMenuButton(
+        label: string,
+        action: string,
+        language: ReaderSettings['interfaceLanguage'],
+        options: { className?: string; dataset?: Record<string, string | boolean | number> } = {},
+    ): HTMLButtonElement {
+        return el('button', {
+            class: `jpdb-reader-newtab-menu-item jpdb-reader-parseable${options.className ? ` ${options.className}` : ''}`,
             type: 'button',
-            dataset: { newtabAction: 'install-app', newtabInstallApp: true, installPromptAvailable: false },
-            'aria-label': label,
-            title: label,
-        });
-        setInnerHtml(button, installAppIcon());
-        return button;
+            dataset: { newtabAction: action, ...(options.dataset ?? {}) },
+            role: 'menuitem',
+            lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
+        }, label);
+    }
+
+    private renderOverflowMenuLink(
+        label: string,
+        href: string,
+        language: ReaderSettings['interfaceLanguage'],
+    ): HTMLAnchorElement {
+        return el('a', {
+            class: 'jpdb-reader-newtab-menu-item jpdb-reader-parseable',
+            href,
+            target: '_blank',
+            rel: 'noopener',
+            dataset: { newtabAction: 'external-link' },
+            role: 'menuitem',
+            lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
+        }, label);
     }
 
     private bindRootEvents(root: HTMLElement): void {
@@ -1474,6 +1522,7 @@ export class NewTabController {
             void this.installStudyApp(root);
             return true;
         }
+        if (action === 'external-link') return true;
         return false;
     }
 
@@ -4678,7 +4727,6 @@ export class NewTabController {
                 : null,
         );
         this.appendComposedOfLine(meaning, card);
-        void this.renderWordStudyDetails(meaning, card);
     }
 
     private providerDeckMembershipLine(card: JPDBCard): string {
@@ -4726,46 +4774,6 @@ export class NewTabController {
             const keyword = this.keywordCache.get(chip.dataset.kanji ?? '');
             if (small && keyword) small.textContent = keyword;
         });
-    }
-
-    private async renderWordStudyDetails(meaning: HTMLElement, card: JPDBCard): Promise<void> {
-        const loadDetails = this.dependencies.loadCardRenderData;
-        if (!loadDetails || !this.dependencies.renderStudyDefinitionSources) return;
-        const key = cardKey(card);
-        const requestId = `${key}:${performance.now()}:${Math.random()}`;
-        meaning.dataset.newtabStudyDetailsRequest = requestId;
-        const data = await loadDetails(card).catch(() => null);
-        if (!data || !this.canApplyWordStudyDetails(meaning, key, requestId)) return;
-        const html = this.renderWordStudyDetailsHtml(card, data);
-        if (!html.trim()) return;
-        const details = htmlToFirstElement(`<div class="jpdb-reader-newtab-study-details" data-newtab-study-details>${html}</div>`);
-        if (!details || !this.canApplyWordStudyDetails(meaning, key, requestId)) return;
-        meaning.querySelectorAll(':scope > [data-newtab-study-details]').forEach(element => element.remove());
-        meaning.append(details);
-        this.dependencies.installDictionarySourceTracking?.(details);
-        void this.dependencies.parseContent?.(details, newTabShortParseOptions())?.catch(() => undefined);
-    }
-
-    private renderWordStudyDetailsHtml(card: JPDBCard, data: CardRenderData): string {
-        const sentence = sentenceForCard(card);
-        return [
-            this.dependencies.renderStudyDefinitionSources?.(card, data, sentence) ?? '',
-            this.renderWordStudyMiningPanel(card, data),
-        ].filter(Boolean).join('');
-    }
-
-    private renderWordStudyMiningPanel(card: JPDBCard, data: CardRenderData): string {
-        const settings = this.dependencies.getSettings();
-        const provider = apiSrsProviderViewForCard(card, settings, value => this.dependencies.parser.isJpdbBackedCard(value));
-        return renderApiMiningPanel(settings, normalizeCardStates(card.cardState), { ...data, loading: false }, provider);
-    }
-
-    private canApplyWordStudyDetails(meaning: HTMLElement, key: string, requestId: string): boolean {
-        return meaning.isConnected
-            && meaning.dataset.newtabStudyDetailsRequest === requestId
-            && this.state.mode === 'word'
-            && this.state.revealAnswer
-            && cardKey(this.visibleWords[this.index]) === key;
     }
 
     private async renderWordAnswerDetails(answer: HTMLElement, card: JPDBCard): Promise<void> {
@@ -4849,10 +4857,23 @@ export class NewTabController {
     }
 
     private answerHeaderFrequency(card: JPDBCard): HTMLElement | null {
-        return card.frequencyRank
-            ? el('div', { class: 'jpdb-reader-meta jpdb-reader-newtab-answer-meta' },
-                el('span', { class: 'jpdb-reader-frequency-pill' }, `#${card.frequencyRank}`))
-            : null;
+        const rank = card.frequencyRank;
+        if (!rank) return null;
+        const provider = this.answerHeaderFrequencyProvider(card);
+        return el('div', { class: 'jpdb-reader-meta jpdb-reader-newtab-answer-meta' },
+            el('span', {
+                class: 'jpdb-reader-pill jpdb-reader-frequency-pill',
+                dataset: { dictionary: provider.label, frequencySource: 'live' },
+                style: pillStyle(`frequency-live:${provider.id}`),
+                title: `${provider.label} frequency`,
+            }, `${provider.label} #${rank}`),
+        );
+    }
+
+    private answerHeaderFrequencyProvider(card: JPDBCard): { id: 'jiten' | 'jpdb'; label: 'Jiten' | 'JPDB' } {
+        return card.source === 'jiten' || card.reviewSource === 'jiten-api'
+            ? { id: 'jiten', label: 'Jiten' }
+            : { id: 'jpdb', label: 'JPDB' };
     }
 
     private answerHeaderPills(card: JPDBCard, data: CardRenderData): string {
@@ -4922,11 +4943,18 @@ export class NewTabController {
 
     private renderSentencePrompt(card: JPDBCard, state: ReturnType<typeof primaryCardState>, sentence = ''): HTMLElement {
         const wrap = el('span', { class: 'jpdb-reader-newtab-front' },
-            el('span', { class: 'jpdb-reader-newtab-term' }, this.renderReaderWord(card, state, card.spelling, sentence || card.spelling)),
+            el('span', { class: 'jpdb-reader-newtab-term' }, this.renderStudyTermWord(card, state, sentence || card.spelling)),
         );
         if (!sentence) return wrap;
         wrap.append(this.renderWordPromptSentenceNode(card, state, sentence));
         return wrap;
+    }
+
+    private renderStudyTermWord(card: JPDBCard, state: ReturnType<typeof primaryCardState>, sentence: string): HTMLSpanElement {
+        const word = this.renderReaderWord(card, state, card.spelling, sentence);
+        if (!this.state.revealAnswer) return word;
+        setInnerHtml(word, renderCardSpellingWithFurigana(card, this.answerHeaderFuriganaSettings(this.dependencies.getSettings()), { enabled: true, label: this.text('showKanji') }));
+        return word;
     }
 
     private renderWordPromptSentenceNode(card: JPDBCard, state: ReturnType<typeof primaryCardState>, sentence: string): HTMLElement {
@@ -5464,7 +5492,7 @@ export class NewTabController {
         const example = examples[this.normalizedImmersionExampleIndex(key, examples)];
         if (!example) return;
         const source = this.newTabImmersionAudioSource(example);
-        if (!source || this.immersionAudioPlayer.isPlaying(source.key)) return;
+        if (!source) return;
         await this.immersionAudioPlayer.playSource(source, isCurrent);
     }
 

@@ -3,6 +3,7 @@ import {
     collectTextTargetsIn,
     isCurrentScanTarget,
     makeRoomForRubyInCroppedRows,
+    removeStaleControlTextMirrors,
     type FragmentTextTarget,
     type ScanTextTarget,
     type TextFragment,
@@ -234,6 +235,7 @@ export class VisiblePageScanner {
 
     private async runVisiblePageScan(silent: boolean, generation: number): Promise<void> {
         if (this.isStaleScan(generation)) return;
+        removeStaleControlTextMirrors(document);
         const settings = this.dependencies.getSettings();
         const targetCollectionLimit = visibleScanTargetCollectionLimit(settings);
         const targets = chunkLongScanTargets(collectScanTargets(targetCollectionLimit), settings);
@@ -337,7 +339,7 @@ export class VisiblePageScanner {
     private async applyParsedBatch(batch: ScanTextTarget[], parsed: JPDBToken[][], scanStartSettings: ReaderSettings, generation: number): Promise<void> {
         const tokens = parsed.flat();
         const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
-        if (pitchStartedBeforeApply) void this.dependencies.enrichPitchWords(tokens);
+        if (pitchStartedBeforeApply) await this.dependencies.enrichPitchWords(tokens);
         const applyAnkiColors = this.shouldEnrichAnkiWords()
             ? this.dependencies.beginAnkiWordEnrichment?.(tokens)
             : undefined;

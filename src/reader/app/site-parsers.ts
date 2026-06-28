@@ -71,11 +71,26 @@ const STRUCTURAL_EXCLUDE_ENTRIES = [
     'rp',
     '[hidden]',
     '[aria-hidden="true"]',
-    '[contenteditable="true"]',
+    '[contenteditable]',
+    '[role="textbox"]',
+    '[role="searchbox"]',
+    '[role="combobox"]',
+    '[aria-placeholder]',
+    '[data-placeholder]',
+    '[class*="placeholder" i]',
     'details:not([open]) > :not(summary)',
     'details:not([open]) > :not(summary) *',
 ];
 const COMMON_EXCLUDE = STRUCTURAL_EXCLUDE_ENTRIES.join(',');
+const GENERIC_CONTROL_TEXT_EXCLUDE_ENTRIES = [
+    'form',
+    'label',
+    'fieldset',
+    'legend',
+    '[role="form"]',
+    '[role="search"]',
+];
+const GENERIC_CONTROL_TEXT_EXCLUDE = GENERIC_CONTROL_TEXT_EXCLUDE_ENTRIES.join(',');
 const ASBPLAYER_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-container-bottom';
 const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
 const RESIDUAL_VISIBLE_JAPANESE_PARSER_ID = 'residual-visible-japanese-parser';
@@ -126,6 +141,7 @@ const GENERIC_PROSE_ROOTS = [
 ].join(',');
 const GENERIC_PROSE_EXCLUDE = [
     COMMON_EXCLUDE,
+    ...GENERIC_CONTROL_TEXT_EXCLUDE_ENTRIES,
     'nav',
     'header',
     'footer',
@@ -168,7 +184,9 @@ const SAFE_UI_CHROME_SCOPE_SELECTORS = [
     'nav',
     '[role="navigation"]',
     'header',
+    'footer',
     'aside',
+    '[role="contentinfo"]',
     '[role="complementary"]',
     '[role="tablist"]',
     '[class*="appearance" i]',
@@ -234,6 +252,8 @@ const SAFE_UI_CHROME_ROOTS = [
     '[role="navigation"] a[href]',
     '[class*="breadcrumb" i] a[href]',
     'header a[href]',
+    'footer a[href]',
+    '[role="contentinfo"] a[href]',
     'aside a[href]',
     'main a[href]',
     '[role="main"] a[href]',
@@ -266,6 +286,7 @@ const YT_PLAYER_CHROME_EXCLUDE_ENTRIES = [
 ];
 const SAFE_UI_CHROME_EXCLUDE_ENTRIES = [
     ...STRUCTURAL_EXCLUDE_ENTRIES,
+    ...GENERIC_CONTROL_TEXT_EXCLUDE_ENTRIES,
     ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
     '[disabled]',
     '[aria-disabled="true"]',
@@ -539,6 +560,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         id: BOOKWALKER_STOREFRONT_PARSER_ID,
         roots: [],
         disableGenericDomScan: true,
+        nonDestructive: true,
         includePassiveInteractionRoots: false,
         matches: url => isBookWalkerStorefrontUrl(url),
     },
@@ -1148,7 +1170,7 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
         allowUiText: true,
         minLength: profile.minLength,
         includeUiChrome: true,
-        includeFormChrome: true,
+        includeFormChrome: profile.includeFormChrome === true,
         includeTabChrome: true,
         // ISS-11: YouTube profiles parse every player/control/toggle wrapper
         // (Shorts overlay text, tooltips, end-screen titles). The native caption
@@ -1199,6 +1221,7 @@ function queryProfilePassiveInteractionRoots(profile: SiteParserProfile): HTMLEl
 }
 
 function isUsefulProfilePassiveInteractionRoot(profile: SiteParserProfile, root: HTMLElement): boolean {
+    if (!profile.includeFormChrome && isGenericControlTextRoot(root)) return false;
     const exclude = siteScanPassiveInteractionExcludeSelector(profile);
     return isUsefulCompactJapaneseRoot(root, exclude, 1, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
 }
@@ -1409,10 +1432,10 @@ function collectResidualVisibleJapaneseTargets(
         limit,
     };
     const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length);
+    const nonDestructive = profiles.some(profile => profile.nonDestructive);
     const collected = collectFragmentTextTargetsIn(document.body, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
         allowUiText: true,
         includeUiChrome: true,
-        includeFormChrome: true,
         includeTabChrome: true,
         // ISS-11: this residual pass scans the whole document.body, so only relax
         // player chrome on YouTube hosts — other sites keep the original guards.
@@ -1427,6 +1450,7 @@ function collectResidualVisibleJapaneseTargets(
         appendGenericProseTarget(collection.targets, collection.seen, {
             ...target,
             parserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID,
+            nonDestructive: nonDestructive || target.nonDestructive || undefined,
         });
         if (genericProseCollectionFull(collection)) break;
     }
@@ -1439,7 +1463,10 @@ function residualVisibleJapaneseCandidateLimit(limit: number, existingTargetCoun
 }
 
 function residualVisibleJapaneseExcludeSelector(profiles: SiteParserProfile[]): string {
-    const entries = [COMMON_EXCLUDE];
+    const entries = [
+        COMMON_EXCLUDE,
+        ...GENERIC_CONTROL_TEXT_EXCLUDE_ENTRIES,
+    ];
     if (profiles.some(isYouTubeSiteParserProfile)) {
         entries.push(...YT_PLAYER_CHROME_EXCLUDE_ENTRIES);
     }
@@ -1474,10 +1501,9 @@ function effectiveScanTargetLimit(profiles: SiteParserProfile[], requestedLimit:
 }
 
 function collectWholePageScanTargets(limit: number): FragmentTextTarget[] {
-    const targets = collectFragmentTextTargetsIn(document.body, limit, true, '', {
+    const targets = collectFragmentTextTargetsIn(document.body, limit, true, GENERIC_CONTROL_TEXT_EXCLUDE, {
         allowUiText: true,
         includeUiChrome: true,
-        includeFormChrome: true,
         includeTabChrome: true,
         includePassiveInteractions: true,
         heading: true,
@@ -1522,9 +1548,12 @@ function collectProfileSafeUiChromeTargets(
 
     const parserId = profiles.length === 1 ? profiles[0].id : 'safe-ui-chrome-parser';
     const nonDestructive = profiles.some(profile => profile.nonDestructive);
+    const includeFormChrome = profiles.some(profile => profile.includeFormChrome);
     collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, extraExclude, parserId, nonDestructive);
-    collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection, parserId, nonDestructive);
-    collectSafeFormControlTextTargets(collection, extraExclude);
+    if (includeFormChrome) {
+        collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection, parserId, nonDestructive);
+        collectSafeFormControlTextTargets(collection, extraExclude);
+    }
 
     return collection.targets;
 }
@@ -1538,8 +1567,6 @@ function collectSafeUiChromeTargets(limit: number, existingTargets: ScanTextTarg
     };
 
     collectSafeUiChromeRootTargets(safeUiChromeRoots(), collection);
-    collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection);
-    collectSafeFormControlTextTargets(collection);
 
     return collection.targets;
 }
@@ -1572,7 +1599,7 @@ function collectSafeUiChromeRootTargets(
 
 function safeUiChromeRoots(): HTMLElement[] {
     return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll<HTMLElement>(SAFE_UI_CHROME_ROOTS))
-        .filter(root => isUsefulSafeUiChromeRoot(root)));
+        .filter(root => !isGenericControlTextRoot(root) && isUsefulSafeUiChromeRoot(root)));
 }
 
 function profileSafeUiChromeRoots(extraExclude = ''): HTMLElement[] {
@@ -1652,6 +1679,7 @@ function collectPassiveChromeTargetsFromRoot(
         appendGenericProseTarget(collection.targets, collection.seen, {
             ...target,
             parserId,
+            suppressRuby: true,
             passiveInteraction: true,
             nonDestructive: nonDestructive || undefined,
         });
@@ -1667,7 +1695,10 @@ function genericProseRoots(): HTMLElement[] {
 function collectGenericProseTargetsFromRoot(root: HTMLElement, collection: GenericProseCollection): void {
     const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
     for (const target of collected) {
-        appendGenericProseTarget(collection.targets, collection.seen, target);
+        appendGenericProseTarget(collection.targets, collection.seen, {
+            ...target,
+            proseWrap: true,
+        });
         if (genericProseCollectionFull(collection)) break;
     }
 }
@@ -1732,8 +1763,13 @@ function textNodesForFragmentTarget(target: FragmentTextTarget): Text[] {
 function isUsefulGenericProseRoot(root: HTMLElement): boolean {
     if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
     const text = compactRootText(root);
-    if (text.length < 12) return false;
+    const minimumLength = isExplicitReadableProseRoot(root) ? 2 : 12;
+    if (text.length < minimumLength) return false;
     return hasJapaneseText(text);
+}
+
+function isExplicitReadableProseRoot(root: HTMLElement): boolean {
+    return root.matches('article,[role="article"],.prose,.article,.post,.entry,.story,.article-body,.article-content,.entry-content,.post-content,.story-body,[itemprop="articleBody"]');
 }
 
 function isUsefulSafeUiChromeRoot(root: HTMLElement): boolean {
@@ -1749,6 +1785,10 @@ function isUsefulCompactJapaneseRoot(root: HTMLElement, exclude: string, minLeng
     if (!isVisibleSafeUiChromeRoot(root)) return false;
     const text = compactRootText(root);
     return hasJapaneseText(text) && text.length >= minLength && text.length <= maxLength;
+}
+
+function isGenericControlTextRoot(root: HTMLElement): boolean {
+    return Boolean(root.closest(GENERIC_CONTROL_TEXT_EXCLUDE));
 }
 
 function compactRootText(root: HTMLElement): string {

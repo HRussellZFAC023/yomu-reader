@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderAnkiExistingSection } from '../../src/reader/anki/render';
 import { resolveAnkiWordAudio } from '../../src/reader/anki/audio';
 import { AudioPlayer, getAudioCandidates } from '../../src/reader/audio/player';
+import {
+    shouldFetchCandidateAsBlob,
+    shouldFetchDirectMediaAsBlob,
+    shouldForceBlobAudioCandidate,
+} from '../../src/reader/audio/candidates';
 import { ReaderAudioActions } from '../../src/reader/audio/actions';
 import { audioCandidateSelectionMode, getOrderedAudioSources, orderAudioSources, preloadableAudioSources } from '../../src/reader/audio/source-resolution';
 import { reserveGestureAudioElement } from '../../src/reader/audio/media-activation';
@@ -96,6 +101,22 @@ describe('audio module boundaries', () => {
         }
     });
 
+    it('keeps loopback audio on direct media playback so hosted Study does not fetch-CORS fail before playing', () => {
+        expect(shouldForceBlobAudioCandidate({
+            url: 'http://localhost:9090/audio/jpod/media/clip.mp3',
+            sourceUrl: 'http://localhost:9090/?term=%E6%B7%B7%E6%B5%B4&reading=%E3%81%93%E3%82%93%E3%82%88%E3%81%8F',
+        })).toBe(false);
+        expect(shouldFetchCandidateAsBlob({
+            url: 'http://localhost:9090/audio/jpod/media/clip.mp3',
+            sourceUrl: 'http://localhost:9090/?term=%E6%B7%B7%E6%B5%B4&reading=%E3%81%93%E3%82%93%E3%82%88%E3%81%8F',
+        }, true)).toBe(false);
+        expect(shouldFetchDirectMediaAsBlob('http://localhost:9090/audio/jpod/media/clip.mp3')).toBe(false);
+        expect(shouldFetchCandidateAsBlob({
+            url: 'https://audio.example.test/audio/clip.mp3',
+            sourceUrl: 'https://audio.example.test/audio/clip.mp3',
+        }, true)).toBe(true);
+    });
+
     it('appends term/reading to a bare custom JSON server URL so it does not 400', async () => {
         const requested = stubAudioServerJson({
             type: 'audioSourceList',
@@ -177,6 +198,39 @@ describe('audio module boundaries', () => {
             reservedGesture: true,
             isCurrent: expect.any(Function),
         }));
+    });
+
+    it('starts each fresh hover autoplay generation even when earlier hover audio is still pending', async () => {
+        let hoverGeneration = 1;
+        const resolvePlay: Array<(played: boolean) => void> = [];
+        const playOptions: Array<{ reservedGesture?: boolean; isCurrent?: () => boolean } | undefined> = [];
+        const play = vi.fn((_card: JPDBCard, options?: { reservedGesture?: boolean; isCurrent?: () => boolean }) => {
+            playOptions.push(options);
+            return new Promise<boolean>(resolve => { resolvePlay.push(resolve); });
+        });
+        const actions = new ReaderAudioActions({
+            audio: { play } as unknown as AudioPlayer,
+            getSettings: () => ({ ...DEFAULT_SETTINGS, audioEnabled: true }),
+            getActivePopover: () => undefined,
+            getHoverLookupGeneration: () => hoverGeneration,
+            stopImmersionAudio: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        const first = actions.playTermAudio(card('猫', 'ねこ'), { hoverLookupGeneration: 1, autoPlay: true });
+        hoverGeneration = 2;
+        const second = actions.playTermAudio(card('猫', 'ねこ'), { hoverLookupGeneration: 2, autoPlay: true });
+        hoverGeneration = 3;
+        const third = actions.playTermAudio(card('犬', 'いぬ'), { hoverLookupGeneration: 3, autoPlay: true });
+
+        expect(play).toHaveBeenCalledTimes(3);
+        resolvePlay.forEach(resolve => resolve(true));
+        await Promise.all([first, second, third]);
+        expect(playOptions).toEqual([
+            expect.objectContaining({ reservedGesture: true, isCurrent: expect.any(Function) }),
+            expect.objectContaining({ reservedGesture: true, isCurrent: expect.any(Function) }),
+            expect.objectContaining({ reservedGesture: true, isCurrent: expect.any(Function) }),
+        ]);
     });
 
     it('keeps Anki opt-in on fresh installs and factory resets', () => {
@@ -478,7 +532,6 @@ describe('audio module boundaries', () => {
             configurable: true,
             value: { hasBeenActive: false, isActive: false },
         });
-        const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValue(new Error('NotAllowedError'));
         const previousAudioContext = Object.getOwnPropertyDescriptor(window, 'AudioContext');
         let audioContexts = 0;
         class BlockedAudioContext {
@@ -510,8 +563,14 @@ describe('audio module boundaries', () => {
             const internals = player as unknown as {
                 playPreparedAudio(audio: HTMLAudioElement, requestId: number, isCurrent: () => boolean): Promise<boolean>;
             };
-            const audio = document.createElement('audio');
-            audio.src = 'blob:http://localhost/blocked-hover-audio';
+            const blockedPlay = vi.fn(() => Promise.reject(new Error('NotAllowedError')));
+            const audio = {
+                src: 'blob:http://localhost/blocked-hover-audio',
+                readyState: HTMLMediaElement.HAVE_NOTHING,
+                currentTime: 0,
+                pause: vi.fn(),
+                play: blockedPlay,
+            } as unknown as HTMLAudioElement;
 
             const result = await Promise.race([
                 internals.playPreparedAudio(audio, 0, () => true).then(
@@ -522,13 +581,80 @@ describe('audio module boundaries', () => {
             ]);
 
             expect(result).toBe('NotAllowedError');
+            expect(blockedPlay).toHaveBeenCalledTimes(1);
             expect(audioContexts).toBe(0);
         } finally {
             if (previousActivation) Object.defineProperty(navigator, 'userActivation', previousActivation);
             else delete (navigator as unknown as { userActivation?: Navigator['userActivation'] }).userActivation;
             if (previousAudioContext) Object.defineProperty(window, 'AudioContext', previousAudioContext);
             else delete (window as unknown as { AudioContext?: typeof AudioContext }).AudioContext;
-            play.mockRestore();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('retries a repeated single API audio source before falling through to browser TTS', async () => {
+        const media = recordMediaElementPlayback();
+        const { speak } = stubJapaneseSpeechSynthesis();
+
+        try {
+            const player = new AudioPlayer(() => jitenThenBrowserTtsSettings());
+            const target = jitenAudioCard('猫', 'ねこ');
+
+            await expect(player.play(target, { userGesture: true })).resolves.toBe(true);
+            media.playedSources.length = 0;
+            speak.mockClear();
+
+            await expect(player.play(target, { userGesture: true })).resolves.toBe(true);
+
+            expect(media.playedSources.some(src => src.includes('/api/tts/word/1467640/0?voice=asmr'))).toBe(true);
+            expect(speak).not.toHaveBeenCalled();
+        } finally {
+            media.restore();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not cache empty fallible API candidate lookups before TTS fallback', async () => {
+        const media = recordMediaElementPlayback();
+        const { speak } = stubJapaneseSpeechSynthesis();
+        let networkAvailable = false;
+        const fetchMock = vi.fn(async () => {
+            if (!networkAvailable) throw new TypeError('temporary network failure');
+            return new Response(JSON.stringify({
+                results: [{
+                    wordId: 1467640,
+                    readingIndex: 0,
+                    text: '猫',
+                    rubyText: '猫[ねこ]',
+                }],
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const player = new AudioPlayer(() => jitenThenBrowserTtsSettings({
+                corsProxyUrl: 'https://proxy.example/fetch',
+            }));
+            const target = card('猫', 'ねこ');
+
+            await expect(player.play(target, { userGesture: true })).resolves.toBe(true);
+            expect(speak).toHaveBeenCalledTimes(1);
+            const failedLookupAttempts = fetchMock.mock.calls.length;
+
+            networkAvailable = true;
+            media.playedSources.length = 0;
+            speak.mockClear();
+
+            await expect(player.play(target, { userGesture: true })).resolves.toBe(true);
+
+            expect(fetchMock.mock.calls.length).toBeGreaterThan(failedLookupAttempts);
+            expect(media.playedSources.some(src => src.includes('/api/tts/word/1467640/0?voice=asmr'))).toBe(true);
+            expect(speak).not.toHaveBeenCalled();
+        } finally {
+            media.restore();
             vi.unstubAllGlobals();
         }
     });
@@ -663,8 +789,75 @@ function jitenSource(voice = ''): Parameters<typeof getAudioCandidates>[0] {
     return { type: 'jiten-tts', url: '', voice, enabled: true };
 }
 
+function browserTextToSpeechSource(): Parameters<typeof getAudioCandidates>[0] {
+    return { type: 'text-to-speech', url: '', voice: '', enabled: true };
+}
+
 function customJsonSource(url: string): Parameters<typeof getAudioCandidates>[0] {
     return { type: 'custom-json', url, voice: '', enabled: true };
+}
+
+function jitenAudioCard(spelling: string, reading: string): JPDBCard {
+    return {
+        ...card(spelling, reading),
+        jitenWordId: 1467640,
+        jitenReadingIndex: 0,
+    };
+}
+
+function jitenThenBrowserTtsSettings(overrides: Partial<ReaderSettings> = {}): ReaderSettings {
+    return {
+        ...DEFAULT_SETTINGS,
+        audioEnabled: true,
+        audioEnableDefaultSources: false,
+        audioSelectionMode: 'random',
+        audioTtsMode: 'fallback',
+        audioViaBlob: false,
+        audioFallbackChimeEnabled: false,
+        audioSources: [jitenSource('asmr'), browserTextToSpeechSource()],
+        ...overrides,
+    };
+}
+
+function recordMediaElementPlayback(): {
+    playedSources: string[];
+    restore: () => void;
+} {
+    const playedSources: string[] = [];
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function play(this: HTMLMediaElement) {
+        playedSources.push(this.src);
+        return Promise.resolve();
+    });
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    const load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+    return {
+        playedSources,
+        restore: () => {
+            play.mockRestore();
+            pause.mockRestore();
+            load.mockRestore();
+        },
+    };
+}
+
+function stubJapaneseSpeechSynthesis() {
+    class FakeSpeechSynthesisUtterance {
+        lang = '';
+        voice: SpeechSynthesisVoice | null = null;
+        onend: ((event: SpeechSynthesisEvent) => void) | null = null;
+        onerror: ((event: SpeechSynthesisErrorEvent) => void) | null = null;
+        constructor(public text: string) {}
+    }
+    const speak = vi.fn((utterance: FakeSpeechSynthesisUtterance) => {
+        utterance.onend?.call(utterance as unknown as SpeechSynthesisUtterance, {} as SpeechSynthesisEvent);
+    });
+    vi.stubGlobal('SpeechSynthesisUtterance', FakeSpeechSynthesisUtterance);
+    vi.stubGlobal('speechSynthesis', {
+        getVoices: () => [{ name: 'Kyoko', lang: 'ja-JP' }],
+        speak,
+        cancel: vi.fn(),
+    });
+    return { speak };
 }
 
 function stubAudioServerJson(payload: unknown): string[] {

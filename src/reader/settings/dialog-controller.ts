@@ -34,7 +34,7 @@ import {
     renderNewTabAnkiDeckSelector,
     renderDeckControls,
     renderDictionarySourceRows,
-    renderFrequencyLookupPillRows,
+    renderLookupPillsEditor,
     renderRecommendedDictionaries,
     appearancePreviewContentHtml,
     renderSettingsForm,
@@ -44,6 +44,7 @@ import {
     syncDisabledSettingsControlDescriptions,
     syncFontFamilyControls,
     syncJpdbMiningDependentSettings,
+    syncPageScanModeControls,
     syncReviewSettingsVisibility,
     syncStickyBottomSheetAvailability,
     syncSubtitlePreview,
@@ -107,7 +108,7 @@ interface PendingCloudSettingsAction {
 interface DictionaryStatusElements {
     status: HTMLElement | null;
     priorities: HTMLElement | null;
-    frequencyLookupPills: HTMLElement | null;
+    lookupPills: HTMLElement | null;
     recommended: HTMLElement | null;
 }
 
@@ -462,8 +463,8 @@ function shouldReenableSettingsAction(action: string): boolean {
 function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatusElements {
     return {
         status: form.querySelector<HTMLElement>('[data-dictionary-status]'),
-        priorities: form.querySelector<HTMLElement>('.jpdb-reader-dictionary-priorities'),
-        frequencyLookupPills: form.querySelector<HTMLElement>('[data-frequency-lookup-pills]'),
+        priorities: form.querySelector<HTMLElement>('[data-definition-source-editor]'),
+        lookupPills: form.querySelector<HTMLElement>('.jpdb-reader-lookup-links'),
         recommended: form.querySelector<HTMLElement>('[data-recommended-dictionaries]'),
     };
 }
@@ -471,7 +472,7 @@ function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatusElemen
 function renderDictionaryStatusElements(elements: DictionaryStatusElements, summary: DictionarySummary, settings: ReaderSettings): void {
     if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
-    if (elements.frequencyLookupPills) setInnerHtml(elements.frequencyLookupPills, renderFrequencyLookupPillRows(settings));
+    if (elements.lookupPills) setInnerHtml(elements.lookupPills, renderLookupPillsEditor(settings, summary.dictionaries));
     if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
 }
 
@@ -917,6 +918,10 @@ export class SettingsDialogController {
             form.querySelectorAll<HTMLElement>('[data-local-ocr]').forEach(node => { node.hidden = value !== 'local-service'; });
             form.querySelectorAll<HTMLElement>('[data-cloud-ocr]').forEach(node => { node.hidden = value !== 'cloud-vision'; });
         });
+        form.querySelectorAll<HTMLInputElement>('input[name="pageScanMode"]').forEach(input => {
+            input.addEventListener('change', () => syncPageScanModeControls(form));
+        });
+        syncPageScanModeControls(form);
     }
 
     private bindEditorControls(form: HTMLFormElement): void {

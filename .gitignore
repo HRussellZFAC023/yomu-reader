@@ -6,6 +6,7 @@ dist/*
 !dist/yomu.user.js
 !dist/yomu.css
 dist-dev/
+dist-gaming/
 dist-reader/
 coverage/
 artifacts/

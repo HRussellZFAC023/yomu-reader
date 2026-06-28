@@ -14,6 +14,7 @@ import { FONT_FAMILY_PRESETS } from './font-presets';
 import { renderSourceRowsList } from './form-source-rows';
 import { CLOUD_SETTINGS_SYNC_ENABLED } from './cloud-sync';
 import { renderAnkiMiningSettingsPanel, renderDeckControls as renderJpdbDeckControls } from './anki-mining-panel';
+import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import {
     MOBILE_ANKI_SETUP_DOCS_URL,
     ankiStatusLineForSettings,
@@ -26,7 +27,7 @@ import { uniqueStrings } from '../core/string-utils';
 import type { DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, ReaderColorSource, ReaderSettings } from '../app/types';
 import type { RecommendedDictionary } from '../dictionaries/recommended';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from '../dictionaries/recommended';
-import { definitionSourceRows, frequencySourceRows, kanjiSourceRows } from '../sources/sections';
+import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
@@ -43,6 +44,7 @@ const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
 type StringReaderSettingName = { [K in keyof ReaderSettings & string]: ReaderSettings[K] extends string ? K : never }[keyof ReaderSettings & string];
 type ColorInputField = readonly [StringReaderSettingName, string];
+type PageScanMode = 'off' | 'auto' | 'manual';
 const DISABLED_SETTINGS_CONTROL_DESCRIPTION_ID = 'jpdb-reader-disabled-control-description';
 const API_KEY_INPUT_ATTRIBUTES = {
     autocapitalize: 'off',
@@ -107,7 +109,7 @@ function escapedUiText(language: InterfaceLanguage, key: Parameters<typeof uiTex
     return escapeHtml(uiText(language, key));
 }
 
-export function renderHelpLinksPanel(): string {
+export function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string {
     return `
         <div class="jpdb-reader-help-links-card" data-jpdb-reader-surface-ignore>
             <div class="jpdb-reader-settings-subsection">
@@ -144,7 +146,7 @@ export function renderHelpLinksPanel(): string {
                 <div class="jpdb-reader-help-actions">
                     <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">${externalButtonLabel('Video Player')}</a>
                     <a class="jpdb-reader-btn" href="${PDF_READER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="pdf-reader">${externalButtonLabel('PDF Reader')}</a>
-                    <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">${externalButtonLabel('New Tab')}</a>
+                    <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">${externalButtonLabel(uiText(language, 'newTabPage'))}</a>
                     <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">${externalButtonLabel('Docs')}</a>
                     <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="factory-reset" data-help-link="factory-reset">Factory Reset</button>
                 </div>
@@ -628,6 +630,7 @@ function popupLookupEnabledSetting(settings: ReaderSettings): boolean {
 }
 
 function renderReaderSettingsPanel(settings: ReaderSettings): string {
+    const pageScanMode = pageScanModeFromSettings(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>Reader</legend>
@@ -644,7 +647,14 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('lookupOnHover', 'Look up on hover', settings.lookupOnHover)}
                     ${checkbox('lookupOnMiddleMouse', 'Look up with middle-mouse hold', settings.lookupOnMiddleMouse)}
                     ${checkbox('showFloatingButton', uiText(settings.interfaceLanguage, 'showFloatingButton'), settings.showFloatingButton)}
-                    ${checkbox('manualScanEnabled', uiText(settings.interfaceLanguage, 'manualScanEnabled'), settings.manualScanEnabled)}
+                    ${radioGroup('pageScanMode', uiText(settings.interfaceLanguage, 'pageScanMode'), pageScanMode, [
+                        ['off', uiText(settings.interfaceLanguage, 'pageScanModeOff')],
+                        ['auto', uiText(settings.interfaceLanguage, 'pageScanModeAuto')],
+                        ['manual', uiText(settings.interfaceLanguage, 'pageScanModeManual')],
+                    ])}
+                    <div class="jpdb-reader-shortcut-group" data-page-scan-manual-shortcut ${pageScanMode === 'manual' ? '' : 'hidden'}>
+                        <div data-manual-page-scan-shortcut-label>${shortcutInput('shortcuts.scanPage', uiText(settings.interfaceLanguage, 'manualPageScanShortcut'), settings.shortcuts.scanPage)}</div>
+                    </div>
                     ${select('appearancePreset', 'Quick setup', '', APPEARANCE_PRESET_OPTIONS)}
                     ${select('furiganaMode', 'Furigana', effectiveFuriganaMode(settings), FURIGANA_MODE_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
@@ -658,6 +668,11 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                 <div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">Set a hover key. Blank means plain hover.</div>
             </fieldset>
     `;
+}
+
+function pageScanModeFromSettings(settings: ReaderSettings): PageScanMode {
+    if (settings.annotationsPaused) return 'off';
+    return settings.manualScanEnabled ? 'manual' : 'auto';
 }
 
 function renderHoverLookupSettingsSubsection(settings: ReaderSettings): string {
@@ -705,7 +720,11 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
             <fieldset id="jpdb-reader-settings-panel-ocr" role="tabpanel" data-settings-panel="media" data-legend-key="images" aria-describedby="settings-help-ocr" hidden>
                 <legend>Image text (OCR)</legend>
                 <div class="grid jpdb-reader-settings-tgrid">
-                    ${checkbox('ocrEnabled', 'Read text in images', settings.ocrEnabled)}
+                    ${radioGroup('ocrInteractionMode', uiText(settings.interfaceLanguage, 'ocrInteractionMode'), ocrInteractionModeFromSettings(settings), [
+                        ['auto', uiText(settings.interfaceLanguage, 'ocrInteractionModeAuto')],
+                        ['manual', uiText(settings.interfaceLanguage, 'ocrInteractionModeManual')],
+                        ['off', uiText(settings.interfaceLanguage, 'ocrInteractionModeOff')],
+                    ])}
                     ${checkbox('ocrShowTextOverlay', 'Show recognized text on images', settings.ocrShowTextOverlay)}
                     ${checkbox('ocrVideoPauseFrames', 'Read paused video frames', settings.ocrVideoPauseFrames)}
                     ${checkbox('ocrInvertDarkPanels', 'Read light text on dark panels', settings.ocrInvertDarkPanels)}
@@ -811,15 +830,14 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>Sources</legend>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">Checking imported dictionaries...</div>
-                <div class="jpdb-reader-dictionary-priorities" data-source-editor>
+                <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
-                    <div class="jpdb-reader-help">External links and imported frequency badges. Tokens: {query}, {word}, {reading}.</div>
-                    <div data-frequency-lookup-pills>${renderFrequencyLookupPillRows(settings)}</div>
+                    <div class="jpdb-reader-help">External links and frequency badges in one order. Live Jiten/JPDB badges come from site lookup; installed frequency dictionaries are local and replace the matching live badge. Tokens: {query}, {word}, {reading}.</div>
                     <div class="jpdb-reader-lookup-links" data-source-editor>
-                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks)}
+                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, installedFrequencyDictionaryPreferences(settings, installedDictionariesFromPreferences(settings.dictionaryPreferences)))}
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
@@ -899,7 +917,7 @@ function renderHelpSettingsPanel(settings: ReaderSettings): string {
                     </div>
                     <div class="jpdb-reader-help" data-diagnostics-help>Print diagnostics to the console.</div>
                 </div>
-                ${renderHelpLinksPanel()}
+                ${renderHelpLinksPanel(settings.interfaceLanguage)}
             </fieldset>
     `;
 }
@@ -1380,6 +1398,22 @@ function localizeSettingsShortcuts(form: HTMLFormElement, text: SettingsText): v
     form.querySelectorAll<HTMLInputElement>('[data-shortcut-input]').forEach(inputEl => {
         if (inputEl.name !== 'shortcuts.hoverLookup') inputEl.placeholder = text('pressKeys');
     });
+    const pageScanLegend = getNamedControl<HTMLInputElement>(form, 'pageScanMode')
+        ?.closest<HTMLFieldSetElement>('.jpdb-reader-radio-group')
+        ?.querySelector('legend');
+    pageScanLegend?.replaceChildren(text('pageScanMode'));
+    setRadioLabel(form, 'pageScanMode', 'off', text('pageScanModeOff'));
+    setRadioLabel(form, 'pageScanMode', 'auto', text('pageScanModeAuto'));
+    setRadioLabel(form, 'pageScanMode', 'manual', text('pageScanModeManual'));
+    const manualPageScanShortcutLabel = form.querySelector<HTMLLabelElement>('[data-manual-page-scan-shortcut-label] label');
+    if (manualPageScanShortcutLabel) setBlockLabelText(manualPageScanShortcutLabel, text('manualPageScanShortcut'));
+    const ocrModeLegend = getNamedControl<HTMLInputElement>(form, 'ocrInteractionMode')
+        ?.closest<HTMLFieldSetElement>('.jpdb-reader-radio-group')
+        ?.querySelector('legend');
+    ocrModeLegend?.replaceChildren(text('ocrInteractionMode'));
+    setRadioLabel(form, 'ocrInteractionMode', 'auto', text('ocrInteractionModeAuto'));
+    setRadioLabel(form, 'ocrInteractionMode', 'manual', text('ocrInteractionModeManual'));
+    setRadioLabel(form, 'ocrInteractionMode', 'off', text('ocrInteractionModeOff'));
     const immersionLimitLegend = getNamedControl<HTMLInputElement>(form, 'immersionKitLimitEnabled')
         ?.closest<HTMLFieldSetElement>('.jpdb-reader-radio-group')
         ?.querySelector('legend');
@@ -1499,7 +1533,7 @@ function localizeLookupLinkEditor(form: HTMLFormElement, text: SettingsText): vo
     lookupHead[2]?.replaceChildren(text('lookupUrlTemplate'));
     lookupHead[3]?.replaceChildren(text('orderHeader'));
     lookupHead[4]?.replaceChildren(text('removeHeader'));
-    form.querySelectorAll<HTMLElement>('.jpdb-reader-lookup-link-note').forEach(note => note.replaceChildren(text('copiesCurrentWord')));
+    form.querySelectorAll<HTMLElement>('.jpdb-reader-lookup-link-note[data-lookup-link-note="copy"]').forEach(note => note.replaceChildren(text('copiesCurrentWord')));
     form.querySelectorAll<HTMLElement>('.jpdb-reader-lookup-link-fixed').forEach(note => note.setAttribute('aria-label', text('builtInAction')));
     form.querySelectorAll<HTMLInputElement>('input[name^="dictionaryLookupLinks."][name$=".label"]').forEach((input, index) => {
         input.setAttribute('aria-label', text('lookupPillLabelNumber').replace('{number}', String(index + 1)));
@@ -1598,7 +1632,6 @@ function localizeSourceHead(head: Element, text: SettingsText): void {
 
 function sourceHeadLabel(value: string, text: SettingsText): string {
     if (value === 'Kanji section') return text('kanjiSection');
-    if (value === 'Frequency pill') return text('lookupPills');
     return text('definitionSource');
 }
 
@@ -1716,13 +1749,13 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'wordColorIgnored', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorKifuku', 'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'parseSelection', 'lookupOnClick',
-    'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'manualScanEnabled', 'furiganaMode', 'wordColorStates', 'showPitchAccent', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
+    'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'pageScanMode', 'furiganaMode', 'wordColorStates', 'showPitchAccent', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
     'audioEnabled', 'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
     'audioSelectionMode', 'audioTtsMode', 'audioTimeoutMs', 'immersionKitEnabled', 'immersionKitExampleSource',
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
     'immersionKitPlayOnHover', 'immersionKitPlayOnImageClick', 'immersionKitCategory', 'immersionKitSort', 'immersionKitLimit',
-    'immersionKitMinLength', 'immersionKitMaxLength', 'immersionKitPlaybackRate', 'immersionKitExactMatch', 'ocrEnabled',
-    'ocrAutoScanImages', 'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrInvertDarkPanels', 'ocrProvider', 'ocrOverlayTheme', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
+    'immersionKitMinLength', 'immersionKitMaxLength', 'immersionKitPlaybackRate', 'immersionKitExactMatch', 'ocrInteractionMode',
+    'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrInvertDarkPanels', 'ocrProvider', 'ocrOverlayTheme', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
     'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundColor', 'ocrBackgroundOpacity',
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
     'subtitleOverlayVisible', 'subtitleSecondaryVisible', 'subtitleNativeBlurred', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',
@@ -2140,6 +2173,13 @@ export function syncStickyBottomSheetAvailability(form: HTMLFormElement): void {
     if (unavailable) input.checked = false;
 }
 
+export function syncPageScanModeControls(form: HTMLFormElement): void {
+    const mode = form.querySelector<HTMLInputElement>('input[name="pageScanMode"]:checked')?.value ?? 'auto';
+    form.querySelectorAll<HTMLElement>('[data-page-scan-manual-shortcut]').forEach(node => {
+        node.hidden = mode !== 'manual';
+    });
+}
+
 export function syncFontFamilyControls(form: HTMLFormElement): void {
     form.querySelectorAll<HTMLElement>('[data-font-family-control]').forEach(control => {
         const selectElement = control.querySelector<HTMLSelectElement>('select');
@@ -2196,7 +2236,6 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
     const showAlias = true;
     const visibleNames = new Set([
         ...rows.filter(row => row.removable).map(row => row.name),
-        ...frequencySourceRows(settings).map(row => row.name),
     ]);
     const hiddenPreferences = settings.dictionaryPreferences.filter(preference => !visibleNames.has(preference.name));
     const hidden = hiddenPreferences.map(preference => {
@@ -2225,15 +2264,13 @@ export function renderKanjiSourceRows(settings: ReaderSettings): string {
     return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: 'Kanji section', showAlias: true });
 }
 
-export function renderFrequencyLookupPillRows(settings: ReaderSettings): string {
-    const rows = frequencySourceRows(settings);
-    if (!rows.length) return '';
-    return `
-        <div class="jpdb-reader-help" data-help-key="frequencyLookupPillsHelp">Imported frequency dictionaries show as badge pills when a lookup has matching data.</div>
-        <div class="jpdb-reader-dictionary-priorities" data-source-editor>
-            ${renderSourceRowsList(rows, { sourceLabel: 'Frequency pill', showAlias: true })}
-        </div>
-    `;
+export function renderLookupPillsEditor(settings: ReaderSettings, installed: YomitanDictionaryInfo[] = installedDictionariesFromPreferences(settings.dictionaryPreferences)): string {
+    return renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, installedFrequencyDictionaryPreferences(settings, installed));
+}
+
+function installedFrequencyDictionaryPreferences(settings: ReaderSettings, installed: YomitanDictionaryInfo[]): DictionaryPreference[] {
+    const installedFrequencyNames = new Set(installed.filter(dictionary => dictionary.type === 'frequency').map(dictionary => dictionary.title));
+    return settings.dictionaryPreferences.filter(preference => preference.type === 'frequency' && installedFrequencyNames.has(preference.name));
 }
 
 export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]): string {

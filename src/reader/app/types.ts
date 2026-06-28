@@ -109,7 +109,8 @@ export interface DictionaryLookupLink {
     label: string;
     urlTemplate: string;
     enabled: boolean;
-    action?: 'open' | 'copy';
+    action?: 'open' | 'copy' | 'frequency-live' | 'frequency-local';
+    priority?: number;
 }
 
 export interface JPDBMeaning {

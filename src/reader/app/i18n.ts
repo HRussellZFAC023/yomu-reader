@@ -14,6 +14,8 @@ const COPY = {
         onboardingAccentColor: 'Accent color',
         customAccentColor: 'Custom color',
         onboardingImmersionOptions: 'Immersion defaults',
+        onboardingHoverShortcut: 'Lookup hover modifier',
+        manualPageScanShortcut: 'Manual page scan shortcut',
         onboardingAddApiKey: 'Add API key',
         onboardingAddLocalDictionaries: 'Add local dictionaries',
         onboardingUseWithoutApiKey: 'Use without API key',
@@ -28,6 +30,8 @@ const COPY = {
         featureControlBody: 'Tune features, shortcuts, and color.',
         featureStudy: 'Study',
         featureStudyBody: 'Review words and kanji on the study page.',
+        featureGame: 'Game',
+        featureGameBody: 'Install the Yomu app to use in games or anywhere on the PC.',
         scanPage: 'Scan page',
         noUnscannedJapaneseText: 'No unscanned Japanese text found.',
         jpdbScanFailed: 'Page scan failed.',
@@ -209,7 +213,15 @@ const COPY = {
         lookupOnHover: 'Look up on hover',
         lookupOnMiddleMouse: 'Look up with middle-mouse hold',
         showFloatingButton: 'Show settings puck',
-        manualScanEnabled: 'Manual scan only',
+        pageScanMode: 'Page scanning',
+        pageScanModeOff: 'Off',
+        pageScanModeAuto: 'Auto',
+        pageScanModeManual: 'Manual',
+        manualScanEnabled: 'Manual page scanning',
+        ocrInteractionMode: 'Image OCR scanning',
+        ocrInteractionModeAuto: 'Auto',
+        ocrInteractionModeManual: 'Tap or hover',
+        ocrInteractionModeOff: 'Off',
         puckMenuLabel: `${APP_NAME} menu`,
         puckStudyPage: 'Study page',
         puckPauseAnnotations: 'Pause annotations',
@@ -529,8 +541,7 @@ const COPY = {
         exportDictionaries: 'Export dictionaries',
         dictionaryImportHelp: 'Import a Yomitan ZIP, Yomitan settings export, or backup. Term dictionaries add definitions; pitch and frequency dictionaries add accents and badges.',
         lookupPills: 'Lookup pills',
-        lookupPillsHelp: 'Links and frequency badges. Tokens: {query}, {word}, {reading}.',
-        frequencyLookupPillsHelp: 'Show imported frequency dictionaries as badges.',
+        lookupPillsHelp: 'External links and frequency badges in one order. Live Jiten/JPDB badges come from site lookup; installed frequency dictionaries are local and replace the matching live badge. Tokens: {query}, {word}, {reading}.',
         copiesCurrentWord: 'Copies the current word',
         lookupPillLabel: 'Lookup pill label',
         lookupPillLabelNumber: 'Lookup pill {number} label',
@@ -792,7 +803,7 @@ const COPY = {
         helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
         videoPlayer: 'Video Player',
         pdfReader: 'PDF Reader',
-        newTabPage: 'New Tab',
+        newTabPage: 'Study',
         word: 'Word',
         search: 'Search',
         statsImportJpdbHistory: 'Import JPDB review history',
@@ -1190,6 +1201,7 @@ onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
+onboardingHoverShortcut	ホバー検索の修飾キー
 onboardingAddApiKey	APIキーを追加
 onboardingAddLocalDictionaries	ローカル辞書を追加
 onboardingUseWithoutApiKey	APIキーなしで使う
@@ -1204,6 +1216,8 @@ featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
 featureStudyBody	学習ページで単語と漢字を復習。
+featureGame	ゲーム
+featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -1218,7 +1232,7 @@ kanji	漢字
 audio	音声
 front	表面
 back	裏面
-newTabPage	新しいタブ
+newTabPage	学習
 word	単語
 search	検索
 statsImportJpdbHistory	JPDB復習履歴を読み込む
@@ -1864,7 +1878,16 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-manualScanEnabled	手動スキャンのみ
+pageScanMode	ページスキャン
+pageScanModeOff	オフ
+pageScanModeAuto	自動
+pageScanModeManual	手動
+manualPageScanShortcut	手動ページスキャンのショートカット
+manualScanEnabled	手動ページスキャン
+ocrInteractionMode	画像OCRスキャン
+ocrInteractionModeAuto	自動
+ocrInteractionModeManual	タップ/ホバー
+ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
 puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
@@ -2158,8 +2181,7 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	Yomitan ZIP、Yomitan設定エクスポート、バックアップを読み込みます。語句辞書は定義を追加し、ピッチ/頻度辞書はアクセントやバッジを追加します。
 lookupPills	検索ピル
-lookupPillsHelp	リンクと頻度バッジ。トークン: {query}、{word}、{reading}。
-frequencyLookupPillsHelp	頻度辞書を検索バッジに表示。
+lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。Jiten/JPDBのライブバッジはサイト検索由来、インストール済み頻度辞書はローカルで一致するライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -2253,7 +2275,7 @@ helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまと
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
-newTabPage	新しいタブ
+newTabPage	学習
 docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除。

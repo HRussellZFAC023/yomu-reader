@@ -101,6 +101,30 @@ try {
     const welcomeWords = await page.locator('.jpdb-reader-onboarding .jpdb-reader-word').count();
     const word = page.locator('.jpdb-reader-onboarding .jpdb-reader-word', { hasText: '日本語' }).first();
     assert(await word.count() === 1, 'Welcome panel did not render 日本語 as a reader word', { welcomeWords });
+    const onboardingState = await page.evaluate(() => {
+        const features = Array.from(document.querySelectorAll('.jpdb-reader-onboarding-features > li')).map(item => ({
+            title: item.querySelector('strong')?.textContent?.trim() ?? '',
+            copy: item.querySelector('span')?.textContent?.trim() ?? '',
+        }));
+        const hoverShortcut = document.querySelector('input[name="shortcuts.hoverLookup"]');
+        return {
+            features,
+            hoverShortcutType: hoverShortcut?.getAttribute('type') ?? '',
+            hoverShortcutPlaceholder: hoverShortcut?.getAttribute('placeholder') ?? '',
+            hasImmersionGrid: Boolean(document.querySelector('.jpdb-reader-onboarding-immersion-grid')),
+            hasCaptureShortcut: Boolean(document.querySelector('[name="shortcuts.captureScreen"], [data-onboarding-capture-shortcut]')),
+        };
+    });
+    assert(onboardingState.features.length === 6, 'Welcome panel did not show the expected feature count', onboardingState);
+    const hasGameFeature = onboardingState.features.some(feature => feature.title === 'Game'
+        && feature.copy === 'Install the Yomu app to use in games or anywhere on the PC.')
+        || onboardingState.features.some(feature => feature.title === 'ゲーム'
+            && feature.copy === 'Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。');
+    assert(hasGameFeature, 'Welcome panel did not show the Game feature', onboardingState);
+    assert(onboardingState.hoverShortcutType === 'text'
+        && /hover without a key|キーなしホバー/i.test(onboardingState.hoverShortcutPlaceholder)
+        && onboardingState.hasImmersionGrid, 'Welcome panel did not show the hover modifier shortcut input', onboardingState);
+    assert(!onboardingState.hasCaptureShortcut, 'Browser onboarding exposed a capture-screen shortcut that cannot work here', onboardingState);
 
     await word.click();
     await page.waitForFunction(() => {

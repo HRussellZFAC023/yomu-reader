@@ -56,7 +56,7 @@ import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import { FloatingButtonController } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
 import { JitenPublicVocabularyClient } from '../dictionaries/jiten-public-vocabulary';
-import { installUchisenCarousel, loadUchisenData, type UchisenData } from '../dictionaries/uchisen';
+import type { UchisenData } from '../dictionaries/uchisen';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
 import { filterJitenKanjiWords as filterSharedJitenKanjiWords, loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
 import { JpdbClient } from '../jpdb/jpdb';
@@ -609,13 +609,14 @@ export class ReaderApp {
         getSettings: () => this.settings,
         isJpdbBackedCard: card => this.isJpdbBackedCard(card),
         renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup) => renderWordPills({
+        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, jitenVocabularyInfo) => renderWordPills({
             card,
             jpdbUrl,
             settings: this.settings,
             metaEntries,
             overrideQuery,
             ankiLookup,
+            jitenVocabularyInfo,
             isJpdbBackedCard: value => this.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         }),
@@ -5204,6 +5205,9 @@ export class ReaderApp {
             done();
             return;
         }
+        if (options.skipInitialCardResolution) {
+            void this.refreshSkippedInitialCardResolution(popover, card, sentence, anchor, options, mounted.requestId, isCurrentHoverCard);
+        }
 
         try {
             if (trigger === 'hover') {
@@ -5222,6 +5226,44 @@ export class ReaderApp {
         } finally {
             done();
         }
+    }
+
+    private async refreshSkippedInitialCardResolution(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        anchor: HTMLElement | undefined,
+        options: CardDisplayOptions,
+        requestId: number,
+        isCurrentHoverCard: () => boolean,
+    ): Promise<void> {
+        if (!this.shouldResolveAfterSkippedInitialCardResolution(card)) return;
+        const resolved = await this.resolveLookupCard(card).catch(error => {
+            log.warn('Skipped initial card resolution failed', { term: card.spelling }, error);
+            return null;
+        });
+        if (!resolved || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+        if (!this.isResolvedCardRefresh(card, resolved)) return;
+        this.applyPublicVocabularyToRenderedWords(card, resolved);
+        await this.showCard(resolved, sentence, anchor, {
+            ...options,
+            autoPlay: false,
+            navigation: 'preserve',
+            preservePosition: true,
+            previousNavigationEntry: undefined,
+            skipInitialCardResolution: false,
+        });
+    }
+
+    private shouldResolveAfterSkippedInitialCardResolution(card: JPDBCard): boolean {
+        return card.source === 'fallback'
+            || (card.source === 'jpdb' && Boolean(card.sourceCardKey));
+    }
+
+    private isResolvedCardRefresh(card: JPDBCard, resolved: JPDBCard): boolean {
+        return resolved !== card
+            && (cardKey(resolved) !== cardKey(card)
+                || (resolved.source ?? 'jpdb') !== (card.source ?? 'jpdb'));
     }
 
     private cardHoverLookupContext(
@@ -5534,7 +5576,7 @@ export class ReaderApp {
             void renderData.localMetaEntries.then(metaEntries => {
                 metaEntriesValue = metaEntries;
                 if (!canRenderLoading()) return;
-                this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue);
+                this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, jitenVocabularyInfoValue);
             });
         }
         if (renderData.jpdbVocabularyInfo) {
@@ -5546,6 +5588,7 @@ export class ReaderApp {
         if (renderData.jitenVocabularyInfo) {
             void renderData.jitenVocabularyInfo.then(jitenVocabularyInfo => {
                 jitenVocabularyInfoValue = jitenVocabularyInfo;
+                if (jitenVocabularyInfoValue && canRenderLoading()) this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, jitenVocabularyInfoValue);
                 renderLoading();
             });
         }
@@ -5566,7 +5609,7 @@ export class ReaderApp {
             if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
             if (renderedPitchKey === card.pitchAccent.join('|')) return;
             renderedPitchKey = card.pitchAccent.join('|');
-            this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue);
+            this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue, jitenVocabularyInfoValue);
         });
     }
 
@@ -5586,20 +5629,22 @@ export class ReaderApp {
         trigger: 'modal' | 'hover' = 'modal',
         anchor?: HTMLElement,
         ankiLookup?: AnkiLookupResult,
+        jitenVocabularyInfo?: JitenVocabularyInfo | null,
     ): void {
         this.applyPitchAccentToRenderedWords(card, undefined, this.renderedWordUpdateRootsForCardRender(trigger, anchor));
-        this.updatePopoverWordPills(popover, card, metaEntries, ankiLookup);
+        this.updatePopoverWordPills(popover, card, metaEntries, ankiLookup, jitenVocabularyInfo);
         this.updatePopoverPitch(popover, card, metaEntries);
         this.updateCardPopoverPosition(trigger);
     }
 
-    private updatePopoverWordPills(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: AnkiLookupResult): void {
+    private updatePopoverWordPills(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: AnkiLookupResult, jitenVocabularyInfo?: JitenVocabularyInfo | null): void {
         updateHeadingWordPills(popover, {
             card,
             jpdbUrl: jpdbVocabularyUrl(card),
             settings: this.settings,
             metaEntries,
             ankiLookup,
+            jitenVocabularyInfo,
             isJpdbBackedCard: value => this.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         });
@@ -6233,7 +6278,8 @@ export class ReaderApp {
 
     private renderKanjiUchisenInto(popover: HTMLElement, mount: HTMLElement | null, kanji: string, language: InterfaceLanguage): void {
         if (!mount) return;
-        if (!this.settings.uchisenEnabled) {
+        const companion = this.kanjiCompanion;
+        if (!this.settings.uchisenEnabled || !companion) {
             mount.remove();
             return;
         }
@@ -6245,7 +6291,7 @@ export class ReaderApp {
                 this.repositionActivePopover();
                 return;
             }
-            void installUchisenCarousel(mount, kanji, data.images, {
+            void companion.installUchisenCarousel(mount, kanji, data.images, {
                 sourceAttributes,
                 detailsClass: 'jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source',
                 summaryClass: 'jpdb-reader-local-title',
@@ -6257,7 +6303,7 @@ export class ReaderApp {
                 canGenerateImages: data.canGenerateImages,
                 refreshData: () => {
                     this.uchisenDataCache.delete(kanji);
-                    return loadUchisenData(kanji, this.settings.corsProxyUrl);
+                    return companion.loadUchisenData(kanji, this.settings.corsProxyUrl);
                 },
                 interfaceLanguage: language,
             }).then(() => {
@@ -6275,10 +6321,11 @@ export class ReaderApp {
     }
 
     private loadUchisenDetails(kanji: string): Promise<UchisenData | null> {
-        if (!this.settings.uchisenEnabled) return Promise.resolve(null);
+        const companion = this.kanjiCompanion;
+        if (!this.settings.uchisenEnabled || !companion) return Promise.resolve(null);
         const existing = this.uchisenDataCache.get(kanji);
         if (existing) return existing;
-        const promise = loadUchisenData(kanji, this.settings.corsProxyUrl).catch(error => {
+        const promise = companion.loadUchisenData(kanji, this.settings.corsProxyUrl).catch(error => {
             this.uchisenDataCache.delete(kanji);
             log.warn('Uchisen kanji lookup failed', { kanji }, error);
             return null;

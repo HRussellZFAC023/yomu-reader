@@ -406,6 +406,14 @@ describe('canvas readers (generic, unknown host)', () => {
         expect(collectCanvasReaderSurfaces('example.com')).toHaveLength(1);
     });
 
+    it('keeps manual OCR canvases out of passive reader-surface collection', () => {
+        stubContextPixels(richImage());
+        const canvas = mountCanvas(1200, 1680, 900, 1260);
+        canvas.dataset.yomuCanvasOcr = 'manual';
+        expect(isCanvasReaderPage('example.com')).toBe(false);
+        expect(collectCanvasReaderSurfaces('example.com')).toEqual([]);
+    });
+
     it('rejects a page-shaped image canvas that is not viewport-prominent (e.g. a thumbnail)', () => {
         stubContextPixels(richImage());
         mountCanvas(1200, 1680, 240, 336);

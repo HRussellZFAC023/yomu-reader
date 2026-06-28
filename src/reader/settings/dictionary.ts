@@ -2,13 +2,29 @@ import { booleanValue, finiteNumber, hasOwn, objectRecord, stringValue } from '.
 import { NEW_TAB_PAGE_URL } from '../app/constants';
 import type { DictionaryLookupLink, DictionaryPreference, ReaderSettings } from '../app/types';
 
-export const MAX_DICTIONARY_LOOKUP_LINKS = 12;
+export const MAX_DICTIONARY_LOOKUP_LINKS = 16;
 
 const JPDB_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'jpdb',
     label: 'JPDB',
     urlTemplate: 'https://jpdb.io/search?q={query}',
     enabled: true,
+};
+
+const JITEN_LIVE_FREQUENCY_PILL: DictionaryLookupLink = {
+    id: 'jiten-frequency',
+    label: 'Jiten live',
+    urlTemplate: '',
+    enabled: true,
+    action: 'frequency-live',
+};
+
+const JPDB_LIVE_FREQUENCY_PILL: DictionaryLookupLink = {
+    id: 'jpdb-frequency',
+    label: 'JPDB live',
+    urlTemplate: '',
+    enabled: false,
+    action: 'frequency-live',
 };
 
 const JISHO_LOOKUP_LINK: DictionaryLookupLink = {
@@ -86,7 +102,9 @@ export const COPY_LOOKUP_LINK: DictionaryLookupLink = {
 
 export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
     JITEN_LOOKUP_LINK,
+    JITEN_LIVE_FREQUENCY_PILL,
     JPDB_LOOKUP_LINK,
+    JPDB_LIVE_FREQUENCY_PILL,
     YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
@@ -185,9 +203,10 @@ function normalizeDictionaryPreference(item: unknown, index: number): Dictionary
 }
 
 export function defaultDictionaryLookupLinks(mode: 'jpdb' | 'local' = 'local'): DictionaryLookupLink[] {
-    return DEFAULT_DICTIONARY_LOOKUP_LINKS.map(link => ({
+    return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
         ...link,
-        enabled: mode === 'jpdb' ? link.id === 'jpdb' || link.id === 'jiten' || link.id === 'yomu-search' : link.enabled,
+        priority: index,
+        enabled: mode === 'jpdb' ? link.id === 'jpdb' || link.id === 'jiten' || link.id === 'yomu-search' || link.id === 'jiten-frequency' : link.enabled,
     }));
 }
 
@@ -262,7 +281,7 @@ export function normalizeDictionaryLookupLinks(value: unknown, preferJpdb = fals
 
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
 
-    return ensureJitenBeforeJpdb(normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS));
+    return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS)));
 }
 
 function isRemovedBuiltInLookupLink(link: DictionaryLookupLink): boolean {
@@ -279,7 +298,14 @@ function defaultLookupLinkMode(preferJpdb: boolean): 'jpdb' | 'local' {
 
 function savedLookupLinksInDefaultOrder(links: DictionaryLookupLink[]): DictionaryLookupLink[] {
     const linkById = new Map(links.map(link => [link.id, link]));
-    return DEFAULT_DICTIONARY_LOOKUP_LINKS.map(defaultLink => linkById.get(defaultLink.id) ?? defaultLink);
+    return withLookupLinkPriorities(DEFAULT_DICTIONARY_LOOKUP_LINKS.map(defaultLink => linkById.get(defaultLink.id) ?? defaultLink));
+}
+
+function withLookupLinkPriorities(links: DictionaryLookupLink[]): DictionaryLookupLink[] {
+    return links.map((link, index) => ({
+        ...link,
+        priority: link.priority === undefined || link.priority === Number.MAX_SAFE_INTEGER ? index : link.priority,
+    }));
 }
 
 function ensureJitenBeforeJpdb(links: DictionaryLookupLink[]): DictionaryLookupLink[] {
@@ -301,7 +327,7 @@ function appendMissingBuiltInLookupLinks(builtIns: DictionaryLookupLink[], seen:
 
 function normalizeDictionaryLookupLink(value: unknown): DictionaryLookupLink | null {
     if (!value || typeof value !== 'object') return null;
-    const record = value as Partial<DictionaryLookupLink> & { id?: unknown; label?: unknown; urlTemplate?: unknown; enabled?: unknown; action?: unknown };
+    const record = value as Partial<DictionaryLookupLink> & { id?: unknown; label?: unknown; urlTemplate?: unknown; enabled?: unknown; action?: unknown; priority?: unknown };
     const id = normalizedLookupLinkId(record);
     const label = normalizedLookupLinkLabel(record, id);
     const urlTemplate = normalizedLookupLinkUrlTemplate(record);
@@ -313,6 +339,7 @@ function normalizeDictionaryLookupLink(value: unknown): DictionaryLookupLink | n
         urlTemplate,
         enabled: normalizedLookupLinkEnabled(record),
         action,
+        priority: finiteNumber(record.priority, Number.MAX_SAFE_INTEGER),
     };
 }
 
@@ -331,7 +358,10 @@ function isUsableDictionaryLookupLink(
     action: DictionaryLookupLink['action'],
 ): boolean {
     if (!id || !label) return false;
-    return action === 'copy' || Boolean(urlTemplate && isSafeLookupUrlTemplate(urlTemplate));
+    return action === 'copy'
+        || action === 'frequency-live'
+        || action === 'frequency-local'
+        || Boolean(urlTemplate && isSafeLookupUrlTemplate(urlTemplate));
 }
 
 function normalizedLookupLinkId(record: { id?: unknown; label?: unknown }): string {
@@ -346,7 +376,10 @@ function normalizedLookupLinkLabel(record: { label?: unknown }, id: string): str
 }
 
 function normalizedLookupLinkAction(record: { action?: unknown }, id: string): DictionaryLookupLink['action'] {
-    return record.action === 'copy' || id === 'copy' ? 'copy' : 'open';
+    if (record.action === 'copy' || id === 'copy') return 'copy';
+    if (record.action === 'frequency-live' || id === 'jiten-frequency' || id === 'jpdb-frequency') return 'frequency-live';
+    if (record.action === 'frequency-local' || id.startsWith('frequency-local:')) return 'frequency-local';
+    return 'open';
 }
 
 function stableLookupLinkId(value: string): string {

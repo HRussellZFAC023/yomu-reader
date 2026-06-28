@@ -40,7 +40,13 @@ const POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR = [
     'use',
     'rt',
     'rp',
-    '[contenteditable="true"]',
+    '[contenteditable]',
+    '[role="textbox"]',
+    '[role="searchbox"]',
+    '[role="combobox"]',
+    '[aria-placeholder]',
+    '[data-placeholder]',
+    '[class*="placeholder" i]',
     READER_ROOT_SELECTOR,
 ].join(',');
 const POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR = [
@@ -400,7 +406,7 @@ function elementPassesPointerTextAttributes(element: HTMLElement, allowReaderRoo
         return false;
     }
     if (insideSubtitle) {
-        if (element.matches('script,style,noscript,textarea,input,select,button,option,summary,svg,use,rt,rp,[contenteditable="true"],[role="checkbox"],[role="radio"],[role="tab"],[onclick]')) {
+        if (element.matches('script,style,noscript,textarea,input,select,button,option,summary,svg,use,rt,rp,[contenteditable],[role="textbox"],[role="searchbox"],[role="combobox"],[aria-placeholder],[data-placeholder],[class*="placeholder" i],[role="checkbox"],[role="radio"],[role="tab"],[onclick]')) {
             return false;
         }
         return true;

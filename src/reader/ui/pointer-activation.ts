@@ -36,7 +36,7 @@ export function installReaderControlPointerActivation(root: HTMLElement): void {
     let clickGuard: ControlClickGuard | undefined;
 
     root.addEventListener('pointerdown', event => {
-        if (!isPenControlPointer(event) || event.button !== 0) {
+        if (!isDirectControlPointer(event) || event.button !== 0) {
             if (tap?.pointerId === event.pointerId) tap = undefined;
             return;
         }
@@ -50,7 +50,7 @@ export function installReaderControlPointerActivation(root: HTMLElement): void {
         const activeTap = tap;
         if (!activeTap || activeTap.pointerId !== event.pointerId) return;
         tap = undefined;
-        if (!isPenControlPointer(event)) return;
+        if (!isDirectControlPointer(event)) return;
         const target = controlPointerTarget(event.target, root);
         if (!target || target !== activeTap.target) return;
         if (Math.hypot(event.clientX - activeTap.x, event.clientY - activeTap.y) > CONTROL_POINTER_TAP_SLOP_PX) return;
@@ -80,8 +80,8 @@ export function installReaderControlPointerActivation(root: HTMLElement): void {
     }, { capture: true });
 }
 
-function isPenControlPointer(event: PointerEvent): boolean {
-    return event.pointerType === 'pen' && event.isPrimary !== false;
+function isDirectControlPointer(event: PointerEvent): boolean {
+    return (event.pointerType === 'pen' || event.pointerType === 'touch') && event.isPrimary !== false;
 }
 
 function controlPointerTarget(target: EventTarget | null, root: HTMLElement): HTMLElement | null {

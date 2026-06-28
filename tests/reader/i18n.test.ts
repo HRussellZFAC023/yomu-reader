@@ -71,22 +71,16 @@ describe('interface language resolution', () => {
         expect(calloutCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 
-    it('keeps Study dictionary and offline guidance covered by Japanese docs copy', () => {
+    it('keeps Study setup and offline guidance covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
         const studySource = readFileSync('docs/tools/study-page.md', 'utf8');
-        const studySection = between(studySource, '## Local pitch and frequency dictionaries', '## Questions');
+        const studySection = between(studySource, '## Set it up', '## Questions');
         const studyCopy = [
             ...markdownHeadings(studySection),
             ...markdownParagraphs(studySection),
             ...markdownListTextNodes(studySection),
         ];
         const inlineTextNodeCopy = [
-            'Frequency:',
-            ' install JPDBv2㋕ from Settings → Dictionaries. Kuuuube documents it as the recommended JPDB v2.2 frequency package, with kana-frequency display and high corpus coverage.',
-            'Pitch accent:',
-            ' import a Yomitan-compatible pitch dictionary that matches your licensing comfort. The Kanjium source data documents pitch-accent additions under CC BY-SA 4.0, and MarvNC\'s current Yomitan dictionary guide recommends an NHK2016 pitch dictionary; よむ can read pitch metadata from imported Yomitan metadata dictionaries, but the automatic Kanjium/NHK install button is intentionally not shipped until there is a current, license-clear public ZIP URL.',
-            'Jiten:',
-            ' if you use Jiten, its frequency download remains available in Settings; JPDBv2㋕ is the default local frequency recommendation for users who do not want frequency to depend on a live service.',
             'When the hosted page has been visited once, the PWA cache keeps the Study shell available offline. Cached cards show an ',
             'Offline cache',
             ' status, and review grades that cannot reach Jiten, JPDB, or Anki are saved locally and retried when the provider reconnects.',
@@ -182,21 +176,29 @@ function markdownParagraphs(source: string): string[] {
     return source
         .split(/\n{2,}/)
         .map(block => block.trim())
-        .filter(block => block && !block.startsWith('---') && !block.startsWith('#') && !block.startsWith('<') && !block.startsWith('- '))
+        .filter(block => block && !block.startsWith('---') && !block.startsWith('#') && !block.startsWith('<') && !block.startsWith('- ') && !/^\d+\.\s+/.test(block))
         .map(block => decodeMarkdownLinks(block).replace(/\*\*(.*?)\*\*/g, '$1'))
         .filter(Boolean);
 }
 
 function markdownListTextNodes(source: string): string[] {
-    return [...source.matchAll(/^-\s+(.+)$/gm)]
+    return [...source.matchAll(/^(?:-|\d+\.)\s+(.+)$/gm)]
         .flatMap(match => markdownTextNodeSegments(match[1]))
         .filter(Boolean);
 }
 
 function markdownTextNodeSegments(value: string): string[] {
     return value
-        .split(/`[^`]*`/g)
-        .map(segment => decodeMarkdownLinks(segment).replace(/\*\*(.*?)\*\*/g, '$1').trim())
+        .split(/(`[^`]*`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g)
+        .map(segment => {
+            if (!segment || /^`[^`]*`$/.test(segment)) return '';
+            const strong = segment.match(/^\*\*(.*?)\*\*$/);
+            if (strong) return decodeMarkdownLinks(strong[1] ?? '').trim();
+            const link = segment.match(/^\[([^\]]+)\]\([^)]+\)$/);
+            if (link) return decodeMarkdownHtml(link[1]?.trim() ?? '');
+            return decodeMarkdownLinks(segment).replace(/\*\*(.*?)\*\*/g, '$1').trim();
+        })
+        .filter(segment => /[A-Za-z0-9\u3040-\u30ff\u3400-\u9fff]/u.test(segment))
         .filter(Boolean);
 }
 

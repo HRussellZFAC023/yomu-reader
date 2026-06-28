@@ -24,7 +24,7 @@ const VIDEO_TMP_DIR = path.join(ARTIFACT_DIR, 'raw-video');
 const DEFAULT_PROXY_ORIGIN = 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev';
 const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
 const SILENT_WAV_BYTES = Buffer.from('UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==', 'base64');
-const HOSTED_SEARCH_CARD = {
+const HOSTED_READING_CARD = {
     vid: 1456360,
     sid: 0,
     rid: 0,
@@ -39,6 +39,22 @@ const HOSTED_SEARCH_CARD = {
     source: 'local',
     reviewSource: 'dictionary',
     sentence: '読む',
+};
+const HOSTED_MIXED_BATHING_CARD = {
+    vid: 1290550,
+    sid: 0,
+    rid: 0,
+    spelling: '混浴',
+    reading: 'こんよく',
+    frequencyRank: 25918,
+    partOfSpeech: ['noun'],
+    meanings: [{ glosses: ['mixed bathing'], partOfSpeech: ['noun'] }],
+    cardState: ['learning'],
+    pitchAccent: [],
+    wordWithReading: '混[こん]浴[よく]',
+    source: 'local',
+    reviewSource: 'dictionary',
+    sentence: 'あ… そ そうね 混浴風呂だものね',
 };
 
 assertBuiltArtifacts([
@@ -85,6 +101,7 @@ const browser = await launchSmokeBrowser(chromium, 'chromium', {
 
 try {
     scenarios.push(await runScenario(browser, hostedStudyAnswerAudioScenario(server.origin)));
+    scenarios.push(await runScenario(browser, hostedStudyLocalAudioCorsScenario(server.origin)));
     scenarios.push(await runScenario(browser, hostedSearchAudioScenario(server.origin)));
 } finally {
     await browser.close().catch(() => undefined);
@@ -135,6 +152,51 @@ function hostedStudyAnswerAudioScenario(origin) {
             assert(result.audiblePlays.length >= 1, 'Hosted Study did not record an audio play attempt', result);
             assert(/読.*む/.test(result.evidence.answerText), 'Hosted Study answer evidence did not include the headword', result);
             assert(result.evidence.answerText.includes('#900'), 'Hosted Study answer evidence did not include the frequency pill', result);
+        },
+    };
+}
+
+function hostedStudyLocalAudioCorsScenario(origin) {
+    const localClipUrl = 'http://localhost:9090/audio/jpod/media/kon-yoku.mp3';
+    return {
+        name: 'hosted-newtab-study-local-audio-cors-fallback',
+        url: `${origin}/newtab/index.html?smoke=audio-newtab-study-local`,
+        cacheCards: [HOSTED_MIXED_BATHING_CARD],
+        settings: {
+            ...baseSettings,
+            autoPlayAudio: false,
+            showFurigana: false,
+            showPitchAccent: true,
+            audioViaBlob: false,
+            audioSources: [
+                { type: 'custom-json', url: 'https://audio.test/local-json?term={term}&reading={reading}', voice: '', enabled: true },
+            ],
+        },
+        action: async page => {
+            await page.waitForSelector('[data-newtab-prompt]', { timeout: 15_000 });
+            await page.locator('[data-newtab-action="reveal"]').click();
+            await page.waitForSelector('[data-newtab-answer-header] ruby', { timeout: 10_000 });
+            await page.waitForSelector('.jpdb-reader-newtab-term .jpdb-reader-word ruby', { timeout: 10_000 });
+            const speaker = page.locator('[data-action="study-word-audio"]');
+            await speaker.waitFor({ timeout: 10_000 });
+            assert(await speaker.isEnabled(), 'Hosted Study local-audio speaker was disabled before playback');
+            await speaker.click();
+            await waitForPlaybackSignalCount(page, 1, 'Hosted Study local audio speaker produced no audio signal');
+            await speaker.click();
+            await waitForPlaybackSignalCount(page, 2, 'Hosted Study local audio speaker did not restart on the second click');
+            assert(await speaker.isVisible(), 'Hosted Study local-audio speaker disappeared after playback');
+            assert(await speaker.isEnabled(), 'Hosted Study local-audio speaker became disabled after playback');
+        },
+        assertResult: result => {
+            assert(result.noUserscriptBridge, 'Hosted Study local-audio smoke unexpectedly had a userscript HTTP bridge installed', result);
+            assert(result.requests.some(request => targetUrl(request).startsWith('https://audio.test/local-json')), 'Hosted Study local audio did not request the custom JSON source', result);
+            assert(result.requests.some(request => targetUrl(request) === localClipUrl), 'Hosted Study local audio did not request the loopback clip', { localClipUrl, result });
+            assert(!result.fetches.some(request => targetUrl(request) === localClipUrl), 'Hosted Study local audio tried to fetch the loopback clip and would surface a CORS console error', { localClipUrl, result });
+            assert(result.audiblePlays.some(play => play.src === localClipUrl || play.sourceUrl === localClipUrl), 'Hosted Study local audio did not play the loopback clip after direct media setup', { localClipUrl, result });
+            assert(result.evidence.compactTermHtml.includes('<ruby'), 'Hosted Study compact revealed term did not include furigana ruby', result);
+            assert(result.evidence.compactTermHtml.includes('混') && result.evidence.compactTermHtml.includes('浴'), 'Hosted Study compact revealed term did not include the 混浴 base text', result);
+            assert(result.evidence.compactTermHtml.includes('こん') && result.evidence.compactTermHtml.includes('よく'), 'Hosted Study compact revealed term did not include 混浴 furigana', result);
+            assert(result.evidence.studySpeakerVisible === true && result.evidence.studySpeakerDisabled === false, 'Hosted Study local-audio speaker was not visible and enabled in final evidence', result);
         },
     };
 }
@@ -195,7 +257,7 @@ async function runScenario(browser, options) {
         if (/yomu|jpdb|audio/i.test(text)) yomuLogs.push({ type: message.type(), text });
         if (message.type() === 'error' && /yomu|jpdb|audio/i.test(text)) browserErrors.push(text);
     });
-    await seedHostedSettings(page, options.settings);
+    await seedHostedSettings(page, options.settings, options.cacheCards);
     await installAudioInstrumentation(page);
     await routeHostedSmokeRequests(page, requests);
 
@@ -232,7 +294,7 @@ async function runScenario(browser, options) {
     }
 }
 
-async function seedHostedSettings(page, settings) {
+async function seedHostedSettings(page, settings, cacheCards = [HOSTED_READING_CARD]) {
     await page.addInitScript(({ key, value, cacheKey, cache }) => {
         localStorage.setItem(key, JSON.stringify(value));
         localStorage.setItem(cacheKey, JSON.stringify(cache));
@@ -246,7 +308,7 @@ async function seedHostedSettings(page, settings) {
         key: YOMU_SETTINGS_KEY,
         value: settings,
         cacheKey: NEW_TAB_CACHE_KEY,
-        cache: { sourceLabel: 'Dictionaries', cards: [HOSTED_SEARCH_CARD] },
+        cache: { sourceLabel: 'Dictionaries', cards: cacheCards },
     });
 }
 
@@ -376,10 +438,11 @@ async function routeHostedSmokeRequests(page, requests) {
             targetUrl: target.href,
             status: mocked.status ?? 200,
             contentType: mocked.contentType,
+            noCors: Boolean(mocked.noCors),
         });
         await route.fulfill({
             status: mocked.status ?? 200,
-            headers: corsHeaders(),
+            headers: mocked.noCors ? {} : corsHeaders(),
             contentType: mocked.contentType,
             body: mocked.body,
         });
@@ -403,8 +466,17 @@ function mockedExternalResponse(target) {
             },
         }), 'application/json; charset=utf-8');
     }
+    if (target.hostname === 'audio.test' && target.pathname === '/local-json') {
+        return textResponse(JSON.stringify({
+            type: 'audioSourceList',
+            audioSources: [{ name: 'jpod 混浴', url: 'http://localhost:9090/audio/jpod/media/kon-yoku.mp3' }],
+        }), 'application/json; charset=utf-8');
+    }
     if (target.hostname === 'audio.test' && target.pathname.startsWith('/clip-')) {
         return { body: SILENT_WAV_BYTES, contentType: 'audio/mpeg' };
+    }
+    if ((target.hostname === 'localhost' || target.hostname === '127.0.0.1') && target.port === '9090' && target.pathname === '/audio/jpod/media/kon-yoku.mp3') {
+        return { body: SILENT_WAV_BYTES, contentType: 'audio/mpeg', noCors: true };
     }
     return null;
 }
@@ -520,6 +592,12 @@ async function safeEvidence(page) {
             runtime: window.__YOMU_READER_RUNTIME__ || '',
             rootBound: document.querySelector('[data-jpdb-reader-root].jpdb-reader-newtab')?.dataset.newtabBound ?? '',
             answerText: document.querySelector('[data-newtab-answer-header]')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 240) ?? '',
+            compactTermHtml: document.querySelector('.jpdb-reader-newtab-term .jpdb-reader-word')?.innerHTML ?? '',
+            studySpeakerVisible: (() => {
+                const button = document.querySelector('[data-action="study-word-audio"]');
+                return button instanceof HTMLElement ? Boolean(button.offsetParent || button.getClientRects().length) : false;
+            })(),
+            studySpeakerDisabled: document.querySelector('[data-action="study-word-audio"]')?.disabled ?? null,
             searchText: document.querySelector('[data-newtab-search-results]')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 240) ?? '',
             detailText: document.querySelector('[data-newtab-search-detail]:not([hidden])')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 240) ?? '',
         }));

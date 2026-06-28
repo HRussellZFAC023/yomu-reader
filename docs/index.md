@@ -20,7 +20,7 @@ hero:
       text: Install
       link: https://yomureader.com/yomu.user.js
     - theme: alt
-      text: Setup guide
+      text: Setup
       link: /getting-started
       target: _self
     - theme: alt
@@ -28,7 +28,7 @@ hero:
       link: /video-player/index.html
       target: _self
     - theme: alt
-      text: Read/PDF
+      text: Read
       link: /pdf-reader/
       target: _self
     - theme: alt
@@ -36,6 +36,42 @@ hero:
       link: /newtab/index.html
       target: _self
 ---
+
+<style>
+.VPHome .VPHomeHero {
+  padding-block-end: clamp(8px, 2vw, 18px);
+}
+
+.VPHome .yomu-install-panel {
+  margin-top: 0;
+  margin-bottom: clamp(22px, 3vw, 30px);
+}
+
+.VPHome .yomu-demo {
+  margin-top: 0;
+  margin-bottom: clamp(34px, 4vw, 48px);
+}
+
+.VPHome .yomu-manga-ocr {
+  margin-bottom: clamp(34px, 4vw, 48px);
+}
+
+.VPHome .yomu-video-showcase {
+  margin-bottom: clamp(40px, 5vw, 56px);
+}
+
+@media (max-width: 700px) {
+  .VPHome .yomu-install-panel {
+    margin-bottom: 22px;
+  }
+
+  .VPHome .yomu-demo,
+  .VPHome .yomu-manga-ocr,
+  .VPHome .yomu-video-showcase {
+    margin-block: 22px;
+  }
+}
+</style>
 
 <div class="yomu-install-panel">
   <div class="yomu-install-copy">
@@ -114,15 +150,15 @@ hero:
     <span>Open local videos and Japanese subtitles in よむ.</span>
   </a>
   <a class="yomu-link-card" href="/pdf-reader/">
-    <strong>Read/PDF</strong>
+    <strong>Read</strong>
     <span>Read PDFs with the same popup reader.</span>
   </a>
   <a class="yomu-link-card" href="/tools/japanese-ocr">
     <strong>Manga OCR</strong>
     <span>Look up words inside manga panels and screenshots.</span>
   </a>
-  <a class="yomu-link-card" href="/guides/read-games-with-yomininja">
+  <a class="yomu-link-card" href="/tools/yomu-gaming">
     <strong>Games</strong>
-    <span>Read game dialogue with YomiNinja and よむ-compatible study flows.</span>
+    <span>Use Yomu Gaming for first-party PC game capture.</span>
   </a>
 </div>

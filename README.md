@@ -77,6 +77,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 ## Hosted Tools
 
 - [Homepage PWA](https://yomureader.com/) installs as one Yomu shell with offline docs fallback and shortcuts to Study, Video, PDF, and setup.
+- [Yomu Gaming](https://yomureader.com/tools/yomu-gaming) is the first-party desktop app for PC game capture; download the release file from [GitHub Releases](https://github.com/HRussellZFAC023/yomu-reader/releases/latest).
 - [Video reader](https://yomureader.com/video-player/index.html) for local video files and subtitles.
 - [PDF reader](https://yomureader.com/pdf-reader/) for Japanese PDFs and scanned pages.
 - [Study page](https://yomureader.com/newtab/) for review cards in a browser tab or mobile Home Screen shortcut.
@@ -99,8 +100,10 @@ Common commands:
 
 ```bash
 npm run dev          # userscript/docs dev harness
+npm run dev:gaming   # Electron desktop app for game capture/OCR lookup
 npm run dev:vite     # plain Vite/new-tab dev server
 npm run build        # production userscript + hosted assets
+npm run build:gaming # renderer + Electron main/preload build
 npm run verify       # userscript metadata and size checks
 npm run qa           # build + smoke/a11y/complexity checks
 ```
@@ -162,7 +165,6 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 - [Kanjium](https://github.com/mifunetoshiro/kanjium) for documented pitch-accent source data and licensing research around local pitch dictionaries.
 - [Kuuuube's Yomitan dictionaries](https://github.com/Kuuuube/yomitan-dictionaries) for the recommended JPDBv2㋕ local frequency package.
 - [asbplayer](https://github.com/asbplayer/asbplayer) for subtitle mining concepts and video-reader interaction patterns.
-- [YomiNinja](https://github.com/matt-m-o/YomiNinja) for compatible local OCR endpoint and image text references.
 - [KanjiVG](https://github.com/KanjiVG/kanjivg), [Kanji Canvas](https://github.com/asdfjkl/kanjicanvas), [Kanji Alive](https://github.com/kanjialive/kanji-data-media), [The Kanji Map](https://thekanjimap.com/), and [Uchisen](https://uchisen.com/) for kanji data, presentation, and study references.
 - [NihongoTube](https://www.nihongotube.app/) for the Japanese-only YouTube immersion idea as reference only.
 - [JPDB RTK Information Inserter](https://greasyfork.org/en/scripts/546314-jpdb-rtk-information-inserter), [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples), and [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) for optional JPDB-side behavior references.
@@ -180,6 +182,6 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 | [Kanji Alive data/media](https://github.com/kanjialive/kanji-data-media) | Creative Commons Attribution 4.0, with project-documented exceptions |
 | [The Kanji Map](https://github.com/gabor-kovacs/the-kanji-map) | MIT for the app; underlying data/media keep their upstream terms |
 | [Yomitan](https://github.com/yomidevs/yomitan), [fflate](https://github.com/101arrowz/fflate), [asbplayer](https://github.com/asbplayer/asbplayer), [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader), [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples), [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) | Upstream terms apply; used as compatible formats, libraries, or behavior references |
-| [AnkiConnect](https://foosoft.net/projects/anki-connect/), [YomiNinja](https://github.com/matt-m-o/YomiNinja), [NihongoTube](https://www.nihongotube.app/), [Immersion Kit](https://www.immersionkit.com/), [Nadeshiko](https://nadeshiko.co/), and optional local OCR/audio services | External/runtime services or references; よむ does not bundle their corpora |
+| [AnkiConnect](https://foosoft.net/projects/anki-connect/), [NihongoTube](https://www.nihongotube.app/), [Immersion Kit](https://www.immersionkit.com/), [Nadeshiko](https://nadeshiko.co/), and optional local OCR/audio services | External/runtime services or references; よむ does not bundle their corpora |
 
 </details>

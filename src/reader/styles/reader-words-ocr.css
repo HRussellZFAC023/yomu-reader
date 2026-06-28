@@ -78,7 +78,8 @@
 
 .jpdb-reader-word.jpdb-reader-scan-word ruby,
 .jpdb-reader-word.jpdb-reader-scan-word rt {
-  white-space: normal;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 /* Google Search result snippets are passive links, not compact controls. Keep
@@ -88,6 +89,41 @@
   word-break: normal;
   overflow-wrap: anywhere !important;
   line-break: auto;
+}
+
+/* Readable article/prose targets need normal browser wrapping on narrow mobile
+   viewports. Keep compact UI/chrome words atomic elsewhere so buttons, cards,
+   and metadata rows do not grow or collapse into one-character stacks. */
+.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word:not(.jpdb-reader-passive-word) {
+  display: inline !important;
+  vertical-align: baseline;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere !important;
+  line-break: anywhere;
+  max-width: 100%;
+  max-inline-size: min(100%, calc(100vw - 2rem));
+}
+
+.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) {
+  line-height: 2.05;
+}
+
+.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word ruby,
+.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word rt {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) ruby,
+.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) .jpdb-reader-ruby-base {
+  display: inline !important;
+  max-width: 100%;
+  max-inline-size: 100%;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-break: anywhere;
 }
 
 /* Text mirrors preserve app-owned DOM/layout. Let surrounding mirrored text wrap
@@ -192,6 +228,12 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 .jpdb-reader-word.jpdb-reader-passive-word {
   --jpdb-reader-word-color-source: currentColor;
+  line-height: inherit;
+  max-width: none;
+  max-inline-size: none;
+  overflow-wrap: inherit !important;
+  white-space: inherit;
+  word-break: inherit;
   cursor: inherit;
 }
 
@@ -254,14 +296,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
   outline: none;
-}
-
-:is(button, [role="button"], [role="tab"], summary, label, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:hover,
-:is(button, [role="button"], [role="tab"], summary, label, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:focus,
-.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:hover,
-.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:focus {
-  background-image: none !important;
-  box-shadow: none;
 }
 
 .jpdb-reader-word.jpdb-reader-keyboard-active {
@@ -769,6 +803,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 2.05;
 }
+
+.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-has-furi {
+  line-height: inherit;
+}
 .jpdb-reader-furi {
   font-size: 0.52em;
   color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;
@@ -814,9 +852,15 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   text-align: center;
 }
 .jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) rt.jpdb-reader-furi {
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
 /* User feedback: the word contrast shadow (a white glow + a 2px dark drop) bleeds
    into the thin furigana strokes and makes the reading harder to read. Furigana
    takes a single tight outline instead — enough contrast on busy manga

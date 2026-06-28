@@ -1042,7 +1042,7 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-mining-title:hover,
 .jpdb-reader-mining-title:focus-visible {
-  color: var(--jpdb-reader-state-new-bright);
+  color: var(--jpdb-reader-accent-readable);
 }
 .jpdb-reader-actions-has-mining {
   position: relative;

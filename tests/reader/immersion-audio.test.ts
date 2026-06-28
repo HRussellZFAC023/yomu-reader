@@ -45,6 +45,18 @@ describe('NewTabImmersionAudioPlayer', () => {
         expect(fetchBlobUrl).not.toHaveBeenCalled();
     });
 
+    it('restarts the same key when playSource is requested again', async () => {
+        const { player } = makePlayer();
+        await player.playSource({ urls: ['a.mp3'], key: 'k1' }, () => true);
+        const first = FakeAudio.instances[0];
+
+        await player.playSource({ urls: ['a.mp3'], key: 'k1' }, () => true);
+
+        expect(FakeAudio.instances.map(a => a.src)).toEqual(['a.mp3', 'a.mp3']);
+        expect(first?.paused).toBe(true);
+        expect(player.isPlaying('k1')).toBe(true);
+    });
+
     it('falls through to the next candidate when play() rejects', async () => {
         const { player } = makePlayer();
         FakeAudio.playBehavior = async src => { if (src === 'a.mp3') throw new Error('autoplay blocked'); };
@@ -61,9 +73,15 @@ describe('NewTabImmersionAudioPlayer', () => {
         expect(fetchBlobUrl).toHaveBeenCalledTimes(1);
         expect(FakeAudio.instances.map(a => a.src)).toEqual(['a.mp3', 'blob:fallback']);
         expect(FakeAudio.instances[1]?.paused).toBe(false); // the blob did play
-        // Faithful quirk: unlike the direct-candidate path (which returns early), the blob path
-        // falls through to clearRequest(), so the element plays but tracking is cleared.
-        expect(player.isPlaying('k1')).toBe(false);
+        expect(player.isPlaying('k1')).toBe(true);
+    });
+
+    it('uses direct media playback for loopback audio urls to avoid hosted CORS fetch noise', async () => {
+        const { player, fetchBlobUrl } = makePlayer();
+        await player.playSource({ urls: ['http://localhost:9090/audio/jpod/media/line.mp3'], key: 'k1' }, () => true);
+        expect(fetchBlobUrl).not.toHaveBeenCalled();
+        expect(FakeAudio.instances.map(a => a.src)).toEqual(['http://localhost:9090/audio/jpod/media/line.mp3']);
+        expect(player.isPlaying('k1')).toBe(true);
     });
 
     it('deduplicates and trims candidate urls', async () => {
@@ -113,6 +131,20 @@ describe('NewTabImmersionAudioPlayer', () => {
         await pending;
         expect(player.isPlaying('k1')).toBe(false);
         expect(FakeAudio.instances[0]?.paused).toBe(true);
+    });
+
+    it('stops a direct candidate that resolves after the surface is no longer current', async () => {
+        const { player, fetchBlobUrl } = makePlayer();
+        let current = true;
+        let resolvePlay = (): void => {};
+        FakeAudio.playBehavior = () => new Promise<void>(res => { resolvePlay = res; });
+        const pending = player.playSource({ urls: ['a.mp3'], key: 'k1' }, () => current);
+        current = false;
+        resolvePlay();
+        await pending;
+        expect(player.isPlaying('k1')).toBe(false);
+        expect(FakeAudio.instances[0]?.paused).toBe(true);
+        expect(fetchBlobUrl).not.toHaveBeenCalled();
     });
 
     it('reset() stops playback and reports not playing', async () => {

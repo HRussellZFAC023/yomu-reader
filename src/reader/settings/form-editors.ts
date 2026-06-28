@@ -5,7 +5,7 @@ import { AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOK
 import { moveSourceRow } from './form-order';
 import { readAudioSources, readDictionaryLookupLinks } from './form-read';
 import { miniIconButton, renderRowOrderTools, renderRowRemoveTools } from './form-source-rows';
-import type { AudioSourceSetting, DictionaryLookupLink, InterfaceLanguage } from '../app/types';
+import type { AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, InterfaceLanguage } from '../app/types';
 
 type SettingsTextKey = Parameters<typeof uiText>[1];
 
@@ -249,8 +249,8 @@ function removeAudioSourceRow(sources: AudioSourceSetting[], index: number): voi
     if (index >= 0 && sources.length > 1) sources.splice(index, 1);
 }
 
-export function renderDictionaryLookupLinkEditor(links: DictionaryLookupLink[]): string {
-    const rows = normalizeDictionaryLookupLinks(links);
+export function renderDictionaryLookupLinkEditor(links: DictionaryLookupLink[], localFrequencyPreferences: DictionaryPreference[] = []): string {
+    const rows = lookupPillEditorRows(links, localFrequencyPreferences);
     return `
         <div class="jpdb-reader-lookup-link-head jpdb-reader-order-head">
             <span>On</span>
@@ -277,10 +277,13 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[]): string {
         <input type="hidden" name="dictionaryLookupLinkCount" value="${rows.length}">
         ${rows.map((link, index) => {
             const isCopyAction = link.action === 'copy';
+            const isFrequencyAction = link.action === 'frequency-live' || link.action === 'frequency-local';
             const urlControl = isCopyAction
-                ? `<span class="jpdb-reader-lookup-link-note">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">`
-                : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">`;
-            const removeControl = isCopyAction
+                ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">`
+                : isFrequencyAction
+                    ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">`
+                    : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">`;
+            const removeControl = isCopyAction || isFrequencyAction
                 ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>'
                 : miniIconButton('remove', 'Remove', 'data-action="lookup-link-remove"');
             return `
@@ -293,12 +296,51 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[]): string {
                     ${urlControl}
                     <input name="dictionaryLookupLinks.${index}.id" type="hidden" value="${escapeHtml(link.id)}">
                     <input name="dictionaryLookupLinks.${index}.action" type="hidden" value="${escapeHtml(link.action ?? 'open')}">
+                    <input name="dictionaryLookupLinks.${index}.priority" type="hidden" value="${escapeHtml(String(link.priority ?? index))}">
                     ${orderTools}
                     ${renderRowRemoveTools(removeControl)}
                 </div>
             `;
         }).join('')}
     `;
+}
+
+function lookupPillEditorRows(links: DictionaryLookupLink[], localFrequencyPreferences: DictionaryPreference[]): DictionaryLookupLink[] {
+    const normalized = normalizeDictionaryLookupLinks(links);
+    const byId = new Map(normalized.map(link => [link.id, link]));
+    for (const preference of localFrequencyPreferences) {
+        const id = localFrequencyLookupPillId(preference.name);
+        if (!byId.has(id)) {
+            byId.set(id, {
+                id,
+                label: preference.alias || preference.name,
+                urlTemplate: '',
+                enabled: true,
+                action: 'frequency-local',
+                priority: preference.priority,
+            });
+        }
+    }
+    return Array.from(byId.values())
+        .sort(compareLookupPillEditorRows)
+        .slice(0, MAX_DICTIONARY_LOOKUP_LINKS);
+}
+
+function compareLookupPillEditorRows(a: DictionaryLookupLink, b: DictionaryLookupLink): number {
+    const priority = (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER);
+    if (priority) return priority;
+    return a.id.localeCompare(b.id);
+}
+
+function localFrequencyLookupPillId(dictionary: string): string {
+    return `frequency-local:${dictionary}`;
+}
+
+function frequencyLookupPillNote(link: DictionaryLookupLink): string {
+    if (link.action === 'frequency-local') return 'Installed local frequency dictionary badge. Replaces matching live site frequency.';
+    return link.id === 'jpdb-frequency'
+        ? 'Live JPDB frequency from site lookup; no local dictionary install.'
+        : 'Live Jiten frequency from site lookup; no local dictionary install.';
 }
 
 export function updateDictionaryLookupLinkEditor(form: HTMLFormElement, action: string, control?: HTMLElement | null): void {

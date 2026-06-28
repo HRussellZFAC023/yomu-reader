@@ -263,13 +263,14 @@ export class NewTabRuntime {
         getSettings: () => this.settings,
         isJpdbBackedCard: card => this.parser.isJpdbBackedCard(card),
         renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup) => renderWordPills({
+        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, jitenVocabularyInfo) => renderWordPills({
             card,
             jpdbUrl,
             settings: this.settings,
             metaEntries,
             overrideQuery,
             ankiLookup,
+            jitenVocabularyInfo,
             isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         }),

@@ -1,5 +1,6 @@
 import { buildKanjiFacts, buildKanjiOriginGraph, KanjiOriginClient } from '../kanji/origin';
 import { buildRtkComponentSummaries, renderKanjiKeywordLine, renderRtkInfo } from '../popup/rtk-info';
+import { installUchisenCarousel, loadUchisenData } from '../dictionaries/uchisen';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
 import { JpdbKanjiClient } from '../jpdb/jpdb-kanji';
 import { KanjiVGClient } from '../kanji/vg';
@@ -28,4 +29,6 @@ registerYomuCompanion('kanjiStudy', {
     installOriginGraphInteractions,
     buildKanjiFacts,
     buildKanjiOriginGraph,
+    installUchisenCarousel,
+    loadUchisenData,
 });

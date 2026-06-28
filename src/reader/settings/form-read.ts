@@ -5,6 +5,7 @@ import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { combinedApiCredentialLabel, readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
 import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ReaderColorSource, ReaderSettings } from '../app/types';
+import { ocrInteractionModeFromSettings } from '../ocr/mode';
 
 const log = Logger.scope('SettingsForm');
 export const CUSTOM_FONT_FAMILY_VALUE = '__custom_font_family__';
@@ -20,6 +21,7 @@ export type ColorSourceSettingName =
     | 'subtitleTextColorSource';
 
 export const COLOR_SOURCE_VALUES: readonly SelectableReaderColorSource[] = ['status', 'jpdb', 'anki', 'pitch', 'off'];
+type PageScanMode = 'off' | 'auto' | 'manual';
 const COLOR_SOURCE_OPTIONS: [SelectableReaderColorSource, string][] = [
     ['status', 'JPDB + Anki status'],
     ['jpdb', 'JPDB status'],
@@ -278,7 +280,8 @@ function readColorSourceSettings(reader: SettingsFormReader, current: ReaderSett
 }
 
 function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { has, clamped } = reader;
+    const { get, has, clamped } = reader;
+    const pageScanMode = readOption(get('pageScanMode'), ['off', 'auto', 'manual'] as const, pageScanModeFromSettings(current));
     return {
         parseSelection: has('parseSelection'),
         lookupOnClick: has('lookupOnClick'),
@@ -291,8 +294,14 @@ function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: Rea
             : 'off',
         scanModifierKey: current.scanModifierKey,
         showFloatingButton: has('showFloatingButton'),
-        manualScanEnabled: has('manualScanEnabled'),
+        annotationsPaused: pageScanMode === 'off',
+        manualScanEnabled: pageScanMode === 'manual',
     };
+}
+
+function pageScanModeFromSettings(settings: ReaderSettings): PageScanMode {
+    if (settings.annotationsPaused) return 'off';
+    return settings.manualScanEnabled ? 'manual' : 'auto';
 }
 
 function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
@@ -468,9 +477,10 @@ function readMiningFormSettings(reader: SettingsFormReader): Partial<ReaderSetti
 
 function readOcrFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
+    const ocrInteractionMode = readOption(get('ocrInteractionMode'), ['auto', 'manual', 'off'] as const, ocrInteractionModeFromSettings(current));
     return {
-        ocrEnabled: has('ocrEnabled'),
-        ocrAutoScanImages: formReaderValuePresent(reader, 'ocrAutoScanImages') ? has('ocrAutoScanImages') : current.ocrAutoScanImages,
+        ocrEnabled: ocrInteractionMode !== 'off',
+        ocrAutoScanImages: ocrInteractionMode === 'auto',
         ocrShowTextOverlay: has('ocrShowTextOverlay'),
         ocrVideoPauseFrames: has('ocrVideoPauseFrames'),
         ocrInvertDarkPanels: has('ocrInvertDarkPanels'),
@@ -658,15 +668,19 @@ function readDictionaryLookupLinkRow(
         urlTemplate: dictionaryLookupLinkUrlTemplate(urlTemplate, action),
         enabled: data.has(`dictionaryLookupLinks.${index}.enabled`),
         action,
+        priority: Number(get(`dictionaryLookupLinks.${index}.priority`)) || index,
     };
 }
 
 function dictionaryLookupLinkAction(value: string): DictionaryLookupLink['action'] {
-    return value === 'copy' ? 'copy' : 'open';
+    if (value === 'copy') return 'copy';
+    if (value === 'frequency-live') return 'frequency-live';
+    if (value === 'frequency-local') return 'frequency-local';
+    return 'open';
 }
 
 function shouldKeepDictionaryLookupLink(label: string, urlTemplate: string, action: DictionaryLookupLink['action']): boolean {
-    return Boolean(label || urlTemplate || action === 'copy');
+    return Boolean(label || urlTemplate || action === 'copy' || action === 'frequency-live' || action === 'frequency-local');
 }
 
 function dictionaryLookupLinkLabel(label: string, action: DictionaryLookupLink['action']): string {
@@ -674,5 +688,5 @@ function dictionaryLookupLinkLabel(label: string, action: DictionaryLookupLink['
 }
 
 function dictionaryLookupLinkUrlTemplate(urlTemplate: string, action: DictionaryLookupLink['action']): string {
-    return action === 'copy' ? '' : urlTemplate;
+    return action === 'copy' || action === 'frequency-live' || action === 'frequency-local' ? '' : urlTemplate;
 }

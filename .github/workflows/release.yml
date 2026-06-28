@@ -44,6 +44,9 @@ jobs:
       - run: npm run smoke:p0
         env:
           YOMU_PLAYWRIGHT_CHANNEL: chrome
+      - run: xvfb-run -a npm run smoke:gaming
+        env:
+          YOMU_PLAYWRIGHT_CHANNEL: chrome
       - name: Build split userscript release artifact
         run: |
           npm run build:userscript
@@ -58,6 +61,13 @@ jobs:
         run: |
           cd dist/extension/release/safari
           zip -qr yomureader.com-safari-web-extension.zip yomureader.com-safari-web-extension
+      - name: Build Yomu Gaming release packages
+        run: |
+          npm run release:gaming:linux
+          cd dist-gaming/packages
+          find . -maxdepth 1 -type f -name 'yomu-gaming-*' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > SHA256SUMS.txt
       - name: Restore split userscript release artifact
         run: cp "${RUNNER_TEMP:-/tmp}/yomu.user.js" dist/yomu.user.js
       - name: Prepare release notes
@@ -71,7 +81,8 @@ jobs:
           const match = changelog.match(new RegExp(`## \\[${version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\][\\s\\S]*?(?=\\n## \\[|$)`));
           const notes = (match?.[0] ?? `## ${version}\n\nSee CHANGELOG.md for details.`)
             + '\n\nInstall/update userscript: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js\n'
-            + '\nRelease assets include the compiled userscript, Chrome extension ZIP, Firefox XPI, Safari Web Extension ZIP, the full compiler project bundle, and one submission guide with review/audit notes.\n';
+            + '\nYomu Gaming desktop app: download the first-party Linux x64 AppImage from this release.\n'
+            + '\nRelease assets include the compiled userscript, Chrome extension ZIP, Firefox XPI, Safari Web Extension ZIP, Yomu Gaming Linux x64 AppImage plus checksums, the full compiler project bundle, and one submission guide with review/audit notes.\n';
           fs.writeFileSync('release-notes.md', notes);
           NODE
       - name: Publish GitHub release
@@ -84,6 +95,8 @@ jobs:
             dist/extension/release/chrome/yomureader.com-chrome.zip \
             dist/extension/release/firefox/yomureader.com-firefox.xpi \
             dist/extension/release/safari/yomureader.com-safari-web-extension.zip \
+            dist-gaming/packages/yomu-gaming-*-linux-x64.AppImage* \
+            dist-gaming/packages/SHA256SUMS.txt \
             dist/extension/yomureader.com-extension-project.zip \
             dist/extension/review/submission-guide.md \
             --title "$TAG" --notes-file release-notes.md --latest --verify-tag

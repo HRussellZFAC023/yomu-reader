@@ -553,10 +553,12 @@
     }
 
     .empty {
-      width: auto;
       flex: 1 1 auto;
+      align-self: stretch;
       position: relative;
       margin: clamp(12px, 2vw, 18px);
+      width: auto;
+      min-width: 0;
       min-height: min(520px, calc(100dvh - 100px));
       display: grid;
       place-items: center;
@@ -747,7 +749,7 @@
 
     <section class="viewer" data-viewer aria-label="PDF document"></section>
 
-    <button class="empty" type="button" data-empty-open>
+    <button class="empty" type="button" data-empty-open data-yomu-pdf-empty>
       <div>
         <strong>Open or drop a PDF</strong>
         <span class="status" data-status>Pick a PDF and read it with よむ.</span>
@@ -1179,6 +1181,7 @@
     function resetViewer() {
       pages.clear();
       viewer.replaceChildren();
+      clearPdfOcrTextOverlays();
       scannedNoticeShown = false;
       currentPage = 1;
     }
@@ -1213,6 +1216,9 @@
       setStatus(text().ready(file.name, pdfDoc.numPages));
       const savedPage = clampPage(Number(localStorage.getItem(currentFileKey)) || 1);
       currentPage = savedPage;
+      pageInput.value = String(currentPage);
+      updateNavButtons();
+      updateZoomLabel();
       requestRender(savedPage); // render just the first page now; the observer pulls in the rest
       if (savedPage > 1) goToPage(savedPage, 'auto');
       else updateCurrentPageFromScroll();
@@ -1376,11 +1382,10 @@
       entry.container.classList.toggle('text-pdf', !isScanned);
       entry.container.dataset.pdfText = isScanned ? 'scanned' : 'text';
       entry.container.dataset.pdfTextLength = String(textLength);
-      entry.container.dataset.yomuCanvasOcr = isScanned ? 'on' : 'off';
       entry.canvas.dataset.pdfText = isScanned ? 'scanned' : 'text';
-      entry.canvas.dataset.yomuCanvasOcr = isScanned ? 'on' : 'off';
       entry.textLayerDiv.hidden = isScanned;
       entry.textLayerDiv.setAttribute('aria-hidden', String(isScanned));
+      syncPdfPageOcrMode(entry);
     }
 
     function resetPdfPageTextMode(entry) {
@@ -1394,11 +1399,34 @@
       entry.textLayerDiv.setAttribute('aria-hidden', 'false');
     }
 
+    function syncPdfPageOcrMode(entry) {
+      const pageNumber = Number(entry.container.dataset.pageNumber);
+      const isCurrentScannedPage = entry.container.dataset.pdfText === 'scanned' && pageNumber === currentPage;
+      const mode = isCurrentScannedPage ? 'on' : 'off';
+      entry.container.dataset.yomuCanvasOcr = mode;
+      entry.canvas.dataset.yomuCanvasOcr = mode;
+    }
+
+    function syncPdfPageOcrModes() {
+      for (const entry of pages.values()) syncPdfPageOcrMode(entry);
+    }
+
     function maybeShowScannedNotice() {
       if (scannedNoticeShown) return;
       scannedNoticeShown = true;
       setStatus(text().scannedNotice);
       void ensureYomuRuntime({ silent: true });
+    }
+
+    function clearPdfOcrTextOverlays() {
+      document.querySelectorAll('.jpdb-ocr-layer').forEach(layer => {
+        layer.querySelectorAll('.jpdb-ocr-line').forEach(line => line.remove());
+        layer.hidden = true;
+        layer.setAttribute('aria-hidden', 'true');
+      });
+      document.querySelectorAll('.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status').forEach(status => {
+        status.hidden = true;
+      });
     }
 
     // Free the bitmap + text layer of pages far from the reader so memory stays
@@ -1437,6 +1465,7 @@
           entry.container.style.height = `${Math.floor(entry.baseH * s)}px`;
         }
       }
+      clearPdfOcrTextOverlays();
       const visible = [...visibilityRatios].filter(([, ratio]) => ratio > 0).map(([number]) => number);
       for (const number of new Set([currentPage, ...visible, currentPage - 1, currentPage + 1])) requestRender(number);
     }
@@ -1466,7 +1495,9 @@
         if (ratio > bestRatio) { bestRatio = ratio; best = number; }
       }
       if (best !== currentPage) {
+        clearPdfOcrTextOverlays();
         currentPage = best;
+        syncPdfPageOcrModes();
         if (document.activeElement !== pageInput) pageInput.value = String(currentPage);
         updateNavButtons();
         updateZoomLabel();
@@ -1498,7 +1529,9 @@
       const entry = pages.get(target);
       if (!entry) return;
       const scrollBehavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : behavior;
+      if (target !== currentPage) clearPdfOcrTextOverlays();
       currentPage = target;
+      syncPdfPageOcrModes();
       pageInput.value = String(target);
       requestRender(target);
       requestRender(target + 1);

@@ -48,6 +48,7 @@ describe('BookWalker site scan boundaries', () => {
                 expect(targets.map(target => target.text)).toEqual(expected);
                 expect(targets.every(target => 'parserId' in target && target.parserId === 'residual-visible-japanese-parser')).toBe(true);
                 expect(targets.every(target => target.passiveInteraction)).toBe(true);
+                expect(targets.every(target => target.nonDestructive)).toBe(true);
             }
         } finally {
             restoreRects();
@@ -90,6 +91,128 @@ describe('BookWalker site scan boundaries', () => {
                 parserId: 'residual-visible-japanese-parser',
                 suppressRuby: true,
                 passiveInteraction: true,
+                nonDestructive: true,
+            });
+        } finally {
+            restoreRects();
+        }
+    });
+
+    it('marks storefront product-gallery titles through neutral wrappers as passive ruby-suppressed targets', () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = `
+            <main>
+                <section class="product-gallery">
+                    <article class="product-entry" style="width:160px">
+                        <div class="media-shell">
+                            <a class="cover-link" href="/dea4e6ab95/">
+                                <img alt="あなた達それでも先生ですかっ！【期間限定無料】 1" src="/cover.jpg">
+                            </a>
+                        </div>
+                        <div class="details-shell">
+                            <p class="genre-badge">マンガ</p>
+                            <h3 class="title-wrap">
+                                <a class="title-link" href="/dea4e6ab95/" style="display:block;overflow:hidden;line-height:18px;height:36px;width:148px">
+                                    あなた達それでも先生ですかっ！【期間限定無料】 1
+                                </a>
+                            </h3>
+                            <p class="price-label">2冊無料</p>
+                            <button type="button">無料で読む</button>
+                        </div>
+                    </article>
+                </section>
+            </main>
+        `;
+
+        try {
+            const targets = collectScanTargets(20, BOOKWALKER_HOME_URL);
+            const title = targets.find(target => target.text.includes('あなた達それでも先生ですかっ'));
+
+            expect(title).toBeTruthy();
+            expect(title).toMatchObject({
+                parserId: 'residual-visible-japanese-parser',
+                suppressRuby: true,
+                passiveInteraction: true,
+                nonDestructive: true,
+            });
+        } finally {
+            restoreRects();
+        }
+    });
+
+    it('marks deeply wrapped live-gallery titles as passive ruby-suppressed targets', () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = `
+            <main>
+                <section class="product-gallery">
+                    <article>
+                        <a class="cover-link" href="/dea4e6ab95/">
+                            <img alt="あなた達それでも先生ですかっ！【期間限定無料】 1" src="/cover.jpg">
+                        </a>
+                        <div class="shell-a">
+                            <div class="shell-b">
+                                <div class="shell-c">
+                                    <div class="shell-d">
+                                        <h3>
+                                            <a class="title-link" href="/dea4e6ab95/" style="display:block;width:148px">
+                                                <span>あなた達それでも先生ですかっ！【期間限定無料】 1</span>
+                                            </a>
+                                        </h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </section>
+            </main>
+        `;
+
+        try {
+            const targets = collectScanTargets(20, BOOKWALKER_HOME_URL);
+            const title = targets.find(target => target.text.includes('あなた達それでも先生ですかっ'));
+
+            expect(title).toBeTruthy();
+            expect(title).toMatchObject({
+                parserId: 'residual-visible-japanese-parser',
+                suppressRuby: true,
+                passiveInteraction: true,
+                nonDestructive: true,
+            });
+        } finally {
+            restoreRects();
+        }
+    });
+
+    it('marks tall vertical storefront control labels as passive ruby-suppressed targets', () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = `
+            <main>
+                <button class="reader-mode" type="button" style="writing-mode:vertical-rl">縦書き</button>
+            </main>
+        `;
+        const button = document.querySelector<HTMLElement>('button')!;
+        button.getBoundingClientRect = () => ({
+            x: 0,
+            y: 0,
+            width: 34,
+            height: 220,
+            top: 0,
+            right: 34,
+            bottom: 220,
+            left: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+
+        try {
+            const targets = collectScanTargets(20, BOOKWALKER_HOME_URL);
+            const control = targets.find(target => target.text.includes('縦書き'));
+
+            expect(control).toBeTruthy();
+            expect(control).toMatchObject({
+                parserId: 'residual-visible-japanese-parser',
+                suppressRuby: true,
+                passiveInteraction: true,
+                nonDestructive: true,
             });
         } finally {
             restoreRects();

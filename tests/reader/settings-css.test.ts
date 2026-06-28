@@ -63,6 +63,13 @@ describe('settings CSS', () => {
         expect(normalizedSubtitlesCss).not.toContain('.jpdb-subtitle-panel-open .jpdb-subtitle-rail');
     });
 
+    it('starts review shortcut groups on their own settings-grid row', () => {
+        const normalizedSettingsCss = normalizeCss(SETTINGS_CSS);
+
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group { grid-column: 1 / -1; display: grid; grid-template-columns: inherit; align-items: stretch; gap: inherit; }');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group[hidden] { display: none !important; }');
+    });
+
     it('paints unknown-pitch page-word underlines with the neutral pitch color', () => {
         const normalizedReaderWordsOcrCss = normalizeCss(READER_WORDS_OCR_CSS);
 
@@ -79,6 +86,7 @@ describe('settings CSS', () => {
         const normalizedKanjiCss = normalizeCss(KANJI_CSS);
 
         expect(normalizedKanjiCss).toContain('.jpdb-reader-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: auto; min-width: 0; max-width: 100%;');
+        expect(normalizedKanjiCss).toContain('.jpdb-reader-mining-title:hover, .jpdb-reader-mining-title:focus-visible { color: var(--jpdb-reader-accent-readable); }');
     });
 
     it('redeclares layout for root surfaces after the host-page reset', () => {

@@ -8,6 +8,7 @@ import {
     shouldCacheAudioCandidates,
     shouldFetchCandidateAsBlob,
     shouldFetchDirectMediaAsBlob,
+    shouldFetchMediaUrlAsBlobBeforePlayback,
     shouldForceBlobAudioCandidate,
     shouldForceBlobAudioPlayback,
 } from './candidates';
@@ -303,6 +304,7 @@ export class AudioPlayer {
 
         const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), card), fallbackContext);
         if (apiTextToSpeechResult !== 'miss') return { state: apiTextToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
+        if (attemptState.skippedAvoidedIdentity) return { state: 'miss', skippedAvoidedIdentity: true };
 
         const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), card), fallbackContext);
         return { state: textToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
@@ -595,9 +597,15 @@ export class AudioPlayer {
         try {
             audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
         } catch (error) {
-            errors.push(audioErrorMessage(error));
-            if (sourceType === 'jpdb-tts' && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
-            return false;
+            const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate, sourceType, reservedAudio).catch(() => undefined);
+            if (fallbackAudio) {
+                audio = fallbackAudio;
+                log.warn('Blob-prepared audio failed; retrying as direct media', { url: candidate.url, error: audioErrorMessage(error) });
+            } else {
+                errors.push(audioErrorMessage(error));
+                if (sourceType === 'jpdb-tts' && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
+                return false;
+            }
         }
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         let played = false;
@@ -610,6 +618,19 @@ export class AudioPlayer {
         this.shuffledAudio.markPlayed(bagKey, id);
         this.markAudioCandidatePlayed(card, candidate);
         return true;
+    }
+
+    private async createDirectMediaFallbackAfterBlobError(
+        candidate: AudioCandidate,
+        sourceType: AudioSourceType,
+        reservedAudio?: HTMLAudioElement,
+    ): Promise<HTMLAudioElement | undefined> {
+        if (sourceType === 'jpdb-tts' || candidate.jpdbAudioId) return undefined;
+        if (!shouldFetchMediaUrlAsBlobBeforePlayback(candidate.url)) return undefined;
+        if (!/^https?:\/\//i.test(candidate.url)) return undefined;
+        return reservedAudio
+            ? this.createReadyAudio(candidate.url, reservedAudio)
+            : this.createAudioElement(candidate.url);
     }
 
     private shouldDeferRepeatedAudioCandidate(candidate: AudioCandidate, context: AudioSourcePlaybackContext): boolean {
@@ -755,6 +776,10 @@ export class AudioPlayer {
                 void play.catch(() => undefined);
             });
             if (!started) {
+                if (this.current === audio) audio.pause();
+                return false;
+            }
+            if (!this.isPlaybackCurrent(requestId, isCurrent)) {
                 if (this.current === audio) audio.pause();
                 return false;
             }

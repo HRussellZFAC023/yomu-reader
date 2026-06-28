@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, USERSCRIPT_INSTALL_URL } from '../../src/reader/app/constants';
 import { CURRENT_YOMU_VERSION } from '../../src/reader/app/version';
 import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
+import { findRecommendedDictionary } from '../../src/reader/dictionaries/recommended';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
 import { activateSettingsPanel, applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings/form';
 import { JAPANESE_ROUNDED_FONT_FAMILY } from '../../src/reader/settings/font-presets';
@@ -32,6 +33,7 @@ const DOCS_THEME_SOURCE = readFileSync('docs/.vitepress/theme/index.ts', 'utf8')
 const GETTING_STARTED_DOCS = readFileSync('docs/getting-started.md', 'utf8');
 const FEATURES_DOCS = readFileSync('docs/features.md', 'utf8');
 const HISTORICAL_HIRAGINO_YU_GOTHIC_FONT = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
+const AMBIGUOUS_SCAN_COPY = ['Manual scan', 'only'].join(' ');
 const IMPORTED_ANKI_FIELD_MAPPINGS: AnkiFieldMappings = {
     Imported: {
         expression: 'Headword',
@@ -72,6 +74,10 @@ function optionText(form: HTMLFormElement, controlName: string, value: string): 
 
 function checkboxValue(form: HTMLFormElement, controlName: string): boolean | undefined {
     return form.querySelector<HTMLInputElement>(`input[name="${controlName}"]`)?.checked;
+}
+
+function radioValue(form: HTMLFormElement, controlName: string): string | undefined {
+    return form.querySelector<HTMLInputElement>(`input[name="${controlName}"]:checked`)?.value;
 }
 
 function selectValue(form: HTMLFormElement, controlName: string): string | undefined {
@@ -118,10 +124,8 @@ function recommendedDictionaryButton(form: HTMLFormElement, id: string): HTMLBut
     return button;
 }
 
-function recommendedDictionaryGuide(form: HTMLFormElement, id: string): HTMLAnchorElement {
-    const link = form.querySelector<HTMLAnchorElement>(`[data-recommended-dictionary-guide][data-dictionary-id="${id}"]`);
-    if (!link) throw new Error(`Missing recommended dictionary guide: ${id}`);
-    return link;
+function recommendedDictionaryGuideOrNull(form: HTMLFormElement, id: string): HTMLAnchorElement | null {
+    return form.querySelector<HTMLAnchorElement>(`[data-recommended-dictionary-guide][data-dictionary-id="${id}"]`);
 }
 
 function recommendedDictionaryHelp(form: HTMLFormElement, id: string): string {
@@ -268,7 +272,8 @@ describe('recommended dictionary settings buttons', () => {
         });
 
         expect(recommendedDictionaryButton(form, 'jitendex').textContent?.trim()).toBe('Update');
-        expect(recommendedDictionaryGuide(form, 'kanjium-pitch').textContent?.trim()).toContain('Guide');
+        expect(recommendedDictionaryButton(form, 'kanjium-pitch').textContent?.trim()).toBe('Update');
+        expect(recommendedDictionaryGuideOrNull(form, 'kanjium-pitch')).toBeNull();
         expect(recommendedDictionaryButton(form, 'jpdbv2-kana').textContent?.trim()).toBe('Update');
     });
 
@@ -281,7 +286,8 @@ describe('recommended dictionary settings buttons', () => {
         expect(settingsText(form, '[data-recommended-dictionary-help]')).toContain('not normal definition text');
         expect(recommendedDictionaryHelp(form, 'kanjium-pitch')).toContain('Pitch accents only');
         expect(recommendedDictionaryHelp(form, 'jpdbv2-kana')).toContain('frequency badges');
-        expect(recommendedDictionaryGuide(form, 'kanjium-pitch').href).toContain('tools/study-page#local-pitch-and-frequency-dictionaries');
+        expect(recommendedDictionaryButton(form, 'kanjium-pitch').textContent?.trim()).toBe('Install');
+        expect(findRecommendedDictionary('kanjium-pitch')?.downloadUrl).toBe('https://raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip');
         expect(recommendedDictionaryButton(form, 'jpdbv2-kana').compareDocumentPosition(recommendedDictionaryButton(form, 'jiten')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
@@ -351,43 +357,60 @@ describe('source display names', () => {
 });
 
 describe('frequency dictionary preferences', () => {
-    it('renders frequency dictionaries under lookup pills with toggle, reorder, and remove controls', () => {
+    it('renders frequency badges and external links in one lookup pill editor', () => {
         const form = renderSettingsTestForm(frequencySettings);
-        const editor = form.querySelector<HTMLElement>('[data-frequency-lookup-pills]')!;
+        const editor = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links')!;
 
-        const rows = Array.from(editor.querySelectorAll<HTMLElement>('[data-source-row]'));
-        expect(rows.map(row => row.dataset.sourceId)).toEqual(['BCCWJ', 'Jiten', 'JPDB Freq']);
+        const rows = Array.from(editor.querySelectorAll<HTMLElement>('[data-lookup-link-row]'));
+        const ids = rows.map(row => row.querySelector<HTMLInputElement>('input[name$=".id"]')?.value);
+        expect(ids).toContain('jiten-frequency');
+        expect(ids).toContain('jpdb-frequency');
+        expect(ids).toContain('frequency-local:BCCWJ');
+        expect(ids).toContain('frequency-local:Jiten');
+        expect(ids).toContain('frequency-local:JPDB Freq');
         expect(form.querySelector<HTMLElement>('[data-frequency-dictionaries]')).toBeNull();
+        expect(form.querySelector<HTMLElement>('[data-frequency-lookup-pills]')).toBeNull();
         expect(editor.closest('.jpdb-reader-settings-subsection')?.querySelector('.jpdb-reader-local-title')?.textContent).toBe('Lookup pills');
-        for (const row of rows) {
-            expect(row.querySelector('[data-source-enable-toggle]')).not.toBeNull();
+        expect(editor.closest('.jpdb-reader-settings-subsection')?.querySelector('.jpdb-reader-help')?.textContent).toContain('Live Jiten/JPDB badges');
+        expect(editor.textContent).toContain('Live Jiten frequency from site lookup');
+        expect(editor.textContent).toContain('Installed local frequency dictionary badge');
+        for (const row of rows.slice(0, 4)) {
+            expect(row.querySelector('[data-lookup-link-enable-toggle]')).not.toBeNull();
             expect(row.querySelector('[data-source-drag-handle]')).not.toBeNull();
-            expect(row.querySelector('[data-action="dictionary-source-up"]')).not.toBeNull();
-            expect(row.querySelector('[data-action="delete-yomitan-dictionary"]')).not.toBeNull();
+            expect(row.querySelector('[data-action="lookup-link-up"]')).not.toBeNull();
         }
-        // Frequency dictionaries are no longer duplicated as hidden inputs.
+        expect(editor.querySelector<HTMLInputElement>('input[name$=".id"][value="jiten-frequency"]')?.closest('[data-lookup-link-row]')?.querySelector<HTMLInputElement>('[data-lookup-link-enable-toggle]')?.checked).toBe(true);
+        expect(editor.querySelector<HTMLInputElement>('input[name$=".id"][value="jpdb-frequency"]')?.closest('[data-lookup-link-row]')?.querySelector<HTMLInputElement>('[data-lookup-link-enable-toggle]')?.checked).toBe(false);
+        // Frequency dictionaries are preserved as hidden dictionary preferences, not a second visible table.
         expect(form.querySelectorAll('input[name="dictionaryPreferences.1.name"]').length).toBe(1);
     });
 
-    it('round-trips frequency dictionary toggles and order through form read', () => {
+    it('round-trips local frequency pill toggles and order through form read', () => {
         const form = renderSettingsTestForm(frequencySettings);
-        const editor = form.querySelector<HTMLElement>('[data-frequency-lookup-pills]')!;
-        const disabledToggle = editor.querySelector<HTMLInputElement>('[data-source-row][data-source-id="JPDB Freq"] [data-source-enable-toggle]')!;
+        const editor = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links')!;
+        const disabledToggle = editor.querySelector<HTMLInputElement>('input[name$=".id"][value="frequency-local:JPDB Freq"]')!
+            .closest<HTMLElement>('[data-lookup-link-row]')!
+            .querySelector<HTMLInputElement>('[data-lookup-link-enable-toggle]')!;
         disabledToggle.checked = true;
 
         const saved = readFormSettings(new FormData(form), frequencySettings);
         const frequency = saved.dictionaryPreferences.filter(preference => preference.type === 'frequency');
+        const frequencyPills = saved.dictionaryLookupLinks.filter(link => link.action === 'frequency-live' || link.action === 'frequency-local');
 
         expect(frequency.map(preference => preference.name)).toEqual(['BCCWJ', 'Jiten', 'JPDB Freq']);
-        expect(frequency.every(preference => preference.enabled)).toBe(true);
+        expect(frequencyPills.find(link => link.id === 'frequency-local:JPDB Freq')?.enabled).toBe(true);
+        expect(frequencyPills.find(link => link.id === 'jiten-frequency')?.enabled).toBe(true);
+        expect(frequencyPills.find(link => link.id === 'jpdb-frequency')?.enabled).toBe(false);
     });
 
-    it('localizes frequency rows as lookup pills', () => {
+    it('localizes combined lookup pill settings', () => {
         const form = renderSettingsTestForm(frequencySettings);
         localizeSettingsForm(form, 'ja');
+        const editor = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links')!;
+        const subsection = editor.closest<HTMLElement>('.jpdb-reader-settings-subsection')!;
 
-        expect(settingsText(form, '[data-frequency-lookup-pills] .jpdb-reader-dictionary-head span:nth-child(2)')).toBe('検索ピル');
-        expect(settingsText(form, '[data-help-key="frequencyLookupPillsHelp"]')).toContain('検索バッジ');
+        expect(settingsText(form, '.jpdb-reader-lookup-link-head span:nth-child(2)')).toBe('ラベル');
+        expect(subsection.querySelector<HTMLElement>('.jpdb-reader-help')?.textContent).toContain('ライブバッジ');
     });
 });
 
@@ -732,7 +755,7 @@ describe('settings form localization', () => {
 
     it('normalizes saved lookup links so Jiten stays before JPDB', () => {
         const defaultIds = normalizeReaderSettings({}).dictionaryLookupLinks.map(link => link.id);
-        expect(defaultIds.slice(0, 3)).toEqual(['jiten', 'jpdb', 'yomu-search']);
+        expect(defaultIds.slice(0, 5)).toEqual(['jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency', 'yomu-search']);
 
         const defaultLinks = new Map(DEFAULT_SETTINGS.dictionaryLookupLinks.map(link => [link.id, link]));
         const staleJpdbFirstOrder = [
@@ -754,7 +777,7 @@ describe('settings form localization', () => {
                 ? { id: 'goo', label: 'goo', urlTemplate: 'https://dictionary.goo.ne.jp/srch/all/{query}/m0u/', enabled: false }
                 : { ...defaultLinks.get(id)! }),
         });
-        expect(migrated.dictionaryLookupLinks.slice(0, 3).map(link => link.id)).toEqual(['jiten', 'jpdb', 'yomu-search']);
+        expect(migrated.dictionaryLookupLinks.slice(0, 5).map(link => link.id)).toEqual(['jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency', 'yomu-search']);
         expect(migrated.dictionaryLookupLinks.map(link => link.id)).not.toContain('goo');
 
         const custom = normalizeReaderSettings({
@@ -773,6 +796,7 @@ describe('settings form localization', () => {
         const current = {
             ...DEFAULT_SETTINGS,
             ocrAutoScanImages: false,
+            manualScanEnabled: true,
             shortcuts: {
                 ...DEFAULT_SETTINGS.shortcuts,
                 scanPage: 'Ctrl+J',
@@ -783,14 +807,58 @@ describe('settings form localization', () => {
         form.innerHTML = renderSettingsForm(current, 'https://jpdb.io/settings');
 
         expect(form.querySelector<HTMLInputElement>('input[name="ocrAutoScanImages"]')).toBeNull();
-        expect(form.querySelector<HTMLInputElement>('input[name="shortcuts.scanPage"]')?.value).toBe('Ctrl+J');
+        expect(form.querySelector<HTMLInputElement>('input[name="ocrEnabled"]')).toBeNull();
+        expect(radioValue(form, 'pageScanMode')).toBe('manual');
+        expect(radioValue(form, 'ocrInteractionMode')).toBe('manual');
+        expect(Array.from(form.querySelectorAll<HTMLInputElement>('input[name="shortcuts.scanPage"]')).map(input => input.value)).toEqual(['Ctrl+J', 'Ctrl+J']);
         expect(form.textContent).not.toContain('Read images automatically');
-        expect(topLevelLegendForControl(form, 'shortcuts.scanPage')).toBe('Shortcuts');
+        expect(form.textContent).not.toContain(AMBIGUOUS_SCAN_COPY);
+        expect(topLevelLegendsForControl(form, 'shortcuts.scanPage')).toEqual(['Reader', 'Shortcuts']);
 
         const saved = readFormSettings(new FormData(form), current);
         expect(saved.ocrAutoScanImages).toBe(false);
+        expect(saved.ocrEnabled).toBe(true);
+        expect(saved.manualScanEnabled).toBe(true);
+        expect(saved.annotationsPaused).toBe(false);
         expect(saved.shortcuts.scanPage).toBe('Ctrl+J');
         expect(saved.shortcuts.scanImages).toBe('Ctrl+I');
+    });
+
+    it('round-trips explicit page scanning modes', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+        expect(radioValue(form, 'pageScanMode')).toBe('auto');
+        expect(labelForControl(form, 'pageScanMode')).toContain('Off');
+        expect(form.querySelector<HTMLElement>('[data-page-scan-manual-shortcut]')?.hidden).toBe(true);
+
+        form.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="manual"]')!.checked = true;
+        const manual = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(manual.annotationsPaused).toBe(false);
+        expect(manual.manualScanEnabled).toBe(true);
+
+        form.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="off"]')!.checked = true;
+        const off = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(off.annotationsPaused).toBe(true);
+        expect(off.manualScanEnabled).toBe(false);
+    });
+
+    it('round-trips explicit OCR scanning modes', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+        expect(radioValue(form, 'ocrInteractionMode')).toBe('auto');
+        expect(labelForControl(form, 'ocrInteractionMode')).toContain('Auto');
+
+        form.querySelector<HTMLInputElement>('input[name="ocrInteractionMode"][value="manual"]')!.checked = true;
+        const manual = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(manual.ocrEnabled).toBe(true);
+        expect(manual.ocrAutoScanImages).toBe(false);
+
+        form.querySelector<HTMLInputElement>('input[name="ocrInteractionMode"][value="off"]')!.checked = true;
+        const off = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(off.ocrEnabled).toBe(false);
+        expect(off.ocrAutoScanImages).toBe(false);
     });
 
     it('round-trips the OCR overlay theme setting', () => {
@@ -1046,7 +1114,7 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); align-items: stretch;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-tgrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 8px 14px; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-cgrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 225px), 1fr)); gap: 12px 14px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) { display: flex; flex-direction: column;');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline), .jpdb-reader-settings .jpdb-reader-shortcut-group > label:not(.inline) { display: flex; flex-direction: column;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) { min-height: 0; display: block; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-cgrid > label:not(.inline) > .jpdb-reader-settings-label-text, .jpdb-reader-settings .jpdb-reader-settings-cgrid > * > label:not(.inline) > .jpdb-reader-settings-label-text { min-height: 0; display: block; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label.inline { align-self: end; margin: 0; }');

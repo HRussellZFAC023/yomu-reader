@@ -32,7 +32,7 @@ const BUILT_ARTIFACTS = [
 
 const JITEN_API_ORIGIN = 'https://api.jiten.moe';
 const JPDB_API_ORIGIN = 'https://jpdb.io';
-const MOCK_JITEN_API_KEY = 'mock-jiten-key';
+const MOCK_JITEN_API_KEY = 'ak_mock-jiten-key';
 const MOCK_JPDB_API_KEY = 'mock-jpdb-key';
 const REQUEST_BRIDGE_NAME = '__yomuJitenNewtabSmokeRequest';
 const STATIC_NEW_TAB_ROUTES = new Map([
@@ -310,11 +310,15 @@ function mockedApiRequestInner(request, requests) {
 }
 
 function mockedJitenRequest(url, request, requests) {
-    assertApiAuth(request, 'ApiKey ', MOCK_JITEN_API_KEY, 'Jiten');
     const pathname = url.pathname.replace(/^\/api\/?/, '');
+    if (jitenEndpointRequiresAuth(pathname)) assertApiAuth(request, 'ApiKey ', MOCK_JITEN_API_KEY, 'Jiten');
     const handler = JITEN_REQUEST_HANDLERS.get(`${request.method} ${pathname}`) ?? jitenDynamicHandler(request.method, pathname) ?? jitenPingHandler(pathname);
     if (handler) return handler(url, request, requests);
     throw new Error(`Unexpected Jiten request: ${request.method} ${url.href}`);
+}
+
+function jitenEndpointRequiresAuth(pathname) {
+    return pathname.startsWith('reader/') || pathname.startsWith('srs/');
 }
 
 function mockedJpdbRequest(url, request, requests) {
@@ -425,10 +429,24 @@ function jitenPingHandler(pathname) {
 }
 
 function jitenDynamicHandler(method, pathname) {
+    if (method === 'GET' && pathname === 'vocabulary/parse') return handleJitenVocabularyParse;
     if (method === 'POST' && pathname === 'reader/parse') return handleJitenParse;
     if (method === 'GET' && /^vocabulary\/\d+\/\d+\/info$/.test(pathname)) return handleJitenVocabularyInfo;
     if (method === 'POST' && /^vocabulary\/\d+\/\d+\/random-example-sentences$/.test(pathname)) return handleJitenVocabularyExamples;
     return undefined;
+}
+
+function handleJitenVocabularyParse(url, _request, requests) {
+    const text = url.searchParams.get('text') ?? '';
+    requests.push({ kind: 'jiten-public-parse', length: text.length });
+    const matches = Array.from(JITEN_SEARCH_FIXTURES.values())
+        .filter(fixture => text.includes(fixture.expression) || text.includes(fixture.reading))
+        .map(fixture => ({
+            wordId: fixture.wordId,
+            readingIndex: fixture.readingIndex,
+            originalText: fixture.expression,
+        }));
+    return jsonHttpResponse(matches);
 }
 
 function jitenFixtureFromVocabularyUrl(url) {
@@ -553,17 +571,14 @@ async function runJitenOnlySmoke(browser, fixture) {
         assertNoRequests(requests, request => String(request.kind).startsWith('jpdb-'), 'Jiten-only smoke unexpectedly called JPDB');
         await page.click('[data-newtab-action="reveal"]');
         await expectText(page, '[data-newtab-grade-target-text]', 'Grades Jiten');
-        await page.waitForSelector('[data-newtab-study-details] [data-source="jiten"]', { timeout: 12_000 });
-        await expectText(page, '[data-newtab-study-details] .jpdb-reader-jiten-headword', 'たっぷり');
-        await expectText(page, '[data-newtab-study-details] [data-source="jiten"]', 'plenty; full');
-        await expectText(page, '[data-newtab-study-details] [data-source="jiten"]', 'Smoke fixture');
-        await page.waitForSelector('[data-newtab-study-details] .jpdb-reader-jiten-example [data-action="jiten-audio"][data-jiten-audio-urls]', { timeout: 12_000 });
-        await page.waitForSelector('[data-newtab-study-details] .jpdb-reader-mining-panel [data-action="deck-picker"]', { timeout: 12_000 });
-        await page.waitForSelector('[data-newtab-study-details] .jpdb-reader-mining-panel [data-action="neverforget"]', { timeout: 12_000 });
-        await page.waitForSelector('[data-newtab-study-details] .jpdb-reader-mining-panel [data-action="blacklist"]', { timeout: 12_000 });
+        await page.waitForSelector('[data-newtab-answer-header] .jpdb-reader-frequency-pill', { timeout: 12_000 });
+        await page.waitForSelector('[data-newtab-answer-header] .jpdb-reader-word-pills a[href*="jiten.moe"]', { timeout: 12_000 });
+        await expectText(page, '[data-newtab-answer-header]', '#1800');
+        await expectText(page, '[data-newtab-answer-header]', 'Jiten');
+        const oldStudyDetails = await page.locator('[data-newtab-study-details]').count();
+        assert(oldStudyDetails === 0, 'Jiten answer rendered the old giant study-details card', { oldStudyDetails });
         await page.waitForSelector('.jpdb-reader-newtab-immersion .jpdb-reader-example-card', { timeout: 12_000 });
         await expectText(page, '.jpdb-reader-newtab-immersion', 'Immersion Smoke');
-        assertRequestCountAtLeast(requests, 'jiten-vocabulary-info', 1);
         assertRequestCountAtLeast(requests, 'jiten-vocabulary-examples', 1);
         assertRequestCountAtLeast(requests, 'jiten-reader-study-decks', 1);
         assertRequestCountAtLeast(requests, 'immersion-kit-search', 1);
@@ -576,8 +591,11 @@ async function runJitenOnlySmoke(browser, fixture) {
         assert(failedReview, 'Failed Jiten review request was not submitted', { requests });
         assert(failedReview.body.rating === 1, 'Failed Jiten review should submit rating 1', failedReview.body);
         await expectText(page, '[data-newtab-prompt]', 'たっぷり');
-        // Undo affordance appears once a Jiten review has been graded.
-        await page.waitForSelector('[data-newtab-action="undo-review"]', { timeout: 8_000 });
+        // Undo now lives on the Previous control rather than a separate
+        // button, so the failed-card loop should not reintroduce the old
+        // standalone affordance.
+        const standaloneUndo = await page.locator('[data-newtab-action="undo-review"]').count();
+        assert(standaloneUndo === 0, 'Jiten smoke rendered a standalone undo button', { standaloneUndo });
         await page.click('[data-newtab-action="reveal"]');
         await page.click('[data-newtab-action="grade"][data-grade="okay"]');
         const review = await waitForRequest(requests, item => item.kind === 'jiten-review' && item.body.rating === 3, 8_000);

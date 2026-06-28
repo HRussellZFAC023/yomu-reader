@@ -20,13 +20,13 @@ Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and sa
     <strong>Image</strong>
     <span>Read manga panels, screenshots, and image-only pages with OCR.</span>
   </a>
+  <a class="yomu-link-card" href="/tools/yomu-gaming">
+    <strong>Games</strong>
+    <span>Use the first-party desktop app for PC game capture and lookup.</span>
+  </a>
   <a class="yomu-link-card" href="/tools/japanese-subtitle-reader">
     <strong>Video</strong>
     <span>Parse Japanese subtitles and transcripts for lookup on YouTube or local files.</span>
-  </a>
-  <a class="yomu-link-card" href="/guides/read-games-with-yomininja">
-    <strong>Games</strong>
-    <span>Use YomiNinja for desktop game OCR, then bring useful text into your study flow.</span>
   </a>
   <a class="yomu-link-card" href="/pdf-reader/">
     <strong>PDF</strong>
@@ -42,7 +42,7 @@ Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and sa
 
 The loop is always the same: **find Japanese → understand it in context → save the useful words.** A web page, a manga page read through OCR, and a video subtitle line all become the same lookup surface, so you do not have to switch tools every time the medium changes.
 
-Use only the parts you need. Start with lookup, add OCR for manga, add subtitles for video, and connect study sources when you want tracking.
+Use only the parts you need. Start with lookup, add OCR for manga, use [Yomu Gaming](/tools/yomu-gaming) for PC game capture, add subtitles for video, and connect study sources when you want tracking.
 
 Kanji stroke order, components, readings, and related words live inside the popup; open the [kanji tool](/tools/kanji-stroke-order) from any lookup when you need to slow down on a character.
 
@@ -56,6 +56,6 @@ New here? Follow the [setup guide](/getting-started).
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/getting-started">Setup guide</a>
+  <a class="yomu-cta-button" href="/getting-started">Setup</a>
   <a class="yomu-cta-button" href="/features">See all features</a>
 </div>

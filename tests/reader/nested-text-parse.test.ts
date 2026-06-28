@@ -51,6 +51,36 @@ describe('nested text parse plans', () => {
         expectNestedParseScheduled(root, plan.parseKey, true);
     });
 
+    it('does not mirror public text-entry placeholders as page lookup text', () => {
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0,
+            y: 0,
+            width: 180,
+            height: 32,
+            top: 0,
+            right: 180,
+            bottom: 32,
+            left: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <form>
+                <input type="search" placeholder="質問してみましょう" aria-label="ChatGPT とチャットする">
+                <textarea placeholder="今日はどうしますか" aria-label="メッセージ"></textarea>
+                <select><option>日本語</option><option>英語</option></select>
+            </form>
+        `;
+
+        try {
+            const targets = collectFormControlTextTargetsIn(document.body, 10, true);
+
+            expect(targets.map(target => target.text)).toEqual(['日本語 / 英語']);
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+        }
+    });
+
     it('collects a parseable root element when parsing starts at the sentence', () => {
         document.body.innerHTML = '<span class="jpdb-reader-newtab-sentence jpdb-reader-parseable" lang="ja">お連れ様との会話が <mark class="jpdb-reader-example-target">日本語</mark>でしたので</span>';
         const root = document.body.querySelector<HTMLElement>('.jpdb-reader-newtab-sentence');

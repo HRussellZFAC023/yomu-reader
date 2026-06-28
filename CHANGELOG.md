@@ -2,9 +2,58 @@
 
 ## [1.4.149] - 2026-06-27
 
+### Release readiness
+
+- Keep homepage CTA polish, public internal-guide removal, and the actual Yomu Gaming app artifact as release gates to verify against built docs/artifacts, not source intent alone.
+- Treat BookWalker gallery layout and PDF OCR as still open until real gallery/PDF smokes confirm the remaining reports; earlier hardening is partial and should not be considered a full fix.
+- Keep Study audio, CORS fallback, and hosted/newtab behavior on the backlog until the no-userscript, CORS-blocked, and newtab smokes pass together.
+
 ### Fixed
 
 - Reworked Google Drive settings sync/restore in userscript contexts to use same-tab OAuth redirects instead of popups, with automatic resume after returning from Google.
+- Kept generic mobile article/prose annotations inside the viewport on narrow pages such as Investing.com while preserving furigana on readable body text and leaving compact navigation/footer labels layout-safe.
+
+## [1.4.148] - 2026-06-27
+
+### Fixed
+
+- Kept BookWalker-style product galleries and compact book/card grids from expanding or overlapping when Yomu annotates titles, while preserving passive word lookup.
+- Removed stale form/control mirrors before visible-page scans so ChatGPT/Claude-style composer placeholders and help text do not get rendered as page content.
+
+## [1.4.147] - 2026-06-27
+
+### Fixed
+
+- Fixed Study page local audio playback so localhost audio-server clips play directly without a CORS-breaking blob fetch, while revealed answers keep furigana and the speaker control visible.
+
+## [1.4.146] - 2026-06-27
+
+### Fixed
+
+- Aligned review grading shortcuts in Settings > Shortcuts so grade controls start together instead of sharing the row with Study navigation keys.
+
+## [1.4.145] - 2026-06-27
+
+### Added
+
+- Added the Yomu Gaming desktop shell as a first-party, overlay-first app path with a Yomu-styled settings window and capture smoke coverage.
+
+### Changed
+
+- Moved Study PWA install into the overflow menu, removed the oversized reverse-answer details card, and kept answer metadata compact with furigana, pitch, frequency/action pills, and audio.
+- Removed public competitor/ADR docs pages and guarded docs builds so public docs stay first-party.
+
+### Fixed
+
+- Kept text PDFs text-first while scanned PDFs avoid unreadable passive OCR overlays; explicit taps now trigger readable Yomu OCR on scanned canvases.
+- Repaired generic compact-control annotations so placeholders, headers, footers, search boxes, wiki controls, BookWalker carousels, and first-load homepage words no longer break layout or miss initial pitch styling.
+- Made word audio replay reliably on repeat speaker clicks and hover sequences, while transient empty audio lookups no longer force premature TTS fallback.
+
+## [1.4.144] - 2026-06-27
+
+### Changed
+
+- Renamed the settings “New Tab” link to “Study” and aligned English/Japanese localization so the label is now fully translated from `newTabPage`.
 
 ## [1.4.143] - 2026-06-27
 

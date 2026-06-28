@@ -608,7 +608,8 @@
    the label sits at the top and the control is pinned to the bottom of the
    cell, so every control on a row lines up regardless of how many lines the
    label above it wraps to. */
-.jpdb-reader-settings .grid > label:not(.inline) {
+.jpdb-reader-settings .grid > label:not(.inline),
+.jpdb-reader-settings .jpdb-reader-shortcut-group > label:not(.inline) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1085,8 +1086,15 @@
   outline: 2px solid var(--jpdb-reader-accent-soft);
   outline-offset: 3px;
 }
-.jpdb-reader-shortcut-group {
-  display: contents;
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: inherit;
+  align-items: stretch;
+  gap: inherit;
+}
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group[hidden] {
+  display: none !important;
 }
 .jpdb-reader-settings .footer {
   flex: 0 0 auto;
@@ -1961,7 +1969,8 @@
     min-height: 1.35em;
   }
 
-  .jpdb-reader-settings .grid > label:not(.inline) {
+  .jpdb-reader-settings .grid > label:not(.inline),
+  .jpdb-reader-settings .jpdb-reader-shortcut-group > label:not(.inline) {
     gap: 4px;
   }
 

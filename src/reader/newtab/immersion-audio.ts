@@ -1,4 +1,5 @@
 import type { ReaderSettings } from '../app/types';
+import { shouldFetchMediaUrlAsBlobBeforePlayback } from '../audio/candidates';
 import { uniqueTrimmedStrings } from '../core/string-utils';
 import type { ImmersionKitClient } from '../immersion/kit';
 
@@ -25,11 +26,16 @@ export class NewTabImmersionAudioPlayer {
     }
 
     async playSource(source: { urls: string[]; key: string }, isCurrent: () => boolean): Promise<void> {
-        if (this.isPlaying(source.key)) return;
         const requestId = this.begin(source.key);
-        if (await this.playCandidates(source.urls, requestId, source.key, isCurrent)) return;
-        const blobSrc = await this.fetchBlob(source.urls);
-        if (blobSrc) await this.playCandidates([blobSrc], requestId, source.key, isCurrent);
+        const urls = uniqueTrimmedStrings(source.urls);
+        const directUrls = urls.filter(url => !shouldFetchMediaUrlAsBlobBeforePlayback(url));
+        const blobFirstUrls = urls.filter(shouldFetchMediaUrlAsBlobBeforePlayback);
+        if (directUrls.length && await this.playCandidates(directUrls, requestId, source.key, isCurrent)) return;
+        if (!this.isCurrentRequest(requestId, source.key) || !isCurrent()) return;
+        const blobSrc = await this.fetchBlob(blobFirstUrls.length ? blobFirstUrls : urls);
+        if (blobSrc && await this.playCandidates([blobSrc], requestId, source.key, isCurrent)) return;
+        if (!this.isCurrentRequest(requestId, source.key) || !isCurrent()) return;
+        if (blobFirstUrls.length && await this.playCandidates(blobFirstUrls, requestId, source.key, isCurrent)) return;
         if (this.isCurrentRequest(requestId, source.key)) this.clearRequest();
     }
 
@@ -49,6 +55,11 @@ export class NewTabImmersionAudioPlayer {
             audio.addEventListener('error', cleanup, { once: true });
             try {
                 await audio.play();
+                if (!this.isCurrentRequest(requestId, key) || !isCurrent()) {
+                    audio.pause();
+                    this.clearIfCurrent(audio);
+                    return false;
+                }
                 return true;
             } catch {
                 this.detachFailed(audio);

@@ -217,6 +217,32 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('does not auto-capture manual scanned PDF canvases but captures them after a tap', async () => {
+        stubLocation('hrussellzfac023.github.io');
+        stubReadableCanvas();
+        const page = document.createElement('section');
+        page.dataset.yomuCanvasOcr = 'manual';
+        const canvas = pageCanvas(24, 20);
+        canvas.dataset.yomuCanvasOcr = 'manual';
+        page.append(canvas);
+        document.body.append(page);
+        const controller = createController();
+        try {
+            await new Promise(resolve => setTimeout(resolve, 60));
+            expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull();
+
+            dispatchCanvasPointer(canvas, 'pointerdown');
+
+            await waitForExpect(() => {
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+                expect(frame!.dataset.yomuCanvasFrame).toBe('true');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('refreshes when a BookWalker canvas mounts after controller startup', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();

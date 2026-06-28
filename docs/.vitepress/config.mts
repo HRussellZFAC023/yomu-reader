@@ -46,13 +46,6 @@ function canonicalUrl(relativePath: string): string {
     return `${siteUrl}${clean}`;
 }
 
-// ADRs are engineering context rather than learner-facing pages. Mark them
-// noindex (transformHead) and drop them from the sitemap (transformItems).
-const INTERNAL_PAGE_RE = /^adr\//;
-function isInternalPage(relativePath: string): boolean {
-    return INTERNAL_PAGE_RE.test(relativePath);
-}
-
 interface PageDataLike {
     relativePath: string;
     title?: string;
@@ -154,13 +147,6 @@ export default defineConfig({
     lastUpdated: true,
     sitemap: {
         hostname: siteUrl,
-        transformItems(items) {
-            // siteUrl ends in "/", so strip it to recover the relativePath-ish tail.
-            return items.filter(item => {
-                const tail = item.url.replace(/\/$/, '');
-                return !isInternalPage(tail);
-            });
-        },
     },
     vite: {
         plugins: [jpdbAudioDevProxyPlugin()],
@@ -196,14 +182,6 @@ export default defineConfig({
     ],
     transformHead({ pageData }) {
         const pageUrl = canonicalUrl(pageData.relativePath);
-        // Keep internal engineering context out of the index, but follow its
-        // links so useful outbound links still pass equity.
-        if (isInternalPage(pageData.relativePath)) {
-            return [
-                ['meta', { name: 'robots', content: 'noindex, follow' }],
-                ['link', { rel: 'canonical', href: pageUrl }],
-            ];
-        }
         const ogTitle = ogTitleFor(pageData);
         const ogDescription = ogDescriptionFor(pageData);
         const head: HeadConfig[] = [
@@ -265,6 +243,7 @@ export default defineConfig({
                     { text: 'Subtitles & video', link: '/tools/japanese-subtitle-reader' },
                     { text: 'Video Player', link: videoPlayerLink, target: '_self' },
                     { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
+                    { text: 'Yomu Gaming', link: '/tools/yomu-gaming' },
                     { text: 'Furigana reader', link: '/tools/furigana-reader' },
                     { text: 'Kanji stroke order', link: '/tools/kanji-stroke-order' },
                     { text: 'Study page', link: '/tools/study-page' },
@@ -277,7 +256,6 @@ export default defineConfig({
                     { text: 'All guides', link: '/guides/' },
                     { text: 'Read manga in Japanese', link: '/guides/read-manga-in-japanese' },
                     { text: 'Comprehensible-input YouTube', link: '/guides/comprehensible-input-youtube' },
-                    { text: 'Read games with YomiNinja', link: '/guides/read-games-with-yomininja' },
                     { text: 'Mine sentences to Anki', link: '/guides/mine-sentences-to-anki' },
                     { text: 'Study setup', link: '/guides/study-setup' },
                 ],

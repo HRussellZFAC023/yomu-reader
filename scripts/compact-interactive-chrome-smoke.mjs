@@ -33,6 +33,11 @@ const VOCABULARY = [
     ['スポーツ', 'スポーツ', 'スポーツ', 'sports', ['noun'], 100, ['known'], ['LHHH']],
     ['詳しく', '詳しく', 'くわしく', 'in detail', ['adverb'], 100, ['known'], ['LHHH']],
     ['読む', '読む', 'よむ', 'read', ['verb'], 100, ['known'], ['LH']],
+    ['アカウント', 'アカウント', 'アカウント', 'account', ['noun'], 100, ['known'], ['LHHHHH']],
+    ['選択', '選択', 'せんたく', 'selection', ['noun'], 100, ['known'], ['LHHH']],
+    ['送信', '送信', 'そうしん', 'send', ['noun'], 100, ['known'], ['LHHH']],
+    ['メッセージ', 'メッセージ', 'メッセージ', 'message', ['noun'], 100, ['known'], ['LHHHH']],
+    ['入力', '入力', 'にゅうりょく', 'input', ['noun'], 100, ['known'], ['LHHH']],
 ];
 
 const settings = {
@@ -79,6 +84,12 @@ body { display: grid; place-items: start center; }
 .trade-button[data-neighbor] { width: 88px; background: #121923; }
 .prose { margin-top: 26px; max-width: 58ch; color: #d8dee9; line-height: 1.7; }
 .prose a { color: #8ab4f8; }
+.login-dialog { margin-top: 18px; width: 320px; border: 1px solid #263041; border-radius: 8px; background: #101722; overflow: hidden; }
+.login-dialog h2 { margin: 0; padding: 12px 14px 8px; font-size: 16px; line-height: 22px; font-weight: 650; }
+.account-row { box-sizing: border-box; display: flex; align-items: center; height: 42px; max-height: 42px; padding: 0 14px; color: #edf2f7; text-decoration: none; line-height: 20px; white-space: nowrap; overflow: hidden; cursor: pointer; border-top: 1px solid #263041; }
+.composer-shell { margin-top: 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; width: 420px; max-width: 100%; }
+.prompt-textarea { min-height: 42px; max-height: 42px; overflow: hidden; border: 1px solid #303a4a; border-radius: 8px; padding: 10px 12px; color: #8b95a5; background: #0d131d; }
+.composer-shell button { width: 72px; border: 0; border-radius: 8px; color: #e9edf4; background: #263041; }
 </style>
 </head>
 <body>
@@ -94,6 +105,16 @@ body { display: grid; place-items: start center; }
     <div class="market-title">日本の選挙市場</div>
     <button id="trade-confirm" data-compact-control class="trade-button" type="button">注文確認</button>
     <button id="trade-details" data-neighbor class="trade-button" type="button">取引詳細</button>
+  </section>
+  <section class="login-dialog" role="dialog" aria-modal="true" aria-label="アカウント">
+    <h2>アカウントを選択</h2>
+    <a id="account-choice" data-compact-control class="account-row" href="/signin/account">アカウントを選択</a>
+  </section>
+  <section class="composer-shell">
+    <div id="composer-placeholder" class="ProseMirror prompt-textarea" contenteditable="true" data-placeholder="メッセージを入力">
+      <p>メッセージを入力</p>
+    </div>
+    <button id="composer-send" type="button">送信</button>
   </section>
   <article class="prose">
     <p><a id="prose-link" data-prose href="/analysis/elections">選挙について詳しく読む</a></p>
@@ -137,7 +158,7 @@ try {
     await page.addScriptTag({ path: SCRIPT_PATH });
 
     await page.waitForFunction(() => {
-        return document.querySelectorAll('[data-compact-control] .jpdb-reader-word').length >= 2
+        return document.querySelectorAll('[data-compact-control] .jpdb-reader-word').length >= 3
             && document.querySelector('#prose-link rt');
     }, null, { timeout: 20_000 });
 
@@ -241,6 +262,10 @@ function snapshotCompactChromeFixture(native) {
             rubyText: prose?.querySelector('rt')?.textContent?.trim() ?? '',
             passiveChrome: prose?.getAttribute('data-jpdb-reader-passive-chrome') ?? '',
         },
+        composer: {
+            placeholderWords: document.querySelectorAll('#composer-placeholder .jpdb-reader-word').length,
+            sendWords: document.querySelectorAll('#composer-send .jpdb-reader-word').length,
+        },
         layout: {
             viewportWidth: window.innerWidth,
             scrollWidth: document.documentElement.scrollWidth,
@@ -249,7 +274,7 @@ function snapshotCompactChromeFixture(native) {
 }
 
 function assertCompactChromeSnapshot(snapshot, label) {
-    assert(snapshot.compactControls.length === 2, `${label}: compact controls missing`, snapshot);
+    assert(snapshot.compactControls.length === 3, `${label}: compact controls missing`, snapshot);
     for (const control of snapshot.compactControls) {
         assert(control.passiveChrome === 'true', `${label}: compact control was not marked as passive chrome`, control);
         assert(control.wordCount >= 1, `${label}: compact control was not annotated`, control);
@@ -263,6 +288,8 @@ function assertCompactChromeSnapshot(snapshot, label) {
     assert(snapshot.prose.wordCount >= 1, `${label}: prose link was not annotated`, snapshot.prose);
     assert(snapshot.prose.rubyText === 'せんきょ', `${label}: prose link lost ruby`, snapshot.prose);
     assert(snapshot.prose.passiveChrome === '', `${label}: prose link was marked as compact chrome`, snapshot.prose);
+    assert(snapshot.composer.placeholderWords === 0, `${label}: composer placeholder was annotated as page text`, snapshot.composer);
+    assert(snapshot.composer.sendWords === 0, `${label}: composer send control was annotated as page text`, snapshot.composer);
     assert(snapshot.layout.scrollWidth <= snapshot.layout.viewportWidth + 1, `${label}: annotations caused horizontal overflow`, snapshot.layout);
 }
 

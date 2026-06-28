@@ -113,6 +113,7 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
 
         return {
             bgColor: style.backgroundColor,
+            highlightColor: style.getPropertyValue('--jpdb-reader-word-highlight-source'),
             color: style.color,
             decoration: style.textDecorationColor,
             parentColor: parentStyle.color,
@@ -135,6 +136,7 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
 
 type WordContrastMeasurement = {
     bgColor: string;
+    highlightColor: string;
     color: string;
     decoration: string;
     parentColor: string;
@@ -150,7 +152,7 @@ function applyWordContrastVars(word: HTMLElement, background: PageBackground, m:
 
     const passiveWord = word.classList.contains('jpdb-reader-passive-word');
     const preserveHostPaint = isPassiveChromeWord(word);
-    const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor, preserveHostPaint);
+    const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor, m.highlightColor, preserveHostPaint);
 
     // Compact passive chrome keeps the host's own paint/tint, so its label text
     // sits on the host background, not on a preserved highlight tint. Passive
@@ -204,13 +206,21 @@ function hoveredTextBackdropHex(hoverColor: string, textBackdropHex: string, hov
     return rgbaToHex(blendRgba(hover, backdrop));
 }
 
-function resolveAccessibleHighlight(word: HTMLElement, background: PageBackground, wordBgColor: string, preserveHostPaint = false): {
+function resolveAccessibleHighlight(
+    word: HTMLElement,
+    background: PageBackground,
+    wordBgColor: string,
+    highlightColor: string,
+    preserveHostPaint = false,
+): {
     accessibleHex: string;
     accessibleRgba: NonNullable<ReturnType<typeof cssColorToRgba>>;
 } {
-    const colorRgba = cssColorToRgba(wordBgColor);
+    const colorRgba = cssPaintToRgba(wordBgColor, word);
+    const highlightRgba = preserveHostPaint ? null : cssPaintToRgba(highlightColor, word);
     const hasPaint = Boolean(colorRgba && colorRgba.alpha > 0);
-    const rgba = colorRgba && colorRgba.alpha > 0 ? blendRgba(colorRgba, background.rgba) : background.rgba;
+    const paintRgba = hasPaint ? colorRgba : highlightRgba;
+    const rgba = paintRgba && paintRgba.alpha > 0 ? blendRgba(paintRgba, background.rgba) : background.rgba;
     const paintBackgroundHex = rgbaToHex(rgba);
 
     let accessibleHighlightColor: string | null = null;
@@ -224,6 +234,34 @@ function resolveAccessibleHighlight(word: HTMLElement, background: PageBackgroun
     const accessibleRgba = accessibleHighlightColor ? (cssColorToRgba(accessibleHighlightColor) ?? rgba) : rgba;
     const accessibleHex = accessibleHighlightColor ? rgbaToHex(accessibleRgba) : paintBackgroundHex;
     return { accessibleHex, accessibleRgba };
+}
+
+function cssPaintToRgba(value: string, context: HTMLElement): RgbaColor | null {
+    const direct = cssColorToRgba(value);
+    if (direct) return direct;
+    const resolved = resolveComputedCssColor(value, context);
+    return resolved ? cssColorToRgba(resolved) : null;
+}
+
+function resolveComputedCssColor(value: string, context: HTMLElement): string {
+    const color = value.trim();
+    if (!color || typeof document === 'undefined' || typeof getComputedStyle !== 'function') return '';
+    const probe = document.createElement('span');
+    probe.style.setProperty('position', 'absolute');
+    probe.style.setProperty('inline-size', '0');
+    probe.style.setProperty('block-size', '0');
+    probe.style.setProperty('overflow', 'hidden');
+    probe.style.setProperty('pointer-events', 'none');
+    probe.style.setProperty('color', color);
+    if (!probe.style.color && !color.includes('var(') && !color.startsWith('color-mix(')) return '';
+    try {
+        context.append(probe);
+        return getComputedStyle(probe).color;
+    } catch {
+        return '';
+    } finally {
+        probe.remove();
+    }
 }
 
 function resolveDecorationHex(decorationColor: string, accessibleRgba: NonNullable<ReturnType<typeof cssColorToRgba>>): string | null {

@@ -113,7 +113,7 @@
 }
 
 .VPHomeHero {
-  padding-block: clamp(34px, 6vw, 68px) clamp(22px, 4vw, 44px);
+  padding-block: clamp(34px, 6vw, 68px) clamp(14px, 3vw, 28px);
 }
 
 .VPHomeHero .container {
@@ -283,7 +283,7 @@ html[lang="ja"] .VPHomeHero .tagline {
 
 @media (max-width: 959px) {
   .VPHomeHero {
-    padding-block: 38px 34px;
+    padding-block: 38px 22px;
   }
 
   .VPHomeHero .container {
@@ -408,7 +408,7 @@ html[lang="ja"] .VPHomeHero .tagline {
 
 @media (max-width: 520px) {
   .VPHomeHero {
-    padding-block: 26px 30px;
+    padding-block: 26px 20px;
   }
 
   .VPHomeHero .text {
@@ -756,7 +756,7 @@ html[lang="ja"] .VPHomeHero .tagline {
   grid-template-columns: minmax(0, auto) minmax(320px, 1fr);
   gap: 24px;
   align-items: center;
-  margin: 6px 0 18px;
+  margin: -10px 0 24px;
   padding: 12px 14px;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
@@ -1332,10 +1332,12 @@ html[lang="ja"] .VPHomeHero .tagline {
   }
 
   .yomu-install-panel {
+    margin: -6px 0 22px;
     grid-template-areas:
       "copy"
       "steps";
     grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .yomu-install-steps {
@@ -1349,6 +1351,7 @@ html[lang="ja"] .VPHomeHero .tagline {
 
 @media (max-width: 540px) {
   .yomu-install-panel {
+    margin: -4px 0 20px;
     gap: 14px;
     padding: 12px;
   }

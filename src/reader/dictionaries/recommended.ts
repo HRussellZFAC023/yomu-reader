@@ -1,5 +1,4 @@
 import type { UiCopyKey } from '../app/i18n';
-import { DOCS_BASE_URL } from '../app/constants';
 
 export type RecommendedDictionaryCategory = 'terms' | 'kanji' | 'pitch' | 'frequency';
 
@@ -67,7 +66,7 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
         category: 'pitch',
         name: 'Kanjium pitch accents',
         descriptionKey: 'recommendedKanjiumPitch',
-        helpUrl: `${DOCS_BASE_URL}tools/study-page#local-pitch-and-frequency-dictionaries`,
+        downloadUrl: 'https://raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip',
     },
     {
         id: 'jpdbv2-kana',

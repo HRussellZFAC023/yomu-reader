@@ -31,7 +31,13 @@ const SMOKE_VTT = `WEBVTT
 先生いつもありがとうございました。
 `;
 
-const { root: ROOT, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
+const {
+    root: ROOT,
+    scriptPath: DEFAULT_SCRIPT_PATH,
+    cssPath: DEFAULT_CSS_PATH,
+} = createSmokePaths(import.meta.dirname);
+const SCRIPT_PATH = resolve(process.env.YOMU_YOUTUBE_FULLSCREEN_USERSCRIPT ?? DEFAULT_SCRIPT_PATH);
+const CSS_PATH = resolve(process.env.YOMU_YOUTUBE_FULLSCREEN_CSS ?? DEFAULT_CSS_PATH);
 const COMPANION_PATHS = ['yomu-anki.user.js', 'yomu-kanji-study.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
     .map(name => join(ROOT, 'dist', 'greasyfork', name))
     .filter(existsSync);
@@ -329,8 +335,10 @@ async function enterYoutubeCssFullscreen(page) {
             width: 100vw !important;
             height: 100vh !important;
         }
-        html.yomu-fullscreen-smoke ytd-watch-flexy[fullscreen] #movie_player.ytp-fullscreen,
-        html.yomu-fullscreen-smoke ytd-watch-flexy[fullscreen] .html5-video-player.ytp-fullscreen,
+        html.yomu-fullscreen-smoke #movie_player.ytp-fullscreen,
+        html.yomu-fullscreen-smoke #movie_player.fullscreen,
+        html.yomu-fullscreen-smoke .html5-video-player.ytp-fullscreen,
+        html.yomu-fullscreen-smoke .html5-video-player.fullscreen,
         html.yomu-fullscreen-smoke ytm-player.fullscreen {
             position: fixed !important;
             inset: 0 !important;
@@ -354,12 +362,10 @@ async function enterYoutubeCssFullscreen(page) {
             document.querySelector('ytm-player'),
         ].filter(Boolean))];
         const player = players.find(candidate => video && candidate.contains(video)) ?? players[0];
-        const flexy = document.querySelector('ytd-watch-flexy') ?? player?.closest('ytd-watch-flexy');
         document.documentElement.classList.add('yomu-fullscreen-smoke');
-        flexy?.setAttribute('fullscreen', '');
         for (const candidate of players) {
             candidate.classList.add('ytp-fullscreen', 'fullscreen');
-            candidate.setAttribute('fullscreen', '');
+            if (candidate.matches('ytm-player')) candidate.setAttribute('fullscreen', '');
             candidate.classList.remove('ytp-autohide', 'ytp-hide-controls', 'ytp-player-minimized');
             for (const [property, value] of [
                 ['position', 'fixed'],
@@ -392,7 +398,7 @@ async function waitForYomuFullscreenHost(page) {
     try {
         await page.waitForFunction(() => {
             const root = document.querySelector('.jpdb-subtitle-player');
-            const player = document.querySelector('#movie_player.ytp-fullscreen, .html5-video-player.ytp-fullscreen, ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen');
+            const player = document.querySelector('#movie_player.ytp-fullscreen, #movie_player.fullscreen, .html5-video-player.ytp-fullscreen, .html5-video-player.fullscreen, ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen');
             const rail = root?.querySelector('.jpdb-subtitle-rail');
             const railStyle = rail ? getComputedStyle(rail) : null;
             const mobileBodyOverlayVisible = location.hostname === 'm.youtube.com'
@@ -433,7 +439,7 @@ async function collectEvidence(page, mode) {
             signedIn: Boolean(document.querySelector('#avatar-btn, button#avatar-btn, ytd-masthead #buttons img, ytm-topbar-menu-button-renderer img')),
             fullscreenElement: document.fullscreenElement?.tagName ?? null,
             ytdFullscreen: Boolean(document.querySelector('ytd-watch-flexy[fullscreen]')),
-            playerFullscreenClass: Boolean(document.querySelector('#movie_player.ytp-fullscreen, .html5-video-player.ytp-fullscreen, ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen')),
+            playerFullscreenClass: Boolean(document.querySelector('#movie_player.ytp-fullscreen, #movie_player.fullscreen, .html5-video-player.ytp-fullscreen, .html5-video-player.fullscreen, ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen')),
             hasRoot: Boolean(root),
             hostedInPlayer: Boolean(root && player && root.parentElement === player),
             mobileBodyOverlayVisible: Boolean(location.hostname === 'm.youtube.com'

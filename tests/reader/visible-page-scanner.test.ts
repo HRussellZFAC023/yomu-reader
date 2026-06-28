@@ -6,7 +6,6 @@ import { withViewport } from './helpers/browser-fixtures';
 // shipped default is now 'ja'.
 const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
 import type { CardState, JPDBToken } from '../../src/reader/app/types';
-import { canLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
 
 type VisiblePageScannerDependencies = ConstructorParameters<typeof VisiblePageScanner>[0];
@@ -380,11 +379,74 @@ describe('VisiblePageScanner', () => {
             expect(parsedTexts.some(text => text.includes('日本語の漫画タイトル'))).toBe(true);
 
             const title = document.querySelector<HTMLElement>('[data-book-title]')!;
-            const word = title.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="日本語"]')!;
+            const mirror = title.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror');
+            const word = mirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="日本語"]') ?? null;
+            expect(mirror).not.toBeNull();
             expect(word).not.toBeNull();
-            expect(word.dataset.jpdbReaderPassive).toBe('true');
-            expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            expect(word?.dataset.jpdbReaderPassive).toBe('true');
+            expect(word?.querySelector('rt,.jpdb-reader-furi')).toBeNull();
             expect(title.textContent).toContain('日本語の漫画タイトル');
+        } finally {
+            scanner.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('keeps compact product-gallery titles from adding ruby height through neutral wrappers', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://bookwalker.jp/') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <main>
+                <section class="product-gallery">
+                    <article class="product-entry" style="width:160px">
+                        <div class="media-shell">
+                            <a class="cover-link" href="/books/free-title/">
+                                <img alt="あなた達それでも先生ですかっ！" src="/cover.jpg">
+                            </a>
+                        </div>
+                        <div class="details-shell">
+                            <p class="genre-badge">マンガ</p>
+                            <h3 class="title-wrap">
+                                <a data-product-title class="title-link" href="/books/free-title/" style="display:block;overflow:hidden;line-height:18px;height:36px;width:148px">
+                                    あなた達それでも先生ですかっ！
+                                </a>
+                            </h3>
+                            <p class="price-label">2冊無料</p>
+                            <button type="button">無料で読む</button>
+                        </div>
+                    </article>
+                </section>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForCompactProductGalleryText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
+            expect(parsedTexts.some(text => text.includes('あなた達それでも先生ですかっ'))).toBe(true);
+
+            const title = document.querySelector<HTMLElement>('[data-product-title]')!;
+            const mirror = title.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror');
+            const word = mirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="先生"]') ?? null;
+            expect(mirror).not.toBeNull();
+            expect(word).not.toBeNull();
+            expect(word?.dataset.jpdbReaderPassive).toBe('true');
+            expect(word?.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            expect(title.textContent).toContain('あなた達それでも先生ですかっ');
         } finally {
             scanner.destroy();
             Object.defineProperty(window, 'location', {
@@ -453,6 +515,108 @@ describe('VisiblePageScanner', () => {
             });
             restoreRects();
             document.head.innerHTML = '';
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('keeps compact footer help links lookupable without adding ruby height', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://app.example/new') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <main>
+                <section class="composer-shell" style="width:760px">
+                    <div class="composer" style="height:96px;overflow:hidden">本日はどのようなお手伝いをさせていただけますか？</div>
+                    <footer class="composer-footer" style="height:28px;overflow:hidden;white-space:nowrap">
+                        利用制限に達しました ・ リセット時刻: 13:00 ・
+                        <a data-footer-help href="/help/limits">Claude Codeと共有される制限</a>
+                    </footer>
+                </section>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForCompactFooterText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
+            expect(parsedTexts).toContain('Claude Codeと共有される制限');
+
+            const link = document.querySelector<HTMLElement>('[data-footer-help]')!;
+            const word = link.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="共有"]')!;
+            expect(word).not.toBeNull();
+            expect(word.dataset.jpdbReaderPassive).toBe('true');
+            expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            expect(link.textContent?.replace(/\s+/g, '')).toContain('ClaudeCodeと共有される制限');
+        } finally {
+            scanner.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('keeps constrained notification action-row text inside its rounded banner', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://app.example/chat') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <main>
+                <section class="toast-row" style="display:flex;align-items:center;gap:24px">
+                    <div data-memory-toast role="status" class="memory-toast" style="height:76px;overflow:hidden;border-radius:32px">
+                        <div data-memory-toast-message style="height:48px;overflow:hidden;line-height:24px">
+                            <div>メモリがいっぱいです</div>
+                            <div>回答があまりユーザーに適合しない可能性があります。アップグレードしてメモリを拡大するか、既存のメモリを管理してください。</div>
+                        </div>
+                    </div>
+                    <div class="toast-actions">
+                        <button type="button">管理する</button>
+                        <button type="button">さらに使用する</button>
+                    </div>
+                </section>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForConstrainedNotificationText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
+            expect(parsedTexts).toContain('メモリがいっぱいです');
+            expect(parsedTexts.some(text => text.includes('回答があまりユーザー'))).toBe(true);
+
+            const toast = document.querySelector<HTMLElement>('[data-memory-toast]')!;
+            const message = document.querySelector<HTMLElement>('[data-memory-toast-message]')!;
+            const words = Array.from(message.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+            expect(toast.dataset.jpdbReaderPassiveChrome).toBe('true');
+            expect(words.length).toBeGreaterThan(3);
+            expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+            expect(words.every(word => word.querySelector('rt,.jpdb-reader-furi') === null)).toBe(true);
+            expect(message.textContent?.replace(/\s+/g, '')).toContain('回答があまりユーザーに適合しない可能性があります');
+        } finally {
+            scanner.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            restoreRects();
             document.body.innerHTML = '';
         }
     });
@@ -705,9 +869,11 @@ describe('VisiblePageScanner', () => {
             await scanner.scanVisiblePage({ silent: true });
 
             expect(parseJapanese).toHaveBeenCalled();
-            expect(document.querySelector('ytd-searchbox .jpdb-reader-word')).not.toBeNull();
+            expect(document.querySelector('ytd-searchbox #search-icon-legacy .jpdb-reader-word[data-expression="検索"]')).not.toBeNull();
+            expect(document.querySelector('ytd-searchbox .placeholder .jpdb-reader-word')).toBeNull();
             expect(document.querySelector('ytd-searchbox')?.textContent).toContain('検索');
             expect(document.querySelector('input .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('input + .jpdb-reader-control-text-mirror')).toBeNull();
 
             document.querySelector<HTMLButtonElement>('button')?.click();
             expect(clicked).toBe(true);
@@ -1009,10 +1175,11 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('mirrors Japanese labels, dropdown options, and placeholders without mutating native controls on iPad-sized pages', async () => {
+    it('skips generic form labels, dropdown options, placeholders, and composer help text on iPad-sized pages', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `
             <main>
+                <p>静かな日本語の文章です。</p>
                 <form>
                     <label id="sort-label">表示順
                         <select aria-labelledby="sort-label">
@@ -1023,6 +1190,12 @@ describe('VisiblePageScanner', () => {
                     </label>
                     <input id="search" placeholder="単語を検索" value="">
                 </form>
+                <section class="chat-shell">
+                    <div role="textbox" contenteditable="true" data-placeholder="質問する">
+                        <p><br></p>
+                    </div>
+                    <p class="placeholder">検索ヘルプ</p>
+                </section>
             </main>
         `;
         const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForFormControlText));
@@ -1035,35 +1208,135 @@ describe('VisiblePageScanner', () => {
             await withViewport(820, 1180, () => scanner.scanVisiblePage({ silent: true }), { visualViewport: true });
 
             const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
-            expect(parsedTexts.some(text => text.includes('表示順'))).toBe(true);
-            expect(parsedTexts.some(text => text.includes('日本語だけ'))).toBe(true);
-            expect(parsedTexts.some(text => text.includes('単語を検索'))).toBe(true);
+            expect(parsedTexts.some(text => text.includes('静かな日本語の文章です。'))).toBe(true);
+            expect(parsedTexts.some(text => text.includes('表示順'))).toBe(false);
+            expect(parsedTexts.some(text => text.includes('日本語だけ'))).toBe(false);
+            expect(parsedTexts.some(text => text.includes('単語を検索'))).toBe(false);
+            expect(parsedTexts.some(text => text.includes('質問する'))).toBe(false);
+            expect(parsedTexts.some(text => text.includes('検索ヘルプ'))).toBe(false);
 
             const labelWord = document.querySelector<HTMLElement>('label .jpdb-reader-word[data-expression="表示順"]');
-            expect(labelWord).not.toBeNull();
-            expect(labelWord?.dataset.jpdbReaderPassive).toBe('true');
+            expect(labelWord).toBeNull();
 
             const select = document.querySelector<HTMLSelectElement>('select')!;
             expect(select.querySelector('.jpdb-reader-word')).toBeNull();
             const selectMirror = select.nextElementSibling as HTMLElement | null;
-            expect(selectMirror?.matches('.jpdb-reader-control-text-mirror')).toBe(true);
-            const selectWord = selectMirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="日本語"]') ?? null;
-            expect(selectWord).not.toBeNull();
-            expect(selectWord?.dataset.jpdbReaderPassive).toBeUndefined();
-            expect(selectWord ? canLookupReaderWordElement(selectWord) : false).toBe(true);
+            expect(selectMirror?.matches('.jpdb-reader-control-text-mirror')).not.toBe(true);
 
             const input = document.querySelector<HTMLInputElement>('input')!;
             expect(input.querySelector('.jpdb-reader-word')).toBeNull();
             const inputMirror = input.nextElementSibling as HTMLElement | null;
-            expect(inputMirror?.matches('.jpdb-reader-control-text-mirror')).toBe(true);
-            expect(inputMirror?.querySelector('.jpdb-reader-word[data-expression="単語"]')).not.toBeNull();
-
-            select.dispatchEvent(new Event('change'));
-            expect(selectMirror?.isConnected).toBe(false);
-            input.dispatchEvent(new Event('input'));
-            expect(inputMirror?.isConnected).toBe(false);
+            expect(inputMirror?.matches('.jpdb-reader-control-text-mirror')).not.toBe(true);
+            expect(document.querySelector('[role="textbox"] .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('.placeholder .jpdb-reader-word')).toBeNull();
         } finally {
             scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('does not keep stale composer placeholder mirrors visible as page text', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = `
+            <main>
+                <article><p data-real-prose>ヘンリーさん、お久しぶりです。</p></article>
+                <section class="composer-shell">
+                    <div class="wcDTda_prosemirror-parent text-token-text-primary">
+                        <textarea class="wcDTda_fallbackTextarea" name="prompt-textarea" placeholder="質問してみましょう" aria-label="ChatGPT とチャットする" style="display:none"></textarea>
+                        <span class="jpdb-reader-control-text-mirror" data-jpdb-reader-control-text-mirror="true" data-jpdb-reader-control-mirror-kind="inline" data-source-text="質問してみましょう / ChatGPT とチャットする">質問してみましょう / ChatGPT とチャットする</span>
+                        <div contenteditable="true" class="ProseMirror" role="textbox" aria-label="ChatGPT とチャットする" data-placeholder="質問してみましょう">
+                            <p data-empty-paragraph="true" data-placeholder="質問してみましょう" class="placeholder"><br></p>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForComposerPlaceholderText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
+            expect(parsedTexts.some(text => text.includes('ヘンリーさん'))).toBe(true);
+            expect(parsedTexts.some(text => text.includes('質問してみましょう'))).toBe(false);
+            expect(parsedTexts.some(text => text.includes('ChatGPT'))).toBe(false);
+            expect(document.querySelector('[data-real-prose] .jpdb-reader-word')).not.toBeNull();
+            expect(document.querySelector('.wcDTda_prosemirror-parent .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('.wcDTda_prosemirror-parent .jpdb-reader-control-text-mirror')).toBeNull();
+            expect(document.querySelector('[contenteditable] .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('.placeholder .jpdb-reader-word')).toBeNull();
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('keeps Wikibooks-style prose inline while ignoring search controls', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://ja.wikibooks.org/wiki/%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%9A%E3%83%BC%E3%82%B8') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <header>
+                <div role="search" class="vector-search-box">
+                    <form>
+                        <label>Wikibooks内を検索
+                            <input type="search" placeholder="Wikibooks内を検索" value="">
+                        </label>
+                        <button type="submit">検索</button>
+                    </form>
+                </div>
+            </header>
+            <main id="content">
+                <article class="mw-parser-output">
+                <p data-wikibooks-prose>
+                    詳しい編集方法は、<a href="/wiki/Wikibooks:%E7%B7%A8%E9%9B%86%E3%81%AE%E4%BB%95%E6%96%B9">編集の仕方</a>や<a href="/wiki/Wikibooks:%E6%96%B0%E3%81%97%E3%81%84%E3%83%9A%E3%83%BC%E3%82%B8">新しいページの作り方</a>で説明しています。
+                    参考になさってください。編集の仕方がピンと来ない方は<a href="/wiki/Wikibooks:%E3%82%B5%E3%83%B3%E3%83%89%E3%83%9C%E3%83%83%E3%82%AF%E3%82%B9">サンドボックス</a>で練習してみてください。
+                </p>
+                </article>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForWikibooksProseText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
+            expect(parsedTexts.some(text => text.includes('詳しい編集方法は'))).toBe(true);
+            expect(parsedTexts.some(text => text.includes('Wikibooks内を検索'))).toBe(false);
+            expect(parsedTexts.some(text => text === '検索')).toBe(false);
+            expect(document.querySelector('[role="search"] .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('[role="search"] .jpdb-reader-control-text-mirror')).toBeNull();
+
+            const prose = document.querySelector<HTMLElement>('[data-wikibooks-prose]')!;
+            const words = Array.from(prose.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+            const activeWords = words.filter(word => !word.classList.contains('jpdb-reader-passive-word'));
+            expect(words.length).toBeGreaterThan(4);
+            expect(activeWords.length).toBeGreaterThan(0);
+            expect(activeWords.every(word => word.classList.contains('jpdb-reader-prose-word'))).toBe(true);
+            expect(activeWords.every(word => word.dataset.jpdbReaderProse === 'true')).toBe(true);
+            expect(activeWords.every(word => word.style.getPropertyValue('display') === '')).toBe(true);
+            expect(prose.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="編集"] rt')?.textContent).toBe('へんしゅう');
+            const proseText = prose.textContent?.replace(/\([^)]*\)/g, '').replace(/\s+/g, '') ?? '';
+            expect(proseText).toContain('詳しい編集方法は、編集の仕方や新しいページの作り方で説明しています。');
+        } finally {
+            scanner.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
             restoreRects();
             document.body.innerHTML = '';
         }
@@ -1128,6 +1401,54 @@ describe('VisiblePageScanner', () => {
             await scanner.scanVisiblePage({ silent: true });
 
             const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            expect(order).toEqual(['pitch', 'apply']);
+            expect(enrichPitchWords).toHaveBeenCalledTimes(1);
+            expect(word.classList.contains('jpdb-known')).toBe(true);
+            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            expect(word.querySelector('rt')?.textContent).toBe('せんせい');
+        } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('waits for priority pitch before applying prefetched visible page tokens', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = '<p>先生いつもありがとうございます。</p>';
+        const fallbackToken = testToken('先生いつもありがとうございます。', '先生', 0, 2);
+        const order: string[] = [];
+        const parseJapanese = vi.fn(async () => [[fallbackToken]]);
+        const pauseMutationObserver = vi.fn(callback => {
+            order.push('apply');
+            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
+            return callback();
+        });
+        const enrichPitchWords = vi.fn(async (tokens: JPDBToken[]) => {
+            order.push('pitch');
+            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            tokens[0]!.card = {
+                ...tokens[0]!.card,
+                source: 'jpdb',
+                reading: 'せんせい',
+                cardState: ['known'],
+                pitchAccent: ['LHHH'],
+            };
+            tokens[0]!.rubies = [{ text: 'せんせい', start: 0, end: 2, length: 2 }];
+            tokens[0]!.pitchClass = 'atamadaka';
+        });
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', furiganaMode: 'all' }),
+            parseJapanese,
+            pauseMutationObserver,
+            enrichPitchWords,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            expect(parseJapanese).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ jpdbTimeoutMs: 1200 }));
             expect(order).toEqual(['pitch', 'apply']);
             expect(enrichPitchWords).toHaveBeenCalledTimes(1);
             expect(word.classList.contains('jpdb-known')).toBe(true);
@@ -1990,6 +2311,27 @@ function tokensForFormControlText(text: string): JPDBToken[] {
     }).sort((left, right) => left.start - right.start);
 }
 
+function tokensForWikibooksProseText(text: string): JPDBToken[] {
+    const readings = new Map([
+        ['詳しい', 'くわしい'],
+        ['編集', 'へんしゅう'],
+        ['方法', 'ほうほう'],
+        ['仕方', 'しかた'],
+        ['新しい', 'あたらしい'],
+        ['作り方', 'つくりかた'],
+        ['説明', 'せつめい'],
+        ['参考', 'さんこう'],
+        ['練習', 'れんしゅう'],
+        ['サンドボックス', 'サンドボックス'],
+    ]);
+    const tokens: JPDBToken[] = [];
+    for (const [surface, reading] of readings) {
+        const start = text.indexOf(surface);
+        if (start >= 0) tokens.push(rubyToken(text, surface, reading, start, start + surface.length));
+    }
+    return tokens.sort((left, right) => left.start - right.start);
+}
+
 function stateToken(
     sentence: string,
     spelling: string,
@@ -2107,6 +2449,81 @@ function tokensForCompactBookCarouselText(text: string): JPDBToken[] {
     const targets = [
         ['日本語', 'にほんご'],
         ['漫画', 'まんが'],
+    ] as const;
+    const tokens: JPDBToken[] = [];
+    for (const [surface, reading] of targets) {
+        let index = text.indexOf(surface);
+        while (index >= 0) {
+            tokens.push(rubyToken(text, surface, reading, index, index + surface.length));
+            index = text.indexOf(surface, index + surface.length);
+        }
+    }
+    return tokens.sort((first, second) => first.start - second.start);
+}
+
+function tokensForCompactProductGalleryText(text: string): JPDBToken[] {
+    const targets = [
+        ['あなた達', 'あなたたち'],
+        ['先生', 'せんせい'],
+        ['無料', 'むりょう'],
+    ] as const;
+    const tokens: JPDBToken[] = [];
+    for (const [surface, reading] of targets) {
+        let index = text.indexOf(surface);
+        while (index >= 0) {
+            tokens.push(rubyToken(text, surface, reading, index, index + surface.length));
+            index = text.indexOf(surface, index + surface.length);
+        }
+    }
+    return tokens.sort((first, second) => first.start - second.start);
+}
+
+function tokensForComposerPlaceholderText(text: string): JPDBToken[] {
+    const targets = [
+        ['ヘンリー', 'ヘンリー'],
+        ['久しぶり', 'ひさしぶり'],
+        ['質問', 'しつもん'],
+        ['チャット', 'チャット'],
+    ] as const;
+    const tokens: JPDBToken[] = [];
+    for (const [surface, reading] of targets) {
+        let index = text.indexOf(surface);
+        while (index >= 0) {
+            tokens.push(rubyToken(text, surface, reading, index, index + surface.length));
+            index = text.indexOf(surface, index + surface.length);
+        }
+    }
+    return tokens.sort((first, second) => first.start - second.start);
+}
+
+function tokensForCompactFooterText(text: string): JPDBToken[] {
+    const targets = [
+        ['共有', 'きょうゆう'],
+        ['制限', 'せいげん'],
+    ] as const;
+    const tokens: JPDBToken[] = [];
+    for (const [surface, reading] of targets) {
+        let index = text.indexOf(surface);
+        while (index >= 0) {
+            tokens.push(rubyToken(text, surface, reading, index, index + surface.length));
+            index = text.indexOf(surface, index + surface.length);
+        }
+    }
+    return tokens.sort((first, second) => first.start - second.start);
+}
+
+function tokensForConstrainedNotificationText(text: string): JPDBToken[] {
+    const targets = [
+        ['メモリ', 'メモリ'],
+        ['回答', 'かいとう'],
+        ['ユーザー', 'ユーザー'],
+        ['適合', 'てきごう'],
+        ['可能性', 'かのうせい'],
+        ['アップグレード', 'アップグレード'],
+        ['拡大', 'かくだい'],
+        ['既存', 'きぞん'],
+        ['管理', 'かんり'],
+        ['使用', 'しよう'],
     ] as const;
     const tokens: JPDBToken[] = [];
     for (const [surface, reading] of targets) {

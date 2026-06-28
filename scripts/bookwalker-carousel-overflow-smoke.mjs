@@ -72,6 +72,27 @@ writeFileSync(entryPath, `
         };
     }
 
+    function productGalleryMetrics() {
+        const grid = document.querySelector<HTMLElement>('[data-product-gallery]');
+        const card = document.querySelector<HTMLElement>('[data-product-card]');
+        const title = document.querySelector<HTMLElement>('[data-product-title]');
+        const cta = document.querySelector<HTMLElement>('[data-product-cta]');
+        const titleRect = title?.getBoundingClientRect();
+        const ctaRect = cta?.getBoundingClientRect();
+        return {
+            gridClientWidth: grid?.clientWidth ?? 0,
+            gridScrollWidth: grid?.scrollWidth ?? 0,
+            cardHeight: card?.getBoundingClientRect().height ?? 0,
+            cardScrollHeight: card?.scrollHeight ?? 0,
+            titleClientHeight: title?.clientHeight ?? 0,
+            titleScrollHeight: title?.scrollHeight ?? 0,
+            titleBottom: titleRect?.bottom ?? 0,
+            ctaTop: ctaRect?.top ?? 0,
+            rubyCount: document.querySelectorAll('[data-product-title] rt,.jpdb-reader-furi').length,
+            passiveCount: document.querySelectorAll('[data-product-title] .jpdb-reader-passive-word').length,
+        };
+    }
+
     Object.assign(window, {
         runYomuBookwalkerCarouselProbe() {
             const before = carouselMetrics();
@@ -86,6 +107,30 @@ writeFileSync(entryPath, `
             return {
                 before,
                 after: carouselMetrics(),
+                target: {
+                    text: target.text,
+                    suppressRuby: target.suppressRuby === true,
+                    passiveInteraction: target.passiveInteraction === true,
+                    parserId: 'parserId' in target ? target.parserId : null,
+                },
+            };
+        },
+        runYomuBookwalkerProductGalleryProbe() {
+            const before = productGalleryMetrics();
+            const sentence = 'あなた達それでも先生ですかっ！';
+            const targets = collectScanTargets(20, 'https://bookwalker.jp/');
+            const target = targets.find(candidate => candidate.text.includes(sentence));
+            if (!target) throw new Error('BookWalker product gallery title target was not collected.');
+            const teacherStart = sentence.indexOf('先生');
+            const freeStart = sentence.indexOf('無料');
+            applyTokensToScanTarget(target, [
+                token(sentence, 'あなた達', 'あなたたち', 0, 4),
+                token(sentence, '先生', 'せんせい', teacherStart, teacherStart + 2),
+                ...(freeStart >= 0 ? [token(sentence, '無料', 'むりょう', freeStart, freeStart + 2)] : []),
+            ], { ...DEFAULT_SETTINGS, interfaceLanguage: 'en', showFurigana: true, furiganaMode: 'all' });
+            return {
+                before,
+                after: productGalleryMetrics(),
                 target: {
                     text: target.text,
                     suppressRuby: target.suppressRuby === true,
@@ -131,6 +176,7 @@ try {
     try {
         const result = await runBrowserProbe(browser, bookwalkerCarouselFixture(), 'runYomuBookwalkerCarouselProbe', 'bookwalker-carousel-overflow-smoke.png');
         const forcedRuby = await runBrowserProbe(browser, bookwalkerCarouselFixture({ forceRuby: true }), 'runYomuBookwalkerCarouselProbe');
+        const productGallery = await runBrowserProbe(browser, bookwalkerProductGalleryFixture(), 'runYomuBookwalkerProductGalleryProbe', 'bookwalker-product-gallery-overflow-smoke.png');
         const readableScroll = await runBrowserProbe(browser, readableScrollFixture(), 'runYomuReadableScrollProbe');
 
         assert(result.before.viewportScrollWidth <= result.before.viewportClientWidth + 2, 'fixture starts without overflow', result);
@@ -149,11 +195,20 @@ try {
             forcedRuby,
         );
 
+        assert(productGallery.target.suppressRuby, 'product gallery title should suppress ruby generically', productGallery);
+        assert(productGallery.target.passiveInteraction, 'product gallery title should be passive', productGallery);
+        assert(productGallery.after.rubyCount === 0, 'product gallery title rendered ruby and can stretch cards', productGallery);
+        assert(productGallery.after.passiveCount >= 2, 'product gallery words should remain lookupable as passive words', productGallery);
+        assert(productGallery.after.gridScrollWidth <= productGallery.after.gridClientWidth + 2, 'product gallery grid overflowed after Yomu rendered words', productGallery);
+        assert(productGallery.after.cardHeight <= productGallery.before.cardHeight + 2, 'product gallery card height grew after Yomu rendered words', productGallery);
+        assert(productGallery.after.titleScrollHeight <= productGallery.before.titleScrollHeight + 2, 'product gallery title line height grew after Yomu rendered words', productGallery);
+        assert(productGallery.after.titleBottom <= productGallery.after.ctaTop + 2, 'product gallery title overlapped the CTA row after Yomu rendered words', productGallery);
+
         assert(!readableScroll.target.suppressRuby, 'readable prose in a scroll/banner container should keep ruby', readableScroll);
         assert(!readableScroll.target.passiveInteraction, 'readable prose in a scroll/banner container should stay interactive', readableScroll);
         assert(readableScroll.after.rubyCount > 0, 'readable prose lost furigana in a scroll/banner container', readableScroll);
 
-        console.log(JSON.stringify({ result, forcedRuby, readableScroll }, null, 2));
+        console.log(JSON.stringify({ result, forcedRuby, productGallery, readableScroll }, null, 2));
         console.log('BookWalker carousel overflow smoke passed');
     } finally {
         await browser.close();
@@ -232,6 +287,101 @@ function bookwalkerCarouselFixture({ forceRuby = false } = {}) {
                             <h2 class="image-carousel__copy" data-bookwalker-title${forceRubyAttribute}>日本語漫画フェア</h2>
                         </article>
                     </div>
+                </section>
+            </main>
+        </body>
+        </html>
+    `;
+}
+
+function bookwalkerProductGalleryFixture() {
+    return `
+        <!doctype html>
+        <html lang="ja">
+        <head>
+            <meta charset="utf-8">
+            <style>
+                * { box-sizing: border-box; }
+                body { margin: 0; font-family: system-ui, sans-serif; }
+                .bookwalker-home { width: 760px; margin: 32px auto; }
+                .product-gallery {
+                    display: grid;
+                    grid-template-columns: repeat(4, 160px);
+                    gap: 24px;
+                    overflow: hidden;
+                    width: 760px;
+                    border: 1px solid #d8dee8;
+                    padding: 16px;
+                }
+                .product-entry {
+                    width: 160px;
+                    min-width: 0;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                }
+                .cover-link,
+                .cover-link img {
+                    display: block;
+                    width: 148px;
+                    height: 214px;
+                    background: linear-gradient(135deg, #e8eff8, #bcd2e8);
+                }
+                .details-shell {
+                    display: flex;
+                    flex-direction: column;
+                    min-width: 0;
+                    gap: 5px;
+                }
+                .genre-badge,
+                .price-label {
+                    margin: 0;
+                    font-size: 12px;
+                    line-height: 16px;
+                }
+                .title-wrap {
+                    margin: 0;
+                    font-size: 14px;
+                    line-height: 18px;
+                    min-width: 0;
+                }
+                .title-link {
+                    display: block;
+                    width: 148px;
+                    height: 36px;
+                    overflow: hidden;
+                    line-height: 18px;
+                    color: #164a7a;
+                    text-decoration: none;
+                }
+                .product-entry button {
+                    height: 32px;
+                    border: 0;
+                    border-radius: 4px;
+                    background: #d93434;
+                    color: white;
+                    font-weight: 700;
+                }
+            </style>
+        </head>
+        <body>
+            <main class="bookwalker-home">
+                <section class="product-gallery" data-product-gallery>
+                    <article class="product-entry" data-product-card>
+                        <div class="media-shell">
+                            <a class="cover-link" href="/books/free-title/">
+                                <img alt="あなた達それでも先生ですかっ！" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='148' height='214'%3E%3Crect width='148' height='214' fill='%23bcd2e8'/%3E%3C/svg%3E">
+                            </a>
+                        </div>
+                        <div class="details-shell">
+                            <p class="genre-badge">マンガ</p>
+                            <h3 class="title-wrap">
+                                <a data-product-title class="title-link" href="/books/free-title/">あなた達それでも先生ですかっ！</a>
+                            </h3>
+                            <p class="price-label">2冊無料</p>
+                            <button data-product-cta type="button">無料で読む</button>
+                        </div>
+                    </article>
                 </section>
             </main>
         </body>

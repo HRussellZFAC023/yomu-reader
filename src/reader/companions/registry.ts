@@ -33,6 +33,8 @@ export type IsAnkiDuplicateNoteErrorFn = typeof import('../anki/client').isAnkiD
 export type MobileAnkiHandoffAppNameFn = typeof import('../anki/mobile-handoff').mobileAnkiHandoffAppName;
 // Consumed by the registry slot type below and the companion build.
 export type ResolveAnkiWordAudioFn = typeof import('../anki/audio').resolveAnkiWordAudio;
+export type InstallUchisenCarouselFn = typeof import('../dictionaries/uchisen').installUchisenCarousel;
+export type LoadUchisenDataFn = typeof import('../dictionaries/uchisen').loadUchisenData;
 
 interface YomuCompanionRegistry {
     anki?: {
@@ -84,6 +86,8 @@ interface YomuCompanionRegistry {
         installOriginGraphInteractions: typeof import('../popup/origin-graph-interactions').installOriginGraphInteractions;
         buildKanjiFacts: typeof import('../kanji/origin').buildKanjiFacts;
         buildKanjiOriginGraph: typeof import('../kanji/origin').buildKanjiOriginGraph;
+        installUchisenCarousel: InstallUchisenCarouselFn;
+        loadUchisenData: LoadUchisenDataFn;
     };
 }
 

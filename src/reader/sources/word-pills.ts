@@ -1,11 +1,12 @@
 import { escapeHtml } from '../dom/index';
-import { renderFrequencyPills } from './definition-render';
+import { renderFrequencyPill } from './definition-render';
 import { formatUiText, uiText } from '../app/i18n';
-import { formatLookupUrl, lookupPillStyle } from '../dictionaries/display';
+import { bestFrequencyEntries, formatLookupUrl, lookupPillStyle, pillStyle } from '../dictionaries/display';
 import { canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiLookupResult } from '../anki/index';
 import { ankiIcon, copyIcon, externalLinkIcon } from '../ui/icons';
 import { replaceOptionalElement } from '../app/dom-helpers';
 import type { JPDBCard, ReaderSettings } from '../app/types';
+import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 
 interface WordPillContext {
@@ -24,6 +25,7 @@ export interface WordPillRenderOptions {
     overrideQuery?: string;
     inert?: boolean;
     ankiLookup?: AnkiLookupResult;
+    jitenVocabularyInfo?: JitenVocabularyInfo | null;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
     dictionaryLabel: (name: string) => string;
 }
@@ -33,12 +35,16 @@ export function renderWordPills(options: WordPillRenderOptions): string {
     const query = context.query;
     const language = options.settings.interfaceLanguage;
     const enabledLinks = options.settings.dictionaryLookupLinks.filter(link => link.enabled);
+    const frequencyPills = frequencyPillsByLookupId(options);
     const linkPills = enabledLinks
-        .map(link => renderLookupLinkPill(options, context, language, query, link))
+        .map(link => renderConfiguredLookupPill(options, context, language, query, link, frequencyPills))
         .filter(Boolean);
     const ankiPill = renderAnkiPill(options, language, query);
-    const frequencyPills = renderFrequencyPills(options.metaEntries ?? [], options.settings, options.dictionaryLabel);
-    const pills = [...linkPills, ankiPill, ...frequencyPills].filter(Boolean);
+    const configuredFrequencyIds = new Set(enabledLinks.filter(link => isFrequencyLookupPill(link)).map(link => link.id));
+    const leftoverFrequencyPills = Array.from(frequencyPills)
+        .filter(([id]) => !configuredFrequencyIds.has(id))
+        .map(([, html]) => html);
+    const pills = [...linkPills, ankiPill, ...leftoverFrequencyPills].filter(Boolean);
     return pills.length ? `<div class="jpdb-reader-word-pills">${pills.join('')}</div>` : '';
 }
 
@@ -101,6 +107,22 @@ function renderLookupLinkPill(
         return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</span>`;
     }
     return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</a>`;
+}
+
+function renderConfiguredLookupPill(
+    options: WordPillRenderOptions,
+    context: WordPillContext,
+    language: ReaderSettings['interfaceLanguage'],
+    query: string,
+    link: ReaderSettings['dictionaryLookupLinks'][number],
+    frequencyPills: Map<string, string>,
+): string {
+    if (isFrequencyLookupPill(link)) return frequencyPills.get(link.id) ?? '';
+    return renderLookupLinkPill(options, context, language, query, link);
+}
+
+function isFrequencyLookupPill(link: ReaderSettings['dictionaryLookupLinks'][number]): boolean {
+    return link.action === 'frequency-live' || link.action === 'frequency-local';
 }
 
 function lookupLinkPillUrl(
@@ -210,6 +232,74 @@ function renderCopyPill(language: ReaderSettings['interfaceLanguage'], query: st
         return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</span>`;
     }
     return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
+}
+
+function frequencyPillsByLookupId(options: WordPillRenderOptions): Map<string, string> {
+    const localLabel = (dictionary: string) => localFrequencyLookupLabel(options.settings, dictionary) || options.dictionaryLabel(dictionary);
+    const pills = new Map<string, string>();
+    const localProviders = new Set<'jiten' | 'jpdb'>();
+    for (const entry of bestFrequencyEntries(options.metaEntries ?? [])) {
+        if (entry.mode !== 'freq' || !localFrequencyEnabled(options.settings, entry.dictionary)) continue;
+        const html = renderFrequencyPill(entry, localLabel);
+        if (html) {
+            pills.set(localFrequencyLookupPillId(entry.dictionary), html);
+            const provider = localFrequencyProvider(entry.dictionary);
+            if (provider) localProviders.add(provider);
+        }
+    }
+    for (const link of options.settings.dictionaryLookupLinks) {
+        if (link.action !== 'frequency-live' || !link.enabled) continue;
+        const html = renderLiveFrequencyPill(options, link, localProviders);
+        if (html) pills.set(link.id, html);
+    }
+    return pills;
+}
+
+function localFrequencyEnabled(settings: ReaderSettings, dictionary: string): boolean {
+    const preference = settings.dictionaryPreferences.find(item => item.name === dictionary);
+    const lookupLink = settings.dictionaryLookupLinks.find(link => link.id === localFrequencyLookupPillId(dictionary));
+    return (preference?.enabled ?? true) && (lookupLink?.enabled ?? true);
+}
+
+function localFrequencyLookupLabel(settings: ReaderSettings, dictionary: string): string {
+    return settings.dictionaryLookupLinks.find(link => link.id === localFrequencyLookupPillId(dictionary))?.label.trim() ?? '';
+}
+
+function localFrequencyLookupPillId(dictionary: string): string {
+    return `frequency-local:${dictionary}`;
+}
+
+function renderLiveFrequencyPill(options: WordPillRenderOptions, link: ReaderSettings['dictionaryLookupLinks'][number], localProviders: Set<'jiten' | 'jpdb'>): string {
+    const provider = liveFrequencyProvider(link);
+    if (!provider || localProviders.has(provider)) return '';
+    const rank = provider === 'jiten' ? liveJitenFrequencyRank(options) : liveJpdbFrequencyRank(options);
+    if (!rank) return '';
+    const label = link.label.trim() || (provider === 'jiten' ? 'Jiten' : 'JPDB');
+    const dictionary = provider === 'jiten' ? 'Jiten' : 'JPDB';
+    return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml(dictionary)}" data-frequency-source="live" style="${pillStyle(`frequency-live:${provider}`)}" title="${escapeHtml(`${label} live site frequency`)}">${escapeHtml(label)} #${escapeHtml(String(rank))}</span>`;
+}
+
+function liveFrequencyProvider(link: ReaderSettings['dictionaryLookupLinks'][number]): 'jiten' | 'jpdb' | null {
+    if (link.id === 'jiten-frequency') return 'jiten';
+    if (link.id === 'jpdb-frequency') return 'jpdb';
+    return null;
+}
+
+function liveJitenFrequencyRank(options: WordPillRenderOptions): number | null {
+    if (options.card.source === 'jiten' || options.card.reviewSource === 'jiten-api') return options.card.frequencyRank;
+    return options.jitenVocabularyInfo?.mainReading?.frequencyRank ?? null;
+}
+
+function liveJpdbFrequencyRank(options: WordPillRenderOptions): number | null {
+    if (options.card.source === 'jiten' || options.card.reviewSource === 'jiten-api') return null;
+    return options.card.frequencyRank;
+}
+
+function localFrequencyProvider(dictionary: string): 'jiten' | 'jpdb' | null {
+    const normalized = dictionary.toLowerCase();
+    if (/\bjiten\b/.test(normalized)) return 'jiten';
+    if (/\bjpdb\b|jpdbv?\d*/.test(normalized)) return 'jpdb';
+    return null;
 }
 
 function wordPillContext(card: JPDBCard, overrideQuery?: string): WordPillContext {

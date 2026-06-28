@@ -71,6 +71,16 @@ interface HoverLookupInternals {
     audioActions: { playTermAudio(card: JPDBCard, options?: Record<string, unknown>): Promise<void> | void };
     shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture?: boolean, anchor?: HTMLElement, hoverLookupGeneration?: number): boolean;
     resolveLookupCard(card: JPDBCard): Promise<JPDBCard>;
+    refreshSkippedInitialCardResolution(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        anchor: HTMLElement | undefined,
+        options: Record<string, unknown>,
+        requestId: number,
+        isCurrentHoverCard: () => boolean,
+    ): Promise<void>;
+    applyPublicVocabularyToRenderedWords(fallback: JPDBCard, card: JPDBCard, pitchClass?: string): void;
     maybeAutoPlayInitialCard(card: JPDBCard, context: {
         trigger: 'modal' | 'hover';
         options: Record<string, unknown>;
@@ -703,6 +713,86 @@ describe('hover lookup', () => {
                     autoPlay: true,
                     hoverLookupGeneration: 7,
                     isCurrent: expect.any(Function),
+                }),
+            );
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('refreshes a fast fallback hover popup when the API-backed card resolves', async () => {
+        const app = new ReaderApp();
+        const word = readerWordFixture('よむ', 'よむ');
+        const popover = document.createElement('div');
+        document.body.append(popover);
+        const internals = app as unknown as HoverLookupInternals;
+        const fallbackCard: JPDBCard = {
+            ...HOVER_LOOKUP_CARD,
+            vid: -10,
+            sid: -10,
+            rid: 0,
+            spelling: 'よむ',
+            reading: '',
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            source: 'fallback',
+        };
+        const resolvedCard: JPDBCard = {
+            ...HOVER_LOOKUP_CARD,
+            vid: 10,
+            sid: 1,
+            rid: 1,
+            spelling: 'よむ',
+            reading: 'よむ',
+            cardState: ['mastered'],
+            pitchAccent: ['HL'],
+            source: 'jiten',
+            jitenWordId: 10,
+            jitenReadingIndex: 1,
+        };
+        const resolveLookupCard = vi.fn(async () => resolvedCard);
+        const applyPublicVocabularyToRenderedWords = vi.fn();
+        const showCard = vi.fn(async () => undefined);
+
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'hover';
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            showPitchAccent: true,
+        };
+        internals.resolveLookupCard = resolveLookupCard;
+        internals.applyPublicVocabularyToRenderedWords = applyPublicVocabularyToRenderedWords;
+        internals.showCard = showCard;
+
+        try {
+            await internals.refreshSkippedInitialCardResolution(
+                popover,
+                fallbackCard,
+                'よむ',
+                word,
+                {
+                    trigger: 'hover',
+                    hoverLookupKey: 'word:-10:-10:よむ',
+                    hoverLookupGeneration: 3,
+                    skipInitialCardResolution: true,
+                },
+                1,
+                () => true,
+            );
+
+            expect(resolveLookupCard).toHaveBeenCalledWith(fallbackCard);
+            expect(applyPublicVocabularyToRenderedWords).toHaveBeenCalledWith(fallbackCard, resolvedCard);
+            expect(showCard).toHaveBeenCalledWith(
+                resolvedCard,
+                'よむ',
+                word,
+                expect.objectContaining({
+                    trigger: 'hover',
+                    autoPlay: false,
+                    navigation: 'preserve',
+                    preservePosition: true,
+                    previousNavigationEntry: undefined,
+                    skipInitialCardResolution: false,
                 }),
             );
         } finally {

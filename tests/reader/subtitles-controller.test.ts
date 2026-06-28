@@ -610,6 +610,74 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('keeps the current subtitle cue through the next-line start tolerance window', () => {
+        const cues = [
+            { start: 0, end: 3.05, text: '前の字幕。', transcriptEligible: true },
+            { start: 3.06, end: 6, text: '次の字幕。', transcriptEligible: true },
+        ];
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        const video = attachVideo(controller, { currentTime: 3.02 });
+        const internals = controllerInternals<{
+            selectedTrackId: string;
+            cues: typeof cues;
+            currentCue: typeof cues[number] | undefined;
+            updateFromLoadedCues: () => void;
+        }>(controller);
+
+        try {
+            internals.selectedTrackId = 'file-ja';
+            internals.cues = cues;
+            internals.currentCue = cues[0];
+
+            internals.updateFromLoadedCues();
+
+            expect(internals.currentCue).toBe(cues[0]);
+
+            video.currentTime = 3.06;
+            internals.updateFromLoadedCues();
+
+            expect(internals.currentCue).toBe(cues[1]);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('opens the lightweight transcript preview around the active row in long transcripts', () => {
+        const cues = Array.from({ length: 300 }, (_, index) => ({
+            start: index,
+            end: index + 0.8,
+            text: `字幕${index}`,
+            transcriptEligible: true,
+        }));
+        const { controller } = createInstalledSubtitleController({
+            subtitleOverlayVisible: true,
+            subtitleTranscriptAutoScroll: true,
+        });
+        attachVideo(controller, { currentTime: cues[150].start + 0.2, rect: new DOMRect(0, 0, 960, 540) });
+        const internals = controllerInternals<{
+            selectedTrackId: string;
+            cues: typeof cues;
+            currentCue: typeof cues[number];
+            openLinesPanel: (options?: { deferRender?: boolean }) => void;
+        }>(controller);
+
+        try {
+            internals.selectedTrackId = 'file-ja';
+            internals.cues = cues;
+            internals.currentCue = cues[150];
+
+            internals.openLinesPanel({ deferRender: true });
+
+            const rows = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row'));
+            expect(rows).toHaveLength(3);
+            expect(rows.map(row => row.dataset.rowIndex)).toEqual(['149', '150', '151']);
+            expect(document.querySelector<HTMLElement>('.jpdb-subtitle-list-row.active')?.dataset.rowIndex).toBe('150');
+            expect(document.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll')?.dataset.totalRows).toBe('300');
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps short subtitle text at the user-selected size on large players', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleFontSize: 28 });
         try {
@@ -1005,7 +1073,7 @@ Watch the cat
         }
     });
 
-    it('keeps Yomu video frames stable and falls back to a bottom transcript panel when side space is tight', () => {
+    it('shrinks Yomu video frames immediately when side space is tight', () => {
         withViewport(1180, 760, () => {
             document.body.innerHTML = '<section data-yomu-video-frame><video controls></video></section>';
             const { controller } = createInstalledSubtitleController({
@@ -1031,12 +1099,13 @@ Watch the cat
 
                 const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
                 expect(panel.hidden).toBe(false);
-                expect(panel.dataset.transcriptPlacement).toBe('bottom');
-                expect(frame.style.width).toBe('');
-                expect(frame.style.height).toBe('');
-                expect(frame.style.marginRight).toBe('');
-                expect(video.style.width).toBe('');
-                expect(document.documentElement.className).not.toContain('jpdb-subtitle-video-inset');
+                expect(panel.dataset.transcriptPlacement).toBe('right');
+                expect(Number.parseFloat(frame.style.width)).toBeLessThan(1040);
+                expect(Number.parseFloat(frame.style.width)).toBeGreaterThan(500);
+                expect(frame.style.maxWidth).toBe(frame.style.width);
+                expect(frame.style.height).toBe('585px');
+                expect(video.style.height).toBe('585px');
+                expect(document.documentElement.className).toContain('jpdb-subtitle-video-inset-right');
             } finally {
                 controller.destroy();
             }
@@ -1484,6 +1553,61 @@ Watch the cat
                     expect(root.style.height).toBe('768px');
                     expect(panel.style.left).not.toBe('');
                     expect(player.style.width).toBe('');
+                } finally {
+                    fullscreen.restore();
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('mounts the subtitle overlay in the current YouTube fullscreen player class', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=fullscreen-current') as unknown as Location,
+        });
+
+        try {
+            withViewport(1365, 768, () => {
+                const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+                const fullscreen = stubFullscreenElement(null);
+                try {
+                    document.body.insertAdjacentHTML('beforeend', `
+                        <ytd-watch-flexy>
+                            <ytd-player>
+                                <div id="movie_player" class="html5-video-player fullscreen">
+                                    <video></video>
+                                    <button class="ytp-play-button" type="button">Play</button>
+                                </div>
+                            </ytd-player>
+                        </ytd-watch-flexy>
+                    `);
+                    const player = document.querySelector<HTMLElement>('#movie_player')!;
+                    const video = document.querySelector<HTMLVideoElement>('#movie_player video')!;
+                    mockElementRect(player, new DOMRect(0, 0, 1365, 768));
+                    mockElementRect(video, new DOMRect(0, 0, 1365, 768));
+                    attachVideo(controller, { video });
+                    const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                    const internals = controllerInternals<{
+                        alignToVideo: () => void;
+                        syncFullscreenState: () => void;
+                    }>(controller);
+
+                    fullscreen.set(null);
+                    internals.syncFullscreenState();
+                    openSingleCueTranscript(controller, 'YouTube全画面の字幕。');
+                    internals.alignToVideo();
+
+                    expect(root.parentElement).toBe(player);
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+                    expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+                    expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(false);
                 } finally {
                     fullscreen.restore();
                     controller.destroy();
@@ -4298,7 +4422,7 @@ Watch the cat
     it('pauses transcript auto-follow after a manual scroll and resumes after the window', () => {
         const nowDescriptor = Object.getOwnPropertyDescriptor(performance, 'now');
         const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
-        const scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+        const scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo');
         let now = 10_000;
         const scrollSpy = vi.fn();
         Object.defineProperty(performance, 'now', { configurable: true, value: () => now });
@@ -4306,7 +4430,7 @@ Watch the cat
             configurable: true,
             value: (cb: FrameRequestCallback) => { cb(now); return 1; },
         });
-        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollSpy });
+        Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: scrollSpy });
 
         try {
             // The resume window is the configurable setting (seconds); the
@@ -4384,15 +4508,15 @@ Watch the cat
         } finally {
             if (nowDescriptor) Object.defineProperty(performance, 'now', nowDescriptor);
             if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
-            if (scrollDescriptor) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', scrollDescriptor);
-            else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+            if (scrollDescriptor) Object.defineProperty(HTMLElement.prototype, 'scrollTo', scrollDescriptor);
+            else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollTo;
         }
     });
 
     it('offers a jump-back control when manual transcript scrolling pauses auto-follow', () => {
         const nowDescriptor = Object.getOwnPropertyDescriptor(performance, 'now');
         const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
-        const scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+        const scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo');
         let now = 10_000;
         const scrollSpy = vi.fn();
         Object.defineProperty(performance, 'now', { configurable: true, value: () => now });
@@ -4400,7 +4524,7 @@ Watch the cat
             configurable: true,
             value: (cb: FrameRequestCallback) => { cb(now); return 1; },
         });
-        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollSpy });
+        Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: scrollSpy });
 
         const cues = [
             { start: 0, end: 1, text: '一番', transcriptEligible: true },
@@ -4439,8 +4563,8 @@ Watch the cat
             controller.destroy();
             if (nowDescriptor) Object.defineProperty(performance, 'now', nowDescriptor);
             if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
-            if (scrollDescriptor) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', scrollDescriptor);
-            else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+            if (scrollDescriptor) Object.defineProperty(HTMLElement.prototype, 'scrollTo', scrollDescriptor);
+            else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollTo;
         }
     });
 

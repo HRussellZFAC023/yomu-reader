@@ -160,6 +160,14 @@ describe('reader theme', () => {
         expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'off' });
     });
 
+    it('parses modern OKLab computed colors from dark app shells', () => {
+        const discordBody = cssColorToRgba('oklab(0.183087 0.00112148 -0.00387992)');
+        const discordText = cssColorToRgba('oklab(0.952693 0.000792831 -0.00253612)');
+
+        expect(discordBody && rgbaToHex(discordBody)).toBe('#121214');
+        expect(discordText && rgbaToHex(discordText)).toBe('#efeff1');
+    });
+
     it('adjusts page word colors and highlights against the actual website background', () => {
         document.body.innerHTML = `
             <p style="background: rgb(255, 255, 255); color: rgb(255, 255, 255);">
@@ -179,6 +187,23 @@ describe('reader theme', () => {
         expect(contrastRatio(highlight, '#ffffff')).toBeGreaterThanOrEqual(1.45);
         expect(contrastRatio(text, highlight)).toBeGreaterThanOrEqual(4.5);
         expect(contrastRatio(underline, highlight)).toBeGreaterThanOrEqual(3);
+    });
+
+    it('measures variable-backed first-render highlights before choosing text contrast', () => {
+        document.body.innerHTML = `
+            <p style="background: rgb(255, 255, 255); color: rgb(242, 243, 245);">
+                <span class="jpdb-reader-word jpdb-known" style="--jpdb-reader-word-highlight-source: rgb(236, 244, 255); color: rgb(242, 243, 245); text-decoration-color: rgb(170, 178, 192);">波蘭</span>
+            </p>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        refreshReaderWordContrastForWord(word);
+
+        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        const highlight = word.style.getPropertyValue('--jpdb-reader-word-accessible-highlight');
+        expect(highlight).toBe('');
+        expect(text).not.toBe('#f2f3f5');
+        expect(contrastRatio(text, '#ecf4ff')).toBeGreaterThanOrEqual(4.5);
     });
 
     it('measures generated highlights against the detected page background before preserving them', () => {
@@ -337,6 +362,50 @@ describe('reader theme', () => {
         expect(word.style.getPropertyValue('--jpdb-reader-highlight-backdrop')).toBe('rgb(24, 27, 32)');
         expect(text).toBe('#f2f3f5');
         expect(contrastRatio(text, '#181b20')).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('uses OKLab host backgrounds instead of falling back to a white Discord surface', () => {
+        document.body.innerHTML = `
+            <section id="discord-surface">
+                <div id="discord-control" role="button" data-jpdb-reader-passive-chrome="true">
+                    <span
+                        class="jpdb-reader-word jpdb-mastered jpdb-reader-scan-word jpdb-reader-passive-word jpdb-pitch-atamadaka"
+                        style="color: rgb(0, 0, 0); text-decoration-color: rgb(53, 158, 255);"
+                    >日本語</span>
+                </div>
+            </section>
+        `;
+        const surface = document.getElementById('discord-surface')!;
+        const control = document.getElementById('discord-control')!;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const realGetComputedStyle = window.getComputedStyle.bind(window);
+        const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElt) => {
+            const style = realGetComputedStyle(element, pseudoElt);
+            if (element !== surface && element !== control) return style;
+            return new Proxy(style, {
+                get(target, property, receiver) {
+                    if (property === 'backgroundColor') {
+                        return element === surface
+                            ? 'oklab(0.183087 0.00112148 -0.00387992)'
+                            : 'rgba(0, 0, 0, 0)';
+                    }
+                    if (property === 'color') return 'oklab(0.952693 0.000792831 -0.00253612)';
+                    return Reflect.get(target, property, receiver);
+                },
+            });
+        });
+
+        try {
+            refreshReaderWordContrastForWord(word);
+        } finally {
+            spy.mockRestore();
+        }
+
+        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        expect(word.style.getPropertyValue('--jpdb-reader-page-bg')).toBe('rgb(18, 18, 20)');
+        expect(text).toBe('#efeff1');
+        expect(text).not.toBe('#000000');
+        expect(contrastRatio(text, '#121214')).toBeGreaterThanOrEqual(4.5);
     });
 
     it('keeps passive content highlights readable while keeping furigana readable on the page surface', () => {
@@ -854,18 +923,20 @@ describe('reader theme', () => {
         const normalizedCss = READER_WORD_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-paint: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) );');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; cursor: inherit; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; line-height: inherit; max-width: none; max-inline-size: none; overflow-wrap: inherit !important; white-space: inherit; word-break: inherit; cursor: inherit; }');
         expect(normalizedCss).toContain(':is(button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none; }');
         expect(normalizedCss).toContain(') .jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; color: var(--jpdb-reader-word-accessible-color, currentColor) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor); }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word.jpdb-reader-passive-word:hover, .jpdb-reader-word.jpdb-reader-passive-word:focus');
-        expect(normalizedCss).toContain('background-image: none !important; box-shadow: none;');
+        expect(normalizedCss).not.toContain('.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:hover');
         expect(normalizedCss).toContain('background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;');
         expect(normalizedCss).toContain('background-size: var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;');
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-block-size: 1.16em;');
         expect(normalizedCss).toContain('color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) rt.jpdb-reader-furi { white-space: normal; overflow-wrap: anywhere; }');
         expect(normalizedCss).toContain('touch-action: manipulation;');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1;');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 2.05; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-has-furi { line-height: inherit; }');
         expect(normalizedCss).toContain('pointer-events: none; }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word:not(.jpdb-reader-passive-word)::after');
         expect(normalizedCss).not.toContain('.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after');

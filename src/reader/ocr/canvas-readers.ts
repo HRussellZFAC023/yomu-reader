@@ -148,13 +148,17 @@ function pageCanvases(
 }
 
 function shouldSkipCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {
-    return canvas.dataset.yomuCanvasOcr === 'off'
-        || Boolean(canvas.closest('[data-yomu-canvas-ocr="off"]'));
+    const mode = canvasOcrMode(canvas);
+    return mode === 'off' || mode === 'manual';
 }
 
 function shouldForceCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {
-    return canvas.dataset.yomuCanvasOcr === 'on'
-        || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
+    return canvasOcrMode(canvas) === 'on';
+}
+
+function canvasOcrMode(canvas: HTMLCanvasElement): string | undefined {
+    return canvas.dataset.yomuCanvasOcr
+        || canvas.closest<HTMLElement>('[data-yomu-canvas-ocr]')?.dataset.yomuCanvasOcr;
 }
 
 function hasForcedCanvasReaderShape(canvas: HTMLCanvasElement): boolean {

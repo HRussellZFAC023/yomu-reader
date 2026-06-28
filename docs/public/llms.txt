@@ -5,7 +5,7 @@
 ## Primary Links
 
 - [Homepage](https://yomureader.com/): Product overview and install entry point.
-- [Install よむ](https://yomureader.com/getting-started): Setup guide for desktop userscript managers and mobile userscript apps.
+- [Install よむ](https://yomureader.com/getting-started): Setup for desktop userscript managers and mobile userscript apps.
 - [Features](https://yomureader.com/features): Full feature list covering popup lookup, OCR, subtitles, Anki, dictionaries, audio, examples, and study.
 - [Install userscript](https://yomureader.com/yomu.user.js): Current production userscript.
 - [Source code](https://github.com/HRussellZFAC023/yomu-reader): MIT-licensed project repository.
@@ -23,18 +23,13 @@
 
 - [Read manga in Japanese](https://yomureader.com/guides/read-manga-in-japanese): Manga reading setup with OCR.
 - [Comprehensible input on YouTube](https://yomureader.com/guides/comprehensible-input-youtube): Japanese YouTube immersion setup.
-- [Read games with YomiNinja](https://yomureader.com/guides/read-games-with-yomininja): Japanese game and visual novel OCR workflow.
 - [Mine sentences to Anki](https://yomureader.com/guides/mine-sentences-to-anki): Anki mining flow and card creation.
 - [Study setup](https://yomureader.com/guides/study-setup): Recommended learner setup.
-
-## Comparisons
-
-- [Free Migaku alternative](https://yomureader.com/compare/migaku-alternative): Comparison for learners evaluating paid immersion suites.
 
 ## Crawling Notes
 
 - Public docs and tools are crawlable.
-- Engineering ADRs are marked noindex.
+- Internal engineering ADRs and strategy notes are not published as docs pages.
 - Canonical domain: https://yomureader.com/
 - Sitemap: https://yomureader.com/sitemap.xml
 - Robots: https://yomureader.com/robots.txt
