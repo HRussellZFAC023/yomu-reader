@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.193] - 2026-06-28
+
+### Fixed
+
+- Fixed the Yomu Gaming desktop artifact workflow to build and package release downloads without depending on a hosted-runner Electron binary launch, which keeps AppImage, Windows, and macOS artifact publishing aligned with the local Electron smoke test.
+
 ## [1.4.192] - 2026-06-28
 
 ### Fixed
