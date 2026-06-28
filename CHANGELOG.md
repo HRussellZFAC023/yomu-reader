@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- Silenced optional hosted new-tab lookup warnings when Jiten, JPDB kanji, RTK, or KanjiVG cannot be fetched without a userscript bridge or configured proxy, keeping Study/Newtab consoles clear while preserving the lookup fallbacks.
 - Replaced Reddit's stripped Japanese translation URL hint with Reddit's working Japanese locale URL hint, so the Japanese site-language preference can load Reddit's Japanese shell instead of normalizing back to the English feed URL.
 
 ## [1.4.164] - 2026-06-28

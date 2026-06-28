@@ -2,6 +2,7 @@ import { escapeHtml, parseXmlDocument } from '../dom';
 import { parseSvgPathPoints } from './vg-path';
 import { Logger } from '../app/logger';
 import { requestText as requestReaderText } from '../network/http';
+import { isProxyOrBridgeUnavailableError } from '../network/proxy-fetch';
 
 const KANJIVG_RAW_BASE = 'https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji';
 const KANJIVG_POSITION_THRESHOLD = 0.12;
@@ -113,6 +114,7 @@ export class KanjiVGClient {
     private async fetchSvg(kanji: string): Promise<KanjiVGInfo | null> {
         const url = kanjiVGUrl(kanji);
         const svgText = await requestText(url).catch(error => {
+            if (isProxyOrBridgeUnavailableError(error)) return '';
             log.warn('Stroke-order request failed', { kanji }, error);
             return '';
         });

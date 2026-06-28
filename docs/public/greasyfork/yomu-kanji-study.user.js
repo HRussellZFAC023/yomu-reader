@@ -961,6 +961,9 @@
     }
     throw lastError instanceof Error ? lastError : new Error("Cross-origin request failed.");
   }
+  function isProxyOrBridgeUnavailableError(error) {
+    return error instanceof Error && /Cross-origin request needs a configured proxy or userscript HTTP bridge/i.test(error.message);
+  }
   function fetchAttemptForCandidate(targetUrl, candidate, options) {
     if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
       return { url: candidate.url, options };
@@ -6147,6 +6150,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     async fetchInfo(kanji) {
       const html = await requestText$2(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
+        if (isProxyOrBridgeUnavailableError(error)) return "";
         log$3.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
@@ -6664,6 +6668,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
       const svgText = await requestText$1(url).catch((error) => {
+        if (isProxyOrBridgeUnavailableError(error)) return "";
         log$2.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
@@ -8502,6 +8507,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     async fetchInfo(kanji) {
       const html = await requestText(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
+        if (isProxyOrBridgeUnavailableError(error)) return "";
         log.warn("RTK request failed", { kanji }, error);
         return "";
       });

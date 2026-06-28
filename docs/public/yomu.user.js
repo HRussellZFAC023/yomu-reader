@@ -28045,7 +28045,7 @@ ${key}`] = { t: now, v: value };
         return card;
       }).catch((error) => {
         this.noteFailure(error);
-        log$9.warn("Jiten lookup", { term: normalized }, error);
+        logPublicJitenFailure("Jiten lookup", { term: normalized }, error);
         return null;
       });
       this.remember(this.cardCache, normalized, promise, now);
@@ -28078,7 +28078,7 @@ ${key}`] = { t: now, v: value };
       if (pendingTerms.length) {
         const loaded = await this.lookupManyUncached(pendingTerms, options).catch((error) => {
           this.noteFailure(error);
-          log$9.warn("Jiten batch", { terms: pendingTerms.length }, error);
+          logPublicJitenFailure("Jiten batch", { terms: pendingTerms.length }, error);
           return new Map();
         });
         loaded.forEach((card, term) => result.set(term, card));
@@ -28098,7 +28098,7 @@ ${key}`] = { t: now, v: value };
       await mapLimited(chunks, DETAIL_CONCURRENCY, async (chunk) => {
         const parsed = await this.requestParseText(chunk.text).catch((error) => {
           this.noteFailure(error);
-          log$9.warn("Jiten public parse", { length: chunk.text.length }, error);
+          logPublicJitenFailure("Jiten public parse", { length: chunk.text.length }, error);
           return [];
         });
         applyPublicParseChunk(result, chunk, parsed, paragraphs);
@@ -28184,7 +28184,7 @@ ${key}`] = { t: now, v: value };
     async parseTerms(terms) {
       const chunks = chunkTermsForParse(terms);
       const groups = await mapLimited(chunks, DETAIL_CONCURRENCY, (chunk) => this.requestParse(chunk).catch((error) => {
-        log$9.warn("Jiten parse", { terms: chunk.length }, error);
+        logPublicJitenFailure("Jiten parse", { terms: chunk.length }, error);
         return [];
       }));
       return groups.flat();
@@ -28210,7 +28210,7 @@ ${key}`] = { t: now, v: value };
       if (cached) this.detailCache.delete(key);
       const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`).then((payload) => publicJitenCardFromDetail(payload, requestedTerm, word)).catch((error) => {
         this.noteFailure(error);
-        log$9.warn("Jiten detail", { wordId: word.wordId, readingIndex: word.readingIndex }, error);
+        logPublicJitenFailure("Jiten detail", { wordId: word.wordId, readingIndex: word.readingIndex }, error);
         return null;
       });
       this.remember(this.detailCache, key, promise, now);
@@ -28451,6 +28451,13 @@ ${key}`] = { t: now, v: value };
     if (name === "AbortError") return true;
     const message = errorMessage(error);
     return /\b(?:429|5\d\d|too many requests|rate[- ]?limited|timed out|aborted|abort|upstream)\b|cloudflare/i.test(message);
+  }
+  function logPublicJitenFailure(message, context, error) {
+    if (isPublicJitenQuietNetworkMiss(error)) return;
+    log$9.warn(message, context, error);
+  }
+  function isPublicJitenQuietNetworkMiss(error) {
+    return /failed to fetch|networkerror|load failed|cors|blocked/i.test(errorMessage(error));
   }
   function errorName(error) {
     return isRecord(error) && typeof error.name === "string" ? error.name : "";

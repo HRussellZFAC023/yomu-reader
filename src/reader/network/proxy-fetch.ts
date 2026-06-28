@@ -64,6 +64,11 @@ export async function fetchWithCorsFallbacks(
     throw lastError instanceof Error ? lastError : new Error('Cross-origin request failed.');
 }
 
+export function isProxyOrBridgeUnavailableError(error: unknown): boolean {
+    return error instanceof Error
+        && /Cross-origin request needs a configured proxy or userscript HTTP bridge/i.test(error.message);
+}
+
 function fetchAttemptForCandidate(targetUrl: string, candidate: FetchUrlCandidate, options: ProxyFetchOptions): FetchAttempt {
     if (candidate.kind === 'direct' || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
         return { url: candidate.url, options };

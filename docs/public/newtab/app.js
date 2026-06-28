@@ -268,6 +268,9 @@
     }
     throw lastError instanceof Error ? lastError : new Error("Cross-origin request failed.");
   }
+  function isProxyOrBridgeUnavailableError(error) {
+    return error instanceof Error && /Cross-origin request needs a configured proxy or userscript HTTP bridge/i.test(error.message);
+  }
   function fetchAttemptForCandidate(targetUrl, candidate, options) {
     if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
       return { url: candidate.url, options };
@@ -22511,6 +22514,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async fetchInfo(kanji) {
       const html = await requestText$4(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
+        if (isProxyOrBridgeUnavailableError(error)) return "";
         log$t.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
@@ -23028,6 +23032,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
       const svgText = await requestText$3(url).catch((error) => {
+        if (isProxyOrBridgeUnavailableError(error)) return "";
         log$s.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
@@ -24912,6 +24917,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async fetchInfo(kanji) {
       const html = await requestText$2(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
+        if (isProxyOrBridgeUnavailableError(error)) return "";
         log$q.warn("RTK request failed", { kanji }, error);
         return "";
       });
@@ -60252,7 +60258,7 @@ ${key}`] = { t: now, v: value };
         return card;
       }).catch((error) => {
         this.noteFailure(error);
-        log$7.warn("Jiten lookup", { term: normalized }, error);
+        logPublicJitenFailure("Jiten lookup", { term: normalized }, error);
         return null;
       });
       this.remember(this.cardCache, normalized, promise, now);
@@ -60285,7 +60291,7 @@ ${key}`] = { t: now, v: value };
       if (pendingTerms.length) {
         const loaded = await this.lookupManyUncached(pendingTerms, options).catch((error) => {
           this.noteFailure(error);
-          log$7.warn("Jiten batch", { terms: pendingTerms.length }, error);
+          logPublicJitenFailure("Jiten batch", { terms: pendingTerms.length }, error);
           return /* @__PURE__ */ new Map();
         });
         loaded.forEach((card, term) => result.set(term, card));
@@ -60305,7 +60311,7 @@ ${key}`] = { t: now, v: value };
       await mapLimited(chunks2, DETAIL_CONCURRENCY, async (chunk) => {
         const parsed = await this.requestParseText(chunk.text).catch((error) => {
           this.noteFailure(error);
-          log$7.warn("Jiten public parse", { length: chunk.text.length }, error);
+          logPublicJitenFailure("Jiten public parse", { length: chunk.text.length }, error);
           return [];
         });
         applyPublicParseChunk(result, chunk, parsed, paragraphs);
@@ -60391,7 +60397,7 @@ ${key}`] = { t: now, v: value };
     async parseTerms(terms) {
       const chunks2 = chunkTermsForParse(terms);
       const groups = await mapLimited(chunks2, DETAIL_CONCURRENCY, (chunk) => this.requestParse(chunk).catch((error) => {
-        log$7.warn("Jiten parse", { terms: chunk.length }, error);
+        logPublicJitenFailure("Jiten parse", { terms: chunk.length }, error);
         return [];
       }));
       return groups.flat();
@@ -60417,7 +60423,7 @@ ${key}`] = { t: now, v: value };
       if (cached) this.detailCache.delete(key);
       const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`).then((payload) => publicJitenCardFromDetail(payload, requestedTerm, word)).catch((error) => {
         this.noteFailure(error);
-        log$7.warn("Jiten detail", { wordId: word.wordId, readingIndex: word.readingIndex }, error);
+        logPublicJitenFailure("Jiten detail", { wordId: word.wordId, readingIndex: word.readingIndex }, error);
         return null;
       });
       this.remember(this.detailCache, key, promise, now);
@@ -60658,6 +60664,13 @@ ${key}`] = { t: now, v: value };
     if (name === "AbortError") return true;
     const message = errorMessage(error);
     return /\b(?:429|5\d\d|too many requests|rate[- ]?limited|timed out|aborted|abort|upstream)\b|cloudflare/i.test(message);
+  }
+  function logPublicJitenFailure(message, context, error) {
+    if (isPublicJitenQuietNetworkMiss(error)) return;
+    log$7.warn(message, context, error);
+  }
+  function isPublicJitenQuietNetworkMiss(error) {
+    return /failed to fetch|networkerror|load failed|cors|blocked/i.test(errorMessage(error));
   }
   function errorName(error) {
     return isRecord$1(error) && typeof error.name === "string" ? error.name : "";
