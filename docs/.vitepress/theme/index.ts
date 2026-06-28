@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    "Released the Reddit Japanese site-language fix on a fresh version, using Reddit's working Japanese locale URL hint instead of the stripped translation hint.": 'Redditの日本語サイト言語修正を新しいバージョンとしてリリースしました。削除されてしまう翻訳ヒントではなく、Redditが認識する日本語ロケールURLヒントを使用します。',
     "Replaced Reddit's stripped Japanese translation URL hint with Reddit's working Japanese locale URL hint, so the Japanese site-language preference can load Reddit's Japanese shell instead of normalizing back to the English feed URL.": 'Redditで削除されてしまう日本語翻訳URLヒントを、Redditが認識する日本語ロケールURLヒントに置き換えました。日本語サイト言語の優先設定で、英語フィードURLへ正規化されずにRedditの日本語UIを読み込めるようになります。',
     'Stabilized BookWalker manga OCR in normal and continuous-scroll modes by ignoring hidden canvas buffers, fingerprinting the whole visible page instead of one corner, keeping readiness through equivalent canvas swaps, and preserving the current OCR layer/status through same-page blank or hidden-buffer flicker.': 'BookWalkerマンガのOCRを通常表示と連続スクロール表示で安定化しました。非表示キャンバスバッファを無視し、ページの一部ではなく表示ページ全体でフィンガープリントを作り、同等のキャンバス差し替えでも読み取り準備状態を保ち、同一ページの一時的な空白や非表示バッファのちらつきでも現在のOCRレイヤーとステータスを維持します。',
     'Hover lookup now follows a moving mouse pointer across parsed words instead of restarting the open delay on every word, so the popup opens without requiring the cursor to stop.': 'ホバー検索が、解析済み単語の上を移動中のマウスポインターにも追従するようになりました。単語ごとに開く遅延を最初からやり直さないため、カーソルを止めなくてもポップアップが開きます。',
