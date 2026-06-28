@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.210] - 2026-06-28
+
+### Fixed
+
+- Aligned local-dictionary furigana to the specific kanji inside kana-suffixed words such as 質問する, so mixed terms render as 質[しつ]問[もん]する instead of centering the reading over the whole word.
+
 ## [1.4.209] - 2026-06-28
 
 ### Fixed

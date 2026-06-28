@@ -7221,7 +7221,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     else sources.splice(insertIndex, 0, source);
   }
   const KANJI_RE$3 = /[\u3400-\u9fff]/u;
-  const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
+  const KANA_CHAR_RE$1 = /[\u3040-\u30ffー・]/u;
   const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
   const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   const EASY_FURIGANA_KANJI = new Set(
@@ -9309,7 +9309,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return suffixes.sort((first2, second) => second.length - first2.length);
   }
   function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
-    const trimmed = trimSharedKanaAffixes(surfaceStem, readingStem);
+    const trimmed = trimSharedKanaAffixes$1(surfaceStem, readingStem);
     if (!trimmed.surface || !trimmed.reading) return [];
     if (!KANJI_RE$3.test(trimmed.surface) || !KANA_RE$1.test(trimmed.reading)) return [];
     return [{
@@ -9319,7 +9319,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       length: trimmed.surface.length
     }];
   }
-  function trimSharedKanaAffixes(surface, reading) {
+  function trimSharedKanaAffixes$1(surface, reading) {
     let trimmedSurface = surface;
     let trimmedReading = reading;
     let offset = 0;
@@ -9348,7 +9348,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (!range) return [];
         const base = surface.slice(range.start, range.end);
         if (!KANJI_RE$3.test(base)) return [];
-        if (!KANA_CHAR_RE.test(base)) return [ruby];
+        if (!KANA_CHAR_RE$1.test(base)) return [ruby];
         const parts = kanjiOnlyRubySegments(surface, token, ruby);
         return parts.length ? parts : [ruby];
       });
@@ -9406,7 +9406,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (part) parts.push({ text: part.text, start: start + part.start, end: start + part.end });
   }
   function trimRubyPartToKanji(base, reading) {
-    const trimmed = trimSharedKanaAffixes(base, reading);
+    const trimmed = trimSharedKanaAffixes$1(base, reading);
     if (!trimmed.surface || !trimmed.reading || !KANJI_RE$3.test(trimmed.surface)) return [];
     const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
     if (kanjiOnly) {
@@ -9423,7 +9423,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }];
   }
   function kanaTrimmedKanjiRange(base, reading) {
-    if (!KANA_RE$1.test(reading) || !KANA_CHAR_RE.test(base)) return null;
+    if (!KANA_RE$1.test(reading) || !KANA_CHAR_RE$1.test(base)) return null;
     const chars = Array.from(base);
     const first2 = chars.findIndex((char) => KANJI_RE$3.test(char));
     if (first2 < 0) return null;
@@ -9482,7 +9482,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const runs = [];
     let start = -1;
     for (let index = 0; index <= base.length; index += 1) {
-      const isKana = index < base.length && KANA_CHAR_RE.test(base[index]);
+      const isKana = index < base.length && KANA_CHAR_RE$1.test(base[index]);
       if (isKana && start < 0) start = index;
       if ((!isKana || index === base.length) && start >= 0) {
         runs.push({ text: base.slice(start, index), baseStart: start, baseEnd: index });
@@ -25451,7 +25451,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.209".trim() ? "1.4.209".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.210".trim() ? "1.4.210".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -34790,22 +34790,53 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     });
   }
   const KANA_ONLY_RE$1 = /^[぀-ヿー]+$/u;
+  const KANA_CHAR_RE = /^[぀-ヿー]$/u;
   const KANJI_CHAR_RE = /^[㐀-鿿々]$/u;
   function splitReadingAcrossKanji(base, reading, readingsForKanji) {
-    const characters = Array.from(base);
-    if (characters.length < 2 || !characters.every((char) => KANJI_CHAR_RE.test(char))) return null;
-    const kana = toHiragana(reading.trim());
+    if (kanjiCharacterCount$1(base) < 2) return null;
+    const sourceReading = reading.trim();
+    const kana = toHiragana(sourceReading);
     if (!kana || !KANA_ONLY_RE$1.test(kana)) return null;
-    const plans = alignKanjiReadings(characters, kana, 0, readingsForKanji);
+    const trimmed = trimSharedKanaAffixes(base, kana);
+    const characters = Array.from(trimmed.base);
+    if (characters.length < 2 || !characters.every((char) => KANJI_CHAR_RE.test(char))) return null;
+    const plans = alignKanjiReadings(characters, trimmed.reading, 0, readingsForKanji);
     if (plans.length !== 1) return null;
+    const readingCharacters = Array.from(sourceReading);
     const segments = [];
-    let offset = 0;
+    let offset = trimmed.readingStart;
     plans[0].forEach((segment, index) => {
-      const segmentText = Array.from(reading).slice(offset, offset + segment.length).join("");
-      segments.push({ text: segmentText, start: index, end: index + 1 });
+      const segmentText = readingCharacters.slice(offset, offset + segment.length).join("");
+      segments.push({ text: segmentText, start: trimmed.baseStart + index, end: trimmed.baseStart + index + 1 });
       offset += segment.length;
     });
     return segments;
+  }
+  function trimSharedKanaAffixes(base, reading) {
+    let baseStart = 0;
+    let baseEnd = base.length;
+    let readingStart = 0;
+    let readingEnd = reading.length;
+    while (baseStart < baseEnd && readingStart < readingEnd && sameKana(base[baseStart], reading[readingStart])) {
+      baseStart += 1;
+      readingStart += 1;
+    }
+    while (baseEnd > baseStart && readingEnd > readingStart && sameKana(base[baseEnd - 1], reading[readingEnd - 1])) {
+      baseEnd -= 1;
+      readingEnd -= 1;
+    }
+    return {
+      base: base.slice(baseStart, baseEnd),
+      reading: reading.slice(readingStart, readingEnd),
+      baseStart,
+      readingStart
+    };
+  }
+  function sameKana(base, reading) {
+    return Boolean(base && reading && KANA_CHAR_RE.test(base) && toHiragana(base) === reading);
+  }
+  function kanjiCharacterCount$1(value) {
+    return Array.from(value).filter((char) => KANJI_CHAR_RE.test(char)).length;
   }
   function alignKanjiReadings(characters, kana, index, readingsForKanji) {
     if (index >= characters.length) return kana.length === 0 ? [[]] : [];
@@ -35089,7 +35120,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const LOCAL_PITCH_CACHE_LIMIT = 800;
   const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
-  const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3400-\u9fff々]+$/u;
+  const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3040-\u30ff\u3400-\u9fff々ー・]+$/u;
+  const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
+  const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
   const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
   const log$m = Logger.scope("ReaderParser");
   function apiFirstParseOptions(options = {}) {
@@ -35376,8 +35409,8 @@ ${spelling}`);
     // 琉=りゅう 球=きゅう 藍=あい); otherwise the whole-word ruby stays.
     async localRubySegments(surface, reading, start, end) {
       const whole = [{ text: reading, start, end, length: end - start }];
-      const characters = [...new Set(Array.from(surface))];
-      if (Array.from(surface).length < 2) return whole;
+      const characters = [...new Set(Array.from(surface).filter((character) => LOCAL_RUBY_SPLIT_KANJI_CHAR_RE.test(character)))];
+      if (characters.length < 2) return whole;
       const readings2 = /* @__PURE__ */ new Map();
       await Promise.all(characters.map(async (character) => {
         readings2.set(character, await this.cachedKanjiReadings(character));
@@ -35543,7 +35576,7 @@ ${spelling}`);
     return options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback ? options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
   }
   function shouldTryLocalKanjiRubySplit(base, reading) {
-    return Array.from(base).length >= 2 && LOCAL_RUBY_SPLIT_BASE_RE.test(base) && LOCAL_RUBY_SPLIT_READING_RE.test(reading.trim());
+    return Array.from(base).length >= 2 && LOCAL_RUBY_SPLIT_BASE_RE.test(base) && LOCAL_RUBY_SPLIT_KANJI_RE.test(base) && LOCAL_RUBY_SPLIT_READING_RE.test(reading.trim());
   }
   function rubiesEqual(first2, second) {
     return first2.length === second.length && first2.every((ruby, index) => {

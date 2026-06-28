@@ -94,4 +94,41 @@ describe('parser kanji ruby enrichment', () => {
             { text: 'しょう', start: 1, end: 2, length: 1 },
         ]);
     });
+
+    it('adds split ruby to kana-suffixed remote tokens with only a full card reading', async () => {
+        const sentence = '質問する';
+        const jpdbTokens = [token(sentence, {
+            card: card({ spelling: sentence, reading: 'しつもんする' }),
+            end: sentence.length,
+            length: sentence.length,
+            rubies: [],
+        })];
+        const lookupKanji = vi.fn(async (kanji: string) => {
+            if (kanji === '質') return [{ onyomi: ['シツ'], kunyomi: [] }];
+            if (kanji === '問') return [{ onyomi: ['モン'], kunyomi: ['と.う'] }];
+            return [];
+        });
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', localDictionariesEnabled: true }),
+            jpdb: { parse: vi.fn(async () => [jpdbTokens]) } as never,
+            dictionaries: { lookupKanji } as never,
+        });
+
+        const [[parsed]] = await parser.parse([sentence]);
+
+        expect(parsed?.rubies).toEqual([
+            { text: 'しつ', start: 0, end: 1, length: 1 },
+            { text: 'もん', start: 1, end: 2, length: 1 },
+        ]);
+        expect(parsed?.card.wordWithReading).toBe('質[しつ]問[もん]する');
+
+        document.body.innerHTML = renderTokensToHtml(sentence, [parsed!], {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+        expect([...document.querySelectorAll('rt')].map(rt => rt.textContent)).toEqual(['しつ', 'もん']);
+        expect([...document.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.textContent)).toEqual(['質', '問']);
+        expect(document.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.surface).toBe('質問する');
+    });
 });

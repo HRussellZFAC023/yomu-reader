@@ -20,6 +20,30 @@ describe('splitReadingAcrossKanji', () => {
         ]);
     });
 
+    it('splits a kanji compound before a kana suffix without annotating the suffix', () => {
+        const segments = splitReadingAcrossKanji('質問する', 'しつもんする', readings({
+            質: ['シツ'],
+            問: ['モン', 'と.う'],
+        }));
+
+        expect(segments).toEqual([
+            { text: 'しつ', start: 0, end: 1 },
+            { text: 'もん', start: 1, end: 2 },
+        ]);
+    });
+
+    it('trims shared kana prefixes before splitting the kanji base', () => {
+        const segments = splitReadingAcrossKanji('お手本', 'おてほん', readings({
+            手: ['シュ', 'て'],
+            本: ['ホン', 'もと'],
+        }));
+
+        expect(segments).toEqual([
+            { text: 'て', start: 1, end: 2 },
+            { text: 'ほん', start: 2, end: 3 },
+        ]);
+    });
+
     it('keeps the whole-word ruby when multiple alignments are possible', () => {
         // Both き+いと and きい+と consume the reading, so the split is ambiguous.
         const segments = splitReadingAcrossKanji('生糸', 'きいと', readings({

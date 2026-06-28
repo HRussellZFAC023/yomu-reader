@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Aligned local-dictionary furigana to the specific kanji inside kana-suffixed words such as 質問する, so mixed terms render as 質[しつ]問[もん]する instead of centering the reading over the whole word.': '質問するのように仮名の接尾辞を持つ語で、ローカル辞書由来のふりがなを各漢字に揃えるようにしました。混在語は語全体に読みを中央寄せするのではなく、質[しつ]問[もん]するのように表示します。',
     'Removed the duplicate study-answer dictionary card on New Tab review words and kept reading, pitch, frequency, dictionary links, and audio in the compact prompt tool row.': '新しいタブの復習単語で重複していた解答側の辞書カードを削除し、読み、ピッチ、頻度、辞書リンク、音声を、出題語のコンパクトなツール列に保つようにしました。',
     'Restored local-dictionary furigana and pitch recovery for New Tab study prompts such as 映画, 図鑑, and 混浴, while preserving clean fallback when pitch is unavailable.': '映画、図鑑、混浴などの新しいタブ学習プロンプトで、ローカル辞書からふりがなとピッチを復元するようにしました。ピッチがない場合も表示は自然にフォールバックします。',
     'Fixed Jiten text-to-speech and localhost local-audio playback so GM-capable requests avoid the public proxy/CORS path, and replay clicks restart native audio instead of falling through to browser TTS too early.': 'Jitenの読み上げとlocalhostのローカル音声再生を修正し、GMリクエストが使える場合は公開プロキシやCORSの経路を避けるようにしました。再生ボタンを押し直すと、ブラウザーTTSへ早すぎるフォールバックをせず、ネイティブ音声を再開します。',

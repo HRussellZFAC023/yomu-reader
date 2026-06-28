@@ -31,7 +31,9 @@ const LOCAL_PARSE_CACHE_LIMIT = 600;
 const LOCAL_PITCH_CACHE_LIMIT = 800;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6_000;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
-const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3400-\u9fff々]+$/u;
+const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3040-\u30ff\u3400-\u9fff々ー・]+$/u;
+const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
+const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
 const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
 const log = Logger.scope('ReaderParser');
 
@@ -386,8 +388,8 @@ export class ReaderParser {
     // 琉=りゅう 球=きゅう 藍=あい); otherwise the whole-word ruby stays.
     private async localRubySegments(surface: string, reading: string, start: number, end: number): Promise<JPDBToken['rubies']> {
         const whole = [{ text: reading, start, end, length: end - start }];
-        const characters = [...new Set(Array.from(surface))];
-        if (Array.from(surface).length < 2) return whole;
+        const characters = [...new Set(Array.from(surface).filter(character => LOCAL_RUBY_SPLIT_KANJI_CHAR_RE.test(character)))];
+        if (characters.length < 2) return whole;
         const readings = new Map<string, string[]>();
         await Promise.all(characters.map(async character => {
             readings.set(character, await this.cachedKanjiReadings(character));
@@ -575,6 +577,7 @@ function remoteParseFallbackTimeoutMs(options: ReaderParserParseOptions): number
 function shouldTryLocalKanjiRubySplit(base: string, reading: string): boolean {
     return Array.from(base).length >= 2
         && LOCAL_RUBY_SPLIT_BASE_RE.test(base)
+        && LOCAL_RUBY_SPLIT_KANJI_RE.test(base)
         && LOCAL_RUBY_SPLIT_READING_RE.test(reading.trim());
 }
 
