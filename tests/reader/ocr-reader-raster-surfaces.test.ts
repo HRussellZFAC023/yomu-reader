@@ -545,7 +545,7 @@ describe('reader raster OCR surfaces', () => {
             const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
             Object.defineProperty(frame, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(frame, 'naturalHeight', { value: 1600, configurable: true });
-            frame.dispatchEvent(new Event('load'));
+            (controller as unknown as { enqueue: (image: HTMLImageElement, userRequested?: boolean) => void }).enqueue(frame);
 
             await waitForExpect(() => {
                 expect(recognizeImage).toHaveBeenCalled();
