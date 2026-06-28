@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.164
+// @version 1.4.165
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.164
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.164
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.164
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.164
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.165
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.165
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.165
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.165
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -36127,7 +36127,7 @@ function siteRuleJapaneseUrl(current) {
   if (hostname === "consent.google.com") return googleConsentJapaneseUrl(current);
   if (hostname === "news.google.com") return withSearchParams(current, JAPANESE_NEWS_SEARCH_PARAMS);
   if (isGooglePreferenceHost(hostname)) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
-  if (/^(?:reddit|www\.reddit|new\.reddit|sh\.reddit)\.com$/.test(hostname)) return withSearchParams(current, { tl: "ja" });
+  if (/^(?:reddit|www\.reddit|new\.reddit|sh\.reddit)\.com$/.test(hostname)) return withSearchParams(current, { locale: JAPANESE_LOCALE });
   if (hostname === "wikipedia.org") return withHostname(current, "ja.wikipedia.org");
   if (hostname.endsWith(".wikipedia.org") && hostname !== "ja.wikipedia.org" && (current.pathname === "" || current.pathname === "/")) {
     return withHostname(current, "ja.wikipedia.org");
@@ -37777,7 +37777,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.164"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.165"}`;
 const READER_CSS = resourceReaderCss();
 const CRITICAL_STATES = [
   ["new", ["new", "in-deck"]],

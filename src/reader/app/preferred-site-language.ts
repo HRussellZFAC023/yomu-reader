@@ -423,7 +423,7 @@ function siteRuleJapaneseUrl(current: URL): URL | null {
     if (hostname === 'consent.google.com') return googleConsentJapaneseUrl(current);
     if (hostname === 'news.google.com') return withSearchParams(current, JAPANESE_NEWS_SEARCH_PARAMS);
     if (isGooglePreferenceHost(hostname)) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
-    if (/^(?:reddit|www\.reddit|new\.reddit|sh\.reddit)\.com$/.test(hostname)) return withSearchParams(current, { tl: 'ja' });
+    if (/^(?:reddit|www\.reddit|new\.reddit|sh\.reddit)\.com$/.test(hostname)) return withSearchParams(current, { locale: JAPANESE_LOCALE });
     if (hostname === 'wikipedia.org') return withHostname(current, 'ja.wikipedia.org');
     if (hostname.endsWith('.wikipedia.org') && hostname !== 'ja.wikipedia.org' && (current.pathname === '' || current.pathname === '/')) {
         return withHostname(current, 'ja.wikipedia.org');
