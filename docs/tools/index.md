@@ -1,15 +1,15 @@
 ---
 title: Free Japanese Learning Tools
-description: A free toolkit for reading real Japanese — popup dictionary, manga and image OCR, furigana, kanji stroke order, subtitle mining, study, and a YouTube immersion filter. Every tool runs after installing the よむ userscript; no account required.
+description: A free toolkit for reading real Japanese — popup dictionary, manga and image OCR, first-party game text capture, furigana, kanji stroke order, subtitle mining, study, and a YouTube immersion filter. Every tool runs after installing the よむ userscript; no account required.
 head:
   - - meta
     - name: keywords
-      content: Japanese learning tools, free Japanese reader, popup dictionary, manga OCR, furigana, kanji stroke order, subtitle mining, Yomitan, Jiten, JPDB, Anki
+      content: Japanese learning tools, free Japanese reader, popup dictionary, manga OCR, Yomu Gaming, Japanese game text capture, furigana, kanji stroke order, subtitle mining, Yomitan, Jiten, JPDB, Anki
 ---
 
 # Free Japanese Learning Tools
 
-Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and save actions consistent across text, images, video, PDFs, and study.
+Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and save actions consistent across text, images, games, video, PDFs, and study.
 
 <div class="yomu-link-grid">
   <a class="yomu-link-card" href="/tools/furigana-reader">

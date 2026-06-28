@@ -14,6 +14,7 @@ Yomu is a self-contained Japanese reading userscript. Use these terms when namin
 - Subtitle Cue: A timed subtitle line, optionally with exact word timings for karaoke rendering.
 - Transcript Panel: The subtitle drawer view that renders cue rows, parsing, track selection, and navigation.
 - OCR Region: A user-selected screen area sent to a configured OCR provider and normalized into lookup lines.
+- Gaming Text Bridge: A local-first Reader Surface for game dialogue that receives user-provided, OCR-helper, clipboard, texthooker, or future Decky/Electron helper text without owning native capture itself.
 - JPDB Bridge: The page-side connection that reads or drives JPDB review and vocabulary pages.
 - New Tab Review: The hosted/new-tab study surface that combines JPDB, local dictionaries, kanji drilldown, doodles, and review actions.
 - External Source: A network or site dependency Yomu does not own, such as JPDB, YouTube, Google Lens, Immersion Kit, AnkiConnect, Wiktionary, or recommended dictionary URLs.

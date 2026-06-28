@@ -71,7 +71,13 @@ export function htmlToFirstElement(html: string): HTMLElement | null {
 
 export function appendToDocumentHead(element: Node): void {
     const target = document.head || document.documentElement || document.body;
-    target.appendChild(element);
+    if (target) {
+        target.appendChild(element);
+        return;
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!element.isConnected) appendToDocumentHead(element);
+    }, { once: true });
 }
 
 export function escapeHtml(value: string): string {

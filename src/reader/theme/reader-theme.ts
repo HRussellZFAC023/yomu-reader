@@ -24,8 +24,9 @@ export interface AppliedReaderTheme {
     subtitleColorSources: ColorSourceMap;
 }
 
-export function applyReaderTheme(settings: ReaderSettings, root = document.documentElement): AppliedReaderTheme {
+export function applyReaderTheme(settings: ReaderSettings, root: HTMLElement | null = document.documentElement): AppliedReaderTheme {
     const theme = appliedReaderTheme(settings);
+    if (!root) return theme;
     root.classList.toggle('jpdb-reader-theme-dark', settings.theme === 'dark');
     root.classList.toggle('jpdb-reader-theme-light', settings.theme === 'light');
     applyReaderAccentColor(settings.accentColor, root);

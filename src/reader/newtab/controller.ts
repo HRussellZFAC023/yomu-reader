@@ -7765,8 +7765,13 @@ export class NewTabController {
         const hasGrades = gradeCount > 0;
         slots.controls.classList.toggle('jpdb-reader-newtab-grade-controls', hasGrades);
         slots.controls.dataset.newtabGradeControls = String(hasGrades);
-        if (hasGrades) slots.controls.dataset.newtabGradeCount = String(gradeCount);
-        else delete slots.controls.dataset.newtabGradeCount;
+        if (hasGrades) {
+            slots.controls.dataset.newtabGradeCount = String(gradeCount);
+            slots.controls.dataset.newtabGradeScale = gradeCount === 2 ? 'pass-fail' : 'standard';
+        } else {
+            delete slots.controls.dataset.newtabGradeCount;
+            delete slots.controls.dataset.newtabGradeScale;
+        }
         replaceChildrenWith(slots.controls, buttons);
     }
 

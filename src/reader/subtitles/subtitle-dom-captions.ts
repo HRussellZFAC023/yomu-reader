@@ -218,9 +218,11 @@ function isCaptionTextShape(element: HTMLElement, text: string, options: PageCap
 }
 
 function containsReaderRootOrPlayerChrome(element: HTMLElement): boolean {
+    const knownCaptionInPlayerChrome = element.matches('.ytp-caption-segment, .caption-window');
     return Boolean(element.querySelector('[data-jpdb-reader-root]'))
-        || Boolean(element.matches(PLAYER_CHROME_CONTAINER_SELECTOR) || element.closest(PLAYER_CHROME_CONTAINER_SELECTOR))
-        || Boolean(element.querySelector(PLAYER_CHROME_INTERACTIVE_SELECTOR));
+        || Boolean(element.matches(PLAYER_CHROME_CONTAINER_SELECTOR))
+        || Boolean(element.querySelector(PLAYER_CHROME_INTERACTIVE_SELECTOR))
+        || Boolean(element.closest(PLAYER_CHROME_CONTAINER_SELECTOR) && !knownCaptionInPlayerChrome);
 }
 
 function isLikelyPlayerChromeText(text: string): boolean {

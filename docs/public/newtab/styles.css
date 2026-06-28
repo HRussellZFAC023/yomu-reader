@@ -366,10 +366,6 @@
   --jpdb-reader-muted: var(--muted, var(--jpdb-reader-theme-dark-muted));
   --jpdb-reader-faint: var(--faint, var(--jpdb-reader-theme-dark-faint));
   --jpdb-reader-border: var(--border, var(--jpdb-reader-theme-dark-border));
-  --jpdb-reader-accent-readable: var(
-    --accent-readable,
-    var(--jpdb-reader-theme-dark-accent-readable)
-  );
   --jpdb-reader-newtab-content-width: min(760px, 100%);
   display: block;
   min-height: 100dvh;
@@ -392,10 +388,6 @@
   --jpdb-reader-muted: var(--muted, var(--jpdb-reader-theme-light-muted));
   --jpdb-reader-faint: var(--faint, var(--jpdb-reader-theme-light-faint));
   --jpdb-reader-border: var(--border, var(--jpdb-reader-theme-light-border));
-  --jpdb-reader-accent-readable: var(
-    --accent-readable,
-    var(--jpdb-reader-theme-light-accent-readable)
-  );
 }
 
 /* Swipe-grade edge glows (UT-21): hidden at rest, fade in only while a drag
@@ -1761,10 +1753,25 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   text-shadow: none;
 }
 
-.jpdb-reader-newtab-prompt
-  .jpdb-reader-newtab-term
-  .jpdb-reader-word::after {
-  border-block-end-color: var(--jpdb-reader-word-underline, currentColor) !important;
+.jpdb-reader-newtab-term .jpdb-reader-word:is(
+  .jpdb-pitch-heiban,
+  .jpdb-pitch-atamadaka,
+  .jpdb-pitch-nakadaka,
+  .jpdb-pitch-odaka,
+  .jpdb-pitch-kifuku
+) {
+  --jpdb-reader-word-decoration-source: var(
+    --jpdb-reader-source-pitch-decoration,
+    var(--jpdb-reader-pitch-color, transparent)
+  );
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-word-decoration-source,
+    transparent
+  );
+}
+
+.jpdb-reader-newtab-term .jpdb-reader-word::after {
+  border-block-end-color: var(--jpdb-reader-word-underline, transparent) !important;
 }
 
 .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
@@ -2071,10 +2078,18 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   scrollbar-width: none;
 }
 
+.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-scale="pass-fail"],
 .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls[data-newtab-grade-count="2"] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   width: min(680px, calc(100vw - 28px));
   max-width: calc(100vw - 28px);
+  gap: 10px;
+}
+
+.jpdb-reader-newtab-controls[data-newtab-grade-scale="pass-fail"] button[data-grade] {
+  min-height: 54px;
+  padding-inline: 14px;
+  font-size: 15px;
 }
 
 .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls::-webkit-scrollbar {
@@ -6252,6 +6267,12 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   white-space: nowrap;
   overflow-wrap: normal;
 }
+
+.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) rt.jpdb-reader-furi {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 /* User feedback: the word contrast shadow (a white glow + a 2px dark drop) bleeds
    into the thin furigana strokes and makes the reading harder to read. Furigana
    takes a single tight outline instead — enough contrast on busy manga
@@ -6580,6 +6601,23 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-highlight-backdrop: rgba(255, 255, 255, 0.14);
   --jpdb-reader-highlight-shadow: 0 1px 5px rgba(0, 0, 0, 0.42);
 }
+.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] {
+  --jpdb-ocr-auto-dark-surface: color-mix(
+    in srgb,
+    var(--jpdb-reader-theme-dark-surface, #20242b) 78%,
+    var(--jpdb-reader-accent, #5ea780) 22%
+  );
+  --jpdb-ocr-auto-dark-active: color-mix(
+    in srgb,
+    var(--jpdb-ocr-auto-dark-surface) 84%,
+    transparent
+  );
+  --jpdb-ocr-auto-dark-border: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent, #5ea780) 34%,
+    rgba(255, 255, 255, 0.16)
+  );
+}
 .jpdb-ocr-layer[data-ocr-overlay-theme="light"] {
   --jpdb-reader-highlight-backdrop: rgba(255, 255, 255, 0.9);
   --jpdb-reader-highlight-shadow: 0 1px 3px rgba(28, 42, 60, 0.16);
@@ -6706,6 +6744,26 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   box-shadow:
     0 10px 24px var(--jpdb-reader-shadow),
     inset 0 0 0 1px var(--jpdb-reader-ocr-active-inset);
+}
+.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
+  color: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  text-shadow: none;
+  background: var(--jpdb-ocr-auto-dark-active);
+  border-color: var(--jpdb-ocr-auto-dark-border);
+  box-shadow:
+    0 10px 24px color-mix(in srgb, rgba(0, 0, 0, 0.34) 76%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-white, #ffffff) 10%, transparent);
+}
+.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word {
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  color: var(
+    --jpdb-reader-word-accessible-color,
+    var(--jpdb-reader-word-color-source, var(--jpdb-reader-theme-dark-text, #f2f4f8))
+  ) !important;
+  text-shadow: none;
 }
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word {
   background-color: transparent !important;
@@ -6887,7 +6945,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   justify-content: center !important;
   right: max(14px, env(safe-area-inset-right)) !important;
   bottom: max(14px, env(safe-area-inset-bottom)) !important;
-  z-index: 2147483645 !important;
+  /* Above the subtitle transcript panel, below popovers/settings. */
+  z-index: 2147483646 !important;
   flex: 0 0 auto !important;
   inline-size: 52px !important;
   block-size: 52px !important;
@@ -11617,7 +11676,7 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-mining-title:hover,
 .jpdb-reader-mining-title:focus-visible {
-  color: var(--jpdb-reader-state-new-bright);
+  color: var(--jpdb-reader-accent-readable);
 }
 .jpdb-reader-actions-has-mining {
   position: relative;
@@ -12964,19 +13023,21 @@ html.jpdb-reader-doodle-active * {
    cell, so every control on a row lines up regardless of how many lines the
    label above it wraps to. */
 .jpdb-reader-settings .grid > label:not(.inline),
-.jpdb-reader-settings .jpdb-reader-shortcut-group > label:not(.inline) {
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
   margin: 0;
 }
-.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text {
+.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text,
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text {
   min-height: 2.75em;
   display: flex;
   align-items: flex-end;
 }
-.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) {
+.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi),
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) {
   min-height: 0;
   display: block;
 }
@@ -14320,12 +14381,13 @@ html.jpdb-reader-doodle-active * {
     gap: 10px 12px;
   }
 
-  .jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text {
+  .jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text,
+  .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text {
     min-height: 1.35em;
   }
 
   .jpdb-reader-settings .grid > label:not(.inline),
-  .jpdb-reader-settings .jpdb-reader-shortcut-group > label:not(.inline) {
+  .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) {
     gap: 4px;
   }
 
@@ -14900,7 +14962,7 @@ html.jpdb-reader-doodle-active * {
   overflow-wrap: anywhere;
   word-break: keep-all;
   max-height: min(5.4em, 45%, calc(100% - 24px));
-  overflow: hidden;
+  overflow: visible;
   pointer-events: none;
   transform: translateY(var(--subtitle-drag-offset-y));
   -webkit-tap-highlight-color: transparent;

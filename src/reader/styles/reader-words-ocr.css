@@ -1189,6 +1189,23 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-highlight-backdrop: rgba(255, 255, 255, 0.14);
   --jpdb-reader-highlight-shadow: 0 1px 5px rgba(0, 0, 0, 0.42);
 }
+.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] {
+  --jpdb-ocr-auto-dark-surface: color-mix(
+    in srgb,
+    var(--jpdb-reader-theme-dark-surface, #20242b) 78%,
+    var(--jpdb-reader-accent, #5ea780) 22%
+  );
+  --jpdb-ocr-auto-dark-active: color-mix(
+    in srgb,
+    var(--jpdb-ocr-auto-dark-surface) 84%,
+    transparent
+  );
+  --jpdb-ocr-auto-dark-border: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent, #5ea780) 34%,
+    rgba(255, 255, 255, 0.16)
+  );
+}
 .jpdb-ocr-layer[data-ocr-overlay-theme="light"] {
   --jpdb-reader-highlight-backdrop: rgba(255, 255, 255, 0.9);
   --jpdb-reader-highlight-shadow: 0 1px 3px rgba(28, 42, 60, 0.16);
@@ -1315,6 +1332,26 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   box-shadow:
     0 10px 24px var(--jpdb-reader-shadow),
     inset 0 0 0 1px var(--jpdb-reader-ocr-active-inset);
+}
+.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
+  color: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  text-shadow: none;
+  background: var(--jpdb-ocr-auto-dark-active);
+  border-color: var(--jpdb-ocr-auto-dark-border);
+  box-shadow:
+    0 10px 24px color-mix(in srgb, rgba(0, 0, 0, 0.34) 76%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-white, #ffffff) 10%, transparent);
+}
+.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word {
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  color: var(
+    --jpdb-reader-word-accessible-color,
+    var(--jpdb-reader-word-color-source, var(--jpdb-reader-theme-dark-text, #f2f4f8))
+  ) !important;
+  text-shadow: none;
 }
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word {
   background-color: transparent !important;
@@ -1496,7 +1533,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   justify-content: center !important;
   right: max(14px, env(safe-area-inset-right)) !important;
   bottom: max(14px, env(safe-area-inset-bottom)) !important;
-  z-index: 2147483645 !important;
+  /* Above the subtitle transcript panel, below popovers/settings. */
+  z-index: 2147483646 !important;
   flex: 0 0 auto !important;
   inline-size: 52px !important;
   block-size: 52px !important;

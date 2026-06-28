@@ -3521,7 +3521,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. You can use either service, both, or neither with local dictionaries.",
+      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       jpdbApiKeyConfigured: "JPDB key set.",
@@ -3977,7 +3977,7 @@
       ankiMappingHighConfidence: "High",
       ankiMappingMediumConfidence: "Medium",
       ankiMappingLowConfidence: "Low",
-      ankiHelp: "Full Anki uses AnkiConnect. Handoff creates notes.",
+      ankiHelp: "Install AnkiConnect, keep desktop Anki open, and add this site to webCorsOriginList if the status mentions CORS. Mobile handoff creates notes without full desktop review access.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
       localDictionariesEnabled: "Show imported dictionary definitions",
       dictionarySourcesInitiallyExpanded: "Open sources by default",
@@ -5167,7 +5167,7 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。どちらか一方、両方、またはローカル辞書のみでも使えます。
+apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。学習デッキは選択中のサービスにだけ適用され、どちらか一方、両方、またはローカル辞書のみでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
@@ -5592,7 +5592,7 @@ ankiMappingConfidenceHelp	フィールド名とサンプルで判断します。
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
-ankiHelp	AnkiConnectで全機能。受け渡しは新規ノートのみ。
+ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開いたままにします。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
@@ -7461,6 +7461,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const GIS_SCRIPT_URL = "https://accounts.google.com/gsi/client";
   const OAUTH_BROKER_URL = "https://yomureader.com/oauth/google-drive.html";
   const OAUTH_RETURN_HASH_KEY = "yomu-drive-oauth-return";
+  const OAUTH_TOKEN_HASH_KEY = "yomu-drive-oauth-token";
   const OAUTH_WINDOW_NAME_TYPE = "yomu-drive-oauth-token";
   const TOKEN_EARLY_REFRESH_MS = 6e4;
   const DRIVE_TIMEOUT_MS = 2e4;
@@ -7633,7 +7634,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!browserWindow?.location?.href) return null;
     const state = oauthReturnState(browserWindow.location.href);
     if (!state) return null;
-    const payload = parseOAuthWindowName(browserWindow.name);
+    const payload = parseOAuthReturnPayload(browserWindow.location.href) ?? parseOAuthWindowName(browserWindow.name);
     clearOAuthReturnHash(browserWindow);
     if (!payload || payload.type !== OAUTH_WINDOW_NAME_TYPE || payload.state !== state) {
       return { ok: false, state, error: "Google authorization returned without a Yomu token." };
@@ -7654,23 +7655,45 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return null;
     }
   }
+  function parseOAuthReturnPayload(href) {
+    const encoded = oauthHashParam(href, OAUTH_TOKEN_HASH_KEY);
+    if (!encoded) return null;
+    try {
+      const parsed = JSON.parse(encoded);
+      return isRecord(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
   function oauthReturnState(href) {
+    return oauthHashParam(href, OAUTH_RETURN_HASH_KEY);
+  }
+  function oauthHashParam(href, key) {
     let hash = "";
     try {
       hash = new URL(href).hash.slice(1);
     } catch {
       return "";
     }
-    const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
+    const prefix = `${key}=`;
     const entry = hash.split("&").find((part) => part.startsWith(prefix));
-    return entry ? decodeURIComponent(entry.slice(prefix.length)) : "";
+    if (!entry) return "";
+    try {
+      return decodeURIComponent(entry.slice(prefix.length));
+    } catch {
+      return "";
+    }
   }
   function clearOAuthReturnHash(browserWindow) {
     if (!browserWindow.history?.replaceState) return;
     try {
       const url = new URL(browserWindow.location.href);
-      const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
-      const remainingHash = url.hash.slice(1).split("&").filter((part) => part && !part.startsWith(prefix)).join("&");
+      const removedKeys = /* @__PURE__ */ new Set([OAUTH_RETURN_HASH_KEY, OAUTH_TOKEN_HASH_KEY]);
+      const remainingHash = url.hash.slice(1).split("&").filter((part) => {
+        if (!part) return false;
+        const key = part.includes("=") ? part.slice(0, part.indexOf("=")) : part;
+        return !removedKeys.has(key);
+      }).join("&");
       url.hash = remainingHash ? `#${remainingHash}` : "";
       browserWindow.history.replaceState(browserWindow.history.state, document.title, url.toString());
     } catch {
@@ -8499,7 +8522,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                         ${input("apiCredentialJiten", `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialJpdb", `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. You can use either service, both, or neither with local dictionaries.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>

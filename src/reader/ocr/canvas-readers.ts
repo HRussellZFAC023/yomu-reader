@@ -92,7 +92,17 @@ function sampleCanvasContent(canvas: HTMLCanvasElement): CanvasContentSample | n
         // and drift the turn epoch the page signature depends on.
         const context = markCanvasMirrorSkip(sample.getContext('2d', { willReadFrequently: true }));
         if (!context) return null;
-        context.drawImage(canvas, 0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
+        context.drawImage(
+            canvas,
+            0,
+            0,
+            canvas.width,
+            canvas.height,
+            0,
+            0,
+            CONTENT_SAMPLE_SIZE,
+            CONTENT_SAMPLE_SIZE,
+        );
         const { data } = context.getImageData(0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
         const buckets = new Set<number>();
         let min = 255;
@@ -141,6 +151,7 @@ function pageCanvases(
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
     const canvases = Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas'))
         .filter(canvas => !shouldSkipCanvasReaderSurface(canvas))
+        .filter(isVisibleCanvasReaderSurface)
         .filter(canvas => isLikelyPageCanvas(canvas, lenient));
     return isBookwalkerViewerHost(hostname) && options.preferBookwalkerCurrent !== false
         ? preferCurrentScreenCanvases(canvases)
@@ -150,6 +161,14 @@ function pageCanvases(
 function shouldSkipCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {
     const mode = canvasOcrMode(canvas);
     return mode === 'off' || mode === 'manual';
+}
+
+function isVisibleCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {
+    if (canvas.hidden || canvas.getAttribute('aria-hidden') === 'true') return false;
+    const style = getComputedStyle(canvas);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return false;
+    if (Number(style.opacity || '1') <= 0) return false;
+    return true;
 }
 
 function shouldForceCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {

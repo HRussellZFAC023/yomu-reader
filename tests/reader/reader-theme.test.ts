@@ -105,6 +105,18 @@ describe('reader theme', () => {
         localStorage.removeItem(SETTINGS_STORAGE_KEY);
     });
 
+    it('does not throw when the userscript starts before document.documentElement exists', () => {
+        const rootSpy = vi.spyOn(document, 'documentElement', 'get').mockReturnValue(null as unknown as HTMLElement);
+        try {
+            const applied = applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key' });
+
+            expect(applied.wordColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'off' });
+            expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'off' });
+        } finally {
+            rootSpy.mockRestore();
+        }
+    });
+
     it('re-asserts reader root classes after a host SPA rewrites <html class>', async () => {
         const root = document.documentElement;
         applyReaderTheme({

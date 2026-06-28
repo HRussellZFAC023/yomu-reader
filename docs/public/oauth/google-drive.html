@@ -46,13 +46,15 @@
     // third-party origins Google will not authorise, so it navigates the current
     // tab through this authorised yomureader.com origin. This page performs a
     // redirect-based Drive appData authorization and returns to the original page
-    // with the short-lived token in window.name, not in the URL.
+    // with the short-lived token in the URL fragment. The fragment is not sent
+    // to the page's server, and Yomu removes it immediately after consuming it.
     (function () {
       'use strict';
       var DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
       var GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
       var STORAGE_PREFIX = 'yomu-drive-oauth:';
       var RETURN_HASH_KEY = 'yomu-drive-oauth-return';
+      var TOKEN_HASH_KEY = 'yomu-drive-oauth-token';
       var WINDOW_NAME_TYPE = 'yomu-drive-oauth-token';
       var params = new URLSearchParams(location.search);
       var clientId = params.get('client_id') || '';
@@ -115,11 +117,13 @@
         return auth.href;
       }
 
-      function returnUrlWithMarker(url, value) {
+      function returnUrlWithMarker(url, value, message) {
         var target = new URL(url);
         var marker = RETURN_HASH_KEY + '=' + encodeURIComponent(value);
+        var token = TOKEN_HASH_KEY + '=' + encodeURIComponent(JSON.stringify(message));
         var existing = target.hash ? target.hash.slice(1) : '';
-        target.hash = existing ? existing + '&' + marker : marker;
+        var added = marker + '&' + token;
+        target.hash = existing ? existing + '&' + added : added;
         return target.href;
       }
 
@@ -127,7 +131,7 @@
         message.type = WINDOW_NAME_TYPE;
         message.state = transaction.state;
         window.name = JSON.stringify(message);
-        location.replace(returnUrlWithMarker(transaction.returnUrl, transaction.state));
+        location.replace(returnUrlWithMarker(transaction.returnUrl, transaction.state, message));
       }
 
       function hashParams() {

@@ -11,13 +11,15 @@
 // Uses a plain WebKit/Chromium touch context (NOT devices['iPad …']) because the
 // mobile-emulation screen scale desyncs tap(x,y) from layout coordinates.
 // Requires `npm run build` first (OCR ships in the yomu-video companion).
-import { chromium, webkit } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { createSmokePaths, addGmStorageBridgeInitScript, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
-const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST } = createSmokePaths(import.meta.dirname);
+const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST, artifacts: ARTIFACTS } = createSmokePaths(import.meta.dirname);
+const ARTIFACT_DIR = path.join(ARTIFACTS, 'bookwalker-tap-passthrough');
 const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video'].map(n => path.join(DIST, 'greasyfork', `${n}.user.js`));
 const BRIDGE = '__yomuTapRequest';
 const IMG_URL = 'https://c.bookwalker.jp/scrambled/page-001.png';
@@ -44,9 +46,11 @@ const SETTINGS = { onboardingSeen: true, interfaceLanguage: 'en', apiKey: '', an
 const MOCK_OCR = { width: 800, height: 1130, lines: [{ text: '大変な事', box: { x: 40, y: 160, w: 420, h: 90 }, vertical: false }] };
 const POPOVER_SEL = '[data-jpdb-reader-root] .jpdb-token-list, .jpdb-card-popover, [data-jpdb-popover], .jpdb-reader-popup, [class*="popover"]';
 const failures = [];
+const rows = [];
+mkdirSync(ARTIFACT_DIR, { recursive: true });
 
 async function runCase(engineName) {
-    const engine = engineName === 'webkit' ? webkit : chromium;
+    const engine = engineName === 'webkit' ? webkit : engineName === 'firefox' ? firefox : chromium;
     const browser = await engine.launch({ headless: true });
     const ctx = await browser.newContext({ viewport: { width: 900, height: 1300 }, hasTouch: true, locale: 'ja-JP', bypassCSP: true });
     const page = await ctx.newPage();
@@ -83,16 +87,20 @@ async function runCase(engineName) {
     const wordTurns = await page.evaluate(() => window.__turns);
     const popover = await page.evaluate(s => !!document.querySelector(s), POPOVER_SEL);
     const overlayKept = await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word').length) >= 1;
+    const screenshot = path.join(ARTIFACT_DIR, `${engineName}.png`);
+    await page.screenshot({ path: screenshot, fullPage: false }).catch(() => undefined);
 
     const ok = rendered && w && wordTurns === 0 && popover && overlayKept && marginTurns > 0;
     console.log(`${ok ? 'PASS' : 'FAIL'}: ${engineName} — wordTurns=${wordTurns}(want 0) lookup=${popover} overlayKept=${overlayKept} marginTurns=${marginTurns}(want >0)${rendered ? '' : ' [overlay never rendered]'}`);
+    rows.push({ engineName, ok, rendered, wordTurns, popover, overlayKept, marginTurns, screenshot });
     if (!ok) failures.push(engineName);
     await ctx.close();
     await browser.close();
 }
 
-for (const engineName of ['webkit', 'chromium']) {
+for (const engineName of ['firefox', 'webkit', 'chromium']) {
     try { await runCase(engineName); } catch (e) { console.log(`ERROR ${engineName}: ${String(e).slice(0, 160)}`); failures.push(engineName); }
 }
-console.log(failures.length ? `\nFAILURES: ${[...new Set(failures)].join(', ')}` : '\nALL PASS — OCR text taps look up the word without turning the page; bare taps still turn');
+writeFileSync(path.join(ARTIFACT_DIR, 'summary.json'), JSON.stringify(rows, null, 2));
+console.log(failures.length ? `\nFAILURES: ${[...new Set(failures)].join(', ')}` : `\nALL PASS — OCR text taps look up the word without turning the page; bare taps still turn. Artifacts: ${ARTIFACT_DIR}`);
 process.exit(failures.length ? 1 : 0);

@@ -426,8 +426,7 @@
 
 .jpdb-reader-word.jpdb-reader-scan-word ruby,
 .jpdb-reader-word.jpdb-reader-scan-word rt {
-  white-space: nowrap;
-  overflow-wrap: normal;
+  white-space: normal;
 }
 
 /* Google Search result snippets are passive links, not compact controls. Keep
@@ -437,41 +436,6 @@
   word-break: normal;
   overflow-wrap: anywhere !important;
   line-break: auto;
-}
-
-/* Readable article/prose targets need normal browser wrapping on narrow mobile
-   viewports. Keep compact UI/chrome words atomic elsewhere so buttons, cards,
-   and metadata rows do not grow or collapse into one-character stacks. */
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word:not(.jpdb-reader-passive-word) {
-  display: inline !important;
-  vertical-align: baseline;
-  white-space: normal;
-  word-break: break-word;
-  overflow-wrap: anywhere !important;
-  line-break: anywhere;
-  max-width: 100%;
-  max-inline-size: min(100%, calc(100vw - 2rem));
-}
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) {
-  line-height: 2.05;
-}
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word ruby,
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word rt {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) ruby,
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) .jpdb-reader-ruby-base {
-  display: inline !important;
-  max-width: 100%;
-  max-inline-size: 100%;
-  white-space: normal;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  line-break: anywhere;
 }
 
 /* Text mirrors preserve app-owned DOM/layout. Let surrounding mirrored text wrap
@@ -576,12 +540,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 .jpdb-reader-word.jpdb-reader-passive-word {
   --jpdb-reader-word-color-source: currentColor;
-  line-height: inherit;
-  max-width: none;
-  max-inline-size: none;
-  overflow-wrap: inherit !important;
-  white-space: inherit;
-  word-break: inherit;
   cursor: inherit;
 }
 
@@ -644,6 +602,14 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
   outline: none;
+}
+
+:is(button, [role="button"], [role="tab"], summary, label, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:hover,
+:is(button, [role="button"], [role="tab"], summary, label, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:focus,
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:hover,
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:focus {
+  background-image: none !important;
+  box-shadow: none;
 }
 
 .jpdb-reader-word.jpdb-reader-keyboard-active {
@@ -1151,10 +1117,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 2.05;
 }
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-has-furi {
-  line-height: inherit;
-}
 .jpdb-reader-furi {
   font-size: 0.52em;
   color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;
@@ -1200,15 +1162,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   text-align: center;
 }
 .jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi {
-  white-space: nowrap;
-  overflow-wrap: normal;
-}
-
-.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-prose-word.jpdb-reader-has-furi:not(.jpdb-reader-passive-word) rt.jpdb-reader-furi {
   white-space: normal;
   overflow-wrap: anywhere;
 }
-
 /* User feedback: the word contrast shadow (a white glow + a 2px dark drop) bleeds
    into the thin furigana strokes and makes the reading harder to read. Furigana
    takes a single tight outline instead — enough contrast on busy manga
@@ -1537,6 +1493,23 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-highlight-backdrop: rgba(255, 255, 255, 0.14);
   --jpdb-reader-highlight-shadow: 0 1px 5px rgba(0, 0, 0, 0.42);
 }
+.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] {
+  --jpdb-ocr-auto-dark-surface: color-mix(
+    in srgb,
+    var(--jpdb-reader-theme-dark-surface, #20242b) 78%,
+    var(--jpdb-reader-accent, #5ea780) 22%
+  );
+  --jpdb-ocr-auto-dark-active: color-mix(
+    in srgb,
+    var(--jpdb-ocr-auto-dark-surface) 84%,
+    transparent
+  );
+  --jpdb-ocr-auto-dark-border: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent, #5ea780) 34%,
+    rgba(255, 255, 255, 0.16)
+  );
+}
 .jpdb-ocr-layer[data-ocr-overlay-theme="light"] {
   --jpdb-reader-highlight-backdrop: rgba(255, 255, 255, 0.9);
   --jpdb-reader-highlight-shadow: 0 1px 3px rgba(28, 42, 60, 0.16);
@@ -1663,6 +1636,26 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   box-shadow:
     0 10px 24px var(--jpdb-reader-shadow),
     inset 0 0 0 1px var(--jpdb-reader-ocr-active-inset);
+}
+.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
+  color: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  text-shadow: none;
+  background: var(--jpdb-ocr-auto-dark-active);
+  border-color: var(--jpdb-ocr-auto-dark-border);
+  box-shadow:
+    0 10px 24px color-mix(in srgb, rgba(0, 0, 0, 0.34) 76%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-white, #ffffff) 10%, transparent);
+}
+.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word {
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  color: var(
+    --jpdb-reader-word-accessible-color,
+    var(--jpdb-reader-word-color-source, var(--jpdb-reader-theme-dark-text, #f2f4f8))
+  ) !important;
+  text-shadow: none;
 }
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word {
   background-color: transparent !important;
@@ -1844,7 +1837,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   justify-content: center !important;
   right: max(14px, env(safe-area-inset-right)) !important;
   bottom: max(14px, env(safe-area-inset-bottom)) !important;
-  z-index: 2147483645 !important;
+  /* Above the subtitle transcript panel, below popovers/settings. */
+  z-index: 2147483646 !important;
   flex: 0 0 auto !important;
   inline-size: 52px !important;
   block-size: 52px !important;
@@ -2714,18 +2708,6 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   font-size: 12px;
   font-weight: 850;
 }
-.jpdb-reader-onboarding-immersion-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 0.78fr) minmax(220px, 1fr) minmax(180px, 0.68fr);
-  gap: 14px 24px;
-  align-items: start;
-  min-width: 0;
-}
-.jpdb-reader-onboarding-option-column {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-}
 .jpdb-reader-onboarding-options label {
   display: flex;
   align-items: center;
@@ -2779,70 +2761,6 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   outline: 2px solid var(--jpdb-reader-accent);
   outline-offset: 3px;
 }
-.jpdb-reader-onboarding-mode-group {
-  display: grid;
-  gap: 7px;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-.jpdb-reader-onboarding-mode-group legend {
-  padding: 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 12px;
-  font-weight: 850;
-}
-.jpdb-reader-onboarding-mode-group label {
-  min-width: 0;
-  min-height: 32px;
-  justify-content: center;
-  padding: 5px 8px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 7px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-muted);
-  font-size: 12px;
-  line-height: 1.15;
-  text-align: center;
-}
-.jpdb-reader-onboarding-mode-group input[type="radio"] {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-.jpdb-reader-onboarding-mode-group label:has(input[type="radio"]:checked) {
-  border-color: var(--jpdb-reader-accent);
-  background: var(--jpdb-reader-accent-soft);
-  color: var(--jpdb-reader-text);
-}
-.jpdb-reader-onboarding-mode-group label:has(input[type="radio"]:focus-visible) {
-  outline: 2px solid var(--jpdb-reader-accent);
-  outline-offset: 2px;
-}
-.jpdb-reader-onboarding-shortcut {
-  display: grid !important;
-  gap: 6px !important;
-  align-items: stretch !important;
-}
-.jpdb-reader-onboarding-shortcut input {
-  width: 100%;
-  min-width: 0;
-  min-height: 38px;
-  border: 1px solid var(--jpdb-reader-border) !important;
-  border-radius: 7px;
-  background-color: var(--jpdb-reader-surface) !important;
-  color: var(--jpdb-reader-text) !important;
-  padding: 7px 10px;
-  font: 750 13px/1.2 var(--jpdb-reader-font);
-}
-.jpdb-reader-onboarding-shortcut input:focus-visible {
-  border-color: var(--jpdb-reader-accent) !important;
-  outline: 2px solid var(--jpdb-reader-accent-soft);
-  outline-offset: 2px;
-}
 .jpdb-reader-onboarding-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2854,26 +2772,6 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 .jpdb-reader-onboarding-actions .jpdb-reader-btn {
   min-width: 150px;
   min-height: 46px;
-}
-@media (max-width: 720px) {
-  .jpdb-reader-onboarding {
-    width: min(100vw, 560px);
-    max-height: 100vh;
-    max-height: 100dvh;
-    padding: 34px 18px 22px;
-    border-radius: 0;
-  }
-  .jpdb-reader-onboarding h2 {
-    font-size: 40px;
-  }
-  .jpdb-reader-onboarding-basics,
-  .jpdb-reader-onboarding-immersion-grid,
-  .jpdb-reader-onboarding-features {
-    grid-template-columns: 1fr;
-  }
-  .jpdb-reader-onboarding-actions .jpdb-reader-btn {
-    flex: 1 1 180px;
-  }
 }
 .jpdb-reader-popover .jpdb-reader-icon-btn svg,
 .jpdb-reader-settings .jpdb-reader-icon-btn svg,
@@ -6574,7 +6472,7 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-mining-title:hover,
 .jpdb-reader-mining-title:focus-visible {
-  color: var(--jpdb-reader-accent-readable);
+  color: var(--jpdb-reader-state-new-bright);
 }
 .jpdb-reader-actions-has-mining {
   position: relative;
@@ -7921,19 +7819,21 @@ html.jpdb-reader-doodle-active * {
    cell, so every control on a row lines up regardless of how many lines the
    label above it wraps to. */
 .jpdb-reader-settings .grid > label:not(.inline),
-.jpdb-reader-settings .jpdb-reader-shortcut-group > label:not(.inline) {
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
   margin: 0;
 }
-.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text {
+.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text,
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text {
   min-height: 2.75em;
   display: flex;
   align-items: flex-end;
 }
-.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) {
+.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi),
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) {
   min-height: 0;
   display: block;
 }
@@ -9277,12 +9177,13 @@ html.jpdb-reader-doodle-active * {
     gap: 10px 12px;
   }
 
-  .jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text {
+  .jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text,
+  .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text {
     min-height: 1.35em;
   }
 
   .jpdb-reader-settings .grid > label:not(.inline),
-  .jpdb-reader-settings .jpdb-reader-shortcut-group > label:not(.inline) {
+  .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) {
     gap: 4px;
   }
 
@@ -9841,7 +9742,6 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-subtitle-text {
   position: absolute;
-  z-index: 1;
   left: 14px;
   right: 14px;
   bottom: var(--subtitle-bottom);
@@ -9857,7 +9757,7 @@ html.jpdb-reader-doodle-active * {
   overflow-wrap: anywhere;
   word-break: keep-all;
   max-height: min(5.4em, 45%, calc(100% - 24px));
-  overflow: hidden;
+  overflow: visible;
   pointer-events: none;
   transform: translateY(var(--subtitle-drag-offset-y));
   -webkit-tap-highlight-color: transparent;
@@ -10469,12 +10369,10 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 }
 .jpdb-subtitle-rail {
   position: absolute;
-  z-index: 3;
   right: max(10px, env(safe-area-inset-right));
   top: 10px;
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
   gap: 4px;
   max-width: calc(100% - 20px);
   padding: 4px;
@@ -10484,7 +10382,6 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   box-shadow: 0 12px 30px var(--jpdb-reader-shadow);
   backdrop-filter: blur(14px);
   pointer-events: auto;
-  isolation: isolate;
   opacity: .78;
   transform: translateY(0);
   transition: opacity .16s ease, transform .16s ease;
@@ -10573,7 +10470,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  z-index: 4;
+  z-index: 1;
   display: grid;
   gap: 10px;
   width: min(282px, calc(100vw - 18px));
@@ -10584,12 +10481,6 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   color: var(--jpdb-reader-text) !important;
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(16px);
-  pointer-events: auto;
-  isolation: isolate;
-  touch-action: auto;
-  user-select: none;
-}
-.jpdb-subtitle-style-popover :is(label, input, select, button, output) {
   pointer-events: auto;
 }
 .jpdb-subtitle-style-popover[hidden] {
@@ -11471,7 +11362,6 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     right: 16px;
   }
   .jpdb-reader-onboarding-basics { grid-template-columns: 1fr; }
-  .jpdb-reader-onboarding-immersion-grid { grid-template-columns: 1fr; gap: 10px; }
   .jpdb-reader-onboarding-features { grid-template-columns: 1fr; }
   .jpdb-reader-onboarding-actions { display: grid; grid-template-columns: 1fr; }
   .jpdb-ocr-line { min-width: 0; min-height: 0; border-radius: 8px; }
@@ -11636,19 +11526,6 @@ html.jpdb-youtube-filter-active ytd-rich-grid-renderer ytd-continuation-item-ren
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.jpdb-youtube-filter-bar [data-role="summary"].jpdb-reader-sr-only {
-    position: absolute !important;
-    width: 1px !important;
-    height: 1px !important;
-    margin: -1px !important;
-    padding: 0 !important;
-    border: 0 !important;
-    overflow: hidden !important;
-    white-space: nowrap !important;
-    clip: rect(0 0 0 0) !important;
-    clip-path: inset(50%) !important;
 }
 
 .jpdb-youtube-filter-actions {

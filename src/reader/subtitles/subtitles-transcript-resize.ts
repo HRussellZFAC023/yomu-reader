@@ -148,7 +148,7 @@ function transcriptBottomResizeHandleMetrics(options: TranscriptResizeHandleMetr
 function transcriptSideResizeHandleMetrics(options: TranscriptResizeHandleMetricsOptions): TranscriptResizeHandleMetrics {
     return {
         current: options.layout?.width ?? options.panelRect?.width ?? 0,
-        max: options.bounds.maxSideWidth,
+        max: options.layout?.maxWidth ?? options.bounds.maxSideWidth,
         min: TRANSCRIPT_PANEL_MIN_SIDE_WIDTH,
         orientation: 'vertical',
     };

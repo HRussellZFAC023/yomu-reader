@@ -907,6 +907,31 @@ export class ReaderApp {
         done();
     }
 
+    private async waitForDocumentBody(): Promise<void> {
+        if (document.body || this.isDestroyed) return;
+        await new Promise<void>(resolve => {
+            let timer: number | undefined;
+            const abortSignal = this.abortController.signal;
+            let check: () => void = () => undefined;
+            const cleanup = (): void => {
+                if (timer !== undefined) window.clearTimeout(timer);
+                document.removeEventListener('DOMContentLoaded', check);
+                abortSignal.removeEventListener('abort', check);
+            };
+            check = (): void => {
+                if (document.body || this.isDestroyed) {
+                    cleanup();
+                    resolve();
+                    return;
+                }
+                timer = window.setTimeout(check, 25);
+            };
+            document.addEventListener('DOMContentLoaded', check, { once: true });
+            abortSignal.addEventListener('abort', check, { once: true });
+            timer = window.setTimeout(check, 0);
+        });
+    }
+
     private async loadInitialSettings(options?: ReaderAppInitOptions): Promise<boolean> {
         this.factoryReset.bind();
         const startup = await loadReaderStartupSettings(options);
@@ -930,6 +955,8 @@ export class ReaderApp {
     }
 
     private async initReaderPage(shouldShowWelcome: boolean): Promise<void> {
+        await this.waitForDocumentBody();
+        if (this.isDestroyed || !document.body) return;
         if (this.embeddedFrame) {
             this.subtitles.init();
             if (this.shouldScanEmbeddedFrame()) {
@@ -2012,8 +2039,36 @@ export class ReaderApp {
         // one carrying a scroll body is present (cheap querySelector, run only when body's
         // direct children change — never on every scroll).
         const syncScrollDrive = (): void => setScrollDrive(Boolean(document.querySelector(READER_ROOT_SCROLL_BODY_SELECTOR)));
-        syncScrollDrive();
-        new MutationObserver(syncScrollDrive).observe(document.body, { childList: true });
+        const scrollDriveObserver = new MutationObserver(syncScrollDrive);
+        let scrollDriveObservedRoot: Node | null = null;
+        const observeScrollDriveRoot = (): void => {
+            const root = document.body ?? document.documentElement;
+            if (!root) {
+                document.addEventListener('DOMContentLoaded', () => {
+                    if (!this.isDestroyed) observeScrollDriveRoot();
+                }, { once: true });
+                return;
+            }
+            if (scrollDriveObservedRoot === root) return;
+            scrollDriveObserver.disconnect();
+            scrollDriveObservedRoot = root;
+            scrollDriveObserver.observe(root, { childList: true });
+            syncScrollDrive();
+        };
+        const rebindScrollDriveRoot = (): void => {
+            syncScrollDrive();
+            observeScrollDriveRoot();
+        };
+        scrollDriveObserver.disconnect();
+        scrollDriveObserver.takeRecords();
+        const rootObserver = new MutationObserver(rebindScrollDriveRoot);
+        const htmlRoot = document.documentElement;
+        if (htmlRoot) rootObserver.observe(htmlRoot, { childList: true });
+        observeScrollDriveRoot();
+        this.abortController.signal.addEventListener('abort', () => {
+            scrollDriveObserver.disconnect();
+            rootObserver.disconnect();
+        }, { once: true });
 
         document.addEventListener('click', event => this.handleDocumentClick(event), { capture: true });
 
@@ -3229,7 +3284,8 @@ export class ReaderApp {
     }
 
     private ocrLineWordForPointer(target: Element | null, x: number, y: number): HTMLElement | null {
-        const line = target?.closest?.('.jpdb-ocr-line') as HTMLElement | null;
+        const line = (target?.closest?.('.jpdb-ocr-line')
+            ?? document.elementFromPoint(x, y)?.closest?.('.jpdb-ocr-line')) as HTMLElement | null;
         return line ? ocrLineWordAtPoint(line, x, y) : null;
     }
 
@@ -3346,6 +3402,11 @@ export class ReaderApp {
     }
 
     private cancelPendingHoverLookupForWord(word: HTMLElement, hoverLookupKey: string): void {
+        const pointer = this.lastPointerPosition;
+        const pointerWord = pointer && this.isPendingHoverLookup(word, hoverLookupKey)
+            ? this.hoverReaderWordFromElement(document.elementFromPoint(pointer.x, pointer.y) as HTMLElement | null)
+            : null;
+        if (pointerWord && pointerWord !== word) return;
         if (this.hoverPendingWord === word || this.hoverPendingLookupKey === hoverLookupKey || this.hoverLookupInFlightKey === hoverLookupKey) {
             this.cancelPendingHoverLookup();
         }
@@ -3389,14 +3450,10 @@ export class ReaderApp {
     }
 
     private scheduleHoverLookupAtPointer(event: KeyboardEvent): void {
-        const pointer = this.activeHoverPointerPosition();
-        if (!pointer) return;
+        if (this.isDestroyed || !this.lastPointerPosition) return;
+        const pointer = this.lastPointerPosition;
         this.hoverPopoverPointerPosition = { ...pointer };
         this.scheduleHoverLookupForPointer(pointer, event);
-    }
-
-    private activeHoverPointerPosition(): { x: number; y: number } | null {
-        return !this.isDestroyed && this.lastPointerPosition ? this.lastPointerPosition : null;
     }
 
     private scheduleHoverLookupForPointer(pointer: { x: number; y: number }, event: KeyboardEvent): void {
@@ -3406,17 +3463,13 @@ export class ReaderApp {
             this.scheduleHoverLookup(word, event);
             return;
         }
-        this.schedulePointerTextLookupForPointer(pointer, target, event);
+        const candidate = this.lookupCandidateFromPoint(pointer.x, pointer.y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
+        if (candidate) this.schedulePointerTextLookup(candidate, event);
     }
 
     private hoverReaderWordFromElement(element: HTMLElement | null): HTMLElement | null {
         const word = element?.closest?.('.jpdb-reader-word') as HTMLElement | null;
         return word && this.canHoverLookupReaderWord(word) ? word : null;
-    }
-
-    private schedulePointerTextLookupForPointer(pointer: { x: number; y: number }, target: EventTarget | null, event: KeyboardEvent): void {
-        const candidate = this.lookupCandidateFromPoint(pointer.x, pointer.y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
-        if (candidate) this.schedulePointerTextLookup(candidate, event);
     }
 
     private dismissModalPopoverForOutsidePointer(event: PointerEvent): void {
@@ -3495,11 +3548,21 @@ export class ReaderApp {
         if (this.shouldSkipHoverLookupSchedule(word, hoverLookupKey)) return;
 
         this.cancelHoverClose();
+        if (this.hoverLookupTimer && this.hoverPendingWord) {
+            this.hoverPendingWord = word;
+            this.hoverPendingLookupKey = hoverLookupKey;
+            return;
+        }
         window.clearTimeout(this.hoverLookupTimer);
         const hoverLookupGeneration = this.nextHoverLookupGeneration();
         this.hoverPendingWord = word;
         this.hoverPendingLookupKey = hoverLookupKey;
-        this.installHoverLookupTimer(word, () => this.runScheduledHoverLookup(word, event, hoverLookupGeneration));
+        const runLookup = () => this.runScheduledHoverLookup(word, event, hoverLookupGeneration);
+        const delay = this.activePopoverMode === 'hover' && this.activeHoverWord && this.activeHoverWord !== word
+            ? 0
+            : Math.max(0, this.settings.hoverOpenDelayMs);
+        if (delay === 0) runLookup();
+        else this.hoverLookupTimer = window.setTimeout(runLookup, delay);
     }
 
     private shouldSkipHoverLookupSchedule(word: HTMLElement, hoverLookupKey: string): boolean {
@@ -3508,36 +3571,17 @@ export class ReaderApp {
             this.refreshActiveHoverAnchor(word);
             return true;
         }
-        return this.isSameActiveHoverWord(word)
+        return (this.activePopoverMode === 'hover' && this.activeHoverWord === word)
             || this.isPendingHoverLookup(word, hoverLookupKey)
-            || this.isInFlightHoverLookup(hoverLookupKey);
+            || Boolean(hoverLookupKey && this.hoverLookupInFlightKey === hoverLookupKey);
     }
 
     private isSuppressedHoverLookup(word: HTMLElement, hoverLookupKey: string): boolean {
         return this.suppressedHoverWord === word || Boolean(hoverLookupKey && this.suppressedHoverLookupKey === hoverLookupKey);
     }
 
-    private isSameActiveHoverWord(word: HTMLElement): boolean {
-        return this.activePopoverMode === 'hover' && this.activeHoverWord === word;
-    }
-
     private isPendingHoverLookup(word: HTMLElement, hoverLookupKey: string): boolean {
         return Boolean((this.hoverPendingWord === word || (hoverLookupKey && this.hoverPendingLookupKey === hoverLookupKey)) && this.hoverLookupTimer);
-    }
-
-    private isInFlightHoverLookup(hoverLookupKey: string): boolean {
-        return Boolean(hoverLookupKey && this.hoverLookupInFlightKey === hoverLookupKey);
-    }
-
-    private installHoverLookupTimer(word: HTMLElement, runLookup: () => void): void {
-        const delay = this.hoverLookupDelayMs(word);
-        if (delay === 0) runLookup();
-        else this.hoverLookupTimer = window.setTimeout(runLookup, delay);
-    }
-
-    private hoverLookupDelayMs(word: HTMLElement): number {
-        if (this.activePopoverMode === 'hover' && this.activeHoverWord && this.activeHoverWord !== word) return 0;
-        return Math.max(0, this.settings.hoverOpenDelayMs);
     }
 
     private runScheduledHoverLookup(word: HTMLElement, event: MouseEvent | KeyboardEvent, hoverLookupGeneration: number): void {
@@ -3545,28 +3589,16 @@ export class ReaderApp {
         this.hoverLookupTimer = undefined;
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = '';
-        const activeWord = this.resolveScheduledHoverWord(word);
+        const pointer = this.lastPointerPosition;
+        const activeWord = (pointer
+            ? this.hoverReaderWordFromElement(document.elementFromPoint(pointer.x, pointer.y) as HTMLElement | null)
+            : null) ?? (word.isConnected ? word : null);
         if (!activeWord || !this.canRunScheduledHoverLookup(activeWord, event)) return;
         const activeHoverLookupKey = this.hoverLookupKeyForWord(activeWord);
         if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
         void this.showWord(activeWord, { trigger: 'hover', hoverLookupGeneration }).finally(() => {
             if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = '';
         });
-    }
-
-    private resolveScheduledHoverWord(word: HTMLElement): HTMLElement | null {
-        if (word.isConnected) return word;
-        return this.lastPointerPosition
-            ? this.hoverWordFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y) ?? null
-            : null;
-    }
-
-    private hoverWordFromPoint(x: number, y: number): HTMLElement | null {
-        for (const element of document.elementsFromPoint(x, y)) {
-            const word = this.hoverReaderWordFromElement(element as HTMLElement);
-            if (word) return word;
-        }
-        return null;
     }
 
     private canRunScheduledHoverLookup(activeWord: HTMLElement, event: MouseEvent | KeyboardEvent): boolean {
@@ -4189,9 +4221,12 @@ export class ReaderApp {
     }
 
     private shouldLookupNestedDictionaryWord(nestedWord: HTMLElement, query: string): boolean {
-        return !dictionaryLookupWordMatchesLink(nestedWord, query)
-            && !isOcrLineFrameWord(nestedWord)
-            && !isNativePageLookupBlocked(nestedWord);
+        if (isOcrLineFrameWord(nestedWord) || isNativePageLookupBlocked(nestedWord)) return false;
+        if (!dictionaryLookupWordMatchesLink(nestedWord, query)) return true;
+        return this.isInsideActivePopover(nestedWord)
+            && nestedWord.hasAttribute('data-vid')
+            && nestedWord.hasAttribute('data-sid')
+            && nestedWord.dataset.jpdbReaderRelatedWord !== 'true';
     }
 
     private handleDictionaryReferenceLookup(

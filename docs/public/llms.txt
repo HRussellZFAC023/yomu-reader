@@ -1,11 +1,11 @@
 # よむ (Yomu)
 
-> よむ is a free, open-source Japanese immersion reader. It turns Japanese text, manga images, PDFs, and video subtitles into tappable lookup surfaces with readings, meanings, kanji details, audio, example sentences, and Anki/Jiten/JPDB study actions.
+> よむ is a free, open-source Japanese immersion reader. It turns Japanese text, manga images, game text, PDFs, and video subtitles into tappable lookup surfaces with readings, meanings, kanji details, audio, example sentences, and Anki/Jiten/JPDB study actions.
 
 ## Primary Links
 
 - [Homepage](https://yomureader.com/): Product overview and install entry point.
-- [Install よむ](https://yomureader.com/getting-started): Setup for desktop userscript managers and mobile userscript apps.
+- [Install よむ](https://yomureader.com/getting-started): Setup guide for desktop userscript managers and mobile userscript apps.
 - [Features](https://yomureader.com/features): Full feature list covering popup lookup, OCR, subtitles, Anki, dictionaries, audio, examples, and study.
 - [Install userscript](https://yomureader.com/yomu.user.js): Current production userscript.
 - [Source code](https://github.com/HRussellZFAC023/yomu-reader): MIT-licensed project repository.
@@ -14,6 +14,7 @@
 
 - [Japanese OCR reader](https://yomureader.com/tools/japanese-ocr): Manga and image OCR workflow.
 - [Japanese subtitle reader](https://yomureader.com/tools/japanese-subtitle-reader): Video subtitle lookup and mining workflow.
+- [Read Japanese games](https://yomureader.com/guides/read-games-on-steam-deck): Steam Deck and PC game text handoff workflow.
 - [Furigana reader](https://yomureader.com/tools/furigana-reader): Furigana and reading assistance.
 - [Kanji stroke order](https://yomureader.com/tools/kanji-stroke-order): Kanji drilldown and stroke diagrams.
 - [Study page](https://yomureader.com/tools/study-page): Browser new-tab study surface.
@@ -23,13 +24,18 @@
 
 - [Read manga in Japanese](https://yomureader.com/guides/read-manga-in-japanese): Manga reading setup with OCR.
 - [Comprehensible input on YouTube](https://yomureader.com/guides/comprehensible-input-youtube): Japanese YouTube immersion setup.
+- [Read games on Steam Deck and PC](https://yomureader.com/guides/read-games-on-steam-deck): Japanese game and visual novel text handoff workflow.
 - [Mine sentences to Anki](https://yomureader.com/guides/mine-sentences-to-anki): Anki mining flow and card creation.
 - [Study setup](https://yomureader.com/guides/study-setup): Recommended learner setup.
+
+## Comparisons
+
+- [Free Migaku alternative](https://yomureader.com/compare/migaku-alternative): Comparison for learners evaluating paid immersion suites.
 
 ## Crawling Notes
 
 - Public docs and tools are crawlable.
-- Internal engineering ADRs and strategy notes are not published as docs pages.
+- Engineering ADRs are marked noindex.
 - Canonical domain: https://yomureader.com/
 - Sitemap: https://yomureader.com/sitemap.xml
 - Robots: https://yomureader.com/robots.txt

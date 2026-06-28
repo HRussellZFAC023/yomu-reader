@@ -1,7 +1,7 @@
 {
-  "name": "Yomu Japanese Reader",
-  "short_name": "Yomu",
-  "description": "Read Japanese web pages, manga, PDFs, subtitles, and study cards with one Yomu reader shell.",
+  "name": "よむ Japanese Reader",
+  "short_name": "よむ",
+  "description": "Read Japanese web pages, manga, PDFs, subtitles, and study cards with one よむ reader shell.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

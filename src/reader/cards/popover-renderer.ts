@@ -18,6 +18,7 @@ import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
+import { pillStyle } from '../dictionaries/display';
 import type { YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 
 interface MiningActionState {
@@ -407,7 +408,7 @@ export class CardPopoverRenderer {
         const canShowProviderStatus = Boolean(provider?.hasApiKey);
         return [
             renderMetaReading(card, settings),
-            card.frequencyRank && !canShowProviderStatus ? `<span>#${card.frequencyRank}</span>` : '',
+            card.frequencyRank && !canShowProviderStatus ? renderMetaFrequencyRank(card.frequencyRank, settings.interfaceLanguage) : '',
             canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider?.label ?? 'API')} ${escapeHtml(cardStateLabel(state, settings.interfaceLanguage))}</span>` : '',
             renderAnkiMeta(data.ankiLookup, settings),
         ].filter(Boolean);
@@ -603,6 +604,12 @@ function renderMetaReading(card: JPDBCard, settings: ReaderSettings): string {
     const reading = cardPronunciationReading(card);
     if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return '';
     return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml(reading)}</span>` : '';
+}
+
+function renderMetaFrequencyRank(rank: number, language: InterfaceLanguage): string {
+    const label = uiText(language, 'factFrequency');
+    const value = `#${rank}`;
+    return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill jpdb-reader-meta-pill" data-dictionary="JPDB" style="${pillStyle('frequency:JPDB')}" title="${escapeHtml(label)}" aria-label="${escapeHtml(`${label}: ${value}`)}">${escapeHtml(value)}</span>`;
 }
 
 function renderAnkiMeta(lookup: CardRenderData['ankiLookup'], settings: ReaderSettings): string {

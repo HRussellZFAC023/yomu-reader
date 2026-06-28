@@ -609,19 +609,21 @@
    cell, so every control on a row lines up regardless of how many lines the
    label above it wraps to. */
 .jpdb-reader-settings .grid > label:not(.inline),
-.jpdb-reader-settings .jpdb-reader-shortcut-group > label:not(.inline) {
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
   margin: 0;
 }
-.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text {
+.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text,
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text {
   min-height: 2.75em;
   display: flex;
   align-items: flex-end;
 }
-.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) {
+.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi),
+.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) {
   min-height: 0;
   display: block;
 }
@@ -1965,12 +1967,13 @@
     gap: 10px 12px;
   }
 
-  .jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text {
+  .jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text,
+  .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text {
     min-height: 1.35em;
   }
 
   .jpdb-reader-settings .grid > label:not(.inline),
-  .jpdb-reader-settings .jpdb-reader-shortcut-group > label:not(.inline) {
+  .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) {
     gap: 4px;
   }
 

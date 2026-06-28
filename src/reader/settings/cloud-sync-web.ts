@@ -29,6 +29,7 @@ const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 // redirect-based Google flow and returns to the original page without popups.
 const OAUTH_BROKER_URL = 'https://yomureader.com/oauth/google-drive.html';
 const OAUTH_RETURN_HASH_KEY = 'yomu-drive-oauth-return';
+const OAUTH_TOKEN_HASH_KEY = 'yomu-drive-oauth-token';
 const OAUTH_WINDOW_NAME_TYPE = 'yomu-drive-oauth-token';
 const TOKEN_EARLY_REFRESH_MS = 60_000;
 const DRIVE_TIMEOUT_MS = 20_000;
@@ -265,7 +266,7 @@ function consumeAuthRedirectResult(): CloudSettingsAuthRedirectResult | null {
     const state = oauthReturnState(browserWindow.location.href);
     if (!state) return null;
 
-    const payload = parseOAuthWindowName(browserWindow.name);
+    const payload = parseOAuthReturnPayload(browserWindow.location.href) ?? parseOAuthWindowName(browserWindow.name);
     clearOAuthReturnHash(browserWindow);
     if (!payload || payload.type !== OAUTH_WINDOW_NAME_TYPE || payload.state !== state) {
         return { ok: false, state, error: 'Google authorization returned without a Yomu token.' };
@@ -289,28 +290,53 @@ function parseOAuthWindowName(value: string): OAuthWindowNamePayload | null {
     }
 }
 
+function parseOAuthReturnPayload(href: string): OAuthWindowNamePayload | null {
+    const encoded = oauthHashParam(href, OAUTH_TOKEN_HASH_KEY);
+    if (!encoded) return null;
+    try {
+        const parsed = JSON.parse(encoded);
+        return isRecord(parsed) ? parsed as OAuthWindowNamePayload : null;
+    } catch {
+        return null;
+    }
+}
+
 function oauthReturnState(href: string): string {
+    return oauthHashParam(href, OAUTH_RETURN_HASH_KEY);
+}
+
+function oauthHashParam(href: string, key: string): string {
     let hash = '';
     try {
         hash = new URL(href).hash.slice(1);
     } catch {
         return '';
     }
-    const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
+    const prefix = `${key}=`;
     const entry = hash.split('&').find(part => part.startsWith(prefix));
-    return entry ? decodeURIComponent(entry.slice(prefix.length)) : '';
+    if (!entry) return '';
+    try {
+        return decodeURIComponent(entry.slice(prefix.length));
+    } catch {
+        return '';
+    }
 }
 
 function clearOAuthReturnHash(browserWindow: Window): void {
     if (!browserWindow.history?.replaceState) return;
     try {
         const url = new URL(browserWindow.location.href);
-        const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
-        const remainingHash = url.hash.slice(1).split('&').filter(part => part && !part.startsWith(prefix)).join('&');
+        const removedKeys = new Set([OAUTH_RETURN_HASH_KEY, OAUTH_TOKEN_HASH_KEY]);
+        const remainingHash = url.hash.slice(1).split('&').filter(part => {
+            if (!part) return false;
+            const key = part.includes('=') ? part.slice(0, part.indexOf('=')) : part;
+            return !removedKeys.has(key);
+        }).join('&');
         url.hash = remainingHash ? `#${remainingHash}` : '';
         browserWindow.history.replaceState(browserWindow.history.state, document.title, url.toString());
     } catch {
-        // Best effort only; the token has already been consumed from window.name.
+        // Best effort only; the token has already been consumed from the return
+        // URL or the legacy window.name fallback.
     }
 }
 

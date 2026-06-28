@@ -22,6 +22,8 @@ import {
 } from './lib/smoke-harness.mjs';
 
 const { root: ROOT, dist: DIST, newTabDir: NEWTAB_DIR } = createSmokePaths(import.meta.dirname);
+const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
+const NEW_TAB_UI_KEY = 'jpdb-reader-newtab-ui';
 const BUILT_ARTIFACTS = [
     path.join(NEWTAB_DIR, 'index.html'),
     path.join(NEWTAB_DIR, 'app.js'),
@@ -136,6 +138,97 @@ async function runQueryStudyMode(browser, baseUrl, query, mode) {
     return { query, mode, timeToCardMs: Date.now() - startedAt, consoleErrors: consoleErrors.slice(0, 5) };
 }
 
+async function runMobilePassFailLayout(browser, baseUrl) {
+    const context = await browser.newContext({ bypassCSP: true, viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    await page.route('**/jpdb.io/**', route => route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: '<!doctype html><title>empty jpdb fixture</title>',
+    }));
+    await page.route('**/api.jiten.moe/**', route => route.fulfill({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({ cards: [], vocabulary: [], tokens: [] }),
+    }));
+    const card = {
+        vid: 2626,
+        sid: 1,
+        rid: 1,
+        spelling: '前方',
+        reading: 'ぜんぽう',
+        frequencyRank: 1200,
+        partOfSpeech: ['noun'],
+        meanings: [{ glosses: ['front; ahead'], partOfSpeech: ['noun'] }],
+        cardState: ['due'],
+        pitchAccent: ['0'],
+        wordWithReading: '前方[ぜんぽう]',
+        source: 'jpdb',
+        reviewSource: 'jpdb-api',
+    };
+    await addGmStorageBridgeInitScript(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: baseSettings({
+            apiKey: 'mock-jpdb-key',
+            jpdbMiningEnabled: true,
+            enableReviews: true,
+            twoButtonReviews: true,
+            newTabSource: 'dictionary',
+            jpdbDefinitionsEnabled: false,
+            showPitchAccent: true,
+        }),
+    });
+    await page.addInitScript(({ cacheKey, uiKey, cache, uiState }) => {
+        localStorage.setItem(cacheKey, JSON.stringify(cache));
+        localStorage.setItem(uiKey, JSON.stringify(uiState));
+    }, {
+        cacheKey: NEW_TAB_CACHE_KEY,
+        uiKey: NEW_TAB_UI_KEY,
+        cache: { at: Date.now(), sourceLabel: 'JPDB', cards: [card] },
+        uiState: { mode: 'word', sort: 'frequency', filter: 'study', source: 'dictionary', revealAnswer: false },
+    });
+    try {
+        await page.goto(`${baseUrl}/newtab/index.html?persona=mobile-pass-fail-layout`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('[data-newtab-prompt]', { timeout: 15_000 });
+        await page.click('[data-newtab-action="reveal"]');
+        await page.waitForSelector('[data-newtab-controls][data-newtab-grade-scale="pass-fail"]', { timeout: 8_000 });
+        const layout = await page.evaluate(() => {
+            const controls = document.querySelector('[data-newtab-controls]');
+            const buttons = Array.from(document.querySelectorAll('[data-newtab-action="grade"]'));
+            const rect = controls?.getBoundingClientRect();
+            const buttonRects = buttons.map(button => {
+                const box = button.getBoundingClientRect();
+                return {
+                    grade: button.getAttribute('data-grade') ?? '',
+                    text: button.textContent?.trim() ?? '',
+                    left: box.left,
+                    right: box.right,
+                    top: box.top,
+                    bottom: box.bottom,
+                    width: box.width,
+                    height: box.height,
+                };
+            });
+            return {
+                scale: controls?.getAttribute('data-newtab-grade-scale') ?? '',
+                count: controls?.getAttribute('data-newtab-grade-count') ?? '',
+                controls: rect ? { left: rect.left, right: rect.right, width: rect.width, bottom: rect.bottom } : null,
+                viewportWidth: window.innerWidth,
+                buttons: buttonRects,
+            };
+        });
+        assert(layout.scale === 'pass-fail', 'Mobile pass/fail controls did not use the pass-fail layout', layout);
+        assert(layout.count === '2', 'Mobile pass/fail controls did not expose exactly two grade buttons', layout);
+        assert(layout.buttons.map(button => button.grade).join(',') === 'fail,pass', 'Mobile pass/fail buttons were not Fail/Pass', layout);
+        assert(layout.controls && layout.controls.left >= -0.5 && layout.controls.right <= layout.viewportWidth + 0.5, 'Mobile pass/fail controls overflowed the viewport', layout);
+        assert(layout.buttons.every(button => button.width >= 120 && button.height >= 44), 'Mobile pass/fail buttons were too small to tap comfortably', layout);
+        assert(layout.buttons[0].right <= layout.buttons[1].left, 'Mobile pass/fail buttons overlapped', layout);
+        return layout;
+    } finally {
+        await context.close();
+    }
+}
+
 const PERSONAS = [
     {
         name: 'keyless-beginner',
@@ -199,8 +292,9 @@ async function main() {
             queryStudy.push(await runQueryStudyMode(browser, fixture.origin, query, 'word'));
             queryStudy.push(await runQueryStudyMode(browser, fixture.origin, query, 'kanji'));
         }
+        const mobilePassFail = await runMobilePassFailLayout(browser, fixture.origin);
         const blockers = results.flatMap(result => result.feedback.filter(item => item.startsWith('BUG')));
-        console.log(JSON.stringify({ ok: !blockers.length, results, queryStudy }, null, 2));
+        console.log(JSON.stringify({ ok: !blockers.length, results, queryStudy, mobilePassFail }, null, 2));
         if (blockers.length) process.exitCode = 1;
     } finally {
         await browser.close();

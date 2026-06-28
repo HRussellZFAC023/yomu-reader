@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
+import { TRANSCRIPT_PANEL_Z_INDEX } from '../../src/reader/subtitles/subtitle-layout';
+
 const BASE_CSS = readFileSync('src/reader/styles/base.css', 'utf8');
 const KANJI_CSS = readFileSync('src/reader/styles/kanji.css', 'utf8');
 const LOCAL_DICTIONARIES_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
@@ -13,6 +15,12 @@ const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.
 
 function normalizeCss(css: string): string {
     return css.replace(/\s+/g, ' ');
+}
+
+function normalizedRuleBlock(css: string, selector: string): string {
+    const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`).exec(css);
+    return normalizeCss(match?.[1] ?? '');
 }
 
 describe('settings CSS', () => {
@@ -63,11 +71,20 @@ describe('settings CSS', () => {
         expect(normalizedSubtitlesCss).not.toContain('.jpdb-subtitle-panel-open .jpdb-subtitle-rail');
     });
 
+    it('keeps the settings puck clickable when it overlaps the transcript side panel', () => {
+        const puckRule = normalizedRuleBlock(READER_WORDS_OCR_CSS, '.jpdb-reader-fab');
+
+        expect(puckRule).toContain(`z-index: ${TRANSCRIPT_PANEL_Z_INDEX + 1} !important;`);
+        expect(TRANSCRIPT_PANEL_Z_INDEX + 1).toBeLessThan(2147483647);
+    });
+
     it('starts review shortcut groups on their own settings-grid row', () => {
         const normalizedSettingsCss = normalizeCss(SETTINGS_CSS);
 
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group { grid-column: 1 / -1; display: grid; grid-template-columns: inherit; align-items: stretch; gap: inherit; }');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-shortcut-group[hidden] { display: none !important; }');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings .grid > label:not(.inline), .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin: 0; }');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text, .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text { min-height: 2.75em; display: flex; align-items: flex-end; }');
     });
 
     it('paints unknown-pitch page-word underlines with the neutral pitch color', () => {

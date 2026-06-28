@@ -27,4 +27,23 @@ describe('DOM HTML helpers', () => {
         expect(createPolicy).toHaveBeenCalledWith('yomu-reader', clonedOptions);
         expect(element.innerHTML).toBe('<span>ok</span>');
     });
+
+    it('defers head appends when the userscript starts before document nodes exist', async () => {
+        const { appendToDocumentHead } = await import('../../src/reader/dom/html');
+        const headSpy = vi.spyOn(document, 'head', 'get').mockReturnValue(null as unknown as HTMLHeadElement);
+        const documentElementSpy = vi.spyOn(document, 'documentElement', 'get').mockReturnValue(null as unknown as HTMLElement);
+        const bodySpy = vi.spyOn(document, 'body', 'get').mockReturnValue(null as unknown as HTMLElement);
+        const marker = document.createElement('meta');
+
+        appendToDocumentHead(marker);
+
+        expect(marker.isConnected).toBe(false);
+        headSpy.mockRestore();
+        documentElementSpy.mockRestore();
+        bodySpy.mockRestore();
+
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+
+        expect(marker.parentElement).toBe(document.head);
+    });
 });

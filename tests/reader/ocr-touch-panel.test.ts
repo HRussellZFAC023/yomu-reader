@@ -734,7 +734,9 @@ describe('OCR sentence focus', () => {
         expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active),');
         expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="light"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)');
         expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) { color: var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text));');
+        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) { color: var(--jpdb-reader-theme-dark-text, #f2f4f8); text-shadow: none; background: var(--jpdb-ocr-auto-dark-active);');
         expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="light"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
+        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-theme-dark-text, #f2f4f8);');
     });
 
     it('keeps the paused-frame OCR status pill readable in light mode', () => {

@@ -7,7 +7,7 @@
 <p><b>Read Japanese without leaving the page. Understand it, hear it, and save it for study.</b></p>
 
 <p>
-  よむ is a Japanese popup reader for websites, manga, PDFs, and subtitles.
+  よむ is a Japanese popup reader for websites, manga, game text, PDFs, and subtitles.
   It runs as a userscript, works on desktop and mobile, and connects to the tools
   Japanese learners already use: Yomitan dictionaries, Anki, Jiten, and JPDB.
 </p>
@@ -24,6 +24,7 @@
   <a href="https://yomureader.com/yomu.user.js"><b>Install よむ</b></a> ·
   <a href="https://yomureader.com/getting-started">Setup guide</a> ·
   <a href="https://yomureader.com/features">Features</a> ·
+  <a href="https://yomureader.com/guides/read-games-on-steam-deck">PC & gaming</a> ·
   <a href="https://yomureader.com/video-player/index.html">Video reader</a> ·
   <a href="https://yomureader.com/newtab/">Study app</a> ·
   <a href="https://discord.gg/jD6NPURewD">Discord</a>
@@ -43,7 +44,7 @@
 - **Lookup anywhere:** choose Japanese text on normal pages, OCR results, subtitles, and PDFs.
 - **Mine while reading:** create Anki cards, add/review words in Jiten or JPDB, and keep the source sentence/context.
 - **Bring your dictionaries:** import Yomitan ZIPs, JMdict, kanji dictionaries, pitch dictionaries, and frequency dictionaries.
-- **Read media, not only text:** manga/image OCR, YouTube subtitle mining, a local video reader, and a PDF reader.
+- **Read media, not only text:** manga/image OCR, game text handoff, YouTube subtitle mining, a local video reader, and a PDF reader.
 - **Mobile-friendly:** works on iPhone/iPad through userscript apps, with touch-first lookup and mobile Anki handoff.
 - **Free and open source:** MIT-licensed, no account needed to start.
 
@@ -69,6 +70,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 | --- | --- |
 | Web reading | Popup dictionary lookup, furigana, pitch/accent color, audio, examples, and kanji drilldown |
 | Manga and images | OCR overlays that make recognized Japanese lookup-ready without covering the page |
+| Games | Steam Deck and PC handoff guide for browser-readable text, copied lines, OCR helpers, and text-hook outputs |
 | Video | ASB-style subtitle overlay, transcript lookup, mining, and a hosted local-file video reader |
 | PDFs | Browser PDF reader with selectable text, OCR fallback, and the same popup/mining flow |
 | Study | AnkiConnect cards, mobile Anki handoff, Jiten/JPDB actions, offline cached reviews, and the hosted study page |
@@ -81,11 +83,14 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 - [Video reader](https://yomureader.com/video-player/index.html) for local video files and subtitles.
 - [PDF reader](https://yomureader.com/pdf-reader/) for Japanese PDFs and scanned pages.
 - [Study page](https://yomureader.com/newtab/) for review cards in a browser tab or mobile Home Screen shortcut.
+- [PC & gaming guide](https://yomureader.com/guides/read-games-on-steam-deck) for Steam Deck and desktop game text workflows.
 - [Feature guide](https://yomureader.com/features) for screenshots and detailed behavior.
 
 ## Privacy
 
 よむ keeps imported Yomitan dictionaries and settings in your browser. Anki mining talks to your local AnkiConnect endpoint. Jiten, JPDB, Immersion Kit, Nadeshiko, custom audio, local OCR, and optional kanji data sources are contacted only when their related features are enabled or used.
+
+Game OCR helpers, Decky plugins, clipboard capture, screenshot capture, audio capture, and cloud OCR or translation services are external to よむ unless you explicitly choose them.
 
 For the fuller privacy and setup notes, read the docs at [yomureader.com](https://yomureader.com/).
 

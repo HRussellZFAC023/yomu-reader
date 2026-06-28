@@ -121,6 +121,28 @@ describe('canvas readers (BookWalker)', () => {
         expect(collectCanvasReaderSurfaces()).toHaveLength(1);
     });
 
+    it('samples the whole canvas when fingerprinting rendered page content', () => {
+        const rich = canvasPixels(p => {
+            const value = (p * 13) % 256;
+            return [value, value, value, 255];
+        });
+        const flatCorner = canvasPixels(() => [255, 255, 255, 255]);
+        let sampledWholeCanvas = false;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = () => ({
+            drawImage(_canvas: HTMLCanvasElement, ...args: number[]) {
+                sampledWholeCanvas = args.length === 8;
+            },
+            getImageData: () => ({ data: sampledWholeCanvas ? rich : flatCorner }),
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = 1200;
+        canvas.height = 1600;
+
+        expect(canvasRenderedContentSignature(canvas)).toBeTruthy();
+        expect(sampledWholeCanvas).toBe(true);
+    });
+
     it('collects only the on-screen (.currentScreen) live viewer page canvas, skipping decoys + the off-screen buffer', () => {
         stubBookWalkerCanvasContent();
         mountLiveViewerFixture();

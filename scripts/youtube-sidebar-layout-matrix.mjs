@@ -108,6 +108,7 @@ async function runScenario(browser, viewport, placement) {
         const afterResize = await snapshot(page);
         assertLayout(afterResize, viewport.name, assertedPlacementForState(placement, afterResize), 'resize');
         if (placement === 'bottom' || afterResize.placement === 'bottom') assertBottomResizePreservedPageContent(afterFullRender, afterResize, label);
+        else assertSideResizeReservedPlayerSpace(afterFullRender, afterResize, label);
         await page.screenshot({ path: join(outputDir, `${label}-resized.png`), fullPage: false });
 
         const switchTiming = viewport.name === 'ipad-pro-portrait' && placement === 'right'
@@ -373,7 +374,7 @@ async function resizeTranscriptPanelByKeyboard(page, placement) {
     const handle = page.locator('[data-resize-transcript]').first();
     const before = await panelSize(page);
     await handle.focus();
-    const key = placement === 'bottom' ? 'ArrowDown' : placement === 'left' ? 'ArrowRight' : 'ArrowLeft';
+    const key = await resizeKeyThatMovesPanel(page, placement);
     const repeat = placement === 'bottom' ? 4 : 2;
     for (let index = 0; index < repeat; index += 1) await page.keyboard.press(key);
     await page.waitForFunction(({ width, height }) => {
@@ -381,8 +382,28 @@ async function resizeTranscriptPanelByKeyboard(page, placement) {
         if (!(panel instanceof HTMLElement)) return false;
         const rect = panel.getBoundingClientRect();
         return Math.abs(rect.width - width) > 20 || Math.abs(rect.height - height) > 20;
-    }, before, { timeout: 3000 }).catch(() => undefined);
+    }, before, { timeout: 1200 });
     await page.waitForTimeout(120);
+}
+
+async function resizeKeyThatMovesPanel(page, placement) {
+    const metrics = await page.locator('[data-resize-transcript]').first().evaluate(handle => ({
+        max: Number(handle.getAttribute('aria-valuemax')),
+        min: Number(handle.getAttribute('aria-valuemin')),
+        now: Number(handle.getAttribute('aria-valuenow')),
+    }));
+    const canGrow = Number.isFinite(metrics.max) && metrics.now < metrics.max - 4;
+    const canShrink = Number.isFinite(metrics.min) && metrics.now > metrics.min + 4;
+    if (placement === 'bottom') {
+        if (canShrink) return 'ArrowDown';
+        if (canGrow) return 'ArrowUp';
+        throw new Error(`bottom transcript panel cannot be resized: ${JSON.stringify(metrics)}`);
+    }
+    const growKey = placement === 'left' ? 'ArrowRight' : 'ArrowLeft';
+    const shrinkKey = placement === 'left' ? 'ArrowLeft' : 'ArrowRight';
+    if (canGrow) return growKey;
+    if (canShrink) return shrinkKey;
+    throw new Error(`side transcript panel cannot be resized: ${JSON.stringify({ placement, ...metrics })}`);
 }
 
 async function panelSize(page) {
@@ -443,6 +464,7 @@ async function snapshot(page) {
             columnsComputed: computed('#columns'),
             insetClasses: document.documentElement.className,
             insetValue: document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset'),
+            stablePlayerWidth: document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width'),
             setSizeCalls: globalThis.__yomuSetSizeCalls ?? [],
             resizeEvents: globalThis.__yomuResizeEvents ?? 0,
         };
@@ -465,17 +487,22 @@ function assertLayout(state, viewportName, requestedPlacement, phase) {
     assert(!overlaps(state.panel, state.video), `panel overlaps video in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
     assert(state.placement === requestedPlacement, `unexpected side placement in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
     assertStableYouTubePlayerSizing(state, `${viewportName}/${requestedPlacement}/${phase}`);
+    const expectsTightDock = phase === 'open' || phase === 'full-render';
     if (requestedPlacement === 'left') {
         assert(Math.abs(state.panel.left) <= 1, `left panel has a viewport gap in ${viewportName}/${phase}`, compactSnapshot(state));
         assert(state.panel.right <= state.video.left + 1, `left panel covers video in ${viewportName}/${phase}`, compactSnapshot(state));
         assert(state.panel.right <= state.title.left + 1, `left panel covers title area in ${viewportName}/${phase}`, compactSnapshot(state));
-        assert(sideDockGap(state.panel, state.video, 'left') <= 80, `left video is not docked against the panel in ${viewportName}/${phase}`, compactSnapshot(state));
-        assert(sideDockGap(state.panel, state.title, 'left') <= 80, `left title is not docked against the panel in ${viewportName}/${phase}`, compactSnapshot(state));
+        if (expectsTightDock) {
+            assert(sideDockGap(state.panel, state.video, 'left') <= 80, `left video is not docked against the panel in ${viewportName}/${phase}`, compactSnapshot(state));
+            assert(sideDockGap(state.panel, state.title, 'left') <= 80, `left title is not docked against the panel in ${viewportName}/${phase}`, compactSnapshot(state));
+        }
     } else {
         assert(Math.abs(state.panel.right - state.viewport.width) <= 1, `right panel has a viewport gap in ${viewportName}/${phase}`, compactSnapshot(state));
         assert(state.video.right <= state.panel.left + 1, `right panel covers video in ${viewportName}/${phase}`, compactSnapshot(state));
         assert(state.title.right <= state.panel.left + 1, `right panel covers title area in ${viewportName}/${phase}`, compactSnapshot(state));
-        assert(sideDockGap(state.panel, state.video, 'right') <= 80, `right video is not docked against the panel in ${viewportName}/${phase}`, compactSnapshot(state));
+        if (expectsTightDock) {
+            assert(sideDockGap(state.panel, state.video, 'right') <= 80, `right video is not docked against the panel in ${viewportName}/${phase}`, compactSnapshot(state));
+        }
     }
 }
 
@@ -497,6 +524,7 @@ function compactSnapshot(state) {
         moviePlayerStyle: state.moviePlayerStyle,
         insetClasses: state.insetClasses,
         insetValue: state.insetValue,
+        stablePlayerWidth: state.stablePlayerWidth,
         setSizeCallCount: state.setSizeCalls.length,
     };
 }
@@ -516,6 +544,28 @@ function assertBottomResizePreservedPageContent(before, after, label) {
             assert(after.description?.top < after.panel.top, `bottom drawer resize did not reveal the video description in ${label}`, compactSnapshot(after));
         }
     }
+}
+
+function assertSideResizeReservedPlayerSpace(before, after, label) {
+    assert(after.panel.width > before.panel.width + 20, `side transcript resize did not grow the panel in ${label}`, {
+        before: compactSnapshot(before),
+        after: compactSnapshot(after),
+    });
+    assert(after.video.width < before.video.width - 20, `stable YouTube video width did not shrink after panel resize in ${label}`, {
+        before: compactSnapshot(before),
+        after: compactSnapshot(after),
+    });
+    assert(after.setSizeCalls.length === before.setSizeCalls.length, `stable resize called YouTube setSize in ${label}`, {
+        before: compactSnapshot(before),
+        after: compactSnapshot(after),
+    });
+    const beforeStableWidth = Number.parseFloat(before.stablePlayerWidth || '');
+    const afterStableWidth = Number.parseFloat(after.stablePlayerWidth || '');
+    assert(Number.isFinite(beforeStableWidth) && Number.isFinite(afterStableWidth) && afterStableWidth < beforeStableWidth - 20,
+        `stable player width variable did not shrink after side resize in ${label}`, {
+            before: compactSnapshot(before),
+            after: compactSnapshot(after),
+        });
 }
 
 function rectDelta(a, b) {

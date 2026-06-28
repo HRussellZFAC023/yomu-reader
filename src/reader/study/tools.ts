@@ -132,6 +132,10 @@ const translationInFlight = new Map<string, Promise<string>>();
 const grammarHintCache = new Map<string, GrammarHint[]>();
 let grammarRuleDataPromise: Promise<Record<string, GrammarRuleData>> | undefined;
 
+export function resetGrammarRuleDataCacheForTests(): void {
+    grammarRuleDataPromise = undefined;
+}
+
 export function listLocalGrammarRuleExamples(): LocalGrammarRuleExample[] {
     return GRAMMAR_PATTERNS.flatMap(rule => (GRAMMAR_RULE_EXAMPLES[rule.ruleId] ?? []).map(example => ({
         ruleId: rule.ruleId,

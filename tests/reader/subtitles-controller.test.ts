@@ -20,6 +20,7 @@ afterEach(() => {
     // The remembered manual subtitle position persists via gmStorage (localStorage
     // in tests); clear it so a drag in one test cannot leak into the next.
     localStorage.removeItem(SUBTITLE_DRAG_OFFSET_KEY);
+    localStorage.removeItem('jpdb-reader-transcript-panel-size');
 });
 import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { withViewport } from './helpers/browser-fixtures';
@@ -1073,7 +1074,7 @@ Watch the cat
         }
     });
 
-    it('shrinks Yomu video frames immediately when side space is tight', () => {
+    it('shrinks hosted Yomu video frames when a side transcript panel reserves space', () => {
         withViewport(1180, 760, () => {
             document.body.innerHTML = '<section data-yomu-video-frame><video controls></video></section>';
             const { controller } = createInstalledSubtitleController({
@@ -1100,19 +1101,24 @@ Watch the cat
                 const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
                 expect(panel.hidden).toBe(false);
                 expect(panel.dataset.transcriptPlacement).toBe('right');
-                expect(Number.parseFloat(frame.style.width)).toBeLessThan(1040);
-                expect(Number.parseFloat(frame.style.width)).toBeGreaterThan(500);
-                expect(frame.style.maxWidth).toBe(frame.style.width);
+                expect(panel.style.left).toBe('792px');
+                expect(panel.style.width).toBe('378px');
+                expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')).toBe('388px');
+                expect(frame.style.width).toBe('712px');
+                expect(frame.style.maxWidth).toBe('712px');
                 expect(frame.style.height).toBe('585px');
+                expect(frame.style.marginRight).toBe('318px');
+                expect(video.style.width).toBe('');
                 expect(video.style.height).toBe('585px');
-                expect(document.documentElement.className).toContain('jpdb-subtitle-video-inset-right');
+                expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')).toBe(true);
+                expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-side')).toBe(false);
             } finally {
                 controller.destroy();
             }
         });
     });
 
-    it('uses free YouTube side space for the transcript without resizing the player', () => {
+    it('uses free YouTube side space initially while allowing the panel to resize wider', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
@@ -1158,12 +1164,91 @@ Watch the cat
                     expect(Number.parseInt(panel.style.left, 10)).toBeGreaterThanOrEqual(1004);
                     expect(Number.parseInt(panel.style.left, 10) + Number.parseInt(panel.style.width, 10)).toBe(1440);
                     expect(Number.parseInt(panel.style.width, 10)).toBeLessThanOrEqual(436);
+                    expect(Number.parseInt(panel.style.left, 10) - Math.round(movie.getBoundingClientRect().right)).toBe(10);
+                    const resizeHandle = panel.querySelector<HTMLElement>('[data-resize-transcript]')!;
+                    expect(resizeHandle.getAttribute('aria-valuemax')).toBe('891');
+                    expect(resizeHandle.getAttribute('aria-valuenow')).toBe(String(Number.parseInt(panel.style.width, 10)));
                     expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-right')).toBe(true);
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width')).toBe('970px');
                     expect(movie.style.width).toBe('');
                     expect(movie.style.maxWidth).toBe('');
                     expect(primary.style.width).toBe('');
                     expect(primary.style.marginLeft).toBe('');
                     expect(document.documentElement.className).not.toContain('jpdb-subtitle-video-inset');
+                } finally {
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('grows a YouTube side transcript past current free space by shrinking the stable player width', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=stable-resize') as unknown as Location,
+        });
+        try {
+            withViewport(1440, 900, () => {
+                document.body.innerHTML = `
+                    <ytd-watch-flexy>
+                        <div id="columns">
+                            <div id="primary">
+                                <div id="movie_player" class="html5-video-player"><video class="html5-main-video" controls></video></div>
+                            </div>
+                            <div id="secondary"></div>
+                        </div>
+                    </ytd-watch-flexy>
+                `;
+                const { controller } = createInstalledSubtitleController({
+                    subtitleTranscriptVisible: false,
+                    subtitleTranscriptPlacement: 'right',
+                });
+                try {
+                    const movie = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: ReturnType<typeof vi.fn> };
+                    const primary = document.querySelector<HTMLElement>('#primary')!;
+                    const video = document.querySelector<HTMLVideoElement>('video')!;
+                    movie.setSize = vi.fn();
+                    mockElementRect(movie, new DOMRect(24, 72, 970, 546));
+                    mockElementRect(primary, new DOMRect(24, 72, 970, 820));
+                    mockElementRect(video, new DOMRect(24, 72, 970, 546));
+                    attachVideo(controller, { video });
+                    const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+                    const internals = controllerInternals<{
+                        cues: Array<typeof cue>;
+                        currentCue: typeof cue;
+                        openLinesPanel: () => void;
+                    }>(controller);
+                    internals.cues = [cue];
+                    internals.currentCue = cue;
+
+                    internals.openLinesPanel();
+
+                    const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                    const handle = panel.querySelector<HTMLElement>('[data-resize-transcript]')!;
+                    mockElementRect(panel, new DOMRect(
+                        Number.parseInt(panel.style.left, 10),
+                        Number.parseInt(panel.style.top, 10),
+                        Number.parseInt(panel.style.width, 10),
+                        Number.parseInt(panel.style.height, 10),
+                    ));
+
+                    handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+
+                    expect(panel.dataset.transcriptPlacement).toBe('right');
+                    expect(panel.style.width).toBe('484px');
+                    expect(panel.style.left).toBe('956px');
+                    expect(handle.getAttribute('aria-valuenow')).toBe('484');
+                    expect(handle.getAttribute('aria-valuemax')).toBe('891');
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-right')).toBe(true);
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width')).toBe('922px');
+                    expect(document.documentElement.className).not.toContain('jpdb-subtitle-video-inset');
+                    expect(movie.setSize).not.toHaveBeenCalled();
                 } finally {
                     controller.destroy();
                 }
@@ -1221,9 +1306,10 @@ Watch the cat
                     expect(panel.dataset.transcriptPlacement).toBe('left');
                     expect(Number.parseInt(panel.style.left, 10)).toBe(0);
                     expect(Number.parseInt(panel.style.width, 10)).toBeGreaterThanOrEqual(300);
-                    expect(Number.parseInt(panel.style.width, 10)).toBeLessThanOrEqual(418);
+                    expect(Number.parseInt(panel.style.width, 10)).toBe(460);
                     expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-left')).toBe(true);
-                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-offset')).toBe('428px');
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-offset')).toBe('470px');
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width')).toBe('960px');
                     expect(movie.style.width).toBe('');
                     expect(primary.style.width).toBe('');
                     expect(primary.style.marginLeft).toBe('');
@@ -1474,6 +1560,41 @@ Watch the cat
                 controller.destroy();
             }
         });
+    });
+
+    it('does not throw if fullscreen state sync runs before document.body exists', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        const fullscreen = stubFullscreenElement(null);
+        const body = document.body;
+        const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+        const internals = controllerInternals<{ syncFullscreenState: () => void }>(controller);
+
+        try {
+            document.documentElement.removeChild(body);
+            fullscreen.set(document.documentElement);
+
+            expect(() => internals.syncFullscreenState()).not.toThrow();
+            expect(root.parentElement).toBe(document.documentElement);
+            expect(panel.parentElement).toBe(document.documentElement);
+        } finally {
+            if (!document.body) document.documentElement.appendChild(body);
+            fullscreen.restore();
+            controller.destroy();
+        }
+    });
+
+    it('does not throw when clearing YouTube stable layout before document.documentElement exists', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        const rootSpy = vi.spyOn(document, 'documentElement', 'get').mockReturnValue(null as unknown as HTMLElement);
+        const internals = controllerInternals<{ clearStableYouTubeTranscriptLayout: () => boolean }>(controller);
+
+        try {
+            expect(internals.clearStableYouTubeTranscriptLayout()).toBe(false);
+        } finally {
+            rootSpy.mockRestore();
+            controller.destroy();
+        }
     });
 
     it('does not mount the subtitle overlay inside a fullscreen video element', () => {
@@ -3279,7 +3400,9 @@ Watch the cat
         expect(SUBTITLES_YOUTUBE_CSS)
             .not.toContain('.jpdb-subtitle-panel-open .jpdb-subtitle-rail');
         expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('max-height: min(5.4em, 45%, calc(100% - 24px));\n  overflow: hidden;');
+            .toContain('max-height: min(5.4em, 45%, calc(100% - 24px));\n  overflow: visible;');
+        expect(SUBTITLES_YOUTUBE_CSS)
+            .toContain('.jpdb-subtitle-lines {\n  min-height: 1.36em;\n  max-height: inherit;\n  overflow: hidden;');
         expect(SUBTITLES_YOUTUBE_CSS)
             .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open)');
     });
@@ -3408,7 +3531,7 @@ Watch the cat
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('.jpdb-subtitle-drag-handle { position: absolute;');
-        expect(normalizedCss).toContain('max-height: min(5.4em, 45%, calc(100% - 24px)); overflow: hidden; pointer-events: none;');
+        expect(normalizedCss).toContain('max-height: min(5.4em, 45%, calc(100% - 24px)); overflow: visible; pointer-events: none;');
         expect(normalizedCss).toContain('.jpdb-subtitle-lines { min-height: 1.36em; max-height: inherit; overflow: hidden; pointer-events: none; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle');
         expect(normalizedCss).toContain('opacity: .56; pointer-events: auto;');
@@ -3819,6 +3942,46 @@ Watch the cat
 
         try {
             expect(readPageCaptionText(video, readerRoot)).toBe('今日は読む。');
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('reads mobile YouTube captions from the detached fullscreen control overlay', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://m.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <ytm-player fullscreen>
+                <video></video>
+            </ytm-player>
+            <div id="player-control-overlay" class="fadein">
+                <button type="button" aria-label="Pause">Pause</button>
+                <div class="caption-window"><span class="ytp-caption-segment">先生いつもありがとうございました。</span></div>
+                <button type="button" aria-label="Exit fullscreen">Exit fullscreen</button>
+            </div>
+            <div class="jpdb-subtitle-player" data-jpdb-reader-root="true">
+                <div class="jpdb-subtitle-status">字幕トラックはまだ検出されていません。</div>
+            </div>
+        `;
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const caption = document.querySelector('.ytp-caption-segment') as HTMLElement;
+        const readerRoot = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 0, right: 390, top: 0, bottom: 664, width: 390, height: 664 }),
+        });
+        Object.defineProperty(caption, 'innerText', { value: caption.textContent ?? '' });
+        Object.defineProperty(caption, 'getBoundingClientRect', {
+            value: () => ({ left: 48, right: 342, top: 548, bottom: 584, width: 294, height: 36 }),
+        });
+
+        try {
+            expect(readPageCaptionText(video, readerRoot)).toBe('先生いつもありがとうございました。');
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,
@@ -4390,6 +4553,147 @@ Watch the cat
                 controller.destroy();
             }
         });
+    });
+
+    it('reserves new YouTube player space while resizing the stable side panel', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=resize123') as unknown as Location,
+        });
+
+        type TestTranscriptPanelLayout = {
+            placement: 'left' | 'right' | 'bottom';
+            left: number;
+            top: number;
+            width: number;
+            height: number;
+            viewportWidth: number;
+            viewportHeight: number;
+            margin: number;
+            maxWidth: number;
+        };
+        const videoRect = new DOMRect(24, 68, 1108, 623.25);
+
+        try {
+            withViewport(1600, 1000, () => {
+                const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+                try {
+                    attachVideo(controller, { rect: videoRect });
+                    const internals = controllerInternals<{
+                        stableYouTubeSideTranscriptDrawerLayout: (
+                            placement: 'right',
+                            options: {
+                                viewportWidth: number;
+                                viewportHeight: number;
+                                anchorTop: number;
+                                compactPanel: boolean;
+                                preferredPlacement: 'right';
+                                size?: { sideWidth?: number };
+                            },
+                            rect: DOMRect,
+                        ) => TestTranscriptPanelLayout | null;
+                        applyStableYouTubeTranscriptLayout: (layout: TestTranscriptPanelLayout, rect: DOMRect) => boolean;
+                    }>(controller);
+                    const options = {
+                        viewportWidth: 1600,
+                        viewportHeight: 1000,
+                        anchorTop: 68,
+                        compactPanel: false,
+                        preferredPlacement: 'right' as const,
+                    };
+
+                    const defaultLayout = internals.stableYouTubeSideTranscriptDrawerLayout('right', options, videoRect);
+                    expect(defaultLayout?.width).toBe(458);
+
+                    const resizedLayout = internals.stableYouTubeSideTranscriptDrawerLayout('right', {
+                        ...options,
+                        size: { sideWidth: 578 },
+                    }, videoRect);
+                    expect(resizedLayout).toMatchObject({ placement: 'right', left: 1022, width: 578 });
+                    expect(resizedLayout?.maxWidth).toBeGreaterThan(578);
+
+                    expect(internals.applyStableYouTubeTranscriptLayout(resizedLayout!, videoRect)).toBe(true);
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-right')).toBe(true);
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width')).toBe('988px');
+                } finally {
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('uses generic inset instead of YouTube stable layout for hosted Yomu Video side panels', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('http://127.0.0.1:5174/yomu-reader/video-player/index.html') as unknown as Location,
+        });
+
+        type TestTranscriptPanelLayout = {
+            placement: 'left' | 'right' | 'bottom';
+            left: number;
+            top: number;
+            width: number;
+            height: number;
+            viewportWidth: number;
+            viewportHeight: number;
+            margin: number;
+            maxWidth: number;
+        };
+
+        try {
+            withViewport(1600, 900, () => {
+                document.body.innerHTML = '<section class="player-shell" data-yomu-video-frame><video controls></video></section>';
+                const frame = document.querySelector<HTMLElement>('[data-yomu-video-frame]')!;
+                const video = document.querySelector<HTMLVideoElement>('video')!;
+                const videoRect = new DOMRect(400, 60, 1000, 562.5);
+                mockElementRect(frame, videoRect);
+                mockElementRect(video, videoRect);
+
+                const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+                try {
+                    attachVideo(controller, { video, rect: videoRect });
+                    const internals = controllerInternals<{
+                        applyVideoInsetForTranscriptLayout: (
+                            layout: TestTranscriptPanelLayout,
+                            rect: DOMRect,
+                            options?: { resizeEventMode?: 'none' },
+                        ) => boolean;
+                    }>(controller);
+                    const changed = internals.applyVideoInsetForTranscriptLayout({
+                        placement: 'right',
+                        left: 1030,
+                        top: 60,
+                        width: 560,
+                        height: 830,
+                        viewportWidth: 1600,
+                        viewportHeight: 900,
+                        margin: 10,
+                        maxWidth: 980,
+                    }, videoRect, { resizeEventMode: 'none' });
+
+                    expect(changed).toBe(true);
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')).toBe(true);
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-side')).toBe(false);
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')).toBe('570px');
+                    expect(frame.style.width).toBe('620px');
+                } finally {
+                    controller.destroy();
+                }
+            });
+        } finally {
+            document.body.innerHTML = '';
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
     });
 
     it('closes the bottom transcript drawer when a handle tap loses pointer capture', () => {

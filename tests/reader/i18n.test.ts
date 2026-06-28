@@ -61,6 +61,31 @@ describe('interface language resolution', () => {
         expect(cardCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 
+    it('keeps hosted homepage hero and media chrome covered by Japanese docs copy', () => {
+        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const homeSource = readFileSync('docs/index.md', 'utf8');
+        const homepageCopy = uniqueEnglishCopy([
+            ...frontmatterTextCopy(homeSource),
+            ...htmlCardCopy(homeSource),
+            ...htmlAttributeCopy(homeSource),
+        ]);
+
+        expect(homepageCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
+    });
+
+    it('keeps hosted support actions covered by Japanese docs copy', () => {
+        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const supportSource = readFileSync('docs/support.md', 'utf8');
+        const supportCopy = uniqueEnglishCopy([
+            ...frontmatterTextCopy(supportSource),
+            ...markdownHeadings(supportSource),
+            ...htmlCardCopy(supportSource),
+            ...htmlLinkCopy(supportSource),
+        ]);
+
+        expect(supportCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
+    });
+
     it('keeps study setup callouts covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
         const calloutCopy = [
@@ -225,6 +250,31 @@ function htmlLinkCopy(source: string): string[] {
     return [...source.matchAll(/<a\b[^>]*>(.*?)<\/a>/g)]
         .map(match => decodeMarkdownHtml(match[1].trim()))
         .filter(Boolean);
+}
+
+function frontmatterTextCopy(source: string): string[] {
+    const frontmatter = source.startsWith('---\n') ? between(source, '---\n', '\n---') : '';
+    return [...frontmatter.matchAll(/^\s{0,8}(?:title|description|name|text|tagline|alt):\s*(.+)$/gm)]
+        .flatMap(match => htmlTextSegments(match[1].trim()))
+        .filter(Boolean);
+}
+
+function htmlAttributeCopy(source: string): string[] {
+    return [...source.matchAll(/\b(?:aria-label|alt|title|placeholder)="([^"]+)"/g)]
+        .flatMap(match => htmlTextSegments(decodeMarkdownHtml(match[1].trim())))
+        .filter(Boolean);
+}
+
+function htmlTextSegments(value: string): string[] {
+    return value
+        .replace(/^['"]|['"]$/g, '')
+        .split(/<br\s*\/?>/gi)
+        .map(segment => segment.replace(/<[^>]+>/g, '').trim())
+        .filter(Boolean);
+}
+
+function uniqueEnglishCopy(values: string[]): string[] {
+    return [...new Set(values.map(value => value.trim()).filter(value => /[A-Za-z]/.test(value)))];
 }
 
 function decodeMarkdownLinks(value: string): string {

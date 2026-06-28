@@ -2640,6 +2640,7 @@ function kanjiDrilldownSnapshotFromDom() {
 }
 
 async function auditHoverLookup(browser, server) {
+    const hoverOpenDelayMs = 180;
     const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
         body{font:24px/1.8 system-ui;margin:40px;color:#171a1f}
     </style></head><body><p>今日は静かな喫茶店で新しい本を読みました。明日は学校で勉強します。</p></body></html>`;
@@ -2655,7 +2656,7 @@ async function auditHoverLookup(browser, server) {
             audioViaBlob: false,
             audioEnableDefaultSources: false,
             audioSources: [{ type: 'custom', url: 'https://audio.test/{term}.mp3', voice: '', enabled: true }],
-            hoverOpenDelayMs: 40,
+            hoverOpenDelayMs,
             hoverCloseDelayMs: 140,
             localDictionariesEnabled: true,
             localDictionaryShowKanji: true,
@@ -2672,6 +2673,18 @@ async function auditHoverLookup(browser, server) {
     assertAudit(todayWord, 'no 今日 scanned word bounding box found');
     assertAudit(quietWord, 'no 静か scanned word bounding box found');
     await page.keyboard.down('Shift');
+    await page.mouse.move(8, 8);
+    await page.mouse.move(todayWord.x + todayWord.width / 2, todayWord.y + todayWord.height / 2);
+    await page.waitForTimeout(110);
+    await page.mouse.move(quietWord.x + quietWord.width / 2, quietWord.y + quietWord.height / 2, { steps: 4 });
+    await page.waitForTimeout(110);
+    assertAudit(await page.locator('.jpdb-reader-popover').count() === 1, 'moving pointer across parsed words did not open a hover popup without stopping');
+    const movingHoverSpelling = await page.locator('.jpdb-reader-popover .jpdb-reader-spelling').first().innerText();
+    assertAudit(movingHoverSpelling.includes('静'), `moving pointer hover opened the wrong word: ${movingHoverSpelling}`);
+    await page.keyboard.press('Escape');
+    await waitForAudit(page, () => !document.querySelector('.jpdb-reader-popover'), 3000, 'Escape did not close the moving-pointer hover popup');
+    await page.mouse.move(8, 8);
+    await page.waitForTimeout(260);
     const termAudioRequestsBefore = audioTestRequestCount(requests);
     const termAudioPlaysBefore = await audioPlayCount(page);
     await page.mouse.move(todayWord.x + todayWord.width / 2, todayWord.y + todayWord.height / 2);

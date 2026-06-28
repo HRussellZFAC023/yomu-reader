@@ -1095,7 +1095,14 @@ export class SubtitlePlayerController {
         this.destroy();
         this.destroyed = false;
         this.abortController = new AbortController();
-        this.install();
+        const body = document.body;
+        if (!body) {
+            document.addEventListener('DOMContentLoaded', () => {
+                if (!this.destroyed) this.init();
+            }, this.eventOptions({ once: true }));
+            return;
+        }
+        if (!this.install()) return;
         this.syncYouTubeMobileBottomSheetState();
         this.observer = new MutationObserver(mutations => {
             this.syncYouTubeMobileBottomSheetState();
@@ -1106,7 +1113,7 @@ export class SubtitlePlayerController {
             if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
             this.scheduleDiscoverVideo();
         });
-        this.observer.observe(document.body, {
+        this.observer.observe(body, {
             attributeFilter: ['aria-modal', 'class', 'data-yomu-inline-fullscreen', 'fullscreen', 'hidden'],
             attributes: true,
             childList: true,
@@ -1275,8 +1282,10 @@ export class SubtitlePlayerController {
         this.renderTranscriptPanel(true);
     }
 
-    private install(): void {
-        if (this.root) return;
+    private install(): boolean {
+        if (this.root) return true;
+        const body = document.body;
+        if (!body) return false;
         document.querySelectorAll<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"], .jpdb-subtitle-list[data-jpdb-reader-root="true"]').forEach(element => element.remove());
         if (isYouTubePage() || document.querySelector('[data-yomu-video-frame]')) installSubtitleFullscreenRedirect();
 
@@ -1318,8 +1327,8 @@ export class SubtitlePlayerController {
         for (const eventName of TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS) {
             this.transcriptPanel.addEventListener(eventName, event => this.stopTranscriptPanelPropagation(event), this.eventOptions());
         }
-        document.body.appendChild(root);
-        document.body.appendChild(this.transcriptPanel);
+        body.appendChild(root);
+        body.appendChild(this.transcriptPanel);
         this.root = root;
         this.bindSubtitleDragHandle();
         this.restoreSubtitleDragOffset();
@@ -1327,6 +1336,7 @@ export class SubtitlePlayerController {
         // Touch devices get no pointermove, so without this the rail stays
         // visible forever; tapping the video re-reveals it via pointerdown.
         this.scheduleControlsIdle();
+        return true;
     }
 
     private scheduleDiscoverVideo(): void {
@@ -5932,7 +5942,7 @@ export class SubtitlePlayerController {
     }
 
     private transcriptDrawerLayout(options: SubtitleDrawerLayoutOptions, referenceVideoRect: DOMRect): TranscriptPanelLayout {
-        if (this.shouldKeepVideoLayoutStableForTranscript()) {
+        if (this.shouldUseStableYouTubeTranscriptLayout()) {
             return this.stableVideoTranscriptDrawerLayout(options, referenceVideoRect);
         }
         const layoutOptions = this.withConstrainedSideTranscriptSize(options, referenceVideoRect);
@@ -5947,7 +5957,7 @@ export class SubtitlePlayerController {
         return resolvedLayout;
     }
 
-    private shouldKeepVideoLayoutStableForTranscript(): boolean {
+    private shouldUseStableYouTubeTranscriptLayout(): boolean {
         if (!this.video) return false;
         return isYouTubePage();
     }
@@ -6023,20 +6033,14 @@ export class SubtitlePlayerController {
     ): TranscriptPanelLayout | null {
         if (videoRect.width <= 0 || videoRect.height <= 0) return null;
         const margin = TRANSCRIPT_PANEL_MARGIN;
-        const videoWidth = Math.round(videoRect.width);
-        const availableWidth = Math.floor(placement === 'left'
-            ? options.viewportWidth - videoWidth - margin - Math.max(0, Math.round(videoRect.left))
-            : options.viewportWidth - Math.round(videoRect.right + margin));
         const maxWidth = this.maxSideTranscriptWidthForVideo(placement, options, videoRect);
-        if (Math.max(availableWidth, maxWidth) < TRANSCRIPT_PANEL_MIN_SIDE_WIDTH) return null;
-        const panelMaxWidth = availableWidth >= TRANSCRIPT_PANEL_MIN_SIDE_WIDTH
-            ? availableWidth
-            : maxWidth;
+        if (maxWidth < TRANSCRIPT_PANEL_MIN_SIDE_WIDTH) return null;
+        const currentRightFreeWidth = Math.floor(options.viewportWidth - Math.round(videoRect.right + margin));
         const defaultWidth = placement === 'right'
-            ? availableWidth
-            : Math.min(460, options.viewportWidth * 0.32);
+            ? Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, Math.min(maxWidth, currentRightFreeWidth))
+            : Math.min(460, maxWidth);
         const desiredWidth = options.size?.sideWidth ?? defaultWidth;
-        const width = Math.round(Math.min(Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, desiredWidth), panelMaxWidth));
+        const width = Math.round(Math.min(Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, desiredWidth), maxWidth));
         const top = Math.round(Math.min(
             Math.max(options.anchorTop ?? videoRect.top ?? 72, margin),
             Math.max(margin, options.viewportHeight - 280),
@@ -6050,7 +6054,7 @@ export class SubtitlePlayerController {
             viewportWidth: options.viewportWidth,
             viewportHeight: options.viewportHeight,
             margin,
-            maxWidth: availableWidth,
+            maxWidth,
         };
     }
 
@@ -6221,7 +6225,7 @@ export class SubtitlePlayerController {
             this.clearVideoInsetForTranscriptPanel();
             return false;
         }
-        if (this.shouldKeepVideoLayoutStableForTranscript()) {
+        if (this.shouldUseStableYouTubeTranscriptLayout()) {
             const insetChanged = this.videoInset.clear(this.video);
             const stableChanged = this.applyStableYouTubeTranscriptLayout(layout, videoRect);
             return insetChanged || stableChanged;
@@ -6280,7 +6284,7 @@ export class SubtitlePlayerController {
 
     private fullscreenReaderRootParent(fullscreenHost: HTMLElement | null): HTMLElement {
         return !fullscreenHost || fullscreenHost === document.documentElement
-            ? document.body
+            ? (document.body ?? document.documentElement)
             : fullscreenHost;
     }
 
@@ -6373,6 +6377,7 @@ export class SubtitlePlayerController {
     private applyStableYouTubeTranscriptLayout(layout: TranscriptPanelLayout, videoRect: DOMRect): boolean {
         if (!isYouTubePage() || layout.placement === 'bottom') return this.clearStableYouTubeTranscriptLayout();
         const root = document.documentElement;
+        if (!root) return false;
         let changed = false;
         const setClass = (className: typeof YOUTUBE_STABLE_TRANSCRIPT_CLASSES[number], enabled: boolean): void => {
             const hadClass = root.classList.contains(className);
@@ -6397,6 +6402,7 @@ export class SubtitlePlayerController {
 
     private clearStableYouTubeTranscriptLayout(): boolean {
         const root = document.documentElement;
+        if (!root) return false;
         let changed = false;
         for (const className of YOUTUBE_STABLE_TRANSCRIPT_CLASSES) {
             if (!root.classList.contains(className)) continue;
@@ -6413,6 +6419,7 @@ export class SubtitlePlayerController {
 
     private measureWithoutStableYouTubeTranscriptLayout<T>(callback: () => T): T {
         const root = document.documentElement;
+        if (!root) return callback();
         const classSnapshot = YOUTUBE_STABLE_TRANSCRIPT_CLASSES.map(className => [className, root.classList.contains(className)] as const);
         const styleSnapshot = YOUTUBE_STABLE_TRANSCRIPT_STYLE_PROPERTIES.map(property => [property, root.style.getPropertyValue(property)] as const);
         this.clearStableYouTubeTranscriptLayout();

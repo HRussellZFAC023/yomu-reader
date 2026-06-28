@@ -317,6 +317,7 @@ interface TextMirrorHostState {
     visibilityPriority: string;
     overflow: string;
     overflowPriority: string;
+    overflowAdjusted: boolean;
     position: string;
     positionPriority: string;
     positioned: boolean;
@@ -1406,6 +1407,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
 
     const text = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text.length);
+    const renderPlan = whitespaceCollapsedNonDestructiveRender(text, safeTokens);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
@@ -1424,10 +1426,10 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     mirror.dataset.sourceText = text;
     mirror.dataset.renderSignature = signature;
     const hasRenderedRuby = !suppressRuby && safeTokens.some(token => token.rubies.length > 0);
-    const state = styleTextMirrorHost(host);
+    const state = styleTextMirrorHost(host, hasRenderedRuby);
     try {
         styleTextMirror(mirror, host, hasRenderedRuby);
-        mirror.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
+        mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
             parent: host,
             hasNativeRuby: targetHasNativeRuby(target),
             suppressRuby,
@@ -1444,6 +1446,59 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
         removeTextMirror(host);
         throw error;
     }
+}
+
+function whitespaceCollapsedNonDestructiveRender(text: string, tokens: JPDBToken[]): { text: string; tokens: JPDBToken[] } {
+    if (!/\s{2,}|\r|\n/u.test(text)) return { text, tokens };
+    const { normalized, offsets } = collapseWhitespaceWithOffsets(text);
+    if (normalized === text) return { text, tokens };
+    return {
+        text: normalized,
+        tokens: tokens.map(token => remapTokenOffsets(token, offsets, normalized)),
+    };
+}
+
+function collapseWhitespaceWithOffsets(text: string): { normalized: string; offsets: number[] } {
+    const offsets = new Array<number>(text.length + 1);
+    let normalized = '';
+    let index = 0;
+    while (index < text.length) {
+        if (/\s/u.test(text[index] ?? '')) {
+            const start = index;
+            while (index < text.length && /\s/u.test(text[index] ?? '')) index += 1;
+            const mapped = normalized.length;
+            if (normalized.length > 0 && index < text.length) normalized += ' ';
+            for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
+            continue;
+        }
+        offsets[index] = normalized.length;
+        normalized += text[index];
+        index += 1;
+    }
+    offsets[text.length] = normalized.length;
+    return { normalized, offsets };
+}
+
+function remapTokenOffsets(token: JPDBToken, offsets: number[], sentence: string): JPDBToken {
+    const start = offsets[token.start] ?? token.start;
+    const end = offsets[token.end] ?? token.end;
+    return {
+        ...token,
+        start,
+        end,
+        length: Math.max(0, end - start),
+        sentence,
+        rubies: token.rubies.map(ruby => {
+            const rubyStart = offsets[ruby.start] ?? ruby.start;
+            const rubyEnd = offsets[ruby.end] ?? ruby.end;
+            return {
+                ...ruby,
+                start: rubyStart,
+                end: rubyEnd,
+                length: Math.max(0, rubyEnd - rubyStart),
+            };
+        }),
+    };
 }
 
 function currentTextMirror(host: HTMLElement): HTMLElement | null {
@@ -1942,8 +1997,9 @@ function hasCompactCenteredMediaChrome(parent: HTMLElement, link: HTMLElement): 
 
 function isLayoutFragileMediaTileText(parent: HTMLElement): boolean {
     if (isReadableProseContext(parent)) return false;
-    if (!hasCompactMediaRubyRisk(parent)) return false;
-    return Boolean(closestCompactMediaContext(parent));
+    const context = closestCompactMediaContext(parent);
+    if (!context) return false;
+    return hasCompactMediaRubyRisk(parent) || hasCompactMediaSizingRisk(parent, context);
 }
 
 function hasCompactMediaRubyRisk(parent: HTMLElement): boolean {
@@ -1990,6 +2046,29 @@ function isCompactMediaContext(element: HTMLElement): boolean {
     return structured && compact;
 }
 
+function hasCompactMediaSizingRisk(parent: HTMLElement, context: HTMLElement): boolean {
+    const textLength = compactLength(parent.textContent ?? '');
+    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
+    if (context.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return true;
+    return Boolean(closestMediaLayoutContainer(parent));
+}
+
+function closestMediaLayoutContainer(parent: HTMLElement): HTMLElement | null {
+    let current: HTMLElement | null = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 8; depth++) {
+        if (mediaCarouselMatch(current)) return current;
+        if (current.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return current;
+        if (isPositionedUiContainer(current)) return current;
+        current = current.parentElement;
+    }
+    return null;
+}
+
+function isPositionedUiContainer(element: HTMLElement): boolean {
+    const position = safeComputedStyle(element).position;
+    return position === 'absolute' || position === 'fixed' || position === 'sticky';
+}
+
 function nonDestructiveScanHost(target: ScanTextTarget): HTMLElement {
     if (!isFragmentTextTarget(target)) return target.parent;
     const parents = target.fragments
@@ -2022,7 +2101,7 @@ function targetHasNativeRuby(target: ScanTextTarget): boolean {
         : Boolean(target.hasNativeRuby);
 }
 
-function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
+function styleTextMirrorHost(host: HTMLElement, allowOverflow = true): TextMirrorHostState {
     const computed = safeComputedStyle(host);
     const state: TextMirrorHostState = {
         observer: new MutationObserver(() => undefined),
@@ -2031,6 +2110,7 @@ function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
         visibilityPriority: host.style.getPropertyPriority('visibility'),
         overflow: host.style.getPropertyValue('overflow'),
         overflowPriority: host.style.getPropertyPriority('overflow'),
+        overflowAdjusted: allowOverflow,
         position: host.style.getPropertyValue('position'),
         positionPriority: host.style.getPropertyPriority('position'),
         positioned: computed.position === 'static',
@@ -2039,7 +2119,7 @@ function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
         displayAdjusted: computed.display === 'inline',
     };
     textMirrorHosts.set(host, state);
-    host.style.setProperty('overflow', 'visible', 'important');
+    if (state.overflowAdjusted) host.style.setProperty('overflow', 'visible', 'important');
     if (state.positioned) host.style.setProperty('position', 'relative', 'important');
     if (state.displayAdjusted) host.style.setProperty('display', 'inline-block', 'important');
     return state;
@@ -2048,7 +2128,7 @@ function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
 function hideTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
     textMirrorHosts.set(host, state);
     host.style.setProperty('visibility', 'hidden', 'important');
-    host.style.setProperty('overflow', 'visible', 'important');
+    if (state.overflowAdjusted) host.style.setProperty('overflow', 'visible', 'important');
     if (state.positioned) host.style.setProperty('position', 'relative', 'important');
     if (state.displayAdjusted) host.style.setProperty('display', 'inline-block', 'important');
 }
@@ -2171,7 +2251,7 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
     if (host.style.getPropertyValue('visibility') !== 'hidden') {
         host.style.setProperty('visibility', 'hidden', 'important');
     }
-    if (host.style.getPropertyValue('overflow') !== 'visible') {
+    if (state.overflowAdjusted && host.style.getPropertyValue('overflow') !== 'visible') {
         host.style.setProperty('overflow', 'visible', 'important');
     }
     if (state.positioned && host.style.getPropertyValue('position') !== 'relative') {
@@ -2184,7 +2264,7 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
 
 function restoreTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
     restoreStyleProperty(host, 'visibility', state.visibility, state.visibilityPriority);
-    restoreStyleProperty(host, 'overflow', state.overflow, state.overflowPriority);
+    if (state.overflowAdjusted) restoreStyleProperty(host, 'overflow', state.overflow, state.overflowPriority);
     if (state.positioned) restoreStyleProperty(host, 'position', state.position, state.positionPriority);
     if (state.displayAdjusted) restoreStyleProperty(host, 'display', state.display, state.displayPriority);
 }
@@ -3430,11 +3510,35 @@ function appendRubyGap(parts: Array<{ text: string; start: number; end: number }
 function trimRubyPartToKanji(base: string, reading: string): Array<{ text: string; start: number; end: number }> {
     const trimmed = trimSharedKanaAffixes(base, reading);
     if (!trimmed.surface || !trimmed.reading || !KANJI_RE.test(trimmed.surface)) return [];
+    const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
+    if (kanjiOnly) {
+        return [{
+            text: trimmed.reading,
+            start: trimmed.offset + kanjiOnly.start,
+            end: trimmed.offset + kanjiOnly.end,
+        }];
+    }
     return [{
         text: trimmed.reading,
         start: trimmed.offset,
         end: trimmed.offset + trimmed.surface.length,
     }];
+}
+
+function kanaTrimmedKanjiRange(base: string, reading: string): { start: number; end: number } | null {
+    if (!KANA_RE.test(reading) || !KANA_CHAR_RE.test(base)) return null;
+    const chars = Array.from(base);
+    const first = chars.findIndex(char => KANJI_RE.test(char));
+    if (first < 0) return null;
+    let last = -1;
+    for (let index = chars.length - 1; index >= first; index -= 1) {
+        if (KANJI_RE.test(chars[index])) {
+            last = index;
+            break;
+        }
+    }
+    if (last < first || (first === 0 && last === chars.length - 1)) return null;
+    return { start: first, end: last + 1 };
 }
 
 function alignRubyKanaAnchors(base: string, reading: string): RubyKanaAnchor[] | null {

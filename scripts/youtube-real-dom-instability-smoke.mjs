@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
-    assert,
+    assert as smokeAssert,
     assertBuiltArtifacts,
     createSmokePaths,
     gmRequestFetchBody,
@@ -25,6 +25,7 @@ const targetWatchUrl = process.env.YOMU_REAL_YOUTUBE_TARGET_URL ?? 'https://www.
 const normalWatchUrl = process.env.YOMU_REAL_YOUTUBE_NORMAL_URL ?? 'https://www.youtube.com/watch?v=TAorfFcb8_g';
 const liveChatWatchUrl = process.env.YOMU_REAL_YOUTUBE_LIVE_URL ?? 'https://www.youtube.com/watch?v=OqwA-w3mMx0';
 const profileDir = resolve(process.env.YOMU_REAL_YOUTUBE_USER_DATA_DIR ?? '/tmp/yomu-signed-profile-home');
+const redactSignedInReport = process.env.YOMU_REAL_YOUTUBE_REDACT_REPORT !== '0';
 const outputDir = resolve(process.env.YOMU_REAL_YOUTUBE_OUTPUT_DIR ?? join(artifacts, 'youtube-real-dom-instability', process.env.YOMU_REAL_YOUTUBE_LABEL ?? 'latest'));
 const headed = process.env.YOMU_REAL_YOUTUBE_HEADED === '1';
 const channel = process.env.YOMU_REAL_YOUTUBE_CHANNEL || 'chrome';
@@ -79,6 +80,12 @@ const vocabularyRows = [
     row('字幕', '字幕', 'じまく', 'subtitles', ['n'], 1500, ['known'], ['LHH']),
     row('説明', '説明', 'せつめい', 'explanation', ['n', 'vs'], 600, ['known'], ['LHHH']),
     row('勉強', '勉強', 'べんきょう', 'study', ['n', 'vs'], 700, ['known'], ['LHHH']),
+    row('開発', '開発', 'かいはつ', 'development', ['n', 'vs'], 900, ['known'], ['LHHH']),
+    row('目指して', '目指す', 'めざして', 'aiming for', ['v5s'], 1100, ['known'], ['LHHH']),
+    row('基礎', '基礎', 'きそ', 'basics', ['n'], 850, ['known'], ['LH']),
+    row('主に', '主に', 'おもに', 'mainly', ['adv'], 1200, ['known'], ['LHH']),
+    row('毎日', '毎日', 'まいにち', 'every day', ['n', 'adv'], 500, ['known'], ['LHHH']),
+    row('夜', '夜', 'よる', 'night', ['n'], 350, ['known'], ['LH']),
     row('読む', '読む', 'よむ', 'read', ['v5m'], 400, ['known'], ['LH']),
     row('今日', '今日', 'きょう', 'today', ['n'], 100, ['known'], ['LH']),
     row('東京', '東京', 'とうきょう', 'Tokyo', ['n'], 500, ['known'], ['LHHH']),
@@ -95,8 +102,8 @@ mkdirSync(outputDir, { recursive: true });
 const requests = [];
 const errors = [];
 
-console.error(`[youtube-real-dom] using profile ${profileDir}`);
-assert(existsSync(profileDir), `Signed-in profile directory is missing: ${profileDir}`);
+console.error('[youtube-real-dom] using signed-in profile directory');
+assert(existsSync(profileDir), 'Signed-in profile directory is missing.');
 
 const context = await chromium.launchPersistentContext(profileDir, {
     channel,
@@ -137,7 +144,7 @@ try {
 
     const report = {
         generatedAt: new Date().toISOString(),
-        profileDir,
+        profile: { signedInProfileProvided: Boolean(process.env.YOMU_REAL_YOUTUBE_USER_DATA_DIR), pathRedacted: true },
         signedIn: target.signedIn || normal.signedIn || liveChat.signedIn || home.signedIn,
         urls: { targetWatchUrl, normalWatchUrl, liveChatWatchUrl, home: 'https://www.youtube.com/' },
         artifacts: { before, outputDir },
@@ -156,9 +163,132 @@ try {
     assertLiveChatWatch(report.liveChat);
     assertHome(report.home);
 
-    console.log(JSON.stringify(report, null, 2));
+    console.log(JSON.stringify(redactSignedInReport ? summarizeConsoleReport(report) : report, null, 2));
 } finally {
     await context.close().catch(() => undefined);
+}
+
+function assert(condition, message, details = {}) {
+    smokeAssert(condition, message, redactSignedInReport ? redactAssertionDetails(details) : details);
+}
+
+function summarizeConsoleReport(report) {
+    return {
+        generatedAt: report.generatedAt,
+        profile: report.profile,
+        signedIn: report.signedIn,
+        urls: report.urls,
+        artifacts: { outputDir: report.artifacts?.outputDir },
+        scenarios: {
+            target: summarizeScenario(report.target),
+            normal: summarizeScenario(report.normal),
+            liveChat: summarizeScenario(report.liveChat),
+            home: summarizeScenario(report.home),
+        },
+        requests: summarizeRequestSummary(report.requests),
+        errors: report.errors,
+    };
+}
+
+function summarizeScenario(scenario) {
+    if (!scenario) return null;
+    const final = Array.isArray(scenario.final) ? mergedFrames(scenario.final) : null;
+    return {
+        name: scenario.name,
+        url: scenario.url,
+        signedIn: scenario.signedIn,
+        totals: final ? summarizeTotals(final) : undefined,
+        missingParsing: scenario.final?.flatMap(frame => frame.missingParsing ?? []).slice(0, 10) ?? [],
+        sustainedSamples: scenario.sustained?.samples?.length ?? 0,
+        requestSummary: summarizeRequestSummary(scenario.requestSummary),
+    };
+}
+
+function summarizeTotals(frameState) {
+    const areas = Object.fromEntries(Object.entries(frameState.areas ?? {}).map(([name, area]) => [name, summarizeAreaCounts(area)]));
+    return { areas };
+}
+
+function summarizeRequestSummary(summary) {
+    if (!summary) return undefined;
+    return {
+        total: summary.total,
+        byKind: summary.byKind,
+        parseChars: summary.parseChars,
+    };
+}
+
+function summarizeAreaCounts(area) {
+    if (!area || typeof area !== 'object') return {};
+    return {
+        present: Boolean(area.present),
+        hasJapanese: Boolean(area.hasJapanese),
+        visible: Boolean(area.visible),
+        words: area.words ?? 0,
+        mirrors: area.mirrors ?? 0,
+        ruby: area.ruby ?? 0,
+        pitch: area.pitch ?? 0,
+        inlineWords: area.inlineWords ?? 0,
+        nestedWords: area.nestedWords ?? 0,
+        nestedRuby: area.nestedRuby ?? 0,
+    };
+}
+
+function redactAssertionDetails(details) {
+    if (!details || typeof details !== 'object') return {};
+    if (Array.isArray(details)) return { count: details.length };
+    if ('target' in details && 'normal' in details && 'liveChat' in details) return summarizeConsoleReport(details);
+    if ('areas' in details) {
+        return {
+            frames: Array.isArray(details.frames) ? details.frames.length : undefined,
+            areas: Object.fromEntries(Object.entries(details.areas ?? {}).map(([name, area]) => [name, redactArea(area)])),
+        };
+    }
+    if ('roots' in details || ('present' in details && 'words' in details)) return redactArea(details);
+    const redacted = {};
+    for (const [key, value] of Object.entries(details)) {
+        if (key === 'nativeText' || key === 'visibleText' || key === 'title' || key === 'href') continue;
+        if (key === 'area') redacted[key] = redactArea(value);
+        else if (key === 'samples' && Array.isArray(value)) redacted[key] = value.length;
+        else if (Array.isArray(value)) redacted[key] = { count: value.length };
+        else if (value && typeof value === 'object') redacted[key] = redactAssertionDetails(value);
+        else redacted[key] = value;
+    }
+    return redacted;
+}
+
+function redactArea(area) {
+    if (!area || typeof area !== 'object') return {};
+    return {
+        present: Boolean(area.present),
+        hasJapanese: Boolean(area.hasJapanese),
+        visible: Boolean(area.visible),
+        words: area.words ?? 0,
+        mirrors: area.mirrors ?? 0,
+        ruby: area.ruby ?? 0,
+        pitch: area.pitch ?? 0,
+        inlineWords: area.inlineWords ?? 0,
+        nestedWords: area.nestedWords ?? 0,
+        nestedRuby: area.nestedRuby ?? 0,
+        roots: Array.isArray(area.roots) ? area.roots.map(redactAreaRoot).slice(0, 8) : undefined,
+    };
+}
+
+function redactAreaRoot(root) {
+    return {
+        selector: root?.selector,
+        visible: Boolean(root?.visible),
+        mirrorVisible: Boolean(root?.mirrorVisible),
+        hasJapanese: Boolean(root?.hasJapanese),
+        words: root?.words ?? 0,
+        mirrors: root?.mirrors ?? 0,
+        ruby: root?.ruby ?? 0,
+        pitch: root?.pitch ?? 0,
+        inlineWords: root?.inlineWords ?? 0,
+        nestedWords: root?.nestedWords ?? 0,
+        nestedRuby: root?.nestedRuby ?? 0,
+        duplicateMirrorHosts: root?.duplicateMirrorHosts ?? 0,
+    };
 }
 
 function row(surface, spelling, reading, gloss, partOfSpeech, frequency, state, pitch) {
@@ -446,7 +576,14 @@ async function runHomeScenario(context) {
 }
 
 function capturePageDiagnostics(page, label) {
-    page.on('pageerror', error => errors.push(`[${label}:pageerror] ${String(error?.message || error)}`));
+    page.on('pageerror', error => {
+        const stack = String(error?.stack || error?.message || error)
+            .split('\n')
+            .slice(0, 5)
+            .map(line => line.trim())
+            .join(' | ');
+        errors.push(`[${label}:pageerror] ${stack}`);
+    });
     page.on('console', message => {
         if (message.type() === 'error' && /yomu|jpdb|jiten|reader|userscript/i.test(message.text())) {
             errors.push(`[${label}:console:${message.type()}] ${message.text()}`);

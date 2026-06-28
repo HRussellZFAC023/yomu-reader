@@ -1248,7 +1248,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. You can use either service, both, or neither with local dictionaries.",
+      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       jpdbApiKeyConfigured: "JPDB key set.",
@@ -1704,7 +1704,7 @@
       ankiMappingHighConfidence: "High",
       ankiMappingMediumConfidence: "Medium",
       ankiMappingLowConfidence: "Low",
-      ankiHelp: "Full Anki uses AnkiConnect. Handoff creates notes.",
+      ankiHelp: "Install AnkiConnect, keep desktop Anki open, and add this site to webCorsOriginList if the status mentions CORS. Mobile handoff creates notes without full desktop review access.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
       localDictionariesEnabled: "Show imported dictionary definitions",
       dictionarySourcesInitiallyExpanded: "Open sources by default",
@@ -2913,7 +2913,7 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。どちらか一方、両方、またはローカル辞書のみでも使えます。
+apiAccessHelp	JitenとJPDBのAPIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から取得します。学習デッキは選択中のサービスにだけ適用され、どちらか一方、両方、またはローカル辞書のみでも使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
@@ -3338,7 +3338,7 @@ ankiMappingConfidenceHelp	フィールド名とサンプルで判断します。
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
-ankiHelp	AnkiConnectで全機能。受け渡しは新規ノートのみ。
+ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開いたままにします。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
@@ -5340,7 +5340,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function appendToDocumentHead(element) {
     const target = document.head || document.documentElement || document.body;
-    target.appendChild(element);
+    if (target) {
+      target.appendChild(element);
+      return;
+    }
+    document.addEventListener("DOMContentLoaded", () => {
+      if (!element.isConnected) appendToDocumentHead(element);
+    }, { once: true });
   }
   function escapeHtml$1(value) {
     return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -7918,6 +7924,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!host.isConnected) return;
     const text2 = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
+    const renderPlan = whitespaceCollapsedNonDestructiveRender(text2, safeTokens);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
@@ -7935,10 +7942,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.dataset.sourceText = text2;
     mirror.dataset.renderSignature = signature;
     const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
-    const state2 = styleTextMirrorHost(host);
+    const state2 = styleTextMirrorHost(host, hasRenderedRuby);
     try {
       styleTextMirror(mirror, host, hasRenderedRuby);
-      mirror.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
+      mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
         parent: host,
         hasNativeRuby: targetHasNativeRuby(target),
         suppressRuby,
@@ -7955,6 +7962,56 @@ recommendedJiten	Jiten由来の頻度バッジです。
       removeTextMirror(host);
       throw error;
     }
+  }
+  function whitespaceCollapsedNonDestructiveRender(text2, tokens) {
+    if (!/\s{2,}|\r|\n/u.test(text2)) return { text: text2, tokens };
+    const { normalized, offsets } = collapseWhitespaceWithOffsets(text2);
+    if (normalized === text2) return { text: text2, tokens };
+    return {
+      text: normalized,
+      tokens: tokens.map((token) => remapTokenOffsets(token, offsets, normalized))
+    };
+  }
+  function collapseWhitespaceWithOffsets(text2) {
+    const offsets = new Array(text2.length + 1);
+    let normalized = "";
+    let index = 0;
+    while (index < text2.length) {
+      if (/\s/u.test(text2[index] ?? "")) {
+        const start = index;
+        while (index < text2.length && /\s/u.test(text2[index] ?? "")) index += 1;
+        const mapped = normalized.length;
+        if (normalized.length > 0 && index < text2.length) normalized += " ";
+        for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
+        continue;
+      }
+      offsets[index] = normalized.length;
+      normalized += text2[index];
+      index += 1;
+    }
+    offsets[text2.length] = normalized.length;
+    return { normalized, offsets };
+  }
+  function remapTokenOffsets(token, offsets, sentence) {
+    const start = offsets[token.start] ?? token.start;
+    const end = offsets[token.end] ?? token.end;
+    return {
+      ...token,
+      start,
+      end,
+      length: Math.max(0, end - start),
+      sentence,
+      rubies: token.rubies.map((ruby) => {
+        const rubyStart = offsets[ruby.start] ?? ruby.start;
+        const rubyEnd = offsets[ruby.end] ?? ruby.end;
+        return {
+          ...ruby,
+          start: rubyStart,
+          end: rubyEnd,
+          length: Math.max(0, rubyEnd - rubyStart)
+        };
+      })
+    };
   }
   function currentTextMirror(host) {
     return Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)) ?? null;
@@ -8368,8 +8425,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function isLayoutFragileMediaTileText(parent) {
     if (isReadableProseContext(parent)) return false;
-    if (!hasCompactMediaRubyRisk(parent)) return false;
-    return Boolean(closestCompactMediaContext(parent));
+    const context = closestCompactMediaContext(parent);
+    if (!context) return false;
+    return hasCompactMediaRubyRisk(parent) || hasCompactMediaSizingRisk(parent, context);
   }
   function hasCompactMediaRubyRisk(parent) {
     if (isLayoutSensitiveScanElement(parent)) return true;
@@ -8410,6 +8468,26 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const compact = rect.width === 0 || rect.width <= 560;
     return structured && compact;
   }
+  function hasCompactMediaSizingRisk(parent, context) {
+    const textLength = compactLength(parent.textContent ?? "");
+    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
+    if (context.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return true;
+    return Boolean(closestMediaLayoutContainer(parent));
+  }
+  function closestMediaLayoutContainer(parent) {
+    let current = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 8; depth++) {
+      if (mediaCarouselMatch(current)) return current;
+      if (current.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return current;
+      if (isPositionedUiContainer(current)) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+  function isPositionedUiContainer(element) {
+    const position = safeComputedStyle(element).position;
+    return position === "absolute" || position === "fixed" || position === "sticky";
+  }
   function nonDestructiveScanHost(target) {
     if (!isFragmentTextTarget(target)) return target.parent;
     const parents = target.fragments.map((fragment2) => fragment2.node.parentElement).filter((parent) => Boolean(parent));
@@ -8434,7 +8512,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function targetHasNativeRuby(target) {
     return isFragmentTextTarget(target) ? target.fragments.some((fragment2) => fragment2.hasNativeRuby) : Boolean(target.hasNativeRuby);
   }
-  function styleTextMirrorHost(host) {
+  function styleTextMirrorHost(host, allowOverflow = true) {
     const computed = safeComputedStyle(host);
     const state2 = {
       observer: new MutationObserver(() => void 0),
@@ -8443,6 +8521,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       visibilityPriority: host.style.getPropertyPriority("visibility"),
       overflow: host.style.getPropertyValue("overflow"),
       overflowPriority: host.style.getPropertyPriority("overflow"),
+      overflowAdjusted: allowOverflow,
       position: host.style.getPropertyValue("position"),
       positionPriority: host.style.getPropertyPriority("position"),
       positioned: computed.position === "static",
@@ -8451,7 +8530,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       displayAdjusted: computed.display === "inline"
     };
     textMirrorHosts.set(host, state2);
-    host.style.setProperty("overflow", "visible", "important");
+    if (state2.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
     if (state2.positioned) host.style.setProperty("position", "relative", "important");
     if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
     return state2;
@@ -8459,7 +8538,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hideTextMirrorHost(host, state2) {
     textMirrorHosts.set(host, state2);
     host.style.setProperty("visibility", "hidden", "important");
-    host.style.setProperty("overflow", "visible", "important");
+    if (state2.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
     if (state2.positioned) host.style.setProperty("position", "relative", "important");
     if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
   }
@@ -8554,7 +8633,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (host.style.getPropertyValue("visibility") !== "hidden") {
       host.style.setProperty("visibility", "hidden", "important");
     }
-    if (host.style.getPropertyValue("overflow") !== "visible") {
+    if (state2.overflowAdjusted && host.style.getPropertyValue("overflow") !== "visible") {
       host.style.setProperty("overflow", "visible", "important");
     }
     if (state2.positioned && host.style.getPropertyValue("position") !== "relative") {
@@ -8566,7 +8645,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function restoreTextMirrorHost(host, state2) {
     restoreStyleProperty$1(host, "visibility", state2.visibility, state2.visibilityPriority);
-    restoreStyleProperty$1(host, "overflow", state2.overflow, state2.overflowPriority);
+    if (state2.overflowAdjusted) restoreStyleProperty$1(host, "overflow", state2.overflow, state2.overflowPriority);
     if (state2.positioned) restoreStyleProperty$1(host, "position", state2.position, state2.positionPriority);
     if (state2.displayAdjusted) restoreStyleProperty$1(host, "display", state2.display, state2.displayPriority);
   }
@@ -9382,11 +9461,34 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function trimRubyPartToKanji(base, reading) {
     const trimmed = trimSharedKanaAffixes(base, reading);
     if (!trimmed.surface || !trimmed.reading || !KANJI_RE$3.test(trimmed.surface)) return [];
+    const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
+    if (kanjiOnly) {
+      return [{
+        text: trimmed.reading,
+        start: trimmed.offset + kanjiOnly.start,
+        end: trimmed.offset + kanjiOnly.end
+      }];
+    }
     return [{
       text: trimmed.reading,
       start: trimmed.offset,
       end: trimmed.offset + trimmed.surface.length
     }];
+  }
+  function kanaTrimmedKanjiRange(base, reading) {
+    if (!KANA_RE$1.test(reading) || !KANA_CHAR_RE.test(base)) return null;
+    const chars = Array.from(base);
+    const first2 = chars.findIndex((char) => KANJI_RE$3.test(char));
+    if (first2 < 0) return null;
+    let last = -1;
+    for (let index = chars.length - 1; index >= first2; index -= 1) {
+      if (KANJI_RE$3.test(chars[index])) {
+        last = index;
+        break;
+      }
+    }
+    if (last < first2 || first2 === 0 && last === chars.length - 1) return null;
+    return { start: first2, end: last + 1 };
   }
   function alignRubyKanaAnchors(base, reading) {
     const runs = rubyBaseKanaRuns(base);
@@ -25401,7 +25503,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.149".trim() ? "1.4.149".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.164".trim() ? "1.4.164".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -27620,6 +27722,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const GIS_SCRIPT_URL = "https://accounts.google.com/gsi/client";
   const OAUTH_BROKER_URL = "https://yomureader.com/oauth/google-drive.html";
   const OAUTH_RETURN_HASH_KEY = "yomu-drive-oauth-return";
+  const OAUTH_TOKEN_HASH_KEY = "yomu-drive-oauth-token";
   const OAUTH_WINDOW_NAME_TYPE = "yomu-drive-oauth-token";
   const TOKEN_EARLY_REFRESH_MS = 6e4;
   const DRIVE_TIMEOUT_MS = 2e4;
@@ -27792,7 +27895,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!browserWindow?.location?.href) return null;
     const state2 = oauthReturnState(browserWindow.location.href);
     if (!state2) return null;
-    const payload = parseOAuthWindowName(browserWindow.name);
+    const payload = parseOAuthReturnPayload(browserWindow.location.href) ?? parseOAuthWindowName(browserWindow.name);
     clearOAuthReturnHash(browserWindow);
     if (!payload || payload.type !== OAUTH_WINDOW_NAME_TYPE || payload.state !== state2) {
       return { ok: false, state: state2, error: "Google authorization returned without a Yomu token." };
@@ -27813,23 +27916,45 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return null;
     }
   }
+  function parseOAuthReturnPayload(href) {
+    const encoded = oauthHashParam(href, OAUTH_TOKEN_HASH_KEY);
+    if (!encoded) return null;
+    try {
+      const parsed = JSON.parse(encoded);
+      return isRecord$6(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
   function oauthReturnState(href) {
+    return oauthHashParam(href, OAUTH_RETURN_HASH_KEY);
+  }
+  function oauthHashParam(href, key) {
     let hash = "";
     try {
       hash = new URL(href).hash.slice(1);
     } catch {
       return "";
     }
-    const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
+    const prefix = `${key}=`;
     const entry = hash.split("&").find((part) => part.startsWith(prefix));
-    return entry ? decodeURIComponent(entry.slice(prefix.length)) : "";
+    if (!entry) return "";
+    try {
+      return decodeURIComponent(entry.slice(prefix.length));
+    } catch {
+      return "";
+    }
   }
   function clearOAuthReturnHash(browserWindow) {
     if (!browserWindow.history?.replaceState) return;
     try {
       const url = new URL(browserWindow.location.href);
-      const prefix = `${OAUTH_RETURN_HASH_KEY}=`;
-      const remainingHash = url.hash.slice(1).split("&").filter((part) => part && !part.startsWith(prefix)).join("&");
+      const removedKeys = /* @__PURE__ */ new Set([OAUTH_RETURN_HASH_KEY, OAUTH_TOKEN_HASH_KEY]);
+      const remainingHash = url.hash.slice(1).split("&").filter((part) => {
+        if (!part) return false;
+        const key = part.includes("=") ? part.slice(0, part.indexOf("=")) : part;
+        return !removedKeys.has(key);
+      }).join("&");
       url.hash = remainingHash ? `#${remainingHash}` : "";
       browserWindow.history.replaceState(browserWindow.history.state, document.title, url.toString());
     } catch {
@@ -28456,7 +28581,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                         ${input("apiCredentialJiten", `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialJpdb", `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. You can use either service, both, or neither with local dictionaries.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
@@ -33064,7 +33189,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       sample.height = CONTENT_SAMPLE_SIZE;
       const context = markCanvasMirrorSkip(sample.getContext("2d", { willReadFrequently: true }));
       if (!context) return null;
-      context.drawImage(canvas, 0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
+      context.drawImage(
+        canvas,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+        0,
+        0,
+        CONTENT_SAMPLE_SIZE,
+        CONTENT_SAMPLE_SIZE
+      );
       const { data } = context.getImageData(0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
       const buckets = /* @__PURE__ */ new Set();
       let min = 255;
@@ -33104,12 +33239,19 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function pageCanvases(hostname = location.hostname, options = {}) {
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
-    const canvases = Array.from(document.querySelectorAll("canvas")).filter((canvas) => !shouldSkipCanvasReaderSurface(canvas)).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
+    const canvases = Array.from(document.querySelectorAll("canvas")).filter((canvas) => !shouldSkipCanvasReaderSurface(canvas)).filter(isVisibleCanvasReaderSurface).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
     return isBookwalkerViewerHost(hostname) && options.preferBookwalkerCurrent !== false ? preferCurrentScreenCanvases(canvases) : canvases;
   }
   function shouldSkipCanvasReaderSurface(canvas) {
     const mode = canvasOcrMode(canvas);
     return mode === "off" || mode === "manual";
+  }
+  function isVisibleCanvasReaderSurface(canvas) {
+    if (canvas.hidden || canvas.getAttribute("aria-hidden") === "true") return false;
+    const style = getComputedStyle(canvas);
+    if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return false;
+    if (Number(style.opacity || "1") <= 0) return false;
+    return true;
   }
   function shouldForceCanvasReaderSurface(canvas) {
     return canvasOcrMode(canvas) === "on";
@@ -35503,6 +35645,7 @@ ${spelling}`);
   const READER_RASTER_RETRY_BASE_MS = 140;
   const READER_RASTER_RETRY_MAX_MS = 1100;
   const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
+  const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
   const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
@@ -35678,13 +35821,14 @@ ${spelling}`);
     backgroundFrameSources = /* @__PURE__ */ new Map();
     backgroundFrameKeys = /* @__PURE__ */ new Map();
     canvasReaderSignature;
+    canvasReaderSamePageSignatureSkips = 0;
     readerRasterPoll = 0;
     readerRasterRetryTimer = 0;
     pendingCanvasSnapshots = /* @__PURE__ */ new WeakMap();
-    // Map (not WeakMap) so a page turn can clear ALL readiness at once — NFBR reuses
-    // the same canvas object across turns, so a stale readiness entry would let the
-    // next page's first sample wrongly pass (or block). Bounded: cleared on every
-    // page-turn signature change and on teardown.
+    // Map (not WeakMap) so a page turn can clear ALL readiness at once. Keyed by
+    // stable surface location instead of the canvas object: NFBR sometimes swaps an
+    // equivalent #viewport canvas node while painting the same page, and object-keyed
+    // readiness would then wait forever for "the same" sample to appear twice.
     canvasContentReadiness = /* @__PURE__ */ new Map();
     // Per-canvas failed-capture counter driving the backoff retry above.
     canvasCaptureAttempts = /* @__PURE__ */ new Map();
@@ -35723,6 +35867,13 @@ ${spelling}`);
     handleSpaNavigation = () => this.teardownForNavigation();
     init() {
       this.destroyed = false;
+      const body = document.body;
+      if (!body) {
+        document.addEventListener("DOMContentLoaded", () => {
+          if (!this.destroyed) this.init();
+        }, { once: true });
+        return;
+      }
       this.refresh();
       document.addEventListener("pointerdown", this.handleDocumentPointerDown, true);
       document.addEventListener("touchstart", this.handleDocumentTouchStart, { capture: true, passive: true });
@@ -35746,7 +35897,7 @@ ${spelling}`);
         window.addEventListener(eventName, this.handleSpaNavigation);
       }
       this.mutationObserver = new MutationObserver((mutations) => this.handleRenderableMediaMutations(mutations));
-      this.mutationObserver.observe(document.body, {
+      this.mutationObserver.observe(body, {
         childList: true,
         subtree: true,
         attributes: true,
@@ -35989,7 +36140,7 @@ ${spelling}`);
     }
     renderExistingOcrResult(state2, userRequested) {
       if (!state2.result) return false;
-      if (userRequested) void this.renderResult(state2, state2.result, true);
+      if (userRequested) void this.renderResult(state2, state2.result, true, state2.key);
       return true;
     }
     requestOcrFromPointerEvent(event) {
@@ -36097,14 +36248,19 @@ ${spelling}`);
       const manualRequested = state2.manualRequested;
       this.resetStateIfImageChanged(state2);
       if (await this.tryRenderCachedOcrResult(state2, key)) return;
-      if (!this.isCurrentState(state2)) return;
+      if (!this.isCurrentContentState(state2, key)) return;
       this.updateOcrStatus(image, "loading");
       const scan = beginOcrScan(state2, image, settings, manualRequested);
       try {
         await this.scanUncachedImage(state2, image, key, settings, scan.provider, manualRequested);
       } catch (error) {
         if (isStaleOcrState(error)) return;
-        await this.renderOcrFailure(state2, image, scan.provider, manualRequested, error);
+        try {
+          await this.renderOcrFailure(state2, image, key, scan.provider, manualRequested, error);
+        } catch (renderError) {
+          if (isStaleOcrState(renderError)) return;
+          throw renderError;
+        }
       } finally {
         finishOcrScan(state2);
         scan.done();
@@ -36117,14 +36273,15 @@ ${spelling}`);
         return true;
       }
       const cached = this.cache.get(key);
-      this.requireCurrentState(state2);
+      this.requireCurrentContentState(state2, key);
       if (!cached) {
+        if (this.shouldPreserveReaderRasterResult(state2)) return true;
         renderNoOcrLines(state2);
         this.updateOcrStatus(state2.image, "empty");
         state2.manualRequested = false;
         return true;
       }
-      await this.renderResult(state2, cached);
+      await this.renderResult(state2, cached, false, key);
       state2.manualRequested = false;
       return true;
     }
@@ -36142,18 +36299,24 @@ ${spelling}`);
       this.requireCurrentState(state2);
       const result = inlineFallback ?? providerResult;
       if (!result?.lines.length) {
+        if (this.shouldPreserveReaderRasterResult(state2)) {
+          this.updateOcrStatus(image, "ready");
+          return;
+        }
         this.remember(key, null);
+        this.requireCurrentContentState(state2, key);
         renderNoOcrLines(state2);
         this.updateOcrStatus(image, "empty");
         return;
       }
       this.remember(key, result);
+      this.requireCurrentContentState(state2, key);
       state2.key = key;
       if (this.shouldSuppressAutoRenderedResult(state2, Boolean(inlineFallback), manualRequested)) {
         this.clearAutoScannedOverlays();
         return;
       }
-      await this.renderResult(state2, result);
+      await this.renderResult(state2, result, false, key);
       log$l.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
     shouldSuppressAutoRenderedResult(state2, inlineFallback, manualRequested = state2.manualRequested) {
@@ -36163,12 +36326,12 @@ ${spelling}`);
       const canvas = this.canvasFrameSources.get(image);
       return Boolean(canvas && isCanvasOcrOptInSurface(canvas));
     }
-    async renderOcrFailure(state2, image, provider, manualRequested, error) {
-      this.requireCurrentState(state2);
+    async renderOcrFailure(state2, image, key, provider, manualRequested, error) {
+      this.requireCurrentContentState(state2, key);
       const fallback = readFallbackOcrResult(image, false);
       if (fallback?.lines.length) {
         log$l.warn("OCR provider failed", { provider }, error);
-        await this.renderResult(state2, fallback);
+        await this.renderResult(state2, fallback, false, key);
         return;
       }
       logOcrFailure(state2, provider, manualRequested, error);
@@ -36180,16 +36343,17 @@ ${spelling}`);
       return this.recognizeWithDarkPass(image, settings, recognizer);
     }
     // Normal recognition always runs. A second, inverted pass is spent only when
-    // the page has a dark region (where white-on-black text could hide) AND that
-    // region came back UNREAD by the normal pass — i.e. genuinely missed text. So
-    // ordinary pages (and dark panels the recognizer already read) cost exactly one
-    // request, keeping speed and Lens volume unchanged; only a real missed dark
-    // panel pays for the extra pass, and its lines are merged in over the dark area.
+    // the image has a dark region (where white-on-black text could hide) AND that
+    // region came back unread by the normal pass. Full-page reader canvases are
+    // the latency-sensitive path: if the normal pass found text on a manga page,
+    // don't double the provider round-trip just to search dark art regions. If a
+    // reader page comes back empty, the inverted recovery still gets a chance.
     async recognizeWithDarkPass(image, settings, recognizer) {
       const normal = await this.runRecognizer(image, settings, recognizer, false);
       if (!settings.ocrInvertDarkPanels) return normal;
       const field = buildLuminanceField(image);
       if (!field || luminanceFieldDarkFraction(field) < DARK_REGION_TRIGGER) return normal;
+      if ((this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image)) && normal?.lines.length) return normal;
       if (darkAreaIsRead(field, normal)) return normal;
       const inverted = await this.runRecognizer(image, settings, recognizer, true).catch(() => null);
       return mergeDarkPassResult(normal, inverted, field);
@@ -36223,22 +36387,29 @@ ${spelling}`);
     clearLocalOcrUnavailable(endpointUrl2) {
       if (this.localOcrUnavailable?.endpointUrl === endpointUrl2) this.localOcrUnavailable = void 0;
     }
-    async renderResult(state2, result, forceOverlay = false) {
-      this.requireCurrentState(state2);
+    async renderResult(state2, result, forceOverlay = false, expectedKey = state2.key) {
+      this.requireCurrentContentState(state2, expectedKey);
+      if (this.shouldPreserveReaderRasterResult(state2) && state2.overlay.querySelector(".jpdb-ocr-line") && ocrResultTextKey(state2.result) === ocrResultTextKey(result)) {
+        this.updateOcrStatus(state2.image, "ready");
+        return;
+      }
       state2.result = result;
-      state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
       const settings = this.options.getSettings();
       const showText = settings.ocrShowTextOverlay || forceOverlay;
       const initialParsed = await this.parseOcrLines(result.lines);
-      this.requireCurrentState(state2);
+      this.requireCurrentContentState(state2, expectedKey);
       const lines = cleanOcrLookupLines(result.lines, initialParsed);
       if (!lines.length) {
+        if (this.shouldPreserveReaderRasterResult(state2)) {
+          this.updateOcrStatus(state2.image, "ready");
+          return;
+        }
         renderNoOcrLines(state2);
         this.updateOcrStatus(state2.image, "empty");
         return;
       }
       const parsed = ocrLinesChanged(result.lines, lines) ? await this.parseOcrLines(lines) : initialParsed;
-      this.requireCurrentState(state2);
+      this.requireCurrentContentState(state2, expectedKey);
       const sentence = lines.map((line) => line.text).join("\n");
       const vocabulary2 = ocrVocabularyCards(state2.image);
       const fallbackCardFromText = ocrFallbackCardFromImage(
@@ -36252,13 +36423,18 @@ ${spelling}`);
       ));
       const flatTokens = renderedTokens.flat();
       await this.options.enrichTokensBeforeRender?.(flatTokens);
-      this.requireCurrentState(state2);
+      this.requireCurrentContentState(state2, expectedKey);
       applyOcrOverlayStyle(state2.overlay, settings);
-      for (const [index, line] of lines.entries()) {
-        state2.overlay.append(this.renderOcrLineElement(state2, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
-      }
+      const lineElements = lines.map((line, index) => this.renderOcrLineElement(state2, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
+      const staleLines = Array.from(state2.overlay.querySelectorAll(".jpdb-ocr-line"));
+      state2.overlay.append(...lineElements);
+      staleLines.forEach((node) => node.remove());
       this.revealVideoFrameOverlay(state2.image);
       this.positionState(state2.image);
+      if (this.canvasFrameSources.has(state2.image)) {
+        this.canvasReaderSignature = canvasReaderPageSignature();
+        this.canvasReaderSamePageSignatureSkips = 0;
+      }
       this.updateOcrStatus(state2.image, "ready");
       void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).finally(() => this.schedulePosition());
     }
@@ -36343,13 +36519,20 @@ ${spelling}`);
     resetStateIfImageChanged(state2) {
       const key = imageCacheKey(state2.image);
       if (key === state2.key) return;
+      const preserveReaderRasterResult = this.shouldPreserveReaderRasterResult(state2);
       state2.key = key;
-      state2.result = void 0;
+      if (!preserveReaderRasterResult) state2.result = void 0;
       state2.loading = false;
       state2.overlayRequested = false;
       state2.manualRequested = false;
       state2.autoSkipped = false;
-      state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+      if (!preserveReaderRasterResult) {
+        state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+        this.removeImageStatusCard(state2.image);
+      }
+    }
+    shouldPreserveReaderRasterResult(state2) {
+      return Boolean(state2.result && (this.canvasFrameSources.has(state2.image) || this.backgroundFrameSources.has(state2.image)));
     }
     remember(key, result) {
       if (key.startsWith("data:")) return;
@@ -36517,8 +36700,10 @@ ${spelling}`);
       if (this.videoFrameVideos.has(image)) return;
       if (!this.options.getSettings().ocrEnabled) return;
       const existing = this.imageStatuses.get(image);
+      const isCanvasFrame = this.canvasFrameSources.has(image);
+      const isReaderRasterFrame = isCanvasFrame || this.backgroundFrameSources.has(image);
       this.clearImageStatusTimer(image);
-      if (status === "empty") {
+      if (status === "empty" && !isReaderRasterFrame) {
         if (existing) removeOcrArtifact(existing);
         this.imageStatuses.delete(image);
         return;
@@ -36526,12 +36711,11 @@ ${spelling}`);
       const card = existing ?? this.createVideoFrameStatus(status);
       if (existing) this.setVideoFrameStatus(card, status);
       else this.imageStatuses.set(image, card);
-      const isCanvasFrame = this.canvasFrameSources.has(image);
-      card.classList.toggle("jpdb-ocr-canvas-status", isCanvasFrame);
+      card.classList.toggle("jpdb-ocr-canvas-status", isReaderRasterFrame);
       const labelNode = card.querySelector(".jpdb-ocr-video-frame-status-label");
-      if (labelNode) labelNode.textContent = isCanvasFrame ? uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status)) : "";
+      if (labelNode) labelNode.textContent = isReaderRasterFrame ? uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status)) : "";
       this.positionImageStatusCard(image, card);
-      if (status === "ready") this.scheduleImageStatusFade(image, card);
+      if (status === "ready" && !isReaderRasterFrame) this.scheduleImageStatusFade(image, card);
     }
     scheduleImageStatusFade(image, card) {
       const dwell = window.setTimeout(() => {
@@ -36622,8 +36806,15 @@ ${spelling}`);
       this.startReaderRasterPollingIfNeeded();
       const signature = canvasReaderPageSignature();
       if (signature !== this.canvasReaderSignature) {
+        if (this.shouldHoldCanvasFramesForSamePageSignature(signature)) {
+          this.scheduleReaderRasterRefresh(80);
+          return;
+        }
+        this.canvasReaderSamePageSignatureSkips = 0;
         this.releaseAllCanvasFrames();
         this.canvasReaderSignature = signature;
+      } else {
+        this.canvasReaderSamePageSignatureSkips = 0;
       }
       if (!settings.ocrAutoScanImages && !userRequested) {
         this.retryPendingUserRequestedCaptures(settings);
@@ -36633,6 +36824,7 @@ ${spelling}`);
       for (const canvas of [...this.canvasFrames.keys()]) {
         if (canvases.includes(canvas)) continue;
         if (!userRequested && this.canvasFrameUserRequested.has(canvas)) continue;
+        if (this.shouldKeepCanvasFrameThroughStablePageSurfaceFlicker(canvas, signature)) continue;
         if (this.canvasFrames.get(canvas)?.complete === false) continue;
         this.releaseCanvasFrame(canvas);
       }
@@ -36696,32 +36888,53 @@ ${spelling}`);
         frame.dataset.yomuCanvasFrame = "true";
         if (contentKey) frame.dataset.ocrContentKey = contentKey;
         frame.alt = "";
-        positionCanvasFrameImage(frame, rect);
+        positionCanvasFrameImage(frame, frameRect);
         frame.addEventListener("load", () => {
           if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
         }, { once: true });
-        frame.src = frameSrc;
         document.body.append(frame);
         this.canvasFrames.set(canvas, frame);
         this.canvasFrameSources.set(frame, canvas);
         this.canvasFrameKeys.set(canvas, key);
+        if (frameRect !== rect) this.canvasFrameStaticRects.set(frame, frameRect);
         if (userRequested) this.canvasFrameUserRequested.add(canvas);
         else this.canvasFrameUserRequested.delete(canvas);
+        this.updateOcrStatus(frame, "loading");
+        frame.src = frameSrc;
         this.clearCanvasCaptureRetry(canvas);
         this.canvasReaderSignature = canvasReaderPageSignature();
-        if (frameRect !== rect) this.canvasFrameStaticRects.set(frame, frameRect);
+        this.canvasReaderSamePageSignatureSkips = 0;
         this.schedulePosition();
       } finally {
         if (this.pendingCanvasSnapshots.get(canvas) === key) this.pendingCanvasSnapshots.delete(canvas);
       }
     }
+    shouldHoldCanvasFramesForSamePageSignature(signature) {
+      if (!this.canvasReaderSignature) return false;
+      if (!this.canvasFrames.size) return false;
+      if (shouldTrustStableBookwalkerPageCounter() && hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
+      if (!isSameCanvasReaderPageLocation(this.canvasReaderSignature, signature)) return false;
+      if (hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
+      if (isCanvasMirrorEpochTransition(this.canvasReaderSignature, signature)) return false;
+      this.canvasReaderSamePageSignatureSkips += 1;
+      if (this.canvasReaderSamePageSignatureSkips <= READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT) return true;
+      this.canvasReaderSamePageSignatureSkips = 0;
+      return false;
+    }
+    shouldKeepCanvasFrameThroughStablePageSurfaceFlicker(canvas, signature) {
+      if (!canvas.isConnected) return false;
+      if (!this.canvasReaderSignature) return false;
+      if (shouldTrustStableBookwalkerPageCounter() && hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
+      return isSameCanvasReaderPageLocation(this.canvasReaderSignature, signature) && hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature);
+    }
     canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested) {
+      const readinessKey = canvasContentReadinessKey(canvas);
       if (userRequested) {
-        this.canvasContentReadiness.set(canvas, contentSignature);
+        this.canvasContentReadiness.set(readinessKey, contentSignature);
         return true;
       }
-      const previous = this.canvasContentReadiness.get(canvas);
-      this.canvasContentReadiness.set(canvas, contentSignature);
+      const previous = this.canvasContentReadiness.get(readinessKey);
+      this.canvasContentReadiness.set(readinessKey, contentSignature);
       if (previous === contentSignature) return true;
       this.scheduleReaderRasterRefresh(140);
       return false;
@@ -36801,7 +37014,7 @@ ${spelling}`);
       this.canvasFrameSources.delete(frame);
       this.canvasFrameStaticRects.delete(frame);
       this.canvasFrameKeys.delete(canvas);
-      this.canvasContentReadiness.delete(canvas);
+      this.canvasContentReadiness.delete(canvasContentReadinessKey(canvas));
       this.canvasCaptureAttempts.delete(canvas);
       this.canvasTapRecapture.delete(canvas);
       this.canvasFrameUserRequested.delete(canvas);
@@ -36812,6 +37025,7 @@ ${spelling}`);
       this.canvasContentReadiness.clear();
       this.canvasCaptureAttempts.clear();
       this.canvasReaderSignature = void 0;
+      this.canvasReaderSamePageSignatureSkips = 0;
     }
     releaseAutoCanvasFrames() {
       for (const canvas of [...this.canvasFrames.keys()]) {
@@ -37141,6 +37355,12 @@ ${spelling}`);
     requireCurrentState(state2) {
       if (!this.isCurrentState(state2)) throw STALE_OCR_STATE;
     }
+    isCurrentContentState(state2, key) {
+      return this.isCurrentState(state2) && state2.key === key && imageCacheKey(state2.image) === key;
+    }
+    requireCurrentContentState(state2, key) {
+      if (!this.isCurrentContentState(state2, key)) throw STALE_OCR_STATE;
+    }
   }
   function isStaleOcrState(error) {
     return error === STALE_OCR_STATE;
@@ -37148,6 +37368,7 @@ ${spelling}`);
   function applyOcrOverlayStyle(overlay, settings) {
     const theme = effectiveOcrOverlayTheme(settings);
     overlay.dataset.ocrOverlayTheme = theme;
+    overlay.dataset.ocrOverlayVariant = settings.ocrOverlayTheme === "auto" ? "auto" : "custom";
     if (theme === "light") {
       overlay.style.setProperty("--jpdb-ocr-text-color", "#17202a");
       overlay.style.setProperty("--jpdb-ocr-outline-color", "rgba(255, 255, 255, 0)");
@@ -38418,6 +38639,9 @@ ${spelling}`);
     if (contentKey) return contentKey;
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
   }
+  function ocrResultTextKey(result) {
+    return result?.lines.map((line) => line.text).join("\n") ?? "";
+  }
   function readerRasterSurfaceSnapshotKey(surface) {
     return surface instanceof HTMLCanvasElement ? canvasSurfaceSnapshotKey(surface) : backgroundSurfaceCacheKey(surface);
   }
@@ -38433,6 +38657,61 @@ ${spelling}`);
       Math.round(rect.height),
       canvasRenderedContentSignature(canvas) ?? ""
     ].join("|");
+  }
+  function canvasContentReadinessKey(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const viewportId = canvas.closest('[id^="viewport"]')?.id ?? "";
+    return [
+      viewportId,
+      canvas.width,
+      canvas.height,
+      Math.round(rect.left),
+      Math.round(rect.top),
+      Math.round(rect.width),
+      Math.round(rect.height)
+    ].join("|");
+  }
+  function isSameCanvasReaderPageLocation(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    return previousParts.counter === nextParts.counter && previousParts.scroll === nextParts.scroll && previousParts.backgrounds === nextParts.backgrounds;
+  }
+  function isCanvasMirrorEpochTransition(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    if (previousParts.content === nextParts.content) return false;
+    return isCanvasMirrorEpochOrEmpty(previousParts.content) && isCanvasMirrorEpochOrEmpty(nextParts.content);
+  }
+  function hasSameStableCanvasReaderPageCounter(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    return previousParts.counter !== "" && previousParts.counter === nextParts.counter;
+  }
+  function shouldTrustStableBookwalkerPageCounter() {
+    if (!isBookwalkerViewerHost()) return false;
+    try {
+      return new URL(location.href).searchParams.get("cty") !== "2";
+    } catch {
+      return true;
+    }
+  }
+  function isCanvasMirrorEpochOrEmpty(content) {
+    return content === "" || /^\d+(?:,\d+)*$/.test(content);
+  }
+  function splitCanvasReaderSignature(signature) {
+    const parts = signature.split("|");
+    if (parts.length < 5) return null;
+    const [counter, scroll, surfaces, content, ...backgroundParts] = parts;
+    return {
+      backgrounds: backgroundParts.join("|"),
+      content: content ?? "",
+      counter: counter ?? "",
+      scroll: scroll ?? "",
+      surfaces: surfaces ?? ""
+    };
   }
   function backgroundSurfaceCacheKey(surface) {
     const rect = surface.getBoundingClientRect();
@@ -39716,6 +39995,7 @@ ${spelling}`);
   }
   const TRANSCRIPT_PANEL_MARGIN = 10;
   const TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT = 220;
+  const TRANSCRIPT_PANEL_Z_INDEX = 2147483645;
   const TRANSCRIPT_PANEL_SIZE_KEY = "jpdb-reader-transcript-panel-size";
   const SUBTITLE_DRAG_OFFSET_KEY = "jpdb-reader-subtitle-drag-offset";
   const SUBTITLE_DRAG_OFFSET_MIN_FRACTION = -0.9;
@@ -39781,7 +40061,7 @@ ${spelling}`);
     setStylePropertyIfChanged(panel, "right", "auto");
     setStylePropertyIfChanged(panel, "bottom", "auto");
     setStylePropertyIfChanged(panel, "box-sizing", "border-box");
-    setStylePropertyIfChanged(panel, "z-index", "2147483645");
+    setStylePropertyIfChanged(panel, "z-index", String(TRANSCRIPT_PANEL_Z_INDEX));
     setStylePropertyIfChanged(panel, "pointer-events", "auto");
     setStylePropertyIfChanged(panel, "width", `${Math.round(Math.max(260, Math.min(layout.width, layout.viewportWidth - layout.margin * 2)))}px`);
     const minHeight = layout.placement === "bottom" ? 80 : 150;
@@ -40017,14 +40297,16 @@ ${spelling}`);
         applyYouTubeVideoElementInset(options.video, options.side, metrics.width, metrics.height);
         return false;
       }
+      const root = document.documentElement;
+      if (!root) return false;
       const previousSignature = this.lastSignature;
       const preservesYouTubeBottomPlayer = shouldPreserveYouTubeBottomPlayerSize(options.side);
       if (!preservesYouTubeBottomPlayer) captureYouTubePlayerContainerBaseRects(youtubePlayerContainers(options.side));
       this.lastSignature = metrics.signature;
-      document.documentElement.classList.toggle("jpdb-subtitle-video-inset-left", options.side === "left");
-      document.documentElement.classList.toggle("jpdb-subtitle-video-inset-right", options.side === "right");
-      document.documentElement.classList.toggle("jpdb-subtitle-video-inset-bottom", options.side === "bottom");
-      document.documentElement.style.setProperty("--jpdb-subtitle-video-inset", metrics.inset);
+      root.classList.toggle("jpdb-subtitle-video-inset-left", options.side === "left");
+      root.classList.toggle("jpdb-subtitle-video-inset-right", options.side === "right");
+      root.classList.toggle("jpdb-subtitle-video-inset-bottom", options.side === "bottom");
+      root.style.setProperty("--jpdb-subtitle-video-inset", metrics.inset);
       applyYouTubePlayerInset(options.side, metrics.width, metrics.insetPixels, metrics.height, {
         clearStableBottom: !previousSignature.startsWith("bottom:")
       });
@@ -40037,8 +40319,9 @@ ${spelling}`);
     clear(video) {
       if (!hasActiveVideoInset(this.lastSignature)) return false;
       this.lastSignature = "";
-      document.documentElement.classList.remove("jpdb-subtitle-video-inset-left", "jpdb-subtitle-video-inset-right", "jpdb-subtitle-video-inset-bottom");
-      document.documentElement.style.removeProperty("--jpdb-subtitle-video-inset");
+      const root = document.documentElement;
+      root?.classList.remove("jpdb-subtitle-video-inset-left", "jpdb-subtitle-video-inset-right", "jpdb-subtitle-video-inset-bottom");
+      root?.style.removeProperty("--jpdb-subtitle-video-inset");
       const watchFlexy = document.querySelector("ytd-watch-flexy");
       watchFlexy?.style.removeProperty("--ytd-watch-flexy-player-width");
       watchFlexy?.style.removeProperty("--ytd-watch-flexy-player-height");
@@ -40061,7 +40344,8 @@ ${spelling}`);
     }
   }
   function hasActiveVideoInset(lastSignature) {
-    return Boolean(lastSignature) || document.documentElement.classList.contains("jpdb-subtitle-video-inset-left") || document.documentElement.classList.contains("jpdb-subtitle-video-inset-right") || document.documentElement.classList.contains("jpdb-subtitle-video-inset-bottom");
+    const root = document.documentElement;
+    return Boolean(lastSignature) || Boolean(root?.classList.contains("jpdb-subtitle-video-inset-left")) || Boolean(root?.classList.contains("jpdb-subtitle-video-inset-right")) || Boolean(root?.classList.contains("jpdb-subtitle-video-inset-bottom"));
   }
   function videoInsetMetrics(options) {
     const gap = options.side === "left" ? options.margin * 2 : options.margin;
@@ -42569,7 +42853,8 @@ ${spelling}`);
     return allowsChildText || !hasCaptionChildText(element, options);
   }
   function containsReaderRootOrPlayerChrome(element) {
-    return Boolean(element.querySelector("[data-jpdb-reader-root]")) || Boolean(element.matches(PLAYER_CHROME_CONTAINER_SELECTOR) || element.closest(PLAYER_CHROME_CONTAINER_SELECTOR)) || Boolean(element.querySelector(PLAYER_CHROME_INTERACTIVE_SELECTOR));
+    const knownCaptionInPlayerChrome = element.matches(".ytp-caption-segment, .caption-window");
+    return Boolean(element.querySelector("[data-jpdb-reader-root]")) || Boolean(element.matches(PLAYER_CHROME_CONTAINER_SELECTOR)) || Boolean(element.querySelector(PLAYER_CHROME_INTERACTIVE_SELECTOR)) || Boolean(element.closest(PLAYER_CHROME_CONTAINER_SELECTOR) && !knownCaptionInPlayerChrome);
   }
   function isLikelyPlayerChromeText(text2) {
     const hits = PLAYER_CHROME_TEXT_PATTERNS.filter((pattern) => pattern.test(text2)).length;
@@ -43112,7 +43397,7 @@ ${spelling}`);
   function transcriptSideResizeHandleMetrics(options) {
     return {
       current: options.layout?.width ?? options.panelRect?.width ?? 0,
-      max: options.bounds.maxSideWidth,
+      max: options.layout?.maxWidth ?? options.bounds.maxSideWidth,
       min: TRANSCRIPT_PANEL_MIN_SIDE_WIDTH,
       orientation: "vertical"
     };
@@ -43791,7 +44076,14 @@ ${spelling}`);
       this.destroy();
       this.destroyed = false;
       this.abortController = new AbortController();
-      this.install();
+      const body = document.body;
+      if (!body) {
+        document.addEventListener("DOMContentLoaded", () => {
+          if (!this.destroyed) this.init();
+        }, this.eventOptions({ once: true }));
+        return;
+      }
+      if (!this.install()) return;
       this.syncYouTubeMobileBottomSheetState();
       this.observer = new MutationObserver((mutations) => {
         this.syncYouTubeMobileBottomSheetState();
@@ -43802,7 +44094,7 @@ ${spelling}`);
         if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
         this.scheduleDiscoverVideo();
       });
-      this.observer.observe(document.body, {
+      this.observer.observe(body, {
         attributeFilter: ["aria-modal", "class", "data-yomu-inline-fullscreen", "fullscreen", "hidden"],
         attributes: true,
         childList: true,
@@ -43959,7 +44251,9 @@ ${spelling}`);
       this.renderTranscriptPanel(true);
     }
     install() {
-      if (this.root) return;
+      if (this.root) return true;
+      const body = document.body;
+      if (!body) return false;
       document.querySelectorAll('.jpdb-subtitle-player[data-jpdb-reader-root="true"], .jpdb-subtitle-list[data-jpdb-reader-root="true"]').forEach((element) => element.remove());
       if (isYouTubePage() || document.querySelector("[data-yomu-video-frame]")) installSubtitleFullscreenRedirect();
       const root = document.createElement("div");
@@ -44000,13 +44294,14 @@ ${spelling}`);
       for (const eventName of TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS) {
         this.transcriptPanel.addEventListener(eventName, (event) => this.stopTranscriptPanelPropagation(event), this.eventOptions());
       }
-      document.body.appendChild(root);
-      document.body.appendChild(this.transcriptPanel);
+      body.appendChild(root);
+      body.appendChild(this.transcriptPanel);
       this.root = root;
       this.bindSubtitleDragHandle();
       this.restoreSubtitleDragOffset();
       this.refresh();
       this.scheduleControlsIdle();
+      return true;
     }
     scheduleDiscoverVideo() {
       if (this.discoverTimer !== void 0) return;
@@ -47912,7 +48207,7 @@ ${spelling}`);
       if (!options.skipControlSync) this.syncDrawerButtons(this.hasVisibleSubtitleLines());
     }
     transcriptDrawerLayout(options, referenceVideoRect) {
-      if (this.shouldKeepVideoLayoutStableForTranscript()) {
+      if (this.shouldUseStableYouTubeTranscriptLayout()) {
         return this.stableVideoTranscriptDrawerLayout(options, referenceVideoRect);
       }
       const layoutOptions = this.withConstrainedSideTranscriptSize(options, referenceVideoRect);
@@ -47924,7 +48219,7 @@ ${spelling}`);
       }) : layout;
       return resolvedLayout;
     }
-    shouldKeepVideoLayoutStableForTranscript() {
+    shouldUseStableYouTubeTranscriptLayout() {
       if (!this.video) return false;
       return isYouTubePage();
     }
@@ -47982,14 +48277,12 @@ ${spelling}`);
     stableYouTubeSideTranscriptDrawerLayout(placement, options, videoRect) {
       if (videoRect.width <= 0 || videoRect.height <= 0) return null;
       const margin = TRANSCRIPT_PANEL_MARGIN;
-      const videoWidth = Math.round(videoRect.width);
-      const availableWidth = Math.floor(placement === "left" ? options.viewportWidth - videoWidth - margin - Math.max(0, Math.round(videoRect.left)) : options.viewportWidth - Math.round(videoRect.right + margin));
       const maxWidth = this.maxSideTranscriptWidthForVideo(placement, options, videoRect);
-      if (Math.max(availableWidth, maxWidth) < TRANSCRIPT_PANEL_MIN_SIDE_WIDTH) return null;
-      const panelMaxWidth = availableWidth >= TRANSCRIPT_PANEL_MIN_SIDE_WIDTH ? availableWidth : maxWidth;
-      const defaultWidth = placement === "right" ? availableWidth : Math.min(460, options.viewportWidth * 0.32);
+      if (maxWidth < TRANSCRIPT_PANEL_MIN_SIDE_WIDTH) return null;
+      const currentRightFreeWidth = Math.floor(options.viewportWidth - Math.round(videoRect.right + margin));
+      const defaultWidth = placement === "right" ? Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, Math.min(maxWidth, currentRightFreeWidth)) : Math.min(460, maxWidth);
       const desiredWidth = options.size?.sideWidth ?? defaultWidth;
-      const width = Math.round(Math.min(Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, desiredWidth), panelMaxWidth));
+      const width = Math.round(Math.min(Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, desiredWidth), maxWidth));
       const top = Math.round(Math.min(
         Math.max(options.anchorTop ?? videoRect.top ?? 72, margin),
         Math.max(margin, options.viewportHeight - 280)
@@ -48003,7 +48296,7 @@ ${spelling}`);
         viewportWidth: options.viewportWidth,
         viewportHeight: options.viewportHeight,
         margin,
-        maxWidth: availableWidth
+        maxWidth
       };
     }
     withConstrainedSideTranscriptSize(options, referenceVideoRect) {
@@ -48133,7 +48426,7 @@ ${spelling}`);
         this.clearVideoInsetForTranscriptPanel();
         return false;
       }
-      if (this.shouldKeepVideoLayoutStableForTranscript()) {
+      if (this.shouldUseStableYouTubeTranscriptLayout()) {
         const insetChanged = this.videoInset.clear(this.video);
         const stableChanged = this.applyStableYouTubeTranscriptLayout(layout, videoRect);
         return insetChanged || stableChanged;
@@ -48170,7 +48463,7 @@ ${spelling}`);
       if (this.transcriptPanel && this.transcriptPanel.parentElement !== parent) parent.appendChild(this.transcriptPanel);
     }
     fullscreenReaderRootParent(fullscreenHost) {
-      return !fullscreenHost || fullscreenHost === document.documentElement ? document.body : fullscreenHost;
+      return !fullscreenHost || fullscreenHost === document.documentElement ? document.body ?? document.documentElement : fullscreenHost;
     }
     syncTranscriptPanelFullscreenDisplayOverride() {
       const panel = this.transcriptPanel;
@@ -48242,6 +48535,7 @@ ${spelling}`);
     applyStableYouTubeTranscriptLayout(layout, videoRect) {
       if (!isYouTubePage() || layout.placement === "bottom") return this.clearStableYouTubeTranscriptLayout();
       const root = document.documentElement;
+      if (!root) return false;
       let changed = false;
       const setClass = (className, enabled) => {
         const hadClass = root.classList.contains(className);
@@ -48261,6 +48555,7 @@ ${spelling}`);
     }
     clearStableYouTubeTranscriptLayout() {
       const root = document.documentElement;
+      if (!root) return false;
       let changed = false;
       for (const className of YOUTUBE_STABLE_TRANSCRIPT_CLASSES) {
         if (!root.classList.contains(className)) continue;
@@ -48276,6 +48571,7 @@ ${spelling}`);
     }
     measureWithoutStableYouTubeTranscriptLayout(callback) {
       const root = document.documentElement;
+      if (!root) return callback();
       const classSnapshot = YOUTUBE_STABLE_TRANSCRIPT_CLASSES.map((className) => [className, root.classList.contains(className)]);
       const styleSnapshot = YOUTUBE_STABLE_TRANSCRIPT_STYLE_PROPERTIES.map((property) => [property, root.style.getPropertyValue(property)]);
       this.clearStableYouTubeTranscriptLayout();
@@ -54014,7 +54310,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const canShowProviderStatus = Boolean(provider?.hasApiKey);
       return [
         renderMetaReading(card, settings),
-        card.frequencyRank && !canShowProviderStatus ? `<span>#${card.frequencyRank}</span>` : "",
+        card.frequencyRank && !canShowProviderStatus ? renderMetaFrequencyRank(card.frequencyRank, settings.interfaceLanguage) : "",
         canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state2}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state2, settings.interfaceLanguage))}</span>` : "",
         renderAnkiMeta(data.ankiLookup, settings)
       ].filter(Boolean);
@@ -54154,6 +54450,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const reading = cardPronunciationReading(card);
     if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return "";
     return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$1(reading)}</span>` : "";
+  }
+  function renderMetaFrequencyRank(rank, language) {
+    const label = uiText(language, "factFrequency");
+    const value = `#${rank}`;
+    return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill jpdb-reader-meta-pill" data-dictionary="JPDB" style="${pillStyle("frequency:JPDB")}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(`${label}: ${value}`)}">${escapeHtml$1(value)}</span>`;
   }
   function renderAnkiMeta(lookup, settings) {
     if (!settings.ankiEnabled) return "";
@@ -61212,6 +61513,20 @@ ${normalizedReading}`;
       timeoutLabel: "JPDB vocabulary request timed out."
     });
   }
+  function requestSearchText(url, proxyUrl = "", timeoutMs = 8e3) {
+    return requestPublicJpdbText(url, {
+      proxyUrl,
+      timeoutMs,
+      credentials: "same-origin",
+      withCredentials: true,
+      failureLabel: "JPDB vocabulary request",
+      timeoutLabel: "JPDB vocabulary request timed out.",
+      allowDirectCrossOrigin: true,
+      allowConfiguredProxy: true,
+      allowSensitiveConfiguredProxy: false,
+      preferFetch: true
+    });
+  }
   const log$5 = Logger.scope("JpdbVocabulary");
   class JpdbVocabularyClient {
     constructor(getCorsProxyUrl = () => "") {
@@ -61271,7 +61586,7 @@ ${normalizedReading}`;
     async fetchSearch(query, limit) {
       if (this.requestBackoff.isActive()) return [];
       const url = jpdbSearchUrl(query);
-      const html = await requestText(url, this.getCorsProxyUrl()).catch((error) => {
+      const html = await requestSearchText(url, this.getCorsProxyUrl()).catch((error) => {
         this.noteRequestFailure("Vocabulary search request failed", { query }, error);
         return "";
       });
@@ -62682,7 +62997,7 @@ ${reading}`);
     return reading === card.reading ? card : { ...card, reading };
   }
   function newTabCardReading(card) {
-    return normalizedJapaneseCardReading(card.spelling, card.reading);
+    return normalizedJapaneseCardReading(card.spelling, cardPronunciationReading(card) || card.reading);
   }
   function newTabCardOptionalReading(card) {
     const reading = newTabCardReading(card);
@@ -72201,8 +72516,13 @@ ${entry.url}`),
       const hasGrades = gradeCount > 0;
       slots.controls.classList.toggle("jpdb-reader-newtab-grade-controls", hasGrades);
       slots.controls.dataset.newtabGradeControls = String(hasGrades);
-      if (hasGrades) slots.controls.dataset.newtabGradeCount = String(gradeCount);
-      else delete slots.controls.dataset.newtabGradeCount;
+      if (hasGrades) {
+        slots.controls.dataset.newtabGradeCount = String(gradeCount);
+        slots.controls.dataset.newtabGradeScale = gradeCount === 2 ? "pass-fail" : "standard";
+      } else {
+        delete slots.controls.dataset.newtabGradeCount;
+        delete slots.controls.dataset.newtabGradeScale;
+      }
       replaceChildrenWith(slots.controls, buttons);
     }
     controlButtonsForCard(card) {
@@ -73933,12 +74253,11 @@ ${entry.url}`),
     const colorRgba = cssPaintToRgba(wordBgColor, word);
     const highlightRgba = preserveHostPaint ? null : cssPaintToRgba(highlightColor, word);
     const hasPaint = Boolean(colorRgba && colorRgba.alpha > 0);
-    const hasHighlight = Boolean(highlightRgba && highlightRgba.alpha > 0);
     const paintRgba = hasPaint ? colorRgba : highlightRgba;
     const rgba = paintRgba && paintRgba.alpha > 0 ? blendRgba(paintRgba, background.rgba) : background.rgba;
     const paintBackgroundHex = rgbaToHex(rgba);
     let accessibleHighlightColor = null;
-    if ((hasPaint || hasHighlight) && !preserveHostPaint) {
+    if (hasPaint && !preserveHostPaint) {
       accessibleHighlightColor = readableHighlightBackground(paintBackgroundHex, background.hex);
       word.style.setProperty("--jpdb-reader-word-accessible-highlight", accessibleHighlightColor);
     } else {
@@ -74063,6 +74382,7 @@ ${entry.url}`),
   const READER_THEME_COLORS = READER_THEME_COLOR_TOKENS;
   function applyReaderTheme(settings, root = document.documentElement) {
     const theme = appliedReaderTheme(settings);
+    if (!root) return theme;
     root.classList.toggle("jpdb-reader-theme-dark", settings.theme === "dark");
     root.classList.toggle("jpdb-reader-theme-light", settings.theme === "light");
     applyReaderAccentColor(settings.accentColor, root);
@@ -76327,7 +76647,7 @@ ${entry.url}`),
     async lookupCard(term, reading) {
       const localEntry = await this.localLookupEntry(term, reading);
       if (localEntry) return this.parser.localCardFromEntry(localEntry);
-      const allowJpdbPublicLookup = Boolean(effectiveJpdbApiKey(this.settings));
+      const allowJpdbPublicLookup = this.settings.jpdbDefinitionsEnabled;
       const publicCard = allowJpdbPublicLookup ? await this.publicLookupCard(term, true) : void 0;
       if (publicCard) return publicCard;
       const fallbackCard = this.parser.fallbackCardFromText(term);

@@ -1,59 +1,136 @@
 # Changelog
 
-## [1.4.149] - 2026-06-27
+## [1.4.164] - 2026-06-28
 
-### Release readiness
+### Fixed
 
-- Keep homepage CTA polish, public internal-guide removal, and the actual Yomu Gaming app artifact as release gates to verify against built docs/artifacts, not source intent alone.
-- Treat BookWalker gallery layout and PDF OCR as still open until real gallery/PDF smokes confirm the remaining reports; earlier hardening is partial and should not be considered a full fix.
-- Keep Study audio, CORS fallback, and hosted/newtab behavior on the backlog until the no-userscript, CORS-blocked, and newtab smokes pass together.
+- Stabilized BookWalker manga OCR in normal and continuous-scroll modes by ignoring hidden canvas buffers, fingerprinting the whole visible page instead of one corner, keeping readiness through equivalent canvas swaps, and preserving the current OCR layer/status through same-page blank or hidden-buffer flicker.
+
+## [1.4.161] - 2026-06-27
+
+### Fixed
+
+- Hover lookup now follows a moving mouse pointer across parsed words instead of restarting the open delay on every word, so the popup opens without requiring the cursor to stop.
+
+## [1.4.160] - 2026-06-27
+
+### Fixed
+
+- Kept Reddit's web-component app shell on non-destructive page-text mirrors, so scrolling feeds and sidebars keep their native DOM while Yomu annotations remain visible.
+- Added Reddit's Japanese translation parameter to the Japanese site-language preference.
+
+## [1.4.159] - 2026-06-27
+
+### Fixed
+
+- Fixed hosted Japanese localization coverage for the homepage hero, Read CTA, support cards, updated game-text metadata, media labels, and latest release notes.
+
+## [1.4.158] - 2026-06-27
+
+### Fixed
+
+- Fixed Discord and other modern dark app shells whose computed colors use OKLab, so Yomu uses the real dark surface instead of falling back to white and turning passive highlights or text black.
+
+## [1.4.157] - 2026-06-27
+
+### Fixed
+
+- Fixed same-tab Google Drive authorization on Chrome by returning the OAuth token through the URL fragment instead of window.name, so Sync and Restore resume after Google sign-in.
+
+## [1.4.156] - 2026-06-27
+
+### Fixed
+
+- Refreshed fast reader popups after fallback words resolve through the API, so first-load lookups immediately show JPDB/Jiten status and pitch accent details instead of needing repeated taps.
+- Preserved kanji popup back navigation when dictionary lookup links wrap an already parsed Yomu word.
+
+## [1.4.155] - 2026-06-27
 
 ### Fixed
 
 - Reworked Google Drive settings sync/restore in userscript contexts to use same-tab OAuth redirects instead of popups, with automatic resume after returning from Google.
-- Kept generic mobile article/prose annotations inside the viewport on narrow pages such as Investing.com while preserving furigana on readable body text and leaving compact navigation/footer labels layout-safe.
 
-## [1.4.148] - 2026-06-27
-
-### Fixed
-
-- Kept BookWalker-style product galleries and compact book/card grids from expanding or overlapping when Yomu annotates titles, while preserving passive word lookup.
-- Removed stale form/control mirrors before visible-page scans so ChatGPT/Claude-style composer placeholders and help text do not get rendered as page content.
-
-## [1.4.147] - 2026-06-27
+## [1.4.154] - 2026-06-27
 
 ### Fixed
 
-- Fixed Study page local audio playback so localhost audio-server clips play directly without a CORS-breaking blob fetch, while revealed answers keep furigana and the speaker control visible.
+- Kept BookWalker product and storefront text native while adding passive lookup spans, so enabling Yomu no longer hides titles, descriptions, cart buttons, registration cards, or sidebar text behind broken mirrors.
+- Kept BookWalker reader OCR status pills visible after a page finishes scanning, removing the Scanning → disappear → reappear flicker while the OCR layer is still current.
+- Reduced common BookWalker manga page scans to one OCR provider request when the normal pass already found text, while still retrying the inverted dark-panel pass for empty pages.
 
-## [1.4.146] - 2026-06-27
+## [1.4.153] - 2026-06-27
 
 ### Fixed
 
 - Aligned review grading shortcuts in Settings > Shortcuts so grade controls start together instead of sharing the row with Study navigation keys.
 
-## [1.4.145] - 2026-06-27
-
-### Added
-
-- Added the Yomu Gaming desktop shell as a first-party, overlay-first app path with a Yomu-styled settings window and capture smoke coverage.
-
-### Changed
-
-- Moved Study PWA install into the overflow menu, removed the oversized reverse-answer details card, and kept answer metadata compact with furigana, pitch, frequency/action pills, and audio.
-- Removed public competitor/ADR docs pages and guarded docs builds so public docs stay first-party.
+## [1.4.152] - 2026-06-27
 
 ### Fixed
 
-- Kept text PDFs text-first while scanned PDFs avoid unreadable passive OCR overlays; explicit taps now trigger readable Yomu OCR on scanned canvases.
-- Repaired generic compact-control annotations so placeholders, headers, footers, search boxes, wiki controls, BookWalker carousels, and first-load homepage words no longer break layout or miss initial pitch styling.
-- Made word audio replay reliably on repeat speaker clicks and hover sequences, while transient empty audio lookups no longer force premature TTS fallback.
+- Restored continuous side-panel resizing for Yomu Video and YouTube subtitles: hosted videos now use the generic video inset again, while YouTube stable side panels can grow past existing free space by shrinking the player width during resize.
 
-## [1.4.144] - 2026-06-27
+## [1.4.151] - 2026-06-27
+
+### Fixed
+
+- Kept the settings puck clickable when it overlaps the YouTube/Yomu Video transcript side panel.
+
+## [1.4.150] - 2026-06-27
+
+### Fixed
+
+- Contained BookWalker storefront annotations in passive, ruby-free text mirrors so enabling Yomu no longer shifts homepage carousels, product grids, clamped titles, or sidebar cards.
+- Dropped stale OCR status/results when BookWalker swaps a canvas frame to a new page, preventing previous-page “Text ready” overlays from surviving page turns.
+
+## [1.4.149] - 2026-06-27
+
+### Fixed
+
+- Kept signed-in YouTube comment bodies on non-destructive text mirrors so comments remain annotated without inline reader spans, preventing YouTube DOM churn from duplicating or rewriting comment text.
+- Guarded early YouTube userscript startup before `document.documentElement`, `document.head`, or `document.body` exists, removing page-load theme/runtime errors during signed-in live/watch smoke runs.
+
+## [1.4.148] - 2026-06-27
+
+### Fixed
+
+- Repaired BookWalker continuous-scroll OCR in Firefox, WebKit, and Chromium so visible vertical pages show scanning/status feedback and ready OCR words stay selectable.
+- Kept normal BookWalker page taps working outside OCR text while routing taps on OCR words to lookup instead of page turns.
+- Restored BookWalker title and description annotation with furigana and pitch while keeping reader settings/menu controls passive.
+- Aligned dictionary furigana for mixed kana/kanji headwords such as `あなた達[たち]`, so kana outside the annotated kanji no longer pulls ruby out of position.
+- Kept the default dark-mode OCR word highlight on an accent-tinted background while preserving the explicit dark overlay setting.
+- Stabilized YouTube/Yomu Video side-panel resizing and native fullscreen control hit-testing after transcript rows are rendered.
+
+## [1.4.147] - 2026-06-27
+
+### Fixed
+
+- Kept compact media carousels, absolute-positioned slides, product cards, and sidebar cards from growing or overflowing when page annotations render, while normal article text still keeps furigana.
+- Collapsed framework formatting whitespace in YouTube owner/subscriber mirrors so channel rows do not gain visible newline gaps during annotation refreshes.
+- Rendered JPDB frequency ranks in popup headers as frequency metadata pills instead of bare #rank text, matching lookup pill wrapping, contrast, and accessibility labels.
+
+## [1.4.146] - 2026-06-27
 
 ### Changed
 
-- Renamed the settings “New Tab” link to “Study” and aligned English/Japanese localization so the label is now fully translated from `newTabPage`.
+- Renamed the root installable docs PWA manifest to visible よむ branding and added the compat live-site smoke command for YomuYomu and current anime player targets.
+
+## [1.4.145] - 2026-06-27
+
+### Fixed
+
+- Study Pass/Fail grading now uses a dedicated two-button mobile layout, so Fail and Pass stay wide, centered, and inside the viewport.
+- Revealed Study answers recover kana readings from annotated card text such as `前方[ぜんぽう]`, while keeping the front side unspoiled.
+- Hosted/accountless Study search can fetch JPDB public vocabulary pages again, restoring public definitions and keeping recorded audio ahead of browser text-to-speech.
+- Study term pitch underlines render through the pseudo underline without stacking native underlines, text shadows, or box shadows.
+- Settings now puts the review rating scale directly in Study and clarifies Jiten/JPDB credential separation, provider-scoped Study decks, and AnkiConnect setup/CORS guidance.
+
+## [1.4.144] - 2026-06-27
+
+### Added
+
+- Added a Steam Deck and PC gaming guide that replaces the YomiNinja-only workflow, explains the current PWA/no-install boundary, and compares Decky/native OCR helpers for game text handoff.
+- Recorded ADR 0004 for the gaming distribution strategy and the first Gaming Text Bridge contract sketch.
 
 ## [1.4.143] - 2026-06-27
 
@@ -113,7 +190,7 @@
 ### Changed
 
 - Two-point Study grading is available in Study settings, and Pass/Fail review controls use the available width with a centered mobile layout.
-- Homepage CTAs now say Install and link directly to Watch and Read/PDF tools.
+- Homepage CTAs now say Install and link directly to Watch and Read tools.
 - Dictionary empty states and recommended dictionary copy now explain that term dictionaries add definitions, while pitch and frequency dictionaries add accents and badges.
 
 ### Fixed
