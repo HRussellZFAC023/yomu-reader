@@ -213,6 +213,23 @@ export function canvasMirrorTurnToken(): string {
     try { return document.documentElement?.getAttribute(EPOCH_ATTR) ?? ''; } catch { return ''; }
 }
 
+// Per-canvas page identity for a tainted DRM canvas: a fingerprint of the source
+// image(s) the engine composited into THIS canvas. Unlike the global epoch
+// (canvasMirrorTurnToken), it moves only when this canvas is repainted with a
+// DIFFERENT page — a same-page repaint (refocus, zoom, scroll-driven re-raster)
+// replays the same leaf URLs so the token is unchanged, and another canvas painting
+// never perturbs it. That stability is what lets an async mirror capture land and a
+// landed overlay survive the constant epoch churn of vertical/continuous mode. '' when
+// nothing is recorded for the canvas yet, so the caller can fall back to the epoch.
+export function canvasMirrorContentToken(canvas: object): string {
+    const id = canvasId(canvas, false);
+    if (!id) return '';
+    const s = state();
+    if (!(s.records[id]?.ops.length)) pullPageMirrorRecords(s);
+    const urls = collectLeafUrls(id, Number.POSITIVE_INFINITY, key => s.records[key]);
+    return urls.size ? `m:${[...urls].sort().join('')}` : '';
+}
+
 // Rebuild `canvas` onto an untainted canvas by replaying the engine's recorded draw
 // ops from origin-clean (GM-fetched) copies of the source images. Returns undefined
 // when there's nothing recorded, no fetchable source, or the rebuild is still

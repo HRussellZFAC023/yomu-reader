@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.167] - 2026-06-28
+
+### Fixed
+
+- Fixed BookWalker continuous/vertical (`cty=2`) OCR leaving empty overlays — no hover/tap lookup — and dropping OCR after the window was defocused and refocused. The tainted DRM page canvases keyed their per-page identity on a single global mirror epoch that churns on every composite, so each asynchronous page capture was invalidated before it could land and every epoch tick read as a page turn that wiped the overlay. Each tainted page canvas now derives its own stable source-image fingerprint, so captures land and overlays survive the churn while genuine page turns still refresh.
+
 ## [1.4.166] - 2026-06-28
 
 ### Fixed
