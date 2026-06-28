@@ -1173,7 +1173,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('skips generic form labels, dropdown options, placeholders, and composer help text on iPad-sized pages', async () => {
+    it('mirrors Japanese labels and dropdown options without treating text-entry placeholders as content', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `
             <main>
@@ -1207,26 +1207,36 @@ describe('VisiblePageScanner', () => {
 
             const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
             expect(parsedTexts.some(text => text.includes('静かな日本語の文章です。'))).toBe(true);
-            expect(parsedTexts.some(text => text.includes('表示順'))).toBe(false);
-            expect(parsedTexts.some(text => text.includes('日本語だけ'))).toBe(false);
+            expect(parsedTexts.some(text => text.includes('表示順'))).toBe(true);
+            expect(parsedTexts.some(text => text.includes('日本語だけ'))).toBe(true);
             expect(parsedTexts.some(text => text.includes('単語を検索'))).toBe(false);
             expect(parsedTexts.some(text => text.includes('質問する'))).toBe(false);
             expect(parsedTexts.some(text => text.includes('検索ヘルプ'))).toBe(false);
 
             const labelWord = document.querySelector<HTMLElement>('label .jpdb-reader-word[data-expression="表示順"]');
-            expect(labelWord).toBeNull();
+            expect(labelWord).not.toBeNull();
+            expect(labelWord?.dataset.jpdbReaderPassive).toBe('true');
 
             const select = document.querySelector<HTMLSelectElement>('select')!;
             expect(select.querySelector('.jpdb-reader-word')).toBeNull();
             const selectMirror = select.nextElementSibling as HTMLElement | null;
-            expect(selectMirror?.matches('.jpdb-reader-control-text-mirror')).not.toBe(true);
+            expect(selectMirror?.matches('.jpdb-reader-control-text-mirror')).toBe(true);
+            const selectWord = selectMirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="日本語"]') ?? null;
+            expect(selectWord).not.toBeNull();
+            expect(selectWord?.dataset.jpdbReaderPassive).toBe('true');
 
             const input = document.querySelector<HTMLInputElement>('input')!;
             expect(input.querySelector('.jpdb-reader-word')).toBeNull();
             const inputMirror = input.nextElementSibling as HTMLElement | null;
             expect(inputMirror?.matches('.jpdb-reader-control-text-mirror')).not.toBe(true);
+            expect(input.hasAttribute('data-jpdb-reader-control-placeholder-hidden')).toBe(false);
             expect(document.querySelector('[role="textbox"] .jpdb-reader-word')).toBeNull();
             expect(document.querySelector('.placeholder .jpdb-reader-word')).toBeNull();
+
+            select.dispatchEvent(new Event('change'));
+            expect(selectMirror?.isConnected).toBe(false);
+            input.dispatchEvent(new Event('input'));
+            expect(inputMirror?.isConnected).not.toBe(true);
         } finally {
             scanner.destroy();
             restoreRects();
@@ -1275,7 +1285,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('keeps Wikibooks-style prose inline while ignoring search controls', async () => {
+    it('keeps Wikibooks-style prose inline while search controls avoid inline word rendering', async () => {
         const restoreRects = mockVisibleElementRects();
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -1313,10 +1323,9 @@ describe('VisiblePageScanner', () => {
 
             const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
             expect(parsedTexts.some(text => text.includes('詳しい編集方法は'))).toBe(true);
-            expect(parsedTexts.some(text => text.includes('Wikibooks内を検索'))).toBe(false);
-            expect(parsedTexts.some(text => text === '検索')).toBe(false);
-            expect(document.querySelector('[role="search"] .jpdb-reader-word')).toBeNull();
-            expect(document.querySelector('[role="search"] .jpdb-reader-control-text-mirror')).toBeNull();
+            expect(parsedTexts.some(text => text.includes('Wikibooks内を検索'))).toBe(true);
+            const searchWords = Array.from(document.querySelectorAll<HTMLElement>('[role="search"] .jpdb-reader-word'));
+            expect(searchWords).toEqual([]);
 
             const prose = document.querySelector<HTMLElement>('[data-wikibooks-prose]')!;
             const words = Array.from(prose.querySelectorAll<HTMLElement>('.jpdb-reader-word'));

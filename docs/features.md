@@ -97,7 +97,7 @@ The YouTube filter is on by default so recommendations stay focused on Japanese.
 
 The temporary notice shows how many cards were hidden and disappears after a few seconds. Use **Show hidden videos** to reveal them, **Hide hidden videos** to filter them again, **Hide notice** to stop showing that notice while keeping the filter enabled, or `Alt+Y` to toggle the filter itself.
 
-The separate **Prefer Japanese site language and location** setting asks multilingual pages for their Japanese version by combining browser-language hints, Japan locale/location hints, Japanese preference cookies, `hreflang` alternates, and common URL patterns such as `en.example.com` or `/en`. The よむ puck includes the same toggle so you can turn that request on or off from the page; when よむ knows the original English/default URL, turning it off returns there.
+The separate **Prefer Japanese site language and location** setting asks multilingual pages for their Japanese version by combining browser-language hints, Japan locale/location hints, Japanese preference cookies, `hreflang` alternates, existing locale query hints such as `locale=en-US`, and common URL patterns such as `en.example.com` or `/en`. The よむ puck includes the same toggle so you can turn that request on or off from the page; when よむ knows the original English/default URL, turning it off returns there.
 
 On the YouTube home feed, when よむ hides enough English-heavy recommendations, it can also offer a dismissible starter guide of Japanese YouTube channels. Use **Later** to hide it for the current page, **Never show** to turn it off, or **Show all** to browse the full 100-channel list with direct subscribe links.
 

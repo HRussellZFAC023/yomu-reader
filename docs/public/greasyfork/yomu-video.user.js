@@ -1980,7 +1980,6 @@
   );
   const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
   const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-  `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],${selectorPairs("composer,prompt-textarea", ["data-testid", "data-test-id", "class", "id"])},[class*="placeholder" i],[class*="ProseMirror" i]`;
   selectorPairs("control,toggle,player", ["class"]);
   const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka,kifuku".split(","));
   const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
@@ -2009,7 +2008,7 @@
   `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
   `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
   `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch")}`;
-  `header,nav,footer,aside,[role="banner"],[role="navigation"],[role="contentinfo"],[role="complementary"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,appearance,chooser,dialog,dropdown,login,menu,modal,picker,pinnable,profile,prefs,sidebar,signin,tabs,toc,toolbar")}`;
+  `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar")}`;
   selectorPairs("banner,book,card,carousel,gallery,grid,item,lockup,movie,poster,product,rail,scroll,shelf,slick,slider,splide,swiper,thumb,tile,video,volume,work", ["class"]);
   `canvas,img,picture,svg,video,${selectorPairs("cover,image,poster,thumb", ["class"])}`;
   `[role="alert"],[role="status"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])}`;

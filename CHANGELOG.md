@@ -1,11 +1,24 @@
 # Changelog
 
-## [1.4.181] - 2026-06-28
+## [1.4.191] - 2026-06-28
 
 ### Fixed
 
 - Collapsed the Help tab's long AnkiConnect setup guidance behind an accessible disclosure so the Help section stays compact until setup details are needed.
 - Repaired Study/Newtab reveal so the answer keeps furigana, pitch, frequency, dictionary links, and the study audio button inline without rendering the old duplicate lookup card; local audio clips play/restart without localhost fetch/CORS spam, and optional lookup failures keep their debug logging without surfacing noisy console errors.
+
+## [1.4.190] - 2026-06-28
+
+### Fixed
+
+- Kept Yomu annotations from breaking compact controls, composer/editable placeholders, and carousel/card layouts by skipping placeholder-like surfaces, suppressing ruby in constrained chrome, and preserving native form-control text.
+- Added regression coverage for ChatGPT/Claude-like composers, account-picker controls, form placeholders, visible-page scanning, and BookWalker-style carousel overflow.
+
+## [1.4.180] - 2026-06-28
+
+### Fixed
+
+- Extended the Japanese site-language redirect to rewrite existing generic English locale query hints, so multilingual sites that use `locale`, `language`, `region`, `mkt`, or similar parameters request Japanese without needing a site-specific rule.
 
 ## [1.4.179] - 2026-06-28
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { applyTokensToScanTarget, collectFragmentTextTargetsIn, type FragmentTextTarget } from '../../src/reader/dom';
+import { applyTokensToScanTarget, collectFormControlTextTargetsIn, collectFragmentTextTargetsIn, collectTextTargetsIn, type FragmentTextTarget } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -9,7 +9,7 @@ describe('generic reader layout overflow guards', () => {
         document.body.innerHTML = '';
     });
 
-    it('marks residual readable prose as prose-wrapped so ruby cannot force mobile overflow', () => {
+    it('keeps residual readable prose ruby-enabled for mobile overflow handling', () => {
         document.body.innerHTML = `
             <main id="content" role="main">
                 <div id="mw-content-text" class="mw-parser-output">
@@ -20,7 +20,6 @@ describe('generic reader layout overflow guards', () => {
         const target = collectTargets().find(candidate => candidate.text.includes('今日は日本語'));
 
         expect(target).toBeTruthy();
-        expect(target?.proseWrap).toBe(true);
         expect(target?.suppressRuby).not.toBe(true);
         expect(target?.passiveInteraction).not.toBe(true);
 
@@ -31,7 +30,6 @@ describe('generic reader layout overflow guards', () => {
         });
 
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        expect(word.classList.contains('jpdb-reader-prose-word')).toBe(true);
         expect(word.querySelector('rt')?.textContent).toBe('にほんご');
     });
 
@@ -82,7 +80,39 @@ describe('generic reader layout overflow guards', () => {
 
         expect(targets.map(target => target.text)).toContain('普通の日本語本文です。');
         expect(targets.map(target => target.text)).not.toContain('メッセージを入力');
+        expect(targets.map(target => target.text)).not.toContain('送信');
+        expect(collectTextTargetsIn(document.body, 20, false, { includeReaderRoot: false }).map(target => target.text)).not.toContain('送信');
         expect(collectTargets(sendButton)).toEqual([]);
+    });
+
+    it('keeps readable prose under composer-named containers annotatable', () => {
+        document.body.innerHTML = `
+            <section class="article-composer-notes">
+                <p>作曲家についての日本語本文です。</p>
+                <button type="button">閉じる</button>
+            </section>
+        `;
+
+        const targets = collectTargets();
+
+        expect(targets.map(target => target.text)).toContain('作曲家についての日本語本文です。');
+        expect(collectTextTargetsIn(document.body, 20, false, { includeReaderRoot: false }).map(target => target.text)).toContain('作曲家についての日本語本文です。');
+    });
+
+    it('does not collect input or textarea placeholders as control mirrors', () => {
+        document.body.innerHTML = `
+            <form>
+                <input type="search" placeholder="日本語を検索" value="">
+                <textarea placeholder="質問する"></textarea>
+                <select>
+                    <option selected>日本語</option>
+                </select>
+            </form>
+        `;
+
+        const targets = collectFormControlTextTargetsIn(document.body, 20, false);
+
+        expect(targets.map(target => target.text)).toEqual(['日本語']);
     });
 });
 

@@ -31,6 +31,8 @@ const VOCABULARY = [
     ['取引', '取引', 'とりひき', 'trade', ['noun'], 100, ['known'], ['LHHH']],
     ['詳細', '詳細', 'しょうさい', 'details', ['noun'], 100, ['known'], ['LHHH']],
     ['スポーツ', 'スポーツ', 'スポーツ', 'sports', ['noun'], 100, ['known'], ['LHHH']],
+    ['アカウント', 'アカウント', 'アカウント', 'account', ['noun'], 100, ['known'], ['LHHH']],
+    ['選択', '選択', 'せんたく', 'selection', ['noun'], 100, ['known'], ['LHHH']],
     ['詳しく', '詳しく', 'くわしく', 'in detail', ['adverb'], 100, ['known'], ['LHHH']],
     ['読む', '読む', 'よむ', 'read', ['verb'], 100, ['known'], ['LH']],
     ['アカウント', 'アカウント', 'アカウント', 'account', ['noun'], 100, ['known'], ['LHHHHH']],
@@ -82,6 +84,13 @@ body { display: grid; place-items: start center; }
 .market-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #eef2f7; }
 .trade-button { width: 96px; border-radius: 8px; font: inherit; cursor: pointer; }
 .trade-button[data-neighbor] { width: 88px; background: #121923; }
+.account-choice { margin-top: 18px; width: 320px; height: 42px; border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; background: #10151d; border: 1px solid #263241; color: #f8fafc; text-decoration: none; }
+.composer { margin-top: 18px; border: 1px solid #263241; border-radius: 8px; padding: 10px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; background: #10151d; }
+.composer [contenteditable] { min-height: 26px; color: #f8fafc; }
+.composer [data-placeholder] { color: #8b98aa; }
+.composer input, .composer textarea { min-width: 0; border: 1px solid #334155; background: #0b1119; color: #f8fafc; border-radius: 6px; padding: 6px 8px; }
+.composer textarea { resize: none; height: 32px; }
+.composer button { border: 1px solid #334155; background: #182131; color: #f8fafc; border-radius: 6px; padding: 0 12px; }
 .prose { margin-top: 26px; max-width: 58ch; color: #d8dee9; line-height: 1.7; }
 .prose a { color: #8ab4f8; }
 .login-dialog { margin-top: 18px; width: 320px; border: 1px solid #263041; border-radius: 8px; background: #101722; overflow: hidden; }
@@ -115,6 +124,8 @@ body { display: grid; place-items: start center; }
       <p>メッセージを入力</p>
     </div>
     <button id="composer-send" type="button">送信</button>
+    <input id="composer-input" type="search" placeholder="日本語を検索">
+    <textarea id="composer-textarea" placeholder="質問する"></textarea>
   </section>
   <article class="prose">
     <p><a id="prose-link" data-prose href="/analysis/elections">選挙について詳しく読む</a></p>
@@ -264,6 +275,10 @@ function snapshotCompactChromeFixture(native) {
         },
         composer: {
             placeholderWords: document.querySelectorAll('#composer-placeholder .jpdb-reader-word').length,
+            inputMirror: document.querySelector('#composer-input + .jpdb-reader-control-text-mirror')?.textContent?.trim() ?? '',
+            inputPlaceholderHidden: document.querySelector('#composer-input')?.getAttribute('data-jpdb-reader-control-placeholder-hidden') ?? '',
+            textareaMirror: document.querySelector('#composer-textarea + .jpdb-reader-control-text-mirror')?.textContent?.trim() ?? '',
+            textareaPlaceholderHidden: document.querySelector('#composer-textarea')?.getAttribute('data-jpdb-reader-control-placeholder-hidden') ?? '',
             sendWords: document.querySelectorAll('#composer-send .jpdb-reader-word').length,
         },
         layout: {
@@ -289,6 +304,8 @@ function assertCompactChromeSnapshot(snapshot, label) {
     assert(snapshot.prose.rubyText === 'せんきょ', `${label}: prose link lost ruby`, snapshot.prose);
     assert(snapshot.prose.passiveChrome === '', `${label}: prose link was marked as compact chrome`, snapshot.prose);
     assert(snapshot.composer.placeholderWords === 0, `${label}: composer placeholder was annotated as page text`, snapshot.composer);
+    assert(snapshot.composer.inputMirror === '' && snapshot.composer.inputPlaceholderHidden === '', `${label}: input placeholder was mirrored as lookup content`, snapshot.composer);
+    assert(snapshot.composer.textareaMirror === '' && snapshot.composer.textareaPlaceholderHidden === '', `${label}: textarea placeholder was mirrored as lookup content`, snapshot.composer);
     assert(snapshot.composer.sendWords === 0, `${label}: composer send control was annotated as page text`, snapshot.composer);
     assert(snapshot.layout.scrollWidth <= snapshot.layout.viewportWidth + 1, `${label}: annotations caused horizontal overflow`, snapshot.layout);
 }

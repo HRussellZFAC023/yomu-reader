@@ -99,8 +99,11 @@ describe('preferred Japanese site language', () => {
     });
 
     it('rewrites generic English URL locale hints to Japanese', () => {
-        expect(preferredJapaneseSiteUrl('https://en.example.com/docs/start?locale=en_US')).toBe('https://ja.example.com/docs/start?locale=en_US');
-        expect(preferredJapaneseSiteUrl('https://example.com/en-US/products?language=en-US&region=US')).toBe('https://example.com/ja-jp/products?language=en-US&region=US');
+        expect(preferredJapaneseSiteUrl('https://en.example.com/docs/start?locale=en_US')).toBe('https://ja.example.com/docs/start?locale=ja_JP');
+        expect(preferredJapaneseSiteUrl('https://example.com/en-US/products?language=en-US&region=US')).toBe('https://example.com/ja-jp/products?language=ja-JP&region=JP');
+        expect(preferredJapaneseSiteUrl('https://example.com/products?locale=en-US&mkt=en-US&gl=US')).toBe('https://example.com/products?locale=ja-JP&mkt=ja-JP&gl=JP');
+        expect(preferredJapaneseSiteUrl('https://developer.mozilla.org/en-US/docs/Web/JavaScript?locale=en_US')).toBe('https://developer.mozilla.org/ja/docs/Web/JavaScript?locale=ja_JP');
+        expect(preferredJapaneseSiteUrl('https://example.com/search?tl=en')).toBeNull();
     });
 
     it('waits for page metadata before applying generic locale URL guesses', () => {
@@ -288,7 +291,7 @@ describe('preferred Japanese site language', () => {
         applyPreferredJapaneseSiteLanguage(true);
 
         expect(unsafeWindow.fetch).toBe(unsafeFetch);
-        expect(appendedScripts.join('\n')).toContain('const JAPANESE_LOCALE = "ja-JP";');
+        expect(appendedScripts.join('\n')).toContain('const JA_LOCALE = "ja-JP";');
         expect(appendedScripts.join('\n')).toContain('applyJapanesePreferencesInPage(globalThis, true)');
         expect(appendedScripts.join('\n')).not.toContain('installFetchAcceptLanguage');
         expect(appendedScripts.join('\n')).not.toContain('isSameOriginRequestUrl');

@@ -7232,7 +7232,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   );
   const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
   const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-  const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],${selectorPairs("composer,prompt-textarea", ["data-testid", "data-test-id", "class", "id"])},[class*="placeholder" i],[class*="ProseMirror" i]`;
+  const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
+  const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
   const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
   const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
   const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
@@ -7283,7 +7284,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch")}`;
   const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
   const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-  const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,aside,[role="banner"],[role="navigation"],[role="contentinfo"],[role="complementary"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,appearance,chooser,dialog,dropdown,login,menu,modal,picker,pinnable,profile,prefs,sidebar,signin,tabs,toc,toolbar")}`;
+  const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar")}`;
   const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = selectorPairs("banner,book,card,carousel,gallery,grid,item,lockup,movie,poster,product,rail,scroll,shelf,slick,slider,splide,swiper,thumb,tile,video,volume,work", ["class"]);
   const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
   const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
@@ -7320,6 +7321,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const renderedScanHosts = /* @__PURE__ */ new WeakMap();
   const textMirrorHosts = /* @__PURE__ */ new WeakMap();
   const canvasFallbackTextLayers = /* @__PURE__ */ new WeakMap();
+  function isComposerActionControl(control) {
+    return !!control.parentElement?.closest("[class*=composer i],[id*=composer i]")?.querySelector(EDITABLE_FRAGMENT_ROOT_SELECTOR);
+  }
   function shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction) {
     if (suppressRuby || passiveInteraction) return false;
     return isReadableProseContext(parent);
@@ -7395,10 +7399,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       pushUniqueControlText(parts, selectLookupText(control, options.selectTextMode ?? "options"));
       if (options.selectTextMode === "selected") return parts.join(" / ");
     }
-    if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
-      pushUniqueControlText(parts, formFieldPlaceholderText(control));
-      if (control.value.trim()) return parts.join(" / ");
-    }
+    if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) return "";
     pushUniqueControlText(parts, control.getAttribute("aria-label") ?? "");
     pushUniqueControlText(parts, control.getAttribute("title") ?? "");
     return parts.join(" / ");
@@ -7417,10 +7418,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function optionText(option) {
     return normalizedControlText(option.label || option.textContent || "");
-  }
-  function formFieldPlaceholderText(control) {
-    if (control.value.trim()) return "";
-    return normalizedControlText(control.getAttribute("placeholder") ?? "");
   }
   function pushUniqueControlText(parts, text2) {
     const normalized = normalizedControlText(text2);
@@ -7541,7 +7538,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function matchesSkippedFragmentElement(element, state2, isRoot) {
     if (state2.excludeSelector && safeElementMatches(element, state2.excludeSelector)) return true;
-    if (isRoot && element.closest(EDITABLE_TEXT_SURFACE_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element, state2.options)) return true;
+    if (isComposerActionControl(element)) return true;
+    if (isRoot && element.closest(EDITABLE_FRAGMENT_ROOT_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element, state2.options)) return true;
     return !isRoot && shouldSkipFragmentElement(element, state2.options);
   }
   function isSafeEditableSurfaceFragmentRoot(element, options) {
@@ -25455,7 +25453,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.181".trim() ? "1.4.181".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.191".trim() ? "1.4.191".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

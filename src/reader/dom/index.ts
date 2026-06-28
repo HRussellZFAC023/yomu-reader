@@ -44,7 +44,8 @@ const EASY_FURIGANA_KANJI = new Set(
 // keep the same ruby/color treatment as other dictionary terms.
 const selectorPairs = (names: string, attributes = ['class', 'id']): string => names.split(',').flatMap(name => attributes.map(attribute => `[${attribute}*="${name}" i]`)).join(',');
 const roleSelectors = (names: string): string => names.split(',').map(name => `[role="${name}"]`).join(',');
-const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],${selectorPairs('composer,prompt-textarea', ['data-testid', 'data-test-id', 'class', 'id'])},[class*="placeholder" i],[class*="ProseMirror" i]`;
+const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
+const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(',[role=tab]', '');
 const FORM_BOUNDARY_SKIP_SELECTOR = 'form,label,fieldset,legend';
@@ -117,7 +118,7 @@ const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=tr
 const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors('button,tab,menuitem,option,checkbox,radio,switch')}`;
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,aside,[role="banner"],[role="navigation"],[role="contentinfo"],[role="complementary"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs('account,appearance,chooser,dialog,dropdown,login,menu,modal,picker,pinnable,profile,prefs,sidebar,signin,tabs,toc,toolbar')}`;
+const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs('account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar')}`;
 const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = selectorPairs('banner,book,card,carousel,gallery,grid,item,lockup,movie,poster,product,rail,scroll,shelf,slick,slider,splide,swiper,thumb,tile,video,volume,work', ['class']);
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
 const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
@@ -417,8 +418,13 @@ const ANNOTATABLE_CONTROL_SELECTOR = COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR
 function isAnnotatableChipControl(blocked: Element): boolean {
     if (!blocked.matches(ANNOTATABLE_CONTROL_SELECTOR)) return false;
     const control = blocked.closest(ANNOTATABLE_CONTROL_SELECTOR) ?? blocked;
+    if (isComposerActionControl(control)) return false;
     const text = control.textContent?.replace(/\s+/g, '').trim() ?? '';
     return text.length > 0 && text.length <= CONTROL_LABEL_TEXT_LIMIT && HAS_JAPANESE.test(text);
+}
+
+function isComposerActionControl(control: Element): boolean {
+    return !!control.parentElement?.closest('[class*=composer i],[id*=composer i]')?.querySelector(EDITABLE_FRAGMENT_ROOT_SELECTOR);
 }
 
 function textWalkerHasJapanese(walker: TreeWalker, limit: number): boolean {
@@ -641,10 +647,7 @@ function formControlLookupText(control: HTMLElement, options: Pick<FormControlTe
         pushUniqueControlText(parts, selectLookupText(control, options.selectTextMode ?? 'options'));
         if (options.selectTextMode === 'selected') return parts.join(' / ');
     }
-    if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
-        pushUniqueControlText(parts, formFieldPlaceholderText(control));
-        if (control.value.trim()) return parts.join(' / ');
-    }
+    if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) return '';
     pushUniqueControlText(parts, control.getAttribute('aria-label') ?? '');
     pushUniqueControlText(parts, control.getAttribute('title') ?? '');
     return parts.join(' / ');
@@ -667,11 +670,6 @@ function compactSelectOptionListText(options: string[]): string {
 
 function optionText(option: HTMLOptionElement): string {
     return normalizedControlText(option.label || option.textContent || '');
-}
-
-function formFieldPlaceholderText(control: HTMLInputElement | HTMLTextAreaElement): string {
-    if (control.value.trim()) return '';
-    return normalizedControlText(control.getAttribute('placeholder') ?? '');
 }
 
 function pushUniqueControlText(parts: string[], text: string): void {
@@ -856,8 +854,8 @@ function matchesSkippedFragmentElement(
     isRoot: boolean,
 ): boolean {
     if (state.excludeSelector && safeElementMatches(element, state.excludeSelector)) return true;
-    if (isRoot && element.closest(EDITABLE_TEXT_SURFACE_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element, state.options)) return true;
-    if (isRoot && safeElementMatches(element, PASSIVE_INTERACTION_SELECTOR) && !isSafePassiveInteractionFragmentRoot(element, state.options)) return true;
+    if (isComposerActionControl(element)) return true;
+    if (isRoot && element.closest(EDITABLE_FRAGMENT_ROOT_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element, state.options)) return true;
     return !isRoot && shouldSkipFragmentElement(element, state.options);
 }
 
@@ -865,10 +863,6 @@ function isSafeEditableSurfaceFragmentRoot(element: HTMLElement, options: Fragme
     return Boolean(options.includePassiveInteractions
         && safeElementMatches(element, PASSIVE_INTERACTION_SELECTOR)
         && isNavigationChromeContext(element));
-}
-
-function isSafePassiveInteractionFragmentRoot(element: HTMLElement, options: FragmentTextTargetCollectionOptions): boolean {
-    return Boolean(options.includePassiveInteractions && isNavigationChromeContext(element));
 }
 
 function shouldSkipInvisibleFragmentElement(element: HTMLElement, visibleOnly: boolean): boolean {

@@ -2926,8 +2926,8 @@ export class ReaderApp {
             'textarea',
             'select',
             'summary',
-            '[role="button"]',
-            '[contenteditable="true"]',
+            '[role=button]',
+            '[contenteditable=true]',
             '[data-jpdb-reader-root]',
         ].join(',')));
     }
@@ -4373,7 +4373,7 @@ export class ReaderApp {
     private isNativeTextLookupTarget(target: Element, options: PointerTextLookupOptions = {}): boolean {
         return (!options.allowPassiveInteractionText && isPassiveInteractionElement(target))
             || this.isReaderImmersionExampleSentenceText(target)
-            || Boolean(target.closest('input,textarea,select,[contenteditable="true"],.jpdb-reader-word'))
+            || !!target.closest('input,textarea,select,[contenteditable],.jpdb-reader-word')
             || this.isSettingsNativeControlText(target);
     }
 
@@ -4383,7 +4383,7 @@ export class ReaderApp {
 
     private isSettingsNativeControlText(target: Element): boolean {
         return Boolean(target.closest('.jpdb-reader-settings')
-            && target.closest('a[href],button,input,label,select,textarea,[role="button"],[role="checkbox"],[role="link"],[role="menuitem"],[role="option"],[role="radio"],[role="switch"],[role="tab"],[data-action]'));
+            && target.closest('a[href],button,input,label,select,textarea,[role=button],[role=checkbox],[role=link],[role=menuitem],[role=option],[role=radio],[role=switch],[role=tab],[data-action]'));
     }
 
     private async showLookupCandidate(candidate: PointerTextLookup, trigger: 'modal' | 'hover', options: { navigation?: CardNavigationMode; preservePosition?: boolean; hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {

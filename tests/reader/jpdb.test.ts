@@ -5908,6 +5908,7 @@ describe('reader helpers', () => {
             undefined,
             'hover',
             { state: 'not-in-deck', notes: [], primary: null },
+            null,
         );
     });
 
@@ -11769,7 +11770,9 @@ describe('reader helpers', () => {
     it('sets external dictionary lookup pill defaults for Jiten-first and local-first setup', () => {
         expect(defaultDictionaryLookupLinks('jpdb').map(link => [link.id, link.enabled])).toEqual([
             ['jiten', true],
+            ['jiten-frequency', true],
             ['jpdb', true],
+            ['jpdb-frequency', false],
             ['yomu-search', true],
             ['jisho', false],
             ['weblio', false],
@@ -11782,7 +11785,9 @@ describe('reader helpers', () => {
         ]);
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.enabled])).toEqual([
             ['jiten', true],
+            ['jiten-frequency', true],
             ['jpdb', true],
+            ['jpdb-frequency', false],
             ['yomu-search', true],
             ['jisho', false],
             ['weblio', false],
@@ -11795,7 +11800,9 @@ describe('reader helpers', () => {
         ]);
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.label, link.urlTemplate])).toEqual([
             ['jiten', 'Jiten', 'https://jiten.moe/parse?text={query}'],
+            ['jiten-frequency', 'Jiten live', ''],
             ['jpdb', 'JPDB', 'https://jpdb.io/search?q={query}'],
+            ['jpdb-frequency', 'JPDB live', ''],
             ['yomu-search', 'Yomu', `${NEW_TAB_PAGE_URL}index.html?q={query}`],
             ['jisho', 'Jisho', 'https://jisho.org/search/{query}'],
             ['weblio', 'Weblio', 'https://www.weblio.jp/content/{query}'],
@@ -11811,7 +11818,9 @@ describe('reader helpers', () => {
         ])).toMatchObject([
             { id: 'takoboto', label: 'Takoboto', urlTemplate: 'https://takoboto.jp/?q={QUERY}', enabled: true },
             { id: 'jiten' },
+            { id: 'jiten-frequency' },
             { id: 'jpdb' },
+            { id: 'jpdb-frequency' },
             { id: 'yomu-search' },
             { id: 'jisho' },
             { id: 'weblio' },
@@ -11843,7 +11852,9 @@ describe('reader helpers', () => {
 
             expect(settings.dictionaryLookupLinks.map(link => [link.id, link.enabled])).toEqual([
                 ['jiten', true],
+                ['jiten-frequency', true],
                 ['jpdb', true],
+                ['jpdb-frequency', false],
                 ['yomu-search', true],
                 ['jisho', false],
                 ['weblio', false],
@@ -11889,7 +11900,7 @@ describe('reader helpers', () => {
         try {
             const settings = await loadSettings();
 
-            expect(settings.dictionaryLookupLinks.map(link => link.id).slice(0, 3)).toEqual(['jiten', 'jpdb', 'yomu-search']);
+            expect(settings.dictionaryLookupLinks.map(link => link.id).slice(0, 5)).toEqual(['jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency', 'yomu-search']);
             expect(settings.dictionaryLookupLinks.find(link => link.id === 'jisho')?.enabled).toBe(true);
             expect(settings.dictionaryLookupLinks.map(link => link.id)).not.toContain('goo');
         } finally {
@@ -21305,7 +21316,7 @@ describe('reader helpers', () => {
         expect(findRecommendedDictionary('wty-ja-ja')?.downloadUrl).toContain('wty-ja-ja.zip');
         expect(findRecommendedDictionary('pixiv-light')?.downloadUrl).toContain('PixivLight.zip');
         expect(findRecommendedDictionary('jpdb-kanji')?.downloadUrl).toContain('JPDB%20Kanji.zip');
-        expect(findRecommendedDictionary('kanjium-pitch')?.helpUrl).toContain('tools/study-page#local-pitch-and-frequency-dictionaries');
+        expect(findRecommendedDictionary('kanjium-pitch')?.downloadUrl).toContain('kanjium_pitch_accents.zip');
         expect(findRecommendedDictionary('jpdbv2-kana')?.downloadUrl).toContain('JPDB_v2.2_Frequency_Kana.zip');
         expect(RECOMMENDED_JAPANESE_DICTIONARIES.every(item => Boolean(item.downloadUrl || item.helpUrl))).toBe(true);
         expect(RECOMMENDED_JAPANESE_DICTIONARIES.map(item => item.name)).toEqual([
@@ -33734,10 +33745,10 @@ describe('reader helpers', () => {
         expect(summaryWord.classList.contains('jpdb-reader-passive-word')).toBe(true);
         expect(summaryWord.classList.contains('jpdb-reader-scan-word')).toBe(true);
         expect(summaryWord.tabIndex).toBe(-1);
-        expect(buttonWord.querySelector('rt')?.textContent).toBe('せってい');
-        expect(summaryWord.querySelector('rt')?.textContent).toBe('つづ');
+        expect(buttonWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(summaryWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
         expect(submitWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(submitWord.querySelector('rt')?.textContent).toBe('とうろく');
+        expect(submitWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
         const app = new ReaderApp();
         const readerWordAccess = app as unknown as {
             canLookupReaderWord: (word: HTMLElement) => boolean;
@@ -33797,9 +33808,9 @@ describe('reader helpers', () => {
         const tabWord = document.querySelector<HTMLElement>('[role="tab"] .jpdb-reader-word')!;
         const checkboxWord = document.querySelector<HTMLElement>('[role="checkbox"] .jpdb-reader-word')!;
         expect(tabWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(tabWord.querySelector('rt')?.textContent).toBe('がいかん');
+        expect(tabWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
         expect(checkboxWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(checkboxWord.querySelector('rt')?.textContent).toBe('けんさく');
+        expect(checkboxWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
     });
 
     it('adds compact parser-page chrome labels after site text as passive ruby scan targets', () => {
@@ -33940,7 +33951,7 @@ describe('reader helpers', () => {
             .find(word => readerWordSurfaceText(word) === 'ライト')!;
         const pinWord = document.querySelector<HTMLElement>('.vector-pinnable-header-pin-button .jpdb-reader-word')!;
         expect(editWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(editWord.querySelector('rt')?.textContent).toBe('へんしゅう');
+        expect(editWord.querySelector('rt,.jpdb-reader-furi')).toBeNull();
         expect(lightWord.dataset.jpdbReaderPassive).toBe('true');
         expect(readerWordSurfaceText(lightWord)).toBe('ライト');
         expect(pinWord.dataset.jpdbReaderPassive).toBe('true');
@@ -33980,7 +33991,7 @@ describe('reader helpers', () => {
         const word = document.querySelector<HTMLElement>('#docs-edit-menu .jpdb-reader-word')!;
         expect(word.dataset.jpdbReaderPassive).toBe('true');
         expect(word.tabIndex).toBe(-1);
-        expect(word.querySelector('rt')?.textContent).toBe('へんしゅう');
+        expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
     });
 
     it('keeps inline prose links clickable without making surrounding prose passive', () => {

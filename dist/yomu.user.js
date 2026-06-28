@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.181
+// @version 1.4.191
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.181
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.181
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.181
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.181
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.191
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.191
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.191
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.191
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -3695,7 +3695,8 @@ const EASY_FURIGANA_KANJI = new Set(
 );
 const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
 const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],${selectorPairs("composer,prompt-textarea", ["data-testid", "data-test-id", "class", "id"])},[class*="placeholder" i],[class*="ProseMirror" i]`;
+const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
+const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
 const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
@@ -3748,7 +3749,7 @@ const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=tr
 const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch")}`;
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,aside,[role="banner"],[role="navigation"],[role="contentinfo"],[role="complementary"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,appearance,chooser,dialog,dropdown,login,menu,modal,picker,pinnable,profile,prefs,sidebar,signin,tabs,toc,toolbar")}`;
+const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar")}`;
 const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = selectorPairs("banner,book,card,carousel,gallery,grid,item,lockup,movie,poster,product,rail,scroll,shelf,slick,slider,splide,swiper,thumb,tile,video,volume,work", ["class"]);
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
 const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
@@ -3877,8 +3878,12 @@ const ANNOTATABLE_CONTROL_SELECTOR = COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR
 function isAnnotatableChipControl(blocked) {
   if (!blocked.matches(ANNOTATABLE_CONTROL_SELECTOR)) return false;
   const control = blocked.closest(ANNOTATABLE_CONTROL_SELECTOR) ?? blocked;
+  if (isComposerActionControl(control)) return false;
   const text2 = control.textContent?.replace(/\s+/g, "").trim() ?? "";
   return text2.length > 0 && text2.length <= CONTROL_LABEL_TEXT_LIMIT && HAS_JAPANESE$1.test(text2);
+}
+function isComposerActionControl(control) {
+  return !!control.parentElement?.closest("[class*=composer i],[id*=composer i]")?.querySelector(EDITABLE_FRAGMENT_ROOT_SELECTOR);
 }
 function textWalkerHasJapanese(walker, limit) {
   let inspected = 0;
@@ -4051,10 +4056,7 @@ function formControlLookupText(control, options = {}) {
     pushUniqueControlText(parts, selectLookupText(control, options.selectTextMode ?? "options"));
     if (options.selectTextMode === "selected") return parts.join(" / ");
   }
-  if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
-    pushUniqueControlText(parts, formFieldPlaceholderText(control));
-    if (control.value.trim()) return parts.join(" / ");
-  }
+  if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) return "";
   pushUniqueControlText(parts, control.getAttribute("aria-label") ?? "");
   pushUniqueControlText(parts, control.getAttribute("title") ?? "");
   return parts.join(" / ");
@@ -4073,10 +4075,6 @@ function compactSelectOptionListText(options) {
 }
 function optionText(option) {
   return normalizedControlText(option.label || option.textContent || "");
-}
-function formFieldPlaceholderText(control) {
-  if (control.value.trim()) return "";
-  return normalizedControlText(control.getAttribute("placeholder") ?? "");
 }
 function pushUniqueControlText(parts, text2) {
   const normalized = normalizedControlText(text2);
@@ -4197,7 +4195,8 @@ function shouldFlushAndSkipFragmentElement(element2, state, isRoot) {
 }
 function matchesSkippedFragmentElement(element2, state, isRoot) {
   if (state.excludeSelector && safeElementMatches$1(element2, state.excludeSelector)) return true;
-  if (isRoot && element2.closest(EDITABLE_TEXT_SURFACE_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element2, state.options)) return true;
+  if (isComposerActionControl(element2)) return true;
+  if (isRoot && element2.closest(EDITABLE_FRAGMENT_ROOT_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element2, state.options)) return true;
   return !isRoot && shouldSkipFragmentElement(element2, state.options);
 }
 function isSafeEditableSurfaceFragmentRoot(element2, options) {
@@ -31240,26 +31239,11 @@ const STRUCTURAL_EXCLUDE_ENTRIES = [
   "rp",
   "[hidden]",
   '[aria-hidden="true"]',
-  "[contenteditable]",
-  '[role="textbox"]',
-  '[role="searchbox"]',
-  '[role="combobox"]',
-  "[aria-placeholder]",
-  "[data-placeholder]",
-  '[class*="placeholder" i]',
+  '[contenteditable="true"]',
   "details:not([open]) > :not(summary)",
   "details:not([open]) > :not(summary) *"
 ];
 const COMMON_EXCLUDE = STRUCTURAL_EXCLUDE_ENTRIES.join(",");
-const GENERIC_CONTROL_TEXT_EXCLUDE_ENTRIES = [
-  "form",
-  "label",
-  "fieldset",
-  "legend",
-  '[role="form"]',
-  '[role="search"]'
-];
-const GENERIC_CONTROL_TEXT_EXCLUDE = GENERIC_CONTROL_TEXT_EXCLUDE_ENTRIES.join(",");
 const ASBPLAYER_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
 const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
 const RESIDUAL_VISIBLE_JAPANESE_PARSER_ID = "residual-visible-japanese-parser";
@@ -31307,7 +31291,6 @@ const GENERIC_PROSE_ROOTS = [
 ].join(",");
 const GENERIC_PROSE_EXCLUDE = [
   COMMON_EXCLUDE,
-  ...GENERIC_CONTROL_TEXT_EXCLUDE_ENTRIES,
   "nav",
   "header",
   "footer",
@@ -31350,9 +31333,7 @@ const SAFE_UI_CHROME_SCOPE_SELECTORS = [
   "nav",
   '[role="navigation"]',
   "header",
-  "footer",
   "aside",
-  '[role="contentinfo"]',
   '[role="complementary"]',
   '[role="tablist"]',
   '[class*="appearance" i]',
@@ -31416,8 +31397,6 @@ const SAFE_UI_CHROME_ROOTS = [
   '[role="navigation"] a[href]',
   '[class*="breadcrumb" i] a[href]',
   "header a[href]",
-  "footer a[href]",
-  '[role="contentinfo"] a[href]',
   "aside a[href]",
   "main a[href]",
   '[role="main"] a[href]',
@@ -31445,7 +31424,6 @@ const YT_PLAYER_CHROME_EXCLUDE_ENTRIES = [
 ];
 const SAFE_UI_CHROME_EXCLUDE_ENTRIES = [
   ...STRUCTURAL_EXCLUDE_ENTRIES,
-  ...GENERIC_CONTROL_TEXT_EXCLUDE_ENTRIES,
   ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
   "[disabled]",
   '[aria-disabled="true"]'
@@ -32289,7 +32267,7 @@ function collectRootScanTargets(profile, root, context, excludeSelector = siteSc
     allowUiText: true,
     minLength: profile.minLength,
     includeUiChrome: true,
-    includeFormChrome: profile.includeFormChrome === true,
+    includeFormChrome: true,
     includeTabChrome: true,
     includePlayerChrome: isYouTubeSiteParserProfile(profile),
     includePassiveInteractions: true,
@@ -32328,7 +32306,6 @@ function queryProfilePassiveInteractionRoots(profile) {
   return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll(PASSIVE_INTERACTION_ROOTS)).filter((root) => isUsefulProfilePassiveInteractionRoot(profile, root)));
 }
 function isUsefulProfilePassiveInteractionRoot(profile, root) {
-  if (!profile.includeFormChrome && isGenericControlTextRoot(root)) return false;
   const exclude = siteScanPassiveInteractionExcludeSelector(profile);
   return isUsefulCompactJapaneseRoot(root, exclude, 1, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
 }
@@ -32525,10 +32502,10 @@ function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles,
     limit
   };
   const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length);
-  const nonDestructive = profiles.some((profile) => profile.nonDestructive);
   const collected = collectFragmentTextTargetsIn(document.body, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
     allowUiText: true,
     includeUiChrome: true,
+    includeFormChrome: true,
     includeTabChrome: true,
     includePlayerChrome: isYouTubeHost(),
     includePassiveInteractions: true,
@@ -32538,8 +32515,7 @@ function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles,
   for (const target of collected) {
     appendGenericProseTarget(collection.targets, collection.seen, {
       ...target,
-      parserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID,
-      nonDestructive: nonDestructive || target.nonDestructive || void 0
+      parserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID
     });
     if (genericProseCollectionFull(collection)) break;
   }
@@ -32550,10 +32526,7 @@ function residualVisibleJapaneseCandidateLimit(limit, existingTargetCount) {
   return Math.max(limit, existingTargetCount + limit + 24);
 }
 function residualVisibleJapaneseExcludeSelector(profiles) {
-  const entries = [
-    COMMON_EXCLUDE,
-    ...GENERIC_CONTROL_TEXT_EXCLUDE_ENTRIES
-  ];
+  const entries = [COMMON_EXCLUDE];
   if (profiles.some(isYouTubeSiteParserProfile)) {
     entries.push(...YT_PLAYER_CHROME_EXCLUDE_ENTRIES);
   }
@@ -32583,9 +32556,10 @@ function effectiveScanTargetLimit(profiles, requestedLimit) {
   return Math.max(1, profileLimit);
 }
 function collectWholePageScanTargets(limit) {
-  const targets = collectFragmentTextTargetsIn(document.body, limit, true, GENERIC_CONTROL_TEXT_EXCLUDE, {
+  const targets = collectFragmentTextTargetsIn(document.body, limit, true, "", {
     allowUiText: true,
     includeUiChrome: true,
+    includeFormChrome: true,
     includeTabChrome: true,
     includePassiveInteractions: true,
     heading: true,
@@ -32618,12 +32592,9 @@ function collectProfileSafeUiChromeTargets(limit, existingTargets = [], enabled 
   const extraExclude = profiles.map((p) => p.exclude).filter(Boolean).join(",");
   const parserId = profiles.length === 1 ? profiles[0].id : "safe-ui-chrome-parser";
   const nonDestructive = profiles.some((profile) => profile.nonDestructive);
-  const includeFormChrome = profiles.some((profile) => profile.includeFormChrome);
   collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, extraExclude, parserId, nonDestructive);
-  if (includeFormChrome) {
-    collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection, parserId, nonDestructive);
-    collectSafeFormControlTextTargets(collection, extraExclude);
-  }
+  collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection, parserId, nonDestructive);
+  collectSafeFormControlTextTargets(collection, extraExclude);
   return collection.targets;
 }
 function collectSafeUiChromeTargets(limit, existingTargets = []) {
@@ -32634,6 +32605,8 @@ function collectSafeUiChromeTargets(limit, existingTargets = []) {
     limit
   };
   collectSafeUiChromeRootTargets(safeUiChromeRoots(), collection);
+  collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection);
+  collectSafeFormControlTextTargets(collection);
   return collection.targets;
 }
 function collectSafeFormControlTextTargets(collection, extraExclude = "") {
@@ -32652,7 +32625,7 @@ function collectSafeUiChromeRootTargets(roots, collection, extraExclude = "", pa
   }
 }
 function safeUiChromeRoots() {
-  return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll(SAFE_UI_CHROME_ROOTS)).filter((root) => !isGenericControlTextRoot(root) && isUsefulSafeUiChromeRoot(root)));
+  return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll(SAFE_UI_CHROME_ROOTS)).filter((root) => isUsefulSafeUiChromeRoot(root)));
 }
 function profileSafeUiChromeRoots(extraExclude = "") {
   const roots = Array.from(document.querySelectorAll(PROFILE_SAFE_UI_CHROME_ROOTS)).filter((root) => isUsefulSafeUiChromeRoot(root));
@@ -32698,7 +32671,6 @@ function collectPassiveChromeTargetsFromRoot(root, collection, exclude, parserId
     appendGenericProseTarget(collection.targets, collection.seen, {
       ...target,
       parserId,
-      suppressRuby: true,
       passiveInteraction: true,
       nonDestructive: nonDestructive || void 0
     });
@@ -32711,10 +32683,7 @@ function genericProseRoots() {
 function collectGenericProseTargetsFromRoot(root, collection) {
   const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
   for (const target of collected) {
-    appendGenericProseTarget(collection.targets, collection.seen, {
-      ...target,
-      proseWrap: true
-    });
+    appendGenericProseTarget(collection.targets, collection.seen, target);
     if (genericProseCollectionFull(collection)) break;
   }
 }
@@ -32757,12 +32726,8 @@ function textNodesForFragmentTarget(target) {
 function isUsefulGenericProseRoot(root) {
   if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
   const text2 = compactRootText(root);
-  const minimumLength = isExplicitReadableProseRoot(root) ? 2 : 12;
-  if (text2.length < minimumLength) return false;
+  if (text2.length < 12) return false;
   return hasJapaneseText(text2);
-}
-function isExplicitReadableProseRoot(root) {
-  return root.matches('article,[role="article"],.prose,.article,.post,.entry,.story,.article-body,.article-content,.entry-content,.post-content,.story-body,[itemprop="articleBody"]');
 }
 function isUsefulSafeUiChromeRoot(root) {
   return isUsefulCompactJapaneseRoot(root, safeUiChromeExcludeForRoot(root), 2, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
@@ -32775,9 +32740,6 @@ function isUsefulCompactJapaneseRoot(root, exclude, minLength, maxLength) {
   if (!isVisibleSafeUiChromeRoot(root)) return false;
   const text2 = compactRootText(root);
   return hasJapaneseText(text2) && text2.length >= minLength && text2.length <= maxLength;
-}
-function isGenericControlTextRoot(root) {
-  return Boolean(root.closest(GENERIC_CONTROL_TEXT_EXCLUDE));
 }
 function compactRootText(root) {
   return root.textContent?.replace(/\s+/g, "").trim() ?? "";
@@ -35123,19 +35085,19 @@ function closeIcon() {
 function themeSwitchChrome() {
   return '<span class="check"><span class="icon"><span class="vpi-sun sun" aria-hidden="true"></span><span class="vpi-moon moon" aria-hidden="true"></span></span></span>';
 }
-const JAPANESE_LANGUAGE = "ja";
-const JAPANESE_COUNTRY = "JP";
-const JAPANESE_TIME_ZONE = "Asia/Tokyo";
-const JAPANESE_LOCALE = "ja-JP";
+const JA_LANG = "ja";
+const JA_COUNTRY = "JP";
+const JA_TZ = "Asia/Tokyo";
+const JA_LOCALE = "ja-JP";
 const PREFERENCE_CACHE_KEY = "yomu:prefer-japanese-site-language";
 const REDIRECT_CACHE_KEY = "yomu:jps";
 const REDIRECT_HOSTS_KEY = "yomu:jps:hosts";
 const INJECTION_RETRY_LIMIT = 12;
 const ALTERNATE_REDIRECT_RETRY_LIMIT = 80;
 const ALTERNATE_REDIRECT_RETRY_MS = 125;
-const ENGLISH_LOCALE_SEGMENT_RE = /^en(?:[-_][a-z]{2})?$/i;
-const JAPANESE_SEARCH_PARAMS = { hl: "ja", gl: "JP" };
-const JAPANESE_NEWS_SEARCH_PARAMS = { hl: "ja", gl: "JP", ceid: "JP:ja" };
+const EN_LOCALE_RE = /^en(?:[-_][a-z]{2})?$/i;
+const JA_PARAMS = { hl: JA_LANG, gl: JA_COUNTRY };
+const JA_NEWS = { hl: JA_LANG, gl: JA_COUNTRY, ceid: "JP:ja" };
 let alternateRedirectCleanup;
 function installPreferredJapaneseSiteLanguageFromStoredSettings() {
   const syncPreference = readStoredPreferenceEnabledSync();
@@ -35162,7 +35124,8 @@ function preferredJapaneseSiteUrl(sourceHref, root) {
   const current = parseHttpUrl(sourceHref);
   if (!current) return null;
   const alternate = japaneseAlternateLinkUrl(current, root);
-  const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericJapaneseUrl(current, root);
+  const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericUrl(current, root);
+  if (target) applyParams(target);
   if (!target || target.href === current.href) return null;
   return target.href;
 }
@@ -35274,7 +35237,7 @@ function createTrustedScriptPolicy(factory, options) {
 function injectedPagePreferenceSource(enabled) {
   return [
     ";(() => {",
-    `const JAPANESE_LOCALE = ${JSON.stringify(JAPANESE_LOCALE)};`,
+    `const JA_LOCALE = ${JSON.stringify(JA_LOCALE)};`,
     `const defineUntrackedValue = ${defineUntrackedValue.toString()};`,
     `const preferenceState = ${preferenceState.toString()};`,
     `const rememberDescriptor = ${rememberDescriptor.toString()};`,
@@ -35295,15 +35258,15 @@ function applySitePreferenceCookies() {
   const hostname = currentLocationHostname();
   if (/(^|\.)youtube\.com$/.test(hostname)) {
     mergeCookie("PREF", {
-      hl: JAPANESE_LANGUAGE,
-      gl: JAPANESE_COUNTRY,
-      tz: JAPANESE_TIME_ZONE
+      hl: JA_LANG,
+      gl: JA_COUNTRY,
+      tz: JA_TZ
     }, ".youtube.com");
   }
   if (/(^|\.)google\./.test(hostname)) {
     mergeCookie("PREF", {
-      hl: JAPANESE_LANGUAGE,
-      gl: JAPANESE_COUNTRY
+      hl: JA_LANG,
+      gl: JA_COUNTRY
     });
   }
 }
@@ -35471,11 +35434,11 @@ function alts(root) {
 function siteRuleJapaneseUrl(current) {
   const hostname = current.hostname.toLowerCase();
   if (hostname === "youtu.be") return youtuBeJapaneseUrl(current);
-  if (/(^|\.)youtube\.com$/.test(hostname)) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
+  if (/(^|\.)youtube\.com$/.test(hostname)) return withSearchParams(current, JA_PARAMS);
   if (hostname === "consent.google.com") return googleConsentJapaneseUrl(current);
-  if (hostname === "news.google.com") return withSearchParams(current, JAPANESE_NEWS_SEARCH_PARAMS);
-  if (isGooglePreferenceHost(hostname)) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
-  if (/^(?:reddit|www\.reddit|new\.reddit|sh\.reddit)\.com$/.test(hostname)) return withSearchParams(current, { locale: JAPANESE_LOCALE });
+  if (hostname === "news.google.com") return withSearchParams(current, JA_NEWS);
+  if (isGooglePreferenceHost(hostname)) return withSearchParams(current, JA_PARAMS);
+  if (/^(?:reddit|www\.reddit|new\.reddit|sh\.reddit)\.com$/.test(hostname)) return withSearchParams(current, { locale: JA_LOCALE });
   if (hostname === "wikipedia.org") return withHostname(current, "ja.wikipedia.org");
   if (hostname.endsWith(".wikipedia.org") && hostname !== "ja.wikipedia.org" && (current.pathname === "" || current.pathname === "/")) {
     return withHostname(current, "ja.wikipedia.org");
@@ -35488,20 +35451,20 @@ function siteRuleJapaneseUrl(current) {
 }
 function youtuBeJapaneseUrl(current) {
   const videoId = current.pathname.split("/").filter(Boolean)[0];
-  if (!videoId) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
+  if (!videoId) return withSearchParams(current, JA_PARAMS);
   const target = new URL("https://www.youtube.com/watch");
   target.searchParams.set("v", videoId);
   for (const [key, value] of current.searchParams.entries()) {
     if (key !== "v" && key !== "hl" && key !== "gl") target.searchParams.append(key, value);
   }
-  for (const [key, value] of Object.entries(JAPANESE_SEARCH_PARAMS)) target.searchParams.set(key, value);
+  for (const [key, value] of Object.entries(JA_PARAMS)) target.searchParams.set(key, value);
   target.hash = current.hash;
   return target;
 }
 function googleConsentJapaneseUrl(current) {
   const next = new URL(current.href);
   let changed = false;
-  for (const [key, value] of Object.entries(JAPANESE_SEARCH_PARAMS)) {
+  for (const [key, value] of Object.entries(JA_PARAMS)) {
     if (next.searchParams.get(key) !== value) {
       next.searchParams.set(key, value);
       changed = true;
@@ -35543,25 +35506,44 @@ function withLeadingLocaleSegment(current, locale) {
   next.pathname = parts.join("/") || "/";
   return next;
 }
-function genericJapaneseUrl(current, root) {
-  if (root) {
-    if (alts(root).length) return null;
-    if (root.readyState === "loading") return null;
-  }
+function genericUrl(current, root) {
   const next = new URL(current.href);
-  let changed = false;
-  if (/^en\./i.test(next.hostname)) {
-    next.hostname = next.hostname.replace(/^en\./i, "ja.");
-    changed = true;
+  let hit = applyParams(next);
+  if (!root || !alts(root).length && root.readyState !== "loading") {
+    if (/^en\./i.test(next.hostname)) {
+      next.hostname = next.hostname.replace(/^en\./i, "ja.");
+      hit = true;
+    }
+    const parts = next.pathname.split("/");
+    const first = (parts[1] ?? "").toLowerCase();
+    if (EN_LOCALE_RE.test(first)) {
+      parts[1] = /[-_]/.test(first) ? "ja-jp" : JA_LANG;
+      next.pathname = parts.join("/") || "/";
+      hit = true;
+    }
   }
-  const pathParts = next.pathname.split("/");
-  const firstPathPart = (pathParts[1] ?? "").toLowerCase();
-  if (ENGLISH_LOCALE_SEGMENT_RE.test(firstPathPart)) {
-    pathParts[1] = /[-_]/.test(firstPathPart) ? "ja-jp" : JAPANESE_LANGUAGE;
-    next.pathname = pathParts.join("/") || "/";
-    changed = true;
+  return hit ? next : null;
+}
+function applyParams(next) {
+  const p = next.searchParams;
+  let hit = false;
+  for (const k of ["locale", "ui_locale", "mkt", "market"]) hit = sp(p, k, jl(p.get(k))) || hit;
+  for (const k of ["lang", "language", "lng"]) {
+    const v = p.get(k);
+    hit = sp(p, k, v && /[-_]/.test(v) ? jl(v) : JA_LANG) || hit;
   }
-  return changed ? next : null;
+  hit = sp(p, "hl", JA_LANG) || hit;
+  for (const k of ["region", "country", "gl", "cc"]) hit = sp(p, k, JA_COUNTRY, /^(?:us|usa|gb|uk)$/i) || hit;
+  return hit;
+}
+function jl(v) {
+  return v?.includes("_") ? "ja_JP" : JA_LOCALE;
+}
+function sp(p, k, v, r = EN_LOCALE_RE) {
+  const current = p.get(k);
+  if (!current || !r.test(current)) return false;
+  p.set(k, v);
+  return true;
 }
 function mergeCookie(name, values, domain) {
   try {
@@ -35601,7 +35583,7 @@ function applyJapanesePreferencesInPage(scope, enabled) {
   }
   if (state.installed) return;
   state.installed = true;
-  const locale = JAPANESE_LOCALE;
+  const locale = JA_LOCALE;
   const languages = ["ja-JP", "ja", "en-US", "en"];
   const timeZone = "Asia/Tokyo";
   const tokyo = { latitude: 35.681236, longitude: 139.767125, accuracy: 25 };
@@ -37164,7 +37146,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.181"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.191"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -40155,8 +40137,8 @@ class ReaderApp {
       "textarea",
       "select",
       "summary",
-      '[role="button"]',
-      '[contenteditable="true"]',
+      "[role=button]",
+      "[contenteditable=true]",
       "[data-jpdb-reader-root]"
     ].join(",")));
   }
@@ -41275,13 +41257,13 @@ class ReaderApp {
     return Boolean(position && position.node.parentElement && (element2.contains(position.node) || position.node.parentElement.contains(element2)) && !position.node.parentElement.closest(".jpdb-reader-word"));
   }
   isNativeTextLookupTarget(target, options = {}) {
-    return !options.allowPassiveInteractionText && isPassiveInteractionElement(target) || this.isReaderImmersionExampleSentenceText(target) || Boolean(target.closest('input,textarea,select,[contenteditable="true"],.jpdb-reader-word')) || this.isSettingsNativeControlText(target);
+    return !options.allowPassiveInteractionText && isPassiveInteractionElement(target) || this.isReaderImmersionExampleSentenceText(target) || !!target.closest("input,textarea,select,[contenteditable],.jpdb-reader-word") || this.isSettingsNativeControlText(target);
   }
   isReaderImmersionExampleSentenceText(target) {
     return Boolean(target.closest("[data-jpdb-reader-root] [data-immersion-kit] .jpdb-reader-example-sentence"));
   }
   isSettingsNativeControlText(target) {
-    return Boolean(target.closest(".jpdb-reader-settings") && target.closest('a[href],button,input,label,select,textarea,[role="button"],[role="checkbox"],[role="link"],[role="menuitem"],[role="option"],[role="radio"],[role="switch"],[role="tab"],[data-action]'));
+    return Boolean(target.closest(".jpdb-reader-settings") && target.closest("a[href],button,input,label,select,textarea,[role=button],[role=checkbox],[role=link],[role=menuitem],[role=option],[role=radio],[role=switch],[role=tab],[data-action]"));
   }
   async showLookupCandidate(candidate, trigger, options = {}) {
     if (trigger === "hover") this.pageScanner.interruptVisiblePageScan();
