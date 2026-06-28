@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.210
+// @version 1.4.211
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.210
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.210
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.210
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.210
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.211
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.211
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.211
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.211
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -32857,6 +32857,8 @@ const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
 const PITCH_ENRICHMENT_LIMIT = 12;
 const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
 const PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT = 6;
+const GENERIC_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
+const GENERIC_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
 const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 10;
 const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
 const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 10;
@@ -32964,7 +32966,15 @@ function isYouTubeHostname(hostname = location.hostname) {
 }
 function backgroundPitchEnrichmentOptionsForHost(hostname, compactViewport = false) {
   if (!isYouTubeHostname(hostname)) {
-    return { publicLookup: false };
+    const publicLookupLimit = compactViewport ? GENERIC_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : GENERIC_PUBLIC_PITCH_ENRICHMENT_LIMIT;
+    return {
+      publicLookupLimit,
+      publicLookupTotalLimit: publicLookupLimit,
+      publicLookupPageBudget: publicLookupLimit,
+      publicLookupTermLimit: 3,
+      substantivePublicLookupOnly: true,
+      deferPublicLookup: false
+    };
   }
   return {
     publicLookupLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
@@ -37177,7 +37187,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.210"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.211"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

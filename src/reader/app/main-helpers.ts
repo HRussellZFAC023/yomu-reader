@@ -27,6 +27,8 @@ export const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
 export const PITCH_ENRICHMENT_LIMIT = 12;
 export const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
 export const PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT = 6;
+export const GENERIC_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
+export const GENERIC_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
 export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 10;
 export const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
 export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 10;
@@ -188,7 +190,17 @@ export function isYouTubeHostname(hostname = location.hostname): boolean {
 
 export function backgroundPitchEnrichmentOptionsForHost(hostname: string, compactViewport = false): PitchEnrichmentOptions {
     if (!isYouTubeHostname(hostname)) {
-        return { publicLookup: false };
+        const publicLookupLimit = compactViewport
+            ? GENERIC_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT
+            : GENERIC_PUBLIC_PITCH_ENRICHMENT_LIMIT;
+        return {
+            publicLookupLimit,
+            publicLookupTotalLimit: publicLookupLimit,
+            publicLookupPageBudget: publicLookupLimit,
+            publicLookupTermLimit: 3,
+            substantivePublicLookupOnly: true,
+            deferPublicLookup: false,
+        };
     }
     return {
         publicLookupLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,

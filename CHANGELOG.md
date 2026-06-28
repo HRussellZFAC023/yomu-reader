@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.211] - 2026-06-28
+
+### Fixed
+
+- Restored bounded public pitch hydration for keyless generic pages such as Google results, so fallback words can pick up Jiten pitch coloring before they are selected.
+
 ## [1.4.210] - 2026-06-28
 
 ### Fixed

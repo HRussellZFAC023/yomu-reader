@@ -26,9 +26,12 @@ assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT);
 mkdirSync(ARTIFACTS, { recursive: true });
 
 const GOOGLE_URL = 'https://www.google.com/search?q=seo%20checker&hl=ja&gl=JP';
+const KEYLESS_GOOGLE_URL = 'https://www.google.com/search?q=kotu%20io&hl=ja&gl=JP';
 const REQUEST_BRIDGE = '__yomuGoogleSearchSmokeRequest';
 const JPDB_API_ORIGIN = 'https://jpdb.io';
 const JPDB_API_PREFIX = '/api/v1/';
+const JITEN_API_ORIGIN = 'https://api.jiten.moe';
+const JITEN_API_PREFIX = '/api/';
 
 const VOCABULARY = [
     ['アプリ', 'アプリ', 'アプリ', 'app', 'n', 100, ['not-in-deck'], ['LHH']],
@@ -69,6 +72,18 @@ const settings = {
     enableLogging: false,
 };
 
+const keylessPitchSettings = {
+    ...settings,
+    apiKey: '',
+    jitenApiKey: '',
+    localDictionariesEnabled: false,
+    showPitchAccent: true,
+    showFurigana: false,
+    furiganaMode: 'off',
+    wordHighlightColorSource: 'off',
+    wordUnderlineColorSource: 'pitch',
+};
+
 const GOOGLE_FIXTURE = `<!doctype html>
 <html lang="ja">
 <head>
@@ -107,6 +122,36 @@ h3 { margin: 8px 0 8px; color: #8ab4f8; font-size: 28px; line-height: 1.14; font
 </body>
 </html>`;
 
+const KEYLESS_GOOGLE_FIXTURE = `<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Google Search Keyless Pitch Fixture</title>
+<style>
+html, body { margin: 0; background: #202124; color: #bdc1c6; font: 18px/1.35 Arial, sans-serif; }
+main { padding: 18px 8px 56px; max-width: 430px; box-sizing: border-box; }
+.MjjYud { border-bottom: 1px solid #303134; padding: 10px 0 22px; }
+.g { display: block; color: #bdc1c6; }
+.site { display: flex; gap: 10px; align-items: center; color: #f1f3f4; margin-bottom: 6px; }
+.icon { width: 34px; height: 34px; border-radius: 50%; background: #f1f3f4; }
+h3 { margin: 8px 0 8px; color: #8ab4f8; font-size: 28px; line-height: 1.14; font-weight: 400; }
+</style>
+</head>
+<body>
+<main id="rcnt">
+  <section id="search">
+    <div class="MjjYud">
+      <article class="g">
+        <div class="site"><span class="icon"></span><span>kotu.io<br><small>https://kotu.io</small></span></div>
+        <h3 class="LC20lb">コツ</h3>
+      </article>
+    </div>
+  </section>
+</main>
+</body>
+</html>`;
+
 const server = await startLoopbackServer((_request, response) => {
     response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('ok');
@@ -114,11 +159,79 @@ const server = await startLoopbackServer((_request, response) => {
 
 try {
     const chromiumResult = await runGoogleSearchCase('chromium', chromium);
+    const keylessPitchResult = await runKeylessGooglePitchCase('chromium', chromium);
     const webkitResult = await runOptionalGoogleSearchCase('webkit', webkit);
-    console.log(JSON.stringify({ chromium: chromiumResult, webkit: webkitResult }, null, 2));
+    console.log(JSON.stringify({ chromium: chromiumResult, keylessPitch: keylessPitchResult, webkit: webkitResult }, null, 2));
     console.log('google-search-reader smoke passed');
 } finally {
     await server.close();
+}
+
+async function runKeylessGooglePitchCase(engineName, browserType) {
+    const browser = await launchSmokeBrowser(browserType, engineName, { headless: true });
+    const requests = [];
+    const consoleErrors = [];
+    try {
+        const context = await browser.newContext({
+            ...devices['iPhone 14'],
+            bypassCSP: true,
+            colorScheme: 'dark',
+            locale: 'ja-JP',
+        });
+        const page = await context.newPage();
+        page.on('pageerror', error => consoleErrors.push(String(error)));
+        page.on('console', message => {
+            if (message.type() === 'error') consoleErrors.push(message.text());
+        });
+        await routeMockedHttpRequests(page, {
+            requests,
+            mockHttpRequest: mockedYomuApiRequest,
+            isMockedApiOrigin,
+        });
+        await page.route('https://www.google.com/search**', route => route.fulfill({
+            status: 200,
+            contentType: 'text/html; charset=utf-8',
+            body: KEYLESS_GOOGLE_FIXTURE,
+        }));
+        await page.exposeFunction(REQUEST_BRIDGE, request => mockedYomuBridgeRequest(request, requests));
+        await addGmStorageBridgeInitScript(page, {
+            key: YOMU_SETTINGS_KEY,
+            value: keylessPitchSettings,
+            css: readFileSync(CSS_PATH, 'utf8'),
+            requestBridgeName: REQUEST_BRIDGE,
+        });
+
+        await page.goto(KEYLESS_GOOGLE_URL, { waitUntil: 'domcontentloaded' });
+        await installUserscriptCssResource(page, CSS_PATH).catch(() => page.addStyleTag({ path: CSS_PATH }));
+        await addScriptTagWithCspFallback(page, SCRIPT_PATH);
+        await page.waitForFunction(() => {
+            const word = document.querySelector('.LC20lb .jpdb-reader-word[data-expression="コツ"]');
+            return word
+                && word.getAttribute('data-card-source') === 'jiten'
+                && word.getAttribute('data-pitch-class') === 'atamadaka'
+                && word.classList.contains('jpdb-pitch-atamadaka');
+        }, null, { timeout: 20_000 });
+
+        const snapshot = await page.evaluate(() => {
+            const word = document.querySelector('.LC20lb .jpdb-reader-word[data-expression="コツ"]');
+            return {
+                wordCount: document.querySelectorAll('.jpdb-reader-word').length,
+                text: word?.textContent?.trim() ?? '',
+                pitchClass: word?.getAttribute('data-pitch-class') ?? '',
+                cardSource: word?.getAttribute('data-card-source') ?? '',
+                pitchAccent: word?.getAttribute('data-pitch-accent') ?? '',
+                className: word?.className ?? '',
+            };
+        });
+        assert(snapshot.text === 'コツ', 'Keyless Google pitch word text changed', snapshot);
+        assert(snapshot.pitchClass === 'atamadaka', 'Keyless Google pitch did not hydrate before selection', { snapshot, requests, consoleErrors });
+        assert(snapshot.pitchAccent === 'HLL', 'Keyless Google pitch metadata was not stamped onto the rendered word', snapshot);
+        assert(requests.some(request => request.kind === 'jiten' && request.endpoint === 'vocabulary/parse' && request.text === 'コツ'), 'Keyless Google pitch did not request the fallback term', requests);
+        await page.screenshot({ path: path.join(ARTIFACTS, `google-search-keyless-pitch-${engineName}.png`), fullPage: true });
+        return { snapshot, requests: requests.length };
+    } finally {
+        await browser.close().catch(() => undefined);
+    }
 }
 
 async function runGoogleSearchCase(engineName, browserType) {
@@ -150,7 +263,7 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser) {
         await routeMockedHttpRequests(page, {
             requests,
             mockHttpRequest: mockedYomuApiRequest,
-            isMockedApiOrigin: url => url.origin === JPDB_API_ORIGIN && url.pathname.startsWith(JPDB_API_PREFIX),
+            isMockedApiOrigin,
         });
         await page.route('https://www.google.com/search**', route => route.fulfill({
             status: 200,
@@ -219,6 +332,9 @@ function mockedYomuBridgeRequest(request, requestLog) {
 
 function mockedYomuApiRequest(request, requestLog) {
     const url = new URL(request.url);
+    if (url.origin === JITEN_API_ORIGIN && url.pathname.startsWith(JITEN_API_PREFIX)) {
+        return mockedJitenPublicRequest(url, requestLog);
+    }
     if (url.origin !== JPDB_API_ORIGIN || !url.pathname.startsWith(JPDB_API_PREFIX)) {
         return null;
     }
@@ -228,6 +344,34 @@ function mockedYomuApiRequest(request, requestLog) {
     if (endpoint === 'parse') return jsonHttpResponse(mockJpdbParseFromVocabulary(body, VOCABULARY));
     if (endpoint === 'deck/list-vocabulary') return jsonHttpResponse({ vocabulary: [] });
     if (endpoint === 'list-user-decks') return jsonHttpResponse({ decks: [] });
+    return jsonHttpResponse({});
+}
+
+function isMockedApiOrigin(url) {
+    return (url.origin === JPDB_API_ORIGIN && url.pathname.startsWith(JPDB_API_PREFIX))
+        || (url.origin === JITEN_API_ORIGIN && url.pathname.startsWith(JITEN_API_PREFIX));
+}
+
+function mockedJitenPublicRequest(url, requestLog) {
+    const endpoint = url.pathname.slice(JITEN_API_PREFIX.length);
+    if (endpoint === 'vocabulary/parse') {
+        const text = url.searchParams.get('text') ?? '';
+        requestLog.push({ kind: 'jiten', endpoint, text });
+        return jsonHttpResponse(text.trim() === 'コツ'
+            ? [{ wordId: 424200, readingIndex: 0, originalText: 'コツ' }]
+            : []);
+    }
+    if (endpoint === 'vocabulary/424200/0/info') {
+        requestLog.push({ kind: 'jiten', endpoint });
+        return jsonHttpResponse({
+            wordId: 424200,
+            mainReading: { text: 'コツ', frequencyRank: 4200 },
+            partsOfSpeech: ['noun'],
+            definitions: [{ meanings: ['knack; trick'], partsOfSpeech: ['noun'] }],
+            pitchAccents: [1],
+        });
+    }
+    requestLog.push({ kind: 'jiten-unexpected', endpoint });
     return jsonHttpResponse({});
 }
 

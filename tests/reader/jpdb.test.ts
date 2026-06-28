@@ -29395,8 +29395,8 @@ describe('reader helpers', () => {
     });
 
     it('enriches every local-only pitch token in a batch beyond PITCH_ENRICHMENT_LIMIT', async () => {
-        // Regression: the publicLookup:false branch (every non-YouTube visible
-        // scan) used to slice(0, PITCH_ENRICHMENT_LIMIT) and drop the rest with
+        // Regression: the publicLookup:false branch (local-only/nested visible
+        // scans) used to slice(0, PITCH_ENRICHMENT_LIMIT) and drop the rest with
         // no re-queue, so dense pages only ever pitched the first 12 words —
         // pitch appeared to load slowly, one word at a time. Local lookups are
         // network-free, so the whole batch must be covered.
@@ -29948,6 +29948,77 @@ describe('reader helpers', () => {
             stalledPitch.resolve();
             await Promise.all([first, second]).catch(() => undefined);
             app.destroy();
+        }
+    });
+
+    it('hydrates generic page fallback pitch before the word is selected', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.google.com/search?q=kotu+io',
+            origin: 'https://www.google.com',
+            hostname: 'www.google.com',
+        });
+        const app = new ReaderApp();
+        const fallbackCard = testFallbackCard({
+            vid: -424200,
+            sid: -424200,
+            spelling: 'コツ',
+        });
+        const publicCard = testPublicCard({
+            vid: 424200,
+            spelling: 'コツ',
+            reading: 'コツ',
+            source: 'jiten',
+            pitchAccent: ['HL'],
+        });
+        const word = appendRenderedReaderWord(fallbackCard, {
+            className: 'jpdb-reader-word jpdb-reader-passive-word jpdb-pitch-unknown',
+        });
+        word.dataset.jpdbReaderPassive = 'true';
+        word.dataset.expression = 'コツ';
+
+        const lookupMany = vi.fn(async (terms: readonly string[]) => new Map(
+            terms.includes('コツ') ? [['コツ', publicCard]] : [],
+        ));
+        const cacheCards = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { lookupMany: typeof lookupMany };
+            parser: { cacheCards: typeof cacheCards };
+            backgroundPitchEnrichmentOptions(): {
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                publicLookupTermLimit?: number;
+                substantivePublicLookupOnly?: boolean;
+                deferPublicLookup?: boolean;
+            };
+            enrichPitchWords(tokens: JPDBToken[], options?: unknown): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+        internals.jitenPublicVocabulary = { lookupMany };
+        internals.parser = { cacheCards };
+
+        try {
+            await internals.enrichPitchWords([testTokenForCard(fallbackCard, 'コツ')], internals.backgroundPitchEnrichmentOptions());
+
+            expect(lookupMany).toHaveBeenCalledWith(['コツ'], { detailLimit: 1 });
+            expect(cacheCards).toHaveBeenCalledWith([publicCard]);
+            expect(word.dataset.vid).toBe('424200');
+            expect(word.dataset.cardSource).toBe('jiten');
+            expect(word.dataset.reading).toBe('コツ');
+            expect(word.dataset.pitchAccent).toBe('HL');
+            expectRenderedPitchWord(word, 'atamadaka');
+        } finally {
+            word.remove();
+            app.destroy();
+            vi.unstubAllGlobals();
         }
     });
 
