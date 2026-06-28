@@ -4,7 +4,7 @@
 // content so UI, WebGL, blank, tainted, and off-screen buffers are skipped.
 
 import { isBookwalkerViewerHost } from './canvas-hosts';
-import { canvasMirrorTurnToken, markCanvasMirrorSkip } from './canvas-mirror';
+import { canvasMirrorContentToken, canvasMirrorTurnToken, markCanvasMirrorSkip } from './canvas-mirror';
 
 export { isBookwalkerViewerHost } from './canvas-hosts';
 
@@ -355,8 +355,16 @@ export function isReaderRasterPage(hostname: string = location.hostname): boolea
  * the recorder's shared-DOM turn token instead, which bumps on every page
  * composite. Both are try/caught so the signature can never throw.
  */
+// The viewer's "page / total" readout. Stable per page in BOTH paged and vertical
+// modes (it only advances when a new page becomes current), so it is a reliable turn
+// signal — unlike the mirror epoch, which churns on every composite. '' when hidden
+// or absent, in which case callers fall back to per-canvas content identity.
+export function canvasReaderPageCounter(): string {
+    return document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? '';
+}
+
 export function canvasReaderPageSignature(): string {
-    const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? '';
+    const counter = canvasReaderPageCounter();
     const canvases = pageCanvases();
     const rawCanvases = isBookwalkerViewerHost() ? pageCanvases(location.hostname, { preferBookwalkerCurrent: false }) : canvases;
     const scroll = isBookwalkerViewerHost() && shouldUseBookwalkerScrollSignature(rawCanvases)
@@ -382,20 +390,31 @@ function shouldUseBookwalkerScrollSignature(canvases: HTMLCanvasElement[]): bool
         && !hasVerticallyStackedDocumentPageRun(canvases);
 }
 
+// Per-canvas page-content identity. A readable canvas hashes its pixels; a tainted
+// DRM canvas uses the mirror recorder's per-canvas source-image fingerprint; only
+// when neither exists yet does it fall back to the global mirror epoch. Stable across
+// a same-page repaint, distinct per page — so it names the page shown in THIS canvas
+// without the global epoch's cross-canvas churn (which, in vertical/continuous mode,
+// made every poll read as a page turn and kept OCR from ever settling).
+export function canvasPageContentToken(canvas: HTMLCanvasElement): string {
+    try {
+        const signature = canvasRenderedContentSignature(canvas);
+        if (signature) return signature;
+    } catch { /* tainted — fall through to the mirror identity */ }
+    return canvasMirrorContentToken(canvas) || canvasMirrorTurnToken();
+}
+
 // Distinct content fingerprints for the page canvases, blank/duplicate tokens
-// dropped. Readable canvases hash their pixels; tainted ones fall back to the mirror
-// recorder's shared-DOM turn token (one value for the whole viewer, bumped per
-// composite). Never throws — a failed sample contributes nothing. Deduping means a
-// transient blank flicker canvas (empty token) and a duplicate of the same painted
-// page don't perturb the signature, while genuinely different pages still each count.
+// dropped. Deduping means a transient blank flicker canvas (empty token) and a
+// duplicate buffer of the same painted page don't perturb the signature, while
+// genuinely different pages still each count.
 function canvasReaderContentTokens(canvases: HTMLCanvasElement[]): string[] {
-    let mirrorToken: string | undefined;
     const tokens = canvases.map(canvas => {
         try {
-            const signature = canvasRenderedContentSignature(canvas);
-            if (signature) return signature;
-        } catch { /* tainted — fall through to the mirror token */ }
-        return (mirrorToken ??= canvasMirrorTurnToken());
+            return canvasPageContentToken(canvas);
+        } catch {
+            return '';
+        }
     });
     return [...new Set(tokens)].filter(Boolean);
 }

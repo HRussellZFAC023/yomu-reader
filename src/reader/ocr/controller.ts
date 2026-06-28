@@ -4,7 +4,9 @@ import { loadPersistedOcrCache, persistOcrCacheSoon } from './ocr-cache-store';
 import {
     backgroundImageReaderUrl,
     canUseReaderCanvasSourceImageFallback,
+    canvasPageContentToken,
     canvasRenderedContentSignature,
+    canvasReaderPageCounter,
     canvasReaderPageSignature,
     captureCanvasDataUrl,
     collectBackgroundImageReaderSurfaces,
@@ -3838,17 +3840,24 @@ function readerRasterSurfaceSnapshotKey(surface: HTMLCanvasElement | HTMLElement
     return surface instanceof HTMLCanvasElement ? canvasSurfaceSnapshotKey(surface) : backgroundSurfaceCacheKey(surface);
 }
 
+// Per-canvas identity of the page currently painted into this surface: the viewer's
+// page counter (a turn pre-signal, caught before the mirror records the new page) plus
+// the canvas's own content (pixel hash / mirror source fingerprint) and intrinsic size.
+// Deliberately NOT the full page signature or live rect: the async mirror/screenshot
+// capture spans many frames, during which the viewer repaints other canvases and bumps
+// the shared epoch, and in vertical mode the rect scrolls. Embedding any of those made
+// the post-capture key recompute differently and discarded the fresh frame every time
+// (the empty OCR layers on cty=2). This key moves only when THIS canvas shows a
+// different page, so a capture lands and survives the surrounding epoch churn.
+// Repositioning on scroll/zoom is handled separately, so dropping the rect costs nothing.
 function canvasSurfaceSnapshotKey(canvas: HTMLCanvasElement): string {
-    const rect = canvas.getBoundingClientRect();
     const viewportId = canvas.closest<HTMLElement>('[id^="viewport"]')?.id ?? '';
     return [
-        canvasReaderPageSignature(),
+        canvasReaderPageCounter(),
         viewportId,
         canvas.width,
         canvas.height,
-        Math.round(rect.width),
-        Math.round(rect.height),
-        canvasRenderedContentSignature(canvas) ?? '',
+        canvasPageContentToken(canvas),
     ].join('|');
 }
 
