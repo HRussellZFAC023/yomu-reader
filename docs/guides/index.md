@@ -27,10 +27,6 @@ New here? Start with the [setup guide](/getting-started), then pick a workflow:
     <strong>Comprehensible-input YouTube</strong>
     <span>Filter YouTube into a Japanese feed, plus a levelled list of channels from N5 to N1.</span>
   </a>
-  <a class="yomu-link-card" href="/guides/read-games-on-steam-deck">
-    <strong>Read games on Steam Deck and PC</strong>
-    <span>Choose the right handoff path for browser games, copied lines, desktop OCR helpers, and Steam Deck Game Mode.</span>
-  </a>
   <a class="yomu-link-card" href="/guides/study-setup">
     <strong>Yomitan vs Jiten vs JPDB vs Anki</strong>
     <span>What each one is for, and how to use any or all of them from one popup.</span>

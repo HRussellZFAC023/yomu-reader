@@ -36,8 +36,8 @@ hero:
       link: /newtab/index.html
       target: _self
     - theme: alt
-      text: PC & Gaming
-      link: /guides/read-games-on-steam-deck
+      text: Games
+      link: /tools/yomu-gaming
       target: _self
 ---
 

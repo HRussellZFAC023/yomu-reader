@@ -24,7 +24,7 @@
   <a href="https://yomureader.com/yomu.user.js"><b>Install よむ</b></a> ·
   <a href="https://yomureader.com/getting-started">Setup guide</a> ·
   <a href="https://yomureader.com/features">Features</a> ·
-  <a href="https://yomureader.com/guides/read-games-on-steam-deck">PC & gaming</a> ·
+  <a href="https://yomureader.com/tools/yomu-gaming">Yomu Gaming</a> ·
   <a href="https://yomureader.com/video-player/index.html">Video reader</a> ·
   <a href="https://yomureader.com/newtab/">Study app</a> ·
   <a href="https://discord.gg/jD6NPURewD">Discord</a>
@@ -70,7 +70,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 | --- | --- |
 | Web reading | Popup dictionary lookup, furigana, pitch/accent color, audio, examples, and kanji drilldown |
 | Manga and images | OCR overlays that make recognized Japanese lookup-ready without covering the page |
-| Games | Steam Deck and PC handoff guide for browser-readable text, copied lines, OCR helpers, and text-hook outputs |
+| Games | First-party Yomu Gaming desktop capture for PC game text |
 | Video | ASB-style subtitle overlay, transcript lookup, mining, and a hosted local-file video reader |
 | PDFs | Browser PDF reader with selectable text, OCR fallback, and the same popup/mining flow |
 | Study | AnkiConnect cards, mobile Anki handoff, Jiten/JPDB actions, offline cached reviews, and the hosted study page |
@@ -83,14 +83,13 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 - [Video reader](https://yomureader.com/video-player/index.html) for local video files and subtitles.
 - [PDF reader](https://yomureader.com/pdf-reader/) for Japanese PDFs and scanned pages.
 - [Study page](https://yomureader.com/newtab/) for review cards in a browser tab or mobile Home Screen shortcut.
-- [PC & gaming guide](https://yomureader.com/guides/read-games-on-steam-deck) for Steam Deck and desktop game text workflows.
 - [Feature guide](https://yomureader.com/features) for screenshots and detailed behavior.
 
 ## Privacy
 
 よむ keeps imported Yomitan dictionaries and settings in your browser. Anki mining talks to your local AnkiConnect endpoint. Jiten, JPDB, Immersion Kit, Nadeshiko, custom audio, local OCR, and optional kanji data sources are contacted only when their related features are enabled or used.
 
-Game OCR helpers, Decky plugins, clipboard capture, screenshot capture, audio capture, and cloud OCR or translation services are external to よむ unless you explicitly choose them.
+Yomu Gaming captures game text locally for lookup and study. External capture, audio, cloud OCR, or translation services are outside よむ unless you explicitly choose them.
 
 For the fuller privacy and setup notes, read the docs at [yomureader.com](https://yomureader.com/).
 
