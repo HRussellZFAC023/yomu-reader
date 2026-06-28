@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.176] - 2026-06-28
+
+### Fixed
+
+- Sized the YouTube transcript "jump to current line" button to match the other subtitle panel toolbar buttons under touch/coarse-pointer and narrow layouts (e.g. iPad), where it was rendering noticeably smaller than its neighbours. It still collapses away while auto-follow is active.
+
 ## [1.4.175] - 2026-06-28
 
 ### Fixed
