@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.216] - 2026-06-28
+
+### Fixed
+
+- Fixed surrounding words disappearing when a block that mixes non-Japanese prose with an inline CJK run is annotated on framework-managed sites such as React, Vue, Svelte, and custom-element apps like Reddit, where the page overlay now keeps the full host text visible instead of only the scanned CJK fragment.
+
 ## [1.4.215] - 2026-06-28
 
 ### Fixed
