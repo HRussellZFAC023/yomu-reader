@@ -301,6 +301,7 @@ interface CanvasFallbackTextLayerState {
 
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
 const READER_TEXT_MIRROR_SELECTOR = '.jpdb-reader-text-mirror';
+const READER_OWNED_TEXT_SELECTOR = '.jpdb-reader-word,.jpdb-reader-text-mirror,[data-jpdb-reader-root]';
 const READER_CONTROL_TEXT_MIRROR_SELECTOR = '.jpdb-reader-control-text-mirror';
 const READER_CANVAS_TEXT_LAYER_SELECTOR = '.jpdb-reader-canvas-text-layer';
 const READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE = 'data-jpdb-reader-control-placeholder-hidden';
@@ -1367,12 +1368,108 @@ function renderTokenizedScanText(
     return fragment;
 }
 
+// A non-destructive mirror HIDES the entire host element and paints the rendered
+// text over it, so the mirror must reproduce the host's COMPLETE text — not just
+// the scanned fragment(s). Framework-managed shells (React/Vue/Angular/Svelte and
+// custom-element apps such as Reddit's shreddit) force every target to render
+// non-destructively, and the residual/generic scan emits targets that cover only
+// the CJK-bearing text node of a mixed-script block (e.g. an English sentence with
+// one inline 中文 run, or inline <a> links splitting the prose). Rendering only
+// target.text would then hide every surrounding non-Japanese word with the host —
+// the "text randomly vanishing" bug. So expand the plan to the host's full text and
+// remap the scanned tokens into its coordinate space; the untokenized remainder is
+// re-emitted verbatim as plain text by renderTokenizedScanText.
+function nonDestructiveHostRenderPlan(
+    host: HTMLElement,
+    target: ScanTextTarget,
+    tokens: JPDBToken[],
+): { text: string; tokens: JPDBToken[] } {
+    const fragments = nonDestructiveTargetFragments(target);
+    const { hostText, nodeOffsets } = hostOriginalTextWithNodeOffsets(host);
+    if (!fragments.length || !hostText || collapsedTextKey(hostText) === collapsedTextKey(target.text)) {
+        return { text: target.text, tokens };
+    }
+    const indexed = indexTextFragments(fragments);
+    const remapped = tokens
+        .map(token => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText.length))
+        .filter((token): token is JPDBToken => token !== null);
+    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length) };
+}
+
+function collapsedTextKey(text: string): string {
+    return text.replace(/\s+/gu, '');
+}
+
+// The host's source text in document order, skipping any reader-owned subtree (a
+// prior mirror / annotated word / reader root) so re-scans compare against the
+// page's own text rather than our own output.
+function hostOriginalTextWithNodeOffsets(host: HTMLElement): { hostText: string; nodeOffsets: Map<Text, number> } {
+    const nodeOffsets = new Map<Text, number>();
+    let hostText = '';
+    const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
+        acceptNode: node => node.parentElement?.closest(READER_OWNED_TEXT_SELECTOR)
+            ? NodeFilter.FILTER_REJECT
+            : NodeFilter.FILTER_ACCEPT,
+    });
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        nodeOffsets.set(node as Text, hostText.length);
+        hostText += (node as Text).data;
+    }
+    return { hostText, nodeOffsets };
+}
+
+function nonDestructiveTargetFragments(target: ScanTextTarget): TextFragment[] {
+    if (isFragmentTextTarget(target)) return target.fragments;
+    const data = target.node.data;
+    const lead = data.length - data.trimStart().length;
+    return [{
+        node: target.node,
+        start: lead,
+        end: lead + target.text.length,
+        hasNativeRuby: Boolean(target.hasNativeRuby),
+        layoutSensitive: target.layoutSensitive,
+        passiveInteraction: target.passiveInteraction,
+    }];
+}
+
+// Shift a token from target.text coordinates into the host's full-text coordinates.
+// Only tokens that resolve within a single text node are remapped (a constant
+// offset shift); a token straddling fragments is dropped so its surface can never
+// be mismatched against the host text — the words still render as plain text.
+function remapTokenIntoHostText(
+    token: JPDBToken,
+    indexed: IndexedTextFragment[],
+    nodeOffsets: Map<Text, number>,
+    hostLength: number,
+): JPDBToken | null {
+    const start = findFragmentBoundary(indexed, token.start, 'start');
+    const end = findFragmentBoundary(indexed, token.end, 'end');
+    if (!start || !end || start.fragment !== end.fragment) return null;
+    const base = nodeOffsets.get(start.fragment.node);
+    if (base === undefined) return null;
+    const hostStart = base + start.localOffset;
+    const hostEnd = base + end.localOffset;
+    if (hostStart < 0 || hostEnd <= hostStart || hostEnd > hostLength) return null;
+    return shiftTokenOffsets(token, hostStart - token.start);
+}
+
+function shiftTokenOffsets(token: JPDBToken, delta: number): JPDBToken {
+    if (delta === 0) return token;
+    return {
+        ...token,
+        start: token.start + delta,
+        end: token.end + delta,
+        rubies: token.rubies.map(ruby => ({ ...ruby, start: ruby.start + delta, end: ruby.end + delta })),
+    };
+}
+
 function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
     const host = nonDestructiveScanHost(target);
     if (!host.isConnected) return;
 
-    const text = target.text;
-    const safeTokens = nonOverlappingTokens(tokens, text.length);
+    const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text.length));
+    const text = plan.text;
+    const safeTokens = plan.tokens;
     const renderPlan = whitespaceCollapsedNonDestructiveRender(text, safeTokens);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
     const renderSettings = furiganaSettingsForTarget(settings, host);

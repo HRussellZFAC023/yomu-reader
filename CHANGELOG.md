@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.214] - 2026-06-28
+
+### Fixed
+
+- Stopped surrounding text from vanishing when a mixed-script block (non-Japanese prose with an inline CJK run, e.g. an English Reddit comment quoting 中文) is annotated on a framework-managed app shell (React/Vue/Angular/Svelte/Next/Nuxt/Astro and custom-element apps such as Reddit's shreddit). Such sites render non-destructively via an overlay mirror that hides the whole host element; the scan only targets the CJK-bearing text node, so the mirror used to show just that fragment and hide every surrounding English word and inline link. The mirror now reproduces the host's complete text — remapping the scanned tokens into it — so nothing disappears while furigana still lands on the Japanese.
+
 ## [1.4.213] - 2026-06-28
 
 ### Fixed
