@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.171] - 2026-06-28
+
+### Fixed
+
+- Published the Reddit Japanese locale fix with a deterministic OCR release regression test across CI runners.
+
 ## [1.4.170] - 2026-06-28
 
 ### Fixed

@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Published the Reddit Japanese locale fix with a deterministic OCR release regression test across CI runners.': 'CIランナー間で安定して動く決定的なOCRリリース回帰テストにしたうえで、Redditの日本語ロケール修正を公開しました。',
     'Published the Reddit Japanese locale fix after hardening the release OCR regression test against jsdom image-load timing.': 'jsdomの画像読み込みタイミングに左右されないようリリース用OCR回帰テストを強化したうえで、Redditの日本語ロケール修正を公開しました。',
     'Fixed the docs navbar overflow ("…") menu showing a stray "GitHub" text label next to both the GitHub and Discord icons. The social links are now rendered icon-only, as two separate, evenly spaced links.': 'ドキュメントのナビゲーションバーのオーバーフロー（「…」）メニューで、GitHubとDiscordの両方のアイコン横に余計な「GitHub」テキストが表示されていた問題を修正しました。ソーシャルリンクは、2つの独立した等間隔のリンクとしてアイコンのみで描画されるようになりました。',
     'Fixed BookWalker raster OCR rescans on real reader pages by auto-scanning canvas-only viewers, dropping poisoned empty raster cache entries, retrying transient empty captures, reporting OCR transport failures as failures, and releasing collapsed recycled canvases instead of leaving stale Text ready or No text found pills.': '実際のBookWalkerリーダーページで、ラスターOCRの再スキャンを修正しました。キャンバスのみのビューワーを自動スキャンし、汚染された空のラスターキャッシュを破棄し、一時的な空キャプチャを再試行し、OCR通信エラーを失敗として表示し、折りたたまれた再利用キャンバスを解放することで、古い「テキスト準備完了」や「文字が見つかりません」ピルが残らないようにしました。',
