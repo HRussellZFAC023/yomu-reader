@@ -8416,8 +8416,7 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('does not preload public JPDB pitch on keyless new-tab cards', async () => {
-        vi.useFakeTimers();
+    it('preloads keyless public JPDB pitch on new-tab cards (the source needs no key)', async () => {
         const card = newTabTestCard({ spelling: '読む', reading: 'よむ', source: 'jpdb', pitchAccent: [] });
         const localMeta = deferred<never[]>();
         const lookupTermMeta = vi.fn(() => localMeta.promise);
@@ -8436,12 +8435,13 @@ describe('new tab review helpers', () => {
 
         try {
             expect(word.classList.contains('jpdb-pitch-unknown')).toBe(true);
-            await vi.advanceTimersByTimeAsync(1_000);
-            expect(publicPitch).not.toHaveBeenCalled();
-            expect(card.pitchAccent).toEqual([]);
+            await waitForExpect(() => {
+                expect(publicPitch).toHaveBeenCalledWith('読む', 'よむ');
+                expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            });
+            expect(card.pitchAccent).toEqual(['HLL']);
         } finally {
             localMeta.resolve([]);
-            vi.useRealTimers();
             root.remove();
         }
     });
@@ -12041,7 +12041,9 @@ describe('new tab review helpers', () => {
             });
             expect(jitenLookupMany).toHaveBeenCalledWith(['会話']);
             expect(search).not.toHaveBeenCalled();
-            expect(pitch).not.toHaveBeenCalled();
+            // Keyless public pitch is now allowed; the Jiten card still supplies the
+            // displayed heiban accent, so the public-pitch result is not what renders.
+            expect(pitch).toHaveBeenCalled();
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
         } finally {
             runtime.destroy();

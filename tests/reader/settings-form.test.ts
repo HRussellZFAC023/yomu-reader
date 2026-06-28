@@ -394,7 +394,7 @@ describe('frequency dictionary preferences', () => {
             expect(row.querySelector('[data-action="lookup-link-up"]')).not.toBeNull();
         }
         expect(editor.querySelector<HTMLInputElement>('input[name$=".id"][value="jiten-frequency"]')?.closest('[data-lookup-link-row]')?.querySelector<HTMLInputElement>('[data-lookup-link-enable-toggle]')?.checked).toBe(true);
-        expect(editor.querySelector<HTMLInputElement>('input[name$=".id"][value="jpdb-frequency"]')?.closest('[data-lookup-link-row]')?.querySelector<HTMLInputElement>('[data-lookup-link-enable-toggle]')?.checked).toBe(false);
+        expect(editor.querySelector<HTMLInputElement>('input[name$=".id"][value="jpdb-frequency"]')?.closest('[data-lookup-link-row]')?.querySelector<HTMLInputElement>('[data-lookup-link-enable-toggle]')?.checked).toBe(true);
         // Frequency dictionaries are preserved as hidden dictionary preferences, not a second visible table.
         expect(form.querySelectorAll('input[name="dictionaryPreferences.1.name"]').length).toBe(1);
     });
@@ -414,7 +414,7 @@ describe('frequency dictionary preferences', () => {
         expect(frequency.map(preference => preference.name)).toEqual(['BCCWJ', 'Jiten', 'JPDB Freq']);
         expect(frequencyPills.find(link => link.id === 'frequency-local:JPDB Freq')?.enabled).toBe(true);
         expect(frequencyPills.find(link => link.id === 'jiten-frequency')?.enabled).toBe(true);
-        expect(frequencyPills.find(link => link.id === 'jpdb-frequency')?.enabled).toBe(false);
+        expect(frequencyPills.find(link => link.id === 'jpdb-frequency')?.enabled).toBe(true);
     });
 
     it('localizes combined lookup pill settings', () => {

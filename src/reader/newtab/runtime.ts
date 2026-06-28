@@ -2004,7 +2004,8 @@ export class NewTabRuntime {
 
     private async enrichPitchWords(tokens: JPDBToken[], limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT): Promise<void> {
         if (!this.settings.showPitchAccent) return;
-        if (!effectiveJpdbApiKey(this.settings)) return;
+        // Public pitch enrichment is keyless — don't gate it on a JPDB API key, or
+        // Jiten-only / no-key readers never get pitch underlines.
         const uniqueTokens = this.uniqueTokens(
             tokens,
             token => !token.card.pitchAccent.length && Boolean(token.card.spelling.trim()),

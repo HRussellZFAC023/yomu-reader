@@ -8579,7 +8579,8 @@ export class NewTabController {
     }
 
     private fetchPublicWordPitch(card: JPDBCard): Promise<string[]> {
-        if (!hasJpdbApiCredential(this.dependencies.getSettings())) return Promise.resolve([]);
+        // Keyless public-pitch source: available to Jiten-only and no-key users too,
+        // so study/search cards still get a pitch graph without a JPDB API key.
         return this.dependencies.jpdbPublicPitch?.lookup(card.spelling, newTabCardReading(card)).catch(() => []) ?? Promise.resolve([]);
     }
 

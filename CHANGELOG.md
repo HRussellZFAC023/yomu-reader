@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.215] - 2026-06-28
+
+### Fixed
+
+- Loaded pitch accent for Jiten-only and no-API-key users. The public pitch source needs no API key, but three paths — study and search word pitch, the lookup-card pitch graph, and reading-view pitch enrichment — had hidden it behind a JPDB key, so Jiten and keyless study sessions showed no pitch. It now loads from the keyless source whenever pitch accent is turned on.
+
+### Changed
+
+- Merged the live Jiten/JPDB site frequency rank inline into the matching lookup pill (e.g. "Jiten #18447") instead of a separate "Jiten live" pill, controlled by a new "Show site frequency in pills" setting that is on by default. The JPDB frequency rank now shows by default too.
+
 ## [1.4.214] - 2026-06-28
 
 ### Fixed

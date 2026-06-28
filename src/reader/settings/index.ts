@@ -337,6 +337,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     furiganaHiddenStateGroups: ['known', 'due', 'failed'],
     wordColorStates: 'all',
     showPitchAccent: true,
+    showLookupPillFrequency: true,
     suppressRedundantWordUi: false,
     sheetCloseButtonOnLeft: false,
     hideKnownFurigana: true,

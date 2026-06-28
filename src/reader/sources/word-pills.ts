@@ -35,9 +35,9 @@ export function renderWordPills(options: WordPillRenderOptions): string {
     const query = context.query;
     const language = options.settings.interfaceLanguage;
     const enabledLinks = options.settings.dictionaryLookupLinks.filter(link => link.enabled);
-    const frequencyPills = frequencyPillsByLookupId(options);
+    const { pills: frequencyPills, mergedLiveRanks } = frequencyPillsByLookupId(options);
     const linkPills = enabledLinks
-        .map(link => renderConfiguredLookupPill(options, context, language, query, link, frequencyPills))
+        .map(link => renderConfiguredLookupPill(options, context, language, query, link, frequencyPills, mergedLiveRanks))
         .filter(Boolean);
     const ankiPill = renderAnkiPill(options, language, query);
     const configuredFrequencyIds = new Set(enabledLinks.filter(link => isFrequencyLookupPill(link)).map(link => link.id));
@@ -97,16 +97,27 @@ function renderLookupLinkPill(
     language: ReaderSettings['interfaceLanguage'],
     query: string,
     link: ReaderSettings['dictionaryLookupLinks'][number],
+    mergedLiveRanks: Map<'jiten' | 'jpdb', number>,
 ): string {
     const style = lookupPillStyle(link.id || link.label);
     if (link.action === 'copy' || link.id === 'copy') return renderCopyPill(language, query, style, options.inert);
     const url = lookupLinkPillUrl(options, context, link);
     if (!url) return '';
     const title = lookupLinkPillTitle(options, language, link);
+    // Merge the live site frequency rank inline (e.g. "Jiten #18447") when the
+    // pill belongs to a provider whose rank was folded in.
+    const rank = linkPillLiveRank(link, mergedLiveRanks);
+    const label = rank ? `${link.label} #${rank}` : link.label;
     if (options.inert) {
-        return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</span>`;
+        return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(label)} ${externalLinkIcon()}</span>`;
     }
-    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</a>`;
+    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(label)} ${externalLinkIcon()}</a>`;
+}
+
+// The live-frequency rank is shown inline on its sibling Jiten/JPDB link pill.
+function linkPillLiveRank(link: ReaderSettings['dictionaryLookupLinks'][number], mergedLiveRanks: Map<'jiten' | 'jpdb', number>): number | null {
+    const provider = link.id === 'jiten' ? 'jiten' : link.id === 'jpdb' ? 'jpdb' : null;
+    return provider ? mergedLiveRanks.get(provider) ?? null : null;
 }
 
 function renderConfiguredLookupPill(
@@ -116,9 +127,12 @@ function renderConfiguredLookupPill(
     query: string,
     link: ReaderSettings['dictionaryLookupLinks'][number],
     frequencyPills: Map<string, string>,
+    mergedLiveRanks: Map<'jiten' | 'jpdb', number>,
 ): string {
+    // A live-frequency link whose rank was merged into a link pill returns no
+    // standalone pill (frequencyPills won't hold it); otherwise it renders as before.
     if (isFrequencyLookupPill(link)) return frequencyPills.get(link.id) ?? '';
-    return renderLookupLinkPill(options, context, language, query, link);
+    return renderLookupLinkPill(options, context, language, query, link, mergedLiveRanks);
 }
 
 function isFrequencyLookupPill(link: ReaderSettings['dictionaryLookupLinks'][number]): boolean {
@@ -234,9 +248,10 @@ function renderCopyPill(language: ReaderSettings['interfaceLanguage'], query: st
     return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
 }
 
-function frequencyPillsByLookupId(options: WordPillRenderOptions): Map<string, string> {
+function frequencyPillsByLookupId(options: WordPillRenderOptions): { pills: Map<string, string>; mergedLiveRanks: Map<'jiten' | 'jpdb', number> } {
     const localLabel = (dictionary: string) => localFrequencyLookupLabel(options.settings, dictionary) || options.dictionaryLabel(dictionary);
     const pills = new Map<string, string>();
+    const mergedLiveRanks = new Map<'jiten' | 'jpdb', number>();
     const localProviders = new Set<'jiten' | 'jpdb'>();
     for (const entry of bestFrequencyEntries(options.metaEntries ?? [])) {
         if (entry.mode !== 'freq' || !localFrequencyEnabled(options.settings, entry.dictionary)) continue;
@@ -247,12 +262,27 @@ function frequencyPillsByLookupId(options: WordPillRenderOptions): Map<string, s
             if (provider) localProviders.add(provider);
         }
     }
+    // The merged rank is the whole-word frequency; on a single-kanji lookup that
+    // is the parent word's rank, not the kanji's, so don't surface it there.
+    if (options.overrideQuery && isSingleKanji(options.overrideQuery)) return { pills, mergedLiveRanks };
+    // When the toggle is on, fold each live rank into its sibling link pill — but
+    // only when that sibling link is actually enabled to carry it; otherwise (or
+    // when the toggle is off) keep the legacy standalone pill so the rank never
+    // vanishes. A local frequency badge for the same provider always wins.
+    const mergeIntoLinkPill = options.settings.showLookupPillFrequency !== false;
+    const enabledLinkIds = new Set(options.settings.dictionaryLookupLinks.filter(link => link.enabled).map(link => link.id));
     for (const link of options.settings.dictionaryLookupLinks) {
         if (link.action !== 'frequency-live' || !link.enabled) continue;
-        const html = renderLiveFrequencyPill(options, link, localProviders);
-        if (html) pills.set(link.id, html);
+        const provider = liveFrequencyProvider(link);
+        if (!provider || localProviders.has(provider)) continue;
+        const rank = provider === 'jiten' ? liveJitenFrequencyRank(options) : liveJpdbFrequencyRank(options);
+        if (!rank) continue;
+        // Built-in provider label so the standalone fallback never shows a stale
+        // saved "Jiten live"/"JPDB live" label.
+        if (mergeIntoLinkPill && enabledLinkIds.has(provider)) mergedLiveRanks.set(provider, rank);
+        else pills.set(link.id, renderLiveFrequencyPill(provider, rank, provider === 'jiten' ? 'Jiten' : 'JPDB'));
     }
-    return pills;
+    return { pills, mergedLiveRanks };
 }
 
 function localFrequencyEnabled(settings: ReaderSettings, dictionary: string): boolean {
@@ -269,12 +299,7 @@ function localFrequencyLookupPillId(dictionary: string): string {
     return `frequency-local:${dictionary}`;
 }
 
-function renderLiveFrequencyPill(options: WordPillRenderOptions, link: ReaderSettings['dictionaryLookupLinks'][number], localProviders: Set<'jiten' | 'jpdb'>): string {
-    const provider = liveFrequencyProvider(link);
-    if (!provider || localProviders.has(provider)) return '';
-    const rank = provider === 'jiten' ? liveJitenFrequencyRank(options) : liveJpdbFrequencyRank(options);
-    if (!rank) return '';
-    const label = link.label.trim() || (provider === 'jiten' ? 'Jiten' : 'JPDB');
+function renderLiveFrequencyPill(provider: 'jiten' | 'jpdb', rank: number, label: string): string {
     const dictionary = provider === 'jiten' ? 'Jiten' : 'JPDB';
     return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml(dictionary)}" data-frequency-source="live" style="${pillStyle(`frequency-live:${provider}`)}" title="${escapeHtml(`${label} live site frequency`)}">${escapeHtml(label)} #${escapeHtml(String(rank))}</span>`;
 }

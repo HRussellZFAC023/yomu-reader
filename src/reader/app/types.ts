@@ -355,6 +355,9 @@ export interface ReaderSettings {
     furiganaHiddenStateGroups: FuriganaStateGroup[];
     wordColorStates: WordColorStates;
     showPitchAccent: boolean;
+    // When on, the live Jiten/JPDB frequency rank is shown inline inside that
+    // site's lookup pill (e.g. "Jiten #18447") instead of as a separate pill.
+    showLookupPillFrequency: boolean;
     suppressRedundantWordUi: boolean;
     sheetCloseButtonOnLeft: boolean;
     hideKnownFurigana: boolean;

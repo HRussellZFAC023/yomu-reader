@@ -184,7 +184,11 @@ export class CardRenderDataLoader {
 
     private loadPublicPitch(card: JPDBCard): Promise<string[]> {
         const settings = this.settings();
-        if (!settings.showPitchAccent || card.pitchAccent.length || !hasJpdbApiCredential(settings)) return Promise.resolve([]);
+        // Public JPDB pitch is keyless (scrapes the public search page; the hosted
+        // reader proxies it CORS-safely). Gating it on a JPDB API credential left
+        // Jiten-only and no-key users with no pitch graph during study/lookup — so
+        // only require the pitch feature itself and an as-yet-unknown accent.
+        if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, 'JPDB public pitch', this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(error => {
             log.warn('Public pitch lookup failed', { term: card.spelling }, error);
             return [];

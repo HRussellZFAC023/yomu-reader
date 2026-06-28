@@ -11,9 +11,14 @@ const JPDB_LOOKUP_LINK: DictionaryLookupLink = {
     enabled: true,
 };
 
+// The live-frequency pills are merged into their sibling link pill (Jiten/JPDB)
+// when showLookupPillFrequency is on, so the label is just the site name — the
+// rank renders inline as "Jiten #18447". Both default on so the rank shows out of
+// the box on fresh installs; existing users keep whatever they saved (we don't
+// override a deliberately disabled pill — they can enable it in settings).
 const JITEN_LIVE_FREQUENCY_PILL: DictionaryLookupLink = {
     id: 'jiten-frequency',
-    label: 'Jiten live',
+    label: 'Jiten',
     urlTemplate: '',
     enabled: true,
     action: 'frequency-live',
@@ -21,9 +26,9 @@ const JITEN_LIVE_FREQUENCY_PILL: DictionaryLookupLink = {
 
 const JPDB_LIVE_FREQUENCY_PILL: DictionaryLookupLink = {
     id: 'jpdb-frequency',
-    label: 'JPDB live',
+    label: 'JPDB',
     urlTemplate: '',
-    enabled: false,
+    enabled: true,
     action: 'frequency-live',
 };
 
@@ -206,7 +211,7 @@ export function defaultDictionaryLookupLinks(mode: 'jpdb' | 'local' = 'local'): 
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
         ...link,
         priority: index,
-        enabled: mode === 'jpdb' ? link.id === 'jpdb' || link.id === 'jiten' || link.id === 'yomu-search' || link.id === 'jiten-frequency' : link.enabled,
+        enabled: mode === 'jpdb' ? link.id === 'jpdb' || link.id === 'jiten' || link.id === 'yomu-search' || link.id === 'jiten-frequency' || link.id === 'jpdb-frequency' : link.enabled,
     }));
 }
 

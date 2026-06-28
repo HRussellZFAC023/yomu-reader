@@ -156,7 +156,9 @@ describe('performance cache bounds', () => {
         }
     });
 
-    it('does not use public JPDB pitch fallback without a JPDB key', async () => {
+    it('uses keyless public JPDB pitch fallback without a JPDB key', async () => {
+        // The public pitch source is keyless, so no-key / Jiten-only users still
+        // get a pitch graph (the source has its own backoff + cache).
         vi.useFakeTimers();
         try {
             const lookupTermMeta = vi.fn(() => new Promise<never>(() => undefined));
@@ -169,10 +171,11 @@ describe('performance cache bounds', () => {
             const lookupCard = { ...cardFor(1), spelling: '読む', reading: 'よむ', pitchAccent: [] };
             const load = loader.load(lookupCard);
 
-            await vi.advanceTimersByTimeAsync(3_000);
+            await vi.advanceTimersByTimeAsync(120);
+            expect(publicPitch).toHaveBeenCalledWith('読む', 'よむ');
+            await vi.advanceTimersByTimeAsync(2_500);
             await expect(load.all).resolves.toMatchObject({ metaEntries: [] });
-            expect(publicPitch).not.toHaveBeenCalled();
-            expect(lookupCard.pitchAccent).toEqual([]);
+            expect(lookupCard.pitchAccent).toEqual(['HLL']);
         } finally {
             vi.useRealTimers();
         }

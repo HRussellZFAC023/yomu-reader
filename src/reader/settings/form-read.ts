@@ -343,6 +343,7 @@ function readReadingDisplayFormSettings(
         furiganaHiddenStateGroups: (['new', 'learning', 'known', 'due', 'failed'] as const).filter(group => has(`furiganaHide-${group}`)),
         wordColorStates: readOption(get('wordColorStates'), ['all', 'new-only'] as const, 'all'),
         showPitchAccent: has('showPitchAccent'),
+        showLookupPillFrequency: has('showLookupPillFrequency'),
         suppressRedundantWordUi: has('suppressRedundantWordUi'),
         sheetCloseButtonOnLeft: has('sheetCloseButtonOnLeft'),
         hideKnownFurigana: furiganaMode === 'known-status',

@@ -5671,6 +5671,73 @@ describe('reader helpers', () => {
         expect(html).not.toContain('>Uchisen ');
     });
 
+    it('merges the live Jiten frequency rank inline into the Jiten pill (and reverts when the toggle is off)', () => {
+        const jitenCard = { ...card, source: 'jiten' as const, frequencyRank: 18447, pitchAccent: [] };
+        const baseSettings = {
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'en' as const,
+            dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
+        };
+
+        const merged = renderWordPills({
+            card: jitenCard,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings: baseSettings,
+            isJpdbBackedCard: () => false,
+            dictionaryLabel: name => name,
+        });
+        // Rank lives inside the Jiten link pill; no separate live-frequency pill.
+        expect(merged).toContain('>Jiten #18447 ');
+        expect(merged).not.toContain('data-frequency-source="live"');
+
+        const split = renderWordPills({
+            card: jitenCard,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings: { ...baseSettings, showLookupPillFrequency: false },
+            isJpdbBackedCard: () => false,
+            dictionaryLabel: name => name,
+        });
+        // Toggle off restores the standalone live-frequency pill.
+        expect(split).toContain('data-frequency-source="live"');
+        expect(split).toContain('>Jiten #18447</span>');
+    });
+
+    it('keeps the live rank as a standalone pill when its sibling link pill is disabled', () => {
+        const jitenCard = { ...card, source: 'jiten' as const, frequencyRank: 18447, pitchAccent: [] };
+        const html = renderWordPills({
+            card: jitenCard,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings: {
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'en',
+                // jiten-frequency enabled, but the jiten link pill that would carry it is off.
+                dictionaryLookupLinks: defaultDictionaryLookupLinks('local').map(link => link.id === 'jiten' ? { ...link, enabled: false } : link),
+            },
+            isJpdbBackedCard: () => false,
+            dictionaryLabel: name => name,
+        });
+        // Rank must not vanish: it falls back to the standalone pill.
+        expect(html).toContain('data-frequency-source="live"');
+        expect(html).toContain('>Jiten #18447</span>');
+    });
+
+    it('does not weld the whole-word frequency rank onto a single-kanji lookup pill', () => {
+        const jitenCard = { ...card, source: 'jiten' as const, frequencyRank: 18447, pitchAccent: [] };
+        const html = renderWordPills({
+            card: jitenCard,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings: {
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'en',
+                dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
+            },
+            overrideQuery: '食',
+            isJpdbBackedCard: () => false,
+            dictionaryLabel: name => name,
+        });
+        expect(html).not.toContain('#18447');
+    });
+
     it('renders installed Jiten frequency metadata as a lookup pill', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -11772,7 +11839,7 @@ describe('reader helpers', () => {
             ['jiten', true],
             ['jiten-frequency', true],
             ['jpdb', true],
-            ['jpdb-frequency', false],
+            ['jpdb-frequency', true],
             ['yomu-search', true],
             ['jisho', false],
             ['weblio', false],
@@ -11787,7 +11854,7 @@ describe('reader helpers', () => {
             ['jiten', true],
             ['jiten-frequency', true],
             ['jpdb', true],
-            ['jpdb-frequency', false],
+            ['jpdb-frequency', true],
             ['yomu-search', true],
             ['jisho', false],
             ['weblio', false],
@@ -11800,9 +11867,9 @@ describe('reader helpers', () => {
         ]);
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.label, link.urlTemplate])).toEqual([
             ['jiten', 'Jiten', 'https://jiten.moe/parse?text={query}'],
-            ['jiten-frequency', 'Jiten live', ''],
+            ['jiten-frequency', 'Jiten', ''],
             ['jpdb', 'JPDB', 'https://jpdb.io/search?q={query}'],
-            ['jpdb-frequency', 'JPDB live', ''],
+            ['jpdb-frequency', 'JPDB', ''],
             ['yomu-search', 'Yomu', `${NEW_TAB_PAGE_URL}index.html?q={query}`],
             ['jisho', 'Jisho', 'https://jisho.org/search/{query}'],
             ['weblio', 'Weblio', 'https://www.weblio.jp/content/{query}'],
@@ -11854,7 +11921,7 @@ describe('reader helpers', () => {
                 ['jiten', true],
                 ['jiten-frequency', true],
                 ['jpdb', true],
-                ['jpdb-frequency', false],
+                ['jpdb-frequency', true],
                 ['yomu-search', true],
                 ['jisho', false],
                 ['weblio', false],
@@ -13872,7 +13939,9 @@ describe('reader helpers', () => {
         expect(disabledLookup).not.toHaveBeenCalled();
     });
 
-    it('skips public JPDB pitch enrichment without a JPDB key', async () => {
+    it('loads keyless public JPDB pitch for Jiten/no-key users', async () => {
+        // The public pitch source needs no JPDB key, so Jiten-only and no-key users
+        // still get a pitch graph during study/lookup.
         const publicPitch = vi.fn(async () => ['HLL']);
         const loader = testCardRenderDataLoader({
             settings: cardDetailLoaderSettings({
@@ -13884,8 +13953,8 @@ describe('reader helpers', () => {
             jpdbPublicPitch: { lookup: publicPitch },
         });
 
-        await expect(loader.load({ ...card, pitchAccent: [] }).pitchAccent).resolves.toEqual([]);
-        expect(publicPitch).not.toHaveBeenCalled();
+        await expect(loader.load({ ...card, pitchAccent: [] }).pitchAccent).resolves.toEqual(['HLL']);
+        expect(publicPitch).toHaveBeenCalled();
     });
 
     it('promotes JPDB not-in-deck cards when pooled deck membership finds them', async () => {
