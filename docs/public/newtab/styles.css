@@ -1654,6 +1654,18 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   gap: clamp(10px, 1.8vh, 18px);
   width: 100%;
   min-width: 0;
+  text-align: center;
+}
+
+/* The headword and its audio control sit together as one centered unit. */
+.jpdb-reader-newtab-term-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.4vw, 16px);
+  width: 100%;
+  min-width: 0;
 }
 
 .jpdb-reader-newtab-term {
@@ -1663,6 +1675,15 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   font-size: inherit;
   line-height: inherit;
   overflow-wrap: anywhere;
+  text-align: center;
+}
+
+/* Audio button inline beside the word: quiet, fixed-size, never shrinks, and
+   nudged toward the kanji baseline since furigana adds height above the word. */
+.jpdb-reader-newtab-term-audio.jpdb-reader-icon-btn {
+  flex: 0 0 auto;
+  align-self: center;
+  transform: translateY(0.12em);
 }
 
 .jpdb-reader-newtab-term .jpdb-reader-word {

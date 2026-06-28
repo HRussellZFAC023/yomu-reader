@@ -1003,6 +1003,7 @@
   function noop() {
   }
   async function requestHttp(url, options = {}) {
+    if (!navigator.onLine && !isSameOriginUrl(url)) throw Error("Offline");
     const userscriptRequest = getUserscriptHttpRequest();
     if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || window.__YOMU_READER_RUNTIME__ === "newtab" && options.responseType === "blob")) {
       try {
@@ -25532,7 +25533,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.219".trim() ? "1.4.219".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.220".trim() ? "1.4.220".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -58388,6 +58389,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       statsKnown: "Known",
       sessionDone: "Done",
       sessionLeft: "Left",
+      sessionCached: "Cached",
+      syncPending: "⟳ To sync",
+      syncSynced: "✓ Synced",
       dailyGoalUnit: "min",
       dailyGoalReached: "Goal reached",
       browseSortLabel: "Sort",
@@ -58547,6 +58551,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     statsKnown: "既知",
     sessionDone: "完了",
     sessionLeft: "残り",
+    sessionCached: "キャッシュ",
+    syncPending: "⟳ 同期待ち",
+    syncSynced: "✓ 同期済み",
     dailyGoalUnit: "分",
     dailyGoalReached: "目標達成",
     browseSortLabel: "並び替え",
@@ -64127,6 +64134,7 @@ ${newTabCardReading(card)}`;
   const JPDB_ALL_DECKS = "all";
   const JPDB_DECK_SAMPLE_LIMIT = 6;
   const NEW_TAB_WORD_LIMIT = 180;
+  const NEW_TAB_OFFLINE_WARM_LIMIT = 80;
   const NEW_TAB_FALLBACK_SUPPLEMENT_MIN = 12;
   const NEW_TAB_DICTIONARY_FALLBACK_RANKS = [2e3, 6e3];
   const NEW_TAB_NAVIGATION_DEDUPE_MS = 550;
@@ -64608,12 +64616,10 @@ ${newTabCardReading(card)}`;
   }
   function renderNewTabImmersionImage(imageUrl, overlay = null) {
     if (!imageUrl) return null;
-    return el(
-      "div",
-      { class: "jpdb-reader-example-media" },
-      el("img", { class: "jpdb-reader-example-image", src: imageUrl, alt: "", loading: "eager", decoding: "async", referrerPolicy: "no-referrer", dataset: { yomuImmersionImageSrc: imageUrl } }),
-      overlay
-    );
+    const online = typeof navigator === "undefined" || navigator.onLine !== false;
+    const image = el("img", { class: "jpdb-reader-example-image", alt: "", loading: "eager", decoding: "async", referrerPolicy: "no-referrer", dataset: { yomuImmersionImageSrc: imageUrl } });
+    if (online) image.src = imageUrl;
+    return el("div", { class: "jpdb-reader-example-media" }, image, overlay);
   }
   function syncNewTabImmersionFrameSubtitleSize(root) {
     const media = root.querySelector(".jpdb-reader-example-card.has-image .jpdb-reader-example-media");
@@ -66727,9 +66733,14 @@ ${entry.url}`),
       await this.write(deduped.slice(-200));
       return true;
     }
+    // Number of grades waiting to sync back to the providers (for the sync-status UI).
+    async pendingCount() {
+      return (await this.read()).length;
+    }
+    // Flushes the queue and returns how many grades still remain unsynced.
     async flush() {
       const queue = await this.read();
-      if (!queue.length) return;
+      if (!queue.length) return 0;
       const pending = [];
       for (const item of queue) {
         if (!item) continue;
@@ -66745,6 +66756,7 @@ ${entry.url}`),
         }
       }
       await this.write(pending);
+      return pending.length;
     }
     key(item) {
       return `${item.target}:${cardKey(item.card)}`;
@@ -67023,6 +67035,11 @@ ${entry.url}`),
   function orderedNewTabStatsProviderLabel(results) {
     return results.map((result) => result.provider.label).sort((a, b) => newTabStatsProviderLabelRank(a) - newTabStatsProviderLabelRank(b)).join(" + ");
   }
+  function scheduleIdle(task) {
+    const idle = globalThis.requestIdleCallback;
+    if (typeof idle === "function") idle(task, { timeout: 1200 });
+    else setTimeout(task, 60);
+  }
   function newTabStatsProviderLabelRank(label) {
     if (label.startsWith("Jiten")) return 0;
     if (label.startsWith("JPDB")) return 1;
@@ -67169,6 +67186,12 @@ ${entry.url}`),
     keywordCache = /* @__PURE__ */ new Map();
     kanjiDetailSource;
     gradeQueue;
+    // Offline-first session state surfaced next to the timer: how many review cards
+    // are warmed for offline study, plus the write-behind sync status.
+    offlineReadyKeys = /* @__PURE__ */ new Set();
+    offlineWarmSignature = "";
+    syncPendingCount = 0;
+    lastSyncedAt = null;
     uchisenDataCache = /* @__PURE__ */ new Map();
     immersionCache = /* @__PURE__ */ new Map();
     immersionExampleIndex = /* @__PURE__ */ new Map();
@@ -70006,7 +70029,9 @@ ${entry.url}`),
     }
     renderSessionProgress(slots, card, root) {
       const baseLabel = this.newTabCountLabel(card);
-      const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(this.sessionProgressCards()) : null;
+      const reviewCards = this.reviewCountMode ? this.sessionProgressCards() : [];
+      const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(reviewCards) : null;
+      if (this.reviewCountMode) this.warmOfflineCache(reviewCards);
       const labels = [
         this.fallbackStudyNotice ? this.text("reviewFallbackNotice") : "",
         this.dueSummaryLabel(),
@@ -70016,6 +70041,8 @@ ${entry.url}`),
           left: this.text("sessionLeft"),
           due: this.text("statsDue")
         }) : this.sessionElapsedLabel(),
+        snapshot ? this.offlineCacheSegment() : "",
+        snapshot ? this.syncStatusSegment() : "",
         this.dailyGoalLabel()
       ].filter(Boolean);
       this.ensureSessionClock(root);
@@ -70030,6 +70057,55 @@ ${entry.url}`),
     // it ticking and accumulates visible-tab time into the daily goal.
     sessionElapsedLabel() {
       return formatNewTabSessionElapsed(this.sessionProgress.snapshot([]).elapsedMs);
+    }
+    // "cached N" — how many of the session's review cards are warmed for offline
+    // study (definition + meta + pitch persisted). Shown next to the timer.
+    offlineCacheSegment() {
+      const count = this.offlineReadyKeys.size;
+      return count > 0 ? `${this.text("sessionCached")} ${count}` : "";
+    }
+    // Eventually-consistent sync status: how many grades are still queued to sync
+    // back to the providers, or a synced confirmation once the queue drains.
+    syncStatusSegment() {
+      if (this.syncPendingCount > 0) return `${this.text("syncPending")} ${this.syncPendingCount}`;
+      return this.lastSyncedAt != null ? this.text("syncSynced") : "";
+    }
+    markCardOfflineReady(card) {
+      const before = this.offlineReadyKeys.size;
+      this.offlineReadyKeys.add(this.offlineReadyKey(card));
+      if (this.offlineReadyKeys.size !== before) this.refreshSessionProgressSoon();
+    }
+    offlineReadyKey(card) {
+      return card.sourceCardKey || cardKey(card);
+    }
+    refreshSessionProgressSoon() {
+      const root = this.sessionClockRoot;
+      const card = this.visibleWords[this.index];
+      if (root?.isConnected && card && this.state.mode === "word") {
+        this.renderSessionProgress(this.studySlots(root), card, root);
+      }
+    }
+    // Warm every due card's render data into the persistent caches once per session
+    // card-set, so an offline study run never has to reach the network. Bounded and
+    // yields between cards to avoid blocking the UI; only runs while online.
+    warmOfflineCache(cards) {
+      const load = this.dependencies.loadCardRenderData;
+      if (!load || typeof navigator !== "undefined" && navigator.onLine === false) return;
+      const signature = `${cards.length}:${cards.slice(0, 3).map((card) => this.offlineReadyKey(card)).join(",")}`;
+      if (signature === this.offlineWarmSignature) return;
+      this.offlineWarmSignature = signature;
+      const queue = cards.slice(0, NEW_TAB_OFFLINE_WARM_LIMIT);
+      const warmNext = async (index) => {
+        if (index >= queue.length) return;
+        const card = queue[index];
+        if (!this.offlineReadyKeys.has(this.offlineReadyKey(card)) && (typeof navigator === "undefined" || navigator.onLine !== false)) {
+          await load(card).then(() => this.markCardOfflineReady(card)).catch(() => void 0);
+        } else {
+          this.markCardOfflineReady(card);
+        }
+        scheduleIdle(() => void warmNext(index + 1));
+      };
+      scheduleIdle(() => void warmNext(0));
     }
     dailyGoalLabel() {
       const goal = this.dependencies.getSettings().newTabDailyGoalMinutes;
@@ -70610,28 +70686,16 @@ ${entry.url}`),
       const settings = this.dependencies.getSettings();
       const rawReading = newTabCardOptionalReading(card);
       const reading = rawReading && !isPlainReadingDuplicatedByVisibleRuby(card, { ...settings, furiganaMode: "all", showFurigana: true }, rawReading) ? rawReading : "";
-      const pills = data ? this.dependencies.renderStudyWordPills?.(card, data.metaEntries, data.ankiLookup) ?? this.dependencies.renderSearchWordPills?.(card, data.metaEntries, data.ankiLookup) ?? "" : "";
       let pitch = "";
       if (settings.showPitchAccent) {
         pitch = renderPitch(card, data?.metaEntries ?? []) || (data ? renderExpressionComponentPitches(data.componentPitches ?? []) : "");
       }
       const pitchNode = pitch ? htmlToFirstElement(pitch) : null;
-      const pillsNode = pills ? htmlToFirstElement(pills) : null;
       const frequency = card.frequencyRank ? el(
         "span",
         { class: "jpdb-reader-meta jpdb-reader-newtab-study-meta" },
         el("span", { class: "jpdb-reader-frequency-pill" }, `#${card.frequencyRank}`)
       ) : null;
-      const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled");
-      const audioButton = el("button", {
-        class: "jpdb-reader-icon-btn jpdb-reader-audio-control",
-        type: "button",
-        dataset: { action: "study-word-audio" },
-        "aria-label": audioTitle,
-        title: audioTitle,
-        disabled: !settings.audioEnabled
-      });
-      setInnerHtml(audioButton, speakerIcon());
       return el(
         "span",
         { class: "jpdb-reader-newtab-study-tools", dataset: { newtabStudyTools: true } },
@@ -70639,16 +70703,26 @@ ${entry.url}`),
           "span",
           { class: "jpdb-reader-newtab-study-tool-main" },
           reading ? el("span", { class: "jpdb-reader-reading" }, reading) : null,
-          frequency,
-          pillsNode
+          frequency
         ),
-        el(
-          "span",
-          { class: "jpdb-reader-card-tools" },
-          pitchNode,
-          audioButton
-        )
+        pitchNode ? el("span", { class: "jpdb-reader-card-tools" }, pitchNode) : null
       );
+    }
+    // The study-word audio control now lives inline next to the headword (see
+    // renderSentencePrompt) instead of off to the side of the meta row.
+    renderStudyWordAudioButton() {
+      const settings = this.dependencies.getSettings();
+      const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled");
+      const audioButton = el("button", {
+        class: "jpdb-reader-icon-btn jpdb-reader-audio-control jpdb-reader-newtab-term-audio",
+        type: "button",
+        dataset: { action: "study-word-audio" },
+        "aria-label": audioTitle,
+        title: audioTitle,
+        disabled: !settings.audioEnabled
+      });
+      setInnerHtml(audioButton, speakerIcon());
+      return audioButton;
     }
     async enrichWordPromptDetails(prompt, card, state2, currentSentence) {
       const loadDetails = this.dependencies.loadCardRenderData;
@@ -70658,8 +70732,9 @@ ${entry.url}`),
       prompt.dataset.newtabStudyToolsRequest = requestId;
       const data = await loadDetails(card).catch(() => null);
       if (!data || !prompt.isConnected || prompt.dataset.newtabStudyToolsRequest !== requestId || this.state.mode !== "word" || cardKey(this.visibleWords[this.index]) !== key) return;
+      this.markCardOfflineReady(card);
       this.applyLocalStudyReading(card, data);
-      const term = prompt.querySelector(":scope > .jpdb-reader-newtab-front > .jpdb-reader-newtab-term");
+      const term = prompt.querySelector(":scope > .jpdb-reader-newtab-front .jpdb-reader-newtab-term");
       if (term) replaceChildrenWith(term, this.renderPromptReaderWord(card, state2, currentSentence || card.spelling));
       prompt.querySelector(":scope > .jpdb-reader-newtab-front > [data-newtab-study-tools]")?.replaceWith(this.renderWordPromptTools(card, data));
       this.dependencies.installDictionarySourceTracking?.(prompt);
@@ -70727,7 +70802,12 @@ ${entry.url}`),
       const wrap = el(
         "span",
         { class: "jpdb-reader-newtab-front" },
-        el("span", { class: "jpdb-reader-newtab-term" }, this.renderPromptReaderWord(card, state2, sentence || card.spelling)),
+        el(
+          "span",
+          { class: "jpdb-reader-newtab-term-row" },
+          el("span", { class: "jpdb-reader-newtab-term" }, this.renderPromptReaderWord(card, state2, sentence || card.spelling)),
+          this.renderStudyWordAudioButton()
+        ),
         this.renderWordPromptTools(card)
       );
       if (!sentence) return wrap;
@@ -70811,7 +70891,7 @@ ${entry.url}`),
       void this.parseNewTabPromptSentence(prompt, card);
     }
     updatePromptTermSentence(wrap, sentence) {
-      wrap.querySelectorAll(":scope > .jpdb-reader-newtab-term .jpdb-reader-word").forEach((word) => {
+      wrap.querySelectorAll(":scope .jpdb-reader-newtab-term .jpdb-reader-word").forEach((word) => {
         word.dataset.sentence = sentence;
       });
     }
@@ -73311,8 +73391,9 @@ ${entry.url}`),
       if (!target) return false;
       if (!this.canReviewCard(target.card)) return false;
       const isCorrection = this.isReviewHistoryCard(target.card);
-      if (this.isOfflineSourceLabel(this.sourceLabel)) {
+      if (this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false) {
         if (await this.gradeQueue.enqueue(target.card, grade, this.offlineGradeTargets(target.card))) {
+          this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
           this.setStatus(target.root, this.text("offlineGradeReconnect"));
           if (!isCorrection) this.sessionProgress.recordReviewCompleted();
           this.advanceAfterGrade(target.root, target.card, grade);
@@ -73339,6 +73420,7 @@ ${entry.url}`),
       } catch (error) {
         log$3.warn("New tab grade failed", { term: target.card.spelling, source: target.card.source, grade }, error);
         if (!selectedTarget && await this.gradeQueue.enqueue(target.card, grade, this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card))) {
+          this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
           this.setStatus(target.root, this.text("offlineGradeReconnect"));
           if (!isCorrection) this.sessionProgress.recordReviewCompleted();
           this.advanceAfterGrade(target.root, target.card, grade);
@@ -73621,8 +73703,11 @@ ${entry.url}`),
     offlineGradeTarget(card) {
       return this.offlineGradeTargets(card)[0] ?? null;
     }
-    flushQueuedGrades() {
-      return this.gradeQueue.flush();
+    async flushQueuedGrades() {
+      const remaining = await this.gradeQueue.flush();
+      this.syncPendingCount = remaining;
+      if (remaining === 0) this.lastSyncedAt = Date.now();
+      this.refreshSessionProgressSoon();
     }
     async submitQueuedGrade(item) {
       if (item.target === "anki") {
