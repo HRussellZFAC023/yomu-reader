@@ -14,6 +14,7 @@ import { isReaderRasterPage } from '../../src/reader/ocr/canvas-readers';
 
 const BOOKWALKER_HOME_URL = 'https://bookwalker.jp/?srsltid=AfmBOopUErpf8ha1DqKVCveBWJDa_h95s78MnReCkPmS9WOVKOouIfFX';
 const BOOKWALKER_WWW_HOME_URL = 'https://www.bookwalker.jp/';
+const WORD_JOINER = '\u2060';
 
 afterEach(() => {
     document.body.innerHTML = '';
@@ -145,8 +146,9 @@ describe('BookWalker site scan boundaries', () => {
                 applyTokensToScanTarget(target, [token], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
             }
 
+            const bodyText = normalizedRenderedText(document.body.textContent ?? '');
             for (const text of expectedText) {
-                expect(document.body.textContent).toContain(text);
+                expect(bodyText).toContain(text);
             }
             expect(document.querySelector('.jpdb-reader-text-mirror')).toBeNull();
             expect(Array.from(document.querySelectorAll<HTMLElement>('[style]'))
@@ -510,6 +512,10 @@ function bookWalkerTitleToken(sentence: string): JPDBToken {
         pitchClass: 'heiban',
         sentence,
     };
+}
+
+function normalizedRenderedText(text: string): string {
+    return text.split(WORD_JOINER).join('');
 }
 
 function firstJapaneseToken(sentence: string): JPDBToken | null {

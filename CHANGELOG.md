@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.213] - 2026-06-28
+
+### Fixed
+
+- Recovered BookWalker Firefox OCR when a page-image mirror fetch stalls: pending canvas captures now time out, stale async captures cannot suppress newer retries, and the same visible manga page retries without needing a refresh.
+- Kept BookWalker canvas scan status visible when capture attempts exhaust, so the indicator no longer silently disappears while the next poll remains able to recover.
+
 ## [1.4.212] - 2026-06-28
 
 ### Fixed

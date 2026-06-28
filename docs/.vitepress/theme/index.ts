@@ -156,6 +156,8 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Recovered BookWalker Firefox OCR when a page-image mirror fetch stalls: pending canvas captures now time out, stale async captures cannot suppress newer retries, and the same visible manga page retries without needing a refresh.': 'ページ画像のミラー取得が停止した場合でも、BookWalkerのFirefox OCRが復帰できるようにしました。保留中のキャンバス取得はタイムアウトし、古い非同期取得が新しい再試行を抑え込まず、同じ表示中マンガページを更新なしで再試行します。',
+    'Kept BookWalker canvas scan status visible when capture attempts exhaust, so the indicator no longer silently disappears while the next poll remains able to recover.': 'BookWalkerキャンバスの取得試行が上限に達した場合も、スキャン状態を表示したままにしました。次のポーリングで復帰できる状態を保ちながら、インジケーターが黙って消えることを防ぎます。',
     'Restored bounded public pitch hydration for keyless generic pages such as Google results, so fallback words can pick up Jiten pitch coloring before they are selected.': 'Google検索結果など、APIキーなしの一般ページで公開ピッチ補完を上限付きで復元しました。選択する前のフォールバック単語にも、Jiten由来のピッチ色が付くようになります。',
     'Aligned local-dictionary furigana to the specific kanji inside kana-suffixed words such as 質問する, so mixed terms render as 質[しつ]問[もん]する instead of centering the reading over the whole word.': '質問するのように仮名の接尾辞を持つ語で、ローカル辞書由来のふりがなを各漢字に揃えるようにしました。混在語は語全体に読みを中央寄せするのではなく、質[しつ]問[もん]するのように表示します。',
     'Removed the duplicate study-answer dictionary card on New Tab review words and kept reading, pitch, frequency, dictionary links, and audio in the compact prompt tool row.': '新しいタブの復習単語で重複していた解答側の辞書カードを削除し、読み、ピッチ、頻度、辞書リンク、音声を、出題語のコンパクトなツール列に保つようにしました。',

@@ -25458,7 +25458,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.212".trim() ? "1.4.212".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.213".trim() ? "1.4.213".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -35713,9 +35713,11 @@ ${spelling}`);
   const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
   const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
   const READER_RASTER_EMPTY_RETRY_MS = 650;
+  const READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS = 8e3;
   const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
   const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
   const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
+  const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8e3;
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
   const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
@@ -36956,8 +36958,14 @@ ${spelling}`);
         if (!userRequested || this.canvasFrameKeys.get(canvas) === key) return;
         this.releaseCanvasFrame(canvas);
       }
-      if (this.pendingCanvasSnapshots.get(canvas) === key) return;
-      this.pendingCanvasSnapshots.set(canvas, key);
+      const existingPending = this.pendingCanvasSnapshots.get(canvas);
+      if (existingPending?.key === key) {
+        if (Date.now() - existingPending.startedAt < READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS) return;
+        this.pendingCanvasSnapshots.delete(canvas);
+        this.setCanvasCaptureFailed(canvas);
+      }
+      const pendingSnapshot = { key, startedAt: Date.now() };
+      this.pendingCanvasSnapshots.set(canvas, pendingSnapshot);
       try {
         const rect = canvas.getBoundingClientRect();
         if (rect.width * rect.height < settings.ocrMinImageArea) return;
@@ -36969,7 +36977,7 @@ ${spelling}`);
         if (isCanvasReadable(canvas)) {
           const contentSignature = canvasRenderedContentSignature(canvas);
           if (!contentSignature) {
-            this.scheduleCanvasCaptureRetry(canvas, userRequested);
+            this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
             return;
           }
           if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
@@ -36992,11 +37000,13 @@ ${spelling}`);
           frameSrc = readerCanvasSourceImageUrl();
           if (frameSrc) contentKey = `src:${frameSrc}`;
         }
+        if (this.pendingCanvasSnapshots.get(canvas) !== pendingSnapshot) return;
         if (!frameSrc) {
-          this.scheduleCanvasCaptureRetry(canvas, userRequested);
+          this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
           return;
         }
         if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
+        if (this.pendingCanvasSnapshots.get(canvas) !== pendingSnapshot) return;
         if (canvasSurfaceSnapshotKey(canvas) !== key) {
           this.scheduleReaderRasterRefresh(40);
           return;
@@ -37027,7 +37037,7 @@ ${spelling}`);
         this.canvasReaderSamePageSignatureSkips = 0;
         this.schedulePosition();
       } finally {
-        if (this.pendingCanvasSnapshots.get(canvas) === key) this.pendingCanvasSnapshots.delete(canvas);
+        if (this.pendingCanvasSnapshots.get(canvas) === pendingSnapshot) this.pendingCanvasSnapshots.delete(canvas);
       }
     }
     shouldHoldCanvasFramesForSamePageSignature(signature) {
@@ -37083,24 +37093,29 @@ ${spelling}`);
     // first seeing the freshly-composited page, that releaseAllCanvasFrames treats as a
     // turn) and is bounded by its own attempt count, so it can never become permanent
     // auto-OCR — it expires after READER_RASTER_MAX_CAPTURE_ATTEMPTS tries.
+    handleCanvasCaptureNotReady(canvas, rect, userRequested) {
+      if (this.scheduleCanvasCaptureRetry(canvas, userRequested)) return;
+      this.updateCanvasPendingStatus(canvas, rect, "failed");
+    }
     scheduleCanvasCaptureRetry(canvas, userRequested = false) {
       if (userRequested) {
         if (!this.canvasTapRecapture.has(canvas)) this.canvasTapRecapture.set(canvas, READER_RASTER_MAX_CAPTURE_ATTEMPTS);
         const remaining = this.canvasTapRecapture.get(canvas) ?? 0;
         if (remaining <= 0) {
           this.canvasTapRecapture.delete(canvas);
-          return;
+          return false;
         }
         const attempt = READER_RASTER_MAX_CAPTURE_ATTEMPTS - remaining;
         const delay22 = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** attempt, READER_RASTER_RETRY_MAX_MS);
         this.scheduleReaderRasterRefresh(delay22);
-        return;
+        return true;
       }
       const attempts = (this.canvasCaptureAttempts.get(canvas) ?? 0) + 1;
       this.canvasCaptureAttempts.set(canvas, attempts);
-      if (attempts > READER_RASTER_MAX_CAPTURE_ATTEMPTS) return;
+      if (attempts > READER_RASTER_MAX_CAPTURE_ATTEMPTS) return false;
       const delay2 = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** (attempts - 1), READER_RASTER_RETRY_MAX_MS);
       this.scheduleReaderRasterRefresh(delay2);
+      return true;
     }
     // Re-attempt captures a tap requested but that weren't ready yet. Called before the
     // tap-mode poll early-return so a tapped-but-not-ready page keeps trying without the
@@ -37131,6 +37146,11 @@ ${spelling}`);
       if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
       card.hidden = false;
       positionOcrImageStatus(card, this.visibleViewportIntersection(rect) ?? rect);
+    }
+    setCanvasCaptureFailed(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      this.updateCanvasPendingStatus(canvas, rect, "failed");
     }
     removeCanvasPendingStatus(canvas) {
       const card = this.canvasPendingStatuses.get(canvas);
@@ -38976,15 +38996,19 @@ ${spelling}`);
     if (userscriptRequest) return userscriptRequest;
     return fetch(url, { method: "POST", body: data }).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
   }
-  function requestBlob$1(url) {
+  function requestBlob$1(url, timeout = 0) {
     const fallbackType = imageMimeTypeFromUrl(url);
     const userscriptRequest = requestViaUserscript({
       method: "GET",
       url,
-      responseType: "arraybuffer"
-    }, (response) => blobFromUserscriptResponse(response, fallbackType), (status) => `Image fetch returned ${status}.`);
+      responseType: "arraybuffer",
+      timeout
+    }, (response) => blobFromUserscriptResponse(response, fallbackType), (status) => `Image fetch returned ${status}.`, timeout ? "Image fetch timed out." : void 0);
     if (userscriptRequest) return userscriptRequest;
-    return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+    if (!timeout) return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), timeout);
+    return fetch(url, { signal: controller.signal }).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`))).finally(() => window.clearTimeout(timer));
   }
   function blobFromUserscriptResponse(response, fallbackType = "image/jpeg") {
     const value = response.response;
@@ -39033,46 +39057,73 @@ ${spelling}`);
     }
     return new Promise((resolve, reject) => {
       let settled = false;
-      const onload = (response) => {
+      let requestHandle;
+      let timeoutId = 0;
+      const settle = (fn) => {
         if (settled) return;
         settled = true;
-        if (isSuccessfulHttpStatus(response.status)) resolve(readResponse(response));
-        else reject(new Error(statusMessage(response.status)));
+        if (timeoutId) window.clearTimeout(timeoutId);
+        fn();
+      };
+      const onload = (response) => {
+        settle(() => {
+          if (isSuccessfulHttpStatus(response.status)) resolve(readResponse(response));
+          else reject(new Error(statusMessage(response.status)));
+        });
       };
       const fail = (error) => {
-        if (!settled) {
-          settled = true;
-          reject(error instanceof Error ? error : new Error(String(error || "Request failed.")));
-        }
+        settle(() => reject(error instanceof Error ? error : new Error(String(error || "Request failed."))));
       };
-      const result = userscriptRequest({
-        ...options,
-        onload,
-        onerror: fail,
-        ...timeoutMessage ? { ontimeout: () => fail(new Error(timeoutMessage)) } : {}
-      });
-      if (result && typeof result.then === "function") {
-        result.then(onload, fail);
+      const timeout = Math.max(0, Math.round(options.timeout || 0));
+      if (timeout) {
+        timeoutId = window.setTimeout(() => {
+          try {
+            requestHandle?.abort?.();
+          } catch {
+          }
+          fail(new Error(timeoutMessage ?? "Request timed out."));
+        }, timeout);
+      }
+      try {
+        const result = userscriptRequest({
+          ...options,
+          onload,
+          onerror: fail,
+          ...timeoutMessage ? { ontimeout: () => fail(new Error(timeoutMessage)) } : {}
+        });
+        if (result && typeof result.then === "function") {
+          result.then(onload, fail);
+        } else if (result) {
+          requestHandle = result;
+        }
+      } catch (error) {
+        fail(error);
       }
     });
   }
   function isSuccessfulHttpStatus(status) {
     return status >= 200 && status < 300;
   }
-  function loadImage(url) {
+  function loadImage(url, timeout = 0) {
     return new Promise((resolve, reject) => {
       const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("Image decode failed."));
+      let timer = 0;
+      const settle = (fn) => {
+        if (timer) window.clearTimeout(timer);
+        fn();
+      };
+      image.onload = () => settle(() => resolve(image));
+      image.onerror = () => settle(() => reject(new Error("Image decode failed.")));
+      if (timeout) timer = window.setTimeout(() => settle(() => reject(new Error("Image decode timed out."))), timeout);
       image.src = url;
     });
   }
   async function loadCleanMirrorImage(url) {
     if (!url || url.startsWith("data:") || url.startsWith("blob:")) return void 0;
-    const blob = await requestBlob$1(url);
+    const blob = await requestBlob$1(url, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
     const objectUrl = URL.createObjectURL(blob);
     try {
-      return await loadImage(objectUrl);
+      return await loadImage(objectUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
     } finally {
       URL.revokeObjectURL(objectUrl);
     }
