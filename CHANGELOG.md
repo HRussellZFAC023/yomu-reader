@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.180] - 2026-06-28
+
+### Fixed
+
+- Extended the Japanese site-language redirect to rewrite existing generic English locale query hints, so multilingual sites that use `locale`, `language`, `region`, `mkt`, or similar parameters request Japanese without needing a site-specific rule.
+
 ## [1.4.179] - 2026-06-28
 
 ### Fixed

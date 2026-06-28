@@ -3,10 +3,10 @@ import { gmStorageGet, gmStorageGetSync } from './storage';
 import { pageCompartmentDescriptor, pageCompartmentValue } from '../platform/window-events';
 import type { ReaderSettings } from './types';
 
-const JAPANESE_LANGUAGE = 'ja';
-const JAPANESE_COUNTRY = 'JP';
-const JAPANESE_TIME_ZONE = 'Asia/Tokyo';
-const JAPANESE_LOCALE = 'ja-JP';
+const JA_LANG = 'ja';
+const JA_COUNTRY = 'JP';
+const JA_TZ = 'Asia/Tokyo';
+const JA_LOCALE = 'ja-JP';
 const PREFERENCE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
 const REDIRECT_CACHE_KEY = 'yomu:jps';
 // Hosts already auto-redirected to their Japanese URL in this tab session — used
@@ -15,9 +15,9 @@ const REDIRECT_HOSTS_KEY = 'yomu:jps:hosts';
 const INJECTION_RETRY_LIMIT = 12;
 const ALTERNATE_REDIRECT_RETRY_LIMIT = 80;
 const ALTERNATE_REDIRECT_RETRY_MS = 125;
-const ENGLISH_LOCALE_SEGMENT_RE = /^en(?:[-_][a-z]{2})?$/i;
-const JAPANESE_SEARCH_PARAMS: Record<string, string> = { hl: 'ja', gl: 'JP' };
-const JAPANESE_NEWS_SEARCH_PARAMS: Record<string, string> = { hl: 'ja', gl: 'JP', ceid: 'JP:ja' };
+const EN_LOCALE_RE = /^en(?:[-_][a-z]{2})?$/i;
+const JA_PARAMS: Record<string, string> = { hl: JA_LANG, gl: JA_COUNTRY };
+const JA_NEWS: Record<string, string> = { hl: JA_LANG, gl: JA_COUNTRY, ceid: 'JP:ja' };
 
 type StoredSettings = Partial<Pick<ReaderSettings, 'preferJapaneseSiteLanguage'>> | null;
 type QueryRoot = Pick<ParentNode, 'querySelectorAll'> & Partial<Pick<Document, 'readyState'>>;
@@ -51,7 +51,8 @@ export function preferredJapaneseSiteUrl(sourceHref: string, root?: QueryRoot): 
     const current = parseHttpUrl(sourceHref);
     if (!current) return null;
     const alternate = japaneseAlternateLinkUrl(current, root);
-    const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericJapaneseUrl(current, root);
+    const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericUrl(current, root);
+    if (target) applyParams(target);
     if (!target || target.href === current.href) return null;
     return target.href;
 }
@@ -188,7 +189,7 @@ function createTrustedScriptPolicy(
 function injectedPagePreferenceSource(enabled: boolean): string {
     return [
         ';(() => {',
-        `const JAPANESE_LOCALE = ${JSON.stringify(JAPANESE_LOCALE)};`,
+        `const JA_LOCALE = ${JSON.stringify(JA_LOCALE)};`,
         `const defineUntrackedValue = ${defineUntrackedValue.toString()};`,
         `const preferenceState = ${preferenceState.toString()};`,
         `const rememberDescriptor = ${rememberDescriptor.toString()};`,
@@ -210,15 +211,15 @@ function applySitePreferenceCookies(): void {
     const hostname = currentLocationHostname();
     if (/(^|\.)youtube\.com$/.test(hostname)) {
         mergeCookie('PREF', {
-            hl: JAPANESE_LANGUAGE,
-            gl: JAPANESE_COUNTRY,
-            tz: JAPANESE_TIME_ZONE,
+            hl: JA_LANG,
+            gl: JA_COUNTRY,
+            tz: JA_TZ,
         }, '.youtube.com');
     }
     if (/(^|\.)google\./.test(hostname)) {
         mergeCookie('PREF', {
-            hl: JAPANESE_LANGUAGE,
-            gl: JAPANESE_COUNTRY,
+            hl: JA_LANG,
+            gl: JA_COUNTRY,
         });
     }
 }
@@ -419,11 +420,11 @@ function alts(root: QueryRoot): NodeListOf<HTMLLinkElement | HTMLAnchorElement> 
 function siteRuleJapaneseUrl(current: URL): URL | null {
     const hostname = current.hostname.toLowerCase();
     if (hostname === 'youtu.be') return youtuBeJapaneseUrl(current);
-    if (/(^|\.)youtube\.com$/.test(hostname)) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
+    if (/(^|\.)youtube\.com$/.test(hostname)) return withSearchParams(current, JA_PARAMS);
     if (hostname === 'consent.google.com') return googleConsentJapaneseUrl(current);
-    if (hostname === 'news.google.com') return withSearchParams(current, JAPANESE_NEWS_SEARCH_PARAMS);
-    if (isGooglePreferenceHost(hostname)) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
-    if (/^(?:reddit|www\.reddit|new\.reddit|sh\.reddit)\.com$/.test(hostname)) return withSearchParams(current, { locale: JAPANESE_LOCALE });
+    if (hostname === 'news.google.com') return withSearchParams(current, JA_NEWS);
+    if (isGooglePreferenceHost(hostname)) return withSearchParams(current, JA_PARAMS);
+    if (/^(?:reddit|www\.reddit|new\.reddit|sh\.reddit)\.com$/.test(hostname)) return withSearchParams(current, { locale: JA_LOCALE });
     if (hostname === 'wikipedia.org') return withHostname(current, 'ja.wikipedia.org');
     if (hostname.endsWith('.wikipedia.org') && hostname !== 'ja.wikipedia.org' && (current.pathname === '' || current.pathname === '/')) {
         return withHostname(current, 'ja.wikipedia.org');
@@ -437,13 +438,13 @@ function siteRuleJapaneseUrl(current: URL): URL | null {
 
 function youtuBeJapaneseUrl(current: URL): URL | null {
     const videoId = current.pathname.split('/').filter(Boolean)[0];
-    if (!videoId) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
+    if (!videoId) return withSearchParams(current, JA_PARAMS);
     const target = new URL('https://www.youtube.com/watch');
     target.searchParams.set('v', videoId);
     for (const [key, value] of current.searchParams.entries()) {
         if (key !== 'v' && key !== 'hl' && key !== 'gl') target.searchParams.append(key, value);
     }
-    for (const [key, value] of Object.entries(JAPANESE_SEARCH_PARAMS)) target.searchParams.set(key, value);
+    for (const [key, value] of Object.entries(JA_PARAMS)) target.searchParams.set(key, value);
     target.hash = current.hash;
     return target;
 }
@@ -451,7 +452,7 @@ function youtuBeJapaneseUrl(current: URL): URL | null {
 function googleConsentJapaneseUrl(current: URL): URL | null {
     const next = new URL(current.href);
     let changed = false;
-    for (const [key, value] of Object.entries(JAPANESE_SEARCH_PARAMS)) {
+    for (const [key, value] of Object.entries(JA_PARAMS)) {
         if (next.searchParams.get(key) !== value) {
             next.searchParams.set(key, value);
             changed = true;
@@ -501,29 +502,52 @@ function withLeadingLocaleSegment(current: URL, locale: string): URL | null {
     return next;
 }
 
-function genericJapaneseUrl(current: URL, root?: QueryRoot): URL | null {
-    if (root) {
+function genericUrl(current: URL, root?: QueryRoot): URL | null {
+    const next = new URL(current.href);
+    let hit = applyParams(next);
+    if (!root || (!alts(root).length && root.readyState !== 'loading')) {
+        if (/^en\./i.test(next.hostname)) {
+            next.hostname = next.hostname.replace(/^en\./i, 'ja.');
+            hit = true;
+        }
+        const parts = next.pathname.split('/');
+        const first = (parts[1] ?? '').toLowerCase();
+        if (EN_LOCALE_RE.test(first)) {
+            parts[1] = /[-_]/.test(first) ? 'ja-jp' : JA_LANG;
+            next.pathname = parts.join('/') || '/';
+            hit = true;
+        }
+    } else {
         // Generic `/en` -> `/ja` guesses are deliberately weaker than explicit
         // site rules and `hreflang` links. At document-start the page may not
         // have published its supported locales yet; once it does, the absence of
         // Japanese is evidence that a guessed `/ja` URL is likely invalid.
-        if (alts(root).length) return null;
-        if (root.readyState === 'loading') return null;
     }
-    const next = new URL(current.href);
-    let changed = false;
-    if (/^en\./i.test(next.hostname)) {
-        next.hostname = next.hostname.replace(/^en\./i, 'ja.');
-        changed = true;
+    return hit ? next : null;
+}
+
+function applyParams(next: URL): boolean {
+    const p = next.searchParams;
+    let hit = false;
+    for (const k of ['locale', 'ui_locale', 'mkt', 'market']) hit = sp(p, k, jl(p.get(k))) || hit;
+    for (const k of ['lang', 'language', 'lng']) {
+        const v = p.get(k);
+        hit = sp(p, k, v && /[-_]/.test(v) ? jl(v) : JA_LANG) || hit;
     }
-    const pathParts = next.pathname.split('/');
-    const firstPathPart = (pathParts[1] ?? '').toLowerCase();
-    if (ENGLISH_LOCALE_SEGMENT_RE.test(firstPathPart)) {
-        pathParts[1] = /[-_]/.test(firstPathPart) ? 'ja-jp' : JAPANESE_LANGUAGE;
-        next.pathname = pathParts.join('/') || '/';
-        changed = true;
-    }
-    return changed ? next : null;
+    hit = sp(p, 'hl', JA_LANG) || hit;
+    for (const k of ['region', 'country', 'gl', 'cc']) hit = sp(p, k, JA_COUNTRY, /^(?:us|usa|gb|uk)$/i) || hit;
+    return hit;
+}
+
+function jl(v: string | null): string {
+    return v?.includes('_') ? 'ja_JP' : JA_LOCALE;
+}
+
+function sp(p: URLSearchParams, k: string, v: string, r = EN_LOCALE_RE): boolean {
+    const current = p.get(k);
+    if (!current || !r.test(current)) return false;
+    p.set(k, v);
+    return true;
 }
 
 function mergeCookie(name: string, values: Record<string, string>, domain?: string): void {
@@ -591,7 +615,7 @@ function applyJapanesePreferencesInPage(scope: typeof globalThis, enabled: boole
     if (state.installed) return;
     state.installed = true;
 
-    const locale = JAPANESE_LOCALE;
+    const locale = JA_LOCALE;
     const languages = ['ja-JP', 'ja', 'en-US', 'en'];
     const timeZone = 'Asia/Tokyo';
     const tokyo = { latitude: 35.681236, longitude: 139.767125, accuracy: 25 };

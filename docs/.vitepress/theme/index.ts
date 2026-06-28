@@ -156,6 +156,9 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Extended the Japanese site-language redirect to rewrite existing generic English locale query hints, so multilingual sites that use `locale`, `language`, `region`, `mkt`, or similar parameters request Japanese without needing a site-specific rule.': '日本語サイト言語リダイレクトを拡張し、既存の汎用的な英語ロケールクエリヒントを書き換えるようにしました。`locale`、`language`、`region`、`mkt`などのパラメーターを使う多言語サイトでは、サイト個別のルールがなくても日本語を要求できます。',
+    'Extended the Japanese site-language redirect to rewrite existing generic English locale query hints, so multilingual sites that use': '日本語サイト言語リダイレクトを拡張し、既存の汎用的な英語ロケールクエリヒントを書き換えるようにしました。次のようなパラメーターを使う多言語サイトでは',
+    ', or similar parameters request Japanese without needing a site-specific rule.': 'など、同種のパラメーターで、サイト個別のルールがなくても日本語を要求できます。',
     'Fixed BookWalker single-viewport vertical reading (cty=2) where OCR re-scanned on every small scroll and never settled past the first page: scroll position and mirror-epoch churn no longer count as a page turn, so the OCR overlay and its hover lookup survive within-page scrolling while genuine page turns still re-OCR the new page.': 'BookWalkerの単一ビューポート縦読み（cty=2）で、少しスクロールするたびにOCRが再スキャンされ、最初のページ以降は安定しなかった問題を修正しました。スクロール位置やミラーエポックの変動をページめくりとして扱わなくなったため、ページ内スクロール中もOCRオーバーレイとそのホバー辞書引きが維持され、実際のページめくりでは引き続き新しいページをOCRします。',
     'Sized the YouTube transcript "jump to current line" button to match the other subtitle panel toolbar buttons under touch/coarse-pointer and narrow layouts (e.g. iPad), where it was rendering noticeably smaller than its neighbours. It still collapses away while auto-follow is active.': 'タッチ／粗いポインターや狭いレイアウト（iPad など）で、YouTube 文字起こしの「現在の行へジャンプ」ボタンが他の字幕パネルのツールバーボタンより明らかに小さく表示されていたため、サイズを揃えるようにしました。自動追従が有効な間は、これまでどおり折りたたまれて非表示になります。',
     'Repaired scanned/image-backed PDFs in the hosted PDF reader so broken embedded OCR text layers are hidden, Yomu image OCR is used for lookup, and passive OCR text/furigana stay invisible until hover or focus.': 'ホスト版PDFリーダーで、スキャン画像ベースのPDFを修正しました。壊れた埋め込みOCRテキストレイヤーを隠し、検索にはよむの画像OCRを使い、受け身のOCRテキストやふりがなはホバーまたはフォーカスまで見えないままにします。',
@@ -1899,8 +1902,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'The separate': '別の',
     'Prefer Japanese site language and location': '日本語サイト言語と日本の地域を優先',
     'setting asks multilingual pages for their Japanese version by combining browser-language hints, Japan locale/location hints, Japanese preference cookies,': '設定は、ブラウザー言語ヒント、日本のロケール・地域ヒント、日本語優先Cookie、',
-    'alternates, and common URL patterns such as': 'alternate情報、',
-    '. The よむ puck includes the same toggle so you can turn that request on or off from the page; when よむ knows the original English/default URL, turning it off returns there.': 'などの一般的なURLパターンを組み合わせて、多言語ページに日本語版を要求します。よむパックにも同じトグルがあり、ページ上で要求をオン/オフできます。よむが元の英語版または標準URLを知っている場合、オフにするとそこへ戻ります。',
+    'alternates, existing locale query hints such as': 'alternate情報、次のような既存のロケールクエリヒント',
+    ', and common URL patterns such as': '、および次のような一般的なURLパターン',
+    '. The よむ puck includes the same toggle so you can turn that request on or off from the page; when よむ knows the original English/default URL, turning it off returns there.': 'を組み合わせて、多言語ページに日本語版を要求します。よむパックにも同じトグルがあり、ページ上で要求をオン/オフできます。よむが元の英語版または標準URLを知っている場合、オフにするとそこへ戻ります。',
     'On a phone or tablet, the full Anki setup still uses desktop AnkiConnect: the phone does the reading, the computer does the Anki work. See the step-by-step phone, iPad, or Android setup in': 'スマートフォンやタブレットでも、完全なAnki設定にはデスクトップ版AnkiConnectを使います。読むのはスマートフォン、Anki処理はPCです。スマートフォン、iPad、Android向けの手順は',
     'On iPhone, iPad, and Android, this is often the easiest daily-review surface. For full Anki status, updates, automatic deck scanning, and review queues, keep desktop Anki running with AnkiConnect and point よむ at a reachable LAN or Tailscale URL such as': 'iPhone、iPad、Androidでは、これが最も簡単な日々の復習画面になることがよくあります。完全なAnkiステータス、更新、自動デッキスキャン、復習キューを使うには、デスクトップ版AnkiをAnkiConnect付きで起動したままにし、よむには到達可能なLANまたはTailscale URLを指定してください。例:',
     '— AnkiConnect\'s default': '— AnkiConnectの標準設定である',

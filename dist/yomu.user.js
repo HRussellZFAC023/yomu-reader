@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.179
+// @version 1.4.180
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.179
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.179
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.179
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.179
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.180
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.180
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.180
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.180
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -35820,19 +35820,19 @@ function closeIcon() {
 function themeSwitchChrome() {
   return '<span class="check"><span class="icon"><span class="vpi-sun sun" aria-hidden="true"></span><span class="vpi-moon moon" aria-hidden="true"></span></span></span>';
 }
-const JAPANESE_LANGUAGE = "ja";
-const JAPANESE_COUNTRY = "JP";
-const JAPANESE_TIME_ZONE = "Asia/Tokyo";
-const JAPANESE_LOCALE = "ja-JP";
+const JA_LANG = "ja";
+const JA_COUNTRY = "JP";
+const JA_TZ = "Asia/Tokyo";
+const JA_LOCALE = "ja-JP";
 const PREFERENCE_CACHE_KEY = "yomu:prefer-japanese-site-language";
 const REDIRECT_CACHE_KEY = "yomu:jps";
 const REDIRECT_HOSTS_KEY = "yomu:jps:hosts";
 const INJECTION_RETRY_LIMIT = 12;
 const ALTERNATE_REDIRECT_RETRY_LIMIT = 80;
 const ALTERNATE_REDIRECT_RETRY_MS = 125;
-const ENGLISH_LOCALE_SEGMENT_RE = /^en(?:[-_][a-z]{2})?$/i;
-const JAPANESE_SEARCH_PARAMS = { hl: "ja", gl: "JP" };
-const JAPANESE_NEWS_SEARCH_PARAMS = { hl: "ja", gl: "JP", ceid: "JP:ja" };
+const EN_LOCALE_RE = /^en(?:[-_][a-z]{2})?$/i;
+const JA_PARAMS = { hl: JA_LANG, gl: JA_COUNTRY };
+const JA_NEWS = { hl: JA_LANG, gl: JA_COUNTRY, ceid: "JP:ja" };
 let alternateRedirectCleanup;
 function installPreferredJapaneseSiteLanguageFromStoredSettings() {
   const syncPreference = readStoredPreferenceEnabledSync();
@@ -35859,7 +35859,8 @@ function preferredJapaneseSiteUrl(sourceHref, root) {
   const current = parseHttpUrl(sourceHref);
   if (!current) return null;
   const alternate = japaneseAlternateLinkUrl(current, root);
-  const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericJapaneseUrl(current, root);
+  const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericUrl(current, root);
+  if (target) applyParams(target);
   if (!target || target.href === current.href) return null;
   return target.href;
 }
@@ -35971,7 +35972,7 @@ function createTrustedScriptPolicy(factory, options) {
 function injectedPagePreferenceSource(enabled) {
   return [
     ";(() => {",
-    `const JAPANESE_LOCALE = ${JSON.stringify(JAPANESE_LOCALE)};`,
+    `const JA_LOCALE = ${JSON.stringify(JA_LOCALE)};`,
     `const defineUntrackedValue = ${defineUntrackedValue.toString()};`,
     `const preferenceState = ${preferenceState.toString()};`,
     `const rememberDescriptor = ${rememberDescriptor.toString()};`,
@@ -35992,15 +35993,15 @@ function applySitePreferenceCookies() {
   const hostname = currentLocationHostname();
   if (/(^|\.)youtube\.com$/.test(hostname)) {
     mergeCookie("PREF", {
-      hl: JAPANESE_LANGUAGE,
-      gl: JAPANESE_COUNTRY,
-      tz: JAPANESE_TIME_ZONE
+      hl: JA_LANG,
+      gl: JA_COUNTRY,
+      tz: JA_TZ
     }, ".youtube.com");
   }
   if (/(^|\.)google\./.test(hostname)) {
     mergeCookie("PREF", {
-      hl: JAPANESE_LANGUAGE,
-      gl: JAPANESE_COUNTRY
+      hl: JA_LANG,
+      gl: JA_COUNTRY
     });
   }
 }
@@ -36168,11 +36169,11 @@ function alts(root) {
 function siteRuleJapaneseUrl(current) {
   const hostname = current.hostname.toLowerCase();
   if (hostname === "youtu.be") return youtuBeJapaneseUrl(current);
-  if (/(^|\.)youtube\.com$/.test(hostname)) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
+  if (/(^|\.)youtube\.com$/.test(hostname)) return withSearchParams(current, JA_PARAMS);
   if (hostname === "consent.google.com") return googleConsentJapaneseUrl(current);
-  if (hostname === "news.google.com") return withSearchParams(current, JAPANESE_NEWS_SEARCH_PARAMS);
-  if (isGooglePreferenceHost(hostname)) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
-  if (/^(?:reddit|www\.reddit|new\.reddit|sh\.reddit)\.com$/.test(hostname)) return withSearchParams(current, { locale: JAPANESE_LOCALE });
+  if (hostname === "news.google.com") return withSearchParams(current, JA_NEWS);
+  if (isGooglePreferenceHost(hostname)) return withSearchParams(current, JA_PARAMS);
+  if (/^(?:reddit|www\.reddit|new\.reddit|sh\.reddit)\.com$/.test(hostname)) return withSearchParams(current, { locale: JA_LOCALE });
   if (hostname === "wikipedia.org") return withHostname(current, "ja.wikipedia.org");
   if (hostname.endsWith(".wikipedia.org") && hostname !== "ja.wikipedia.org" && (current.pathname === "" || current.pathname === "/")) {
     return withHostname(current, "ja.wikipedia.org");
@@ -36185,20 +36186,20 @@ function siteRuleJapaneseUrl(current) {
 }
 function youtuBeJapaneseUrl(current) {
   const videoId = current.pathname.split("/").filter(Boolean)[0];
-  if (!videoId) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
+  if (!videoId) return withSearchParams(current, JA_PARAMS);
   const target = new URL("https://www.youtube.com/watch");
   target.searchParams.set("v", videoId);
   for (const [key, value] of current.searchParams.entries()) {
     if (key !== "v" && key !== "hl" && key !== "gl") target.searchParams.append(key, value);
   }
-  for (const [key, value] of Object.entries(JAPANESE_SEARCH_PARAMS)) target.searchParams.set(key, value);
+  for (const [key, value] of Object.entries(JA_PARAMS)) target.searchParams.set(key, value);
   target.hash = current.hash;
   return target;
 }
 function googleConsentJapaneseUrl(current) {
   const next = new URL(current.href);
   let changed = false;
-  for (const [key, value] of Object.entries(JAPANESE_SEARCH_PARAMS)) {
+  for (const [key, value] of Object.entries(JA_PARAMS)) {
     if (next.searchParams.get(key) !== value) {
       next.searchParams.set(key, value);
       changed = true;
@@ -36240,25 +36241,44 @@ function withLeadingLocaleSegment(current, locale) {
   next.pathname = parts.join("/") || "/";
   return next;
 }
-function genericJapaneseUrl(current, root) {
-  if (root) {
-    if (alts(root).length) return null;
-    if (root.readyState === "loading") return null;
-  }
+function genericUrl(current, root) {
   const next = new URL(current.href);
-  let changed = false;
-  if (/^en\./i.test(next.hostname)) {
-    next.hostname = next.hostname.replace(/^en\./i, "ja.");
-    changed = true;
+  let hit = applyParams(next);
+  if (!root || !alts(root).length && root.readyState !== "loading") {
+    if (/^en\./i.test(next.hostname)) {
+      next.hostname = next.hostname.replace(/^en\./i, "ja.");
+      hit = true;
+    }
+    const parts = next.pathname.split("/");
+    const first = (parts[1] ?? "").toLowerCase();
+    if (EN_LOCALE_RE.test(first)) {
+      parts[1] = /[-_]/.test(first) ? "ja-jp" : JA_LANG;
+      next.pathname = parts.join("/") || "/";
+      hit = true;
+    }
   }
-  const pathParts = next.pathname.split("/");
-  const firstPathPart = (pathParts[1] ?? "").toLowerCase();
-  if (ENGLISH_LOCALE_SEGMENT_RE.test(firstPathPart)) {
-    pathParts[1] = /[-_]/.test(firstPathPart) ? "ja-jp" : JAPANESE_LANGUAGE;
-    next.pathname = pathParts.join("/") || "/";
-    changed = true;
+  return hit ? next : null;
+}
+function applyParams(next) {
+  const p = next.searchParams;
+  let hit = false;
+  for (const k of ["locale", "ui_locale", "mkt", "market"]) hit = sp(p, k, jl(p.get(k))) || hit;
+  for (const k of ["lang", "language", "lng"]) {
+    const v = p.get(k);
+    hit = sp(p, k, v && /[-_]/.test(v) ? jl(v) : JA_LANG) || hit;
   }
-  return changed ? next : null;
+  hit = sp(p, "hl", JA_LANG) || hit;
+  for (const k of ["region", "country", "gl", "cc"]) hit = sp(p, k, JA_COUNTRY, /^(?:us|usa|gb|uk)$/i) || hit;
+  return hit;
+}
+function jl(v) {
+  return v?.includes("_") ? "ja_JP" : JA_LOCALE;
+}
+function sp(p, k, v, r = EN_LOCALE_RE) {
+  const current = p.get(k);
+  if (!current || !r.test(current)) return false;
+  p.set(k, v);
+  return true;
 }
 function mergeCookie(name, values, domain) {
   try {
@@ -36298,7 +36318,7 @@ function applyJapanesePreferencesInPage(scope, enabled) {
   }
   if (state.installed) return;
   state.installed = true;
-  const locale = JAPANESE_LOCALE;
+  const locale = JA_LOCALE;
   const languages = ["ja-JP", "ja", "en-US", "en"];
   const timeZone = "Asia/Tokyo";
   const tokyo = { latitude: 35.681236, longitude: 139.767125, accuracy: 25 };
@@ -37830,7 +37850,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.179"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.180"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
