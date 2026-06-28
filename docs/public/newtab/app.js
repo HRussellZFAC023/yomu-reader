@@ -24307,7 +24307,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.178".trim() ? "1.4.178".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.179".trim() ? "1.4.179".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -35724,6 +35724,7 @@ ${spelling}`);
       if (!this.canvasFrames.size) return false;
       if (shouldTrustStableBookwalkerPageCounter() && hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
       if (!isSameCanvasReaderPageLocation(this.canvasReaderSignature, signature)) return false;
+      if (hasDifferentRealCanvasReaderContent(this.canvasReaderSignature, signature)) return false;
       if (hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
       if (isCanvasMirrorEpochTransition(this.canvasReaderSignature, signature)) return false;
       this.canvasReaderSamePageSignatureSkips += 1;
@@ -37502,7 +37503,14 @@ ${spelling}`);
     const previousParts = splitCanvasReaderSignature(previous);
     const nextParts = splitCanvasReaderSignature(next);
     if (!previousParts || !nextParts) return false;
-    return previousParts.counter === nextParts.counter && previousParts.scroll === nextParts.scroll && previousParts.backgrounds === nextParts.backgrounds;
+    return previousParts.counter === nextParts.counter && previousParts.backgrounds === nextParts.backgrounds;
+  }
+  function hasDifferentRealCanvasReaderContent(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    if (previousParts.content === nextParts.content) return false;
+    return !(isCanvasMirrorEpochOrEmpty(previousParts.content) && isCanvasMirrorEpochOrEmpty(nextParts.content));
   }
   function isCanvasMirrorEpochTransition(previous, next) {
     const previousParts = splitCanvasReaderSignature(previous);

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.179] - 2026-06-28
+
+### Fixed
+
+- Fixed BookWalker single-viewport vertical reading (cty=2) where OCR re-scanned on every small scroll and never settled past the first page: scroll position and mirror-epoch churn no longer count as a page turn, so the OCR overlay and its hover lookup survive within-page scrolling while genuine page turns still re-OCR the new page.
+
 ## [1.4.178] - 2026-06-28
 
 ### Added
