@@ -25453,7 +25453,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.194".trim() ? "1.4.194".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.195".trim() ? "1.4.195".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -44133,6 +44133,11 @@ ${spelling}`);
     renderSerial = 0;
     panelMode = "lines";
     lastTranscriptSignature = "";
+    // The virtual window actually committed to the DOM by the last full render.
+    // Reused while auto-following so consecutive active-line advances keep the
+    // same window (stable signature -> cheap class-swap, no list re-render that
+    // would recreate the active row and flicker its highlight).
+    renderedVirtualWindow;
     transcriptScrollFrame;
     transcriptHydrateFrame;
     transcriptDeferredRenderFrame;
@@ -47478,6 +47483,7 @@ ${spelling}`);
       const state2 = this.transcriptPanelRenderState();
       if (this.canRefreshTranscriptPanel(force, state2)) return;
       this.lastTranscriptSignature = state2.signature;
+      this.renderedVirtualWindow = state2.virtual ? { start: state2.virtual.start, end: state2.virtual.end, rowCount: state2.totalRowCount ?? state2.rows.length } : void 0;
       setInnerHtml(panel, this.renderTranscriptPanelHtml(state2));
       this.afterTranscriptPanelRender(state2);
     }
@@ -47569,9 +47575,7 @@ ${spelling}`);
         TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS,
         Math.ceil(clientHeight / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) + TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS * 2
       );
-      const preferredStart = this.transcriptVirtualStartIndex(scrollTop, currentRowIndex, visibleRows);
-      const start = Math.max(0, Math.min(preferredStart, Math.max(0, rowCount - visibleRows)));
-      const end = Math.min(rowCount, start + visibleRows);
+      const { start, end } = this.resolveVirtualWindowBounds(rowCount, currentRowIndex, scrollTop, visibleRows);
       return {
         start,
         end,
@@ -47579,6 +47583,22 @@ ${spelling}`);
         topSpacer: start * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX,
         bottomSpacer: Math.max(0, (rowCount - end) * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX)
       };
+    }
+    // While auto-following, keep the committed window as long as the active row
+    // stays comfortably inside it: consecutive line advances then reuse the same
+    // window so the panel signature is unchanged and only the cheap active-line
+    // class-swap runs — no full list re-render recreating (and flickering) the
+    // highlighted row. The window only shifts when the active row nears an edge,
+    // or on a user scroll (auto-follow paused), where it tracks scrollTop as before.
+    resolveVirtualWindowBounds(rowCount, currentRowIndex, scrollTop, visibleRows) {
+      const prev = this.renderedVirtualWindow;
+      const autoFollowing = this.options.getSettings().subtitleTranscriptAutoScroll && !this.isTranscriptAutoScrollPaused();
+      if (autoFollowing && prev && prev.rowCount === rowCount && prev.end - prev.start === visibleRows && currentRowIndex >= prev.start + TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS && currentRowIndex < prev.end - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS) {
+        return { start: prev.start, end: prev.end };
+      }
+      const preferredStart = this.transcriptVirtualStartIndex(scrollTop, currentRowIndex, visibleRows);
+      const start = Math.max(0, Math.min(preferredStart, Math.max(0, rowCount - visibleRows)));
+      return { start, end: Math.min(rowCount, start + visibleRows) };
     }
     transcriptVirtualStartIndex(scrollTop, currentRowIndex, visibleRows) {
       if (this.shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex, visibleRows)) {
