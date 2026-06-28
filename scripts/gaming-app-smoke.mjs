@@ -29,6 +29,7 @@ if (!existsSync(mainPath)) {
 mkdirSync(path.dirname(screenshotPath), { recursive: true });
 rmSync(userDataDir, { recursive: true, force: true });
 let app;
+let smokePassed = false;
 let fixtureOcr = { requests: [], url: '', close: async () => undefined };
 const watchdog = setTimeout(() => {
     console.error(`[gaming-smoke] Timed out after ${SMOKE_TIMEOUT_MS}ms.`);
@@ -136,12 +137,14 @@ try {
     await areaOverlay.screenshot({ path: areaResultScreenshotPath });
     console.log(`Yomu Gaming smoke screenshots: ${path.relative(appRoot, screenshotPath)}, ${path.relative(appRoot, instantResultScreenshotPath)}, ${path.relative(appRoot, overlayScreenshotPath)}, ${path.relative(appRoot, areaResultScreenshotPath)}`);
     console.log(`Yomu Gaming fixture OCR captures: instant ${fullScreenRequest.png.width}x${fullScreenRequest.png.height}, area ${areaRequest.png.width}x${areaRequest.png.height}; hardware gap note: ${path.relative(appRoot, hardwareGapPath)}`);
+    smokePassed = true;
 } finally {
     await closeElectronApp(app);
     await fixtureOcr.close().catch(error => {
         console.warn(`[gaming-smoke] Fixture OCR server cleanup failed: ${error instanceof Error ? error.message : error}`);
     });
     clearTimeout(watchdog);
+    if (smokePassed) process.exit(0);
 }
 
 async function launchGamingApp() {
@@ -282,8 +285,7 @@ async function configurePageScanOnboarding(page) {
     const state = await page.evaluate(() => {
         const settings = JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}');
         return {
-            settingsManual: document.querySelector('input[name="pageScanMode"][value="manual"]')?.checked ?? false,
-            sharedManualShortcutHidden: document.querySelector('[data-page-scan-manual-shortcut]')?.hidden ?? true,
+            manualScanCheckbox: document.querySelector('input[name="manualScanEnabled"]')?.checked ?? false,
             onboardingManualShortcutHidden: document.querySelector('[data-gaming-manual-scan-shortcut]')?.hidden ?? true,
             manualScanEnabled: settings.manualScanEnabled,
             annotationsPaused: settings.annotationsPaused,
@@ -292,7 +294,7 @@ async function configurePageScanOnboarding(page) {
             summary: document.querySelector('[data-gaming-page-scan-mode]')?.textContent ?? '',
         };
     });
-    if (!state.settingsManual || state.sharedManualShortcutHidden || state.onboardingManualShortcutHidden) {
+    if (!state.manualScanCheckbox || state.onboardingManualShortcutHidden) {
         throw new Error(`Page scan onboarding did not sync with shared settings controls: ${JSON.stringify(state)}`);
     }
     if (state.manualScanEnabled !== true || state.annotationsPaused !== false || state.scanPage !== 'Alt+J' || state.hoverLookup !== 'Shift') {
@@ -394,6 +396,12 @@ async function closeElectronApp(app) {
             // The child process may already be gone.
         }
     } finally {
+        try {
+            const child = app.process?.();
+            if (child && !child.killed) child.kill('SIGKILL');
+        } catch {
+            // Best effort teardown.
+        }
         await new Promise(resolve => setTimeout(resolve, 100));
     }
 }

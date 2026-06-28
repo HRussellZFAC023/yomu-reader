@@ -15,7 +15,6 @@ import {
     syncAudioSourceRow,
     syncBrowserTtsVoiceOptions,
     syncDisabledSettingsControlDescriptions,
-    syncPageScanModeControls,
     updateAudioSourceEditor,
     updateDictionaryLookupLinkEditor,
 } from '../../reader/settings/form';
@@ -133,7 +132,6 @@ function renderSettingsShell(): void {
     activateSettingsPanel(form, DEFAULT_SETTINGS_PANEL);
     scrollToInitialSettingsSection(form);
     installShortcutCapture(form);
-    syncPageScanModeControls(form);
     syncGamingPageScanControls(form);
     installGamingCaptureAction(form);
     syncOcrProviderFields(form);
@@ -357,10 +355,6 @@ function bindSettingsForm(form: HTMLFormElement): void {
         }
         if (target.closest('[name="ocrProvider"]')) syncOcrProviderFields(form);
         if (target.closest('[name="gamingPageScanMode"]')) syncSharedPageScanModeFromGamingOnboarding(form);
-        if (target.closest('[name="pageScanMode"]')) {
-            syncPageScanModeControls(form);
-            syncGamingPageScanControls(form);
-        }
         if (target.closest('[name="interfaceLanguage"]')) localizeAfterLanguageChange(form);
         if (target.closest('[name="theme"], [data-theme-value]')) applyDocumentTheme(readFormSettings(new FormData(form), shellState.settings));
         persistSettingsFromForm(form);
@@ -478,26 +472,37 @@ function persistSettingsFromForm(form: HTMLFormElement): void {
     persistGamingSettings(shellState.settings);
     applyDocumentTheme(shellState.settings);
     syncDisabledSettingsControlDescriptions(form, shellState.settings.interfaceLanguage);
-    syncPageScanModeControls(form);
     syncGamingPageScanControls(form);
     updateHotkeyCopy();
 }
 
 function syncSharedPageScanModeFromGamingOnboarding(form: HTMLFormElement): void {
-    const mode = form.querySelector<HTMLInputElement>('input[name="gamingPageScanMode"]:checked')?.value ?? gamingPageScanModeValue(shellState.settings);
-    form.querySelector<HTMLInputElement>(`input[name="pageScanMode"][value="${mode}"]`)?.click();
-    syncPageScanModeControls(form);
-    syncGamingPageScanControls(form);
+    const mode = gamingPageScanModeFromForm(form);
+    applyGamingPageScanModeToForm(form, mode);
+    syncGamingPageScanControls(form, mode);
 }
 
-function syncGamingPageScanControls(form: HTMLFormElement): void {
-    const mode = form.querySelector<HTMLInputElement>('input[name="pageScanMode"]:checked')?.value ?? gamingPageScanModeValue(shellState.settings);
+function syncGamingPageScanControls(form: HTMLFormElement, mode = gamingPageScanModeValue(shellState.settings)): void {
     form.querySelectorAll<HTMLInputElement>('input[name="gamingPageScanMode"]').forEach(input => {
         input.checked = input.value === mode;
     });
     form.querySelectorAll<HTMLElement>('[data-gaming-manual-scan-shortcut]').forEach(node => {
         node.hidden = mode !== 'manual';
     });
+}
+
+function gamingPageScanModeFromForm(form: HTMLFormElement): 'off' | 'auto' | 'manual' {
+    const selected = form.querySelector<HTMLInputElement>('input[name="gamingPageScanMode"]:checked')?.value;
+    return selected === 'off' || selected === 'auto' || selected === 'manual'
+        ? selected
+        : gamingPageScanModeValue(shellState.settings);
+}
+
+function applyGamingPageScanModeToForm(form: HTMLFormElement, mode: 'off' | 'auto' | 'manual'): void {
+    shellState.settings.annotationsPaused = mode === 'off';
+    shellState.settings.manualScanEnabled = mode === 'manual';
+    const manualScan = form.querySelector<HTMLInputElement>('input[name="manualScanEnabled"]');
+    if (manualScan) manualScan.checked = mode === 'manual';
 }
 
 function syncFirstRunOcrEndpoint(form: HTMLFormElement, value: string): void {
@@ -573,7 +578,7 @@ function localizeAfterLanguageChange(form: HTMLFormElement): void {
     applyGamingSettingsCopy(form);
     hideUnsupportedSettingsActions(form);
     syncOcrProviderFields(form);
-    syncPageScanModeControls(form);
+    syncGamingPageScanControls(form);
 }
 
 function applyGamingSettingsCopy(form: HTMLFormElement): void {
