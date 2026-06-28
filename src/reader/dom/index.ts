@@ -467,11 +467,18 @@ function textTargetParentFilterResult(parent: HTMLElement, text: string, visible
 }
 
 function shouldRejectTextTargetParent(parent: HTMLElement, text: string, visibleOnly: boolean, options: TextTargetCollectionOptions): boolean {
+    const genericControl = parent.closest(GENERIC_CONTROL_TEXT_SKIP_SELECTOR);
+    if (!options.includeFormChrome && genericControl && !isCompactControlDescendantTextTarget(parent, text)) return true;
     const blocked = parent.closest(SKIP_SELECTOR);
     if (blocked && !isAnnotatableChipControl(blocked)) return true;
     if (isInsideExcludedReaderRoot(parent, options)) return true;
     if (isShortCenteredDisplayHeading(parent, text)) return true;
     return shouldRejectTextTargetPresentation(parent, text, visibleOnly);
+}
+
+function isCompactControlDescendantTextTarget(parent: HTMLElement, text: string): boolean {
+    if (!isCompactInteractiveChromeText(text.replace(/\s+/g, ''))) return false;
+    return Boolean(compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent));
 }
 
 function isInsideExcludedReaderRoot(parent: HTMLElement, options: TextTargetCollectionOptions): boolean {
@@ -813,7 +820,14 @@ function matchesSkippedFragmentElement(
     isRoot: boolean,
 ): boolean {
     if (state.excludeSelector && safeElementMatches(element, state.excludeSelector)) return true;
+    if (isRoot && element.closest(EDITABLE_TEXT_SURFACE_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element, state.options)) return true;
     return !isRoot && shouldSkipFragmentElement(element, state.options);
+}
+
+function isSafeEditableSurfaceFragmentRoot(element: HTMLElement, options: FragmentTextTargetCollectionOptions): boolean {
+    return Boolean(options.includePassiveInteractions
+        && safeElementMatches(element, PASSIVE_INTERACTION_SELECTOR)
+        && isNavigationChromeContext(element));
 }
 
 function shouldSkipInvisibleFragmentElement(element: HTMLElement, visibleOnly: boolean): boolean {
