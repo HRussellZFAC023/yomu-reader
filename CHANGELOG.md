@@ -1,11 +1,25 @@
 # Changelog
 
-## [1.4.178] - 2026-06-28
+## [1.4.179] - 2026-06-28
 
 ### Fixed
 
 - Kept Yomu annotations from breaking compact controls, composer/editable placeholders, and carousel/card layouts by skipping placeholder-like surfaces, suppressing ruby in constrained chrome, and preserving native form-control text.
 - Added regression coverage for ChatGPT/Claude-like composers, account-picker controls, form placeholders, visible-page scanning, and BookWalker-style carousel overflow.
+
+## [1.4.178] - 2026-06-28
+
+### Added
+
+- Added the first-party Yomu Gaming desktop app with branded onboarding/settings, configurable whole-screen capture shortcuts, optional area capture, local OCR handoff, in-place OCR overlay lookup, smoke coverage, packaging scripts, and a GitHub Actions workflow for release artifacts.
+
+### Changed
+
+- Replaced the public third-party gaming guide and public ADR/comparison pages with first-party Yomu Gaming install docs and guarded docs builds so public pages do not publish internal strategy or competitor-first app guidance.
+
+### Fixed
+
+- Kept compact control text and passive footer/navigation links eligible for safe lookup while continuing to skip editable composer surfaces during visible-page scans.
 
 ## [1.4.177] - 2026-06-28
 

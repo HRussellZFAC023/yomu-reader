@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.178
+// @version 1.4.179
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.178
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.178
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.178
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.178
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.179
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.179
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.179
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.179
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -3703,12 +3703,13 @@ const PASSIVE_INTERACTION_SELECTOR = 'a[href],button,summary,label,[role="button
 const COMPACT_PASSIVE_INTERACTION_SELECTOR = '[onclick],[tabindex]:not([tabindex="-1"]),[class*="audio" i],[class*="button" i],[class*="control" i],[class*="play" i],[class*="sound" i],[class*="speaker" i],[class*="toggle" i]';
 const COMPACT_PASSIVE_CHROME_SELECTOR = 'time,[datetime],[aria-label*="author" i],[aria-label*="username" i],[class*="author" i],[class*="byline" i],[class*="display-name" i],[class*="handle" i],[class*="header" i],[class*="meta" i],[class*="nickname" i],[class*="screen-name" i],[class*="user-name" i],[class*="username" i]';
 const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
+const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
 const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = "ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer";
 const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]";
 const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]';
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-const COMPOSER_CHROME_RE = /composer/i;
+const COMPOSER_RE = /composer/i;
 const EDITABLE_COMPOSER_SURFACE_SELECTOR = "input,textarea,[contenteditable],[data-placeholder],[aria-placeholder]";
 const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = 'header, nav, footer, [role="banner"], [role="navigation"], [role="contentinfo"], [role="menubar"], [role="tablist"], [role="toolbar"]';
 const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
@@ -3837,14 +3838,11 @@ function isAnnotatableChipControl(blocked) {
   return text2.length > 0 && text2.length <= CONTROL_LABEL_TEXT_LIMIT && HAS_JAPANESE$1.test(text2);
 }
 function isComposerActionControl(control) {
-  return Boolean(closestEditableComposerChrome(control));
-}
-function closestEditableComposerChrome(element2) {
-  for (let current = element2; current; current = current.parentElement) {
+  for (let current = control; current; current = current.parentElement) {
     const className = typeof current.className === "string" ? current.className : "";
-    if ((COMPOSER_CHROME_RE.test(current.id) || COMPOSER_CHROME_RE.test(className)) && current.querySelector(EDITABLE_COMPOSER_SURFACE_SELECTOR)) return current;
+    if ((COMPOSER_RE.test(current.id) || COMPOSER_RE.test(className)) && current.querySelector(EDITABLE_COMPOSER_SURFACE_SELECTOR)) return true;
   }
-  return null;
+  return false;
 }
 function textWalkerHasJapanese(walker, limit) {
   let inspected = 0;
@@ -4134,7 +4132,11 @@ function shouldFlushAndSkipFragmentElement(element2, state, isRoot) {
 function matchesSkippedFragmentElement(element2, state, isRoot) {
   if (state.excludeSelector && safeElementMatches$1(element2, state.excludeSelector)) return true;
   if (isComposerActionControl(element2)) return true;
+  if (isRoot && element2.closest(EDITABLE_FRAGMENT_ROOT_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element2, state.options)) return true;
   return !isRoot && shouldSkipFragmentElement(element2, state.options);
+}
+function isSafeEditableSurfaceFragmentRoot(element2, options) {
+  return Boolean(options.includePassiveInteractions && safeElementMatches$1(element2, PASSIVE_INTERACTION_SELECTOR) && isNavigationChromeContext(element2));
 }
 function shouldSkipInvisibleFragmentElement(element2, visibleOnly) {
   if (!hasVisibleTextStyle(element2) && !hasVisibleTextMirror(element2)) return true;
@@ -37832,7 +37834,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.178"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.179"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

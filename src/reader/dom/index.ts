@@ -108,12 +108,13 @@ const PASSIVE_INTERACTION_SELECTOR = 'a[href],button,summary,label,[role="button
 const COMPACT_PASSIVE_INTERACTION_SELECTOR = '[onclick],[tabindex]:not([tabindex="-1"]),[class*="audio" i],[class*="button" i],[class*="control" i],[class*="play" i],[class*="sound" i],[class*="speaker" i],[class*="toggle" i]';
 const COMPACT_PASSIVE_CHROME_SELECTOR = 'time,[datetime],[aria-label*="author" i],[aria-label*="username" i],[class*="author" i],[class*="byline" i],[class*="display-name" i],[class*="handle" i],[class*="header" i],[class*="meta" i],[class*="nickname" i],[class*="screen-name" i],[class*="user-name" i],[class*="username" i]';
 const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
+const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
 const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = 'ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer';
 const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]';
 const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]';
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-const COMPOSER_CHROME_RE = /composer/i;
+const COMPOSER_RE = /composer/i;
 const EDITABLE_COMPOSER_SURFACE_SELECTOR = 'input,textarea,[contenteditable],[data-placeholder],[aria-placeholder]';
 const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = 'header, nav, footer, [role="banner"], [role="navigation"], [role="contentinfo"], [role="menubar"], [role="tablist"], [role="toolbar"]';
 const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
@@ -411,16 +412,12 @@ function isAnnotatableChipControl(blocked: Element): boolean {
 }
 
 function isComposerActionControl(control: Element): boolean {
-    return Boolean(closestEditableComposerChrome(control));
-}
-
-function closestEditableComposerChrome(element: Element): Element | null {
-    for (let current: Element | null = element; current; current = current.parentElement) {
+    for (let current: Element | null = control; current; current = current.parentElement) {
         const className = typeof current.className === 'string' ? current.className : '';
-        if ((COMPOSER_CHROME_RE.test(current.id) || COMPOSER_CHROME_RE.test(className))
-            && current.querySelector(EDITABLE_COMPOSER_SURFACE_SELECTOR)) return current;
+        if ((COMPOSER_RE.test(current.id) || COMPOSER_RE.test(className))
+            && current.querySelector(EDITABLE_COMPOSER_SURFACE_SELECTOR)) return true;
     }
-    return null;
+    return false;
 }
 
 function textWalkerHasJapanese(walker: TreeWalker, limit: number): boolean {
@@ -822,7 +819,14 @@ function matchesSkippedFragmentElement(
 ): boolean {
     if (state.excludeSelector && safeElementMatches(element, state.excludeSelector)) return true;
     if (isComposerActionControl(element)) return true;
+    if (isRoot && element.closest(EDITABLE_FRAGMENT_ROOT_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element, state.options)) return true;
     return !isRoot && shouldSkipFragmentElement(element, state.options);
+}
+
+function isSafeEditableSurfaceFragmentRoot(element: HTMLElement, options: FragmentTextTargetCollectionOptions): boolean {
+    return Boolean(options.includePassiveInteractions
+        && safeElementMatches(element, PASSIVE_INTERACTION_SELECTOR)
+        && isNavigationChromeContext(element));
 }
 
 function shouldSkipInvisibleFragmentElement(element: HTMLElement, visibleOnly: boolean): boolean {

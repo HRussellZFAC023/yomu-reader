@@ -24,9 +24,9 @@ Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and sa
     <strong>Video</strong>
     <span>Parse Japanese subtitles and transcripts for lookup on YouTube or local files.</span>
   </a>
-  <a class="yomu-link-card" href="/guides/read-games-on-steam-deck">
+  <a class="yomu-link-card" href="/tools/yomu-gaming">
     <strong>Games</strong>
-    <span>Use よむ with Steam Deck, PC games, and OCR or text-hook helpers when game text needs capture.</span>
+    <span>Use Yomu Gaming for first-party PC game capture.</span>
   </a>
   <a class="yomu-link-card" href="/pdf-reader/">
     <strong>PDF</strong>
@@ -42,7 +42,7 @@ Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and sa
 
 The loop is always the same: **find Japanese → understand it in context → save the useful words.** A web page, a manga page read through OCR, and a video subtitle line all become the same lookup surface, so you do not have to switch tools every time the medium changes.
 
-Use only the parts you need. Start with lookup, add OCR for manga, add subtitles for video, and connect study sources when you want tracking.
+Use only the parts you need. Start with lookup, add OCR for manga, use Yomu Gaming for PC game capture, add subtitles for video, and connect study sources when you want tracking.
 
 Kanji stroke order, components, readings, and related words live inside the popup; open the [kanji tool](/tools/kanji-stroke-order) from any lookup when you need to slow down on a character.
 

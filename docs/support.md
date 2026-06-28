@@ -24,7 +24,7 @@ description: Get help with よむ — report a bug, join the Discord, view the s
 
 ## Support
 
-よむ brings popup lookup, mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable suites such as [Migaku](https://migaku.com/pricing) are paid; よむ covers the core reading-and-mining loop for free ([full comparison](/compare/migaku-alternative)).
+よむ brings popup lookup, mining, imported dictionaries, subtitles, image reading, Yomu Gaming, and Anki export into one free toolkit. The core reading-and-mining loop stays free, local-first, and usable without an account.
 
 Donations are optional. They help cover testing devices, hosting, API usage, maintenance, and the time needed to keep よむ free, polished, and improving.
 

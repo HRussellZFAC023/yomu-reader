@@ -36,8 +36,8 @@ hero:
       link: /newtab/index.html
       target: _self
     - theme: alt
-      text: PC & Gaming
-      link: /guides/read-games-on-steam-deck
+      text: Yomu Gaming
+      link: /tools/yomu-gaming
       target: _self
 ---
 
@@ -125,8 +125,8 @@ hero:
     <strong>Manga OCR</strong>
     <span>Look up words inside manga panels and screenshots.</span>
   </a>
-  <a class="yomu-link-card" href="/guides/read-games-on-steam-deck">
+  <a class="yomu-link-card" href="/tools/yomu-gaming">
     <strong>Games</strong>
-    <span>Use よむ with Steam Deck, PC games, and the lightest OCR or text-hook helper your setup needs.</span>
+    <span>Use the first-party desktop app for PC game capture and lookup.</span>
   </a>
 </div>

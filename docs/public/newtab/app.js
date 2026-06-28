@@ -7221,12 +7221,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const COMPACT_PASSIVE_INTERACTION_SELECTOR = '[onclick],[tabindex]:not([tabindex="-1"]),[class*="audio" i],[class*="button" i],[class*="control" i],[class*="play" i],[class*="sound" i],[class*="speaker" i],[class*="toggle" i]';
   const COMPACT_PASSIVE_CHROME_SELECTOR = 'time,[datetime],[aria-label*="author" i],[aria-label*="username" i],[class*="author" i],[class*="byline" i],[class*="display-name" i],[class*="handle" i],[class*="header" i],[class*="meta" i],[class*="nickname" i],[class*="screen-name" i],[class*="user-name" i],[class*="username" i]';
   const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
+  const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
   const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = "ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer";
   const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]";
   const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]';
   const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
   const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-  const COMPOSER_CHROME_RE = /composer/i;
+  const COMPOSER_RE = /composer/i;
   const EDITABLE_COMPOSER_SURFACE_SELECTOR = "input,textarea,[contenteditable],[data-placeholder],[aria-placeholder]";
   const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = 'header, nav, footer, [role="banner"], [role="navigation"], [role="contentinfo"], [role="menubar"], [role="tablist"], [role="toolbar"]';
   const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
@@ -7259,14 +7260,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const textMirrorHosts = /* @__PURE__ */ new WeakMap();
   const canvasFallbackTextLayers = /* @__PURE__ */ new WeakMap();
   function isComposerActionControl(control) {
-    return Boolean(closestEditableComposerChrome(control));
-  }
-  function closestEditableComposerChrome(element) {
-    for (let current = element; current; current = current.parentElement) {
+    for (let current = control; current; current = current.parentElement) {
       const className = typeof current.className === "string" ? current.className : "";
-      if ((COMPOSER_CHROME_RE.test(current.id) || COMPOSER_CHROME_RE.test(className)) && current.querySelector(EDITABLE_COMPOSER_SURFACE_SELECTOR)) return current;
+      if ((COMPOSER_RE.test(current.id) || COMPOSER_RE.test(className)) && current.querySelector(EDITABLE_COMPOSER_SURFACE_SELECTOR)) return true;
     }
-    return null;
+    return false;
   }
   function collectFragmentTextTargetsIn(root, limit = 40, visibleOnly = true, excludeSelector = "", options = {}) {
     const state2 = {
@@ -7468,7 +7466,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function matchesSkippedFragmentElement(element, state2, isRoot) {
     if (state2.excludeSelector && safeElementMatches(element, state2.excludeSelector)) return true;
     if (isComposerActionControl(element)) return true;
+    if (isRoot && element.closest(EDITABLE_FRAGMENT_ROOT_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element, state2.options)) return true;
     return !isRoot && shouldSkipFragmentElement(element, state2.options);
+  }
+  function isSafeEditableSurfaceFragmentRoot(element, options) {
+    return Boolean(options.includePassiveInteractions && safeElementMatches(element, PASSIVE_INTERACTION_SELECTOR) && isNavigationChromeContext(element));
   }
   function shouldSkipInvisibleFragmentElement(element, visibleOnly) {
     if (!hasVisibleTextStyle(element) && !hasVisibleTextMirror(element)) return true;
@@ -24308,7 +24310,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.178".trim() ? "1.4.178".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.179".trim() ? "1.4.179".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

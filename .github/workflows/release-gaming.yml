@@ -1,0 +1,113 @@
+name: Release Yomu Gaming
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64-appimage
+            runner: ubuntu-latest
+            platform: linux
+            arch: x64
+            target: AppImage
+          - name: windows-x64-portable
+            runner: windows-latest
+            platform: win32
+            arch: x64
+            target: portable
+          - name: macos-x64-zip
+            runner: macos-latest
+            platform: darwin
+            arch: x64
+            target: zip
+          - name: macos-arm64-zip
+            runner: macos-latest
+            platform: darwin
+            arch: arm64
+            target: zip
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Smoke Yomu Gaming
+        run: npm run smoke:gaming
+
+      - name: Package Yomu Gaming
+        run: node scripts/package-gaming-electron.mjs --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --target=${{ matrix.target }}
+
+      - name: Stage release files
+        shell: bash
+        run: |
+          mkdir -p dist-gaming/release-assets
+          find dist-gaming/packages -maxdepth 1 -type f -name 'yomu-gaming-*' -exec cp {} dist-gaming/release-assets/ \;
+          test -n "$(find dist-gaming/release-assets -maxdepth 1 -type f -print -quit)"
+
+      - name: Upload platform artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: yomu-gaming-${{ matrix.name }}
+          path: dist-gaming/release-assets/*
+          if-no-files-found: error
+
+  checksums:
+    name: Checksums and release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download platform artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Write SHA256SUMS
+        run: |
+          cd release-assets
+          find . -maxdepth 1 -type f ! -name 'SHA256SUMS.txt' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > SHA256SUMS.txt
+
+      - name: Upload release artifact bundle
+        uses: actions/upload-artifact@v5
+        with:
+          name: yomu-gaming-release-assets
+          path: release-assets/*
+          if-no-files-found: error
+
+      - name: Publish GitHub release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cat > release-notes-gaming.md <<EOF
+          Yomu Gaming desktop release artifacts for ${TAG}.
+
+          Primary Linux x64 AppImage is included for Steam Deck and Desktop Linux. SHA-256 checksums are in SHA256SUMS.txt.
+          EOF
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-assets/* --clobber
+          else
+            gh release create "$TAG" release-assets/* --title "$TAG" --notes-file release-notes-gaming.md --verify-tag
+          fi
