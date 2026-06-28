@@ -51,6 +51,15 @@
       return id;
     }
     if (el && el.__yomuMid) return el.__yomuMid;
+    if (el && create) {
+      const id = `m${state().nextId++}`;
+      try {
+        el.__yomuMid = id;
+        return id;
+      } catch {
+        return null;
+      }
+    }
     return null;
   }
   const destKey = (op) => `${op.dx},${op.dy},${op.dw},${op.dh}`;
@@ -142,10 +151,18 @@
       return "";
     }
   }
+  function canvasMirrorContentToken(canvas) {
+    const id = canvasId(canvas, false);
+    if (!id) return "";
+    const s = state();
+    if (!s.records[id]?.ops.length) pullPageMirrorRecords(s);
+    const urls = collectLeafUrls(id, Number.POSITIVE_INFINITY, (key) => s.records[key]);
+    return urls.size ? `m:${[...urls].sort().join("")}` : "";
+  }
   async function captureCanvasMirror(canvas, loadCleanImage) {
     installCanvasMirrorRecorder();
     const s = state();
-    const id = canvasId(canvas);
+    const id = canvasId(canvas, false);
     if (id && !s.records[id]?.ops.length) pullPageMirrorRecords(s);
     const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, (key) => s.records[key]) : /* @__PURE__ */ new Set();
     const images = /* @__PURE__ */ new Map();
@@ -2693,8 +2710,11 @@
   function isReaderRasterPage(hostname = location.hostname) {
     return isCanvasReaderPage(hostname) || isBackgroundImageReaderPage(hostname) || isKnownCanvasReaderHost(hostname) || isKnownBackgroundImageReaderHost(hostname);
   }
+  function canvasReaderPageCounter() {
+    return document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
+  }
   function canvasReaderPageSignature() {
-    const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
+    const counter = canvasReaderPageCounter();
     const canvases = pageCanvases();
     const rawCanvases = isBookwalkerViewerHost() ? pageCanvases(location.hostname, { preferBookwalkerCurrent: false }) : canvases;
     const scroll = isBookwalkerViewerHost() && shouldUseBookwalkerScrollSignature(rawCanvases) ? Math.round((window.scrollY || 0) / 40) : 0;
@@ -2707,15 +2727,21 @@
   function shouldUseBookwalkerScrollSignature(canvases) {
     return !hasDistinctVisiblePageLayout(visibleViewportCanvases(canvases)) && !hasVerticallyStackedDocumentPageRun(canvases);
   }
+  function canvasPageContentToken(canvas) {
+    try {
+      const signature = canvasRenderedContentSignature(canvas);
+      if (signature) return signature;
+    } catch {
+    }
+    return canvasMirrorContentToken(canvas) || canvasMirrorTurnToken();
+  }
   function canvasReaderContentTokens(canvases) {
-    let mirrorToken;
     const tokens = canvases.map((canvas) => {
       try {
-        const signature = canvasRenderedContentSignature(canvas);
-        if (signature) return signature;
+        return canvasPageContentToken(canvas);
       } catch {
+        return "";
       }
-      return mirrorToken ??= canvasMirrorTurnToken();
     });
     return [...new Set(tokens)].filter(Boolean);
   }
@@ -10428,16 +10454,13 @@ ${spelling}`);
     return surface instanceof HTMLCanvasElement ? canvasSurfaceSnapshotKey(surface) : backgroundSurfaceCacheKey(surface);
   }
   function canvasSurfaceSnapshotKey(canvas) {
-    const rect = canvas.getBoundingClientRect();
     const viewportId = canvas.closest('[id^="viewport"]')?.id ?? "";
     return [
-      canvasReaderPageSignature(),
+      canvasReaderPageCounter(),
       viewportId,
       canvas.width,
       canvas.height,
-      Math.round(rect.width),
-      Math.round(rect.height),
-      canvasRenderedContentSignature(canvas) ?? ""
+      canvasPageContentToken(canvas)
     ].join("|");
   }
   function canvasContentReadinessKey(canvas) {
