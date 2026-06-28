@@ -1230,6 +1230,8 @@
       requestRender(savedPage); // render just the first page now; the observer pulls in the rest
       if (savedPage > 1) goToPage(savedPage, 'auto');
       else updateCurrentPageFromScroll();
+      updateNavButtons();
+      updateZoomLabel();
     }
 
     function buildPlaceholders() {

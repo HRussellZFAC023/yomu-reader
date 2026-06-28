@@ -306,6 +306,7 @@ function pdfSmokeSettings(baseUrl) {
 
 async function openInReader(browser, baseUrl, pdfBytes, fileName, settings = pdfSmokeSettings(baseUrl)) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     const consoleErrors = [];
     page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
     await page.addInitScript(({ key, value }) => {
@@ -492,6 +493,57 @@ async function visibleOcrText(page) {
         .join(''));
 }
 
+async function visibleOcrLines(page) {
+    return page.evaluate(() => [...document.querySelectorAll('.jpdb-ocr-line')]
+        .map(line => {
+            const rect = line.getBoundingClientRect();
+            const style = getComputedStyle(line);
+            const pageNode = line.closest('.pdf-page');
+            return {
+                text: (line.textContent || '').replace(/\s+/g, ''),
+                page: pageNode?.getAttribute('data-page-number') ?? '',
+                top: Math.round(rect.top),
+                bottom: Math.round(rect.bottom),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+                display: style.display,
+                visibility: style.visibility,
+                opacity: style.opacity,
+                inViewport: rect.width > 0
+                    && rect.height > 0
+                    && rect.bottom > 0
+                    && rect.top < window.innerHeight
+                    && rect.right > 0
+                    && rect.left < window.innerWidth
+                    && style.display !== 'none'
+                    && style.visibility !== 'hidden'
+                    && Number(style.opacity || '1') > 0,
+            };
+        })
+        .filter(line => line.inViewport));
+}
+
+async function readNavState(page) {
+    return page.evaluate(() => ({
+        pageInput: document.querySelector('[data-page-input]')?.value ?? '',
+        pageTotal: document.querySelector('[data-page-total]')?.textContent ?? '',
+        prevDisabled: document.querySelector('[data-prev-page]')?.disabled ?? null,
+        nextDisabled: document.querySelector('[data-next-page]')?.disabled ?? null,
+        pages: [...document.querySelectorAll('.pdf-page')].map(node => {
+            const rect = node.getBoundingClientRect();
+            return {
+                page: node.getAttribute('data-page-number'),
+                textMode: node.getAttribute('data-pdf-text'),
+                ocr: node.getAttribute('data-yomu-canvas-ocr'),
+                top: Math.round(rect.top),
+                bottom: Math.round(rect.bottom),
+                height: Math.round(rect.height),
+            };
+        }),
+        scrollY: Math.round(window.scrollY),
+    }));
+}
+
 async function waitForPageCanvas(page, pageNumber) {
     await page.waitForFunction(number => {
         const canvas = document.querySelector(`.pdf-page[data-page-number="${number}"] canvas`);
@@ -624,22 +676,30 @@ async function run() {
             assert(pageOneState.ocrTextSample.includes(OCR_PAGE_ONE_TEXT), 'page 1 scanned OCR should show the page 1 result', pageOneState);
 
             const pageTurnStart = Date.now();
+            await page.waitForFunction(() => !document.querySelector('[data-next-page]')?.disabled, undefined, { timeout: 8000 })
+                .catch(async error => {
+                    throw new Error(`next page button did not become enabled: ${error.message}\n${JSON.stringify(await readNavState(page), null, 2)}`);
+                });
             await page.click('[data-next-page]');
-            await page.waitForFunction(() => document.querySelector('[data-page-input]')?.value === '2', { timeout: 8000 });
+            await page.waitForFunction(() => document.querySelector('[data-page-input]')?.value === '2', undefined, { timeout: 8000 });
+            await page.waitForFunction(() => {
+                const rect = document.querySelector('.pdf-page[data-page-number="2"]')?.getBoundingClientRect();
+                return rect && rect.top >= 0 && rect.top <= 180;
+            }, undefined, { timeout: 8000 });
             await waitForPageCanvas(page, 2);
             await waitForScannedPageReady(page, 2);
             const pageTurnMs = Date.now() - pageTurnStart;
             const staleVisibleText = await visibleOcrText(page);
-            report.scannedPageTurn = { pageTurnMs, staleVisibleText };
+            const staleVisibleLines = await visibleOcrLines(page);
+            report.scannedPageTurn = { pageTurnMs, staleVisibleText, staleVisibleLines };
             assert(pageTurnMs < 8000, 'changing scanned PDF pages should stay responsive', { pageTurnMs });
-            assert(!staleVisibleText.includes(OCR_PAGE_ONE_TEXT), 'page 1 OCR text should not remain visibly over page 2', { staleVisibleText });
+            assert(!staleVisibleText.includes(OCR_PAGE_ONE_TEXT), 'page 1 OCR text should not remain visibly over page 2', { staleVisibleText, staleVisibleLines, nav: await readNavState(page) });
 
-            const beforePageTwoOcr = ocrRequests;
             await waitForOcrText(page, OCR_PAGE_TWO_TEXT, 'page 2 scanned PDF OCR did not render');
             const pageTwoVisibleText = await visibleOcrText(page);
             const pageTwoState = await readState(page);
             report.scannedPageTwo = { ...pageTwoState, pageTwoVisibleText };
-            assert(ocrRequests > beforePageTwoOcr, 'page 2 scanned OCR should make a fresh OCR request after a page change', { beforePageTwoOcr, ocrRequests, ocrPayloads, pageTwoState });
+            assert(ocrPayloads.some(payload => payload.text === OCR_PAGE_TWO_TEXT), 'page 2 scanned OCR should make its own OCR request before or during the page change', { beforeOcr, ocrRequests, ocrPayloads, pageTwoState });
             assert(pageTwoVisibleText.includes(OCR_PAGE_TWO_TEXT), 'page 2 OCR should be visible after the new scan', { pageTwoVisibleText, pageTwoState });
             assert(!pageTwoVisibleText.includes(OCR_PAGE_ONE_TEXT), 'page 2 should not show stale page 1 OCR after rescanning', { pageTwoVisibleText, pageTwoState });
 

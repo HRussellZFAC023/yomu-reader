@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yomu-pdf-reader-v1.4.177';
+const CACHE_NAME = 'yomu-pdf-reader-v1.4.196';
 const SHELL = [
   './',
   './index.html',

@@ -81,7 +81,7 @@ describe('hosted PWA assets', () => {
 
         expect(html).toContain('<link rel="manifest" href="./manifest.webmanifest">');
         expect(html).toContain("navigator.serviceWorker.register('./sw.js')");
-        expect(serviceWorker).toContain("const CACHE_NAME = 'yomu-pdf-reader-v1.4.177';");
+        expect(serviceWorker).toContain("const CACHE_NAME = 'yomu-pdf-reader-v1.4.196';");
         expect(serviceWorker).toContain("pathname.includes('/pdf-reader/vendor/')");
         expect(manifest).toMatchObject({
             name: 'Yomu PDF Reader',
