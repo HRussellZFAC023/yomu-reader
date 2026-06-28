@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.208] - 2026-06-28
+
+### Fixed
+
+- Built Yomu Gaming release packages without rerunning the smoke outside xvfb, keeping the explicit xvfb smoke gate before packaging.
+
 ## [1.4.207] - 2026-06-28
 
 ### Fixed
