@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import os from 'node:os';
@@ -9,7 +9,6 @@ import { spawnSync } from 'node:child_process';
 
 const require = createRequire(import.meta.url);
 const electronPackagePath = require.resolve('electron/package.json');
-const electronRequire = createRequire(electronPackagePath);
 const electronPackage = require(electronPackagePath);
 const electronPackageDir = path.dirname(electronPackagePath);
 const installerPath = path.join(electronPackageDir, 'install.js');
@@ -53,8 +52,7 @@ function verifyElectronBinary() {
     console.log(`[ensure-electron-runtime] verified ${electronPath}`);
 }
 
-async function installElectronRuntimeDirectly() {
-    const extract = electronRequire('extract-zip');
+function installElectronRuntimeDirectly() {
     const platform = electronDownloadPlatform(process.env.npm_config_platform || process.platform);
     const arch = electronDownloadArch(process.env.npm_config_arch || process.arch);
     const platformPath = electronPlatformPath(platform);
@@ -66,19 +64,27 @@ async function installElectronRuntimeDirectly() {
     console.log(`[ensure-electron-runtime] direct download ${url}`);
     rmSync(electronPathFile, { force: true });
     rmSync(electronDistPath, { recursive: true, force: true });
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Electron download failed: ${response.status} ${response.statusText}`);
-    const zip = Buffer.from(await response.arrayBuffer());
+    mkdirSync(electronDistPath, { recursive: true });
+    const zipPath = path.join(os.tmpdir(), zipName);
+    runCommand('download', 'curl', ['-fL', '--retry', '3', '--retry-delay', '2', '-o', zipPath, url]);
+    const zip = readFileSync(zipPath);
     const actualChecksum = createHash('sha256').update(zip).digest('hex');
     if (actualChecksum !== expectedChecksum) {
         throw new Error(`Electron checksum mismatch for ${zipName}: expected ${expectedChecksum}, got ${actualChecksum}.`);
     }
-    const zipPath = path.join(os.tmpdir(), zipName);
-    writeFileSync(zipPath, zip);
-    await extract(zipPath, { dir: electronDistPath });
+    runCommand('extract', 'unzip', ['-q', zipPath, '-d', electronDistPath]);
     const extractedTypesPath = path.join(electronDistPath, 'electron.d.ts');
     if (existsSync(extractedTypesPath)) renameSync(extractedTypesPath, electronTypeDefinitionPath);
     writeFileSync(electronPathFile, platformPath);
+}
+
+function runCommand(label, command, args) {
+    console.log(`[ensure-electron-runtime] ${label}: ${command} ${args.join(' ')}`);
+    const result = spawnSync(command, args, { stdio: 'inherit' });
+    if (result.error) throw result.error;
+    if (result.status !== 0) {
+        throw new Error(`${command} exited with status ${result.status ?? 'unknown'}.`);
+    }
 }
 
 function electronDownloadPlatform(platform = process.platform) {
@@ -107,7 +113,7 @@ function electronPlatformPath(platform = os.platform()) {
 
 try {
     if (process.env.YOMU_ELECTRON_DIRECT_INSTALL === '1') {
-        await installElectronRuntimeDirectly();
+        installElectronRuntimeDirectly();
     } else {
         runInstaller('install');
     }
@@ -117,6 +123,6 @@ try {
     console.warn('[ensure-electron-runtime] removing stale Electron runtime files and installing directly.');
     rmSync(electronPathFile, { force: true });
     rmSync(electronDistPath, { recursive: true, force: true });
-    await installElectronRuntimeDirectly();
+    installElectronRuntimeDirectly();
     verifyElectronBinary();
 }
