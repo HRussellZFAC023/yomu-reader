@@ -2,6 +2,7 @@
 
 import { existsSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -53,27 +54,39 @@ function verifyElectronBinary() {
 }
 
 async function installElectronRuntimeDirectly() {
-    const { downloadArtifact } = electronRequire('@electron/get');
     const extract = electronRequire('extract-zip');
-    const platform = process.env.npm_config_platform || process.platform;
-    const arch = process.env.npm_config_arch || process.arch;
+    const platform = electronDownloadPlatform(process.env.npm_config_platform || process.platform);
+    const arch = electronDownloadArch(process.env.npm_config_arch || process.arch);
     const platformPath = electronPlatformPath(platform);
-    console.log(`[ensure-electron-runtime] direct download electron v${electronPackage.version} ${platform}/${arch}`);
+    const zipName = `electron-v${electronPackage.version}-${platform}-${arch}.zip`;
+    const checksums = require(path.join(electronPackageDir, 'checksums.json'));
+    const expectedChecksum = checksums[zipName];
+    if (!expectedChecksum) throw new Error(`No Electron checksum found for ${zipName}.`);
+    const url = `https://github.com/electron/electron/releases/download/v${electronPackage.version}/${zipName}`;
+    console.log(`[ensure-electron-runtime] direct download ${url}`);
     rmSync(electronPathFile, { force: true });
     rmSync(electronDistPath, { recursive: true, force: true });
-    const zipPath = await downloadArtifact({
-        version: electronPackage.version,
-        artifactName: 'electron',
-        force: true,
-        cacheRoot: process.env.electron_config_cache,
-        checksums: require(path.join(electronPackageDir, 'checksums.json')),
-        platform,
-        arch,
-    });
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Electron download failed: ${response.status} ${response.statusText}`);
+    const zip = Buffer.from(await response.arrayBuffer());
+    const actualChecksum = createHash('sha256').update(zip).digest('hex');
+    if (actualChecksum !== expectedChecksum) {
+        throw new Error(`Electron checksum mismatch for ${zipName}: expected ${expectedChecksum}, got ${actualChecksum}.`);
+    }
+    const zipPath = path.join(os.tmpdir(), zipName);
+    writeFileSync(zipPath, zip);
     await extract(zipPath, { dir: electronDistPath });
     const extractedTypesPath = path.join(electronDistPath, 'electron.d.ts');
     if (existsSync(extractedTypesPath)) renameSync(extractedTypesPath, electronTypeDefinitionPath);
     writeFileSync(electronPathFile, platformPath);
+}
+
+function electronDownloadPlatform(platform = process.platform) {
+    return platform === 'mas' ? 'darwin' : platform;
+}
+
+function electronDownloadArch(arch = process.arch) {
+    return arch === 'arm' ? 'armv7l' : arch;
 }
 
 function electronPlatformPath(platform = os.platform()) {
@@ -93,7 +106,11 @@ function electronPlatformPath(platform = os.platform()) {
 }
 
 try {
-    runInstaller('install');
+    if (process.env.YOMU_ELECTRON_DIRECT_INSTALL === '1') {
+        await installElectronRuntimeDirectly();
+    } else {
+        runInstaller('install');
+    }
     verifyElectronBinary();
 } catch (error) {
     console.warn(`[ensure-electron-runtime] first verification failed: ${error instanceof Error ? error.message : error}`);
