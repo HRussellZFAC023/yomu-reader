@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 describe('canvas fallback text layers', () => {
-    it('turns YomuYomu story canvas fallback text into a clickable reader layer', () => {
+    it('turns YomuYomu story canvas fallback text into a transparent native overlay', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 924, height: 1520 });
         document.body.innerHTML = `
             <div id="vue-root" data-v-app>
@@ -52,13 +52,45 @@ describe('canvas fallback text layers', () => {
         const layer = document.querySelector<HTMLElement>('.jpdb-reader-canvas-text-layer')!;
         const word = layer.querySelector<HTMLElement>('.jpdb-reader-word')!;
         expect(layer.parentElement).toBe(canvas.parentElement);
+        expect(layer.classList.contains('jpdb-reader-native-canvas')).toBe(true);
         expect(layer.dataset.sourceText).toBe(story.text);
         expect(layer.style.whiteSpace).toBe('pre-wrap');
-        expect(canvas.style.visibility).toBe('hidden');
+        expect(layer.style.opacity).toBe('0');
+        expect(layer.style.pointerEvents).toBe('none');
+        expect(canvas.style.visibility).toBe('');
+        expect(word.dataset.jpdbReaderPassive).toBe('true');
+        expect(word.querySelector('rt')).toBeNull();
         expect(readerWordSurfaceText(word)).toBe('会話');
 
         expect(removeNonDestructiveScanMirrors(document)).toBe(1);
         expect(document.querySelector('.jpdb-reader-canvas-text-layer')).toBeNull();
+        expect(canvas.style.visibility).toBe('');
+    });
+
+    it('keeps the default canvas fallback replacement mode for non-native canvas text', () => {
+        document.body.innerHTML = `
+            <div class="canvas-reader">
+                <canvas width="400" height="240" lang="ja">今日は本を読みます。</canvas>
+            </div>
+        `;
+        const canvas = document.querySelector<HTMLCanvasElement>('canvas')!;
+        const target: ScanTextTarget = {
+            text: canvas.textContent?.trim() ?? '',
+            parent: canvas,
+            fragments: [],
+            layoutSensitive: true,
+            nonDestructive: true,
+        };
+
+        applyTokensToScanTarget(target, [tokenFor(target, '本', 'ほん')], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const layer = document.querySelector<HTMLElement>('.jpdb-reader-canvas-text-layer')!;
+        expect(layer.classList.contains('jpdb-reader-native-canvas')).toBe(false);
+        expect(layer.style.opacity).toBe('');
+        expect(layer.style.pointerEvents).toBe('auto');
+        expect(canvas.style.visibility).toBe('hidden');
+
+        expect(removeNonDestructiveScanMirrors(document)).toBe(1);
         expect(canvas.style.visibility).toBe('');
     });
 });

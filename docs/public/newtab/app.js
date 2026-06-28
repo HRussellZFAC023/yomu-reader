@@ -8092,27 +8092,28 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!host) return;
     const text2 = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
+    const n = canvas.parentElement?.classList.contains("lesson-canvas-clipper") ?? false;
+    const noRuby = n || Boolean(target.suppressRuby);
     const renderSettings = furiganaSettingsForTarget(settings, canvas);
-    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, Boolean(target.suppressRuby));
+    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, noRuby);
     const existing = currentCanvasFallbackTextLayer(canvas);
     if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) return;
     removeCanvasFallbackTextLayer(canvas);
     if (!safeTokens.length) return;
     const layer = document.createElement("div");
-    layer.className = "jpdb-reader-canvas-text-layer";
-    layer.dataset.jpdbReaderCanvasTextLayer = "true";
+    layer.className = n ? "jpdb-reader-canvas-text-layer jpdb-reader-native-canvas" : "jpdb-reader-canvas-text-layer";
     layer.dataset.sourceText = text2;
     layer.dataset.renderSignature = signature;
-    const hasRenderedRuby = safeTokens.some((token) => token.rubies.length > 0) && !target.suppressRuby;
-    styleCanvasFallbackTextLayer(layer, canvas, hasRenderedRuby);
+    const hasRuby = safeTokens.some((token) => token.rubies.length > 0) && !noRuby;
+    styleCanvasFallbackTextLayer(layer, canvas, hasRuby, n);
     layer.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
       parent: canvas,
       hasNativeRuby: targetHasNativeRuby(target),
-      suppressRuby: target.suppressRuby,
-      passiveInteraction: target.passiveInteraction
+      suppressRuby: noRuby,
+      passiveInteraction: n || target.passiveInteraction
     }));
     if (!layer.textContent?.trim()) return;
-    const state2 = hideCanvasFallbackTextCanvas(canvas, host, layer);
+    const state2 = mountCanvasTextLayer(canvas, host, layer, n);
     canvasFallbackTextLayers.set(canvas, state2);
     host.append(layer);
   }
@@ -8120,7 +8121,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const state2 = canvasFallbackTextLayers.get(canvas);
     return state2?.layer.isConnected ? state2.layer : null;
   }
-  function styleCanvasFallbackTextLayer(layer, canvas, hasRuby) {
+  function styleCanvasFallbackTextLayer(layer, canvas, hasRuby, n) {
     const style = safeComputedStyle(canvas);
     layer.style.setProperty("position", "absolute");
     layer.style.setProperty("left", `${canvas.offsetLeft}px`);
@@ -8130,7 +8131,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     layer.style.setProperty("box-sizing", "border-box");
     layer.style.setProperty("overflow", "visible");
     layer.style.setProperty("visibility", "visible", "important");
-    layer.style.setProperty("pointer-events", "auto");
+    layer.style.setProperty("pointer-events", n ? "none" : "auto");
     layer.style.setProperty("white-space", "pre-wrap");
     layer.style.setProperty("font", style.font);
     layer.style.setProperty("font-size", style.fontSize);
@@ -8140,9 +8141,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     layer.style.setProperty("text-align", style.textAlign);
     layer.style.setProperty("color", style.color);
     layer.style.setProperty("z-index", "1");
-    if (hasRuby) layer.dataset.jpdbReaderHasRuby = "true";
+    if (n) layer.style.setProperty("opacity", "0");
   }
-  function hideCanvasFallbackTextCanvas(canvas, host, layer) {
+  function mountCanvasTextLayer(canvas, host, layer, n) {
     const hostStyle = safeComputedStyle(host);
     const state2 = {
       layer,
@@ -8153,7 +8154,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hostPositionAdjusted: hostStyle.position === "static"
     };
     if (state2.hostPositionAdjusted) host.style.setProperty("position", "relative", "important");
-    canvas.style.setProperty("visibility", "hidden", "important");
+    if (!n) canvas.style.setProperty("visibility", "hidden", "important");
     return state2;
   }
   function removeCanvasFallbackTextLayer(canvas) {
@@ -25534,7 +25535,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.217".trim() ? "1.4.217".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.218".trim() ? "1.4.218".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

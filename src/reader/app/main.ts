@@ -431,6 +431,7 @@ const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
     '.model-response',
     '.model-response-text',
     '.response-content',
+    '.lesson-canvas-clipper',
     'p',
     'li',
     'blockquote',
@@ -2238,6 +2239,7 @@ export class ReaderApp {
         // Only bail if a word DID resolve but is not lookupable (e.g. a native
         // link we must not hijack).
         const word = this.readerWordForPointerEvent(event, { clickLookup: true });
+        if (word && this.isNativeWord(word)) return;
         if (word && !this.readerWordClickSurfaces(event, word)) return;
         this.tapLookup = { id: event.pointerId, x: event.clientX, y: event.clientY, word: word ?? undefined };
         if (word) this.primeLookupAudioFromGesture();
@@ -2272,10 +2274,12 @@ export class ReaderApp {
     private openReaderWordFromPointer(
         event: MouseEvent,
         word: HTMLElement,
-        surfaces: { insideReaderPopup: boolean; insideSubtitlePlayer: boolean },
+        surfaces: { r: boolean; s: boolean; n?: boolean },
     ): void {
-        event.preventDefault();
-        event.stopPropagation();
+        if (!surfaces.n) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
         this.prepareModalLookupFromPointer(event);
         this.suppressSelectionLookupUntil = Date.now() + 350;
         this.ocr.pinLineForElement(word);
@@ -2285,9 +2289,9 @@ export class ReaderApp {
         // text showed partial results and you had to tap again. OCR overlay words are
         // already tokenized Japanese, so the full lookup (cached card or jiten) returns
         // the complete entry on the first tap; skip the fast-fallback for them.
-        const fastInitialRender = (surfaces.insideSubtitlePlayer || this.shouldFastRenderReaderWordPointerLookup(event))
+        const fastInitialRender = (surfaces.s || this.shouldFastRenderReaderWordPointerLookup(event))
             && !word.closest('.jpdb-ocr-line');
-        void this.showWord(word, surfaces.insideReaderPopup
+        void this.showWord(word, surfaces.r
             ? { trigger: 'click', userGesture: true, navigation: 'push-current', fastInitialRender }
             : { trigger: 'click', userGesture: true, fastInitialRender });
     }
@@ -2305,7 +2309,7 @@ export class ReaderApp {
         this.ocr.pinLineForElement(word);
         // Full entry on the first tap for OCR overlay text (see openReaderWordFromPointer).
         const fastInitialRender = !word.closest('.jpdb-ocr-line');
-        void this.showWord(word, surfaces.insideReaderPopup
+        void this.showWord(word, surfaces.r
             ? { trigger: 'click', userGesture: true, navigation: 'push-current', fastInitialRender }
             : { trigger: 'click', userGesture: true, fastInitialRender });
         return true;
@@ -2318,23 +2322,32 @@ export class ReaderApp {
             ?? this.ocrLineWordForPointer(target, event.clientX, event.clientY);
     }
 
-    private readerWordClickSurfaces(event: MouseEvent, word: HTMLElement): { insideReaderPopup: boolean; insideSubtitlePlayer: boolean } | null {
+    private readerWordClickSurfaces(event: MouseEvent, word: HTMLElement): { r: boolean; s: boolean; n?: boolean } | null {
         if (!this.canClickLookupReaderWord(word)) return null;
-        const passiveReaderClick = canClickLookupPassiveReaderWordElement(word);
-        if (word.dataset.jpdbReaderPassive === 'true' && !passiveReaderClick) return null;
+        const p = canClickLookupPassiveReaderWordElement(word);
+        if (word.dataset.jpdbReaderPassive === 'true' && !p) return null;
         if (this.consumeSuppressedReaderWordClick(event, word)) return null;
-        const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
-        const insideSubtitlePlayer = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
-        if (this.settings.popupActivationMode === 'off' && !insideReaderPopup) return null;
-        const nativeClickable = nativeClickableAncestor(word);
-        if (!insideReaderPopup && !insideSubtitlePlayer
-            && nativeClickable
+        const r = Boolean(word.closest('.jpdb-reader-popover'));
+        const s = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
+        if (this.settings.popupActivationMode === 'off' && !r) return null;
+        const l = nativeClickableAncestor(word);
+        const n = this.isNativeWord(word)
+            && !r
+            && !s
+            && !this.clickForcesReaderWordLookup(event);
+        if (!r && !s
+            && l
             && !this.clickForcesReaderWordLookup(event)
-            && !this.passiveTextMirrorClickOverridesNativeLink(word, nativeClickable)) {
+            && !this.passiveTextMirrorClickOverridesNativeLink(word, l)
+            && !n) {
             return null;
         }
-        if (!this.settings.lookupOnClick && !insideReaderPopup && !insideSubtitlePlayer) return null;
-        return { insideReaderPopup, insideSubtitlePlayer };
+        if (!this.settings.lookupOnClick && !r && !s) return null;
+        return { r, s, n };
+    }
+
+    private isNativeWord(word: HTMLElement): boolean {
+        return Boolean(word.closest('.jpdb-reader-native-canvas'));
     }
 
     private passiveTextMirrorClickOverridesNativeLink(word: HTMLElement, nativeClickable: HTMLElement): boolean {

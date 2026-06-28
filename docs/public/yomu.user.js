@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.217
+// @version 1.4.218
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.217
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.217
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.217
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.217
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.218
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.218
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.218
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.218
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -4750,27 +4750,28 @@ function applyTokensToCanvasFallbackTarget(target, tokens, settings) {
   if (!host) return;
   const text2 = target.text;
   const safeTokens = nonOverlappingTokens(tokens, text2.length);
+  const n = canvas.parentElement?.classList.contains("lesson-canvas-clipper") ?? false;
+  const noRuby = n || Boolean(target.suppressRuby);
   const renderSettings = furiganaSettingsForTarget(settings, canvas);
-  const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, Boolean(target.suppressRuby));
+  const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, noRuby);
   const existing = currentCanvasFallbackTextLayer(canvas);
   if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) return;
   removeCanvasFallbackTextLayer(canvas);
   if (!safeTokens.length) return;
   const layer = document.createElement("div");
-  layer.className = "jpdb-reader-canvas-text-layer";
-  layer.dataset.jpdbReaderCanvasTextLayer = "true";
+  layer.className = n ? "jpdb-reader-canvas-text-layer jpdb-reader-native-canvas" : "jpdb-reader-canvas-text-layer";
   layer.dataset.sourceText = text2;
   layer.dataset.renderSignature = signature;
-  const hasRenderedRuby = safeTokens.some((token) => token.rubies.length > 0) && !target.suppressRuby;
-  styleCanvasFallbackTextLayer(layer, canvas, hasRenderedRuby);
+  const hasRuby = safeTokens.some((token) => token.rubies.length > 0) && !noRuby;
+  styleCanvasFallbackTextLayer(layer, canvas, hasRuby, n);
   layer.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
     parent: canvas,
     hasNativeRuby: targetHasNativeRuby(target),
-    suppressRuby: target.suppressRuby,
-    passiveInteraction: target.passiveInteraction
+    suppressRuby: noRuby,
+    passiveInteraction: n || target.passiveInteraction
   }));
   if (!layer.textContent?.trim()) return;
-  const state = hideCanvasFallbackTextCanvas(canvas, host, layer);
+  const state = mountCanvasTextLayer(canvas, host, layer, n);
   canvasFallbackTextLayers.set(canvas, state);
   host.append(layer);
 }
@@ -4778,7 +4779,7 @@ function currentCanvasFallbackTextLayer(canvas) {
   const state = canvasFallbackTextLayers.get(canvas);
   return state?.layer.isConnected ? state.layer : null;
 }
-function styleCanvasFallbackTextLayer(layer, canvas, hasRuby) {
+function styleCanvasFallbackTextLayer(layer, canvas, hasRuby, n) {
   const style = safeComputedStyle(canvas);
   layer.style.setProperty("position", "absolute");
   layer.style.setProperty("left", `${canvas.offsetLeft}px`);
@@ -4788,7 +4789,7 @@ function styleCanvasFallbackTextLayer(layer, canvas, hasRuby) {
   layer.style.setProperty("box-sizing", "border-box");
   layer.style.setProperty("overflow", "visible");
   layer.style.setProperty("visibility", "visible", "important");
-  layer.style.setProperty("pointer-events", "auto");
+  layer.style.setProperty("pointer-events", n ? "none" : "auto");
   layer.style.setProperty("white-space", "pre-wrap");
   layer.style.setProperty("font", style.font);
   layer.style.setProperty("font-size", style.fontSize);
@@ -4798,9 +4799,9 @@ function styleCanvasFallbackTextLayer(layer, canvas, hasRuby) {
   layer.style.setProperty("text-align", style.textAlign);
   layer.style.setProperty("color", style.color);
   layer.style.setProperty("z-index", "1");
-  if (hasRuby) layer.dataset.jpdbReaderHasRuby = "true";
+  if (n) layer.style.setProperty("opacity", "0");
 }
-function hideCanvasFallbackTextCanvas(canvas, host, layer) {
+function mountCanvasTextLayer(canvas, host, layer, n) {
   const hostStyle = safeComputedStyle(host);
   const state = {
     layer,
@@ -4811,7 +4812,7 @@ function hideCanvasFallbackTextCanvas(canvas, host, layer) {
     hostPositionAdjusted: hostStyle.position === "static"
   };
   if (state.hostPositionAdjusted) host.style.setProperty("position", "relative", "important");
-  canvas.style.setProperty("visibility", "hidden", "important");
+  if (!n) canvas.style.setProperty("visibility", "hidden", "important");
   return state;
 }
 function removeCanvasFallbackTextLayer(canvas) {
@@ -37279,7 +37280,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.217"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.218"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -38209,6 +38210,7 @@ const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
   ".model-response",
   ".model-response-text",
   ".response-content",
+  ".lesson-canvas-clipper",
   "p",
   "li",
   "blockquote",
@@ -39744,6 +39746,7 @@ class ReaderApp {
     this.tapLookup = void 0;
     if (this.isDestroyed || event.button !== 0 || event.isPrimary === false || event.pointerType !== "touch" && event.pointerType !== "pen" || this.isInsideActivePopover(event.target)) return;
     const word = this.readerWordForPointerEvent(event, { clickLookup: true });
+    if (word && this.isNativeWord(word)) return;
     if (word && !this.readerWordClickSurfaces(event, word)) return;
     this.tapLookup = { id: event.pointerId, x: event.clientX, y: event.clientY, word: word ?? void 0 };
     if (word) this.primeLookupAudioFromGesture();
@@ -39770,14 +39773,16 @@ class ReaderApp {
     if (tap && tap.id === event.pointerId) this.tapLookup = void 0;
   }
   openReaderWordFromPointer(event, word, surfaces) {
-    event.preventDefault();
-    event.stopPropagation();
+    if (!surfaces.n) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     this.prepareModalLookupFromPointer(event);
     this.suppressSelectionLookupUntil = Date.now() + 350;
     this.ocr.pinLineForElement(word);
     if (this.shouldPauseForLookupAnchor(word)) this.pauseVideoForSubtitleMining();
-    const fastInitialRender = (surfaces.insideSubtitlePlayer || this.shouldFastRenderReaderWordPointerLookup(event)) && !word.closest(".jpdb-ocr-line");
-    void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender });
+    const fastInitialRender = (surfaces.s || this.shouldFastRenderReaderWordPointerLookup(event)) && !word.closest(".jpdb-ocr-line");
+    void this.showWord(word, surfaces.r ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender });
   }
   handleOcrReaderWordPointerDown(event) {
     const word = this.ocrPointerDownReaderWord(event);
@@ -39791,7 +39796,7 @@ class ReaderApp {
     this.suppressWordClickUntil = now + 700;
     this.ocr.pinLineForElement(word);
     const fastInitialRender = !word.closest(".jpdb-ocr-line");
-    void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender });
+    void this.showWord(word, surfaces.r ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender });
     return true;
   }
   ocrPointerDownReaderWord(event) {
@@ -39801,18 +39806,22 @@ class ReaderApp {
   }
   readerWordClickSurfaces(event, word) {
     if (!this.canClickLookupReaderWord(word)) return null;
-    const passiveReaderClick = canClickLookupPassiveReaderWordElement(word);
-    if (word.dataset.jpdbReaderPassive === "true" && !passiveReaderClick) return null;
+    const p = canClickLookupPassiveReaderWordElement(word);
+    if (word.dataset.jpdbReaderPassive === "true" && !p) return null;
     if (this.consumeSuppressedReaderWordClick(event, word)) return null;
-    const insideReaderPopup = Boolean(word.closest(".jpdb-reader-popover"));
-    const insideSubtitlePlayer = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
-    if (this.settings.popupActivationMode === "off" && !insideReaderPopup) return null;
-    const nativeClickable = nativeClickableAncestor(word);
-    if (!insideReaderPopup && !insideSubtitlePlayer && nativeClickable && !this.clickForcesReaderWordLookup(event) && !this.passiveTextMirrorClickOverridesNativeLink(word, nativeClickable)) {
+    const r = Boolean(word.closest(".jpdb-reader-popover"));
+    const s = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
+    if (this.settings.popupActivationMode === "off" && !r) return null;
+    const l = nativeClickableAncestor(word);
+    const n = this.isNativeWord(word) && !r && !s && !this.clickForcesReaderWordLookup(event);
+    if (!r && !s && l && !this.clickForcesReaderWordLookup(event) && !this.passiveTextMirrorClickOverridesNativeLink(word, l) && !n) {
       return null;
     }
-    if (!this.settings.lookupOnClick && !insideReaderPopup && !insideSubtitlePlayer) return null;
-    return { insideReaderPopup, insideSubtitlePlayer };
+    if (!this.settings.lookupOnClick && !r && !s) return null;
+    return { r, s, n };
+  }
+  isNativeWord(word) {
+    return Boolean(word.closest(".jpdb-reader-native-canvas"));
   }
   passiveTextMirrorClickOverridesNativeLink(word, nativeClickable) {
     return canClickLookupPassiveReaderWordElement(word) && Boolean(word.closest(".jpdb-reader-text-mirror")) && nativeClickable instanceof HTMLAnchorElement;

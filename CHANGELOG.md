@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.218] - 2026-06-28
+
+### Fixed
+
+- Made YomuYomu lesson support native-first: よむ now leaves the site's canvas reader, translation panel, and reading controls visible, uses an invisible passive lookup layer over the canvas fallback text, and lets clicks continue to YomuYomu while still opening よむ lookups.
+
 ## [1.4.217] - 2026-06-28
 
 ### Fixed

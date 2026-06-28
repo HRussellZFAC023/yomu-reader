@@ -1639,28 +1639,29 @@ function applyTokensToCanvasFallbackTarget(target: ScanTextTarget, tokens: JPDBT
 
     const text = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text.length);
+    const n = canvas.parentElement?.classList.contains('lesson-canvas-clipper') ?? false;
+    const noRuby = n || Boolean(target.suppressRuby);
     const renderSettings = furiganaSettingsForTarget(settings, canvas);
-    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, Boolean(target.suppressRuby));
+    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, noRuby);
     const existing = currentCanvasFallbackTextLayer(canvas);
     if (existing?.dataset.sourceText === text && existing.dataset.renderSignature === signature) return;
     removeCanvasFallbackTextLayer(canvas);
     if (!safeTokens.length) return;
 
     const layer = document.createElement('div');
-    layer.className = 'jpdb-reader-canvas-text-layer';
-    layer.dataset.jpdbReaderCanvasTextLayer = 'true';
+    layer.className = n ? 'jpdb-reader-canvas-text-layer jpdb-reader-native-canvas' : 'jpdb-reader-canvas-text-layer';
     layer.dataset.sourceText = text;
     layer.dataset.renderSignature = signature;
-    const hasRenderedRuby = safeTokens.some(token => token.rubies.length > 0) && !target.suppressRuby;
-    styleCanvasFallbackTextLayer(layer, canvas, hasRenderedRuby);
+    const hasRuby = safeTokens.some(token => token.rubies.length > 0) && !noRuby;
+    styleCanvasFallbackTextLayer(layer, canvas, hasRuby, n);
     layer.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
         parent: canvas,
         hasNativeRuby: targetHasNativeRuby(target),
-        suppressRuby: target.suppressRuby,
-        passiveInteraction: target.passiveInteraction,
+        suppressRuby: noRuby,
+        passiveInteraction: n || target.passiveInteraction,
     }));
     if (!layer.textContent?.trim()) return;
-    const state = hideCanvasFallbackTextCanvas(canvas, host, layer);
+    const state = mountCanvasTextLayer(canvas, host, layer, n);
     canvasFallbackTextLayers.set(canvas, state);
     host.append(layer);
 }
@@ -1670,7 +1671,7 @@ function currentCanvasFallbackTextLayer(canvas: HTMLCanvasElement): HTMLElement 
     return state?.layer.isConnected ? state.layer : null;
 }
 
-function styleCanvasFallbackTextLayer(layer: HTMLElement, canvas: HTMLCanvasElement, hasRuby: boolean): void {
+function styleCanvasFallbackTextLayer(layer: HTMLElement, canvas: HTMLCanvasElement, hasRuby: boolean, n: boolean): void {
     const style = safeComputedStyle(canvas);
     layer.style.setProperty('position', 'absolute');
     layer.style.setProperty('left', `${canvas.offsetLeft}px`);
@@ -1680,7 +1681,7 @@ function styleCanvasFallbackTextLayer(layer: HTMLElement, canvas: HTMLCanvasElem
     layer.style.setProperty('box-sizing', 'border-box');
     layer.style.setProperty('overflow', 'visible');
     layer.style.setProperty('visibility', 'visible', 'important');
-    layer.style.setProperty('pointer-events', 'auto');
+    layer.style.setProperty('pointer-events', n ? 'none' : 'auto');
     layer.style.setProperty('white-space', 'pre-wrap');
     layer.style.setProperty('font', style.font);
     layer.style.setProperty('font-size', style.fontSize);
@@ -1690,13 +1691,14 @@ function styleCanvasFallbackTextLayer(layer: HTMLElement, canvas: HTMLCanvasElem
     layer.style.setProperty('text-align', style.textAlign);
     layer.style.setProperty('color', style.color);
     layer.style.setProperty('z-index', '1');
-    if (hasRuby) layer.dataset.jpdbReaderHasRuby = 'true';
+    if (n) layer.style.setProperty('opacity', '0');
 }
 
-function hideCanvasFallbackTextCanvas(
+function mountCanvasTextLayer(
     canvas: HTMLCanvasElement,
     host: HTMLElement,
     layer: HTMLElement,
+    n: boolean,
 ): CanvasFallbackTextLayerState {
     const hostStyle = safeComputedStyle(host);
     const state: CanvasFallbackTextLayerState = {
@@ -1708,7 +1710,7 @@ function hideCanvasFallbackTextCanvas(
         hostPositionAdjusted: hostStyle.position === 'static',
     };
     if (state.hostPositionAdjusted) host.style.setProperty('position', 'relative', 'important');
-    canvas.style.setProperty('visibility', 'hidden', 'important');
+    if (!n) canvas.style.setProperty('visibility', 'hidden', 'important');
     return state;
 }
 

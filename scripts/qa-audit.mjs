@@ -3012,13 +3012,24 @@ function runtimeRegressionParseDebugSnapshot() {
 }
 
 async function openRuntimeRegressionReadHover(page) {
-    const readWord = page.locator('.jpdb-reader-word').filter({ hasText: '読んで' }).first();
-    const readBox = await readWord.boundingBox();
+    const readBox = await runtimeRegressionReadWordBox(page);
     assertAudit(readBox, 'no 読んで scanned word bounding box found');
     await page.mouse.move(readBox.x + readBox.width / 2, readBox.y + readBox.height / 2);
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
     await waitForAudit(page, () => !document.querySelector('[data-card-details-loading]'), 6000, 'hover popup for 読んで kept loading');
     return readBox;
+}
+
+async function runtimeRegressionReadWordBox(page) {
+    return page.evaluate(() => {
+        const { surface } = window.__yomuQaReaderWordDomHelpers;
+        const word = [...document.querySelectorAll('.jpdb-reader-word')]
+            .find(candidate => surface(candidate).trim() === '読んで');
+        if (!word) return null;
+        const rect = word.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return null;
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    });
 }
 
 async function dismissRuntimeRegressionHoverPopup(page, failures) {
