@@ -965,7 +965,7 @@ function isBlobFetchableAudioCandidate(candidate: AudioCandidate): boolean {
         || isJapanesePod101Url(candidate.sourceUrl);
 }
 
-export function isLoopbackAudioUrl(value: string): boolean {
+function isLoopbackAudioUrl(value: string): boolean {
     try {
         const base = typeof location === 'undefined' ? undefined : location.href;
         return isLoopbackAudioHost(new URL(value, base).hostname);

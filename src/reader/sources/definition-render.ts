@@ -2,7 +2,7 @@ import { HAS_JAPANESE, escapeHtml } from '../dom/index';
 import { uiText } from '../app/i18n';
 import { cardHighlightScopeAttributes, type CardHighlightTarget } from '../cards/highlight';
 import { KANJI_DICTIONARIES_SOURCE_ID } from './sections';
-import { bestFrequencyEntries, dictionaryPreferencePriority, hasRichStructuredGlossary, localTermTags, normalizeFrequencyChipValue, pillStyle } from '../dictionaries/display';
+import { hasRichStructuredGlossary, localTermTags, normalizeFrequencyChipValue, pillStyle } from '../dictionaries/display';
 import { formatMetaFrequency, groupTermEntriesByHeadword, summarizeLearnerGlossary, type LearnerTermGroup } from '../dictionaries/groups';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import { glossaryToHtml, glossaryToText, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
@@ -59,24 +59,6 @@ export function renderKanjiDefinitions(
             `).join('')}
         </details>
     `;
-}
-
-export function renderFrequencyPills(metaEntries: YomitanMetaEntry[], settings: ReaderSettings, dictionaryLabel: DictionaryLabel): string[] {
-    return bestFrequencyEntries(metaEntries)
-        .filter(entry => entry.mode === 'freq')
-        .filter(entry => frequencyEntryEnabled(settings, entry.dictionary))
-        .sort((a, b) => {
-            const priority = dictionaryPreferencePriority(settings, a.dictionary) - dictionaryPreferencePriority(settings, b.dictionary);
-            if (priority) return priority;
-            return dictionaryLabel(a.dictionary).localeCompare(dictionaryLabel(b.dictionary), 'ja');
-        })
-        .map(entry => renderFrequencyPill(entry, dictionaryLabel))
-        .filter(Boolean)
-        .slice(0, 8);
-}
-
-function frequencyEntryEnabled(settings: ReaderSettings, dictionary: string): boolean {
-    return settings.dictionaryPreferences.find(preference => preference.name === dictionary)?.enabled ?? true;
 }
 
 export function definitionSourceStateKey(sourceId: string): string {

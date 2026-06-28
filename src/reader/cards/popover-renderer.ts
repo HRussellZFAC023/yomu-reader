@@ -438,16 +438,6 @@ export class CardPopoverRenderer {
     }
 }
 
-export function renderApiMiningPanel(
-    settings: ReaderSettings,
-    cardStates: ReturnType<typeof normalizeCardStates>,
-    data: CardRenderData & { loading: boolean },
-    provider: ApiSrsProviderView | null,
-): string {
-    const actions = renderApiMiningActions(settings, cardStates, settings.interfaceLanguage, data, provider);
-    return actions ? `<div class="jpdb-reader-mining-panel">${actions}</div>` : '';
-}
-
 export function updatePopoverReviewTargetSelection(select: HTMLSelectElement): void {
     const option = select.selectedOptions[0] ?? null;
     if (!option) return;

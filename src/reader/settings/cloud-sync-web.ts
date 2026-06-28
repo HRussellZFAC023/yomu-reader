@@ -53,6 +53,7 @@ export function cloudSettingsSyncAvailable(): boolean {
     return CLOUD_SETTINGS_SYNC_ENABLED;
 }
 
+// fallow-ignore-next-line unused-export
 export function cloudSettingsAuthRedirectResult(): CloudSettingsAuthRedirectResult | null {
     return lastAuthRedirectResult;
 }

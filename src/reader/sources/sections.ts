@@ -121,24 +121,6 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
         .sort(compareSourceRows);
 }
 
-export function frequencySourceRows(settings: ReaderSettings): SettingsSourceRow[] {
-    return settings.dictionaryPreferences
-        .filter(preference => preference.type === 'frequency')
-        .map(preference => ({
-            id: preference.name,
-            name: preference.name,
-            alias: preference.alias,
-            enabled: preference.enabled,
-            priority: preference.priority,
-            prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
-            readonly: false,
-            removable: true,
-            dictionaryType: 'frequency' as const,
-            help: '',
-        }))
-        .sort(compareSourceRows);
-}
-
 export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
     const language = settings.interfaceLanguage;
     const apiSource = activeKanjiFactSource(settings);

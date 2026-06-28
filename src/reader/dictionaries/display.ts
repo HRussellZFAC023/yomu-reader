@@ -1,4 +1,4 @@
-import type { InterfaceLanguage, ReaderSettings } from '../app/types';
+import type { InterfaceLanguage } from '../app/types';
 import type { YomitanMetaEntry, YomitanTermEntry } from './yomitan';
 import { LOOKUP_PILL_COLOR_TOKENS } from '../theme/color-tokens';
 
@@ -91,11 +91,6 @@ export function bestFrequencyEntries(entries: YomitanMetaEntry[]): YomitanMetaEn
         if (!current || metaFrequencyRank(entry.data) < metaFrequencyRank(current.data)) bestByDictionary.set(entry.dictionary, entry);
     }
     return [...bestByDictionary.values(), ...others];
-}
-
-export function dictionaryPreferencePriority(settings: ReaderSettings, dictionary: string): number {
-    const preference = settings.dictionaryPreferences.find(item => item.name === dictionary);
-    return preference?.priority ?? Number.MAX_SAFE_INTEGER;
 }
 
 function metaFrequencyRank(value: unknown): number {
