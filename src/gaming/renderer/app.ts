@@ -161,10 +161,6 @@ function installGamingOnboarding(form: HTMLFormElement): void {
                 <span>Capture shortcut</span>
                 <input data-capture-shortcut-input value="${escapeHtml(hotkeyLabel())}" aria-label="Capture shortcut" autocomplete="off" inputmode="none" spellcheck="false">
             </label>
-            <label>
-                <span>Local OCR endpoint</span>
-                <input data-ocr-endpoint-input value="${escapeHtml(shellState.settings.ocrEndpointUrl)}" aria-label="Local OCR endpoint">
-            </label>
             <fieldset class="yomu-gaming-page-scan-setup" data-gaming-page-scan-setup>
                 <legend>Page scanning</legend>
                 <div class="yomu-gaming-segmented" role="radiogroup" aria-label="Page scan mode">
