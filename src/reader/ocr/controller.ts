@@ -72,6 +72,11 @@ interface OcrRenderableMediaMutationSummary {
     addedImage: boolean;
 }
 
+interface PendingCanvasSnapshot {
+    key: string;
+    startedAt: number;
+}
+
 interface OcrControllerOptions {
     getSettings: () => ReaderSettings;
     parseJapanese: (text: string, options?: ReaderParserParseOptions) => Promise<JPDBToken[]>;
@@ -110,9 +115,11 @@ const READER_RASTER_RETRY_MAX_MS = 1100;
 const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
 const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
 const READER_RASTER_EMPTY_RETRY_MS = 650;
+const READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS = 8000;
 const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
 const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
 const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
+const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8000;
 const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
 const GOOGLE_LENS_API_KEY = 'AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY';
 const DEFAULT_LOCAL_OCR_ENDPOINT_URL = 'http://127.0.0.1:7331/ocr';
@@ -332,7 +339,7 @@ export class ImageOcrController {
     private canvasReaderSamePageSignatureSkips = 0;
     private readerRasterPoll = 0;
     private readerRasterRetryTimer = 0;
-    private readonly pendingCanvasSnapshots = new WeakMap<HTMLCanvasElement, string>();
+    private readonly pendingCanvasSnapshots = new WeakMap<HTMLCanvasElement, PendingCanvasSnapshot>();
     // Map (not WeakMap) so a page turn can clear ALL readiness at once. Keyed by
     // stable surface location instead of the canvas object: NFBR sometimes swaps an
     // equivalent #viewport canvas node while painting the same page, and object-keyed
@@ -1639,8 +1646,14 @@ export class ImageOcrController {
             if (!userRequested || this.canvasFrameKeys.get(canvas) === key) return;
             this.releaseCanvasFrame(canvas);
         }
-        if (this.pendingCanvasSnapshots.get(canvas) === key) return;
-        this.pendingCanvasSnapshots.set(canvas, key);
+        const existingPending = this.pendingCanvasSnapshots.get(canvas);
+        if (existingPending?.key === key) {
+            if (Date.now() - existingPending.startedAt < READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS) return;
+            this.pendingCanvasSnapshots.delete(canvas);
+            this.setCanvasCaptureFailed(canvas);
+        }
+        const pendingSnapshot: PendingCanvasSnapshot = { key, startedAt: Date.now() };
+        this.pendingCanvasSnapshots.set(canvas, pendingSnapshot);
         try {
             const rect = canvas.getBoundingClientRect();
             if (rect.width * rect.height < settings.ocrMinImageArea) return;
@@ -1663,7 +1676,7 @@ export class ImageOcrController {
             let contentKey: string | undefined;
             if (isCanvasReadable(canvas)) {
                 const contentSignature = canvasRenderedContentSignature(canvas);
-                if (!contentSignature) { this.scheduleCanvasCaptureRetry(canvas, userRequested); return; }
+                if (!contentSignature) { this.handleCanvasCaptureNotReady(canvas, rect, userRequested); return; }
                 if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
                 frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
                 contentKey = `cv:${contentSignature}:${canvas.width}x${canvas.height}`;
@@ -1691,8 +1704,10 @@ export class ImageOcrController {
                 frameSrc = readerCanvasSourceImageUrl();
                 if (frameSrc) contentKey = `src:${frameSrc}`; // page image URL is stable per page
             }
-            if (!frameSrc) { this.scheduleCanvasCaptureRetry(canvas, userRequested); return; }
+            if (this.pendingCanvasSnapshots.get(canvas) !== pendingSnapshot) return;
+            if (!frameSrc) { this.handleCanvasCaptureNotReady(canvas, rect, userRequested); return; }
             if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
+            if (this.pendingCanvasSnapshots.get(canvas) !== pendingSnapshot) return;
             if (canvasSurfaceSnapshotKey(canvas) !== key) {
                 // BookWalker can repaint the same canvas while a mirror/screenshot
                 // capture from the previous page is still resolving. Never append
@@ -1734,7 +1749,7 @@ export class ImageOcrController {
             this.canvasReaderSamePageSignatureSkips = 0;
             this.schedulePosition();
         } finally {
-            if (this.pendingCanvasSnapshots.get(canvas) === key) this.pendingCanvasSnapshots.delete(canvas);
+            if (this.pendingCanvasSnapshots.get(canvas) === pendingSnapshot) this.pendingCanvasSnapshots.delete(canvas);
         }
     }
 
@@ -1809,21 +1824,27 @@ export class ImageOcrController {
     // first seeing the freshly-composited page, that releaseAllCanvasFrames treats as a
     // turn) and is bounded by its own attempt count, so it can never become permanent
     // auto-OCR — it expires after READER_RASTER_MAX_CAPTURE_ATTEMPTS tries.
-    private scheduleCanvasCaptureRetry(canvas: HTMLCanvasElement, userRequested = false): void {
+    private handleCanvasCaptureNotReady(canvas: HTMLCanvasElement, rect: DOMRect, userRequested: boolean): void {
+        if (this.scheduleCanvasCaptureRetry(canvas, userRequested)) return;
+        this.updateCanvasPendingStatus(canvas, rect, 'failed');
+    }
+
+    private scheduleCanvasCaptureRetry(canvas: HTMLCanvasElement, userRequested = false): boolean {
         if (userRequested) {
             if (!this.canvasTapRecapture.has(canvas)) this.canvasTapRecapture.set(canvas, READER_RASTER_MAX_CAPTURE_ATTEMPTS);
             const remaining = this.canvasTapRecapture.get(canvas) ?? 0;
-            if (remaining <= 0) { this.canvasTapRecapture.delete(canvas); return; }
+            if (remaining <= 0) { this.canvasTapRecapture.delete(canvas); return false; }
             const attempt = READER_RASTER_MAX_CAPTURE_ATTEMPTS - remaining; // 0,1,2…
             const delay = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** attempt, READER_RASTER_RETRY_MAX_MS);
             this.scheduleReaderRasterRefresh(delay);
-            return;
+            return true;
         }
         const attempts = (this.canvasCaptureAttempts.get(canvas) ?? 0) + 1;
         this.canvasCaptureAttempts.set(canvas, attempts);
-        if (attempts > READER_RASTER_MAX_CAPTURE_ATTEMPTS) return;
+        if (attempts > READER_RASTER_MAX_CAPTURE_ATTEMPTS) return false;
         const delay = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** (attempts - 1), READER_RASTER_RETRY_MAX_MS);
         this.scheduleReaderRasterRefresh(delay);
+        return true;
     }
 
     // Re-attempt captures a tap requested but that weren't ready yet. Called before the
@@ -1857,6 +1878,12 @@ export class ImageOcrController {
         if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
         card.hidden = false;
         positionOcrImageStatus(card, this.visibleViewportIntersection(rect) ?? rect);
+    }
+
+    private setCanvasCaptureFailed(canvas: HTMLCanvasElement): void {
+        const rect = canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        this.updateCanvasPendingStatus(canvas, rect, 'failed');
     }
 
     private removeCanvasPendingStatus(canvas: HTMLCanvasElement): void {
@@ -4173,15 +4200,21 @@ function requestTextForm(url: string, data: FormData, timeout: number, headers?:
         .then(response => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
 }
 
-function requestBlob(url: string): Promise<Blob> {
+function requestBlob(url: string, timeout = 0): Promise<Blob> {
     const fallbackType = imageMimeTypeFromUrl(url);
     const userscriptRequest = requestViaUserscript<Blob>({
         method: 'GET',
         url,
         responseType: 'arraybuffer',
-    }, response => blobFromUserscriptResponse(response, fallbackType), status => `Image fetch returned ${status}.`);
+        timeout,
+    }, response => blobFromUserscriptResponse(response, fallbackType), status => `Image fetch returned ${status}.`, timeout ? 'Image fetch timed out.' : undefined);
     if (userscriptRequest) return userscriptRequest;
-    return fetch(url).then(response => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+    if (!timeout) return fetch(url).then(response => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), timeout);
+    return fetch(url, { signal: controller.signal })
+        .then(response => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)))
+        .finally(() => window.clearTimeout(timer));
 }
 
 // GM_xmlhttpRequest now returns an arraybuffer (not a typed Blob), and the reader turns
@@ -4246,25 +4279,48 @@ function requestViaUserscript<T>(
     }
     return new Promise((resolve, reject) => {
         let settled = false;
-        const onload = (response: UserscriptHttpResponse): void => {
+        let requestHandle: UserscriptHttpRequestHandle | undefined;
+        let timeoutId = 0;
+        const settle = (fn: () => void): void => {
             if (settled) return;
             settled = true;
-            if (isSuccessfulHttpStatus(response.status)) resolve(readResponse(response));
-            else reject(new Error(statusMessage(response.status)));
+            if (timeoutId) window.clearTimeout(timeoutId);
+            fn();
         };
-        const fail = (error: unknown): void => { if (!settled) { settled = true; reject(error instanceof Error ? error : new Error(String(error || 'Request failed.'))); } };
-        const result = userscriptRequest({
-            ...options,
-            onload,
-            onerror: fail,
-            ...(timeoutMessage ? { ontimeout: () => fail(new Error(timeoutMessage)) } : {}),
-        });
-        // GM4 / the Safari "Userscripts" extension: GM.xmlHttpRequest can RESOLVE a
-        // promise instead of (or as well as) firing onload. Bridge that so a
-        // promise-only manager isn't left hanging until the 30s timeout (which broke
-        // OCR + the BookWalker mirror image fetch on those harnesses).
-        if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-            (result as Promise<UserscriptHttpResponse>).then(onload, fail);
+        const onload = (response: UserscriptHttpResponse): void => {
+            settle(() => {
+                if (isSuccessfulHttpStatus(response.status)) resolve(readResponse(response));
+                else reject(new Error(statusMessage(response.status)));
+            });
+        };
+        const fail = (error: unknown): void => {
+            settle(() => reject(error instanceof Error ? error : new Error(String(error || 'Request failed.'))));
+        };
+        const timeout = Math.max(0, Math.round(options.timeout || 0));
+        if (timeout) {
+            timeoutId = window.setTimeout(() => {
+                try { requestHandle?.abort?.(); } catch { /* ignored */ }
+                fail(new Error(timeoutMessage ?? 'Request timed out.'));
+            }, timeout);
+        }
+        try {
+            const result = userscriptRequest({
+                ...options,
+                onload,
+                onerror: fail,
+                ...(timeoutMessage ? { ontimeout: () => fail(new Error(timeoutMessage)) } : {}),
+            });
+            if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
+                // GM4 / the Safari "Userscripts" extension: GM.xmlHttpRequest can RESOLVE a
+                // promise instead of (or as well as) firing onload. Bridge that so a
+                // promise-only manager isn't left hanging until the 30s timeout (which broke
+                // OCR + the BookWalker mirror image fetch on those harnesses).
+                (result as Promise<UserscriptHttpResponse>).then(onload, fail);
+            } else if (result) {
+                requestHandle = result as UserscriptHttpRequestHandle;
+            }
+        } catch (error) {
+            fail(error);
         }
     });
 }
@@ -4273,11 +4329,17 @@ function isSuccessfulHttpStatus(status: number): boolean {
     return status >= 200 && status < 300;
 }
 
-function loadImage(url: string): Promise<HTMLImageElement> {
+function loadImage(url: string, timeout = 0): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const image = new Image();
-        image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error('Image decode failed.'));
+        let timer = 0;
+        const settle = (fn: () => void): void => {
+            if (timer) window.clearTimeout(timer);
+            fn();
+        };
+        image.onload = () => settle(() => resolve(image));
+        image.onerror = () => settle(() => reject(new Error('Image decode failed.')));
+        if (timeout) timer = window.setTimeout(() => settle(() => reject(new Error('Image decode timed out.'))), timeout);
         image.src = url;
     });
 }
@@ -4287,10 +4349,10 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 // descramble tiles without tainting. Returns undefined for unfetchable URLs.
 async function loadCleanMirrorImage(url: string): Promise<HTMLImageElement | undefined> {
     if (!url || url.startsWith('data:') || url.startsWith('blob:')) return undefined;
-    const blob = await requestBlob(url);
+    const blob = await requestBlob(url, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
     const objectUrl = URL.createObjectURL(blob);
     try {
-        return await loadImage(objectUrl);
+        return await loadImage(objectUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
     } finally {
         URL.revokeObjectURL(objectUrl);
     }

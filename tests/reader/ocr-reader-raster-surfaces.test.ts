@@ -1232,6 +1232,37 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('abandons a hung BookWalker mirror capture and retries the same visible canvas', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        let now = 1000;
+        const dateNow = vi.spyOn(Date, 'now').mockImplementation(() => now);
+        const captureCanvasMirror = vi.fn()
+            .mockImplementationOnce(() => new Promise<HTMLCanvasElement>(() => { /* deliberately hung */ }))
+            .mockImplementationOnce(async () => mirrorCanvas('RECOVERED_AFTER_HANG'));
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+            });
+
+            now += 8100;
+            controller.refresh();
+
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src')).toBe('data:image/jpeg;base64,RECOVERED_AFTER_HANG');
+            });
+        } finally {
+            controller.destroy();
+            dateNow.mockRestore();
+        }
+    });
+
     // P1-2: in tap/manual mode the 1200ms poll never used to detect a turn, leaving
     // the previous page's overlay over the new page. Detection now always runs (so
     // the stale frame is dropped) while capture stays a tap's job.
