@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { applyTokensToScanTarget, collectFormControlTextTargetsIn, collectFragmentTextTargetsIn, type FragmentTextTarget } from '../../src/reader/dom';
+import { applyTokensToScanTarget, collectFormControlTextTargetsIn, collectFragmentTextTargetsIn, collectTextTargetsIn, type FragmentTextTarget } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -80,6 +80,7 @@ describe('generic reader layout overflow guards', () => {
         expect(targets.map(target => target.text)).toContain('普通の日本語本文です。');
         expect(targets.map(target => target.text)).not.toContain('メッセージを入力');
         expect(targets.map(target => target.text)).not.toContain('送信');
+        expect(collectTextTargetsIn(document.body, 20, false, { includeReaderRoot: false }).map(target => target.text)).not.toContain('送信');
     });
 
     it('does not collect input or textarea placeholders as control mirrors', () => {

@@ -3708,6 +3708,7 @@ const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=tr
 const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]';
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
+const COMPOSER_CHROME_SELECTOR = "[class*=composer i],[id*=composer i]";
 const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = 'header, nav, footer, [role="banner"], [role="navigation"], [role="contentinfo"], [role="menubar"], [role="tablist"], [role="toolbar"]';
 const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
@@ -3830,6 +3831,7 @@ const ANNOTATABLE_CONTROL_SELECTOR = COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR
 function isAnnotatableChipControl(blocked) {
   if (!blocked.matches(ANNOTATABLE_CONTROL_SELECTOR)) return false;
   const control = blocked.closest(ANNOTATABLE_CONTROL_SELECTOR) ?? blocked;
+  if (control.closest(COMPOSER_CHROME_SELECTOR)) return false;
   const text2 = control.textContent?.replace(/\s+/g, "").trim() ?? "";
   return text2.length > 0 && text2.length <= CONTROL_LABEL_TEXT_LIMIT && HAS_JAPANESE$1.test(text2);
 }
@@ -4120,7 +4122,7 @@ function shouldFlushAndSkipFragmentElement(element2, state, isRoot) {
 }
 function matchesSkippedFragmentElement(element2, state, isRoot) {
   if (state.excludeSelector && safeElementMatches$1(element2, state.excludeSelector)) return true;
-  if (element2.closest("[class*=composer i],[id*=composer i]")) return true;
+  if (element2.closest(COMPOSER_CHROME_SELECTOR)) return true;
   return !isRoot && shouldSkipFragmentElement(element2, state.options);
 }
 function shouldSkipInvisibleFragmentElement(element2, visibleOnly) {

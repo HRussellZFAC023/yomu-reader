@@ -7226,6 +7226,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]';
   const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
   const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
+  const COMPOSER_CHROME_SELECTOR = "[class*=composer i],[id*=composer i]";
   const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = 'header, nav, footer, [role="banner"], [role="navigation"], [role="contentinfo"], [role="menubar"], [role="tablist"], [role="toolbar"]';
   const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
   const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
@@ -7455,7 +7456,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function matchesSkippedFragmentElement(element, state2, isRoot) {
     if (state2.excludeSelector && safeElementMatches(element, state2.excludeSelector)) return true;
-    if (element.closest("[class*=composer i],[id*=composer i]")) return true;
+    if (element.closest(COMPOSER_CHROME_SELECTOR)) return true;
     return !isRoot && shouldSkipFragmentElement(element, state2.options);
   }
   function shouldSkipInvisibleFragmentElement(element, visibleOnly) {
