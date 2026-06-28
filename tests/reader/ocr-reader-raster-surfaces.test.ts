@@ -371,6 +371,8 @@ describe('reader raster OCR surfaces', () => {
         viewport.append(canvas);
         document.body.append(viewport);
 
+        const naturalWidth = vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(1200);
+        const naturalHeight = vi.spyOn(HTMLImageElement.prototype, 'naturalHeight', 'get').mockReturnValue(1600);
         const controller = createController();
         const recognizeImage = vi.fn(async (): Promise<OcrResult> => ({
             width: 1200,
@@ -424,6 +426,8 @@ describe('reader raster OCR surfaces', () => {
             expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
         } finally {
             controller.destroy();
+            naturalWidth.mockRestore();
+            naturalHeight.mockRestore();
         }
     }, 16_000);
 
