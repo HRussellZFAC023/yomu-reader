@@ -1,11 +1,17 @@
 # Changelog
 
+## [1.4.172] - 2026-06-28
+
+### Fixed
+
+- Published the Reddit Japanese locale fix with the OCR release regression focused on rendered text instead of runner-specific provider timing.
+- Fixed BookWalker raster OCR rescans on real reader pages by auto-scanning canvas-only viewers, dropping poisoned empty raster cache entries, retrying transient empty captures, reporting OCR transport failures as failures, and releasing collapsed recycled canvases instead of leaving stale Text ready or No text found pills.
+
 ## [1.4.171] - 2026-06-28
 
 ### Fixed
 
 - Published the Reddit Japanese locale fix with a deterministic OCR release regression test across CI runners.
-- Fixed BookWalker raster OCR rescans on real reader pages by auto-scanning canvas-only viewers, dropping poisoned empty raster cache entries, retrying transient empty captures, reporting OCR transport failures as failures, and releasing collapsed recycled canvases instead of leaving stale Text ready or No text found pills.
 
 ## [1.4.170] - 2026-06-28
 
