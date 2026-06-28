@@ -98,7 +98,7 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string): HeadConfig[] {
             featureList: [
                 'Japanese popup dictionary lookup',
                 'Manga and image OCR',
-                'PC and Steam Deck game text handoff guide',
+                'Yomu Gaming desktop capture',
                 'Video subtitle mining',
                 'Yomitan dictionary import',
                 'Anki card creation',
@@ -241,6 +241,7 @@ export default defineConfig({
                 items: [
                     { text: 'All tools', link: '/tools/' },
                     { text: 'OCR & manga', link: '/tools/japanese-ocr' },
+                    { text: 'Yomu Gaming', link: '/tools/yomu-gaming' },
                     { text: 'Subtitles & video', link: '/tools/japanese-subtitle-reader' },
                     { text: 'Video Player', link: videoPlayerLink, target: '_self' },
                     { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },

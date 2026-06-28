@@ -20,7 +20,7 @@ hero:
       text: Install
       link: https://yomureader.com/yomu.user.js
     - theme: alt
-      text: Setup
+      text: Setup guide
       link: /getting-started
       target: _self
     - theme: alt
@@ -35,43 +35,11 @@ hero:
       text: Study
       link: /newtab/index.html
       target: _self
+    - theme: alt
+      text: Yomu Gaming
+      link: /tools/yomu-gaming
+      target: _self
 ---
-
-<style>
-.VPHome .VPHomeHero {
-  padding-block-end: clamp(4px, 1.2vw, 12px);
-}
-
-.VPHome .yomu-install-panel {
-  margin-top: clamp(-12px, -1vw, -6px);
-  margin-bottom: clamp(22px, 3vw, 30px);
-}
-
-.VPHome .yomu-demo {
-  margin-top: 0;
-  margin-bottom: clamp(34px, 4vw, 48px);
-}
-
-.VPHome .yomu-manga-ocr {
-  margin-bottom: clamp(34px, 4vw, 48px);
-}
-
-.VPHome .yomu-video-showcase {
-  margin-bottom: clamp(40px, 5vw, 56px);
-}
-
-@media (max-width: 700px) {
-  .VPHome .yomu-install-panel {
-    margin-bottom: 22px;
-  }
-
-  .VPHome .yomu-demo,
-  .VPHome .yomu-manga-ocr,
-  .VPHome .yomu-video-showcase {
-    margin-block: 22px;
-  }
-}
-</style>
 
 <div class="yomu-install-panel">
   <div class="yomu-install-copy">
@@ -159,6 +127,6 @@ hero:
   </a>
   <a class="yomu-link-card" href="/tools/yomu-gaming">
     <strong>Games</strong>
-    <span>Use Yomu Gaming for first-party PC game capture.</span>
+    <span>Use the first-party desktop app for PC game capture and lookup.</span>
   </a>
 </div>

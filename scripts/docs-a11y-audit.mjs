@@ -24,6 +24,7 @@ const pages = [
     { name: 'tool-japanese-subtitle-reader', path: '/tools/japanese-subtitle-reader' },
     { name: 'tool-kanji-stroke-order', path: '/tools/kanji-stroke-order' },
     { name: 'tool-study-page', path: '/tools/study-page' },
+    { name: 'tool-yomu-gaming', path: '/tools/yomu-gaming' },
     { name: 'tool-youtube-japanese', path: '/tools/youtube-japanese' },
     { name: 'guides', path: '/guides/' },
     { name: 'guide-comprehensible-input-youtube', path: '/guides/comprehensible-input-youtube' },

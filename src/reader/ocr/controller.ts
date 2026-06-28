@@ -1740,7 +1740,17 @@ export class ImageOcrController {
         if (!this.canvasFrames.size) return false;
         if (shouldTrustStableBookwalkerPageCounter() && hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
         if (!isSameCanvasReaderPageLocation(this.canvasReaderSignature, signature)) return false;
+        // A genuine page turn replaces the per-canvas CONTENT fingerprint with a
+        // DIFFERENT real token, so release and re-OCR the new page even if the page
+        // counter lags. Scroll offset and global mirror-epoch churn are NOT real
+        // content changes — holding through them is what stops within-page scroll on a
+        // single vertical viewport (BookWalker cty=2) from tearing the overlay down.
+        if (hasDifferentRealCanvasReaderContent(this.canvasReaderSignature, signature)) return false;
         if (hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
+        // No usable page counter and no real content token: the global mirror epoch is
+        // the only remaining page-turn signal, so honour it here. A viewer WITH a stable
+        // counter (e.g. cty=2) returns above before reaching this line, so epoch churn
+        // there no longer tears the overlay down.
         if (isCanvasMirrorEpochTransition(this.canvasReaderSignature, signature)) return false;
         this.canvasReaderSamePageSignatureSkips += 1;
         if (this.canvasReaderSamePageSignatureSkips <= READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT) return true;
@@ -3949,11 +3959,34 @@ function isSameCanvasReaderPageLocation(previous: string, next: string): boolean
     const previousParts = splitCanvasReaderSignature(previous);
     const nextParts = splitCanvasReaderSignature(next);
     if (!previousParts || !nextParts) return false;
+    // Scroll offset is deliberately NOT part of page IDENTITY. It stays in the
+    // signature (so a scroll still triggers a reposition/prefetch refresh) but must
+    // not, on its own, read as a page change — otherwise within-page scroll on a
+    // single vertical viewport (BookWalker cty=2) tears the OCR overlay down every
+    // ~40px and the scan never settles.
     return previousParts.counter === nextParts.counter
-        && previousParts.scroll === nextParts.scroll
         && previousParts.backgrounds === nextParts.backgrounds;
 }
 
+// True only for a REAL page-content change: the per-canvas content fingerprint (pixel
+// hash or mirror leaf-URL set) moved to a different real token. When both sides are a
+// global mirror-epoch number or empty, page identity is unknown — that is churn, not a
+// turn, so it is NOT reported as a change (the overlay holds; the periodic skip-limit
+// re-check is the safety valve). This is what keeps within-page scroll and continuous
+// epoch churn from tearing the OCR overlay down on cty=2.
+function hasDifferentRealCanvasReaderContent(previous: string, next: string): boolean {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    if (previousParts.content === nextParts.content) return false;
+    return !(isCanvasMirrorEpochOrEmpty(previousParts.content) && isCanvasMirrorEpochOrEmpty(nextParts.content));
+}
+
+// The inverse fallback: the per-canvas content is only the global mirror epoch (or
+// empty) on both sides and it moved. Page identity is otherwise unknown, so this is
+// the last-resort turn signal for a counter-less, token-less viewer. Callers must
+// prefer a real content change or a stable page counter first; this stands in only
+// when neither exists.
 function isCanvasMirrorEpochTransition(previous: string, next: string): boolean {
     const previousParts = splitCanvasReaderSignature(previous);
     const nextParts = splitCanvasReaderSignature(next);

@@ -44,7 +44,7 @@
 - **Lookup anywhere:** choose Japanese text on normal pages, OCR results, subtitles, and PDFs.
 - **Mine while reading:** create Anki cards, add/review words in Jiten or JPDB, and keep the source sentence/context.
 - **Bring your dictionaries:** import Yomitan ZIPs, JMdict, kanji dictionaries, pitch dictionaries, and frequency dictionaries.
-- **Read media, not only text:** manga/image OCR, game text handoff, YouTube subtitle mining, a local video reader, and a PDF reader.
+- **Read media, not only text:** manga/image OCR, PC game capture through Yomu Gaming, YouTube subtitle mining, a local video reader, and a PDF reader.
 - **Mobile-friendly:** works on iPhone/iPad through userscript apps, with touch-first lookup and mobile Anki handoff.
 - **Free and open source:** MIT-licensed, no account needed to start.
 
@@ -70,7 +70,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 | --- | --- |
 | Web reading | Popup dictionary lookup, furigana, pitch/accent color, audio, examples, and kanji drilldown |
 | Manga and images | OCR overlays that make recognized Japanese lookup-ready without covering the page |
-| Games | First-party Yomu Gaming desktop capture for PC game text |
+| Games | First-party Yomu Gaming desktop capture, local OCR handoff, and in-place lookup |
 | Video | ASB-style subtitle overlay, transcript lookup, mining, and a hosted local-file video reader |
 | PDFs | Browser PDF reader with selectable text, OCR fallback, and the same popup/mining flow |
 | Study | AnkiConnect cards, mobile Anki handoff, Jiten/JPDB actions, offline cached reviews, and the hosted study page |
@@ -79,17 +79,17 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 ## Hosted Tools
 
 - [Homepage PWA](https://yomureader.com/) installs as one Yomu shell with offline docs fallback and shortcuts to Study, Video, PDF, and setup.
-- [Yomu Gaming](https://yomureader.com/tools/yomu-gaming) is the first-party desktop app for PC game capture; download the release file from [GitHub Releases](https://github.com/HRussellZFAC023/yomu-reader/releases/latest).
 - [Video reader](https://yomureader.com/video-player/index.html) for local video files and subtitles.
 - [PDF reader](https://yomureader.com/pdf-reader/) for Japanese PDFs and scanned pages.
 - [Study page](https://yomureader.com/newtab/) for review cards in a browser tab or mobile Home Screen shortcut.
+- [Yomu Gaming](https://yomureader.com/tools/yomu-gaming) for first-party PC game capture and lookup.
 - [Feature guide](https://yomureader.com/features) for screenshots and detailed behavior.
 
 ## Privacy
 
 よむ keeps imported Yomitan dictionaries and settings in your browser. Anki mining talks to your local AnkiConnect endpoint. Jiten, JPDB, Immersion Kit, Nadeshiko, custom audio, local OCR, and optional kanji data sources are contacted only when their related features are enabled or used.
 
-Yomu Gaming captures game text locally for lookup and study. External capture, audio, cloud OCR, or translation services are outside よむ unless you explicitly choose them.
+Yomu Gaming sends captured images only to the local OCR endpoint you configure. Clipboard capture, screenshot capture, audio capture, and cloud OCR or translation services outside that endpoint are external unless you explicitly choose them.
 
 For the fuller privacy and setup notes, read the docs at [yomureader.com](https://yomureader.com/).
 
@@ -104,10 +104,8 @@ Common commands:
 
 ```bash
 npm run dev          # userscript/docs dev harness
-npm run dev:gaming   # Electron desktop app for game capture/OCR lookup
 npm run dev:vite     # plain Vite/new-tab dev server
 npm run build        # production userscript + hosted assets
-npm run build:gaming # renderer + Electron main/preload build
 npm run verify       # userscript metadata and size checks
 npm run qa           # build + smoke/a11y/complexity checks
 ```

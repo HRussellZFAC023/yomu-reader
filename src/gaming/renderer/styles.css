@@ -47,19 +47,19 @@ textarea {
     left: auto;
     top: auto;
     transform: none;
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
+    width: min(1180px, calc(100vw - 24px));
+    height: calc(100vh - 24px);
+    height: calc(100dvh - 24px);
     max-height: none;
-    margin: 0;
-    border: 0;
-    border-radius: 0;
+    margin: 12px auto;
+    border: 1px solid var(--jpdb-reader-border);
+    border-radius: 12px;
     background: var(--jpdb-reader-surface);
-    box-shadow: none;
+    box-shadow: 0 20px 46px var(--jpdb-reader-shadow);
 }
 
 .yomu-gaming-settings .jpdb-reader-settings-head {
-    padding-top: 20px;
+    padding-top: 16px;
 }
 
 .yomu-gaming-settings .jpdb-reader-settings-drag-handle {
@@ -69,12 +69,25 @@ textarea {
 .yomu-gaming-onboarding {
     display: grid;
     grid-template-columns: minmax(220px, 1.1fr) minmax(240px, 0.9fr);
-    gap: 16px;
-    margin: 0 18px 14px;
-    padding: 16px;
+    gap: 14px;
+    margin: 0 18px 12px;
+    padding: 14px;
     border: 1px solid var(--jpdb-reader-border);
     border-radius: 8px;
     background: color-mix(in srgb, var(--jpdb-reader-surface-2) 72%, transparent);
+}
+
+.yomu-gaming-onboarding[data-first-run-dismissed="true"] .yomu-gaming-first-run-copy,
+.yomu-gaming-onboarding[data-first-run-dismissed="true"] .yomu-gaming-first-run-controls,
+.yomu-gaming-onboarding[data-first-run-dismissed="true"] .yomu-gaming-first-run-features,
+.yomu-gaming-onboarding[data-first-run-dismissed="true"] [data-action="dismiss-gaming-first-run"] {
+    display: none;
+}
+
+.yomu-gaming-onboarding[data-first-run-dismissed="true"] {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding-block: 10px;
 }
 
 .yomu-gaming-first-run-copy {
@@ -233,6 +246,27 @@ textarea {
     background: var(--jpdb-reader-surface);
     color: var(--jpdb-reader-text);
     font-weight: 800;
+}
+
+.yomu-gaming-first-run-features {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.yomu-gaming-first-run-features > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    padding: 8px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--jpdb-reader-surface) 74%, transparent);
+}
+
+.yomu-gaming-first-run-features span {
+    white-space: normal;
 }
 
 .yomu-gaming-onboarding-summary {
@@ -579,8 +613,16 @@ textarea {
         margin: 0 12px 12px;
     }
 
+    .yomu-gaming-onboarding[data-first-run-dismissed="true"] {
+        grid-template-columns: 1fr;
+    }
+
     .yomu-gaming-onboarding-summary {
         grid-template-columns: 1fr;
+    }
+
+    .yomu-gaming-first-run-features {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .yomu-gaming-onboarding span {

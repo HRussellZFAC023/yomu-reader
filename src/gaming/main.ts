@@ -1,5 +1,4 @@
 import { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, nativeImage, screen, shell } from 'electron';
-import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -16,7 +15,6 @@ import {
 } from './ipc';
 
 const DEFAULT_HOTKEY = 'CommandOrControl+Shift+Y';
-const APP_NAME = 'Yomu Gaming';
 const DEFAULT_CAPTURE_WIDTH = 1920;
 const DEFAULT_CAPTURE_HEIGHT = 1080;
 const OCR_TIMEOUT_MS = 18_000;
@@ -54,40 +52,9 @@ const SHORTCUT_PART_ALIASES = new Map<string, string>([
     ['plus', 'Plus'],
 ]);
 
-const nativeConsoleError = console.error.bind(console);
-
-function isBenignPipeError(error: unknown): boolean {
-    const message = error instanceof Error ? error.message : String(error ?? '');
-    const code = error && typeof error === 'object' && 'code' in error
-        ? String((error as NodeJS.ErrnoException).code ?? '')
-        : '';
-    return code === 'EPIPE' || /write EPIPE/i.test(message);
-}
-
-console.error = (...args: unknown[]) => {
-    try {
-        nativeConsoleError(...args);
-    } catch (error) {
-        if (!isBenignPipeError(error)) throw error;
-    }
-};
-
-process.on('uncaughtException', error => {
-    if (isBenignPipeError(error)) return;
-    nativeConsoleError(error);
-    process.exitCode = 1;
-});
-
-process.on('unhandledRejection', reason => {
-    if (isBenignPipeError(reason)) return;
-    nativeConsoleError(reason);
-});
-
 if (process.env.YOMU_GAMING_USER_DATA_DIR) {
     app.setPath('userData', path.resolve(process.env.YOMU_GAMING_USER_DATA_DIR));
 }
-
-app.setName(APP_NAME);
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
@@ -118,16 +85,14 @@ function overlayModeFromHash(hash: string): YomuGamingCaptureMode | '' {
 }
 
 async function createMainWindow(): Promise<void> {
-    const iconPath = resolveAppIconPath();
     mainWindow = new BrowserWindow({
-        width: 1280,
-        height: 900,
-        minWidth: 900,
-        minHeight: 640,
-        title: APP_NAME,
-        backgroundColor: '#f8fafc',
+        width: 1080,
+        height: 760,
+        minWidth: 640,
+        minHeight: 520,
+        title: 'よむ Gaming Settings',
+        backgroundColor: '#fbfcfe',
         alwaysOnTop: false,
-        ...(iconPath ? { icon: iconPath } : {}),
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
             contextIsolation: true,
@@ -150,7 +115,6 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<Browser
         return overlayWindow;
     }
     const display = screen.getPrimaryDisplay();
-    const iconPath = resolveAppIconPath();
     overlayWindow = new BrowserWindow({
         x: display.bounds.x,
         y: display.bounds.y,
@@ -163,8 +127,7 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<Browser
         skipTaskbar: true,
         show: false,
         alwaysOnTop: true,
-        title: `${APP_NAME} Overlay`,
-        ...(iconPath ? { icon: iconPath } : {}),
+        title: 'よむ Gaming Overlay',
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
             contextIsolation: true,
@@ -179,16 +142,6 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<Browser
     });
     await overlayWindow.loadURL(rendererUrl(hash));
     return overlayWindow;
-}
-
-function resolveAppIconPath(): string {
-    const candidates = [
-        process.env.YOMU_GAMING_ICON_PATH,
-        path.join(__dirname, '..', 'icon.png'),
-        path.join(app.getAppPath(), 'icon.png'),
-        path.join(process.cwd(), 'public', 'app-icons', 'yomu-gaming-512.png'),
-    ].filter(Boolean) as string[];
-    return candidates.find(candidate => existsSync(candidate)) ?? '';
 }
 
 async function showOverlay(mode: YomuGamingCaptureMode = 'instant'): Promise<void> {
@@ -510,8 +463,6 @@ function registerGlobalShortcuts(): void {
 }
 
 app.whenReady().then(async () => {
-    const iconPath = resolveAppIconPath();
-    if (process.platform === 'darwin' && iconPath) app.dock?.setIcon(nativeImage.createFromPath(iconPath));
     registerIpcHandlers();
     await loadCaptureShortcut();
     registerGlobalShortcuts();

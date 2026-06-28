@@ -1,10 +1,24 @@
 # Changelog
 
-## [1.4.178] - 2026-06-28
+## [1.4.179] - 2026-06-28
 
 ### Fixed
 
-- Repaired Study/Newtab reveal so the answer keeps furigana, pitch, frequency, dictionary links, and the study audio button inline without rendering the old duplicate lookup card; local audio clips play/restart without localhost fetch/CORS spam, and optional lookup failures keep their debug logging without surfacing noisy console errors.
+- Fixed BookWalker single-viewport vertical reading (cty=2) where OCR re-scanned on every small scroll and never settled past the first page: scroll position and mirror-epoch churn no longer count as a page turn, so the OCR overlay and its hover lookup survive within-page scrolling while genuine page turns still re-OCR the new page.
+
+## [1.4.178] - 2026-06-28
+
+### Added
+
+- Added the first-party Yomu Gaming desktop app with branded onboarding/settings, configurable whole-screen capture shortcuts, optional area capture, local OCR handoff, in-place OCR overlay lookup, smoke coverage, packaging scripts, and a GitHub Actions workflow for release artifacts.
+
+### Changed
+
+- Replaced the public third-party gaming guide and public ADR/comparison pages with first-party Yomu Gaming install docs and guarded docs builds so public pages do not publish internal strategy or competitor-first app guidance.
+
+### Fixed
+
+- Kept compact control text and passive footer/navigation links eligible for safe lookup while continuing to skip editable composer surfaces during visible-page scans.
 
 ## [1.4.177] - 2026-06-28
 
@@ -22,7 +36,6 @@
 
 ### Fixed
 
-- Kept OCR overlay text dark by default in dark mode too, using a light readable highlight instead of falling back to white text.
 - Kept generated page-word highlights light on NHK Easy and other bright pages while still measuring them for readable text contrast, so hover no longer appears to fix an overly dark normal highlight.
 - Let active scanned page text wrap normally in narrow prose, card, and sidebar containers while keeping passive controls and text mirrors on their compact wrapping rules.
 
@@ -84,7 +97,6 @@
 
 ### Fixed
 
-- Silenced optional hosted new-tab lookup warnings when Jiten, JPDB kanji, RTK, or KanjiVG cannot be fetched without a userscript bridge or configured proxy, keeping Study/Newtab consoles clear while preserving the lookup fallbacks.
 - Replaced Reddit's stripped Japanese translation URL hint with Reddit's working Japanese locale URL hint, so the Japanese site-language preference can load Reddit's Japanese shell instead of normalizing back to the English feed URL.
 
 ## [1.4.164] - 2026-06-28
@@ -214,9 +226,10 @@
 
 ## [1.4.144] - 2026-06-27
 
-### Changed
+### Added
 
-- Renamed the settings “New Tab” link to “Study” and aligned English/Japanese localization so the label is now fully translated from `newTabPage`.
+- Added a Steam Deck and PC gaming guide that replaces the YomiNinja-only workflow, explains the current PWA/no-install boundary, and compares Decky/native OCR helpers for game text handoff.
+- Recorded ADR 0004 for the gaming distribution strategy and the first Gaming Text Bridge contract sketch.
 
 ## [1.4.143] - 2026-06-27
 

@@ -29,7 +29,6 @@ await rm(packagesDir, { recursive: true, force: true });
 await mkdir(packageSourceDir, { recursive: true });
 await cp(path.join(distRoot, 'electron'), path.join(packageSourceDir, 'electron'), { recursive: true });
 await cp(path.join(distRoot, 'renderer'), path.join(packageSourceDir, 'renderer'), { recursive: true });
-await cp(path.join(appRoot, 'public', 'app-icons', 'yomu-gaming-512.png'), path.join(packageSourceDir, 'icon.png'));
 await writeFile(path.join(packageSourceDir, 'package.json'), JSON.stringify({
     name: 'yomu-gaming',
     productName: 'Yomu Gaming',

@@ -8823,6 +8823,7 @@ ${candidate.depth}`;
       if (!this.canvasFrames.size) return false;
       if (shouldTrustStableBookwalkerPageCounter() && hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
       if (!isSameCanvasReaderPageLocation(this.canvasReaderSignature, signature)) return false;
+      if (hasDifferentRealCanvasReaderContent(this.canvasReaderSignature, signature)) return false;
       if (hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
       if (isCanvasMirrorEpochTransition(this.canvasReaderSignature, signature)) return false;
       this.canvasReaderSamePageSignatureSkips += 1;
@@ -10601,7 +10602,14 @@ ${spelling}`);
     const previousParts = splitCanvasReaderSignature(previous);
     const nextParts = splitCanvasReaderSignature(next);
     if (!previousParts || !nextParts) return false;
-    return previousParts.counter === nextParts.counter && previousParts.scroll === nextParts.scroll && previousParts.backgrounds === nextParts.backgrounds;
+    return previousParts.counter === nextParts.counter && previousParts.backgrounds === nextParts.backgrounds;
+  }
+  function hasDifferentRealCanvasReaderContent(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    if (previousParts.content === nextParts.content) return false;
+    return !(isCanvasMirrorEpochOrEmpty(previousParts.content) && isCanvasMirrorEpochOrEmpty(nextParts.content));
   }
   function isCanvasMirrorEpochTransition(previous, next) {
     const previousParts = splitCanvasReaderSignature(previous);

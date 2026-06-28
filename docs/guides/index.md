@@ -1,10 +1,10 @@
 ---
 title: Japanese Immersion Guides
-description: Free, practical guides to learning Japanese by reading, watching, and playing what you like — read raw manga, mine sentences from anime and YouTube to Anki, use first-party Yomu Gaming for PC game text capture, find comprehensible-input channels, and choose between Yomitan, Jiten, JPDB, and Anki.
+description: Free, practical guides to learning Japanese by reading, watching, and playing what you like — read raw manga, mine sentences from anime and YouTube to Anki, install Yomu Gaming for PC game capture, find comprehensible-input channels, and choose between Yomitan, Jiten, JPDB, and Anki.
 head:
   - - meta
     - name: keywords
-      content: learn japanese by immersion, japanese immersion guide, read manga in japanese, read japanese games, Yomu Gaming, sentence mining, comprehensible input japanese, yomitan jiten jpdb anki
+      content: learn japanese by immersion, japanese immersion guide, read manga in japanese, read japanese games, steam deck japanese OCR, sentence mining, comprehensible input japanese, yomitan jiten jpdb anki
 ---
 
 # Japanese Immersion Guides
@@ -31,6 +31,10 @@ New here? Start with the [setup guide](/getting-started), then pick a workflow:
     <strong>Yomitan vs Jiten vs JPDB vs Anki</strong>
     <span>What each one is for, and how to use any or all of them from one popup.</span>
   </a>
+  <a class="yomu-link-card" href="/tools/yomu-gaming">
+    <strong>Read games with Yomu Gaming</strong>
+    <span>Install the first-party desktop app for PC game capture, OCR setup, and lookup.</span>
+  </a>
 </div>
 
 ## How to use these
@@ -42,6 +46,6 @@ If you haven't installed よむ yet, that's step zero for all of them:
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/getting-started">Setup</a>
+  <a class="yomu-cta-button" href="/getting-started">Setup guide</a>
   <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>
