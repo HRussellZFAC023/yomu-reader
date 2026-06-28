@@ -15038,6 +15038,44 @@ describe('reader helpers', () => {
         }
     });
 
+    it('plays Jiten text-to-speech directly instead of blob-fetching through the hosted proxy', async () => {
+        const played: string[] = [];
+        const restoreMedia = mockHtmlAudioPlayback(played);
+        const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(() => {
+            throw new Error('Jiten TTS media should be played directly');
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        vi.stubGlobal('GM', undefined);
+        vi.stubGlobal('GM_xmlhttpRequest', undefined);
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'jiten-tts', url: '', voice: 'asmr', enabled: true },
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                ],
+            }));
+
+            await expect(player.play(jitenTestCard({
+                spelling: 'よむ',
+                reading: 'よむ',
+                jitenWordId: 1456360,
+                jitenReadingIndex: 0,
+            }))).resolves.toBe(true);
+
+            expect(fetchMock).not.toHaveBeenCalled();
+            expect(played).toEqual(['https://api.jiten.moe/api/tts/word/1456360/0?voice=asmr']);
+        } finally {
+            restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('plays the configured first source even when a later source would be faster', async () => {
         vi.useFakeTimers();
         const played: string[] = [];

@@ -695,7 +695,8 @@ export class AudioPlayer {
         if (sourceType === 'jpdb-tts' && candidate.jpdbAudioId) {
             return this.preparePlayableJpdbAudio(candidate.jpdbAudioId, settings, reservedAudio);
         }
-        const audioViaBlob = settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType) || shouldForceBlobAudioCandidate(candidate);
+        const audioViaBlob = sourceType !== 'jiten-tts'
+            && (settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType) || shouldForceBlobAudioCandidate(candidate));
         return audioViaBlob
             ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio)
             : reservedAudio ? this.createReadyAudio(candidate.url, reservedAudio) : this.createAudioElement(candidate.url);

@@ -732,6 +732,7 @@
 .jpdb-reader-newtab-search-detail {
   min-width: 0;
   display: grid;
+  justify-items: stretch;
   gap: 10px;
   padding: 12px;
   border: 1px solid var(--jpdb-reader-border);
@@ -742,6 +743,28 @@
     var(--jpdb-reader-bg) 72%,
     var(--jpdb-reader-surface) 28%
   );
+  text-align: left;
+}
+
+.jpdb-reader-newtab-search-detail
+  :is(
+    .jpdb-reader-header,
+    .jpdb-reader-heading,
+    .jpdb-reader-spelling,
+    .jpdb-reader-meaning,
+    .jpdb-reader-local,
+    .jpdb-reader-source-card,
+    .jpdb-reader-local-title,
+    .jpdb-reader-local-head,
+    .jpdb-reader-local-glossary
+  ) {
+  justify-items: stretch;
+  text-align: left;
+}
+
+.jpdb-reader-newtab-search-detail
+  :is(.jpdb-reader-title-row, .jpdb-reader-card-tools) {
+  justify-content: flex-start;
 }
 
 .jpdb-reader-newtab-search-detail[hidden] {
@@ -1335,6 +1358,87 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   border-block-end-color: var(--jpdb-reader-word-underline, transparent) !important;
 }
 
+.jpdb-reader-newtab-term ruby {
+  ruby-position: over;
+}
+
+.jpdb-reader-newtab-term rt {
+  font-size: 0.24em;
+  font-weight: 760;
+  line-height: 1;
+}
+
+.jpdb-reader-newtab-study-tools {
+  width: min(640px, 100%);
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 7px 9px;
+  color: var(--jpdb-reader-muted);
+  font-family: var(--jpdb-reader-font);
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1.2;
+  text-align: left;
+  text-shadow: none;
+}
+
+.jpdb-reader-newtab-study-tools:empty {
+  display: none;
+}
+
+.jpdb-reader-newtab-study-tool-main,
+.jpdb-reader-newtab-study-tools .jpdb-reader-card-tools,
+.jpdb-reader-newtab-study-tools .jpdb-reader-meta,
+.jpdb-reader-newtab-study-tools .jpdb-reader-word-pills {
+  min-width: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.jpdb-reader-newtab-study-tools .jpdb-reader-word-pills :is(a, span),
+.jpdb-reader-newtab-study-tools .jpdb-reader-frequency-pill {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.jpdb-reader-newtab-study-tools .jpdb-reader-pitch {
+  max-width: min(38vw, 168px);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.jpdb-reader-newtab-study-tools .jpdb-reader-pitch svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.jpdb-reader-newtab-study-tools .jpdb-reader-icon-btn {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface-2) 78%,
+    transparent
+  );
+  color: var(--jpdb-reader-newtab-study-text);
+}
+
+.jpdb-reader-newtab-study-tools .jpdb-reader-icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {
   font-family: inherit;
   font-size: clamp(2.4rem, 6.4vw, 4.8rem);
@@ -1476,121 +1580,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   overflow-wrap: anywhere;
 }
 
-.jpdb-reader-newtab-answer-header {
-  width: min(640px, 100%);
-  max-width: 100%;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  justify-items: stretch;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid
-    color-mix(in srgb, var(--jpdb-reader-border) 82%, transparent);
-  border-radius: 8px;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 76%,
-    transparent
-  );
-  box-shadow: 0 10px 28px var(--jpdb-reader-shadow-subtle);
-  text-align: left;
-}
-
-.jpdb-reader-newtab-answer-header .jpdb-reader-heading,
-.jpdb-reader-newtab-answer-header .jpdb-reader-title-row {
-  min-width: 0;
-}
-
-.jpdb-reader-newtab-answer-header .jpdb-reader-heading {
-  display: grid;
-  justify-items: start;
-  gap: 6px;
-}
-
-.jpdb-reader-newtab-answer-header .jpdb-reader-title-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 5px 9px;
-}
-
-.jpdb-reader-newtab-answer-header .jpdb-reader-spelling {
-  min-width: 0;
-  max-width: 100%;
-  color: var(--jpdb-reader-newtab-study-text);
-  font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
-  font-size: clamp(1.45rem, 4.8vw, 2.15rem);
-  font-weight: 860;
-  line-height: 1.08;
-  overflow-wrap: anywhere;
-}
-
-.jpdb-reader-newtab-answer-header .jpdb-reader-spelling ruby {
-  ruby-position: over;
-}
-
-.jpdb-reader-newtab-answer-header .jpdb-reader-spelling rt {
-  color: var(--jpdb-reader-muted);
-  font-size: 0.44em;
-  font-weight: 720;
-  line-height: 1;
-}
-
-.jpdb-reader-newtab-answer-header .jpdb-reader-reading,
-.jpdb-reader-newtab-answer-header .jpdb-reader-meta {
-  min-width: 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 12px;
-  font-weight: 780;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-
-.jpdb-reader-newtab-answer-header .jpdb-reader-meta span,
-.jpdb-reader-newtab-answer-header .jpdb-reader-word-pills :is(a, span) {
-  min-height: 24px;
-  display: inline-flex;
-  align-items: center;
-}
-
-.jpdb-reader-newtab-answer-header .jpdb-reader-card-tools {
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.jpdb-reader-newtab-answer-header .jpdb-reader-pitch {
-  max-width: min(38vw, 168px);
-  min-width: 0;
-  overflow: hidden;
-}
-
-.jpdb-reader-newtab-answer-header .jpdb-reader-pitch svg {
-  max-width: 100%;
-  height: auto;
-}
-
-.jpdb-reader-newtab-answer-header .jpdb-reader-icon-btn {
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
-  min-height: 36px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface-2) 78%,
-    transparent
-  );
-  color: var(--jpdb-reader-newtab-study-text);
-}
-
-.jpdb-reader-newtab-answer-header .jpdb-reader-icon-btn svg {
-  width: 17px;
-  height: 17px;
+.jpdb-reader-newtab-reading:empty {
+  display: none;
 }
 
 .jpdb-reader-newtab-reading .jpdb-reader-word {
@@ -3389,26 +3380,13 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     gap: 5px;
   }
 
-  .jpdb-reader-newtab-answer-header {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-    gap: 8px;
-    padding: 9px 10px;
-    text-align: center;
+  .jpdb-reader-newtab-study-tools {
+    max-width: min(100%, 620px);
+    gap: 6px;
+    font-size: 11px;
   }
 
-  .jpdb-reader-newtab-answer-header .jpdb-reader-heading,
-  .jpdb-reader-newtab-answer-header .jpdb-reader-title-row,
-  .jpdb-reader-newtab-answer-header .jpdb-reader-card-tools {
-    justify-content: center;
-    justify-items: center;
-  }
-
-  .jpdb-reader-newtab-answer-header .jpdb-reader-card-tools {
-    width: 100%;
-  }
-
-  .jpdb-reader-newtab-answer-header .jpdb-reader-pitch {
+  .jpdb-reader-newtab-study-tools .jpdb-reader-pitch {
     max-width: min(58vw, 180px);
   }
 

@@ -16,7 +16,7 @@ import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard,
 
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
-const LOOPBACK_AUDIO_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const LOOPBACK_AUDIO_HOSTS = new Set(['localhost', '127.0.0.1']);
 const KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
 const JPDB_VOCABULARY_BASE_URL = 'https://jpdb.io/vocabulary';
 const JPDB_SEARCH_URL = 'https://jpdb.io/search';
@@ -959,6 +959,7 @@ function canFetchAudioCandidateAsBlob(candidate: AudioCandidate, audioViaBlob: b
 }
 
 function isBlobFetchableAudioCandidate(candidate: AudioCandidate): boolean {
+    if (/^http:\/\/(localhost|127\.0\.0\.1)/.test(candidate.url)) return false;
     return /^https?:\/\//i.test(candidate.url)
         || isAppleTouchBrowser()
         || isJapanesePod101Url(candidate.url)

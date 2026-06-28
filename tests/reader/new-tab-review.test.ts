@@ -905,7 +905,7 @@ function resetNewTabReviewStorage(): void {
 
 async function expectNewTabDictionaryCard(spelling: string, root: ParentNode = document, statusLabel: string | null = 'Dictionary'): Promise<void> {
     await waitForExpect(() => {
-        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe(spelling);
+        expect(newTabPromptText(root)).toBe(spelling);
         if (statusLabel !== null) expect(root.querySelector('[data-newtab-status]')?.textContent).toContain(statusLabel);
         expect(root.querySelector('[data-newtab-answer]')?.textContent).not.toBe('No review cards ready.');
     });
@@ -921,7 +921,13 @@ function newTabStatusButton(root: ParentNode = document): HTMLButtonElement {
 }
 
 function expectNewTabPromptText(text: string, root: ParentNode = document): void {
-    expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe(text);
+    expect(newTabPromptText(root)).toBe(text);
+}
+
+function newTabPromptText(root: ParentNode = document): string {
+    return root.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-newtab-term .jpdb-reader-word')?.dataset.expression
+        ?? root.querySelector('[data-newtab-prompt]')?.textContent?.trim()
+        ?? '';
 }
 
 function expectNewTabStatusToggleTarget(target: string, root: ParentNode = document): void {
@@ -3636,7 +3642,7 @@ describe('new tab review helpers', () => {
 
             expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['難', '波']);
             expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe('38800:1:難波:なにわ');
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('Loading kanji details...');
+            expect(newTabPromptText(root)).toBe('Loading kanji details...');
 
             lookup.resolve({ kanji: '難', keyword: 'difficult', meanings: ['difficult'], readings: [], components: [], vocabulary: [], frequencyRank: null });
             await waitForExpect(() => {
@@ -4530,7 +4536,7 @@ describe('new tab review helpers', () => {
 
             await waitForExpect(() => {
                 expect(studyDeckWordKeys).toHaveBeenCalledWith(7);
-                expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('勉強');
+                expect(newTabPromptText()).toBe('勉強');
             });
         } finally {
             resetNewTabReviewStorage();
@@ -4853,7 +4859,7 @@ describe('new tab review helpers', () => {
 
             await waitForExpect(() => {
                 expect(settings.newTabSource).toBe('anki');
-                expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
+                expect(newTabPromptText()).toBe('書く');
                 expect(newTabStatusButton().textContent).toContain('Dictionary');
                 expect(newTabStatusButton().dataset.sourceToggleTarget).toBe('jpdb');
             }, 3000);
@@ -5200,7 +5206,7 @@ describe('new tab review helpers', () => {
         });
 
         await controller.renderPage();
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('日本語');
+        expect(newTabPromptText()).toBe('日本語');
         expect(listNewTabCards).toHaveBeenCalledOnce();
         const status = document.querySelector<HTMLButtonElement>('[data-newtab-status]')!;
         expect(status.textContent).toContain('JPDB ⇄');
@@ -5298,7 +5304,7 @@ describe('new tab review helpers', () => {
 
             await internals.loadMoreForNavigation(root, 1, 'dictionary');
 
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('一番');
+            expect(newTabPromptText(root)).toBe('一番');
             expect(root.querySelector('[data-newtab-status]')?.textContent).toContain('Dictionary');
             expect(root.querySelector('[data-newtab-status]')?.textContent).not.toContain('Looking for more words');
         } finally {
@@ -5396,7 +5402,7 @@ describe('new tab review helpers', () => {
         try {
             await controller.renderPage();
 
-            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('見る');
+            expect(newTabPromptText()).toBe('見る');
             expect(document.querySelector('[data-newtab-status]')?.textContent).toContain('Dictionary');
             expect(document.querySelector('[data-newtab-answer]')?.textContent).not.toBe('No review cards ready.');
             expect(listRandomTopTerms).toHaveBeenCalled();
@@ -5455,7 +5461,7 @@ describe('new tab review helpers', () => {
 
             await waitForExpect(() => {
                 expect(settings.newTabSource).toBe('anki');
-                expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('読む');
+                expect(newTabPromptText(root)).toBe('読む');
                 expect(root.querySelector('[data-newtab-status]')?.textContent).toContain('Dictionary');
                 expect(root.querySelector('[data-newtab-answer]')?.textContent).not.toBe('No review cards ready.');
             });
@@ -5502,7 +5508,7 @@ describe('new tab review helpers', () => {
             await controller.renderPage();
 
             expect((controller as unknown as { state: { source: string } }).state.source).toBe('anki');
-            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('暗記');
+            expect(newTabPromptText()).toBe('暗記');
             expect(settings.newTabSource).toBe('auto');
             expect(listNewTabCards).toHaveBeenCalledTimes(1);
             expect(listDeckCards).not.toHaveBeenCalled();
@@ -5549,7 +5555,7 @@ describe('new tab review helpers', () => {
         });
 
         await controller.renderPage();
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('日本語');
+        expect(newTabPromptText()).toBe('日本語');
         listRandomTopTerms.mockClear();
 
         document.querySelector<HTMLButtonElement>('[data-newtab-status]')?.click();
@@ -5845,7 +5851,7 @@ describe('new tab review helpers', () => {
             await controller.renderPage();
 
             await waitForExpect(() => {
-                expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('暗記');
+                expect(newTabPromptText()).toBe('暗記');
             });
         } finally {
             document.body.replaceChildren();
@@ -5919,12 +5925,12 @@ describe('new tab review helpers', () => {
         });
 
         await controller.renderPage();
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('暗記');
+        expect(newTabPromptText()).toBe('暗記');
 
         document.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
 
         await waitForExpect(() => {
-            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('例文');
+            expect(newTabPromptText()).toBe('例文');
             expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['暗記', '例文']);
         });
         expect(listNewTabCards).toHaveBeenNthCalledWith(1, 180, undefined);
@@ -6937,9 +6943,9 @@ describe('new tab review helpers', () => {
         expect(queue[0]?.card.spelling).toBe('安定');
         expect(reviewCard).not.toHaveBeenCalled();
         expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['読む']);
-        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('読む');
+        expect(newTabPromptText(root)).toContain('読む');
         root.querySelector<HTMLButtonElement>('[data-newtab-action="previous"]')?.click();
-        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('読む');
+        expect(newTabPromptText(root)).toContain('読む');
         root.remove();
     });
 
@@ -7704,7 +7710,7 @@ describe('new tab review helpers', () => {
         expect(answerCard).toHaveBeenCalledWith(404, 'pass');
         await waitForExpect(() => {
             expect(listNewTabCards).toHaveBeenCalledTimes(2);
-            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('次回');
+            expect(newTabPromptText()).toBe('次回');
         });
     });
 
@@ -7793,7 +7799,7 @@ describe('new tab review helpers', () => {
 
         (controller as unknown as { advanceAfterGrade(root: HTMLElement, card: JPDBCard): void }).advanceAfterGrade(root, graded);
 
-        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('次');
+        expect(newTabPromptText(root)).toBe('次');
         expect(reload).toHaveBeenCalledWith(root, true, {
             useOfflineCache: false,
             quiet: true,
@@ -8081,7 +8087,7 @@ describe('new tab review helpers', () => {
                 jpdbKanji: { lookup: vi.fn(() => lookup.promise) } as never,
             });
 
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('Loading kanji details...');
+            expect(newTabPromptText(root)).toBe('Loading kanji details...');
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).not.toContain('sow');
 
             lookup.resolve({ kanji: '播', keyword: 'disseminate', meanings: ['disseminate'], readings: [], components: [], vocabulary: [], frequencyRank: null });
@@ -8227,10 +8233,31 @@ describe('new tab review helpers', () => {
         const root = renderNewTabWordFront(controller, card);
 
         const prompt = root.querySelector<HTMLElement>('[data-newtab-prompt]');
-        expect(prompt?.querySelector('.jpdb-reader-newtab-term')?.textContent).toBe('難波');
-        expect(prompt?.querySelector('.jpdb-reader-newtab-term .jpdb-reader-word')?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        const promptTerm = prompt?.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word');
+        expect(promptTerm?.dataset.expression).toBe('難波');
+        expect(promptTerm?.querySelector('rt')?.textContent).toBe('なにわ');
+        expect(promptTerm?.classList.contains('jpdb-pitch-heiban')).toBe(true);
         expect(prompt?.querySelector('.jpdb-reader-newtab-sentence')?.textContent).toBe(sentence);
         expect(prompt?.querySelector('.jpdb-reader-newtab-sentence .jpdb-reader-word')?.textContent).toBe('難波');
+    });
+
+    it('omits the prompt sentence after reveal when Immersion Kit owns the example below', () => {
+        const sentence = 'この忙しいのに映画？ 堕落ね';
+        const card = newTabTestCard({ spelling: '映画', reading: 'えいが', sentence });
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: true });
+        const front = renderSeededNewTabWord(controller, card);
+        const back = renderSeededNewTabWord(controller, card, {
+            state: { revealAnswer: true },
+        });
+
+        try {
+            expect(front.querySelector('.jpdb-reader-newtab-sentence')?.textContent).toBe(sentence);
+            expect(back.querySelector('.jpdb-reader-newtab-sentence')).toBeNull();
+            expect(back.querySelector('[data-newtab-prompt] .jpdb-reader-newtab-term')?.textContent).toContain('映画');
+        } finally {
+            front.remove();
+            back.remove();
+        }
     });
 
     it('renders Anki review cards from their original rendered front and back', () => {
@@ -8458,7 +8485,7 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('renders the revealed study answer header with furigana, pitch, frequency pills, and audio', async () => {
+    it('renders compact study prompt tools with furigana, pitch, frequency pills, and audio', async () => {
         const card = newTabTestCard({
             spelling: '返す',
             reading: 'かえす',
@@ -8499,21 +8526,73 @@ describe('new tab review helpers', () => {
         });
 
         try {
-            const header = root.querySelector<HTMLElement>('[data-newtab-answer-header]')!;
-            expect(header.querySelector('ruby')?.textContent).toContain('かえ');
-            expect(header.textContent).toContain('#777');
-            expect(header.querySelector('.jpdb-reader-frequency-pill')?.textContent).toContain('#777');
-            expect(header.querySelector('.jpdb-reader-pitch svg')).not.toBeNull();
+            const term = root.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-newtab-term .jpdb-reader-word')!;
+            const tools = root.querySelector<HTMLElement>('[data-newtab-study-tools]')!;
+            expect(root.querySelector('[data-newtab-answer-header]')).toBeNull();
+            expect(term.querySelector('ruby')?.textContent).toContain('かえ');
+            expect(tools.textContent).toContain('#777');
+            expect(tools.querySelector('.jpdb-reader-frequency-pill')?.textContent).toContain('#777');
+            expect(tools.querySelector('.jpdb-reader-pitch svg')).not.toBeNull();
             await waitForExpect(() => {
                 expect(loadCardRenderData).toHaveBeenCalledWith(card);
                 expect(renderStudyWordPills).toHaveBeenCalledWith(card, expect.any(Array), expect.objectContaining({ state: 'not-in-deck' }));
                 expect(renderStudyDefinitionSources).not.toHaveBeenCalled();
-                expect(root.querySelector('[data-newtab-answer-header]')?.textContent).toContain('Freq Local 123');
+                expect(root.querySelector('[data-newtab-study-tools]')?.textContent).toContain('Freq Local 123');
                 expect(root.querySelector('[data-newtab-answer] .jpdb-reader-source-card')).toBeNull();
             });
 
-            root.querySelector<HTMLButtonElement>('[data-action="study-word-audio"]')?.click();
+            root.querySelector<HTMLButtonElement>('[data-newtab-study-tools] [data-action="study-word-audio"]')?.click();
             expect(playWordAudio).toHaveBeenCalledWith(card);
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('recovers study prompt reading and pitch from local dictionaries when the card reading is not kana', async () => {
+        const card = newTabTestCard({
+            spelling: '映画',
+            reading: '映画',
+            source: 'local',
+            pitchAccent: [],
+        });
+        const lookupTermMeta = vi.fn(async () => [{
+            dictionary: 'Jitendex',
+            expression: '映画',
+            mode: 'pitch',
+            data: { reading: 'えいが', position: 1 },
+        }]);
+        const loadCardRenderData = vi.fn(async () => ({
+            localEntries: [{ expression: '映画', reading: 'えいが', glossary: [], dictionary: 'Jitendex' }],
+            kanjiEntries: [],
+            metaEntries: [{ dictionary: 'Jitendex', expression: '映画', mode: 'pitch', data: { reading: 'えいが', position: 1 } }],
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            jitenVocabularyInfo: null,
+            componentPitches: [],
+        } as never));
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            immersionKitEnabled: false,
+            localDictionariesEnabled: true,
+            showPitchAccent: true,
+        }, {
+            dictionaries: { lookupTermMeta } as never,
+            loadCardRenderData,
+        });
+        const root = renderNewTabWordFront(controller, card);
+        document.body.append(root);
+
+        try {
+            const word = root.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-newtab-term .jpdb-reader-word')!;
+            expect(word.querySelector('rt')).toBeNull();
+            await waitForExpect(() => {
+                const updated = root.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-newtab-term .jpdb-reader-word')!;
+                expect(updated.dataset.reading).toBe('えいが');
+                expect(updated.querySelector('rt')?.textContent).toBe('えいが');
+                expect(updated.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            });
         } finally {
             root.remove();
         }
@@ -8546,9 +8625,8 @@ describe('new tab review helpers', () => {
             cardState: ['due'],
             pitchAccent: ['LH'],
         });
-        const parseContent = vi.fn(async (prompt: HTMLElement) => {
-            const sentenceNode = prompt.querySelector<HTMLElement>('[data-newtab-sentence-render]');
-            sentenceNode!.innerHTML = 'お母ちゃん<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown" data-vid="-1" data-sid="-1" data-sentence="お母ちゃん中学生？" tabindex="-1">中学生</span>？';
+        const parseContent = vi.fn(async (sentenceNode: HTMLElement) => {
+            sentenceNode.innerHTML = 'お母ちゃん<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown" data-vid="-1" data-sid="-1" data-sentence="お母ちゃん中学生？" tabindex="-1">中学生</span>？';
         });
         const controller = newTabPromptController(DEFAULT_SETTINGS, { parseContent });
         const root = renderSeededNewTabWord(controller, card, {
@@ -8559,9 +8637,10 @@ describe('new tab review helpers', () => {
         try {
             await waitForExpect(() => {
                 expect(parseContent).toHaveBeenCalledWith(
-                    root.querySelector('[data-newtab-prompt]'),
+                    root.querySelector('[data-newtab-prompt] [data-newtab-sentence-render]'),
                     expect.objectContaining({ jpdbTimeoutMs: 1_200 }),
                 );
+                expect(root.querySelector('[data-newtab-study-tools]')).not.toBeNull();
                 const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-sentence .jpdb-reader-word');
                 expect(word?.textContent).toBe('中学生');
                 expect(word?.classList.contains('jpdb-reader-example-target')).toBe(true);
@@ -8582,9 +8661,8 @@ describe('new tab review helpers', () => {
         const related = newTabTestCard({ vid: 1198880, sid: 0, spelling: '会話', reading: 'かいわ', sentence });
         const showLookupCard = vi.fn();
         const lookupText = vi.fn();
-        const parseContent = vi.fn((prompt: HTMLElement) => {
-            const sentenceNode = prompt.querySelector<HTMLElement>('[data-newtab-sentence-render]');
-            sentenceNode!.innerHTML = 'お連れ様との<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-vid="1198880" data-sid="0" data-pitch-class="heiban" data-sentence="お連れ様との会話が 日本語でしたので" data-expression="会話" data-reading="かいわ" tabindex="-1">会話</span>が 日本語でしたので';
+        const parseContent = vi.fn((sentenceNode: HTMLElement) => {
+            sentenceNode.innerHTML = 'お連れ様との<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban" data-vid="1198880" data-sid="0" data-pitch-class="heiban" data-sentence="お連れ様との会話が 日本語でしたので" data-expression="会話" data-reading="かいわ" tabindex="-1">会話</span>が 日本語でしたので';
         });
         const controller = newTabPromptController(DEFAULT_SETTINGS, {
             parseContent,
@@ -8622,9 +8700,8 @@ describe('new tab review helpers', () => {
         const related = newTabTestCard({ vid: 1291770, sid: 0, spelling: '座', reading: 'ざ', sentence });
         const showLookupCard = vi.fn();
         const lookupText = vi.fn();
-        const parseContent = vi.fn((prompt: HTMLElement) => {
-            const sentenceNode = prompt.querySelector<HTMLElement>('[data-newtab-sentence-render]');
-            sentenceNode!.innerHTML = '(<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-atamadaka" data-vid="2188120" data-sid="0" data-pitch-class="atamadaka" data-sentence="(メイ)の!? (メイ) 座って食べなさい。" tabindex="-1" data-expression="メイ" data-reading="メイ">メイ</span>)の!? (メイ) <span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown" data-vid="1291770" data-sid="0" data-pitch-class="unknown" data-sentence="(メイ)の!? (メイ) 座って食べなさい。" tabindex="-1" data-expression="座" data-reading="ざ">座</span>って食べなさい。';
+        const parseContent = vi.fn((sentenceNode: HTMLElement) => {
+            sentenceNode.innerHTML = '(<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-atamadaka" data-vid="2188120" data-sid="0" data-pitch-class="atamadaka" data-sentence="(メイ)の!? (メイ) 座って食べなさい。" tabindex="-1" data-expression="メイ" data-reading="メイ">メイ</span>)の!? (メイ) <span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown" data-vid="1291770" data-sid="0" data-pitch-class="unknown" data-sentence="(メイ)の!? (メイ) 座って食べなさい。" tabindex="-1" data-expression="座" data-reading="ざ">座</span>って食べなさい。';
         });
         const controller = newTabPromptController(DEFAULT_SETTINGS, {
             parseContent,
@@ -8668,9 +8745,8 @@ describe('new tab review helpers', () => {
         const current = newTabTestCard({ spelling: '食べる', reading: 'たべる', sentence });
         const showLookupCard = vi.fn();
         const lookupText = vi.fn();
-        const parseContent = vi.fn((prompt: HTMLElement) => {
-            const sentenceNode = prompt.querySelector<HTMLElement>('[data-newtab-sentence-render]');
-            sentenceNode!.innerHTML = '(<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-atamadaka" data-vid="2188120" data-sid="0" data-pitch-class="atamadaka" data-sentence="(メイ)の!? (メイ) 座って食べなさい。" tabindex="-1" data-expression="メイ" data-reading="メイ">メイ</span>)の!?';
+        const parseContent = vi.fn((sentenceNode: HTMLElement) => {
+            sentenceNode.innerHTML = '(<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-atamadaka" data-vid="2188120" data-sid="0" data-pitch-class="atamadaka" data-sentence="(メイ)の!? (メイ) 座って食べなさい。" tabindex="-1" data-expression="メイ" data-reading="メイ">メイ</span>)の!?';
         });
         const controller = newTabPromptController(DEFAULT_SETTINGS, {
             parseContent,
@@ -8712,12 +8788,12 @@ describe('new tab review helpers', () => {
         const root = renderNewTabWordFront(controller, card);
         const prompt = root.querySelector<HTMLElement>('[data-newtab-prompt]');
 
-        expect(prompt?.querySelector('.jpdb-reader-newtab-term')?.textContent).toBe('難波');
+        expect(prompt?.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word')?.dataset.expression).toBe('難波');
         expect(prompt?.querySelector('.jpdb-reader-newtab-sentence')).toBeNull();
-        expect(prompt?.textContent).toBe('難波');
+        expect(prompt?.textContent).toContain('難波');
     });
 
-    it('loads the front sentence from the pending Immersion Kit example for word-only cards', async () => {
+    it('does not duplicate the pending Immersion Kit example in the word prompt', async () => {
         const card = newTabTestCard({ spelling: '中学生', reading: 'ちゅうがくせい' });
         const search = vi.fn(async (): Promise<ImmersionKitExample[]> => [{
             id: 'ik-front',
@@ -8743,9 +8819,7 @@ describe('new tab review helpers', () => {
         document.body.append(root);
 
         try {
-            await waitForExpect(() => {
-                expect(root.querySelector('.jpdb-reader-newtab-sentence')?.textContent).toBe('お母ちゃん中学生？');
-            });
+            expect(root.querySelector('.jpdb-reader-newtab-sentence')).toBeNull();
             expect(search).toHaveBeenCalledWith(
                 '中学生',
                 expect.objectContaining({ immersionKitEnabled: true }),
@@ -8756,7 +8830,7 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('starts current new-tab Immersion Kit sentence loading before reveal', async () => {
+    it('prefetches current new-tab Immersion Kit examples before reveal without mirroring them in the prompt', async () => {
         const card = newTabTestCard({ spelling: '中学生', reading: 'ちゅうがくせい' });
         const search = vi.fn(async (_query: string): Promise<ImmersionKitExample[]> => [{
             ...newTabImmersionExample('中学生'),
@@ -8773,15 +8847,15 @@ describe('new tab review helpers', () => {
 
         try {
             await waitForExpect(() => {
-                expect(root.querySelector('.jpdb-reader-newtab-sentence')?.textContent).toBe('お母ちゃん中学生？');
+                expect(search.mock.calls.map(([query]) => query).filter(query => query === '中学生')).toHaveLength(1);
             });
-            expect(search.mock.calls.map(([query]) => query).filter(query => query === '中学生')).toHaveLength(1);
+            expect(root.querySelector('.jpdb-reader-newtab-sentence')).toBeNull();
         } finally {
             root.remove();
         }
     });
 
-    it('adds async front sentences without replacing the rendered term word', async () => {
+    it('does not mirror pending Immersion Kit examples into the prompt or replace the term word', async () => {
         const card = newTabTestCard({ spelling: '中学生', reading: 'ちゅうがくせい' });
         const examples = deferred<ImmersionKitExample[]>();
         const parseContent = vi.fn(async () => undefined);
@@ -8804,17 +8878,13 @@ describe('new tab review helpers', () => {
                 sentence: 'お母ちゃん中学生？',
             }]);
 
-            await waitForExpect(() => {
-                expect(root.querySelector('.jpdb-reader-newtab-sentence')?.textContent).toBe('お母ちゃん中学生？');
-            });
+            await expect(examples.promise).resolves.toHaveLength(1);
 
             expect(root.querySelector('.jpdb-reader-newtab-term .jpdb-reader-word')).toBe(term);
             expect(term.dataset.stabilityMarker).toBe('keep-me');
-            expect(term.dataset.sentence).toBe('お母ちゃん中学生？');
-            expect(parseContent).toHaveBeenCalledWith(
-                root.querySelector('[data-newtab-prompt]'),
-                expect.objectContaining({ jpdbTimeoutMs: 1_200 }),
-            );
+            expect(term.dataset.sentence).toBe('中学生');
+            expect(root.querySelector('.jpdb-reader-newtab-sentence')).toBeNull();
+            expect(parseContent).not.toHaveBeenCalled();
         } finally {
             root.remove();
         }
@@ -10811,7 +10881,7 @@ describe('new tab review helpers', () => {
             await Promise.resolve();
             await Promise.resolve();
 
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('返す');
+            expect(newTabPromptText(root)).toContain('返す');
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).not.toContain('stale keyword');
         } finally {
             restoreCanvas();
@@ -11113,7 +11183,7 @@ describe('new tab review helpers', () => {
             expect(right.defaultPrevented).toBe(false);
             expect(enter.defaultPrevented).toBe(false);
             expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(false);
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('読む');
+            expect(newTabPromptText(root)).toContain('読む');
         } finally {
             root.remove();
         }
@@ -14511,9 +14581,10 @@ describe('new tab review helpers', () => {
         (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state = { mode: 'word', revealAnswer: true };
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
 
-        const answerHeader = root.querySelector<HTMLElement>('[data-newtab-answer-header]');
-        expect(answerHeader?.querySelector('ruby')?.textContent).toContain('かえ');
-        expect(answerHeader?.querySelector('.jpdb-reader-audio-control')).not.toBeNull();
+        const term = root.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-newtab-term .jpdb-reader-word');
+        expect(root.querySelector('[data-newtab-answer-header]')).toBeNull();
+        expect(term?.querySelector('ruby')?.textContent).toContain('かえ');
+        expect(root.querySelector('[data-newtab-study-tools] .jpdb-reader-audio-control')).not.toBeNull();
         expect(root.querySelector('[data-newtab-meaning]')?.textContent).toContain('to return');
     });
 
@@ -14541,7 +14612,7 @@ describe('new tab review helpers', () => {
             (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state = { mode: 'word', revealAnswer: true };
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
 
-            expect(root.querySelector('[data-newtab-reading]')?.textContent).toContain('ぜんぽう');
+            expect(root.querySelector('[data-newtab-prompt] .jpdb-reader-newtab-term rt')?.textContent).toContain('ぜんぽう');
             expect(root.querySelector('[data-newtab-meaning]')?.textContent).toContain('front; ahead');
         } finally {
             root.remove();
@@ -14609,7 +14680,7 @@ describe('new tab review helpers', () => {
         await controller.renderPage();
 
         expect(summary).toHaveBeenCalledTimes(1);
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe(APP_NAME);
+        expect(newTabPromptText()).toBe(APP_NAME);
         expect(document.querySelector('[data-newtab-answer]')?.textContent).toBe('No cards.');
         expect(document.querySelector('[data-newtab-action="empty-fallback"]')?.textContent).toBe('Starter words');
         expect(document.querySelector('[data-newtab-action="settings"]')?.textContent).toBe('Settings');
@@ -14676,7 +14747,7 @@ describe('new tab review helpers', () => {
         const { controller, listRandomTopTerms } = newTabDictionaryReloadFixture({ settings, summary });
 
         await controller.renderPage();
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe(APP_NAME);
+        expect(newTabPromptText()).toBe(APP_NAME);
         expect(document.querySelector('[data-newtab-answer]')?.textContent).toBe('No cards.');
 
         settings.dictionaryPreferences = [{ name: 'Local', alias: 'Tiny Alias', enabled: true, priority: 0, type: 'terms' }];
@@ -14684,7 +14755,7 @@ describe('new tab review helpers', () => {
 
         expect(summary).toHaveBeenCalledTimes(2);
         expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, settings.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
+        expect(newTabPromptText()).toBe('書く');
         expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
         resetNewTabReviewStorage();
     });
@@ -14710,7 +14781,7 @@ describe('new tab review helpers', () => {
         const { controller, listRandomTopTerms } = newTabDictionaryReloadFixture({ settings, summary, invalidateCaches });
 
         await controller.renderPage();
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe(APP_NAME);
+        expect(newTabPromptText()).toBe(APP_NAME);
         expect(document.querySelector('[data-newtab-answer]')?.textContent).toBe('No cards.');
 
         await controller.refreshExternalData();
@@ -14718,7 +14789,7 @@ describe('new tab review helpers', () => {
         expect(summary).toHaveBeenCalledTimes(2);
         expect(invalidateCaches).toHaveBeenCalledTimes(1);
         expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, settings.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
+        expect(newTabPromptText()).toBe('書く');
         expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
         resetNewTabReviewStorage();
     });
@@ -15041,7 +15112,7 @@ describe('new tab review helpers', () => {
             expect(result.cards.map(card => card.spelling)).toEqual(['今日']);
 
             await controller.renderPage();
-            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('今日');
+            expect(newTabPromptText()).toBe('今日');
             expect(document.querySelector('[data-newtab-status]')?.textContent).toContain('Dictionary');
             expect(document.querySelector('[data-newtab-answer]')?.textContent).not.toBe('No review cards ready.');
         } finally {
@@ -15310,17 +15381,17 @@ describe('new tab review helpers', () => {
             expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('Loading...');
 
             await vi.advanceTimersByTimeAsync(NEW_TAB_PUBLIC_FALLBACK_GRACE_MS - 1);
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe(APP_NAME);
+            expect(newTabPromptText(root)).toBe(APP_NAME);
 
             await vi.advanceTimersByTimeAsync(1);
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
+            expect(newTabPromptText(root)).toBe('書く');
             expect(root.querySelector('[data-newtab-count]')?.textContent)
                 .toContain('No reviews ready — showing practice words');
 
             await vi.advanceTimersByTimeAsync(NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS * 3);
             await loadPromise;
 
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
+            expect(newTabPromptText(root)).toBe('書く');
             expect(root.querySelector('[data-newtab-count]')?.textContent)
                 .toContain('No reviews ready — showing practice words');
             expect(listRandomTopTerms).toHaveBeenCalled();
@@ -15494,7 +15565,7 @@ describe('new tab review helpers', () => {
             await controller.renderPage();
 
             expect((controller as unknown as { state: { source: string } }).state.source).toBe('jpdb');
-            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('設定');
+            expect(newTabPromptText()).toBe('設定');
         } finally {
             document.body.replaceChildren();
             localStorage.removeItem('jpdb-reader-newtab-ui');
@@ -15642,7 +15713,7 @@ describe('new tab review helpers', () => {
             const render = controller.renderPage();
 
             await waitForExpect(() => {
-                expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('読む');
+                expect(newTabPromptText()).toBe('読む');
                 expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary · Offline cache');
             });
             expect(cacheCards).toHaveBeenCalledWith([expect.objectContaining({ spelling: '読む', reading: 'よむ' })]);
@@ -15656,7 +15727,7 @@ describe('new tab review helpers', () => {
             }]);
             await render;
 
-            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
+            expect(newTabPromptText()).toBe('書く');
             expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
         } finally {
             document.body.replaceChildren();

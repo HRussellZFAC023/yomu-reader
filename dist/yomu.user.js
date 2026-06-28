@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.206
+// @version 1.4.207
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.206
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.206
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.206
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.206
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.207
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.207
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.207
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.207
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -7150,7 +7150,7 @@ function noop() {
 }
 async function requestHttp(url, options = {}) {
   const userscriptRequest = getUserscriptHttpRequest();
-  if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || prefersProxyFetchOverUserscriptBridge())) {
+  if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || window.__YOMU_READER_RUNTIME__ === "newtab" && options.responseType === "blob")) {
     try {
       return await requestViaFetch(url, options);
     } catch (error) {
@@ -7285,9 +7285,6 @@ function formatFailure(options) {
 }
 function formatStatusFailure(options, status) {
   return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? "Request"} failed (${status}).`;
-}
-function prefersProxyFetchOverUserscriptBridge() {
-  return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
 }
 function isSameOriginUrl(url) {
   if (typeof location === "undefined") return false;
@@ -10203,7 +10200,7 @@ function jitenSentenceTtsUrl(sentenceId, voice) {
 }
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = "ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906";
-const LOOPBACK_AUDIO_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const LOOPBACK_AUDIO_HOSTS = new Set(["localhost", "127.0.0.1"]);
 const KANA_ONLY_RE$2 = /^[\u3040-\u30ffー・]+$/u;
 const JPDB_VOCABULARY_BASE_URL$1 = "https://jpdb.io/vocabulary";
 const JPDB_SEARCH_URL$1 = "https://jpdb.io/search";
@@ -10924,6 +10921,7 @@ function canFetchAudioCandidateAsBlob(candidate, audioViaBlob) {
   return audioViaBlob && !candidate.url.startsWith("blob:") && !candidate.url.startsWith("data:audio/") && !isLoopbackAudioUrl(candidate.url);
 }
 function isBlobFetchableAudioCandidate(candidate) {
+  if (/^http:\/\/(localhost|127\.0\.0\.1)/.test(candidate.url)) return false;
   return /^https?:\/\//i.test(candidate.url) || isAppleTouchBrowser() || isJapanesePod101Url(candidate.url) || isJapanesePod101Url(candidate.sourceUrl);
 }
 function isLoopbackAudioUrl(value) {
@@ -11570,7 +11568,7 @@ class AudioPlayer {
     if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) {
       return this.preparePlayableJpdbAudio(candidate.jpdbAudioId, settings, reservedAudio);
     }
-    const audioViaBlob = settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType) || shouldForceBlobAudioCandidate(candidate);
+    const audioViaBlob = sourceType !== "jiten-tts" && (settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType) || shouldForceBlobAudioCandidate(candidate));
     return audioViaBlob ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio) : reservedAudio ? this.createReadyAudio(candidate.url, reservedAudio) : this.createAudioElement(candidate.url);
   }
   async preparePlayableJpdbAudio(audioId, settings, reservedAudio) {
@@ -37146,7 +37144,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.206"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.207"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

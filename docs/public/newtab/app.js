@@ -1004,7 +1004,7 @@
   }
   async function requestHttp(url, options = {}) {
     const userscriptRequest = getUserscriptHttpRequest();
-    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || prefersProxyFetchOverUserscriptBridge())) {
+    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || window.__YOMU_READER_RUNTIME__ === "newtab" && options.responseType === "blob")) {
       try {
         return await requestViaFetch(url, options);
       } catch (error) {
@@ -1139,9 +1139,6 @@
   }
   function formatStatusFailure(options, status) {
     return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? "Request"} failed (${status}).`;
-  }
-  function prefersProxyFetchOverUserscriptBridge() {
-    return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
   }
   function isSameOriginUrl(url) {
     if (typeof location === "undefined") return false;
@@ -17233,7 +17230,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
   const JAPANESE_POD_101_UNAVAILABLE_SHA256 = "ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906";
-  const LOOPBACK_AUDIO_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
+  const LOOPBACK_AUDIO_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1"]);
   const KANA_ONLY_RE$2 = /^[\u3040-\u30ffー・]+$/u;
   const JPDB_VOCABULARY_BASE_URL$1 = "https://jpdb.io/vocabulary";
   const JPDB_SEARCH_URL$1 = "https://jpdb.io/search";
@@ -17957,6 +17954,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return audioViaBlob && !candidate.url.startsWith("blob:") && !candidate.url.startsWith("data:audio/") && !isLoopbackAudioUrl(candidate.url);
   }
   function isBlobFetchableAudioCandidate(candidate) {
+    if (/^http:\/\/(localhost|127\.0\.0\.1)/.test(candidate.url)) return false;
     return /^https?:\/\//i.test(candidate.url) || isAppleTouchBrowser() || isJapanesePod101Url(candidate.url) || isJapanesePod101Url(candidate.sourceUrl);
   }
   function isLoopbackAudioUrl(value) {
@@ -18607,7 +18605,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) {
         return this.preparePlayableJpdbAudio(candidate.jpdbAudioId, settings, reservedAudio);
       }
-      const audioViaBlob = settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType) || shouldForceBlobAudioCandidate(candidate);
+      const audioViaBlob = sourceType !== "jiten-tts" && (settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType) || shouldForceBlobAudioCandidate(candidate));
       return audioViaBlob ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio) : reservedAudio ? this.createReadyAudio(candidate.url, reservedAudio) : this.createAudioElement(candidate.url);
     }
     async preparePlayableJpdbAudio(audioId, settings, reservedAudio) {
@@ -25453,7 +25451,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.206".trim() ? "1.4.206".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.207".trim() ? "1.4.207".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -70366,6 +70364,7 @@ ${entry.url}`),
       if (slots.prompt) {
         const sentence = this.frontSentenceFromCard(card);
         this.renderWordPromptContent(slots.prompt, card, state2, sentence);
+        void this.enrichWordPromptDetails(slots.prompt, card, state2, sentence);
         void this.enrichWordPitch(slots.prompt, card);
         void this.enrichWordPromptSentence(slots.prompt, card, state2, sentence);
       }
@@ -70373,15 +70372,10 @@ ${entry.url}`),
       this.renderWordMeaning(slots.meaning, card);
       void this.renderImmersionExample(slots, card);
     }
-    renderWordAnswer(answer, card) {
+    renderWordAnswer(answer, _card) {
       if (!answer) return;
-      if (!this.state.revealAnswer) {
-        answer.replaceChildren();
-        return;
-      }
       delete answer.dataset.newtabAnswerDetailsRequest;
-      replaceChildrenWith(answer, this.renderWordAnswerHeader(card));
-      void this.renderWordAnswerDetails(answer, card);
+      answer.replaceChildren();
     }
     renderWordMeaning(meaning, card) {
       if (!meaning) return;
@@ -70444,39 +70438,22 @@ ${entry.url}`),
         if (small && keyword) small.textContent = keyword;
       });
     }
-    async renderWordAnswerDetails(answer, card) {
-      const loadDetails = this.dependencies.loadCardRenderData;
-      if (!loadDetails) return;
-      const key = cardKey(card);
-      const requestId = `${key}:${performance.now()}:${Math.random()}`;
-      answer.dataset.newtabAnswerDetailsRequest = requestId;
-      const data = await loadDetails(card).catch(() => null);
-      if (!data || !this.canApplyWordAnswerDetails(answer, key, requestId)) return;
-      const header = this.renderWordAnswerHeader(card, data);
-      answer.querySelector("[data-newtab-answer-header]")?.replaceWith(header);
-    }
-    canApplyWordAnswerDetails(answer, key, requestId) {
-      return answer.isConnected && answer.dataset.newtabAnswerDetailsRequest === requestId && this.state.mode === "word" && this.state.revealAnswer && cardKey(this.visibleWords[this.index]) === key;
-    }
-    renderWordAnswerHeader(card, data) {
+    renderWordPromptTools(card, data) {
       const settings = this.dependencies.getSettings();
-      const furiganaSettings = this.answerHeaderFuriganaSettings(settings);
-      const state2 = primaryCardState(card.cardState);
-      const pitchClass = newTabPitchClass(card);
-      const spelling = el("div", {
-        class: `jpdb-reader-spelling jpdb-${state2} jpdb-pitch-${pitchClass} jpdb-reader-parseable`,
-        dataset: {
-          pitchClass,
-          jpdbReaderKanjiNav: true,
-          jpdbReaderKanjiNavLabel: this.text("showKanji")
-        }
-      });
-      setInnerHtml(spelling, renderCardSpellingWithFurigana(card, furiganaSettings, { enabled: true, label: this.text("showKanji") }));
-      const reading = this.answerHeaderPlainReading(card, furiganaSettings);
-      const pills = data ? this.answerHeaderPills(card, data) : "";
-      const pitch = this.answerHeaderPitch(card, data);
+      const rawReading = newTabCardOptionalReading(card);
+      const reading = rawReading && !isPlainReadingDuplicatedByVisibleRuby(card, { ...settings, furiganaMode: "all", showFurigana: true }, rawReading) ? rawReading : "";
+      const pills = data ? this.dependencies.renderStudyWordPills?.(card, data.metaEntries, data.ankiLookup) ?? this.dependencies.renderSearchWordPills?.(card, data.metaEntries, data.ankiLookup) ?? "" : "";
+      let pitch = "";
+      if (settings.showPitchAccent) {
+        pitch = renderPitch(card, data?.metaEntries ?? []) || (data ? renderExpressionComponentPitches(data.componentPitches ?? []) : "");
+      }
       const pitchNode = pitch ? htmlToFirstElement(pitch) : null;
       const pillsNode = pills ? htmlToFirstElement(pills) : null;
+      const frequency = card.frequencyRank ? el(
+        "span",
+        { class: "jpdb-reader-meta jpdb-reader-newtab-study-meta" },
+        el("span", { class: "jpdb-reader-frequency-pill" }, `#${card.frequencyRank}`)
+      ) : null;
       const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled");
       const audioButton = el("button", {
         class: "jpdb-reader-icon-btn jpdb-reader-audio-control",
@@ -70488,55 +70465,46 @@ ${entry.url}`),
       });
       setInnerHtml(audioButton, speakerIcon());
       return el(
-        "div",
-        { class: "jpdb-reader-newtab-answer-header jpdb-reader-header", dataset: { newtabAnswerHeader: true } },
+        "span",
+        { class: "jpdb-reader-newtab-study-tools", dataset: { newtabStudyTools: true } },
         el(
-          "div",
-          { class: "jpdb-reader-heading" },
-          el(
-            "div",
-            { class: "jpdb-reader-title-row" },
-            spelling,
-            reading ? el("div", { class: "jpdb-reader-reading" }, reading) : null,
-            this.answerHeaderFrequency(card)
-          ),
+          "span",
+          { class: "jpdb-reader-newtab-study-tool-main" },
+          reading ? el("span", { class: "jpdb-reader-reading" }, reading) : null,
+          frequency,
           pillsNode
         ),
         el(
-          "div",
+          "span",
           { class: "jpdb-reader-card-tools" },
           pitchNode,
           audioButton
         )
       );
     }
-    answerHeaderPlainReading(card, settings) {
-      const reading = newTabCardOptionalReading(card);
-      if (!reading || isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return "";
-      return reading;
+    async enrichWordPromptDetails(prompt, card, state2, currentSentence) {
+      const loadDetails = this.dependencies.loadCardRenderData;
+      if (!loadDetails) return;
+      const key = cardKey(card);
+      const requestId = `${key}:${performance.now()}:${Math.random()}`;
+      prompt.dataset.newtabStudyToolsRequest = requestId;
+      const data = await loadDetails(card).catch(() => null);
+      if (!data || !prompt.isConnected || prompt.dataset.newtabStudyToolsRequest !== requestId || this.state.mode !== "word" || cardKey(this.visibleWords[this.index]) !== key) return;
+      this.applyLocalStudyReading(card, data);
+      const term = prompt.querySelector(":scope > .jpdb-reader-newtab-front > .jpdb-reader-newtab-term");
+      if (term) replaceChildrenWith(term, this.renderPromptReaderWord(card, state2, currentSentence || card.spelling));
+      prompt.querySelector(":scope > .jpdb-reader-newtab-front > [data-newtab-study-tools]")?.replaceWith(this.renderWordPromptTools(card, data));
+      this.dependencies.installDictionarySourceTracking?.(prompt);
     }
-    answerHeaderFuriganaSettings(settings) {
-      return {
-        ...settings,
-        furiganaMode: "all",
-        showFurigana: true
-      };
-    }
-    answerHeaderFrequency(card) {
-      return card.frequencyRank ? el(
-        "div",
-        { class: "jpdb-reader-meta jpdb-reader-newtab-answer-meta" },
-        el("span", { class: "jpdb-reader-frequency-pill" }, `#${card.frequencyRank}`)
-      ) : null;
-    }
-    answerHeaderPills(card, data) {
-      return this.dependencies.renderStudyWordPills?.(card, data.metaEntries, data.ankiLookup) ?? this.dependencies.renderSearchWordPills?.(card, data.metaEntries, data.ankiLookup) ?? "";
-    }
-    answerHeaderPitch(card, data) {
-      if (!this.dependencies.getSettings().showPitchAccent) return "";
-      const whole = renderPitch(card, data?.metaEntries ?? []);
-      if (whole) return whole;
-      return data ? renderExpressionComponentPitches(data.componentPitches ?? []) : "";
+    applyLocalStudyReading(card, data) {
+      const spelling = card.spelling.trim();
+      const exact = spelling ? data.localEntries.find((entry) => entry.expression === spelling && entry.reading && entry.reading !== spelling) : null;
+      const reading = newTabCardOptionalReading(card) || exact?.reading || data.localEntries.find((entry) => entry.reading && entry.reading !== spelling)?.reading || "";
+      if (reading) card.reading = reading;
+      if (!card.pitchAccent.length && reading) {
+        const pitch = localPitchPatternFromMeta(reading, data.metaEntries);
+        if (pitch) card.pitchAccent = [pitch];
+      }
     }
     renderAnkiRenderedWordPrompt(slots, card) {
       if (card.source !== "anki" && card.reviewSource !== "anki") return false;
@@ -70571,25 +70539,44 @@ ${entry.url}`),
       return cards.find((rendered) => rendered.cardId === primaryCardId) ?? cards[0] ?? null;
     }
     renderWordPromptContent(prompt, card, state2, sentence) {
+      const promptSentence = this.wordPromptSentence(sentence);
       prompt.lang = "ja";
       prompt.dataset.newtabExpression = "true";
       prompt.classList.remove("jpdb-reader-newtab-prompt-anki-card");
       prompt.closest(".jpdb-reader-newtab-study")?.classList.remove("jpdb-reader-newtab-study-anki-card");
-      prompt.classList.toggle("jpdb-reader-newtab-prompt-has-sentence", Boolean(sentence));
+      prompt.classList.toggle("jpdb-reader-newtab-prompt-has-sentence", Boolean(promptSentence));
       delete prompt.dataset.newtabSentenceRequest;
       delete prompt.dataset.newtabPromptParseRequest;
-      replaceChildrenWith(prompt, this.renderSentencePrompt(card, state2, sentence));
+      replaceChildrenWith(prompt, this.renderSentencePrompt(card, state2, promptSentence));
       void this.parseNewTabPromptSentence(prompt, card);
+    }
+    wordPromptSentence(sentence) {
+      if (!sentence) return "";
+      const settings = this.dependencies.getSettings();
+      return this.state.revealAnswer && settings.immersionKitEnabled ? "" : sentence;
     }
     renderSentencePrompt(card, state2, sentence = "") {
       const wrap = el(
         "span",
         { class: "jpdb-reader-newtab-front" },
-        el("span", { class: "jpdb-reader-newtab-term" }, this.renderReaderWord(card, state2, card.spelling, sentence || card.spelling))
+        el("span", { class: "jpdb-reader-newtab-term" }, this.renderPromptReaderWord(card, state2, sentence || card.spelling)),
+        this.renderWordPromptTools(card)
       );
       if (!sentence) return wrap;
       wrap.append(this.renderWordPromptSentenceNode(card, state2, sentence));
       return wrap;
+    }
+    renderPromptReaderWord(card, state2, sentence) {
+      const word = this.renderReaderWord(card, state2, card.spelling, sentence);
+      word.classList.add("jpdb-reader-parseable");
+      word.dataset.jpdbReaderKanjiNav = "true";
+      word.dataset.jpdbReaderKanjiNavLabel = this.text("showKanji");
+      setInnerHtml(word, renderCardSpellingWithFurigana(card, {
+        ...this.dependencies.getSettings(),
+        furiganaMode: "all",
+        showFurigana: true
+      }, { enabled: true, label: this.text("showKanji") }));
+      return word;
     }
     renderWordPromptSentenceNode(card, state2, sentence) {
       const sentenceWrap = el("span", { class: "jpdb-reader-newtab-sentence" });
@@ -70623,17 +70610,19 @@ ${entry.url}`),
       const requestId = `${key}:${performance.now()}:${Math.random()}`;
       prompt.dataset.newtabPromptParseRequest = requestId;
       const sentence = prompt.querySelector("[data-newtab-sentence-render]");
+      if (!sentence) return;
       const sentenceText = this.newTabSentenceText(sentence);
       if (sentence && await this.parseNewTabSentenceElement(sentence, sentenceText, card, () => this.canApplyNewTabPromptParse(prompt, key, requestId))) return;
-      await this.dependencies.parseContent?.(prompt, newTabShortParseOptions())?.catch(() => void 0);
+      await this.dependencies.parseContent?.(sentence, newTabShortParseOptions())?.catch(() => void 0);
       if (!this.canApplyNewTabPromptParse(prompt, key, requestId)) return;
-      this.highlightNewTabParsedTarget(prompt, "[data-newtab-sentence-render]", card);
+      this.highlightNewTabParsedWords(sentence, card);
     }
     canApplyNewTabPromptParse(prompt, key, requestId) {
       return prompt.isConnected && prompt.dataset.newtabPromptParseRequest === requestId && cardKey(this.visibleWords[this.index]) === key && this.state.mode === "word";
     }
     async enrichWordPromptSentence(prompt, card, state2, currentSentence) {
-      if (currentSentence || !this.shouldShowFrontSentence()) return;
+      const settings = this.dependencies.getSettings();
+      if (currentSentence || !settings.newTabFrontSentenceEnabled || settings.immersionKitEnabled) return;
       const key = cardKey(card);
       const requestId = `${key}:${performance.now()}:${Math.random()}`;
       prompt.dataset.newtabSentenceRequest = requestId;
@@ -73677,7 +73666,11 @@ ${entry.url}`),
         tabIndex: -1
       }, text2);
       if (this.state.revealAnswer && text2 === card.spelling) {
-        setInnerHtml(word, renderCardSpellingWithFurigana(card, this.answerHeaderFuriganaSettings(this.dependencies.getSettings()), { enabled: true, label: this.text("showKanji") }));
+        setInnerHtml(word, renderCardSpellingWithFurigana(card, {
+          ...this.dependencies.getSettings(),
+          furiganaMode: "all",
+          showFurigana: true
+        }, { enabled: true, label: this.text("showKanji") }));
       }
       return word;
     }
@@ -73742,7 +73735,8 @@ ${entry.url}`),
       if (!settings.localDictionariesEnabled) return "";
       if (typeof this.dependencies.dictionaries.lookupTermMeta !== "function") return "";
       const metaEntries = await this.dependencies.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch(() => []);
-      return localPitchPatternFromMeta(newTabCardReading(card), metaEntries);
+      const reading = newTabCardReading(card);
+      return localPitchPatternFromMeta(reading, metaEntries) || (reading === card.spelling ? localPitchPatternFromMeta("", metaEntries) : "");
     }
     wordPitchCacheKey(card) {
       const settings = this.dependencies.getSettings();

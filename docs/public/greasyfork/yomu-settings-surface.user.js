@@ -3195,7 +3195,7 @@
   }
   async function requestHttp(url, options = {}) {
     const userscriptRequest = getUserscriptHttpRequest();
-    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || prefersProxyFetchOverUserscriptBridge())) {
+    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || window.__YOMU_READER_RUNTIME__ === "newtab" && options.responseType === "blob")) {
       try {
         return await requestViaFetch(url, options);
       } catch (error) {
@@ -3330,9 +3330,6 @@
   }
   function formatStatusFailure(options, status) {
     return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? "Request"} failed (${status}).`;
-  }
-  function prefersProxyFetchOverUserscriptBridge() {
-    return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
   }
   function isSameOriginUrl(url) {
     if (typeof location === "undefined") return false;

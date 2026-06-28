@@ -88,7 +88,8 @@ async function verifyStudyCard(browser, origin, studyCard) {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
         await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab[data-newtab-bound="true"]', { timeout: 15_000 });
         await page.waitForFunction(expected => {
-            return document.querySelector('.jpdb-reader-newtab-term .jpdb-reader-word')?.textContent?.trim() === expected;
+            const word = document.querySelector('.jpdb-reader-newtab-term .jpdb-reader-word');
+            return word?.getAttribute('data-expression') === expected || word?.textContent?.trim() === expected;
         }, studyCard.spelling, { timeout: 15_000 });
         await page.waitForTimeout(180);
 
@@ -97,7 +98,7 @@ async function verifyStudyCard(browser, origin, studyCard) {
             before = await captureShadowRegressionBefore(page, slug);
         }
         const after = await captureFixedState(page, slug);
-        const ok = after.termText === studyCard.spelling
+        const ok = after.expression === studyCard.spelling
             && after.textShadow === 'none'
             && after.boxShadow === 'none'
             && isTransparentColor(after.textDecorationColor)
@@ -155,6 +156,7 @@ async function studyTermSnapshot(page) {
         const after = getComputedStyle(word, '::after');
         return {
             url: location.href,
+            expression: word.dataset.expression ?? '',
             termText: term.textContent?.trim() ?? '',
             dom: term.outerHTML,
             className: word.className,

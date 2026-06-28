@@ -15,7 +15,10 @@ export async function requestHttp(url: string, options: ReaderHttpOptions = {}):
     // with no detail). A configured proxy can serve that same cross-origin media
     // with CORS headers, so a direct proxied fetch succeeds and returns a real
     // Blob. Prefer fetch there, keeping the bridge as a fallback.
-    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || prefersProxyFetchOverUserscriptBridge())) {
+    if (options.preferFetch && (!userscriptRequest
+        || isSameOriginUrl(url)
+        || ((window as typeof window & { __YOMU_READER_RUNTIME__?: string }).__YOMU_READER_RUNTIME__ === 'newtab'
+            && options.responseType === 'blob'))) {
         try {
             return await requestViaFetch(url, options);
         } catch (error) {
@@ -177,11 +180,6 @@ function formatFailure(options: ReaderHttpOptions): string {
 
 function formatStatusFailure(options: ReaderHttpOptions, status: number): string {
     return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? 'Request'} failed (${status}).`;
-}
-
-function prefersProxyFetchOverUserscriptBridge(): boolean {
-    return typeof window !== 'undefined'
-        && (window as typeof window & { __YOMU_READER_RUNTIME__?: string }).__YOMU_READER_RUNTIME__ === 'newtab';
 }
 
 function isSameOriginUrl(url: string): boolean {

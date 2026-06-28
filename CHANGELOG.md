@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.207] - 2026-06-28
+
+### Fixed
+
+- Removed the duplicate study-answer dictionary card on New Tab review words and kept reading, pitch, frequency, dictionary links, and audio in the compact prompt tool row.
+- Restored local-dictionary furigana and pitch recovery for New Tab study prompts such as 映画, 図鑑, and 混浴, while preserving clean fallback when pitch is unavailable.
+- Fixed Jiten text-to-speech and localhost local-audio playback so GM-capable requests avoid the public proxy/CORS path, and replay clicks restart native audio instead of falling through to browser TTS too early.
+- Stopped New Tab reveal from repeating the same front sentence above Immersion Kit examples, so the prompt stays focused on the word and compact tools.
+
 ## [1.4.206] - 2026-06-28
 
 ### Fixed

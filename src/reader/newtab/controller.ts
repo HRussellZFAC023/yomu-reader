@@ -4659,6 +4659,7 @@ export class NewTabController {
         if (slots.prompt) {
             const sentence = this.frontSentenceFromCard(card);
             this.renderWordPromptContent(slots.prompt, card, state, sentence);
+            void this.enrichWordPromptDetails(slots.prompt, card, state, sentence);
             void this.enrichWordPitch(slots.prompt, card);
             void this.enrichWordPromptSentence(slots.prompt, card, state, sentence);
         }
@@ -4667,15 +4668,10 @@ export class NewTabController {
         void this.renderImmersionExample(slots, card);
     }
 
-    private renderWordAnswer(answer: HTMLElement | null, card: JPDBCard): void {
+    private renderWordAnswer(answer: HTMLElement | null, _card: JPDBCard): void {
         if (!answer) return;
-        if (!this.state.revealAnswer) {
-            answer.replaceChildren();
-            return;
-        }
         delete answer.dataset.newtabAnswerDetailsRequest;
-        replaceChildrenWith(answer, this.renderWordAnswerHeader(card));
-        void this.renderWordAnswerDetails(answer, card);
+        answer.replaceChildren();
     }
 
     private renderWordMeaning(meaning: HTMLElement | null, card: JPDBCard): void {
@@ -4744,46 +4740,28 @@ export class NewTabController {
         });
     }
 
-    private async renderWordAnswerDetails(answer: HTMLElement, card: JPDBCard): Promise<void> {
-        const loadDetails = this.dependencies.loadCardRenderData;
-        if (!loadDetails) return;
-        const key = cardKey(card);
-        const requestId = `${key}:${performance.now()}:${Math.random()}`;
-        answer.dataset.newtabAnswerDetailsRequest = requestId;
-        const data = await loadDetails(card).catch(() => null);
-        if (!data || !this.canApplyWordAnswerDetails(answer, key, requestId)) return;
-        const header = this.renderWordAnswerHeader(card, data);
-        answer.querySelector<HTMLElement>('[data-newtab-answer-header]')?.replaceWith(header);
-    }
-
-    private canApplyWordAnswerDetails(answer: HTMLElement, key: string, requestId: string): boolean {
-        return answer.isConnected
-            && answer.dataset.newtabAnswerDetailsRequest === requestId
-            && this.state.mode === 'word'
-            && this.state.revealAnswer
-            && cardKey(this.visibleWords[this.index]) === key;
-    }
-
-    private renderWordAnswerHeader(card: JPDBCard, data?: CardRenderData): HTMLElement {
+    private renderWordPromptTools(card: JPDBCard, data?: CardRenderData): HTMLElement {
         const settings = this.dependencies.getSettings();
-        const furiganaSettings = this.answerHeaderFuriganaSettings(settings);
-        const state = primaryCardState(card.cardState);
-        const pitchClass = newTabPitchClass(card);
-        const spelling = el('div', {
-            class: `jpdb-reader-spelling jpdb-${state} jpdb-pitch-${pitchClass} jpdb-reader-parseable`,
-            dataset: {
-                pitchClass,
-                jpdbReaderKanjiNav: true,
-                jpdbReaderKanjiNavLabel: this.text('showKanji'),
-            },
-        });
-        setInnerHtml(spelling, renderCardSpellingWithFurigana(card, furiganaSettings, { enabled: true, label: this.text('showKanji') }));
-
-        const reading = this.answerHeaderPlainReading(card, furiganaSettings);
-        const pills = data ? this.answerHeaderPills(card, data) : '';
-        const pitch = this.answerHeaderPitch(card, data);
+        const rawReading = newTabCardOptionalReading(card);
+        const reading = rawReading && !isPlainReadingDuplicatedByVisibleRuby(card, { ...settings, furiganaMode: 'all', showFurigana: true }, rawReading)
+            ? rawReading
+            : '';
+        const pills = data
+            ? this.dependencies.renderStudyWordPills?.(card, data.metaEntries, data.ankiLookup)
+                ?? this.dependencies.renderSearchWordPills?.(card, data.metaEntries, data.ankiLookup)
+                ?? ''
+            : '';
+        let pitch = '';
+        if (settings.showPitchAccent) {
+            pitch = renderPitch(card, data?.metaEntries ?? [])
+                || (data ? renderExpressionComponentPitches(data.componentPitches ?? []) : '');
+        }
         const pitchNode = pitch ? htmlToFirstElement(pitch) : null;
         const pillsNode = pills ? htmlToFirstElement(pills) : null;
+        const frequency = card.frequencyRank
+            ? el('span', { class: 'jpdb-reader-meta jpdb-reader-newtab-study-meta' },
+                el('span', { class: 'jpdb-reader-frequency-pill' }, `#${card.frequencyRank}`))
+            : null;
         const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled');
         const audioButton = el('button', {
             class: 'jpdb-reader-icon-btn jpdb-reader-audio-control',
@@ -4794,54 +4772,58 @@ export class NewTabController {
             disabled: !settings.audioEnabled,
         });
         setInnerHtml(audioButton, speakerIcon());
-        return el('div', { class: 'jpdb-reader-newtab-answer-header jpdb-reader-header', dataset: { newtabAnswerHeader: true } },
-            el('div', { class: 'jpdb-reader-heading' },
-                el('div', { class: 'jpdb-reader-title-row' },
-                    spelling,
-                    reading ? el('div', { class: 'jpdb-reader-reading' }, reading) : null,
-                    this.answerHeaderFrequency(card),
-                ),
+        return el('span', { class: 'jpdb-reader-newtab-study-tools', dataset: { newtabStudyTools: true } },
+            el('span', { class: 'jpdb-reader-newtab-study-tool-main' },
+                reading ? el('span', { class: 'jpdb-reader-reading' }, reading) : null,
+                frequency,
                 pillsNode,
             ),
-            el('div', { class: 'jpdb-reader-card-tools' },
+            el('span', { class: 'jpdb-reader-card-tools' },
                 pitchNode,
                 audioButton,
             ),
         );
     }
 
-    private answerHeaderPlainReading(card: JPDBCard, settings: ReaderSettings): string {
-        const reading = newTabCardOptionalReading(card);
-        if (!reading || isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return '';
-        return reading;
+    private async enrichWordPromptDetails(
+        prompt: HTMLElement,
+        card: JPDBCard,
+        state: ReturnType<typeof primaryCardState>,
+        currentSentence: string,
+    ): Promise<void> {
+        const loadDetails = this.dependencies.loadCardRenderData;
+        if (!loadDetails) return;
+        const key = cardKey(card);
+        const requestId = `${key}:${performance.now()}:${Math.random()}`;
+        prompt.dataset.newtabStudyToolsRequest = requestId;
+        const data = await loadDetails(card).catch(() => null);
+        if (!data
+            || !prompt.isConnected
+            || prompt.dataset.newtabStudyToolsRequest !== requestId
+            || this.state.mode !== 'word'
+            || cardKey(this.visibleWords[this.index]) !== key) return;
+        this.applyLocalStudyReading(card, data);
+        const term = prompt.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-front > .jpdb-reader-newtab-term');
+        if (term) replaceChildrenWith(term, this.renderPromptReaderWord(card, state, currentSentence || card.spelling));
+        prompt.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-front > [data-newtab-study-tools]')
+            ?.replaceWith(this.renderWordPromptTools(card, data));
+        this.dependencies.installDictionarySourceTracking?.(prompt);
     }
 
-    private answerHeaderFuriganaSettings(settings: ReaderSettings): ReaderSettings {
-        return {
-            ...settings,
-            furiganaMode: 'all',
-            showFurigana: true,
-        };
-    }
-
-    private answerHeaderFrequency(card: JPDBCard): HTMLElement | null {
-        return card.frequencyRank
-            ? el('div', { class: 'jpdb-reader-meta jpdb-reader-newtab-answer-meta' },
-                el('span', { class: 'jpdb-reader-frequency-pill' }, `#${card.frequencyRank}`))
+    private applyLocalStudyReading(card: JPDBCard, data: CardRenderData): void {
+        const spelling = card.spelling.trim();
+        const exact = spelling
+            ? data.localEntries.find(entry => entry.expression === spelling && entry.reading && entry.reading !== spelling)
             : null;
-    }
-
-    private answerHeaderPills(card: JPDBCard, data: CardRenderData): string {
-        return this.dependencies.renderStudyWordPills?.(card, data.metaEntries, data.ankiLookup)
-            ?? this.dependencies.renderSearchWordPills?.(card, data.metaEntries, data.ankiLookup)
-            ?? '';
-    }
-
-    private answerHeaderPitch(card: JPDBCard, data?: CardRenderData): string {
-        if (!this.dependencies.getSettings().showPitchAccent) return '';
-        const whole = renderPitch(card, data?.metaEntries ?? []);
-        if (whole) return whole;
-        return data ? renderExpressionComponentPitches(data.componentPitches ?? []) : '';
+        const reading = newTabCardOptionalReading(card)
+            || exact?.reading
+            || data.localEntries.find(entry => entry.reading && entry.reading !== spelling)?.reading
+            || '';
+        if (reading) card.reading = reading;
+        if (!card.pitchAccent.length && reading) {
+            const pitch = localPitchPatternFromMeta(reading, data.metaEntries);
+            if (pitch) card.pitchAccent = [pitch];
+        }
     }
 
     private renderAnkiRenderedWordPrompt(slots: NewTabStudySlots, card: JPDBCard): boolean {
@@ -4885,24 +4867,45 @@ export class NewTabController {
         state: ReturnType<typeof primaryCardState>,
         sentence: string,
     ): void {
+        const promptSentence = this.wordPromptSentence(sentence);
         prompt.lang = 'ja';
         prompt.dataset.newtabExpression = 'true';
         prompt.classList.remove('jpdb-reader-newtab-prompt-anki-card');
         prompt.closest<HTMLElement>('.jpdb-reader-newtab-study')?.classList.remove('jpdb-reader-newtab-study-anki-card');
-        prompt.classList.toggle('jpdb-reader-newtab-prompt-has-sentence', Boolean(sentence));
+        prompt.classList.toggle('jpdb-reader-newtab-prompt-has-sentence', Boolean(promptSentence));
         delete prompt.dataset.newtabSentenceRequest;
         delete prompt.dataset.newtabPromptParseRequest;
-        replaceChildrenWith(prompt, this.renderSentencePrompt(card, state, sentence));
+        replaceChildrenWith(prompt, this.renderSentencePrompt(card, state, promptSentence));
         void this.parseNewTabPromptSentence(prompt, card);
+    }
+
+    private wordPromptSentence(sentence: string): string {
+        if (!sentence) return '';
+        const settings = this.dependencies.getSettings();
+        return this.state.revealAnswer && settings.immersionKitEnabled ? '' : sentence;
     }
 
     private renderSentencePrompt(card: JPDBCard, state: ReturnType<typeof primaryCardState>, sentence = ''): HTMLElement {
         const wrap = el('span', { class: 'jpdb-reader-newtab-front' },
-            el('span', { class: 'jpdb-reader-newtab-term' }, this.renderReaderWord(card, state, card.spelling, sentence || card.spelling)),
+            el('span', { class: 'jpdb-reader-newtab-term' }, this.renderPromptReaderWord(card, state, sentence || card.spelling)),
+            this.renderWordPromptTools(card),
         );
         if (!sentence) return wrap;
         wrap.append(this.renderWordPromptSentenceNode(card, state, sentence));
         return wrap;
+    }
+
+    private renderPromptReaderWord(card: JPDBCard, state: ReturnType<typeof primaryCardState>, sentence: string): HTMLSpanElement {
+        const word = this.renderReaderWord(card, state, card.spelling, sentence);
+        word.classList.add('jpdb-reader-parseable');
+        word.dataset.jpdbReaderKanjiNav = 'true';
+        word.dataset.jpdbReaderKanjiNavLabel = this.text('showKanji');
+        setInnerHtml(word, renderCardSpellingWithFurigana(card, {
+            ...this.dependencies.getSettings(),
+            furiganaMode: 'all',
+            showFurigana: true,
+        }, { enabled: true, label: this.text('showKanji') }));
+        return word;
     }
 
     private renderWordPromptSentenceNode(card: JPDBCard, state: ReturnType<typeof primaryCardState>, sentence: string): HTMLElement {
@@ -4945,11 +4948,12 @@ export class NewTabController {
         const requestId = `${key}:${performance.now()}:${Math.random()}`;
         prompt.dataset.newtabPromptParseRequest = requestId;
         const sentence = prompt.querySelector<HTMLElement>('[data-newtab-sentence-render]');
+        if (!sentence) return;
         const sentenceText = this.newTabSentenceText(sentence);
         if (sentence && await this.parseNewTabSentenceElement(sentence, sentenceText, card, () => this.canApplyNewTabPromptParse(prompt, key, requestId))) return;
-        await this.dependencies.parseContent?.(prompt, newTabShortParseOptions())?.catch(() => undefined);
+        await this.dependencies.parseContent?.(sentence, newTabShortParseOptions())?.catch(() => undefined);
         if (!this.canApplyNewTabPromptParse(prompt, key, requestId)) return;
-        this.highlightNewTabParsedTarget(prompt, '[data-newtab-sentence-render]', card);
+        this.highlightNewTabParsedWords(sentence, card);
     }
 
     private canApplyNewTabPromptParse(prompt: HTMLElement, key: string, requestId: string): boolean {
@@ -4965,7 +4969,8 @@ export class NewTabController {
         state: ReturnType<typeof primaryCardState>,
         currentSentence: string,
     ): Promise<void> {
-        if (currentSentence || !this.shouldShowFrontSentence()) return;
+        const settings = this.dependencies.getSettings();
+        if (currentSentence || !settings.newTabFrontSentenceEnabled || settings.immersionKitEnabled) return;
         const key = cardKey(card);
         const requestId = `${key}:${performance.now()}:${Math.random()}`;
         prompt.dataset.newtabSentenceRequest = requestId;
@@ -8500,7 +8505,11 @@ export class NewTabController {
             tabIndex: -1,
         }, text);
         if (this.state.revealAnswer && text === card.spelling) {
-            setInnerHtml(word, renderCardSpellingWithFurigana(card, this.answerHeaderFuriganaSettings(this.dependencies.getSettings()), { enabled: true, label: this.text('showKanji') }));
+            setInnerHtml(word, renderCardSpellingWithFurigana(card, {
+                ...this.dependencies.getSettings(),
+                furiganaMode: 'all',
+                showFurigana: true,
+            }, { enabled: true, label: this.text('showKanji') }));
         }
         return word;
     }
@@ -8579,7 +8588,9 @@ export class NewTabController {
         if (!settings.localDictionariesEnabled) return '';
         if (typeof this.dependencies.dictionaries.lookupTermMeta !== 'function') return '';
         const metaEntries = await this.dependencies.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch(() => []);
-        return localPitchPatternFromMeta(newTabCardReading(card), metaEntries);
+        const reading = newTabCardReading(card);
+        return localPitchPatternFromMeta(reading, metaEntries)
+            || (reading === card.spelling ? localPitchPatternFromMeta('', metaEntries) : '');
     }
 
     private wordPitchCacheKey(card: JPDBCard): string {

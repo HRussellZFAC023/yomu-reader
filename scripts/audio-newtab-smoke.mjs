@@ -137,11 +137,11 @@ function hostedStudyAnswerAudioScenario(origin) {
         action: async page => {
             await page.waitForSelector('[data-newtab-prompt]', { timeout: 15_000 });
             await page.locator('[data-newtab-action="reveal"]').click();
-            await page.waitForSelector('[data-newtab-answer-header] ruby', { timeout: 10_000 });
-            await page.waitForSelector('[data-newtab-answer-header] .jpdb-reader-pitch svg', { timeout: 10_000 });
-            await page.waitForSelector('[data-newtab-answer-header] .jpdb-reader-frequency-pill', { timeout: 10_000 });
-            await page.waitForSelector('[data-action="study-word-audio"]:not([disabled])', { timeout: 10_000 });
-            await page.locator('[data-action="study-word-audio"]').click();
+            await page.waitForSelector('[data-newtab-prompt] .jpdb-reader-newtab-term ruby', { timeout: 10_000 });
+            await page.waitForSelector('[data-newtab-study-tools] .jpdb-reader-pitch svg', { timeout: 10_000 });
+            await page.waitForSelector('[data-newtab-study-tools] .jpdb-reader-frequency-pill', { timeout: 10_000 });
+            await page.waitForSelector('[data-newtab-study-tools] [data-action="study-word-audio"]:not([disabled])', { timeout: 10_000 });
+            await page.locator('[data-newtab-study-tools] [data-action="study-word-audio"]').click();
             await waitForPlaybackSignalCount(page, 1, 'Hosted Study answer audio button produced no audio or speech signal');
         },
         assertResult: result => {
@@ -150,8 +150,8 @@ function hostedStudyAnswerAudioScenario(origin) {
             assert(result.requests.some(request => targetUrl(request).includes('/clip-')), 'Hosted Study audio did not request a recorded clip', result);
             assert(result.speech.length === 0, 'Hosted Study fallback mode used browser text-to-speech while recorded clips were playable', result);
             assert(result.audiblePlays.length >= 1, 'Hosted Study did not record an audio play attempt', result);
-            assert(/読.*む/.test(result.evidence.answerText), 'Hosted Study answer evidence did not include the headword', result);
-            assert(result.evidence.answerText.includes('#900'), 'Hosted Study answer evidence did not include the frequency pill', result);
+            assert(/読.*む/.test(result.evidence.promptText), 'Hosted Study prompt evidence did not include the headword', result);
+            assert(result.evidence.studyToolsText.includes('#900'), 'Hosted Study answer evidence did not include the frequency pill', result);
         },
     };
 }
@@ -175,8 +175,7 @@ function hostedStudyLocalAudioCorsScenario(origin) {
         action: async page => {
             await page.waitForSelector('[data-newtab-prompt]', { timeout: 15_000 });
             await page.locator('[data-newtab-action="reveal"]').click();
-            await page.waitForSelector('[data-newtab-answer-header] ruby', { timeout: 10_000 });
-            await page.waitForSelector('.jpdb-reader-newtab-term .jpdb-reader-word ruby', { timeout: 10_000 });
+            await page.waitForSelector('[data-newtab-prompt] .jpdb-reader-newtab-term .jpdb-reader-word ruby', { timeout: 10_000 });
             const speaker = page.locator('[data-action="study-word-audio"]');
             await speaker.waitFor({ timeout: 10_000 });
             assert(await speaker.isEnabled(), 'Hosted Study local-audio speaker was disabled before playback');
@@ -591,13 +590,15 @@ async function safeEvidence(page) {
             title: document.title,
             runtime: window.__YOMU_READER_RUNTIME__ || '',
             rootBound: document.querySelector('[data-jpdb-reader-root].jpdb-reader-newtab')?.dataset.newtabBound ?? '',
-            answerText: document.querySelector('[data-newtab-answer-header]')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 240) ?? '',
+            answerHeaderCount: document.querySelectorAll('[data-newtab-answer-header]').length,
             compactTermHtml: document.querySelector('.jpdb-reader-newtab-term .jpdb-reader-word')?.innerHTML ?? '',
             studySpeakerVisible: (() => {
                 const button = document.querySelector('[data-action="study-word-audio"]');
                 return button instanceof HTMLElement ? Boolean(button.offsetParent || button.getClientRects().length) : false;
             })(),
             studySpeakerDisabled: document.querySelector('[data-action="study-word-audio"]')?.disabled ?? null,
+            promptText: document.querySelector('[data-newtab-prompt]')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 240) ?? '',
+            studyToolsText: document.querySelector('[data-newtab-study-tools]')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 240) ?? '',
             searchText: document.querySelector('[data-newtab-search-results]')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 240) ?? '',
             detailText: document.querySelector('[data-newtab-search-detail]:not([hidden])')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 240) ?? '',
         }));
