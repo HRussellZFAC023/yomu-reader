@@ -156,6 +156,8 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    "Released the Reddit Japanese site-language fix on a fresh version, using Reddit's working Japanese locale URL hint instead of the stripped translation hint.": 'Redditの日本語サイト言語修正を新しいバージョンとしてリリースしました。削除されてしまう翻訳ヒントではなく、Redditが認識する日本語ロケールURLヒントを使用します。',
+    'Silenced optional hosted new-tab lookup warnings when Jiten, JPDB kanji, RTK, or KanjiVG cannot be fetched without a userscript bridge or configured proxy, keeping Study/Newtab consoles clear while preserving the lookup fallbacks.': 'ユーザースクリプトブリッジや設定済みプロキシなしではJiten、JPDB漢字、RTK、KanjiVGを取得できない場合の、ホスト版新タブの任意検索警告を抑制しました。検索フォールバックを維持したまま、Study/Newtabのコンソールを静かに保ちます。',
     'Release readiness': 'リリース準備',
     'Keep homepage CTA polish, public internal-guide removal, and the actual Yomu Gaming app artifact as release gates to verify against built docs/artifacts, not source intent alone.': 'ホームページCTAの仕上げ、公開内部ガイドの削除、実際のYomu Gamingアプリ成果物を、ソース上の意図だけでなくビルド済みドキュメント/成果物で確認するリリースゲートとして扱います。',
     'Treat BookWalker gallery layout and PDF OCR as still open until real gallery/PDF smokes confirm the remaining reports; earlier hardening is partial and should not be considered a full fix.': 'BookWalkerギャラリーレイアウトとPDF OCRは、実際のギャラリー/PDFスモークで残りの報告を確認するまで未完了として扱います。以前の強化は部分対応であり、完全な修正とは見なしません。',

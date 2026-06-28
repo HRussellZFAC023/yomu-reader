@@ -40,6 +40,7 @@ function createController(
     captureReaderSurface?: (surface: Element, maxPixels: number) => Promise<{ dataUrl: string; rect: DOMRect } | undefined>,
     captureCanvasMirror?: (canvas: HTMLCanvasElement, loadCleanImage: (url: string) => Promise<CanvasImageSource | undefined>) => Promise<HTMLCanvasElement | undefined>,
     shouldAutoScan: () => boolean = () => true,
+    configure?: (controller: ImageOcrController) => void,
 ): ImageOcrController {
     const controller = new ImageOcrController({
         getSettings: () => ({
@@ -58,6 +59,7 @@ function createController(
         captureReaderSurface,
         captureCanvasMirror,
     });
+    configure?.(controller);
     controller.init();
     return controller;
 }
@@ -371,9 +373,6 @@ describe('reader raster OCR surfaces', () => {
         viewport.append(canvas);
         document.body.append(viewport);
 
-        const naturalWidth = vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(1200);
-        const naturalHeight = vi.spyOn(HTMLImageElement.prototype, 'naturalHeight', 'get').mockReturnValue(1600);
-        const controller = createController();
         const recognizeImage = vi.fn(async (): Promise<OcrResult> => ({
             width: 1200,
             height: 1600,
@@ -385,7 +384,11 @@ describe('reader raster OCR surfaces', () => {
                 },
             ],
         }));
-        (controller as unknown as { recognizeImage: () => Promise<OcrResult> }).recognizeImage = recognizeImage;
+        const naturalWidth = vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(1200);
+        const naturalHeight = vi.spyOn(HTMLImageElement.prototype, 'naturalHeight', 'get').mockReturnValue(1600);
+        const controller = createController({}, undefined, undefined, undefined, controller => {
+            (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+        });
         try {
             await waitForExpect(() => {
                 expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();

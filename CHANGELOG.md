@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.168] - 2026-06-28
+
+### Fixed
+
+- Released the Reddit Japanese site-language fix on a fresh version, using Reddit's working Japanese locale URL hint instead of the stripped translation hint.
+
 ## [1.4.167] - 2026-06-28
 
 ### Fixed
