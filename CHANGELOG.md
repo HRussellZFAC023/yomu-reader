@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.165] - 2026-06-28
+
+### Fixed
+
+- Replaced Reddit's stripped Japanese translation URL hint with Reddit's working Japanese locale URL hint, so the Japanese site-language preference can load Reddit's Japanese shell instead of normalizing back to the English feed URL.
+
 ## [1.4.164] - 2026-06-28
 
 ### Fixed

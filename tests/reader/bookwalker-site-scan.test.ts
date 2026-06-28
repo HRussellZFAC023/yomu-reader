@@ -249,7 +249,6 @@ describe('BookWalker site scan boundaries', () => {
                 parserId: 'residual-visible-japanese-parser',
                 suppressRuby: true,
                 passiveInteraction: true,
-                nonDestructive: true,
             });
         } finally {
             restoreRects();
@@ -291,7 +290,6 @@ describe('BookWalker site scan boundaries', () => {
                 parserId: 'residual-visible-japanese-parser',
                 suppressRuby: true,
                 passiveInteraction: true,
-                nonDestructive: true,
             });
         } finally {
             restoreRects();
@@ -334,7 +332,6 @@ describe('BookWalker site scan boundaries', () => {
                 parserId: 'residual-visible-japanese-parser',
                 suppressRuby: true,
                 passiveInteraction: true,
-                nonDestructive: true,
             });
         } finally {
             restoreRects();
@@ -370,7 +367,6 @@ describe('BookWalker site scan boundaries', () => {
                 parserId: 'residual-visible-japanese-parser',
                 suppressRuby: true,
                 passiveInteraction: true,
-                nonDestructive: true,
             });
         } finally {
             restoreRects();
