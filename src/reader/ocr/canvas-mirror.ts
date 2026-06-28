@@ -92,7 +92,11 @@ const destKey = (op: MirrorOp): string => `${op.dx},${op.dy},${op.dw},${op.dh}`;
 export function selectLatestContentOps(ops: readonly MirrorOp[], beforeSeq: number): MirrorOp[] {
     const byDest = new Map<string, MirrorOp>();
     for (const op of ops) {
-        if (op.clear || op.seq >= beforeSeq) continue;
+        if (op.seq >= beforeSeq) continue;
+        if (op.clear) {
+            byDest.clear();
+            continue;
+        }
         byDest.set(destKey(op), op); // ops arrive in seq order, so the last write wins
     }
     return [...byDest.values()].sort((a, b) => a.seq - b.seq);
@@ -113,10 +117,27 @@ export function collectLeafUrls(
     // Keep `seen` per path; spreads can revisit a shared buffer at different seqs.
     const next = new Set(seen).add(id);
     for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
-        if (op.srcId) collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
+        if (op.srcId) {
+            const before = out.size;
+            collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
+            if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
+                collectLeafUrls(op.srcId, Number.POSITIVE_INFINITY, lookup, out, next, depth + 1);
+            }
+        }
         else if (op.url) out.add(op.url);
     }
     return out;
+}
+
+function shouldUseLatestSourceFallback(
+    id: string,
+    beforeSeq: number,
+    lookup: (id: string) => MirrorRecord | undefined,
+): boolean {
+    if (!Number.isFinite(beforeSeq)) return false;
+    const record = lookup(id);
+    if (!record?.ops.length) return false;
+    return !record.ops.some(op => !op.clear && op.seq < beforeSeq);
 }
 
 function markSkip(context: CanvasRenderingContext2D | null): CanvasRenderingContext2D | null {
@@ -165,7 +186,12 @@ function rebuildById(
     let drew = 0;
     for (const op of ops) {
         let source: CanvasImageSource | null = null;
-        if (op.srcId) source = rebuildById(op.srcId, op.seq, images, new Set(seen), depth + 1);
+        if (op.srcId) {
+            source = rebuildById(op.srcId, op.seq, images, new Set(seen), depth + 1);
+            if (!source && shouldUseLatestSourceFallback(op.srcId, op.seq, key => state().records[key])) {
+                source = rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, new Set(seen), depth + 1);
+            }
+        }
         else if (op.url) source = images.get(op.url) ?? null;
         if (!source) continue;
         try {

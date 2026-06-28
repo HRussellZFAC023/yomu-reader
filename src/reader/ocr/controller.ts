@@ -5,9 +5,11 @@ import {
     backgroundImageReaderUrl,
     canUseReaderCanvasSourceImageFallback,
     canvasPageContentToken,
+    canvasReaderHasStableSurface,
     canvasRenderedContentSignature,
     canvasReaderPageCounter,
     canvasReaderPageSignature,
+    canvasReaderSurfaceId,
     captureCanvasDataUrl,
     collectBackgroundImageReaderSurfaces,
     collectCanvasReaderSurfaces,
@@ -3933,10 +3935,10 @@ function readerRasterSurfaceSnapshotKey(surface: HTMLCanvasElement | HTMLElement
 // different page, so a capture lands and survives the surrounding epoch churn.
 // Repositioning on scroll/zoom is handled separately, so dropping the rect costs nothing.
 function canvasSurfaceSnapshotKey(canvas: HTMLCanvasElement): string {
-    const viewportId = canvas.closest<HTMLElement>('[id^="viewport"]')?.id ?? '';
+    const surfaceId = canvasReaderSurfaceId(canvas);
     return [
-        canvasReaderPageCounter(),
-        viewportId,
+        canvasReaderHasStableSurface(canvas) ? '' : canvasReaderPageCounter(),
+        surfaceId,
         canvas.width,
         canvas.height,
         canvasPageContentToken(canvas),
@@ -3944,16 +3946,13 @@ function canvasSurfaceSnapshotKey(canvas: HTMLCanvasElement): string {
 }
 
 function canvasContentReadinessKey(canvas: HTMLCanvasElement): string {
-    const rect = canvas.getBoundingClientRect();
-    const viewportId = canvas.closest<HTMLElement>('[id^="viewport"]')?.id ?? '';
+    const surfaceId = canvasReaderSurfaceId(canvas);
     return [
-        viewportId,
+        canvasReaderHasStableSurface(canvas) ? '' : canvasReaderPageCounter(),
+        surfaceId,
         canvas.width,
         canvas.height,
-        Math.round(rect.left),
-        Math.round(rect.top),
-        Math.round(rect.width),
-        Math.round(rect.height),
+        canvasPageContentToken(canvas),
     ].join('|');
 }
 

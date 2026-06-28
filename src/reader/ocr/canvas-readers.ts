@@ -14,6 +14,7 @@ const PAGE_COUNTER_SELECTOR = '#pageSliderCounter';
 const CURRENT_SCREEN_CLASS = 'currentScreen';
 const CURRENT_SCREEN_SELECTOR = `.${CURRENT_SCREEN_CLASS}`;
 const VIEWPORT_CONTAINER_SELECTOR = '[id^="viewport"]';
+const BW_VERTICAL_SURFACE_SELECTOR = '.canvasRoot.verticalAxis[id], [id^="wideScreen"][id]';
 
 // Known manga canvas hosts skip the generic prominence/content sniff.
 const CANVAS_READER_HOST_PATTERNS: RegExp[] = [
@@ -342,46 +343,19 @@ export function isReaderRasterPage(hostname: string = location.hostname): boolea
         || isKnownBackgroundImageReaderHost(hostname);
 }
 
-/**
- * Cheap page-change fingerprint. Canvas redraws fire no DOM event, so we detect
- * page turns by combining the viewer's page counter ("3 / 48"), the live surface
- * count, and a per-canvas content token. A change means the canvases were
- * repainted and stale snapshots must be dropped + retaken. The rounded scroll
- * offset is included ONLY for BookWalker, whose single-viewport vertical mode
- * repaints one canvas as you scroll; multi-canvas scroll readers (e.g.
- * ComicWalker) paint each page once into its own persistent canvas, so scrolling
- * must NOT invalidate them — the per-canvas snapshot map already covers them.
- *
- * The content token is essential on NFBR: it repaints ONE in-place canvas per
- * turn, so the surface count never changes, scroll is coarse/often static, and
- * #pageSliderCounter can be hidden, absent, or momentarily identical — leaving
- * the bare counter|scroll|surfaces signature unchanged across a real turn (the
- * "stuck, must refresh" bug). A readable canvas contributes its cheap 20x20 pixel
- * hash; a tainted DRM canvas (getImageData throws, hash is undefined) contributes
- * the recorder's shared-DOM turn token instead, which bumps on every page
- * composite. Both are try/caught so the signature can never throw.
- */
-// The viewer's "page / total" readout. Stable per page in BOTH paged and vertical
-// modes (it only advances when a new page becomes current), so it is a reliable turn
-// signal — unlike the mirror epoch, which churns on every composite. '' when hidden
-// or absent, in which case callers fall back to per-canvas content identity.
 export function canvasReaderPageCounter(): string {
     return document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? '';
 }
 
+// Cheap page-change fingerprint for canvas readers.
 export function canvasReaderPageSignature(): string {
-    const counter = canvasReaderPageCounter();
     const canvases = pageCanvases();
     const rawCanvases = isBookwalkerViewerHost() ? pageCanvases(location.hostname, { preferBookwalkerCurrent: false }) : canvases;
-    const scroll = isBookwalkerViewerHost() && shouldUseBookwalkerScrollSignature(rawCanvases)
+    const verticalStack = isBookwalkerViewerHost() && hasVerticallyStackedDocumentPageRun(rawCanvases);
+    const counter = verticalStack ? '' : canvasReaderPageCounter();
+    const scroll = isBookwalkerViewerHost() && !verticalStack && shouldUseBookwalkerScrollSignature(rawCanvases)
         ? Math.round((window.scrollY || 0) / 40)
         : 0;
-    // Key on DISTINCT page content, not raw canvas count: NFBR transiently mounts a
-    // second blank/decoy canvas in the same viewport mid-turn, and a bare count would
-    // flip the signature (spurious frame release + re-OCR) for what is still the same
-    // page. Deduped, content-bearing tokens stay stable across that flicker while a
-    // real turn (counter advance, or a new rendered pixel hash / mirror epoch) still
-    // changes the signature.
     const tokens = canvasReaderContentTokens(canvases);
     const surfaces = tokens.length;
     const content = tokens.join(',');
@@ -396,24 +370,35 @@ function shouldUseBookwalkerScrollSignature(canvases: HTMLCanvasElement[]): bool
         && !hasVerticallyStackedDocumentPageRun(canvases);
 }
 
-// Per-canvas page-content identity. A readable canvas hashes its pixels; a tainted
-// DRM canvas uses the mirror recorder's per-canvas source-image fingerprint; only
-// when neither exists yet does it fall back to the global mirror epoch. Stable across
-// a same-page repaint, distinct per page — so it names the page shown in THIS canvas
-// without the global epoch's cross-canvas churn (which, in vertical/continuous mode,
-// made every poll read as a page turn and kept OCR from ever settling).
 export function canvasPageContentToken(canvas: HTMLCanvasElement): string {
     try {
         const signature = canvasRenderedContentSignature(canvas);
         if (signature) return signature;
     } catch { /* tainted — fall through to the mirror identity */ }
-    return canvasMirrorContentToken(canvas) || canvasMirrorTurnToken();
+    return canvasMirrorContentToken(canvas) || stableSurfaceToken(canvas) || canvasMirrorTurnToken();
 }
 
-// Distinct content fingerprints for the page canvases, blank/duplicate tokens
-// dropped. Deduping means a transient blank flicker canvas (empty token) and a
-// duplicate buffer of the same painted page don't perturb the signature, while
-// genuinely different pages still each count.
+export function canvasReaderSurfaceId(canvas: HTMLCanvasElement): string {
+    return bookwalkerVerticalSurface(canvas)?.id ?? canvas.closest<HTMLElement>(VIEWPORT_CONTAINER_SELECTOR)?.id ?? '';
+}
+
+export function canvasReaderHasStableSurface(canvas: HTMLCanvasElement): boolean {
+    return Boolean(bookwalkerVerticalSurface(canvas));
+}
+
+function stableSurfaceToken(canvas: HTMLCanvasElement): string {
+    const id = bookwalkerVerticalSurface(canvas)?.id;
+    return id ? `s:${id}:${canvas.width}x${canvas.height}` : '';
+}
+
+function bookwalkerVerticalSurface(canvas: HTMLCanvasElement): HTMLElement | null {
+    if (!isBookwalkerViewerHost()) return null;
+    const surface = canvas.closest<HTMLElement>(BW_VERTICAL_SURFACE_SELECTOR);
+    if (!surface) return null;
+    if (surface.classList.contains('verticalAxis')) return surface;
+    return surface.closest('#viewportW,.overScroll') ? surface : null;
+}
+
 function canvasReaderContentTokens(canvases: HTMLCanvasElement[]): string[] {
     const tokens = canvases.map(canvas => {
         try {

@@ -25453,7 +25453,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.199".trim() ? "1.4.199".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.200".trim() ? "1.4.200".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -32648,7 +32648,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function selectLatestContentOps(ops, beforeSeq) {
     const byDest = /* @__PURE__ */ new Map();
     for (const op of ops) {
-      if (op.clear || op.seq >= beforeSeq) continue;
+      if (op.seq >= beforeSeq) continue;
+      if (op.clear) {
+        byDest.clear();
+        continue;
+      }
       byDest.set(destKey(op), op);
     }
     return [...byDest.values()].sort((a, b) => a.seq - b.seq);
@@ -32659,10 +32663,21 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!record) return out;
     const next = new Set(seen).add(id);
     for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
-      if (op.srcId) collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
-      else if (op.url) out.add(op.url);
+      if (op.srcId) {
+        const before = out.size;
+        collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
+        if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
+          collectLeafUrls(op.srcId, Number.POSITIVE_INFINITY, lookup, out, next, depth + 1);
+        }
+      } else if (op.url) out.add(op.url);
     }
     return out;
+  }
+  function shouldUseLatestSourceFallback(id, beforeSeq, lookup) {
+    if (!Number.isFinite(beforeSeq)) return false;
+    const record = lookup(id);
+    if (!record?.ops.length) return false;
+    return !record.ops.some((op) => !op.clear && op.seq < beforeSeq);
   }
   function markSkip(context) {
     if (context) context.__yomuMirrorSkip = true;
@@ -32695,8 +32710,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     let drew = 0;
     for (const op of ops) {
       let source = null;
-      if (op.srcId) source = rebuildById(op.srcId, op.seq, images, new Set(seen), depth + 1);
-      else if (op.url) source = images.get(op.url) ?? null;
+      if (op.srcId) {
+        source = rebuildById(op.srcId, op.seq, images, new Set(seen), depth + 1);
+        if (!source && shouldUseLatestSourceFallback(op.srcId, op.seq, (key) => state().records[key])) {
+          source = rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, new Set(seen), depth + 1);
+        }
+      } else if (op.url) source = images.get(op.url) ?? null;
       if (!source) continue;
       try {
         if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
@@ -33112,6 +33131,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const CURRENT_SCREEN_CLASS = "currentScreen";
   const CURRENT_SCREEN_SELECTOR = `.${CURRENT_SCREEN_CLASS}`;
   const VIEWPORT_CONTAINER_SELECTOR = '[id^="viewport"]';
+  const BW_VERTICAL_SURFACE_SELECTOR = '.canvasRoot.verticalAxis[id], [id^="wideScreen"][id]';
   const CANVAS_READER_HOST_PATTERNS = [
     /(^|\.)bookwalker\.jp$/i,
     /(^|\.)comic-walker\.com$/i
@@ -33342,10 +33362,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
   }
   function canvasReaderPageSignature() {
-    const counter = canvasReaderPageCounter();
     const canvases = pageCanvases();
     const rawCanvases = isBookwalkerViewerHost() ? pageCanvases(location.hostname, { preferBookwalkerCurrent: false }) : canvases;
-    const scroll = isBookwalkerViewerHost() && shouldUseBookwalkerScrollSignature(rawCanvases) ? Math.round((window.scrollY || 0) / 40) : 0;
+    const verticalStack = isBookwalkerViewerHost() && hasVerticallyStackedDocumentPageRun(rawCanvases);
+    const counter = verticalStack ? "" : canvasReaderPageCounter();
+    const scroll = isBookwalkerViewerHost() && !verticalStack && shouldUseBookwalkerScrollSignature(rawCanvases) ? Math.round((window.scrollY || 0) / 40) : 0;
     const tokens = canvasReaderContentTokens(canvases);
     const surfaces = tokens.length;
     const content = tokens.join(",");
@@ -33361,7 +33382,24 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (signature) return signature;
     } catch {
     }
-    return canvasMirrorContentToken(canvas) || canvasMirrorTurnToken();
+    return canvasMirrorContentToken(canvas) || stableSurfaceToken(canvas) || canvasMirrorTurnToken();
+  }
+  function canvasReaderSurfaceId(canvas) {
+    return bookwalkerVerticalSurface(canvas)?.id ?? canvas.closest(VIEWPORT_CONTAINER_SELECTOR)?.id ?? "";
+  }
+  function canvasReaderHasStableSurface(canvas) {
+    return Boolean(bookwalkerVerticalSurface(canvas));
+  }
+  function stableSurfaceToken(canvas) {
+    const id = bookwalkerVerticalSurface(canvas)?.id;
+    return id ? `s:${id}:${canvas.width}x${canvas.height}` : "";
+  }
+  function bookwalkerVerticalSurface(canvas) {
+    if (!isBookwalkerViewerHost()) return null;
+    const surface = canvas.closest(BW_VERTICAL_SURFACE_SELECTOR);
+    if (!surface) return null;
+    if (surface.classList.contains("verticalAxis")) return surface;
+    return surface.closest("#viewportW,.overScroll") ? surface : null;
   }
   function canvasReaderContentTokens(canvases) {
     const tokens = canvases.map((canvas) => {
@@ -38713,26 +38751,23 @@ ${spelling}`);
     return surface instanceof HTMLCanvasElement ? canvasSurfaceSnapshotKey(surface) : backgroundSurfaceCacheKey(surface);
   }
   function canvasSurfaceSnapshotKey(canvas) {
-    const viewportId = canvas.closest('[id^="viewport"]')?.id ?? "";
+    const surfaceId = canvasReaderSurfaceId(canvas);
     return [
-      canvasReaderPageCounter(),
-      viewportId,
+      canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
+      surfaceId,
       canvas.width,
       canvas.height,
       canvasPageContentToken(canvas)
     ].join("|");
   }
   function canvasContentReadinessKey(canvas) {
-    const rect = canvas.getBoundingClientRect();
-    const viewportId = canvas.closest('[id^="viewport"]')?.id ?? "";
+    const surfaceId = canvasReaderSurfaceId(canvas);
     return [
-      viewportId,
+      canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
+      surfaceId,
       canvas.width,
       canvas.height,
-      Math.round(rect.left),
-      Math.round(rect.top),
-      Math.round(rect.width),
-      Math.round(rect.height)
+      canvasPageContentToken(canvas)
     ].join("|");
   }
   function isSameCanvasReaderPageLocation(previous, next) {

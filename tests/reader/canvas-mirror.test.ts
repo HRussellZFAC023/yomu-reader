@@ -33,6 +33,16 @@ describe('selectLatestContentOps', () => {
         expect(selectLatestContentOps(ops, 15).map(o => o.url)).toEqual(['pageR']);
         expect(selectLatestContentOps(ops, 25).map(o => o.url)).toEqual(['pageL']);
     });
+
+    it('drops pre-clear content so stale page URLs do not survive buffer reuse', () => {
+        const ops: MirrorOp[] = [
+            op({ seq: 10, url: 'oldPage', dx: 0, dy: 0, dw: 1024, dh: 1024 }),
+            op({ seq: 11, clear: true }),
+            op({ seq: 12, url: 'newPage', dx: 64, dy: 0, dw: 1024, dh: 1024 }),
+        ];
+
+        expect(selectLatestContentOps(ops, 20).map(o => o.url)).toEqual(['newPage']);
+    });
 });
 
 describe('collectLeafUrls', () => {
@@ -65,6 +75,25 @@ describe('collectLeafUrls', () => {
         };
         const urls = collectLeafUrls('spread', Number.POSITIVE_INFINITY, id => records[id]);
         expect([...urls].sort()).toEqual(['urlL', 'urlR']); // both halves, not just the right
+    });
+
+    it('falls back to the latest source-canvas URL when the historical source draw was missed', () => {
+        // Live Firefox/BookWalker can install after the source buffer was initially
+        // painted: the visible page records canvas->canvas composites first, then
+        // the source buffer records a later image URL. Without this fallback the
+        // vertical reader finds no leaf URLs and leaves the page stuck on Scanning.
+        const records: Record<string, MirrorRecord> = {
+            source: { w: 764, h: 1200, ops: [
+                op({ seq: 15017, url: 'https://bw-bv-epubs.bookwalker.jp/page-003.jpeg', dx: 0, dy: 0, dw: 764, dh: 1200 }),
+            ] },
+            visible: { w: 2202, h: 1200, ops: [
+                op({ seq: 10967, srcId: 'source', sx: 0, sy: 0, sw: 764, sh: 1200, dx: 719, dy: 0, dw: 764, dh: 1200 }),
+            ] },
+        };
+
+        expect([...collectLeafUrls('visible', Number.POSITIVE_INFINITY, id => records[id])]).toEqual([
+            'https://bw-bv-epubs.bookwalker.jp/page-003.jpeg',
+        ]);
     });
 
     it('does not loop on cyclic canvas references', () => {

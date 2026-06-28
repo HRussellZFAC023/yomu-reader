@@ -402,6 +402,44 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('keeps a Firefox BookWalker vertical mirror capture when epoch and counter churn mid-capture', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        const counter = pageCounter('22 / 195');
+        document.documentElement.setAttribute('data-yomu-mirror-recorder', '1');
+        document.documentElement.setAttribute('data-yomu-mirror-epoch', '187');
+
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewportW' });
+        viewport.className = 'overScroll';
+        const page = Object.assign(document.createElement('div'), { id: 'wideScreen22' });
+        page.className = 'canvasRoot verticalAxis';
+        const canvas = pageCanvas(120, 64, 760, 1074);
+        canvas.setAttribute('data-yomu-mid', 'm22');
+        canvas.toDataURL = TAINTED_CANVAS;
+        page.append(canvas);
+        viewport.append(page);
+        document.body.append(viewport);
+
+        const captureCanvasMirror = vi.fn(async () => {
+            counter.textContent = '23 / 195';
+            document.documentElement.setAttribute('data-yomu-mirror-epoch', '188');
+            await Promise.resolve();
+            return mirrorCanvas('VERTICAL_AFTER_CHURN');
+        });
+
+        const controller = createController({}, undefined, captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledWith(canvas, expect.any(Function));
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+                expect(frame!.getAttribute('src')).toBe('data:image/jpeg;base64,VERTICAL_AFTER_CHURN');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('does not let hidden BookWalker buffers starve the visible continuous-scroll page', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();

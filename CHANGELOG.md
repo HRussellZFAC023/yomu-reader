@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.200] - 2026-06-28
+
+### Fixed
+
+- Stabilized BookWalker continuous/vertical Firefox OCR while mirror records are still warming up: persistent `wideScreen` canvases now keep a per-surface identity instead of falling back to the global mirror epoch, and late-arriving mirrored source images are still associated with the visible page so the scanning pill can settle to a usable OCR layer after scroll/page-turn/refocus churn.
+
 ## [1.4.199] - 2026-06-28
 
 ### Fixed

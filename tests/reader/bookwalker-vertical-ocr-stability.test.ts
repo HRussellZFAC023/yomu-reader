@@ -48,6 +48,17 @@ function clusterCanvas(mid: string, hidden = false): HTMLCanvasElement {
     return canvas;
 }
 
+function verticalClusterCanvas(mid: string, id: string, top: number): HTMLCanvasElement {
+    const root = document.createElement('div');
+    root.id = id;
+    root.className = 'canvasRoot verticalAxis';
+    const canvas = clusterCanvas(mid);
+    canvas.getBoundingClientRect = () => new DOMRect(120, top, 760, 1074);
+    root.append(canvas);
+    document.body.append(root);
+    return canvas;
+}
+
 function bumpEpoch(value: number): void {
     document.documentElement.setAttribute(EPOCH_ATTR, String(value));
 }
@@ -87,7 +98,7 @@ describe('BookWalker vertical-mode OCR identity stability', () => {
         expect(canvasMirrorContentToken(canvas)).toBe(token);
     });
 
-    it('falls back to the global epoch only when a canvas has no record yet', () => {
+    it('falls back to the global epoch only when a non-vertical canvas has no record yet', () => {
         seedMirror({});
         const canvas = clusterCanvas('m6');
         bumpEpoch(7);
@@ -96,6 +107,35 @@ describe('BookWalker vertical-mode OCR identity stability', () => {
         // No per-canvas identity available yet → the epoch keeps the old behaviour.
         expect(canvasPageContentToken(canvas)).toBe(canvasMirrorTurnToken());
         expect(canvasPageContentToken(canvas)).toBe('7');
+    });
+
+    it('uses stable wideScreen identity while a vertical canvas waits for mirror records', () => {
+        seedMirror({});
+        const canvas = verticalClusterCanvas('m6', 'wideScreen26', 64);
+        bumpEpoch(7);
+
+        expect(canvasMirrorContentToken(canvas)).toBe('');
+        expect(canvasPageContentToken(canvas)).toBe('s:wideScreen26:2202x3132');
+
+        bumpEpoch(8);
+        expect(canvasPageContentToken(canvas)).toBe('s:wideScreen26:2202x3132');
+    });
+
+    it('keeps a vertical stack signature stable when the reader counter advances during scroll', () => {
+        seedMirror({});
+        const counter = Object.assign(document.createElement('span'), { id: 'pageSliderCounter', textContent: '22/195' });
+        document.body.append(counter);
+        verticalClusterCanvas('m22', 'wideScreen22', -180);
+        verticalClusterCanvas('m23', 'wideScreen23', 980);
+        bumpEpoch(187);
+
+        const signature = canvasReaderPageSignature();
+        expect(signature).toContain('s:wideScreen22');
+        expect(signature).toContain('s:wideScreen23');
+
+        counter.textContent = '23/195';
+        bumpEpoch(188);
+        expect(canvasReaderPageSignature()).toBe(signature);
     });
 
     it('keeps the page-turn signature stable across an epoch flash but changes on a real turn', () => {

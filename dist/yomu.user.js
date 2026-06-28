@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.199
+// @version 1.4.200
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.199
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.199
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.199
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.199
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.200
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.200
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.200
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.200
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -37146,7 +37146,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.199"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.200"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
