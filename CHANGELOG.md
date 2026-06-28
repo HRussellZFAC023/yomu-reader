@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.178] - 2026-06-28
+
+### Fixed
+
+- Repaired Study/Newtab reveal so the answer keeps furigana, pitch, frequency, dictionary links, and the study audio button inline without rendering the old duplicate lookup card; local audio clips play/restart without localhost fetch/CORS spam, and optional lookup failures keep their debug logging without surfacing noisy console errors.
+
 ## [1.4.177] - 2026-06-28
 
 ### Fixed

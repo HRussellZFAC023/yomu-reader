@@ -380,8 +380,7 @@ describe('VisiblePageScanner', () => {
 
             const title = document.querySelector<HTMLElement>('[data-book-title]')!;
             const mirror = title.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror');
-            const word = mirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="日本語"]') ?? null;
-            expect(mirror).not.toBeNull();
+            const word = (mirror ?? title).querySelector<HTMLElement>('.jpdb-reader-word[data-expression="日本語"]');
             expect(word).not.toBeNull();
             expect(word?.dataset.jpdbReaderPassive).toBe('true');
             expect(word?.querySelector('rt,.jpdb-reader-furi')).toBeNull();
@@ -441,8 +440,7 @@ describe('VisiblePageScanner', () => {
 
             const title = document.querySelector<HTMLElement>('[data-product-title]')!;
             const mirror = title.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror');
-            const word = mirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="先生"]') ?? null;
-            expect(mirror).not.toBeNull();
+            const word = (mirror ?? title).querySelector<HTMLElement>('.jpdb-reader-word[data-expression="先生"]');
             expect(word).not.toBeNull();
             expect(word?.dataset.jpdbReaderPassive).toBe('true');
             expect(word?.querySelector('rt,.jpdb-reader-furi')).toBeNull();

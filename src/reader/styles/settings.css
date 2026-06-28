@@ -763,6 +763,15 @@
   line-height: 1.45;
   margin-top: 8px;
 }
+.jpdb-reader-settings .jpdb-reader-help-disclosure > summary {
+  cursor: pointer;
+  list-style-position: inside;
+}
+.jpdb-reader-settings .jpdb-reader-help-disclosure > summary:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid var(--jpdb-reader-focus, var(--jpdb-reader-accent));
+  outline-offset: 3px;
+}
 .jpdb-reader-settings .jpdb-reader-status-line {
   display: grid;
   grid-template-columns: auto 1fr;

@@ -8499,7 +8499,7 @@ export class NewTabController {
             },
             tabIndex: -1,
         }, text);
-        if (text === card.spelling) {
+        if (this.state.revealAnswer && text === card.spelling) {
             setInnerHtml(word, renderCardSpellingWithFurigana(card, this.answerHeaderFuriganaSettings(this.dependencies.getSettings()), { enabled: true, label: this.text('showKanji') }));
         }
         return word;

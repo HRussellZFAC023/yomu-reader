@@ -234,6 +234,9 @@ describe('settings help panel', () => {
         const form = document.createElement('form');
         form.innerHTML = renderHelpLinksPanel();
 
+        const ankiDisclosure = form.querySelector<HTMLDetailsElement>('[data-help-anki-disclosure]');
+        expect(ankiDisclosure).not.toBeNull();
+        expect(ankiDisclosure?.open).toBe(false);
         expect(form.querySelector<HTMLElement>('[data-help-anki-title]')?.textContent).toBe('AnkiConnect setup');
         expect(form.querySelector<HTMLElement>('.jpdb-reader-help-code')?.textContent).toContain('https://yomureader.com');
         expect(form.querySelector<HTMLElement>('.jpdb-reader-help-code')?.textContent).toContain('http://localhost');
@@ -298,7 +301,7 @@ describe('recommended dictionary settings buttons', () => {
         expect(settingsText(form, '[data-recommended-dictionary-help]')).toContain('通常の定義文は追加しません');
         expect(recommendedDictionaryHelp(form, 'kanjium-pitch')).toContain('ピッチアクセント専用');
         expect(recommendedDictionaryHelp(form, 'jpdbv2-kana')).toContain('頻度バッジ');
-        expect(settingsText(form, '[data-import-status]')).toContain('語句辞書は定義を追加');
+        expect(settingsText(form, '[data-import-status]')).toContain('語句/ピッチ/頻度辞書');
     });
 
     it('does not treat Jitendex as the Jiten frequency dictionary', () => {
@@ -371,7 +374,7 @@ describe('frequency dictionary preferences', () => {
         expect(form.querySelector<HTMLElement>('[data-frequency-dictionaries]')).toBeNull();
         expect(form.querySelector<HTMLElement>('[data-frequency-lookup-pills]')).toBeNull();
         expect(editor.closest('.jpdb-reader-settings-subsection')?.querySelector('.jpdb-reader-local-title')?.textContent).toBe('Lookup pills');
-        expect(editor.closest('.jpdb-reader-settings-subsection')?.querySelector('.jpdb-reader-help')?.textContent).toContain('Live Jiten/JPDB badges');
+        expect(editor.closest('.jpdb-reader-settings-subsection')?.querySelector('.jpdb-reader-help')?.textContent).toContain('frequency badges');
         expect(editor.textContent).toContain('Live Jiten frequency from site lookup');
         expect(editor.textContent).toContain('Installed local frequency dictionary badge');
         for (const row of rows.slice(0, 4)) {
@@ -1412,9 +1415,9 @@ describe('settings form localization', () => {
         const docsLink = help.querySelector<HTMLAnchorElement>('a[href$="getting-started#use-desktop-anki-from-a-phone-ipad-or-android"]');
         expect(helpLink?.textContent).toContain('Open AnkiConnect add-on');
         expect(docsLink?.textContent).toContain('Mobile Anki setup docs');
-        expect(help.textContent).toContain('Install AnkiConnect, keep desktop Anki open');
+        expect(help.textContent).toContain('Install AnkiConnect and keep desktop Anki open');
         expect(help.textContent).toContain('webCorsOriginList');
-        expect(help.textContent).toContain('Mobile handoff creates notes without full desktop review access.');
+        expect(help.textContent).toContain('Mobile handoff creates notes only.');
         expect(form.textContent).not.toContain('Scan Anki to choose from your decks and note types');
     });
 
@@ -1845,9 +1848,9 @@ describe('settings form localization', () => {
         const help = form.querySelector<HTMLElement>('[data-anki-setup-help]')!;
         const docsLink = help.querySelector<HTMLAnchorElement>('a[href$="getting-started#use-desktop-anki-from-a-phone-ipad-or-android"]');
         expect(docsLink?.textContent).toContain('Mobile Anki setup docs');
-        expect(help.textContent).toContain('Install AnkiConnect, keep desktop Anki open');
+        expect(help.textContent).toContain('Install AnkiConnect and keep desktop Anki open');
         expect(help.textContent).toContain('webCorsOriginList');
-        expect(help.textContent).toContain('Mobile handoff creates notes without full desktop review access.');
+        expect(help.textContent).toContain('Mobile handoff creates notes only.');
         expect(form.textContent).not.toContain('Handoff does not read your existing collection');
         expect(form.textContent).not.toContain('review queues require desktop Anki');
     });
@@ -1945,9 +1948,9 @@ describe('settings form localization', () => {
         expect(optionText(form, 'newTabSource', 'auto')).toBe('自動: API/Anki後に学習語');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（Jiten / JPDB）');
         expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順）');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('JitenとJPDBのAPIキーを別々に貼ります');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('JPDBキーはJPDB設定から取得します');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('学習デッキは選択中のサービスにだけ適用され');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('JitenとJPDBのキーを別々に貼ります');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('キーなしでもローカル辞書は使えます');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('学習デッキは選択中のサービスに適用され');
         expect(labelForControl(form, 'newTabKanjiKeywordSource')).toContain('漢字キーワードのソース');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動: RTK、JPDB、ローカル');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（Jiten / JPDB）');
