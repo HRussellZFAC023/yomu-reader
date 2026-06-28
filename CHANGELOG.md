@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.212] - 2026-06-28
+
+### Fixed
+
+- Kept a number welded to the counter or unit that follows it so labels such as Google's "この動画の7件の重要なパート" no longer wrap with the digit stranded at the end of a line ("…の7" / "件の…"). A zero-width word joiner now binds a trailing number to the next reader word.
+
 ## [1.4.211] - 2026-06-28
 
 ### Fixed

@@ -31,6 +31,17 @@ export {
 const KANJI_RE = /[\u3400-\u9fff]/u;
 const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
 const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
+// A bare number must not wrap away from the counter/unit that follows it
+// ("7件" -> "7" / "件..."): the digits arrive as untokenized gap text between two
+// reader-word spans, so the kinsoku break opportunity sits at the text-node/span
+// boundary where CSS on the spans cannot bind across it. A zero-width WORD JOINER
+// welds a trailing number to the next token instead. It is stripped back out in
+// normalizedRenderedHostText so re-scan text comparisons still match the source.
+const TRAILING_DIGITS_RE = /[0-9０-９]$/u;
+const WORD_JOINER = '\u2060';
+function bindTrailingNumberToFollowingToken(text: string): string {
+    return TRAILING_DIGITS_RE.test(text) ? `${text}${WORD_JOINER}` : text;
+}
 const BLOCK_FLOW_TAG_NAMES = new Set('ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL'.split(','));
 const EASY_FURIGANA_KANJI = new Set(
     '一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒'
@@ -1340,7 +1351,7 @@ function renderTokenizedScanText(
     const miningInsightKeys = miningInsightTokenKeys(tokenPlans.map(plan => plan.tokenWithSentence));
     for (const plan of tokenPlans) {
         const { token, tokenWithSentence } = plan;
-        appendPlainTextBeforeToken(fragment, text, offset, token.start);
+        appendPlainTextBeforeToken(fragment, text, offset, token.start, true);
         fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, renderSettings, {
             allowRuby: !target.hasNativeRuby && !suppressRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -2276,8 +2287,10 @@ function canvasForFallbackTextLayer(layer: HTMLElement): HTMLCanvasElement | nul
         ?? null;
 }
 
-function appendPlainTextBeforeToken(fragment: DocumentFragment, text: string, start: number, end: number): void {
-    if (end > start) fragment.append(document.createTextNode(text.slice(start, end)));
+function appendPlainTextBeforeToken(fragment: DocumentFragment, text: string, start: number, end: number, followedByToken = false): void {
+    if (end <= start) return;
+    const slice = text.slice(start, end);
+    fragment.append(document.createTextNode(followedByToken ? bindTrailingNumberToFollowingToken(slice) : slice));
 }
 
 function markRenderedScanTarget(target: ScanTextTarget): void {
@@ -2357,7 +2370,9 @@ function textMatchesRenderedHost(candidate: string, previousText: string): boole
 }
 
 function normalizedRenderedHostText(text: string): string {
-    return text.replace(/\s+/g, ' ').trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
+    // Drop the zero-width WORD JOINER we weld between numbers and counters so a
+    // re-collected host string still matches the joiner-free source text.
+    return text.split(WORD_JOINER).join('').replace(/\s+/g, ' ').trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
 }
 
 function normalizedRenderedHostSurfaceText(element: Element): string {
@@ -2520,7 +2535,7 @@ function replaceSingleFragmentTokenNode(
     const text = fragment.node.data;
     let offset = fragment.start;
     for (const plan of plans) {
-        appendPlainTextBeforeToken(replacement, text, offset, plan.localStart);
+        appendPlainTextBeforeToken(replacement, text, offset, plan.localStart, true);
         replacement.append(renderSingleFragmentToken(target, fragment, plan, settings, miningInsightKeys));
         offset = plan.localEnd;
     }
@@ -2988,7 +3003,7 @@ export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: 
     const safeTokens = nonOverlappingTokens(tokens, text.length);
     const miningInsightKeys = miningInsightTokenKeys(safeTokens);
     for (const token of safeTokens) {
-        if (token.start > offset) html += escapeHtml(text.slice(offset, token.start));
+        if (token.start > offset) html += escapeHtml(bindTrailingNumberToFollowingToken(text.slice(offset, token.start)));
         html += renderTokenHtml(text.slice(token.start, token.end), token, settings, miningInsightKeys);
         offset = token.end;
     }
