@@ -372,6 +372,17 @@ describe('reader raster OCR surfaces', () => {
         document.body.append(viewport);
 
         const controller = createController();
+        (controller as unknown as { recognizeImage: () => Promise<OcrResult> }).recognizeImage = vi.fn(async () => ({
+            width: 1200,
+            height: 1600,
+            lines: [
+                {
+                    text: 'ページ移動方向',
+                    box: { left: 144, top: 288, width: 552, height: 128 },
+                    vertical: false,
+                },
+            ],
+        }));
         try {
             await waitForExpect(() => {
                 expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
@@ -382,9 +393,6 @@ describe('reader raster OCR surfaces', () => {
             const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
             Object.defineProperty(frame, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(frame, 'naturalHeight', { value: 1600, configurable: true });
-            frame.dataset.ocrLines = JSON.stringify([
-                { text: 'ページ移動方向', box: { left: 0.12, top: 0.18, width: 0.46, height: 0.08 } },
-            ]);
             frame.dispatchEvent(new Event('load'));
 
             await waitForExpect(() => {
