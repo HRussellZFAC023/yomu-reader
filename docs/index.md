@@ -35,19 +35,15 @@ hero:
       text: Study
       link: /newtab/index.html
       target: _self
-    - theme: alt
-      text: Games
-      link: /tools/yomu-gaming
-      target: _self
 ---
 
 <style>
 .VPHome .VPHomeHero {
-  padding-block-end: clamp(8px, 2vw, 18px);
+  padding-block-end: clamp(4px, 1.2vw, 12px);
 }
 
 .VPHome .yomu-install-panel {
-  margin-top: 0;
+  margin-top: clamp(-12px, -1vw, -6px);
   margin-bottom: clamp(22px, 3vw, 30px);
 }
 

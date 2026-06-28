@@ -54,7 +54,6 @@ interface OverlayLineResult {
     vertical: boolean;
 }
 
-const DEFAULT_OCR_ENDPOINT = 'http://127.0.0.1:7331/ocr';
 const GAMING_SETTINGS_STORAGE_KEY = 'yomu-gaming-reader-settings-v1';
 const GAMING_SETTINGS_SNAPSHOT_STORAGE_KEY = 'yomu-gaming-settings-snapshot-v1';
 const GAMING_FIRST_RUN_SEEN_STORAGE_KEY = 'yomu-gaming-first-run-seen-v1';
@@ -131,7 +130,6 @@ function renderSettingsShell(): void {
     installGamingCaptureShortcutSection(form);
     installNativeSettingsSyncSection(form);
     activateSettingsPanel(form, DEFAULT_SETTINGS_PANEL);
-    scrollToInitialSettingsSection(form);
     installShortcutCapture(form);
     syncPageScanModeControls(form);
     syncGamingPageScanControls(form);
@@ -144,6 +142,7 @@ function renderSettingsShell(): void {
 }
 
 function installGamingOnboarding(form: HTMLFormElement): void {
+    if (hasSeenGamingFirstRun()) return;
     if (form.querySelector('[data-gaming-onboarding]')) return;
     const head = form.querySelector<HTMLElement>('.jpdb-reader-settings-head');
     if (!head) return;
@@ -151,21 +150,16 @@ function installGamingOnboarding(form: HTMLFormElement): void {
     section.className = 'yomu-gaming-onboarding';
     section.dataset.gamingOnboarding = 'true';
     section.dataset.yomuGamingFirstRun = 'true';
-    if (hasSeenGamingFirstRun()) section.dataset.firstRunDismissed = 'true';
     section.innerHTML = `
         <div class="yomu-gaming-first-run-copy">
             <p class="yomu-gaming-kicker">Japanese anywhere on your PC</p>
             <h1>Read games with Yomu.</h1>
-            <p>Press the shortcut for an instant screen read, or drag over Japanese game text and choose a lookup.</p>
+            <p>Press the shortcut to read the screen, or drag a smaller area when you want precision. Yomu stays out of the way until you ask for it.</p>
         </div>
         <div class="yomu-gaming-first-run-controls">
             <label>
                 <span>Capture shortcut</span>
                 <input data-capture-shortcut-input value="${escapeHtml(hotkeyLabel())}" aria-label="Capture shortcut" autocomplete="off" inputmode="none" spellcheck="false">
-            </label>
-            <label>
-                <span>Local OCR endpoint</span>
-                <input data-ocr-endpoint-input value="${escapeHtml(shellState.settings.ocrEndpointUrl)}" aria-label="Local OCR endpoint">
             </label>
             <fieldset class="yomu-gaming-page-scan-setup" data-gaming-page-scan-setup>
                 <legend>Page scanning</legend>
@@ -184,21 +178,13 @@ function installGamingOnboarding(form: HTMLFormElement): void {
                 </label>
             </fieldset>
         </div>
-        <div class="yomu-gaming-first-run-features" aria-label="Yomu reading surfaces">
-            <div data-yomu-gaming-feature="Text"><strong>Text</strong><span>Hover or tap scanned Japanese.</span></div>
-            <div data-yomu-gaming-feature="Images"><strong>Images</strong><span>Read image text through OCR.</span></div>
-            <div data-yomu-gaming-feature="Video"><strong>Video</strong><span>Make subtitle words tappable.</span></div>
-            <div data-yomu-gaming-feature="Control"><strong>Control</strong><span>Tune features, shortcuts, and color.</span></div>
-            <div data-yomu-gaming-feature="Study"><strong>Study</strong><span>Review words and kanji in Yomu.</span></div>
-            <div data-yomu-gaming-feature="Game"><strong>Game</strong><span>Capture screen text from PC games.</span></div>
-        </div>
         <div class="yomu-gaming-onboarding-summary">
             <div><strong>Shortcut</strong><span data-gaming-onboarding-status>${escapeHtml(gamingOnboardingStatusText())}</span></div>
-            <div><strong>Image OCR</strong><span data-gaming-ocr-mode>${escapeHtml(gamingOcrModeText())}</span></div>
+            <div><strong>Capture</strong><span data-gaming-ocr-mode>${escapeHtml(gamingOcrModeText())}</span></div>
             <div><strong>Page text</strong><span data-gaming-page-scan-mode>${escapeHtml(gamingPageScanModeText())}</span></div>
         </div>
         <div class="yomu-gaming-first-run-actions">
-            <button class="jpdb-reader-btn add" type="button" data-action="test-capture-overlay">Test capture</button>
+            <button class="jpdb-reader-btn add" type="button" data-action="test-capture-overlay">Read screen</button>
             <button class="jpdb-reader-btn" type="button" data-action="start-overlay">Capture area</button>
             <button class="jpdb-reader-btn" type="button" data-action="dismiss-gaming-first-run">Looks good</button>
         </div>
@@ -369,10 +355,6 @@ function bindSettingsForm(form: HTMLFormElement): void {
         const target = event.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
         if (target.matches('[data-settings-search]')) return;
         if (target.matches('[data-capture-shortcut-input]')) return;
-        if (target.matches('[data-ocr-endpoint-input]')) {
-            syncFirstRunOcrEndpoint(form, target.value);
-            return;
-        }
         scheduleSettingsPersist(form);
     });
 }
@@ -500,20 +482,9 @@ function syncGamingPageScanControls(form: HTMLFormElement): void {
     });
 }
 
-function syncFirstRunOcrEndpoint(form: HTMLFormElement, value: string): void {
-    const endpointInput = form.querySelector<HTMLInputElement>('input[name="ocrEndpointUrl"]');
-    if (endpointInput) endpointInput.value = value;
-    shellState.settings = {
-        ...shellState.settings,
-        ocrEndpointUrl: value,
-    };
-    persistGamingSettings(shellState.settings);
-    scheduleSettingsPersist(form);
-}
-
 function markGamingFirstRunSeen(form: HTMLFormElement): void {
     localStorage.setItem(GAMING_FIRST_RUN_SEEN_STORAGE_KEY, 'true');
-    form.querySelector<HTMLElement>('[data-yomu-gaming-first-run]')?.setAttribute('data-first-run-dismissed', 'true');
+    form.querySelector<HTMLElement>('[data-yomu-gaming-first-run]')?.remove();
 }
 
 function hasSeenGamingFirstRun(): boolean {
@@ -589,11 +560,11 @@ function applyGamingSettingsCopy(form: HTMLFormElement): void {
     }
     const ocrHelp = form.querySelector<HTMLElement>('#settings-help-ocr');
     if (ocrHelp) {
-        ocrHelp.textContent = 'Game capture currently sends the selected crop to a local OCR server. Browser OCR choices still apply to the userscript surfaces.';
+        ocrHelp.textContent = 'Google Lens stays the default for browser image OCR. Use Local OCR only when you want in-place game capture without opening a browser lookup.';
     }
     const localHelp = form.querySelector<HTMLElement>('[data-local-ocr][data-help-key="ocrLocalHelp"]');
     if (localHelp) {
-        localHelp.textContent = 'Run MangaOCR, PaddleOCR, Apple Vision, or a compatible local HTTP OCR service, then paste its /ocr URL here.';
+        localHelp.textContent = 'Optional for game capture: run MangaOCR, PaddleOCR, Apple Vision, or a compatible local HTTP OCR service, then paste its /ocr URL here.';
     }
 }
 
@@ -655,9 +626,6 @@ function updateHotkeyCopy(): void {
     });
     appRoot.querySelectorAll<HTMLElement>('[data-capture-shortcut-help]').forEach(element => {
         element.textContent = captureShortcutHelpText();
-    });
-    appRoot.querySelectorAll<HTMLInputElement>('[data-ocr-endpoint-input]').forEach(element => {
-        if (element.value !== shellState.settings.ocrEndpointUrl) element.value = shellState.settings.ocrEndpointUrl;
     });
 }
 
@@ -722,12 +690,6 @@ function currentOverlayCaptureMode(): YomuGamingCaptureMode {
     return location.hash === '#overlay-area' ? 'area' : 'instant';
 }
 
-function scrollToInitialSettingsSection(form: HTMLFormElement): void {
-    window.requestAnimationFrame(() => {
-        form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-ocr')?.scrollIntoView({ block: 'start' });
-    });
-}
-
 function loadGamingSettings(): ReaderSettings {
     const stored = parseStoredSettings();
     return normalizeReaderSettings({
@@ -735,10 +697,10 @@ function loadGamingSettings(): ReaderSettings {
         ...stored,
         theme: stored?.theme ?? 'light',
         ocrEnabled: stored?.ocrEnabled ?? true,
-        ocrProvider: stored?.ocrProvider ?? 'local-service',
+        ocrProvider: stored?.ocrProvider ?? DEFAULT_SETTINGS.ocrProvider,
         ocrEndpointUrl: stored?.ocrEndpointUrl
             || localStorage.getItem(PREVIOUS_OCR_ENDPOINT_STORAGE_KEY)
-            || DEFAULT_OCR_ENDPOINT,
+            || DEFAULT_SETTINGS.ocrEndpointUrl,
         ocrEngine: stored?.ocrEngine
             || localStorage.getItem(PREVIOUS_OCR_ENGINE_STORAGE_KEY)
             || DEFAULT_SETTINGS.ocrEngine,
@@ -928,7 +890,7 @@ class OverlaySelectionController {
 }
 
 function gamingOcrSetupError(settings: ReaderSettings): string {
-    if (settings.ocrProvider !== 'local-service') return 'Game overlay currently needs Local OCR server in Settings.';
+    if (settings.ocrProvider !== 'local-service') return 'In-place game OCR needs Local OCR enabled in Settings. Browser image OCR can stay on Google Lens.';
     if (!settings.ocrEndpointUrl.trim()) return 'Add a local OCR server URL in Settings.';
     return '';
 }
