@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Treated image-backed PDF OCR text layers as scanned pages, hiding the broken embedded text layer and routing lookup through Yomu image OCR without visible passive overlays.': '画像ベースのPDFに埋め込まれたOCRテキストレイヤーをスキャンページとして扱うようにしました。壊れた埋め込みテキストレイヤーを隠し、見えてしまう常時オーバーレイを出さずに、よむの画像OCRを通して辞書検索を行います。',
     'Published the Reddit Japanese locale fix with the OCR release regression focused on rendered text instead of runner-specific provider timing.': 'ランナー固有のプロバイダー呼び出しタイミングではなく、描画されたテキストに焦点を当てたOCRリリース回帰テストにして、Redditの日本語ロケール修正を公開しました。',
     'Published the Reddit Japanese locale fix with a deterministic OCR release regression test across CI runners.': 'CIランナー間で安定して動く決定的なOCRリリース回帰テストにしたうえで、Redditの日本語ロケール修正を公開しました。',
     'Published the Reddit Japanese locale fix after hardening the release OCR regression test against jsdom image-load timing.': 'jsdomの画像読み込みタイミングに左右されないようリリース用OCR回帰テストを強化したうえで、Redditの日本語ロケール修正を公開しました。',
