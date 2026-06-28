@@ -5630,6 +5630,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   cursor: inherit;
 }
 
+[data-jpdb-reader-passive-chrome] .jpdb-reader-passive-word {
+  white-space: nowrap;
+}
+
 :is(button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"])
   .jpdb-reader-word.jpdb-reader-passive-word {
   --jpdb-reader-word-highlight-source: transparent;

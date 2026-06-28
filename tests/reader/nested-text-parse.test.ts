@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { canHoverLookupReaderWordElement, canLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
-import { applyTokensToScanTarget, collectFormControlTextTargetsIn, readerWordSurfaceText } from '../../src/reader/dom/index';
+import { collectFormControlTextTargetsIn, readerWordSurfaceText } from '../../src/reader/dom/index';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { lookupPopoverParsedWordElement } from '../../src/reader/newtab/lookup-dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
@@ -330,7 +330,7 @@ describe('nested text parse plans', () => {
         expect(texts).not.toContain('詳細');
     });
 
-    it('renders reader-owned selected dropdown values and placeholders as lookupable control mirrors', () => {
+    it('renders reader-owned selected dropdown values but leaves text-entry placeholders native', () => {
         document.body.innerHTML = `
             <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
                 <div data-settings-panel="appearance">
@@ -351,7 +351,7 @@ describe('nested text parse plans', () => {
         expect(texts).toContain('表示言語');
         expect(texts).toContain('日本語');
         expect(texts.some(text => text.includes('英語'))).toBe(false);
-        expect(texts).toContain('辞書を検索');
+        expect(texts).not.toContain('辞書を検索');
 
         applyNestedParsePlan(plan, texts.map(tokensForSettingsControlText), {
             ...DEFAULT_SETTINGS,
@@ -370,13 +370,11 @@ describe('nested text parse plans', () => {
 
         const input = root.querySelector<HTMLInputElement>('input')!;
         const inputMirror = input.nextElementSibling as HTMLElement | null;
-        expect(inputMirror?.matches('.jpdb-reader-control-text-mirror')).toBe(true);
-        const inputWord = inputMirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="辞書"]') ?? null;
-        expect(inputWord).not.toBeNull();
-        expect(inputWord ? canLookupReaderWordElement(inputWord) : false).toBe(true);
+        expect(inputMirror?.matches('.jpdb-reader-control-text-mirror')).not.toBe(true);
+        expect(input.hasAttribute('data-jpdb-reader-control-placeholder-hidden')).toBe(false);
     });
 
-    it('overlays textarea placeholders without duplicating native text or ruby clipping', () => {
+    it('does not overlay textarea placeholders as lookupable content', () => {
         document.body.innerHTML = `
             <div class="Txyg0d SJXlhf">
                 <textarea class="ITIRGe" placeholder="質問する" style="height:24px;font:16px/24px Arial,sans-serif"></textarea>
@@ -387,26 +385,11 @@ describe('nested text parse plans', () => {
         const targets = collectFormControlTextTargetsIn(root, 24, false);
         const target = targets.find(candidate => candidate.text === '質問する');
 
-        expect(target).toBeTruthy();
-        applyTokensToScanTarget(target!, tokensForSettingsControlText(target!.text), {
-            ...DEFAULT_SETTINGS,
-            ankiEnabled: false,
-            furiganaMode: 'all',
-        });
+        expect(target).toBeUndefined();
 
         const textarea = root.querySelector<HTMLTextAreaElement>('textarea')!;
         const mirror = textarea.nextElementSibling as HTMLElement | null;
-        expect(textarea.getAttribute('data-jpdb-reader-control-placeholder-hidden')).toBe('true');
-        expect(mirror?.matches('.jpdb-reader-control-text-mirror')).toBe(true);
-        expect(mirror?.dataset.jpdbReaderControlMirrorKind).toBe('placeholder');
-        expect(mirror?.style.left).toMatch(/^\d+px$/);
-        expect(mirror?.style.top).toMatch(/^\d+px$/);
-        expect(mirror?.style.whiteSpace).toBe('pre-wrap');
-        expect(mirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="質問"]')).not.toBeNull();
-        expect(mirror?.querySelector('rt,.jpdb-reader-furi')).toBeNull();
-
-        textarea.dispatchEvent(new Event('input'));
-        expect(mirror?.isConnected).toBe(false);
+        expect(mirror?.matches('.jpdb-reader-control-text-mirror')).not.toBe(true);
         expect(textarea.hasAttribute('data-jpdb-reader-control-placeholder-hidden')).toBe(false);
     });
 
