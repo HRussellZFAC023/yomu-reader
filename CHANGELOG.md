@@ -11,6 +11,7 @@
 - Fixed the hosted PDF Reader's initial page navigation state so multi-page PDFs enable Next/Previous immediately after opening, and hardened the scanned-PDF smoke around deterministic page-turn OCR checks.
 - Fixed the Yomu Gaming onboarding page-scan controls and release asset checksum job so Manual mode persists through the current settings form and desktop downloads publish to GitHub Releases.
 - Installed Electron directly before the Yomu Gaming smoke so GitHub Actions release runners have the Electron runtime binary before launching and packaging the desktop app.
+- Kept the Yomu Gaming artifact workflow from racing the main release publisher, so userscript and browser-extension release assets land before the desktop downloads attach.
 
 ## [1.4.198] - 2026-06-28
 
