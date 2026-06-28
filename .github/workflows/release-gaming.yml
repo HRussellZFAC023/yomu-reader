@@ -74,6 +74,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
+
       - name: Download platform artifacts
         uses: actions/download-artifact@v5
         with:

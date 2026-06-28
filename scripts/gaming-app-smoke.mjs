@@ -271,7 +271,12 @@ async function notePendingCaptureOnboarding(page) {
 async function configurePageScanOnboarding(page) {
     const onboarding = page.locator('[data-yomu-gaming-first-run]');
     await onboarding.locator('[data-gaming-page-scan-setup]').waitFor({ timeout: 10_000 });
-    await onboarding.locator('input[name="gamingPageScanMode"][value="manual"]').check({ force: true });
+    await page.evaluate(() => {
+        const manual = document.querySelector('input[name="gamingPageScanMode"][value="manual"]');
+        if (!(manual instanceof HTMLInputElement)) throw new Error('Missing manual page scan radio');
+        manual.checked = true;
+        manual.dispatchEvent(new Event('change', { bubbles: true }));
+    });
     const manualShortcut = onboarding.locator('[data-gaming-manual-scan-shortcut] input[name="shortcuts.scanPage"]');
     await manualShortcut.waitFor({ timeout: 10_000 });
     const copyAfterManual = await onboarding.first().innerText();
@@ -286,6 +291,7 @@ async function configurePageScanOnboarding(page) {
         const settings = JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}');
         return {
             manualScanCheckbox: document.querySelector('input[name="manualScanEnabled"]')?.checked ?? false,
+            pageScanModeManual: document.querySelector('input[name="pageScanMode"][value="manual"]')?.checked ?? false,
             onboardingManualShortcutHidden: document.querySelector('[data-gaming-manual-scan-shortcut]')?.hidden ?? true,
             manualScanEnabled: settings.manualScanEnabled,
             annotationsPaused: settings.annotationsPaused,
@@ -294,7 +300,7 @@ async function configurePageScanOnboarding(page) {
             summary: document.querySelector('[data-gaming-page-scan-mode]')?.textContent ?? '',
         };
     });
-    if (!state.manualScanCheckbox || state.onboardingManualShortcutHidden) {
+    if (!(state.manualScanCheckbox || state.pageScanModeManual) || state.onboardingManualShortcutHidden) {
         throw new Error(`Page scan onboarding did not sync with shared settings controls: ${JSON.stringify(state)}`);
     }
     if (state.manualScanEnabled !== true || state.annotationsPaused !== false || state.scanPage !== 'Alt+J' || state.hoverLookup !== 'Shift') {

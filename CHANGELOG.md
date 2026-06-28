@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.197] - 2026-06-28
+
+### Fixed
+
+- Fixed the Yomu Gaming onboarding page-scan controls and release asset checksum job so Manual mode persists through the current settings form and desktop downloads publish to GitHub Releases.
+
 ## [1.4.196] - 2026-06-28
 
 ### Fixed
