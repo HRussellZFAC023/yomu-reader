@@ -292,7 +292,7 @@ export class JitenPublicVocabularyClient {
             statusFailureMessage: status => `Jiten fail (${status}).`,
             proxyUrl: this.proxyUrl(),
             anonymous: true,
-            allowDirectCrossOrigin: true,
+            allowDirectCrossOrigin: false,
             allowConfiguredProxy: true,
             allowSensitiveConfiguredProxy: false,
             allowPublicProxies: false,

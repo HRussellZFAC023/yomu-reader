@@ -1578,7 +1578,11 @@ describe('new tab review helpers', () => {
         expect(newTabCssRule('.jpdb-reader-newtab-search-kanji-card .jpdb-reader-newtab-search-kanji-char'))
             .toContain('font-size: 34px;');
         expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('.jpdb-reader-newtab-search-card, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action, .jpdb-reader-newtab-install { min-height: 44px !important; }');
+            .toContain('.jpdb-reader-newtab-search-card, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action { min-height: 44px !important; }');
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('.jpdb-reader-newtab-kanji-details .jpdb-reader-local, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card { width: 100%; margin-top: 0; padding: 0; overflow: visible; text-align: left; border: 0;');
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('overflow: visible; text-align: left; border: 0;');
     });
 
     it('keeps the mobile new-tab mode switch on its own compact header row', () => {
@@ -14624,10 +14628,15 @@ describe('new tab review helpers', () => {
         });
 
         await controller.renderPage();
+        const menu = document.querySelector<HTMLElement>('.jpdb-reader-newtab-more-menu')!;
+        expect(menu).not.toBeNull();
         const button = document.querySelector<HTMLButtonElement>('[data-newtab-install-app]')!;
         expect(button).not.toBeNull();
-        expect(button.hidden).toBe(false);
+        expect(button.closest('.jpdb-reader-newtab-more-menu')).toBe(menu);
+        expect(document.querySelector('[data-newtab-install]')).toBeNull();
+        expect(button.disabled).toBe(false);
         expect(button.dataset.installPromptAvailable).toBe('false');
+        expect(button.querySelector('.jpdb-reader-newtab-menu-description')?.textContent).toContain('browser install button');
 
         const event = new Event('beforeinstallprompt') as Event & {
             prompt: () => Promise<void>;
@@ -14638,6 +14647,7 @@ describe('new tab review helpers', () => {
         window.dispatchEvent(event);
 
         expect(button.dataset.installPromptAvailable).toBe('true');
+        expect(button.querySelector('.jpdb-reader-newtab-menu-description')?.textContent).toBe('Install the Study app on this device.');
         button.click();
         await waitForExpect(() => expect(prompt).toHaveBeenCalledTimes(1));
         await waitForExpect(() => expect(toast).toHaveBeenCalledWith('Study app installed.'));

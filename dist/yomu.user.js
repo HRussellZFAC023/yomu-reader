@@ -1862,6 +1862,7 @@ const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
 const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
 const RUNTIME_LOG_KEY = "yomu:enable-logs";
 const REDACTED = "[redacted]";
+const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
 const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
 const env = __vite_import_meta_env__;
 const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
@@ -1878,7 +1879,8 @@ class ScopedLogger {
     this.parent.write(this.scopeName, message, args, console.info, "");
   }
   warn(message, ...args) {
-    this.parent.write(this.scopeName, message, args, console.warn, WARN_STYLE);
+    const optional = args.some(isOptionalCorsBridgeError);
+    this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
   }
   error(message, ...args) {
     this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
@@ -1964,6 +1966,9 @@ function isDevMode() {
 function writeDebugToConsole(...args) {
   if (isDevMode()) console.log(...args);
   else console.debug(...args);
+}
+function isOptionalCorsBridgeError(value) {
+  return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
 }
 function getRuntimeLoggingOverride() {
   try {
@@ -6643,7 +6648,7 @@ function isReadMethod(method) {
 }
 async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", options = {}) {
   const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
-  if (!candidates.length) throw new Error("Cross-origin request needs a configured proxy or userscript HTTP bridge.");
+  if (!candidates.length) throw new Error("No configured proxy.");
   let lastError;
   for (const [index, candidate] of candidates.entries()) {
     try {
@@ -28011,7 +28016,7 @@ class JitenPublicVocabularyClient {
       statusFailureMessage: (status) => `Jiten fail (${status}).`,
       proxyUrl: this.proxyUrl(),
       anonymous: true,
-      allowDirectCrossOrigin: true,
+      allowDirectCrossOrigin: false,
       allowConfiguredProxy: true,
       allowSensitiveConfiguredProxy: false,
       allowPublicProxies: false,

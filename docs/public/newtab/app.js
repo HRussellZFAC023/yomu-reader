@@ -251,7 +251,7 @@
   }
   async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", options = {}) {
     const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
-    if (!candidates.length) throw new Error("Cross-origin request needs a configured proxy or userscript HTTP bridge.");
+    if (!candidates.length) throw new Error("No configured proxy.");
     let lastError;
     for (const [index, candidate] of candidates.entries()) {
       try {
@@ -4237,6 +4237,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
   const RUNTIME_LOG_KEY = "yomu:enable-logs";
   const REDACTED = "[redacted]";
+  const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
   const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
   const env = __vite_import_meta_env__;
   const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
@@ -4253,7 +4254,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.parent.write(this.scopeName, message, args, console.info, "");
     }
     warn(message, ...args) {
-      this.parent.write(this.scopeName, message, args, console.warn, WARN_STYLE);
+      const optional = args.some(isOptionalCorsBridgeError);
+      this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
     }
     error(message, ...args) {
       this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
@@ -4339,6 +4341,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function writeDebugToConsole(...args) {
     if (isDevMode()) console.log(...args);
     else console.debug(...args);
+  }
+  function isOptionalCorsBridgeError(value) {
+    return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
   }
   function getRuntimeLoggingOverride() {
     try {
@@ -19274,14 +19279,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
         <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
         <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-    </svg>`;
-  }
-  function installAppIcon() {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <rect x="5" y="3" width="14" height="18" rx="3"></rect>
-        <path d="M12 7v8"></path>
-        <path d="m8.8 11.8 3.2 3.2 3.2-3.2"></path>
-        <path d="M10 18h4"></path>
     </svg>`;
   }
   function ankiDetailsStateAttributes(options, key, initiallyOpen) {
@@ -59658,7 +59655,7 @@ ${key}`] = { t: now, v: value };
         statusFailureMessage: (status) => `Jiten fail (${status}).`,
         proxyUrl: this.proxyUrl(),
         anonymous: true,
-        allowDirectCrossOrigin: true,
+        allowDirectCrossOrigin: false,
         allowConfiguredProxy: true,
         allowSensitiveConfiguredProxy: false,
         allowPublicProxies: false,
@@ -66888,8 +66885,6 @@ ${entry.url}`),
     renderEnabledContent() {
       const brand = resolveNewTabBrandAssets(location.href);
       const language = this.language();
-      const nextLanguage = nextExplicitUiLanguage(language);
-      const languageToggleLabel = uiText(language, nextLanguage === "ja" ? "japanese" : "english");
       return fragment(
         el(
           "div",
@@ -66924,51 +66919,13 @@ ${entry.url}`),
               "div",
               { class: "jpdb-reader-newtab-theme-controls" },
               el(
-                "div",
-                { class: "VPNavBarAppearance appearance jpdb-reader-theme-appearance" },
-                el(
-                  "button",
-                  {
-                    class: "VPSwitch VPSwitchAppearance jpdb-reader-theme-switch",
-                    type: "button",
-                    role: "switch",
-                    dataset: { newtabAction: "theme" },
-                    "aria-label": uiText(language, "switchToLightTheme"),
-                    "aria-checked": "true",
-                    title: uiText(language, "switchToLightTheme")
-                  },
-                  el(
-                    "span",
-                    { class: "check" },
-                    el(
-                      "span",
-                      { class: "icon" },
-                      el("span", { class: "vpi-sun sun", "aria-hidden": "true" }),
-                      el("span", { class: "vpi-moon moon", "aria-hidden": "true" })
-                    )
-                  )
-                )
-              ),
-              this.renderInstallAppButton(language),
-              el("button", {
-                class: "jpdb-reader-language-toggle",
-                type: "button",
-                dataset: { newtabAction: "language" },
-                lang: nextLanguage === "ja" ? "ja" : "en",
-                "aria-label": languageToggleLabel
-              }, nextLanguage === "ja" ? "あ" : "A"),
-              el(
                 "details",
                 { class: "jpdb-reader-newtab-more" },
                 el("summary", {
                   class: "jpdb-reader-newtab-overflow",
                   "aria-label": uiText(language, "more")
                 }, "..."),
-                el(
-                  "div",
-                  { class: "jpdb-reader-newtab-more-menu" },
-                  el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "settings" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "settings"))
-                )
+                this.renderOverflowMenu(language)
               )
             )
           ),
@@ -67045,29 +67002,66 @@ ${entry.url}`),
             el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": newTabText(language, "previousWord") }, newTabText(language, "previousWord")),
             el("button", { type: "button", dataset: { newtabAction: "reveal" } }, uiText(language, "reveal")),
             el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": newTabText(language, "nextWord") }, newTabText(language, "nextWord"))
-          ),
-          el("a", {
-            class: "jpdb-reader-newtab-install",
-            href: DOCS_BASE_URL,
-            target: "_blank",
-            rel: "noopener",
-            hidden: true,
-            dataset: { newtabInstall: true }
-          }, newTabText(language, "getYomu"))
+          )
         )
       );
     }
-    renderInstallAppButton(language) {
-      const label = newTabText(language, "installStudyApp");
-      const button = el("button", {
-        class: "jpdb-reader-newtab-install-app",
-        type: "button",
-        dataset: { newtabAction: "install-app", newtabInstallApp: true, installPromptAvailable: false },
-        "aria-label": label,
-        title: label
-      });
-      setInnerHtml(button, installAppIcon());
-      return button;
+    renderOverflowMenu(language) {
+      const nextLanguage = nextExplicitUiLanguage(language);
+      return el(
+        "div",
+        { class: "jpdb-reader-newtab-more-menu", role: "menu" },
+        this.renderOverflowMenuButton(uiText(language, "settings"), "settings", language),
+        this.renderOverflowMenuLink(uiText(language, "videoPlayer"), VIDEO_PLAYER_PAGE_URL, language),
+        this.renderOverflowMenuLink(uiText(language, "pdfReader"), PDF_READER_PAGE_URL, language),
+        this.renderOverflowMenuButton(newTabText(language, "stats"), "mode", language, {
+          dataset: { mode: "stats" }
+        }),
+        this.renderOverflowMenuLink("Local Audio", `${DOCS_BASE_URL}local-audio/`, language),
+        this.renderOverflowMenuLink("Changelog", `${DOCS_BASE_URL}changelog`, language),
+        this.renderOverflowMenuButton(newTabText(language, "installStudyApp"), "install-app", language, {
+          className: "jpdb-reader-newtab-install-app",
+          dataset: { newtabInstallApp: true, installPromptAvailable: false },
+          description: newTabText(language, "installStudyAppManual")
+        }),
+        el("hr", { class: "jpdb-reader-newtab-more-divider" }),
+        this.renderOverflowMenuButton(uiText(language, "theme"), "theme", language, {
+          className: "jpdb-reader-newtab-menu-appearance"
+        }),
+        this.renderOverflowMenuButton(uiText(language, nextLanguage === "ja" ? "japanese" : "english"), "language", language, {
+          className: "jpdb-reader-newtab-menu-appearance",
+          dataset: { nextLanguage }
+        }),
+        el("hr", { class: "jpdb-reader-newtab-more-divider" }),
+        this.renderOverflowMenuLink("GitHub", GITHUB_REPOSITORY_URL, language),
+        this.renderOverflowMenuLink(uiText(language, "discord"), DISCORD_INVITE_URL, language),
+        this.renderOverflowMenuLink("Support", `${DOCS_BASE_URL}support`, language)
+      );
+    }
+    renderOverflowMenuButton(label, action, language, options = {}) {
+      return el(
+        "button",
+        {
+          class: `jpdb-reader-newtab-menu-item jpdb-reader-parseable${options.className ? ` ${options.className}` : ""}`,
+          type: "button",
+          dataset: { newtabAction: action, ...options.dataset ?? {} },
+          role: "menuitem",
+          lang: resolveUiLanguage(language) === "ja" ? "ja" : "en"
+        },
+        el("span", { class: "jpdb-reader-newtab-menu-label" }, label),
+        options.description ? el("span", { class: "jpdb-reader-newtab-menu-description" }, options.description) : null
+      );
+    }
+    renderOverflowMenuLink(label, href, language) {
+      return el("a", {
+        class: "jpdb-reader-newtab-menu-item jpdb-reader-parseable",
+        href,
+        target: "_blank",
+        rel: "noopener",
+        dataset: { newtabAction: "external-link" },
+        role: "menuitem",
+        lang: resolveUiLanguage(language) === "ja" ? "ja" : "en"
+      }, label);
     }
     bindRootEvents(root) {
       this.rootEventController?.abort();
@@ -67404,10 +67398,13 @@ ${entry.url}`),
       if (!button) return;
       const standalone = this.isStandalonePwa();
       const promptAvailable = Boolean(this.installPrompt);
-      button.hidden = standalone;
+      button.disabled = standalone;
       button.dataset.installPromptAvailable = String(promptAvailable);
-      button.title = this.text(promptAvailable ? "installStudyAppReady" : "installStudyAppManual");
+      const status = standalone ? this.text("installStudyAppInstalled") : this.text(promptAvailable ? "installStudyAppReady" : "installStudyAppManual");
+      button.title = status;
       button.setAttribute("aria-label", this.text("installStudyApp"));
+      const description = button.querySelector(".jpdb-reader-newtab-menu-description");
+      if (description) description.textContent = status;
     }
     isStandalonePwa() {
       if (typeof navigator === "undefined") return false;
@@ -68051,7 +68048,6 @@ ${entry.url}`),
         snapshot: this.statsSnapshot,
         text: (key) => this.text(key)
       }));
-      this.renderInstallCta(root);
     }
     studyStatsTroubleCards(root) {
       const source = this.statsSelectedSource === "jpdb" || this.statsSelectedSource === "jiten" ? "jpdb" : this.statsSelectedSource === "anki" ? "anki" : "auto";
@@ -69450,7 +69446,6 @@ ${entry.url}`),
       this.renderSessionProgress(slots, card, root);
       if (slots.reveal) slots.reveal.textContent = this.revealButtonLabel();
       this.renderControls(slots, card);
-      this.renderInstallCta(root);
       this.renderStatus(slots.status, card);
       const prefetchGeneration = ++this.immersionPrefetchGeneration;
       if (!renderAsKanji) this.dependencies.preloadWordAudio?.(card);
@@ -71646,7 +71641,6 @@ ${entry.url}`),
       }
       void this.parseSearchSurfaces(root, this.searchGeneration, query);
       this.focusSearchInput(root);
-      this.renderInstallCta(root);
     }
     setSearchQuery(root, query) {
       this.searchQuery = query;
@@ -72800,11 +72794,6 @@ ${entry.url}`),
     formatNewTabText(key, values) {
       return Object.entries(values).reduce((text2, [name, value]) => text2.replaceAll(`{${name}}`, value), this.text(key));
     }
-    renderInstallCta(root) {
-      const install = root.querySelector("[data-newtab-install]");
-      if (!install) return;
-      install.hidden = hasYomuRuntime() || root.dataset.standaloneNewtab !== "true";
-    }
     isReviewCard(card) {
       return isReviewSource(card.reviewSource) || card.source === "anki" || isJitenSrsCard(card) || isPositiveJpdbCard(card);
     }
@@ -73809,19 +73798,6 @@ ${entry.url}`),
       "[data-settings-panel]",
       ".jpdb-reader-settings"
     ].join(",")));
-  }
-  function hasYomuRuntime() {
-    const runtime = globalThis;
-    return hasDirectYomuRuntime(runtime) || hasPageYomuRuntime(runtime, yomuRuntimeOwnerMarker());
-  }
-  function hasDirectYomuRuntime(runtime) {
-    return Boolean(runtime.GM_info || runtime.__YOMU_READER_RUNTIME__);
-  }
-  function hasPageYomuRuntime(runtime, marker) {
-    return Boolean(runtime.__yomuReaderAppInitialized && marker?.dataset.yomuRuntimeKind);
-  }
-  function yomuRuntimeOwnerMarker() {
-    return typeof document !== "undefined" ? document.getElementById("jpdb-reader-runtime-owner") : null;
   }
   function normalizePromptContextSentence(value, card) {
     const sentence = value?.replace(/\s+/g, " ").trim() ?? "";
