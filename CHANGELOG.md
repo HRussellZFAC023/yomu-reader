@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.195] - 2026-06-28
+
+### Fixed
+
+- Smoothed the YouTube transcript sidebar so the green current-line highlight no longer flickers when playback advances between lines on long transcripts; the virtualized list now keeps its window steady while auto-following instead of re-rendering and recreating the highlighted row each line.
+
 ## [1.4.194] - 2026-06-28
 
 ### Fixed
