@@ -8436,8 +8436,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
                     <a class="jpdb-reader-btn" href="${USERSCRIPT_INSTALL_URL}" target="_blank" rel="noopener" data-help-link="update-userscript">${externalButtonLabel("Update/Reinstall userscript")}</a>
                 </div>
             </div>
-            <div class="jpdb-reader-settings-subsection">
-                <div class="jpdb-reader-local-title" data-help-anki-title>AnkiConnect setup</div>
+            <details class="jpdb-reader-settings-subsection jpdb-reader-help-disclosure" data-help-anki-disclosure>
+                <summary class="jpdb-reader-local-title" data-help-anki-title>AnkiConnect setup</summary>
                 <div class="jpdb-reader-help" data-help-anki-copy>Keep desktop Anki open with AnkiConnect enabled. Hosted Study needs AnkiConnect to allow the Yomu origin.</div>
                 <div class="jpdb-reader-help" data-help-anki-config-copy>Add these origins to AnkiConnect's webCorsOriginList, keeping any existing entries:</div>
                 <pre class="jpdb-reader-help-code"><code>{
@@ -8453,7 +8453,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                     <a class="jpdb-reader-btn" href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener" data-help-link="anki-connect-addon">${externalButtonLabel("Open AnkiConnect add-on")}</a>
                     <a class="jpdb-reader-btn" href="${MOBILE_ANKI_SETUP_DOCS_URL}" target="_blank" rel="noopener" data-help-link="anki-mobile-docs">${externalButtonLabel("Mobile Anki setup docs")}</a>
                 </div>
-            </div>
+            </details>
             <div class="jpdb-reader-settings-subsection">
                 <div class="jpdb-reader-local-title" data-help-links-title>Useful pages</div>
                 <div class="jpdb-reader-help" data-help-links-copy>Open the hosted reader tools and docs from here.</div>

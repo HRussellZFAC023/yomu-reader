@@ -689,6 +689,7 @@ let pendingImmediateVideoLayoutResize: number | undefined;
 let pendingVideoLayoutResize: number | undefined;
 let pendingYouTubePlayerResize: number | undefined;
 let pendingYouTubePlayerResizeSize: { width: number; height: number } | undefined;
+let dispatchingImmediateVideoLayoutResize = false;
 
 function youtubeResizeSignature(width: number, height: number): string {
     return `${Math.round(width)}:${Math.round(height)}`;
@@ -701,11 +702,17 @@ function youtubeResizeSignature(width: number, height: number): string {
 function dispatchSubtitleVideoLayoutResize(mode: SubtitleVideoInsetResizeEventMode = 'immediate'): void {
     if (mode === 'immediate') {
         if (pendingImmediateVideoLayoutResize !== undefined) window.clearTimeout(pendingImmediateVideoLayoutResize);
+        const delay = dispatchingImmediateVideoLayoutResize ? 1 : 0;
         pendingImmediateVideoLayoutResize = window.setTimeout(() => {
             pendingImmediateVideoLayoutResize = undefined;
             if (typeof window === 'undefined') return;
-            dispatchWindowEvent(createWindowEvent('resize'));
-        }, 0);
+            dispatchingImmediateVideoLayoutResize = true;
+            try {
+                dispatchWindowEvent(createWindowEvent('resize'));
+            } finally {
+                dispatchingImmediateVideoLayoutResize = false;
+            }
+        }, delay);
     }
     if (pendingVideoLayoutResize !== undefined) window.clearTimeout(pendingVideoLayoutResize);
     pendingVideoLayoutResize = window.setTimeout(() => {

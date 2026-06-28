@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.181] - 2026-06-28
+
+### Fixed
+
+- Collapsed the Help tab's long AnkiConnect setup guidance behind an accessible disclosure so the Help section stays compact until setup details are needed.
+- Repaired Study/Newtab reveal so the answer keeps furigana, pitch, frequency, dictionary links, and the study audio button inline without rendering the old duplicate lookup card; local audio clips play/restart without localhost fetch/CORS spam, and optional lookup failures keep their debug logging without surfacing noisy console errors.
+
 ## [1.4.179] - 2026-06-28
 
 ### Fixed

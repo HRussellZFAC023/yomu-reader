@@ -2654,6 +2654,9 @@
   function shouldForceCanvasReaderSurface(canvas) {
     return canvasOcrMode(canvas) === "on";
   }
+  function isManualCanvasReaderSurface(canvas) {
+    return canvasOcrMode(canvas) === "manual" && isVisibleCanvasReaderSurface(canvas) && isLikelyPageCanvas(canvas, true);
+  }
   function canvasOcrMode(canvas) {
     return canvas.dataset.yomuCanvasOcr || canvas.closest("[data-yomu-canvas-ocr]")?.dataset.yomuCanvasOcr;
   }
@@ -10111,6 +10114,7 @@ ${spelling}`);
   }
   function readerSurfaceFromElement(element, settings) {
     const canvas = element instanceof HTMLCanvasElement ? element : element.closest("canvas");
+    if (canvas && isManualCanvasReaderSurface(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
     if (canvas && collectCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
     const background = collectBackgroundImageReaderSurfaces().find((surface) => (surface === element || surface.contains(element)) && isReaderSurfaceCandidate(surface, settings));
     return background ?? null;
@@ -12745,17 +12749,24 @@ ${spelling}`);
   let pendingVideoLayoutResize;
   let pendingYouTubePlayerResize;
   let pendingYouTubePlayerResizeSize;
+  let dispatchingImmediateVideoLayoutResize = false;
   function youtubeResizeSignature(width, height) {
     return `${Math.round(width)}:${Math.round(height)}`;
   }
   function dispatchSubtitleVideoLayoutResize(mode = "immediate") {
     if (mode === "immediate") {
       if (pendingImmediateVideoLayoutResize !== void 0) window.clearTimeout(pendingImmediateVideoLayoutResize);
+      const delay = dispatchingImmediateVideoLayoutResize ? 1 : 0;
       pendingImmediateVideoLayoutResize = window.setTimeout(() => {
         pendingImmediateVideoLayoutResize = void 0;
         if (typeof window === "undefined") return;
-        dispatchWindowEvent(createWindowEvent("resize"));
-      }, 0);
+        dispatchingImmediateVideoLayoutResize = true;
+        try {
+          dispatchWindowEvent(createWindowEvent("resize"));
+        } finally {
+          dispatchingImmediateVideoLayoutResize = false;
+        }
+      }, delay);
     }
     if (pendingVideoLayoutResize !== void 0) window.clearTimeout(pendingVideoLayoutResize);
     pendingVideoLayoutResize = window.setTimeout(() => {

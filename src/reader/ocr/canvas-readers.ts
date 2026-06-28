@@ -175,6 +175,12 @@ function shouldForceCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {
     return canvasOcrMode(canvas) === 'on';
 }
 
+export function isManualCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {
+    return canvasOcrMode(canvas) === 'manual'
+        && isVisibleCanvasReaderSurface(canvas)
+        && isLikelyPageCanvas(canvas, true);
+}
+
 function canvasOcrMode(canvas: HTMLCanvasElement): string | undefined {
     return canvas.dataset.yomuCanvasOcr
         || canvas.closest<HTMLElement>('[data-yomu-canvas-ocr]')?.dataset.yomuCanvasOcr;

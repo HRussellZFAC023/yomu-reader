@@ -112,7 +112,6 @@ const PASSIVE_INTERACTION_SELECTOR = `a[href],button,summary,label,${roleSelecto
 const COMPACT_PASSIVE_INTERACTION_SELECTOR = `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs('audio,button,control,play,sound,speaker,toggle', ['class'])}`;
 const COMPACT_PASSIVE_CHROME_SELECTOR = `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs('author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username', ['class'])}`;
 const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
-const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
 const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = 'ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer';
 const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]';
 const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors('button,tab,menuitem,option,checkbox,radio,switch')}`;
@@ -857,7 +856,8 @@ function matchesSkippedFragmentElement(
     isRoot: boolean,
 ): boolean {
     if (state.excludeSelector && safeElementMatches(element, state.excludeSelector)) return true;
-    if (isRoot && element.closest(EDITABLE_FRAGMENT_ROOT_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element, state.options)) return true;
+    if (isRoot && element.closest(EDITABLE_TEXT_SURFACE_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element, state.options)) return true;
+    if (isRoot && safeElementMatches(element, PASSIVE_INTERACTION_SELECTOR) && !isSafePassiveInteractionFragmentRoot(element, state.options)) return true;
     return !isRoot && shouldSkipFragmentElement(element, state.options);
 }
 
@@ -865,6 +865,10 @@ function isSafeEditableSurfaceFragmentRoot(element: HTMLElement, options: Fragme
     return Boolean(options.includePassiveInteractions
         && safeElementMatches(element, PASSIVE_INTERACTION_SELECTOR)
         && isNavigationChromeContext(element));
+}
+
+function isSafePassiveInteractionFragmentRoot(element: HTMLElement, options: FragmentTextTargetCollectionOptions): boolean {
+    return Boolean(options.includePassiveInteractions && isNavigationChromeContext(element));
 }
 
 function shouldSkipInvisibleFragmentElement(element: HTMLElement, visibleOnly: boolean): boolean {

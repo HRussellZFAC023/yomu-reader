@@ -13,6 +13,7 @@ import {
     collectCanvasReaderSurfaces,
     isBookwalkerViewerHost,
     isCanvasReadable,
+    isManualCanvasReaderSurface,
     isReaderRasterPage,
     positionCanvasFrameImage,
     readerCanvasSourceImageUrl,
@@ -3293,6 +3294,7 @@ function pointerEventReaderSurfaceAtPoint(event: Event & Pick<PointerEvent, 'cli
 
 function readerSurfaceFromElement(element: Element, settings: ReaderSettings): HTMLCanvasElement | HTMLElement | null {
     const canvas = element instanceof HTMLCanvasElement ? element : element.closest<HTMLCanvasElement>('canvas');
+    if (canvas && isManualCanvasReaderSurface(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
     if (canvas && collectCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
     const background = collectBackgroundImageReaderSurfaces()
         .find(surface => (surface === element || surface.contains(element)) && isReaderSurfaceCandidate(surface, settings));
