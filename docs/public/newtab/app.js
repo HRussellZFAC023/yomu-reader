@@ -7312,6 +7312,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const READER_RENDERED_TEXT_BLOCK_TAGS = `${PROSE_TAGS}H1,H2,H3,H4,H5,H6,`;
   const BLOCK_TAGS = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   const READER_TEXT_MIRROR_SELECTOR = ".jpdb-reader-text-mirror";
+  const READER_OWNED_TEXT_SELECTOR = ".jpdb-reader-word,.jpdb-reader-text-mirror,[data-jpdb-reader-root]";
   const READER_CONTROL_TEXT_MIRROR_SELECTOR = ".jpdb-reader-control-text-mirror";
   const READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE = "data-jpdb-reader-control-placeholder-hidden";
   const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = "yt-formatted-string,yt-attributed-string,.ytAttributedStringHost,.yt-core-attributed-string,.yt-core-attributed-string--white-space-pre-wrap";
@@ -7871,11 +7872,70 @@ recommendedJiten	Jiten由来の頻度バッジです。
     appendPlainTextBeforeToken(fragment2, text2, offset, text2.length);
     return fragment2;
   }
+  function nonDestructiveHostRenderPlan(host, target, tokens) {
+    const fragments = nonDestructiveTargetFragments(target);
+    const { hostText, nodeOffsets } = hostOriginalTextWithNodeOffsets(host);
+    if (!fragments.length || !hostText || collapsedTextKey(hostText) === collapsedTextKey(target.text)) {
+      return { text: target.text, tokens };
+    }
+    const indexed = indexTextFragments(fragments);
+    const remapped = tokens.map((token) => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText.length)).filter((token) => token !== null);
+    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length) };
+  }
+  function collapsedTextKey(text2) {
+    return text2.replace(/\s+/gu, "");
+  }
+  function hostOriginalTextWithNodeOffsets(host) {
+    const nodeOffsets = /* @__PURE__ */ new Map();
+    let hostText = "";
+    const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => node.parentElement?.closest(READER_OWNED_TEXT_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+    });
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      nodeOffsets.set(node, hostText.length);
+      hostText += node.data;
+    }
+    return { hostText, nodeOffsets };
+  }
+  function nonDestructiveTargetFragments(target) {
+    if (isFragmentTextTarget(target)) return target.fragments;
+    const data = target.node.data;
+    const lead = data.length - data.trimStart().length;
+    return [{
+      node: target.node,
+      start: lead,
+      end: lead + target.text.length,
+      hasNativeRuby: Boolean(target.hasNativeRuby),
+      layoutSensitive: target.layoutSensitive,
+      passiveInteraction: target.passiveInteraction
+    }];
+  }
+  function remapTokenIntoHostText(token, indexed, nodeOffsets, hostLength) {
+    const start = findFragmentBoundary(indexed, token.start, "start");
+    const end = findFragmentBoundary(indexed, token.end, "end");
+    if (!start || !end || start.fragment !== end.fragment) return null;
+    const base = nodeOffsets.get(start.fragment.node);
+    if (base === void 0) return null;
+    const hostStart = base + start.localOffset;
+    const hostEnd = base + end.localOffset;
+    if (hostStart < 0 || hostEnd <= hostStart || hostEnd > hostLength) return null;
+    return shiftTokenOffsets(token, hostStart - token.start);
+  }
+  function shiftTokenOffsets(token, delta) {
+    if (delta === 0) return token;
+    return {
+      ...token,
+      start: token.start + delta,
+      end: token.end + delta,
+      rubies: token.rubies.map((ruby) => ({ ...ruby, start: ruby.start + delta, end: ruby.end + delta }))
+    };
+  }
   function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
     const host = nonDestructiveScanHost(target);
     if (!host.isConnected) return;
-    const text2 = target.text;
-    const safeTokens = nonOverlappingTokens(tokens, text2.length);
+    const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text.length));
+    const text2 = plan.text;
+    const safeTokens = plan.tokens;
     const renderPlan = whitespaceCollapsedNonDestructiveRender(text2, safeTokens);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
     const renderSettings = furiganaSettingsForTarget(settings, host);
@@ -25458,7 +25518,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.213".trim() ? "1.4.213".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.214".trim() ? "1.4.214".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

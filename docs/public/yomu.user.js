@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.213
+// @version 1.4.214
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.213
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.213
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.213
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.213
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.214
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.214
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.214
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.214
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -3781,6 +3781,7 @@ const READER_RENDERED_TEXT_BLOCK_TAGS = `${PROSE_TAGS}H1,H2,H3,H4,H5,H6,`;
 const BLOCK_TAGS = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
 const READER_WORD_SELECTOR$1 = ".jpdb-reader-word";
 const READER_TEXT_MIRROR_SELECTOR = ".jpdb-reader-text-mirror";
+const READER_OWNED_TEXT_SELECTOR = ".jpdb-reader-word,.jpdb-reader-text-mirror,[data-jpdb-reader-root]";
 const READER_CONTROL_TEXT_MIRROR_SELECTOR = ".jpdb-reader-control-text-mirror";
 const READER_CANVAS_TEXT_LAYER_SELECTOR = ".jpdb-reader-canvas-text-layer";
 const READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE = "data-jpdb-reader-control-placeholder-hidden";
@@ -4531,11 +4532,70 @@ function renderTokenizedScanText(text2, tokens, settings, target) {
   appendPlainTextBeforeToken(fragment, text2, offset, text2.length);
   return fragment;
 }
+function nonDestructiveHostRenderPlan(host, target, tokens) {
+  const fragments = nonDestructiveTargetFragments(target);
+  const { hostText, nodeOffsets } = hostOriginalTextWithNodeOffsets(host);
+  if (!fragments.length || !hostText || collapsedTextKey(hostText) === collapsedTextKey(target.text)) {
+    return { text: target.text, tokens };
+  }
+  const indexed = indexTextFragments(fragments);
+  const remapped = tokens.map((token) => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText.length)).filter((token) => token !== null);
+  return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length) };
+}
+function collapsedTextKey(text2) {
+  return text2.replace(/\s+/gu, "");
+}
+function hostOriginalTextWithNodeOffsets(host) {
+  const nodeOffsets = new Map();
+  let hostText = "";
+  const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => node.parentElement?.closest(READER_OWNED_TEXT_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+  });
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    nodeOffsets.set(node, hostText.length);
+    hostText += node.data;
+  }
+  return { hostText, nodeOffsets };
+}
+function nonDestructiveTargetFragments(target) {
+  if (isFragmentTextTarget$1(target)) return target.fragments;
+  const data = target.node.data;
+  const lead = data.length - data.trimStart().length;
+  return [{
+    node: target.node,
+    start: lead,
+    end: lead + target.text.length,
+    hasNativeRuby: Boolean(target.hasNativeRuby),
+    layoutSensitive: target.layoutSensitive,
+    passiveInteraction: target.passiveInteraction
+  }];
+}
+function remapTokenIntoHostText(token, indexed, nodeOffsets, hostLength) {
+  const start = findFragmentBoundary(indexed, token.start, "start");
+  const end = findFragmentBoundary(indexed, token.end, "end");
+  if (!start || !end || start.fragment !== end.fragment) return null;
+  const base = nodeOffsets.get(start.fragment.node);
+  if (base === void 0) return null;
+  const hostStart = base + start.localOffset;
+  const hostEnd = base + end.localOffset;
+  if (hostStart < 0 || hostEnd <= hostStart || hostEnd > hostLength) return null;
+  return shiftTokenOffsets(token, hostStart - token.start);
+}
+function shiftTokenOffsets(token, delta) {
+  if (delta === 0) return token;
+  return {
+    ...token,
+    start: token.start + delta,
+    end: token.end + delta,
+    rubies: token.rubies.map((ruby) => ({ ...ruby, start: ruby.start + delta, end: ruby.end + delta }))
+  };
+}
 function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   const host = nonDestructiveScanHost(target);
   if (!host.isConnected) return;
-  const text2 = target.text;
-  const safeTokens = nonOverlappingTokens(tokens, text2.length);
+  const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text.length));
+  const text2 = plan.text;
+  const safeTokens = plan.tokens;
   const renderPlan = whitespaceCollapsedNonDestructiveRender(text2, safeTokens);
   const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
   const renderSettings = furiganaSettingsForTarget(settings, host);
@@ -37194,7 +37254,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.213"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.214"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
