@@ -4764,11 +4764,7 @@ export class NewTabController {
     }
 
     private renderWordStudyDetailsHtml(card: JPDBCard, data: CardRenderData): string {
-        const sentence = sentenceForCard(card);
-        return [
-            this.dependencies.renderStudyDefinitionSources?.(card, data, sentence) ?? '',
-            this.renderWordStudyMiningPanel(card, data),
-        ].filter(Boolean).join('');
+        return this.renderWordStudyMiningPanel(card, data);
     }
 
     private renderWordStudyMiningPanel(card: JPDBCard, data: CardRenderData): string {
