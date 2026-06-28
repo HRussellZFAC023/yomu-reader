@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.4.205] - 2026-06-28
+
+### Fixed
+
+- Stabilized BookWalker continuous/vertical Firefox OCR while mirror records are still warming up: persistent `wideScreen` canvases now keep a per-surface identity instead of falling back to the global mirror epoch, and late-arriving mirrored source images are still associated with the visible page so the scanning pill can settle to a usable OCR layer after scroll/page-turn/refocus churn.
+- Collapsed the Help tab's long AnkiConnect setup guidance behind an accessible disclosure so the Help section stays compact until setup details are needed.
+- Moved Help's current version, latest-version check, duplicate-script status, and update link into a compact top strip with shorter copy.
+- Repaired Study/Newtab reveal so the answer keeps furigana, pitch, frequency, dictionary links, and the study audio button inline without rendering the old duplicate lookup card; local audio clips play/restart without localhost fetch/CORS spam, and optional lookup failures keep their debug logging without surfacing noisy console errors.
+- Smoothed the YouTube transcript sidebar so the green current-line highlight no longer flickers when playback advances between lines on long transcripts; the virtualized list now keeps its window steady while auto-following instead of re-rendering and recreating the highlighted row each line.
+- Fixed the hosted PDF Reader's initial page navigation state so multi-page PDFs enable Next/Previous immediately after opening, and hardened the scanned-PDF smoke around deterministic page-turn OCR checks.
+- Kept OCR status cards and overlays aligned to canvas/background raster sources when reader pages mirror images through a different visible surface.
+- Fixed the Yomu Gaming onboarding page-scan controls and release asset checksum job so Manual mode persists through the current settings form and desktop downloads publish to GitHub Releases.
+- Verified Electron's runtime executable before the Yomu Gaming smoke and release packaging, then downloaded the Electron runtime with curl, checked its SHA-256, and extracted it synchronously when GitHub Actions left a stale or skipped binary behind.
+- Kept the Yomu Gaming artifact workflow from racing the main release publisher, so userscript and browser-extension release assets land before the desktop downloads attach.
+
 ## [1.4.204] - 2026-06-28
 
 ### Fixed
@@ -12,7 +27,7 @@
 - Fixed the hosted PDF Reader's initial page navigation state so multi-page PDFs enable Next/Previous immediately after opening, and hardened the scanned-PDF smoke around deterministic page-turn OCR checks.
 - Kept OCR status cards and overlays aligned to canvas/background raster sources when reader pages mirror images through a different visible surface.
 - Fixed the Yomu Gaming onboarding page-scan controls and release asset checksum job so Manual mode persists through the current settings form and desktop downloads publish to GitHub Releases.
-- Verified Electron's runtime executable before the Yomu Gaming smoke and release packaging, then downloaded the Electron runtime with `curl`, checked its SHA-256, and extracted it synchronously when GitHub Actions left a stale or skipped binary behind.
+- Verified Electron's runtime executable before the Yomu Gaming smoke and release packaging, then downloaded the Electron runtime with curl, checked its SHA-256, and extracted it synchronously when GitHub Actions left a stale or skipped binary behind.
 - Kept the Yomu Gaming artifact workflow from racing the main release publisher, so userscript and browser-extension release assets land before the desktop downloads attach.
 
 ## [1.4.203] - 2026-06-28
