@@ -16,6 +16,8 @@ describe('persistent OCR cache (survives page refresh)', () => {
         const cache = new Map<string, OcrResult | null>([
             ['https://manga.example/p1.png|800x1200', result('日本語を読む')],
             ['https://manga.example/p2.png|800x1200', null],
+            ['cv:bookwalker-empty:255:16:1846x2625', null],
+            ['cv:bookwalker-text:255:16:1846x2625', result('ページ移動方向')],
         ]);
         persistOcrCacheSoon(cache, 1000);
         vi.advanceTimersByTime(1300);
@@ -24,6 +26,22 @@ describe('persistent OCR cache (survives page refresh)', () => {
         expect(loaded.get('https://manga.example/p1.png|800x1200')?.lines[0].text).toBe('日本語を読む');
         // A remembered "no text" result is preserved so refresh doesn't re-OCR it.
         expect(loaded.has('https://manga.example/p2.png|800x1200')).toBe(true);
+        expect(loaded.get('https://manga.example/p2.png|800x1200')).toBeNull();
+        expect(loaded.has('cv:bookwalker-empty:255:16:1846x2625')).toBe(false);
+        expect(loaded.get('cv:bookwalker-text:255:16:1846x2625')?.lines[0].text).toBe('ページ移動方向');
+    });
+
+    it('drops previously persisted reader-raster empty results on load', () => {
+        localStorage.setItem('yomu-ocr-cache-v1', JSON.stringify({
+            'cv:old-empty:255:16:1846x2625': { r: null, at: 1000 },
+            'src:https://cdn.example/page.jpg': { r: null, at: 1001 },
+            'https://manga.example/p2.png|800x1200': { r: null, at: 1002 },
+        }));
+
+        const loaded = loadPersistedOcrCache();
+
+        expect(loaded.has('cv:old-empty:255:16:1846x2625')).toBe(false);
+        expect(loaded.has('src:https://cdn.example/page.jpg')).toBe(false);
         expect(loaded.get('https://manga.example/p2.png|800x1200')).toBeNull();
     });
 

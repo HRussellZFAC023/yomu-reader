@@ -2384,6 +2384,11 @@
   function isPersistableOcrCacheKey(key) {
     return !key.startsWith("data:") && !key.startsWith("blob:");
   }
+  function isPersistableOcrCacheEntry(key, result) {
+    if (!isPersistableOcrCacheKey(key)) return false;
+    if (result === null && (key.startsWith("cv:") || key.startsWith("src:"))) return false;
+    return true;
+  }
   function loadPersistedOcrCache() {
     const map = /* @__PURE__ */ new Map();
     const store = storage();
@@ -2393,8 +2398,9 @@
       if (!raw) return map;
       const parsed = JSON.parse(raw);
       for (const [key, entry] of Object.entries(parsed).sort((a, b) => (a[1]?.at ?? 0) - (b[1]?.at ?? 0))) {
-        if (!isPersistableOcrCacheKey(key)) continue;
-        map.set(key, entry?.r ?? null);
+        const result = entry?.r ?? null;
+        if (!isPersistableOcrCacheEntry(key, result)) continue;
+        map.set(key, result);
       }
     } catch {
       try {
@@ -2454,6 +2460,7 @@
       let bytes = 0;
       for (const key of keys) {
         const result = cache.get(key) ?? null;
+        if (!isPersistableOcrCacheEntry(key, result)) continue;
         const serialized = JSON.stringify(result);
         bytes += key.length + serialized.length + 24;
         if (bytes > MAX_BYTES) break;
@@ -7403,6 +7410,8 @@ ${candidate.depth}`;
   const READER_RASTER_RETRY_BASE_MS = 140;
   const READER_RASTER_RETRY_MAX_MS = 1100;
   const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
+  const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
+  const READER_RASTER_EMPTY_RETRY_MS = 650;
   const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
   const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
@@ -7590,6 +7599,7 @@ ${candidate.depth}`;
     canvasContentReadiness = /* @__PURE__ */ new Map();
     // Per-canvas failed-capture counter driving the backoff retry above.
     canvasCaptureAttempts = /* @__PURE__ */ new Map();
+    readerRasterEmptyScans = /* @__PURE__ */ new Map();
     // Canvas -> remaining tap-driven recapture attempts. In tap/manual mode the poll
     // never captures, so a tap whose capture wasn't ready (the tainted-canvas mirror
     // rebuild momentarily failed: the origin-clean page image was still loading, or
@@ -7985,7 +7995,7 @@ ${candidate.depth}`;
       this.activeScans++;
       this.inFlightKeys.add(key);
       const hasFastText = Boolean(readFallbackOcrResult(image, false));
-      const isReaderRasterFrame = this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
+      const isReaderRasterFrame = this.isReaderRasterFrame(image);
       const delay = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
       void waitForIdle(delay, delay).then(() => this.scanImage(image)).finally(() => {
         this.activeScans = Math.max(0, this.activeScans - 1);
@@ -8033,6 +8043,11 @@ ${candidate.depth}`;
       const cached = this.cache.get(key);
       this.requireCurrentContentState(state2, key);
       if (!cached) {
+        if (this.isReaderRasterFrame(state2.image)) {
+          this.forget(key);
+          this.readerRasterEmptyScans.delete(key);
+          return false;
+        }
         if (this.shouldPreserveReaderRasterResult(state2)) return true;
         renderNoOcrLines(state2);
         this.updateOcrStatus(state2.image, "empty");
@@ -8061,13 +8076,16 @@ ${candidate.depth}`;
           this.updateOcrStatus(image, "ready");
           return;
         }
-        this.remember(key, null);
+        if (this.isReaderRasterFrame(image)) this.forget(key);
+        else this.remember(key, null);
         this.requireCurrentContentState(state2, key);
         renderNoOcrLines(state2);
         this.updateOcrStatus(image, "empty");
+        this.scheduleReaderRasterEmptyRetry(state2, key, manualRequested);
         return;
       }
       this.remember(key, result);
+      this.readerRasterEmptyScans.delete(key);
       this.requireCurrentContentState(state2, key);
       state2.key = key;
       if (this.shouldSuppressAutoRenderedResult(state2, Boolean(inlineFallback), manualRequested)) {
@@ -8290,7 +8308,30 @@ ${candidate.depth}`;
       }
     }
     shouldPreserveReaderRasterResult(state2) {
-      return Boolean(state2.result && (this.canvasFrameSources.has(state2.image) || this.backgroundFrameSources.has(state2.image)));
+      return Boolean(state2.result && this.isReaderRasterFrame(state2.image));
+    }
+    isReaderRasterFrame(image) {
+      return this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
+    }
+    scheduleReaderRasterEmptyRetry(state2, key, userRequested) {
+      if (!this.isReaderRasterFrame(state2.image)) return;
+      const attempts = (this.readerRasterEmptyScans.get(key) ?? 0) + 1;
+      this.readerRasterEmptyScans.set(key, attempts);
+      if (!userRequested && attempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) return;
+      window.setTimeout(() => {
+        if (!this.isCurrentContentState(state2, key)) return;
+        const canvas = this.canvasFrameSources.get(state2.image);
+        if (canvas) {
+          this.releaseCanvasFrame(canvas);
+          this.scheduleCanvasCaptureRetry(canvas, userRequested);
+          return;
+        }
+        const background = this.backgroundFrameSources.get(state2.image);
+        if (background) {
+          this.releaseBackgroundFrame(background);
+          this.scheduleReaderRasterRefresh(READER_RASTER_RETRY_BASE_MS);
+        }
+      }, READER_RASTER_EMPTY_RETRY_MS);
     }
     remember(key, result) {
       if (key.startsWith("data:")) return;
@@ -8300,6 +8341,10 @@ ${candidate.depth}`;
         if (!oldest) break;
         this.cache.delete(oldest);
       }
+      persistOcrCacheSoon(this.cache, Date.now());
+    }
+    forget(key) {
+      if (!this.cache.delete(key)) return;
       persistOcrCacheSoon(this.cache, Date.now());
     }
     schedulePosition() {
@@ -8784,9 +8829,14 @@ ${candidate.depth}`;
           this.releaseCanvasFrame(canvas);
           continue;
         }
+        const rect = canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height || isHiddenByCss(canvas) || isInsideHiddenAncestor(canvas)) {
+          this.releaseCanvasFrame(canvas);
+          continue;
+        }
         const staticRect = this.canvasFrameStaticRects.get(frame);
         if (staticRect) {
-          const currentRect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+          const currentRect = this.visibleViewportIntersection(rect);
           if (!currentRect || !rectsNearlyEqual(staticRect, currentRect)) {
             this.releaseCanvasFrame(canvas);
             this.scheduleReaderRasterRefresh(40);
@@ -8795,7 +8845,7 @@ ${candidate.depth}`;
           positionCanvasFrameImage(frame, staticRect);
           continue;
         }
-        positionCanvasFrameImage(frame, canvas.getBoundingClientRect());
+        positionCanvasFrameImage(frame, rect);
       }
     }
     visibleViewportIntersection(rect) {
@@ -9600,14 +9650,15 @@ ${spelling}`);
     const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88, invert);
     const protobuf = await recognizeViaGoogleLensProtobuf(blob, canvas, settings).catch((error) => {
       log$2.warn("Google Lens protobuf failed", error);
-      return null;
+      return void 0;
     });
     if (protobuf?.lines.length) return protobuf;
     const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs).catch((error) => {
       log$2.warn("Google Lens upload failed", error);
-      return null;
+      return void 0;
     });
-    return upload?.lines.length ? upload : upload ?? protobuf;
+    if (protobuf === void 0 && upload === void 0) throw new Error("Google Lens OCR failed.");
+    return upload?.lines.length ? upload : upload ?? protobuf ?? null;
   }
   async function recognizeViaGoogleLensProtobuf(blob, canvas, settings) {
     const bytes = new Uint8Array(await blob.arrayBuffer());

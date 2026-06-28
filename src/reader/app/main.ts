@@ -201,6 +201,7 @@ import {
     samePointerTextLookupTarget,
     selectionIntersectsElement,
     shouldLockMountedPopoverPosition,
+    shouldAutoScanImageOcr,
     visibleAutoScanInitialDelay,
     visibleAutoScanMutationDelay,
     type CardDisplayOptions,
@@ -227,7 +228,7 @@ import {
     type TokenListOptions,
     type TokenListSource,
 } from './main-helpers';
-import { isBookWalkerStorefrontPage, siteProvidesNativeTextLayer } from './site-parsers';
+import { isBookWalkerStorefrontPage } from './site-parsers';
 import { watchMokuroOcrToggle } from './mokuro-integration';
 import {
     inferMiningSourceKind,
@@ -275,7 +276,7 @@ import { bindReaderRuntimeEvents } from './runtime-events';
 import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions } from './startup';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { refreshReaderWordContrast } from '../dom/word-contrast';
-import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, documentLooksLikeImageReadingPage, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
+import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
 import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import {
     clearRenderedWordAnkiState,
@@ -875,13 +876,7 @@ export class ReaderApp {
             parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
             parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
             onToast: message => this.toast(message),
-            // Skip image OCR auto-scan when the site already exposes an accurate
-            // native text layer (e.g. mokuro's `.textBox` overlays). Re-OCRing the
-            // same artwork with Google Lens misses characters the native layer has
-            // (Canna: 事 dropped) and double-paints a competing overlay. Manual FAB
-            // scan still works for panels the native layer missed.
-            shouldAutoScan: () => !siteProvidesNativeTextLayer()
-                && (this.pageHasJapaneseText || documentLooksLikeImageReadingPage()),
+            shouldAutoScan: () => shouldAutoScanImageOcr(this.pageHasJapaneseText),
             enrichTokensBeforeRender: tokens => this.enrichOcrTokensBeforeRender(tokens),
             enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
             fallbackCardFromText: text => this.parser.fallbackCardFromText(text),

@@ -103,6 +103,8 @@ const OCR_STATUS_FADE_MS = 360; // keep in sync with the CSS opacity transition
 const READER_RASTER_RETRY_BASE_MS = 140;
 const READER_RASTER_RETRY_MAX_MS = 1100;
 const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
+const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
+const READER_RASTER_EMPTY_RETRY_MS = 650;
 const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
 const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
 const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
@@ -331,6 +333,7 @@ export class ImageOcrController {
     private readonly canvasContentReadiness = new Map<string, string>();
     // Per-canvas failed-capture counter driving the backoff retry above.
     private readonly canvasCaptureAttempts = new Map<HTMLCanvasElement, number>();
+    private readonly readerRasterEmptyScans = new Map<string, number>();
     // Canvas -> remaining tap-driven recapture attempts. In tap/manual mode the poll
     // never captures, so a tap whose capture wasn't ready (the tainted-canvas mirror
     // rebuild momentarily failed: the origin-clean page image was still loading, or
@@ -787,7 +790,7 @@ export class ImageOcrController {
         // Canvas / background reader frames are dedicated manga pages where OCR is
         // the entire point, so skip the 900ms batching idle that only earns its
         // keep on incidental page images — the page is already on screen and waiting.
-        const isReaderRasterFrame = this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
+        const isReaderRasterFrame = this.isReaderRasterFrame(image);
         const delay = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
         void waitForIdle(delay, delay)
             .then(() => this.scanImage(image))
@@ -841,6 +844,11 @@ export class ImageOcrController {
         const cached = this.cache.get(key);
         this.requireCurrentContentState(state, key);
         if (!cached) {
+            if (this.isReaderRasterFrame(state.image)) {
+                this.forget(key);
+                this.readerRasterEmptyScans.delete(key);
+                return false;
+            }
             if (this.shouldPreserveReaderRasterResult(state)) return true;
             renderNoOcrLines(state);
             this.updateOcrStatus(state.image, 'empty');
@@ -878,14 +886,17 @@ export class ImageOcrController {
                 this.updateOcrStatus(image, 'ready');
                 return;
             }
-            this.remember(key, null);
+            if (this.isReaderRasterFrame(image)) this.forget(key);
+            else this.remember(key, null);
             this.requireCurrentContentState(state, key);
             renderNoOcrLines(state);
             this.updateOcrStatus(image, 'empty');
+            this.scheduleReaderRasterEmptyRetry(state, key, manualRequested);
             return;
         }
 
         this.remember(key, result);
+        this.readerRasterEmptyScans.delete(key);
         this.requireCurrentContentState(state, key);
         state.key = key;
         // The page may have started providing its own native text layer while
@@ -1188,7 +1199,32 @@ export class ImageOcrController {
     }
 
     private shouldPreserveReaderRasterResult(state: ImageState): boolean {
-        return Boolean(state.result && (this.canvasFrameSources.has(state.image) || this.backgroundFrameSources.has(state.image)));
+        return Boolean(state.result && this.isReaderRasterFrame(state.image));
+    }
+
+    private isReaderRasterFrame(image: HTMLImageElement): boolean {
+        return this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
+    }
+
+    private scheduleReaderRasterEmptyRetry(state: ImageState, key: string, userRequested: boolean): void {
+        if (!this.isReaderRasterFrame(state.image)) return;
+        const attempts = (this.readerRasterEmptyScans.get(key) ?? 0) + 1;
+        this.readerRasterEmptyScans.set(key, attempts);
+        if (!userRequested && attempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) return;
+        window.setTimeout(() => {
+            if (!this.isCurrentContentState(state, key)) return;
+            const canvas = this.canvasFrameSources.get(state.image);
+            if (canvas) {
+                this.releaseCanvasFrame(canvas);
+                this.scheduleCanvasCaptureRetry(canvas, userRequested);
+                return;
+            }
+            const background = this.backgroundFrameSources.get(state.image);
+            if (background) {
+                this.releaseBackgroundFrame(background);
+                this.scheduleReaderRasterRefresh(READER_RASTER_RETRY_BASE_MS);
+            }
+        }, READER_RASTER_EMPTY_RETRY_MS);
     }
 
     private remember(key: string, result: OcrResult | null): void {
@@ -1201,6 +1237,11 @@ export class ImageOcrController {
             this.cache.delete(oldest);
         }
         // Mirror to storage so the result survives a page refresh.
+        persistOcrCacheSoon(this.cache, Date.now());
+    }
+
+    private forget(key: string): void {
+        if (!this.cache.delete(key)) return;
         persistOcrCacheSoon(this.cache, Date.now());
     }
 
@@ -1806,9 +1847,14 @@ export class ImageOcrController {
                 this.releaseCanvasFrame(canvas);
                 continue;
             }
+            const rect = canvas.getBoundingClientRect();
+            if (!rect.width || !rect.height || isHiddenByCss(canvas) || isInsideHiddenAncestor(canvas)) {
+                this.releaseCanvasFrame(canvas);
+                continue;
+            }
             const staticRect = this.canvasFrameStaticRects.get(frame);
             if (staticRect) {
-                const currentRect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+                const currentRect = this.visibleViewportIntersection(rect);
                 if (!currentRect || !rectsNearlyEqual(staticRect, currentRect)) {
                     this.releaseCanvasFrame(canvas);
                     this.scheduleReaderRasterRefresh(40);
@@ -1817,7 +1863,7 @@ export class ImageOcrController {
                 positionCanvasFrameImage(frame, staticRect);
                 continue;
             }
-            positionCanvasFrameImage(frame, canvas.getBoundingClientRect());
+            positionCanvasFrameImage(frame, rect);
         }
     }
 
@@ -2786,21 +2832,17 @@ async function recognizeViaCloudVision(image: HTMLImageElement, settings: Reader
 
 async function recognizeViaGoogleLens(image: HTMLImageElement, settings: ReaderSettings, invert = false): Promise<OcrResult | null> {
     const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, 'image/jpeg', 0.88, invert);
-    // Endpoint chain: the keyless protobuf endpoint is fast and returns structured
-    // boxes but shares one hardcoded API key across all users, so it throttles
-    // first. When it errors OR comes back empty we fall through to the cookie'd
-    // lens.google.com upload endpoint (per-user quota) — so a rate-limited or
-    // dark-text page still gets read.
     const protobuf = await recognizeViaGoogleLensProtobuf(blob, canvas, settings).catch(error => {
         log.warn('Google Lens protobuf failed', error);
-        return null;
+        return undefined;
     });
     if (protobuf?.lines.length) return protobuf;
     const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs).catch(error => {
         log.warn('Google Lens upload failed', error);
-        return null;
+        return undefined;
     });
-    return upload?.lines.length ? upload : (upload ?? protobuf);
+    if (protobuf === undefined && upload === undefined) throw new Error('Google Lens OCR failed.');
+    return upload?.lines.length ? upload : (upload ?? protobuf ?? null);
 }
 
 async function recognizeViaGoogleLensProtobuf(blob: Blob, canvas: HTMLCanvasElement, settings: ReaderSettings): Promise<OcrResult | null> {
