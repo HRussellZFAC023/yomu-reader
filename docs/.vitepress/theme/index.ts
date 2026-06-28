@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Published the Reddit Japanese locale fix with the OCR release regression focused on rendered text instead of runner-specific provider timing.': 'ランナー固有のプロバイダー呼び出しタイミングではなく、描画されたテキストに焦点を当てたOCRリリース回帰テストにして、Redditの日本語ロケール修正を公開しました。',
     'Published the Reddit Japanese locale fix with a deterministic OCR release regression test across CI runners.': 'CIランナー間で安定して動く決定的なOCRリリース回帰テストにしたうえで、Redditの日本語ロケール修正を公開しました。',
     'Published the Reddit Japanese locale fix after hardening the release OCR regression test against jsdom image-load timing.': 'jsdomの画像読み込みタイミングに左右されないようリリース用OCR回帰テストを強化したうえで、Redditの日本語ロケール修正を公開しました。',
     'Fixed the docs navbar overflow ("…") menu showing a stray "GitHub" text label next to both the GitHub and Discord icons. The social links are now rendered icon-only, as two separate, evenly spaced links.': 'ドキュメントのナビゲーションバーのオーバーフロー（「…」）メニューで、GitHubとDiscordの両方のアイコン横に余計な「GitHub」テキストが表示されていた問題を修正しました。ソーシャルリンクは、2つの独立した等間隔のリンクとしてアイコンのみで描画されるようになりました。',

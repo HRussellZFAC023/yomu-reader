@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.172] - 2026-06-28
+
+### Fixed
+
+- Published the Reddit Japanese locale fix with the OCR release regression focused on rendered text instead of runner-specific provider timing.
+
 ## [1.4.171] - 2026-06-28
 
 ### Fixed

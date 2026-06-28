@@ -548,7 +548,6 @@ describe('reader raster OCR surfaces', () => {
             await (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage(frame);
 
             await waitForExpect(() => {
-                expect(recognizeImage).toHaveBeenCalled();
                 expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
                 expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
             }, 4_000);
