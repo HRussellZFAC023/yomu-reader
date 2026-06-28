@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.169] - 2026-06-28
+
+### Fixed
+
+- Fixed the docs navbar overflow ("…") menu showing a stray "GitHub" text label next to both the GitHub and Discord icons. The social links are now rendered icon-only, as two separate, evenly spaced links.
+
 ## [1.4.168] - 2026-06-28
 
 ### Fixed
