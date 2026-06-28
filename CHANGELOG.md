@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.4.200] - 2026-06-28
+## [1.4.201] - 2026-06-28
 
 ### Fixed
 
@@ -14,6 +14,12 @@
 - Fixed the Yomu Gaming onboarding page-scan controls and release asset checksum job so Manual mode persists through the current settings form and desktop downloads publish to GitHub Releases.
 - Verified Electron's runtime executable before the Yomu Gaming smoke and release packaging, retrying one clean runtime install when GitHub Actions leaves a stale or skipped Electron binary behind.
 - Kept the Yomu Gaming artifact workflow from racing the main release publisher, so userscript and browser-extension release assets land before the desktop downloads attach.
+
+## [1.4.200] - 2026-06-28
+
+### Fixed
+
+- Stabilized BookWalker continuous/vertical Firefox OCR while mirror records are still warming up: persistent `wideScreen` canvases now keep a per-surface identity instead of falling back to the global mirror epoch, and late-arriving mirrored source images are still associated with the visible page so the scanning pill can settle to a usable OCR layer after scroll/page-turn/refocus churn.
 
 ## [1.4.199] - 2026-06-28
 
