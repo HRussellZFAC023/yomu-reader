@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.170] - 2026-06-28
+
+### Fixed
+
+- Published the Reddit Japanese locale fix after hardening the release OCR regression test against jsdom image-load timing.
+
 ## [1.4.169] - 2026-06-28
 
 ### Fixed

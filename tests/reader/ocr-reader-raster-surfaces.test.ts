@@ -536,7 +536,7 @@ describe('reader raster OCR surfaces', () => {
             Object.defineProperty(frame, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(frame, 'naturalHeight', { value: 1600, configurable: true });
             frame.dataset.ocrLines = JSON.stringify(ocrLines);
-            frame.dispatchEvent(new Event('load'));
+            (controller as unknown as { enqueue: (image: HTMLImageElement, userRequested?: boolean) => void }).enqueue(frame);
 
             await waitForExpect(() => {
                 expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
