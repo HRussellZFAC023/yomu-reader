@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.219] - 2026-06-28
+
+### Fixed
+
+- Suppressed furigana on compact stacked app notices and helper rows that sit above action chips, including mobile YouTube AI question prompts, while keeping readable prose and media titles annotated. This keeps ruby from overlapping nearby controls on narrow layouts.
+
 ## [1.4.218] - 2026-06-28
 
 ### Fixed

@@ -7303,7 +7303,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT = 10;
   const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
   const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
-  const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])}`;
+  const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
   const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
   const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
   const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;
@@ -8248,12 +8248,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
   }
   function shouldSuppressCompactScanRuby(parent) {
-    if (isYouTubeHost$1()) return shouldSuppressCompactMediaRuby(parent);
-    const compactChrome = compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent);
-    if (compactChrome) compactChrome.dataset.jpdbReaderPassiveChrome = "true";
-    const constrainedNotification = compactConstrainedNotificationElement(parent);
-    if (constrainedNotification) constrainedNotification.dataset.jpdbReaderPassiveChrome = "true";
-    return Boolean(compactChrome || constrainedNotification || shouldSuppressCompactMediaRuby(parent));
+    if (shouldSuppressCompactMediaRuby(parent)) return true;
+    const notice = compactConstrainedNotificationElement(parent);
+    if (notice) notice.dataset.jpdbReaderPassiveChrome = "true";
+    if (isYouTubeHost$1()) return Boolean(notice);
+    const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent);
+    if (chrome) chrome.dataset.jpdbReaderPassiveChrome = "true";
+    return Boolean(chrome || notice);
   }
   function compactInteractiveChromeElement(parent) {
     if (parent.closest(READER_ROOT_SELECTOR)) return null;
@@ -8334,14 +8335,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return safeElementMatches(container, CONSTRAINED_NOTIFICATION_SELECTOR);
   }
   function hasConstrainedNotificationGeometry(container, textElement) {
-    const containerStyle = safeComputedStyle(container);
-    const textStyle = safeComputedStyle(textElement);
     const rect = container.getBoundingClientRect();
     const textRect = textElement.getBoundingClientRect();
-    const constrainedText = hasLineClamp(textStyle) || isEllipsisTextRow(textStyle) || hasClippedTextConstraint(textStyle);
-    const constrainedContainer = hasLineClamp(containerStyle) || isEllipsisTextRow(containerStyle) || hasClippedTextConstraint(containerStyle);
-    const compactHeight = (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && (textRect.height === 0 || textRect.height <= LAYOUT_SENSITIVE_MAX_BOX_HEIGHT);
-    return compactHeight && (constrainedText || constrainedContainer) && !notificationContainerLooksLikePageSection(container);
+    return (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && (textRect.height === 0 || textRect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && !notificationContainerLooksLikePageSection(container);
   }
   function notificationContainerLooksLikePageSection(container) {
     const rect = container.getBoundingClientRect();
@@ -8351,6 +8347,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hasNotificationActionPeer(container, textElement) {
     const selector = 'a[href],button,[role="button"],[role="link"],[data-action]';
     if (Array.from(container.querySelectorAll(selector)).some((action) => !action.contains(textElement))) return true;
+    if (container === textElement) return false;
     const row = container.parentElement;
     if (!row) return false;
     return Array.from(row.querySelectorAll(selector)).some((action) => !container.contains(action));
@@ -25535,7 +25532,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.218".trim() ? "1.4.218".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.219".trim() ? "1.4.219".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
