@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Sized the YouTube transcript "jump to current line" button to match the other subtitle panel toolbar buttons under touch/coarse-pointer and narrow layouts (e.g. iPad), where it was rendering noticeably smaller than its neighbours. It still collapses away while auto-follow is active.': 'タッチ／粗いポインターや狭いレイアウト（iPad など）で、YouTube 文字起こしの「現在の行へジャンプ」ボタンが他の字幕パネルのツールバーボタンより明らかに小さく表示されていたため、サイズを揃えるようにしました。自動追従が有効な間は、これまでどおり折りたたまれて非表示になります。',
     'Kept generated page-word highlights light on NHK Easy and other bright pages while still measuring them for readable text contrast, so hover no longer appears to fix an overly dark normal highlight.': 'NHK NEWS WEB EASYなどの明るいページで、生成されたページ単語ハイライトを明るいまま保ちつつ、読みやすい文字コントラストの測定は続けるようにしました。通常時のハイライトが暗すぎて、ホバーすると直ったように見える問題を防ぎます。',
     'Let active scanned page text wrap normally in narrow prose, card, and sidebar containers while keeping passive controls and text mirrors on their compact wrapping rules.': '狭い本文、カード、サイドバー内では、アクティブにスキャンされたページ本文が通常どおり折り返せるようにしました。パッシブな操作部品とテキストミラーは、コンパクトな折り返しルールを維持します。',
     'Treated image-backed PDF OCR text layers as scanned pages, hiding the broken embedded text layer and routing lookup through Yomu image OCR without visible passive overlays.': '画像ベースのPDFに埋め込まれたOCRテキストレイヤーをスキャンページとして扱うようにしました。壊れた埋め込みテキストレイヤーを隠し、見えてしまう常時オーバーレイを出さずに、よむの画像OCRを通して辞書検索を行います。',
