@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Yomu Gaming Fixture</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(20, 34, 47, 0.58), rgba(6, 9, 12, 0.92)),
+        radial-gradient(circle at 28% 18%, rgba(64, 148, 166, 0.72), transparent 34%),
+        linear-gradient(135deg, #172331 0%, #102126 48%, #0c1117 100%);
+      color: #f7fbff;
+    }
+
+    .scene {
+      position: relative;
+      width: 960px;
+      height: 540px;
+      overflow: hidden;
+    }
+
+    .horizon {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(166deg, transparent 0 54%, rgba(143, 178, 161, 0.22) 55% 59%, transparent 60%),
+        linear-gradient(22deg, transparent 0 46%, rgba(95, 125, 99, 0.28) 47% 53%, transparent 54%);
+    }
+
+    .dialogue {
+      position: absolute;
+      left: 108px;
+      right: 108px;
+      bottom: 82px;
+      min-height: 144px;
+      padding: 26px 34px 24px;
+      border: 3px solid rgba(255, 255, 255, 0.78);
+      border-radius: 8px;
+      background: rgba(10, 16, 22, 0.88);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.46);
+    }
+
+    .speaker {
+      margin: 0 0 12px;
+      color: #8ee2d8;
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .line {
+      margin: 0;
+      font-size: 42px;
+      font-weight: 850;
+      line-height: 1.28;
+      letter-spacing: 0;
+      text-shadow: 0 2px 3px rgba(0, 0, 0, 0.78);
+    }
+  </style>
+</head>
+<body>
+  <main class="scene" aria-label="Japanese visual novel fixture">
+    <div class="horizon"></div>
+    <section class="dialogue">
+      <p class="speaker">ミナ</p>
+      <p class="line">冒険を始めよう。<br>夜明けまでに港へ行くよ。</p>
+    </section>
+  </main>
+</body>
+</html>

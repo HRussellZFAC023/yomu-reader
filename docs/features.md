@@ -63,7 +63,7 @@ Kanji origin sources are modular and license-aware. You can turn off optional pu
 
 ## Image And Manga OCR
 
-OCR lets you look up Japanese text inside images. よむ can use embedded OCR metadata when a site provides it, or a local OCR app/server for MangaOCR, PaddleOCR, Apple Vision-style results, and compatible local JSON responses, including YomiNinja-style endpoints.
+OCR lets you look up Japanese text inside images. よむ can use embedded OCR metadata when a site provides it, or a local OCR app/server for MangaOCR, PaddleOCR, Apple Vision-style results, and compatible local JSON responses.
 
 Recognized text stays lightweight: lookup targets sit over the image without covering it until you choose or hover a word.
 
