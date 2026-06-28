@@ -78,7 +78,7 @@
     "smoke:audio-popover": "node scripts/audio-popover-smoke.mjs",
     "smoke:compact-chrome": "node scripts/compact-interactive-chrome-smoke.mjs",
     "smoke:feedback": "node scripts/feedback-smoke.mjs",
-    "prepare:electron": "node node_modules/electron/install.js",
+    "prepare:electron": "node scripts/ensure-electron-runtime.mjs",
     "smoke:gaming": "npm run prepare:electron && npm run build:gaming && node scripts/gaming-app-smoke.mjs",
     "smoke:hosted-settings": "node scripts/hosted-settings-self-enhancement-smoke.mjs",
     "smoke:jiten-newtab": "node scripts/jiten-newtab-smoke.mjs",

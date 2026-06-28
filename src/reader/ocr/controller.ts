@@ -1502,7 +1502,7 @@ export class ImageOcrController {
     }
 
     private positionImageStatusCard(image: HTMLImageElement, card: HTMLElement): void {
-        const rect = image.getBoundingClientRect();
+        const rect = this.readerRasterSourceRect(image) ?? image.getBoundingClientRect();
         if (!isImageVisibleForOcr(image, rect)) { card.hidden = true; return; }
         card.hidden = false;
         positionOcrImageStatus(card, rect);
@@ -2049,7 +2049,7 @@ export class ImageOcrController {
     private positionState(image: HTMLImageElement): void {
         const state = this.states.get(image);
         if (!state) return;
-        const rect = image.getBoundingClientRect();
+        const rect = this.readerRasterSourceRect(image) ?? image.getBoundingClientRect();
         const visible = isImageVisibleForOcr(image, rect);
         state.overlay.hidden = !visible;
         setOcrOverlayAccessibility(state.overlay, visible);
@@ -2058,6 +2058,13 @@ export class ImageOcrController {
         state.overlay.style.width = `${rect.width}px`;
         state.overlay.style.height = `${rect.height}px`;
         this.fitLineFonts(state, this.renderedOcrImageFrameForState(image, rect, state.result));
+    }
+
+    private readerRasterSourceRect(image: HTMLImageElement): DOMRect | undefined {
+        const canvas = this.canvasFrameSources.get(image);
+        if (canvas) return this.canvasFrameStaticRects.get(image) ?? canvas.getBoundingClientRect();
+        const surface = this.backgroundFrameSources.get(image);
+        return surface?.getBoundingClientRect();
     }
 
     private renderedOcrImageFrameForState(image: HTMLImageElement, rect: DOMRect, result: OcrResult | undefined): OcrRenderedImageFrame {

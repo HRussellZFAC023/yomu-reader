@@ -36809,7 +36809,7 @@ ${spelling}`);
       this.imageStatusTimers.delete(image);
     }
     positionImageStatusCard(image, card) {
-      const rect = image.getBoundingClientRect();
+      const rect = this.readerRasterSourceRect(image) ?? image.getBoundingClientRect();
       if (!isImageVisibleForOcr(image, rect)) {
         card.hidden = true;
         return;
@@ -37268,7 +37268,7 @@ ${spelling}`);
     positionState(image) {
       const state2 = this.states.get(image);
       if (!state2) return;
-      const rect = image.getBoundingClientRect();
+      const rect = this.readerRasterSourceRect(image) ?? image.getBoundingClientRect();
       const visible = isImageVisibleForOcr(image, rect);
       state2.overlay.hidden = !visible;
       setOcrOverlayAccessibility(state2.overlay, visible);
@@ -37277,6 +37277,12 @@ ${spelling}`);
       state2.overlay.style.width = `${rect.width}px`;
       state2.overlay.style.height = `${rect.height}px`;
       this.fitLineFonts(state2, this.renderedOcrImageFrameForState(image, rect, state2.result));
+    }
+    readerRasterSourceRect(image) {
+      const canvas = this.canvasFrameSources.get(image);
+      if (canvas) return this.canvasFrameStaticRects.get(image) ?? canvas.getBoundingClientRect();
+      const surface = this.backgroundFrameSources.get(image);
+      return surface?.getBoundingClientRect();
     }
     renderedOcrImageFrameForState(image, rect, result) {
       const frame = renderedOcrImageFrame(image, rect, result);
