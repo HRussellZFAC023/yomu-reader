@@ -149,9 +149,9 @@ try {
 
 async function launchGamingApp() {
     app = await electron.launch({
-        args: [mainPath],
+        args: electronLaunchArgs(),
         env: {
-            ...process.env,
+            ...electronLaunchEnv(),
             YOMU_GAMING_TEST_MODE: '1',
             YOMU_GAMING_SIMULATED_CAPTURE_PATH: fixtureCapturePath,
             YOMU_GAMING_USER_DATA_DIR: userDataDir,
@@ -163,6 +163,19 @@ async function launchGamingApp() {
     app.on('window', attachPageDiagnostics);
     attachPageDiagnostics(page);
     return page;
+}
+
+function electronLaunchArgs() {
+    if (process.platform !== 'linux') return [mainPath];
+    return ['--no-sandbox', '--disable-dev-shm-usage', mainPath];
+}
+
+function electronLaunchEnv() {
+    if (process.platform !== 'linux') return process.env;
+    return {
+        ...process.env,
+        ELECTRON_DISABLE_SANDBOX: '1',
+    };
 }
 
 function settingsCaptureButton(page) {
