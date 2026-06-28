@@ -110,6 +110,16 @@ jobs:
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" release-assets/* --clobber
-          else
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             gh release create "$TAG" release-assets/* --title "$TAG" --notes-file release-notes-gaming.md --verify-tag
+          else
+            for attempt in $(seq 1 30); do
+              sleep 20
+              if gh release view "$TAG" >/dev/null 2>&1; then
+                gh release upload "$TAG" release-assets/* --clobber
+                exit 0
+              fi
+            done
+            echo "Timed out waiting for the main Release workflow to create ${TAG}." >&2
+            exit 1
           fi
