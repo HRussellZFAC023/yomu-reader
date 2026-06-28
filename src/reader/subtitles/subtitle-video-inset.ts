@@ -698,7 +698,7 @@ function youtubeResizeSignature(width: number, height: number): string {
 // response to viewport resize, not from a style mutation. Dispatch a resize
 // (now and after layout settles) so the player re-fits the video to the box we
 // just changed — the same recompute that entering/exiting fullscreen forces.
-export function dispatchSubtitleVideoLayoutResize(mode: SubtitleVideoInsetResizeEventMode = 'immediate'): void {
+function dispatchSubtitleVideoLayoutResize(mode: SubtitleVideoInsetResizeEventMode = 'immediate'): void {
     if (mode === 'immediate') {
         if (pendingImmediateVideoLayoutResize !== undefined) window.clearTimeout(pendingImmediateVideoLayoutResize);
         pendingImmediateVideoLayoutResize = window.setTimeout(() => {
