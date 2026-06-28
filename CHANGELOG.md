@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.177] - 2026-06-28
+
+### Fixed
+
+- Repaired scanned/image-backed PDFs in the hosted PDF reader so broken embedded OCR text layers are hidden, Yomu image OCR is used for lookup, and passive OCR text/furigana stay invisible until hover or focus.
+
+## [1.4.176] - 2026-06-28
+
+### Fixed
+
+- Sized the YouTube transcript "jump to current line" button to match the other subtitle panel toolbar buttons under touch/coarse-pointer and narrow layouts (e.g. iPad), where it was rendering noticeably smaller than its neighbours. It still collapses away while auto-follow is active.
+
 ## [1.4.175] - 2026-06-28
 
 ### Fixed

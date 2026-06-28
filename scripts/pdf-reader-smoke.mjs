@@ -368,6 +368,10 @@ async function readState(page) {
             .map(line => {
                 const rect = line.getBoundingClientRect();
                 const style = getComputedStyle(line);
+                const word = line.querySelector('.jpdb-reader-word');
+                const wordStyle = word ? getComputedStyle(word) : null;
+                const furi = line.querySelector('.jpdb-ocr-furi,.jpdb-reader-furi,rt');
+                const furiStyle = furi ? getComputedStyle(furi) : null;
                 return {
                     text: (line.textContent || '').replace(/\s+/g, ''),
                     className: line.className,
@@ -377,6 +381,15 @@ async function readState(page) {
                     height: Math.round(rect.height),
                     backgroundColor: style.backgroundColor,
                     color: style.color,
+                    textFillColor: style.webkitTextFillColor || '',
+                    wordBackgroundImage: wordStyle?.backgroundImage || '',
+                    wordBoxShadow: wordStyle?.boxShadow || '',
+                    wordColor: wordStyle?.color || '',
+                    wordTextDecorationColor: wordStyle?.textDecorationColor || '',
+                    wordTextFillColor: wordStyle?.webkitTextFillColor || '',
+                    furiOpacity: furiStyle?.opacity || '',
+                    furiColor: furiStyle?.color || '',
+                    furiTextFillColor: furiStyle?.webkitTextFillColor || '',
                     opacity: style.opacity,
                     display: style.display,
                     visibility: style.visibility,
@@ -406,6 +419,7 @@ async function readState(page) {
             ocrManualCanvases: document.querySelectorAll('.pdf-page canvas[data-yomu-canvas-ocr="manual"]').length,
             hiddenTextLayers: document.querySelectorAll('.textLayer[hidden], .textLayer[aria-hidden="true"]').length,
             firstPageMode: document.querySelector('.pdf-page')?.getAttribute('data-pdf-text') ?? '',
+            firstPageTextReason: document.querySelector('.pdf-page')?.getAttribute('data-pdf-text-reason') ?? '',
             firstPageOcr: document.querySelector('.pdf-page')?.getAttribute('data-yomu-canvas-ocr') ?? '',
             ocrLineCount: document.querySelectorAll('.jpdb-ocr-line').length,
             ocrTextSample: [...document.querySelectorAll('.jpdb-ocr-line')]
@@ -530,6 +544,7 @@ async function run() {
             assert(state.hasPdf && state.renderedCanvas, 'text PDF should render a page canvas', state);
             assert(state.textSpanCount > 0 && /[぀-ヿ一-龯]/.test(state.textSample), 'text PDF should expose a Japanese text layer', state);
             assert(state.textPdfPages > 0 && state.scannedPages === 0, 'text PDF should be classified as text, not scanned', state);
+            assert(state.firstPageTextReason === 'text-layer', 'text PDF should keep its native text layer classification', state);
             assert(state.ocrOffCanvases > 0 && state.ocrOnCanvases === 0, 'text PDF canvases should keep raster OCR disabled', state);
             assert(ocrRequests === beforeOcr, 'text PDF should not call image OCR', { beforeOcr, ocrRequests, state });
             assert(/\/\s*2\b/.test(state.pageTotal) || state.canvasCount >= 2, 'text PDF should report multiple pages', state);
@@ -577,11 +592,15 @@ async function run() {
             assert(state.renderedCanvas, 'scanned PDF should still render the page image', state);
             assert(state.textSpanCount === 0, 'scanned PDF should have no selectable text layer', state);
             assert(state.scannedPages > 0, 'scanned PDF should be flagged as scanned (OCR hint)', state);
+            assert(state.firstPageTextReason === 'empty-text-layer', 'image-only scanned PDF should be classified by its empty text layer', state);
             assert(state.ocrOnCanvases > 0 && state.ocrManualCanvases === 0 && state.firstPageOcr === 'on', 'current scanned PDF canvas should opt into Yomu OCR', state);
             assert(state.hiddenTextLayers > 0, 'scanned PDF should hide the empty text layer so OCR remains readable', state);
             assert(ocrRequests > beforeOcr, 'current scanned PDF should call the configured Yomu OCR endpoint', { beforeOcr, ocrRequests, ocrPayloads, state });
             assert(state.ocrLineCount > 0 && state.ocrTextSample.includes(OCR_SMOKE_TEXT), 'scanned PDF should render OCR text for lookup', state);
             assert(state.ocrLineVisuals.every(line => line.backgroundColor === 'rgba(0, 0, 0, 0)' || line.backgroundColor === 'transparent'), 'scanned PDF OCR should not paint dense background blocks over the page by default', state);
+            assert(state.ocrLineVisuals.every(line => line.color === 'rgba(0, 0, 0, 0)' && line.textFillColor === 'rgba(0, 0, 0, 0)'), 'scanned PDF OCR line text should stay invisible until hover/focus', state);
+            assert(state.ocrLineVisuals.every(line => line.wordTextFillColor === 'rgba(0, 0, 0, 0)' && line.wordBackgroundImage === 'none' && line.wordBoxShadow === 'none'), 'scanned PDF OCR words should not leak reader colors or highlights over the page', state);
+            assert(state.ocrLineVisuals.every(line => line.furiOpacity === '' || line.furiOpacity === '0'), 'scanned PDF OCR furigana should stay hidden until hover/focus', state);
             const hoverVisual = await hoverFirstOcrLine(page);
             report.scannedHover = hoverVisual;
             assert(hoverVisual?.text.includes(OCR_SMOKE_TEXT), 'hovered scanned OCR line should expose the recognized text', hoverVisual);

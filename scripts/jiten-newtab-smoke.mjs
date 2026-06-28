@@ -621,10 +621,16 @@ async function runJitenOnlySmoke(browser, fixture) {
         assertNoRequests(requests, request => String(request.kind).startsWith('jpdb-'), 'Jiten-only smoke unexpectedly called JPDB');
         await page.click('[data-newtab-action="reveal"]');
         await expectText(page, '[data-newtab-grade-target-text]', 'Grades Jiten');
+        await page.waitForSelector('[data-newtab-answer-header]', { timeout: 12_000 });
+        await expectText(page, '[data-newtab-answer-header]', 'たっぷり');
         await page.waitForSelector('[data-newtab-answer-header] .jpdb-reader-frequency-pill', { timeout: 12_000 });
         await page.waitForSelector('[data-newtab-answer-header] .jpdb-reader-word-pills a[href*="jiten.moe"]', { timeout: 12_000 });
         await expectText(page, '[data-newtab-answer-header]', '#1800');
         await expectText(page, '[data-newtab-answer-header]', 'Jiten');
+        await page.waitForSelector('[data-newtab-answer-header] [data-action="study-word-audio"]:not([disabled])', { timeout: 12_000 });
+        await page.waitForSelector('[data-newtab-answer-header] .jpdb-reader-pitch svg', { timeout: 12_000 });
+        const studySourceCards = await page.locator('[data-newtab-answer] .jpdb-reader-source-card').count();
+        assert(studySourceCards === 0, 'Study answer rendered the retired duplicate source card', { studySourceCards });
         const oldStudyDetails = await page.locator('[data-newtab-study-details]').count();
         assert(oldStudyDetails === 0, 'Jiten answer rendered the old giant study-details card', { oldStudyDetails });
         await page.waitForSelector('.jpdb-reader-newtab-immersion .jpdb-reader-example-card', { timeout: 12_000 });
