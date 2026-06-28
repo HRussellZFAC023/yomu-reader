@@ -198,6 +198,20 @@ function installGamingOnboarding(form: HTMLFormElement): void {
         </div>
     `;
     head.insertAdjacentElement('afterend', section);
+    section.addEventListener('change', event => {
+        const target = event.target as HTMLElement;
+        if (!target.closest('[name="gamingPageScanMode"]')) return;
+        const mode = pageScanModeValue((target as HTMLInputElement).value);
+        syncSharedPageScanModeFromGamingOnboarding(form, mode);
+        syncGamingPageScanControls(section, mode);
+        persistSettingsFromForm(form);
+    });
+    section.addEventListener('input', event => {
+        const target = event.target as HTMLInputElement;
+        if (target.name !== 'shortcuts.scanPage' && target.name !== 'shortcuts.hoverLookup') return;
+        syncShortcutFromGamingOnboarding(form, target.name, target.value);
+        persistSettingsFromForm(form);
+    });
 }
 
 function gamingPageScanModeOption(value: 'off' | 'auto' | 'manual', label: string): string {
@@ -480,36 +494,46 @@ function persistSettingsFromForm(form: HTMLFormElement): void {
     updateHotkeyCopy();
 }
 
-function syncSharedPageScanModeFromGamingOnboarding(form: HTMLFormElement): void {
-    const mode = gamingPageScanModeFromForm(form);
+function syncSharedPageScanModeFromGamingOnboarding(form: HTMLFormElement, selectedMode?: 'off' | 'auto' | 'manual'): void {
+    const mode = selectedMode ?? gamingPageScanModeFromForm(form);
     applyGamingPageScanModeToForm(form, mode);
     syncGamingPageScanControls(form, mode);
 }
 
-function syncGamingPageScanControls(form: HTMLFormElement, mode = gamingPageScanModeValue(shellState.settings)): void {
-    form.querySelectorAll<HTMLInputElement>('input[name="gamingPageScanMode"]').forEach(input => {
+function syncGamingPageScanControls(root: ParentNode, mode = gamingPageScanModeValue(shellState.settings)): void {
+    root.querySelectorAll<HTMLInputElement>('input[name="gamingPageScanMode"]').forEach(input => {
         input.checked = input.value === mode;
     });
-    form.querySelectorAll<HTMLElement>('[data-gaming-manual-scan-shortcut]').forEach(node => {
+    root.querySelectorAll<HTMLElement>('[data-gaming-manual-scan-shortcut]').forEach(node => {
         node.hidden = mode !== 'manual';
     });
 }
 
 function gamingPageScanModeFromForm(form: HTMLFormElement): 'off' | 'auto' | 'manual' {
     const selected = form.querySelector<HTMLInputElement>('input[name="gamingPageScanMode"]:checked')?.value;
-    return selected === 'off' || selected === 'auto' || selected === 'manual'
-        ? selected
-        : gamingPageScanModeValue(shellState.settings);
+    return pageScanModeValue(selected) ?? gamingPageScanModeValue(shellState.settings);
+}
+
+function pageScanModeValue(value: unknown): 'off' | 'auto' | 'manual' | undefined {
+    return value === 'off' || value === 'auto' || value === 'manual' ? value : undefined;
 }
 
 function applyGamingPageScanModeToForm(form: HTMLFormElement, mode: 'off' | 'auto' | 'manual'): void {
     shellState.settings.annotationsPaused = mode === 'off';
     shellState.settings.manualScanEnabled = mode === 'manual';
+    const pageScanMode = form.querySelector<HTMLSelectElement>('select[name="pageScanMode"]');
+    if (pageScanMode) pageScanMode.value = mode;
     form.querySelectorAll<HTMLInputElement>('input[name="pageScanMode"]').forEach(input => {
         input.checked = input.value === mode;
     });
     const manualScan = form.querySelector<HTMLInputElement>('input[name="manualScanEnabled"]');
     if (manualScan) manualScan.checked = mode === 'manual';
+}
+
+function syncShortcutFromGamingOnboarding(form: HTMLFormElement, name: 'shortcuts.scanPage' | 'shortcuts.hoverLookup', value: string): void {
+    form.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`).forEach(input => {
+        if (input.value !== value) input.value = value;
+    });
 }
 
 function syncFirstRunOcrEndpoint(form: HTMLFormElement, value: string): void {
