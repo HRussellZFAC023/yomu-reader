@@ -1421,6 +1421,7 @@
       furiganaHoverOnly: "Show on hover",
       furiganaAllParsed: "Show on every parsed word",
       showPitchAccent: "Show pitch accent",
+      showLookupPillFrequency: "Show site frequency in pills",
       suppressRedundantWordUi: "Hide JPDB-redundant styling",
       sheetCloseButtonOnLeft: "Sheet close button on left",
       hideKnownFurigana: "Hide furigana for known cards only",
@@ -3079,6 +3080,7 @@ furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
 showPitchAccent	ピッチアクセントを表示
+showLookupPillFrequency	サイトの頻度をピルに表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
 sheetCloseButtonOnLeft	閉じるボタンを左に
 hideKnownFurigana	既知カードのふりがなを非表示
@@ -5615,16 +5617,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const JITEN_LIVE_FREQUENCY_PILL = {
     id: "jiten-frequency",
-    label: "Jiten live",
+    label: "Jiten",
     urlTemplate: "",
     enabled: true,
     action: "frequency-live"
   };
   const JPDB_LIVE_FREQUENCY_PILL = {
     id: "jpdb-frequency",
-    label: "JPDB live",
+    label: "JPDB",
     urlTemplate: "",
-    enabled: false,
+    enabled: true,
     action: "frequency-live"
   };
   const JISHO_LOOKUP_LINK = {
@@ -5780,7 +5782,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
       ...link,
       priority: index,
-      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "jiten-frequency" : link.enabled
+      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "jiten-frequency" || link.id === "jpdb-frequency" : link.enabled
     }));
   }
   function legacyDefaultLookupLinksWithNewBuiltIns(links) {
@@ -6322,6 +6324,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     furiganaHiddenStateGroups: ["known", "due", "failed"],
     wordColorStates: "all",
     showPitchAccent: true,
+    showLookupPillFrequency: true,
     suppressRedundantWordUi: false,
     sheetCloseButtonOnLeft: false,
     hideKnownFurigana: true,
@@ -25518,7 +25521,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.214".trim() ? "1.4.214".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.215".trim() ? "1.4.215".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -26974,6 +26977,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       furiganaHiddenStateGroups: ["new", "learning", "known", "due", "failed"].filter((group) => has(`furiganaHide-${group}`)),
       wordColorStates: readOption(get("wordColorStates"), ["all", "new-only"], "all"),
       showPitchAccent: has("showPitchAccent"),
+      showLookupPillFrequency: has("showLookupPillFrequency"),
       suppressRedundantWordUi: has("suppressRedundantWordUi"),
       sheetCloseButtonOnLeft: has("sheetCloseButtonOnLeft"),
       hideKnownFurigana: furiganaMode === "known-status"
@@ -29138,6 +29142,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
                     <div class="jpdb-reader-help">External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.</div>
+                    ${checkbox("showLookupPillFrequency", "Show site frequency in pills", settings.showLookupPillFrequency)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
                         ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, installedFrequencyDictionaryPreferences(settings, installedDictionariesFromPreferences(settings.dictionaryPreferences)))}
                     </div>
@@ -30019,6 +30024,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "furiganaMode",
     "wordColorStates",
     "showPitchAccent",
+    "showLookupPillFrequency",
     "suppressRedundantWordUi",
     "sheetCloseButtonOnLeft",
     "audioEnabled",
@@ -55118,7 +55124,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     loadPublicPitch(card) {
       const settings = this.settings();
-      if (!settings.showPitchAccent || card.pitchAccent.length || !hasJpdbApiCredential(settings)) return Promise.resolve([]);
+      if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
         log$d.warn("Public pitch lookup failed", { term: card.spelling }, error);
         return [];
@@ -73878,7 +73884,6 @@ ${entry.url}`),
       ]);
     }
     fetchPublicWordPitch(card) {
-      if (!hasJpdbApiCredential(this.dependencies.getSettings())) return Promise.resolve([]);
       return this.dependencies.jpdbPublicPitch?.lookup(card.spelling, newTabCardReading(card)).catch(() => []) ?? Promise.resolve([]);
     }
     async fetchLocalWordPitch(card) {
@@ -75538,8 +75543,8 @@ ${entry.url}`),
     const query = context.query;
     const language = options.settings.interfaceLanguage;
     const enabledLinks = options.settings.dictionaryLookupLinks.filter((link) => link.enabled);
-    const frequencyPills = frequencyPillsByLookupId(options);
-    const linkPills = enabledLinks.map((link) => renderConfiguredLookupPill(options, context, language, query, link, frequencyPills)).filter(Boolean);
+    const { pills: frequencyPills, mergedLiveRanks } = frequencyPillsByLookupId(options);
+    const linkPills = enabledLinks.map((link) => renderConfiguredLookupPill(options, context, language, query, link, frequencyPills, mergedLiveRanks)).filter(Boolean);
     const ankiPill = renderAnkiPill(options, language, query);
     const configuredFrequencyIds = new Set(enabledLinks.filter((link) => isFrequencyLookupPill(link)).map((link) => link.id));
     const leftoverFrequencyPills = Array.from(frequencyPills).filter(([id]) => !configuredFrequencyIds.has(id)).map(([, html]) => html);
@@ -75551,20 +75556,26 @@ ${entry.url}`),
     if (!heading) return;
     replaceOptionalElement(heading, ".jpdb-reader-word-pills", renderWordPills(options));
   }
-  function renderLookupLinkPill(options, context, language, query, link) {
+  function renderLookupLinkPill(options, context, language, query, link, mergedLiveRanks) {
     const style = lookupPillStyle(link.id || link.label);
     if (link.action === "copy" || link.id === "copy") return renderCopyPill(language, query, style, options.inert);
     const url = lookupLinkPillUrl(options, context, link);
     if (!url) return "";
     const title = lookupLinkPillTitle(options, language, link);
+    const rank = linkPillLiveRank(link, mergedLiveRanks);
+    const label = rank ? `${link.label} #${rank}` : link.label;
     if (options.inert) {
-      return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(link.label)} ${externalLinkIcon()}</span>`;
+      return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(label)} ${externalLinkIcon()}</span>`;
     }
-    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml$1(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(link.label)} ${externalLinkIcon()}</a>`;
+    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml$1(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(label)} ${externalLinkIcon()}</a>`;
   }
-  function renderConfiguredLookupPill(options, context, language, query, link, frequencyPills) {
+  function linkPillLiveRank(link, mergedLiveRanks) {
+    const provider = link.id === "jiten" ? "jiten" : link.id === "jpdb" ? "jpdb" : null;
+    return provider ? mergedLiveRanks.get(provider) ?? null : null;
+  }
+  function renderConfiguredLookupPill(options, context, language, query, link, frequencyPills, mergedLiveRanks) {
     if (isFrequencyLookupPill(link)) return frequencyPills.get(link.id) ?? "";
-    return renderLookupLinkPill(options, context, language, query, link);
+    return renderLookupLinkPill(options, context, language, query, link, mergedLiveRanks);
   }
   function isFrequencyLookupPill(link) {
     return link.action === "frequency-live" || link.action === "frequency-local";
@@ -75640,6 +75651,7 @@ ${entry.url}`),
   function frequencyPillsByLookupId(options) {
     const localLabel = (dictionary) => localFrequencyLookupLabel(options.settings, dictionary) || options.dictionaryLabel(dictionary);
     const pills = /* @__PURE__ */ new Map();
+    const mergedLiveRanks = /* @__PURE__ */ new Map();
     const localProviders = /* @__PURE__ */ new Set();
     for (const entry of bestFrequencyEntries(options.metaEntries ?? [])) {
       if (entry.mode !== "freq" || !localFrequencyEnabled(options.settings, entry.dictionary)) continue;
@@ -75650,12 +75662,19 @@ ${entry.url}`),
         if (provider) localProviders.add(provider);
       }
     }
+    if (options.overrideQuery && isSingleKanji(options.overrideQuery)) return { pills, mergedLiveRanks };
+    const mergeIntoLinkPill = options.settings.showLookupPillFrequency !== false;
+    const enabledLinkIds = new Set(options.settings.dictionaryLookupLinks.filter((link) => link.enabled).map((link) => link.id));
     for (const link of options.settings.dictionaryLookupLinks) {
       if (link.action !== "frequency-live" || !link.enabled) continue;
-      const html = renderLiveFrequencyPill(options, link, localProviders);
-      if (html) pills.set(link.id, html);
+      const provider = liveFrequencyProvider(link);
+      if (!provider || localProviders.has(provider)) continue;
+      const rank = provider === "jiten" ? liveJitenFrequencyRank(options) : liveJpdbFrequencyRank(options);
+      if (!rank) continue;
+      if (mergeIntoLinkPill && enabledLinkIds.has(provider)) mergedLiveRanks.set(provider, rank);
+      else pills.set(link.id, renderLiveFrequencyPill(provider, rank, provider === "jiten" ? "Jiten" : "JPDB"));
     }
-    return pills;
+    return { pills, mergedLiveRanks };
   }
   function localFrequencyEnabled(settings, dictionary) {
     const preference = settings.dictionaryPreferences.find((item) => item.name === dictionary);
@@ -75668,12 +75687,7 @@ ${entry.url}`),
   function localFrequencyLookupPillId(dictionary) {
     return `frequency-local:${dictionary}`;
   }
-  function renderLiveFrequencyPill(options, link, localProviders) {
-    const provider = liveFrequencyProvider(link);
-    if (!provider || localProviders.has(provider)) return "";
-    const rank = provider === "jiten" ? liveJitenFrequencyRank(options) : liveJpdbFrequencyRank(options);
-    if (!rank) return "";
-    const label = link.label.trim() || (provider === "jiten" ? "Jiten" : "JPDB");
+  function renderLiveFrequencyPill(provider, rank, label) {
     const dictionary = provider === "jiten" ? "Jiten" : "JPDB";
     return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml$1(dictionary)}" data-frequency-source="live" style="${pillStyle(`frequency-live:${provider}`)}" title="${escapeHtml$1(`${label} live site frequency`)}">${escapeHtml$1(label)} #${escapeHtml$1(String(rank))}</span>`;
   }
@@ -77306,7 +77320,6 @@ ${entry.url}`),
     }
     async enrichPitchWords(tokens, limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT) {
       if (!this.settings.showPitchAccent) return;
-      if (!effectiveJpdbApiKey(this.settings)) return;
       const uniqueTokens = this.uniqueTokens(
         tokens,
         (token) => !token.card.pitchAccent.length && Boolean(token.card.spelling.trim()),

@@ -1320,6 +1320,7 @@
       furiganaHoverOnly: "Show on hover",
       furiganaAllParsed: "Show on every parsed word",
       showPitchAccent: "Show pitch accent",
+      showLookupPillFrequency: "Show site frequency in pills",
       suppressRedundantWordUi: "Hide JPDB-redundant styling",
       sheetCloseButtonOnLeft: "Sheet close button on left",
       hideKnownFurigana: "Hide furigana for known cards only",
@@ -2978,6 +2979,7 @@ furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
 showPitchAccent	ピッチアクセントを表示
+showLookupPillFrequency	サイトの頻度をピルに表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
 sheetCloseButtonOnLeft	閉じるボタンを左に
 hideKnownFurigana	既知カードのふりがなを非表示
@@ -4556,16 +4558,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const JITEN_LIVE_FREQUENCY_PILL = {
     id: "jiten-frequency",
-    label: "Jiten live",
+    label: "Jiten",
     urlTemplate: "",
     enabled: true,
     action: "frequency-live"
   };
   const JPDB_LIVE_FREQUENCY_PILL = {
     id: "jpdb-frequency",
-    label: "JPDB live",
+    label: "JPDB",
     urlTemplate: "",
-    enabled: false,
+    enabled: true,
     action: "frequency-live"
   };
   const JISHO_LOOKUP_LINK = {

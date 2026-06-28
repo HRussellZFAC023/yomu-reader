@@ -1439,16 +1439,16 @@
   };
   const JITEN_LIVE_FREQUENCY_PILL = {
     id: "jiten-frequency",
-    label: "Jiten live",
+    label: "Jiten",
     urlTemplate: "",
     enabled: true,
     action: "frequency-live"
   };
   const JPDB_LIVE_FREQUENCY_PILL = {
     id: "jpdb-frequency",
-    label: "JPDB live",
+    label: "JPDB",
     urlTemplate: "",
-    enabled: false,
+    enabled: true,
     action: "frequency-live"
   };
   const JISHO_LOOKUP_LINK = {
@@ -1604,7 +1604,7 @@
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
       ...link,
       priority: index,
-      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "jiten-frequency" : link.enabled
+      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "jiten-frequency" || link.id === "jpdb-frequency" : link.enabled
     }));
   }
   function legacyDefaultLookupLinksWithNewBuiltIns(links) {
@@ -2119,6 +2119,7 @@
     furiganaHiddenStateGroups: ["known", "due", "failed"],
     wordColorStates: "all",
     showPitchAccent: true,
+    showLookupPillFrequency: true,
     suppressRedundantWordUi: false,
     sheetCloseButtonOnLeft: false,
     hideKnownFurigana: true,
@@ -3718,6 +3719,7 @@
       furiganaHoverOnly: "Show on hover",
       furiganaAllParsed: "Show on every parsed word",
       showPitchAccent: "Show pitch accent",
+      showLookupPillFrequency: "Show site frequency in pills",
       suppressRedundantWordUi: "Hide JPDB-redundant styling",
       sheetCloseButtonOnLeft: "Sheet close button on left",
       hideKnownFurigana: "Hide furigana for known cards only",
@@ -5357,6 +5359,7 @@ furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
 showPitchAccent	ピッチアクセントを表示
+showLookupPillFrequency	サイトの頻度をピルに表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
 sheetCloseButtonOnLeft	閉じるボタンを左に
 hideKnownFurigana	既知カードのふりがなを非表示
@@ -6715,6 +6718,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       furiganaHiddenStateGroups: ["new", "learning", "known", "due", "failed"].filter((group) => has(`furiganaHide-${group}`)),
       wordColorStates: readOption(get("wordColorStates"), ["all", "new-only"], "all"),
       showPitchAccent: has("showPitchAccent"),
+      showLookupPillFrequency: has("showLookupPillFrequency"),
       suppressRedundantWordUi: has("suppressRedundantWordUi"),
       sheetCloseButtonOnLeft: has("sheetCloseButtonOnLeft"),
       hideKnownFurigana: furiganaMode === "known-status"
@@ -9081,6 +9085,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
                     <div class="jpdb-reader-help">External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.</div>
+                    ${checkbox("showLookupPillFrequency", "Show site frequency in pills", settings.showLookupPillFrequency)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
                         ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, installedFrequencyDictionaryPreferences(settings, installedDictionariesFromPreferences(settings.dictionaryPreferences)))}
                     </div>
@@ -9962,6 +9967,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "furiganaMode",
     "wordColorStates",
     "showPitchAccent",
+    "showLookupPillFrequency",
     "suppressRedundantWordUi",
     "sheetCloseButtonOnLeft",
     "audioEnabled",
