@@ -40,6 +40,8 @@ jobs:
         run: npm ci
       - name: Install Yomu dependencies
         run: npm ci
+      - name: Ensure Electron runtime
+        run: npm rebuild electron
       - run: npm run check
       - run: npm run smoke:p0
         env:

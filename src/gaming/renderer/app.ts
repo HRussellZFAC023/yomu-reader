@@ -275,6 +275,13 @@ function bindSettingsForm(form: HTMLFormElement): void {
         activateSettingsPanel(form, nextTab?.dataset.panel ?? DEFAULT_SETTINGS_PANEL);
     });
     form.addEventListener('click', event => {
+        const pageScanInput = (event.target as HTMLElement).closest<HTMLInputElement>('input[name="gamingPageScanMode"]');
+        if (pageScanInput) {
+            pageScanInput.checked = true;
+            syncSharedPageScanModeFromGamingOnboarding(form);
+            persistSettingsFromForm(form);
+            return;
+        }
         const anchor = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href]');
         if (anchor) {
             event.preventDefault();
@@ -498,6 +505,9 @@ function gamingPageScanModeFromForm(form: HTMLFormElement): 'off' | 'auto' | 'ma
 function applyGamingPageScanModeToForm(form: HTMLFormElement, mode: 'off' | 'auto' | 'manual'): void {
     shellState.settings.annotationsPaused = mode === 'off';
     shellState.settings.manualScanEnabled = mode === 'manual';
+    form.querySelectorAll<HTMLInputElement>('input[name="pageScanMode"]').forEach(input => {
+        input.checked = input.value === mode;
+    });
     const manualScan = form.querySelector<HTMLInputElement>('input[name="manualScanEnabled"]');
     if (manualScan) manualScan.checked = mode === 'manual';
 }

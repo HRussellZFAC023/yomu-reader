@@ -285,7 +285,7 @@ async function configurePageScanOnboarding(page) {
     const state = await page.evaluate(() => {
         const settings = JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}');
         return {
-            manualScanCheckbox: document.querySelector('input[name="manualScanEnabled"]')?.checked ?? false,
+            pageScanMode: document.querySelector('input[name="pageScanMode"][value="manual"]')?.checked ? 'manual' : '',
             onboardingManualShortcutHidden: document.querySelector('[data-gaming-manual-scan-shortcut]')?.hidden ?? true,
             manualScanEnabled: settings.manualScanEnabled,
             annotationsPaused: settings.annotationsPaused,
@@ -294,7 +294,7 @@ async function configurePageScanOnboarding(page) {
             summary: document.querySelector('[data-gaming-page-scan-mode]')?.textContent ?? '',
         };
     });
-    if (!state.manualScanCheckbox || state.onboardingManualShortcutHidden) {
+    if (state.pageScanMode !== 'manual' || state.onboardingManualShortcutHidden) {
         throw new Error(`Page scan onboarding did not sync with shared settings controls: ${JSON.stringify(state)}`);
     }
     if (state.manualScanEnabled !== true || state.annotationsPaused !== false || state.scanPage !== 'Alt+J' || state.hoverLookup !== 'Shift') {
