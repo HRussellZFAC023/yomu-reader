@@ -24305,7 +24305,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.173".trim() ? "1.4.173".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.174".trim() ? "1.4.174".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -34402,6 +34402,7 @@ ${spelling}`);
   const READER_RASTER_EMPTY_RETRY_MS = 650;
   const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
   const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
+  const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
   const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
@@ -35001,9 +35002,9 @@ ${spelling}`);
       }
       const state2 = existingState ?? this.ensureState(image);
       const settings = this.options.getSettings();
-      const key = imageCacheKey(image);
       const manualRequested = state2.manualRequested;
       this.resetStateIfImageChanged(state2);
+      const key = state2.key;
       if (await this.tryRenderCachedOcrResult(state2, key)) return;
       if (!this.isCurrentContentState(state2, key)) return;
       this.updateOcrStatus(image, "loading");
@@ -35482,6 +35483,8 @@ ${spelling}`);
         this.applyVideoFrameStatusTransition(image, status);
         return;
       }
+      const canvas = this.canvasFrameSources.get(image);
+      if (canvas) this.removeCanvasPendingStatus(canvas);
       this.updateImageStatusCard(image, status);
     }
     // Paused-frame overlays keep the image + status gated while OCR runs (the
@@ -36001,11 +36004,18 @@ ${spelling}`);
     }
     renderedOcrImageFrameForState(image, rect, result) {
       const frame = renderedOcrImageFrame(image, rect, result);
-      if (!this.canvasFrameSources.has(image) && !this.backgroundFrameSources.has(image)) return frame;
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-      if (!viewportHeight || rect.bottom < viewportHeight - 2) return frame;
-      const reserved = Math.max(0, Math.min(READER_RASTER_BOTTOM_CHROME_RESERVE_PX, frame.imageHeight - 1));
-      return reserved ? { ...frame, safeBottomInset: reserved } : frame;
+      let reserve = 0;
+      if (image.dataset.yomuVideoFrame === "true" && isYouTubePageForOcr()) {
+        reserve = Math.max(reserve, YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX);
+      }
+      if (this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image)) {
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        if (viewportHeight && rect.bottom >= viewportHeight - 2) {
+          reserve = Math.max(reserve, READER_RASTER_BOTTOM_CHROME_RESERVE_PX);
+        }
+      }
+      if (!reserve) return frame;
+      return { ...frame, safeBottomInset: Math.max(0, Math.min(reserve, frame.imageHeight - 1)) };
     }
     fitLineFonts(state2, frame) {
       const scale = this.options.getSettings().ocrFontScale;
@@ -39344,6 +39354,8 @@ ${spelling}`);
   }
   const youtubePlayerContainerBaseRects = /* @__PURE__ */ new WeakMap();
   const youtubeVideoElementInsetStyles = /* @__PURE__ */ new WeakMap();
+  const youtubeStablePlayerSizeStyles = /* @__PURE__ */ new WeakMap();
+  const youtubeStablePlayerSizeElements = /* @__PURE__ */ new Set();
   function captureYouTubePlayerContainerBaseRects(elements) {
     const viewportWidth = visibleViewportWidth();
     for (const element of elements) {
@@ -39518,6 +39530,81 @@ ${spelling}`);
     if (mode === "none" || !isYouTubePage$1()) return;
     scheduleYouTubePlayerResize(width, height, mode);
     dispatchSubtitleVideoLayoutResize(mode);
+  }
+  function applyStableYouTubePlayerVideoSize(video, width, height) {
+    if (!isYouTubePage$1() || width <= 0 || height <= 0) return clearStableYouTubePlayerVideoSize();
+    let changed = false;
+    const widthValue = `${Math.round(width)}px`;
+    const heightValue = `${Math.round(height)}px`;
+    for (const element of stableYouTubePlayerVideoSizeTargets(video)) {
+      rememberStableYouTubePlayerVideoSizeStyles(element);
+      changed = setStableYouTubePlayerStyleIfChanged(element, "width", widthValue) || changed;
+      changed = setStableYouTubePlayerStyleIfChanged(element, "height", heightValue) || changed;
+      changed = setStableYouTubePlayerStyleIfChanged(element, "max-width", widthValue) || changed;
+      changed = setStableYouTubePlayerStyleIfChanged(element, "max-height", heightValue) || changed;
+      changed = setStableYouTubePlayerStyleIfChanged(element, "min-width", "0px") || changed;
+      changed = setStableYouTubePlayerStyleIfChanged(element, "min-height", "0px") || changed;
+      if (element.matches(".html5-video-container, video")) {
+        changed = setStableYouTubePlayerStyleIfChanged(element, "left", "0px") || changed;
+        changed = setStableYouTubePlayerStyleIfChanged(element, "top", "0px") || changed;
+      }
+      if (element instanceof HTMLVideoElement) {
+        changed = setStableYouTubePlayerStyleIfChanged(element, "object-fit", "contain") || changed;
+      }
+    }
+    return changed;
+  }
+  function clearStableYouTubePlayerVideoSize() {
+    if (!youtubeStablePlayerSizeElements.size) return false;
+    let changed = false;
+    for (const element of Array.from(youtubeStablePlayerSizeElements)) {
+      const previous = youtubeStablePlayerSizeStyles.get(element);
+      if (!previous) continue;
+      for (const [property, style] of Object.entries(previous)) {
+        const cssProperty = property;
+        const value = style.value;
+        const priority = style.priority;
+        if (value) element.style.setProperty(cssProperty, value, priority);
+        else element.style.removeProperty(cssProperty);
+        changed = true;
+      }
+      youtubeStablePlayerSizeStyles.delete(element);
+      youtubeStablePlayerSizeElements.delete(element);
+    }
+    return changed;
+  }
+  function stableYouTubePlayerVideoSizeTargets(video) {
+    const player = video?.closest("#movie_player, .html5-video-player") ?? document.querySelector("#movie_player, .html5-video-player");
+    const container = player?.querySelector(".html5-video-container") ?? video?.closest(".html5-video-container");
+    const media = video ?? player?.querySelector("video.html5-main-video, video") ?? document.querySelector("#movie_player video.html5-main-video, .html5-video-player video.html5-main-video, #movie_player video, .html5-video-player video");
+    return uniqueElements([player, container, media].filter((element) => Boolean(element)));
+  }
+  function rememberStableYouTubePlayerVideoSizeStyles(element) {
+    if (youtubeStablePlayerSizeStyles.has(element)) return;
+    const properties = [
+      "width",
+      "height",
+      "max-width",
+      "max-height",
+      "min-width",
+      "min-height",
+      "left",
+      "top",
+      "object-fit"
+    ];
+    youtubeStablePlayerSizeStyles.set(element, Object.fromEntries(properties.map((property) => [
+      property,
+      {
+        value: element.style.getPropertyValue(property),
+        priority: element.style.getPropertyPriority(property)
+      }
+    ])));
+    youtubeStablePlayerSizeElements.add(element);
+  }
+  function setStableYouTubePlayerStyleIfChanged(element, property, value) {
+    if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === "important") return false;
+    element.style.setProperty(property, value, "important");
+    return true;
   }
   function resizeYouTubePlayer(width, height) {
     if (!isYouTubePage$1()) return;
@@ -42283,11 +42370,14 @@ ${spelling}`);
   const YOUTUBE_STABLE_TRANSCRIPT_CLASSES = [
     "jpdb-subtitle-youtube-stable-side",
     "jpdb-subtitle-youtube-stable-left",
-    "jpdb-subtitle-youtube-stable-right"
+    "jpdb-subtitle-youtube-stable-right",
+    "jpdb-subtitle-youtube-stable-player-fallback",
+    "jpdb-subtitle-youtube-stable-full-bleed"
   ];
   const YOUTUBE_STABLE_TRANSCRIPT_STYLE_PROPERTIES = [
     "--jpdb-subtitle-youtube-stable-offset",
-    "--jpdb-subtitle-youtube-stable-player-width"
+    "--jpdb-subtitle-youtube-stable-player-width",
+    "--jpdb-subtitle-youtube-stable-player-height"
   ];
   const ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR = ".asbplayer-subtitles-container-bottom";
   const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = `.asbplayer-offscreen, ${ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR}`;
@@ -42836,7 +42926,6 @@ ${spelling}`);
     transcriptPanelClosing = false;
     transcriptLayoutReferenceRect;
     transcriptLayoutReferenceViewport = "";
-    stableYouTubeEdgeCorrection = { left: 0, right: 0 };
     primarySelectionRequest = 0;
     secondarySelectionRequest = 0;
     subtitleSourceContextKey = "";
@@ -44165,9 +44254,9 @@ ${spelling}`);
       const missing = items.filter((item) => this.cachedParsedCueHtml(item.key, settings) === void 0 && !this.pendingParsedHtml.has(item.key));
       if (!missing.length) return;
       const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(missing.map((item) => item.text), authoritativeSubtitleParseOptions()) : Promise.all(missing.map((item) => this.options.parseJapanese(item.text, authoritativeSubtitleParseOptions())));
-      const parsedHtml = missing.map((item, index) => parsed.then(async (tokens) => {
+      const enriched = this.enrichParsedTokenBatchBeforeRender(parsed);
+      const parsedHtml = missing.map((item, index) => enriched.then((tokens) => {
         const tokenList = tokens[index] ?? [];
-        await this.beforeRenderParsedTokens(tokenList);
         const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
         this.rememberParsedCueHtml(item.key, html, tokenList, { forceNotify: true });
         this.applyAuthoritativeParsedCueHtml(item.key, item.text, html);
@@ -44285,13 +44374,18 @@ ${spelling}`);
       return results;
     }
     renderParsedHtmlBatch(batch, parsed, settings, options = {}) {
-      return batch.map((item, index) => parsed.then(async (tokens) => {
+      const prepared = options.enrichBeforeRender ? this.enrichParsedTokenBatchBeforeRender(parsed) : parsed;
+      return batch.map((item, index) => prepared.then((tokens) => {
         const tokenList = tokens[index] ?? [];
-        if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokenList);
         const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
         this.rememberParsedCueHtml(item.key, html, tokenList, { ...options, enriched: this.shouldMarkCueEnriched(item.key, tokenList, options.enrichBeforeRender === true) });
         return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
       }));
+    }
+    async enrichParsedTokenBatchBeforeRender(parsed) {
+      const tokenRows = await parsed;
+      await this.beforeRenderParsedTokens(tokenRows.flat());
+      return tokenRows;
     }
     async beforeRenderParsedTokens(tokens) {
       if (!tokens.length || !this.options.beforeRenderTokens) return;
@@ -46312,7 +46406,10 @@ ${spelling}`);
       const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
       if (!scroller) return;
       const scrollTop = Math.max(0, state2.virtual.scrollTop);
-      if (Math.abs(scroller.scrollTop - scrollTop) > 1) scroller.scrollTop = scrollTop;
+      if (Math.abs(scroller.scrollTop - scrollTop) > 1) {
+        this.markTranscriptProgrammaticScroll();
+        scroller.scrollTop = scrollTop;
+      }
       this.transcriptVirtualScrollTop = scrollTop;
     }
     renderTranscriptRow(row, index, currentIndex) {
@@ -46369,9 +46466,12 @@ ${spelling}`);
         if (this.destroyed) return;
         const active = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-row.active");
         if (!active) return;
-        this.transcriptProgrammaticScrollUntil = performance.now() + TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
+        this.markTranscriptProgrammaticScroll();
         active.scrollIntoView?.({ block: "center", inline: "nearest" });
       });
+    }
+    markTranscriptProgrammaticScroll() {
+      this.transcriptProgrammaticScrollUntil = performance.now() + TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
     }
     noteTranscriptScroll() {
       if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
@@ -46525,6 +46625,7 @@ ${spelling}`);
         saveTranscriptPanelSize(this.transcriptPanelSize);
         this.positionTranscriptPanel({ realignAfterInset: true, resizeEventMode: "settled" });
         const shouldAlignAfterResize = this.finishTranscriptResize();
+        this.scrollTranscriptToActive();
         if (shouldAlignAfterResize) this.scheduleAlignToVideo();
       };
       const onPointerUp = (upEvent) => finish("commit", upEvent.clientX, upEvent.clientY);
@@ -46587,6 +46688,7 @@ ${spelling}`);
       }));
       saveTranscriptPanelSize(this.transcriptPanelSize);
       this.positionTranscriptPanel();
+      this.scrollTranscriptToActive();
     }
     syncTranscriptResizeHandle(layout) {
       const handle = this.transcriptPanel?.querySelector("[data-resize-transcript]");
@@ -46605,16 +46707,17 @@ ${spelling}`);
       handle.setAttribute("aria-valuemax", String(metrics.max));
       handle.setAttribute("aria-valuenow", String(Math.round(metrics.current)));
     }
-    scheduleTranscriptHydration(preferredIndex = this.activeTranscriptRowIndex()) {
+    scheduleTranscriptHydration(preferredIndex) {
       if (this.transcriptResizeActive) {
         this.transcriptHydrationAfterResizeIndex = preferredIndex;
         return;
       }
+      const index = preferredIndex ?? this.activeTranscriptRowIndex();
       if (this.transcriptHydrateFrame) return;
       this.transcriptHydrateFrame = requestAnimationFrame(() => {
         this.transcriptHydrateFrame = void 0;
         if (this.destroyed) return;
-        void this.hydrateTranscriptRows(preferredIndex);
+        void this.hydrateTranscriptRows(index);
       });
     }
     activeTranscriptIndex() {
@@ -46710,18 +46813,20 @@ ${spelling}`);
       delete hydration.target.dataset.parseFailedAt;
       setInnerHtml(hydration.target, html);
     }
-    scheduleTranscriptCacheWarmup(rows = this.transcriptRows(), preferredIndex = this.activeTranscriptRowIndex(rows)) {
+    scheduleTranscriptCacheWarmup(rows, preferredIndex) {
       if (this.transcriptResizeActive) {
         this.transcriptWarmupAfterResize = true;
         return;
       }
+      const warmupRows = rows ?? this.transcriptRows();
+      const index = preferredIndex ?? this.activeTranscriptRowIndex(warmupRows);
       const settings = this.options.getSettings();
-      if (!this.shouldParseSubtitles(settings) || !rows.length) return;
-      const signature = this.transcriptCacheWarmupKey(rows, settings, preferredIndex);
+      if (!this.shouldParseSubtitles(settings) || !warmupRows.length) return;
+      const signature = this.transcriptCacheWarmupKey(warmupRows, settings, index);
       if (signature === this.transcriptCacheWarmupSignature) return;
       this.transcriptCacheWarmupSignature = signature;
       const serial = ++this.transcriptCacheWarmupSerial;
-      void this.warmTranscriptParseCache(rows, preferredIndex, settings, serial);
+      void this.warmTranscriptParseCache(warmupRows, index, settings, serial);
     }
     transcriptCacheWarmupKey(rows, settings, preferredIndex) {
       const first2 = rows[0]?.cue;
@@ -47048,7 +47153,7 @@ ${spelling}`);
       }, referenceVideoRect);
       this.commitTranscriptPanelLayout(panel, layout, options);
       const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect, {
-        resizeEventMode: options.resizeEventMode ?? (this.transcriptPreviewPlayerResizeDeferred ? "none" : options.skipInset ? "settled" : "immediate")
+        resizeEventMode: options.resizeEventMode ?? (this.transcriptPreviewPlayerResizeDeferred || options.skipInset ? "none" : "immediate")
       });
       if (!options.skipInset && options.realignAfterInset && insetChanged) this.scheduleTranscriptPanelRealignAfterInset();
     }
@@ -47395,60 +47500,43 @@ ${spelling}`);
       setClass("jpdb-subtitle-youtube-stable-side", true);
       setClass("jpdb-subtitle-youtube-stable-left", layout.placement === "left");
       setClass("jpdb-subtitle-youtube-stable-right", layout.placement === "right");
-      let offsetPx = layout.placement === "left" ? Math.max(0, Math.round(layout.left + layout.width + layout.margin - videoRect.left)) : 0;
-      let playerSize = this.stableYouTubePlayerSizeForLayout(layout, videoRect);
-      const cachedEdgeCorrection = this.stableYouTubeEdgeCorrection[layout.placement];
-      if (cachedEdgeCorrection) {
-        if (layout.placement === "left") offsetPx = Math.max(0, offsetPx + cachedEdgeCorrection);
-        const width = Math.max(320, layout.placement === "left" ? playerSize.width - cachedEdgeCorrection : playerSize.width + cachedEdgeCorrection);
-        playerSize = { width, height: this.stableYouTubePlayerHeightForWidth(width, videoRect) };
-      }
-      let playerWidth = `${playerSize.width}px`;
-      let offset = `${offsetPx}px`;
+      const playerOffsetTarget = this.stableYouTubePlayerOffsetTarget();
+      setClass("jpdb-subtitle-youtube-stable-player-fallback", layout.placement === "left" && playerOffsetTarget === "player");
+      setClass("jpdb-subtitle-youtube-stable-full-bleed", layout.placement === "left" && playerOffsetTarget === "full-bleed");
+      const offsetPx = layout.placement === "left" ? Math.max(0, Math.round(layout.left + layout.width + layout.margin)) : 0;
+      const playerSize = this.stableYouTubePlayerSizeForLayout(layout, videoRect);
+      const playerWidth = `${playerSize.width}px`;
+      const playerHeight = `${playerSize.height}px`;
+      const offset = `${offsetPx}px`;
       changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-offset", offset) || changed;
       changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-player-width", playerWidth) || changed;
-      const corrected = resizeEventMode === "settled" ? null : this.correctStableYouTubePlayerSizeForLayout(layout, videoRect, playerSize, offsetPx);
-      if (corrected) {
-        this.stableYouTubeEdgeCorrection[layout.placement] = corrected.edgeCorrection;
-        playerSize = corrected.size;
-        offsetPx = corrected.offsetPx;
-        offset = `${offsetPx}px`;
-        playerWidth = `${playerSize.width}px`;
-        changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-offset", offset) || changed;
-        changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-player-width", playerWidth) || changed;
-      }
-      if (changed) {
+      changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-player-height", playerHeight) || changed;
+      const mediaChanged = applyStableYouTubePlayerVideoSize(this.video, playerSize.width, playerSize.height);
+      if (changed && resizeEventMode !== "none") {
         resizeYouTubePlayerForSubtitleLayout(
           playerSize.width,
           playerSize.height,
-          resizeEventMode === "none" ? "settled" : resizeEventMode
+          resizeEventMode
         );
       }
-      return changed;
+      return changed || mediaChanged;
+    }
+    stableYouTubePlayerOffsetTarget() {
+      if (!isYouTubePage()) return null;
+      const fullBleed = document.querySelector("ytd-watch-flexy[is-single-column] #full-bleed-container #player-container");
+      if (fullBleed) {
+        const position = getComputedStyle(fullBleed).position;
+        if (position === "absolute" || position === "fixed") return "full-bleed";
+      }
+      const primary = document.querySelector("ytd-watch-flexy #primary");
+      const player = document.querySelector("#movie_player, .html5-video-player");
+      return !primary && player ? "player" : null;
     }
     stableYouTubePlayerSizeForLayout(layout, videoRect) {
       const width = Math.max(0, Math.round(this.availablePlayerWidthForSideLayout(layout, videoRect)));
       return {
         width,
         height: this.stableYouTubePlayerHeightForWidth(width, videoRect)
-      };
-    }
-    correctStableYouTubePlayerSizeForLayout(layout, referenceVideoRect, size, offsetPx) {
-      const actualVideoRect = this.videoLayoutRect();
-      if (actualVideoRect.width <= 0 || actualVideoRect.height <= 0) return null;
-      if (rectsApproximatelyMatch(actualVideoRect, referenceVideoRect)) return null;
-      const desiredEdge = layout.placement === "left" ? layout.left + layout.width + layout.margin : layout.left - layout.margin;
-      const actualEdge = layout.placement === "left" ? actualVideoRect.left : actualVideoRect.right;
-      const edgeDelta = Math.round(desiredEdge - actualEdge);
-      if (Math.abs(edgeDelta) < 2) return null;
-      const width = Math.max(320, layout.placement === "left" ? size.width - edgeDelta : size.width + edgeDelta);
-      return {
-        edgeCorrection: edgeDelta,
-        offsetPx: layout.placement === "left" ? Math.max(0, offsetPx + edgeDelta) : offsetPx,
-        size: {
-          width,
-          height: this.stableYouTubePlayerHeightForWidth(width, referenceVideoRect)
-        }
       };
     }
     stableYouTubePlayerHeightForWidth(width, videoRect) {
@@ -47469,7 +47557,7 @@ ${spelling}`);
         root.style.removeProperty(property);
         changed = true;
       }
-      return changed;
+      return clearStableYouTubePlayerVideoSize() || changed;
     }
     measureWithoutStableYouTubeTranscriptLayout(callback) {
       const root = document.documentElement;
@@ -47485,6 +47573,15 @@ ${spelling}`);
           if (value) root.style.setProperty(property, value);
           else root.style.removeProperty(property);
         }
+        this.restoreStableYouTubePlayerVideoSizeFromRoot(root);
+      }
+    }
+    restoreStableYouTubePlayerVideoSizeFromRoot(root) {
+      if (!root.classList.contains("jpdb-subtitle-youtube-stable-side")) return;
+      const width = Number.parseFloat(root.style.getPropertyValue("--jpdb-subtitle-youtube-stable-player-width"));
+      const height = Number.parseFloat(root.style.getPropertyValue("--jpdb-subtitle-youtube-stable-player-height"));
+      if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+        applyStableYouTubePlayerVideoSize(this.video, width, height);
       }
     }
     applyPageVideoInset(side, playerSize, panelSize, videoRect = this.videoLayoutRect(), options = {}) {
@@ -47506,9 +47603,6 @@ ${spelling}`);
   }
   function shouldHonorExplicitYouTubeSideLayout(layout) {
     return layout.margin > 0 && layout.viewportWidth >= 900;
-  }
-  function rectsApproximatelyMatch(a, b) {
-    return Math.abs(a.left - b.left) < 1 && Math.abs(a.top - b.top) < 1 && Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1;
   }
   const YOUTUBE_CHANNEL_RECOMMENDATION_FILTERS = [
     { id: "all", label: "All" },

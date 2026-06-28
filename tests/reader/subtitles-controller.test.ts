@@ -1438,6 +1438,62 @@ Watch the cat
         }
     });
 
+    it('moves the early YouTube player directly when the watch primary column is not mounted yet', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=stable-left-player-fallback') as unknown as Location,
+        });
+        try {
+            withViewport(1440, 900, () => {
+                document.body.innerHTML = `
+                    <ytd-watch-flexy>
+                        <div id="player">
+                            <div id="movie_player" class="html5-video-player"><video class="html5-main-video" controls></video></div>
+                        </div>
+                    </ytd-watch-flexy>
+                `;
+                const { controller } = createInstalledSubtitleController({
+                    subtitleTranscriptVisible: false,
+                    subtitleTranscriptPlacement: 'left',
+                });
+                try {
+                    const movie = document.querySelector<HTMLElement>('#movie_player')!;
+                    const video = document.querySelector<HTMLVideoElement>('video')!;
+                    mockElementRect(movie, new DOMRect(24, 80, 996, 560));
+                    mockElementRect(video, new DOMRect(24, 80, 996, 560));
+                    attachVideo(controller, { video });
+                    const cue = { start: 0, end: 1, text: '左側でも読む。', transcriptEligible: true };
+                    const internals = controllerInternals<{
+                        cues: Array<typeof cue>;
+                        currentCue: typeof cue;
+                        openLinesPanel: () => void;
+                    }>(controller);
+                    internals.cues = [cue];
+                    internals.currentCue = cue;
+                    vi.useFakeTimers();
+
+                    internals.openLinesPanel();
+                    vi.advanceTimersByTime(90);
+
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-left')).toBe(true);
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-player-fallback')).toBe(true);
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-offset')).toBe('470px');
+                    expect(SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' '))
+                        .toContain('html.jpdb-subtitle-youtube-stable-left.jpdb-subtitle-youtube-stable-player-fallback #movie_player, html.jpdb-subtitle-youtube-stable-left.jpdb-subtitle-youtube-stable-player-fallback .html5-video-player { margin-left: var(--jpdb-subtitle-youtube-stable-offset, 0px) !important; }');
+                } finally {
+                    vi.useRealTimers();
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('hides YouTube subtitles when scrolling leaves the player out of meaningful view', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -6652,6 +6708,40 @@ Watch the cat
                 value: originalLocation,
             });
         }
+    });
+
+    it('enriches subtitle parse batches together before rendering any row html', async () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            furiganaMode: 'all' as const,
+            localDictionariesEnabled: false,
+        };
+        const tokens = [
+            makeSubtitleToken('本', { cardState: ['known'] }),
+            makeSubtitleToken('先生', { cardState: ['known'] }),
+        ];
+        const parseJapaneseBatch = vi.fn(async () => [[tokens[0]], [tokens[1]]]);
+        const beforeRenderTokens = vi.fn(async (batch: JPDBToken[]) => {
+            expect(batch).toEqual(tokens);
+            tokens[0].card.reading = 'ほん';
+            tokens[0].pitchClass = 'atamadaka';
+            tokens[1].card.reading = 'せんせい';
+            tokens[1].pitchClass = 'heiban';
+        });
+        const { controller } = createSubtitleController(settings, { parseJapaneseBatch, beforeRenderTokens });
+        const internals = controller as unknown as {
+            parseCueHtmlBatch: (texts: string[], settings: ReaderSettings, options?: { enrichBeforeRender?: boolean }) => Promise<Array<{ html: string }>>;
+        };
+
+        const parsed = await internals.parseCueHtmlBatch(['本', '先生'], settings, { enrichBeforeRender: true });
+
+        expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
+        expect(beforeRenderTokens).toHaveBeenCalledTimes(1);
+        expect(beforeRenderTokens).toHaveBeenCalledWith(tokens);
+        expect(parsed[0]?.html).toContain('jpdb-pitch-atamadaka');
+        expect(parsed[1]?.html).toContain('jpdb-pitch-heiban');
     });
 
     it('continues parsing transcript rows beyond the visible hydration window', async () => {

@@ -214,6 +214,8 @@ const YOUTUBE_STABLE_TRANSCRIPT_CLASSES = [
     'jpdb-subtitle-youtube-stable-side',
     'jpdb-subtitle-youtube-stable-left',
     'jpdb-subtitle-youtube-stable-right',
+    'jpdb-subtitle-youtube-stable-player-fallback',
+    'jpdb-subtitle-youtube-stable-full-bleed',
 ] as const;
 const YOUTUBE_STABLE_TRANSCRIPT_STYLE_PROPERTIES = [
     '--jpdb-subtitle-youtube-stable-offset',
@@ -2576,9 +2578,9 @@ export class SubtitlePlayerController {
         const parsed = this.options.parseJapaneseBatch
             ? this.options.parseJapaneseBatch(missing.map(item => item.text), authoritativeSubtitleParseOptions())
             : Promise.all(missing.map(item => this.options.parseJapanese(item.text, authoritativeSubtitleParseOptions())));
-        const parsedHtml = missing.map((item, index) => parsed.then(async tokens => {
+        const enriched = this.enrichParsedTokenBatchBeforeRender(parsed);
+        const parsedHtml = missing.map((item, index) => enriched.then(tokens => {
             const tokenList = tokens[index] ?? [];
-            await this.beforeRenderParsedTokens(tokenList);
             const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
             this.rememberParsedCueHtml(item.key, html, tokenList, { forceNotify: true });
             this.applyAuthoritativeParsedCueHtml(item.key, item.text, html);
@@ -2720,13 +2722,19 @@ export class SubtitlePlayerController {
         settings: ReaderSettings,
         options: { provisional?: boolean; enrichBeforeRender?: boolean } = {},
     ): Promise<ParsedSubtitleHtmlResult>[] {
-        return batch.map((item, index) => parsed.then(async tokens => {
+        const prepared = options.enrichBeforeRender ? this.enrichParsedTokenBatchBeforeRender(parsed) : parsed;
+        return batch.map((item, index) => prepared.then(tokens => {
             const tokenList = tokens[index] ?? [];
-            if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokenList);
             const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
             this.rememberParsedCueHtml(item.key, html, tokenList, { ...options, enriched: this.shouldMarkCueEnriched(item.key, tokenList, options.enrichBeforeRender === true) });
             return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
         }));
+    }
+
+    private async enrichParsedTokenBatchBeforeRender(parsed: Promise<JPDBToken[][]>): Promise<JPDBToken[][]> {
+        const tokenRows = await parsed;
+        await this.beforeRenderParsedTokens(tokenRows.flat());
+        return tokenRows;
     }
 
     private async beforeRenderParsedTokens(tokens: JPDBToken[]): Promise<void> {
@@ -6430,6 +6438,9 @@ export class SubtitlePlayerController {
         setClass('jpdb-subtitle-youtube-stable-side', true);
         setClass('jpdb-subtitle-youtube-stable-left', layout.placement === 'left');
         setClass('jpdb-subtitle-youtube-stable-right', layout.placement === 'right');
+        const playerOffsetTarget = this.stableYouTubePlayerOffsetTarget();
+        setClass('jpdb-subtitle-youtube-stable-player-fallback', layout.placement === 'left' && playerOffsetTarget === 'player');
+        setClass('jpdb-subtitle-youtube-stable-full-bleed', layout.placement === 'left' && playerOffsetTarget === 'full-bleed');
         const offsetPx = layout.placement === 'left'
             ? Math.max(0, Math.round(layout.left + layout.width + layout.margin))
             : 0;
@@ -6449,6 +6460,18 @@ export class SubtitlePlayerController {
             );
         }
         return changed || mediaChanged;
+    }
+
+    private stableYouTubePlayerOffsetTarget(): 'player' | 'full-bleed' | null {
+        if (!isYouTubePage()) return null;
+        const fullBleed = document.querySelector<HTMLElement>('ytd-watch-flexy[is-single-column] #full-bleed-container #player-container');
+        if (fullBleed) {
+            const position = getComputedStyle(fullBleed).position;
+            if (position === 'absolute' || position === 'fixed') return 'full-bleed';
+        }
+        const primary = document.querySelector<HTMLElement>('ytd-watch-flexy #primary');
+        const player = document.querySelector<HTMLElement>('#movie_player, .html5-video-player');
+        return !primary && player ? 'player' : null;
     }
 
     private stableYouTubePlayerSizeForLayout(layout: TranscriptPanelLayout, videoRect: DOMRect): { width: number; height: number } {

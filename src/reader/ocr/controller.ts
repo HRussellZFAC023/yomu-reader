@@ -814,9 +814,9 @@ export class ImageOcrController {
         }
         const state = existingState ?? this.ensureState(image);
         const settings = this.options.getSettings();
-        const key = imageCacheKey(image);
         const manualRequested = state.manualRequested;
         this.resetStateIfImageChanged(state);
+        const key = state.key;
         if (await this.tryRenderCachedOcrResult(state, key)) return;
         if (!this.isCurrentContentState(state, key)) return;
 
@@ -1430,6 +1430,8 @@ export class ImageOcrController {
             this.applyVideoFrameStatusTransition(image, status);
             return;
         }
+        const canvas = this.canvasFrameSources.get(image);
+        if (canvas) this.removeCanvasPendingStatus(canvas);
         this.updateImageStatusCard(image, status);
     }
 

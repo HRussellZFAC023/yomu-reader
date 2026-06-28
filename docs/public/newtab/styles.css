@@ -15867,7 +15867,11 @@ html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #columns {
   justify-content: flex-start !important;
 }
 html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #primary,
-html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #primary-inner,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #primary-inner {
+  width: var(--jpdb-subtitle-youtube-stable-player-width, auto) !important;
+  max-width: var(--jpdb-subtitle-youtube-stable-player-width, none) !important;
+  min-width: 0 !important;
+}
 html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player,
 html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container,
 html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container-outer,
@@ -15877,6 +15881,9 @@ html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player {
   width: var(--jpdb-subtitle-youtube-stable-player-width, auto) !important;
   max-width: var(--jpdb-subtitle-youtube-stable-player-width, none) !important;
   min-width: 0 !important;
+  height: var(--jpdb-subtitle-youtube-stable-player-height, auto) !important;
+  max-height: var(--jpdb-subtitle-youtube-stable-player-height, none) !important;
+  min-height: 0 !important;
 }
 html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player .html5-video-container,
 html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player video.html5-main-video {
@@ -15895,6 +15902,13 @@ html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player video.html5
 html.jpdb-subtitle-youtube-stable-left ytd-watch-flexy #primary {
   margin-left: var(--jpdb-subtitle-youtube-stable-offset, 0px) !important;
   margin-right: 0 !important;
+}
+html.jpdb-subtitle-youtube-stable-left.jpdb-subtitle-youtube-stable-player-fallback #movie_player,
+html.jpdb-subtitle-youtube-stable-left.jpdb-subtitle-youtube-stable-player-fallback .html5-video-player {
+  margin-left: var(--jpdb-subtitle-youtube-stable-offset, 0px) !important;
+}
+html.jpdb-subtitle-youtube-stable-left.jpdb-subtitle-youtube-stable-full-bleed ytd-watch-flexy[is-single-column] #full-bleed-container #player-container {
+  margin-left: var(--jpdb-subtitle-youtube-stable-offset, 0px) !important;
 }
 html.jpdb-subtitle-youtube-stable-right ytd-watch-flexy #primary {
   margin-left: 0 !important;

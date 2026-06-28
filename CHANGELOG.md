@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.174] - 2026-06-28
+
+### Fixed
+
+- Fixed YouTube subtitle side-panel resizing so left-docked panels reserve space immediately, the video frame shrinks with the panel instead of being overlaid, and transcript current-line/programmatic scrolling no longer disables auto-follow.
+- Reduced YouTube transcript lookup churn by enriching subtitle parse batches together before rendering rows, so furigana, pitch, and word status apply line-by-line instead of trickling in word-by-word.
+- Kept paused-frame OCR hitboxes above YouTube's native control strip so native controls remain usable while OCR is visible.
+- Fixed Jiten/dictionary furigana rendering so ruby readings align to their matching kanji instead of spanning the whole referenced word.
+- Kept BookWalker and other reader-raster OCR status accurate while canvas captures prepare, and handed the scanning pill off to the ready OCR layer without leaving stale loading UI.
+- Kept automatic dark-mode OCR word highlights accent-tinted by default, avoiding the unreadable white-text-on-light-highlight combination while preserving the custom color option.
+
 ## [1.4.173] - 2026-06-28
 
 ### Fixed

@@ -1058,6 +1058,13 @@ html.jpdb-subtitle-youtube-stable-left ytd-watch-flexy #primary {
   margin-left: var(--jpdb-subtitle-youtube-stable-offset, 0px) !important;
   margin-right: 0 !important;
 }
+html.jpdb-subtitle-youtube-stable-left.jpdb-subtitle-youtube-stable-player-fallback #movie_player,
+html.jpdb-subtitle-youtube-stable-left.jpdb-subtitle-youtube-stable-player-fallback .html5-video-player {
+  margin-left: var(--jpdb-subtitle-youtube-stable-offset, 0px) !important;
+}
+html.jpdb-subtitle-youtube-stable-left.jpdb-subtitle-youtube-stable-full-bleed ytd-watch-flexy[is-single-column] #full-bleed-container #player-container {
+  margin-left: var(--jpdb-subtitle-youtube-stable-offset, 0px) !important;
+}
 html.jpdb-subtitle-youtube-stable-right ytd-watch-flexy #primary {
   margin-left: 0 !important;
   margin-right: 0 !important;
