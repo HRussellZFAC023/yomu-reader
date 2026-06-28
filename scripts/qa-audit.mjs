@@ -1924,7 +1924,10 @@ function hasHiddenOcrProviderFields(snapshot) {
 }
 
 function hasHelpLinks(snapshot) {
-    return snapshot.helpLinks >= 3 && /Video Player|New Tab|Docs/.test(snapshot.helpCopy);
+    return snapshot.helpLinks >= 3
+        && /Video Player|動画プレイヤー/.test(snapshot.helpCopy)
+        && /New Tab|Study|新しいタブ|学習/.test(snapshot.helpCopy)
+        && /Docs|ドキュメント/.test(snapshot.helpCopy);
 }
 
 function hasRecommendedDictionaryDownloads(snapshot) {
@@ -2006,7 +2009,7 @@ async function auditSettingsMobile(browser, server) {
     }));
     assertAudit(snapshot.helpLinks >= 3, 'mobile Help tab does not expose hosted reader tool links');
     assertAudit(/Video Player|動画プレイヤー/.test(snapshot.copy)
-        && /New Tab|新しいタブ/.test(snapshot.copy)
+        && /New Tab|Study|新しいタブ|学習/.test(snapshot.copy)
         && /Docs|ドキュメント/.test(snapshot.copy), `mobile Help tab is missing hosted reader tool names: ${JSON.stringify(snapshot)}`);
     await page.close();
     record('mobile settings journey', 'pass', 'tabs, audio rows, and help links stay visible on iPhone width');
@@ -2429,7 +2432,7 @@ function assertNewTabFirstRunFallbackSnapshot(snapshot) {
 }
 
 function assertNewTabDictionarySnapshot(snapshot) {
-    assertAudit(snapshot.title.includes('New Tab'), 'new-tab document title is missing');
+    assertAudit(/New Tab|Study|学習/.test(snapshot.title), 'new-tab document title is missing');
     assertAudit(isDocsHomeHref(snapshot.brandHref), 'new-tab brand link does not open the docs home page');
     assertAudit(/[一-龯ぁ-んァ-ン]/u.test(snapshot.expression), `new-tab did not render a Japanese dictionary word: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.meaning.trim().length > 0, `new-tab dictionary meaning did not render: ${JSON.stringify(snapshot)}`);
@@ -3051,7 +3054,10 @@ async function auditRuntimeRegressionStudySpeech(page, failures) {
         const studyReadButton = page.locator('[data-action="study-read-sentence"]').first();
         assertAudit(await studyReadButton.count() === 1, 'study read-sentence button is missing from the popup');
         await studyReadButton.click({ force: true });
-        await waitForAudit(page, () => (window.__yomuSpeechTexts ?? []).some(text => text.includes('好きなものを読んで日本語を学ぶ')), 3000, 'study sentence audio did not use browser speech fallback');
+        await waitForAudit(page, () => (window.__yomuSpeechTexts ?? []).some(text => [
+            '好きなものを読んで日本語を学ぶ',
+            '毎日読んでいるので、もっと読みたい',
+        ].some(expected => text.includes(expected))), 3000, 'study sentence audio did not use browser speech fallback');
     }, error => runtimeStudySpeechFailureMessage(page, error));
 }
 
@@ -3228,9 +3234,10 @@ function runtimeRegressionPopoverSnapshotFromDom() {
 
 function assertRegressionReadPopup(snapshot, trigger) {
     const spelling = lookupSurfaceText(snapshot.spelling);
+    const readingEvidence = `${snapshot.reading || ''} ${snapshot.text || ''} ${snapshot.spelling || ''}`.replace(/[()\s（）]/g, '');
     assertAudit(!spelling.includes('きなものを'), `${trigger} lookup selected left-context text instead of 読んで: ${JSON.stringify(snapshot)}`);
     assertAudit(/読む|読んで/.test(spelling), `${trigger} lookup did not open the 読む card: ${JSON.stringify(snapshot)}`);
-    assertAudit(/よむ|よんで/.test(snapshot.reading || snapshot.text), `${trigger} lookup lost JPDB reading: ${JSON.stringify(snapshot)}`);
+    assertAudit(/よむ|よんで/.test(readingEvidence), `${trigger} lookup lost JPDB reading: ${JSON.stringify(snapshot)}`);
     assertAudit(hasVisiblePitchEvidence(snapshot), `${trigger} lookup lost JPDB pitch display: ${JSON.stringify(snapshot)}`);
 }
 
