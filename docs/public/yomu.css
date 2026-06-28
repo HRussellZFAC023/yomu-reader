@@ -980,9 +980,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent);
   --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-unknown, transparent);
 }
-/* The card headword (.jpdb-reader-spelling) reuses the same pitch colors so it
-   shows the pitch-accent underline like words on the page; previously the card
-   header only rendered the pitch graph and never the underline. */
 .jpdb-reader-spelling.jpdb-pitch-heiban { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban); }
 .jpdb-reader-spelling.jpdb-pitch-atamadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka); }
 .jpdb-reader-spelling.jpdb-pitch-nakadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka); }
@@ -1496,17 +1493,17 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] {
   --jpdb-ocr-auto-dark-surface: color-mix(
     in srgb,
-    var(--jpdb-reader-theme-dark-surface, #20242b) 78%,
-    var(--jpdb-reader-accent, #5ea780) 22%
+    var(--jpdb-reader-accent, #5ea780) 72%,
+    var(--jpdb-reader-theme-dark-surface, #20242b) 28%
   );
   --jpdb-ocr-auto-dark-active: color-mix(
     in srgb,
-    var(--jpdb-ocr-auto-dark-surface) 84%,
+    var(--jpdb-ocr-auto-dark-surface) 88%,
     transparent
   );
   --jpdb-ocr-auto-dark-border: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 34%,
+    var(--jpdb-reader-accent, #5ea780) 70%,
     rgba(255, 255, 255, 0.16)
   );
 }
@@ -1639,7 +1636,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
   .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
-  color: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  color: var(--jpdb-reader-accent-text, #11161d);
   text-shadow: none;
   background: var(--jpdb-ocr-auto-dark-active);
   border-color: var(--jpdb-ocr-auto-dark-border);
@@ -1650,10 +1647,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
   .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
   .jpdb-reader-word {
-  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-accent-text, #11161d);
   color: var(
     --jpdb-reader-word-accessible-color,
-    var(--jpdb-reader-word-color-source, var(--jpdb-reader-theme-dark-text, #f2f4f8))
+    var(--jpdb-reader-word-color-source, var(--jpdb-reader-accent-text, #11161d))
   ) !important;
   text-shadow: none;
 }
@@ -2934,15 +2931,8 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   display: none;
 }
 .jpdb-reader-spelling .jpdb-reader-ruby-base {
-  display: inline;
+  display: ruby-base;
 }
-/* Pitch is signaled exactly once on the card. The headword carries a jpdb-pitch-*
-   class that (under the pitch-underline display mode) draws a pitch-colored
-   underline, while the card tools also render the canonical mora-labelled pitch
-   graph — so the accent shows up on both the headword (left) and the graph
-   (right) (user feedback: "pitch accent is appearing confusingly on both
-   sides"). When the graph is present it is the single source of truth, so the
-   redundant headword underline is dropped. */
 .jpdb-reader-header:has(.jpdb-reader-pitch) .jpdb-reader-spelling {
   text-decoration: none !important;
 }
@@ -10792,12 +10782,28 @@ html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #columns {
 html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #primary,
 html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #primary-inner,
 html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container,
 html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container-outer,
 html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container-inner,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy ytd-player,
 html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player {
   width: var(--jpdb-subtitle-youtube-stable-player-width, auto) !important;
   max-width: var(--jpdb-subtitle-youtube-stable-player-width, none) !important;
   min-width: 0 !important;
+}
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player .html5-video-container,
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player video.html5-main-video {
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+}
+html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player video.html5-main-video {
+  object-fit: contain !important;
 }
 html.jpdb-subtitle-youtube-stable-left ytd-watch-flexy #primary {
   margin-left: var(--jpdb-subtitle-youtube-stable-offset, 0px) !important;

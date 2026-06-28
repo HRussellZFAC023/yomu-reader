@@ -609,8 +609,7 @@ function unwrapReaderWords(root = document, options = {}) {
 }
 function readerWordSurfaceText(element2) {
   const surface = readerWordChildSurfaceText(element2);
-  if (surface || !isReaderWordElement(element2)) return surface;
-  return element2.dataset.surface ?? "";
+  return surface || element2.getAttribute("data-surface") || "";
 }
 function readerWordChildSurfaceText(element2) {
   let text2 = "";
@@ -640,7 +639,7 @@ function readerWordAtPointInScope(scope, x, y, accepts = () => true) {
   return best?.word ?? null;
 }
 function readerWordsInScope(scope) {
-  const ownWord = scope instanceof HTMLElement && scope.matches(".jpdb-reader-word") ? [scope] : [];
+  const ownWord = scope instanceof HTMLElement && isReaderWordElement(scope) ? [scope] : [];
   return [...ownWord, ...Array.from(scope.querySelectorAll(".jpdb-reader-word"))];
 }
 function readerWordPointScore(word, x, y) {
@@ -22654,7 +22653,30 @@ function renderPassiveJitenReference(reference, options = {}) {
   return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="Jiten" data-pitch-class="" data-sentence="${escapeHtml$1(options.sentence ?? reference.text)}" data-expression="${escapeHtml$1(reference.text)}"${readingAttribute} tabindex="-1">${content}</span>`;
 }
 function renderJitenReferenceContent(text2, reading) {
-  return reading ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(text2)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(reading)}</rt><rp>)</rp></ruby>` : escapeHtml$1(text2);
+  return reading ? renderRuby(text2, refRubyToken(text2, reading)) : escapeHtml$1(text2);
+}
+function refRubyToken(text2, reading) {
+  return {
+    card: {
+      vid: 0,
+      sid: 0,
+      rid: 0,
+      spelling: text2,
+      reading,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: ["not-in-deck"],
+      pitchAccent: [],
+      wordWithReading: null
+    },
+    start: 0,
+    end: text2.length,
+    length: text2.length,
+    rubies: [],
+    pitchClass: "",
+    sentence: text2
+  };
 }
 function visibleJitenReferenceReading(text2, reading) {
   const normalizedText = text2.trim();
@@ -26867,6 +26889,7 @@ function jitenRatingForGrade(grade) {
 }
 function jitenCardFromVocabulary(vocabulary) {
   const reading = cleanJitenAnnotatedReading$1(vocabulary.reading);
+  const wordWithReading = cleanJitenAnnotatedSpelling(vocabulary.reading).trim() === vocabulary.spelling ? vocabulary.reading : null;
   const pitchAccent = jitenPitchAccentPatterns(vocabulary.pitchAccents, reading);
   const reviewGradeIntervals = jitenReviewGradeIntervals(vocabulary);
   const deckNames = jitenVocabularyDeckNames(vocabulary);
@@ -26884,7 +26907,7 @@ function jitenCardFromVocabulary(vocabulary) {
     })),
     cardState: jitenKnownStateToCardStates(vocabulary.knownState),
     pitchAccent,
-    wordWithReading: null,
+    wordWithReading,
     source: "jiten",
     reviewSource: "jiten-api",
     jitenWordId: vocabulary.wordId,
@@ -38843,6 +38866,7 @@ function manualScrollReaderBody(body, deltaY) {
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
 const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
+const SUBTITLE_HOVER_MINING_RESUME_GRACE_MS = 520;
 const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
   ".textBox",
   ".ocr-line",
@@ -39169,6 +39193,7 @@ class ReaderApp {
   activePopoverMode;
   subtitleMiningPausedVideo;
   miningPauseReassert;
+  subtitleHoverMiningResumeTimer;
   activePopoverAnchor;
   activePopoverAnchorRect;
   keyboardActiveWord;
@@ -40029,6 +40054,7 @@ class ReaderApp {
     document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
     this.autoScanObserver?.disconnect();
     this.clearMiningPauseReassert();
+    this.clearSubtitleHoverMiningResumeTimer();
     this.ocr.destroy();
     this.subtitles.destroy();
     this.youtube.destroy();
@@ -40500,6 +40526,7 @@ class ReaderApp {
   }
   pauseVideoForSubtitleMining() {
     if (!this.settings.subtitleMiningPause) return;
+    this.clearSubtitleHoverMiningResumeTimer();
     const bound = this.boundSubtitleVideo();
     let paused;
     if (bound?.isConnected && !bound.paused) {
@@ -40540,7 +40567,23 @@ class ReaderApp {
     this.miningPauseReassert?.off();
     this.miningPauseReassert = void 0;
   }
+  scheduleSubtitleMiningVideoResume(delayMs = 0) {
+    this.clearSubtitleHoverMiningResumeTimer();
+    if (delayMs <= 0) {
+      this.resumeSubtitleMiningVideo();
+      return;
+    }
+    this.subtitleHoverMiningResumeTimer = window.setTimeout(() => {
+      this.subtitleHoverMiningResumeTimer = void 0;
+      this.resumeSubtitleMiningVideo();
+    }, delayMs);
+  }
+  clearSubtitleHoverMiningResumeTimer() {
+    window.clearTimeout(this.subtitleHoverMiningResumeTimer);
+    this.subtitleHoverMiningResumeTimer = void 0;
+  }
   resumeSubtitleMiningVideo() {
+    this.clearSubtitleHoverMiningResumeTimer();
     this.clearMiningPauseReassert();
     const stored = this.subtitleMiningPausedVideo;
     this.subtitleMiningPausedVideo = void 0;
@@ -41068,6 +41111,15 @@ class ReaderApp {
     return canHoverLookupReaderWordElement(word, this.hasHoverLookupShortcut());
   }
   queueHoverPointerMove(event) {
+    if (event.buttons) {
+      if (this.hoverPointerMoveFrame !== void 0) {
+        window.cancelAnimationFrame(this.hoverPointerMoveFrame);
+        this.hoverPointerMoveFrame = void 0;
+      }
+      this.pendingHoverPointerMove = void 0;
+      this.cancelPendingHoverLookup();
+      return;
+    }
     this.pendingHoverPointerMove = event;
     if (this.hoverPointerMoveFrame !== void 0) return;
     this.hoverPointerMoveFrame = requestAnimationFrame(() => {
@@ -41243,9 +41295,15 @@ class ReaderApp {
       return;
     }
     if (!this.shouldLookupOnHover(event)) return;
+    this.keepSubtitleMiningPauseForPendingHover(word);
     this.pageScanner.interruptVisiblePageScan();
     this.preloadHoverWordAudio(word);
     this.scheduleHoverLookup(word, event);
+  }
+  keepSubtitleMiningPauseForPendingHover(word) {
+    if (!this.settings.subtitleMiningPause || !this.settings.subtitleHoverPause) return;
+    if (!word.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR)) return;
+    this.pauseVideoForSubtitleMining();
   }
   shouldRetryHoverAudio(word, event) {
     if (event.type !== "pointerover" || !this.shouldPrepareHoverWordAudio(word)) return false;
@@ -41503,8 +41561,21 @@ class ReaderApp {
     this.hoverCloseTimer = window.setTimeout(() => {
       this.hoverCloseTimer = void 0;
       if (this.isHoverContextActive(options)) return;
-      this.dismiss({ suppressHoverTarget: false });
+      this.dismiss({
+        suppressHoverTarget: false,
+        deferSubtitleMiningResume: this.shouldDeferSubtitleMiningResumeForHoverClose()
+      });
     }, Math.max(0, delay2));
+  }
+  shouldDeferSubtitleMiningResumeForHoverClose() {
+    if (this.activePopoverMode !== "hover" || !this.subtitleMiningPausedVideo) return false;
+    if (this.activeHoverWord?.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR)) return true;
+    const pointer = this.lastPointerPosition;
+    if (!pointer) return false;
+    const target = document.elementFromPoint(pointer.x, pointer.y);
+    if (target instanceof Element && target.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR)) return true;
+    const liveWord = this.hoverReaderWordFromPointStack(pointer.x, pointer.y) ?? (target instanceof Element ? this.readerWordFromRenderedGeometry(target, pointer.x, pointer.y, (item) => this.canHoverLookupReaderWord(item)) : null);
+    return Boolean(liveWord?.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR));
   }
   isHoverContextActive(options = {}) {
     if (this.isMiddlePressHoverContextActive()) return true;
@@ -42792,12 +42863,7 @@ class ReaderApp {
     });
   }
   async resolveInitialCardForAutoAudio(card, context) {
-    if (context.trigger !== "hover" || !context.options.skipInitialCardResolution) return card;
-    try {
-      return await this.resolveLookupCardForInitialRender(card);
-    } catch {
-      return card;
-    }
+    return card;
   }
   maybePreloadLookupCardAudio(card, options, anchor) {
     if (!this.canPreloadReaderAudio()) return;
@@ -45008,7 +45074,10 @@ class ReaderApp {
       this.hoverWatchTimer = void 0;
       if (this.activePopoverMode !== "hover") return;
       if (!this.isHoverContextActive({ ignorePointerPosition: true })) {
-        this.dismiss({ suppressHoverTarget: false });
+        this.dismiss({
+          suppressHoverTarget: false,
+          deferSubtitleMiningResume: this.shouldDeferSubtitleMiningResumeForHoverClose()
+        });
         return;
       }
       this.hoverWatchTimer = window.setTimeout(tick, Math.max(90, this.settings.hoverCloseDelayMs));
@@ -45061,7 +45130,9 @@ class ReaderApp {
   }
   prepareActivePopoverDismiss(options) {
     if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
-    if (!options.preserveNavigation) this.resumeSubtitleMiningVideo();
+    if (!options.preserveNavigation) {
+      this.scheduleSubtitleMiningVideoResume(options.deferSubtitleMiningResume ? SUBTITLE_HOVER_MINING_RESUME_GRACE_MS : 0);
+    }
     this.clearHoverDismissState(options);
     this.audio.stop();
     this.immersionPopover.stopAudio();

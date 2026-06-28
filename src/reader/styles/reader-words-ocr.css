@@ -632,9 +632,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent);
   --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-unknown, transparent);
 }
-/* The card headword (.jpdb-reader-spelling) reuses the same pitch colors so it
-   shows the pitch-accent underline like words on the page; previously the card
-   header only rendered the pitch graph and never the underline. */
 .jpdb-reader-spelling.jpdb-pitch-heiban { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban); }
 .jpdb-reader-spelling.jpdb-pitch-atamadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka); }
 .jpdb-reader-spelling.jpdb-pitch-nakadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka); }
@@ -1148,17 +1145,17 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] {
   --jpdb-ocr-auto-dark-surface: color-mix(
     in srgb,
-    var(--jpdb-reader-theme-dark-surface, #20242b) 78%,
-    var(--jpdb-reader-accent, #5ea780) 22%
+    var(--jpdb-reader-accent, #5ea780) 72%,
+    var(--jpdb-reader-theme-dark-surface, #20242b) 28%
   );
   --jpdb-ocr-auto-dark-active: color-mix(
     in srgb,
-    var(--jpdb-ocr-auto-dark-surface) 84%,
+    var(--jpdb-ocr-auto-dark-surface) 88%,
     transparent
   );
   --jpdb-ocr-auto-dark-border: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 34%,
+    var(--jpdb-reader-accent, #5ea780) 70%,
     rgba(255, 255, 255, 0.16)
   );
 }
@@ -1291,7 +1288,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
   .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
-  color: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  color: var(--jpdb-reader-accent-text, #11161d);
   text-shadow: none;
   background: var(--jpdb-ocr-auto-dark-active);
   border-color: var(--jpdb-ocr-auto-dark-border);
@@ -1302,10 +1299,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
   .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
   .jpdb-reader-word {
-  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-accent-text, #11161d);
   color: var(
     --jpdb-reader-word-accessible-color,
-    var(--jpdb-reader-word-color-source, var(--jpdb-reader-theme-dark-text, #f2f4f8))
+    var(--jpdb-reader-word-color-source, var(--jpdb-reader-accent-text, #11161d))
   ) !important;
   text-shadow: none;
 }

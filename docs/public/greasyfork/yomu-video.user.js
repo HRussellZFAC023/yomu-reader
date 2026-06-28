@@ -907,8 +907,7 @@
   }
   function readerWordSurfaceText(element) {
     const surface = readerWordChildSurfaceText(element);
-    if (surface || !isReaderWordElement(element)) return surface;
-    return element.dataset.surface ?? "";
+    return surface || element.getAttribute("data-surface") || "";
   }
   function readerWordChildSurfaceText(element) {
     let text = "";
@@ -923,9 +922,6 @@
       text += readerWordChildSurfaceText(child);
     });
     return text;
-  }
-  function isReaderWordElement(element) {
-    return element instanceof HTMLElement && element.classList.contains("jpdb-reader-word");
   }
   function isSurfaceIgnoredElement(element) {
     return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
@@ -7606,6 +7602,7 @@ ${candidate.depth}`;
     canvasFrameSources = /* @__PURE__ */ new Map();
     canvasFrameStaticRects = /* @__PURE__ */ new Map();
     canvasFrameKeys = /* @__PURE__ */ new Map();
+    canvasPendingStatuses = /* @__PURE__ */ new Map();
     // Canvases whose frame the user explicitly tapped to create. A native-text-layer
     // page (shouldAutoScan=false) strips AUTO frames on the poll, but a frame the user
     // tapped to make must survive that poll — only a real page turn drops it.
@@ -8657,6 +8654,9 @@ ${candidate.depth}`;
         return;
       }
       const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+      for (const canvas of [...this.canvasPendingStatuses.keys()]) {
+        if (!canvases.includes(canvas)) this.removeCanvasPendingStatus(canvas);
+      }
       for (const canvas of [...this.canvasFrames.keys()]) {
         if (canvases.includes(canvas)) continue;
         if (this.shouldKeepCanvasFrameThroughStablePageSurfaceFlicker(canvas, signature)) continue;
@@ -8680,6 +8680,7 @@ ${candidate.depth}`;
         const rect = canvas.getBoundingClientRect();
         if (rect.width * rect.height < settings.ocrMinImageArea) return;
         if (!isNearViewport(canvas, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(canvas)) return;
+        this.updateCanvasPendingStatus(canvas, rect, "loading");
         let frameSrc;
         let frameRect = rect;
         let contentKey;
@@ -8725,7 +8726,10 @@ ${candidate.depth}`;
         frame.alt = "";
         positionCanvasFrameImage(frame, frameRect);
         frame.addEventListener("load", () => {
-          if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
+          if (this.canvasFrames.get(canvas) === frame) {
+            this.removeCanvasPendingStatus(canvas);
+            this.enqueue(frame, userRequested);
+          }
         }, { once: true });
         document.body.append(frame);
         this.canvasFrames.set(canvas, frame);
@@ -8834,8 +8838,26 @@ ${candidate.depth}`;
       this.canvasCaptureAttempts.delete(canvas);
       this.canvasTapRecapture.delete(canvas);
     }
+    updateCanvasPendingStatus(canvas, rect, status) {
+      const existing = this.canvasPendingStatuses.get(canvas);
+      const card = existing ?? this.createVideoFrameStatus(status);
+      if (existing) this.setVideoFrameStatus(card, status);
+      else this.canvasPendingStatuses.set(canvas, card);
+      card.classList.add("jpdb-ocr-canvas-status");
+      const labelNode = card.querySelector(".jpdb-ocr-video-frame-status-label");
+      if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
+      card.hidden = false;
+      positionOcrImageStatus(card, this.visibleViewportIntersection(rect) ?? rect);
+    }
+    removeCanvasPendingStatus(canvas) {
+      const card = this.canvasPendingStatuses.get(canvas);
+      if (!card) return;
+      removeOcrArtifact(card);
+      this.canvasPendingStatuses.delete(canvas);
+    }
     releaseCanvasFrame(canvas) {
       const frame = this.canvasFrames.get(canvas);
+      this.removeCanvasPendingStatus(canvas);
       if (!frame) return;
       this.canvasFrames.delete(canvas);
       const state2 = this.states.get(frame);
@@ -8852,12 +8874,26 @@ ${candidate.depth}`;
     }
     releaseAllCanvasFrames() {
       for (const canvas of [...this.canvasFrames.keys()]) this.releaseCanvasFrame(canvas);
+      for (const canvas of [...this.canvasPendingStatuses.keys()]) this.removeCanvasPendingStatus(canvas);
       this.canvasContentReadiness.clear();
       this.canvasCaptureAttempts.clear();
       this.canvasReaderSignature = void 0;
       this.canvasReaderSamePageSignatureSkips = 0;
     }
     positionCanvasFrames() {
+      for (const [canvas, status] of [...this.canvasPendingStatuses]) {
+        if (!canvas.isConnected) {
+          this.removeCanvasPendingStatus(canvas);
+          continue;
+        }
+        const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+        if (!rect) {
+          status.hidden = true;
+          continue;
+        }
+        status.hidden = false;
+        positionOcrImageStatus(status, rect);
+      }
       for (const [canvas, frame] of [...this.canvasFrames]) {
         if (!canvas.isConnected) {
           this.releaseCanvasFrame(canvas);
@@ -12156,7 +12192,7 @@ ${spelling}`);
       if (video) clearGenericVideoInset(video);
       resetYouTubePlayerResizeTracking();
       this.lastResizeSignature = "";
-      dispatchVideoLayoutResize();
+      dispatchSubtitleVideoLayoutResize();
       return true;
     }
     applyResizeIfNeeded(options, metrics) {
@@ -12165,7 +12201,7 @@ ${spelling}`);
       if (mode === "none" || this.lastResizeSignature === metrics.signature) return;
       this.lastResizeSignature = metrics.signature;
       scheduleYouTubePlayerResize(metrics.width, metrics.height, mode);
-      dispatchVideoLayoutResize(mode);
+      dispatchSubtitleVideoLayoutResize(mode);
     }
   }
   function hasActiveVideoInset(lastSignature) {
@@ -12524,26 +12560,41 @@ ${spelling}`);
       if (size) resizeYouTubePlayer(size.width, size.height);
     }, 80);
   }
+  function resizeYouTubePlayerForSubtitleLayout(width, height, mode = "immediate") {
+    if (mode === "none" || !isYouTubePage$1()) return;
+    scheduleYouTubePlayerResize(width, height, mode);
+    dispatchSubtitleVideoLayoutResize(mode);
+  }
   function resizeYouTubePlayer(width, height) {
     if (!isYouTubePage$1()) return;
     const signature = youtubeResizeSignature(width, height);
     if (signature === lastYouTubePlayerResizeSignature) return;
-    lastYouTubePlayerResizeSignature = signature;
     const player = youtubeMoviePlayer();
     try {
-      if (canResizeYouTubePlayer(player, width, height)) player.setSize(Math.round(width), Math.round(height));
+      if (canResizeYouTubePlayer(player, width, height)) {
+        player.setSize(Math.round(width), Math.round(height));
+        lastYouTubePlayerResizeSignature = signature;
+      }
     } catch {
     }
   }
   let lastYouTubePlayerResizeSignature = "";
+  let pendingImmediateVideoLayoutResize;
   let pendingVideoLayoutResize;
   let pendingYouTubePlayerResize;
   let pendingYouTubePlayerResizeSize;
   function youtubeResizeSignature(width, height) {
     return `${Math.round(width)}:${Math.round(height)}`;
   }
-  function dispatchVideoLayoutResize(mode = "immediate") {
-    if (mode === "immediate") dispatchWindowEvent(createWindowEvent("resize"));
+  function dispatchSubtitleVideoLayoutResize(mode = "immediate") {
+    if (mode === "immediate") {
+      if (pendingImmediateVideoLayoutResize !== void 0) window.clearTimeout(pendingImmediateVideoLayoutResize);
+      pendingImmediateVideoLayoutResize = window.setTimeout(() => {
+        pendingImmediateVideoLayoutResize = void 0;
+        if (typeof window === "undefined") return;
+        dispatchWindowEvent(createWindowEvent("resize"));
+      }, 0);
+    }
     if (pendingVideoLayoutResize !== void 0) window.clearTimeout(pendingVideoLayoutResize);
     pendingVideoLayoutResize = window.setTimeout(() => {
       pendingVideoLayoutResize = void 0;
@@ -12553,6 +12604,8 @@ ${spelling}`);
   }
   function resetYouTubePlayerResizeTracking() {
     lastYouTubePlayerResizeSignature = "";
+    if (pendingImmediateVideoLayoutResize !== void 0) window.clearTimeout(pendingImmediateVideoLayoutResize);
+    pendingImmediateVideoLayoutResize = void 0;
     if (pendingYouTubePlayerResize !== void 0) window.clearTimeout(pendingYouTubePlayerResize);
     pendingYouTubePlayerResize = void 0;
     pendingYouTubePlayerResizeSize = void 0;
@@ -15333,6 +15386,7 @@ ${spelling}`);
   const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 8;
   const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
   const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
+  const YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD = 240;
   const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 96;
   const SUBTITLE_PARSE_CACHE_MIN_ENTRIES = 180;
   const SUBTITLE_PARSE_CACHE_MAX_ENTRIES = 5e3;
@@ -15344,10 +15398,10 @@ ${spelling}`);
   const SUBTITLE_FURIGANA_KANA_RE = /^[぀-ヿー・]+$/u;
   const SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT = 6;
   const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
-  const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 240;
+  const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 64;
   const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
-  const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 8;
-  const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 48;
+  const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 3;
+  const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 21;
   const TRANSCRIPT_AUTO_SCROLL_RESUME_FALLBACK_SECONDS = 30;
   const TRANSCRIPT_AUTO_SCROLL_RESUME_LEGACY_DEFAULT_SECONDS = 4;
   const SUBTITLE_TICK_ACTIVE_MS = 500;
@@ -15660,6 +15714,7 @@ ${spelling}`);
     transcriptPanelClosing = false;
     transcriptLayoutReferenceRect;
     transcriptLayoutReferenceViewport = "";
+    stableYouTubeEdgeCorrection = { left: 0, right: 0 };
     primarySelectionRequest = 0;
     secondarySelectionRequest = 0;
     subtitleSourceContextKey = "";
@@ -15673,6 +15728,7 @@ ${spelling}`);
     // configured bottom offset. Persisted via gmStorage; see subtitle-layout.
     subtitleDragOffsetFraction = loadSubtitleDragOffsetFraction();
     subtitleDragActive = false;
+    subtitleDragPreviewOffsetYPx;
     transcriptResizeActive = false;
     asbMoveHandlesActive = false;
     asbSubtitleDragHandles = /* @__PURE__ */ new WeakSet();
@@ -16784,12 +16840,16 @@ ${spelling}`);
       });
     }
     primaryParsedHtmlForRender(text, settings, key) {
-      const cached = this.parsedHtmlCache.get(key);
+      const cached = this.cachedParsedCueHtml(key, settings);
       if (cached !== void 0) return cached;
       const provisional = this.provisionalParsedHtmlCache.get(key);
       if (provisional !== void 0) {
         if (this.shouldUseProvisionalSubtitleParse(settings)) {
           if (!this.enrichedProvisionalParsedHtmlKeys.has(key)) {
+            if (this.hasAuthoritativeParseTier(settings)) {
+              this.ensureAuthoritativeParsedCueHtml(text, settings, key);
+              return void 0;
+            }
             this.ensureEnrichedProvisionalParsedCueHtml(text, settings, key);
             if (!this.parsedTokenCache.has(key)) return void 0;
           } else {
@@ -16883,9 +16943,12 @@ ${spelling}`);
     }
     async parseCueHtml(text, settings = this.options.getSettings(), options = {}) {
       const key = this.parseCacheKey(text, settings);
-      const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
+      const cached = this.cachedParsedCueHtml(key, settings);
       if (cached) {
         return cached;
+      }
+      if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings) && this.shouldBypassProvisionalForAuthoritative(settings, options)) {
+        return await this.parseAuthoritativeCueHtml(text, settings, key);
       }
       const emptyCached = this.freshEmptyParsedHtml(key);
       if (emptyCached) return emptyCached;
@@ -16893,7 +16956,7 @@ ${spelling}`);
       const pending = this.pendingParsedCueHtml(key, "authoritative");
       if (pending) return pending;
       const promise = (async () => {
-        const tokens = await this.options.parseJapanese(text, subtitleParseOptions());
+        const tokens = await this.options.parseJapanese(text, this.finalSubtitleParseOptions(settings));
         if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
         const html = withBreaks(renderTokensToHtml(text, tokens, settings));
         this.rememberParsedCueHtml(key, html, tokens);
@@ -16904,6 +16967,27 @@ ${spelling}`);
         return await promise;
       } finally {
         this.pendingParsedHtml.delete(key);
+      }
+    }
+    async parseAuthoritativeCueHtml(text, settings, key) {
+      this.ensureAuthoritativeParsedCueHtml(text, settings, key);
+      const pending = this.pendingParsedHtml.get(key);
+      if (pending) return pending;
+      const cached = this.cachedParsedCueHtml(key, settings);
+      if (cached) return cached;
+      const promise = (async () => {
+        const tokens = await this.options.parseJapanese(text, authoritativeSubtitleParseOptions());
+        await this.beforeRenderParsedTokens(tokens);
+        const html = withBreaks(renderTokensToHtml(text, tokens, settings));
+        this.rememberParsedCueHtml(key, html, tokens, { forceNotify: true });
+        this.applyAuthoritativeParsedCueHtml(key, text, html);
+        return html;
+      })();
+      this.pendingParsedHtml.set(key, promise);
+      try {
+        return await promise;
+      } finally {
+        if (this.pendingParsedHtml.get(key) === promise) this.pendingParsedHtml.delete(key);
       }
     }
     async parseProvisionalCueHtml(text, settings, key, options = {}) {
@@ -16955,8 +17039,8 @@ ${spelling}`);
       this.ensureAuthoritativeParsedCueHtmlBatch([{ text, key }], settings);
     }
     ensureAuthoritativeParsedCueHtmlBatch(items, settings) {
-      if (!hasJpdbApiCredential(settings) && !hasJitenApiCredential(settings)) return;
-      const missing = items.filter((item) => !this.parsedHtmlCache.has(item.key) && !this.pendingParsedHtml.has(item.key));
+      if (!this.hasAuthoritativeParseTier(settings)) return;
+      const missing = items.filter((item) => this.cachedParsedCueHtml(item.key, settings) === void 0 && !this.pendingParsedHtml.has(item.key));
       if (!missing.length) return;
       const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(missing.map((item) => item.text), authoritativeSubtitleParseOptions()) : Promise.all(missing.map((item) => this.options.parseJapanese(item.text, authoritativeSubtitleParseOptions())));
       const parsedHtml = missing.map((item, index) => parsed.then(async (tokens) => {
@@ -17024,14 +17108,17 @@ ${spelling}`);
     }
     async parseCueHtmlBatch(texts, settings = this.options.getSettings(), options = {}) {
       const items = uniqueSubtitleParseTexts(texts).map((text) => ({ text, key: this.parseCacheKey(text, settings) }));
-      if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseCueHtmlBatchWithProvisionalFallback(items, settings, options);
+      if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) {
+        if (this.shouldBypassProvisionalForAuthoritative(settings, options)) return await this.parseAuthoritativeCueHtmlBatch(items, settings);
+        return await this.parseCueHtmlBatchWithProvisionalFallback(items, settings, options);
+      }
       const { ready, batch } = planSubtitleParseBatch(
         items,
         // Keyless there is nothing to upgrade to, so a provisional hit is
         // final here too — without it the transcript-tail warmup
         // (allowProvisional: false) re-parsed every already-parsed cue a
         // second time through the local tokenizer.
-        (key) => this.parsedHtmlCache.get(key) ?? this.freshEmptyParsedHtml(key) ?? (this.hasAuthoritativeParseTier() ? void 0 : this.provisionalParsedHtmlCache.get(key)),
+        (key) => this.cachedParsedCueHtml(key, settings) ?? this.freshEmptyParsedHtml(key) ?? (this.hasAuthoritativeParseTier(settings) ? void 0 : this.provisionalParsedHtmlCache.get(key)),
         (key) => this.pendingParsedCueHtml(key, "authoritative")
       );
       if (!batch.length) return Promise.all(ready);
@@ -17041,9 +17128,19 @@ ${spelling}`);
           html: await this.parseCueHtml(item.text, settings, options)
         }))]);
       }
-      const parsed = this.options.parseJapaneseBatch(batch.map((item) => item.text), subtitleParseOptions());
+      const parsed = this.options.parseJapaneseBatch(batch.map((item) => item.text), this.finalSubtitleParseOptions(settings));
       const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { enrichBeforeRender: options.enrichBeforeRender });
       return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingParsedHtml);
+    }
+    async parseAuthoritativeCueHtmlBatch(items, settings) {
+      if (!items.length) return [];
+      this.ensureAuthoritativeParsedCueHtmlBatch(items, settings);
+      return await Promise.all(items.map(async (item) => {
+        const cached = this.cachedParsedCueHtml(item.key, settings);
+        if (cached) return { key: item.key, html: cached };
+        const pending = this.pendingParsedHtml.get(item.key);
+        return { key: item.key, html: pending ? await pending : await this.parseAuthoritativeCueHtml(item.text, settings, item.key) };
+      }));
     }
     async parseCueHtmlBatchWithProvisionalFallback(items, settings, options = {}) {
       const shouldUpgradeAuthoritative = options.authoritativeUpgrade !== false;
@@ -17169,9 +17266,14 @@ ${spelling}`);
         Math.max(SUBTITLE_PARSE_CACHE_MIN_ENTRIES, transcriptRows + SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM)
       );
     }
-    hasAuthoritativeParseTier() {
-      const settings = this.options.getSettings();
+    hasAuthoritativeParseTier(settings = this.options.getSettings()) {
       return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings);
+    }
+    finalSubtitleParseOptions(settings) {
+      return this.hasAuthoritativeParseTier(settings) ? authoritativeSubtitleParseOptions() : subtitleParseOptions();
+    }
+    shouldBypassProvisionalForAuthoritative(settings, options) {
+      return options.requireEnrichedProvisional === true && this.hasAuthoritativeParseTier(settings);
     }
     // UT-48 session persistence: parsed cue html survives reloads of the
     // same video/session. Quota errors and disabled storage degrade to the
@@ -17271,7 +17373,7 @@ ${spelling}`);
         const text = this.cues[index]?.text.trim();
         if (!text) continue;
         const key = this.parseCacheKey(text, settings);
-        if (seen.has(key) || this.isWarmParsedCueKey(key)) continue;
+        if (seen.has(key) || this.isWarmParsedCueKey(key, settings)) continue;
         seen.add(key);
         texts.push(text);
       }
@@ -17280,9 +17382,18 @@ ${spelling}`);
     // Keyless there is no authoritative tier, so a provisional hit is final
     // and the cue counts as warm; keyed the provisional tier stays listed so
     // a failed authoritative upgrade is retried by the next warmup turn.
-    isWarmParsedCueKey(key) {
-      if (this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) return true;
-      return !this.hasAuthoritativeParseTier() && this.enrichedProvisionalParsedHtmlKeys.has(key);
+    isWarmParsedCueKey(key, settings = this.options.getSettings()) {
+      if (this.cachedParsedCueHtml(key, settings) !== void 0 || this.hasFreshEmptyParsedHtml(key)) return true;
+      return !this.hasAuthoritativeParseTier(settings) && this.enrichedProvisionalParsedHtmlKeys.has(key);
+    }
+    cachedParsedCueHtml(key, settings) {
+      const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
+      if (!cached) return void 0;
+      if (this.hasAuthoritativeParseTier(settings) && cached.includes('data-card-source="fallback"')) {
+        this.parsedHtmlCache.delete(key);
+        return void 0;
+      }
+      return cached;
     }
     // Keyless both tiers produce the same local-tokenizer result, so an
     // in-flight parse on EITHER tier satisfies the other — without this the
@@ -17638,32 +17749,64 @@ ${spelling}`);
         mode: handle.matches(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR) ? "transform" : "bottom-offset",
         startY,
         startOffset: this.subtitleDragOffsetYPx,
-        startBottomOffset: this.options.getSettings().subtitleBottomOffset
+        startBottomOffset: this.options.getSettings().subtitleBottomOffset,
+        referenceHeight: this.subtitlePositionReferenceHeight(dragFrame),
+        bounds: this.subtitleDragOffsetBounds(dragFrame),
+        lastClientY: startY
       };
       this.subtitleDragActive = true;
       handle.classList.add("jpdb-subtitle-dragging");
       dragRoot?.classList.add("jpdb-subtitle-dragging");
       if (dragRoot !== this.root) this.root?.classList.add("jpdb-subtitle-dragging");
-      this.showControlsTemporarily();
+      document.documentElement.classList.add("jpdb-subtitle-dragging");
+      this.showControlsDuringSubtitleDrag();
       return session;
     }
     updateSubtitleDrag(session, clientY, event) {
       if (event.cancelable) event.preventDefault();
-      if (session.mode === "bottom-offset") {
-        this.setSubtitleBottomOffsetFromDrag(session.startBottomOffset, clientY - session.startY, session.dragFrame);
-      } else {
-        this.setSubtitleDragOffset(session.startOffset + clientY - session.startY, session.dragFrame);
-      }
-      this.showControlsTemporarily();
+      event.stopPropagation();
+      session.lastClientY = clientY;
+      if (session.frame !== void 0) return;
+      this.applySubtitleDragPreview(session, clientY);
+      session.frame = window.requestAnimationFrame(() => {
+        session.frame = void 0;
+        if (session.appliedClientY !== session.lastClientY) this.applySubtitleDragPreview(session, session.lastClientY);
+      });
     }
     endSubtitleDrag(session) {
+      this.flushSubtitleDragPreview(session);
       this.subtitleDragActive = false;
       session.handle.classList.remove("jpdb-subtitle-dragging");
       session.dragRoot?.classList.remove("jpdb-subtitle-dragging");
       if (session.dragRoot !== this.root) this.root?.classList.remove("jpdb-subtitle-dragging");
-      if (session.mode === "bottom-offset") this.resetLegacySubtitleDragOffset();
-      else this.persistSubtitleDragOffset();
+      document.documentElement.classList.remove("jpdb-subtitle-dragging");
+      if (session.mode === "bottom-offset") {
+        this.commitSubtitleBottomOffsetFromDrag(session);
+        this.resetLegacySubtitleDragOffset();
+      } else this.persistSubtitleDragOffset();
       this.showControlsTemporarily();
+    }
+    applySubtitleDragPreview(session, clientY) {
+      session.appliedClientY = clientY;
+      const deltaY = clientY - session.startY;
+      if (session.mode === "bottom-offset") {
+        const next = this.subtitleBottomOffsetFromDelta(session.startBottomOffset, deltaY, session.referenceHeight);
+        session.previewBottomOffset = next;
+        session.previewOffset = Math.round((session.startBottomOffset - next) / 100 * session.referenceHeight);
+        this.subtitleDragPreviewOffsetYPx = session.previewOffset;
+        this.syncYomuSubtitleDragOffsetStyle();
+      } else {
+        this.setSubtitleDragOffset(session.startOffset + deltaY, session.dragFrame, session.bounds);
+        session.previewOffset = this.subtitleDragOffsetYPx;
+      }
+      this.showControlsDuringSubtitleDrag();
+    }
+    flushSubtitleDragPreview(session) {
+      if (session.frame !== void 0) {
+        window.cancelAnimationFrame(session.frame);
+        session.frame = void 0;
+      }
+      if (session.appliedClientY !== session.lastClientY) this.applySubtitleDragPreview(session, session.lastClientY);
     }
     moveSubtitleOverlayFromKeyboard(event) {
       const dragFrame = event.currentTarget instanceof HTMLElement ? this.subtitleDragFrameForHandle(event.currentTarget) : void 0;
@@ -17692,8 +17835,12 @@ ${spelling}`);
       }
       this.showControlsTemporarily();
     }
-    setSubtitleBottomOffsetFromDrag(startPercent, deltaY, dragFrame) {
-      this.setSubtitleBottomOffset(startPercent - deltaY / this.subtitlePositionReferenceHeight(dragFrame) * 100);
+    commitSubtitleBottomOffsetFromDrag(session) {
+      if (session.previewBottomOffset === void 0) return;
+      this.setSubtitleBottomOffset(session.previewBottomOffset);
+    }
+    subtitleBottomOffsetFromDelta(startPercent, deltaY, referenceHeight) {
+      return this.clampedSubtitleBottomOffset(startPercent - deltaY / referenceHeight * 100);
     }
     adjustSubtitleBottomOffsetByPixels(deltaY, dragFrame) {
       this.setSubtitleBottomOffset(this.options.getSettings().subtitleBottomOffset - deltaY / this.subtitlePositionReferenceHeight(dragFrame) * 100);
@@ -17701,7 +17848,7 @@ ${spelling}`);
     setSubtitleBottomOffset(value) {
       if (!Number.isFinite(value)) return;
       const settings = this.options.getSettings();
-      const next = Math.round(Math.min(Math.max(value, 2), 40));
+      const next = this.clampedSubtitleBottomOffset(value);
       if (settings.subtitleBottomOffset === next) return;
       settings.subtitleBottomOffset = next;
       this.applyEffectiveSubtitleBottom();
@@ -17718,11 +17865,11 @@ ${spelling}`);
       const styledRootHeight = styledHeight.endsWith("px") ? Number.parseFloat(styledHeight) : 0;
       return Math.max(1, rect?.height || styledRootHeight || this.videoLayoutRect().height || dragFrame?.getBoundingClientRect().height || this.subtitleDragViewportHeight());
     }
-    setSubtitleDragOffset(offsetPx, dragFrame) {
-      const offset = Math.round(this.clampedSubtitleDragOffset(offsetPx, dragFrame));
+    setSubtitleDragOffset(offsetPx, dragFrame, bounds) {
+      const offset = Math.round(this.clampedSubtitleDragOffset(offsetPx, dragFrame, bounds));
       if (offset === this.subtitleDragOffsetYPx) return;
       this.subtitleDragOffsetYPx = offset;
-      this.syncSubtitleDragOffsetStyle();
+      this.syncAsbSubtitleDragOffsetStyle();
     }
     // Snap back to the configured bottom offset and forget the remembered nudge.
     resetSubtitleDragOffset() {
@@ -17731,6 +17878,7 @@ ${spelling}`);
     resetLegacySubtitleDragOffset() {
       this.subtitleDragOffsetFraction = 0;
       this.subtitleDragOffsetYPx = 0;
+      this.subtitleDragPreviewOffsetYPx = void 0;
       saveSubtitleDragOffsetFraction(0);
       this.syncSubtitleDragOffsetStyle();
     }
@@ -17756,15 +17904,25 @@ ${spelling}`);
       return Math.max(240, window.innerHeight || document.documentElement.clientHeight || 0);
     }
     syncSubtitleDragOffsetStyle() {
+      this.syncYomuSubtitleDragOffsetStyle();
+      this.syncAsbSubtitleDragOffsetStyle();
+    }
+    syncYomuSubtitleDragOffsetStyle() {
+      const yomuOffset = `${this.subtitleDragPreviewOffsetYPx ?? 0}px`;
+      if (this.root) setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", yomuOffset);
+    }
+    syncAsbSubtitleDragOffsetStyle() {
       const offset = `${this.subtitleDragOffsetYPx}px`;
-      if (this.root) setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", "0px");
       for (const root of this.asbPlayerSubtitleMoveRoots()) {
         setStylePropertyIfChanged(root, "--jpdb-subtitle-asb-drag-offset-y", offset);
       }
     }
-    clampedSubtitleDragOffset(offsetPx, dragFrame) {
+    clampedSubtitleBottomOffset(value) {
+      return Math.round(Math.min(Math.max(value, 2), 40));
+    }
+    clampedSubtitleDragOffset(offsetPx, dragFrame, bounds) {
       if (!Number.isFinite(offsetPx)) return this.subtitleDragOffsetYPx;
-      const { min, max } = this.subtitleDragOffsetBounds(dragFrame);
+      const { min, max } = bounds ?? this.subtitleDragOffsetBounds(dragFrame);
       return Math.min(max, Math.max(min, offsetPx));
     }
     subtitleDragOffsetBounds(dragFrame) {
@@ -17869,6 +18027,11 @@ ${spelling}`);
       if (!this.root) return;
       this.root.classList.remove("jpdb-subtitle-controls-idle");
       this.syncAsbPlayerSubtitleMoveHandles();
+      this.scheduleControlsIdle();
+    }
+    showControlsDuringSubtitleDrag() {
+      if (!this.root) return;
+      this.root.classList.remove("jpdb-subtitle-controls-idle");
       this.scheduleControlsIdle();
     }
     hideControlsImmediately() {
@@ -19459,7 +19622,7 @@ ${spelling}`);
       const worker = async () => {
         while (cursor < planned.length) {
           if (serial !== this.transcriptCacheWarmupSerial) return;
-          const batch = this.nextTranscriptWarmupBatch(planned, () => cursor++);
+          const batch = this.nextTranscriptWarmupBatch(planned, settings, () => cursor++);
           if (!batch.length) continue;
           try {
             const parsed = await this.parseCueHtmlBatch(batch.map((item) => item.text), settings, parseOptions);
@@ -19492,15 +19655,15 @@ ${spelling}`);
       };
     }
     shouldUseCheapYouTubeTranscriptWarmup(totalRows) {
-      return isYouTubePage() && totalRows > TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD;
+      return isYouTubePage() && totalRows > YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD;
     }
-    nextTranscriptWarmupBatch(planned, takeNextIndex) {
+    nextTranscriptWarmupBatch(planned, settings, takeNextIndex) {
       const batchSize = this.options.parseJapaneseBatch ? TRANSCRIPT_BACKGROUND_PARSE_BATCH : 1;
       const batch = [];
       while (batch.length < batchSize) {
         const item = planned[takeNextIndex()];
         if (!item) break;
-        if (this.isWarmParsedCueKey(item.key)) continue;
+        if (this.isWarmParsedCueKey(item.key, settings)) continue;
         batch.push(item);
       }
       return batch;
@@ -19519,7 +19682,7 @@ ${spelling}`);
       return plan;
     }
     transcriptBackgroundParseLimit(rowCount) {
-      if (isYouTubePage() && rowCount > TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD) {
+      if (isYouTubePage() && rowCount > YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD) {
         return Math.min(YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT, TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS);
       }
       if (isYouTubePage() && rowCount > YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT) {
@@ -19531,7 +19694,7 @@ ${spelling}`);
       const text = rows[rowIndex]?.cue.text.trim();
       if (!text) return;
       const key = this.parseCacheKey(text, settings);
-      if (seen.has(key) || this.isWarmParsedCueKey(key)) return;
+      if (seen.has(key) || this.isWarmParsedCueKey(key, settings)) return;
       seen.add(key);
       plan.push({ rowIndex, text, key });
     }
@@ -19993,7 +20156,7 @@ ${spelling}`);
       }
       if (this.shouldUseStableYouTubeTranscriptLayout()) {
         const insetChanged = this.videoInset.clear(this.video);
-        const stableChanged = this.applyStableYouTubeTranscriptLayout(layout, videoRect);
+        const stableChanged = this.applyStableYouTubeTranscriptLayout(layout, videoRect, options.resizeEventMode);
         return insetChanged || stableChanged;
       }
       this.clearStableYouTubeTranscriptLayout();
@@ -20097,7 +20260,7 @@ ${spelling}`);
       const insetChanged = this.videoInset.clear(this.video);
       return stableChanged || insetChanged;
     }
-    applyStableYouTubeTranscriptLayout(layout, videoRect) {
+    applyStableYouTubeTranscriptLayout(layout, videoRect, resizeEventMode = "immediate") {
       if (!isYouTubePage() || layout.placement === "bottom") return this.clearStableYouTubeTranscriptLayout();
       const root = document.documentElement;
       if (!root) return false;
@@ -20110,11 +20273,65 @@ ${spelling}`);
       setClass("jpdb-subtitle-youtube-stable-side", true);
       setClass("jpdb-subtitle-youtube-stable-left", layout.placement === "left");
       setClass("jpdb-subtitle-youtube-stable-right", layout.placement === "right");
-      const offset = layout.placement === "left" ? `${Math.max(0, Math.round(layout.left + layout.width + layout.margin))}px` : "0px";
-      const playerWidth = `${Math.max(0, Math.round(this.availablePlayerWidthForSideLayout(layout, videoRect)))}px`;
+      let offsetPx = layout.placement === "left" ? Math.max(0, Math.round(layout.left + layout.width + layout.margin - videoRect.left)) : 0;
+      let playerSize = this.stableYouTubePlayerSizeForLayout(layout, videoRect);
+      const cachedEdgeCorrection = this.stableYouTubeEdgeCorrection[layout.placement];
+      if (cachedEdgeCorrection) {
+        if (layout.placement === "left") offsetPx = Math.max(0, offsetPx + cachedEdgeCorrection);
+        const width = Math.max(320, layout.placement === "left" ? playerSize.width - cachedEdgeCorrection : playerSize.width + cachedEdgeCorrection);
+        playerSize = { width, height: this.stableYouTubePlayerHeightForWidth(width, videoRect) };
+      }
+      let playerWidth = `${playerSize.width}px`;
+      let offset = `${offsetPx}px`;
       changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-offset", offset) || changed;
       changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-player-width", playerWidth) || changed;
+      const corrected = resizeEventMode === "settled" ? null : this.correctStableYouTubePlayerSizeForLayout(layout, videoRect, playerSize, offsetPx);
+      if (corrected) {
+        this.stableYouTubeEdgeCorrection[layout.placement] = corrected.edgeCorrection;
+        playerSize = corrected.size;
+        offsetPx = corrected.offsetPx;
+        offset = `${offsetPx}px`;
+        playerWidth = `${playerSize.width}px`;
+        changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-offset", offset) || changed;
+        changed = setDocumentStylePropertyIfChanged(root, "--jpdb-subtitle-youtube-stable-player-width", playerWidth) || changed;
+      }
+      if (changed) {
+        resizeYouTubePlayerForSubtitleLayout(
+          playerSize.width,
+          playerSize.height,
+          resizeEventMode === "none" ? "settled" : resizeEventMode
+        );
+      }
       return changed;
+    }
+    stableYouTubePlayerSizeForLayout(layout, videoRect) {
+      const width = Math.max(0, Math.round(this.availablePlayerWidthForSideLayout(layout, videoRect)));
+      return {
+        width,
+        height: this.stableYouTubePlayerHeightForWidth(width, videoRect)
+      };
+    }
+    correctStableYouTubePlayerSizeForLayout(layout, referenceVideoRect, size, offsetPx) {
+      const actualVideoRect = this.videoLayoutRect();
+      if (actualVideoRect.width <= 0 || actualVideoRect.height <= 0) return null;
+      if (rectsApproximatelyMatch(actualVideoRect, referenceVideoRect)) return null;
+      const desiredEdge = layout.placement === "left" ? layout.left + layout.width + layout.margin : layout.left - layout.margin;
+      const actualEdge = layout.placement === "left" ? actualVideoRect.left : actualVideoRect.right;
+      const edgeDelta = Math.round(desiredEdge - actualEdge);
+      if (Math.abs(edgeDelta) < 2) return null;
+      const width = Math.max(320, layout.placement === "left" ? size.width - edgeDelta : size.width + edgeDelta);
+      return {
+        edgeCorrection: edgeDelta,
+        offsetPx: layout.placement === "left" ? Math.max(0, offsetPx + edgeDelta) : offsetPx,
+        size: {
+          width,
+          height: this.stableYouTubePlayerHeightForWidth(width, referenceVideoRect)
+        }
+      };
+    }
+    stableYouTubePlayerHeightForWidth(width, videoRect) {
+      const aspectRatio = videoRect.width > 0 && videoRect.height > 0 ? videoRect.height / videoRect.width : 9 / 16;
+      return Math.max(180, Math.round(width * aspectRatio));
     }
     clearStableYouTubeTranscriptLayout() {
       const root = document.documentElement;
@@ -20167,6 +20384,9 @@ ${spelling}`);
   }
   function shouldHonorExplicitYouTubeSideLayout(layout) {
     return layout.margin > 0 && layout.viewportWidth >= 900;
+  }
+  function rectsApproximatelyMatch(a, b) {
+    return Math.abs(a.left - b.left) < 1 && Math.abs(a.top - b.top) < 1 && Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1;
   }
   const YOUTUBE_CHANNEL_RECOMMENDATION_FILTERS = [
     { id: "all", label: "All" },

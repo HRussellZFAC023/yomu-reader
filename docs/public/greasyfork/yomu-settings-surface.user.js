@@ -855,8 +855,7 @@
   }
   function readerWordSurfaceText(element) {
     const surface = readerWordChildSurfaceText(element);
-    if (surface || !isReaderWordElement(element)) return surface;
-    return element.dataset.surface ?? "";
+    return surface || element.getAttribute("data-surface") || "";
   }
   function readerWordChildSurfaceText(element) {
     let text = "";
@@ -871,9 +870,6 @@
       text += readerWordChildSurfaceText(child);
     });
     return text;
-  }
-  function isReaderWordElement(element) {
-    return element instanceof HTMLElement && element.classList.contains("jpdb-reader-word");
   }
   function isSurfaceIgnoredElement(element) {
     return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");

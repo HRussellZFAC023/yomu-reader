@@ -3771,6 +3771,8 @@ describe('reader helpers', () => {
 
         expect(normalizedCss).toContain('html.jpdb-subtitle-video-inset-right ytd-watch-flexy #player, html.jpdb-subtitle-video-inset-left ytd-watch-flexy #player');
         expect(normalizedCss).toContain('html.jpdb-subtitle-video-inset-right ytd-watch-flexy #movie_player, html.jpdb-subtitle-video-inset-left ytd-watch-flexy #movie_player { width: var(--ytd-watch-flexy-player-width, auto) !important; max-width: var(--ytd-watch-flexy-player-width, none) !important; min-width: 0 !important; }');
+        expect(normalizedCss).toContain('html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container, html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #player-container-outer');
+        expect(normalizedCss).toContain('html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player .html5-video-container, html.jpdb-subtitle-youtube-stable-side ytd-watch-flexy #movie_player video.html5-main-video { left: 0 !important; top: 0 !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; height: 100% !important; max-height: 100% !important; min-height: 0 !important; }');
     });
 
     it('uses configurable pitch colors in graphs and visible new-tab target highlights', () => {
@@ -34996,8 +34998,8 @@ describe('reader helpers', () => {
         try {
             expect(allowsGenericVisibleAutoScan()).toBe(false);
             expect(allowsFrequentVisibleAutoScan()).toBe(true);
-            expect(visibleAutoScanMutationDelay()).toBe(120);
-            expect(visibleAutoScanInitialDelay()).toBe(160);
+            expect(visibleAutoScanMutationDelay()).toBe(320);
+            expect(visibleAutoScanInitialDelay()).toBe(220);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -35797,6 +35799,50 @@ describe('reader helpers', () => {
             '説明文で日本語を勉強します。',
             '字幕で確認します。',
         ]));
+    });
+
+    it('keeps YouTube watch metadata and comments header ahead of long transcript batches', () => {
+        const targets = collectYouTubeTargets(`
+            <ytd-engagement-panel-section-list-renderer target-id="engagement-panel-searchable-transcript">
+                ${Array.from({ length: 150 }, (_, index) => `
+                    <ytd-transcript-segment-renderer>
+                        <yt-formatted-string class="segment-text">字幕${index}で日本語を確認します。</yt-formatted-string>
+                    </ytd-transcript-segment-renderer>
+                `).join('')}
+            </ytd-engagement-panel-section-list-renderer>
+            <ytd-watch-metadata>
+                <h1 id="title"><yt-attributed-string>大学は新しい学生寮を作りました</yt-attributed-string></h1>
+                <div id="description">
+                    <yt-attributed-string id="attributed-description-text">説明文で日本語を勉強します。</yt-attributed-string>
+                </div>
+            </ytd-watch-metadata>
+            <ytd-comments-header-renderer>
+                <h2 id="title"><yt-formatted-string>443 件のコメント</yt-formatted-string></h2>
+            </ytd-comments-header-renderer>
+        `, YOUTUBE_WATCH_TEST_URL, 12);
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '大学は新しい学生寮を作りました',
+            '説明文で日本語を勉強します。',
+            '443 件のコメント',
+            '字幕0で日本語を確認します。',
+        ]));
+
+        const commentsHeader = targets.find(target => target.text === '443 件のコメント')!;
+        applyTokensToScanTarget(commentsHeader, [{
+            card: { ...card, cardState: ['known'], spelling: '件', reading: 'けん', source: 'jpdb' },
+            start: 4,
+            end: 5,
+            length: 1,
+            rubies: [{ text: 'けん', start: 4, end: 5, length: 1 }],
+            pitchClass: 'heiban',
+            sentence: '443 件のコメント',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const headerWord = document.querySelector<HTMLElement>('ytd-comments-header-renderer .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(headerWord)).toBe('件');
+        expect(headerWord.querySelector('rt')?.textContent).toBe('けん');
+        expectRenderedPitchWord(headerWord, 'heiban');
     });
 
     it('scans YouTube masthead and mini-guide chrome passively', () => {

@@ -879,7 +879,9 @@ describe('JitenApiClient', () => {
         const mount = document.createElement('div');
         mount.innerHTML = renderJitenDefinitionSource(card, () => '', info, 'en');
 
-        const meaningText = mount.textContent?.replace(/\s+/g, ' ') ?? '';
+        const visibleMount = mount.cloneNode(true) as HTMLElement;
+        visibleMount.querySelectorAll('rt,rp').forEach(node => node.remove());
+        const meaningText = visibleMount.textContent?.replace(/\s+/g, ' ') ?? '';
         expect(meaningText).toContain('to count; to estimate; now mostly used in idioms; also written as 訓む');
         expect(meaningText).toContain('to read (a kanji) with its native Japanese reading; now mostly used in idioms; also written as 訓む');
         expect(meaningText).not.toContain('estimatenow');
@@ -1012,7 +1014,9 @@ describe('JitenApiClient', () => {
         expect(target?.dataset.reading).toBe('よむ');
         expect(target?.dataset.sentence).toBe('今日は訓むこともある。');
         expect(target?.innerHTML).toContain('<ruby>');
-        expect(target?.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('訓む');
+        expect(target?.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('訓');
+        expect(target?.querySelector('rt')?.textContent).toBe('よ');
+        expect(target?.textContent?.replace(/\s+/g, '')).toContain('む');
         const sentence = exampleRow?.querySelector<HTMLElement>('.jpdb-reader-jiten-example-sentence');
         expect(sentence?.innerHTML).toContain('今日は');
         expect(sentence?.innerHTML).toContain('こともある。');

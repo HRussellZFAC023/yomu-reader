@@ -775,15 +775,8 @@
   display: none;
 }
 .jpdb-reader-spelling .jpdb-reader-ruby-base {
-  display: inline;
+  display: ruby-base;
 }
-/* Pitch is signaled exactly once on the card. The headword carries a jpdb-pitch-*
-   class that (under the pitch-underline display mode) draws a pitch-colored
-   underline, while the card tools also render the canonical mora-labelled pitch
-   graph — so the accent shows up on both the headword (left) and the graph
-   (right) (user feedback: "pitch accent is appearing confusingly on both
-   sides"). When the graph is present it is the single source of truth, so the
-   redundant headword underline is dropped. */
 .jpdb-reader-header:has(.jpdb-reader-pitch) .jpdb-reader-spelling {
   text-decoration: none !important;
 }

@@ -32,6 +32,7 @@ Useful env:
   YOMU_YOUTUBE_SIDEBAR_RESIZE_LABEL=working
   YOMU_YOUTUBE_SIDEBAR_RESIZE_LIVE_JPDB=1
   YOMU_YOUTUBE_SIDEBAR_RESIZE_NO_API_KEY=1
+  YOMU_YOUTUBE_SIDEBAR_RESIZE_SKIP_ORIENTATION=1
 `;
 
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
@@ -53,6 +54,7 @@ const headed = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_HEADED === '1';
 const liveMode = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_LIVE === '1';
 const keylessMode = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_NO_API_KEY === '1';
 const keylessVisualSoftFail = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_KEYLESS_VISUAL_SOFT === '1';
+const skipOrientation = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_SKIP_ORIENTATION === '1';
 const liveJpdbMode = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_LIVE_JPDB === '1' && !keylessMode;
 const liveJpdbApiKey = (process.env.YOMU_JPDB_API_KEY || process.env.JPDB_API_KEY || '').trim();
 const liveUrl = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_URL?.trim() ?? '';
@@ -75,6 +77,21 @@ const requestBridgeName = '__yomuYoutubeSidebarResizeRequest';
 const jpdbParseUrl = 'https://jpdb.io/api/v1/parse';
 const fixtureWatchUrl = 'https://www.youtube.com/watch?v=p044fixture';
 const fixtureMobileWatchUrl = 'https://m.youtube.com/watch?v=p044fixture';
+const vocabulary = [
+    ['今日', '今日', 'きょう', 'today', ['n'], 100, ['known'], ['LH']],
+    ['日本語', '日本語', 'にほんご', 'Japanese language', ['n'], 250, ['known'], ['LHHH']],
+    ['字幕', '字幕', 'じまく', 'subtitles', ['n'], 1500, ['known'], ['LHH']],
+    ['確認', '確認', 'かくにん', 'confirmation', ['n', 'vs'], 900, ['known'], ['LHHH']],
+    ['左側', '左側', 'ひだりがわ', 'left side', ['n'], 1900, ['known'], ['LHHH']],
+    ['動画', '動画', 'どうが', 'video', ['n'], 600, ['known'], ['LHH']],
+    ['下側', '下側', 'したがわ', 'bottom side', ['n'], 2100, ['known'], ['LHHH']],
+    ['説明', '説明', 'せつめい', 'description', ['n', 'vs'], 700, ['known'], ['LHHH']],
+    ['操作', '操作', 'そうさ', 'operation', ['n', 'vs'], 1000, ['known'], ['LHH']],
+    ['向き', '向き', 'むき', 'direction', ['n'], 1200, ['known'], ['LH']],
+    ['変更', '変更', 'へんこう', 'change', ['n', 'vs'], 800, ['known'], ['LHHH']],
+    ['余白', '余白', 'よはく', 'margin', ['n'], 2300, ['known'], ['LHH']],
+    ['保ちます', '保つ', 'たもちます', 'maintain', ['v5t'], 2400, ['known'], ['LHHH']],
+];
 
 if (liveMode && !liveUrl) {
     throw new Error('Live mode needs YOMU_YOUTUBE_SIDEBAR_RESIZE_URL pointing at a YouTube watch page with usable captions.');
@@ -134,7 +151,10 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
     const client = await newPerformanceClient(context, page);
     const errors = [];
     const requestLog = [];
-    page.on('pageerror', error => errors.push(String(error)));
+    page.on('pageerror', error => {
+        const message = error?.stack ? String(error.stack) : String(error);
+        errors.push(redactUrl(message).slice(0, 2000));
+    });
     page.on('console', message => {
         if (message.type() === 'error' && /yomu|jpdb|subtitle|resize/i.test(message.text())) errors.push(message.text());
     });
@@ -220,21 +240,23 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
         await screenshot(page, scenarioDir, 'scrolled');
         screenshotNames.push('scrolled');
 
-        const beforeOrientation = await snapshot(page);
-        const orientation = await measuredStep(page, client, 'orientation-change', async () => {
-            await page.setViewportSize(viewport.orientationViewport);
-            await waitForViewport(page, viewport.orientationViewport);
-            await waitForPanelOpen(page);
-            await waitForPanelSettledInViewport(page).catch(() => undefined);
-            if (keylessMode) {
-                await waitForVisiblePageParse(page);
-                await waitForVisibleTranscriptParse(page);
-            }
-        });
-        orientation.orientation = await orientationEvidence(page, beforeOrientation);
-        steps.push(orientation);
-        await screenshot(page, scenarioDir, 'orientation');
-        screenshotNames.push('orientation');
+        if (!skipOrientation) {
+            const beforeOrientation = await snapshot(page);
+            const orientation = await measuredStep(page, client, 'orientation-change', async () => {
+                await page.setViewportSize(viewport.orientationViewport);
+                await waitForViewport(page, viewport.orientationViewport);
+                await waitForPanelOpen(page);
+                await waitForPanelSettledInViewport(page).catch(() => undefined);
+                if (keylessMode) {
+                    await waitForVisiblePageParse(page);
+                    await waitForVisibleTranscriptParse(page);
+                }
+            });
+            orientation.orientation = await orientationEvidence(page, beforeOrientation);
+            steps.push(orientation);
+            await screenshot(page, scenarioDir, 'orientation');
+            screenshotNames.push('orientation');
+        }
 
         const finalSnapshot = await snapshot(page);
         const layoutEvidence = steps.map(step => ({
@@ -840,6 +862,8 @@ async function snapshot(page) {
             panel: rect('.jpdb-subtitle-list'),
             handle: rect('[data-resize-transcript]'),
             video: rect('#movie_player, .html5-video-player'),
+            videoContainer: rect('#movie_player .html5-video-container, .html5-video-player .html5-video-container'),
+            actualVideo: rect('#movie_player video.html5-main-video, .html5-video-player video.html5-main-video, #movie_player video, .html5-video-player video'),
             primary: rect('#primary'),
             columns: rect('#columns'),
             title: rect('ytd-watch-metadata h1, ytm-slim-video-metadata-renderer h2'),
@@ -852,6 +876,8 @@ async function snapshot(page) {
             panelStyle: style('.jpdb-subtitle-list'),
             playerStyle: style('#player'),
             moviePlayerStyle: style('#movie_player, .html5-video-player'),
+            videoContainerStyle: style('#movie_player .html5-video-container, .html5-video-player .html5-video-container'),
+            actualVideoStyle: style('#movie_player video.html5-main-video, .html5-video-player video.html5-main-video, #movie_player video, .html5-video-player video'),
             rootClasses: document.documentElement.className,
             videoInset: document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset'),
             visualParse: visualParseMetrics(),
@@ -1001,6 +1027,10 @@ function compactSnapshot(state) {
         handleAria: state.handleAria,
         videoInset: state.videoInset,
         panelStyle: state.panelStyle,
+        videoContainer: state.videoContainer ? roundRect(state.videoContainer) : null,
+        actualVideo: state.actualVideo ? roundRect(state.actualVideo) : null,
+        videoContainerStyle: state.videoContainerStyle,
+        actualVideoStyle: state.actualVideoStyle,
         setSizeCallCount: state.yomuSetSizeCalls?.length ?? 0,
     };
 }
@@ -1013,6 +1043,17 @@ function layoutProblems(state, requestedPlacement, stepName) {
     if ((state.transcript?.blankVisibleRows ?? 0) > 0) problems.push(`${state.transcript.blankVisibleRows} visible transcript rows are blank`);
     if (state.panel && state.video && overlaps(state.panel, state.video) && !isExpectedBottomOverlapEvidence(state, stepName)) {
         problems.push('transcript panel overlaps video');
+    }
+    if (state.video && /jpdb-subtitle-youtube-stable-side/.test(state.rootClasses || '')) {
+        for (const [name, box] of [
+            ['video container', state.videoContainer],
+            ['actual video', state.actualVideo],
+        ]) {
+            if (!box) continue;
+            if (box.left < state.video.left - 2) problems.push(`${name} starts before stable player`);
+            if (box.right > state.video.right + 2) problems.push(`${name} extends past stable player`);
+            if (box.width > state.video.width + 2) problems.push(`${name} is wider than stable player`);
+        }
     }
     if (state.panel && state.panel.left < -2) problems.push('transcript panel extends past left viewport edge');
     if (state.panel && state.panel.right > state.viewport.width + 2) problems.push('transcript panel extends past right viewport edge');
@@ -1076,7 +1117,12 @@ function performanceProblems(steps) {
         if (step.name === 'full-transcript-render' && step.durationMs > fullTranscriptTargetMs) {
             problems.push(`full-transcript-render took ${step.durationMs}ms, above ${fullTranscriptTargetMs}ms target`);
         }
-        if (step.maxLongTaskMs > longTaskTargetMs) problems.push(`${step.name} had a ${step.maxLongTaskMs}ms long task, above ${longTaskTargetMs}ms target`);
+        const stepLongTaskTargetMs = step.name === 'orientation-change'
+            ? (liveMode ? 360 : 220)
+            : longTaskTargetMs;
+        if (step.maxLongTaskMs > stepLongTaskTargetMs) {
+            problems.push(`${step.name} had a ${step.maxLongTaskMs}ms long task, above ${stepLongTaskTargetMs}ms target`);
+        }
         if (step.name === 'drag-resize' && step.maxFrameGapMs > dragFrameGapTargetMs) {
             problems.push(`drag-resize had a ${step.maxFrameGapMs}ms max frame gap, above ${dragFrameGapTargetMs}ms target`);
         }
@@ -1232,7 +1278,7 @@ function routeBridgeResponse(request, requestLog) {
         }
         if (liveJpdbMode) return null;
         const body = parseJsonBody(gmRequestFetchBody(request));
-        requestLog.push({ kind: 'jpdb-parse-bridge', chars: JSON.stringify(body.text ?? '').length });
+        requestLog.push({ kind: 'jpdb-parse-bridge', ...jpdbParseBodyDetails(body), url: redactUrl(target.href) });
         return {
             status: 200,
             responseText: JSON.stringify(mockJpdbParseFromVocabulary(body, vocabulary)),
@@ -1303,6 +1349,10 @@ function liveBridgeRequestDetails(url, request) {
 
 function jpdbParseRequestDetails(request) {
     const body = safeParseJsonBody(gmRequestFetchBody(request));
+    return jpdbParseBodyDetails(body);
+}
+
+function jpdbParseBodyDetails(body) {
     const texts = Array.isArray(body.text)
         ? body.text.map(value => String(value))
         : body.text != null
@@ -1312,6 +1362,7 @@ function jpdbParseRequestDetails(request) {
         requestItems: texts.length,
         requestChars: texts.reduce((total, text) => total + text.length, 0),
         requestJsonChars: JSON.stringify(body).length,
+        requestSample: texts.slice(0, 3),
     };
 }
 
@@ -1528,6 +1579,7 @@ function summarizeRequests(requestLog) {
             maxRequestChars: Math.round(summary.maxRequestChars),
         }])),
         samples: requestLog.slice(0, 16),
+        parseSamples: requestLog.filter(item => item.kind.includes('parse')).slice(0, 16),
     };
 }
 
@@ -1554,22 +1606,6 @@ function youtubeTimedText() {
     }).join('\n');
     return `<timedtext><body>${body}</body></timedtext>`;
 }
-
-const vocabulary = [
-    ['今日', '今日', 'きょう', 'today', ['n'], 100, ['known'], ['LH']],
-    ['日本語', '日本語', 'にほんご', 'Japanese language', ['n'], 250, ['known'], ['LHHH']],
-    ['字幕', '字幕', 'じまく', 'subtitles', ['n'], 1500, ['known'], ['LHH']],
-    ['確認', '確認', 'かくにん', 'confirmation', ['n', 'vs'], 900, ['known'], ['LHHH']],
-    ['左側', '左側', 'ひだりがわ', 'left side', ['n'], 1900, ['known'], ['LHHH']],
-    ['動画', '動画', 'どうが', 'video', ['n'], 600, ['known'], ['LHH']],
-    ['下側', '下側', 'したがわ', 'bottom side', ['n'], 2100, ['known'], ['LHHH']],
-    ['説明', '説明', 'せつめい', 'description', ['n', 'vs'], 700, ['known'], ['LHHH']],
-    ['操作', '操作', 'そうさ', 'operation', ['n', 'vs'], 1000, ['known'], ['LHH']],
-    ['向き', '向き', 'むき', 'direction', ['n'], 1200, ['known'], ['LH']],
-    ['変更', '変更', 'へんこう', 'change', ['n', 'vs'], 800, ['known'], ['LHHH']],
-    ['余白', '余白', 'よはく', 'margin', ['n'], 2300, ['known'], ['LHH']],
-    ['保ちます', '保つ', 'たもちます', 'maintain', ['v5t'], 2400, ['known'], ['LHHH']],
-];
 
 function youtubeFixtureHtml(mobile) {
     const playerResponse = {
@@ -1598,7 +1634,8 @@ function youtubeFixtureHtml(mobile) {
     #primary, #primary-inner { min-width: 0; box-sizing: border-box; }
     #player, #player-container-outer, #player-container-inner, ytd-player { display: block; min-width: 0; }
     #movie_player { position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 320px; background: #000; overflow: hidden; }
-    #movie_player video { display: block; width: 100%; height: 100%; background: linear-gradient(135deg, #111, #252525); }
+    #movie_player .html5-video-container { position: absolute; inset: 0; width: 100%; height: 100%; }
+    #movie_player video { position: absolute; display: block; width: 100%; height: 100%; background: linear-gradient(135deg, #111, #252525); }
     .ytp-caption-window-container { position: absolute; left: 20%; right: 20%; bottom: 64px; text-align: center; font-size: 28px; text-shadow: 0 2px 4px #000; }
     ytd-watch-metadata, ytm-slim-video-metadata-renderer { display: block; min-width: 0; padding-top: 18px; }
     ytd-watch-metadata h1, ytm-slim-video-metadata-renderer h2 { margin: 0 0 14px; font-size: 24px; line-height: 1.28; font-weight: 650; overflow-wrap: anywhere; }
@@ -1630,7 +1667,9 @@ function youtubeFixtureHtml(mobile) {
         <div id="primary-inner">
           <div id="player"><div id="player-container-outer"><div id="player-container-inner"><ytd-player>
             <div id="movie_player">
-              <video controls muted playsinline></video>
+              <div class="html5-video-container" style="width:1008px;height:567px">
+                <video class="html5-main-video" controls muted playsinline style="left:0;top:0;width:1008px;height:567px;object-fit:cover"></video>
+              </div>
               <div class="ytp-caption-window-container"><span class="ytp-caption-segment">今日は日本語字幕を確認します</span></div>
             </div>
           </ytd-player></div></div></div>

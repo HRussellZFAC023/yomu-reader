@@ -109,6 +109,7 @@ const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
 const READER_RASTER_EMPTY_RETRY_MS = 650;
 const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
 const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
+const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
 const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
 const GOOGLE_LENS_API_KEY = 'AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY';
 const DEFAULT_LOCAL_OCR_ENDPOINT_URL = 'http://127.0.0.1:7331/ocr';
@@ -316,6 +317,7 @@ export class ImageOcrController {
     private canvasFrameSources = new Map<HTMLImageElement, HTMLCanvasElement>();
     private canvasFrameStaticRects = new Map<HTMLImageElement, DOMRect>();
     private canvasFrameKeys = new Map<HTMLCanvasElement, string>();
+    private canvasPendingStatuses = new Map<HTMLCanvasElement, HTMLElement>();
     // Canvases whose frame the user explicitly tapped to create. A native-text-layer
     // page (shouldAutoScan=false) strips AUTO frames on the poll, but a frame the user
     // tapped to make must survive that poll — only a real page turn drops it.
@@ -1608,6 +1610,9 @@ export class ImageOcrController {
             return;
         }
         const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
+        for (const canvas of [...this.canvasPendingStatuses.keys()]) {
+            if (!canvases.includes(canvas)) this.removeCanvasPendingStatus(canvas);
+        }
         for (const canvas of [...this.canvasFrames.keys()]) {
             if (canvases.includes(canvas)) continue;
             if (this.shouldKeepCanvasFrameThroughStablePageSurfaceFlicker(canvas, signature)) continue;
@@ -1637,6 +1642,7 @@ export class ImageOcrController {
             // Prefetch a sliding window of upcoming pages (canvasPrefetchMargin), but
             // never spend an OCR call on a page the reader hasn't painted yet.
             if (!isNearViewport(canvas, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(canvas)) return;
+            this.updateCanvasPendingStatus(canvas, rect, 'loading');
             // A readable canvas is snapshotted directly. A tainted one can only fall
             // back to a fetched source image on readers where that resource is the
             // same page the user sees; BookWalker source assets may be scrambled, so
@@ -1698,7 +1704,10 @@ export class ImageOcrController {
             frame.alt = '';
             positionCanvasFrameImage(frame, frameRect);
             frame.addEventListener('load', () => {
-                if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
+                if (this.canvasFrames.get(canvas) === frame) {
+                    this.removeCanvasPendingStatus(canvas);
+                    this.enqueue(frame, userRequested);
+                }
             }, { once: true });
             document.body.append(frame);
             this.canvasFrames.set(canvas, frame);
@@ -1823,8 +1832,28 @@ export class ImageOcrController {
         this.canvasTapRecapture.delete(canvas);
     }
 
+    private updateCanvasPendingStatus(canvas: HTMLCanvasElement, rect: DOMRect, status: OcrVideoFrameStatus): void {
+        const existing = this.canvasPendingStatuses.get(canvas);
+        const card = existing ?? this.createVideoFrameStatus(status);
+        if (existing) this.setVideoFrameStatus(card, status);
+        else this.canvasPendingStatuses.set(canvas, card);
+        card.classList.add('jpdb-ocr-canvas-status');
+        const labelNode = card.querySelector('.jpdb-ocr-video-frame-status-label');
+        if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
+        card.hidden = false;
+        positionOcrImageStatus(card, this.visibleViewportIntersection(rect) ?? rect);
+    }
+
+    private removeCanvasPendingStatus(canvas: HTMLCanvasElement): void {
+        const card = this.canvasPendingStatuses.get(canvas);
+        if (!card) return;
+        removeOcrArtifact(card);
+        this.canvasPendingStatuses.delete(canvas);
+    }
+
     private releaseCanvasFrame(canvas: HTMLCanvasElement): void {
         const frame = this.canvasFrames.get(canvas);
+        this.removeCanvasPendingStatus(canvas);
         if (!frame) return;
         this.canvasFrames.delete(canvas);
         const state = this.states.get(frame);
@@ -1842,6 +1871,7 @@ export class ImageOcrController {
 
     private releaseAllCanvasFrames(): void {
         for (const canvas of [...this.canvasFrames.keys()]) this.releaseCanvasFrame(canvas);
+        for (const canvas of [...this.canvasPendingStatuses.keys()]) this.removeCanvasPendingStatus(canvas);
         // NFBR reuses the same canvas object across turns; a stale readiness entry
         // (or capture-attempt count) would carry into the next page, so clear both.
         this.canvasContentReadiness.clear();
@@ -1856,6 +1886,16 @@ export class ImageOcrController {
     }
 
     private positionCanvasFrames(): void {
+        for (const [canvas, status] of [...this.canvasPendingStatuses]) {
+            if (!canvas.isConnected) {
+                this.removeCanvasPendingStatus(canvas);
+                continue;
+            }
+            const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+            if (!rect) { status.hidden = true; continue; }
+            status.hidden = false;
+            positionOcrImageStatus(status, rect);
+        }
         for (const [canvas, frame] of [...this.canvasFrames]) {
             if (!canvas.isConnected) {
                 this.releaseCanvasFrame(canvas);
@@ -2007,11 +2047,18 @@ export class ImageOcrController {
 
     private renderedOcrImageFrameForState(image: HTMLImageElement, rect: DOMRect, result: OcrResult | undefined): OcrRenderedImageFrame {
         const frame = renderedOcrImageFrame(image, rect, result);
-        if (!this.canvasFrameSources.has(image) && !this.backgroundFrameSources.has(image)) return frame;
-        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-        if (!viewportHeight || rect.bottom < viewportHeight - 2) return frame;
-        const reserved = Math.max(0, Math.min(READER_RASTER_BOTTOM_CHROME_RESERVE_PX, frame.imageHeight - 1));
-        return reserved ? { ...frame, safeBottomInset: reserved } : frame;
+        let reserve = 0;
+        if (image.dataset.yomuVideoFrame === 'true' && isYouTubePageForOcr()) {
+            reserve = Math.max(reserve, YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX);
+        }
+        if (this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image)) {
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+            if (viewportHeight && rect.bottom >= viewportHeight - 2) {
+                reserve = Math.max(reserve, READER_RASTER_BOTTOM_CHROME_RESERVE_PX);
+            }
+        }
+        if (!reserve) return frame;
+        return { ...frame, safeBottomInset: Math.max(0, Math.min(reserve, frame.imageHeight - 1)) };
     }
 
     private fitLineFonts(state: ImageState, frame: OcrRenderedImageFrame): void {

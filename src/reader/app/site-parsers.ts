@@ -433,6 +433,14 @@ const YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS = [
     ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map(selector => `ytd-comment-view-model ${selector}`),
     ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map(selector => `ytm-comment-renderer ${selector}`),
 ].join(',');
+const YOUTUBE_COMMENT_HEADER_ROOTS = [
+    'ytd-comments-header-renderer #title',
+    'ytd-comments-header-renderer #count',
+    'ytd-comments-header-renderer .count-text',
+    'ytm-comments-header-renderer',
+    'ytm-comment-section-header-renderer',
+    'ytm-comments-entry-point-header-renderer',
+].join(',');
 const YOUTUBE_SYNTHETIC_TEXT_ROOTS = [
     'ytd-watch-info-text',
 ].join(',');
@@ -782,8 +790,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             // recommendation rails cannot starve the visible title,
             // description, transcript panel, or watch sidebar inside one
             // capped scan pass.
-            'ytd-transcript-segment-renderer',
-            'ytm-transcript-segment-renderer',
             'ytd-watch-metadata h1',
             'ytd-watch-metadata #title',
             'ytd-watch-metadata #owner ytd-channel-name yt-formatted-string',
@@ -810,6 +816,9 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytm-slim-video-metadata-section-renderer #title',
             'ytm-expandable-video-description-body-renderer',
             'ytm-structured-description-content-renderer',
+            YOUTUBE_COMMENT_HEADER_ROOTS,
+            'ytd-transcript-segment-renderer',
+            'ytm-transcript-segment-renderer',
             // ISS-11: end-screen and pause-overlay titles had zero coverage. These
             // live inside .ytp-* player chrome, so Edit A's player-chrome narrowing
             // lets them through. Kept at high watch-text priority (before comments).

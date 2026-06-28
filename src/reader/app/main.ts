@@ -415,6 +415,7 @@ const HOST_THEME_ENFORCE_STEP_MS = 200;
 // re-play (YouTube player, another extension) lands within a few hundred ms; a
 // deliberate user resume seconds later is left alone.
 const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
+const SUBTITLE_HOVER_MINING_RESUME_GRACE_MS = 520;
 const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
     '.textBox',
     '.ocr-line',
@@ -768,6 +769,7 @@ export class ReaderApp {
     // One-shot guard that re-pauses the mined video if the page re-plays it right
     // after our pause (YouTube player quirks or a competing extension/userscript).
     private miningPauseReassert?: { video: HTMLVideoElement; off: () => void };
+    private subtitleHoverMiningResumeTimer?: number;
     private activePopoverAnchor?: HTMLElement;
     private activePopoverAnchorRect?: DOMRect;
     private keyboardActiveWord?: HTMLElement;
@@ -1770,6 +1772,7 @@ export class ReaderApp {
         document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
         this.autoScanObserver?.disconnect();
         this.clearMiningPauseReassert();
+        this.clearSubtitleHoverMiningResumeTimer();
         this.ocr.destroy();
         this.subtitles.destroy();
         this.youtube.destroy();
@@ -1842,7 +1845,10 @@ export class ReaderApp {
             else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
             else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
                 this.pageHasJapaneseText = true;
-                this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: isBookWalkerStorefrontPage() });
+                this.scheduleAutoScan(visibleAutoScanMutationDelay(), {
+                    force: isBookWalkerStorefrontPage(),
+                    debounce: isYouTubeHostname(),
+                });
             }
             if (isJitenHost()) {
                 if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
@@ -1852,10 +1858,14 @@ export class ReaderApp {
         });
         this.observeAutoScanMutations();
         window.addEventListener('scroll', () => {
-            if (allowsFrequentVisibleAutoScan()) this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true });
+            if (allowsFrequentVisibleAutoScan()) {
+                this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: isYouTubeHostname() });
+            }
         }, { passive: true });
         window.addEventListener('resize', () => {
-            if (allowsFrequentVisibleAutoScan()) this.scheduleAutoScan(250, { force: true });
+            if (allowsFrequentVisibleAutoScan()) {
+                this.scheduleAutoScan(250, { force: true, debounce: isYouTubeHostname() });
+            }
         }, { passive: true });
         window.addEventListener('resize', () => this.scheduleJpdbPageEnhancements(700), { passive: true });
         if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
@@ -2422,6 +2432,7 @@ export class ReaderApp {
     // paused-frame overlay over the player.
     private pauseVideoForSubtitleMining(): void {
         if (!this.settings.subtitleMiningPause) return;
+        this.clearSubtitleHoverMiningResumeTimer();
         const bound = this.boundSubtitleVideo();
         let paused: HTMLVideoElement | undefined;
         if (bound?.isConnected && !bound.paused) {
@@ -2471,7 +2482,25 @@ export class ReaderApp {
         this.miningPauseReassert = undefined;
     }
 
+    private scheduleSubtitleMiningVideoResume(delayMs = 0): void {
+        this.clearSubtitleHoverMiningResumeTimer();
+        if (delayMs <= 0) {
+            this.resumeSubtitleMiningVideo();
+            return;
+        }
+        this.subtitleHoverMiningResumeTimer = window.setTimeout(() => {
+            this.subtitleHoverMiningResumeTimer = undefined;
+            this.resumeSubtitleMiningVideo();
+        }, delayMs);
+    }
+
+    private clearSubtitleHoverMiningResumeTimer(): void {
+        window.clearTimeout(this.subtitleHoverMiningResumeTimer);
+        this.subtitleHoverMiningResumeTimer = undefined;
+    }
+
     private resumeSubtitleMiningVideo(): void {
+        this.clearSubtitleHoverMiningResumeTimer();
         // Tear the re-assert guard down BEFORE the intentional play() below, so
         // resuming on close is never re-paused by our own listener.
         this.clearMiningPauseReassert();
@@ -3123,6 +3152,15 @@ export class ReaderApp {
     // delays the lookup popover (notably over OCR overlays). Coalesce to one
     // hover probe per animation frame using the latest pointer position.
     private queueHoverPointerMove(event: PointerEvent): void {
+        if (event.buttons) {
+            if (this.hoverPointerMoveFrame !== undefined) {
+                window.cancelAnimationFrame(this.hoverPointerMoveFrame);
+                this.hoverPointerMoveFrame = undefined;
+            }
+            this.pendingHoverPointerMove = undefined;
+            this.cancelPendingHoverLookup();
+            return;
+        }
         this.pendingHoverPointerMove = event;
         if (this.hoverPointerMoveFrame !== undefined) return;
         this.hoverPointerMoveFrame = requestAnimationFrame(() => {
@@ -3343,9 +3381,16 @@ export class ReaderApp {
             return;
         }
         if (!this.shouldLookupOnHover(event)) return;
+        this.keepSubtitleMiningPauseForPendingHover(word);
         this.pageScanner.interruptVisiblePageScan();
         this.preloadHoverWordAudio(word);
         this.scheduleHoverLookup(word, event);
+    }
+
+    private keepSubtitleMiningPauseForPendingHover(word: HTMLElement): void {
+        if (!this.settings.subtitleMiningPause || !this.settings.subtitleHoverPause) return;
+        if (!word.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR)) return;
+        this.pauseVideoForSubtitleMining();
     }
 
     private shouldRetryHoverAudio(word: HTMLElement, event: PointerEvent): boolean {
@@ -3667,8 +3712,23 @@ export class ReaderApp {
         this.hoverCloseTimer = window.setTimeout(() => {
             this.hoverCloseTimer = undefined;
             if (this.isHoverContextActive(options)) return;
-            this.dismiss({ suppressHoverTarget: false });
+            this.dismiss({
+                suppressHoverTarget: false,
+                deferSubtitleMiningResume: this.shouldDeferSubtitleMiningResumeForHoverClose(),
+            });
         }, Math.max(0, delay));
+    }
+
+    private shouldDeferSubtitleMiningResumeForHoverClose(): boolean {
+        if (this.activePopoverMode !== 'hover' || !this.subtitleMiningPausedVideo) return false;
+        if (this.activeHoverWord?.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR)) return true;
+        const pointer = this.lastPointerPosition;
+        if (!pointer) return false;
+        const target = document.elementFromPoint(pointer.x, pointer.y);
+        if (target instanceof Element && target.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR)) return true;
+        const liveWord = this.hoverReaderWordFromPointStack(pointer.x, pointer.y)
+            ?? (target instanceof Element ? this.readerWordFromRenderedGeometry(target, pointer.x, pointer.y, item => this.canHoverLookupReaderWord(item)) : null);
+        return Boolean(liveWord?.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR));
     }
 
     private isHoverContextActive(options: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean } = {}): boolean {
@@ -5484,12 +5544,12 @@ export class ReaderApp {
         card: JPDBCard,
         context: { trigger: 'modal' | 'hover'; options: CardDisplayOptions },
     ): Promise<JPDBCard> {
-        if (context.trigger !== 'hover' || !context.options.skipInitialCardResolution) return card;
-        try {
-            return await this.resolveLookupCardForInitialRender(card);
-        } catch {
-            return card;
-        }
+        // The card shell has already mounted with this exact card. Hover autoplay
+        // should provide instant feedback from that cached/prepared card instead
+        // of waiting for fallback/public resolution and letting the caption move
+        // under the cursor.
+        void context;
+        return card;
     }
 
     private maybePreloadLookupCardAudio(card: JPDBCard, options: CardDisplayOptions, anchor?: HTMLElement): void {
@@ -8186,7 +8246,10 @@ export class ReaderApp {
             this.hoverWatchTimer = undefined;
             if (this.activePopoverMode !== 'hover') return;
             if (!this.isHoverContextActive({ ignorePointerPosition: true })) {
-                this.dismiss({ suppressHoverTarget: false });
+                this.dismiss({
+                    suppressHoverTarget: false,
+                    deferSubtitleMiningResume: this.shouldDeferSubtitleMiningResumeForHoverClose(),
+                });
                 return;
             }
             this.hoverWatchTimer = window.setTimeout(tick, Math.max(90, this.settings.hoverCloseDelayMs));
@@ -8251,7 +8314,9 @@ export class ReaderApp {
         // preserveNavigation:true — keep the video paused across them; only a
         // real close resumes. Without this gate, drilling into a sub-lookup
         // resumed playback mid-read.
-        if (!options.preserveNavigation) this.resumeSubtitleMiningVideo();
+        if (!options.preserveNavigation) {
+            this.scheduleSubtitleMiningVideoResume(options.deferSubtitleMiningResume ? SUBTITLE_HOVER_MINING_RESUME_GRACE_MS : 0);
+        }
         this.clearHoverDismissState(options);
         this.audio.stop();
         this.immersionPopover.stopAudio();

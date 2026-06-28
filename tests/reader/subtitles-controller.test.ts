@@ -26,12 +26,8 @@ import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { withViewport } from './helpers/browser-fixtures';
 
 const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
-const SUBTITLE_PARSE_OPTIONS = {
-    jpdbTimeoutMs: 1200,
-    allowJpdbTimeoutFallback: true,
-    allowSegmentedFallback: true,
-    // Pitch is baked in at parse time so cue underline colors show during
-    // playback instead of arriving via late enrichment.
+const AUTHORITATIVE_SUBTITLE_PARSE_OPTIONS = {
+    requireJpdb: true,
     includeLocalPitch: true,
 };
 
@@ -995,6 +991,7 @@ Watch the cat
                     expect(panel.style.top).not.toBe('210px');
                     expect(frame.style.height).toBe('700px');
                 } finally {
+                    vi.useRealTimers();
                     controller.destroy();
                 }
             });
@@ -1102,8 +1099,13 @@ Watch the cat
                     expect(resizeHandle.getAttribute('aria-valuenow')).toBe(String(Number.parseInt(panel.style.width, 10)));
                     expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-right')).toBe(true);
                     expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width')).toBe('970px');
-                    expect(movie.style.width).toBe('');
-                    expect(movie.style.maxWidth).toBe('');
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-height')).toBe('546px');
+                    expect(movie.style.width).toBe('970px');
+                    expect(movie.style.height).toBe('546px');
+                    expect(movie.style.getPropertyPriority('width')).toBe('important');
+                    expect(video.style.width).toBe('970px');
+                    expect(video.style.height).toBe('546px');
+                    expect(movie.style.maxWidth).toBe('970px');
                     expect(primary.style.width).toBe('');
                     expect(primary.style.marginLeft).toBe('');
                     expect(document.documentElement.className).not.toContain('jpdb-subtitle-video-inset');
@@ -1158,6 +1160,97 @@ Watch the cat
                     }>(controller);
                     internals.cues = [cue];
                     internals.currentCue = cue;
+                    vi.useFakeTimers();
+
+                    internals.openLinesPanel();
+                    vi.advanceTimersByTime(90);
+
+                    const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                    const handle = panel.querySelector<HTMLElement>('[data-resize-transcript]')!;
+                    mockElementRect(panel, new DOMRect(
+                        Number.parseInt(panel.style.left, 10),
+                        Number.parseInt(panel.style.top, 10),
+                        Number.parseInt(panel.style.width, 10),
+                        Number.parseInt(panel.style.height, 10),
+                    ));
+                    expect(movie.setSize).toHaveBeenCalledWith(970, 546);
+                    expect(video.style.width).toBe('970px');
+                    expect(video.style.height).toBe('546px');
+                    const callsBeforeResizeSettled = movie.setSize.mock.calls.length;
+
+                    handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+
+                    expect(panel.dataset.transcriptPlacement).toBe('right');
+                    expect(panel.style.width).toBe('484px');
+                    expect(panel.style.left).toBe('956px');
+                    expect(handle.getAttribute('aria-valuenow')).toBe('484');
+                    expect(handle.getAttribute('aria-valuemax')).toBe('891');
+                    expect(video.style.width).toBe('922px');
+                    expect(video.style.height).toBe('519px');
+                    vi.advanceTimersByTime(90);
+
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-right')).toBe(true);
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width')).toBe('922px');
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-height')).toBe('519px');
+                    expect(document.documentElement.className).not.toContain('jpdb-subtitle-video-inset');
+                    expect(movie.setSize).toHaveBeenCalledTimes(callsBeforeResizeSettled + 1);
+                    expect(movie.setSize).toHaveBeenLastCalledWith(922, 519);
+                    vi.useRealTimers();
+                } finally {
+                    vi.useRealTimers();
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('resizes the YouTube video element immediately when the private player API is unavailable', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=stable-resize-no-api') as unknown as Location,
+        });
+        try {
+            withViewport(1440, 900, () => {
+                document.body.innerHTML = `
+                    <ytd-watch-flexy>
+                        <div id="columns">
+                            <div id="primary">
+                                <div id="movie_player" class="html5-video-player">
+                                    <div class="html5-video-container">
+                                        <video class="html5-main-video" controls style="width:970px;height:546px;object-fit:cover"></video>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="secondary"></div>
+                        </div>
+                    </ytd-watch-flexy>
+                `;
+                const { controller } = createInstalledSubtitleController({
+                    subtitleTranscriptVisible: false,
+                    subtitleTranscriptPlacement: 'right',
+                });
+                try {
+                    const movie = document.querySelector<HTMLElement>('#movie_player')!;
+                    const videoContainer = document.querySelector<HTMLElement>('.html5-video-container')!;
+                    const video = document.querySelector<HTMLVideoElement>('video')!;
+                    mockElementRect(movie, new DOMRect(24, 72, 970, 546));
+                    mockElementRect(document.querySelector<HTMLElement>('#primary')!, new DOMRect(24, 72, 970, 820));
+                    mockElementRect(video, new DOMRect(24, 72, 970, 546));
+                    attachVideo(controller, { video });
+                    const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+                    const internals = controllerInternals<{
+                        cues: Array<typeof cue>;
+                        currentCue: typeof cue;
+                        openLinesPanel: () => void;
+                    }>(controller);
+                    internals.cues = [cue];
+                    internals.currentCue = cue;
 
                     internals.openLinesPanel();
 
@@ -1172,15 +1265,15 @@ Watch the cat
 
                     handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
 
-                    expect(panel.dataset.transcriptPlacement).toBe('right');
-                    expect(panel.style.width).toBe('484px');
-                    expect(panel.style.left).toBe('956px');
-                    expect(handle.getAttribute('aria-valuenow')).toBe('484');
-                    expect(handle.getAttribute('aria-valuemax')).toBe('891');
-                    expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-right')).toBe(true);
                     expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width')).toBe('922px');
-                    expect(document.documentElement.className).not.toContain('jpdb-subtitle-video-inset');
-                    expect(movie.setSize).not.toHaveBeenCalled();
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-height')).toBe('519px');
+                    expect(movie.style.width).toBe('922px');
+                    expect(movie.style.height).toBe('519px');
+                    expect(videoContainer.style.width).toBe('922px');
+                    expect(videoContainer.style.height).toBe('519px');
+                    expect(video.style.width).toBe('922px');
+                    expect(video.style.height).toBe('519px');
+                    expect(video.style.objectFit).toBe('contain');
                 } finally {
                     controller.destroy();
                 }
@@ -1216,9 +1309,10 @@ Watch the cat
                     subtitleTranscriptPlacement: 'left',
                 });
                 try {
-                    const movie = document.querySelector<HTMLElement>('#movie_player')!;
+                    const movie = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: ReturnType<typeof vi.fn> };
                     const primary = document.querySelector<HTMLElement>('#primary')!;
                     const video = document.querySelector<HTMLVideoElement>('video')!;
+                    movie.setSize = vi.fn();
                     mockElementRect(movie, new DOMRect(16, 68, 996, 560));
                     mockElementRect(primary, new DOMRect(16, 68, 996, 820));
                     mockElementRect(video, new DOMRect(16, 68, 996, 560));
@@ -1231,8 +1325,10 @@ Watch the cat
                     }>(controller);
                     internals.cues = [cue];
                     internals.currentCue = cue;
+                    vi.useFakeTimers();
 
                     internals.openLinesPanel();
+                    vi.advanceTimersByTime(90);
 
                     const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
                     expect(panel.dataset.transcriptPlacement).toBe('left');
@@ -1242,11 +1338,95 @@ Watch the cat
                     expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-left')).toBe(true);
                     expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-offset')).toBe('470px');
                     expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width')).toBe('960px');
-                    expect(movie.style.width).toBe('');
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-height')).toBe('540px');
+                    expect(movie.setSize).toHaveBeenCalledWith(960, 540);
+                    expect(video.style.width).toBe('960px');
+                    expect(video.style.height).toBe('540px');
+                    expect(movie.style.width).toBe('960px');
                     expect(primary.style.width).toBe('');
                     expect(primary.style.marginLeft).toBe('');
                     expect(document.documentElement.className).not.toContain('jpdb-subtitle-video-inset');
                 } finally {
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('keeps live YouTube left stable layout aligned when the real player is narrower than the reserved primary column', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=stable-left-live') as unknown as Location,
+        });
+        try {
+            withViewport(1440, 900, () => {
+                document.body.innerHTML = `
+                    <ytd-watch-flexy>
+                        <div id="columns">
+                            <div id="primary">
+                                <div id="movie_player" class="html5-video-player"><video class="html5-main-video" controls></video></div>
+                            </div>
+                            <div id="secondary"></div>
+                        </div>
+                    </ytd-watch-flexy>
+                `;
+                const { controller } = createInstalledSubtitleController({
+                    subtitleTranscriptVisible: false,
+                    subtitleTranscriptPlacement: 'left',
+                });
+                try {
+                    const movie = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: ReturnType<typeof vi.fn> };
+                    const primary = document.querySelector<HTMLElement>('#primary')!;
+                    const video = document.querySelector<HTMLVideoElement>('video')!;
+                    const baseRect = new DOMRect(16, 68, 996, 560);
+                    Object.defineProperty(movie, 'getBoundingClientRect', {
+                        configurable: true,
+                        value: () => {
+                            const root = document.documentElement;
+                            if (!root.classList.contains('jpdb-subtitle-youtube-stable-left')) return baseRect;
+                            const offset = Number.parseFloat(root.style.getPropertyValue('--jpdb-subtitle-youtube-stable-offset')) || 0;
+                            const width = Number.parseFloat(root.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width')) || 960;
+                            return new DOMRect(offset, 68, width, Math.round(width * baseRect.height / baseRect.width));
+                        },
+                    });
+                    movie.setSize = vi.fn();
+                    mockElementRect(primary, new DOMRect(16, 68, 996, 820));
+                    mockElementRect(video, baseRect);
+                    attachVideo(controller, { video });
+                    const cue = { start: 0, end: 1, text: '左側でも読む。', transcriptEligible: true };
+                    const internals = controllerInternals<{
+                        cues: Array<typeof cue>;
+                        currentCue: typeof cue;
+                        openLinesPanel: () => void;
+                    }>(controller);
+                    internals.cues = [cue];
+                    internals.currentCue = cue;
+                    vi.useFakeTimers();
+
+                    internals.openLinesPanel();
+                    vi.advanceTimersByTime(90);
+
+                    const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                    expect(panel.dataset.transcriptPlacement).toBe('left');
+                    expect(panel.style.width).toBe('460px');
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-offset')).toBe('470px');
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width')).toBe('960px');
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-height')).toBe('540px');
+                    expect(movie.getBoundingClientRect().left - (Number.parseInt(panel.style.left, 10) + Number.parseInt(panel.style.width, 10))).toBe(10);
+                    expect(movie.setSize).not.toHaveBeenCalled();
+                    expect(movie.style.width).toBe('960px');
+                    expect(movie.style.height).toBe('540px');
+                    expect(video.style.width).toBe('960px');
+                    expect(video.style.height).toBe('540px');
+                    vi.useRealTimers();
+                } finally {
+                    vi.useRealTimers();
                     controller.destroy();
                 }
             });
@@ -1788,6 +1968,8 @@ Watch the cat
                 expect(video.style.height).toBe('518px');
             });
 
+            expect(resizeSpy).not.toHaveBeenCalled();
+            await vi.advanceTimersByTimeAsync(0);
             expect(resizeSpy).toHaveBeenCalledTimes(1);
             await vi.advanceTimersByTimeAsync(80);
             expect(resizeSpy).toHaveBeenCalledTimes(2);
@@ -1799,6 +1981,75 @@ Watch the cat
                 configurable: true,
                 value: originalLocation,
             });
+        }
+    });
+
+    it('defers synthetic layout resize events so side-panel layout cannot recurse through resize handlers', async () => {
+        const originalLocation = window.location;
+        vi.useFakeTimers();
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://video.example/watch') as unknown as Location,
+        });
+        let frame: HTMLElement | undefined;
+        let video: HTMLVideoElement | undefined;
+        let adapter: ReturnType<typeof createSubtitleVideoInsetAdapter> | undefined;
+        let resizeEvents = 0;
+        let resizeDepth = 0;
+        let maxResizeDepth = 0;
+        const onResize = vi.fn(() => {
+            if (!adapter || !video) return;
+            resizeEvents += 1;
+            resizeDepth += 1;
+            maxResizeDepth = Math.max(maxResizeDepth, resizeDepth);
+            if (resizeEvents === 1) {
+                adapter.apply({
+                    video,
+                    side: 'right',
+                    playerSize: 800,
+                    panelSize: 440,
+                    videoRect: new DOMRect(80, 120, 960, 620),
+                    margin: 10,
+                });
+            }
+            resizeDepth -= 1;
+        });
+        window.addEventListener('resize', onResize);
+
+        try {
+            withViewport(1600, 900, () => {
+                document.body.innerHTML = '<section class="video-card"><video></video></section>';
+                frame = document.querySelector<HTMLElement>('.video-card')!;
+                video = document.querySelector<HTMLVideoElement>('video')!;
+                mockElementRect(frame, new DOMRect(80, 120, 960, 620));
+                mockElementRect(video, new DOMRect(100, 160, 920, 518));
+                adapter = createSubtitleVideoInsetAdapter();
+                adapter.apply({
+                    video,
+                    side: 'right',
+                    playerSize: 820,
+                    panelSize: 420,
+                    videoRect: new DOMRect(80, 120, 960, 620),
+                    margin: 10,
+                });
+            });
+
+            expect(onResize).not.toHaveBeenCalled();
+            expect(frame?.style.width).toBe('820px');
+            await vi.advanceTimersByTimeAsync(0);
+            expect(onResize).toHaveBeenCalledTimes(1);
+            expect(frame?.style.width).toBe('800px');
+            await vi.advanceTimersByTimeAsync(1);
+            expect(onResize).toHaveBeenCalledTimes(2);
+            expect(maxResizeDepth).toBe(1);
+        } finally {
+            window.removeEventListener('resize', onResize);
+            vi.useRealTimers();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            document.body.innerHTML = '';
         }
     });
 
@@ -2395,10 +2646,10 @@ Watch the cat
             const rows = Array.from(scroller.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row'));
             expect(scroller.dataset.virtualized).toBe('true');
             expect(scroller.dataset.totalRows).toBe('300');
-            expect(rows).toHaveLength(48);
+            expect(rows).toHaveLength(21);
             expect(rows[0]?.dataset.rowIndex).toBe('0');
-            expect(rows.at(-1)?.dataset.rowIndex).toBe('47');
-            expect(scroller.querySelector<HTMLElement>('.jpdb-subtitle-list-spacer')?.style.height).toBe('20160px');
+            expect(rows.at(-1)?.dataset.rowIndex).toBe('20');
+            expect(scroller.querySelector<HTMLElement>('.jpdb-subtitle-list-spacer')?.style.height).toBe('22320px');
         } finally {
             controller.destroy();
         }
@@ -2428,8 +2679,8 @@ Watch the cat
             const rows = Array.from(scroller.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row'));
             const active = scroller.querySelector<HTMLElement>('.jpdb-subtitle-list-row.active');
             expect(scroller.dataset.virtualized).toBe('true');
-            expect(rows[0]?.dataset.rowIndex).toBe('96');
-            expect(rows.at(-1)?.dataset.rowIndex).toBe('143');
+            expect(rows[0]?.dataset.rowIndex).toBe('110');
+            expect(rows.at(-1)?.dataset.rowIndex).toBe('130');
             expect(active?.dataset.rowIndex).toBe('120');
         } finally {
             controller.destroy();
@@ -2726,7 +2977,11 @@ Watch the cat
 
     it('moves the Yomu subtitle overlay by updating the shared bottom-offset setting', () => {
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
-        const { controller, settings } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleBottomOffset: 16 });
+        const onSettingsChange = vi.fn();
+        const { controller, settings } = createInstalledSubtitleController(
+            { subtitleOverlayVisible: true, subtitleBottomOffset: 16 },
+            { onSettingsChange },
+        );
         try {
             attachVideo(controller, { rect: new DOMRect(0, 0, 640, 360) });
             const internals = controllerInternals<{
@@ -2746,14 +3001,17 @@ Watch the cat
             handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 300, pointerId: 7 }));
             window.dispatchEvent(pointerEvent('pointermove', { clientY: 260, pointerId: 7 }));
 
-            expect(settings.subtitleBottomOffset).toBe(27);
-            expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('27%');
-            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('0px');
+            expect(settings.subtitleBottomOffset).toBe(16);
+            expect(onSettingsChange).not.toHaveBeenCalled();
+            expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('16%');
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('-40px');
             expect(root.classList.contains('jpdb-subtitle-dragging')).toBe(true);
 
             window.dispatchEvent(pointerEvent('pointerup', { clientY: 260, pointerId: 7 }));
             expect(root.classList.contains('jpdb-subtitle-dragging')).toBe(false);
             expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('27%');
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('0px');
+            expect(onSettingsChange).toHaveBeenCalledTimes(1);
 
             internals.clearTransientSubtitleState();
             expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('27%');
@@ -2786,6 +3044,50 @@ Watch the cat
 
             expect(popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleBottomOffset"]')?.value).toBe('27');
             expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleBottomOffset"]')?.textContent).toBe('27%');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('coalesces native subtitle drag work and saves the bottom offset only when released', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const onSettingsChange = vi.fn();
+        const { controller, settings } = createInstalledSubtitleController(
+            { subtitleOverlayVisible: true, subtitleBottomOffset: 16 },
+            { onSettingsChange },
+        );
+        try {
+            attachVideo(controller, { rect: new DOMRect(0, 0, 640, 360) });
+            const internals = controllerInternals<{ cues: Array<typeof cue>; currentCue: typeof cue }>(controller);
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const subtitleFrame = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+            const handle = document.querySelector<HTMLButtonElement>('[data-subtitle-drag-handle]')!;
+            mockElementRect(subtitleFrame, new DOMRect(16, 220, 608, 72));
+            const querySpy = vi.spyOn(document, 'querySelectorAll');
+            try {
+                querySpy.mockClear();
+
+                handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 300, pointerId: 17 }));
+                for (const clientY of [260, 252, 244, 240]) {
+                    window.dispatchEvent(pointerEvent('pointermove', { clientY, pointerId: 17 }));
+                }
+
+                expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('-40px');
+                expect(settings.subtitleBottomOffset).toBe(16);
+                expect(onSettingsChange).not.toHaveBeenCalled();
+                expect(querySpy).not.toHaveBeenCalled();
+
+                window.dispatchEvent(pointerEvent('pointerup', { clientY: 240, pointerId: 17 }));
+                expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('0px');
+                expect(settings.subtitleBottomOffset).toBe(33);
+                expect(onSettingsChange).toHaveBeenCalledTimes(1);
+            } finally {
+                querySpy.mockRestore();
+            }
         } finally {
             controller.destroy();
         }
@@ -2935,7 +3237,8 @@ Watch the cat
 
     it('temporarily moves subtitle overlay from mouse drag when pointer events are not delivered', () => {
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
-        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        const onSettingsChange = vi.fn();
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true }, { onSettingsChange });
         try {
             attachVideo(controller, { rect: new DOMRect(0, 0, 640, 360) });
             const internals = controllerInternals<{
@@ -2954,12 +3257,16 @@ Watch the cat
             handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, clientY: 300 }));
             window.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientY: 260 }));
 
-            expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('27%');
-            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('0px');
+            expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('16%');
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('-40px');
+            expect(onSettingsChange).not.toHaveBeenCalled();
             expect(root.classList.contains('jpdb-subtitle-dragging')).toBe(true);
 
             window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientY: 260 }));
             expect(root.classList.contains('jpdb-subtitle-dragging')).toBe(false);
+            expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('27%');
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('0px');
+            expect(onSettingsChange).toHaveBeenCalledTimes(1);
         } finally {
             controller.destroy();
         }
@@ -4373,7 +4680,7 @@ Watch the cat
                     applyVideoInsetForTranscriptLayout: (
                         layout: { width: number },
                         rect: DOMRect,
-                        options?: { resizeEventMode?: 'immediate' | 'settled' },
+                        options?: { resizeEventMode?: 'immediate' | 'none' | 'settled' },
                     ) => boolean;
                 }>(controller);
                 internals.video = video;
@@ -4390,7 +4697,7 @@ Watch the cat
                 };
                 const realInset = internals.applyVideoInsetForTranscriptLayout.bind(internals);
                 const dragInsetWidths: number[] = [];
-                const dragResizeEventModes: Array<'immediate' | 'settled' | undefined> = [];
+                const dragResizeEventModes: Array<'immediate' | 'none' | 'settled' | undefined> = [];
                 internals.applyVideoInsetForTranscriptLayout = (layout, rect, options) => {
                     dragInsetWidths.push(Math.round(layout.width));
                     dragResizeEventModes.push(options?.resizeEventMode);
@@ -4406,7 +4713,7 @@ Watch the cat
                 // latched reference, avoiding the inset style-toggle + double layout.
                 // They still need to re-apply the video inset, otherwise the YouTube
                 // video frame stays fixed while the side panel grows and only snaps
-                // after pointer-up. Drag frames also defer the synthetic resize
+                // after pointer-up. Drag frames suppress the synthetic resize
                 // event nudge so YouTube/mobile listeners are not spammed.
                 dragInsetWidths.length = 0;
                 dragResizeEventModes.length = 0;
@@ -4419,7 +4726,7 @@ Watch the cat
                 internals.positionTranscriptPanel({ skipInset: true });
                 expect(referenceMeasures).toBe(beforeDrag);
                 expect(dragInsetWidths).toEqual([520, 580, 640]);
-                expect(dragResizeEventModes).toEqual(['settled', 'settled', 'settled']);
+                expect(dragResizeEventModes).toEqual(['none', 'none', 'none']);
 
                 // A normal (non-drag) reposition still re-measures.
                 dragResizeEventModes.length = 0;
@@ -5240,7 +5547,7 @@ Watch the cat
             await Promise.resolve();
 
             const row = document.querySelector<HTMLElement>('.jpdb-subtitle-row-text');
-            expect(parseJapanese).toHaveBeenCalledWith('読む', SUBTITLE_PARSE_OPTIONS);
+            expect(parseJapanese).toHaveBeenCalledWith('読む', AUTHORITATIVE_SUBTITLE_PARSE_OPTIONS);
             expect(row?.querySelector('.jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
             expect(row?.querySelector('.jpdb-reader-furi')?.textContent).toBe('よ');
         } finally {
@@ -5926,6 +6233,232 @@ Watch the cat
         }
     });
 
+    it('uses strict authoritative parsing for credentialed enriched YouTube subtitle primary HTML', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=authoritative-primary') as unknown as Location,
+        });
+
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                localDictionariesEnabled: false,
+                subtitleTranscriptAutoScroll: false,
+            };
+            const fallbackToken = makeSubtitleToken('読む', { cardState: ['not-in-deck'] });
+            const authoritativeToken = makeSubtitleToken('読む', { cardState: ['known'], pitchClass: 'heiban', reading: 'よむ' });
+            const parseJapanese = vi.fn((_text: string, options?: { requireJpdb?: boolean; skipJpdb?: boolean }) => {
+                if (options?.requireJpdb) return Promise.resolve([authoritativeToken]);
+                if (options?.skipJpdb) return Promise.resolve([fallbackToken]);
+                return Promise.resolve([fallbackToken]);
+            });
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese,
+                onSettingsChange: () => undefined,
+            });
+            const internals = controller as unknown as {
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+                parseCueHtml: (
+                    text: string,
+                    settings: ReaderSettings,
+                    options?: { enrichBeforeRender?: boolean; requireEnrichedProvisional?: boolean },
+                ) => Promise<string>;
+                parsedHtmlCache: Map<string, string>;
+                provisionalParsedHtmlCache: Map<string, string>;
+            };
+            const key = internals.parseCacheKey('読む', settings);
+
+            const html = await internals.parseCueHtml('読む', settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
+
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(parseJapanese).toHaveBeenCalledWith('読む', { requireJpdb: true, includeLocalPitch: true });
+            expect(html).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.provisionalParsedHtmlCache.has(key)).toBe(false);
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('uses one strict authoritative batch for credentialed enriched YouTube transcript rows', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=authoritative-batch') as unknown as Location,
+        });
+
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                localDictionariesEnabled: false,
+                subtitleTranscriptAutoScroll: false,
+            };
+            const parseJapaneseBatch = vi.fn((texts: string[], options?: { requireJpdb?: boolean; skipJpdb?: boolean }) => {
+                if (options?.requireJpdb) return Promise.resolve(texts.map((text, index) => [
+                    makeSubtitleToken(text, { cardState: ['known'], pitchClass: 'heiban', vid: index + 10 }),
+                ]));
+                if (options?.skipJpdb) return Promise.resolve(texts.map((text, index) => [
+                    makeSubtitleToken(text, { cardState: ['not-in-deck'], vid: index + 1 }),
+                ]));
+                return Promise.resolve(texts.map((text, index) => [
+                    makeSubtitleToken(text, { cardState: ['not-in-deck'], vid: index + 1 }),
+                ]));
+            });
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                parseJapaneseBatch,
+                onSettingsChange: () => undefined,
+            });
+            const internals = controller as unknown as {
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+                parseCueHtmlBatch: (
+                    texts: string[],
+                    settings: ReaderSettings,
+                    options?: { enrichBeforeRender?: boolean; requireEnrichedProvisional?: boolean; refreshProvisional?: boolean },
+                ) => Promise<Array<{ key: string; html: string; provisional?: boolean }>>;
+                parsedHtmlCache: Map<string, string>;
+                provisionalParsedHtmlCache: Map<string, string>;
+            };
+            const firstKey = internals.parseCacheKey('一番', settings);
+
+            const parsed = await internals.parseCueHtmlBatch(['一番', '二番'], settings, {
+                enrichBeforeRender: true,
+                requireEnrichedProvisional: true,
+                refreshProvisional: true,
+            });
+
+            expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
+            expect(parseJapaneseBatch).toHaveBeenCalledWith(['一番', '二番'], { requireJpdb: true, includeLocalPitch: true });
+            expect(parsed.map(item => item.provisional)).toEqual([undefined, undefined]);
+            expect(parsed[0]?.html).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.parsedHtmlCache.get(firstKey)).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.provisionalParsedHtmlCache.has(firstKey)).toBe(false);
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('uses strict authoritative parsing for credentialed non-provisional transcript warmup', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=authoritative-warmup') as unknown as Location,
+        });
+
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                localDictionariesEnabled: false,
+                subtitleTranscriptAutoScroll: false,
+            };
+            const parseJapaneseBatch = vi.fn((texts: string[], options?: { requireJpdb?: boolean }) => {
+                if (options?.requireJpdb) return Promise.resolve(texts.map((text, index) => [
+                    makeSubtitleToken(text, { cardState: ['known'], pitchClass: 'heiban', vid: index + 20 }),
+                ]));
+                return Promise.resolve(texts.map((text, index) => [
+                    makeSubtitleToken(text, { cardState: ['not-in-deck'], vid: index + 1 }),
+                ]));
+            });
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                parseJapaneseBatch,
+                onSettingsChange: () => undefined,
+            });
+            const internals = controller as unknown as {
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+                parseCueHtmlBatch: (
+                    texts: string[],
+                    settings: ReaderSettings,
+                    options?: { allowProvisional?: boolean; enrichBeforeRender?: boolean },
+                ) => Promise<Array<{ key: string; html: string; provisional?: boolean }>>;
+                parsedHtmlCache: Map<string, string>;
+            };
+            const key = internals.parseCacheKey('今日は読む', settings);
+
+            const parsed = await internals.parseCueHtmlBatch(['今日は読む'], settings, {
+                allowProvisional: false,
+                enrichBeforeRender: true,
+            });
+
+            expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
+            expect(parseJapaneseBatch).toHaveBeenCalledWith(['今日は読む'], { requireJpdb: true, includeLocalPitch: true });
+            expect(parsed[0]?.provisional).toBeUndefined();
+            expect(parsed[0]?.html).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('replaces fallback-poisoned credentialed subtitle parse cache entries with authoritative HTML', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=authoritative-cache') as unknown as Location,
+        });
+
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                localDictionariesEnabled: false,
+                subtitleTranscriptAutoScroll: false,
+            };
+            const parseJapanese = vi.fn(async () => [
+                makeSubtitleToken('読む', { cardState: ['known'], pitchClass: 'heiban', vid: 30 }),
+            ]);
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese,
+                onSettingsChange: () => undefined,
+            });
+            const internals = controller as unknown as {
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+                parseCueHtml: (
+                    text: string,
+                    settings: ReaderSettings,
+                    options?: { allowProvisional?: boolean; enrichBeforeRender?: boolean },
+                ) => Promise<string>;
+                parsedHtmlCache: Map<string, string>;
+            };
+            const key = internals.parseCacheKey('読む', settings);
+            internals.parsedHtmlCache.set(
+                key,
+                '<span class="jpdb-reader-word jpdb-not-in-deck fallback-not-in-deck jpdb-pitch-unknown" data-card-source="fallback">読む</span>',
+            );
+
+            const html = await internals.parseCueHtml('読む', settings, {
+                allowProvisional: false,
+                enrichBeforeRender: true,
+            });
+
+            expect(parseJapanese).toHaveBeenCalledWith('読む', { requireJpdb: true, includeLocalPitch: true });
+            expect(html).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('notifies parsed subtitle tokens with the updated transcript row root', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -6078,7 +6611,7 @@ Watch the cat
         expect(parseJapanese).not.toHaveBeenCalled();
         expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
         expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['一番', '二番', '三番', '四番']);
-        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual(SUBTITLE_PARSE_OPTIONS);
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual(AUTHORITATIVE_SUBTITLE_PARSE_OPTIONS);
     });
 
     it('enriches priority YouTube subtitle batches before rendering cached html', async () => {
@@ -6166,7 +6699,7 @@ Watch the cat
             internals.openLinesPanel();
             for (let index = 0; index < cues.length * 12; index++) await Promise.resolve();
 
-            expect(parseJapanese).toHaveBeenCalledWith('字幕23', SUBTITLE_PARSE_OPTIONS);
+            expect(parseJapanese).toHaveBeenCalledWith('字幕23', AUTHORITATIVE_SUBTITLE_PARSE_OPTIONS);
         } finally {
             window.requestAnimationFrame = originalRequestAnimationFrame;
         }
@@ -6220,8 +6753,8 @@ Watch the cat
             // background tail is paced.
             await vi.advanceTimersByTimeAsync(0);
             expect(parseJapanese.mock.calls.length).toBeGreaterThanOrEqual(49);
-            expect(parseJapanese).toHaveBeenCalledWith('字幕0', SUBTITLE_PARSE_OPTIONS);
-            expect(parseJapanese).toHaveBeenCalledWith('字幕48', SUBTITLE_PARSE_OPTIONS);
+            expect(parseJapanese).toHaveBeenCalledWith('字幕0', AUTHORITATIVE_SUBTITLE_PARSE_OPTIONS);
+            expect(parseJapanese).toHaveBeenCalledWith('字幕48', AUTHORITATIVE_SUBTITLE_PARSE_OPTIONS);
             const afterPriorityHead = parseJapanese.mock.calls.length;
 
             await vi.advanceTimersByTimeAsync(119);
@@ -6870,7 +7403,7 @@ Watch the cat
 
         expect(parseJapanese).not.toHaveBeenCalled();
         expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['字幕0', '字幕1', '字幕2', '字幕3', '字幕4', '字幕5', '字幕6', '字幕7']);
-        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual(SUBTITLE_PARSE_OPTIONS);
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual(AUTHORITATIVE_SUBTITLE_PARSE_OPTIONS);
         expect(parseJapaneseBatch.mock.calls[1]?.[0]).toEqual(['字幕8']);
     });
 
@@ -7006,7 +7539,7 @@ Watch the cat
         const second = internals.parseCueHtmlBatch(['字幕0'], testSettings);
 
         expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
-        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual(SUBTITLE_PARSE_OPTIONS);
+        expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual(AUTHORITATIVE_SUBTITLE_PARSE_OPTIONS);
         resolveBatch([[]]);
 
         const [firstResult, secondResult] = await Promise.all([first, second]);

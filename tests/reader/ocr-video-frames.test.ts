@@ -149,6 +149,40 @@ describe('paused-video OCR frames', () => {
         expect(resume.classList.contains('jpdb-ocr-video-frame-pending')).toBe(false);
     });
 
+    it('keeps YouTube paused-frame OCR hitboxes above the native control strip', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=ocr') as unknown as Location,
+        });
+        try {
+            createController();
+            const video = pausedVideo();
+            video.dispatchEvent(new Event('pause'));
+
+            const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+            frame.getBoundingClientRect = () => new DOMRect(10, 10, 640, 360);
+            Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
+            Object.defineProperty(frame, 'naturalHeight', { value: 360, configurable: true });
+            frame.dataset.ocrLines = JSON.stringify([
+                { text: '再生コントロールの上で読む', box: { left: 32, top: 326, width: 520, height: 30 } },
+            ]);
+            frame.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => {
+                const line = document.querySelector<HTMLElement>('.jpdb-ocr-line');
+                expect(line).not.toBeNull();
+                const bottom = Number.parseFloat(line!.style.top) + Number.parseFloat(line!.style.height);
+                expect(bottom).toBeLessThanOrEqual(296);
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('skips the paused-frame snapshot when the pause was a dictionary/mining pause', () => {
         createController();
         const video = pausedVideo();

@@ -210,11 +210,11 @@ export function nestedPitchEnrichmentOptionsForHost(hostname: string): PitchEnri
 }
 
 export function visibleAutoScanMutationDelay(defaultDelay = 450): number {
-    return isYouTubeHostForAutoScan() ? 120 : defaultDelay;
+    return isYouTubeHostForAutoScan() ? 320 : defaultDelay;
 }
 
 export function visibleAutoScanInitialDelay(defaultDelay = 600): number {
-    return isYouTubeHostForAutoScan() ? 160 : defaultDelay;
+    return isYouTubeHostForAutoScan() ? 220 : defaultDelay;
 }
 
 function isYouTubeHostForAutoScan(hostname = location.hostname): boolean {
@@ -456,6 +456,7 @@ export interface DismissOptions {
     preserveNavigation?: boolean;
     preserveHoverGeneration?: boolean;
     preserveKeyboardActive?: boolean;
+    deferSubtitleMiningResume?: boolean;
     forceAll?: boolean;
 }
 
