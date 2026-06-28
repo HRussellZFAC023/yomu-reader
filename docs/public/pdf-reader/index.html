@@ -806,6 +806,20 @@
     const MIN_SCALE = 0.3;
     const MAX_SCALE = 6;
     const SCANNED_TEXT_THRESHOLD = 8; // chars on a page below which we treat it as scanned/image
+    const OCR_TEXT_LAYER_MIN_CHARS = 80;
+    const OCR_TEXT_LAYER_MIN_SPANS = 24;
+    const OCR_TEXT_LAYER_MIN_SPANS_PER_CHAR = 0.12;
+    const OCR_TEXT_LAYER_NARROW_RATIO = 0.18;
+    const OCR_TEXT_LAYER_TINY_RATIO = 0.2;
+    const OCR_TEXT_LAYER_TALL_RATIO = 0.2;
+    const OCR_TEXT_LAYER_OVERLAP_RATIO = 0.12;
+    const OCR_TEXT_LAYER_MAX_WIDTH_PER_CHAR = 6;
+    const OCR_TEXT_LAYER_TINY_WIDTH_PX = 10;
+    const OCR_TEXT_LAYER_TALL_ASPECT = 1.45;
+    const OCR_TEXT_LAYER_MIN_JP_GAPS = 18;
+    const OCR_TEXT_LAYER_JP_GAP_RATIO = 0.035;
+    const OCR_TEXT_LAYER_MIN_BREAKS = 36;
+    const OCR_TEXT_LAYER_BREAK_RATIO = 0.04;
     // Backing-store caps. A canvas larger than the browser limit is silently
     // clamped — pdf.js then paints into the un-clamped space, so the page lands
     // in a corner and the rest stays black. Cap area and per-axis size well
@@ -1357,10 +1371,11 @@
         await textLayer.render();
         entry.status = 'done';
 
-        const textLength = textLayerDiv.textContent.replace(/\s+/g, '').length;
-        const isScanned = textLength < SCANNED_TEXT_THRESHOLD;
-        markPdfPageTextMode(entry, isScanned, textLength);
-        if (isScanned) maybeShowScannedNotice();
+        const textLength = compactTextLength(textLayerDiv.textContent);
+        const classification = classifyPdfPageTextMode(textLayerDiv, textLength);
+        if (epoch !== renderEpoch) { entry.status = 'idle'; return; }
+        markPdfPageTextMode(entry, classification.isScanned, textLength, classification.reason);
+        if (classification.isScanned) maybeShowScannedNotice();
         updateZoomLabel();
         evictDistantPages(); // free bitmaps left behind by fast scrolling
       } catch (error) {
@@ -1371,13 +1386,78 @@
       }
     }
 
-    function markPdfPageTextMode(entry, isScanned, textLength) {
+    function classifyPdfPageTextMode(textLayerDiv, textLength) {
+      if (textLength < SCANNED_TEXT_THRESHOLD) return { isScanned: true, reason: 'empty-text-layer' };
+      if (looksLikeEmbeddedOcrTextLayer(textLayerDiv, textLength)) {
+        return { isScanned: true, reason: 'image-backed-ocr-text' };
+      }
+      return { isScanned: false, reason: 'text-layer' };
+    }
+
+    function compactTextLength(value) {
+      return (value || '').replace(/\s+/g, '').length;
+    }
+
+    function looksLikeEmbeddedOcrTextLayer(textLayerDiv, textLength) {
+      if (textLength < OCR_TEXT_LAYER_MIN_CHARS) return false;
+      if (looksLikeFragmentedOcrText(textLayerDiv.textContent || '', textLength)) return true;
+      const spans = [...textLayerDiv.querySelectorAll('span')]
+        .map(span => {
+          const chars = compactTextLength(span.textContent);
+          const rect = span.getBoundingClientRect();
+          return { chars, rect };
+        })
+        .filter(item => item.chars > 0 && item.rect.width > 0 && item.rect.height > 0);
+      if (spans.length < OCR_TEXT_LAYER_MIN_SPANS) return false;
+
+      let narrow = 0;
+      let tiny = 0;
+      let tall = 0;
+      let overlap = 0;
+      const occupied = new Map();
+      for (const { chars, rect } of spans) {
+        if (chars >= 2 && rect.width / chars < OCR_TEXT_LAYER_MAX_WIDTH_PER_CHAR) narrow += 1;
+        if (chars >= 2 && rect.width <= OCR_TEXT_LAYER_TINY_WIDTH_PX) tiny += 1;
+        if (chars >= 2 && rect.height / Math.max(1, rect.width) > OCR_TEXT_LAYER_TALL_ASPECT) tall += 1;
+        const slot = `${Math.round(rect.left / 4)}:${Math.round(rect.top / 4)}`;
+        const count = occupied.get(slot) || 0;
+        if (count) overlap += 1;
+        occupied.set(slot, count + 1);
+      }
+
+      const spanDensity = spans.length / Math.max(1, textLength);
+      const ratio = count => count / spans.length;
+      const brokenGeometry = ratio(narrow) >= OCR_TEXT_LAYER_NARROW_RATIO
+        || ratio(tiny) >= OCR_TEXT_LAYER_TINY_RATIO
+        || ratio(tall) >= OCR_TEXT_LAYER_TALL_RATIO
+        || ratio(overlap) >= OCR_TEXT_LAYER_OVERLAP_RATIO;
+      return brokenGeometry && (
+        spanDensity >= OCR_TEXT_LAYER_MIN_SPANS_PER_CHAR
+        || ratio(narrow) >= OCR_TEXT_LAYER_NARROW_RATIO
+        || ratio(tall) >= OCR_TEXT_LAYER_TALL_RATIO
+      );
+    }
+
+    function looksLikeFragmentedOcrText(rawText, textLength) {
+      const japaneseGaps = (rawText.match(/[ぁ-んァ-ヶ一-龯]\s+[ぁ-んァ-ヶ一-龯]/g) || []).length;
+      if (japaneseGaps >= OCR_TEXT_LAYER_MIN_JP_GAPS
+        && japaneseGaps / Math.max(1, textLength) >= OCR_TEXT_LAYER_JP_GAP_RATIO) {
+        return true;
+      }
+      const hardBreaks = (rawText.match(/[\n\r]/g) || []).length;
+      return hardBreaks >= OCR_TEXT_LAYER_MIN_BREAKS
+        && hardBreaks / Math.max(1, textLength) >= OCR_TEXT_LAYER_BREAK_RATIO;
+    }
+
+    function markPdfPageTextMode(entry, isScanned, textLength, reason) {
       entry.container.classList.toggle('scanned', isScanned);
       entry.container.classList.toggle('text-pdf', !isScanned);
       entry.container.dataset.pdfText = isScanned ? 'scanned' : 'text';
       entry.container.dataset.pdfTextLength = String(textLength);
+      entry.container.dataset.pdfTextReason = reason;
       entry.container.dataset.yomuCanvasOcr = isScanned ? 'on' : 'off';
       entry.canvas.dataset.pdfText = isScanned ? 'scanned' : 'text';
+      entry.canvas.dataset.pdfTextReason = reason;
       entry.canvas.dataset.yomuCanvasOcr = isScanned ? 'on' : 'off';
       entry.textLayerDiv.hidden = isScanned;
       entry.textLayerDiv.setAttribute('aria-hidden', String(isScanned));
@@ -1387,8 +1467,10 @@
       entry.container.classList.remove('scanned', 'text-pdf');
       entry.container.dataset.pdfText = 'pending';
       entry.container.dataset.pdfTextLength = '0';
+      entry.container.dataset.pdfTextReason = 'pending';
       entry.container.dataset.yomuCanvasOcr = 'off';
       entry.canvas.dataset.pdfText = 'pending';
+      entry.canvas.dataset.pdfTextReason = 'pending';
       entry.canvas.dataset.yomuCanvasOcr = 'off';
       entry.textLayerDiv.hidden = false;
       entry.textLayerDiv.setAttribute('aria-hidden', 'false');

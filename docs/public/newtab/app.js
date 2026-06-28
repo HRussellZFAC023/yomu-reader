@@ -24309,7 +24309,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.172".trim() ? "1.4.172".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.173".trim() ? "1.4.173".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -35163,7 +35163,7 @@ ${spelling}`);
       }
       state2.result = result;
       const settings = this.options.getSettings();
-      const showText = settings.ocrShowTextOverlay || forceOverlay;
+      const showText = this.shouldShowOcrTextOverlay(state2, settings, forceOverlay);
       const initialParsed = await this.parseOcrLines(result.lines);
       this.requireCurrentContentState(state2, expectedKey);
       const lines = cleanOcrLookupLines(result.lines, initialParsed);
@@ -35205,6 +35205,14 @@ ${spelling}`);
       }
       this.updateOcrStatus(state2.image, "ready");
       void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).finally(() => this.schedulePosition());
+    }
+    shouldShowOcrTextOverlay(state2, settings, forceOverlay) {
+      if (this.isScannedPdfCanvasFrame(state2.image)) return false;
+      return settings.ocrShowTextOverlay || forceOverlay;
+    }
+    isScannedPdfCanvasFrame(image) {
+      const canvas = this.canvasFrameSources.get(image);
+      return Boolean(canvas && (canvas.dataset.pdfText === "scanned" || canvas.closest('.pdf-page[data-pdf-text="scanned"]')));
     }
     async parseOcrLines(lines) {
       const options = ocrParseOptions();

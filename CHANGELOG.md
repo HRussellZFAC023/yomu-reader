@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.173] - 2026-06-28
+
+### Fixed
+
+- Treated image-backed PDF OCR text layers as scanned pages, hiding the broken embedded text layer and routing lookup through Yomu image OCR without visible passive overlays.
+
 ## [1.4.172] - 2026-06-28
 
 ### Fixed

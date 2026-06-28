@@ -1660,6 +1660,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word {
   background-color: transparent !important;
   background-image: none !important;
+  --jpdb-reader-word-accessible-color: currentColor;
   --jpdb-reader-word-underline: transparent;
   --jpdb-reader-word-underline-offset: 0.12em;
   --jpdb-reader-word-underline-thickness: 0.12em;
@@ -1673,6 +1674,43 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   pointer-events: auto;
   cursor: pointer;
   line-height: 1 !important;
+}
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-reader-word,
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line-text,
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-plain,
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-ruby-base,
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-ruby-base-text {
+  --jpdb-reader-word-accessible-color: transparent;
+  --jpdb-reader-word-accessible-highlight: transparent;
+  --jpdb-reader-word-accessible-underline: transparent;
+  --jpdb-reader-word-color-source: transparent;
+  --jpdb-reader-word-decoration-source: transparent;
+  --jpdb-reader-word-highlight-source: transparent;
+  --jpdb-reader-word-highlight-shadow-source: none;
+  --jpdb-reader-word-underline: transparent;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-decoration-color: transparent !important;
+  text-shadow: none !important;
+}
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-reader-word::after {
+  border-block-end-color: transparent !important;
+  opacity: 0 !important;
 }
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word:is(
   .jpdb-pitch-heiban,
@@ -1773,6 +1811,14 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-ocr-furi {
   opacity: 0.9;
+}
+.jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-furi {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  opacity: 0 !important;
+  text-shadow: none !important;
 }
 
 /* Vertical-text OCR (mokuro / vertical manga & light novels): the reading

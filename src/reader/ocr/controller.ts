@@ -1029,7 +1029,7 @@ export class ImageOcrController {
         state.result = result;
 
         const settings = this.options.getSettings();
-        const showText = settings.ocrShowTextOverlay || forceOverlay;
+        const showText = this.shouldShowOcrTextOverlay(state, settings, forceOverlay);
 
         const initialParsed = await this.parseOcrLines(result.lines);
         this.requireCurrentContentState(state, expectedKey);
@@ -1077,6 +1077,18 @@ export class ImageOcrController {
         }
         this.updateOcrStatus(state.image, 'ready');
         void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => this.schedulePosition());
+    }
+
+    private shouldShowOcrTextOverlay(state: ImageState, settings: ReaderSettings, forceOverlay: boolean): boolean {
+        if (this.isScannedPdfCanvasFrame(state.image)) return false;
+        return settings.ocrShowTextOverlay || forceOverlay;
+    }
+
+    private isScannedPdfCanvasFrame(image: HTMLImageElement): boolean {
+        const canvas = this.canvasFrameSources.get(image);
+        return Boolean(canvas
+            && (canvas.dataset.pdfText === 'scanned'
+                || canvas.closest('.pdf-page[data-pdf-text="scanned"]')));
     }
 
     private async parseOcrLines(lines: OcrLine[]): Promise<JPDBToken[][]> {

@@ -8197,7 +8197,7 @@ ${candidate.depth}`;
       }
       state2.result = result;
       const settings = this.options.getSettings();
-      const showText = settings.ocrShowTextOverlay || forceOverlay;
+      const showText = this.shouldShowOcrTextOverlay(state2, settings, forceOverlay);
       const initialParsed = await this.parseOcrLines(result.lines);
       this.requireCurrentContentState(state2, expectedKey);
       const lines = cleanOcrLookupLines(result.lines, initialParsed);
@@ -8239,6 +8239,14 @@ ${candidate.depth}`;
       }
       this.updateOcrStatus(state2.image, "ready");
       void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).finally(() => this.schedulePosition());
+    }
+    shouldShowOcrTextOverlay(state2, settings, forceOverlay) {
+      if (this.isScannedPdfCanvasFrame(state2.image)) return false;
+      return settings.ocrShowTextOverlay || forceOverlay;
+    }
+    isScannedPdfCanvasFrame(image) {
+      const canvas = this.canvasFrameSources.get(image);
+      return Boolean(canvas && (canvas.dataset.pdfText === "scanned" || canvas.closest('.pdf-page[data-pdf-text="scanned"]')));
     }
     async parseOcrLines(lines) {
       const options = ocrParseOptions();
