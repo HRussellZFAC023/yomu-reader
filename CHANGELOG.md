@@ -1,12 +1,18 @@
 # Changelog
 
-## [1.4.193] - 2026-06-28
+## [1.4.194] - 2026-06-28
 
 ### Fixed
 
 - Collapsed the Help tab's long AnkiConnect setup guidance behind an accessible disclosure so the Help section stays compact until setup details are needed.
 - Moved Help's current version, latest-version check, duplicate-script status, and update link into a compact top strip with shorter copy.
 - Repaired Study/Newtab reveal so the answer keeps furigana, pitch, frequency, dictionary links, and the study audio button inline without rendering the old duplicate lookup card; local audio clips play/restart without localhost fetch/CORS spam, and optional lookup failures keep their debug logging without surfacing noisy console errors.
+
+## [1.4.193] - 2026-06-28
+
+### Fixed
+
+- Fixed the Yomu Gaming desktop artifact workflow to build and package release downloads without depending on a hosted-runner Electron binary launch, which keeps AppImage, Windows, and macOS artifact publishing aligned with the local Electron smoke test.
 
 ## [1.4.192] - 2026-06-28
 

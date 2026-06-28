@@ -179,9 +179,11 @@ textarea {
 }
 
 .yomu-gaming-segmented label {
+    position: relative;
     display: grid;
     place-items: center;
     min-width: 0;
+    cursor: pointer;
 }
 
 .yomu-gaming-segmented label + label {
@@ -190,9 +192,12 @@ textarea {
 
 .yomu-gaming-segmented input {
     position: absolute;
-    width: 1px;
-    height: 1px;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
     opacity: 0;
+    cursor: pointer;
 }
 
 .yomu-gaming-segmented span {
@@ -203,6 +208,7 @@ textarea {
     color: var(--jpdb-reader-muted);
     font-size: 12px;
     font-weight: 850;
+    pointer-events: none;
 }
 
 .yomu-gaming-segmented input:checked + span {
