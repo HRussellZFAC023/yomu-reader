@@ -42,7 +42,7 @@ const EASY_FURIGANA_KANJI = new Set(
 // UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
 // letter soup, but "Kanji used" spellings are real JPDB links and should
 // keep the same ruby/color treatment as other dictionary terms.
-const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],[contenteditable=true],[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection';
+const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],[contenteditable],[data-placeholder],[aria-placeholder],[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection';
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(',[role=tab]', '');
 const FORM_BOUNDARY_SKIP_SELECTOR = 'form,label,fieldset,legend';
 const PLAYER_CHROME_SKIP_SELECTOR = '[class*="control" i],[class*="toggle" i],[class*="player" i]';
@@ -96,7 +96,7 @@ const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${PLAYER_CHROM
 // for every site profile root, incl. YouTube) once did not — so a rescan of a
 // mirror host re-collected the mirror's bare gap text nodes alongside hidden
 // host text and self-perpetuated into a duplicated, flashing caption strip.
-const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable="true"],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
+const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable],[data-placeholder],[aria-placeholder],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
 const FORM_CHROME_BOUNDARY_TAGS = ',FORM,LABEL,FIELDSET,LEGEND,';
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
 const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
@@ -601,10 +601,7 @@ function formControlLookupText(control: HTMLElement, options: Pick<FormControlTe
         pushUniqueControlText(parts, selectLookupText(control, options.selectTextMode ?? 'options'));
         if (options.selectTextMode === 'selected') return parts.join(' / ');
     }
-    if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
-        pushUniqueControlText(parts, formFieldPlaceholderText(control));
-        if (control.value.trim()) return parts.join(' / ');
-    }
+    if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) return '';
     pushUniqueControlText(parts, control.getAttribute('aria-label') ?? '');
     pushUniqueControlText(parts, control.getAttribute('title') ?? '');
     return parts.join(' / ');
@@ -627,11 +624,6 @@ function compactSelectOptionListText(options: string[]): string {
 
 function optionText(option: HTMLOptionElement): string {
     return normalizedControlText(option.label || option.textContent || '');
-}
-
-function formFieldPlaceholderText(control: HTMLInputElement | HTMLTextAreaElement): string {
-    if (control.value.trim()) return '';
-    return normalizedControlText(control.getAttribute('placeholder') ?? '');
 }
 
 function pushUniqueControlText(parts: string[], text: string): void {
@@ -813,6 +805,7 @@ function matchesSkippedFragmentElement(
     isRoot: boolean,
 ): boolean {
     if (state.excludeSelector && safeElementMatches(element, state.excludeSelector)) return true;
+    if (element.closest('[class*=composer i],[id*=composer i]')) return true;
     return !isRoot && shouldSkipFragmentElement(element, state.options);
 }
 

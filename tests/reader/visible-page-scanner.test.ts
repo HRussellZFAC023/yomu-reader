@@ -1009,7 +1009,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('mirrors Japanese labels, dropdown options, and placeholders without mutating native controls on iPad-sized pages', async () => {
+    it('mirrors Japanese labels and dropdown options without treating text-entry placeholders as content', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `
             <main>
@@ -1037,7 +1037,7 @@ describe('VisiblePageScanner', () => {
             const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
             expect(parsedTexts.some(text => text.includes('表示順'))).toBe(true);
             expect(parsedTexts.some(text => text.includes('日本語だけ'))).toBe(true);
-            expect(parsedTexts.some(text => text.includes('単語を検索'))).toBe(true);
+            expect(parsedTexts.some(text => text.includes('単語を検索'))).toBe(false);
 
             const labelWord = document.querySelector<HTMLElement>('label .jpdb-reader-word[data-expression="表示順"]');
             expect(labelWord).not.toBeNull();
@@ -1055,13 +1055,13 @@ describe('VisiblePageScanner', () => {
             const input = document.querySelector<HTMLInputElement>('input')!;
             expect(input.querySelector('.jpdb-reader-word')).toBeNull();
             const inputMirror = input.nextElementSibling as HTMLElement | null;
-            expect(inputMirror?.matches('.jpdb-reader-control-text-mirror')).toBe(true);
-            expect(inputMirror?.querySelector('.jpdb-reader-word[data-expression="単語"]')).not.toBeNull();
+            expect(inputMirror?.matches('.jpdb-reader-control-text-mirror')).not.toBe(true);
+            expect(input.hasAttribute('data-jpdb-reader-control-placeholder-hidden')).toBe(false);
 
             select.dispatchEvent(new Event('change'));
             expect(selectMirror?.isConnected).toBe(false);
             input.dispatchEvent(new Event('input'));
-            expect(inputMirror?.isConnected).toBe(false);
+            expect(inputMirror?.isConnected).not.toBe(true);
         } finally {
             scanner.destroy();
             restoreRects();

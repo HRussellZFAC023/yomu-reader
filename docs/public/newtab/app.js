@@ -7176,7 +7176,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
-  const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],[contenteditable=true],[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection';
+  const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],[contenteditable],[data-placeholder],[aria-placeholder],[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection';
   const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
   const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
   const PLAYER_CHROME_SKIP_SELECTOR = '[class*="control" i],[class*="toggle" i],[class*="player" i]';
@@ -7209,7 +7209,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
   const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},[data-jpdb-reader-root]`;
   const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},button,summary,a[href],[role="button"]`;
-  const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable="true"],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
+  const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable],[data-placeholder],[aria-placeholder],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
   const FORM_CHROME_BOUNDARY_TAGS = ",FORM,LABEL,FIELDSET,LEGEND,";
   const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
   const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
@@ -7319,10 +7319,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       pushUniqueControlText(parts, selectLookupText(control, options.selectTextMode ?? "options"));
       if (options.selectTextMode === "selected") return parts.join(" / ");
     }
-    if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
-      pushUniqueControlText(parts, formFieldPlaceholderText(control));
-      if (control.value.trim()) return parts.join(" / ");
-    }
+    if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) return "";
     pushUniqueControlText(parts, control.getAttribute("aria-label") ?? "");
     pushUniqueControlText(parts, control.getAttribute("title") ?? "");
     return parts.join(" / ");
@@ -7341,10 +7338,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function optionText(option) {
     return normalizedControlText(option.label || option.textContent || "");
-  }
-  function formFieldPlaceholderText(control) {
-    if (control.value.trim()) return "";
-    return normalizedControlText(control.getAttribute("placeholder") ?? "");
   }
   function pushUniqueControlText(parts, text2) {
     const normalized = normalizedControlText(text2);
@@ -7462,6 +7455,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function matchesSkippedFragmentElement(element, state2, isRoot) {
     if (state2.excludeSelector && safeElementMatches(element, state2.excludeSelector)) return true;
+    if (element.closest("[class*=composer i],[id*=composer i]")) return true;
     return !isRoot && shouldSkipFragmentElement(element, state2.options);
   }
   function shouldSkipInvisibleFragmentElement(element, visibleOnly) {
