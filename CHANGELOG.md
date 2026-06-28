@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.177] - 2026-06-28
+
+### Fixed
+
+- Repaired scanned/image-backed PDFs in the hosted PDF reader so broken embedded OCR text layers are hidden, Yomu image OCR is used for lookup, and passive OCR text/furigana stay invisible until hover or focus.
+
 ## [1.4.176] - 2026-06-28
 
 ### Fixed
