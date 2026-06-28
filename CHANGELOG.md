@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.209] - 2026-06-28
+
+### Fixed
+
+- Uploaded the Yomu Gaming Linux AppImage from the release workflow using electron-builder's `linux-x86_64` artifact name, and updated the download docs to match.
+
 ## [1.4.208] - 2026-06-28
 
 ### Fixed

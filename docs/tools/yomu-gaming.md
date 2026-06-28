@@ -15,7 +15,7 @@ Use the first-party **Yomu Gaming** app for PC games. Press the capture shortcut
 
 Download the Yomu-owned file for your platform from [GitHub Releases](https://github.com/HRussellZFAC023/yomu-reader/releases/latest):
 
-- Linux / Steam Deck desktop mode: `yomu-gaming-<version>-linux-x64.AppImage`
+- Linux / Steam Deck desktop mode: `yomu-gaming-<version>-linux-x86_64.AppImage`
 - Windows: `yomu-gaming-<version>-win-x64.exe`
 - macOS Apple silicon: `yomu-gaming-<version>-mac-arm64.zip`
 - macOS Intel: `yomu-gaming-<version>-mac-x64.zip`

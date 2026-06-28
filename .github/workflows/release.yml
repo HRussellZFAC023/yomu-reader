@@ -91,14 +91,27 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          shopt -s nullglob
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          gh release create "$TAG" \
+          linux_assets=(dist-gaming/packages/yomu-gaming-*-linux-*.AppImage*)
+          if [ "${#linux_assets[@]}" -eq 0 ]; then
+            echo "No Linux AppImage release asset found in dist-gaming/packages." >&2
+            find dist-gaming/packages -maxdepth 1 -type f -print >&2
+            exit 1
+          fi
+          assets=(
             dist/yomu.user.js \
             dist/extension/release/chrome/yomureader.com-chrome.zip \
             dist/extension/release/firefox/yomureader.com-firefox.xpi \
             dist/extension/release/safari/yomureader.com-safari-web-extension.zip \
-            dist-gaming/packages/yomu-gaming-*-linux-x64.AppImage* \
+            "${linux_assets[@]}" \
             dist-gaming/packages/SHA256SUMS.txt \
             dist/extension/yomureader.com-extension-project.zip \
-            dist/extension/review/submission-guide.md \
-            --title "$TAG" --notes-file release-notes.md --latest --verify-tag
+            dist/extension/review/submission-guide.md
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TAG" --notes-file release-notes.md --latest
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$TAG" "${assets[@]}" --title "$TAG" --notes-file release-notes.md --latest --verify-tag
+          fi
