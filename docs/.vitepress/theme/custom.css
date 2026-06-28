@@ -113,7 +113,7 @@
 }
 
 .VPHomeHero {
-  padding-block: clamp(34px, 6vw, 68px) clamp(14px, 3vw, 28px);
+  padding-block: clamp(34px, 6vw, 68px) clamp(22px, 4vw, 44px);
 }
 
 .VPHomeHero .container {
@@ -283,7 +283,7 @@ html[lang="ja"] .VPHomeHero .tagline {
 
 @media (max-width: 959px) {
   .VPHomeHero {
-    padding-block: 38px 22px;
+    padding-block: 38px 34px;
   }
 
   .VPHomeHero .container {
@@ -408,7 +408,7 @@ html[lang="ja"] .VPHomeHero .tagline {
 
 @media (max-width: 520px) {
   .VPHomeHero {
-    padding-block: 26px 20px;
+    padding-block: 26px 30px;
   }
 
   .VPHomeHero .text {
@@ -598,36 +598,30 @@ html[lang="ja"] .VPHomeHero .tagline {
 
 .VPNavBarExtra.extra .item.social-links {
   justify-content: flex-start;
+  gap: 8px;
 }
 
 .VPNavBarExtra.extra .item.social-links .social-links-list {
-  width: 100%;
+  display: flex;
+  gap: 8px;
   margin: 0;
 }
 
 .VPNavBarExtra.extra .item.social-links .VPSocialLink {
-  width: 100%;
+  width: 36px;
   height: 36px;
-  justify-content: space-between;
-  color: var(--vp-c-text-1);
-}
-
-.VPNavBarExtra.extra .item.social-links .VPSocialLink::before {
-  content: "GitHub";
-  font-size: 13px;
-  font-weight: 650;
-  line-height: 1;
+  justify-content: center;
+  border-radius: 6px;
   color: var(--vp-c-text-2);
 }
 
-.VPNavBarExtra.extra .item.social-links .VPSocialLink:hover::before {
+.VPNavBarExtra.extra .item.social-links .VPSocialLink:hover {
+  background: color-mix(in srgb, var(--vp-c-brand-2) 12%, transparent);
   color: var(--vp-c-brand-1);
 }
 
 .VPNavBarExtra.extra .item.appearance:hover,
-.VPNavBarExtra.extra .item.appearance:focus-within,
-.VPNavBarExtra.extra .item.social-links:hover,
-.VPNavBarExtra.extra .item.social-links:focus-within {
+.VPNavBarExtra.extra .item.appearance:focus-within {
   background: color-mix(in srgb, var(--vp-c-brand-2) 12%, transparent);
 }
 
@@ -756,7 +750,7 @@ html[lang="ja"] .VPHomeHero .tagline {
   grid-template-columns: minmax(0, auto) minmax(320px, 1fr);
   gap: 24px;
   align-items: center;
-  margin: -10px 0 24px;
+  margin: 6px 0 18px;
   padding: 12px 14px;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
@@ -1332,12 +1326,10 @@ html[lang="ja"] .VPHomeHero .tagline {
   }
 
   .yomu-install-panel {
-    margin: -6px 0 22px;
     grid-template-areas:
       "copy"
       "steps";
     grid-template-columns: 1fr;
-    gap: 16px;
   }
 
   .yomu-install-steps {
@@ -1351,7 +1343,6 @@ html[lang="ja"] .VPHomeHero .tagline {
 
 @media (max-width: 540px) {
   .yomu-install-panel {
-    margin: -4px 0 20px;
     gap: 14px;
     padding: 12px;
   }
