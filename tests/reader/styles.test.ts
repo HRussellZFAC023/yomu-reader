@@ -121,14 +121,20 @@ describe('reader stylesheet loading', () => {
             .toEqual(['https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css']);
     });
 
-    it('keeps parsed app-label words atomic and compact when furigana is injected', () => {
+    it('lets scanned prose wrap while keeping passive/mirror labels compact with furigana', () => {
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
-        const scanRule = css.match(/\.jpdb-reader-word\.jpdb-reader-scan-word:not\(\.jpdb-reader-passive-word\)\s*\{[^}]*\}/)?.[0] ?? '';
+        const scanRule = css.match(/\.jpdb-reader-word\.jpdb-reader-scan-word:not\(\.jpdb-reader-passive-word\)[^{]*\{[^}]*\}/)?.[0] ?? '';
 
-        expect(scanRule).toContain('word-break: keep-all');
-        expect(scanRule).toContain('overflow-wrap: normal !important');
+        expect(scanRule).toContain('word-break: normal');
+        expect(scanRule).toContain('overflow-wrap: anywhere !important');
+        expect(scanRule).toContain('line-break: auto');
+        expect(scanRule).toContain('.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word');
         expect(css).toContain('.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-has-furi');
         expect(css).toContain('.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-has-furi');
+        expect(css).toContain('.jpdb-reader-word.jpdb-reader-passive-word');
+        expect(css).toContain('.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word');
+        expect(css).toContain('word-break: keep-all');
+        expect(css).toContain('overflow-wrap: normal');
         expect(css).toContain('line-height: inherit;');
     });
 });

@@ -3621,7 +3621,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('--jpdb-reader-word-underline-offset: 0.04em;');
         expect(normalizedCss).toContain('.jpdb-reader-word:not(.jpdb-reader-passive-word)::before {');
         expect(normalizedCss).toContain('inset: -0.36em -0.06em;');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) {');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word), .VwiC3b .jpdb-reader-word.jpdb-reader-scan-word {');
         expect(normalizedCss).toContain('white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto;');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1; inset-inline: var(--jpdb-reader-word-inline-gap); inset-block-end: 0; border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent); pointer-events: none; }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word)::after { content: none; }');
@@ -3747,8 +3747,8 @@ describe('reader helpers', () => {
 
         // Scanned prose may wrap; words inside buttons/chips/tabs must not
         // override the host nowrap or CJK labels stack one char per line.
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) { white-space: normal;');
-        expect(normalizedCss).toContain('.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word), .VwiC3b .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal;');
+        expect(normalizedCss).toContain('.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto;');
         expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto; }');
         expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word rt, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word rt { white-space: normal; overflow-wrap: anywhere; }');
         expect(normalizedCss).not.toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word::after, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word::after { border-block-end-color: transparent; }');

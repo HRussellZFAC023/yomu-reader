@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.175] - 2026-06-28
+
+### Fixed
+
+- Kept generated page-word highlights light on NHK Easy and other bright pages while still measuring them for readable text contrast, so hover no longer appears to fix an overly dark normal highlight.
+- Let active scanned page text wrap normally in narrow prose, card, and sidebar containers while keeping passive controls and text mirrors on their compact wrapping rules.
+
 ## [1.4.174] - 2026-06-28
 
 ### Fixed

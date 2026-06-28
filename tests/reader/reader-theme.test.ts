@@ -201,6 +201,23 @@ describe('reader theme', () => {
         expect(contrastRatio(underline, highlight)).toBeGreaterThanOrEqual(3);
     });
 
+    it('measures variable-backed first-render highlights without repainting them darker', () => {
+        document.body.innerHTML = `
+            <p style="background: rgb(255, 255, 255); color: rgb(242, 243, 245);">
+                <span class="jpdb-reader-word jpdb-known" style="--jpdb-reader-word-highlight-source: rgb(236, 244, 255); color: rgb(242, 243, 245); text-decoration-color: rgb(170, 178, 192);">波蘭</span>
+            </p>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        refreshReaderWordContrastForWord(word);
+
+        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        const highlight = word.style.getPropertyValue('--jpdb-reader-word-accessible-highlight');
+        expect(highlight).toBe('');
+        expect(text).not.toBe('#f2f3f5');
+        expect(contrastRatio(text, '#ecf4ff')).toBeGreaterThanOrEqual(4.5);
+    });
+
     it('measures generated highlights against the detected page background before preserving them', () => {
         document.body.innerHTML = `
             <p style="background: rgb(255, 255, 255); color: rgb(20, 20, 20);">

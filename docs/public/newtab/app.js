@@ -24305,7 +24305,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.174".trim() ? "1.4.174".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.175".trim() ? "1.4.175".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -74148,12 +74148,13 @@ ${entry.url}`),
       const furi = word.querySelector("rt.jpdb-reader-furi");
       const furiStyle = furi ? getComputedStyle(furi) : null;
       return {
-        bgColor: style.backgroundColor,
-        color: style.color,
-        decoration: style.textDecorationColor,
-        parentColor: parentStyle.color,
-        furiColor: furiStyle?.color,
-        hoverColor: style.getPropertyValue("--jpdb-reader-hover"),
+        bg: style.backgroundColor,
+        hl: style.getPropertyValue("--jpdb-reader-word-highlight-source"),
+        fg: style.color,
+        deco: style.textDecorationColor,
+        parentFg: parentStyle.color,
+        furiFg: furiStyle?.color,
+        hover: style.getPropertyValue("--jpdb-reader-hover"),
         hovered: word.matches(":hover, :focus")
       };
     });
@@ -74172,12 +74173,13 @@ ${entry.url}`),
     word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
     const passiveWord = word.classList.contains("jpdb-reader-passive-word");
     const preserveHostPaint = isPassiveChromeWord(word);
-    const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor, preserveHostPaint);
+    const accessibleRgba = resolveHighlight(word, background, m.bg, m.hl, preserveHostPaint);
+    const accessibleHex = rgbaToHex(accessibleRgba);
     const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
-    const sourceText = cssColorToHex(m.color, accessibleRgba);
-    const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(textBackdropHex);
-    const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
-    const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
+    const sourceText = cssColorToHex(m.fg, accessibleRgba);
+    const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
+    const decoration = resolveDecorationHex(m.deco, accessibleRgba);
+    const furiText = m.furiFg ? cssColorToHex(m.furiFg, accessibleRgba) : null;
     const textSource = passiveWord ? nativeText : sourceText ?? nativeText;
     const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
     const furiBackgrounds = [background.hex];
@@ -74195,7 +74197,7 @@ ${entry.url}`),
     return [...new Set(colors)];
   }
   function textBackdropsForMeasurement(m, textBackdropHex) {
-    const hoverBackdrop = hoveredTextBackdropHex(m.hoverColor, textBackdropHex, m.hovered);
+    const hoverBackdrop = hoveredTextBackdropHex(m.hover, textBackdropHex, m.hovered);
     return uniqueHexes(hoverBackdrop ? [textBackdropHex, hoverBackdrop] : [textBackdropHex]);
   }
   function existingAccessibleColorRemainsReadableOnHover(word, background) {
@@ -74213,21 +74215,27 @@ ${entry.url}`),
     if (!hover || !backdrop || hover.alpha <= 0) return null;
     return rgbaToHex(blendRgba(hover, backdrop));
   }
-  function resolveAccessibleHighlight(word, background, wordBgColor, preserveHostPaint = false) {
+  function resolveHighlight(word, background, wordBgColor, highlight, preserveHostPaint = false) {
     const colorRgba = cssColorToRgba(wordBgColor);
-    const hasPaint = Boolean(colorRgba && colorRgba.alpha > 0);
-    const rgba = colorRgba && colorRgba.alpha > 0 ? blendRgba(colorRgba, background.rgba) : background.rgba;
-    const paintBackgroundHex = rgbaToHex(rgba);
-    let accessibleHighlightColor = null;
+    const hasPaint = !!colorRgba?.alpha;
+    const highlightRgba = hasPaint || preserveHostPaint ? null : paintRgba(highlight, word);
+    const rgba = hasPaint ? blendRgba(colorRgba, background.rgba) : highlightRgba && highlightRgba.alpha > 0 ? blendRgba(highlightRgba, background.rgba) : background.rgba;
     if (hasPaint && !preserveHostPaint) {
-      accessibleHighlightColor = readableHighlightBackground(paintBackgroundHex, background.hex);
-      word.style.setProperty("--jpdb-reader-word-accessible-highlight", accessibleHighlightColor);
-    } else {
-      word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
+      const highlightHex = readableHighlightBackground(rgbaToHex(rgba), background.hex);
+      word.style.setProperty("--jpdb-reader-word-accessible-highlight", highlightHex);
+      return cssColorToRgba(highlightHex) ?? rgba;
     }
-    const accessibleRgba = accessibleHighlightColor ? cssColorToRgba(accessibleHighlightColor) ?? rgba : rgba;
-    const accessibleHex = accessibleHighlightColor ? rgbaToHex(accessibleRgba) : paintBackgroundHex;
-    return { accessibleHex, accessibleRgba };
+    word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
+    return rgba;
+  }
+  function paintRgba(value, el2) {
+    const direct = cssColorToRgba(value);
+    if (direct) return direct;
+    const probe = el2.appendChild(document.createElement("span"));
+    probe.style.color = value;
+    const rgba = cssColorToRgba(getComputedStyle(probe).color);
+    probe.remove();
+    return rgba;
   }
   function resolveDecorationHex(decorationColor, accessibleRgba) {
     const decorationColorRgba = cssColorToRgba(decorationColor);
