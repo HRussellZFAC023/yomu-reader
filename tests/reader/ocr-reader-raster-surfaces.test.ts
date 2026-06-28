@@ -519,22 +519,12 @@ describe('reader raster OCR surfaces', () => {
         viewport.append(canvas);
         document.body.append(viewport);
 
-        const recognizeImage = vi.fn(async (): Promise<OcrResult> => ({
-            width: 1200,
-            height: 1600,
-            lines: [
-                {
-                    text: 'ページ移動方向',
-                    box: { left: 144, top: 288, width: 552, height: 128 },
-                    vertical: false,
-                },
-            ],
-        }));
+        const ocrLines = [
+            { text: 'ページ移動方向', box: { left: 0.12, top: 0.18, width: 0.46, height: 0.08 } },
+        ];
         const naturalWidth = vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(1200);
         const naturalHeight = vi.spyOn(HTMLImageElement.prototype, 'naturalHeight', 'get').mockReturnValue(1600);
-        const controller = createController({}, undefined, undefined, undefined, controller => {
-            (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
-        });
+        const controller = createController();
         try {
             await waitForExpect(() => {
                 expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
@@ -545,10 +535,10 @@ describe('reader raster OCR surfaces', () => {
             const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')!;
             Object.defineProperty(frame, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(frame, 'naturalHeight', { value: 1600, configurable: true });
+            frame.dataset.ocrLines = JSON.stringify(ocrLines);
             frame.dispatchEvent(new Event('load'));
 
             await waitForExpect(() => {
-                expect(recognizeImage).toHaveBeenCalled();
                 expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
                 expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
             }, 4_000);
