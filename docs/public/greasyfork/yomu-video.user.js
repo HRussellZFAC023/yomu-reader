@@ -1994,11 +1994,8 @@
   const KANJI_RE = /[\u3400-\u9fff]/u;
   const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
   const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
-  const TRAILING_DIGITS_RE = /[0-9０-９]$/u;
-  const WORD_JOINER = "⁠";
-  function bindTrailingNumberToFollowingToken(text) {
-    return TRAILING_DIGITS_RE.test(text) ? `${text}${WORD_JOINER}` : text;
-  }
+  const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
+  const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
   new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
@@ -2044,12 +2041,18 @@
     const safeTokens = nonOverlappingTokens(tokens, text.length);
     const miningInsightKeys = miningInsightTokenKeys(safeTokens);
     for (const token of safeTokens) {
-      if (token.start > offset) html += escapeHtml(bindTrailingNumberToFollowingToken(text.slice(offset, token.start)));
+      if (token.start > offset) html += plainTextBeforeTokenHtml(text.slice(offset, token.start));
       html += renderTokenHtml(text.slice(token.start, token.end), token, settings, miningInsightKeys);
       offset = token.end;
     }
     if (offset < text.length) html += escapeHtml(text.slice(offset));
     return html;
+  }
+  function plainTextBeforeTokenHtml(gap) {
+    const digits = TRAILING_DIGITS_RE.exec(gap)?.[0];
+    if (!digits) return escapeHtml(gap);
+    const prefix = gap.slice(0, gap.length - digits.length);
+    return `${escapeHtml(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml(digits)}</span>`;
   }
   function nonOverlappingTokens(tokens, textLength) {
     const safe = [];

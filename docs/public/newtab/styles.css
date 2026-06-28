@@ -5309,6 +5309,15 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   pointer-events: none;
 }
 
+/* Wraps a bare number that sits right before a reader word (e.g. the "7" in
+   "7件"). The trailing WORD JOINER welds the digits to the following token so the
+   number never wraps onto its own line, stranded from its counter. The joiner is
+   generated content, so it never enters textContent (copy, mining, re-scan all
+   read the clean source). */
+.jpdb-reader-number-bind::after {
+  content: "\2060";
+}
+
 /* Long annotated page text may wrap even when the host says nowrap. Passive
    controls and text mirrors keep their own atomic wrapping rules below so
    compact Japanese labels do not stack one character per line. */
