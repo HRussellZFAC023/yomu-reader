@@ -70090,11 +70090,7 @@ ${entry.url}`),
       void this.dependencies.parseContent?.(details, newTabShortParseOptions())?.catch(() => void 0);
     }
     renderWordStudyDetailsHtml(card, data) {
-      const sentence = sentenceForCard(card);
-      return [
-        this.dependencies.renderStudyDefinitionSources?.(card, data, sentence) ?? "",
-        this.renderWordStudyMiningPanel(card, data)
-      ].filter(Boolean).join("");
+      return this.renderWordStudyMiningPanel(card, data);
     }
     renderWordStudyMiningPanel(card, data) {
       const settings = this.dependencies.getSettings();

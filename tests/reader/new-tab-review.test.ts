@@ -417,7 +417,7 @@ function newTabBareController(
         rtk: {} as never,
         immersionKit: {} as never,
         jpdbReviewBridge: { onUpdate: () => () => {} } as never,
-        parser: {} as never,
+        parser: { isJpdbBackedCard: (card: JPDBCard) => card.source === 'jpdb' || card.reviewSource === 'jpdb-api' } as never,
         dictionaries: {} as never,
         onSettingsChange: vi.fn(),
         applyTheme: vi.fn(),
@@ -8478,6 +8478,7 @@ describe('new tab review helpers', () => {
             jitenVocabularyInfo: null,
         } as never));
         const renderStudyWordPills = vi.fn(() => '<div class="jpdb-reader-word-pills"><span>Freq Local 123</span></div>');
+        const renderStudyDefinitionSources = vi.fn(() => '<details class="jpdb-reader-local jpdb-reader-source-card" open><summary>Jiten</summary><p>duplicate lookup card</p></details>');
         const playWordAudio = vi.fn();
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
@@ -8489,6 +8490,7 @@ describe('new tab review helpers', () => {
         }, {
             loadCardRenderData,
             renderStudyWordPills,
+            renderStudyDefinitionSources,
             playWordAudio,
         });
         const root = renderSeededNewTabWord(controller, card, {
@@ -8505,7 +8507,9 @@ describe('new tab review helpers', () => {
             await waitForExpect(() => {
                 expect(loadCardRenderData).toHaveBeenCalledWith(card);
                 expect(renderStudyWordPills).toHaveBeenCalledWith(card, expect.any(Array), expect.objectContaining({ state: 'not-in-deck' }));
+                expect(renderStudyDefinitionSources).not.toHaveBeenCalled();
                 expect(root.querySelector('[data-newtab-answer-header]')?.textContent).toContain('Freq Local 123');
+                expect(root.querySelector('[data-newtab-answer] .jpdb-reader-source-card')).toBeNull();
             });
 
             root.querySelector<HTMLButtonElement>('[data-action="study-word-audio"]')?.click();

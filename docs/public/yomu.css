@@ -11473,6 +11473,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   .jpdb-subtitle-panel-nav button,
   .jpdb-subtitle-panel-placement button,
+  .jpdb-subtitle-jump-current,
   .jpdb-subtitle-row-copy {
     min-width: 44px;
     width: 44px;
