@@ -5,13 +5,13 @@
 ### Fixed
 
 - Published the Reddit Japanese locale fix after hardening the release OCR regression test against jsdom image-load timing.
+- Fixed BookWalker raster OCR rescans on real reader pages by auto-scanning canvas-only viewers, dropping poisoned empty raster cache entries, retrying transient empty captures, reporting OCR transport failures as failures, and releasing collapsed recycled canvases instead of leaving stale Text ready or No text found pills.
 
 ## [1.4.169] - 2026-06-28
 
 ### Fixed
 
 - Fixed the docs navbar overflow ("…") menu showing a stray "GitHub" text label next to both the GitHub and Discord icons. The social links are now rendered icon-only, as two separate, evenly spaced links.
-- Fixed BookWalker raster OCR rescans on real reader pages by auto-scanning canvas-only viewers, dropping poisoned empty raster cache entries, retrying transient empty captures, reporting OCR transport failures as failures, and releasing collapsed recycled canvases instead of leaving stale Text ready or No text found pills.
 
 ## [1.4.168] - 2026-06-28
 
