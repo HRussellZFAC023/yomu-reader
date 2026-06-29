@@ -38,8 +38,9 @@ const {
 } = createSmokePaths(import.meta.dirname);
 const SCRIPT_PATH = resolve(process.env.YOMU_YOUTUBE_FULLSCREEN_USERSCRIPT ?? DEFAULT_SCRIPT_PATH);
 const CSS_PATH = resolve(process.env.YOMU_YOUTUBE_FULLSCREEN_CSS ?? DEFAULT_CSS_PATH);
+const COMPANION_DIR = resolve(process.env.YOMU_YOUTUBE_FULLSCREEN_COMPANION_DIR ?? join(ROOT, 'dist', 'greasyfork'));
 const COMPANION_PATHS = ['yomu-anki.user.js', 'yomu-kanji-study.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
-    .map(name => join(ROOT, 'dist', 'greasyfork', name))
+    .map(name => join(COMPANION_DIR, name))
     .filter(existsSync);
 assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, ...COMPANION_PATHS], ROOT);
 mkdirSync(ARTIFACT_DIR, { recursive: true });

@@ -546,10 +546,24 @@ async function visibleOcrLines(page) {
         .map(line => {
             const rect = line.getBoundingClientRect();
             const style = getComputedStyle(line);
-            const pageNode = line.closest('.pdf-page');
+            const pages = [...document.querySelectorAll('.pdf-page')]
+                .map(pageNode => ({ pageNode, rect: pageNode.getBoundingClientRect() }))
+                .filter(page => page.rect.width > 0 && page.rect.height > 0);
+            const page = pages
+                .map(page => {
+                    const left = Math.max(rect.left, page.rect.left);
+                    const top = Math.max(rect.top, page.rect.top);
+                    const right = Math.min(rect.right, page.rect.right);
+                    const bottom = Math.min(rect.bottom, page.rect.bottom);
+                    return {
+                        number: page.pageNode.getAttribute('data-page-number') ?? '',
+                        overlap: Math.max(0, right - left) * Math.max(0, bottom - top),
+                    };
+                })
+                .sort((a, b) => b.overlap - a.overlap)[0];
             return {
                 text: (line.textContent || '').replace(/\s+/g, ''),
-                page: pageNode?.getAttribute('data-page-number') ?? '',
+                page: page?.overlap ? page.number : '',
                 top: Math.round(rect.top),
                 bottom: Math.round(rect.bottom),
                 width: Math.round(rect.width),
@@ -742,8 +756,10 @@ async function run() {
             await waitForScannedPageReady(page, 1);
             await waitForOcrText(page, OCR_PAGE_ONE_TEXT, 'page 1 scanned PDF OCR did not render');
             const pageOneState = await readState(page);
-            report.scannedPageOne = pageOneState;
+            const pageOneVisibleLines = await visibleOcrLines(page);
+            report.scannedPageOne = { ...pageOneState, pageOneVisibleLines };
             assert(pageOneState.ocrTextSample.includes(OCR_PAGE_ONE_TEXT), 'page 1 scanned OCR should show the page 1 result', pageOneState);
+            assert(pageOneVisibleLines.some(line => line.page === '1' && line.text.includes(OCR_PAGE_ONE_TEXT)), 'page 1 OCR line should be visibly anchored to page 1 before navigation', { pageOneVisibleLines, pageOneState });
 
             const pageTurnStart = Date.now();
             await page.waitForFunction(() => !document.querySelector('[data-next-page]')?.disabled, undefined, { timeout: 8000 })
@@ -764,14 +780,17 @@ async function run() {
             report.scannedPageTurn = { pageTurnMs, staleVisibleText, staleVisibleLines };
             assert(pageTurnMs < 8000, 'changing scanned PDF pages should stay responsive', { pageTurnMs });
             assert(!staleVisibleText.includes(OCR_PAGE_ONE_TEXT), 'page 1 OCR text should not remain visibly over page 2', { staleVisibleText, staleVisibleLines, nav: await readNavState(page) });
+            assert(staleVisibleLines.every(line => line.page === '2'), 'visible OCR after page navigation should be anchored to the newly visible PDF page', { staleVisibleLines, nav: await readNavState(page) });
 
             await waitForOcrText(page, OCR_PAGE_TWO_TEXT, 'page 2 scanned PDF OCR did not render');
             const pageTwoVisibleText = await visibleOcrText(page);
+            const pageTwoVisibleLines = await visibleOcrLines(page);
             const pageTwoState = await readState(page);
-            report.scannedPageTwo = { ...pageTwoState, pageTwoVisibleText };
+            report.scannedPageTwo = { ...pageTwoState, pageTwoVisibleText, pageTwoVisibleLines };
             assert(ocrPayloads.some(payload => payload.text === OCR_PAGE_TWO_TEXT), 'page 2 scanned OCR should make its own OCR request before or during the page change', { beforeOcr, ocrRequests, ocrPayloads, pageTwoState });
             assert(pageTwoVisibleText.includes(OCR_PAGE_TWO_TEXT), 'page 2 OCR should be visible after the new scan', { pageTwoVisibleText, pageTwoState });
             assert(!pageTwoVisibleText.includes(OCR_PAGE_ONE_TEXT), 'page 2 should not show stale page 1 OCR after rescanning', { pageTwoVisibleText, pageTwoState });
+            assert(pageTwoVisibleLines.some(line => line.page === '2' && line.text.includes(OCR_PAGE_TWO_TEXT)), 'page 2 OCR line should be visibly anchored to page 2 after navigation', { pageTwoVisibleLines, pageTwoState });
 
             const pageTwoBox = await page.locator('.pdf-page[data-page-number="2"]').evaluate(el => Math.round(el.getBoundingClientRect().width));
             const zoomStart = Date.now();

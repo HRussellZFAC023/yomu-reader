@@ -24,7 +24,7 @@ import {
     yomuStudySearchUrl,
     type GamingOcrResult,
 } from '../shared';
-import type { YomuGamingBridge, YomuGamingCaptureMode, YomuGamingCaptureSource, YomuGamingEnvironment, YomuGamingSelectionRect } from '../ipc';
+import type { YomuGamingBridge, YomuGamingCaptureMode, YomuGamingCaptureSource, YomuGamingEnvironment, YomuGamingOcrProvider, YomuGamingSelectionRect } from '../ipc';
 
 declare global {
     interface Window {
@@ -46,7 +46,6 @@ interface OverlayResult {
     terms: string[];
     lines?: OverlayLineResult[];
     error?: string;
-    fallback?: 'browser-ocr';
 }
 
 interface OverlayLineResult {
@@ -676,11 +675,11 @@ function applyGamingSettingsCopy(form: HTMLFormElement): void {
     }
     const ocrHelp = form.querySelector<HTMLElement>('#settings-help-ocr');
     if (ocrHelp) {
-        ocrHelp.textContent = 'Yomu Gaming starts with the same image-reading defaults as browser Yomu. Advanced local OCR is optional when you want fully in-place desktop targets.';
+        ocrHelp.textContent = 'Yomu Gaming reads captures with Google Lens by default. Advanced local OCR is optional when you want an offline endpoint.';
     }
     const localHelp = form.querySelector<HTMLElement>('[data-local-ocr][data-help-key="ocrLocalHelp"]');
     if (localHelp) {
-        localHelp.textContent = 'Advanced native overlay path: connect a compatible local OCR service only if you want offline in-place desktop OCR.';
+        localHelp.textContent = 'Advanced native path: connect a compatible local OCR service only when you want offline capture OCR.';
     }
 }
 
@@ -787,7 +786,7 @@ function captureShortcutHelpText(): string {
 
 function gamingOcrModeText(): string {
     if (!shellState.settings.ocrEnabled) return 'Image OCR off. Capture on demand.';
-    if (shellState.settings.ocrProvider === 'google-lens') return 'Browser image OCR default.';
+    if (shellState.settings.ocrProvider === 'google-lens') return 'Google Lens OCR default.';
     if (shellState.settings.ocrProvider === 'local-service') return 'Advanced in-place OCR.';
     if (shellState.settings.ocrProvider === 'cloud-vision') return 'Cloud Vision.';
     return shellState.settings.ocrAutoScanImages
@@ -901,7 +900,7 @@ class OverlaySelectionController {
         const mode = this.overlayMode();
         this.root.innerHTML = `
             <main class="overlay-shell" data-yomu-gaming-ready="true" data-yomu-gaming-overlay-ready="true" data-overlay-mode="${mode}" data-capture-mode="${this.captureMode}" data-overlay-busy="${this.busy}">
-                ${this.busy ? overlayStatusHtml(this.overlayInstruction()) : ''}
+                ${this.busy && this.captureMode === 'area' ? overlayStatusHtml(this.overlayInstruction()) : ''}
                 ${this.selection && !this.result ? overlaySelectionHtml(this.selection) : ''}
                 ${this.result ? overlayResultHtml(this.result, this.selection) : ''}
             </main>
@@ -991,25 +990,6 @@ class OverlaySelectionController {
             this.render();
             return;
         }
-        if (this.settings.ocrProvider !== 'local-service') {
-            this.busy = true;
-            this.result = null;
-            this.render();
-            try {
-                await this.gamingBridge.capturePrimaryScreen();
-                this.result = { text: '', terms: [], fallback: 'browser-ocr' };
-            } catch (error) {
-                this.result = {
-                    text: '',
-                    terms: [],
-                    error: error instanceof Error ? error.message : 'Capture failed.',
-                };
-            } finally {
-                this.busy = false;
-                this.render();
-            }
-            return;
-        }
         this.busy = true;
         this.result = null;
         this.render();
@@ -1017,7 +997,9 @@ class OverlaySelectionController {
             const capture = await this.gamingBridge.capturePrimaryScreen();
             const crop = await cropSelection(capture, selection ? scaleViewportSelection(selection, capture.size) : null);
             const response = await this.gamingBridge.requestOcr({
+                provider: gamingCaptureOcrProvider(this.settings.ocrProvider),
                 endpointUrl: this.settings.ocrEndpointUrl,
+                cloudVisionApiKey: this.settings.ocrCloudVisionApiKey,
                 imageDataUrl: crop.dataUrl,
                 width: crop.width,
                 height: crop.height,
@@ -1048,9 +1030,16 @@ class OverlaySelectionController {
 }
 
 function gamingOcrSetupError(settings: ReaderSettings): string {
+    if (!settings.ocrEnabled || settings.ocrProvider === 'off') return 'Turn on Image OCR in Settings.';
+    if (!gamingCaptureOcrProvider(settings.ocrProvider)) return 'Choose Google Lens, Cloud Vision, or local OCR in Settings.';
     if (settings.ocrProvider !== 'local-service') return '';
     if (!settings.ocrEndpointUrl.trim()) return 'Add an advanced local OCR server URL in Settings.';
     return '';
+}
+
+function gamingCaptureOcrProvider(provider: ReaderSettings['ocrProvider']): YomuGamingOcrProvider | undefined {
+    if (provider === 'google-lens' || provider === 'cloud-vision' || provider === 'local-service' || provider === 'off') return provider;
+    return undefined;
 }
 
 function overlayResultFromOcr(result: GamingOcrResult | null, viewportSelection: YomuGamingSelectionRect | null): OverlayResult {
@@ -1125,17 +1114,6 @@ function overlayStatusHtml(label: string): string {
 function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelectionRect | null): string {
     if (result.lines?.length) return overlayInlineResultHtml(result);
     const style = overlayResultStyle(selection);
-    if (result.fallback === 'browser-ocr') {
-        return `<section class="overlay-result" style="${style}" role="status">
-            <strong>Use Yomu image OCR</strong>
-            <p>Default capture uses the same image-reading route as browser Yomu. Turn on advanced in-place OCR in Settings when you want game text targets directly over the screen.</p>
-            <div class="overlay-actions">
-                <button type="button" data-action="overlay-open-ocr">Open OCR</button>
-                <button type="button" data-action="overlay-settings">Settings</button>
-                <button type="button" data-action="overlay-done">Close</button>
-            </div>
-        </section>`;
-    }
     if (result.error) {
         return `<section class="overlay-result" style="${style}" role="status">
             <strong>${escapeHtml(result.error)}</strong>

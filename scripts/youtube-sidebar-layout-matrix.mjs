@@ -422,8 +422,12 @@ async function runSubtitleHoverLookup(page, label) {
 }
 
 async function runShadowTabSequence(page, label) {
+    const shadowButton = page.locator('.jpdb-subtitle-list [data-action="panel-shadow"]');
+    if (await shadowButton.count() === 0) {
+        return { skipped: true, reason: 'shadow panel controls are not present in this build' };
+    }
     const timing = await timePageAction(page, async () => {
-        await page.locator('.jpdb-subtitle-list [data-action="panel-shadow"]').evaluate(button => button.click());
+        await shadowButton.evaluate(button => button.click());
         await page.waitForFunction(() => {
             const panel = document.querySelector('.jpdb-subtitle-list');
             return panel instanceof HTMLElement

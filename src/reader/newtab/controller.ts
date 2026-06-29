@@ -1999,11 +1999,21 @@ export class NewTabController {
 
     private handleStudyWordAudioAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
         const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest<HTMLButtonElement>('button');
-        const card = this.visibleWords[this.index];
+        const card = this.studyWordAudioCard(actionTarget);
         if (!button || !card) return false;
         consumeNestedLookupEvent(event);
         void this.dependencies.playWordAudio?.(card);
         return true;
+    }
+
+    private studyWordAudioCard(target: HTMLElement): JPDBCard | undefined {
+        const key = cleanNestedLookupValue(target.closest<HTMLElement>('[data-newtab-card]')?.dataset.newtabCard);
+        if (key) {
+            return this.allWords.find(card => this.cardMatchesSelectionKey(card, key))
+                ?? this.searchWordCardCache.get(key)
+                ?? this.visibleWords.find(card => this.cardMatchesSelectionKey(card, key));
+        }
+        return this.sourceCardForVisibleCard(this.visibleWords[this.index]);
     }
 
     private handleNestedAnkiMediaAudioAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
@@ -4708,7 +4718,7 @@ export class NewTabController {
                     dataset: { action: 'similar-word', expression: sourceCard.spelling, reading: sourceCard.reading },
                     title: `${this.text('lookUp')}: ${sourceCard.spelling}`,
                 }, this.renderPromptReaderWord(sourceCard, state, sourceCard.spelling)),
-                this.renderStudyWordAudioButton(),
+                this.renderStudyWordAudioButton(sourceCard),
             ),
             visibleReading ? el('span', { class: 'jpdb-reader-newtab-kanji-backing-reading', lang: 'ja' }, visibleReading) : null,
             meaning ? el('span', { class: 'jpdb-reader-newtab-kanji-backing-meaning' }, meaning) : null,
@@ -4856,13 +4866,13 @@ export class NewTabController {
 
     // The study-word audio control now lives inline next to the headword (see
     // renderSentencePrompt) instead of off to the side of the meta row.
-    private renderStudyWordAudioButton(): HTMLElement {
+    private renderStudyWordAudioButton(card?: JPDBCard): HTMLElement {
         const settings = this.dependencies.getSettings();
         const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled');
         const audioButton = el('button', {
             class: 'jpdb-reader-icon-btn jpdb-reader-audio-control jpdb-reader-newtab-term-audio',
             type: 'button',
-            dataset: { action: 'study-word-audio' },
+            dataset: { action: 'study-word-audio', ...(card ? { newtabCard: cardKey(card) } : {}) },
             'aria-label': audioTitle,
             title: audioTitle,
             disabled: !settings.audioEnabled,
@@ -4976,7 +4986,7 @@ export class NewTabController {
         const wrap = el('span', { class: 'jpdb-reader-newtab-front' },
             el('span', { class: 'jpdb-reader-newtab-term-row' },
                 el('span', { class: 'jpdb-reader-newtab-term' }, this.renderPromptReaderWord(card, state, sentence || card.spelling)),
-                this.renderStudyWordAudioButton(),
+                this.renderStudyWordAudioButton(card),
             ),
             this.renderWordPromptTools(card),
         );

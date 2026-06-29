@@ -542,7 +542,6 @@ function textTargetFromAcceptedNode(node: Node): TextTarget | null {
         parent,
         hasNativeRuby: Boolean(parent.closest('ruby')),
         suppressRuby,
-        nonDestructive: suppressRuby,
         proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
         layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text),
         passiveInteraction,
@@ -736,7 +735,6 @@ function fragmentTextTargetFrom(
         parent,
         fragments: trimmedFragments,
         suppressRuby,
-        nonDestructive: suppressRuby,
         proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
         layoutSensitive: trimmedFragments.some(fragment => fragment.layoutSensitive),
         passiveInteraction,
@@ -1876,7 +1874,7 @@ function compactPassiveInteractionRubyElement(parent: HTMLElement): HTMLElement 
     if (isVerticalWritingMode(style.writingMode)) return interaction;
     if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return interaction;
     if (isCompactInteractiveChromeContext(interaction)) return interaction;
-    return hasCompactInteractiveChromeGeometry(interaction) ? interaction : null;
+    return hasCompactInteractiveChromeGeometry(interaction) && hasUiBox(style) ? interaction : null;
 }
 
 function isCompactInteractiveChromeText(text: string): boolean {
@@ -3913,13 +3911,7 @@ function isReadableArticleHeading(element: HTMLElement, compactLength: number): 
 }
 
 function hasUiBox(style: CSSStyleDeclaration): boolean {
-    return [
-        style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack,
-        style.borderTopStyle !== 'none',
-        Number(style.borderTopWidth.replace('px', '')) > 0,
-        Number(style.borderBottomWidth.replace('px', '')) > 0,
-        Number.parseFloat(style.borderRadius) > 0,
-    ].some(Boolean);
+    return hasVisibleControlLinkBox(style) || Number.parseFloat(style.borderRadius) > 0;
 }
 
 function hasInlineControlShape(display: string): boolean {
@@ -4050,9 +4042,13 @@ function hasControlLinkDisplay(display: string): boolean {
 }
 
 function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
-    return style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack
-        || style.borderTopStyle !== 'none'
-        || style.borderBottomStyle !== 'none';
+    return Boolean(style.backgroundColor && style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack)
+        || hasVisibleBorderSide(style.borderTopStyle, style.borderTopWidth)
+        || hasVisibleBorderSide(style.borderBottomStyle, style.borderBottomWidth);
+}
+
+function hasVisibleBorderSide(style: string, width: string): boolean {
+    return Boolean(style && style !== 'none' && style !== 'hidden' && cssPixels(width) > 0);
 }
 
 // Late-clamp reconciliation for explicit rich-reader surfaces. Most generic

@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.224] - 2026-06-29
+
+### Fixed
+
+- Stabilized Yomu Video on YouTube and embedded demos: fullscreen now rehosts subtitles and controls immediately on desktop, iPad, and phone; the sidebar no longer stretches the player or leaves the control rail stuck; and subtitle settings stay open while sliders and toggles are used.
+- Kept YouTube subtitle sizing more consistent across short and long captions, hid subtitle overlays once the video has scrolled out of view, and made the subtitle panel's current-line tracking and jump-back behavior less fragile.
+- Fixed Study/newtab audio replay and reverse-side context so word/kanji backing audio uses the right card, repeated speaker clicks play reliably, and furigana, pitch, and frequency details stay available without the extra lookup card clutter.
+- Hardened generic page scanning around compact controls and app chrome so search boxes, Discord-style names, Wikibooks controls, BookWalker galleries, and composer help text stay readable and do not get pushed out by ruby or highlights.
+- Rechecked BookWalker and Yomu PDF smoke coverage for spread/continuous manga modes, stale OCR prevention, text-backed PDFs, and scanned PDFs using readable OCR targets instead of dense unreadable PDF text overlays.
+- Made Yomu Gaming's first-party desktop app default to browser image OCR, open as a full-size Yomu settings experience, and ship through the release workflow with Linux AppImage, Windows portable, and macOS zip artifacts.
+
 ## [1.4.223] - 2026-06-29
 
 ### Fixed

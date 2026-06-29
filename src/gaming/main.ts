@@ -1,15 +1,14 @@
-import { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, nativeImage, screen, shell } from 'electron';
+import { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, nativeImage, screen, shell, type BrowserWindowConstructorOptions } from 'electron';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { requestGamingOcr } from './ocr';
 import {
     YOMU_GAMING_CHANNELS,
     type YomuGamingCaptureMode,
     type YomuGamingCaptureRequest,
     type YomuGamingCaptureSource,
     type YomuGamingEnvironment,
-    type YomuGamingOcrRequest,
-    type YomuGamingOcrResponse,
     type YomuGamingSettingsSnapshot,
     type YomuGamingSettingsSyncMetadata,
 } from './ipc';
@@ -18,7 +17,6 @@ const DEFAULT_HOTKEY = 'CommandOrControl+Shift+Y';
 const APP_NAME = 'Yomu Gaming';
 const DEFAULT_CAPTURE_WIDTH = 1920;
 const DEFAULT_CAPTURE_HEIGHT = 1080;
-const OCR_TIMEOUT_MS = 18_000;
 const ALLOWED_EXTERNAL_HOSTS = new Set(['yomureader.com', 'jpdb.io', 'jiten.moe']);
 const SETTINGS_SYNC_FILE_NAME = 'settings-sync-v1.json';
 const CAPTURE_SHORTCUT_FILE_NAME = 'capture-shortcut-v1.json';
@@ -87,14 +85,16 @@ function overlayModeFromHash(hash: string): YomuGamingCaptureMode | '' {
 }
 
 async function createMainWindow(): Promise<void> {
+    const options = mainWindowOptions();
     mainWindow = new BrowserWindow({
-        width: 1080,
-        height: 760,
+        ...options,
         minWidth: 640,
         minHeight: 520,
         title: APP_NAME,
         icon: appIconPath(),
         backgroundColor: '#fbfcfe',
+        autoHideMenuBar: true,
+        show: false,
         alwaysOnTop: false,
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
@@ -103,10 +103,25 @@ async function createMainWindow(): Promise<void> {
             sandbox: false,
         },
     });
-    mainWindow.on('closed', () => {
+    const window = mainWindow;
+    window.once('ready-to-show', () => {
+        if (!window.isDestroyed()) window.show();
+    });
+    window.on('closed', () => {
         mainWindow = null;
     });
-    await mainWindow.loadURL(rendererUrl());
+    await window.loadURL(rendererUrl());
+    if (!window.isDestroyed() && !window.isVisible()) window.show();
+}
+
+function mainWindowOptions(): Pick<BrowserWindowConstructorOptions, 'x' | 'y' | 'width' | 'height'> {
+    const workArea = screen.getPrimaryDisplay().workArea;
+    return {
+        x: workArea.x,
+        y: workArea.y,
+        width: Math.max(640, workArea.width),
+        height: Math.max(520, workArea.height),
+    };
 }
 
 async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<BrowserWindow> {
@@ -191,7 +206,7 @@ function registerIpcHandlers(): void {
     ipcMain.handle(YOMU_GAMING_CHANNELS.captureSource, (_event, request: YomuGamingCaptureRequest) =>
         captureSource(request.sourceId, request.width ?? DEFAULT_CAPTURE_WIDTH, request.height ?? DEFAULT_CAPTURE_HEIGHT));
     ipcMain.handle(YOMU_GAMING_CHANNELS.capturePrimaryScreen, () => capturePrimaryScreen());
-    ipcMain.handle(YOMU_GAMING_CHANNELS.requestOcr, (_event, request: YomuGamingOcrRequest) => requestOcr(request));
+    ipcMain.handle(YOMU_GAMING_CHANNELS.requestOcr, (_event, request) => requestGamingOcr(request));
     ipcMain.handle(YOMU_GAMING_CHANNELS.showOverlay, (_event, mode: unknown) => showOverlay(normalizeCaptureMode(mode)));
     ipcMain.handle(YOMU_GAMING_CHANNELS.hideOverlay, () => hideOverlay());
     ipcMain.handle(YOMU_GAMING_CHANNELS.completeOverlayCapture, (_event, capture: YomuGamingCaptureSource) => {
@@ -289,53 +304,6 @@ function overlayHash(mode: YomuGamingCaptureMode): string {
 
 function normalizeCaptureMode(value: unknown): YomuGamingCaptureMode {
     return value === 'area' ? 'area' : 'instant';
-}
-
-async function requestOcr(request: YomuGamingOcrRequest): Promise<YomuGamingOcrResponse> {
-    const endpointUrl = request.endpointUrl.trim();
-    if (!endpointUrl) return { ok: false, status: 0, body: null, error: 'OCR endpoint URL is empty.' };
-    try {
-        const url = new URL(endpointUrl);
-        if (!['http:', 'https:'].includes(url.protocol)) throw new Error('OCR endpoint must be HTTP or HTTPS.');
-        const base64 = request.imageDataUrl.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, '');
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), OCR_TIMEOUT_MS);
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-                id: `yomu-gaming-${Date.now()}`,
-                language_code: request.language || 'ja-JP',
-                language: {
-                    bcp47_tag: request.language || 'ja-JP',
-                    two_letter_code: (request.language || 'ja').slice(0, 2),
-                },
-                base64_image: base64,
-                image: base64,
-                image_bytes: base64,
-                ocr_engine: request.engine === 'auto' ? '' : request.engine,
-                ocr_adapter_name: request.engine === 'auto' ? '' : request.engine,
-                detection_only: false,
-                context_resolution: { width: request.width, height: request.height },
-            }),
-            signal: controller.signal,
-        }).finally(() => clearTimeout(timeoutId));
-        const text = await response.text();
-        const body = text ? parseJsonOrText(text) : null;
-        return response.ok
-            ? { ok: true, status: response.status, body }
-            : { ok: false, status: response.status, body, error: `OCR endpoint returned ${response.status}.` };
-    } catch (error) {
-        return { ok: false, status: 0, body: null, error: error instanceof Error ? error.message : 'OCR request failed.' };
-    }
-}
-
-function parseJsonOrText(text: string): unknown {
-    try {
-        return JSON.parse(text);
-    } catch {
-        return { text };
-    }
 }
 
 async function openAllowedExternalUrl(value: string): Promise<void> {

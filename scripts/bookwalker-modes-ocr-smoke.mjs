@@ -104,11 +104,12 @@ html,body{margin:0;background:#111;height:100%;overflow:hidden}
 #viewport0{left:28px}#viewport1{left:462px}
 canvas{display:block;width:410px;height:580px;background:#fff}
 #pageSliderCounter{position:fixed;right:24px;bottom:16px;color:white}
+${settingsPopoverCss()}
 </style></head><body>
 <div id="viewer"><div id="renderer">
   <div id="viewport0" class="viewport currentScreen"><canvas id="left" width="800" height="1130"></canvas></div>
   <div id="viewport1" class="viewport"><canvas id="right" width="800" height="1130"></canvas></div>
-</div></div><span id="pageSliderCounter">13 / 195</span>
+</div></div>${settingsPopoverHtml()}<span id="pageSliderCounter">13 / 195</span>
 <script>${drawScript()}</script></body></html>`;
 }
 
@@ -121,13 +122,32 @@ html,body{margin:0;background:#111;min-height:3900px}
 #viewport0{top:0}#viewport1{top:1260px}#viewport2{top:2520px}
 canvas{display:block;width:760px;height:1074px;background:#fff}
 #pageSliderCounter{position:fixed;right:24px;bottom:16px;color:white}
+${settingsPopoverCss()}
 </style></head><body>
 <div id="viewer"><div id="renderer">
   <div id="viewport0" class="viewport currentScreen"><canvas id="p0" width="800" height="1130"></canvas></div>
   <div id="viewport1" class="viewport"><canvas id="p1" width="800" height="1130"></canvas></div>
   <div id="viewport2" class="viewport"><canvas id="p2" width="800" height="1130"></canvas></div>
-</div></div><span id="pageSliderCounter">13 / 195</span>
+</div></div>${settingsPopoverHtml()}<span id="pageSliderCounter">13 / 195</span>
 <script>${drawScript()}</script></body></html>`;
+}
+
+function settingsPopoverCss() {
+    return `
+.bookwalker-settings-popover{position:fixed;left:14px;bottom:48px;z-index:20;width:238px;padding:10px;background:#f9f6ef;color:#221b14;border:1px solid #8a7a68;border-radius:8px;font:14px/1.35 system-ui,sans-serif}
+.bookwalker-settings-title{margin:0 0 6px;font-weight:700}
+.bookwalker-settings-row{display:flex;align-items:center;justify-content:space-between;gap:10px;height:28px;line-height:26px;white-space:nowrap;overflow:hidden}
+.bookwalker-settings-row button{height:24px;min-width:34px;padding:0 8px;border:1px solid #8a7a68;border-radius:4px;background:#fff;color:#221b14}
+`;
+}
+
+function settingsPopoverHtml() {
+    return `<aside class="bookwalker-settings-popover" data-bookwalker-settings-popover>
+  <p class="bookwalker-settings-title" data-bookwalker-menu-label>表示設定</p>
+  <div class="bookwalker-settings-row" data-bookwalker-menu-label><span>ページ移動方向</span><button type="button">横</button><button type="button">縦</button></div>
+  <div class="bookwalker-settings-row" data-bookwalker-menu-label><span>タップ設定</span><button type="button">左</button><button type="button">右</button></div>
+  <div class="bookwalker-settings-row" data-bookwalker-menu-label><span>見開き表示</span><button type="button">自動</button></div>
+</aside>`;
 }
 
 function drawScript() {
@@ -170,6 +190,19 @@ window.__yomuOcrReadiness = () => {
     frames: document.querySelectorAll('.jpdb-ocr-canvas-frame, .jpdb-ocr-background-frame').length,
     lines: document.querySelectorAll('.jpdb-ocr-line').length,
     statuses,
+  };
+};
+window.__yomuSettingsChromeState = () => {
+  const root = document.querySelector('[data-bookwalker-settings-popover]');
+  const labels = Array.from(root?.querySelectorAll('[data-bookwalker-menu-label]') || []);
+  const overflowedLabels = labels.filter(element => element.scrollHeight > element.clientHeight + 2 || element.scrollWidth > element.clientWidth + 2);
+  return {
+    exists: Boolean(root),
+    words: root?.querySelectorAll('.jpdb-reader-word').length || 0,
+    ruby: root?.querySelectorAll('ruby,rt,.jpdb-reader-furi').length || 0,
+    mirrors: root?.querySelectorAll('.jpdb-reader-text-mirror').length || 0,
+    overflowedLabels: overflowedLabels.length,
+    text: (root?.textContent || '').replace(/\\s+/g, ''),
   };
 };`;
 }
@@ -290,6 +323,12 @@ async function runCase(engineName, mode) {
             center,
         };
     });
+    const settingsChrome = await page.evaluate(() => window.__yomuSettingsChromeState());
+    const settingsChromeClean = settingsChrome.exists
+        && settingsChrome.words === 0
+        && settingsChrome.ruby === 0
+        && settingsChrome.mirrors === 0
+        && settingsChrome.overflowedLabels === 0;
     const statusCount = finalReadiness.status;
     const readyStatusCount = finalReadiness.readyStatus;
     const frameCount = finalReadiness.frames;
@@ -300,11 +339,11 @@ async function runCase(engineName, mode) {
     frameSeen ||= frameCount >= 1;
     const videoPath = await closeContextWithVideo(context, video, `${engineName}-${mode}.webm`);
     await browser.close();
-    const ok = overlayMs >= 0 && ocrHits === 1 && statusSeen && readyStatusCount >= 1 && frameSeen && lineCount >= 1 && wordHitGeometry.ok && frameSurvived && removals === 0;
+    const ok = overlayMs >= 0 && ocrHits === 1 && statusSeen && readyStatusCount >= 1 && frameSeen && lineCount >= 1 && wordHitGeometry.ok && frameSurvived && removals === 0 && settingsChromeClean;
     const statusChanges = compressTimeline(timeline);
-    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — overlay ${overlayMs >= 0 ? overlayMs + 'ms' : 'NEVER'}, ocrHits=${ocrHits}, statusSeen=${statusSeen}, finalReadyStatus=${readyStatusCount}, finalStatus=${statusCount}, frameSeen=${frameSeen}, finalFrames=${frameCount}, lines=${lineCount}, wordGeometry=${wordHitGeometry.ok}, frameSurvived=${frameSurvived}, removals=${removals}`);
+    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — overlay ${overlayMs >= 0 ? overlayMs + 'ms' : 'NEVER'}, ocrHits=${ocrHits}, statusSeen=${statusSeen}, finalReadyStatus=${readyStatusCount}, finalStatus=${statusCount}, frameSeen=${frameSeen}, finalFrames=${frameCount}, lines=${lineCount}, wordGeometry=${wordHitGeometry.ok}, frameSurvived=${frameSurvived}, removals=${removals}, settingsChromeClean=${settingsChromeClean}`);
     console.log(`  status timeline: ${statusChanges.map(item => `${item.t}ms:${item.phase}:${item.summary}`).join(' | ') || 'empty'}`);
-    rows.push({ label, ok, overlayMs, ocrHits, statusSeen, statusCount, readyStatusCount, frameSeen, frameCount, lineCount, wordHitGeometry, frameSurvived, removals, screenshot, video: videoPath, timeline });
+    rows.push({ label, ok, overlayMs, ocrHits, statusSeen, statusCount, readyStatusCount, frameSeen, frameCount, lineCount, wordHitGeometry, frameSurvived, removals, settingsChrome, screenshot, video: videoPath, timeline });
     if (!ok) failures.push(label);
 }
 

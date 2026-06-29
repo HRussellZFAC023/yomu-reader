@@ -54,6 +54,7 @@ try {
     await page.waitForSelector('.yomu-gaming-shell[data-yomu-gaming-ready="true"]', { timeout: 45_000 });
     await page.waitForSelector('.yomu-gaming-controlbar', { timeout: 45_000 });
     await page.waitForSelector('.jpdb-reader-settings[data-yomu-gaming-settings]', { timeout: 45_000 });
+    await assertNativeWindowSize(page);
     step('verify capture onboarding');
     await notePendingCaptureOnboarding(page);
     await assertDefaultOcrPath(page);
@@ -288,7 +289,7 @@ async function notePendingCaptureOnboarding(page) {
     await onboarding.first().locator('[data-action="test-capture-overlay"]').waitFor({ timeout: 10_000 });
     await onboarding.first().locator('[data-action="start-overlay"]').waitFor({ timeout: 10_000 });
     const copy = await onboarding.first().innerText();
-    for (const expected of ['Capture shortcut', 'Page scanning', 'Off', 'Auto', 'Manual', 'Scan modifier key', 'Image OCR', 'Page text', 'Read game text with Yomu', 'Text', 'Images', 'Video', 'Control', 'Study', 'Game', 'Install the Yomu app to use in games or anywhere on the PC']) {
+    for (const expected of ['Capture shortcut', 'Page scanning', 'Off', 'Auto', 'Manual', 'Scan modifier key', 'Image OCR', 'Google Lens OCR default', 'Page text', 'Read game text with Yomu', 'Text', 'Images', 'Video', 'Control', 'Study', 'Game', 'Install the Yomu app to use in games or anywhere on the PC']) {
         if (!copy.includes(expected)) throw new Error(`Yomu Gaming onboarding is missing "${expected}": ${copy}`);
     }
     if (/Local OCR|endpoint|127\.0\.0\.1/i.test(copy)) throw new Error(`Yomu Gaming first-run still exposes advanced OCR setup: ${copy}`);
@@ -299,6 +300,20 @@ async function assertGamingWindowIdentity(page) {
     const title = await page.title();
     if (title !== 'Yomu Gaming') {
         throw new Error(`Yomu Gaming window title was not branded correctly: ${title}`);
+    }
+}
+
+async function assertNativeWindowSize(page) {
+    const size = await page.evaluate(() => ({
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight,
+        shellWidth: document.querySelector('.yomu-gaming-shell')?.getBoundingClientRect().width ?? 0,
+    }));
+    if (size.innerWidth < 900 || size.innerHeight < 600) {
+        throw new Error(`Yomu Gaming did not open as a full-size native window: ${JSON.stringify(size)}`);
+    }
+    if (size.shellWidth < size.innerWidth - 2) {
+        throw new Error(`Yomu Gaming shell did not fill the native window: ${JSON.stringify(size)}`);
     }
 }
 

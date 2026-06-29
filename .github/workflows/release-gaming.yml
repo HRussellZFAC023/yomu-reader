@@ -52,6 +52,15 @@ jobs:
       - name: Build Yomu Gaming
         run: npm run build:gaming
 
+      - name: Smoke Yomu Gaming
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            xvfb-run -a node scripts/gaming-app-smoke.mjs
+          else
+            node scripts/gaming-app-smoke.mjs
+          fi
+
       - name: Package Yomu Gaming
         run: node scripts/package-gaming-electron.mjs --platform=${{ matrix.platform }} --arch=${{ matrix.arch }} --target=${{ matrix.target }}
 

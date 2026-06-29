@@ -7468,7 +7468,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       parent,
       fragments: trimmedFragments,
       suppressRuby,
-      nonDestructive: suppressRuby,
       proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
       layoutSensitive: trimmedFragments.some((fragment2) => fragment2.layoutSensitive),
       passiveInteraction
@@ -8298,7 +8297,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (isVerticalWritingMode(style.writingMode)) return interaction;
     if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return interaction;
     if (isCompactInteractiveChromeContext(interaction)) return interaction;
-    return hasCompactInteractiveChromeGeometry(interaction) ? interaction : null;
+    return hasCompactInteractiveChromeGeometry(interaction) && hasUiBox(style) ? interaction : null;
   }
   function isCompactInteractiveChromeText(text2) {
     const length = compactLength(text2);
@@ -9678,6 +9677,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (compactLength(text2) < 8) return false;
     return isLikelyProseElement(element) && Boolean(element.closest('article, main, [role="main"]'));
   }
+  function hasUiBox(style) {
+    return hasVisibleControlLinkBox(style) || Number.parseFloat(style.borderRadius) > 0;
+  }
   function hasInlineControlShape(display) {
     return display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
   }
@@ -9774,7 +9776,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return display.includes("flex") || display.includes("grid") || display === "inline-block";
   }
   function hasVisibleControlLinkBox(style) {
-    return style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack || style.borderTopStyle !== "none" || style.borderBottomStyle !== "none";
+    return Boolean(style.backgroundColor && style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack) || hasVisibleBorderSide(style.borderTopStyle, style.borderTopWidth) || hasVisibleBorderSide(style.borderBottomStyle, style.borderBottomWidth);
+  }
+  function hasVisibleBorderSide(style, width) {
+    return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
   }
   const POS_LABELS = {
     adj: "adjective",
@@ -25553,7 +25558,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.223".trim() ? "1.4.223".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.224".trim() ? "1.4.224".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -43860,6 +43865,18 @@ ${spelling}`);
     "--jpdb-subtitle-youtube-stable-player-width",
     "--jpdb-subtitle-youtube-stable-player-height"
   ];
+  const YOUTUBE_FULLSCREEN_HOST_SELECTOR = [
+    '[data-yomu-inline-fullscreen="true"]',
+    ".html5-video-player.ytp-fullscreen",
+    ".html5-video-player.fullscreen",
+    "#movie_player.ytp-fullscreen",
+    "#movie_player.fullscreen",
+    "ytd-watch-flexy[fullscreen] #movie_player",
+    "ytd-watch-flexy[fullscreen] ytd-player",
+    "ytm-player[fullscreen]",
+    "ytm-player.fullscreen",
+    "ytm-player.ytp-fullscreen"
+  ].join(",");
   const ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR = ".asbplayer-subtitles-container-bottom";
   const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = `.asbplayer-offscreen, ${ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR}`;
   const ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR = '[data-yomu-asb-subtitle-drag-handle="true"]';
@@ -43957,26 +43974,19 @@ ${spelling}`);
   }
   function youtubeFullscreenHostForVideo(video) {
     if (!isYouTubePage()) return null;
-    const scopedHost = [
-      video?.closest('[data-yomu-inline-fullscreen="true"]'),
-      video?.closest(".html5-video-player.ytp-fullscreen"),
-      video?.closest("#movie_player.ytp-fullscreen"),
-      video?.closest("ytd-watch-flexy[fullscreen] #movie_player"),
-      video?.closest("ytd-watch-flexy[fullscreen] ytd-player"),
-      video?.closest("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
-    ].find((element) => Boolean(element));
+    const scopedHost = video?.closest(YOUTUBE_FULLSCREEN_HOST_SELECTOR);
     if (scopedHost) return scopedHost;
-    return [
-      document.querySelector('[data-yomu-inline-fullscreen="true"]'),
-      document.querySelector(".html5-video-player.ytp-fullscreen"),
-      document.querySelector("#movie_player.ytp-fullscreen"),
-      document.querySelector("ytd-watch-flexy[fullscreen] #movie_player"),
-      document.querySelector("ytd-watch-flexy[fullscreen] ytd-player"),
-      document.querySelector("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
-    ].find((element) => elementContainsVideo(element, video) || isYouTubeMobileFullscreenHost(element)) ?? null;
+    return Array.from(document.querySelectorAll(YOUTUBE_FULLSCREEN_HOST_SELECTOR)).find((element) => elementContainsVideo(element, video) || isYouTubeMobileFullscreenHost(element) || isVisibleYouTubeFullscreenHost(element)) ?? null;
   }
   function isYouTubeMobileFullscreenHost(element) {
     return Boolean(element && /^m\.youtube\.com$/i.test(location.hostname) && element.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen"));
+  }
+  function isVisibleYouTubeFullscreenHost(element) {
+    if (!element) return false;
+    const rect = element.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
+    return rect.width >= viewportWidth / 2 && rect.height >= viewportHeight / 2 && rect.left <= viewportWidth / 4 && rect.top <= viewportHeight / 4 && Boolean(element.querySelector("video"));
   }
   function subtitleMinimumFontSize(root) {
     const rootRect = root.getBoundingClientRect();
@@ -46121,7 +46131,7 @@ ${spelling}`);
       this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
       const primary = this.subtitleEl.querySelector(".jpdb-subtitle-primary");
       if (!primary) return;
-      const minimum = Math.max(subtitleMinimumFontSize(this.root), Math.round(target * 0.82));
+      const minimum = Math.max(subtitleMinimumFontSize(this.root), Math.round(target * 0.9));
       fitted = this.fitPrimarySubtitleFontSize(fitted, minimum);
       this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
     }
@@ -68370,11 +68380,18 @@ ${entry.url}`),
     }
     handleStudyWordAudioAction(actionTarget, event) {
       const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest("button");
-      const card = this.visibleWords[this.index];
+      const card = this.studyWordAudioCard(actionTarget);
       if (!button || !card) return false;
       consumeNestedLookupEvent(event);
       void this.dependencies.playWordAudio?.(card);
       return true;
+    }
+    studyWordAudioCard(target) {
+      const key = cleanNestedLookupValue(target.closest("[data-newtab-card]")?.dataset.newtabCard);
+      if (key) {
+        return this.allWords.find((card) => this.cardMatchesSelectionKey(card, key)) ?? this.searchWordCardCache.get(key) ?? this.visibleWords.find((card) => this.cardMatchesSelectionKey(card, key));
+      }
+      return this.sourceCardForVisibleCard(this.visibleWords[this.index]);
     }
     handleNestedAnkiMediaAudioAction(actionTarget, event) {
       const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest("button");
@@ -70600,7 +70617,7 @@ ${entry.url}`),
             dataset: { action: "similar-word", expression: sourceCard.spelling, reading: sourceCard.reading },
             title: `${this.text("lookUp")}: ${sourceCard.spelling}`
           }, this.renderPromptReaderWord(sourceCard, state2, sourceCard.spelling)),
-          this.renderStudyWordAudioButton()
+          this.renderStudyWordAudioButton(sourceCard)
         ),
         visibleReading ? el("span", { class: "jpdb-reader-newtab-kanji-backing-reading", lang: "ja" }, visibleReading) : null,
         meaning ? el("span", { class: "jpdb-reader-newtab-kanji-backing-meaning" }, meaning) : null
@@ -70742,13 +70759,13 @@ ${entry.url}`),
     }
     // The study-word audio control now lives inline next to the headword (see
     // renderSentencePrompt) instead of off to the side of the meta row.
-    renderStudyWordAudioButton() {
+    renderStudyWordAudioButton(card) {
       const settings = this.dependencies.getSettings();
       const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled");
       const audioButton = el("button", {
         class: "jpdb-reader-icon-btn jpdb-reader-audio-control jpdb-reader-newtab-term-audio",
         type: "button",
-        dataset: { action: "study-word-audio" },
+        dataset: { action: "study-word-audio", ...card ? { newtabCard: cardKey(card) } : {} },
         "aria-label": audioTitle,
         title: audioTitle,
         disabled: !settings.audioEnabled
@@ -70838,7 +70855,7 @@ ${entry.url}`),
           "span",
           { class: "jpdb-reader-newtab-term-row" },
           el("span", { class: "jpdb-reader-newtab-term" }, this.renderPromptReaderWord(card, state2, sentence || card.spelling)),
-          this.renderStudyWordAudioButton()
+          this.renderStudyWordAudioButton(card)
         ),
         this.renderWordPromptTools(card)
       );

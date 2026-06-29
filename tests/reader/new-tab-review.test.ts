@@ -8545,8 +8545,12 @@ describe('new tab review helpers', () => {
             });
 
             // Audio sits inline next to the headword (term row), not in the meta row.
-            root.querySelector<HTMLButtonElement>('.jpdb-reader-newtab-term-row [data-action="study-word-audio"]')?.click();
-            expect(playWordAudio).toHaveBeenCalledWith(card);
+            const speaker = root.querySelector<HTMLButtonElement>('.jpdb-reader-newtab-term-row [data-action="study-word-audio"]');
+            speaker?.click();
+            speaker?.click();
+            expect(playWordAudio).toHaveBeenCalledTimes(2);
+            expect(playWordAudio).toHaveBeenNthCalledWith(1, card);
+            expect(playWordAudio).toHaveBeenNthCalledWith(2, card);
         } finally {
             root.remove();
         }
@@ -10523,7 +10527,10 @@ describe('new tab review helpers', () => {
         expect(button).not.toBeNull();
         expect(internals.searchWordCardCache.get(cardKey(renderedCard))).toBe(renderedCard);
         expect(internals.handleSearchWordAudioAction(button as HTMLButtonElement, new MouseEvent('click'))).toBe(true);
-        expect(playWordAudio).toHaveBeenCalledWith(renderedCard);
+        expect(internals.handleSearchWordAudioAction(button as HTMLButtonElement, new MouseEvent('click'))).toBe(true);
+        expect(playWordAudio).toHaveBeenCalledTimes(2);
+        expect(playWordAudio).toHaveBeenNthCalledWith(1, renderedCard);
+        expect(playWordAudio).toHaveBeenNthCalledWith(2, renderedCard);
         expect(playWordAudio).not.toHaveBeenCalledWith(staleJpdbCard);
         expect(playJpdbExampleAudio).not.toHaveBeenCalled();
     });
@@ -14648,13 +14655,17 @@ describe('new tab review helpers', () => {
             jitenWordId: 2701,
             jitenReadingIndex: 0,
         };
-        const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, immersionKitEnabled: false, kanjiImmersionKitEnabled: false }));
+        const playWordAudio = vi.fn();
+        const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, immersionKitEnabled: false, kanjiImmersionKitEnabled: false }), {
+            playWordAudio,
+        });
         const root = renderEnabledNewTabRoot(controller);
         const internals = controller as unknown as {
             allWords: JPDBCard[];
             visibleWords: JPDBCard[];
             sourceLabel: string;
             state: { mode: string; revealAnswer: boolean };
+            bindRootEvents(root: HTMLElement): void;
             kanjiStudyCardFromSourceCard(card: JPDBCard, kanji: string): JPDBCard;
             renderWord(root: HTMLElement, card: JPDBCard): void;
         };
@@ -14667,6 +14678,7 @@ describe('new tab review helpers', () => {
         });
 
         internals.renderWord(root, kanjiCard);
+        internals.bindRootEvents(root);
 
         const backingWord = root.querySelector<HTMLElement>('[data-newtab-kanji-backing-word]');
         expect(backingWord?.textContent).toContain('図鑑');
@@ -14674,7 +14686,11 @@ describe('new tab review helpers', () => {
         expect(backingWord?.textContent).toContain('picture book; field guide');
         expect(backingWord?.querySelector('.jpdb-reader-word')?.textContent).toContain('図鑑');
         expect(backingWord?.querySelector('.jpdb-reader-word rt')?.textContent).toContain('ずかん');
-        expect(backingWord?.querySelector('[data-action="study-word-audio"]')).toBeTruthy();
+        const speaker = backingWord?.querySelector<HTMLButtonElement>('[data-action="study-word-audio"]');
+        expect(speaker).toBeTruthy();
+        speaker?.click();
+        expect(playWordAudio).toHaveBeenCalledWith(card);
+        expect(playWordAudio).not.toHaveBeenCalledWith(kanjiCard);
     });
 
     it('does not recheck an empty dictionary source on a later new-tab render', async () => {

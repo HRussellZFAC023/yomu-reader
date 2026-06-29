@@ -15444,6 +15444,18 @@ ${spelling}`);
     "--jpdb-subtitle-youtube-stable-player-width",
     "--jpdb-subtitle-youtube-stable-player-height"
   ];
+  const YOUTUBE_FULLSCREEN_HOST_SELECTOR = [
+    '[data-yomu-inline-fullscreen="true"]',
+    ".html5-video-player.ytp-fullscreen",
+    ".html5-video-player.fullscreen",
+    "#movie_player.ytp-fullscreen",
+    "#movie_player.fullscreen",
+    "ytd-watch-flexy[fullscreen] #movie_player",
+    "ytd-watch-flexy[fullscreen] ytd-player",
+    "ytm-player[fullscreen]",
+    "ytm-player.fullscreen",
+    "ytm-player.ytp-fullscreen"
+  ].join(",");
   const ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR = ".asbplayer-subtitles-container-bottom";
   const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = `.asbplayer-offscreen, ${ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR}`;
   const ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR = '[data-yomu-asb-subtitle-drag-handle="true"]';
@@ -15541,26 +15553,19 @@ ${spelling}`);
   }
   function youtubeFullscreenHostForVideo(video) {
     if (!isYouTubePage()) return null;
-    const scopedHost = [
-      video?.closest('[data-yomu-inline-fullscreen="true"]'),
-      video?.closest(".html5-video-player.ytp-fullscreen"),
-      video?.closest("#movie_player.ytp-fullscreen"),
-      video?.closest("ytd-watch-flexy[fullscreen] #movie_player"),
-      video?.closest("ytd-watch-flexy[fullscreen] ytd-player"),
-      video?.closest("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
-    ].find((element) => Boolean(element));
+    const scopedHost = video?.closest(YOUTUBE_FULLSCREEN_HOST_SELECTOR);
     if (scopedHost) return scopedHost;
-    return [
-      document.querySelector('[data-yomu-inline-fullscreen="true"]'),
-      document.querySelector(".html5-video-player.ytp-fullscreen"),
-      document.querySelector("#movie_player.ytp-fullscreen"),
-      document.querySelector("ytd-watch-flexy[fullscreen] #movie_player"),
-      document.querySelector("ytd-watch-flexy[fullscreen] ytd-player"),
-      document.querySelector("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
-    ].find((element) => elementContainsVideo(element, video) || isYouTubeMobileFullscreenHost(element)) ?? null;
+    return Array.from(document.querySelectorAll(YOUTUBE_FULLSCREEN_HOST_SELECTOR)).find((element) => elementContainsVideo(element, video) || isYouTubeMobileFullscreenHost(element) || isVisibleYouTubeFullscreenHost(element)) ?? null;
   }
   function isYouTubeMobileFullscreenHost(element) {
     return Boolean(element && /^m\.youtube\.com$/i.test(location.hostname) && element.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen"));
+  }
+  function isVisibleYouTubeFullscreenHost(element) {
+    if (!element) return false;
+    const rect = element.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
+    return rect.width >= viewportWidth / 2 && rect.height >= viewportHeight / 2 && rect.left <= viewportWidth / 4 && rect.top <= viewportHeight / 4 && Boolean(element.querySelector("video"));
   }
   function subtitleMinimumFontSize(root) {
     const rootRect = root.getBoundingClientRect();
@@ -17705,7 +17710,7 @@ ${spelling}`);
       this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
       const primary = this.subtitleEl.querySelector(".jpdb-subtitle-primary");
       if (!primary) return;
-      const minimum = Math.max(subtitleMinimumFontSize(this.root), Math.round(target * 0.82));
+      const minimum = Math.max(subtitleMinimumFontSize(this.root), Math.round(target * 0.9));
       fitted = this.fitPrimarySubtitleFontSize(fitted, minimum);
       this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
     }

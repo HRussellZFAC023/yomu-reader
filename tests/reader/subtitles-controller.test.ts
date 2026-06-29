@@ -586,21 +586,33 @@ describe('SubtitlePlayerController', () => {
             toggle.click();
             const popover = root.querySelector<HTMLElement>('[data-subtitle-style-popover]')!;
             const range = popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleBottomOffset"]')!;
+            const checkbox = popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleHoverPause"]')!;
             const documentPointer = vi.fn();
+            const documentPointerUp = vi.fn();
             const documentClick = vi.fn();
             document.addEventListener('pointerdown', documentPointer);
+            document.addEventListener('pointerup', documentPointerUp);
             document.addEventListener('click', documentClick);
 
             range.dispatchEvent(pointerEvent('pointerdown', { clientY: 120, pointerId: 31 }));
+            range.dispatchEvent(pointerEvent('pointerup', { clientY: 120, pointerId: 31 }));
             range.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            checkbox.dispatchEvent(pointerEvent('pointerdown', { clientY: 160, pointerId: 32 }));
+            checkbox.dispatchEvent(pointerEvent('pointerup', { clientY: 160, pointerId: 32 }));
+            checkbox.click();
 
             expect(documentPointer).not.toHaveBeenCalled();
+            expect(documentPointerUp).not.toHaveBeenCalled();
             expect(documentClick).not.toHaveBeenCalled();
+            expect(popover.hidden).toBe(false);
+            expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(true);
 
             popover.querySelector<HTMLButtonElement>('[data-action="style-reset"]')!.click();
             expect(documentClick).not.toHaveBeenCalled();
+            expect(popover.hidden).toBe(false);
 
             document.removeEventListener('pointerdown', documentPointer);
+            document.removeEventListener('pointerup', documentPointerUp);
             document.removeEventListener('click', documentClick);
         } finally {
             controller.destroy();
@@ -663,7 +675,7 @@ describe('SubtitlePlayerController', () => {
 
             controllerInternals<{ fitSubtitleTextToVideo: () => void }>(controller).fitSubtitleTextToVideo();
 
-            expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('23px');
+            expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('25px');
         } finally {
             controller.destroy();
         }
@@ -1680,6 +1692,54 @@ Watch the cat
         });
     });
 
+    it('mounts into a visible YouTube fullscreen host even before the video binding catches up', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=fullscreen-race') as unknown as Location,
+        });
+        try {
+            withViewport(1280, 720, () => {
+                const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+                try {
+                    document.body.insertAdjacentHTML('beforeend', `
+                        <div id="movie_player" class="html5-video-player ytp-fullscreen fullscreen">
+                            <div class="html5-video-container"><video class="html5-main-video"></video></div>
+                            <button class="ytp-play-button" type="button">Play</button>
+                        </div>
+                    `);
+                    const player = document.getElementById('movie_player')!;
+                    const video = player.querySelector<HTMLVideoElement>('video')!;
+                    mockElementRect(player, new DOMRect(0, 0, 1280, 720));
+                    mockElementRect(video, new DOMRect(0, 0, 1280, 720));
+                    const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                    const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                    const internals = controllerInternals<{ syncFullscreenState: () => void }>(controller);
+
+                    internals.syncFullscreenState();
+
+                    expect(root.parentElement).toBe(player);
+                    expect(panel.parentElement).toBe(player);
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+                    expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+
+                    player.classList.remove('ytp-fullscreen', 'fullscreen');
+                    internals.syncFullscreenState();
+
+                    expect(root.parentElement).toBe(document.body);
+                    expect(panel.parentElement).toBe(document.body);
+                } finally {
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('keeps the overlay visible when the document root is the fullscreen element', () => {
         // YouTube's desktop fullscreen promotes <html> to the top layer. Its
         // layout box collapses to a zero-size rect, which previously made the
@@ -1728,6 +1788,52 @@ Watch the cat
                 controller.destroy();
             }
         });
+    });
+
+    it('hides YouTube subtitles and controls when the player has scrolled into comments', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=scrolled-comments') as unknown as Location,
+        });
+        try {
+            withViewport(1280, 720, () => {
+                const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+                try {
+                    document.body.insertAdjacentHTML('beforeend', `
+                        <div id="movie_player" class="html5-video-player">
+                            <video class="html5-main-video" controls></video>
+                        </div>
+                    `);
+                    const player = document.getElementById('movie_player')!;
+                    const video = player.querySelector<HTMLVideoElement>('video')!;
+                    mockElementRect(player, new DOMRect(0, 820, 1280, 720));
+                    mockElementRect(video, new DOMRect(0, 820, 1280, 720));
+                    attachVideo(controller, { video });
+                    const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                    const internals = controllerInternals<{ alignToVideo: () => void }>(controller);
+
+                    internals.alignToVideo();
+
+                    expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(true);
+                    expect(root.classList.contains('jpdb-subtitle-has-video-frame')).toBe(false);
+
+                    mockElementRect(player, new DOMRect(0, 0, 1280, 720));
+                    mockElementRect(video, new DOMRect(0, 0, 1280, 720));
+                    internals.alignToVideo();
+
+                    expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(false);
+                    expect(root.classList.contains('jpdb-subtitle-has-video-frame')).toBe(true);
+                } finally {
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
     });
 
     it('does not throw if fullscreen state sync runs before document.body exists', () => {

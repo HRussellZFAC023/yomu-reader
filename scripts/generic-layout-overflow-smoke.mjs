@@ -84,13 +84,16 @@ writeFileSync(entryPath, `
         return box ? { width: box.width, height: box.height, top: box.top, bottom: box.bottom, left: box.left, right: box.right } : null;
     }
 
-    function compactSnapshot(beforeHeight: number) {
-        const chip = document.querySelector<HTMLElement>('#trade-chip');
+    function compactSnapshot(selector: string, beforeHeight: number, expectedText: string) {
+        const chip = document.querySelector<HTMLElement>(selector);
+        const text = chip?.textContent?.replace(/\\s+/g, '').trim() ?? '';
         return {
-            text: chip?.textContent?.replace(/\\s+/g, '').trim() ?? '',
+            text,
+            expectedText,
             passiveChrome: chip?.getAttribute('data-jpdb-reader-passive-chrome') ?? '',
             passiveWords: chip?.querySelectorAll('.jpdb-reader-passive-word').length ?? 0,
             rubyCount: chip?.querySelectorAll('rt,.jpdb-reader-furi').length ?? 0,
+            mirrorCount: chip?.querySelectorAll('.jpdb-reader-text-mirror').length ?? 0,
             heightBefore: beforeHeight,
             heightAfter: chip?.getBoundingClientRect().height ?? 0,
             scrollHeight: chip?.scrollHeight ?? 0,
@@ -108,6 +111,16 @@ writeFileSync(entryPath, `
 
             const collectedBefore = collectTargets().map(target => target.text);
             applyFirst('注文確認', [['注文', 'ちゅうもん'], ['確認', 'かくにん']]);
+            const compactInitial = compactSnapshot('#trade-chip', chipHeight, '注文確認');
+            chip.textContent = '取引詳細';
+            applyFirst('取引詳細', [['取引', 'とりひき'], ['詳細', 'しょうさい']]);
+            const compactMutated = compactSnapshot('#trade-chip', chipHeight, '取引詳細');
+            const lateControls = document.querySelector<HTMLElement>('#late-controls')!;
+            lateControls.innerHTML = '<a id="late-account-choice" class="late-control" href="/signin" role="link">アカウント選択</a>';
+            const lateControl = document.querySelector<HTMLElement>('#late-account-choice')!;
+            const lateHeight = lateControl.getBoundingClientRect().height;
+            applyFirst('アカウント選択', [['アカウント', 'アカウント'], ['選択', 'せんたく']]);
+            const compactLate = compactSnapshot('#late-account-choice', lateHeight, 'アカウント選択');
             applyFirst('日本語の通知', [['日本語', 'にほんご']]);
             const rubyRoomAdjustments = makeRoomForRubyInCroppedRows(document);
             applyFirst('日本語の回答', [['日本語', 'にほんご']], { nonDestructive: true });
@@ -120,7 +133,9 @@ writeFileSync(entryPath, `
 
             return {
                 collectedBefore,
-                compact: compactSnapshot(chipHeight),
+                compactInitial,
+                compact: compactMutated,
+                compactLate,
                 clipped: {
                     heightBefore: clippedHeight,
                     heightAfter: clipped.getBoundingClientRect().height,
@@ -165,6 +180,7 @@ const fixture = `<!doctype html>
 html, body { margin: 0; min-height: 100%; background: #f6f7f9; color: #20242c; font: 16px/1.45 system-ui, sans-serif; }
 main { width: min(720px, 100vw); box-sizing: border-box; padding: 24px; display: grid; gap: 18px; }
 #trade-chip { box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: 112px; height: 34px; max-height: 34px; overflow: hidden; white-space: nowrap; border: 1px solid #9ca3af; border-radius: 6px; background: #ffffff; }
+.late-control { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 156px; height: 38px; max-height: 38px; overflow: hidden; white-space: nowrap; border: 1px solid #9ca3af; border-radius: 6px; background: #ffffff; color: inherit; text-decoration: none; }
 #generic-clipped { box-sizing: border-box; width: 220px; height: 22px; max-height: 22px; overflow: hidden; line-height: 22px; border: 1px solid #cbd5e1; background: #ffffff; }
 #message.loading { color: rgb(128, 128, 128); }
 #message.ready { color: rgb(20, 20, 20); }
@@ -177,6 +193,7 @@ article { max-width: 54ch; line-height: 1.8; }
 <body>
 <main>
   <div id="trade-chip" tabindex="0" onclick="void 0">注文確認</div>
+  <nav id="late-controls" aria-label="late controls"></nav>
   <div id="generic-clipped">日本語の通知</div>
   <div id="message" class="message-content loading">日本語の回答</div>
   <section class="composer-shell">
@@ -208,10 +225,9 @@ try {
         await page.addScriptTag({ path: bundlePath });
         const result = await page.evaluate(() => window.runYomuGenericLayoutOverflowProbe());
 
-        assert(result.compact.passiveChrome === 'true', 'Compact unsemantic control was not marked passive chrome', result.compact);
-        assert(result.compact.passiveWords === 2, 'Compact control words were not passive lookup words', result.compact);
-        assert(result.compact.rubyCount === 0, 'Compact unsemantic control rendered ruby', result.compact);
-        assert(result.compact.heightAfter <= result.compact.heightBefore + 1, 'Compact control height changed after annotation', result.compact);
+        assertCompactControlSnapshot(result.compactInitial, 'initial compact control');
+        assertCompactControlSnapshot(result.compact, 'mutated compact control');
+        assertCompactControlSnapshot(result.compactLate, 'late compact control');
         assert(result.clipped.adjustments === 0, 'Generic clipped box received ruby-room layout mutation', result.clipped);
         assert(result.clipped.heightAfter <= result.clipped.heightBefore + 1, 'Generic clipped box changed size', result.clipped);
         assert(result.clipped.rubyRoom === '', 'Generic clipped box was marked for ruby room', result.clipped);
@@ -242,4 +258,14 @@ function assert(condition, message, details = {}) {
         const suffix = Object.keys(details).length ? `\n${JSON.stringify(details, null, 2)}` : '';
         throw new Error(`${message}${suffix}`);
     }
+}
+
+function assertCompactControlSnapshot(snapshot, label) {
+    assert(snapshot.passiveChrome === 'true', `${label} was not marked passive chrome`, snapshot);
+    assert(snapshot.passiveWords >= 2, `${label} words were not passive lookup words`, snapshot);
+    assert(snapshot.rubyCount === 0, `${label} rendered ruby`, snapshot);
+    assert(snapshot.mirrorCount === 0, `${label} created duplicate text mirrors`, snapshot);
+    assert(snapshot.text === snapshot.expectedText, `${label} duplicated or lost compact control text`, snapshot);
+    assert(snapshot.heightAfter <= snapshot.heightBefore + 1, `${label} height changed after annotation`, snapshot);
+    assert(snapshot.scrollHeight <= snapshot.heightBefore + 2, `${label} reserved extra scroll height`, snapshot);
 }

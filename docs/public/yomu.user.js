@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.223
+// @version 1.4.224
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.223
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.223
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.223
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.223
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.224
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.224
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.224
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.224
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -3979,7 +3979,6 @@ function textTargetFromAcceptedNode(node) {
     parent,
     hasNativeRuby: Boolean(parent.closest("ruby")),
     suppressRuby,
-    nonDestructive: suppressRuby,
     proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
     layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text2),
     passiveInteraction
@@ -4123,7 +4122,6 @@ function fragmentTextTargetFrom(fragments, options) {
     parent,
     fragments: trimmedFragments,
     suppressRuby,
-    nonDestructive: suppressRuby,
     proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
     layoutSensitive: trimmedFragments.some((fragment) => fragment.layoutSensitive),
     passiveInteraction
@@ -4953,7 +4951,7 @@ function compactPassiveInteractionRubyElement(parent) {
   if (isVerticalWritingMode(style.writingMode)) return interaction;
   if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return interaction;
   if (isCompactInteractiveChromeContext(interaction)) return interaction;
-  return hasCompactInteractiveChromeGeometry(interaction) ? interaction : null;
+  return hasCompactInteractiveChromeGeometry(interaction) && hasUiBox(style) ? interaction : null;
 }
 function isCompactInteractiveChromeText(text2) {
   const length = compactLength(text2);
@@ -6530,13 +6528,7 @@ function isReadableArticleHeading(element2, compactLength2) {
   return compactLength2 >= 4 && Boolean(element2.closest('article, main, [role="main"]'));
 }
 function hasUiBox(style) {
-  return [
-    style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack,
-    style.borderTopStyle !== "none",
-    Number(style.borderTopWidth.replace("px", "")) > 0,
-    Number(style.borderBottomWidth.replace("px", "")) > 0,
-    Number.parseFloat(style.borderRadius) > 0
-  ].some(Boolean);
+  return hasVisibleControlLinkBox(style) || Number.parseFloat(style.borderRadius) > 0;
 }
 function hasInlineControlShape(display) {
   return display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
@@ -6639,7 +6631,10 @@ function hasControlLinkDisplay(display) {
   return display.includes("flex") || display.includes("grid") || display === "inline-block";
 }
 function hasVisibleControlLinkBox(style) {
-  return style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack || style.borderTopStyle !== "none" || style.borderBottomStyle !== "none";
+  return Boolean(style.backgroundColor && style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack) || hasVisibleBorderSide(style.borderTopStyle, style.borderTopWidth) || hasVisibleBorderSide(style.borderBottomStyle, style.borderBottomWidth);
+}
+function hasVisibleBorderSide(style, width) {
+  return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
 }
 const RUBY_ROOM_HARD_SKIP_SELECTOR = "[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending";
 const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = "ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3";
@@ -37294,7 +37289,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.223"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.224"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

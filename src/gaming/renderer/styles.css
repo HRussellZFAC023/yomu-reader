@@ -37,10 +37,10 @@ textarea {
 .yomu-gaming-shell {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 0;
     min-height: 100vh;
     min-height: 100dvh;
-    padding: 12px;
+    padding: 0;
     background: var(--jpdb-reader-bg);
     color: var(--jpdb-reader-text);
     overflow: hidden;
@@ -51,14 +51,15 @@ textarea {
     grid-template-columns: minmax(220px, 1fr) auto;
     gap: 10px 16px;
     align-items: center;
-    width: min(1180px, 100%);
+    width: 100%;
     min-height: 72px;
-    margin: 0 auto;
+    margin: 0;
     padding: 12px 14px;
     border: 1px solid var(--jpdb-reader-border);
-    border-radius: 8px;
+    border-width: 0 0 1px;
+    border-radius: 0;
     background: var(--jpdb-reader-surface);
-    box-shadow: 0 10px 30px color-mix(in srgb, var(--jpdb-reader-shadow) 58%, transparent);
+    box-shadow: none;
 }
 
 .yomu-gaming-app-title {
@@ -141,16 +142,16 @@ textarea {
     top: auto;
     transform: none;
     flex: 1 1 0;
-    width: min(1180px, 100%);
+    width: 100%;
     min-height: 0;
     height: auto;
     max-height: none;
-    margin: 0 auto;
+    margin: 0;
     overflow: hidden;
-    border: 1px solid var(--jpdb-reader-border);
-    border-radius: 8px;
+    border: 0;
+    border-radius: 0;
     background: var(--jpdb-reader-surface);
-    box-shadow: 0 20px 46px var(--jpdb-reader-shadow);
+    box-shadow: none;
 }
 
 .yomu-gaming-settings .jpdb-reader-settings-head {
@@ -165,12 +166,13 @@ textarea {
     display: grid;
     grid-template-columns: minmax(240px, 0.72fr) minmax(460px, 1.28fr);
     gap: 8px 12px;
-    width: min(1180px, 100%);
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
     padding: 10px 12px;
     overflow: visible;
     border: 1px solid var(--jpdb-reader-border);
-    border-radius: 8px;
+    border-width: 0 0 1px;
+    border-radius: 0;
     background: color-mix(in srgb, var(--jpdb-reader-surface-2) 72%, transparent);
 }
 

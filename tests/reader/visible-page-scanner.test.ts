@@ -1474,10 +1474,10 @@ describe('VisiblePageScanner', () => {
         const restoreRects = mockVisibleElementRects();
         const laterParse = deferred<JPDBToken[][]>();
         document.body.innerHTML = `
-            <div id="title" style="overflow:hidden;height:22px;line-height:22px">日本語の動画0</div>
+            <ytd-rich-item-renderer><div id="video-title" style="overflow:hidden;height:22px;line-height:22px">日本語の動画0</div></ytd-rich-item-renderer>
             ${Array.from({ length: 89 }, (_, index) => `<p>日本語の動画${index + 1}</p>`).join('')}
         `;
-        const title = document.querySelector<HTMLElement>('#title')!;
+        const title = document.querySelector<HTMLElement>('#video-title')!;
         mockOverflow(title, 36, 22);
         let parseCallCount = 0;
         const parseJapanese = vi.fn((paragraphs: string[]): Promise<JPDBToken[][]> => {

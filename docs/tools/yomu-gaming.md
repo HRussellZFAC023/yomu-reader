@@ -9,7 +9,7 @@ head:
 
 # Yomu Gaming
 
-Use the first-party **Yomu Gaming** app for PC games. Press the capture shortcut to read the screen immediately, or capture a smaller area when a game has lots of text on screen.
+Use the first-party **Yomu Gaming** app for PC games. Press the capture shortcut to read the screen immediately with Yomu's default Google Lens-style OCR, or capture a smaller area when a game has lots of text on screen.
 
 ## Availability
 
@@ -28,7 +28,11 @@ Steam Deck note: the AppImage is the realistic free install path for Desktop Mod
 2. Open Yomu Gaming and finish the short first-run setup.
 3. Set the capture shortcut. Use it like Print Screen for instant full-screen reading, or choose Capture area for noisy scenes.
 
-Yomu Gaming starts with the same image-reading defaults as browser Yomu. Advanced local OCR is optional in **Image text (OCR)** when you want fully in-place desktop targets over the game. If you do not see a Yomu Gaming file for your platform on the latest release yet, build from the repository release workflow or wait for the next tagged release.
+Yomu Gaming starts with the same image-reading defaults as browser Yomu. Advanced local OCR is optional in **Image text (OCR)** when you want an offline endpoint. If you do not see a Yomu Gaming file for your platform on the latest release yet, use the repository's **Release Yomu Gaming** workflow artifact or wait for the next tagged release.
+
+## Release artifacts
+
+The release workflow builds and smokes the Yomu Gaming app on Linux, Windows, and macOS, then uploads platform artifacts plus `SHA256SUMS.txt`. Signing and notarization are still separate release steps.
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest">Check Yomu releases</a>

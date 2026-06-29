@@ -55,8 +55,12 @@ export interface YomuGamingCaptureRequest {
     height?: number;
 }
 
+export type YomuGamingOcrProvider = 'google-lens' | 'cloud-vision' | 'local-service' | 'off';
+
 export interface YomuGamingOcrRequest {
+    provider?: YomuGamingOcrProvider;
     endpointUrl: string;
+    cloudVisionApiKey?: string;
     imageDataUrl: string;
     width: number;
     height: number;

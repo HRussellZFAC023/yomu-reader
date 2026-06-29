@@ -61,6 +61,8 @@ describe('generic reader layout overflow guards', () => {
         const row = document.querySelector<HTMLElement>('#account-row')!;
         expect(row.dataset.jpdbReaderPassiveChrome).toBe('true');
         expect(row.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
+        expect(row.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(row.textContent?.replace(/\s+/g, '').trim()).toBe('アカウントを選択');
         expect(row.querySelector('rt,.jpdb-reader-furi')).toBeNull();
         expect(Array.from(row.querySelectorAll<HTMLElement>('.jpdb-reader-word')).every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
     });
@@ -171,6 +173,8 @@ describe('generic reader layout overflow guards', () => {
         const words = Array.from(link.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
         expect(words).toHaveLength(2);
         expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+        expect(link.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(link.textContent?.replace(/\s+/g, '').trim()).toBe('日本語の漫画タイトル');
         expect(link.querySelector('rt,.jpdb-reader-furi')).toBeNull();
     });
 
@@ -202,7 +206,53 @@ describe('generic reader layout overflow guards', () => {
 
         expect(chip.dataset.jpdbReaderPassiveChrome).toBe('true');
         expect(chip.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
+        expect(chip.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(chip.textContent?.replace(/\s+/g, '').trim()).toBe('注文確認');
         expect(chip.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(Array.from(chip.querySelectorAll<HTMLElement>('.jpdb-reader-word')).every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+    });
+
+    it('re-renders mutated compact controls inline without duplicate mirrors or ruby', () => {
+        document.body.innerHTML = `
+            <nav class="mobile-actions" role="navigation">
+                <button id="action-chip" type="button" style="display:inline-flex;align-items:center;justify-content:center;width:118px;height:34px;max-height:34px;overflow:hidden;white-space:nowrap">
+                    注文確認
+                </button>
+            </nav>
+        `;
+        const chip = document.querySelector<HTMLElement>('#action-chip')!;
+        mockRect(chip, { width: 118, height: 34 });
+
+        const initialTarget = collectTargets().find(candidate => candidate.text.includes('注文確認'));
+        expect(initialTarget).toBeTruthy();
+        applyTokensToScanTarget(initialTarget!, [
+            token('注文', initialTarget!.text.indexOf('注文'), initialTarget!.text, 'ちゅうもん'),
+            token('確認', initialTarget!.text.indexOf('確認'), initialTarget!.text, 'かくにん'),
+        ], {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+
+        chip.textContent = '取引詳細';
+        const updatedTarget = collectTargets().find(candidate => candidate.text.includes('取引詳細'));
+        expect(updatedTarget).toBeTruthy();
+        expect(updatedTarget?.suppressRuby).toBe(true);
+        expect(updatedTarget?.passiveInteraction).toBe(true);
+        applyTokensToScanTarget(updatedTarget!, [
+            token('取引', updatedTarget!.text.indexOf('取引'), updatedTarget!.text, 'とりひき'),
+            token('詳細', updatedTarget!.text.indexOf('詳細'), updatedTarget!.text, 'しょうさい'),
+        ], {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+
+        expect(chip.dataset.jpdbReaderPassiveChrome).toBe('true');
+        expect(chip.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
+        expect(chip.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(chip.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(chip.textContent?.replace(/\s+/g, '').trim()).toBe('取引詳細');
         expect(Array.from(chip.querySelectorAll<HTMLElement>('.jpdb-reader-word')).every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
     });
 
