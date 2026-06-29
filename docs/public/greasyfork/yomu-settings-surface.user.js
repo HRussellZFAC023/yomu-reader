@@ -64,7 +64,7 @@
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
   const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
   const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
-  const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/`;
+  const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/index.html`;
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
   const NADESHIKO_URL = "https://nadeshiko.co/";
