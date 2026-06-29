@@ -20960,6 +20960,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!reading) return patterns[0];
     return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
   }
+  function pitchNumberForReading(patterns, reading) {
+    if (!reading || !patterns?.length) return null;
+    const pattern = contextPitchPattern(patterns, reading);
+    if (!pattern) return null;
+    return pitchNumberFromPattern(pattern, reading);
+  }
   function pitchNumberFromPattern(pattern, reading) {
     const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
     const moraCount = countMorae(reading);
@@ -25558,7 +25564,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.232".trim() ? "1.4.232".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.233".trim() ? "1.4.233".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -58745,6 +58751,39 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       recallIncorrect: "Not quite. Answer: {answer}",
       recallEmpty: "Enter an answer",
       recallPromptFallback: "Meaning",
+      listen: "Listen",
+      listenSubModeGroup: "Listen practice mode",
+      listenPerceive: "Perceive",
+      listenRecall: "Recall",
+      listenShadow: "Shadow",
+      listenPerceivePrompt: "Which pitch did you hear?",
+      listenRecallPrompt: "Recall the pitch accent",
+      listenShadowPrompt: "Say it aloud, matching the rise and fall",
+      listenPlay: "Play",
+      listenReplay: "Replay (R)",
+      listenPlayBoth: "Play both (B)",
+      listenReveal: "Reveal (Space)",
+      listenCorrect: "Correct!",
+      listenTryAgain: "Not quite — listen to both, then continue",
+      listenShadowAgain: "Again",
+      listenShadowGood: "Got it",
+      listenAccuracy: "Accuracy",
+      listenDue: "pitch due",
+      listenNew: "new",
+      listenNoAudio: "No audio available — shadow from the contour",
+      listenEmptyTitle: "No pitch items yet",
+      listenEmpty: "Study some words first — your pitch deck grows automatically as you review, or open Perceive to start from your current words.",
+      listenEmptyDictionary: "Listen mode needs pitch-accent data. Add a JPDB or Jiten API key (or enable Anki) in Settings to unlock pitch practice.",
+      listenSeedFrom: "Seeded from your study words",
+      listenMicListenBack: "Record & compare",
+      listenMicHint: "Records ~3s locally for playback only — never uploaded",
+      listenMicModel: "Model",
+      listenMicYou: "You",
+      listenMicUnavailable: "Microphone unavailable",
+      pitchClassHeiban: "Heiban",
+      pitchClassAtamadaka: "Atamadaka",
+      pitchClassNakadaka: "Nakadaka",
+      pitchClassOdaka: "Odaka",
       stats: "Stats",
       statsRefresh: "Refresh stats",
       statsCombined: "Combined",
@@ -58915,6 +58954,39 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     recallIncorrect: "惜しい。答え: {answer}",
     recallEmpty: "答えを入力",
     recallPromptFallback: "意味",
+    listen: "リスニング",
+    listenSubModeGroup: "リスニング練習モード",
+    listenPerceive: "聞き取り",
+    listenRecall: "想起",
+    listenShadow: "シャドーイング",
+    listenPerceivePrompt: "どのアクセントに聞こえましたか？",
+    listenRecallPrompt: "アクセントを思い出してください",
+    listenShadowPrompt: "高低に合わせて声に出してみましょう",
+    listenPlay: "再生",
+    listenReplay: "もう一度 (R)",
+    listenPlayBoth: "両方再生 (B)",
+    listenReveal: "答えを見る (Space)",
+    listenCorrect: "正解！",
+    listenTryAgain: "惜しい — 両方を聞いてから次へ",
+    listenShadowAgain: "もう一度",
+    listenShadowGood: "できた",
+    listenAccuracy: "正答率",
+    listenDue: "件のアクセント復習",
+    listenNew: "新規",
+    listenNoAudio: "音声がありません — 図を見てシャドーイング",
+    listenEmptyTitle: "アクセント項目がまだありません",
+    listenEmpty: "まず単語を学習してください。復習するとアクセントデッキが自動的に増えます。「聞き取り」で今の単語から始めることもできます。",
+    listenEmptyDictionary: "リスニングモードにはアクセントデータが必要です。設定でJPDBまたはJitenのAPIキーを追加（あるいはAnkiを有効化）してください。",
+    listenSeedFrom: "学習した単語から追加されました",
+    listenMicListenBack: "録音して比較",
+    listenMicHint: "再生用に約3秒だけローカル録音します（アップロードされません）",
+    listenMicModel: "お手本",
+    listenMicYou: "あなた",
+    listenMicUnavailable: "マイクを使用できません",
+    pitchClassHeiban: "平板",
+    pitchClassAtamadaka: "頭高",
+    pitchClassNakadaka: "中高",
+    pitchClassOdaka: "尾高",
     stats: "統計",
     statsRefresh: "統計を更新",
     statsCombined: "合計",
@@ -63708,6 +63780,7 @@ ${reading}`);
   const STATE_CHANNEL_NAME = "jpdb-reader-newtab-ui";
   const DEFAULT_NEW_TAB_UI_STATE = {
     mode: "word",
+    listenSubMode: "perceive",
     sort: "random",
     filter: "study",
     source: "auto",
@@ -63734,6 +63807,7 @@ ${reading}`);
   function normalizeNewTabUiState(value) {
     return {
       mode: normalizeNewTabMode(value?.mode),
+      listenSubMode: normalizeNewTabListenSubMode(value?.listenSubMode),
       sort: normalizeNewTabSort(value?.sort),
       filter: normalizeNewTabFilter(value?.filter),
       source: normalizeNewTabSource(value?.source),
@@ -63791,7 +63865,10 @@ ${reading}`);
     return { ...state2, revealAnswer: false };
   }
   function normalizeNewTabMode(value) {
-    return value === "recall" || value === "kanji" || value === "search" || value === "stats" ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
+    return value === "recall" || value === "kanji" || value === "search" || value === "stats" || value === "listen" ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
+  }
+  function normalizeNewTabListenSubMode(value) {
+    return value === "recall" || value === "shadow" ? value : DEFAULT_NEW_TAB_UI_STATE.listenSubMode;
   }
   function normalizeNewTabSort(value) {
     return isNewTabSort(value) ? value : DEFAULT_NEW_TAB_UI_STATE.sort;
@@ -65157,7 +65234,7 @@ ${newTabCardReading(card)}`;
   };
   const JPDB_SUCCESS_GRADES = /* @__PURE__ */ new Set(["known", "pass", "hard", "easy", "okay"]);
   const JPDB_IGNORED_STATES = /* @__PURE__ */ new Set(["blacklisted", "locked", "redundant"]);
-  const DAY_MS = 864e5;
+  const DAY_MS$1 = 864e5;
   const ANKI_RETENTION_WINDOW_DAYS = 30;
   const ANKI_RETENTION_CARD_LIMIT = 5e3;
   function emptyStatsDashboardSnapshot() {
@@ -65348,7 +65425,7 @@ ${newTabCardReading(card)}`;
     const end = startOfLocalDay(today).getTime();
     const out = [];
     for (let offset = days - 1; offset >= 0; offset--) {
-      const date = dateKey(new Date(end - offset * DAY_MS));
+      const date = dateKey(new Date(end - offset * DAY_MS$1));
       out.push(byDate.get(date) ?? emptyDailyPoint(date));
     }
     return out;
@@ -65425,7 +65502,7 @@ ${newTabCardReading(card)}`;
     if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) return 0;
     const active = new Set(points.filter((point) => point.reviews > 0).map((point) => point.date));
     let streak = 0;
-    for (let cursor = startOfLocalDay(/* @__PURE__ */ new Date(`${date}T00:00:00`)); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS)) {
+    for (let cursor = startOfLocalDay(/* @__PURE__ */ new Date(`${date}T00:00:00`)); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS$1)) {
       streak += 1;
     }
     return streak;
@@ -65592,7 +65669,7 @@ ${newTabCardReading(card)}`;
     const selectedCards = cards.filter((card) => Number.isFinite(Number(card))).slice(0, ANKI_RETENTION_CARD_LIMIT);
     if (!selectedCards.length) return [];
     const reviewsByCard = await api.invoke("getReviewsOfCards", { cards: selectedCards });
-    const cutoff = Date.now() - ANKI_RETENTION_WINDOW_DAYS * DAY_MS;
+    const cutoff = Date.now() - ANKI_RETENTION_WINDOW_DAYS * DAY_MS$1;
     const daily = /* @__PURE__ */ new Map();
     for (const reviews of Object.values(reviewsByCard ?? {})) {
       for (const review of reviews ?? []) {
@@ -65689,7 +65766,7 @@ ${newTabCardReading(card)}`;
   function streakStats(points) {
     const active = new Set(points.filter((point) => point.reviews > 0).map((point) => point.date));
     let current = 0;
-    for (let cursor = startOfLocalDay(/* @__PURE__ */ new Date()); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS)) {
+    for (let cursor = startOfLocalDay(/* @__PURE__ */ new Date()); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS$1)) {
       current += 1;
     }
     let longest = 0;
@@ -65698,7 +65775,7 @@ ${newTabCardReading(card)}`;
     for (const point of points) {
       if (point.reviews <= 0) continue;
       const time = startOfLocalDay(/* @__PURE__ */ new Date(`${point.date}T00:00:00`)).getTime();
-      run = previousTime && time - previousTime === DAY_MS ? run + 1 : 1;
+      run = previousTime && time - previousTime === DAY_MS$1 ? run + 1 : 1;
       longest = Math.max(longest, run);
       previousTime = time;
     }
@@ -66491,6 +66568,355 @@ ${newTabCardReading(card)}`;
   }
   function sameRecallAnswer(left, right) {
     return normalizeNewTabRecallAnswer(left) === normalizeNewTabRecallAnswer(right);
+  }
+  const PITCH_ITEMS_KEY = "yomu-pitch-items:v1";
+  const PITCH_HISTORY_KEY = "yomu-pitch-history:v1";
+  const PITCH_HISTORY_LIMIT = 200;
+  const DAY_MS = 864e5;
+  const LAPSE_REDUE_MS = 6e4;
+  const EASE_MIN = 1.3;
+  const EASE_MAX = 2.8;
+  const EASE_DEFAULT = 2.5;
+  function pitchItemKey(reading, pitchNumber) {
+    return `${reading}#${pitchNumber}`;
+  }
+  function isFailGrade(grade) {
+    return grade === "fail" || grade === "nothing" || grade === "something";
+  }
+  function clampEase(ease) {
+    return Math.min(EASE_MAX, Math.max(EASE_MIN, ease));
+  }
+  function schedulePitchItem(item, grade, now) {
+    const next = { ...item, lastGrade: grade, lastReviewAt: now };
+    if (isFailGrade(grade)) {
+      next.reps = 0;
+      next.intervalDays = 0;
+      next.ease = clampEase(item.ease - 0.2);
+      next.lapses = item.lapses + 1;
+      next.due = now + LAPSE_REDUE_MS;
+      return next;
+    }
+    if (grade === "hard") {
+      next.reps = item.reps + 1;
+      next.ease = clampEase(item.ease - 0.05);
+      next.intervalDays = Math.max(1, Math.round(item.intervalDays * 1.2) || 1);
+    } else if (grade === "easy") {
+      next.reps = item.reps + 1;
+      next.ease = clampEase(item.ease + 0.15);
+      const base = next.reps === 1 ? 1 : Math.round(item.intervalDays * next.ease);
+      next.intervalDays = Math.max(1, Math.round(base * 1.3));
+    } else {
+      next.reps = item.reps + 1;
+      next.intervalDays = next.reps === 1 ? 1 : next.reps === 2 ? 3 : Math.max(1, Math.round(item.intervalDays * item.ease));
+    }
+    next.due = now + next.intervalDays * DAY_MS;
+    return next;
+  }
+  function createPitchItem(seed) {
+    return {
+      key: pitchItemKey(seed.reading, seed.pitchNumber),
+      reading: seed.reading,
+      pitchNumber: seed.pitchNumber,
+      pattern: seed.pattern,
+      pitchClass: seed.pitchClass,
+      displaySpelling: seed.displaySpelling,
+      due: seed.now,
+      intervalDays: 0,
+      ease: EASE_DEFAULT,
+      reps: 0,
+      lapses: 0,
+      introducedAt: seed.now,
+      unverifiedPitch: seed.unverifiedPitch
+    };
+  }
+  function isPitchItemDue(item, now) {
+    return !item.suspended && item.due <= now;
+  }
+  function selectPitchSessionPool(items, options) {
+    const active = items.filter((item) => !item.suspended);
+    const due = active.filter((item) => item.reps > 0 && item.due <= options.now).sort((a, b) => a.due - b.due);
+    const fresh = active.filter((item) => item.reps === 0).sort((a, b) => a.introducedAt - b.introducedAt).slice(0, Math.max(0, options.newItemCap));
+    return [...due, ...fresh];
+  }
+  function pitchAccuracyByClass(history2) {
+    const buckets = /* @__PURE__ */ new Map();
+    for (const entry of history2) {
+      if (!entry.pitchClass) continue;
+      const bucket = buckets.get(entry.pitchClass) ?? { total: 0, correct: 0 };
+      bucket.total += 1;
+      if (entry.correct) bucket.correct += 1;
+      buckets.set(entry.pitchClass, bucket);
+    }
+    return [...buckets.entries()].map(([pitchClass, value]) => ({ pitchClass, ...value }));
+  }
+  function pitchSeedFromCard(card, now) {
+    const reading = cardPronunciationReading(card);
+    if (!reading) return null;
+    const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
+    if (pitchNumber == null) return null;
+    const pattern = contextPitchPattern(card.pitchAccent, reading);
+    return createPitchItem({
+      reading,
+      pitchNumber,
+      pattern,
+      pitchClass: pitchClassNameForPattern(pattern, reading),
+      displaySpelling: card.spelling || reading,
+      now
+    });
+  }
+  class PitchSrsStore {
+    items = /* @__PURE__ */ new Map();
+    history = [];
+    loaded = false;
+    persistItemsHandle;
+    persistHistoryHandle;
+    async load() {
+      if (this.loaded) return;
+      const storedItems = await gmStorageGet(PITCH_ITEMS_KEY, null).catch(() => null);
+      const storedHistory = await gmStorageGet(PITCH_HISTORY_KEY, null).catch(() => null);
+      if (storedItems) {
+        for (const [key, item] of Object.entries(storedItems)) if (item && item.key) this.items.set(key, item);
+      }
+      if (Array.isArray(storedHistory)) this.history = storedHistory.slice(-PITCH_HISTORY_LIMIT);
+      this.loaded = true;
+    }
+    size() {
+      return this.items.size;
+    }
+    item(key) {
+      return this.items.get(key);
+    }
+    allItems() {
+      return [...this.items.values()];
+    }
+    dueCount(now) {
+      let count = 0;
+      for (const item of this.items.values()) if (isPitchItemDue(item, now)) count += 1;
+      return count;
+    }
+    sessionPool(options) {
+      return selectPitchSessionPool(this.allItems(), options);
+    }
+    // Idempotent: only seeds an item that does not exist yet, so re-studying a word
+    // never resets its pitch schedule. Returns the (existing or new) item, or null.
+    ensureFromCard(card, now) {
+      const seeded = pitchSeedFromCard(card, now);
+      if (!seeded) return null;
+      const existing = this.items.get(seeded.key);
+      if (existing) return existing;
+      this.items.set(seeded.key, seeded);
+      this.schedulePersistItems();
+      return seeded;
+    }
+    upsert(item) {
+      this.items.set(item.key, item);
+      this.schedulePersistItems();
+    }
+    grade(key, grade, subMode, options) {
+      const item = this.items.get(key);
+      if (!item) return null;
+      const updated = schedulePitchItem(item, grade, options.now);
+      this.items.set(key, updated);
+      this.appendHistory({
+        key,
+        at: options.now,
+        grade,
+        subMode,
+        pitchClass: item.pitchClass,
+        correct: options.correct
+      });
+      this.schedulePersistItems();
+      return updated;
+    }
+    historyEntries() {
+      return this.history.slice();
+    }
+    accuracyByClass() {
+      return pitchAccuracyByClass(this.history);
+    }
+    appendHistory(entry) {
+      this.history.push(entry);
+      if (this.history.length > PITCH_HISTORY_LIMIT) this.history = this.history.slice(-PITCH_HISTORY_LIMIT);
+      this.schedulePersistHistory();
+    }
+    // Debounced write-behind (mirrors the offline grade-queue discipline): mutate
+    // in-memory immediately, flush to GM storage shortly after so rapid grading
+    // does not thrash storage.
+    schedulePersistItems() {
+      if (this.persistItemsHandle) return;
+      this.persistItemsHandle = setTimeout(() => {
+        this.persistItemsHandle = void 0;
+        void this.flushItems();
+      }, 400);
+    }
+    schedulePersistHistory() {
+      if (this.persistHistoryHandle) return;
+      this.persistHistoryHandle = setTimeout(() => {
+        this.persistHistoryHandle = void 0;
+        void this.flushHistory();
+      }, 400);
+    }
+    // Synchronous flush for teardown / page-close, where the 400ms debounced async
+    // write would be lost. Mirrors the sync GM-storage path used by the UI state.
+    flushSync() {
+      try {
+        if (this.items.size) {
+          const record = {};
+          for (const [key, item] of this.items) record[key] = item;
+          gmStorageSetSync(PITCH_ITEMS_KEY, record);
+        }
+        if (this.history.length) gmStorageSetSync(PITCH_HISTORY_KEY, this.history.slice(-PITCH_HISTORY_LIMIT));
+      } catch {
+      }
+    }
+    async flushItems() {
+      if (!this.items.size) {
+        await gmStorageDelete(PITCH_ITEMS_KEY).catch(() => void 0);
+        return;
+      }
+      const record = {};
+      for (const [key, item] of this.items) record[key] = item;
+      await gmStorageSet(PITCH_ITEMS_KEY, record).catch(() => void 0);
+    }
+    async flushHistory() {
+      if (!this.history.length) {
+        await gmStorageDelete(PITCH_HISTORY_KEY).catch(() => void 0);
+        return;
+      }
+      await gmStorageSet(PITCH_HISTORY_KEY, this.history.slice(-PITCH_HISTORY_LIMIT)).catch(() => void 0);
+    }
+  }
+  function moraLength(reading) {
+    return splitMorae(reading).length;
+  }
+  function findPitchContrast(target, pool) {
+    const others = pool.filter((item) => item.key !== target.key && !item.suspended && !item.unverifiedPitch);
+    if (!target.unverifiedPitch) {
+      const strict = others.find((item) => item.reading === target.reading && item.pitchNumber !== target.pitchNumber);
+      if (strict) return { contrast: strict, kind: "strict" };
+    }
+    const targetMora = moraLength(target.reading);
+    const loose = others.find((item) => item.pitchClass && item.pitchClass !== target.pitchClass && moraLength(item.reading) === targetMora);
+    return loose ? { contrast: loose, kind: "loose" } : null;
+  }
+  const PITCH_CLASS_LABEL_KEYS = {
+    heiban: "pitchClassHeiban",
+    atamadaka: "pitchClassAtamadaka",
+    nakadaka: "pitchClassNakadaka",
+    odaka: "pitchClassOdaka",
+    kifuku: "pitchClassNakadaka"
+  };
+  function pitchClassLabel(className, t) {
+    return className ? t(PITCH_CLASS_LABEL_KEYS[className]) : "";
+  }
+  function iconButton(action, label, extraAttrs = "") {
+    return `<button type="button" class="jpdb-reader-newtab-listen-btn" data-newtab-action="${action}" ${extraAttrs} title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${escapeHtml$1(label)}</button>`;
+  }
+  function renderPositionPicker(item, selectedPosition, revealed, t) {
+    const moraCount = splitMorae(item.reading).length;
+    if (!moraCount) return "";
+    const buttons = [];
+    for (let position = 0; position <= moraCount; position += 1) {
+      const pattern = pitchPatternFromPosition(item.reading, position);
+      const className = pitchClassNameForPattern(pattern, item.reading);
+      const graph = renderPitchGraphSvg(item.reading, pattern);
+      const isAnswer = position === item.pitchNumber;
+      const isSelected = position === selectedPosition;
+      const stateClass = revealed ? isAnswer ? " jpdb-reader-newtab-listen-pos-correct" : isSelected ? " jpdb-reader-newtab-listen-pos-wrong" : "" : isSelected ? " jpdb-reader-newtab-listen-pos-selected" : "";
+      buttons.push(`
+            <button type="button" class="jpdb-reader-newtab-listen-pos${stateClass}" data-newtab-action="listen-pick" data-listen-pos="${position}" ${revealed ? "disabled" : ""} aria-pressed="${isSelected}">
+                <span class="jpdb-reader-newtab-listen-pos-num">${position}</span>
+                <span class="jpdb-reader-newtab-listen-pos-graph">${graph}</span>
+                <span class="jpdb-reader-newtab-listen-pos-name">${escapeHtml$1(pitchClassLabel(className, t))}</span>
+            </button>`);
+    }
+    return `<div class="jpdb-reader-newtab-listen-picker" role="group" aria-label="${escapeHtml$1(t("listenPerceivePrompt"))}">${buttons.join("")}</div>`;
+  }
+  function renderAnswerContour(item, t) {
+    const graph = renderPitchGraphSvg(item.reading, item.pattern);
+    const className = pitchClassLabel(item.pitchClass, t);
+    return `
+        <div class="jpdb-reader-newtab-listen-answer">
+            <span class="jpdb-reader-newtab-listen-word" lang="ja">${escapeHtml$1(item.displaySpelling)}</span>
+            <span class="jpdb-reader-newtab-listen-reading" lang="ja">${escapeHtml$1(item.reading)}</span>
+            <span class="jpdb-reader-newtab-listen-contour">${graph}</span>
+            ${className ? `<span class="jpdb-reader-newtab-listen-class">${escapeHtml$1(className)}</span>` : ""}
+        </div>`;
+  }
+  function renderContrastBlock(view, t) {
+    if (!view.contrast) return "";
+    const graph = renderPitchGraphSvg(view.contrast.reading, view.contrast.pattern);
+    return `
+        <div class="jpdb-reader-newtab-listen-contrast">
+            ${iconButton("listen-play-both", t("listenPlayBoth"))}
+            <div class="jpdb-reader-newtab-listen-contrast-pair">
+                ${renderAnswerContour(view.item, t)}
+                <div class="jpdb-reader-newtab-listen-answer">
+                    <span class="jpdb-reader-newtab-listen-word" lang="ja">${escapeHtml$1(view.contrast.displaySpelling)}</span>
+                    <span class="jpdb-reader-newtab-listen-reading" lang="ja">${escapeHtml$1(view.contrast.reading)}</span>
+                    <span class="jpdb-reader-newtab-listen-contour">${graph}</span>
+                </div>
+            </div>
+        </div>`;
+  }
+  function renderGradeRow(grades, t) {
+    const buttons = grades.map((entry) => `<button type="button" class="jpdb-reader-newtab-listen-grade" data-newtab-action="listen-grade" data-grade="${entry.grade}">${escapeHtml$1(t(entry.key))}</button>`).join("");
+    return `<div class="jpdb-reader-newtab-listen-grades" role="group">${buttons}</div>`;
+  }
+  function renderRecordRow(view, t) {
+    if (!view.micEnabled) return "";
+    if (view.micUnavailable) return `<span class="jpdb-reader-newtab-listen-note">${escapeHtml$1(t("listenMicUnavailable"))}</span>`;
+    const recordLabel = view.recording ? t("listenShadowAgain") : t("listenMicListenBack");
+    return `
+        <div class="jpdb-reader-newtab-listen-record">
+            <button type="button" class="jpdb-reader-newtab-listen-btn${view.recording ? " jpdb-reader-newtab-listen-recording" : ""}" data-newtab-action="listen-record" aria-pressed="${view.recording}">${escapeHtml$1(recordLabel)}</button>
+            ${view.hasRecording ? iconButton("listen-play-recording", t("listenMicYou")) : ""}
+            <span class="jpdb-reader-newtab-listen-note">${escapeHtml$1(t("listenMicHint"))}</span>
+        </div>`;
+  }
+  function renderListenCard(view, t) {
+    const promptKey = view.subMode === "perceive" ? "listenPerceivePrompt" : view.subMode === "recall" ? "listenRecallPrompt" : "listenShadowPrompt";
+    const sections = [`<div class="jpdb-reader-newtab-listen-prompt">${escapeHtml$1(t(promptKey))}</div>`];
+    if (view.subMode !== "recall" || view.revealed) {
+      sections.push(`<div class="jpdb-reader-newtab-listen-audio">
+            ${view.hasAudio ? iconButton("listen-play", t("listenReplay")) : `<span class="jpdb-reader-newtab-listen-note">${escapeHtml$1(t("listenNoAudio"))}</span>`}
+        </div>`);
+    }
+    if (view.subMode === "recall") {
+      sections.push(`<div class="jpdb-reader-newtab-listen-cue">
+            <span class="jpdb-reader-newtab-listen-word" lang="ja">${escapeHtml$1(view.item.displaySpelling)}</span>
+            ${view.meaning ? `<span class="jpdb-reader-newtab-listen-meaning">${escapeHtml$1(view.meaning)}</span>` : ""}
+        </div>`);
+    }
+    if (view.subMode === "shadow") {
+      sections.push(renderAnswerContour(view.item, t));
+      sections.push(renderRecordRow(view, t));
+      sections.push(renderGradeRow([
+        { grade: "something", key: "listenShadowAgain" },
+        { grade: "okay", key: "listenShadowGood" }
+      ], t));
+      return `<div class="jpdb-reader-newtab-listen-card" data-listen-submode="shadow">${sections.join("")}</div>`;
+    }
+    if (!view.revealed) {
+      sections.push(renderPositionPicker(view.item, view.selectedPosition, false, t));
+    } else {
+      sections.push(renderPositionPicker(view.item, view.selectedPosition, true, t));
+      sections.push(view.outcome === "correct" ? `<div class="jpdb-reader-newtab-listen-verdict jpdb-reader-newtab-listen-verdict-correct">${escapeHtml$1(t("listenCorrect"))}</div>` : `<div class="jpdb-reader-newtab-listen-verdict jpdb-reader-newtab-listen-verdict-wrong">${escapeHtml$1(t("listenTryAgain"))}</div>`);
+      if (view.subMode === "perceive" && view.outcome === "wrong" && view.contrast) {
+        sections.push(renderContrastBlock(view, t));
+      } else {
+        sections.push(renderAnswerContour(view.item, t));
+      }
+      if (view.subMode === "recall") {
+        sections.push(renderGradeRow([
+          { grade: "something", key: "listenShadowAgain" },
+          { grade: "okay", key: "listenShadowGood" }
+        ], t));
+      } else {
+        sections.push(`<div class="jpdb-reader-newtab-listen-grades"><button type="button" class="jpdb-reader-newtab-listen-grade" data-newtab-action="listen-next">${escapeHtml$1(t("listenReveal"))}</button></div>`);
+      }
+    }
+    return `<div class="jpdb-reader-newtab-listen-card" data-listen-submode="${view.subMode}">${sections.join("")}</div>`;
   }
   const DEFAULT_THRESHOLD_PX = 96;
   const DEFAULT_MAX_PROGRESS_PX = 144;
@@ -67589,7 +68015,7 @@ ${entry.url}`),
     return getPitchClass(card.pitchAccent, newTabCardReading(card)) || "unknown";
   }
   const log$3 = Logger.scope("NewTab");
-  const NEW_TAB_MODE_NAMES = /* @__PURE__ */ new Set(["word", "recall", "kanji", "search", "stats"]);
+  const NEW_TAB_MODE_NAMES = /* @__PURE__ */ new Set(["word", "recall", "kanji", "search", "stats", "listen"]);
   function isNewTabModeName(value) {
     return Boolean(value && NEW_TAB_MODE_NAMES.has(value));
   }
@@ -67651,6 +68077,7 @@ ${entry.url}`),
         getSettings: () => this.dependencies.getSettings(),
         immersionKit: this.dependencies.immersionKit
       });
+      void this.pitchSrs.load();
     }
     allWords = [];
     visibleWords = [];
@@ -67705,6 +68132,21 @@ ${entry.url}`),
     searchHandwritingDebounce;
     searchHandwritingShapeCandidateCache = /* @__PURE__ */ new Map();
     recallAnswers = /* @__PURE__ */ new Map();
+    // Listen-mode pitch SRS + the in-card interaction state for the active card.
+    pitchSrs = new PitchSrsStore();
+    listenItem = null;
+    listenRenderedSubMode = null;
+    listenSelectedPosition = null;
+    listenRevealed = false;
+    listenOutcome = null;
+    listenContrastCard = null;
+    // Bumped whenever the active card changes; in-flight audio re-checks it and
+    // bails so a previous card's clip never plays over the next card's prompt.
+    listenAudioGeneration = 0;
+    listenRecorder;
+    listenRecordingUrl;
+    listenRecordingAudio;
+    listenRecordingUnavailable = false;
     recallOutcomes = /* @__PURE__ */ new Map();
     rootEventController;
     rootClickHandlers = [
@@ -67728,6 +68170,19 @@ ${entry.url}`),
         void this.continueAfterBatch(root);
       },
       "recall-submit": (root) => this.submitRecallAnswer(root),
+      "listen-pick": (root, target) => this.handleListenPick(root, target),
+      "listen-play": () => {
+        void this.playListenModelAudio();
+      },
+      "listen-play-both": () => {
+        void this.playListenContrast();
+      },
+      "listen-record": () => {
+        void this.toggleListenRecording();
+      },
+      "listen-play-recording": () => this.playListenRecording(),
+      "listen-grade": (root, target) => this.handleListenGrade(root, target),
+      "listen-next": (root) => this.advanceListen(root),
       grade: (root, target) => this.gradeFromStudyClick(root, target),
       "jpdb-kanji-action": (root, target) => {
         void this.performJpdbKanjiAction(root, this.kanjiActionIdFromTarget(target));
@@ -67825,6 +68280,8 @@ ${entry.url}`),
     }
     destroy() {
       this.stopSessionClock();
+      this.clearListenRecording();
+      this.pitchSrs.flushSync();
       this.stateChannel.close();
       this.unsubscribeJpdbBridge();
       this.rootEventController?.abort();
@@ -67957,7 +68414,15 @@ ${entry.url}`),
               el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "recall" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, newTabText(language, "recall")),
               el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "kanji" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "kanji")),
               el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "search" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "search")),
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "listen" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, newTabText(language, "listen")),
               el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "stats" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, newTabText(language, "stats"))
+            ),
+            el(
+              "div",
+              { class: "jpdb-reader-newtab-listen-submodes", role: "group", "aria-label": newTabText(language, "listenSubModeGroup"), dataset: { newtabListenSubmodes: true }, hidden: true },
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "listen-submode", listenSubmode: "perceive" } }, newTabText(language, "listenPerceive")),
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "listen-submode", listenSubmode: "recall" } }, newTabText(language, "listenRecall")),
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "listen-submode", listenSubmode: "shadow" } }, newTabText(language, "listenShadow"))
             ),
             el(
               "div",
@@ -68324,6 +68789,10 @@ ${entry.url}`),
     }
     handleStudyKeydown(root, event, target) {
       if (!isNewTabStudyKeyboardMode(this.state.mode)) return;
+      if (this.state.mode === "listen") {
+        this.handleListenKeydown(root, event);
+        return;
+      }
       const settings = this.dependencies.getSettings();
       const direction = this.studyNavigationDirection(event, settings);
       if (direction) {
@@ -68473,6 +68942,13 @@ ${entry.url}`),
         const requestedMode = target.closest("[data-mode]")?.dataset.mode;
         const mode = isNewTabModeName(requestedMode) ? requestedMode : "word";
         this.setState({ mode, revealAnswer: false }, root, { preserveWord: true });
+        return true;
+      }
+      if (action === "listen-submode") {
+        event.preventDefault();
+        const requested = target.closest("[data-listen-submode]")?.dataset.listenSubmode;
+        const listenSubMode = requested === "recall" || requested === "shadow" ? requested : "perceive";
+        this.setState({ listenSubMode, revealAnswer: false }, root, { preserveWord: true });
         return true;
       }
       if (action === "source-toggle") {
@@ -70239,6 +70715,9 @@ ${entry.url}`),
     }
     studyPoolForCurrentMode() {
       const cards = this.cardsForCurrentMode(this.allWords);
+      if (this.state.mode === "listen") {
+        return cards.filter((card) => pitchNumberForReading(card.pitchAccent, cardPronunciationReading(card)) != null);
+      }
       const filter = this.state.filter;
       if (filter === "all") return cards;
       if (filter === "local") return cards.filter((card) => card.source === "local" || card.source === "fallback");
@@ -70273,7 +70752,7 @@ ${entry.url}`),
       return this.state.mode === "kanji" ? this.kanjiStudyCardsFromSourceCards(cards) : cards;
     }
     isStudyCardMode(mode) {
-      return mode === "word" || mode === "recall" || mode === "kanji";
+      return mode === "word" || mode === "recall" || mode === "kanji" || mode === "listen";
     }
     isVocabularyStudyMode(mode) {
       return mode === "word" || mode === "recall";
@@ -70534,8 +71013,242 @@ ${entry.url}`),
     }
     renderPromptForMode(slots, card, state2, renderAsKanji = this.shouldRenderCardAsKanji(card)) {
       if (renderAsKanji) this.renderKanjiPrompt(slots, card);
+      else if (this.state.mode === "listen") this.renderListenPrompt(slots, card);
       else if (this.state.mode === "recall") this.renderRecallPrompt(slots, card, state2);
       else this.renderWordPrompt(slots, card, state2);
+    }
+    // ----- Listen mode: audio-first pitch-accent drills over a local pitch SRS -----
+    listenRootEl() {
+      return document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+    }
+    // Map the loaded study pool to pitch items (existing scheduled item, else a fresh
+    // seed) so audio resolves from the real card while scheduling lives in the deck.
+    listenPoolEntries() {
+      const now = Date.now();
+      const entries = [];
+      for (const card of this.visibleWords) {
+        const reading = cardPronunciationReading(card);
+        const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
+        if (pitchNumber == null) continue;
+        const item = this.pitchSrs.item(pitchItemKey(reading, pitchNumber)) ?? pitchSeedFromCard(card, now);
+        if (item) entries.push({ card, item });
+      }
+      return entries;
+    }
+    renderListenPrompt(slots, card) {
+      const prompt = slots.prompt;
+      if (!prompt) return;
+      if (slots.answer) replaceChildrenWith(slots.answer);
+      if (slots.meaning) replaceChildrenWith(slots.meaning);
+      const item = this.pitchSrs.ensureFromCard(card, Date.now());
+      if (!item) {
+        this.listenItem = null;
+        setInnerHtml(prompt, `<div class="jpdb-reader-newtab-listen-card"><div class="jpdb-reader-newtab-listen-prompt">${escapeHtml$1(this.text("listenNoAudio"))}</div></div>`);
+        return;
+      }
+      const isNewCard = !this.listenItem || this.listenItem.key !== item.key;
+      const isSubModeChange = this.listenRenderedSubMode !== this.state.listenSubMode;
+      if (isNewCard || isSubModeChange) {
+        this.listenItem = item;
+        this.listenRenderedSubMode = this.state.listenSubMode;
+        this.listenSelectedPosition = null;
+        this.listenRevealed = this.state.listenSubMode === "shadow";
+        this.listenOutcome = null;
+        this.listenContrastCard = null;
+        this.clearListenRecording();
+        this.listenRecordingUnavailable = false;
+      }
+      setInnerHtml(prompt, renderListenCard(this.listenCardView(card, item), (key) => this.text(key)));
+      if ((isNewCard || isSubModeChange) && this.state.listenSubMode === "perceive" && this.dependencies.playWordAudio) {
+        void this.playListenModelAudio();
+      }
+    }
+    listenCardView(card, item) {
+      return {
+        item,
+        meaning: firstCardMeaning(card),
+        subMode: this.state.listenSubMode,
+        revealed: this.listenRevealed,
+        selectedPosition: this.listenSelectedPosition,
+        outcome: this.listenOutcome,
+        hasAudio: Boolean(this.dependencies.playWordAudio),
+        recording: Boolean(this.listenRecorder && this.listenRecorder.state !== "inactive"),
+        hasRecording: Boolean(this.listenRecordingUrl),
+        micEnabled: this.state.listenSubMode === "shadow",
+        micUnavailable: this.listenRecordingUnavailable,
+        contrast: this.listenContrastView()
+      };
+    }
+    listenContrastView() {
+      const card = this.listenContrastCard;
+      if (!card) return null;
+      const reading = cardPronunciationReading(card);
+      const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
+      if (pitchNumber == null) return null;
+      return { reading, pattern: contextPitchPattern(card.pitchAccent, reading), displaySpelling: card.spelling || reading };
+    }
+    rerenderActiveListen() {
+      const root = this.listenRootEl();
+      const card = this.visibleWords[this.index];
+      if (root && card && this.state.mode === "listen") this.renderWord(root, card);
+    }
+    handleListenPick(_root, target) {
+      const raw = target.closest("[data-listen-pos]")?.dataset.listenPos;
+      const position = raw == null ? NaN : Number(raw);
+      if (Number.isInteger(position)) this.pickListenPosition(position);
+    }
+    pickListenPosition(position) {
+      if (!this.listenItem || this.listenRevealed || this.state.listenSubMode === "shadow") return;
+      if (position < 0 || position > splitMorae(this.listenItem.reading).length) return;
+      this.listenSelectedPosition = position;
+      const correct = position === this.listenItem.pitchNumber;
+      this.listenRevealed = true;
+      this.listenOutcome = correct ? "correct" : "wrong";
+      if (this.state.listenSubMode === "perceive") {
+        this.gradeListenItem(correct ? "okay" : "something", correct);
+        if (!correct) this.prepareListenContrast();
+      }
+      this.rerenderActiveListen();
+      if (this.state.listenSubMode === "perceive" && !correct && this.listenContrastCard) void this.playListenContrast();
+      else void this.playListenModelAudio();
+    }
+    handleListenGrade(root, target) {
+      const grade = target.closest("[data-grade]")?.dataset.grade;
+      if (!grade || !this.listenItem) return;
+      if (this.state.listenSubMode === "shadow" && isFailGrade(grade)) {
+        this.advanceListen(root);
+        return;
+      }
+      this.gradeListenItem(grade, !isFailGrade(grade));
+      this.advanceListen(root);
+    }
+    gradeListenItem(grade, correct) {
+      if (!this.listenItem) return;
+      this.pitchSrs.grade(this.listenItem.key, grade, this.state.listenSubMode, { correct, now: Date.now() });
+    }
+    prepareListenContrast() {
+      if (!this.listenItem) return;
+      const entries = this.listenPoolEntries();
+      const found = findPitchContrast(this.listenItem, entries.map((entry) => entry.item));
+      this.listenContrastCard = found ? entries.find((entry) => entry.item.key === found.contrast.key)?.card ?? null : null;
+    }
+    advanceListen(_root) {
+      this.listenItem = null;
+      this.listenSelectedPosition = null;
+      this.listenRevealed = false;
+      this.listenOutcome = null;
+      this.listenContrastCard = null;
+      this.listenAudioGeneration += 1;
+      this.clearListenRecording();
+      this.visibleWords = this.studyPoolForCurrentMode();
+      this.showNextWord();
+    }
+    // Keyboard for Listen: digits 0-N pick the downstep, R/P replays the model,
+    // B plays the contrast pair, Enter/Space advances once revealed. Kept separate
+    // from the vocab keyboard machine (grade shortcuts, reveal toggle) which doesn't
+    // apply to the pitch drills.
+    handleListenKeydown(root, event) {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      const key = event.key;
+      if (/^[0-9]$/u.test(key) && !this.listenRevealed && this.state.listenSubMode !== "shadow") {
+        event.preventDefault();
+        this.pickListenPosition(Number(key));
+        return;
+      }
+      if (key === "r" || key === "R" || key === "p" || key === "P") {
+        event.preventDefault();
+        void this.playListenModelAudio();
+        return;
+      }
+      if ((key === "b" || key === "B") && this.listenContrastCard) {
+        event.preventDefault();
+        void this.playListenContrast();
+        return;
+      }
+      if (key === "Enter" || key === " ") {
+        if (this.state.listenSubMode === "recall" && this.listenRevealed) return;
+        event.preventDefault();
+        this.advanceListen(root);
+      }
+    }
+    async playListenModelAudio() {
+      const generation = this.listenAudioGeneration;
+      const card = this.visibleWords[this.index];
+      if (card && generation === this.listenAudioGeneration) await this.dependencies.playWordAudio?.(card);
+    }
+    async playListenContrast() {
+      const generation = this.listenAudioGeneration;
+      await this.playListenModelAudio();
+      const contrast = this.listenContrastCard;
+      if (!contrast) return;
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      if (generation !== this.listenAudioGeneration) return;
+      await this.dependencies.playWordAudio?.(contrast);
+    }
+    async toggleListenRecording() {
+      if (this.listenRecorder && this.listenRecorder.state !== "inactive") {
+        this.listenRecorder.stop();
+        return;
+      }
+      const mediaDevices = navigator.mediaDevices;
+      if (!mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        this.listenRecordingUnavailable = true;
+        this.rerenderActiveListen();
+        return;
+      }
+      try {
+        const stream = await mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        const chunks2 = [];
+        recorder.addEventListener("dataavailable", (event) => {
+          if (event.data && event.data.size) chunks2.push(event.data);
+        });
+        recorder.addEventListener("stop", () => {
+          stream.getTracks().forEach((track) => track.stop());
+          this.clearListenRecording();
+          if (chunks2.length) this.listenRecordingUrl = URL.createObjectURL(new Blob(chunks2, { type: recorder.mimeType || "audio/webm" }));
+          this.rerenderActiveListen();
+        });
+        this.listenRecordingUnavailable = false;
+        this.listenRecorder = recorder;
+        recorder.start();
+        this.rerenderActiveListen();
+      } catch (error) {
+        log$3.warn("Listen self-recording unavailable", error);
+        this.listenRecorder = void 0;
+        this.listenRecordingUnavailable = true;
+        this.rerenderActiveListen();
+      }
+    }
+    playListenRecording() {
+      if (!this.listenRecordingUrl) return;
+      try {
+        this.listenRecordingAudio?.pause();
+        const audio = new Audio(this.listenRecordingUrl);
+        this.listenRecordingAudio = audio;
+        void audio.play().catch(() => void 0);
+      } catch {
+      }
+    }
+    clearListenRecording() {
+      if (this.listenRecordingAudio) {
+        try {
+          this.listenRecordingAudio.pause();
+        } catch {
+        }
+        this.listenRecordingAudio = void 0;
+      }
+      if (this.listenRecordingUrl) {
+        URL.revokeObjectURL(this.listenRecordingUrl);
+        this.listenRecordingUrl = void 0;
+      }
+      if (this.listenRecorder && this.listenRecorder.state !== "inactive") {
+        try {
+          this.listenRecorder.stop();
+        } catch {
+        }
+      }
+      this.listenRecorder = void 0;
     }
     shouldRenderCardAsKanji(card) {
       return this.state.mode === "kanji" || this.isLiveJpdbKanjiReviewCard(card) || isKanjiUnlockStudyCard(card);
@@ -74400,6 +75113,9 @@ ${entry.url}`),
       const previousIndex = this.index;
       const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key, previousIndex);
       this.rememberReviewHistoryCard(card);
+      if (this.isVocabularyStudyMode(this.state.mode) && grade && !isFailedNewTabGrade(grade)) {
+        this.pitchSrs.ensureFromCard(card, Date.now());
+      }
       if (grade && isFailedNewTabGrade(grade) && this.reviewCountMode) {
         this.requeueFailedCard(root, key, previousIndex);
         return;
@@ -74698,6 +75414,7 @@ ${entry.url}`),
       root.classList.toggle("jpdb-reader-newtab-recall-mode", this.state.mode === "recall");
       root.classList.toggle("jpdb-reader-newtab-kanji-mode", this.state.mode === "kanji");
       root.classList.toggle("jpdb-reader-newtab-stats-mode", this.state.mode === "stats");
+      root.classList.toggle("jpdb-reader-newtab-listen-mode", this.state.mode === "listen");
       const search = root.querySelector("[data-newtab-search]");
       if (search) search.hidden = this.state.mode !== "search";
       const controls = root.querySelector("[data-newtab-controls]");
@@ -74708,8 +75425,20 @@ ${entry.url}`),
         button.dataset.active = String(active);
         button.setAttribute("aria-pressed", String(active));
       });
+      this.syncListenSubModeSwitcher(root);
       this.syncDeckSelector(root);
       this.syncStateFilterSelector(root);
+    }
+    // The Listen sub-mode switcher (Perceive / Recall / Shadow) is only relevant in
+    // Listen mode; CSS hides it otherwise, and here we reflect the active sub-mode.
+    syncListenSubModeSwitcher(root) {
+      const switcher = root.querySelector("[data-newtab-listen-submodes]");
+      if (switcher) switcher.hidden = this.state.mode !== "listen";
+      root.querySelectorAll('[data-newtab-action="listen-submode"]').forEach((button) => {
+        const active = button.dataset.listenSubmode === this.state.listenSubMode;
+        button.dataset.active = String(active);
+        button.setAttribute("aria-pressed", String(active));
+      });
     }
     // JPDB deck-browse "Show only" parity: the persisted state filter for the
     // Word tab pool, rendered as a compact select beside the deck scope.
@@ -75053,7 +75782,7 @@ ${entry.url}`),
     return Boolean(target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR));
   }
   function isNewTabStudyKeyboardMode(mode) {
-    return mode === "word" || mode === "recall" || mode === "kanji";
+    return mode === "word" || mode === "recall" || mode === "kanji" || mode === "listen";
   }
   function isNewTabKeyboardCaptureBlockedTarget(target) {
     return Boolean(target.closest([
