@@ -11463,6 +11463,68 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   font-weight: 650;
   line-height: 1.4;
 }
+.jpdb-subtitle-shadow-scroll {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 18px;
+}
+.jpdb-subtitle-shadow-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, transparent);
+}
+.jpdb-subtitle-shadow-time {
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+.jpdb-subtitle-shadow-line {
+  display: block;
+  min-width: 0;
+  color: var(--jpdb-reader-text);
+  font-size: 19px;
+  font-weight: 780;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.jpdb-subtitle-shadow-line-hidden {
+  color: transparent !important;
+  text-shadow: 0 0 9px var(--jpdb-reader-muted);
+}
+.jpdb-subtitle-shadow-secondary {
+  color: var(--jpdb-reader-muted);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.jpdb-subtitle-shadow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.jpdb-subtitle-shadow-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--jpdb-reader-text);
+  font: 750 11px/1.2 var(--jpdb-reader-font);
+  white-space: nowrap;
+}
+.jpdb-subtitle-shadow-action[aria-pressed="true"] {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent);
+}
 .jpdb-subtitle-tracks-panel .jpdb-subtitle-list-scroll {
   align-content: start;
 }

@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Added a Shadow tab to the YouTube subtitle drawer with current-line replay, cue looping, hide/reveal text, parsed Japanese, and secondary subtitle support for speaking practice.': 'YouTube字幕ドロワーにシャドータブを追加しました。現在行の再生、キューループ、本文の非表示／表示、解析済み日本語、第二字幕を使って発話練習できます。',
     'Removed the experimental subtitle Shadow drawer from the release branch so Yomu Video stays lean and publishable.': '実験的な字幕シャドードロワーをリリースブランチから削除し、Yomu Videoを軽量で公開可能な状態に保ちました。',
     'Made study reviews work fully offline: every due card is warmed into the cache up front, grades are queued locally and sync back automatically when you reconnect, and a cached-card count plus a sync status now sit next to the session timer.': '学習レビューを完全にオフラインで動作するようにしました。期限切れの各カードを事前にキャッシュへ温め、採点はローカルに保存して再接続時に自動で同期し、キャッシュ済み枚数と同期状況をセッションタイマーの隣に表示します。',
     'Cleaned up the study card front: the audio button now sits inline next to the word, the headword block is centered, the source pills are hidden on the front (they stay in the lookup view), and the landscape layout on iPad is tidier.': '学習カードの表面を整理しました。音声ボタンを単語の隣にインライン配置し、見出し語ブロックを中央寄せにし、ソースのピル表示を表面から隠し（検索表示には残ります）、iPadの横向きレイアウトを整えました。',

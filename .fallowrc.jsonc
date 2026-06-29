@@ -27,6 +27,7 @@
     "tests/reader/setup.ts",
     "public/newtab/sw.js",
     "scripts/generate-favicons.mjs",
+    "scripts/generic-layout-overflow-smoke.mjs",
     "scripts/fixtures/jiten-fixtures.mjs",
     "scripts/lib/extension-runtime-hardening.mjs",
     "scripts/uchisen-bulk-publish.mjs",

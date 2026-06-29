@@ -11873,6 +11873,7 @@ ${spelling}`);
     return `
         <div class="jpdb-subtitle-panel-mode" aria-label="${escapeHtml(uiText(language, "subtitlePanelMode"))}">
             <button type="button" data-action="panel-lines" aria-pressed="${mode === "lines"}" ${canShowLines ? "" : "disabled"}>${escapeHtml(uiText(language, "subtitleLines"))}</button>
+            <button type="button" data-action="panel-shadow" aria-pressed="${mode === "shadow"}" ${canShowLines ? "" : "disabled"}>${escapeHtml(uiText(language, "shadow"))}</button>
             <button type="button" data-action="panel-tracks" aria-pressed="${mode === "tracks"}">${escapeHtml(uiText(language, "subtitleTracks"))}</button>
         </div>
     `;
@@ -11992,6 +11993,7 @@ ${spelling}`);
       "panel-right": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',
       pause: '<path d="M9 5v14"/><path d="M15 5v14"/>',
       play: '<path d="M8 5v14l11-7-11-7Z"/>',
+      repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
       style: '<path d="M4 7h5"/><path d="M15 7h5"/><circle cx="12" cy="7" r="2"/><path d="M4 17h9"/><path d="M19 17h1"/><circle cx="16" cy="17" r="2"/>',
       tracks: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',
       transcript: '<path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>'
@@ -15981,6 +15983,9 @@ ${spelling}`);
     transcriptHydrationSerial = 0;
     transcriptCacheWarmupSerial = 0;
     transcriptCacheWarmupSignature = "";
+    lastShadowSignature = "";
+    shadowLoopEnabled = false;
+    shadowTextVisible = true;
     transcriptPanelSize = loadTranscriptPanelSize();
     videoInset = createSubtitleVideoInsetAdapter();
     lastYomuCaptionsActive = false;
@@ -16039,7 +16044,11 @@ ${spelling}`);
       style: () => this.toggleSubtitleStylePanel(),
       "style-reset": () => this.resetSubtitleStyleDefaults(),
       "panel-lines": () => this.openLinesPanel({ deferRender: true }),
+      "panel-shadow": () => this.openShadowPanel(),
       "panel-tracks": () => this.openTracksPanel(),
+      "shadow-replay": () => this.replayShadowCue(),
+      "shadow-loop": () => this.toggleShadowLoop(),
+      "shadow-toggle-text": () => this.toggleShadowText(),
       "close-panel": () => this.closeTranscriptPanel(),
       "transcript-placement": (target) => this.changeTranscriptPlacement(target),
       "toggle-pause-panel": () => this.togglePausePanelMode(),
@@ -16411,6 +16420,7 @@ ${spelling}`);
     renderOpenSubtitlePanel() {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
       if (this.panelMode === "tracks" || !this.hasTranscriptSurface()) this.renderTrackPanel();
+      else if (this.panelMode === "shadow") this.renderShadowPanel(true);
       else this.renderTranscriptPanel(true);
     }
     observeVideoLayout(video) {
@@ -16708,6 +16718,7 @@ ${spelling}`);
       const settings = this.options.getSettings();
       if (!settings.subtitlePlayerEnabled) return;
       this.updateFromLoadedCues();
+      this.syncShadowLoop();
       this.syncPlayingVideoGeometry();
       if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) {
         this.applyKaraokeStateToPrimary(this.currentCue, video.currentTime);
@@ -16733,6 +16744,7 @@ ${spelling}`);
       this.setNativeTrackModes();
       this.syncShortsReelNavigation();
       this.updateFromLoadedCues();
+      this.syncShadowLoop();
       this.realignIfVideoMoved();
       this.syncPlayerChromeIdleState();
       this.syncAsbPlayerSubtitleMoveHandles(settings);
@@ -18441,7 +18453,8 @@ ${spelling}`);
       this.secondaryCue = this.secondaryCues.find((item) => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
       this.render();
       this.syncControls();
-      if (this.panelMode === "lines") this.renderTranscriptPanel();
+      if (this.panelMode === "shadow") this.renderShadowPanel(true);
+      else if (this.panelMode === "lines") this.renderTranscriptPanel();
     }
     toggleVideoPlayback() {
       const video = this.video;
@@ -18653,6 +18666,8 @@ ${spelling}`);
       this.pendingDomCaption = void 0;
       this.lastDomCaption = "";
       this.lastDomCaptionSeenAt = 0;
+      this.lastShadowSignature = "";
+      this.shadowLoopEnabled = false;
       return requestId;
     }
     clearSecondaryTrackSelection() {
@@ -18744,11 +18759,14 @@ ${spelling}`);
         this.lastDomCaption = "";
         this.lastDomCaptionSeenAt = 0;
         this.youtubeDomCaptionFallbackTrackId = "";
+        this.lastShadowSignature = "";
+        this.shadowLoopEnabled = false;
       }
       const requestId = this.beginTrackSelection("secondary");
       this.secondaryTrackId = id;
       this.secondaryCues = [];
       this.secondaryCue = void 0;
+      this.lastShadowSignature = "";
       return requestId;
     }
     revealSecondarySubtitleOverlay() {
@@ -19014,6 +19032,7 @@ ${spelling}`);
       const panel = this.transcriptPanel;
       if (panel) {
         panel.classList.toggle("jpdb-subtitle-lines-panel", this.panelMode === "lines");
+        panel.classList.toggle("jpdb-subtitle-shadow-panel", this.panelMode === "shadow");
         panel.classList.toggle("jpdb-subtitle-tracks-panel", this.panelMode === "tracks");
       }
       this.syncLineNavigationButtons(hasLines);
@@ -19041,6 +19060,7 @@ ${spelling}`);
     }
     preferredTranscriptDrawerMode() {
       if (this.panelMode === "lines" && this.hasTranscriptSurface()) return "lines";
+      if (this.panelMode === "shadow" && this.hasTranscriptSurface()) return "shadow";
       if (this.panelMode === "tracks") return "tracks";
       return this.hasTranscriptSurface() ? "lines" : "tracks";
     }
@@ -19053,6 +19073,7 @@ ${spelling}`);
       }
       const mode = this.preferredTranscriptDrawerMode();
       if (mode === "tracks") this.openTracksPanel();
+      else if (mode === "shadow") this.openShadowPanel();
       else this.openLinesPanel({ deferRender: true });
     }
     showTranscriptPanelElement() {
@@ -19105,16 +19126,7 @@ ${spelling}`);
       this.transcriptVirtualRenderFrame = clearWindowAnimationFrame(this.transcriptVirtualRenderFrame);
     }
     openLinesPanel(options = {}) {
-      if (!this.transcriptPanel || !this.hasTranscriptSurface()) return;
-      const persist = options.persist ?? true;
-      if (!options.autoPause) this.pausePanelDismissed = false;
-      this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
-      this.panelMode = "lines";
-      this.showTranscriptPanelElement();
-      if (persist) {
-        this.options.getSettings().subtitleTranscriptVisible = true;
-        this.options.onSettingsChange();
-      }
+      if (!this.prepareTranscriptPanelOpen("lines", options)) return;
       const deferRender = options.deferRender === true;
       if (deferRender) {
         this.renderTranscriptPanelPreview();
@@ -19125,6 +19137,45 @@ ${spelling}`);
       this.clearDeferredTranscriptPanelRender();
       this.renderTranscriptPanel(true);
       this.syncControls();
+    }
+    openShadowPanel(options = {}) {
+      if (!this.prepareTranscriptPanelOpen("shadow", options)) return;
+      this.clearDeferredTranscriptPanelRender();
+      this.clearTranscriptVirtualRender();
+      this.renderShadowPanel(true);
+      this.syncControls();
+    }
+    prepareTranscriptPanelOpen(mode, options) {
+      if (!this.transcriptPanel || !this.hasTranscriptSurface()) return false;
+      if (!options.autoPause) this.pausePanelDismissed = false;
+      this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
+      this.panelMode = mode;
+      this.showTranscriptPanelElement();
+      if (options.persist ?? true) {
+        this.options.getSettings().subtitleTranscriptVisible = true;
+        this.options.onSettingsChange();
+      }
+      return true;
+    }
+    replayShadowCue() {
+      const cue = this.currentCue;
+      if (!cue || !this.video) return;
+      this.seekVideoTo(Math.max(0, cue.start));
+      this.currentCue = cue;
+      this.renderShadowPanel(true);
+    }
+    toggleShadowLoop() {
+      this.shadowLoopEnabled = !this.shadowLoopEnabled;
+      if (this.shadowLoopEnabled) this.replayShadowCue();
+      else this.renderShadowPanel(true);
+    }
+    toggleShadowText() {
+      this.shadowTextVisible = !this.shadowTextVisible;
+      this.renderShadowPanel(true);
+    }
+    syncShadowLoop() {
+      if (!this.shadowLoopEnabled || !this.video || !this.currentCue) return;
+      if (this.video.currentTime >= this.currentCue.end - 0.02) this.seekVideoTo(Math.max(0, this.currentCue.start));
     }
     syncPreviewOpenControls() {
       this.root?.classList.add("jpdb-subtitle-panel-open");
@@ -19172,6 +19223,11 @@ ${spelling}`);
         if (this.hasTranscriptSurface()) {
           this.renderTranscriptPanel(true);
         } else this.closeTranscriptPanel();
+        return;
+      }
+      if (this.panelMode === "shadow") {
+        if (this.hasTranscriptSurface()) this.renderShadowPanel(true);
+        else this.closeTranscriptPanel();
         return;
       }
       this.renderTrackPanel();
@@ -19315,6 +19371,136 @@ ${spelling}`);
       this.lastTranscriptSignature = "";
       setInnerHtml(panel, this.renderTranscriptPanelHtml(state2));
       this.afterTranscriptPanelRender(state2, { deferPlayerResize: true });
+    }
+    renderShadowPanel(force = false) {
+      const panel = this.renderableShadowPanel();
+      if (!panel) return;
+      const state2 = this.shadowPanelRenderState();
+      if (!force && state2.signature === this.lastShadowSignature) return;
+      this.lastShadowSignature = state2.signature;
+      this.transcriptTextTargetsByParseKey.clear();
+      setInnerHtml(panel, this.renderShadowPanelHtml(state2));
+      this.indexTranscriptTextTargets(panel);
+      this.bindTranscriptResizeHandle();
+      this.positionTranscriptPanel();
+      this.syncPanelState();
+      if (state2.cue && state2.parseKey) this.requestParsedShadowLineIfNeeded(state2.cue, state2.parseKey, state2.signature, state2.settings);
+    }
+    renderableShadowPanel() {
+      if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return null;
+      return this.panelMode === "shadow" ? this.transcriptPanel : null;
+    }
+    shadowPanelRenderState() {
+      const settings = this.options.getSettings();
+      const cue = this.currentCue;
+      const secondary = cue ? findAlignedCue(this.secondaryCues, cue) ?? this.secondaryCue : void 0;
+      const parseKey = cue?.text.trim() ? this.parseCacheKey(cue.text, settings) : "";
+      return { settings, cue, secondary, parseKey, signature: this.shadowPanelSignature(cue, secondary, parseKey) };
+    }
+    shadowPanelSignature(cue, secondary, parseKey) {
+      return [
+        cue ? subtitleCueSignature(cue) : "",
+        secondary ? subtitleCueSignature(secondary) : "",
+        parseKey,
+        this.shadowLoopEnabled,
+        this.shadowTextVisible,
+        this.selectedTrackId,
+        this.secondaryTrackId
+      ].join("|");
+    }
+    renderShadowPanelHtml(state2) {
+      const language = state2.settings.interfaceLanguage;
+      return `
+            ${this.renderShadowPanelHead(state2)}
+            <div class="jpdb-subtitle-list-scroll jpdb-subtitle-shadow-scroll">
+                ${this.renderShadowPanelBody(state2)}
+            </div>
+            <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeTranscriptPanel"))}"></div>
+        `;
+    }
+    renderShadowPanelHead(state2) {
+      const language = state2.settings.interfaceLanguage;
+      return `
+            <div class="jpdb-subtitle-drawer-head">
+                <div class="jpdb-subtitle-drawer-brand">
+                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml(uiText(language, "subtitlesTitle"))}</strong>
+                    <span class="jpdb-subtitle-drawer-meta">${escapeHtml(subtitleDrawerMetaText({
+        mode: "lines",
+        count: state2.cue?.text.trim() ? 1 : 0,
+        tracks: this.tracks,
+        selectedTrackId: this.selectedTrackId,
+        secondaryTrackId: this.secondaryTrackId,
+        language
+      }))}</span>
+                </div>
+                <div class="jpdb-subtitle-drawer-actions">
+                    ${renderPanelModeControls("shadow", this.hasTranscriptSurface(), language)}
+                    ${renderPanelNavigationControls(Boolean(this.video && this.cues.length), language)}
+                    ${renderPanelPlacementControls(this.effectiveTranscriptPlacement, language)}
+                    ${renderPausePanelToggle(state2.settings.subtitlePausePanel, language)}
+                </div>
+            </div>
+        `;
+    }
+    renderShadowPanelBody(state2) {
+      const cueText = state2.cue?.text.trim();
+      if (!state2.cue || !cueText) return this.renderTranscriptWaitingState();
+      return this.renderShadowCueCard(state2.cue, cueText, state2);
+    }
+    renderShadowCueCard(cue, cueText, state2) {
+      const parsedLine = this.shadowParsedLine(cueText, state2.parseKey, state2.settings);
+      const hiddenClass = this.shadowTextVisible ? "" : " jpdb-subtitle-shadow-line-hidden";
+      const secondary = this.renderShadowSecondaryLine(state2);
+      return `
+            <div class="jpdb-subtitle-shadow-card">
+                <span class="jpdb-subtitle-shadow-time">${formatSubtitleTime(cue.start)}-${formatSubtitleTime(cue.end)}</span>
+                <strong class="jpdb-subtitle-shadow-line jpdb-subtitle-row-text${hiddenClass}" lang="ja" data-transcript-text data-parse-key="${escapeHtml(state2.parseKey)}"${parsedLine.parsedKeyAttribute}${parsedLine.provisionalAttribute}>${parsedLine.html}</strong>
+                ${secondary}
+                <div class="jpdb-subtitle-shadow-actions">
+                    ${this.renderShadowActions(state2.settings.interfaceLanguage)}
+                </div>
+            </div>
+        `;
+    }
+    shadowParsedLine(cueText, parseKey, settings) {
+      const parsed = this.cachedParsedCueHtml(parseKey, settings) ?? this.provisionalParsedHtmlCache.get(parseKey);
+      const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml(parseKey)}"` : "";
+      const provisionalAttribute = parsed && !this.parsedHtmlCache.has(parseKey) ? ' data-parsed-provisional="true"' : "";
+      return { html: parsed ?? escapeWithBreaks(cueText), parsedKeyAttribute, provisionalAttribute };
+    }
+    renderShadowSecondaryLine(state2) {
+      if (!state2.settings.subtitleSecondaryVisible) return "";
+      const text = state2.secondary?.text.trim();
+      return text ? `<div class="jpdb-subtitle-shadow-secondary">${escapeWithBreaks(text)}</div>` : "";
+    }
+    renderShadowActions(language) {
+      const loopAction = this.shadowLoopEnabled ? "stop" : "loop";
+      const toggleIcon = this.shadowTextVisible ? "eye-off" : "eye";
+      return `
+            ${this.renderShadowAction("shadow-replay", this.shadowActionLabel(language, "replay"), "repeat", false)}
+            ${this.renderShadowAction("shadow-loop", this.shadowActionLabel(language, loopAction), "repeat", this.shadowLoopEnabled)}
+            ${this.renderShadowAction("shadow-toggle-text", uiText(language, this.shadowTextVisible ? "hide" : "show"), toggleIcon, !this.shadowTextVisible)}
+        `;
+    }
+    renderShadowAction(action, label, icon, pressed) {
+      return `<button class="jpdb-subtitle-shadow-action" type="button" data-action="${action}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${pressed}">${subtitleIcon(icon)}<span>${escapeHtml(label)}</span></button>`;
+    }
+    shadowActionLabel(language, action) {
+      const japanese = resolveUiLanguage(language) === "ja";
+      if (action === "replay") return japanese ? "再生" : "Replay";
+      if (action === "loop") return japanese ? "ループ" : "Loop";
+      return japanese ? "停止" : "Stop";
+    }
+    requestParsedShadowLineIfNeeded(cue, key, signature, settings) {
+      if (!this.shouldParseSubtitles(settings) || this.cachedParsedCueHtml(key, settings) !== void 0) {
+        const target = this.transcriptPanel ? this.transcriptTextTargetsForParseKey(this.transcriptPanel, key)[0] : void 0;
+        if (target && this.parsedHtmlCache.has(key)) this.notifyParsedTokensForKey(key, true, [target]);
+        return;
+      }
+      void this.parseCueHtml(cue.text, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true }).then((html) => {
+        if (this.panelMode !== "shadow" || signature !== this.lastShadowSignature) return;
+        this.updateTranscriptRowsForParseKey(key, html, { force: true });
+      }).catch(() => void 0);
     }
     transcriptPanelPreviewState(state2) {
       const rowCount = state2.rows.length;
@@ -20071,7 +20257,7 @@ ${spelling}`);
     updatableTranscriptPanel() {
       if (!this.transcriptPanel) return null;
       if (this.transcriptPanel.hidden || this.transcriptPanelClosing) return null;
-      if (this.panelMode !== "lines") return null;
+      if (this.panelMode !== "lines" && this.panelMode !== "shadow") return null;
       return this.transcriptPanel;
     }
     renderTrackPanel() {
@@ -20140,12 +20326,15 @@ ${spelling}`);
       this.renderSerial += 1;
       this.parseWarmupSerial += 1;
       this.lastParseWarmupAnchor = -1;
+      this.lastShadowSignature = "";
+      this.shadowLoopEnabled = false;
     }
     resetSecondarySubtitleState() {
       this.invalidateTrackSelection("secondary");
       this.secondaryTrackId = "";
       this.secondaryCues = [];
       this.secondaryCue = void 0;
+      this.lastShadowSignature = "";
     }
     async choosePrimaryTrack(id) {
       if (!id) return;
