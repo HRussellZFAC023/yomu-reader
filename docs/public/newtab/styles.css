@@ -4535,6 +4535,19 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   font-size: 14px;
   font-weight: 650;
 }
+.jpdb-reader-newtab-listen-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.jpdb-reader-newtab-listen-stat {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--jpdb-reader-accent-soft);
+  color: var(--jpdb-reader-muted);
+  font: 700 11px/1.3 var(--jpdb-reader-font);
+}
 .jpdb-reader-newtab-listen-audio {
   display: flex;
   justify-content: center;

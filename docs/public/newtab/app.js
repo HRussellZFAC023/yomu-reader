@@ -25564,7 +25564,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.234".trim() ? "1.4.234".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.235".trim() ? "1.4.235".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -66708,10 +66708,6 @@ ${newTabCardReading(card)}`;
       this.schedulePersistItems();
       return seeded;
     }
-    upsert(item) {
-      this.items.set(item.key, item);
-      this.schedulePersistItems();
-    }
     grade(key, grade, subMode, options) {
       const item = this.items.get(key);
       if (!item) return null;
@@ -66727,9 +66723,6 @@ ${newTabCardReading(card)}`;
       });
       this.schedulePersistItems();
       return updated;
-    }
-    historyEntries() {
-      return this.history.slice();
     }
     accuracyByClass() {
       return pitchAccuracyByClass(this.history);
@@ -66874,9 +66867,20 @@ ${newTabCardReading(card)}`;
             <span class="jpdb-reader-newtab-listen-note">${escapeHtml$1(t("listenMicHint"))}</span>
         </div>`;
   }
+  function renderListenStats(stats, t) {
+    if (!stats.deckSize) return "";
+    const chips = stats.accuracy.filter((entry) => entry.total > 0 && PITCH_CLASS_LABEL_KEYS[entry.pitchClass]).map((entry) => `<span class="jpdb-reader-newtab-listen-stat">${escapeHtml$1(pitchClassLabel(entry.pitchClass, t))} ${Math.round(entry.correct / entry.total * 100)}%</span>`).join("");
+    return `<div class="jpdb-reader-newtab-listen-stats">
+        <span class="jpdb-reader-newtab-listen-stat">${stats.due} ${escapeHtml$1(t("listenDue"))}</span>
+        ${chips}
+    </div>`;
+  }
   function renderListenCard(view, t) {
     const promptKey = view.subMode === "perceive" ? "listenPerceivePrompt" : view.subMode === "recall" ? "listenRecallPrompt" : "listenShadowPrompt";
-    const sections = [`<div class="jpdb-reader-newtab-listen-prompt">${escapeHtml$1(t(promptKey))}</div>`];
+    const sections = [
+      renderListenStats(view.stats, t),
+      `<div class="jpdb-reader-newtab-listen-prompt">${escapeHtml$1(t(promptKey))}</div>`
+    ];
     if (view.subMode !== "recall" || view.revealed) {
       sections.push(`<div class="jpdb-reader-newtab-listen-audio">
             ${view.hasAudio ? iconButton("listen-play", t("listenReplay")) : `<span class="jpdb-reader-newtab-listen-note">${escapeHtml$1(t("listenNoAudio"))}</span>`}
@@ -70716,7 +70720,7 @@ ${entry.url}`),
     studyPoolForCurrentMode() {
       const cards = this.cardsForCurrentMode(this.allWords);
       if (this.state.mode === "listen") {
-        return cards.filter((card) => pitchNumberForReading(card.pitchAccent, cardPronunciationReading(card)) != null);
+        return this.listenStudyPool(cards.filter((card) => pitchNumberForReading(card.pitchAccent, cardPronunciationReading(card)) != null));
       }
       const filter = this.state.filter;
       if (filter === "all") return cards;
@@ -71063,6 +71067,35 @@ ${entry.url}`),
         void this.playListenModelAudio();
       }
     }
+    // Order the eligible listen cards due-first using the pitch SRS schedule (kotu-
+    // style "review what's due"), then append any not-yet-scheduled eligible words.
+    listenStudyPool(eligible) {
+      const now = Date.now();
+      const byKey = /* @__PURE__ */ new Map();
+      for (const card of eligible) {
+        const reading = cardPronunciationReading(card);
+        const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
+        if (pitchNumber != null) byKey.set(pitchItemKey(reading, pitchNumber), card);
+      }
+      const ordered = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const item of this.pitchSrs.sessionPool({ now, newItemCap: eligible.length })) {
+        const card = byKey.get(item.key);
+        if (card && !seen.has(item.key)) {
+          ordered.push(card);
+          seen.add(item.key);
+        }
+      }
+      for (const [key, card] of byKey) if (!seen.has(key)) ordered.push(card);
+      return ordered;
+    }
+    listenStats() {
+      return {
+        deckSize: this.pitchSrs.size(),
+        due: this.pitchSrs.dueCount(Date.now()),
+        accuracy: this.pitchSrs.accuracyByClass()
+      };
+    }
     listenCardView(card, item) {
       return {
         item,
@@ -71076,7 +71109,8 @@ ${entry.url}`),
         hasRecording: Boolean(this.listenRecordingUrl),
         micEnabled: this.state.listenSubMode === "shadow",
         micUnavailable: this.listenRecordingUnavailable,
-        contrast: this.listenContrastView()
+        contrast: this.listenContrastView(),
+        stats: this.listenStats()
       };
     }
     listenContrastView() {
