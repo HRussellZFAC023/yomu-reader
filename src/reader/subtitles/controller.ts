@@ -4590,6 +4590,7 @@ export class SubtitlePlayerController {
         this.syncTranscriptPlacementClass();
         this.syncLineNavigationButtons(hasLines);
         this.syncDrawerButtons(hasLines);
+        this.syncRailTracksButton();
         this.syncSubtitleStyleControls();
         this.syncFullscreenRailButton();
         this.syncTranscriptAutoScrollPausedClass();
@@ -4684,6 +4685,7 @@ export class SubtitlePlayerController {
         if (!button) return;
         const language = this.options.getSettings().interfaceLanguage;
         const label = uiText(language, 'subtitleTracks');
+        button.hidden = this.isTranscriptPanelDockedOpen();
         button.disabled = !this.video && !this.tracks.length;
         button.title = label;
         button.setAttribute('aria-label', label);

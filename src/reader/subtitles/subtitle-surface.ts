@@ -26,7 +26,7 @@ export function renderPanelNavigationControls(enabled: boolean, language: Interf
     const previous = uiText(language, 'previousSubtitle');
     const next = uiText(language, 'nextSubtitle');
     return `
-        <div class="jpdb-subtitle-panel-nav" aria-label="${escapeHtml(uiText(language, 'subtitleNavigation'))}">
+        <div class="jpdb-subtitle-panel-nav" role="group" aria-label="${escapeHtml(uiText(language, 'subtitleNavigation'))}">
             <button type="button" data-action="previous" title="${escapeHtml(previous)}" aria-label="${escapeHtml(previous)}" ${enabled ? '' : 'disabled'}>‹</button>
             <button type="button" data-action="next" title="${escapeHtml(next)}" aria-label="${escapeHtml(next)}" ${enabled ? '' : 'disabled'}>›</button>
         </div>
@@ -35,7 +35,7 @@ export function renderPanelNavigationControls(enabled: boolean, language: Interf
 
 export function renderPanelModeControls(mode: SubtitlePanelMode, canShowLines: boolean, language: InterfaceLanguage): string {
     return `
-        <div class="jpdb-subtitle-panel-mode" aria-label="${escapeHtml(uiText(language, 'subtitlePanelMode'))}">
+        <div class="jpdb-subtitle-panel-mode" role="group" aria-label="${escapeHtml(uiText(language, 'subtitlePanelMode'))}">
             <button type="button" data-action="panel-lines" aria-pressed="${mode === 'lines'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(uiText(language, 'subtitleLines'))}</button>
             <button type="button" data-action="panel-shadow" aria-pressed="${mode === 'shadow'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(uiText(language, 'shadow'))}</button>
             <button type="button" data-action="panel-mine" aria-pressed="${mode === 'mine'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(subtitleText(language, 'bmTab'))}</button>

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.245] - 2026-06-29
+
+### Changed
+
+- Simplified the Batch Mine panel on video subtitles: the idle panel now shows only the Scan action, review actions appear after candidates are found, compact drawer controls scroll cleanly inside narrow side panels, and the redundant rail Tracks shortcut hides while the side panel already exposes a Tracks tab.
+
 ## [1.4.244] - 2026-06-29
 
 ### Fixed

@@ -818,6 +818,42 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('hides the rail tracks shortcut while the docked side panel already has a Tracks tab', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const { controller } = createInstalledSubtitleController();
+
+        try {
+            attachVideo(controller, { currentTime: 0.5 });
+            setSingleJapaneseSubtitleTrack(controller);
+            const internals = controllerInternals<{
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+            }>(controller);
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            const panelButton = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!;
+            const tracksButton = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel-tracks"]')!;
+            expect(panelButton.hidden).toBe(false);
+            expect(tracksButton.hidden).toBe(false);
+
+            panelButton.click();
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.hidden).toBe(false);
+            expect(panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-panel-mode [data-action="panel-tracks"]')).not.toBeNull();
+            expect(panelButton.hidden).toBe(false);
+            expect(tracksButton.hidden).toBe(true);
+
+            panelButton.click();
+
+            expect(tracksButton.hidden).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps the video rail hidden when tracks exist but no video frame is present', () => {
         const { controller } = createInstalledSubtitleController();
         const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;

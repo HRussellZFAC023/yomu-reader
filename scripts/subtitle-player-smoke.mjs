@@ -248,6 +248,16 @@ async function assertBatchMineTranscript(page) {
     await ensureSubtitlePanelOpen(page);
     await page.locator('.jpdb-subtitle-panel-mode [data-action="panel-mine"]').click({ force: true });
     await page.waitForSelector('.jpdb-subtitle-batch-toolbar [data-action="bm-scan"]', { timeout: 5000 });
+    const initialState = await page.evaluate(() => ({
+        toolbarRole: document.querySelector('.jpdb-subtitle-batch-toolbar')?.getAttribute('role') ?? '',
+        toolbarActions: [...document.querySelectorAll('.jpdb-subtitle-batch-toolbar button')].map(button => button.dataset.action),
+        railPanelHidden: document.querySelector('.jpdb-subtitle-rail [data-action="panel"]')?.hidden ?? true,
+        railTracksHidden: document.querySelector('.jpdb-subtitle-rail [data-action="panel-tracks"]')?.hidden ?? false,
+        panelTracksTab: Boolean(document.querySelector('.jpdb-subtitle-panel-mode [data-action="panel-tracks"]')),
+    }));
+    assert(initialState.toolbarRole === 'toolbar', 'Batch Mine toolbar did not expose toolbar semantics', initialState);
+    assert(initialState.toolbarActions.join(',') === 'bm-scan', 'Batch Mine idle toolbar should only show Scan', initialState);
+    assert(!initialState.railPanelHidden && initialState.railTracksHidden && initialState.panelTracksTab, 'Open side panel should keep panel toggle but hide redundant rail tracks shortcut', initialState);
     await page.locator('.jpdb-subtitle-batch-toolbar [data-action="bm-scan"]').click({ force: true });
     await page.waitForFunction(() => {
         const panelText = document.querySelector('.jpdb-subtitle-list')?.textContent ?? '';
@@ -259,6 +269,7 @@ async function assertBatchMineTranscript(page) {
         return {
             modePressed: document.querySelector('.jpdb-subtitle-panel-mode [data-action="panel-mine"]')?.getAttribute('aria-pressed') ?? '',
             scanButton: Boolean(document.querySelector('.jpdb-subtitle-batch-toolbar [data-action="bm-scan"]')),
+            toolbarActions: [...document.querySelectorAll('.jpdb-subtitle-batch-toolbar button')].map(button => button.dataset.action),
             addDisabled: document.querySelector('.jpdb-subtitle-batch-toolbar [data-action="bm-add"]')?.hasAttribute('disabled') ?? true,
             candidates: document.querySelectorAll('.jpdb-subtitle-batch-row').length,
             selected: document.querySelectorAll('.jpdb-subtitle-batch-row[data-selected="true"]').length,
@@ -269,6 +280,7 @@ async function assertBatchMineTranscript(page) {
     assert(state.modePressed === 'true', 'Batch Mine panel did not stay selected', state);
     assert(state.scanButton, 'Batch Mine scan button was not rendered', state);
     assert(state.candidates > 0, 'Batch Mine did not render candidates for parsed transcript rows', state);
+    assert(state.toolbarActions.includes('bm-add') && state.toolbarActions.includes('bm-copy'), 'Batch Mine scan results did not reveal review actions', state);
     return state;
 }
 

@@ -25604,7 +25604,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.244".trim() ? "1.4.244".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.245".trim() ? "1.4.245".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -40175,6 +40175,7 @@ ${spelling}`);
       subtitleShadowing: "Shadowing",
       bmTab: "Mine",
       bmTitle: "Batch mining",
+      bmToolbar: "Batch mining actions",
       bmScan: "Scan",
       bmRescan: "Rescan",
       bmAdd: "Add selected",
@@ -40212,6 +40213,7 @@ ${spelling}`);
       subtitleShadowing: "シャドーイング",
       bmTab: "採掘",
       bmTitle: "一括採掘",
+      bmToolbar: "一括採掘の操作",
       bmScan: "スキャン",
       bmRescan: "再スキャン",
       bmAdd: "選択を追加",
@@ -40259,7 +40261,7 @@ ${spelling}`);
     const previous = uiText(language, "previousSubtitle");
     const next = uiText(language, "nextSubtitle");
     return `
-        <div class="jpdb-subtitle-panel-nav" aria-label="${escapeHtml$1(uiText(language, "subtitleNavigation"))}">
+        <div class="jpdb-subtitle-panel-nav" role="group" aria-label="${escapeHtml$1(uiText(language, "subtitleNavigation"))}">
             <button type="button" data-action="previous" title="${escapeHtml$1(previous)}" aria-label="${escapeHtml$1(previous)}" ${enabled ? "" : "disabled"}>‹</button>
             <button type="button" data-action="next" title="${escapeHtml$1(next)}" aria-label="${escapeHtml$1(next)}" ${enabled ? "" : "disabled"}>›</button>
         </div>
@@ -40267,7 +40269,7 @@ ${spelling}`);
   }
   function renderPanelModeControls(mode, canShowLines, language) {
     return `
-        <div class="jpdb-subtitle-panel-mode" aria-label="${escapeHtml$1(uiText(language, "subtitlePanelMode"))}">
+        <div class="jpdb-subtitle-panel-mode" role="group" aria-label="${escapeHtml$1(uiText(language, "subtitlePanelMode"))}">
             <button type="button" data-action="panel-lines" aria-pressed="${mode === "lines"}" ${canShowLines ? "" : "disabled"}>${escapeHtml$1(uiText(language, "subtitleLines"))}</button>
             <button type="button" data-action="panel-shadow" aria-pressed="${mode === "shadow"}" ${canShowLines ? "" : "disabled"}>${escapeHtml$1(uiText(language, "shadow"))}</button>
             <button type="button" data-action="panel-mine" aria-pressed="${mode === "mine"}" ${canShowLines ? "" : "disabled"}>${escapeHtml$1(subtitleText(language, "bmTab"))}</button>
@@ -44012,7 +44014,25 @@ ${spelling}`);
   }
   function renderSubtitleBatchMiningPanel(state2) {
     const language = state2.language;
-    return `<div class="jpdb-subtitle-drawer-head"><div class="jpdb-subtitle-drawer-brand"><strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(subtitleText(language, "bmTitle"))}</strong><span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(batchMiningMetaText(state2))}</span></div><div class="jpdb-subtitle-drawer-actions">${renderPanelModeControls("mine", state2.hasTranscriptSurface, language)}${renderPanelNavigationControls(state2.hasNavigableLines, language)}${renderPanelPlacementControls(state2.placement, language)}${renderPausePanelToggle(state2.pausePanelEnabled, language)}</div></div><div class="jpdb-subtitle-batch-toolbar"><button type="button" data-action="bm-scan" ${state2.status === "scanning" ? "disabled" : ""}>${subtitleIcon("transcript")}<span>${escapeHtml$1(subtitleText(language, state2.status === "ready" ? "bmRescan" : "bmScan"))}</span></button><button type="button" data-action="bm-add" ${state2.selectedKeys.size ? "" : "disabled"}>${subtitleIcon("check")}<span>${escapeHtml$1(subtitleText(language, "bmAdd"))}</span></button><button type="button" data-action="bm-copy" ${state2.selectedKeys.size ? "" : "disabled"}>${subtitleIcon("copy")}<span>${escapeHtml$1(subtitleText(language, "bmCopy"))}</span></button><button type="button" data-action="bm-all" ${state2.candidates.length ? "" : "disabled"}>${escapeHtml$1(subtitleText(language, "selectAll"))}</button><button type="button" data-action="bm-clear" ${state2.selectedKeys.size ? "" : "disabled"}>${escapeHtml$1(subtitleText(language, "clearSelection"))}</button></div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state2)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>`;
+    return `<div class="jpdb-subtitle-drawer-head"><div class="jpdb-subtitle-drawer-brand"><strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(subtitleText(language, "bmTitle"))}</strong><span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(batchMiningMetaText(state2))}</span></div><div class="jpdb-subtitle-drawer-actions">${renderPanelModeControls("mine", state2.hasTranscriptSurface, language)}${renderPanelNavigationControls(state2.hasNavigableLines, language)}${renderPanelPlacementControls(state2.placement, language)}${renderPausePanelToggle(state2.pausePanelEnabled, language)}</div></div>${renderBatchMiningToolbar(state2)}<div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state2)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>`;
+  }
+  function renderBatchMiningToolbar(state2) {
+    const language = state2.language;
+    const selectedCount = state2.selectedKeys.size;
+    const candidateCount = state2.candidates.length;
+    const scanLabel = subtitleText(language, state2.status === "ready" ? "bmRescan" : "bmScan");
+    const buttons = [
+      `<button type="button" data-action="bm-scan" ${state2.status === "scanning" ? "disabled" : ""}>${subtitleIcon("transcript")}<span>${escapeHtml$1(scanLabel)}</span></button>`
+    ];
+    if (candidateCount) {
+      buttons.push(
+        `<button type="button" data-action="bm-add" ${selectedCount ? "" : "disabled"}>${subtitleIcon("check")}<span>${escapeHtml$1(subtitleText(language, "bmAdd"))}</span></button>`,
+        `<button type="button" data-action="bm-copy" ${selectedCount ? "" : "disabled"}>${subtitleIcon("copy")}<span>${escapeHtml$1(subtitleText(language, "bmCopy"))}</span></button>`,
+        `<button type="button" data-action="bm-all" ${selectedCount === candidateCount ? "disabled" : ""}>${escapeHtml$1(subtitleText(language, "selectAll"))}</button>`
+      );
+      if (selectedCount) buttons.push(`<button type="button" data-action="bm-clear">${escapeHtml$1(subtitleText(language, "clearSelection"))}</button>`);
+    }
+    return `<div class="jpdb-subtitle-batch-toolbar" role="toolbar" aria-label="${escapeHtml$1(subtitleText(language, "bmToolbar"))}">${buttons.join("")}</div>`;
   }
   function renderBatchMiningBody(state2) {
     if (state2.status === "failed") {
@@ -44030,13 +44050,14 @@ ${spelling}`);
     if (!state2.candidates.length) {
       return `<div class="jpdb-subtitle-list-empty">${escapeHtml$1(subtitleText(state2.language, "bmNoCandidates"))}</div>`;
     }
-    return `<div class="jpdb-subtitle-batch-list">${state2.candidates.map((candidate) => renderBatchMiningCandidate(candidate, state2)).join("")}</div>`;
+    return `<div class="jpdb-subtitle-batch-list" role="list">${state2.candidates.map((candidate) => renderBatchMiningCandidate(candidate, state2)).join("")}</div>`;
   }
   function renderBatchMiningCandidate(candidate, state2) {
     const language = state2.language;
     const selected = state2.selectedKeys.has(candidate.key);
     const selectLabel = subtitleText(language, selected ? "bmDeselect" : "bmSelect");
-    return `<div class="jpdb-subtitle-batch-row" data-batch-candidate-key="${escapeHtml$1(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml$1(selectLabel)}">${selected ? subtitleIcon("check") : ""}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" lang="ja">${escapeHtml$1(candidate.card.spelling)}</span>${candidate.card.reading && candidate.card.reading !== candidate.card.spelling ? `<span class="jpdb-subtitle-batch-reading" lang="ja">${escapeHtml$1(candidate.card.reading)}</span>` : ""}</button><div class="jpdb-subtitle-batch-meta">${candidate.iPlusOne ? `<span class="jpdb-subtitle-batch-badge">${escapeHtml$1(subtitleText(language, "bmIPlusOne"))}</span>` : ""}<span>${escapeHtml$1(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml$1(formatSubtitleText(language, "bmOccurrences", { count: candidate.occurrences }))}</span><span>${escapeHtml$1(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" lang="ja">${escapeHtml$1(candidate.sentence)}</div></div>`;
+    const wordLabel = `${selectLabel}: ${candidate.card.spelling}`;
+    return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml$1(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml$1(wordLabel)}">${selected ? subtitleIcon("check") : ""}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" lang="ja">${escapeHtml$1(candidate.card.spelling)}</span>${candidate.card.reading && candidate.card.reading !== candidate.card.spelling ? `<span class="jpdb-subtitle-batch-reading" lang="ja">${escapeHtml$1(candidate.card.reading)}</span>` : ""}</button><div class="jpdb-subtitle-batch-meta">${candidate.iPlusOne ? `<span class="jpdb-subtitle-batch-badge">${escapeHtml$1(subtitleText(language, "bmIPlusOne"))}</span>` : ""}<span>${escapeHtml$1(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml$1(formatSubtitleText(language, "bmOccurrences", { count: candidate.occurrences }))}</span><span>${escapeHtml$1(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" lang="ja">${escapeHtml$1(candidate.sentence)}</div></div>`;
   }
   function batchMiningMetaText(state2) {
     if (state2.status === "scanning") {
@@ -47759,6 +47780,7 @@ ${spelling}`);
       this.syncTranscriptPlacementClass();
       this.syncLineNavigationButtons(hasLines);
       this.syncDrawerButtons(hasLines);
+      this.syncRailTracksButton();
       this.syncSubtitleStyleControls();
       this.syncFullscreenRailButton();
       this.syncTranscriptAutoScrollPausedClass();
@@ -47844,6 +47866,7 @@ ${spelling}`);
       if (!button) return;
       const language = this.options.getSettings().interfaceLanguage;
       const label = uiText(language, "subtitleTracks");
+      button.hidden = this.isTranscriptPanelDockedOpen();
       button.disabled = !this.video && !this.tracks.length;
       button.title = label;
       button.setAttribute("aria-label", label);

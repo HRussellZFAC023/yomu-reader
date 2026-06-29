@@ -1212,6 +1212,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 @container (max-width: 600px) {
   .jpdb-subtitle-drawer-head {
@@ -1220,7 +1221,23 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   .jpdb-subtitle-drawer-actions {
     justify-content: flex-start;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
+  .jpdb-subtitle-drawer-actions::-webkit-scrollbar { display: none; }
+  .jpdb-subtitle-drawer-actions > * { flex: 0 0 auto; }
+  .jpdb-subtitle-batch-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .jpdb-subtitle-batch-toolbar::-webkit-scrollbar { display: none; }
 }
 .jpdb-subtitle-drawer-auto {
   display: inline-flex;
@@ -1626,6 +1643,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-batch-toolbar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  align-content: flex-start;
   gap: 6px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--jpdb-reader-border);
@@ -1635,9 +1654,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   gap: 6px;
   min-height: 34px;
   padding: 0 10px;
+  white-space: nowrap;
 }
 .jpdb-subtitle-batch-toolbar svg {
   flex: 0 0 auto;
