@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.225] - 2026-06-29
+
+### Added
+
+- Added a Shadow tab to the YouTube subtitle drawer with current-line replay, cue looping, hide/reveal text, parsed Japanese, and secondary subtitle support for speaking practice.
+
 ## [1.4.224] - 2026-06-29
 
 ### Fixed

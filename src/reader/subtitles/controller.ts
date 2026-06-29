@@ -163,7 +163,7 @@ import {
     transcriptResizePatchForPointerDrag,
 } from './subtitles-transcript-resize';
 import { LOAD_SUBTITLE_FILES_EVENT, OPEN_SUBTITLE_TRACKS_EVENT } from '../app/constants';
-import { uiText } from '../app/i18n';
+import { resolveUiLanguage, uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import { accentToRgba, DEFAULT_SETTINGS, matchesShortcut } from '../settings/index';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
@@ -265,6 +265,20 @@ interface TranscriptPanelOptions {
     autoPause?: boolean;
     deferRender?: boolean;
     immediate?: boolean;
+}
+
+interface ShadowPanelRenderState {
+    settings: ReaderSettings;
+    cue?: SubtitleCue;
+    secondary?: SubtitleCue;
+    parseKey: string;
+    signature: string;
+}
+
+interface ShadowParsedLine {
+    html: string;
+    parsedKeyAttribute: string;
+    provisionalAttribute: string;
 }
 
 interface ParseCueHtmlOptions {
@@ -1035,6 +1049,9 @@ export class SubtitlePlayerController {
     private transcriptHydrationSerial = 0;
     private transcriptCacheWarmupSerial = 0;
     private transcriptCacheWarmupSignature = '';
+    private lastShadowSignature = '';
+    private shadowLoopEnabled = false;
+    private shadowTextVisible = true;
     private transcriptPanelSize = loadTranscriptPanelSize();
     private videoInset: SubtitleVideoInsetAdapter = createSubtitleVideoInsetAdapter();
     private lastYomuCaptionsActive = false;
@@ -1092,7 +1109,11 @@ export class SubtitlePlayerController {
         style: () => this.toggleSubtitleStylePanel(),
         'style-reset': () => this.resetSubtitleStyleDefaults(),
         'panel-lines': () => this.openLinesPanel({ deferRender: true }),
+        'panel-shadow': () => this.openShadowPanel(),
         'panel-tracks': () => this.openTracksPanel(),
+        'shadow-replay': () => this.replayShadowCue(),
+        'shadow-loop': () => this.toggleShadowLoop(),
+        'shadow-toggle-text': () => this.toggleShadowText(),
         'close-panel': () => this.closeTranscriptPanel(),
         'transcript-placement': target => this.changeTranscriptPlacement(target),
         'toggle-pause-panel': () => this.togglePausePanelMode(),
@@ -1500,6 +1521,7 @@ export class SubtitlePlayerController {
     private renderOpenSubtitlePanel(): void {
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
         if (this.panelMode === 'tracks' || !this.hasTranscriptSurface()) this.renderTrackPanel();
+        else if (this.panelMode === 'shadow') this.renderShadowPanel(true);
         else this.renderTranscriptPanel(true);
     }
 
@@ -1844,6 +1866,7 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         if (!settings.subtitlePlayerEnabled) return;
         this.updateFromLoadedCues();
+        this.syncShadowLoop();
         this.syncPlayingVideoGeometry();
         if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) {
             this.applyKaraokeStateToPrimary(this.currentCue, video.currentTime);
@@ -1872,6 +1895,7 @@ export class SubtitlePlayerController {
         this.setNativeTrackModes();
         this.syncShortsReelNavigation();
         this.updateFromLoadedCues();
+        this.syncShadowLoop();
         this.realignIfVideoMoved();
         this.syncPlayerChromeIdleState();
         this.syncAsbPlayerSubtitleMoveHandles(settings);
@@ -3920,7 +3944,8 @@ export class SubtitlePlayerController {
         this.secondaryCue = this.secondaryCues.find(item => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
         this.render();
         this.syncControls();
-        if (this.panelMode === 'lines') this.renderTranscriptPanel();
+        if (this.panelMode === 'shadow') this.renderShadowPanel(true);
+        else if (this.panelMode === 'lines') this.renderTranscriptPanel();
     }
 
     private toggleVideoPlayback(): void {
@@ -4156,6 +4181,8 @@ export class SubtitlePlayerController {
         this.pendingDomCaption = undefined;
         this.lastDomCaption = '';
         this.lastDomCaptionSeenAt = 0;
+        this.lastShadowSignature = '';
+        this.shadowLoopEnabled = false;
         return requestId;
     }
 
@@ -4274,11 +4301,14 @@ export class SubtitlePlayerController {
             this.lastDomCaption = '';
             this.lastDomCaptionSeenAt = 0;
             this.youtubeDomCaptionFallbackTrackId = '';
+            this.lastShadowSignature = '';
+            this.shadowLoopEnabled = false;
         }
         const requestId = this.beginTrackSelection('secondary');
         this.secondaryTrackId = id;
         this.secondaryCues = [];
         this.secondaryCue = undefined;
+        this.lastShadowSignature = '';
         return requestId;
     }
 
@@ -4584,6 +4614,7 @@ export class SubtitlePlayerController {
         const panel = this.transcriptPanel;
         if (panel) {
             panel.classList.toggle('jpdb-subtitle-lines-panel', this.panelMode === 'lines');
+            panel.classList.toggle('jpdb-subtitle-shadow-panel', this.panelMode === 'shadow');
             panel.classList.toggle('jpdb-subtitle-tracks-panel', this.panelMode === 'tracks');
         }
         this.syncLineNavigationButtons(hasLines);
@@ -4615,6 +4646,7 @@ export class SubtitlePlayerController {
 
     private preferredTranscriptDrawerMode(): SubtitlePanelMode {
         if (this.panelMode === 'lines' && this.hasTranscriptSurface()) return 'lines';
+        if (this.panelMode === 'shadow' && this.hasTranscriptSurface()) return 'shadow';
         if (this.panelMode === 'tracks') return 'tracks';
         return this.hasTranscriptSurface() ? 'lines' : 'tracks';
     }
@@ -4628,6 +4660,7 @@ export class SubtitlePlayerController {
         }
         const mode = this.preferredTranscriptDrawerMode();
         if (mode === 'tracks') this.openTracksPanel();
+        else if (mode === 'shadow') this.openShadowPanel();
         else this.openLinesPanel({ deferRender: true });
     }
 
@@ -4690,16 +4723,7 @@ export class SubtitlePlayerController {
     }
 
     private openLinesPanel(options: TranscriptPanelOptions = {}): void {
-        if (!this.transcriptPanel || !this.hasTranscriptSurface()) return;
-        const persist = options.persist ?? true;
-        if (!options.autoPause) this.pausePanelDismissed = false;
-        this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
-        this.panelMode = 'lines';
-        this.showTranscriptPanelElement();
-        if (persist) {
-            this.options.getSettings().subtitleTranscriptVisible = true;
-            this.options.onSettingsChange();
-        }
+        if (!this.prepareTranscriptPanelOpen('lines', options)) return;
         const deferRender = options.deferRender === true;
         if (deferRender) {
             this.renderTranscriptPanelPreview();
@@ -4710,6 +4734,51 @@ export class SubtitlePlayerController {
         this.clearDeferredTranscriptPanelRender();
         this.renderTranscriptPanel(true);
         this.syncControls();
+    }
+
+    private openShadowPanel(options: TranscriptPanelOptions = {}): void {
+        if (!this.prepareTranscriptPanelOpen('shadow', options)) return;
+        this.clearDeferredTranscriptPanelRender();
+        this.clearTranscriptVirtualRender();
+        this.renderShadowPanel(true);
+        this.syncControls();
+    }
+
+    private prepareTranscriptPanelOpen(mode: 'lines' | 'shadow', options: TranscriptPanelOptions): boolean {
+        if (!this.transcriptPanel || !this.hasTranscriptSurface()) return false;
+        if (!options.autoPause) this.pausePanelDismissed = false;
+        this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
+        this.panelMode = mode;
+        this.showTranscriptPanelElement();
+        if (options.persist ?? true) {
+            this.options.getSettings().subtitleTranscriptVisible = true;
+            this.options.onSettingsChange();
+        }
+        return true;
+    }
+
+    private replayShadowCue(): void {
+        const cue = this.currentCue;
+        if (!cue || !this.video) return;
+        this.seekVideoTo(Math.max(0, cue.start));
+        this.currentCue = cue;
+        this.renderShadowPanel(true);
+    }
+
+    private toggleShadowLoop(): void {
+        this.shadowLoopEnabled = !this.shadowLoopEnabled;
+        if (this.shadowLoopEnabled) this.replayShadowCue();
+        else this.renderShadowPanel(true);
+    }
+
+    private toggleShadowText(): void {
+        this.shadowTextVisible = !this.shadowTextVisible;
+        this.renderShadowPanel(true);
+    }
+
+    private syncShadowLoop(): void {
+        if (!this.shadowLoopEnabled || !this.video || !this.currentCue) return;
+        if (this.video.currentTime >= this.currentCue.end - 0.02) this.seekVideoTo(Math.max(0, this.currentCue.start));
     }
 
     private syncPreviewOpenControls(): void {
@@ -4766,6 +4835,11 @@ export class SubtitlePlayerController {
             if (this.hasTranscriptSurface()) {
                 this.renderTranscriptPanel(true);
             }
+            else this.closeTranscriptPanel();
+            return;
+        }
+        if (this.panelMode === 'shadow') {
+            if (this.hasTranscriptSurface()) this.renderShadowPanel(true);
             else this.closeTranscriptPanel();
             return;
         }
@@ -4934,6 +5008,152 @@ export class SubtitlePlayerController {
         this.lastTranscriptSignature = '';
         setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
         this.afterTranscriptPanelRender(state, { deferPlayerResize: true });
+    }
+
+    private renderShadowPanel(force = false): void {
+        const panel = this.renderableShadowPanel();
+        if (!panel) return;
+        const state = this.shadowPanelRenderState();
+        if (!force && state.signature === this.lastShadowSignature) return;
+        this.lastShadowSignature = state.signature;
+        this.transcriptTextTargetsByParseKey.clear();
+        setInnerHtml(panel, this.renderShadowPanelHtml(state));
+        this.indexTranscriptTextTargets(panel);
+        this.bindTranscriptResizeHandle();
+        this.positionTranscriptPanel();
+        this.syncPanelState();
+        if (state.cue && state.parseKey) this.requestParsedShadowLineIfNeeded(state.cue, state.parseKey, state.signature, state.settings);
+    }
+
+    private renderableShadowPanel(): HTMLElement | null {
+        if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return null;
+        return this.panelMode === 'shadow' ? this.transcriptPanel : null;
+    }
+
+    private shadowPanelRenderState(): ShadowPanelRenderState {
+        const settings = this.options.getSettings();
+        const cue = this.currentCue;
+        const secondary = cue ? findAlignedCue(this.secondaryCues, cue) ?? this.secondaryCue : undefined;
+        const parseKey = cue?.text.trim() ? this.parseCacheKey(cue.text, settings) : '';
+        return { settings, cue, secondary, parseKey, signature: this.shadowPanelSignature(cue, secondary, parseKey) };
+    }
+
+    private shadowPanelSignature(cue: SubtitleCue | undefined, secondary: SubtitleCue | undefined, parseKey: string): string {
+        return [
+            cue ? subtitleCueSignature(cue) : '',
+            secondary ? subtitleCueSignature(secondary) : '',
+            parseKey,
+            this.shadowLoopEnabled,
+            this.shadowTextVisible,
+            this.selectedTrackId,
+            this.secondaryTrackId,
+        ].join('|');
+    }
+
+    private renderShadowPanelHtml(state: ShadowPanelRenderState): string {
+        const language = state.settings.interfaceLanguage;
+        return `
+            ${this.renderShadowPanelHead(state)}
+            <div class="jpdb-subtitle-list-scroll jpdb-subtitle-shadow-scroll">
+                ${this.renderShadowPanelBody(state)}
+            </div>
+            <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, 'resizeTranscriptPanel'))}"></div>
+        `;
+    }
+
+    private renderShadowPanelHead(state: ShadowPanelRenderState): string {
+        const language = state.settings.interfaceLanguage;
+        return `
+            <div class="jpdb-subtitle-drawer-head">
+                <div class="jpdb-subtitle-drawer-brand">
+                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml(uiText(language, 'subtitlesTitle'))}</strong>
+                    <span class="jpdb-subtitle-drawer-meta">${escapeHtml(subtitleDrawerMetaText({
+                        mode: 'lines',
+                        count: state.cue?.text.trim() ? 1 : 0,
+                        tracks: this.tracks,
+                        selectedTrackId: this.selectedTrackId,
+                        secondaryTrackId: this.secondaryTrackId,
+                        language,
+                    }))}</span>
+                </div>
+                <div class="jpdb-subtitle-drawer-actions">
+                    ${renderPanelModeControls('shadow', this.hasTranscriptSurface(), language)}
+                    ${renderPanelNavigationControls(Boolean(this.video && this.cues.length), language)}
+                    ${renderPanelPlacementControls(this.effectiveTranscriptPlacement, language)}
+                    ${renderPausePanelToggle(state.settings.subtitlePausePanel, language)}
+                </div>
+            </div>
+        `;
+    }
+
+    private renderShadowPanelBody(state: ShadowPanelRenderState): string {
+        const cueText = state.cue?.text.trim();
+        if (!state.cue || !cueText) return this.renderTranscriptWaitingState();
+        return this.renderShadowCueCard(state.cue, cueText, state);
+    }
+
+    private renderShadowCueCard(cue: SubtitleCue, cueText: string, state: ShadowPanelRenderState): string {
+        const parsedLine = this.shadowParsedLine(cueText, state.parseKey, state.settings);
+        const hiddenClass = this.shadowTextVisible ? '' : ' jpdb-subtitle-shadow-line-hidden';
+        const secondary = this.renderShadowSecondaryLine(state);
+        return `
+            <div class="jpdb-subtitle-shadow-card">
+                <span class="jpdb-subtitle-shadow-time">${formatSubtitleTime(cue.start)}-${formatSubtitleTime(cue.end)}</span>
+                <strong class="jpdb-subtitle-shadow-line jpdb-subtitle-row-text${hiddenClass}" lang="ja" data-transcript-text data-parse-key="${escapeHtml(state.parseKey)}"${parsedLine.parsedKeyAttribute}${parsedLine.provisionalAttribute}>${parsedLine.html}</strong>
+                ${secondary}
+                <div class="jpdb-subtitle-shadow-actions">
+                    ${this.renderShadowActions(state.settings.interfaceLanguage)}
+                </div>
+            </div>
+        `;
+    }
+
+    private shadowParsedLine(cueText: string, parseKey: string, settings: ReaderSettings): ShadowParsedLine {
+        const parsed = this.cachedParsedCueHtml(parseKey, settings) ?? this.provisionalParsedHtmlCache.get(parseKey);
+        const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml(parseKey)}"` : '';
+        const provisionalAttribute = parsed && !this.parsedHtmlCache.has(parseKey) ? ' data-parsed-provisional="true"' : '';
+        return { html: parsed ?? escapeWithBreaks(cueText), parsedKeyAttribute, provisionalAttribute };
+    }
+
+    private renderShadowSecondaryLine(state: ShadowPanelRenderState): string {
+        if (!state.settings.subtitleSecondaryVisible) return '';
+        const text = state.secondary?.text.trim();
+        return text ? `<div class="jpdb-subtitle-shadow-secondary">${escapeWithBreaks(text)}</div>` : '';
+    }
+
+    private renderShadowActions(language: ReaderSettings['interfaceLanguage']): string {
+        const loopAction = this.shadowLoopEnabled ? 'stop' : 'loop';
+        const toggleIcon = this.shadowTextVisible ? 'eye-off' : 'eye';
+        return `
+            ${this.renderShadowAction('shadow-replay', this.shadowActionLabel(language, 'replay'), 'repeat', false)}
+            ${this.renderShadowAction('shadow-loop', this.shadowActionLabel(language, loopAction), 'repeat', this.shadowLoopEnabled)}
+            ${this.renderShadowAction('shadow-toggle-text', uiText(language, this.shadowTextVisible ? 'hide' : 'show'), toggleIcon, !this.shadowTextVisible)}
+        `;
+    }
+
+    private renderShadowAction(action: string, label: string, icon: 'eye' | 'eye-off' | 'repeat', pressed: boolean): string {
+        return `<button class="jpdb-subtitle-shadow-action" type="button" data-action="${action}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${pressed}">${subtitleIcon(icon)}<span>${escapeHtml(label)}</span></button>`;
+    }
+
+    private shadowActionLabel(language: ReaderSettings['interfaceLanguage'], action: 'replay' | 'loop' | 'stop'): string {
+        const japanese = resolveUiLanguage(language) === 'ja';
+        if (action === 'replay') return japanese ? '再生' : 'Replay';
+        if (action === 'loop') return japanese ? 'ループ' : 'Loop';
+        return japanese ? '停止' : 'Stop';
+    }
+
+    private requestParsedShadowLineIfNeeded(cue: SubtitleCue, key: string, signature: string, settings: ReaderSettings): void {
+        if (!this.shouldParseSubtitles(settings) || this.cachedParsedCueHtml(key, settings) !== undefined) {
+            const target = this.transcriptPanel ? this.transcriptTextTargetsForParseKey(this.transcriptPanel, key)[0] : undefined;
+            if (target && this.parsedHtmlCache.has(key)) this.notifyParsedTokensForKey(key, true, [target]);
+            return;
+        }
+        void this.parseCueHtml(cue.text, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true })
+            .then(html => {
+                if (this.panelMode !== 'shadow' || signature !== this.lastShadowSignature) return;
+                this.updateTranscriptRowsForParseKey(key, html, { force: true });
+            })
+            .catch(() => undefined);
     }
 
     private transcriptPanelPreviewState(state: TranscriptPanelRenderState): TranscriptPanelRenderState {
@@ -5806,7 +6026,7 @@ export class SubtitlePlayerController {
     private updatableTranscriptPanel(): HTMLElement | null {
         if (!this.transcriptPanel) return null;
         if (this.transcriptPanel.hidden || this.transcriptPanelClosing) return null;
-        if (this.panelMode !== 'lines') return null;
+        if (this.panelMode !== 'lines' && this.panelMode !== 'shadow') return null;
         return this.transcriptPanel;
     }
 
@@ -5883,6 +6103,8 @@ export class SubtitlePlayerController {
         this.renderSerial += 1;
         this.parseWarmupSerial += 1;
         this.lastParseWarmupAnchor = -1;
+        this.lastShadowSignature = '';
+        this.shadowLoopEnabled = false;
     }
 
     private resetSecondarySubtitleState(): void {
@@ -5890,6 +6112,7 @@ export class SubtitlePlayerController {
         this.secondaryTrackId = '';
         this.secondaryCues = [];
         this.secondaryCue = undefined;
+        this.lastShadowSignature = '';
     }
 
     private async choosePrimaryTrack(id?: string): Promise<void> {

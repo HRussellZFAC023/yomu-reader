@@ -2615,6 +2615,83 @@ Watch the cat
         });
     });
 
+    it('opens a shadowing drawer tab for active-line replay practice', async () => {
+        const parseJapanese = vi.fn(async () => [makeSubtitleToken('今日は', { reading: 'きょうは' })]);
+        const { controller } = createInstalledSubtitleController({ subtitleSecondaryVisible: true }, { parseJapanese });
+        const cue = { start: 3, end: 5, text: '今日は読む。', transcriptEligible: true };
+        const secondaryCue = { start: 3, end: 5, text: 'I will read today.', transcriptEligible: false };
+        const internals = controllerInternals<{
+            cues: Array<typeof cue>;
+            currentCue: typeof cue;
+            secondaryCues: Array<typeof secondaryCue>;
+        }>(controller);
+
+        try {
+            attachVideo(controller, { currentTime: 3.25 });
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            internals.secondaryCues = [secondaryCue];
+            controller.refresh();
+
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!.click();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-list [data-action="panel-shadow"]')!.click();
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-shadow-panel')).toBe(true);
+            expect(panel.querySelector<HTMLButtonElement>('[data-action="panel-shadow"]')?.getAttribute('aria-pressed')).toBe('true');
+            expect(panel.textContent).toContain('Shadow');
+            expect(panel.textContent).toContain('I will read today.');
+
+            await vi.waitFor(() => {
+                expect(panel.querySelector<HTMLElement>('.jpdb-subtitle-shadow-line .jpdb-reader-word[data-expression="今日は"]')).not.toBeNull();
+            });
+
+            panel.querySelector<HTMLButtonElement>('[data-action="shadow-toggle-text"]')!.click();
+
+            expect(panel.querySelector<HTMLElement>('.jpdb-subtitle-shadow-line')?.classList.contains('jpdb-subtitle-shadow-line-hidden')).toBe(true);
+            expect(panel.querySelector<HTMLButtonElement>('[data-action="shadow-toggle-text"]')?.getAttribute('aria-pressed')).toBe('true');
+
+            panel.querySelector<HTMLButtonElement>('[data-action="shadow-toggle-text"]')!.click();
+
+            expect(panel.querySelector<HTMLElement>('.jpdb-subtitle-shadow-line')?.classList.contains('jpdb-subtitle-shadow-line-hidden')).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('loops the active shadowing cue from the drawer control', () => {
+        const { controller } = createInstalledSubtitleController();
+        const cue = { start: 3, end: 5, text: '今日は読む。', transcriptEligible: true };
+        const internals = controllerInternals<{
+            cues: Array<typeof cue>;
+            currentCue: typeof cue;
+            syncShadowLoop: () => void;
+        }>(controller);
+
+        try {
+            const video = attachVideo(controller, { currentTime: 4.25 });
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!.click();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-list [data-action="panel-shadow"]')!.click();
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            panel.querySelector<HTMLButtonElement>('[data-action="shadow-loop"]')!.click();
+
+            expect(video.currentTime).toBe(3);
+            expect(panel.querySelector<HTMLButtonElement>('[data-action="shadow-loop"]')?.getAttribute('aria-pressed')).toBe('true');
+
+            video.currentTime = 5.05;
+            internals.syncShadowLoop();
+
+            expect(video.currentTime).toBe(3);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('opens the tracks drawer from the rail panel toggle when lines are unavailable', () => {
         const onSettingsChange = vi.fn();
         const { settings, controller } = createInstalledSubtitleController({ subtitleTranscriptVisible: false }, { onSettingsChange });

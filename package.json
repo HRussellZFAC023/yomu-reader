@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.4.224",
+  "version": "1.4.225",
   "private": true,
   "type": "module",
   "description": "よむ: a small Jiten/JPDB/Yomitan popup dictionary and subtitle miner userscript.",
@@ -48,7 +48,7 @@
     "docs:build": "node scripts/check-public-docs.mjs && vitepress build docs",
     "e2e:subtitles": "node scripts/subtitle-player-e2e.mjs",
     "fallow": "fallow",
-    "fallow:audit": "git diff --unified=0 --no-ext-diff ${FALLOW_BASE:-origin/main} -- . | fallow audit --format compact --diff-stdin",
+    "fallow:audit": "git diff --unified=0 --no-ext-diff ${FALLOW_BASE:-origin/main} -- . | fallow audit --format compact --base ${FALLOW_BASE:-origin/main} --diff-stdin",
     "fallow:dead-code": "fallow dead-code --format compact --fail-on-issues",
     "fixture:mokuro": "node scripts/lib/build-mokuro-fixture.mjs",
     "profile:performance": "node scripts/profile-performance.mjs",
