@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.233] - 2026-06-29
+
+### Added
+
+- Added a Listen pitch-accent mode to the Study page with Perceive, Recall, and Shadow practice over a local spaced-repetition deck that grows automatically from the words you review.
+- Added an audio-first downstep picker that plays a word and asks which pitch pattern you heard, and replays both words of a minimal pair when you miss.
+- Added optional local microphone recording and playback to Shadow practice so you can compare your pronunciation with the model without uploading any audio.
+
 ## [1.4.232] - 2026-06-29
 
 ### Fixed

@@ -94,6 +94,19 @@ export function contextPitchPattern(patterns: string[] | null | undefined, readi
     return patterns.find(pattern => pitchClassNameForPattern(pattern, reading) !== '') ?? '';
 }
 
+// Single source of truth for a word's pitch IDENTITY: the accent (downstep) mora
+// number of the contextual reading — 0 = heiban (no drop), 1 = atamadaka, N = odaka.
+// Used for the listen-mode SRS item key (`${reading}#${pitchNumber}`), minimal-pair
+// bucketing, and the position-picker option count. Returns null when no pattern
+// resolves for the reading (non-kana, empty, or unclassifiable shape) so callers can
+// skip un-identifiable words rather than mis-key them.
+export function pitchNumberForReading(patterns: string[] | null | undefined, reading: string): number | null {
+    if (!reading || !patterns?.length) return null;
+    const pattern = contextPitchPattern(patterns, reading);
+    if (!pattern) return null;
+    return pitchNumberFromPattern(pattern, reading);
+}
+
 function pitchNumberFromPattern(pattern: string, reading: string): number | null {
     const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
     const moraCount = countMorae(reading);

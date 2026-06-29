@@ -36,7 +36,7 @@ export function renderExpressionComponentPitches(components: ExpressionComponent
     return `<div class="jpdb-reader-pitch jpdb-reader-pitch-components">${graphs.join('')}</div>`;
 }
 
-function renderPitchGraphSvg(reading: string, pitch: string): string {
+export function renderPitchGraphSvg(reading: string, pitch: string): string {
     const morae = splitMorae(reading);
     const highs = pitchLevelsForDisplay(pitch, reading);
     if (highs.length < 2) return '';

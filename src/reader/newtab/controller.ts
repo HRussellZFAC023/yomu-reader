@@ -32,10 +32,10 @@ import type { CardRenderData } from '../cards/render-data';
 import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
 import { APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, PDF_READER_PAGE_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
-import { htmlToFirstElement, setInnerHtml } from '../dom';
+import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
 import { nearestElementByPoint, pointerPointFromEvent, pointInElementClientRects } from '../dom/pointer-geometry';
-import { isKanjiCharacter } from '../popup/pitch';
+import { cardPronunciationReading, isKanjiCharacter } from '../popup/pitch';
 import { eventTargetElement } from '../dom/target';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from '../immersion/kit';
 import { nextImmersionExampleIndex, renderImmersionExampleToolbar } from '../immersion/player-view';
@@ -105,7 +105,7 @@ import {
     type NewTabMode,
     type NewTabUiState,
 } from './index';
-import { NEW_TAB_FILTERS, normalizeNewTabUiState } from './state';
+import { NEW_TAB_FILTERS, normalizeNewTabUiState, type NewTabListenSubMode } from './state';
 import {
     newTabImmersionAudioUrls,
     newTabImmersionImageUrl,
@@ -146,6 +146,10 @@ import {
     type NewTabReviewSourceSummary,
 } from './review-controls';
 import { evaluateNewTabRecallAnswer, type NewTabRecallOutcome } from './recall-practice';
+import { PitchSrsStore, isFailGrade, pitchItemKey, pitchSeedFromCard, type PitchSrsItem } from './pitch-srs';
+import { findPitchContrast } from './pitch-pairs';
+import { renderListenCard, type ListenCardView, type ListenOutcome } from './listen-render';
+import { contextPitchPattern, pitchNumberForReading, splitMorae } from '../lookup/pitch-accent';
 import { installNewTabSwipeGesture, newTabSwipeGrade, type NewTabSwipeAction } from './swipe-gesture';
 import {
     newTabCardHighlightTargets,
@@ -634,7 +638,7 @@ interface NewTabSearchWordKanjiDetail {
 }
 
 const log = Logger.scope('NewTab');
-const NEW_TAB_MODE_NAMES = new Set<string>(['word', 'recall', 'kanji', 'search', 'stats']);
+const NEW_TAB_MODE_NAMES = new Set<string>(['word', 'recall', 'kanji', 'search', 'stats', 'listen']);
 
 function isNewTabModeName(value: string | undefined | null): value is NewTabMode {
     return Boolean(value && NEW_TAB_MODE_NAMES.has(value));
@@ -721,6 +725,21 @@ export class NewTabController {
     private searchHandwritingDebounce: ReturnType<typeof setTimeout> | undefined;
     private searchHandwritingShapeCandidateCache = new Map<string, Promise<KanjiShapeCandidate | null>>();
     private recallAnswers = new Map<string, string>();
+    // Listen-mode pitch SRS + the in-card interaction state for the active card.
+    private readonly pitchSrs = new PitchSrsStore();
+    private listenItem: PitchSrsItem | null = null;
+    private listenRenderedSubMode: NewTabListenSubMode | null = null;
+    private listenSelectedPosition: number | null = null;
+    private listenRevealed = false;
+    private listenOutcome: ListenOutcome | null = null;
+    private listenContrastCard: JPDBCard | null = null;
+    // Bumped whenever the active card changes; in-flight audio re-checks it and
+    // bails so a previous card's clip never plays over the next card's prompt.
+    private listenAudioGeneration = 0;
+    private listenRecorder: MediaRecorder | undefined;
+    private listenRecordingUrl: string | undefined;
+    private listenRecordingAudio: HTMLAudioElement | undefined;
+    private listenRecordingUnavailable = false;
     private recallOutcomes = new Map<string, NewTabRecallOutcome>();
     private rootEventController: AbortController | undefined;
     private readonly rootClickHandlers: RootClickHandler[] = [
@@ -738,6 +757,13 @@ export class NewTabController {
         'undo-review': root => { void this.undoLastReview(root); },
         'continue-batch': root => { void this.continueAfterBatch(root); },
         'recall-submit': root => this.submitRecallAnswer(root),
+        'listen-pick': (root, target) => this.handleListenPick(root, target),
+        'listen-play': () => { void this.playListenModelAudio(); },
+        'listen-play-both': () => { void this.playListenContrast(); },
+        'listen-record': () => { void this.toggleListenRecording(); },
+        'listen-play-recording': () => this.playListenRecording(),
+        'listen-grade': (root, target) => this.handleListenGrade(root, target),
+        'listen-next': root => this.advanceListen(root),
         grade: (root, target) => this.gradeFromStudyClick(root, target),
         'jpdb-kanji-action': (root, target) => {
             void this.performJpdbKanjiAction(root, this.kanjiActionIdFromTarget(target));
@@ -808,6 +834,7 @@ export class NewTabController {
             getSettings: () => this.dependencies.getSettings(),
             immersionKit: this.dependencies.immersionKit,
         });
+        void this.pitchSrs.load();
     }
 
     isCurrentPage(): boolean {
@@ -877,6 +904,8 @@ export class NewTabController {
 
     destroy(): void {
         this.stopSessionClock();
+        this.clearListenRecording();
+        this.pitchSrs.flushSync();
         this.stateChannel.close();
         this.unsubscribeJpdbBridge();
         this.rootEventController?.abort();
@@ -1015,7 +1044,13 @@ export class NewTabController {
                         el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'recall' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'recall')),
                         el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'kanji' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, uiText(language, 'kanji')),
                         el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'search' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, uiText(language, 'search')),
+                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'listen' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'listen')),
                         el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'stats' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'stats')),
+                    ),
+                    el('div', { class: 'jpdb-reader-newtab-listen-submodes', role: 'group', 'aria-label': newTabText(language, 'listenSubModeGroup'), dataset: { newtabListenSubmodes: true }, hidden: true },
+                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'listen-submode', listenSubmode: 'perceive' } }, newTabText(language, 'listenPerceive')),
+                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'listen-submode', listenSubmode: 'recall' } }, newTabText(language, 'listenRecall')),
+                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'listen-submode', listenSubmode: 'shadow' } }, newTabText(language, 'listenShadow')),
                     ),
                     el('div', { class: 'jpdb-reader-newtab-theme-controls' },
                         el('details', { class: 'jpdb-reader-newtab-more' },
@@ -1413,6 +1448,10 @@ export class NewTabController {
 
     private handleStudyKeydown(root: HTMLElement, event: KeyboardEvent, target: HTMLElement | null): void {
         if (!isNewTabStudyKeyboardMode(this.state.mode)) return;
+        if (this.state.mode === 'listen') {
+            this.handleListenKeydown(root, event);
+            return;
+        }
         const settings = this.dependencies.getSettings();
         const direction = this.studyNavigationDirection(event, settings);
         if (direction) {
@@ -1586,6 +1625,13 @@ export class NewTabController {
             const requestedMode = target.closest<HTMLElement>('[data-mode]')?.dataset.mode;
             const mode = isNewTabModeName(requestedMode) ? requestedMode : 'word';
             this.setState({ mode, revealAnswer: false }, root, { preserveWord: true });
+            return true;
+        }
+        if (action === 'listen-submode') {
+            event.preventDefault();
+            const requested = target.closest<HTMLElement>('[data-listen-submode]')?.dataset.listenSubmode;
+            const listenSubMode = requested === 'recall' || requested === 'shadow' ? requested : 'perceive';
+            this.setState({ listenSubMode, revealAnswer: false }, root, { preserveWord: true });
             return true;
         }
         if (action === 'source-toggle') {
@@ -3724,6 +3770,12 @@ export class NewTabController {
 
     private studyPoolForCurrentMode(): JPDBCard[] {
         const cards = this.cardsForCurrentMode(this.allWords);
+        // Listen drills need a classifiable pitch contour; words without one (e.g.
+        // Anki notes lacking accent data, or kana the classifier can't resolve) are
+        // simply not eligible, so the queue never serves an un-gradeable card.
+        if (this.state.mode === 'listen') {
+            return cards.filter(card => pitchNumberForReading(card.pitchAccent, cardPronunciationReading(card)) != null);
+        }
         const filter = this.state.filter;
         // JPDB deck-browse "Show only" parity: a state filter narrows the
         // pool by card state; 'all' bypasses the study-queue selection so
@@ -3770,7 +3822,7 @@ export class NewTabController {
     }
 
     private isStudyCardMode(mode: NewTabMode): boolean {
-        return mode === 'word' || mode === 'recall' || mode === 'kanji';
+        return mode === 'word' || mode === 'recall' || mode === 'kanji' || mode === 'listen';
     }
 
     private isVocabularyStudyMode(mode: NewTabMode): boolean {
@@ -4080,8 +4132,263 @@ export class NewTabController {
 
     private renderPromptForMode(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>, renderAsKanji = this.shouldRenderCardAsKanji(card)): void {
         if (renderAsKanji) this.renderKanjiPrompt(slots, card);
+        else if (this.state.mode === 'listen') this.renderListenPrompt(slots, card);
         else if (this.state.mode === 'recall') this.renderRecallPrompt(slots, card, state);
         else this.renderWordPrompt(slots, card, state);
+    }
+
+    // ----- Listen mode: audio-first pitch-accent drills over a local pitch SRS -----
+
+    private listenRootEl(): HTMLElement | null {
+        return document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+    }
+
+    // Map the loaded study pool to pitch items (existing scheduled item, else a fresh
+    // seed) so audio resolves from the real card while scheduling lives in the deck.
+    private listenPoolEntries(): Array<{ card: JPDBCard; item: PitchSrsItem }> {
+        const now = Date.now();
+        const entries: Array<{ card: JPDBCard; item: PitchSrsItem }> = [];
+        for (const card of this.visibleWords) {
+            const reading = cardPronunciationReading(card);
+            const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
+            if (pitchNumber == null) continue;
+            const item = this.pitchSrs.item(pitchItemKey(reading, pitchNumber)) ?? pitchSeedFromCard(card, now);
+            if (item) entries.push({ card, item });
+        }
+        return entries;
+    }
+
+    private renderListenPrompt(slots: NewTabStudySlots, card: JPDBCard): void {
+        const prompt = slots.prompt;
+        if (!prompt) return;
+        if (slots.answer) replaceChildrenWith(slots.answer);
+        if (slots.meaning) replaceChildrenWith(slots.meaning);
+        const item = this.pitchSrs.ensureFromCard(card, Date.now());
+        if (!item) {
+            this.listenItem = null;
+            setInnerHtml(prompt, `<div class="jpdb-reader-newtab-listen-card"><div class="jpdb-reader-newtab-listen-prompt">${escapeHtml(this.text('listenNoAudio'))}</div></div>`);
+            return;
+        }
+        // Reset the in-card interaction state on a new card OR a sub-mode switch, so
+        // a Perceive pick/reveal never leaks into the Recall/Shadow view of the same word.
+        const isNewCard = !this.listenItem || this.listenItem.key !== item.key;
+        const isSubModeChange = this.listenRenderedSubMode !== this.state.listenSubMode;
+        if (isNewCard || isSubModeChange) {
+            this.listenItem = item;
+            this.listenRenderedSubMode = this.state.listenSubMode;
+            this.listenSelectedPosition = null;
+            this.listenRevealed = this.state.listenSubMode === 'shadow';
+            this.listenOutcome = null;
+            this.listenContrastCard = null;
+            this.clearListenRecording();
+            this.listenRecordingUnavailable = false;
+        }
+        setInnerHtml(prompt, renderListenCard(this.listenCardView(card, item), key => this.text(key)));
+        if ((isNewCard || isSubModeChange) && this.state.listenSubMode === 'perceive' && this.dependencies.playWordAudio) {
+            void this.playListenModelAudio();
+        }
+    }
+
+    private listenCardView(card: JPDBCard, item: PitchSrsItem): ListenCardView {
+        return {
+            item,
+            meaning: firstCardMeaning(card),
+            subMode: this.state.listenSubMode,
+            revealed: this.listenRevealed,
+            selectedPosition: this.listenSelectedPosition,
+            outcome: this.listenOutcome,
+            hasAudio: Boolean(this.dependencies.playWordAudio),
+            recording: Boolean(this.listenRecorder && this.listenRecorder.state !== 'inactive'),
+            hasRecording: Boolean(this.listenRecordingUrl),
+            micEnabled: this.state.listenSubMode === 'shadow',
+            micUnavailable: this.listenRecordingUnavailable,
+            contrast: this.listenContrastView(),
+        };
+    }
+
+    private listenContrastView(): ListenCardView['contrast'] {
+        const card = this.listenContrastCard;
+        if (!card) return null;
+        const reading = cardPronunciationReading(card);
+        const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
+        if (pitchNumber == null) return null;
+        return { reading, pattern: contextPitchPattern(card.pitchAccent, reading), displaySpelling: card.spelling || reading };
+    }
+
+    private rerenderActiveListen(): void {
+        const root = this.listenRootEl();
+        const card = this.visibleWords[this.index];
+        if (root && card && this.state.mode === 'listen') this.renderWord(root, card);
+    }
+
+    private handleListenPick(_root: HTMLElement, target: HTMLElement): void {
+        const raw = target.closest<HTMLElement>('[data-listen-pos]')?.dataset.listenPos;
+        const position = raw == null ? NaN : Number(raw);
+        if (Number.isInteger(position)) this.pickListenPosition(position);
+    }
+
+    private pickListenPosition(position: number): void {
+        if (!this.listenItem || this.listenRevealed || this.state.listenSubMode === 'shadow') return;
+        if (position < 0 || position > splitMorae(this.listenItem.reading).length) return;
+        this.listenSelectedPosition = position;
+        const correct = position === this.listenItem.pitchNumber;
+        this.listenRevealed = true;
+        this.listenOutcome = correct ? 'correct' : 'wrong';
+        if (this.state.listenSubMode === 'perceive') {
+            this.gradeListenItem(correct ? 'okay' : 'something', correct);
+            if (!correct) this.prepareListenContrast();
+        }
+        this.rerenderActiveListen();
+        if (this.state.listenSubMode === 'perceive' && !correct && this.listenContrastCard) void this.playListenContrast();
+        else void this.playListenModelAudio();
+    }
+
+    private handleListenGrade(root: HTMLElement, target: HTMLElement): void {
+        const grade = target.closest<HTMLElement>('[data-grade]')?.dataset.grade as JPDBGrade | undefined;
+        if (!grade || !this.listenItem) return;
+        // Production (shadow) is additive-only: a missed shadow never demotes.
+        if (this.state.listenSubMode === 'shadow' && isFailGrade(grade)) {
+            this.advanceListen(root);
+            return;
+        }
+        this.gradeListenItem(grade, !isFailGrade(grade));
+        this.advanceListen(root);
+    }
+
+    private gradeListenItem(grade: JPDBGrade, correct: boolean): void {
+        if (!this.listenItem) return;
+        this.pitchSrs.grade(this.listenItem.key, grade, this.state.listenSubMode, { correct, now: Date.now() });
+    }
+
+    private prepareListenContrast(): void {
+        if (!this.listenItem) return;
+        const entries = this.listenPoolEntries();
+        const found = findPitchContrast(this.listenItem, entries.map(entry => entry.item));
+        this.listenContrastCard = found ? entries.find(entry => entry.item.key === found.contrast.key)?.card ?? null : null;
+    }
+
+    private advanceListen(_root: HTMLElement): void {
+        this.listenItem = null;
+        this.listenSelectedPosition = null;
+        this.listenRevealed = false;
+        this.listenOutcome = null;
+        this.listenContrastCard = null;
+        this.listenAudioGeneration += 1; // invalidate any in-flight model/contrast clip
+        this.clearListenRecording();
+        // Listen is a within-session drill that re-cycles the pitch pool; long-term
+        // mastery lives in the pitch SRS deck (due scheduling), not in pool membership,
+        // so cards are not removed here. Refresh eligibility, then advance — showNextWord
+        // guards an empty pool internally, so we never render an out-of-range card.
+        this.visibleWords = this.studyPoolForCurrentMode();
+        this.showNextWord();
+    }
+
+    // Keyboard for Listen: digits 0-N pick the downstep, R/P replays the model,
+    // B plays the contrast pair, Enter/Space advances once revealed. Kept separate
+    // from the vocab keyboard machine (grade shortcuts, reveal toggle) which doesn't
+    // apply to the pitch drills.
+    private handleListenKeydown(root: HTMLElement, event: KeyboardEvent): void {
+        if (event.altKey || event.ctrlKey || event.metaKey) return;
+        const key = event.key;
+        if (/^[0-9]$/u.test(key) && !this.listenRevealed && this.state.listenSubMode !== 'shadow') {
+            event.preventDefault();
+            this.pickListenPosition(Number(key));
+            return;
+        }
+        if (key === 'r' || key === 'R' || key === 'p' || key === 'P') {
+            event.preventDefault();
+            void this.playListenModelAudio();
+            return;
+        }
+        if ((key === 'b' || key === 'B') && this.listenContrastCard) {
+            event.preventDefault();
+            void this.playListenContrast();
+            return;
+        }
+        if (key === 'Enter' || key === ' ') {
+            if (this.state.listenSubMode === 'recall' && this.listenRevealed) return; // let the user pick a self-grade
+            event.preventDefault();
+            this.advanceListen(root);
+        }
+    }
+
+    private async playListenModelAudio(): Promise<void> {
+        const generation = this.listenAudioGeneration;
+        const card = this.visibleWords[this.index];
+        if (card && generation === this.listenAudioGeneration) await this.dependencies.playWordAudio?.(card);
+    }
+
+    private async playListenContrast(): Promise<void> {
+        const generation = this.listenAudioGeneration;
+        await this.playListenModelAudio();
+        const contrast = this.listenContrastCard;
+        if (!contrast) return;
+        await new Promise(resolve => setTimeout(resolve, 700));
+        // The user may have advanced during the gap — don't play the previous card's
+        // contrast over the new card's model clip.
+        if (generation !== this.listenAudioGeneration) return;
+        await this.dependencies.playWordAudio?.(contrast);
+    }
+
+    private async toggleListenRecording(): Promise<void> {
+        if (this.listenRecorder && this.listenRecorder.state !== 'inactive') {
+            this.listenRecorder.stop();
+            return;
+        }
+        const mediaDevices = navigator.mediaDevices;
+        if (!mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+            this.listenRecordingUnavailable = true;
+            this.rerenderActiveListen();
+            return;
+        }
+        try {
+            const stream = await mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream);
+            const chunks: Blob[] = [];
+            recorder.addEventListener('dataavailable', event => { if (event.data && event.data.size) chunks.push(event.data); });
+            recorder.addEventListener('stop', () => {
+                stream.getTracks().forEach(track => track.stop());
+                this.clearListenRecording(); // also nulls listenRecorder + revokes any prior url
+                if (chunks.length) this.listenRecordingUrl = URL.createObjectURL(new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
+                this.rerenderActiveListen();
+            });
+            this.listenRecordingUnavailable = false;
+            this.listenRecorder = recorder;
+            recorder.start();
+            this.rerenderActiveListen();
+        } catch (error) {
+            log.warn('Listen self-recording unavailable', error);
+            this.listenRecorder = undefined;
+            this.listenRecordingUnavailable = true;
+            this.rerenderActiveListen();
+        }
+    }
+
+    private playListenRecording(): void {
+        if (!this.listenRecordingUrl) return;
+        try {
+            this.listenRecordingAudio?.pause();
+            const audio = new Audio(this.listenRecordingUrl);
+            this.listenRecordingAudio = audio;
+            void audio.play().catch(() => undefined);
+        } catch {
+            // Playback can throw in hardened contexts; ignore so the card stays usable.
+        }
+    }
+
+    private clearListenRecording(): void {
+        if (this.listenRecordingAudio) {
+            try { this.listenRecordingAudio.pause(); } catch { /* already stopped */ }
+            this.listenRecordingAudio = undefined;
+        }
+        if (this.listenRecordingUrl) {
+            URL.revokeObjectURL(this.listenRecordingUrl);
+            this.listenRecordingUrl = undefined;
+        }
+        if (this.listenRecorder && this.listenRecorder.state !== 'inactive') {
+            try { this.listenRecorder.stop(); } catch { /* already stopping */ }
+        }
+        this.listenRecorder = undefined;
     }
 
     private shouldRenderCardAsKanji(card: JPDBCard): boolean {
@@ -8578,6 +8885,13 @@ export class NewTabController {
         const previousIndex = this.index;
         const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key, previousIndex);
         this.rememberReviewHistoryCard(card);
+        // Auto-seed the pitch deck from normal study: a passing vocab review adds the
+        // word's pitch contour as a Listen SRS item (idempotent — never resets an
+        // existing schedule), so the Listen deck grows as a byproduct of studying,
+        // mirroring how kanji items relate to the vocab you review.
+        if (this.isVocabularyStudyMode(this.state.mode) && grade && !isFailedNewTabGrade(grade)) {
+            this.pitchSrs.ensureFromCard(card, Date.now());
+        }
         // jpdb-style failed-card loop (community ask): a failed grade keeps
         // the card in this session's pool so it comes back around until
         // passed, instead of disappearing until the next batch fetch.
@@ -8932,6 +9246,7 @@ export class NewTabController {
         root.classList.toggle('jpdb-reader-newtab-recall-mode', this.state.mode === 'recall');
         root.classList.toggle('jpdb-reader-newtab-kanji-mode', this.state.mode === 'kanji');
         root.classList.toggle('jpdb-reader-newtab-stats-mode', this.state.mode === 'stats');
+        root.classList.toggle('jpdb-reader-newtab-listen-mode', this.state.mode === 'listen');
         const search = root.querySelector<HTMLElement>('[data-newtab-search]');
         if (search) search.hidden = this.state.mode !== 'search';
         const controls = root.querySelector<HTMLElement>('[data-newtab-controls]');
@@ -8942,8 +9257,21 @@ export class NewTabController {
             button.dataset.active = String(active);
             button.setAttribute('aria-pressed', String(active));
         });
+        this.syncListenSubModeSwitcher(root);
         this.syncDeckSelector(root);
         this.syncStateFilterSelector(root);
+    }
+
+    // The Listen sub-mode switcher (Perceive / Recall / Shadow) is only relevant in
+    // Listen mode; CSS hides it otherwise, and here we reflect the active sub-mode.
+    private syncListenSubModeSwitcher(root: HTMLElement): void {
+        const switcher = root.querySelector<HTMLElement>('[data-newtab-listen-submodes]');
+        if (switcher) switcher.hidden = this.state.mode !== 'listen';
+        root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="listen-submode"]').forEach(button => {
+            const active = button.dataset.listenSubmode === this.state.listenSubMode;
+            button.dataset.active = String(active);
+            button.setAttribute('aria-pressed', String(active));
+        });
     }
 
     // JPDB deck-browse "Show only" parity: the persisted state filter for the
@@ -9349,7 +9677,7 @@ function isNewTabStudyInteractiveTarget(target: HTMLElement): boolean {
 }
 
 function isNewTabStudyKeyboardMode(mode: string): boolean {
-    return mode === 'word' || mode === 'recall' || mode === 'kanji';
+    return mode === 'word' || mode === 'recall' || mode === 'kanji' || mode === 'listen';
 }
 
 function isNewTabKeyboardCaptureBlockedTarget(target: HTMLElement): boolean {

@@ -4189,3 +4189,193 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     animation: none;
   }
 }
+
+/* ----- Listen mode: audio-first pitch-accent drills ----- */
+.jpdb-reader-newtab-listen-submodes {
+  display: none;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.jpdb-reader-newtab-listen-mode .jpdb-reader-newtab-listen-submodes {
+  display: flex;
+}
+.jpdb-reader-newtab-listen-submodes button {
+  padding: 5px 12px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jpdb-reader-muted);
+  font: 650 12px/1.2 var(--jpdb-reader-font);
+  cursor: pointer;
+}
+.jpdb-reader-newtab-listen-submodes button[data-active="true"] {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent);
+  background: var(--jpdb-reader-accent-soft);
+}
+.jpdb-reader-newtab-listen-card {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: 8px 4px 4px;
+  text-align: center;
+}
+.jpdb-reader-newtab-listen-prompt {
+  color: var(--jpdb-reader-muted);
+  font-size: 14px;
+  font-weight: 650;
+}
+.jpdb-reader-newtab-listen-audio {
+  display: flex;
+  justify-content: center;
+}
+.jpdb-reader-newtab-listen-btn {
+  min-height: 38px;
+  padding: 0 18px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 10px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  font: 700 13px/1 var(--jpdb-reader-font);
+  cursor: pointer;
+}
+.jpdb-reader-newtab-listen-btn:hover {
+  border-color: var(--jpdb-reader-accent);
+}
+.jpdb-reader-newtab-listen-recording {
+  border-color: var(--jpdb-reader-danger, #d9534f);
+  color: var(--jpdb-reader-danger, #d9534f);
+}
+.jpdb-reader-newtab-listen-picker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+.jpdb-reader-newtab-listen-pos {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 72px;
+  padding: 8px;
+  border: 1.5px solid var(--jpdb-reader-border);
+  border-radius: 10px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  cursor: pointer;
+}
+.jpdb-reader-newtab-listen-pos:hover {
+  border-color: var(--jpdb-reader-accent);
+}
+.jpdb-reader-newtab-listen-pos-selected {
+  border-color: var(--jpdb-reader-accent);
+  background: var(--jpdb-reader-accent-soft);
+}
+.jpdb-reader-newtab-listen-pos-correct {
+  border-color: var(--jpdb-reader-success, #2e9b57);
+  background: color-mix(in srgb, var(--jpdb-reader-success, #2e9b57) 18%, transparent);
+}
+.jpdb-reader-newtab-listen-pos-wrong {
+  border-color: var(--jpdb-reader-danger, #d9534f);
+  background: color-mix(in srgb, var(--jpdb-reader-danger, #d9534f) 16%, transparent);
+}
+.jpdb-reader-newtab-listen-pos-num {
+  font: 800 15px/1 var(--jpdb-reader-font);
+}
+.jpdb-reader-newtab-listen-pos-name {
+  color: var(--jpdb-reader-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+.jpdb-reader-newtab-listen-answer {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.jpdb-reader-newtab-listen-word {
+  font-size: 22px;
+  font-weight: 800;
+}
+.jpdb-reader-newtab-listen-reading {
+  color: var(--jpdb-reader-muted);
+  font-size: 14px;
+}
+.jpdb-reader-newtab-listen-class {
+  color: var(--jpdb-reader-accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+.jpdb-reader-newtab-listen-verdict {
+  font-size: 15px;
+  font-weight: 800;
+}
+.jpdb-reader-newtab-listen-verdict-correct {
+  color: var(--jpdb-reader-success, #2e9b57);
+}
+.jpdb-reader-newtab-listen-verdict-wrong {
+  color: var(--jpdb-reader-danger, #d9534f);
+}
+.jpdb-reader-newtab-listen-contrast {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+.jpdb-reader-newtab-listen-contrast-pair {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 22px;
+}
+.jpdb-reader-newtab-listen-grades {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+.jpdb-reader-newtab-listen-grade {
+  min-height: 40px;
+  padding: 0 20px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 10px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  font: 700 14px/1 var(--jpdb-reader-font);
+  cursor: pointer;
+}
+.jpdb-reader-newtab-listen-grade:hover {
+  border-color: var(--jpdb-reader-accent);
+}
+.jpdb-reader-newtab-listen-record {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.jpdb-reader-newtab-listen-cue {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.jpdb-reader-newtab-listen-meaning {
+  color: var(--jpdb-reader-muted);
+  font-size: 14px;
+}
+.jpdb-reader-newtab-listen-note {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+}
+/* The shared pitch SVG draws bare class names (heiban/atamadaka/...) on its
+   polyline/circles; give them a visible stroke inside Listen contours. */
+.jpdb-reader-newtab-listen-card svg polyline {
+  fill: none;
+  stroke: var(--jpdb-reader-accent);
+  stroke-width: 2;
+}
+.jpdb-reader-newtab-listen-card svg circle {
+  fill: var(--jpdb-reader-accent);
+}
+.jpdb-reader-newtab-listen-card svg text {
+  fill: var(--jpdb-reader-text);
+  font-size: 11px;
+}

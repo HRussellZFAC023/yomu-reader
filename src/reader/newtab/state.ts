@@ -7,12 +7,18 @@ const log = Logger.scope('NewTab');
 const STATE_STORAGE_KEY = 'jpdb-reader-newtab-ui';
 const STATE_CHANNEL_NAME = 'jpdb-reader-newtab-ui';
 
-export type NewTabMode = 'word' | 'recall' | 'kanji' | 'search' | 'stats';
+export type NewTabMode = 'word' | 'recall' | 'kanji' | 'search' | 'stats' | 'listen';
+// Listen mode runs one of three audio-first sub-modes over a single pitch-accent
+// SRS deck: Perceive (hear -> identify the downstep), Recall (retrieve from memory),
+// and Shadow (produce/mimic the contour). All three advance the same scheduled item.
+export type NewTabListenSubMode = 'perceive' | 'recall' | 'shadow';
 export type NewTabSort = 'random' | 'frequency' | 'state';
 export type NewTabFilter = 'all' | 'study' | 'local' | CardState;
 
 export interface NewTabUiState {
     mode: NewTabMode;
+    // Active Listen sub-mode (persisted so the learner returns to the drill they prefer).
+    listenSubMode: NewTabListenSubMode;
     sort: NewTabSort;
     filter: NewTabFilter;
     source: NewTabWordSource;
@@ -29,6 +35,7 @@ export interface NewTabUiState {
 // fallow-ignore-next-line unused-export
 export const DEFAULT_NEW_TAB_UI_STATE: NewTabUiState = {
     mode: 'word',
+    listenSubMode: 'perceive',
     sort: 'random',
     filter: 'study',
     source: 'auto',
@@ -57,6 +64,7 @@ export const NEW_TAB_FILTERS: Array<{ value: NewTabFilter; labelKey: UiCopyKey }
 export function normalizeNewTabUiState(value: Partial<NewTabUiState> | null | undefined): NewTabUiState {
     return {
         mode: normalizeNewTabMode(value?.mode),
+        listenSubMode: normalizeNewTabListenSubMode(value?.listenSubMode),
         sort: normalizeNewTabSort(value?.sort),
         filter: normalizeNewTabFilter(value?.filter),
         source: normalizeNewTabSource(value?.source),
@@ -119,7 +127,11 @@ function frontFacingNewTabUiState(state: NewTabUiState): NewTabUiState {
 }
 
 function normalizeNewTabMode(value: unknown): NewTabMode {
-    return value === 'recall' || value === 'kanji' || value === 'search' || value === 'stats' ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
+    return value === 'recall' || value === 'kanji' || value === 'search' || value === 'stats' || value === 'listen' ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
+}
+
+function normalizeNewTabListenSubMode(value: unknown): NewTabListenSubMode {
+    return value === 'recall' || value === 'shadow' ? value : DEFAULT_NEW_TAB_UI_STATE.listenSubMode;
 }
 
 function normalizeNewTabSort(value: unknown): NewTabSort {
