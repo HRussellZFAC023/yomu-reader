@@ -112,7 +112,7 @@ Open よむ settings (floating button or `Alt+Shift+J`) to switch these on when 
 - **Images (OCR)** — look up Japanese text inside manga panels and screenshots. Settings → Images.
 - **PC games** — download the first-party [Yomu Gaming release file](https://github.com/HRussellZFAC023/yomu-reader/releases/latest), finish the first-run setup, and set your capture shortcut. Yomu Gaming uses Yomu's default Google Lens-style OCR first; advanced local OCR is optional for offline capture.
 - **Video subtitles** — parse Japanese subtitle lines for lookup, with a transcript panel. For local files, use the [video player](/video-player/index.html).
-- **PDFs** — open the [PDF reader](/pdf-reader/) when the Japanese is in a textbook, scan, or article file.
+- **PDFs** — open the [PDF reader](/pdf-reader/index.html) when the Japanese is in a textbook, scan, or article file.
 - **Anki** — turn lookups into flashcards. Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full setup; phones and tablets can reach a desktop Anki over Wi-Fi or Tailscale, or hand off new notes to AnkiMobile/AnkiDroid.
 - **Audio** — the easiest option is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). To self-host instead, see [Local Audio](/local-audio).
 - **Study page** — open the [new-tab study app](/newtab/index.html) for daily review.

@@ -29,7 +29,7 @@ hero:
       target: _self
     - theme: alt
       text: Read
-      link: /pdf-reader/
+      link: /pdf-reader/index.html
       target: _self
     - theme: alt
       text: Study
@@ -117,7 +117,7 @@ hero:
     <strong>Watch</strong>
     <span>Open local videos and Japanese subtitles in よむ.</span>
   </a>
-  <a class="yomu-link-card" href="/pdf-reader/">
+  <a class="yomu-link-card" href="/pdf-reader/index.html">
     <strong>Read</strong>
     <span>Read PDFs with the same popup reader.</span>
   </a>

@@ -12,7 +12,7 @@ description: Get help with よむ — report a bug, join the Discord, view the s
     <strong>Video Player</strong>
     <span>Open local browser-supported video and subtitle files in the player.</span>
   </a>
-  <a class="yomu-link-card" href="pdf-reader/">
+  <a class="yomu-link-card" href="pdf-reader/index.html">
     <strong>PDF Reader</strong>
     <span>Open PDFs in the hosted reader and use よむ lookup, mining, and OCR where supported.</span>
   </a>

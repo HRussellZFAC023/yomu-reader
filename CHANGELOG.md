@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.241] - 2026-06-29
+
+### Fixed
+
+- Re-published the hosted overflow menu and New Tab caption readability release after syncing the video player smoke check with the current drop-video-plus-subtitles copy.
+- Pointed hosted PDF Reader menu/docs links at the explicit index.html route so local and published link checks resolve to the reader instead of a docs 404.
+
 ## [1.4.240] - 2026-06-29
 
 ### Fixed

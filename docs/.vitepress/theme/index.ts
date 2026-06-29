@@ -86,7 +86,7 @@ let localRuntimeCacheCleanupStarted = false;
 
 const HOSTED_OVERFLOW_LINKS = [
     { text: 'Video Player', href: '/video-player/index.html', target: '_self' },
-    { text: 'PDF Reader', href: '/pdf-reader/', target: '_self' },
+    { text: 'PDF Reader', href: '/pdf-reader/index.html', target: '_self' },
     { text: 'Stats', href: '/newtab/index.html?mode=stats', target: '_self' },
     { text: 'Local Audio', href: '/local-audio' },
     { text: 'Changelog', href: '/changelog' },
@@ -156,6 +156,8 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Re-published the hosted overflow menu and New Tab caption readability release after syncing the video player smoke check with the current drop-video-plus-subtitles copy.': '動画プレイヤーのスモークチェックを現在の「動画と字幕をドロップ」コピーに同期したうえで、ホスト版オーバーフローメニューと新しいタブのキャプション可読性のリリースを再公開しました。',
+    'Pointed hosted PDF Reader menu/docs links at the explicit index.html route so local and published link checks resolve to the reader instead of a docs 404.': 'ホスト版PDFリーダーのメニュー／ドキュメントリンクを明示的なindex.htmlルートに向け、ローカルでも公開後でもリンクチェックがドキュメントの404ではなくリーダーへ解決されるようにしました。',
     'Matched the Study, PDF Reader, and Video Player overflow menus to the homepage menu, including compact ellipsis styling, localized labels, and the same working tool/support links.': 'Study、PDFリーダー、動画プレイヤーのオーバーフローメニューをホームページのメニューに揃えました。コンパクトな三点リーダー表示、ローカライズ済みラベル、同じツール／サポートリンクを使います。',
     'Kept New Tab Immersion Kit image captions in white caption text with the video-style fallback/shadow treatment in light mode, matching the readable dark-mode and popup implementations.': '新しいタブのイマージョンキット画像キャプションを、ライトモードでも白い字幕テキストと動画風のフォールバック／影処理で表示し、読みやすいダークモードやポップアップの実装と揃えました。',
     'Restored settings saved under previous storage keys during update/reinstall recovery, including theme and accent color, while preserving any newer settings already changed after the update.': '更新または再インストール後の復旧時に、以前の保存キーに残っていたテーマやアクセントカラーなどの設定を復元し、更新後に変更された新しい設定は保持するようにしました。',

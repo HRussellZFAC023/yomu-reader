@@ -9,7 +9,7 @@ const socialImage = `${siteUrl}og-image.png`;
 const newTabLink = '/newtab/index.html';
 const statsLink = '/newtab/index.html?mode=stats';
 const videoPlayerLink = '/video-player/index.html';
-const pdfReaderLink = '/pdf-reader/';
+const pdfReaderLink = '/pdf-reader/index.html';
 
 const siteTitle = 'よむ - Japanese popup reader';
 const siteDescription =

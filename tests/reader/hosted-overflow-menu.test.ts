@@ -17,6 +17,8 @@ describe('hosted overflow menus', () => {
             expect(theme).toContain(`text: '${label}'`);
             expect(config).toContain(`text: '${label}'`);
         }
+        expect(theme).toContain("href: '/pdf-reader/index.html'");
+        expect(config).toContain("const pdfReaderLink = '/pdf-reader/index.html';");
     });
 
     it('uses homepage-style labels and compact sizing on the newtab menu', () => {
@@ -40,6 +42,7 @@ describe('hosted overflow menus', () => {
             expect(html).not.toContain('hamburger-icon');
             expect(html).toContain('href="https://github.com/HRussellZFAC023/yomu-reader"');
             expect(html).toContain('href="https://discord.gg/jD6NPURewD"');
+            expect(html).toContain('href="../pdf-reader/index.html"');
             expect(html).not.toContain('github.com/Ajatt-Tools/yomitan-for-jpdb');
             expect(html).not.toContain('discord.gg/nhqjydaR8j');
             for (const selector of [

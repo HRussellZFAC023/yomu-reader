@@ -28,7 +28,7 @@ Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and sa
     <strong>Games</strong>
     <span>Use Yomu Gaming for first-party PC game capture.</span>
   </a>
-  <a class="yomu-link-card" href="/pdf-reader/">
+  <a class="yomu-link-card" href="/pdf-reader/index.html">
     <strong>PDF</strong>
     <span>Open PDFs in the hosted reader and keep the same lookup popup.</span>
   </a>
