@@ -51,9 +51,11 @@ try {
     let page = await launchGamingApp();
     step('wait for Yomu settings shell');
     await page.waitForSelector('.yomu-gaming-shell[data-yomu-gaming-ready="true"]', { timeout: 45_000 });
+    await page.waitForSelector('.yomu-gaming-controlbar', { timeout: 45_000 });
     await page.waitForSelector('.jpdb-reader-settings[data-yomu-gaming-settings]', { timeout: 45_000 });
     step('verify capture onboarding');
     await notePendingCaptureOnboarding(page);
+    await assertDefaultOcrPath(page);
     step('configure and persist page scanning onboarding');
     await configurePageScanOnboarding(page);
     step('configure and persist capture shortcut');
@@ -62,16 +64,22 @@ try {
     if (savedShortcut.shortcut !== 'Control+Alt+U') {
         throw new Error(`Capture shortcut was not persisted: ${JSON.stringify(savedShortcut)}`);
     }
-    step('relaunch and verify capture shortcut restore');
+    step('dismiss first-run and verify clean relaunch');
+    await page.locator('[data-yomu-gaming-first-run] [data-action="dismiss-gaming-first-run"]').click();
+    await page.locator('[data-yomu-gaming-first-run]').waitFor({ state: 'detached', timeout: 10_000 });
     await closeElectronApp(app);
     app = undefined;
     page = await launchGamingApp();
     await page.waitForSelector('.yomu-gaming-shell[data-yomu-gaming-ready="true"]', { timeout: 45_000 });
-    const restoredShortcut = await page.locator('[data-yomu-gaming-first-run] [data-capture-shortcut-input]').first().inputValue();
+    await page.waitForSelector('.yomu-gaming-controlbar', { timeout: 45_000 });
+    if (await page.locator('[data-yomu-gaming-first-run]').count()) {
+        throw new Error('Yomu Gaming first-run onboarding returned after dismissal.');
+    }
+    const restoredShortcut = await page.locator('[data-native-capture-shortcut] [data-capture-shortcut-input]').first().inputValue();
     if (restoredShortcut !== 'Ctrl+Alt+U') {
         throw new Error(`Capture shortcut did not restore after relaunch: ${restoredShortcut}`);
     }
-    await assertRestoredPageScanOnboarding(page);
+    await assertRestoredPageScanSettings(page);
     step('configure local OCR endpoint');
     await page.locator('text=Image text (OCR)').first().waitFor({ timeout: 10_000 });
     await page.locator('select[name="ocrProvider"]').selectOption('local-service');
@@ -91,7 +99,7 @@ try {
     }
     await page.screenshot({ path: screenshotPath });
     step('run instant full-screen capture');
-    await page.locator('[data-yomu-gaming-first-run] [data-action="test-capture-overlay"]').click();
+    await page.locator('.yomu-gaming-controlbar [data-action="instant-capture"]').click();
     const overlay = await waitForOverlayWindow(app, 'instant');
     await overlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="instant"][data-overlay-mode="result"]', { timeout: 10_000 });
     await assertInlineOcrResult(overlay, 'instant capture');
@@ -275,10 +283,26 @@ async function notePendingCaptureOnboarding(page) {
     await onboarding.first().locator('[data-action="test-capture-overlay"]').waitFor({ timeout: 10_000 });
     await onboarding.first().locator('[data-action="start-overlay"]').waitFor({ timeout: 10_000 });
     const copy = await onboarding.first().innerText();
-    for (const expected of ['Capture shortcut', 'Page scanning', 'Off', 'Auto', 'Manual', 'Hover/capture hold key', 'Image OCR', 'Page text', 'Read games with Yomu', 'Text', 'Images', 'Video', 'Control', 'Study', 'Game']) {
+    for (const expected of ['Capture shortcut', 'Page scanning', 'Off', 'Auto', 'Manual', 'Scan modifier key', 'Image OCR', 'Page text', 'Read game text with Yomu', 'Text', 'Images', 'Video', 'Control', 'Study', 'Game', 'Install the Yomu app to use in games or anywhere on the PC']) {
         if (!copy.includes(expected)) throw new Error(`Yomu Gaming onboarding is missing "${expected}": ${copy}`);
     }
+    if (/Local OCR|endpoint|127\.0\.0\.1/i.test(copy)) throw new Error(`Yomu Gaming first-run still exposes advanced OCR setup: ${copy}`);
     if (ambiguousScanCopyPattern.test(copy)) throw new Error(`Yomu Gaming onboarding still uses ambiguous scan copy: ${copy}`);
+}
+
+async function assertDefaultOcrPath(page) {
+    const state = await page.evaluate(() => {
+        const settings = JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}');
+        return {
+            providerSelect: document.querySelector('select[name="ocrProvider"]')?.value ?? '',
+            endpointInput: document.querySelector('input[name="ocrEndpointUrl"]')?.value ?? '',
+            storedProvider: settings.ocrProvider ?? '',
+            storedEndpoint: settings.ocrEndpointUrl ?? '',
+        };
+    });
+    if (state.providerSelect !== 'google-lens' || state.endpointInput || state.storedProvider || state.storedEndpoint) {
+        throw new Error(`Yomu Gaming did not inherit the default OCR path on first launch: ${JSON.stringify(state)}`);
+    }
 }
 
 async function configurePageScanOnboarding(page) {
@@ -324,23 +348,20 @@ async function configurePageScanOnboarding(page) {
     }
 }
 
-async function assertRestoredPageScanOnboarding(page) {
+async function assertRestoredPageScanSettings(page) {
     const state = await page.evaluate(() => {
-        const onboardingManual = document.querySelector('input[name="gamingPageScanMode"][value="manual"]');
-        const manualShortcut = document.querySelector('[data-gaming-manual-scan-shortcut] input[name="shortcuts.scanPage"]');
-        const hoverHold = document.querySelector('[data-gaming-page-scan-setup] input[name="shortcuts.hoverLookup"]');
+        const manualShortcut = document.querySelector('input[name="shortcuts.scanPage"]');
+        const hoverHold = document.querySelector('input[name="shortcuts.hoverLookup"]');
         const settings = JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}');
         return {
-            onboardingManual: onboardingManual?.checked ?? false,
-            manualShortcutHidden: document.querySelector('[data-gaming-manual-scan-shortcut]')?.hidden ?? true,
             manualShortcut: manualShortcut?.value ?? '',
             hoverHold: hoverHold?.value ?? '',
             manualScanEnabled: settings.manualScanEnabled,
             annotationsPaused: settings.annotationsPaused,
         };
     });
-    if (!state.onboardingManual || state.manualShortcutHidden || state.manualShortcut !== 'Alt+J' || state.hoverHold !== 'Shift' || state.manualScanEnabled !== true || state.annotationsPaused !== false) {
-        throw new Error(`Page scan onboarding did not restore after relaunch: ${JSON.stringify(state)}`);
+    if (state.manualShortcut !== 'Alt+J' || state.hoverHold !== 'Shift' || state.manualScanEnabled !== true || state.annotationsPaused !== false) {
+        throw new Error(`Page scan settings did not restore after clean relaunch: ${JSON.stringify(state)}`);
     }
 }
 

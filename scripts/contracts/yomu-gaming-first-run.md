@@ -5,10 +5,12 @@ Owner: native Electron app implementation.
 Public docs and release metadata expect the first-party Yomu Gaming app to expose this first-run flow:
 
 - Show capture shortcut setup before the user has to browse the full settings form.
-- Describe the action as Print Screen style: press the shortcut, drag over Japanese game text, then choose a lookup.
+- Describe the action as Print Screen style: press the shortcut to read the whole screen, or use Capture area for noisy scenes.
 - Include a quick test action that opens the capture overlay from the first-run surface.
-- Keep the local OCR endpoint visible near the shortcut setup.
+- Keep local OCR endpoint setup out of first-run; it belongs in advanced OCR settings for native overlay builds that need it.
+- Include the Game capability slot: "Install the Yomu app to use in games or anywhere on the PC."
 - Persist the selected shortcut through the native app settings path.
+- Remove the first-run surface after dismissal so the app returns to a clean settings/control window.
 
 Suggested smoke selectors:
 

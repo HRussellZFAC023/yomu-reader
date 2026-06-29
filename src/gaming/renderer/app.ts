@@ -32,6 +32,8 @@ declare global {
     }
 }
 
+const APP_ICON_URL = new URL('../../../public/app-icons/yomu-gaming-512.png', import.meta.url).href;
+
 interface SettingsShellState {
     environment: YomuGamingEnvironment | null;
     settings: ReaderSettings;
@@ -53,7 +55,6 @@ interface OverlayLineResult {
     vertical: boolean;
 }
 
-const DEFAULT_OCR_ENDPOINT = 'http://127.0.0.1:7331/ocr';
 const GAMING_SETTINGS_STORAGE_KEY = 'yomu-gaming-reader-settings-v1';
 const GAMING_SETTINGS_SNAPSHOT_STORAGE_KEY = 'yomu-gaming-settings-snapshot-v1';
 const GAMING_FIRST_RUN_SEEN_STORAGE_KEY = 'yomu-gaming-first-run-seen-v1';
@@ -92,7 +93,7 @@ let captureShortcutPersistToken = 0;
 const shellState: SettingsShellState = {
     environment: null,
     settings: loadGamingSettings(),
-    status: 'Use the shortcut in-game, or tap Capture area from here.',
+    status: 'Ready for instant game capture.',
     statusTone: 'idle',
 };
 
@@ -117,6 +118,7 @@ function renderSettingsShell(): void {
     applyDocumentTheme(shellState.settings);
     appRoot.innerHTML = `
         <main class="yomu-gaming-shell" data-yomu-gaming-ready="true">
+            ${renderGamingControlBar()}
             <form class="jpdb-reader-settings yomu-gaming-settings" data-jpdb-reader-root data-yomu-gaming-settings lang="${escapeHtml(languageAttribute(shellState.settings.interfaceLanguage))}">
                 ${renderSettingsForm(shellState.settings, 'https://jpdb.io/settings', 'https://jiten.moe/settings')}
             </form>
@@ -136,25 +138,46 @@ function renderSettingsShell(): void {
     installGamingCaptureAction(form);
     syncOcrProviderFields(form);
     hideUnsupportedSettingsActions(form);
-    bindCaptureShortcutInputs(form);
+    bindCaptureShortcutInputs(appRoot);
+    bindGamingShellActions(form);
     bindSettingsForm(form);
     setShellStatus(shellState.status, shellState.statusTone);
 }
 
+function renderGamingControlBar(): string {
+    return `
+        <section class="yomu-gaming-controlbar" aria-label="Yomu Gaming controls" data-gaming-shell-actions>
+            <div class="yomu-gaming-app-title">
+                <img src="${escapeHtml(APP_ICON_URL)}" alt="" aria-hidden="true">
+                <div>
+                    <strong>Yomu Gaming</strong>
+                    <span>Screen text lookup for games and desktop apps</span>
+                </div>
+            </div>
+            <div class="yomu-gaming-capture-controls">
+                <button class="jpdb-reader-btn add" type="button" data-action="instant-capture">Capture screen</button>
+                <button class="jpdb-reader-btn" type="button" data-action="area-capture">Capture area</button>
+                <kbd data-hotkey>${escapeHtml(hotkeyLabel())}</kbd>
+            </div>
+            <div class="yomu-gaming-shell-status" data-gaming-shell-status data-status-tone="${shellState.statusTone}">${escapeHtml(shellState.status)}</div>
+        </section>
+    `;
+}
+
 function installGamingOnboarding(form: HTMLFormElement): void {
-    if (form.querySelector('[data-gaming-onboarding]')) return;
-    const head = form.querySelector<HTMLElement>('.jpdb-reader-settings-head');
-    if (!head) return;
+    if (hasSeenGamingFirstRun() || appRoot.querySelector('[data-gaming-onboarding]')) return;
+    const shell = appRoot.querySelector<HTMLElement>('.yomu-gaming-shell');
+    if (!shell) return;
     const section = document.createElement('section');
     section.className = 'yomu-gaming-onboarding';
     section.dataset.gamingOnboarding = 'true';
     section.dataset.yomuGamingFirstRun = 'true';
-    if (hasSeenGamingFirstRun()) section.dataset.firstRunDismissed = 'true';
+    section.dataset.gamingShellActions = 'true';
     section.innerHTML = `
         <div class="yomu-gaming-first-run-copy">
-            <p class="yomu-gaming-kicker">Japanese anywhere on your PC</p>
-            <h1>Read games with Yomu.</h1>
-            <p>Press the shortcut for an instant screen read, or drag over Japanese game text and choose a lookup.</p>
+            <p class="yomu-gaming-kicker">First run</p>
+            <h1>Read game text with Yomu.</h1>
+            <p>Press the shortcut to capture the whole screen and place lookup targets over Japanese text. Capture area is there when a scene is noisy.</p>
         </div>
         <div class="yomu-gaming-first-run-controls">
             <label>
@@ -173,8 +196,8 @@ function installGamingOnboarding(form: HTMLFormElement): void {
                     <input name="shortcuts.scanPage" data-shortcut-input value="${escapeHtml(shellState.settings.shortcuts.scanPage)}" placeholder="Press keys" aria-label="Manual scan shortcut" autocomplete="off" inputmode="none" spellcheck="false">
                 </label>
                 <label>
-                    <span>Hover/capture hold key</span>
-                    <input name="shortcuts.hoverLookup" data-shortcut-input value="${escapeHtml(shellState.settings.shortcuts.hoverLookup)}" placeholder="Blank means hover without a key" aria-label="Hover or capture hold key" autocomplete="off" inputmode="none" spellcheck="false">
+                    <span>Scan modifier key</span>
+                    <input name="shortcuts.hoverLookup" data-shortcut-input value="${escapeHtml(shellState.settings.shortcuts.hoverLookup)}" placeholder="Blank means hover without a key" aria-label="Scan modifier key" autocomplete="off" inputmode="none" spellcheck="false">
                 </label>
             </fieldset>
         </div>
@@ -184,7 +207,7 @@ function installGamingOnboarding(form: HTMLFormElement): void {
             <div data-yomu-gaming-feature="Video"><strong>Video</strong><span>Make subtitle words tappable.</span></div>
             <div data-yomu-gaming-feature="Control"><strong>Control</strong><span>Tune features, shortcuts, and color.</span></div>
             <div data-yomu-gaming-feature="Study"><strong>Study</strong><span>Review words and kanji in Yomu.</span></div>
-            <div data-yomu-gaming-feature="Game"><strong>Game</strong><span>Capture screen text from PC games.</span></div>
+            <div data-yomu-gaming-feature="Game"><strong>Game</strong><span>Install the Yomu app to use in games or anywhere on the PC.</span></div>
         </div>
         <div class="yomu-gaming-onboarding-summary">
             <div><strong>Shortcut</strong><span data-gaming-onboarding-status>${escapeHtml(gamingOnboardingStatusText())}</span></div>
@@ -194,10 +217,10 @@ function installGamingOnboarding(form: HTMLFormElement): void {
         <div class="yomu-gaming-first-run-actions">
             <button class="jpdb-reader-btn add" type="button" data-action="test-capture-overlay">Test capture</button>
             <button class="jpdb-reader-btn" type="button" data-action="start-overlay">Capture area</button>
-            <button class="jpdb-reader-btn" type="button" data-action="dismiss-gaming-first-run">Looks good</button>
+            <button class="jpdb-reader-btn" type="button" data-action="dismiss-gaming-first-run">Start using Yomu</button>
         </div>
     `;
-    head.insertAdjacentElement('afterend', section);
+    shell.insertBefore(section, form);
     section.addEventListener('change', event => {
         const target = event.target as HTMLElement;
         if (!target.closest('[name="gamingPageScanMode"]')) return;
@@ -347,7 +370,7 @@ function bindSettingsForm(form: HTMLFormElement): void {
         }
         if (action === 'dismiss-gaming-first-run') {
             event.preventDefault();
-            markGamingFirstRunSeen(form);
+            markGamingFirstRunSeen();
             setShellStatus('First-run tips hidden. Use Capture area or the shortcut whenever you need them.', 'success');
             return;
         }
@@ -388,62 +411,87 @@ function bindSettingsForm(form: HTMLFormElement): void {
     });
 }
 
-function bindCaptureShortcutInputs(form: HTMLFormElement): void {
-    form.querySelectorAll<HTMLInputElement>('[data-capture-shortcut-input]').forEach(input => {
+function bindGamingShellActions(form: HTMLFormElement): void {
+    appRoot.querySelectorAll<HTMLElement>('[data-gaming-shell-actions]').forEach(scope => {
+        scope.addEventListener('click', event => {
+            const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
+            const action = button?.dataset.action;
+            if (!action) return;
+            if (action === 'instant-capture' || action === 'test-capture-overlay') {
+                event.preventDefault();
+                startCaptureOverlay(form, 'instant');
+                return;
+            }
+            if (action === 'area-capture' || action === 'start-overlay') {
+                event.preventDefault();
+                startCaptureOverlay(form, 'area');
+                return;
+            }
+            if (action === 'dismiss-gaming-first-run') {
+                event.preventDefault();
+                markGamingFirstRunSeen();
+                setShellStatus('First-run tips hidden. Press the shortcut for instant capture, or use Capture area.', 'success');
+            }
+        });
+    });
+}
+
+function bindCaptureShortcutInputs(root: HTMLElement): void {
+    root.querySelectorAll<HTMLInputElement>('[data-capture-shortcut-input]').forEach(input => {
         input.addEventListener('keydown', event => {
             if (event.key === 'Tab') return;
             event.preventDefault();
             event.stopPropagation();
             if (event.key === 'Backspace' || event.key === 'Delete') {
-                syncCaptureShortcutInputValues(form, '');
+                syncCaptureShortcutInputValues(root, '');
                 setShellStatus('Press a new capture shortcut.', 'warning');
                 return;
             }
             const shortcut = formatShortcutEvent(event);
             if (!shortcut || isModifierOnlyShortcut(shortcut)) return;
-            syncCaptureShortcutInputValues(form, shortcut);
-            void persistCaptureShortcutFromInput(form, shortcut);
+            syncCaptureShortcutInputValues(root, shortcut);
+            void persistCaptureShortcutFromInput(root, shortcut);
         });
-        input.addEventListener('change', () => void persistCaptureShortcutFromInput(form, input.value));
+        input.addEventListener('change', () => void persistCaptureShortcutFromInput(root, input.value));
         input.addEventListener('blur', () => {
             if (input.value.trim() && input.value.trim() !== hotkeyLabel()) {
-                void persistCaptureShortcutFromInput(form, input.value);
+                void persistCaptureShortcutFromInput(root, input.value);
             } else {
-                syncCaptureShortcutInputValues(form, hotkeyLabel());
+                syncCaptureShortcutInputValues(root, hotkeyLabel());
             }
         });
         input.addEventListener('paste', event => {
             event.preventDefault();
             const shortcut = event.clipboardData?.getData('text/plain') ?? '';
-            syncCaptureShortcutInputValues(form, shortcut);
-            void persistCaptureShortcutFromInput(form, shortcut);
+            syncCaptureShortcutInputValues(root, shortcut);
+            void persistCaptureShortcutFromInput(root, shortcut);
         });
     });
 }
 
-async function persistCaptureShortcutFromInput(form: HTMLFormElement, shortcut: string): Promise<void> {
+async function persistCaptureShortcutFromInput(root: HTMLElement, shortcut: string): Promise<void> {
     const token = ++captureShortcutPersistToken;
-    setCaptureShortcutControlsDisabled(form, true);
+    setCaptureShortcutControlsDisabled(root, true);
     setShellStatus(`Saving ${shortcut.trim() || 'capture shortcut'}.`, 'busy');
     try {
         const environment = await bridge.updateCaptureShortcut(shortcut);
         if (token !== captureShortcutPersistToken) return;
         shellState.environment = environment;
-        syncCaptureShortcutInputValues(form, hotkeyLabel());
+        syncCaptureShortcutInputValues(root, hotkeyLabel());
         updateHotkeyCopy();
         updateCaptureOnboardingStatus();
         setShellStatus(`Capture shortcut saved: ${hotkeyLabel()}.`, 'success');
     } catch (error) {
         if (token !== captureShortcutPersistToken) return;
-        syncCaptureShortcutInputValues(form, hotkeyLabel());
+        syncCaptureShortcutInputValues(root, hotkeyLabel());
         setShellStatus(error instanceof Error ? error.message : 'Could not update capture shortcut.', 'error');
     } finally {
-        if (token === captureShortcutPersistToken) setCaptureShortcutControlsDisabled(form, false);
+        if (token === captureShortcutPersistToken) setCaptureShortcutControlsDisabled(root, false);
     }
 }
 
-function setCaptureShortcutControlsDisabled(form: HTMLFormElement, disabled: boolean): void {
-    form.querySelectorAll<HTMLInputElement>('[data-capture-shortcut-input]').forEach(input => {
+function setCaptureShortcutControlsDisabled(root: HTMLElement, disabled: boolean): void {
+    root.querySelectorAll<HTMLInputElement>('[data-capture-shortcut-input]').forEach(input => {
         input.disabled = disabled;
     });
 }
@@ -490,7 +538,7 @@ function persistSettingsFromForm(form: HTMLFormElement): void {
     persistGamingSettings(shellState.settings);
     applyDocumentTheme(shellState.settings);
     syncDisabledSettingsControlDescriptions(form, shellState.settings.interfaceLanguage);
-    syncGamingPageScanControls(form);
+    syncGamingPageScanControls(appRoot);
     updateHotkeyCopy();
 }
 
@@ -547,9 +595,9 @@ function syncFirstRunOcrEndpoint(form: HTMLFormElement, value: string): void {
     scheduleSettingsPersist(form);
 }
 
-function markGamingFirstRunSeen(form: HTMLFormElement): void {
+function markGamingFirstRunSeen(): void {
     localStorage.setItem(GAMING_FIRST_RUN_SEEN_STORAGE_KEY, 'true');
-    form.querySelector<HTMLElement>('[data-yomu-gaming-first-run]')?.setAttribute('data-first-run-dismissed', 'true');
+    appRoot.querySelector<HTMLElement>('[data-yomu-gaming-first-run]')?.remove();
 }
 
 function hasSeenGamingFirstRun(): boolean {
@@ -618,18 +666,18 @@ function applyGamingSettingsCopy(form: HTMLFormElement): void {
     replaceControlLabel(form, 'scanModifierKey', 'Scan modifier');
     replaceControlLabel(form, 'shortcuts.scanPage', 'Manual page scan shortcut');
     replaceControlLabel(form, 'shortcuts.scanImages', 'Read browser images now');
-    replaceControlLabel(form, 'shortcuts.hoverLookup', 'Capture shortcut hold key');
+    replaceControlLabel(form, 'shortcuts.hoverLookup', 'Scan modifier key');
     const readerHelp = form.querySelector<HTMLElement>('#settings-help-reader');
     if (readerHelp) {
         readerHelp.textContent = 'Use Yomu in games without changing browser-reader habits.';
     }
     const ocrHelp = form.querySelector<HTMLElement>('#settings-help-ocr');
     if (ocrHelp) {
-        ocrHelp.textContent = 'Game capture currently sends the selected crop to a local OCR server. Browser OCR choices still apply to the userscript surfaces.';
+        ocrHelp.textContent = 'Yomu keeps the same image-reading defaults as the browser reader. Native game capture can use an advanced local OCR endpoint when you want in-place desktop OCR.';
     }
     const localHelp = form.querySelector<HTMLElement>('[data-local-ocr][data-help-key="ocrLocalHelp"]');
     if (localHelp) {
-        localHelp.textContent = 'Run MangaOCR, PaddleOCR, Apple Vision, or a compatible local HTTP OCR service, then paste its /ocr URL here.';
+        localHelp.textContent = 'Advanced native overlay path: run MangaOCR, PaddleOCR, Apple Vision, or a compatible local HTTP OCR service, then paste its /ocr URL here.';
     }
 }
 
@@ -666,11 +714,11 @@ function nextSettingsTabIndex(key: string, currentIndex: number, length: number)
 function setShellStatus(status: string, tone: SettingsShellState['statusTone'] = 'idle'): void {
     shellState.status = status;
     shellState.statusTone = tone;
-    const element = appRoot.querySelector<HTMLElement>('[data-settings-save-status]');
-    if (!element) return;
-    element.textContent = status;
-    element.dataset.statusTone = tone;
-    element.hidden = false;
+    appRoot.querySelectorAll<HTMLElement>('[data-settings-save-status], [data-gaming-shell-status]').forEach(element => {
+        element.textContent = status;
+        element.dataset.statusTone = tone;
+        element.hidden = false;
+    });
 }
 
 function updateHotkeyCopy(): void {
@@ -736,6 +784,9 @@ function captureShortcutHelpText(): string {
 
 function gamingOcrModeText(): string {
     if (!shellState.settings.ocrEnabled) return 'Image OCR off. Capture on demand.';
+    if (shellState.settings.ocrProvider === 'google-lens') return 'Google Lens style default.';
+    if (shellState.settings.ocrProvider === 'local-service') return 'Advanced local OCR.';
+    if (shellState.settings.ocrProvider === 'cloud-vision') return 'Cloud Vision.';
     return shellState.settings.ocrAutoScanImages
         ? 'Auto for images. Capture on demand.'
         : 'Tap or hover. Capture on demand.';
@@ -760,7 +811,7 @@ function currentOverlayCaptureMode(): YomuGamingCaptureMode {
 
 function scrollToInitialSettingsSection(form: HTMLFormElement): void {
     window.requestAnimationFrame(() => {
-        form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-ocr')?.scrollIntoView({ block: 'start' });
+        form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll')?.scrollTo({ top: 0 });
     });
 }
 
@@ -771,10 +822,10 @@ function loadGamingSettings(): ReaderSettings {
         ...stored,
         theme: stored?.theme ?? 'light',
         ocrEnabled: stored?.ocrEnabled ?? true,
-        ocrProvider: stored?.ocrProvider ?? 'local-service',
+        ocrProvider: stored?.ocrProvider ?? DEFAULT_SETTINGS.ocrProvider,
         ocrEndpointUrl: stored?.ocrEndpointUrl
             || localStorage.getItem(PREVIOUS_OCR_ENDPOINT_STORAGE_KEY)
-            || DEFAULT_OCR_ENDPOINT,
+            || DEFAULT_SETTINGS.ocrEndpointUrl,
         ocrEngine: stored?.ocrEngine
             || localStorage.getItem(PREVIOUS_OCR_ENGINE_STORAGE_KEY)
             || DEFAULT_SETTINGS.ocrEngine,
@@ -964,8 +1015,8 @@ class OverlaySelectionController {
 }
 
 function gamingOcrSetupError(settings: ReaderSettings): string {
-    if (settings.ocrProvider !== 'local-service') return 'Game overlay currently needs Local OCR server in Settings.';
-    if (!settings.ocrEndpointUrl.trim()) return 'Add a local OCR server URL in Settings.';
+    if (settings.ocrProvider !== 'local-service') return 'Native game overlay OCR needs the advanced Local OCR server setting in this build.';
+    if (!settings.ocrEndpointUrl.trim()) return 'Add an advanced local OCR server URL in Settings.';
     return '';
 }
 

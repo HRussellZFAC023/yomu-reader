@@ -15,6 +15,7 @@ import {
 } from './ipc';
 
 const DEFAULT_HOTKEY = 'CommandOrControl+Shift+Y';
+const APP_NAME = 'Yomu Gaming';
 const DEFAULT_CAPTURE_WIDTH = 1920;
 const DEFAULT_CAPTURE_HEIGHT = 1080;
 const OCR_TIMEOUT_MS = 18_000;
@@ -55,6 +56,7 @@ const SHORTCUT_PART_ALIASES = new Map<string, string>([
 if (process.env.YOMU_GAMING_USER_DATA_DIR) {
     app.setPath('userData', path.resolve(process.env.YOMU_GAMING_USER_DATA_DIR));
 }
+app.setName(APP_NAME);
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
@@ -90,7 +92,8 @@ async function createMainWindow(): Promise<void> {
         height: 760,
         minWidth: 640,
         minHeight: 520,
-        title: 'よむ Gaming Settings',
+        title: APP_NAME,
+        icon: appIconPath(),
         backgroundColor: '#fbfcfe',
         alwaysOnTop: false,
         webPreferences: {
@@ -127,7 +130,8 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<Browser
         skipTaskbar: true,
         show: false,
         alwaysOnTop: true,
-        title: 'よむ Gaming Overlay',
+        title: `${APP_NAME} Overlay`,
+        icon: appIconPath(),
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
             contextIsolation: true,
@@ -142,6 +146,10 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<Browser
     });
     await overlayWindow.loadURL(rendererUrl(hash));
     return overlayWindow;
+}
+
+function appIconPath(): string {
+    return path.join(__dirname, 'yomu-gaming-512.png');
 }
 
 async function showOverlay(mode: YomuGamingCaptureMode = 'instant'): Promise<void> {

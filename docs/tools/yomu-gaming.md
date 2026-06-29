@@ -1,6 +1,6 @@
 ---
 title: Yomu Gaming
-description: Use Yomu on PC games with the first-party Yomu Gaming desktop app. Capture Japanese game text, send it to your local OCR server, and open lookup in Yomu.
+description: Use Yomu on PC games with the first-party Yomu Gaming desktop app. Capture Japanese game text, read it in place, and open lookup in Yomu.
 head:
   - - meta
     - name: keywords
@@ -25,10 +25,10 @@ Steam Deck note: the AppImage is the realistic free install path for Desktop Mod
 ## Setup
 
 1. Install the Yomu Gaming package for your platform.
-2. Open Yomu Gaming and set your local OCR `/ocr` endpoint.
+2. Open Yomu Gaming and finish the first-run setup.
 3. Set the capture shortcut. Use it like Print Screen for instant full-screen reading, or choose Capture area for noisy scenes.
 
-The app keeps capture local. Images are sent only to the OCR endpoint you configure.
+Yomu keeps the same image-reading defaults as the browser reader. For native in-place game OCR in this build, use **Image text (OCR) → Local OCR server — advanced** and point it at a compatible `/ocr` endpoint. If you do not see a Yomu Gaming file for your platform on the latest release yet, build from the repository release workflow or wait for the next tagged release rather than installing a third-party overlay.
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest">Check Yomu releases</a>
