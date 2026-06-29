@@ -14331,7 +14331,7 @@ ${spelling}`);
                 ${renderPausePanelToggle(state2.pausePanelEnabled, language)}
             </div>
         </div>
-        <div class="jpdb-subtitle-list-scroll">
+        <div class="jpdb-subtitle-list-scroll"${state2.virtual ? ' data-virtualized="true"' : ""}>
             <div class="jpdb-subtitle-track-tools">
                 <button type="button" data-action="load">${escapeHtml(uiText(language, "loadJapaneseSubtitles"))}</button>
                 <button type="button" data-action="load-secondary">${escapeHtml(uiText(language, "loadNativeSubtitles"))}</button>
@@ -14339,10 +14339,18 @@ ${spelling}`);
             </div>
             <div class="jpdb-subtitle-track-summary">${escapeHtml(trackPanelSummaryText(state2.autoDetected, language))}</div>
             <div class="jpdb-subtitle-track-hint">${escapeHtml(uiText(language, "subtitleTracksHint"))}</div>
-            ${state2.tracks.length ? state2.tracks.map((track) => renderSubtitleTrackRow(track, state2)).join("") : ""}
+            ${state2.virtual ? trackVirtualSpacer(state2.virtual.topSpacer) : ""}
+            ${state2.tracks.length ? trackPanelRows(state2).map((track) => renderSubtitleTrackRow(track, state2)).join("") : ""}
+            ${state2.virtual ? trackVirtualSpacer(state2.virtual.bottomSpacer) : ""}
         </div>
         <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeSubtitleTracksPanel"))}"></div>
     `;
+  }
+  function trackPanelRows(state2) {
+    return state2.virtual ? state2.tracks.slice(state2.virtual.start, state2.virtual.end) : state2.tracks;
+  }
+  function trackVirtualSpacer(height) {
+    return height > 0 ? `<div class="jpdb-subtitle-list-spacer" aria-hidden="true" style="height:${Math.round(height)}px"></div>` : "";
   }
   function jimakuAnimeSearchUrl(query = "") {
     const trimmed = query.trim();
@@ -15703,6 +15711,7 @@ ${spelling}`);
   const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
   const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 3;
   const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 21;
+  const TRACKS_VIRTUAL_HEADER_PX = 140;
   const TRANSCRIPT_AUTO_SCROLL_RESUME_FALLBACK_SECONDS = 30;
   const TRANSCRIPT_AUTO_SCROLL_RESUME_LEGACY_DEFAULT_SECONDS = 4;
   const SUBTITLE_TICK_ACTIVE_MS = 500;
@@ -15980,6 +15989,11 @@ ${spelling}`);
     transcriptDeferredRenderTimer;
     transcriptVirtualRenderFrame;
     transcriptVirtualScrollTop = 0;
+    // Tracks-panel virtualization (parallel to the lines-panel window above):
+    // videos with auto-translated captions expose hundreds of track rows.
+    renderedTracksVirtualWindow;
+    tracksVirtualRenderFrame;
+    tracksVirtualScrollTop = 0;
     // Manual-scroll override for transcript auto-follow: a user scroll pauses
     // the snap-to-active so advancing to the next cue does not yank the list
     // back; programmatic scrollIntoView calls are ignored for a short window so
@@ -16189,6 +16203,7 @@ ${spelling}`);
       this.transcriptScrollFrame = clearWindowAnimationFrame(this.transcriptScrollFrame);
       this.transcriptHydrateFrame = clearWindowAnimationFrame(this.transcriptHydrateFrame);
       this.transcriptVirtualRenderFrame = clearWindowAnimationFrame(this.transcriptVirtualRenderFrame);
+      this.tracksVirtualRenderFrame = clearWindowAnimationFrame(this.tracksVirtualRenderFrame);
       this.clearDeferredTranscriptPanelRender();
       this.transcriptInsetRealignFrame = clearWindowAnimationFrame(this.transcriptInsetRealignFrame);
       this.transcriptViewportStabilizeTimer = clearWindowTimeout(this.transcriptViewportStabilizeTimer);
@@ -19390,6 +19405,9 @@ ${spelling}`);
       this.panelMode = "tracks";
       this.clearDeferredTranscriptPanelRender();
       this.clearTranscriptVirtualRender();
+      this.tracksVirtualScrollTop = 0;
+      this.renderedTracksVirtualWindow = void 0;
+      this.tracksVirtualRenderFrame = clearWindowAnimationFrame(this.tracksVirtualRenderFrame);
       this.showTranscriptPanelElement();
       if (persist) {
         this.options.getSettings().subtitleTranscriptVisible = false;
@@ -20444,12 +20462,15 @@ ${spelling}`);
       this.transcriptTextTargetsByParseKey.clear();
       const state2 = subtitleTrackPanelState(this.tracks);
       const settings = this.options.getSettings();
+      const tracks = state2.tracks.map((track) => ({
+        ...track,
+        timing: this.trackTimingControlState(track.id)
+      }));
+      const virtual = this.tracksVirtualWindow(tracks.length);
+      this.renderedTracksVirtualWindow = virtual ? { start: virtual.start, end: virtual.end, rowCount: tracks.length } : void 0;
       setInnerHtml(this.transcriptPanel, renderSubtitleTrackPanel({
         ...state2,
-        tracks: state2.tracks.map((track) => ({
-          ...track,
-          timing: this.trackTimingControlState(track.id)
-        })),
+        tracks,
         selectedTrackId: this.selectedTrackId,
         secondaryTrackId: this.secondaryTrackId,
         hasTranscriptSurface: this.hasTranscriptSurface(),
@@ -20457,10 +20478,70 @@ ${spelling}`);
         pausePanelEnabled: settings.subtitlePausePanel,
         placement: this.effectiveTranscriptPlacement,
         language: settings.interfaceLanguage,
-        animeSearchQuery: subtitleAnimeSearchQuery(this.video)
+        animeSearchQuery: subtitleAnimeSearchQuery(this.video),
+        virtual
       }));
+      this.restoreTracksVirtualScroll(virtual);
       this.bindTranscriptResizeHandle();
+      this.bindTracksScroller();
       this.syncPanelState();
+    }
+    // Render only the visible window of track rows (plus overscan) when a video
+    // exposes more than the threshold of (auto-translated) caption tracks, so the
+    // Tracks tab opens and the sidebar resizes without reflowing hundreds of rows.
+    tracksVirtualWindow(rowCount) {
+      if (rowCount <= TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD) return void 0;
+      const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
+      const clientHeight = Math.max(
+        scroller?.clientHeight ?? 0,
+        Math.round((this.transcriptPanel?.getBoundingClientRect().height ?? 0) * 0.72),
+        TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX * 6
+      );
+      const scrollTop = Math.max(0, scroller?.scrollTop ?? this.tracksVirtualScrollTop);
+      const visibleRows = Math.max(
+        TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS,
+        Math.ceil(clientHeight / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) + TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS * 2
+      );
+      const firstRow = Math.floor(Math.max(0, scrollTop - TRACKS_VIRTUAL_HEADER_PX) / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
+      const start = Math.max(0, Math.min(firstRow, Math.max(0, rowCount - visibleRows)));
+      const end = Math.min(rowCount, start + visibleRows);
+      return {
+        start,
+        end,
+        topSpacer: start * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX,
+        bottomSpacer: Math.max(0, (rowCount - end) * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX)
+      };
+    }
+    restoreTracksVirtualScroll(virtual) {
+      if (!virtual) return;
+      const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
+      if (!scroller) return;
+      const scrollTop = Math.max(0, this.tracksVirtualScrollTop);
+      if (Math.abs(scroller.scrollTop - scrollTop) > 1) scroller.scrollTop = scrollTop;
+    }
+    bindTracksScroller() {
+      const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
+      if (!scroller || scroller.dataset.tracksVirtualBound === "true") return;
+      scroller.dataset.tracksVirtualBound = "true";
+      scroller.addEventListener("scroll", () => this.scheduleTracksVirtualRender(scroller), { passive: true });
+    }
+    scheduleTracksVirtualRender(scroller) {
+      if (scroller.dataset.virtualized !== "true") return;
+      this.tracksVirtualScrollTop = scroller.scrollTop;
+      if (this.tracksVirtualRenderFrame) return;
+      this.tracksVirtualRenderFrame = requestAnimationFrame(() => {
+        this.tracksVirtualRenderFrame = void 0;
+        if (this.destroyed || this.transcriptResizeActive || !this.isTranscriptPanelOpen() || this.panelMode !== "tracks") return;
+        const prev = this.renderedTracksVirtualWindow;
+        if (!prev) return;
+        if (this.tracks.length !== prev.rowCount) {
+          this.renderTrackPanel();
+          return;
+        }
+        const next = this.tracksVirtualWindow(prev.rowCount);
+        if (!next || prev.start === next.start && prev.end === next.end) return;
+        this.renderTrackPanel();
+      });
     }
     trackTimingControlState(id) {
       const role = this.trackSelectionRole(id);
