@@ -38,6 +38,7 @@ The fastest place to start, with nothing to download.
 1. Install Yomu and open a Japanese video. The [Japanese subtitle reader](/tools/japanese-subtitle-reader) overlay turns each subtitle line into lookup-ready words, with an optional second line for your native language and a transcript panel beside the video.
 2. When a line lands at i+1, **choose the one unknown word**. The popup shows its reading, meaning, pitch accent and frequency.
 3. Hit **mine**. Yomu captures the whole subtitle line as the source sentence, pulls the word and reading, and — if you've enabled it — grabs the audio and a screenshot of the frame.
+4. If you would rather stay immersed, watch first and open **Batch Mine** at the end. It scans the loaded transcript, compares words against your current study states, preselects i+1 not-in-deck candidates, and lets you add or copy the batch after review.
 
 <figure class="yomu-feature-shot"><img :src="'/screenshots/store-02-youtube-subtitles.png'" alt="Japanese subtitle overlay on a YouTube video with lookup-ready words"><figcaption>Choose an unknown word in the subtitle overlay, then mine the whole line.</figcaption></figure>
 

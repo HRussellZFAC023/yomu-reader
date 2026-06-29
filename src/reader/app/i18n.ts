@@ -688,6 +688,7 @@ const COPY = {
         subtitleLines: 'Lines',
         shadow: 'Shadow',
         subtitleTracks: 'Tracks',
+        batchMiningNoDestination: 'Enable JPDB/Jiten API mining or Anki mining first.',
         subtitleTrackTiming: 'Subtitle timing',
         subtitleOffsetPrevious: 'Align previous subtitle to current time',
         subtitleOffsetNext: 'Align next subtitle to current time',
@@ -1488,6 +1489,7 @@ subtitlePanelMode	表示
 subtitleLines	行
 shadow	シャドー
 subtitleTracks	トラック
+batchMiningNoDestination	JPDB/Jiten API採掘またはAnki採掘を有効にしてください。
 subtitleTrackTiming	字幕タイミング
 subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
 subtitleOffsetNext	次の字幕を現在時刻に合わせる

@@ -847,6 +847,13 @@ export class ReaderApp {
             parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
             beforeRenderTokens: tokens => this.enrichSubtitleTokensBeforeRender(tokens),
             afterParseTokens: (tokens, roots) => this.afterSubtitleJapaneseParsed(tokens, roots),
+            showBatchMiningCard: candidate => this.showCard(candidate.card, candidate.sentence, undefined, {
+                autoPlay: false,
+                trigger: 'modal',
+                navigation: 'push-current',
+            }),
+            mineBatchMiningCandidates: candidates => this.cardActions.addBatchMiningCards(candidates),
+            toast: message => this.toast(message),
             onSettingsChange: () => void saveSettings(this.settings),
         });
     }

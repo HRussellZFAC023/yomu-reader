@@ -3,6 +3,7 @@ import { uiText } from '../app/i18n';
 import { clampNumber } from '../core/number-utils';
 import { FONT_FAMILY_PRESETS } from '../settings/font-presets';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
+import { subtitleText } from './i18n';
 
 const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.45;
 const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;
@@ -19,7 +20,7 @@ export interface SubtitleElementLayout {
     height: number;
 }
 
-export type SubtitlePanelMode = 'lines' | 'shadow' | 'tracks';
+export type SubtitlePanelMode = 'lines' | 'shadow' | 'tracks' | 'mine';
 
 export function renderPanelNavigationControls(enabled: boolean, language: InterfaceLanguage): string {
     const previous = uiText(language, 'previousSubtitle');
@@ -37,6 +38,7 @@ export function renderPanelModeControls(mode: SubtitlePanelMode, canShowLines: b
         <div class="jpdb-subtitle-panel-mode" aria-label="${escapeHtml(uiText(language, 'subtitlePanelMode'))}">
             <button type="button" data-action="panel-lines" aria-pressed="${mode === 'lines'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(uiText(language, 'subtitleLines'))}</button>
             <button type="button" data-action="panel-shadow" aria-pressed="${mode === 'shadow'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(uiText(language, 'shadow'))}</button>
+            <button type="button" data-action="panel-mine" aria-pressed="${mode === 'mine'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(subtitleText(language, 'bmTab'))}</button>
             <button type="button" data-action="panel-tracks" aria-pressed="${mode === 'tracks'}">${escapeHtml(uiText(language, 'subtitleTracks'))}</button>
         </div>
     `;
@@ -163,7 +165,7 @@ export function setStylePropertyIfChanged(element: HTMLElement, property: string
     element.style.setProperty(property, value);
 }
 
-export type SubtitleIconName = 'auto-hide' | 'close' | 'copy' | 'eye' | 'eye-off' | 'fullscreen' | 'fullscreen-exit' | 'locate' | 'menu' | 'mic' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'pause' | 'play' | 'repeat' | 'stop' | 'style' | 'tracks' | 'transcript';
+export type SubtitleIconName = 'auto-hide' | 'check' | 'close' | 'copy' | 'eye' | 'eye-off' | 'fullscreen' | 'fullscreen-exit' | 'locate' | 'menu' | 'mic' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'pause' | 'play' | 'repeat' | 'stop' | 'style' | 'tracks' | 'transcript';
 
 export function transcriptPlacementIcon(placement: ReaderSettings['subtitleTranscriptPlacement']): SubtitleIconName {
     if (placement === 'left') return 'panel-left';
@@ -174,6 +176,7 @@ export function transcriptPlacementIcon(placement: ReaderSettings['subtitleTrans
 export function subtitleIcon(name: SubtitleIconName): string {
     const paths: Record<SubtitleIconName, string> = {
         'auto-hide': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/><path d="M8 9v6"/><path d="M11 9v6"/>',
+        check: '<path d="M20 6 9 17l-5-5"/>',
         close: '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
         copy: '<path d="M14 3H6a2 2 0 0 0-2 2v12"/><path d="M10 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M14 11v6"/><path d="M11 14h6"/>',
         eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',

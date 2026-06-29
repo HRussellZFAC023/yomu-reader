@@ -2072,11 +2072,11 @@
     for (const token of tokens) {
       const sentence = miningInsightSentenceKey(token);
       if (!sentence || isParticleCard(token.card)) continue;
-      const cardKey = readerCardKey(token.card);
+      const cardKey2 = readerCardKey(token.card);
       const sentenceCards = sentences.get(sentence) ?? /* @__PURE__ */ new Map();
       if (!sentences.has(sentence)) sentences.set(sentence, sentenceCards);
-      if (!sentenceCards.has(cardKey)) {
-        sentenceCards.set(cardKey, { unknown: isMiningUnknownCard(token.card) });
+      if (!sentenceCards.has(cardKey2)) {
+        sentenceCards.set(cardKey2, { unknown: isMiningUnknownCard(token.card) });
       }
     }
     const keys = /* @__PURE__ */ new Set();
@@ -2094,8 +2094,8 @@
   function miningInsightTokenKey(token) {
     return miningInsightKey(miningInsightSentenceKey(token), readerCardKey(token.card));
   }
-  function miningInsightKey(sentence, cardKey) {
-    return `${sentence}\0${cardKey}`;
+  function miningInsightKey(sentence, cardKey2) {
+    return `${sentence}\0${cardKey2}`;
   }
   function miningInsightSentenceKey(token) {
     return (token.sentence ?? "").replace(/\s+/g, " ").trim();
@@ -4301,6 +4301,7 @@
       subtitleLines: "Lines",
       shadow: "Shadow",
       subtitleTracks: "Tracks",
+      batchMiningNoDestination: "Enable JPDB/Jiten API mining or Anki mining first.",
       subtitleTrackTiming: "Subtitle timing",
       subtitleOffsetPrevious: "Align previous subtitle to current time",
       subtitleOffsetNext: "Align next subtitle to current time",
@@ -4771,6 +4772,25 @@
       grammarLevelCore: "Core"
     }
   };
+  const CARD_STATE_LABEL_KEYS = {
+    new: "stateNew",
+    learning: "stateLearning",
+    young: "stateYoung",
+    mature: "stateMature",
+    known: "stateKnown",
+    mastered: "stateMastered",
+    due: "stateDue",
+    failed: "stateFailed",
+    locked: "stateLocked",
+    "never-forget": "stateNeverForget",
+    blacklisted: "stateBlacklisted",
+    suspended: "stateSuspended",
+    "in-deck": "stateInDeck",
+    "not-in-deck": "stateNotInDeck",
+    redundant: "stateRedundant",
+    frequent: "stateFrequent",
+    unparsed: "stateUnparsed"
+  };
   function parseUiCopyTable(rows) {
     const copy = {};
     rows.trim().split("\n").forEach((row) => {
@@ -5077,6 +5097,7 @@ subtitlePanelMode	表示
 subtitleLines	行
 shadow	シャドー
 subtitleTracks	トラック
+batchMiningNoDestination	JPDB/Jiten API採掘またはAnki採掘を有効にしてください。
 subtitleTrackTiming	字幕タイミング
 subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
 subtitleOffsetNext	次の字幕を現在時刻に合わせる
@@ -5968,6 +5989,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function uiText(language, key) {
     return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? "未翻訳" : COPY.en[key];
+  }
+  function cardStateLabel(state2, language, fallback = state2) {
+    const key = CARD_STATE_LABEL_KEYS[state2];
+    return key ? uiText(language, key) : fallback;
   }
   function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
     if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
@@ -11876,6 +11901,88 @@ ${spelling}`);
     { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
     { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
   ];
+  const SUBTITLE_COPY = {
+    en: {
+      selectAll: "Select all",
+      clearSelection: "Clear",
+      subtitleShadow: "Shadow",
+      subtitleShadowing: "Shadowing",
+      bmTab: "Mine",
+      bmTitle: "Batch mining",
+      bmScan: "Scan",
+      bmRescan: "Rescan",
+      bmAdd: "Add selected",
+      bmCopy: "Copy list",
+      bmReady: "Scan the loaded transcript to collect candidate words.",
+      bmRowsReady: "{count} lines ready",
+      bmScanning: "Scanning {count}/{total} lines",
+      bmSummary: "{count} candidates · {iPlusOne} i+1 · {selected} selected",
+      bmNoCandidates: "No new candidates found.",
+      bmNoTranscript: "No transcript lines to scan.",
+      bmNoSelection: "No words selected.",
+      bmAdded: "Added {count} words.",
+      bmAddFailed: "Could not add selected words.",
+      bmCopied: "Copied {count} words.",
+      bmFailed: "Batch scan failed.",
+      bmIPlusOne: "i+1",
+      bmOccurrences: "{count}x",
+      bmSelect: "Select word",
+      bmDeselect: "Deselect word",
+      shadowReplayLine: "Replay current line",
+      shadowReplay: "Replay",
+      shadowEnableLoop: "Loop current line",
+      shadowDisableLoop: "Stop looping current line",
+      shadowLoop: "Loop",
+      shadowHideText: "Hide current line text",
+      shadowRevealText: "Show current line text",
+      shadowWaitingForLine: "Waiting for the current subtitle.",
+      shadowLoopingCurrentLine: "Looping current line",
+      shadowCurrentLine: "Current line"
+    },
+    ja: {
+      selectAll: "すべて選択",
+      clearSelection: "選択解除",
+      subtitleShadow: "シャドー",
+      subtitleShadowing: "シャドーイング",
+      bmTab: "採掘",
+      bmTitle: "一括採掘",
+      bmScan: "スキャン",
+      bmRescan: "再スキャン",
+      bmAdd: "選択を追加",
+      bmCopy: "リストをコピー",
+      bmReady: "読み込んだ字幕をスキャンして候補語を集めます。",
+      bmRowsReady: "{count}行準備完了",
+      bmScanning: "{count}/{total}行をスキャン中",
+      bmSummary: "候補{count}・i+1 {iPlusOne}・選択{selected}",
+      bmNoCandidates: "新しい候補はありません。",
+      bmNoTranscript: "スキャンできる字幕行がありません。",
+      bmNoSelection: "単語が選択されていません。",
+      bmAdded: "{count}語を追加しました。",
+      bmAddFailed: "選択語を追加できませんでした。",
+      bmCopied: "{count}語をコピーしました。",
+      bmFailed: "一括スキャンに失敗しました。",
+      bmIPlusOne: "i+1",
+      bmOccurrences: "{count}回",
+      bmSelect: "単語を選択",
+      bmDeselect: "単語の選択を解除",
+      shadowReplayLine: "現在の行を再生",
+      shadowReplay: "再生",
+      shadowEnableLoop: "現在の行をループ",
+      shadowDisableLoop: "現在の行のループを停止",
+      shadowLoop: "ループ",
+      shadowHideText: "現在行の文字を隠す",
+      shadowRevealText: "現在行の文字を表示",
+      shadowWaitingForLine: "現在の字幕を待機中です。",
+      shadowLoopingCurrentLine: "現在行をループ中",
+      shadowCurrentLine: "現在行"
+    }
+  };
+  function subtitleText(language, key) {
+    return SUBTITLE_COPY[resolveUiLanguage(language)][key] ?? SUBTITLE_COPY.en[key];
+  }
+  function formatSubtitleText(language, key, values) {
+    return subtitleText(language, key).replace(/\{([a-zA-Z0-9_]+)\}/g, (_, name) => String(values[name] ?? ""));
+  }
   const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.45;
   const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;
   const SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT = 80;
@@ -11897,6 +12004,7 @@ ${spelling}`);
         <div class="jpdb-subtitle-panel-mode" aria-label="${escapeHtml(uiText(language, "subtitlePanelMode"))}">
             <button type="button" data-action="panel-lines" aria-pressed="${mode === "lines"}" ${canShowLines ? "" : "disabled"}>${escapeHtml(uiText(language, "subtitleLines"))}</button>
             <button type="button" data-action="panel-shadow" aria-pressed="${mode === "shadow"}" ${canShowLines ? "" : "disabled"}>${escapeHtml(uiText(language, "shadow"))}</button>
+            <button type="button" data-action="panel-mine" aria-pressed="${mode === "mine"}" ${canShowLines ? "" : "disabled"}>${escapeHtml(subtitleText(language, "bmTab"))}</button>
             <button type="button" data-action="panel-tracks" aria-pressed="${mode === "tracks"}">${escapeHtml(uiText(language, "subtitleTracks"))}</button>
         </div>
     `;
@@ -12003,6 +12111,7 @@ ${spelling}`);
   function subtitleIcon(name) {
     const paths = {
       "auto-hide": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/><path d="M8 9v6"/><path d="M11 9v6"/>',
+      check: '<path d="M20 6 9 17l-5-5"/>',
       close: '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
       copy: '<path d="M14 3H6a2 2 0 0 0-2 2v12"/><path d="M10 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M14 11v6"/><path d="M11 14h6"/>',
       eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
@@ -15135,6 +15244,23 @@ ${spelling}`);
     const editable = element.closest("[contenteditable]");
     return Boolean(editable && editable.getAttribute("contenteditable")?.toLowerCase() !== "false");
   }
+  async function copyText(text) {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch {
+      }
+    }
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  }
   function isApiMiningEnabled(settings) {
     return settings.jpdbMiningEnabled;
   }
@@ -15337,6 +15463,183 @@ ${spelling}`);
     } catch {
       return false;
     }
+  }
+  function cardKey(card) {
+    return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
+  }
+  const BATCH_UNKNOWN_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
+  const BATCH_ALREADY_QUEUED_STATES = /* @__PURE__ */ new Set(["new", "in-deck"]);
+  const BATCH_BLOCKED_STATES = /* @__PURE__ */ new Set(["blacklisted", "never-forget", "redundant", "suspended"]);
+  const BATCH_PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
+  const MIN_I_PLUS_ONE_CARD_COUNT = 3;
+  function buildSubtitleBatchMiningCandidates(rows) {
+    const drafts = /* @__PURE__ */ new Map();
+    for (const row of rows) addBatchMiningRowCandidates(drafts, row);
+    return Array.from(drafts.values()).sort(compareBatchMiningCandidates).map(({ sortKey: _sortKey, ...candidate }) => candidate);
+  }
+  function subtitleBatchMiningSummary(rows, candidates) {
+    return {
+      rows: rows.length,
+      parsedRows: rows.filter((row) => row.tokens.length > 0).length,
+      candidates: candidates.length,
+      iPlusOne: candidates.filter((candidate) => candidate.iPlusOne).length,
+      selected: candidates.filter((candidate) => candidate.selected).length
+    };
+  }
+  function subtitleBatchMiningTsv(candidates) {
+    return [
+      ["expression", "reading", "state", "occurrences", "sentence"].join("	"),
+      ...candidates.map((candidate) => [
+        candidate.card.spelling,
+        candidate.card.reading,
+        candidate.state,
+        String(candidate.occurrences),
+        candidate.sentence
+      ].map(tsvCell).join("	"))
+    ].join("\n");
+  }
+  function isSubtitleBatchMiningCandidateSelectedByDefault(card, iPlusOne) {
+    if (!iPlusOne) return false;
+    const states = normalizeCardStates(card.cardState);
+    return !states.some((state2) => BATCH_ALREADY_QUEUED_STATES.has(state2));
+  }
+  function addBatchMiningRowCandidates(drafts, row) {
+    const entries = batchMiningRowEntries(row);
+    const sentenceCardCount = entries.length;
+    const unknownEntries = entries.filter((entry) => isBatchMiningUnknownCard(entry.card));
+    const unknownCardCount = unknownEntries.length;
+    const iPlusOne = sentenceCardCount >= MIN_I_PLUS_ONE_CARD_COUNT && unknownCardCount === 1;
+    for (const entry of unknownEntries) {
+      if (isBatchMiningBlockedCard(entry.card)) continue;
+      const candidate = batchMiningCandidate(row, entry.card, sentenceCardCount, unknownCardCount, iPlusOne);
+      mergeBatchMiningCandidate(drafts, candidate);
+    }
+  }
+  function batchMiningRowEntries(row) {
+    const entries = /* @__PURE__ */ new Map();
+    for (const token of row.tokens) {
+      const card = token.card;
+      if (!card.spelling.trim() || isBatchMiningParticleCard(card)) continue;
+      const key = cardKey(card);
+      if (!entries.has(key)) entries.set(key, card);
+    }
+    return Array.from(entries, ([key, card]) => ({ key, card }));
+  }
+  function batchMiningCandidate(row, card, sentenceCardCount, unknownCardCount, iPlusOne) {
+    const state2 = primaryCardState(card.cardState);
+    return {
+      key: subtitleBatchMiningCandidateKey(card),
+      card,
+      sentence: row.text,
+      rowIndex: row.rowIndex,
+      cueIndex: row.cueIndex,
+      start: row.start,
+      end: row.end,
+      occurrences: 1,
+      sentenceCardCount,
+      unknownCardCount,
+      iPlusOne,
+      selected: isSubtitleBatchMiningCandidateSelectedByDefault(card, iPlusOne),
+      state: state2,
+      sortKey: batchMiningSortKey(card, row.rowIndex, iPlusOne, unknownCardCount, 1)
+    };
+  }
+  function mergeBatchMiningCandidate(drafts, candidate) {
+    const current = drafts.get(candidate.key);
+    if (!current) {
+      drafts.set(candidate.key, candidate);
+      return;
+    }
+    current.occurrences += 1;
+    current.sortKey.occurrenceRank = -current.occurrences;
+    if (!shouldReplaceBatchMiningExample(current, candidate)) return;
+    drafts.set(candidate.key, {
+      ...candidate,
+      occurrences: current.occurrences,
+      selected: current.selected || candidate.selected,
+      sortKey: batchMiningSortKey(candidate.card, candidate.rowIndex, candidate.iPlusOne, candidate.unknownCardCount, current.occurrences)
+    });
+  }
+  function shouldReplaceBatchMiningExample(current, candidate) {
+    if (candidate.iPlusOne !== current.iPlusOne) return candidate.iPlusOne;
+    if (candidate.unknownCardCount !== current.unknownCardCount) return candidate.unknownCardCount < current.unknownCardCount;
+    if (frequencyRank(candidate.card) !== frequencyRank(current.card)) return frequencyRank(candidate.card) < frequencyRank(current.card);
+    return candidate.rowIndex < current.rowIndex;
+  }
+  function compareBatchMiningCandidates(a, b) {
+    return a.sortKey.iPlusOneRank - b.sortKey.iPlusOneRank || a.sortKey.unknownCount - b.sortKey.unknownCount || a.sortKey.frequency - b.sortKey.frequency || a.sortKey.occurrenceRank - b.sortKey.occurrenceRank || a.sortKey.rowIndex - b.sortKey.rowIndex || a.card.spelling.localeCompare(b.card.spelling, "ja");
+  }
+  function batchMiningSortKey(card, rowIndex, iPlusOne, unknownCount, occurrences) {
+    return {
+      iPlusOneRank: iPlusOne ? 0 : 1,
+      unknownCount,
+      frequency: frequencyRank(card),
+      occurrenceRank: -occurrences,
+      rowIndex
+    };
+  }
+  function frequencyRank(card) {
+    return card.frequencyRank ?? Number.MAX_SAFE_INTEGER;
+  }
+  function subtitleBatchMiningCandidateKey(card) {
+    return cardKey(card);
+  }
+  function isBatchMiningUnknownCard(card) {
+    return BATCH_UNKNOWN_STATES.has(primaryCardState(card.cardState));
+  }
+  function isBatchMiningBlockedCard(card) {
+    return normalizeCardStates(card.cardState).some((state2) => BATCH_BLOCKED_STATES.has(state2));
+  }
+  function isBatchMiningParticleCard(card) {
+    return card.partOfSpeech.includes("prt") || BATCH_PARTICLE_SURFACE_RE.test(card.spelling.trim());
+  }
+  function tsvCell(value) {
+    return value.replace(/\t/gu, " ").replace(/\r?\n/gu, " ");
+  }
+  function renderSubtitleBatchMiningPanel(state2) {
+    const language = state2.language;
+    return `<div class="jpdb-subtitle-drawer-head"><div class="jpdb-subtitle-drawer-brand"><strong class="jpdb-subtitle-drawer-title">${escapeHtml(subtitleText(language, "bmTitle"))}</strong><span class="jpdb-subtitle-drawer-meta">${escapeHtml(batchMiningMetaText(state2))}</span></div><div class="jpdb-subtitle-drawer-actions">${renderPanelModeControls("mine", state2.hasTranscriptSurface, language)}${renderPanelNavigationControls(state2.hasNavigableLines, language)}${renderPanelPlacementControls(state2.placement, language)}${renderPausePanelToggle(state2.pausePanelEnabled, language)}</div></div><div class="jpdb-subtitle-batch-toolbar"><button type="button" data-action="bm-scan" ${state2.status === "scanning" ? "disabled" : ""}>${subtitleIcon("transcript")}<span>${escapeHtml(subtitleText(language, state2.status === "ready" ? "bmRescan" : "bmScan"))}</span></button><button type="button" data-action="bm-add" ${state2.selectedKeys.size ? "" : "disabled"}>${subtitleIcon("check")}<span>${escapeHtml(subtitleText(language, "bmAdd"))}</span></button><button type="button" data-action="bm-copy" ${state2.selectedKeys.size ? "" : "disabled"}>${subtitleIcon("copy")}<span>${escapeHtml(subtitleText(language, "bmCopy"))}</span></button><button type="button" data-action="bm-all" ${state2.candidates.length ? "" : "disabled"}>${escapeHtml(subtitleText(language, "selectAll"))}</button><button type="button" data-action="bm-clear" ${state2.selectedKeys.size ? "" : "disabled"}>${escapeHtml(subtitleText(language, "clearSelection"))}</button></div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state2)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeTranscriptPanel"))}"></div>`;
+  }
+  function renderBatchMiningBody(state2) {
+    if (state2.status === "failed") {
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml(state2.errorMessage || subtitleText(state2.language, "bmFailed"))}</div>`;
+    }
+    if (state2.status === "scanning") {
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml(formatSubtitleText(state2.language, "bmScanning", {
+        count: state2.summary.parsedRows,
+        total: state2.summary.rows
+      }))}</div>`;
+    }
+    if (state2.status === "idle") {
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml(subtitleText(state2.language, "bmReady"))}</div>`;
+    }
+    if (!state2.candidates.length) {
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml(subtitleText(state2.language, "bmNoCandidates"))}</div>`;
+    }
+    return `<div class="jpdb-subtitle-batch-list">${state2.candidates.map((candidate) => renderBatchMiningCandidate(candidate, state2)).join("")}</div>`;
+  }
+  function renderBatchMiningCandidate(candidate, state2) {
+    const language = state2.language;
+    const selected = state2.selectedKeys.has(candidate.key);
+    const selectLabel = subtitleText(language, selected ? "bmDeselect" : "bmSelect");
+    return `<div class="jpdb-subtitle-batch-row" data-batch-candidate-key="${escapeHtml(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml(selectLabel)}">${selected ? subtitleIcon("check") : ""}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" lang="ja">${escapeHtml(candidate.card.spelling)}</span>${candidate.card.reading && candidate.card.reading !== candidate.card.spelling ? `<span class="jpdb-subtitle-batch-reading" lang="ja">${escapeHtml(candidate.card.reading)}</span>` : ""}</button><div class="jpdb-subtitle-batch-meta">${candidate.iPlusOne ? `<span class="jpdb-subtitle-batch-badge">${escapeHtml(subtitleText(language, "bmIPlusOne"))}</span>` : ""}<span>${escapeHtml(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml(formatSubtitleText(language, "bmOccurrences", { count: candidate.occurrences }))}</span><span>${escapeHtml(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" lang="ja">${escapeHtml(candidate.sentence)}</div></div>`;
+  }
+  function batchMiningMetaText(state2) {
+    if (state2.status === "scanning") {
+      return formatSubtitleText(state2.language, "bmScanning", {
+        count: state2.summary.parsedRows,
+        total: state2.summary.rows
+      });
+    }
+    if (state2.status === "failed") return subtitleText(state2.language, "bmFailed");
+    if (state2.status === "ready") {
+      return formatSubtitleText(state2.language, "bmSummary", {
+        count: state2.summary.candidates,
+        iPlusOne: state2.summary.iPlusOne,
+        selected: state2.summary.selected
+      });
+    }
+    return formatSubtitleText(state2.language, "bmRowsReady", { count: state2.summary.rows });
   }
   const TRANSCRIPT_PANEL_ANIMATION_MS = 180;
   const TRANSCRIPT_PANEL_MIN_SIDE_WIDTH = 300;
@@ -15719,6 +16022,7 @@ ${spelling}`);
   const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
   const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 3;
   const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 21;
+  const BATCH_MINING_PARSE_BATCH = 24;
   const TRACKS_VIRTUAL_HEADER_PX = 140;
   const TRANSCRIPT_AUTO_SCROLL_RESUME_FALLBACK_SECONDS = 30;
   const TRANSCRIPT_AUTO_SCROLL_RESUME_LEGACY_DEFAULT_SECONDS = 4;
@@ -16034,6 +16338,12 @@ ${spelling}`);
     shadowRecorder;
     shadowRecordingUrl;
     shadowRecordingUnavailable = false;
+    batchMiningStatus = "idle";
+    batchMiningCandidates = [];
+    batchMiningSelectedKeys = /* @__PURE__ */ new Set();
+    batchMiningRows = [];
+    batchMiningError = "";
+    batchMiningSerial = 0;
     transcriptPanelSize = loadTranscriptPanelSize();
     videoInset = createSubtitleVideoInsetAdapter();
     lastYomuCaptionsActive = false;
@@ -16093,7 +16403,23 @@ ${spelling}`);
       "style-reset": () => this.resetSubtitleStyleDefaults(),
       "panel-lines": () => this.openLinesPanel({ deferRender: true }),
       "panel-shadow": () => this.openShadowPanel(),
+      "panel-mine": () => this.openBatchMiningPanel(),
       "panel-tracks": () => this.openTracksPanel(),
+      "bm-scan": () => {
+        void this.scanBatchMiningTranscript();
+      },
+      "bm-toggle": (target) => this.toggleBatchMiningCandidate(target),
+      "bm-open": (target) => {
+        void this.openBatchMiningCandidate(target);
+      },
+      "bm-add": () => {
+        void this.addSelectedBatchMiningCandidates();
+      },
+      "bm-copy": () => {
+        void this.copySelectedBatchMiningCandidates();
+      },
+      "bm-all": () => this.selectAllBatchMiningCandidates(),
+      "bm-clear": () => this.clearBatchMiningSelection(),
       "shadow-replay": () => this.replayShadowCue(),
       "shadow-loop": () => this.toggleShadowLoop(),
       "shadow-toggle-text": () => this.toggleShadowText(),
@@ -16478,6 +16804,7 @@ ${spelling}`);
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
       if (this.panelMode === "tracks" || !this.hasTranscriptSurface()) this.renderTrackPanel();
       else if (this.panelMode === "shadow") this.renderShadowPanel(true);
+      else if (this.panelMode === "mine") this.renderBatchMiningPanel();
       else this.renderTranscriptPanel(true);
     }
     observeVideoLayout(video) {
@@ -19092,6 +19419,7 @@ ${spelling}`);
       if (panel) {
         panel.classList.toggle("jpdb-subtitle-lines-panel", this.panelMode === "lines");
         panel.classList.toggle("jpdb-subtitle-shadow-panel", this.panelMode === "shadow");
+        panel.classList.toggle("jpdb-subtitle-mine-panel", this.panelMode === "mine");
         panel.classList.toggle("jpdb-subtitle-tracks-panel", this.panelMode === "tracks");
       }
       this.syncLineNavigationButtons(hasLines);
@@ -19131,6 +19459,7 @@ ${spelling}`);
     preferredTranscriptDrawerMode() {
       if (this.panelMode === "lines" && this.hasTranscriptSurface()) return "lines";
       if (this.panelMode === "shadow" && this.hasTranscriptSurface()) return "shadow";
+      if (this.panelMode === "mine" && this.hasTranscriptSurface()) return "mine";
       if (this.panelMode === "tracks") return "tracks";
       return this.hasTranscriptSurface() ? "lines" : "tracks";
     }
@@ -19144,6 +19473,7 @@ ${spelling}`);
       const mode = this.preferredTranscriptDrawerMode();
       if (mode === "tracks") this.openTracksPanel();
       else if (mode === "shadow") this.openShadowPanel();
+      else if (mode === "mine") this.openBatchMiningPanel();
       else this.openLinesPanel({ deferRender: true });
     }
     showTranscriptPanelElement() {
@@ -19213,6 +19543,13 @@ ${spelling}`);
       this.clearDeferredTranscriptPanelRender();
       this.clearTranscriptVirtualRender();
       this.renderShadowPanel(true);
+      this.syncControls();
+    }
+    openBatchMiningPanel(options = {}) {
+      if (!this.prepareTranscriptPanelOpen("mine", options)) return;
+      this.clearDeferredTranscriptPanelRender();
+      this.clearTranscriptVirtualRender();
+      this.renderBatchMiningPanel();
       this.syncControls();
     }
     prepareTranscriptPanelOpen(mode, options) {
@@ -19392,6 +19729,11 @@ ${spelling}`);
       }
       if (this.panelMode === "shadow") {
         if (this.hasTranscriptSurface()) this.renderShadowPanel(true);
+        else this.closeTranscriptPanel();
+        return;
+      }
+      if (this.panelMode === "mine") {
+        if (this.hasTranscriptSurface()) this.renderBatchMiningPanel();
         else this.closeTranscriptPanel();
         return;
       }
@@ -19706,6 +20048,158 @@ ${spelling}`);
         if (this.panelMode !== "shadow" || signature !== this.lastShadowSignature) return;
         this.updateTranscriptRowsForParseKey(key, html, { force: true });
       }).catch(() => void 0);
+    }
+    renderBatchMiningPanel() {
+      if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing || this.panelMode !== "mine") return;
+      this.clearDeferredTranscriptPanelRender();
+      this.transcriptTextTargetsByParseKey.clear();
+      setInnerHtml(this.transcriptPanel, renderSubtitleBatchMiningPanel(this.batchMiningPanelRenderState()));
+      this.bindTranscriptResizeHandle();
+      this.positionTranscriptPanel();
+      this.syncPanelState();
+    }
+    batchMiningPanelRenderState() {
+      const settings = this.options.getSettings();
+      const rows = this.batchMiningRows.length ? this.batchMiningRows : this.currentBatchMiningRows();
+      const candidates = this.batchMiningCandidates.map((candidate) => ({
+        ...candidate,
+        selected: this.batchMiningSelectedKeys.has(candidate.key)
+      }));
+      return {
+        status: this.batchMiningStatus,
+        candidates,
+        selectedKeys: this.batchMiningSelectedKeys,
+        summary: subtitleBatchMiningSummary(rows, candidates),
+        errorMessage: this.batchMiningError,
+        hasTranscriptSurface: this.hasTranscriptSurface(),
+        hasNavigableLines: Boolean(this.video && this.cues.length),
+        pausePanelEnabled: settings.subtitlePausePanel,
+        placement: this.effectiveTranscriptPlacement,
+        language: settings.interfaceLanguage
+      };
+    }
+    currentBatchMiningRows() {
+      const settings = this.options.getSettings();
+      return this.transcriptRows().map((row, rowIndex) => {
+        const key = this.parseCacheKey(row.cue.text, settings);
+        return {
+          rowIndex,
+          cueIndex: row.cueIndex,
+          start: row.cue.start,
+          end: row.cue.end,
+          text: row.cue.text,
+          tokens: this.parsedTokenCache.get(key) ?? []
+        };
+      });
+    }
+    async scanBatchMiningTranscript() {
+      const rows = this.transcriptRows();
+      const settings = this.options.getSettings();
+      if (!rows.length || false) {
+        this.batchMiningStatus = "failed";
+        this.batchMiningError = subtitleText(settings.interfaceLanguage, "bmNoTranscript");
+        this.renderBatchMiningPanel();
+        return;
+      }
+      const serial = ++this.batchMiningSerial;
+      this.batchMiningStatus = "scanning";
+      this.batchMiningError = "";
+      this.batchMiningCandidates = [];
+      this.batchMiningSelectedKeys.clear();
+      this.batchMiningRows = rows.map((row, rowIndex) => ({
+        rowIndex,
+        cueIndex: row.cueIndex,
+        start: row.cue.start,
+        end: row.cue.end,
+        text: row.cue.text,
+        tokens: []
+      }));
+      this.renderBatchMiningPanel();
+      try {
+        for (let start = 0; start < rows.length; start += BATCH_MINING_PARSE_BATCH) {
+          if (serial !== this.batchMiningSerial) return;
+          const chunk = rows.slice(start, start + BATCH_MINING_PARSE_BATCH);
+          await this.parseCueHtmlBatch(chunk.map((row) => row.cue.text), settings, {
+            allowProvisional: false,
+            enrichBeforeRender: true
+          });
+          this.captureBatchMiningParsedRows(rows, start, chunk.length, settings);
+          this.renderBatchMiningPanel();
+          await waitForBackgroundTranscriptParseTurn(0);
+        }
+        if (serial !== this.batchMiningSerial) return;
+        this.batchMiningCandidates = buildSubtitleBatchMiningCandidates(this.batchMiningRows);
+        this.batchMiningSelectedKeys = new Set(this.batchMiningCandidates.filter((candidate) => candidate.selected).map((candidate) => candidate.key));
+        this.batchMiningStatus = "ready";
+        this.renderBatchMiningPanel();
+      } catch (error) {
+        if (serial !== this.batchMiningSerial) return;
+        this.batchMiningStatus = "failed";
+        this.batchMiningError = error instanceof Error ? error.message : subtitleText(settings.interfaceLanguage, "bmFailed");
+        this.renderBatchMiningPanel();
+      }
+    }
+    captureBatchMiningParsedRows(rows, startIndex, count, settings) {
+      for (let offset = 0; offset < count; offset += 1) {
+        const row = rows[startIndex + offset];
+        const target = this.batchMiningRows[startIndex + offset];
+        if (!row || !target) continue;
+        const key = this.parseCacheKey(row.cue.text, settings);
+        target.tokens = this.parsedTokenCache.get(key) ?? [];
+      }
+    }
+    toggleBatchMiningCandidate(target) {
+      const key = target.closest("[data-batch-candidate-key]")?.dataset.batchCandidateKey;
+      if (!key) return;
+      if (this.batchMiningSelectedKeys.has(key)) this.batchMiningSelectedKeys.delete(key);
+      else this.batchMiningSelectedKeys.add(key);
+      this.renderBatchMiningPanel();
+    }
+    async openBatchMiningCandidate(target) {
+      const candidate = this.batchMiningCandidateForTarget(target);
+      if (!candidate || !this.options.showBatchMiningCard) return;
+      await this.options.showBatchMiningCard(candidate);
+    }
+    async addSelectedBatchMiningCandidates() {
+      const language = this.options.getSettings().interfaceLanguage;
+      const candidates = this.selectedBatchMiningCandidates();
+      if (!candidates.length || !this.options.mineBatchMiningCandidates) {
+        this.options.toast?.(candidates.length ? uiText(language, "batchMiningNoDestination") : subtitleText(language, "bmNoSelection"));
+        return;
+      }
+      try {
+        const count = await this.options.mineBatchMiningCandidates(candidates);
+        for (const candidate of candidates) this.batchMiningSelectedKeys.delete(candidate.key);
+        this.options.toast?.(formatSubtitleText(language, "bmAdded", { count }));
+        this.renderBatchMiningPanel();
+      } catch (error) {
+        this.options.toast?.(error instanceof Error ? error.message : subtitleText(language, "bmAddFailed"));
+      }
+    }
+    async copySelectedBatchMiningCandidates() {
+      const language = this.options.getSettings().interfaceLanguage;
+      const candidates = this.selectedBatchMiningCandidates();
+      if (!candidates.length) {
+        this.options.toast?.(subtitleText(language, "bmNoSelection"));
+        return;
+      }
+      await copyText(subtitleBatchMiningTsv(candidates));
+      this.options.toast?.(formatSubtitleText(language, "bmCopied", { count: candidates.length }));
+    }
+    selectAllBatchMiningCandidates() {
+      this.batchMiningSelectedKeys = new Set(this.batchMiningCandidates.map((candidate) => candidate.key));
+      this.renderBatchMiningPanel();
+    }
+    clearBatchMiningSelection() {
+      this.batchMiningSelectedKeys.clear();
+      this.renderBatchMiningPanel();
+    }
+    selectedBatchMiningCandidates() {
+      return this.batchMiningCandidates.filter((candidate) => this.batchMiningSelectedKeys.has(candidate.key));
+    }
+    batchMiningCandidateForTarget(target) {
+      const key = target.closest("[data-batch-candidate-key]")?.dataset.batchCandidateKey;
+      return key ? this.batchMiningCandidates.find((candidate) => candidate.key === key) : void 0;
     }
     transcriptPanelPreviewState(state2) {
       const rowCount = state2.rows.length;
@@ -20666,6 +21160,8 @@ ${spelling}`);
     refreshOpenTranscriptPanelAfterSecondaryClear() {
       if (!this.isTranscriptPanelOpen()) return;
       if (this.panelMode === "lines") this.renderTranscriptPanel(true);
+      else if (this.panelMode === "shadow") this.renderShadowPanel(true);
+      else if (this.panelMode === "mine") this.renderBatchMiningPanel();
       else this.renderTrackPanel();
     }
     clearAsbPlayerReaderLines() {

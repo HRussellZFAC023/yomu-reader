@@ -84,6 +84,11 @@ interface PreparedAnkiAdd {
     sentence: string | undefined;
 }
 
+export interface BatchMiningCardCandidate {
+    card: JPDBCard;
+    sentence?: string;
+}
+
 function assertReviewableApiCardState(states: string[], settings: ReaderSettings): void {
     if (states.includes('blacklisted')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedBlacklisted'));
     if (states.includes('never-forget')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedNeverForget'));
@@ -92,6 +97,14 @@ function assertReviewableApiCardState(states: string[], settings: ReaderSettings
 
 export class CardActionController {
     constructor(private options: CardActionControllerOptions) {}
+
+    async addBatchMiningCards(candidates: BatchMiningCardCandidate[]): Promise<number> {
+        let added = 0;
+        for (const candidate of candidates) {
+            if (await this.addBatchMiningCard(candidate.card, candidate.sentence)) added += 1;
+        }
+        return added;
+    }
 
     async perform(action: string | undefined, button: HTMLButtonElement, card: JPDBCard, sentence?: string, context: CardActionContext = {}): Promise<boolean> {
         const studyAction = this.performStudyAction(action, button, sentence);
@@ -104,6 +117,23 @@ export class CardActionController {
         if (miningAction !== undefined) return miningAction;
 
         return Boolean(action);
+    }
+
+    private async addBatchMiningCard(card: JPDBCard, sentence: string | undefined): Promise<boolean> {
+        const settings = this.options.getSettings();
+        const provider = isApiMiningEnabled(settings) ? this.apiProviderForCard(card, settings) : null;
+        if (provider?.hasApiKey) {
+            const deckId = provider.id === 'jiten'
+                ? String((await this.options.jiten?.listStudyDecks?.().catch(() => []))?.[0]?.id ?? '')
+                : provider.selectedDeckId(settings.miningDeck, settings);
+            if (!deckId) throw new Error(uiText(settings.interfaceLanguage, provider.id === 'jiten' ? 'chooseJitenStudyDeck' : provider.addApiKeyRequiredKey));
+            await provider.addToDeck(deckId, card, sentence, { sourceTitle: document.title });
+            this.notifyApiCardStateChanged(card);
+            if (shouldMineAnkiAlongsideApi(settings)) await this.addToAnkiForBatch(card, sentence, settings.ankiDeck);
+            return true;
+        }
+        if (settings.ankiEnabled) return await this.addToAnkiForBatch(card, sentence, settings.ankiDeck);
+        throw new Error(uiText(settings.interfaceLanguage, 'batchMiningNoDestination'));
     }
 
     private performStudyAction(action: string | undefined, button: HTMLButtonElement, sentence?: string): boolean | Promise<boolean> | undefined {
@@ -545,6 +575,17 @@ export class CardActionController {
 
         this.notifyAnkiStatusChanged(card);
         this.options.toast(ankiSentToast(prepared.context, settings, prepared.hasWordAudio));
+    }
+
+    private async addToAnkiForBatch(card: JPDBCard, sentence: string | undefined, deckName?: string): Promise<boolean> {
+        const settings = this.options.getSettings();
+        const existing = await this.options.anki.findExistingCards(card);
+        if (existing.primary) return false;
+        const prepared = await this.prepareAnkiAdd(card, sentence, deckName, settings, {});
+        const noteId = await this.addPreparedAnkiCard(card, prepared);
+        if (noteId === 'duplicate' || noteId === null) return false;
+        this.notifyAnkiStatusChanged(card);
+        return true;
     }
 
     private async addToAnkiViaMobileHandoff(card: JPDBCard, sentence: string | undefined, deckName: string | undefined, settings: ReaderSettings, context: CardActionContext): Promise<boolean> {

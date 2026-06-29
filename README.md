@@ -71,7 +71,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 | Web reading | Popup dictionary lookup, furigana, pitch/accent color, audio, examples, and kanji drilldown |
 | Manga and images | OCR overlays that make recognized Japanese lookup-ready without covering the page |
 | Games | First-party Yomu Gaming desktop capture, local OCR handoff, and in-place lookup |
-| Video | ASB-style subtitle overlay, transcript and shadowing lookup, mining, and a hosted local-file video reader |
+| Video | ASB-style subtitle overlay, transcript lookup, shadowing practice, batch mining, and a hosted local-file video reader |
 | PDFs | Browser PDF reader with selectable text, OCR fallback, and the same popup/mining flow |
 | Study | Word, Recall, Listen pitch-accent, and kanji review modes with AnkiConnect cards, mobile Anki handoff, Jiten/JPDB actions, offline cached reviews, and the hosted study page |
 | Dictionaries | Yomitan imports, JMdict, local dictionaries, kanji data, grammar hints, and source ordering |
@@ -137,7 +137,7 @@ https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.use
 - OCR reads likely images near the viewport, caches results, and makes recognized text lookup-ready without covering the image.
 - YouTube subtitle detection uses caption metadata when available and visible DOM captions as a fallback.
 - Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can be loaded manually.
-- The YouTube subtitle drawer includes a Shadow tab for current-line replay, looping, hide/reveal text, parsed Japanese, and secondary subtitle support.
+- The subtitle side panel includes Lines, Tracks, Shadow, and Batch Mine modes; Batch Mine scans the loaded transcript and queues i+1 vocabulary so you can add cards after watching.
 - On iPhone/iPad, desktop helpers such as AnkiConnect, self-hosted audio, and local OCR servers must be reachable over the network.
 - Support links, Factory Reset, API keys, imports, and appearance settings live in the settings panel.
 

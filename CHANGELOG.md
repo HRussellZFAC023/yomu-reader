@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.242] - 2026-06-29
+
+### Added
+
+- Added a Batch Mine tab to the video subtitle side panel. It scans the loaded transcript, compares parsed words against existing Jiten/JPDB/Anki states, ranks i+1 candidates first, preselects useful not-in-deck words, and lets you add or copy the selected batch after watching.
+
 ## [1.4.241] - 2026-06-29
 
 ### Fixed

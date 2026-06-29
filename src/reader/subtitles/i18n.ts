@@ -1,0 +1,89 @@
+import { resolveUiLanguage } from '../app/i18n';
+import type { InterfaceLanguage } from '../app/types';
+
+const SUBTITLE_COPY = {
+    en: {
+        selectAll: 'Select all',
+        clearSelection: 'Clear',
+        subtitleShadow: 'Shadow',
+        subtitleShadowing: 'Shadowing',
+        bmTab: 'Mine',
+        bmTitle: 'Batch mining',
+        bmScan: 'Scan',
+        bmRescan: 'Rescan',
+        bmAdd: 'Add selected',
+        bmCopy: 'Copy list',
+        bmReady: 'Scan the loaded transcript to collect candidate words.',
+        bmRowsReady: '{count} lines ready',
+        bmScanning: 'Scanning {count}/{total} lines',
+        bmSummary: '{count} candidates · {iPlusOne} i+1 · {selected} selected',
+        bmNoCandidates: 'No new candidates found.',
+        bmNoTranscript: 'No transcript lines to scan.',
+        bmNoSelection: 'No words selected.',
+        bmAdded: 'Added {count} words.',
+        bmAddFailed: 'Could not add selected words.',
+        bmCopied: 'Copied {count} words.',
+        bmFailed: 'Batch scan failed.',
+        bmIPlusOne: 'i+1',
+        bmOccurrences: '{count}x',
+        bmSelect: 'Select word',
+        bmDeselect: 'Deselect word',
+        shadowReplayLine: 'Replay current line',
+        shadowReplay: 'Replay',
+        shadowEnableLoop: 'Loop current line',
+        shadowDisableLoop: 'Stop looping current line',
+        shadowLoop: 'Loop',
+        shadowHideText: 'Hide current line text',
+        shadowRevealText: 'Show current line text',
+        shadowWaitingForLine: 'Waiting for the current subtitle.',
+        shadowLoopingCurrentLine: 'Looping current line',
+        shadowCurrentLine: 'Current line',
+    },
+    ja: {
+        selectAll: 'すべて選択',
+        clearSelection: '選択解除',
+        subtitleShadow: 'シャドー',
+        subtitleShadowing: 'シャドーイング',
+        bmTab: '採掘',
+        bmTitle: '一括採掘',
+        bmScan: 'スキャン',
+        bmRescan: '再スキャン',
+        bmAdd: '選択を追加',
+        bmCopy: 'リストをコピー',
+        bmReady: '読み込んだ字幕をスキャンして候補語を集めます。',
+        bmRowsReady: '{count}行準備完了',
+        bmScanning: '{count}/{total}行をスキャン中',
+        bmSummary: '候補{count}・i+1 {iPlusOne}・選択{selected}',
+        bmNoCandidates: '新しい候補はありません。',
+        bmNoTranscript: 'スキャンできる字幕行がありません。',
+        bmNoSelection: '単語が選択されていません。',
+        bmAdded: '{count}語を追加しました。',
+        bmAddFailed: '選択語を追加できませんでした。',
+        bmCopied: '{count}語をコピーしました。',
+        bmFailed: '一括スキャンに失敗しました。',
+        bmIPlusOne: 'i+1',
+        bmOccurrences: '{count}回',
+        bmSelect: '単語を選択',
+        bmDeselect: '単語の選択を解除',
+        shadowReplayLine: '現在の行を再生',
+        shadowReplay: '再生',
+        shadowEnableLoop: '現在の行をループ',
+        shadowDisableLoop: '現在の行のループを停止',
+        shadowLoop: 'ループ',
+        shadowHideText: '現在行の文字を隠す',
+        shadowRevealText: '現在行の文字を表示',
+        shadowWaitingForLine: '現在の字幕を待機中です。',
+        shadowLoopingCurrentLine: '現在行をループ中',
+        shadowCurrentLine: '現在行',
+    },
+} as const;
+
+export type SubtitleCopyKey = keyof typeof SUBTITLE_COPY.en;
+
+export function subtitleText(language: InterfaceLanguage, key: SubtitleCopyKey): string {
+    return SUBTITLE_COPY[resolveUiLanguage(language)][key] ?? SUBTITLE_COPY.en[key];
+}
+
+export function formatSubtitleText(language: InterfaceLanguage, key: SubtitleCopyKey, values: Record<string, string | number>): string {
+    return subtitleText(language, key).replace(/\{([a-zA-Z0-9_]+)\}/g, (_, name) => String(values[name] ?? ''));
+}

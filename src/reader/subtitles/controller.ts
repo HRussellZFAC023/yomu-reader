@@ -113,7 +113,7 @@ import {
 } from './subtitle-track-options';
 import { planTranscriptHydrationIndexes } from './subtitle-transcript-hydration';
 import { readPageCaptionText } from './subtitle-dom-captions';
-import { isEditableTarget } from '../ui/browser';
+import { copyText, isEditableTarget } from '../ui/browser';
 import {
     canParseSubtitleTranscriptRows,
     authoritativeSubtitleParseOptions,
@@ -135,6 +135,15 @@ import {
     type SubtitleParseBatchItem,
 } from './subtitle-parse-batch';
 import { requestSubtitleText as defaultRequestSubtitleText, subtitleRequestFailureDetails } from './subtitle-request';
+import {
+    buildSubtitleBatchMiningCandidates,
+    subtitleBatchMiningSummary,
+    subtitleBatchMiningTsv,
+    type SubtitleBatchMiningCandidate,
+    type SubtitleBatchMiningRow,
+} from './subtitle-batch-mining';
+import { formatSubtitleText, subtitleText } from './i18n';
+import { renderSubtitleBatchMiningPanel, type SubtitleBatchMiningStatus } from './subtitle-batch-mining-panel';
 import {
     applyElementLayout,
     compareSubtitleVideoCandidates,
@@ -258,6 +267,9 @@ interface SubtitlePlayerOptions {
     parseJapaneseBatch?: (texts: string[], options?: SubtitleParseOptions) => Promise<JPDBToken[][]>;
     beforeRenderTokens?: (tokens: JPDBToken[]) => void | Promise<void>;
     afterParseTokens?: (tokens: JPDBToken[], roots?: ParentNode[]) => void;
+    showBatchMiningCard?: (candidate: SubtitleBatchMiningCandidate) => void | Promise<void>;
+    mineBatchMiningCandidates?: (candidates: SubtitleBatchMiningCandidate[]) => Promise<number>;
+    toast?: (message: string) => void;
     onSettingsChange: () => void;
 }
 
@@ -643,6 +655,7 @@ const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 64;
 const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
 const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 3;
 const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 21;
+const BATCH_MINING_PARSE_BATCH = 24;
 // The Tracks panel scroll container starts with a fixed tools/summary/hint
 // block above the rows; this estimate maps scrollTop to a row index. It only
 // needs to be within an overscan window of the truth, so a fixed value is fine.
@@ -1071,6 +1084,12 @@ export class SubtitlePlayerController {
     private shadowRecorder: MediaRecorder | undefined;
     private shadowRecordingUrl: string | undefined;
     private shadowRecordingUnavailable = false;
+    private batchMiningStatus: SubtitleBatchMiningStatus = 'idle';
+    private batchMiningCandidates: SubtitleBatchMiningCandidate[] = [];
+    private batchMiningSelectedKeys = new Set<string>();
+    private batchMiningRows: SubtitleBatchMiningRow[] = [];
+    private batchMiningError = '';
+    private batchMiningSerial = 0;
     private transcriptPanelSize = loadTranscriptPanelSize();
     private videoInset: SubtitleVideoInsetAdapter = createSubtitleVideoInsetAdapter();
     private lastYomuCaptionsActive = false;
@@ -1129,7 +1148,15 @@ export class SubtitlePlayerController {
         'style-reset': () => this.resetSubtitleStyleDefaults(),
         'panel-lines': () => this.openLinesPanel({ deferRender: true }),
         'panel-shadow': () => this.openShadowPanel(),
+        'panel-mine': () => this.openBatchMiningPanel(),
         'panel-tracks': () => this.openTracksPanel(),
+        'bm-scan': () => { void this.scanBatchMiningTranscript(); },
+        'bm-toggle': target => this.toggleBatchMiningCandidate(target),
+        'bm-open': target => { void this.openBatchMiningCandidate(target); },
+        'bm-add': () => { void this.addSelectedBatchMiningCandidates(); },
+        'bm-copy': () => { void this.copySelectedBatchMiningCandidates(); },
+        'bm-all': () => this.selectAllBatchMiningCandidates(),
+        'bm-clear': () => this.clearBatchMiningSelection(),
         'shadow-replay': () => this.replayShadowCue(),
         'shadow-loop': () => this.toggleShadowLoop(),
         'shadow-toggle-text': () => this.toggleShadowText(),
@@ -1548,6 +1575,7 @@ export class SubtitlePlayerController {
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
         if (this.panelMode === 'tracks' || !this.hasTranscriptSurface()) this.renderTrackPanel();
         else if (this.panelMode === 'shadow') this.renderShadowPanel(true);
+        else if (this.panelMode === 'mine') this.renderBatchMiningPanel();
         else this.renderTranscriptPanel(true);
     }
 
@@ -4644,6 +4672,7 @@ export class SubtitlePlayerController {
         if (panel) {
             panel.classList.toggle('jpdb-subtitle-lines-panel', this.panelMode === 'lines');
             panel.classList.toggle('jpdb-subtitle-shadow-panel', this.panelMode === 'shadow');
+            panel.classList.toggle('jpdb-subtitle-mine-panel', this.panelMode === 'mine');
             panel.classList.toggle('jpdb-subtitle-tracks-panel', this.panelMode === 'tracks');
         }
         this.syncLineNavigationButtons(hasLines);
@@ -4688,6 +4717,7 @@ export class SubtitlePlayerController {
     private preferredTranscriptDrawerMode(): SubtitlePanelMode {
         if (this.panelMode === 'lines' && this.hasTranscriptSurface()) return 'lines';
         if (this.panelMode === 'shadow' && this.hasTranscriptSurface()) return 'shadow';
+        if (this.panelMode === 'mine' && this.hasTranscriptSurface()) return 'mine';
         if (this.panelMode === 'tracks') return 'tracks';
         return this.hasTranscriptSurface() ? 'lines' : 'tracks';
     }
@@ -4702,6 +4732,7 @@ export class SubtitlePlayerController {
         const mode = this.preferredTranscriptDrawerMode();
         if (mode === 'tracks') this.openTracksPanel();
         else if (mode === 'shadow') this.openShadowPanel();
+        else if (mode === 'mine') this.openBatchMiningPanel();
         else this.openLinesPanel({ deferRender: true });
     }
 
@@ -4785,7 +4816,15 @@ export class SubtitlePlayerController {
         this.syncControls();
     }
 
-    private prepareTranscriptPanelOpen(mode: 'lines' | 'shadow', options: TranscriptPanelOptions): boolean {
+    private openBatchMiningPanel(options: TranscriptPanelOptions = {}): void {
+        if (!this.prepareTranscriptPanelOpen('mine', options)) return;
+        this.clearDeferredTranscriptPanelRender();
+        this.clearTranscriptVirtualRender();
+        this.renderBatchMiningPanel();
+        this.syncControls();
+    }
+
+    private prepareTranscriptPanelOpen(mode: 'lines' | 'shadow' | 'mine', options: TranscriptPanelOptions): boolean {
         if (!this.transcriptPanel || !this.hasTranscriptSurface()) return false;
         if (!options.autoPause) this.pausePanelDismissed = false;
         this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
@@ -4982,6 +5021,11 @@ export class SubtitlePlayerController {
         }
         if (this.panelMode === 'shadow') {
             if (this.hasTranscriptSurface()) this.renderShadowPanel(true);
+            else this.closeTranscriptPanel();
+            return;
+        }
+        if (this.panelMode === 'mine') {
+            if (this.hasTranscriptSurface()) this.renderBatchMiningPanel();
             else this.closeTranscriptPanel();
             return;
         }
@@ -5331,6 +5375,173 @@ export class SubtitlePlayerController {
                 this.updateTranscriptRowsForParseKey(key, html, { force: true });
             })
             .catch(() => undefined);
+    }
+
+    private renderBatchMiningPanel(): void {
+        if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing || this.panelMode !== 'mine') return;
+        this.clearDeferredTranscriptPanelRender();
+        this.transcriptTextTargetsByParseKey.clear();
+        setInnerHtml(this.transcriptPanel, renderSubtitleBatchMiningPanel(this.batchMiningPanelRenderState()));
+        this.bindTranscriptResizeHandle();
+        this.positionTranscriptPanel();
+        this.syncPanelState();
+    }
+
+    private batchMiningPanelRenderState(): Parameters<typeof renderSubtitleBatchMiningPanel>[0] {
+        const settings = this.options.getSettings();
+        const rows = this.batchMiningRows.length ? this.batchMiningRows : this.currentBatchMiningRows();
+        const candidates = this.batchMiningCandidates.map(candidate => ({
+            ...candidate,
+            selected: this.batchMiningSelectedKeys.has(candidate.key),
+        }));
+        return {
+            status: this.batchMiningStatus,
+            candidates,
+            selectedKeys: this.batchMiningSelectedKeys,
+            summary: subtitleBatchMiningSummary(rows, candidates),
+            errorMessage: this.batchMiningError,
+            hasTranscriptSurface: this.hasTranscriptSurface(),
+            hasNavigableLines: Boolean(this.video && this.cues.length),
+            pausePanelEnabled: settings.subtitlePausePanel,
+            placement: this.effectiveTranscriptPlacement,
+            language: settings.interfaceLanguage,
+        };
+    }
+
+    private currentBatchMiningRows(): SubtitleBatchMiningRow[] {
+        const settings = this.options.getSettings();
+        return this.transcriptRows().map((row, rowIndex) => {
+            const key = this.parseCacheKey(row.cue.text, settings);
+            return {
+                rowIndex,
+                cueIndex: row.cueIndex,
+                start: row.cue.start,
+                end: row.cue.end,
+                text: row.cue.text,
+                tokens: this.parsedTokenCache.get(key) ?? [],
+            };
+        });
+    }
+
+    private async scanBatchMiningTranscript(): Promise<void> {
+        const rows = this.transcriptRows();
+        const settings = this.options.getSettings();
+        if (!rows.length || !canParseSubtitleTranscriptRows(settings)) {
+            this.batchMiningStatus = 'failed';
+            this.batchMiningError = subtitleText(settings.interfaceLanguage, 'bmNoTranscript');
+            this.renderBatchMiningPanel();
+            return;
+        }
+
+        const serial = ++this.batchMiningSerial;
+        this.batchMiningStatus = 'scanning';
+        this.batchMiningError = '';
+        this.batchMiningCandidates = [];
+        this.batchMiningSelectedKeys.clear();
+        this.batchMiningRows = rows.map((row, rowIndex) => ({
+            rowIndex,
+            cueIndex: row.cueIndex,
+            start: row.cue.start,
+            end: row.cue.end,
+            text: row.cue.text,
+            tokens: [],
+        }));
+        this.renderBatchMiningPanel();
+
+        try {
+            for (let start = 0; start < rows.length; start += BATCH_MINING_PARSE_BATCH) {
+                if (serial !== this.batchMiningSerial) return;
+                const chunk = rows.slice(start, start + BATCH_MINING_PARSE_BATCH);
+                await this.parseCueHtmlBatch(chunk.map(row => row.cue.text), settings, {
+                    allowProvisional: false,
+                    enrichBeforeRender: true,
+                });
+                this.captureBatchMiningParsedRows(rows, start, chunk.length, settings);
+                this.renderBatchMiningPanel();
+                await waitForBackgroundTranscriptParseTurn(0);
+            }
+            if (serial !== this.batchMiningSerial) return;
+            this.batchMiningCandidates = buildSubtitleBatchMiningCandidates(this.batchMiningRows);
+            this.batchMiningSelectedKeys = new Set(this.batchMiningCandidates.filter(candidate => candidate.selected).map(candidate => candidate.key));
+            this.batchMiningStatus = 'ready';
+            this.renderBatchMiningPanel();
+        } catch (error) {
+            if (serial !== this.batchMiningSerial) return;
+            this.batchMiningStatus = 'failed';
+            this.batchMiningError = error instanceof Error ? error.message : subtitleText(settings.interfaceLanguage, 'bmFailed');
+            this.renderBatchMiningPanel();
+        }
+    }
+
+    private captureBatchMiningParsedRows(rows: TranscriptRow[], startIndex: number, count: number, settings: ReaderSettings): void {
+        for (let offset = 0; offset < count; offset += 1) {
+            const row = rows[startIndex + offset];
+            const target = this.batchMiningRows[startIndex + offset];
+            if (!row || !target) continue;
+            const key = this.parseCacheKey(row.cue.text, settings);
+            target.tokens = this.parsedTokenCache.get(key) ?? [];
+        }
+    }
+
+    private toggleBatchMiningCandidate(target: HTMLElement): void {
+        const key = target.closest<HTMLElement>('[data-batch-candidate-key]')?.dataset.batchCandidateKey;
+        if (!key) return;
+        if (this.batchMiningSelectedKeys.has(key)) this.batchMiningSelectedKeys.delete(key);
+        else this.batchMiningSelectedKeys.add(key);
+        this.renderBatchMiningPanel();
+    }
+
+    private async openBatchMiningCandidate(target: HTMLElement): Promise<void> {
+        const candidate = this.batchMiningCandidateForTarget(target);
+        if (!candidate || !this.options.showBatchMiningCard) return;
+        await this.options.showBatchMiningCard(candidate);
+    }
+
+    private async addSelectedBatchMiningCandidates(): Promise<void> {
+        const language = this.options.getSettings().interfaceLanguage;
+        const candidates = this.selectedBatchMiningCandidates();
+        if (!candidates.length || !this.options.mineBatchMiningCandidates) {
+            this.options.toast?.(candidates.length ? uiText(language, 'batchMiningNoDestination') : subtitleText(language, 'bmNoSelection'));
+            return;
+        }
+        try {
+            const count = await this.options.mineBatchMiningCandidates(candidates);
+            for (const candidate of candidates) this.batchMiningSelectedKeys.delete(candidate.key);
+            this.options.toast?.(formatSubtitleText(language, 'bmAdded', { count }));
+            this.renderBatchMiningPanel();
+        } catch (error) {
+            this.options.toast?.(error instanceof Error ? error.message : subtitleText(language, 'bmAddFailed'));
+        }
+    }
+
+    private async copySelectedBatchMiningCandidates(): Promise<void> {
+        const language = this.options.getSettings().interfaceLanguage;
+        const candidates = this.selectedBatchMiningCandidates();
+        if (!candidates.length) {
+            this.options.toast?.(subtitleText(language, 'bmNoSelection'));
+            return;
+        }
+        await copyText(subtitleBatchMiningTsv(candidates));
+        this.options.toast?.(formatSubtitleText(language, 'bmCopied', { count: candidates.length }));
+    }
+
+    private selectAllBatchMiningCandidates(): void {
+        this.batchMiningSelectedKeys = new Set(this.batchMiningCandidates.map(candidate => candidate.key));
+        this.renderBatchMiningPanel();
+    }
+
+    private clearBatchMiningSelection(): void {
+        this.batchMiningSelectedKeys.clear();
+        this.renderBatchMiningPanel();
+    }
+
+    private selectedBatchMiningCandidates(): SubtitleBatchMiningCandidate[] {
+        return this.batchMiningCandidates.filter(candidate => this.batchMiningSelectedKeys.has(candidate.key));
+    }
+
+    private batchMiningCandidateForTarget(target: HTMLElement): SubtitleBatchMiningCandidate | undefined {
+        const key = target.closest<HTMLElement>('[data-batch-candidate-key]')?.dataset.batchCandidateKey;
+        return key ? this.batchMiningCandidates.find(candidate => candidate.key === key) : undefined;
     }
 
     private transcriptPanelPreviewState(state: TranscriptPanelRenderState): TranscriptPanelRenderState {
@@ -6433,6 +6644,8 @@ export class SubtitlePlayerController {
     private refreshOpenTranscriptPanelAfterSecondaryClear(): void {
         if (!this.isTranscriptPanelOpen()) return;
         if (this.panelMode === 'lines') this.renderTranscriptPanel(true);
+        else if (this.panelMode === 'shadow') this.renderShadowPanel(true);
+        else if (this.panelMode === 'mine') this.renderBatchMiningPanel();
         else this.renderTrackPanel();
     }
 

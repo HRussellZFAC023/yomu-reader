@@ -244,6 +244,34 @@ async function showSubtitleTracks(page) {
     }
 }
 
+async function assertBatchMineTranscript(page) {
+    await ensureSubtitlePanelOpen(page);
+    await page.locator('.jpdb-subtitle-panel-mode [data-action="panel-mine"]').click({ force: true });
+    await page.waitForSelector('.jpdb-subtitle-batch-toolbar [data-action="bm-scan"]', { timeout: 5000 });
+    await page.locator('.jpdb-subtitle-batch-toolbar [data-action="bm-scan"]').click({ force: true });
+    await page.waitForFunction(() => {
+        const panelText = document.querySelector('.jpdb-subtitle-list')?.textContent ?? '';
+        return document.querySelectorAll('.jpdb-subtitle-batch-row').length > 0
+            || /No new candidates found|Batch scan failed/i.test(panelText);
+    }, null, { timeout: 20000 });
+    const state = await page.evaluate(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        return {
+            modePressed: document.querySelector('.jpdb-subtitle-panel-mode [data-action="panel-mine"]')?.getAttribute('aria-pressed') ?? '',
+            scanButton: Boolean(document.querySelector('.jpdb-subtitle-batch-toolbar [data-action="bm-scan"]')),
+            addDisabled: document.querySelector('.jpdb-subtitle-batch-toolbar [data-action="bm-add"]')?.hasAttribute('disabled') ?? true,
+            candidates: document.querySelectorAll('.jpdb-subtitle-batch-row').length,
+            selected: document.querySelectorAll('.jpdb-subtitle-batch-row[data-selected="true"]').length,
+            iPlusOne: document.querySelectorAll('.jpdb-subtitle-batch-badge').length,
+            text: panel?.textContent?.slice(0, 500) ?? '',
+        };
+    });
+    assert(state.modePressed === 'true', 'Batch Mine panel did not stay selected', state);
+    assert(state.scanButton, 'Batch Mine scan button was not rendered', state);
+    assert(state.candidates > 0, 'Batch Mine did not render candidates for parsed transcript rows', state);
+    return state;
+}
+
 async function chooseSubtitleFile(page, action, filePath) {
     await showSubtitleTracks(page);
     const chooserPromise = page.waitForEvent('filechooser');
@@ -380,6 +408,8 @@ async function runLocalSmoke(browser) {
     await showTranscriptLines(page);
     await page.evaluate(() => { document.querySelector('video').currentTime = 1.4; });
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length > 0, null, { timeout: 10000 });
+    const batchMine = await assertBatchMineTranscript(page);
+    await showTranscriptLines(page);
     await page.waitForTimeout(200);
 
     const subtitleState = await page.evaluate(() => {
@@ -443,7 +473,7 @@ async function runLocalSmoke(browser) {
     assert(panelSizeDelta(initial.panel, resized.panel) >= 24, 'Transcript drawer did not resize', { initial, resized });
 
     await page.close();
-    return { initial, resized };
+    return { initial, resized, batchMine };
 }
 
 async function runLocalMobileWrapSmoke(browser) {
@@ -513,7 +543,7 @@ async function runLocalMobileWrapSmoke(browser) {
         return video && !video.paused && playback?.getAttribute('aria-label') === 'Pause video';
     }, null, { timeout: 3000 });
     const controls = await readMobileSubtitleControlsState(page);
-    assert(controls.actions.join(',') === 'previous,next,playback,fullscreen,panel,style', 'Mobile rail did not keep playback beside subtitle navigation', controls);
+    assert(controls.actions.join(',') === 'previous,next,playback,fullscreen,panel,panel-tracks,style', 'Mobile rail did not keep playback beside subtitle navigation', controls);
     assert(!controls.previousHidden && !controls.nextHidden && !controls.playbackHidden, 'Mobile previous/next/playback controls were not shown together', controls);
     assert(controls.playbackLabel === 'Pause video' && controls.playbackPressed === 'true', 'Mobile playback control did not expose pause while playing', controls);
     assert(controls.handle && controls.rail && controls.subtitle, 'Mobile subtitle controls did not expose measurable rail, subtitle, and handle boxes', controls);

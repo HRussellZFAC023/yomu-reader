@@ -39,7 +39,7 @@ On the YouTube home feed, once よむ hides enough English-heavy recommendations
 
 ## Read while you watch
 
-The filter pairs with よむ's [subtitle tools](/tools/japanese-subtitle-reader): Japanese lines become lookup-ready with a transcript panel, a Shadow tab for replay-and-repeat speaking practice, and sentence mining to Jiten, JPDB, or Anki. Filtering finds the videos; the subtitle reader makes them comprehensible.
+The filter pairs with よむ's [subtitle tools](/tools/japanese-subtitle-reader): Japanese lines become lookup-ready with a transcript panel, a Shadow tab for replay-and-repeat speaking practice, Batch Mine for end-of-episode vocabulary queues, and sentence mining to Jiten, JPDB, or Anki. Filtering finds the videos; the subtitle reader makes them comprehensible.
 
 ## Set it up
 

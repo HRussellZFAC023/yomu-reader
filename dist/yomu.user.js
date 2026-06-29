@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.241
+// @version 1.4.242
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.241
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.241
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.241
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.241
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.242
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.242
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.242
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.242
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -8120,6 +8120,7 @@ const COPY = {
   subtitleLines: "Lines",
   shadow: "Shadow",
   subtitleTracks: "Tracks",
+  batchMiningNoDestination: "Enable JPDB/Jiten API mining or Anki mining first.",
   subtitleTrackTiming: "Subtitle timing",
   subtitleOffsetPrevious: "Align previous subtitle to current time",
   subtitleOffsetNext: "Align next subtitle to current time",
@@ -8915,6 +8916,7 @@ subtitlePanelMode	表示
 subtitleLines	行
 shadow	シャドー
 subtitleTracks	トラック
+batchMiningNoDestination	JPDB/Jiten API採掘またはAnki採掘を有効にしてください。
 subtitleTrackTiming	字幕タイミング
 subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
 subtitleOffsetNext	次の字幕を現在時刻に合わせる
@@ -14613,6 +14615,13 @@ class CardActionController {
   constructor(options) {
   this.options = options;
   }
+  async addBatchMiningCards(candidates) {
+  let added = 0;
+  for (const candidate of candidates) {
+    if (await this.addBatchMiningCard(candidate.card, candidate.sentence)) added += 1;
+  }
+  return added;
+  }
   async perform(action, button2, card, sentence, context = {}) {
   const studyAction = this.performStudyAction(action, button2, sentence);
   if (studyAction !== void 0) return await studyAction;
@@ -14621,6 +14630,20 @@ class CardActionController {
   const miningAction = await this.performMiningAction(action, button2, card, sentence, context);
   if (miningAction !== void 0) return miningAction;
   return Boolean(action);
+  }
+  async addBatchMiningCard(card, sentence) {
+  const settings = this.options.getSettings();
+  const provider = isApiMiningEnabled(settings) ? this.apiProviderForCard(card, settings) : null;
+  if (provider?.hasApiKey) {
+    const deckId = provider.id === "jiten" ? String((await this.options.jiten?.listStudyDecks?.().catch(() => []))?.[0]?.id ?? "") : provider.selectedDeckId(settings.miningDeck, settings);
+    if (!deckId) throw new Error(uiText(settings.interfaceLanguage, provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey));
+    await provider.addToDeck(deckId, card, sentence, { sourceTitle: document.title });
+    this.notifyApiCardStateChanged(card);
+    if (shouldMineAnkiAlongsideApi(settings)) await this.addToAnkiForBatch(card, sentence, settings.ankiDeck);
+    return true;
+  }
+  if (settings.ankiEnabled) return await this.addToAnkiForBatch(card, sentence, settings.ankiDeck);
+  throw new Error(uiText(settings.interfaceLanguage, "batchMiningNoDestination"));
   }
   performStudyAction(action, button2, sentence) {
   if (!action) return void 0;
@@ -14981,6 +15004,16 @@ class CardActionController {
   if (noteId === null) return this.toastMobileAnkiHandoff(settings);
   this.notifyAnkiStatusChanged(card);
   this.options.toast(ankiSentToast(prepared.context, settings, prepared.hasWordAudio));
+  }
+  async addToAnkiForBatch(card, sentence, deckName) {
+  const settings = this.options.getSettings();
+  const existing = await this.options.anki.findExistingCards(card);
+  if (existing.primary) return false;
+  const prepared = await this.prepareAnkiAdd(card, sentence, deckName, settings, {});
+  const noteId = await this.addPreparedAnkiCard(card, prepared);
+  if (noteId === "duplicate" || noteId === null) return false;
+  this.notifyAnkiStatusChanged(card);
+  return true;
   }
   async addToAnkiViaMobileHandoff(card, sentence, deckName, settings, context) {
   if (!canUseMobileAnkiHandoff(settings)) return false;
@@ -37337,7 +37370,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.241"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.242"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -38654,6 +38687,13 @@ class ReaderApp {
     parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
     beforeRenderTokens: (tokens) => this.enrichSubtitleTokensBeforeRender(tokens),
     afterParseTokens: (tokens, roots) => this.afterSubtitleJapaneseParsed(tokens, roots),
+    showBatchMiningCard: (candidate) => this.showCard(candidate.card, candidate.sentence, void 0, {
+      autoPlay: false,
+      trigger: "modal",
+      navigation: "push-current"
+    }),
+    mineBatchMiningCandidates: (candidates) => this.cardActions.addBatchMiningCards(candidates),
+    toast: (message) => this.toast(message),
     onSettingsChange: () => void saveSettings(this.settings)
   });
   }
