@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.238] - 2026-06-29
+
+### Fixed
+
+- Fixed the study mode tab row so all six study tabs including Listen fit on one row instead of pushing the Listen tab onto a second line.
+
 ## [1.4.237] - 2026-06-29
 
 ### Fixed

@@ -1448,7 +1448,7 @@ describe('new tab review helpers', () => {
         expect(normalizedCss)
             .toContain('@media (max-width: 860px) { .jpdb-reader-newtab-topbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand controls" "mode mode";');
         expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-mode { grid-area: mode; width: 100%; min-width: 0; max-width: none; justify-self: stretch; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; }');
+            .toContain('.jpdb-reader-newtab-mode { grid-area: mode; width: 100%; min-width: 0; max-width: none; justify-self: stretch; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; }');
         expect(normalizedCss)
             .toContain('.jpdb-reader-newtab-mode button { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }');
         expect(normalizedCss)
