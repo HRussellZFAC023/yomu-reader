@@ -25558,7 +25558,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.227".trim() ? "1.4.227".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.228".trim() ? "1.4.228".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -40241,12 +40241,14 @@ ${spelling}`);
       "fullscreen-exit": '<path d="M9 3v4a2 2 0 0 1-2 2H3"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M15 21v-4a2 2 0 0 1 2-2h4"/><path d="M9 21v-4a2 2 0 0 0-2-2H3"/>',
       locate: '<path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
       menu: '<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',
+      mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M8 21h8"/>',
       "panel-bottom": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 14h16"/>',
       "panel-left": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',
       "panel-right": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',
       pause: '<path d="M9 5v14"/><path d="M15 5v14"/>',
       play: '<path d="M8 5v14l11-7-11-7Z"/>',
       repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
+      stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
       style: '<path d="M4 7h5"/><path d="M15 7h5"/><circle cx="12" cy="7" r="2"/><path d="M4 17h9"/><path d="M19 17h1"/><circle cx="16" cy="17" r="2"/>',
       tracks: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',
       transcript: '<path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>'
@@ -44406,7 +44408,16 @@ ${spelling}`);
     transcriptCacheWarmupSignature = "";
     lastShadowSignature = "";
     shadowLoopEnabled = false;
+    // The specific cue the loop is pinned to. Looping must not track the live
+    // currentCue (which drifts to the next line as playback advances) or the
+    // loop "escapes" after one pass — pin the line and re-seek robustly.
+    shadowLoopCue;
     shadowTextVisible = true;
+    // Self-recording (shadowing practice): record the learner's voice locally and
+    // play it back against the model. Never uploaded; the blob URL is local-only.
+    shadowRecorder;
+    shadowRecordingUrl;
+    shadowRecordingUnavailable = false;
     transcriptPanelSize = loadTranscriptPanelSize();
     videoInset = createSubtitleVideoInsetAdapter();
     lastYomuCaptionsActive = false;
@@ -44470,6 +44481,11 @@ ${spelling}`);
       "shadow-replay": () => this.replayShadowCue(),
       "shadow-loop": () => this.toggleShadowLoop(),
       "shadow-toggle-text": () => this.toggleShadowText(),
+      "shadow-goto": (target) => this.gotoShadowNeighbor(target),
+      "shadow-record": () => {
+        void this.toggleShadowRecording();
+      },
+      "shadow-play-recording": () => this.playShadowRecording(),
       "close-panel": () => this.closeTranscriptPanel(),
       "transcript-placement": (target) => this.changeTranscriptPlacement(target),
       "toggle-pause-panel": () => this.togglePausePanelMode(),
@@ -44564,6 +44580,7 @@ ${spelling}`);
     }
     destroy() {
       this.destroyed = true;
+      this.resetShadowPracticeState();
       this.abortController?.abort();
       this.abortController = void 0;
       this.observer?.disconnect();
@@ -46871,6 +46888,7 @@ ${spelling}`);
       this.seekVideoTo(Math.max(0, cue.start + padding));
       this.clearTranscriptManualScrollPause();
       this.currentCue = cue;
+      if (this.shadowLoopEnabled) this.shadowLoopCue = cue;
       this.secondaryCue = this.secondaryCues.find((item) => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
       this.render();
       this.syncControls();
@@ -47088,7 +47106,7 @@ ${spelling}`);
       this.lastDomCaption = "";
       this.lastDomCaptionSeenAt = 0;
       this.lastShadowSignature = "";
-      this.shadowLoopEnabled = false;
+      this.resetShadowPracticeState();
       return requestId;
     }
     clearSecondaryTrackSelection() {
@@ -47181,7 +47199,7 @@ ${spelling}`);
         this.lastDomCaptionSeenAt = 0;
         this.youtubeDomCaptionFallbackTrackId = "";
         this.lastShadowSignature = "";
-        this.shadowLoopEnabled = false;
+        this.resetShadowPracticeState();
       }
       const requestId = this.beginTrackSelection("secondary");
       this.secondaryTrackId = id;
@@ -47583,10 +47601,12 @@ ${spelling}`);
       if (!cue || !this.video) return;
       this.seekVideoTo(Math.max(0, cue.start));
       this.currentCue = cue;
+      if (this.shadowLoopEnabled) this.shadowLoopCue = cue;
       this.renderShadowPanel(true);
     }
     toggleShadowLoop() {
       this.shadowLoopEnabled = !this.shadowLoopEnabled;
+      this.shadowLoopCue = this.shadowLoopEnabled ? this.currentCue : void 0;
       if (this.shadowLoopEnabled) this.replayShadowCue();
       else this.renderShadowPanel(true);
     }
@@ -47594,9 +47614,102 @@ ${spelling}`);
       this.shadowTextVisible = !this.shadowTextVisible;
       this.renderShadowPanel(true);
     }
+    // Loop a single line for shadowing practice. The check runs every video frame
+    // and on the polling tick; it must survive overshoot (a missed boundary frame
+    // leaves currentTime past cue.end, with the live currentCue already advanced to
+    // the next line) — so it re-seeks whenever playback is outside the pinned line.
     syncShadowLoop() {
-      if (!this.shadowLoopEnabled || !this.video || !this.currentCue) return;
-      if (this.video.currentTime >= this.currentCue.end - 0.02) this.seekVideoTo(Math.max(0, this.currentCue.start));
+      if (!this.shadowLoopEnabled || !this.video) return;
+      const cue = this.shadowLoopCue ?? this.currentCue;
+      if (!cue) return;
+      const time = this.video.currentTime;
+      if (time >= cue.end - 0.05 || time < cue.start - 0.3) {
+        this.seekVideoTo(Math.max(0, cue.start));
+        if (this.currentCue !== cue) {
+          this.currentCue = cue;
+          this.renderShadowPanel(true);
+        }
+      }
+    }
+    // Neighbours of a cue in the primary cue list (by identity, falling back to
+    // matching start/end so a cloned currentCue still resolves its siblings).
+    shadowCueNeighbors(cue) {
+      if (!this.cues.length) return {};
+      let index = this.cues.indexOf(cue);
+      if (index < 0) index = this.cues.findIndex((item) => item.start === cue.start && item.end === cue.end);
+      if (index < 0) return {};
+      return { prev: this.cues[index - 1], next: this.cues[index + 1] };
+    }
+    gotoShadowNeighbor(target) {
+      const direction = target.closest("[data-shadow-goto]")?.dataset.shadowGoto;
+      const cue = this.currentCue;
+      if (!cue) return;
+      const neighbors = this.shadowCueNeighbors(cue);
+      const goal = direction === "prev" ? neighbors.prev : neighbors.next;
+      if (goal) this.seekToCueObject(goal, { exact: true });
+    }
+    async toggleShadowRecording() {
+      if (this.shadowRecorder && this.shadowRecorder.state !== "inactive") {
+        this.shadowRecorder.stop();
+        return;
+      }
+      const mediaDevices = navigator.mediaDevices;
+      if (!mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        this.shadowRecordingUnavailable = true;
+        this.renderShadowPanel(true);
+        return;
+      }
+      try {
+        const stream = await mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        const chunks2 = [];
+        recorder.addEventListener("dataavailable", (event) => {
+          if (event.data && event.data.size) chunks2.push(event.data);
+        });
+        recorder.addEventListener("stop", () => {
+          stream.getTracks().forEach((track) => track.stop());
+          this.clearShadowRecording();
+          if (chunks2.length) {
+            this.shadowRecordingUrl = URL.createObjectURL(new Blob(chunks2, { type: recorder.mimeType || "audio/webm" }));
+          }
+          this.shadowRecorder = void 0;
+          this.renderShadowPanel(true);
+        });
+        this.shadowRecordingUnavailable = false;
+        this.shadowRecorder = recorder;
+        recorder.start();
+        this.renderShadowPanel(true);
+      } catch (error) {
+        log$j.warn("Shadow self-recording unavailable", error);
+        this.shadowRecorder = void 0;
+        this.shadowRecordingUnavailable = true;
+        this.renderShadowPanel(true);
+      }
+    }
+    playShadowRecording() {
+      if (!this.shadowRecordingUrl) return;
+      try {
+        void new Audio(this.shadowRecordingUrl).play().catch(() => void 0);
+      } catch {
+      }
+    }
+    clearShadowRecording() {
+      if (this.shadowRecordingUrl) {
+        URL.revokeObjectURL(this.shadowRecordingUrl);
+        this.shadowRecordingUrl = void 0;
+      }
+    }
+    resetShadowPracticeState() {
+      this.shadowLoopEnabled = false;
+      this.shadowLoopCue = void 0;
+      if (this.shadowRecorder && this.shadowRecorder.state !== "inactive") {
+        try {
+          this.shadowRecorder.stop();
+        } catch {
+        }
+      }
+      this.shadowRecorder = void 0;
+      this.clearShadowRecording();
     }
     syncPreviewOpenControls() {
       this.root?.classList.add("jpdb-subtitle-panel-open");
@@ -47825,6 +47938,9 @@ ${spelling}`);
         parseKey,
         this.shadowLoopEnabled,
         this.shadowTextVisible,
+        this.shadowRecorder && this.shadowRecorder.state !== "inactive" ? "rec" : "",
+        this.shadowRecordingUrl ? "has-rec" : "",
+        this.shadowRecordingUnavailable ? "no-mic" : "",
         this.selectedTrackId,
         this.secondaryTrackId
       ].join("|");
@@ -47869,19 +47985,35 @@ ${spelling}`);
       return this.renderShadowCueCard(state2.cue, cueText, state2);
     }
     renderShadowCueCard(cue, cueText, state2) {
+      const language = state2.settings.interfaceLanguage;
       const parsedLine = this.shadowParsedLine(cueText, state2.parseKey, state2.settings);
       const hiddenClass = this.shadowTextVisible ? "" : " jpdb-subtitle-shadow-line-hidden";
       const secondary = this.renderShadowSecondaryLine(state2);
+      const neighbors = this.shadowCueNeighbors(cue);
       return `
             <div class="jpdb-subtitle-shadow-card">
-                <span class="jpdb-subtitle-shadow-time">${formatSubtitleTime(cue.start)}-${formatSubtitleTime(cue.end)}</span>
-                <strong class="jpdb-subtitle-shadow-line jpdb-subtitle-row-text${hiddenClass}" lang="ja" data-transcript-text data-parse-key="${escapeHtml$1(state2.parseKey)}"${parsedLine.parsedKeyAttribute}${parsedLine.provisionalAttribute}>${parsedLine.html}</strong>
-                ${secondary}
+                ${this.renderShadowContextLine(neighbors.prev, "prev", language)}
+                <div class="jpdb-subtitle-shadow-current">
+                    <span class="jpdb-subtitle-shadow-time">${formatSubtitleTime(cue.start)}-${formatSubtitleTime(cue.end)}</span>
+                    <strong class="jpdb-subtitle-shadow-line jpdb-subtitle-row-text${hiddenClass}" lang="ja" data-transcript-text data-parse-key="${escapeHtml$1(state2.parseKey)}"${parsedLine.parsedKeyAttribute}${parsedLine.provisionalAttribute}>${parsedLine.html}</strong>
+                    ${secondary}
+                </div>
+                ${this.renderShadowContextLine(neighbors.next, "next", language)}
                 <div class="jpdb-subtitle-shadow-actions">
-                    ${this.renderShadowActions(state2.settings.interfaceLanguage)}
+                    ${this.renderShadowActions(language)}
                 </div>
             </div>
         `;
+    }
+    // Surrounding lines for context (kotu-style): tappable to jump the loop/focus
+    // onto them. Rendered as plain (escaped) text — the parsed/highlighted treatment
+    // stays reserved for the focused current line.
+    renderShadowContextLine(cue, direction, language) {
+      const text2 = cue?.text.trim();
+      if (!cue || !text2) return "";
+      const japanese = resolveUiLanguage(language) === "ja";
+      const label = direction === "prev" ? japanese ? "前の行へ" : "Previous line" : japanese ? "次の行へ" : "Next line";
+      return `<button type="button" class="jpdb-subtitle-shadow-context jpdb-subtitle-shadow-context-${direction}" data-action="shadow-goto" data-shadow-goto="${direction}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}" lang="ja">${escapeWithBreaks(text2)}</button>`;
     }
     shadowParsedLine(cueText, parseKey, settings) {
       const parsed = this.cachedParsedCueHtml(parseKey, settings) ?? this.provisionalParsedHtmlCache.get(parseKey);
@@ -47895,12 +48027,17 @@ ${spelling}`);
       return text2 ? `<div class="jpdb-subtitle-shadow-secondary">${escapeWithBreaks(text2)}</div>` : "";
     }
     renderShadowActions(language) {
+      const recording = Boolean(this.shadowRecorder && this.shadowRecorder.state !== "inactive");
       const loopAction = this.shadowLoopEnabled ? "stop" : "loop";
       const toggleIcon = this.shadowTextVisible ? "eye-off" : "eye";
+      const recordLabel = this.shadowActionLabel(language, recording ? "stop-record" : "record");
       return `
             ${this.renderShadowAction("shadow-replay", this.shadowActionLabel(language, "replay"), "repeat", false)}
             ${this.renderShadowAction("shadow-loop", this.shadowActionLabel(language, loopAction), "repeat", this.shadowLoopEnabled)}
             ${this.renderShadowAction("shadow-toggle-text", uiText(language, this.shadowTextVisible ? "hide" : "show"), toggleIcon, !this.shadowTextVisible)}
+            ${this.renderShadowAction("shadow-record", recordLabel, recording ? "stop" : "mic", recording)}
+            ${this.shadowRecordingUrl ? this.renderShadowAction("shadow-play-recording", this.shadowActionLabel(language, "play-recording"), "play", false) : ""}
+            ${this.shadowRecordingUnavailable && !recording ? `<span class="jpdb-subtitle-shadow-note">${escapeHtml$1(this.shadowActionLabel(language, "record-unavailable"))}</span>` : ""}
         `;
     }
     renderShadowAction(action, label, icon, pressed) {
@@ -47908,9 +48045,22 @@ ${spelling}`);
     }
     shadowActionLabel(language, action) {
       const japanese = resolveUiLanguage(language) === "ja";
-      if (action === "replay") return japanese ? "再生" : "Replay";
-      if (action === "loop") return japanese ? "ループ" : "Loop";
-      return japanese ? "停止" : "Stop";
+      switch (action) {
+        case "replay":
+          return japanese ? "再生" : "Replay";
+        case "loop":
+          return japanese ? "ループ" : "Loop";
+        case "stop":
+          return japanese ? "停止" : "Stop";
+        case "record":
+          return japanese ? "録音" : "Record";
+        case "stop-record":
+          return japanese ? "録音停止" : "Stop";
+        case "play-recording":
+          return japanese ? "録音を再生" : "Play yours";
+        case "record-unavailable":
+          return japanese ? "マイクを使用できません" : "Mic unavailable";
+      }
     }
     requestParsedShadowLineIfNeeded(cue, key, signature, settings) {
       if (!this.shouldParseSubtitles(settings) || this.cachedParsedCueHtml(key, settings) !== void 0) {

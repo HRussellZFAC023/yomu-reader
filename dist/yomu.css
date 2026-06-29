@@ -11491,9 +11491,45 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
+/* Hiding for shadowing must beat the per-word token colours and highlight
+   backgrounds rendered inside the line, so a colour:transparent on the parent
+   alone does nothing — blur the whole line (children included) and disable
+   selection. Click Hide again to reveal. */
 .jpdb-subtitle-shadow-line-hidden {
-  color: transparent !important;
-  text-shadow: 0 0 9px var(--jpdb-reader-muted);
+  filter: blur(7px);
+  opacity: 0.65;
+  user-select: none;
+  cursor: pointer;
+}
+.jpdb-subtitle-shadow-current {
+  display: grid;
+  gap: 8px;
+}
+.jpdb-subtitle-shadow-context {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px dashed var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--jpdb-reader-muted);
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  opacity: 0.78;
+}
+.jpdb-subtitle-shadow-context:hover {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-text);
+  opacity: 1;
+}
+.jpdb-subtitle-shadow-note {
+  align-self: center;
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
 }
 .jpdb-subtitle-shadow-secondary {
   color: var(--jpdb-reader-muted);
