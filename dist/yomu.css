@@ -11572,6 +11572,14 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: transparent;
+  /* YouTube videos with auto-translated captions expose dozens-to-hundreds of
+     track rows. Without this, every subtitle-drawer resize frame reflows the
+     whole list (multi-100ms synchronous layout + style recalc), so opening and
+     resizing the sidebar stutters. content-visibility lets the engine skip
+     layout/paint for off-screen rows; contain-intrinsic-size keeps the scroll
+     height stable. No-ops (no regression) on engines without support. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 80px;
 }
 .jpdb-subtitle-track-row.active {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 68%, var(--jpdb-reader-border));
