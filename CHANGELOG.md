@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.235] - 2026-06-29
+
+### Added
+
+- Added a session stats panel to Listen mode that shows how many pitch items are due and your accuracy for each pitch pattern, and ordered the Listen queue to review due items first.
+
 ## [1.4.234] - 2026-06-29
 
 ### Fixed

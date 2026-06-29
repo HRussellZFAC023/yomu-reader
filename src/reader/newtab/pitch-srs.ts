@@ -13,9 +13,9 @@ import { cardPronunciationReading } from '../popup/pitch';
 // AND persists locally to GM storage under the managed `yomu-` prefix (backed up /
 // exported with the rest of the user's data). Grades never touch NewTabGradeQueue.
 
-export const PITCH_ITEMS_KEY = 'yomu-pitch-items:v1';
-export const PITCH_HISTORY_KEY = 'yomu-pitch-history:v1';
-export const PITCH_HISTORY_LIMIT = 200;
+const PITCH_ITEMS_KEY = 'yomu-pitch-items:v1';
+const PITCH_HISTORY_KEY = 'yomu-pitch-history:v1';
+const PITCH_HISTORY_LIMIT = 200;
 
 const DAY_MS = 86_400_000;
 const LAPSE_REDUE_MS = 60_000;
@@ -231,11 +231,6 @@ export class PitchSrsStore {
         return seeded;
     }
 
-    upsert(item: PitchSrsItem): void {
-        this.items.set(item.key, item);
-        this.schedulePersistItems();
-    }
-
     grade(key: string, grade: JPDBGrade, subMode: PitchSubMode, options: { correct: boolean; now: number }): PitchSrsItem | null {
         const item = this.items.get(key);
         if (!item) return null;
@@ -251,10 +246,6 @@ export class PitchSrsStore {
         });
         this.schedulePersistItems();
         return updated;
-    }
-
-    historyEntries(): PitchHistoryEntry[] {
-        return this.history.slice();
     }
 
     accuracyByClass(): PitchClassAccuracy[] {

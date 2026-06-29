@@ -8,9 +8,15 @@ import {
 import { renderPitchGraphSvg } from '../popup/pitch';
 import type { NewTabCopyKey } from './i18n';
 import type { NewTabListenSubMode } from './state';
-import type { PitchSrsItem } from './pitch-srs';
+import type { PitchClassAccuracy, PitchSrsItem } from './pitch-srs';
 
 export type ListenOutcome = 'correct' | 'wrong';
+
+export interface ListenStats {
+    deckSize: number;
+    due: number;
+    accuracy: PitchClassAccuracy[];
+}
 
 export interface ListenContrastView {
     reading: string;
@@ -31,6 +37,7 @@ export interface ListenCardView {
     micEnabled: boolean;
     micUnavailable: boolean;
     contrast: ListenContrastView | null;
+    stats: ListenStats;
 }
 
 type Translate = (key: NewTabCopyKey) => string;
@@ -125,9 +132,26 @@ function renderRecordRow(view: ListenCardView, t: Translate): string {
         </div>`;
 }
 
+// Session HUD: due-now count + a per-pattern accuracy chip per class with history
+// (kotu-style "Heiban 80%"), so progress through the SRS deck is visible at a glance.
+function renderListenStats(stats: ListenStats, t: Translate): string {
+    if (!stats.deckSize) return '';
+    const chips = stats.accuracy
+        .filter(entry => entry.total > 0 && PITCH_CLASS_LABEL_KEYS[entry.pitchClass])
+        .map(entry => `<span class="jpdb-reader-newtab-listen-stat">${escapeHtml(pitchClassLabel(entry.pitchClass, t))} ${Math.round((entry.correct / entry.total) * 100)}%</span>`)
+        .join('');
+    return `<div class="jpdb-reader-newtab-listen-stats">
+        <span class="jpdb-reader-newtab-listen-stat">${stats.due} ${escapeHtml(t('listenDue'))}</span>
+        ${chips}
+    </div>`;
+}
+
 export function renderListenCard(view: ListenCardView, t: Translate): string {
     const promptKey: NewTabCopyKey = view.subMode === 'perceive' ? 'listenPerceivePrompt' : view.subMode === 'recall' ? 'listenRecallPrompt' : 'listenShadowPrompt';
-    const sections: string[] = [`<div class="jpdb-reader-newtab-listen-prompt">${escapeHtml(t(promptKey))}</div>`];
+    const sections: string[] = [
+        renderListenStats(view.stats, t),
+        `<div class="jpdb-reader-newtab-listen-prompt">${escapeHtml(t(promptKey))}</div>`,
+    ];
 
     // Audio control (perceive + shadow lead with sound; recall hides it until reveal).
     if (view.subMode !== 'recall' || view.revealed) {

@@ -3774,7 +3774,7 @@ export class NewTabController {
         // Anki notes lacking accent data, or kana the classifier can't resolve) are
         // simply not eligible, so the queue never serves an un-gradeable card.
         if (this.state.mode === 'listen') {
-            return cards.filter(card => pitchNumberForReading(card.pitchAccent, cardPronunciationReading(card)) != null);
+            return this.listenStudyPool(cards.filter(card => pitchNumberForReading(card.pitchAccent, cardPronunciationReading(card)) != null));
         }
         const filter = this.state.filter;
         // JPDB deck-browse "Show only" parity: a state filter narrows the
@@ -4189,6 +4189,37 @@ export class NewTabController {
         }
     }
 
+    // Order the eligible listen cards due-first using the pitch SRS schedule (kotu-
+    // style "review what's due"), then append any not-yet-scheduled eligible words.
+    private listenStudyPool(eligible: JPDBCard[]): JPDBCard[] {
+        const now = Date.now();
+        const byKey = new Map<string, JPDBCard>();
+        for (const card of eligible) {
+            const reading = cardPronunciationReading(card);
+            const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
+            if (pitchNumber != null) byKey.set(pitchItemKey(reading, pitchNumber), card);
+        }
+        const ordered: JPDBCard[] = [];
+        const seen = new Set<string>();
+        for (const item of this.pitchSrs.sessionPool({ now, newItemCap: eligible.length })) {
+            const card = byKey.get(item.key);
+            if (card && !seen.has(item.key)) {
+                ordered.push(card);
+                seen.add(item.key);
+            }
+        }
+        for (const [key, card] of byKey) if (!seen.has(key)) ordered.push(card);
+        return ordered;
+    }
+
+    private listenStats(): ListenCardView['stats'] {
+        return {
+            deckSize: this.pitchSrs.size(),
+            due: this.pitchSrs.dueCount(Date.now()),
+            accuracy: this.pitchSrs.accuracyByClass(),
+        };
+    }
+
     private listenCardView(card: JPDBCard, item: PitchSrsItem): ListenCardView {
         return {
             item,
@@ -4203,6 +4234,7 @@ export class NewTabController {
             micEnabled: this.state.listenSubMode === 'shadow',
             micUnavailable: this.listenRecordingUnavailable,
             contrast: this.listenContrastView(),
+            stats: this.listenStats(),
         };
     }
 
