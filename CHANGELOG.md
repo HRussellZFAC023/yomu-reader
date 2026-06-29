@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.229] - 2026-06-29
+
+### Fixed
+
+- Made the YouTube subtitle drawer open and resize smoothly on videos with many auto-translated caption tracks by skipping layout for off-screen track rows.
+
 ## [1.4.228] - 2026-06-29
 
 ### Added

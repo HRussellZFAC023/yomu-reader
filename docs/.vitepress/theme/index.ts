@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Made the YouTube subtitle drawer open and resize smoothly on videos with many auto-translated caption tracks by skipping layout for off-screen track rows.': '自動翻訳された字幕トラックが大量にある動画でも、画面外のトラック行のレイアウトを省略することで、YouTube字幕ドロワーの開閉とサイズ変更がスムーズになるようにしました。',
     'Added previous and next context lines to the YouTube shadowing drawer, each tappable to move shadowing practice onto that line.': 'YouTube シャドーイングドロワーに前後の行を表示し、タップするとその行に練習を移せるようにしました。',
     'Added local microphone self-recording and playback to the YouTube shadowing drawer so you can compare your pronunciation with the model without uploading any audio.': 'YouTube シャドーイングドロワーにローカルのマイク録音と再生を追加し、音声をアップロードせずに自分の発音をお手本と比べられるようにしました。',
     'Fixed the YouTube shadowing drawer loop control so it repeats the focused line reliably instead of playing on to the next one.': 'YouTube シャドーイングドロワーのループ操作を修正し、次の行へ進んでしまわずに対象の行を確実に繰り返すようにしました。',
