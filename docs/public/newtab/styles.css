@@ -3758,30 +3758,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     min-width: 0;
   }
 
-  .jpdb-reader-newtab-mode {
-    grid-area: mode;
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(82px, 1fr);
-    grid-template-columns: none;
-    justify-self: stretch;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .jpdb-reader-newtab-mode::-webkit-scrollbar {
-    display: none;
-  }
-
   .jpdb-reader-newtab-mode button {
     min-width: 0;
     padding: 0 8px;
-    font-size: 10px;
+    font-size: 11px;
     white-space: nowrap;
   }
 
@@ -4042,17 +4022,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     max-width: none;
     justify-self: stretch;
     display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(88px, 1fr);
-    grid-template-columns: none;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .jpdb-reader-newtab-mode::-webkit-scrollbar {
-    display: none;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 3px;
   }
 
   .jpdb-reader-newtab-mode button {
@@ -4067,11 +4038,6 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .jpdb-reader-newtab.jpdb-reader-newtab-stats-mode
-    .jpdb-reader-newtab-mode {
-    grid-template-columns: none;
-  }
-
   button.jpdb-reader-newtab-status {
     max-width: 100%;
     min-width: 0;
@@ -4084,14 +4050,9 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     width: min(100vw - 12px, 420px);
   }
 
-  .jpdb-reader-newtab-mode {
-    grid-auto-columns: minmax(76px, 1fr);
-    grid-template-columns: none;
-  }
-
   .jpdb-reader-newtab-mode button {
     min-height: 36px;
-    padding-inline: 7px;
+    padding-inline: 6px;
     font-size: 10px;
   }
 
@@ -5448,7 +5409,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 @media (max-width: 760px) {
   .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-mode {
-    grid-template-columns: repeat(2, minmax(70px, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-topbar {
