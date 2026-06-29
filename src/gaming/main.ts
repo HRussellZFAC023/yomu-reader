@@ -1,7 +1,8 @@
-import { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, nativeImage, screen, shell, type BrowserWindowConstructorOptions } from 'electron';
+import { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, nativeImage, screen, shell, systemPreferences, type BrowserWindowConstructorOptions } from 'electron';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { lookupGamingTerm } from './lookup';
 import { requestGamingOcr } from './ocr';
 import {
     YOMU_GAMING_CHANNELS,
@@ -9,6 +10,8 @@ import {
     type YomuGamingCaptureRequest,
     type YomuGamingCaptureSource,
     type YomuGamingEnvironment,
+    type YomuGamingOcrRequest,
+    type YomuGamingScreenAccess,
     type YomuGamingSettingsSnapshot,
     type YomuGamingSettingsSyncMetadata,
 } from './ipc';
@@ -17,6 +20,13 @@ const DEFAULT_HOTKEY = 'CommandOrControl+Shift+Y';
 const APP_NAME = 'Yomu Gaming';
 const DEFAULT_CAPTURE_WIDTH = 1920;
 const DEFAULT_CAPTURE_HEIGHT = 1080;
+// OCR runs on the full-screen grab, so capture at the display's native framebuffer
+// (logical size x scaleFactor) instead of a 1080p thumbnail. Retina/4K text is lost
+// otherwise. Cap the long edge so a 5K/8K panel can't blow up the OCR payload.
+const MAX_CAPTURE_EDGE = 3840;
+const SCREEN_PERMISSION_MESSAGE = process.platform === 'darwin'
+    ? 'Yomu Gaming needs Screen Recording permission. Open System Settings › Privacy & Security › Screen Recording, enable Yomu Gaming, then quit and reopen the app.'
+    : 'Yomu Gaming could not read the screen. Check this device’s screen-capture permissions and try again.';
 const ALLOWED_EXTERNAL_HOSTS = new Set(['yomureader.com', 'jpdb.io', 'jiten.moe']);
 const SETTINGS_SYNC_FILE_NAME = 'settings-sync-v1.json';
 const CAPTURE_SHORTCUT_FILE_NAME = 'capture-shortcut-v1.json';
@@ -62,6 +72,10 @@ let hotkeyRegistered = false;
 let hotkey = DEFAULT_HOTKEY;
 let hotkeyError = '';
 let registeredHotkey: string | null = null;
+// Freeze-frame: the screen is grabbed once while none of our windows are visible,
+// then the overlay reads/crops from this frozen frame. This is what keeps the
+// overlay's own selection chrome out of the OCR'd image.
+let frozenCapture: YomuGamingCaptureSource | null = null;
 
 function rendererUrl(hash = ''): string {
     const devUrl = process.env.YOMU_GAMING_RENDERER_URL;
@@ -96,14 +110,10 @@ async function createMainWindow(): Promise<void> {
         autoHideMenuBar: true,
         show: false,
         alwaysOnTop: false,
-        webPreferences: {
-            preload: path.join(__dirname, 'preload.cjs'),
-            contextIsolation: true,
-            nodeIntegration: false,
-            sandbox: false,
-        },
+        webPreferences: gamingWebPreferences('main'),
     });
     const window = mainWindow;
+    hardenWebContents(window);
     window.once('ready-to-show', () => {
         if (!window.isDestroyed()) window.show();
     });
@@ -147,13 +157,9 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<Browser
         alwaysOnTop: true,
         title: `${APP_NAME} Overlay`,
         icon: appIconPath(),
-        webPreferences: {
-            preload: path.join(__dirname, 'preload.cjs'),
-            contextIsolation: true,
-            nodeIntegration: false,
-            sandbox: false,
-        },
+        webPreferences: gamingWebPreferences('overlay'),
     });
+    hardenWebContents(overlayWindow);
     overlayWindow.setAlwaysOnTop(true, 'screen-saver');
     overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     overlayWindow.on('closed', () => {
@@ -165,6 +171,41 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<Browser
 
 function appIconPath(): string {
     return path.join(__dirname, 'yomu-gaming-512.png');
+}
+
+function gamingWebPreferences(role: 'main' | 'overlay'): BrowserWindowConstructorOptions['webPreferences'] {
+    return {
+        preload: path.join(__dirname, 'preload.cjs'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        // The preload only uses contextBridge + ipcRenderer, both available under the
+        // sandbox, so a renderer compromise cannot reach Node primitives.
+        sandbox: true,
+        // The overlay hosts the real Yomu reader, whose dictionary/pitch/audio lookups are
+        // cross-origin (jpdb/jiten/jisho/etc.). Those hosts send no CORS headers, so the
+        // reader can only read them with web security relaxed — exactly the privileged
+        // context it gets as a userscript/extension elsewhere. Scoped to the overlay
+        // window (which loads only our own bundled file:// renderer); the main settings
+        // window keeps web security on. The connect-src CSP still bounds reachable hosts.
+        webSecurity: role === 'main',
+    };
+}
+
+// The renderer composes DOM with innerHTML; a missed escape must never become a
+// navigation or popup foothold. Deny window.open and pin navigation to our own bundle.
+function hardenWebContents(window: BrowserWindow): void {
+    window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    const guard = (event: Electron.Event, url: string) => {
+        if (!isOwnRendererUrl(url)) event.preventDefault();
+    };
+    window.webContents.on('will-navigate', guard);
+    window.webContents.on('will-redirect', guard);
+}
+
+function isOwnRendererUrl(url: string): boolean {
+    const devUrl = process.env.YOMU_GAMING_RENDERER_URL;
+    if (devUrl && url.startsWith(devUrl)) return true;
+    return url.startsWith('file://');
 }
 
 function configureNativeAppMetadata(): void {
@@ -182,7 +223,13 @@ function configureNativeAppMetadata(): void {
 }
 
 async function showOverlay(mode: YomuGamingCaptureMode = 'instant'): Promise<void> {
-    mainWindow?.hide();
+    // Grab the frame while neither of our windows is on screen, so the overlay's
+    // own selection box / dim / toolbar can never be composited into the OCR image.
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+        mainWindow.hide();
+        await waitForCompositorFrame();
+    }
+    frozenCapture = await captureFrozenFrame();
     const window = await ensureOverlayWindow(mode);
     const display = screen.getPrimaryDisplay();
     window.setBounds(display.bounds);
@@ -192,6 +239,29 @@ async function showOverlay(mode: YomuGamingCaptureMode = 'instant'): Promise<voi
 
 function hideOverlay(): void {
     overlayWindow?.hide();
+    frozenCapture = null;
+}
+
+async function captureFrozenFrame(): Promise<YomuGamingCaptureSource> {
+    const wasOverlayVisible = Boolean(overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible());
+    if (wasOverlayVisible) {
+        overlayWindow?.hide();
+        await waitForCompositorFrame();
+    }
+    try {
+        return await capturePrimaryScreen();
+    } finally {
+        if (wasOverlayVisible && overlayWindow && !overlayWindow.isDestroyed()) {
+            overlayWindow.show();
+            overlayWindow.focus();
+        }
+    }
+}
+
+// Two animation frames is enough for the compositor to drop a just-hidden window
+// before desktopCapturer samples the display.
+function waitForCompositorFrame(): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, 90));
 }
 
 async function showApp(): Promise<void> {
@@ -206,13 +276,19 @@ function registerIpcHandlers(): void {
     ipcMain.handle(YOMU_GAMING_CHANNELS.captureSource, (_event, request: YomuGamingCaptureRequest) =>
         captureSource(request.sourceId, request.width ?? DEFAULT_CAPTURE_WIDTH, request.height ?? DEFAULT_CAPTURE_HEIGHT));
     ipcMain.handle(YOMU_GAMING_CHANNELS.capturePrimaryScreen, () => capturePrimaryScreen());
-    ipcMain.handle(YOMU_GAMING_CHANNELS.requestOcr, (_event, request) => requestGamingOcr(request));
+    ipcMain.handle(YOMU_GAMING_CHANNELS.requestOcr, (_event, request) => requestGamingOcr(normalizeOcrRequest(request)));
+    ipcMain.handle(YOMU_GAMING_CHANNELS.lookupTerm, (_event, request) => lookupGamingTerm({ term: typeof request?.term === 'string' ? request.term : '' }));
+    ipcMain.handle(YOMU_GAMING_CHANNELS.getFrozenCapture, () => getFrozenCapture());
+    ipcMain.handle(YOMU_GAMING_CHANNELS.recaptureFrozenFrame, () => recaptureFrozenFrame());
+    ipcMain.handle(YOMU_GAMING_CHANNELS.openScreenSettings, () => openScreenRecordingSettings());
     ipcMain.handle(YOMU_GAMING_CHANNELS.showOverlay, (_event, mode: unknown) => showOverlay(normalizeCaptureMode(mode)));
     ipcMain.handle(YOMU_GAMING_CHANNELS.hideOverlay, () => hideOverlay());
     ipcMain.handle(YOMU_GAMING_CHANNELS.completeOverlayCapture, (_event, capture: YomuGamingCaptureSource) => {
-        mainWindow?.webContents.send(YOMU_GAMING_CHANNELS.overlayCaptureCompleted, capture);
-        mainWindow?.show();
-        mainWindow?.focus();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send(YOMU_GAMING_CHANNELS.overlayCaptureCompleted, capture);
+            mainWindow.show();
+            mainWindow.focus();
+        }
         hideOverlay();
     });
     ipcMain.handle(YOMU_GAMING_CHANNELS.showApp, () => showApp());
@@ -237,16 +313,20 @@ function environmentStatus(): YomuGamingEnvironment {
         hotkey,
         hotkeyRegistered,
         hotkeyError: hotkeyError || undefined,
+        screenAccess: screenAccessStatus(),
     };
 }
 
 async function captureSources(width: number, height: number): Promise<YomuGamingCaptureSource[]> {
     const simulated = simulatedCaptureSource();
     if (simulated) return [simulated];
+    assertScreenAccess();
     const sources = await desktopCapturer.getSources({
         types: ['screen', 'window'],
         thumbnailSize: { width, height },
         fetchWindowIcons: false,
+    }).catch(error => {
+        throw new Error(screenCaptureErrorMessage(error));
     });
     return sources
         .filter(source => !source.thumbnail.isEmpty())
@@ -267,13 +347,93 @@ async function captureSource(sourceId: string, width: number, height: number): P
 }
 
 async function capturePrimaryScreen(): Promise<YomuGamingCaptureSource> {
-    const primaryDisplayId = String(screen.getPrimaryDisplay().id);
-    const sources = await captureSources(DEFAULT_CAPTURE_WIDTH, DEFAULT_CAPTURE_HEIGHT);
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const primaryDisplayId = String(primaryDisplay.id);
+    const { width, height } = nativeCaptureSize(primaryDisplay);
+    const sources = await captureSources(width, height);
     const source = sources.find(candidate => candidate.kind === 'screen' && candidate.displayId === primaryDisplayId)
         ?? sources.find(candidate => candidate.kind === 'screen')
         ?? sources[0];
     if (!source) throw new Error('No capture source is available.');
     return source;
+}
+
+async function getFrozenCapture(): Promise<YomuGamingCaptureSource> {
+    if (frozenCapture) return frozenCapture;
+    frozenCapture = await captureFrozenFrame();
+    return frozenCapture;
+}
+
+async function recaptureFrozenFrame(): Promise<YomuGamingCaptureSource> {
+    frozenCapture = await captureFrozenFrame();
+    return frozenCapture;
+}
+
+function normalizeOcrRequest(request: unknown): YomuGamingOcrRequest {
+    if (!request || typeof request !== 'object') {
+        throw new Error('OCR request must be an object.');
+    }
+    const record = request as Record<string, unknown>;
+    const imageDataUrl = typeof record.imageDataUrl === 'string' ? record.imageDataUrl : '';
+    if (!imageDataUrl.startsWith('data:image/')) {
+        throw new Error('OCR request is missing a base64 image data URL.');
+    }
+    return {
+        provider: typeof record.provider === 'string' ? record.provider as YomuGamingOcrRequest['provider'] : undefined,
+        endpointUrl: typeof record.endpointUrl === 'string' ? record.endpointUrl : '',
+        cloudVisionApiKey: typeof record.cloudVisionApiKey === 'string' ? record.cloudVisionApiKey : undefined,
+        imageDataUrl,
+        width: positiveInt(record.width, 0),
+        height: positiveInt(record.height, 0),
+        engine: typeof record.engine === 'string' ? record.engine : 'auto',
+        language: typeof record.language === 'string' ? record.language : 'ja-JP',
+    };
+}
+
+function positiveInt(value: unknown, fallback: number): number {
+    const parsed = Math.round(Number(value));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+// Native framebuffer size (logical x scaleFactor), long-edge-capped, so OCR sees
+// full Retina/4K detail instead of a downscaled 1080p thumbnail.
+function nativeCaptureSize(display: Electron.Display): { width: number; height: number } {
+    const scale = display.scaleFactor || 1;
+    const rawWidth = Math.round(display.size.width * scale);
+    const rawHeight = Math.round(display.size.height * scale);
+    const longEdge = Math.max(rawWidth, rawHeight, 1);
+    const factor = longEdge > MAX_CAPTURE_EDGE ? MAX_CAPTURE_EDGE / longEdge : 1;
+    return {
+        width: Math.max(1, Math.round(rawWidth * factor)),
+        height: Math.max(1, Math.round(rawHeight * factor)),
+    };
+}
+
+function screenAccessStatus(): YomuGamingScreenAccess {
+    if (process.platform !== 'darwin') return 'unsupported';
+    const status = systemPreferences.getMediaAccessStatus('screen');
+    return status === 'unknown' ? 'not-determined' : status;
+}
+
+function assertScreenAccess(): void {
+    const status = screenAccessStatus();
+    if (status === 'denied' || status === 'restricted') {
+        throw new Error(SCREEN_PERMISSION_MESSAGE);
+    }
+}
+
+function screenCaptureErrorMessage(error: unknown): string {
+    if (process.platform === 'darwin' && screenAccessStatus() !== 'granted') {
+        return SCREEN_PERMISSION_MESSAGE;
+    }
+    return error instanceof Error ? error.message : 'Screen capture failed.';
+}
+
+function openScreenRecordingSettings(): Promise<void> {
+    if (process.platform === 'darwin') {
+        return shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture');
+    }
+    return Promise.resolve();
 }
 
 function captureSourceKind(id: string): YomuGamingCaptureSource['kind'] {

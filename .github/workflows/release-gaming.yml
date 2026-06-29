@@ -49,6 +49,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Prepare Electron runtime
+        run: npm run prepare:electron
+
       - name: Build Yomu Gaming
         run: npm run build:gaming
 

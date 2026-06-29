@@ -1,12 +1,16 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { YOMU_GAMING_CHANNELS, type YomuGamingBridge, type YomuGamingCaptureRequest, type YomuGamingCaptureSource, type YomuGamingOcrRequest } from './ipc';
+import { YOMU_GAMING_CHANNELS, type YomuGamingBridge, type YomuGamingCaptureRequest, type YomuGamingCaptureSource, type YomuGamingLookupRequest, type YomuGamingOcrRequest } from './ipc';
 
 const bridge: YomuGamingBridge = {
     getEnvironment: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.getEnvironment),
     listCaptureSources: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.listCaptureSources),
     captureSource: (request: YomuGamingCaptureRequest) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.captureSource, request),
     capturePrimaryScreen: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.capturePrimaryScreen),
+    getFrozenCapture: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.getFrozenCapture),
+    recaptureFrozenFrame: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.recaptureFrozenFrame),
+    openScreenSettings: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.openScreenSettings),
     requestOcr: (request: YomuGamingOcrRequest) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.requestOcr, request),
+    lookupTerm: (request: YomuGamingLookupRequest) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.lookupTerm, request),
     showOverlay: mode => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.showOverlay, mode),
     hideOverlay: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.hideOverlay),
     completeOverlayCapture: (capture: YomuGamingCaptureSource) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.completeOverlayCapture, capture),

@@ -24,7 +24,15 @@ body {
 html.yomu-gaming-overlay-document,
 body.yomu-gaming-overlay-document,
 body.yomu-gaming-overlay-document #app {
+    width: 100vw;
+    min-height: 100vh;
+    min-height: 100dvh;
     background: transparent;
+}
+
+body.yomu-gaming-overlay-document #app {
+    height: 100vh;
+    height: 100dvh;
 }
 
 button,
@@ -446,6 +454,190 @@ textarea {
     background: color-mix(in srgb, var(--jpdb-reader-black) 4%, transparent);
 }
 
+/* Frozen frame: the screenshot the overlay was opened with. Shows the user exactly
+   what is being read and gives a stable surface to select on. */
+.overlay-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    /* Preserve aspect ratio so the frozen frame is never stretched; the OCR boxes are
+       mapped into the same contained rect (see frameRectForCapture) so they stay aligned. */
+    object-fit: contain;
+    object-position: center;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.overlay-toolbar {
+    position: fixed;
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    z-index: 7;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 32px;
+    padding: 4px 5px 4px 12px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jpdb-reader-black) 62%, transparent);
+    color: var(--jpdb-reader-white);
+    box-shadow: 0 10px 26px color-mix(in srgb, var(--jpdb-reader-black) 44%, transparent);
+    cursor: default;
+    font: 850 12px/1 var(--jpdb-reader-font);
+    backdrop-filter: blur(8px);
+}
+
+.overlay-toolbar strong {
+    color: var(--jpdb-reader-accent);
+    font-weight: 900;
+}
+
+.overlay-toolbar button {
+    min-height: 26px;
+    padding: 0 10px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 22%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jpdb-reader-black) 48%, transparent);
+    color: var(--jpdb-reader-white);
+    cursor: pointer;
+    font: 850 11px/1 var(--jpdb-reader-font);
+}
+
+.overlay-toolbar button:hover {
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 36%, var(--jpdb-reader-black) 48%);
+}
+
+.overlay-hint {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    z-index: 4;
+    transform: translate(-50%, -50%);
+    padding: 11px 18px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jpdb-reader-black) 58%, transparent);
+    color: var(--jpdb-reader-white);
+    font: 800 14px/1.2 var(--jpdb-reader-font);
+    text-align: center;
+    box-shadow: 0 12px 30px color-mix(in srgb, var(--jpdb-reader-black) 46%, transparent);
+    backdrop-filter: blur(8px);
+}
+
+.overlay-action-primary {
+    border-color: color-mix(in srgb, var(--jpdb-reader-accent) 60%, transparent) !important;
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 32%, transparent) !important;
+}
+
+/* Inline definition popover — read the word in place without leaving the game. */
+.overlay-lookup {
+    position: fixed;
+    z-index: 8;
+    display: grid;
+    gap: 8px;
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
+    border-radius: 14px;
+    background: color-mix(in srgb, #0f1620 95%, transparent);
+    color: var(--jpdb-reader-white);
+    box-shadow: 0 20px 46px color-mix(in srgb, var(--jpdb-reader-black) 56%, transparent);
+    cursor: default;
+    pointer-events: auto;
+    backdrop-filter: blur(10px);
+}
+
+.overlay-lookup-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.overlay-lookup-term {
+    font-size: 24px;
+    font-weight: 850;
+    line-height: 1.1;
+}
+
+.overlay-lookup-head button {
+    min-width: 28px;
+    min-height: 28px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 22%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jpdb-reader-black) 40%, transparent);
+    color: var(--jpdb-reader-white);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.overlay-lookup-word {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.overlay-lookup-reading {
+    color: var(--jpdb-reader-accent);
+    font-size: 15px;
+    font-weight: 750;
+}
+
+.overlay-lookup-tag {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 32%, transparent);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.overlay-lookup-pos {
+    color: color-mix(in srgb, var(--jpdb-reader-white) 70%, transparent);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.overlay-lookup-glosses {
+    margin: 0;
+    padding-left: 20px;
+    display: grid;
+    gap: 3px;
+    font-size: 14px;
+    line-height: 1.35;
+}
+
+.overlay-lookup-empty,
+.overlay-lookup-loading {
+    color: color-mix(in srgb, var(--jpdb-reader-white) 76%, transparent);
+    font-size: 13px;
+}
+
+.overlay-lookup-foot {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.overlay-lookup-foot button {
+    min-height: 28px;
+    padding: 0 12px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 50%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 24%, transparent);
+    color: var(--jpdb-reader-white);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+}
+
 .overlay-status {
     position: fixed;
     left: max(14px, env(safe-area-inset-left));
@@ -603,94 +795,77 @@ textarea {
     pointer-events: none;
 }
 
-.overlay-inline-toolbar {
-    position: fixed;
-    top: max(10px, env(safe-area-inset-top));
-    right: max(10px, env(safe-area-inset-right));
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    min-height: 30px;
-    padding: 3px 4px 3px 10px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-black) 48%, transparent);
-    color: var(--jpdb-reader-white);
-    font-size: 12px;
-    font-weight: 850;
-    pointer-events: auto;
-    backdrop-filter: blur(8px);
-}
-
-.overlay-inline-toolbar strong {
-    color: var(--jpdb-reader-accent);
-    font-weight: 900;
-}
-
-.overlay-inline-toolbar button,
-.overlay-inline-line button {
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 22%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-black) 48%, transparent);
-    color: var(--jpdb-reader-white);
-    cursor: pointer;
-    font-weight: 850;
-}
-
-.overlay-inline-toolbar button {
-    min-height: 24px;
-    padding: 0 9px;
-    font-size: 11px;
-}
-
+/* Each recognized line is anchored over its source box but stays INVISIBLE: the game
+   art shows through untouched. The line only catches the pointer so the bundled Yomu
+   reader can show its real popover on hover/click. A faint tint appears on hover so the
+   reader can see which words are live. */
 .overlay-inline-line {
     position: fixed;
+    z-index: 6;
     display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    align-items: center;
-    padding: 2px;
-    border-radius: 9px;
+    align-items: flex-start;
+    max-width: calc(100vw - 16px);
+    padding: 1px 2px;
+    border-radius: 5px;
     pointer-events: auto;
+    transition: background 90ms ease;
+}
+
+.overlay-inline-line:hover,
+.overlay-inline-line:focus-within {
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 16%, transparent);
 }
 
 .overlay-inline-line[data-vertical="true"] {
-    align-items: flex-start;
+    max-height: calc(100vh - 16px);
 }
 
 .overlay-inline-text {
-    max-width: min(100%, 680px);
-    min-height: 30px;
-    overflow: hidden;
-    padding: 4px 9px;
-    background: color-mix(in srgb, var(--jpdb-reader-black) 54%, transparent);
-    box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--jpdb-reader-accent) 30%, transparent),
-        0 8px 18px color-mix(in srgb, var(--jpdb-reader-black) 30%, transparent);
+    margin: 0;
+    min-height: 1em;
+    max-width: calc(100vw - 24px);
     font-size: 15px;
     line-height: 1.25;
-    text-align: left;
-    text-overflow: ellipsis;
-    text-shadow: 0 1px 2px color-mix(in srgb, var(--jpdb-reader-black) 80%, transparent);
     white-space: nowrap;
-    backdrop-filter: blur(4px);
+    /* Transparent so the underlying game/manga glyphs are not obscured or doubled. */
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    cursor: help;
 }
 
-.overlay-inline-terms {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 5px;
+.overlay-inline-line[data-vertical="true"] .overlay-inline-text {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    max-width: none;
+    max-height: calc(100vh - 24px);
 }
 
-.overlay-inline-terms button {
-    min-height: 25px;
-    max-width: 108px;
-    overflow: hidden;
-    padding: 0 8px;
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 34%, var(--jpdb-reader-black) 48%);
-    font-size: 13px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+/* The reader paints furigana + known-word colours onto the words it scans. Over a game
+   image those would double up with the original art, so keep them transparent in the
+   overlay — the real Yomu popover is the readable output. */
+.overlay-inline-text :is(.jpdb-reader-word, ruby, rt, rp),
+.overlay-result-text :is(.jpdb-reader-word, ruby, rt, rp) {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+    text-shadow: none !important;
+}
+
+/* Text-only OCR (no per-line geometry) has nothing behind it, so show it as a readable
+   caption instead. */
+.overlay-result-text {
+    color: var(--jpdb-reader-white);
+    -webkit-text-fill-color: var(--jpdb-reader-white);
+    white-space: normal;
+    text-shadow: 0 1px 2px color-mix(in srgb, var(--jpdb-reader-black) 82%, transparent);
+}
+
+.overlay-result-text :is(.jpdb-reader-word, ruby, rt) {
+    color: var(--jpdb-reader-white) !important;
+    -webkit-text-fill-color: var(--jpdb-reader-white) !important;
 }
 
 @media (max-width: 720px) {

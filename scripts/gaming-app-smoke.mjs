@@ -424,7 +424,45 @@ function attachPageDiagnostics(page) {
 
 async function assertInlineOcrResult(overlay, label) {
     await overlay.locator('[data-overlay-inline]').waitFor({ timeout: 10_000 });
-    await overlay.locator('[data-ocr-line] [data-action="open-yomu"][data-term="冒険"]').waitFor({ timeout: 10_000 });
+    // The frozen capture is shown as a backdrop and a persistent toolbar offers re-capture.
+    await overlay.locator('img.overlay-backdrop').waitFor({ state: 'attached', timeout: 10_000 });
+    await overlay.locator('.overlay-toolbar [data-action="overlay-recapture"]').waitFor({ timeout: 10_000 });
+    // The recognized line text is shown in place, in full, with no ellipsis truncation.
+    const horizontalText = overlay.locator('[data-ocr-line] .overlay-inline-text', { hasText: '冒険を始めよう' }).first();
+    await horizontalText.waitFor({ state: 'visible', timeout: 10_000 });
+    const fullText = await horizontalText.innerText();
+    if (!fullText.includes('港へ行くよ')) {
+        throw new Error(`Yomu Gaming ${label} truncated the recognized line in place: ${fullText}`);
+    }
+    // The old custom term-pill breakdown stays removed. The inline OCR text should
+    // instead be scanned by the real Yomu reader, giving each word the standard
+    // lookup behavior without adding another panel over the game.
+    const staleTermPills = await overlay.locator('.overlay-inline-terms').count();
+    if (staleTermPills) {
+        throw new Error(`Yomu Gaming ${label} reintroduced the detached term breakdown.`);
+    }
+    const annotatedTerm = horizontalText.locator('.jpdb-reader-word', { hasText: '冒険' }).first();
+    await annotatedTerm.waitFor({ state: 'visible', timeout: 10_000 });
+    await annotatedTerm.hover();
+    let popoverOpened = false;
+    try {
+        await overlay.locator('.jpdb-reader-popover .jpdb-reader-popover-body').first().waitFor({ state: 'visible', timeout: 3_000 });
+        popoverOpened = true;
+    } catch {
+        await annotatedTerm.click();
+        await overlay.locator('.jpdb-reader-popover .jpdb-reader-popover-body').first().waitFor({ state: 'visible', timeout: 7_000 });
+        popoverOpened = true;
+    }
+    if (!popoverOpened) {
+        throw new Error(`Yomu Gaming ${label} did not open the real Yomu popover from inline OCR text.`);
+    }
+    // Vertical line renders as an upright vertical column (writing-mode), not a clipped pill.
+    const verticalLine = overlay.locator('[data-ocr-line][data-vertical="true"]').first();
+    await verticalLine.waitFor({ state: 'attached', timeout: 10_000 });
+    const writingMode = await verticalLine.locator('.overlay-inline-text').first().evaluate(node => getComputedStyle(node).writingMode);
+    if (!/vertical/.test(writingMode)) {
+        throw new Error(`Yomu Gaming ${label} did not render the vertical line with a vertical writing-mode: ${writingMode}`);
+    }
     const panelCount = await overlay.locator('.overlay-result').count();
     if (panelCount) {
         throw new Error(`Yomu Gaming ${label} used the detached result panel even though OCR geometry was available.`);
@@ -432,10 +470,6 @@ async function assertInlineOcrResult(overlay, label) {
     const selectionCount = await overlay.locator('.overlay-selection').count();
     if (selectionCount) {
         throw new Error(`Yomu Gaming ${label} left the crop rectangle visible over inline OCR results.`);
-    }
-    const resultText = await overlay.locator('[data-overlay-inline]').innerText();
-    if (!resultText.includes('冒険')) {
-        throw new Error(`Yomu Gaming ${label} did not render Japanese OCR text inline: ${resultText}`);
     }
     const lineBox = await overlay.locator('[data-ocr-line]').first().boundingBox();
     if (!lineBox || lineBox.width < 40 || lineBox.height < 20) {
@@ -517,6 +551,13 @@ function startFixtureOcrServer() {
                         text: '冒険を始めよう。夜明けまでに港へ行くよ。',
                         box: fixtureOcrLineBox(png),
                     },
+                    {
+                        // Tall, narrow box -> vertical writing (the manga/VN/JRPG common case the
+                        // synthetic fixture image cannot itself produce). Exercises the
+                        // vertical-rl rendering + no-truncation path.
+                        text: '読書の時間だ',
+                        box: fixtureVerticalLineBox(png),
+                    },
                 ],
             }));
         } catch (error) {
@@ -542,6 +583,17 @@ function startFixtureOcrServer() {
             });
         });
     });
+}
+
+function fixtureVerticalLineBox(png) {
+    const width = Math.max(24, Math.round(png.width * 0.05));
+    const height = Math.max(96, Math.round(png.height * 0.5));
+    return {
+        left: Math.max(8, Math.round(png.width * 0.86)),
+        top: Math.max(8, Math.round(png.height * 0.08)),
+        width,
+        height: Math.min(height, Math.max(96, png.height - 16)),
+    };
 }
 
 function fixtureOcrLineBox(png) {

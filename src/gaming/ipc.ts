@@ -3,7 +3,11 @@ export const YOMU_GAMING_CHANNELS = {
     listCaptureSources: 'yomu-gaming:list-capture-sources',
     captureSource: 'yomu-gaming:capture-source',
     capturePrimaryScreen: 'yomu-gaming:capture-primary-screen',
+    getFrozenCapture: 'yomu-gaming:get-frozen-capture',
+    recaptureFrozenFrame: 'yomu-gaming:recapture-frozen-frame',
+    openScreenSettings: 'yomu-gaming:open-screen-settings',
     requestOcr: 'yomu-gaming:request-ocr',
+    lookupTerm: 'yomu-gaming:lookup-term',
     showOverlay: 'yomu-gaming:show-overlay',
     hideOverlay: 'yomu-gaming:hide-overlay',
     completeOverlayCapture: 'yomu-gaming:complete-overlay-capture',
@@ -16,6 +20,8 @@ export const YOMU_GAMING_CHANNELS = {
     restoreSettingsSnapshot: 'yomu-gaming:restore-settings-snapshot',
 } as const;
 
+export type YomuGamingScreenAccess = 'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown' | 'unsupported';
+
 export interface YomuGamingEnvironment {
     platform: string;
     displayServer: string;
@@ -25,6 +31,7 @@ export interface YomuGamingEnvironment {
     hotkey: string;
     hotkeyRegistered: boolean;
     hotkeyError?: string;
+    screenAccess: YomuGamingScreenAccess;
 }
 
 export interface YomuGamingImageSize {
@@ -75,6 +82,25 @@ export interface YomuGamingOcrResponse {
     error?: string;
 }
 
+export interface YomuGamingLookupRequest {
+    term: string;
+}
+
+export interface YomuGamingLookupEntry {
+    term: string;
+    word: string;
+    reading: string;
+    glosses: string[];
+    partsOfSpeech: string[];
+    common: boolean;
+}
+
+export interface YomuGamingLookupResponse {
+    ok: boolean;
+    entry?: YomuGamingLookupEntry;
+    error?: string;
+}
+
 export type YomuGamingCaptureMode = 'instant' | 'area';
 
 export interface YomuGamingSettingsSnapshot {
@@ -93,7 +119,11 @@ export interface YomuGamingBridge {
     listCaptureSources(): Promise<YomuGamingCaptureSource[]>;
     captureSource(request: YomuGamingCaptureRequest): Promise<YomuGamingCaptureSource>;
     capturePrimaryScreen(): Promise<YomuGamingCaptureSource>;
+    getFrozenCapture(): Promise<YomuGamingCaptureSource>;
+    recaptureFrozenFrame(): Promise<YomuGamingCaptureSource>;
+    openScreenSettings(): Promise<void>;
     requestOcr(request: YomuGamingOcrRequest): Promise<YomuGamingOcrResponse>;
+    lookupTerm(request: YomuGamingLookupRequest): Promise<YomuGamingLookupResponse>;
     showOverlay(mode?: YomuGamingCaptureMode): Promise<void>;
     hideOverlay(): Promise<void>;
     completeOverlayCapture(capture: YomuGamingCaptureSource): Promise<void>;

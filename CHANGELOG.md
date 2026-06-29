@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.226] - 2026-06-29
+
+### Fixed
+
+- Fixed the Yomu Gaming release workflow so CI prepares the Electron runtime before smoke-testing packaged desktop builds.
+
 ## [1.4.225] - 2026-06-29
 
 ### Added

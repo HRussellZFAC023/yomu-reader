@@ -35,6 +35,9 @@ async function requestLocalOcr(request: YomuGamingOcrRequest): Promise<YomuGamin
     try {
         const url = new URL(endpointUrl);
         if (!['http:', 'https:'].includes(url.protocol)) throw new Error('OCR endpoint must be HTTP or HTTPS.');
+        if (!isLoopbackHost(url.hostname)) {
+            throw new Error('The local OCR endpoint must be on this machine (localhost or 127.0.0.1). Remote OCR servers are blocked to keep screenshots on-device.');
+        }
         const image = imagePayloadFromDataUrl(request.imageDataUrl);
         const response = await fetchWithTimeout(url.toString(), {
             method: 'POST',
@@ -164,6 +167,11 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
     } finally {
         clearTimeout(timeoutId);
     }
+}
+
+function isLoopbackHost(hostname: string): boolean {
+    const host = hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.localhost');
 }
 
 function normalizeProvider(value: unknown, endpointUrl: string): YomuGamingOcrProvider {
