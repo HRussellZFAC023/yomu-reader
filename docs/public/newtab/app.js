@@ -25604,7 +25604,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.242".trim() ? "1.4.242".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.243".trim() ? "1.4.243".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -69133,7 +69133,7 @@ ${entry.url}`),
         this.renderOverflowMenuButton(newTabText(language, "stats"), "mode", language, {
           dataset: { mode: "stats" }
         }),
-        this.renderOverflowMenuLink(uiText(language, "localAudio"), `${DOCS_BASE_URL}local-audio/`, language),
+        this.renderOverflowMenuLink(uiText(language, "localAudio"), `${DOCS_BASE_URL}local-audio`, language),
         this.renderOverflowMenuLink(uiText(language, "changelog"), `${DOCS_BASE_URL}changelog`, language),
         this.renderOverflowMenuButton(newTabText(language, "installStudyApp"), "install-app", language, {
           className: "jpdb-reader-newtab-install-app",

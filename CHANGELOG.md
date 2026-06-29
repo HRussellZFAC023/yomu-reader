@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.243] - 2026-06-29
+
+### Fixed
+
+- Removed the Study menu's Local Audio trailing slash so local and published link checks resolve to the page instead of a docs 404.
+
 ## [1.4.242] - 2026-06-29
 
 ### Added

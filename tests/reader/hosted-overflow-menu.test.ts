@@ -26,6 +26,8 @@ describe('hosted overflow menus', () => {
         const css = readProjectFile('src/reader/styles/new-tab.css').replace(/\s+/g, ' ');
 
         expect(controller).toContain("uiText(language, 'localAudio')");
+        expect(controller).toContain("`${DOCS_BASE_URL}local-audio`");
+        expect(controller).not.toContain("`${DOCS_BASE_URL}local-audio/`");
         expect(controller).toContain("uiText(language, 'changelog')");
         expect(controller).toContain("uiText(language, 'support')");
         expect(controller).toContain("uiText(language, 'github')");

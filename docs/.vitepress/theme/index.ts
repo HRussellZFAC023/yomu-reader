@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Removed the Study menu's Local Audio trailing slash so local and published link checks resolve to the page instead of a docs 404.": 'Studyメニューのローカル音声リンクの末尾スラッシュを外し、ローカルでも公開後でもリンクチェックがドキュメントの404ではなくページへ解決されるようにしました。',
     'Added a Batch Mine tab to the video subtitle side panel. It scans the loaded transcript, compares parsed words against existing Jiten/JPDB/Anki states, ranks i+1 candidates first, preselects useful not-in-deck words, and lets you add or copy the selected batch after watching.': '動画字幕サイドパネルにBatch Mineタブを追加しました。読み込んだ文字起こしをスキャンし、解析済み単語を既存のJiten/JPDB/Anki状態と照合して、i+1候補を優先表示し、有用な未追加単語を事前選択し、視聴後に選択した一括候補を追加またはコピーできます。',
     'Re-published the hosted overflow menu and New Tab caption readability release after syncing the video player smoke check with the current drop-video-plus-subtitles copy.': '動画プレイヤーのスモークチェックを現在の「動画と字幕をドロップ」コピーに同期したうえで、ホスト版オーバーフローメニューと新しいタブのキャプション可読性のリリースを再公開しました。',
     'Pointed hosted PDF Reader menu/docs links at the explicit index.html route so local and published link checks resolve to the reader instead of a docs 404.': 'ホスト版PDFリーダーのメニュー／ドキュメントリンクを明示的なindex.htmlルートに向け、ローカルでも公開後でもリンクチェックがドキュメントの404ではなくリーダーへ解決されるようにしました。',

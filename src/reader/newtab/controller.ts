@@ -1139,7 +1139,7 @@ export class NewTabController {
             this.renderOverflowMenuButton(newTabText(language, 'stats'), 'mode', language, {
                 dataset: { mode: 'stats' },
             }),
-            this.renderOverflowMenuLink(uiText(language, 'localAudio'), `${DOCS_BASE_URL}local-audio/`, language),
+            this.renderOverflowMenuLink(uiText(language, 'localAudio'), `${DOCS_BASE_URL}local-audio`, language),
             this.renderOverflowMenuLink(uiText(language, 'changelog'), `${DOCS_BASE_URL}changelog`, language),
             this.renderOverflowMenuButton(newTabText(language, 'installStudyApp'), 'install-app', language, {
                 className: 'jpdb-reader-newtab-install-app',
