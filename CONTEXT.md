@@ -17,7 +17,8 @@ Yomu is a self-contained Japanese reading userscript. Use these terms when namin
 - OCR Region: A user-selected screen area sent to a configured OCR provider and normalized into lookup lines.
 - Gaming Text Bridge: A local-first Reader Surface for game dialogue that receives user-provided, OCR-helper, clipboard, texthooker, or future Decky/Electron helper text without owning native capture itself.
 - JPDB Bridge: The page-side connection that reads or drives JPDB review and vocabulary pages.
-- New Tab Review: The hosted/new-tab study surface that combines JPDB, local dictionaries, kanji drilldown, doodles, and review actions.
+- New Tab Review: The hosted/new-tab study surface that combines JPDB, local dictionaries, kanji drilldown, pitch listening, doodles, and review actions.
+- Pitch Listening Review: A local SRS lane inside New Tab Review that seeds pitch-accent items from the same Anki/Jiten/JPDB/local study pool, orders due pitch items first, and drills perception, recall, and shadowing without sending audio to a remote service.
 - External Source: A network or site dependency Yomu does not own, such as JPDB, YouTube, Google Lens, Immersion Kit, AnkiConnect, Wiktionary, or recommended dictionary URLs.
 
 ## Module Expectations

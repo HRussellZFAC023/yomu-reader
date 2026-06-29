@@ -127,7 +127,7 @@ If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary 
 
 よむ includes an optional [study page](/newtab/index.html). Use the full address after opening that local or hosted page as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries Anki study words when AnkiConnect is reachable, then Jiten, then JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
 
-Study supports a normal Word mode, a Recall mode that shows the meaning first and asks you to type or write the Japanese answer before grading, and kanji study. Recall grades go through the same JPDB, Jiten, or Anki review path as the normal study card after the answer is revealed.
+Study supports a normal Word mode, a Recall mode that shows the meaning first and asks you to type or write the Japanese answer before grading, a Listen mode for pitch-accent perception, recall, and shadowing, and kanji study. Recall grades go through the same JPDB, Jiten, or Anki review path as the normal study card after the answer is revealed; Listen keeps a local pitch SRS that grows from the review words and local/common words already feeding the page.
 
 On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests on the same computer. For phone and tablet setup, follow the Tailscale steps in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) instead of pointing mobile よむ at `localhost`.
 
