@@ -85,6 +85,8 @@ async function runScenario(browser, viewport, placement) {
         await installUserscriptCssResource(page, cssPath);
         await page.waitForSelector('.jpdb-subtitle-player', { state: 'attached', timeout: 10000 });
         await waitForPanelButton(page);
+        const beforeOpen = await snapshot(page);
+        assertRailControlParity(beforeOpen, label, 'before-open');
         await page.screenshot({ path: join(outputDir, `${label}-before.png`), fullPage: false });
 
         const openTiming = await timePageAction(page, async () => {
@@ -93,6 +95,8 @@ async function runScenario(browser, viewport, placement) {
         });
         const afterOpen = await snapshot(page);
         assertLayout(afterOpen, viewport.name, assertedPlacementForState(placement, afterOpen), 'open');
+        assertRailControlParity(afterOpen, label, 'open');
+        assertDrawerControlParity(afterOpen, label);
         await page.screenshot({ path: join(outputDir, `${label}-open.png`), fullPage: false });
         await waitForFullTranscriptRender(page);
         const afterFullRender = await snapshot(page);
@@ -542,6 +546,44 @@ async function snapshot(page) {
                 marginRight: styles.marginRight,
             };
         };
+        const buttonData = selector => Array.from(document.querySelectorAll(selector))
+            .filter(element => element instanceof HTMLButtonElement)
+            .map(button => {
+                const styles = getComputedStyle(button);
+                const box = button.getBoundingClientRect();
+                return {
+                    action: button.dataset.action ?? '',
+                    disabled: button.disabled,
+                    hidden: button.hidden || styles.display === 'none' || styles.visibility === 'hidden' || box.width <= 0 || box.height <= 0,
+                    pressed: button.getAttribute('aria-pressed'),
+                    rect: box.toJSON(),
+                };
+            });
+        const actionStrip = selector => {
+            const element = document.querySelector(selector);
+            if (!(element instanceof HTMLElement)) return null;
+            const styles = getComputedStyle(element);
+            const children = Array.from(element.children)
+                .filter(child => child instanceof HTMLElement)
+                .map(child => {
+                    const box = child.getBoundingClientRect();
+                    return { top: Math.round(box.top), height: Math.round(box.height), width: Math.round(box.width) };
+                })
+                .filter(box => box.width > 0 && box.height > 0);
+            const rowTops = [];
+            for (const top of children.map(box => box.top).sort((a, b) => a - b)) {
+                if (!rowTops.some(rowTop => Math.abs(rowTop - top) <= 8)) rowTops.push(top);
+            }
+            return {
+                rect: element.getBoundingClientRect().toJSON(),
+                flexWrap: styles.flexWrap,
+                overflowX: styles.overflowX,
+                scrollWidth: element.scrollWidth,
+                clientWidth: element.clientWidth,
+                rows: rowTops.length,
+                children,
+            };
+        };
         return {
             placement: document.querySelector('.jpdb-subtitle-player')?.getAttribute('data-transcript-placement')
                 || document.querySelector('.jpdb-subtitle-list')?.getAttribute('data-transcript-placement')
@@ -572,6 +614,10 @@ async function snapshot(page) {
             stablePlayerWidth: document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width'),
             setSizeCalls: globalThis.__yomuSetSizeCalls ?? [],
             resizeEvents: globalThis.__yomuResizeEvents ?? 0,
+            videoPaused: document.querySelector('video')?.paused ?? null,
+            railActions: buttonData('.jpdb-subtitle-rail button'),
+            drawerActions: buttonData('.jpdb-subtitle-drawer-actions button'),
+            drawerActionStrip: actionStrip('.jpdb-subtitle-drawer-actions'),
         };
     });
 }
@@ -611,6 +657,42 @@ function assertLayout(state, viewportName, requestedPlacement, phase) {
     }
 }
 
+function assertRailControlParity(state, label, phase) {
+    const visibleActions = new Set((state.railActions ?? [])
+        .filter(action => !action.hidden)
+        .map(action => action.action));
+    for (const action of ['playback', 'fullscreen', 'panel', 'panel-tracks', 'style']) {
+        assert(visibleActions.has(action), `rail is missing ${action} in ${label}/${phase}`, compactSnapshot(state));
+    }
+    if (state.videoPaused === false) {
+        const playback = (state.railActions ?? []).find(action => action.action === 'playback');
+        assert(playback?.pressed === 'true', `rail playback is not showing pause state in ${label}/${phase}`, compactSnapshot(state));
+    }
+    if (phase === 'before-open') {
+        for (const action of ['previous', 'next']) {
+            assert(visibleActions.has(action), `closed rail is missing ${action} in ${label}`, compactSnapshot(state));
+        }
+    }
+}
+
+function assertDrawerControlParity(state, label) {
+    const actions = state.drawerActions ?? [];
+    const allActions = new Set(actions.map(action => action.action));
+    const visibleActions = new Set(actions.filter(action => !action.hidden).map(action => action.action));
+    for (const action of ['panel-lines', 'panel-shadow', 'panel-tracks', 'previous', 'next', 'jump-current', 'transcript-placement', 'toggle-pause-panel']) {
+        assert(allActions.has(action), `drawer is missing ${action} in ${label}`, compactSnapshot(state));
+    }
+    for (const action of ['panel-lines', 'panel-shadow', 'panel-tracks', 'previous', 'next', 'transcript-placement', 'toggle-pause-panel']) {
+        assert(visibleActions.has(action), `drawer ${action} is not visible in ${label}`, compactSnapshot(state));
+    }
+    if (state.viewport.width >= 700) return;
+    assert(state.drawerActionStrip?.flexWrap === 'nowrap', `mobile drawer actions can wrap in ${label}`, compactSnapshot(state));
+    assert(state.drawerActionStrip?.overflowX !== 'visible', `mobile drawer actions cannot scroll horizontally in ${label}`, compactSnapshot(state));
+    assert((state.drawerActionStrip?.rows ?? 0) <= 1, `mobile drawer actions consumed multiple rows in ${label}`, compactSnapshot(state));
+    assert((state.drawerActionStrip?.scrollWidth ?? 0) <= (state.drawerActionStrip?.clientWidth ?? 0) + 4,
+        `mobile drawer actions overflow the first viewport in ${label}`, compactSnapshot(state));
+}
+
 function compactSnapshot(state) {
     return {
         placement: state.placement,
@@ -635,6 +717,15 @@ function compactSnapshot(state) {
         insetValue: state.insetValue,
         stablePlayerWidth: state.stablePlayerWidth,
         setSizeCallCount: state.setSizeCalls.length,
+        videoPaused: state.videoPaused,
+        railActions: (state.railActions ?? []).map(action => ({ ...action, rect: roundRect(action.rect) })),
+        drawerActions: (state.drawerActions ?? []).map(action => ({ ...action, rect: roundRect(action.rect) })),
+        drawerActionStrip: state.drawerActionStrip
+            ? {
+                ...state.drawerActionStrip,
+                rect: roundRect(state.drawerActionStrip.rect),
+            }
+            : null,
     };
 }
 
@@ -857,6 +948,19 @@ function youtubeFixtureHtml() {
     Object.defineProperty(video, 'currentTime', { configurable: true, writable: true, value: 1.4 });
     Object.defineProperty(video, 'videoWidth', { configurable: true, value: 1920 });
     Object.defineProperty(video, 'videoHeight', { configurable: true, value: 1080 });
+    let fixturePaused = false;
+    Object.defineProperty(video, 'paused', { configurable: true, get: () => fixturePaused });
+    Object.defineProperty(video, 'ended', { configurable: true, value: false });
+    video.play = () => {
+      fixturePaused = false;
+      video.dispatchEvent(new Event('play'));
+      video.dispatchEvent(new Event('playing'));
+      return Promise.resolve();
+    };
+    video.pause = () => {
+      fixturePaused = true;
+      video.dispatchEvent(new Event('pause'));
+    };
     player.getVideoData = () => ({ video_id: 'p044fixture' });
     player.getAudioTrack = () => ({ captionTracks: window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks });
     player.getOption = () => window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks;
@@ -870,6 +974,8 @@ function youtubeFixtureHtml() {
     };
     video.dispatchEvent(new Event('loadedmetadata'));
     video.dispatchEvent(new Event('loadeddata'));
+    video.dispatchEvent(new Event('play'));
+    video.dispatchEvent(new Event('playing'));
   </script>
 </body>
 </html>`;

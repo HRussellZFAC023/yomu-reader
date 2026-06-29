@@ -25558,7 +25558,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.230".trim() ? "1.4.230".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.231".trim() ? "1.4.231".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -44696,6 +44696,7 @@ ${spelling}`);
       const playLabel = uiText(settings.interfaceLanguage, "playVideo");
       const fullscreenLabel = uiText(settings.interfaceLanguage, "enterFullscreen");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
+      const tracksLabel = uiText(settings.interfaceLanguage, "subtitleTracks");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
       setInnerHtml(root, `
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml$1(moveLabel)}" aria-label="${escapeHtml$1(moveLabel)}"><span aria-hidden="true"></span></button></div>
@@ -44706,6 +44707,7 @@ ${spelling}`);
                 <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml$1(playLabel)}" aria-label="${escapeHtml$1(playLabel)}">${subtitleIcon("play")}</button>
                 <button class="jpdb-subtitle-fullscreen-toggle" type="button" data-action="fullscreen" title="${escapeHtml$1(fullscreenLabel)}" aria-label="${escapeHtml$1(fullscreenLabel)}">${subtitleIcon("fullscreen")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml$1(panelLabel)}" aria-label="${escapeHtml$1(panelLabel)}">${subtitleIcon("panel-right")}</button>
+                <button class="jpdb-subtitle-tracks-toggle" type="button" data-action="panel-tracks" title="${escapeHtml$1(tracksLabel)}" aria-label="${escapeHtml$1(tracksLabel)}">${subtitleIcon("tracks")}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
@@ -47441,8 +47443,9 @@ ${spelling}`);
     }
     syncLineNavigationButtons(hasLines) {
       const panelOpen = this.isTranscriptPanelDockedOpen();
-      const hideRailNavigation = panelOpen || this.options.getSettings().subtitleControlsMode === "hidden";
-      const language = this.options.getSettings().interfaceLanguage;
+      const settings = this.options.getSettings();
+      const hideRailNavigation = panelOpen || settings.subtitleControlsMode === "hidden";
+      const language = settings.interfaceLanguage;
       for (const action of ["previous", "next"]) {
         const railButton = this.root?.querySelector(`.jpdb-subtitle-rail [data-action="${action}"]`);
         if (railButton) syncSubtitleLineNavigationButton(railButton, action, hasLines, Boolean(this.video), hideRailNavigation, language);
@@ -47452,7 +47455,7 @@ ${spelling}`);
       if (playbackButton) {
         syncSubtitlePlaybackButton(playbackButton, {
           video: this.video,
-          hiddenByNavigation: hideRailNavigation,
+          hiddenByNavigation: settings.subtitleControlsMode === "hidden",
           hasLines,
           language
         });
@@ -47490,6 +47493,17 @@ ${spelling}`);
         panel.classList.toggle("jpdb-subtitle-tracks-panel", this.panelMode === "tracks");
       }
       this.syncLineNavigationButtons(hasLines);
+      this.syncRailTracksButton();
+    }
+    syncRailTracksButton() {
+      const button = this.root?.querySelector('.jpdb-subtitle-rail [data-action="panel-tracks"]');
+      if (!button) return;
+      const language = this.options.getSettings().interfaceLanguage;
+      const label = uiText(language, "subtitleTracks");
+      button.disabled = !this.video && !this.tracks.length;
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      button.setAttribute("aria-pressed", String(this.isTranscriptPanelOpen() && this.panelMode === "tracks"));
     }
     syncTranscriptPlacementClass() {
       if (!this.root) return;

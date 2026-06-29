@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { applyTokensToScanTarget, collectFormControlTextTargetsIn, collectFragmentTextTargetsIn, collectTextTargetsIn, makeRoomForRubyInCroppedRows, type FragmentTextTarget } from '../../src/reader/dom';
+import { applyTokensToScanTarget, collectFormControlTextTargetsIn, collectFragmentTextTargetsIn, collectTextTargetsIn, makeRoomForRubyInCroppedRows, type FragmentTextTarget, type ScanTextTarget } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -134,6 +134,52 @@ describe('generic reader layout overflow guards', () => {
         expect(helperTarget?.suppressRuby).toBe(true);
         expect(titleTarget).toBeTruthy();
         expect(titleTarget?.suppressRuby).not.toBe(true);
+    });
+
+    it('reserves room for unclamped YouTube section headings with ruby mirrors', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/',
+        });
+        document.body.innerHTML = `
+            <ytd-rich-section-renderer>
+                <h2 id="section-title">
+                    <span id="heading-host" class="ytAttributedStringHost">その他のトピック</span>
+                </h2>
+            </ytd-rich-section-renderer>
+        `;
+        const heading = document.querySelector<HTMLElement>('#section-title')!;
+        const host = document.querySelector<HTMLElement>('#heading-host')!;
+        mockRect(heading, { width: 180, height: 20 });
+        mockRect(host, { width: 180, height: 20 });
+        const target: ScanTextTarget = {
+            node: host.firstChild as Text,
+            parent: host,
+            text: 'その他のトピック',
+            nonDestructive: true,
+        };
+
+        applyTokensToScanTarget(target, [
+            token('他', target.text.indexOf('他'), target.text, 'ほか'),
+        ], {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror).toBeTruthy();
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(word.querySelector('rt')).toBeTruthy();
+        expect(heading.querySelector('.jpdb-reader-text-mirror')).toBe(mirror);
+        mockOverflow(host, 20, 20);
+        mockOverflow(heading, 58, 20);
+        mockOverflow(mirror, 58, 58);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(heading.style.minHeight).toBe('58px');
     });
 
     it('marks compact media tiles as passive chrome so highlights cannot resize card layouts', () => {

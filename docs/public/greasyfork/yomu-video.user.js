@@ -16275,6 +16275,7 @@ ${spelling}`);
       const playLabel = uiText(settings.interfaceLanguage, "playVideo");
       const fullscreenLabel = uiText(settings.interfaceLanguage, "enterFullscreen");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
+      const tracksLabel = uiText(settings.interfaceLanguage, "subtitleTracks");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
       setInnerHtml(root, `
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveLabel)}"><span aria-hidden="true"></span></button></div>
@@ -16285,6 +16286,7 @@ ${spelling}`);
                 <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon("play")}</button>
                 <button class="jpdb-subtitle-fullscreen-toggle" type="button" data-action="fullscreen" title="${escapeHtml(fullscreenLabel)}" aria-label="${escapeHtml(fullscreenLabel)}">${subtitleIcon("fullscreen")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon("panel-right")}</button>
+                <button class="jpdb-subtitle-tracks-toggle" type="button" data-action="panel-tracks" title="${escapeHtml(tracksLabel)}" aria-label="${escapeHtml(tracksLabel)}">${subtitleIcon("tracks")}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
@@ -19020,8 +19022,9 @@ ${spelling}`);
     }
     syncLineNavigationButtons(hasLines) {
       const panelOpen = this.isTranscriptPanelDockedOpen();
-      const hideRailNavigation = panelOpen || this.options.getSettings().subtitleControlsMode === "hidden";
-      const language = this.options.getSettings().interfaceLanguage;
+      const settings = this.options.getSettings();
+      const hideRailNavigation = panelOpen || settings.subtitleControlsMode === "hidden";
+      const language = settings.interfaceLanguage;
       for (const action of ["previous", "next"]) {
         const railButton = this.root?.querySelector(`.jpdb-subtitle-rail [data-action="${action}"]`);
         if (railButton) syncSubtitleLineNavigationButton(railButton, action, hasLines, Boolean(this.video), hideRailNavigation, language);
@@ -19031,7 +19034,7 @@ ${spelling}`);
       if (playbackButton) {
         syncSubtitlePlaybackButton(playbackButton, {
           video: this.video,
-          hiddenByNavigation: hideRailNavigation,
+          hiddenByNavigation: settings.subtitleControlsMode === "hidden",
           hasLines,
           language
         });
@@ -19069,6 +19072,17 @@ ${spelling}`);
         panel.classList.toggle("jpdb-subtitle-tracks-panel", this.panelMode === "tracks");
       }
       this.syncLineNavigationButtons(hasLines);
+      this.syncRailTracksButton();
+    }
+    syncRailTracksButton() {
+      const button = this.root?.querySelector('.jpdb-subtitle-rail [data-action="panel-tracks"]');
+      if (!button) return;
+      const language = this.options.getSettings().interfaceLanguage;
+      const label = uiText(language, "subtitleTracks");
+      button.disabled = !this.video && !this.tracks.length;
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      button.setAttribute("aria-pressed", String(this.isTranscriptPanelOpen() && this.panelMode === "tracks"));
     }
     syncTranscriptPlacementClass() {
       if (!this.root) return;

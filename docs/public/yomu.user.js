@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.230
+// @version 1.4.231
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.230
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.230
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.230
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.230
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.231
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.231
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.231
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.231
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -6637,7 +6637,7 @@ function hasVisibleBorderSide(style, width) {
   return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
 }
 const RUBY_ROOM_HARD_SKIP_SELECTOR = "[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending";
-const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = "ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3";
+const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = "ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-section-renderer :is(#title,h2),ytd-rich-shelf-renderer :is(#title,h2),ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3";
 const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ":is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])";
 const RUBY_ROOM_MAX_PX = 400;
 function makeRoomForRubyInCroppedRows(root = document) {
@@ -6645,9 +6645,8 @@ function makeRoomForRubyInCroppedRows(root = document) {
   const words = root.querySelectorAll(".jpdb-reader-word");
   for (const word of words) {
     if (!word.querySelector("rt")) continue;
-    if (word.closest(RUBY_ROOM_HARD_SKIP_SELECTOR)) continue;
     for (const box of cropCapableBoxes(word.parentElement)) {
-      if (rubyRoomBoxIsSkipped(box)) continue;
+      if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || !(isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box))) continue;
       if (!boxActuallyCrops(box)) continue;
       const roomHeight = rubyRoomHeight(box);
       if (roomHeight > RUBY_ROOM_MAX_PX) continue;
@@ -6661,33 +6660,23 @@ function makeRoomForRubyInCroppedRows(root = document) {
   }
   return adjusted;
 }
-function rubyRoomBoxIsSkipped(box) {
-  if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR)) return true;
-  return !(isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box));
-}
 function isYouTubeRubyRoomTextBox(box) {
   if (safeElementMatches$1(box, "yt-attributed-string,yt-formatted-string,.ytAttributedStringHost,.yt-core-attributed-string")) {
     return safeElementMatches$1(box, "ytd-comment-view-model #content-text,ytm-comment-renderer #content-text");
   }
-  return safeElementMatches$1(box, RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR) || Boolean(box.closest(RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR));
+  return safeElementMatches$1(box, RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR) || !!box.closest(RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR);
 }
 function isGoogleSearchRubyRoomTextBox(box) {
-  return isGoogleSearchHost() && (safeElementMatches$1(box, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR) || Boolean(box.closest(RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR)));
-}
-function isGoogleSearchHost() {
-  const hostname = location.hostname.toLowerCase();
-  return /(^|\.)google\./i.test(hostname) && location.pathname === "/search";
+  return /(^|\.)google\./i.test(location.hostname) && location.pathname === "/search" && (safeElementMatches$1(box, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR) || !!box.closest(RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR));
 }
 function makeRoomForRubyInBox(box, style, roomHeight) {
+  const contentHeight = `${roomHeight}px`;
+  box.style.setProperty("min-height", contentHeight, "important");
   if (hasLineClamp(style)) {
     box.style.setProperty("max-height", "none", "important");
     if (hasDefiniteCssSize(style.height)) box.style.setProperty("height", "auto", "important");
-    if (box.querySelector(".jpdb-reader-text-mirror")) {
-      box.style.setProperty("min-height", `${roomHeight}px`, "important");
-    }
     return;
   }
-  const contentHeight = `${roomHeight}px`;
   if (hasDefiniteCssSize(style.height)) {
     box.style.setProperty("height", contentHeight, "important");
   }
@@ -6697,14 +6686,19 @@ function makeRoomForRubyInBox(box, style, roomHeight) {
 }
 function cropCapableBoxes(element2) {
   const boxes = [];
+  let fallback;
   let current = element2;
   while (current && current !== document.body && current !== document.documentElement) {
     if (current.dataset.jpdbReaderRoot) break;
     const style = safeComputedStyle(current);
-    if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) boxes.push(current);
+    if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) {
+      boxes.push(current);
+    } else if (!fallback && isYouTubeRubyRoomTextBox(current) && current.querySelector(".jpdb-reader-text-mirror")) {
+      fallback = current;
+    }
     current = current.parentElement;
   }
-  return boxes;
+  return boxes.length || !fallback ? boxes : [fallback];
 }
 function boxActuallyCrops(box) {
   return box.scrollHeight > box.clientHeight + 1 || rubyBottomOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
@@ -37289,7 +37283,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.230"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.231"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -38628,7 +38622,7 @@ class ReaderApp {
   createImageOcrController() {
     const Controller = yomuImageOcrController();
     if (!Controller) {
-      log.warnOnce("ocr-companion-missing", "OCR companion is missing; image reading is disabled.");
+      log.warnOnce("ocr-companion-missing", "OCR companion missing.");
       return createNoopImageOcrController();
     }
     return new Controller({
@@ -43262,6 +43256,7 @@ class ReaderApp {
     return {
       ...background,
       urgent: true,
+      ...isolateKeylessYouTubeSubtitleBudget ? { jpdbPublicLookup: true } : {},
       publicLookupLimit,
       publicLookupTotalLimit,
       publicLookupPageBudget: isolateKeylessYouTubeSubtitleBudget ? void 0 : background.publicLookupPageBudget,
@@ -44153,7 +44148,7 @@ class ReaderApp {
   getSettingsDialog() {
     const Controller = yomuSettingsDialogController();
     if (!Controller) {
-      log.warnOnce("settings-companion-missing", "Settings companion is missing; settings are unavailable.");
+      log.warnOnce("settings-companion-missing", "Settings companion missing.");
       this.toast("Settings are unavailable because the settings companion did not load.");
       return void 0;
     }

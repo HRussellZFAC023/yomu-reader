@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.231] - 2026-06-29
+
+### Fixed
+
+- Restored mobile YouTube subtitle control parity by keeping Play/Pause visible while the side panel is open during playback, adding a direct Tracks shortcut to the rail, and keeping Lines, Shadow, Tracks, navigation, placement, and Auto controls compact in one accessible drawer row.
+- Improved narrow mobile subtitle wrapping with balanced overlay lines and tidier transcript/shadow wrapping.
+- Let keyless YouTube subtitle pre-rendering fetch urgent public JPDB pitch accents outside the shared background page budget, so live-video pitch colors can arrive before the word is tapped.
+- Kept YouTube homepage section headings and feed title mirrors from clipping or overlapping when furigana makes the rendered mirror taller than YouTube's original text row.
+
 ## [1.4.230] - 2026-06-29
 
 ### Fixed

@@ -160,6 +160,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   line-height: 1.58;
   overflow-wrap: anywhere;
   word-break: normal;
+  text-wrap: balance;
   -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline) 78%, transparent);
   paint-order: stroke fill;
 }
@@ -187,6 +188,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   cursor: pointer;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 .jpdb-subtitle-secondary-blurred {
   color: transparent !important;
@@ -722,7 +724,8 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface)) !important;
 }
 .jpdb-subtitle-playback-toggle[aria-pressed="true"],
-.jpdb-subtitle-fullscreen-toggle[aria-pressed="true"] {
+.jpdb-subtitle-fullscreen-toggle[aria-pressed="true"],
+.jpdb-subtitle-tracks-toggle[aria-pressed="true"] {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 42%, var(--jpdb-reader-border));
   background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, var(--jpdb-reader-surface));
   color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
@@ -1807,7 +1810,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     right: max(8px, env(safe-area-inset-right));
     bottom: auto;
     gap: 3px;
+    max-width: calc(100% - 16px);
+    overflow-x: auto;
+    overflow-y: visible;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
+  .jpdb-subtitle-rail::-webkit-scrollbar { display: none; }
   .jpdb-subtitle-rail button {
     padding: 0;
     font-size: 11px;
@@ -1836,6 +1845,47 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   .jpdb-subtitle-panel-mode button {
     min-height: 44px;
+  }
+  .jpdb-subtitle-drawer-head {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding-bottom: 10px;
+  }
+  .jpdb-subtitle-drawer-actions {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 6px;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .jpdb-subtitle-drawer-actions::-webkit-scrollbar { display: none; }
+  .jpdb-subtitle-drawer-actions > * {
+    flex: 0 0 auto;
+  }
+  .jpdb-subtitle-panel-mode {
+    gap: 1px;
+  }
+  .jpdb-subtitle-panel-mode button {
+    min-width: 44px;
+    padding-inline: 4px;
+    font-size: 10px;
+  }
+  .jpdb-subtitle-drawer-auto {
+    width: 44px;
+    min-width: 44px;
+    padding-inline: 0 !important;
+  }
+  .jpdb-subtitle-drawer-auto span {
+    display: none;
+  }
+  .jpdb-subtitle-row-text,
+  .jpdb-subtitle-shadow-line,
+  .jpdb-subtitle-shadow-secondary {
+    text-wrap: pretty;
   }
   .jpdb-subtitle-transcript-bottom .jpdb-subtitle-list,
   .jpdb-subtitle-list.jpdb-subtitle-transcript-bottom {

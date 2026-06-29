@@ -4060,7 +4060,7 @@ function hasVisibleBorderSide(style: string, width: string): boolean {
 // any aria-hidden subtree. Scanned words can live inside a collapsed card; room
 // must skip them.
 const RUBY_ROOM_HARD_SKIP_SELECTOR = '[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending';
-const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = 'ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3';
+const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = 'ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-section-renderer :is(#title,h2),ytd-rich-shelf-renderer :is(#title,h2),ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3';
 const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ':is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])';
 // A clamped/ellipsis text row's furigana never needs more than a few lines of
 // extra height. A room far larger than this means we measured a container (a
@@ -4073,9 +4073,9 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
     const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
     for (const word of words) {
         if (!word.querySelector('rt')) continue;
-        if (word.closest(RUBY_ROOM_HARD_SKIP_SELECTOR)) continue;
         for (const box of cropCapableBoxes(word.parentElement)) {
-            if (rubyRoomBoxIsSkipped(box)) continue;
+            if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR)
+                || !(isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box))) continue;
             if (!boxActuallyCrops(box)) continue;
             const roomHeight = rubyRoomHeight(box);
             if (roomHeight > RUBY_ROOM_MAX_PX) continue;
@@ -4090,48 +4090,33 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
     return adjusted;
 }
 
-function rubyRoomBoxIsSkipped(box: HTMLElement): boolean {
-    if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR)) return true;
-    return !(isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box));
-}
-
 function isYouTubeRubyRoomTextBox(box: HTMLElement): boolean {
     if (safeElementMatches(box, 'yt-attributed-string,yt-formatted-string,.ytAttributedStringHost,.yt-core-attributed-string')) {
         return safeElementMatches(box, 'ytd-comment-view-model #content-text,ytm-comment-renderer #content-text');
     }
     return safeElementMatches(box, RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR)
-        || Boolean(box.closest(RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR));
+        || !!box.closest(RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR);
 }
 
 function isGoogleSearchRubyRoomTextBox(box: HTMLElement): boolean {
-    return isGoogleSearchHost()
+    return /(^|\.)google\./i.test(location.hostname)
+        && location.pathname === '/search'
         && (safeElementMatches(box, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR)
-            || Boolean(box.closest(RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR)));
-}
-
-function isGoogleSearchHost(): boolean {
-    const hostname = location.hostname.toLowerCase();
-    return /(^|\.)google\./i.test(hostname) && location.pathname === '/search';
+            || !!box.closest(RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR));
 }
 
 function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration, roomHeight: number): void {
+    const contentHeight = `${roomHeight}px`;
+    box.style.setProperty('min-height', contentHeight, 'important');
     if (hasLineClamp(style)) {
         // -webkit-line-clamp itself limits LINES; the crop comes from a height
         // cap sized for plain lines. Lifting it keeps the host's "N lines"
         // semantics with taller ruby lines.
         box.style.setProperty('max-height', 'none', 'important');
         if (hasDefiniteCssSize(style.height)) box.style.setProperty('height', 'auto', 'important');
-        // The furigana lives in the out-of-flow absolute mirror, so height:auto
-        // collapses to the furigana-less in-flow text and an ancestor with
-        // overflow:hidden still crops the ruby. Reserve the real furigana'd
-        // height so the box (and content below it) actually accommodates it.
-        if (box.querySelector('.jpdb-reader-text-mirror')) {
-            box.style.setProperty('min-height', `${roomHeight}px`, 'important');
-        }
         return;
     }
 
-    const contentHeight = `${roomHeight}px`;
     if (hasDefiniteCssSize(style.height)) {
         box.style.setProperty('height', contentHeight, 'important');
     }
@@ -4142,14 +4127,21 @@ function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration, room
 
 function cropCapableBoxes(element: HTMLElement | null): HTMLElement[] {
     const boxes: HTMLElement[] = [];
+    let fallback: HTMLElement | undefined;
     let current: HTMLElement | null = element;
     while (current && current !== document.body && current !== document.documentElement) {
         if (current.dataset.jpdbReaderRoot) break;
         const style = safeComputedStyle(current);
-        if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) boxes.push(current);
+        if (hasLineClamp(style)
+            || isEllipsisTextRow(style)
+            || hasClippedTextConstraint(style)) {
+            boxes.push(current);
+        } else if (!fallback && isYouTubeRubyRoomTextBox(current) && current.querySelector('.jpdb-reader-text-mirror')) {
+            fallback = current;
+        }
         current = current.parentElement;
     }
-    return boxes;
+    return boxes.length || !fallback ? boxes : [fallback];
 }
 
 function boxActuallyCrops(box: HTMLElement): boolean {

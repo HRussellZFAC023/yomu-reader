@@ -872,7 +872,7 @@ export class ReaderApp {
     private createImageOcrController(): ImageOcrController {
         const Controller = yomuImageOcrController();
         if (!Controller) {
-            log.warnOnce('ocr-companion-missing', 'OCR companion is missing; image reading is disabled.');
+            log.warnOnce('ocr-companion-missing', 'OCR companion missing.');
             return createNoopImageOcrController();
         }
         return new Controller({
@@ -6866,6 +6866,7 @@ export class ReaderApp {
         return {
             ...background,
             urgent: true,
+            ...(isolateKeylessYouTubeSubtitleBudget ? { jpdbPublicLookup: true } : {}),
             publicLookupLimit,
             publicLookupTotalLimit,
             publicLookupPageBudget: isolateKeylessYouTubeSubtitleBudget ? undefined : background.publicLookupPageBudget,
@@ -7931,7 +7932,7 @@ export class ReaderApp {
     private getSettingsDialog(): SettingsDialogControllerInstance | undefined {
         const Controller = yomuSettingsDialogController();
         if (!Controller) {
-            log.warnOnce('settings-companion-missing', 'Settings companion is missing; settings are unavailable.');
+            log.warnOnce('settings-companion-missing', 'Settings companion missing.');
             this.toast('Settings are unavailable because the settings companion did not load.');
             return undefined;
         }

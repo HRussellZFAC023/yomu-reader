@@ -379,7 +379,7 @@ describe('SubtitlePlayerController', () => {
         expect(commentEvent.defaultPrevented).toBe(false);
     });
 
-    it('renders subtitle navigation, playback, panel, and style controls in the rail', () => {
+    it('renders subtitle navigation, playback, panel, tracks, and style controls in the rail', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -397,10 +397,11 @@ describe('SubtitlePlayerController', () => {
             .filter((element): element is HTMLButtonElement => element instanceof HTMLButtonElement)
             .map(button => button.dataset.action);
 
-        expect(actions).toEqual(['previous', 'next', 'playback', 'fullscreen', 'panel', 'style']);
+        expect(actions).toEqual(['previous', 'next', 'playback', 'fullscreen', 'panel', 'panel-tracks', 'style']);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="playback"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="fullscreen"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="panel"]')).toHaveLength(1);
+        expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="panel-tracks"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="style"]')).toHaveLength(1);
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="toggle"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="list"]')).toBeNull();
@@ -777,6 +778,39 @@ describe('SubtitlePlayerController', () => {
             playback.click();
 
             expect(play).toHaveBeenCalledTimes(1);
+            expect(playback.getAttribute('aria-label')).toBe('Pause video');
+            expect(playback.getAttribute('aria-pressed')).toBe('true');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('keeps the playback toggle visible when the docked side panel is open during playback', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const { controller } = createInstalledSubtitleController();
+        const video = attachVideo(controller, { currentTime: 0.5 });
+        Object.defineProperty(video, 'paused', { configurable: true, value: false });
+
+        try {
+            const internals = controllerInternals<{
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+            }>(controller);
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!.click();
+
+            const previous = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="previous"]')!;
+            const next = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="next"]')!;
+            const playback = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="playback"]')!;
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+
+            expect(panel.hidden).toBe(false);
+            expect(previous.hidden).toBe(true);
+            expect(next.hidden).toBe(true);
+            expect(playback.hidden).toBe(false);
             expect(playback.getAttribute('aria-label')).toBe('Pause video');
             expect(playback.getAttribute('aria-pressed')).toBe('true');
         } finally {
@@ -3979,6 +4013,11 @@ Watch the cat
         expect(normalizedCss).toContain('@media (max-width: 768px), (any-pointer: coarse) {');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail button::after { content: ""; position: absolute; inset: -5px; border-radius: 9px; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail button { padding: 0; font-size: 11px; touch-action: manipulation; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-rail::-webkit-scrollbar { display: none; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-drawer-actions { justify-content: flex-start; flex-wrap: nowrap; gap: 6px; max-width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-panel-mode button { min-width: 44px; padding-inline: 4px; font-size: 10px; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-drawer-auto { width: 44px; min-width: 44px; padding-inline: 0 !important; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-drawer-auto span { display: none; }');
         // The old coarse-pointer/compact "always discoverable" overrides kept
         // the rail visible during playback even while the player chrome was
         // hidden; the rail now follows the player chrome (lockstep tick) and
@@ -4070,6 +4109,8 @@ Watch the cat
 
         expect(normalizedCss).toContain('.jpdb-subtitle-primary { display: inline;');
         expect(normalizedCss).toContain('line-height: 1.58; overflow-wrap: anywhere; word-break: normal;');
+        expect(normalizedCss).toContain('text-wrap: balance;');
+        expect(normalizedCss).toContain('.jpdb-subtitle-row-text, .jpdb-subtitle-shadow-line, .jpdb-subtitle-shadow-secondary { text-wrap: pretty; }');
         expect(normalizedCss).toContain('text-underline-offset: .15em !important; white-space: nowrap; text-shadow:');
     });
 

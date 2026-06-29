@@ -30301,7 +30301,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps keyless YouTube subtitle pre-render enrichment out of the shared page budget', () => {
+    it('lets keyless YouTube subtitle pre-render enrichment use urgent JPDB pitch outside the shared page budget', () => {
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=eWHIWDHkYW8',
             origin: 'https://www.youtube.com',
@@ -30333,7 +30333,7 @@ describe('reader helpers', () => {
         try {
             expect(internals.subtitleBeforeRenderPitchEnrichmentOptions()).toEqual({
                 urgent: true,
-                jpdbPublicLookup: false,
+                jpdbPublicLookup: true,
                 publicLookupLimit: PITCH_ENRICHMENT_LIMIT * 4,
                 publicLookupTotalLimit: PITCH_ENRICHMENT_LIMIT * 4,
                 publicLookupPageBudget: undefined,
@@ -30341,6 +30341,47 @@ describe('reader helpers', () => {
                 substantivePublicLookupOnly: true,
                 deferPublicLookup: false,
             });
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('hydrates keyless YouTube subtitle pitch before rendering the active line', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=eWHIWDHkYW8',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        const app = new ReaderApp();
+        const publicPitch = vi.fn(async () => ['HLL']);
+        const token = testTokenForCard(testPublicCard({
+            vid: 441001,
+            spelling: '読む',
+            reading: 'よむ',
+            pitchAccent: [],
+        }), '読む。');
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            enrichSubtitleTokensBeforeRender(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        try {
+            await internals.enrichSubtitleTokensBeforeRender([token]);
+
+            expect(publicPitch).toHaveBeenCalledWith('読む', 'よむ');
+            expect(token.card.pitchAccent).toEqual(['HLL']);
+            expect(token.pitchClass).toBe('atamadaka');
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
