@@ -6,7 +6,8 @@ import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, 
 import { CURRENT_YOMU_VERSION } from '../../src/reader/app/version';
 import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { findRecommendedDictionary } from '../../src/reader/dictionaries/recommended';
-import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
+import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
+import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../src/reader/theme/color-utils';
 import { activateSettingsPanel, applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings/form';
 import { JAPANESE_ROUNDED_FONT_FAMILY } from '../../src/reader/settings/font-presets';
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../src/reader/settings/form-read';
@@ -17,6 +18,13 @@ import type { AnkiFieldMappingRole, AnkiFieldMappings, JPDBCard, JPDBToken, Read
 // These tests assert English UI copy; pin the interface language since the
 // shipped default is now 'ja'.
 const DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' as const };
+
+function compositeOverWhiteHex(color: string): string {
+    const foreground = cssColorToRgba(color);
+    const white = cssColorToRgba('#ffffff');
+    if (!foreground || !white) throw new Error(`Unable to parse color ${color}`);
+    return rgbaToHex(blendRgba(foreground, white));
+}
 
 const frequencySettings = {
     ...DEFAULT_SETTINGS,
@@ -898,11 +906,39 @@ describe('settings form localization', () => {
         expect(saved.ocrOverlayTheme).toBe('dark');
     });
 
-    it('defaults OCR text to dark ink on a light readable highlight', () => {
-        expect(BASE_DEFAULT_SETTINGS.ocrTextColor).toBe('#17202a');
-        expect(BASE_DEFAULT_SETTINGS.ocrOutlineColor).toBe('#ffffff');
-        expect(BASE_DEFAULT_SETTINGS.ocrBackgroundColor).toBe('#f4f7fa');
+    it('defaults OCR text to white on an accessible accent-derived highlight', () => {
+        expect(BASE_DEFAULT_SETTINGS.ocrTextColor).toBe('#ffffff');
+        expect(BASE_DEFAULT_SETTINGS.ocrOutlineColor).toBe('#000000');
         expect(BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity).toBe(0.68);
+        expect(BASE_DEFAULT_SETTINGS.ocrBackgroundColor).toBe(accessibleOcrBackgroundColor(
+            BASE_DEFAULT_SETTINGS.accentColor,
+            BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity,
+        ));
+        expect(contrastRatio(
+            compositeOverWhiteHex(accentToRgba(BASE_DEFAULT_SETTINGS.ocrBackgroundColor, BASE_DEFAULT_SETTINGS.ocrBackgroundOpacity)),
+            BASE_DEFAULT_SETTINGS.ocrTextColor,
+        ))
+            .toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('normalizes the OCR background from the current accent color', () => {
+        const settings = normalizeReaderSettings({
+            accentColor: '#ffcc00',
+            ocrTextColor: '#17202a',
+            ocrOutlineColor: '#ffffff',
+            ocrBackgroundColor: '#f4f7fa',
+            ocrBackgroundOpacity: 0.2,
+        });
+        const opacity = accessibleOcrBackgroundOpacity(0.2);
+
+        expect(settings.ocrTextColor).toBe('#ffffff');
+        expect(settings.ocrOutlineColor).toBe('#000000');
+        expect(settings.ocrBackgroundOpacity).toBe(opacity);
+        expect(settings.ocrBackgroundColor).toBe(accessibleOcrBackgroundColor('#ffcc00', opacity));
+        expect(contrastRatio(
+            compositeOverWhiteHex(accentToRgba(settings.ocrBackgroundColor, settings.ocrBackgroundOpacity)),
+            settings.ocrTextColor,
+        )).toBeGreaterThanOrEqual(4.5);
     });
 
     it('omits the old paused-frame OCR status card setting', () => {

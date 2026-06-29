@@ -1,5 +1,7 @@
 import {
     accentToRgba,
+    accessibleOcrBackgroundColor,
+    accessibleOcrBackgroundOpacity,
     effectiveFuriganaMode,
     effectiveReaderColorSource,
     effectiveReaderTextColorSource,
@@ -97,8 +99,8 @@ function applyPopupFontSettings(settings: ReaderSettings, root: HTMLElement): vo
 }
 
 function applyReaderImageTextOverlaySettings(settings: ReaderSettings, root: HTMLElement): void {
-    const background = sanitizeAccentColor(settings.ocrBackgroundColor);
-    const opacity = settings.ocrBackgroundOpacity;
+    const opacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
+    const background = accessibleOcrBackgroundColor(settings.accentColor, opacity);
     root.style.setProperty('--jpdb-ocr-text-color', sanitizeAccentColor(settings.ocrTextColor));
     root.style.setProperty('--jpdb-ocr-outline-color', sanitizeAccentColor(settings.ocrOutlineColor));
     root.style.setProperty('--jpdb-ocr-background-rgba', accentToRgba(background, opacity));

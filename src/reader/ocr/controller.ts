@@ -38,7 +38,7 @@ import {
     type OcrRect,
     type OcrResult,
 } from './response';
-import { accentToRgba } from '../settings/index';
+import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity } from '../settings/index';
 import { fallbackJapaneseSegments } from '../lookup/parser';
 import type { ReaderParserParseOptions } from '../lookup/parser';
 import { stablePositiveHashId } from '../core/stable-hash';
@@ -2364,8 +2364,10 @@ function applyOcrOverlayStyle(overlay: HTMLElement, settings: ReaderSettings): v
     }
     overlay.style.setProperty('--jpdb-ocr-text-color', settings.ocrTextColor);
     overlay.style.setProperty('--jpdb-ocr-outline-color', settings.ocrOutlineColor);
-    overlay.style.setProperty('--jpdb-ocr-background-rgba', accentToRgba(settings.ocrBackgroundColor, settings.ocrBackgroundOpacity));
-    overlay.style.setProperty('--jpdb-ocr-background-active-rgba', accentToRgba(settings.ocrBackgroundColor, Math.min(1, settings.ocrBackgroundOpacity + 0.12)));
+    const opacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
+    const background = accessibleOcrBackgroundColor(settings.accentColor, opacity);
+    overlay.style.setProperty('--jpdb-ocr-background-rgba', accentToRgba(background, opacity));
+    overlay.style.setProperty('--jpdb-ocr-background-active-rgba', accentToRgba(background, Math.min(1, opacity + 0.12)));
 }
 
 function effectiveOcrOverlayTheme(settings: ReaderSettings): 'dark' | 'light' {

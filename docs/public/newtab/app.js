@@ -3658,8 +3658,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const OCR_OVERLAY_COLOR_TOKENS = {
     text: READER_THEME_COLOR_TOKENS.light.text,
-    outline: CORE_COLOR_TOKENS.white,
-    background: READER_THEME_COLOR_TOKENS.light.surface
+    outline: CORE_COLOR_TOKENS.white
   };
   const DEFAULT_WORD_COLOR_TOKENS = {
     new: "#ffffff",
@@ -5974,6 +5973,37 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
     return "terms";
   }
+  const FALLBACK_HEX_COLOR = "#000000";
+  function normalizeHexColor(color) {
+    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
+  }
+  function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
+    const l1 = relativeLuminance(a, normalizeColor);
+    const l2 = relativeLuminance(b, normalizeColor);
+    const light = Math.max(l1, l2);
+    const dark = Math.min(l1, l2);
+    return (light + 0.05) / (dark + 0.05);
+  }
+  function relativeLuminance(color, normalizeColor = normalizeHexColor) {
+    const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
+      const channel = value / 255;
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  }
+  function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
+    const a = sharedHexToRgb(from, normalizeColor);
+    const b = sharedHexToRgb(to, normalizeColor);
+    return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+  }
+  function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
+    const safe = normalizeHexColor(normalizeColor(color));
+    return [
+      parseInt(safe.slice(1, 3), 16),
+      parseInt(safe.slice(3, 5), 16),
+      parseInt(safe.slice(5, 7), 16)
+    ];
+  }
   function matchesShortcut(event, shortcut = "") {
     if (!shortcut) return false;
     const parts = parseShortcut(shortcut);
@@ -6056,9 +6086,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
   const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
   const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
-  const DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
-  const DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
-  const DEFAULT_OCR_BACKGROUND_COLOR = OCR_OVERLAY_COLOR_TOKENS.background;
+  const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
+  const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
+  const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
+  const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
+  const DEFAULT_OCR_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
+  const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY);
+  const LEGACY_DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
+  const LEGACY_DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
   const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
   const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
   const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
@@ -6361,7 +6396,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ocrTextColor: DEFAULT_OCR_TEXT_COLOR,
     ocrOutlineColor: DEFAULT_OCR_OUTLINE_COLOR,
     ocrBackgroundColor: DEFAULT_OCR_BACKGROUND_COLOR,
-    ocrBackgroundOpacity: 0.68,
+    ocrBackgroundOpacity: DEFAULT_OCR_BACKGROUND_OPACITY,
     ocrFontScale: 1,
     localDictionariesEnabled: true,
     localDictionaryMaxResults: 12,
@@ -6758,6 +6793,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function normalizeMediaSettings(value) {
     const settings = value ?? {};
+    const ocrBackgroundOpacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
     return {
       audioViaBlob: booleanSetting(value, "audioViaBlob"),
       audioFallbackChimeEnabled: booleanSetting(value, "audioFallbackChimeEnabled"),
@@ -6778,12 +6814,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ocrOverlayTheme: normalizeOcrOverlayTheme(settings.ocrOverlayTheme),
       ocrEngine: normalizeOcrEngine(settings.ocrEngine),
       ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
-      ocrTextColor: sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
-      ocrOutlineColor: sanitizeAccentColor(settings.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor),
-      ocrBackgroundColor: sanitizeAccentColor(settings.ocrBackgroundColor, DEFAULT_SETTINGS.ocrBackgroundColor),
-      ocrBackgroundOpacity: clampNumber$3(settings.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
+      ocrTextColor: normalizeOcrTextColor(settings),
+      ocrOutlineColor: normalizeOcrOutlineColor(settings),
+      ocrBackgroundColor: accessibleOcrBackgroundColor(settings.accentColor, ocrBackgroundOpacity),
+      ocrBackgroundOpacity,
       ocrFontScale: clampNumber$3(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
     };
+  }
+  function normalizeOcrTextColor(settings) {
+    const color = sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor);
+    return color === LEGACY_DEFAULT_OCR_TEXT_COLOR ? DEFAULT_SETTINGS.ocrTextColor : color;
+  }
+  function normalizeOcrOutlineColor(settings) {
+    const color = sanitizeAccentColor(settings.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor);
+    return color === LEGACY_DEFAULT_OCR_OUTLINE_COLOR ? DEFAULT_SETTINGS.ocrOutlineColor : color;
   }
   function normalizeSubtitleSettings(value) {
     return {
@@ -7116,6 +7160,30 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const green = parseInt(safe.slice(3, 5), 16);
     const blue = parseInt(safe.slice(5, 7), 16);
     return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
+  }
+  function accessibleOcrBackgroundOpacity(opacity) {
+    return Math.max(
+      OCR_BACKGROUND_MIN_RENDERED_OPACITY,
+      clampNumber$3(opacity, 0, 1, DEFAULT_OCR_BACKGROUND_OPACITY)
+    );
+  }
+  function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
+    const accent = sanitizeAccentColor(accentColor);
+    const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
+    if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+      return accent;
+    }
+    for (let amount = 0.08; amount <= 1; amount += 0.04) {
+      const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
+      if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+        return candidate;
+      }
+    }
+    return "#000000";
+  }
+  function ocrRenderedBackgroundContrast(color, opacity) {
+    const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
+    return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
   }
   function normalizeOcrProvider(value, settings) {
     if (isBlankLegacyLocalOcrSetting(value, settings)) return DEFAULT_SETTINGS.ocrProvider;
@@ -25604,7 +25672,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.245".trim() ? "1.4.245".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.246".trim() ? "1.4.246".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -37719,8 +37787,10 @@ ${spelling}`);
     }
     overlay.style.setProperty("--jpdb-ocr-text-color", settings.ocrTextColor);
     overlay.style.setProperty("--jpdb-ocr-outline-color", settings.ocrOutlineColor);
-    overlay.style.setProperty("--jpdb-ocr-background-rgba", accentToRgba(settings.ocrBackgroundColor, settings.ocrBackgroundOpacity));
-    overlay.style.setProperty("--jpdb-ocr-background-active-rgba", accentToRgba(settings.ocrBackgroundColor, Math.min(1, settings.ocrBackgroundOpacity + 0.12)));
+    const opacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
+    const background = accessibleOcrBackgroundColor(settings.accentColor, opacity);
+    overlay.style.setProperty("--jpdb-ocr-background-rgba", accentToRgba(background, opacity));
+    overlay.style.setProperty("--jpdb-ocr-background-active-rgba", accentToRgba(background, Math.min(1, opacity + 0.12)));
   }
   function effectiveOcrOverlayTheme(settings) {
     if (settings.ocrOverlayTheme === "dark" || settings.ocrOverlayTheme === "light") return settings.ocrOverlayTheme;
@@ -64209,37 +64279,6 @@ ${reading}`);
       word.classList.add("jpdb-reader-has-furi");
     }
   }
-  const FALLBACK_HEX_COLOR = "#000000";
-  function normalizeHexColor(color) {
-    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
-  }
-  function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
-    const l1 = relativeLuminance(a, normalizeColor);
-    const l2 = relativeLuminance(b, normalizeColor);
-    const light = Math.max(l1, l2);
-    const dark = Math.min(l1, l2);
-    return (light + 0.05) / (dark + 0.05);
-  }
-  function relativeLuminance(color, normalizeColor = normalizeHexColor) {
-    const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
-      const channel = value / 255;
-      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-  }
-  function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
-    const a = sharedHexToRgb(from, normalizeColor);
-    const b = sharedHexToRgb(to, normalizeColor);
-    return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
-  }
-  function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
-    const safe = normalizeHexColor(normalizeColor(color));
-    return [
-      parseInt(safe.slice(1, 3), 16),
-      parseInt(safe.slice(3, 5), 16),
-      parseInt(safe.slice(5, 7), 16)
-    ];
-  }
   function cssColorToHex(value, backdrop) {
     const color = cssColorToRgba(value);
     if (!color) return null;
@@ -77003,8 +77042,8 @@ ${entry.url}`),
     root.style.setProperty("--jpdb-reader-popup-font-weight", String(settings.popupFontWeight));
   }
   function applyReaderImageTextOverlaySettings(settings, root) {
-    const background = sanitizeAccentColor(settings.ocrBackgroundColor);
-    const opacity = settings.ocrBackgroundOpacity;
+    const opacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
+    const background = accessibleOcrBackgroundColor(settings.accentColor, opacity);
     root.style.setProperty("--jpdb-ocr-text-color", sanitizeAccentColor(settings.ocrTextColor));
     root.style.setProperty("--jpdb-ocr-outline-color", sanitizeAccentColor(settings.ocrOutlineColor));
     root.style.setProperty("--jpdb-ocr-background-rgba", accentToRgba(background, opacity));

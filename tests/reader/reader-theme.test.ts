@@ -7,7 +7,7 @@ import { ReaderApp } from '../../src/reader/app/main';
 import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../src/reader/theme/color-utils';
 import { applyReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
 import { refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
-import { DEFAULT_SETTINGS, loadSettings, saveSettings, SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/index';
+import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_SETTINGS, loadSettings, saveSettings, SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
 const SETTINGS_STORAGE_KEY = SETTINGS_STORAGE_KEYS[0];
@@ -28,6 +28,13 @@ type LoadedColorChannels = Pick<ReaderSettings,
     | 'subtitleUnderlineColorSource'
     | 'subtitleTextColorSource'
 >;
+
+function compositeOverWhiteHex(color: string): string {
+    const foreground = cssColorToRgba(color);
+    const white = cssColorToRgba('#ffffff');
+    if (!foreground || !white) throw new Error(`Unable to parse color ${color}`);
+    return rgbaToHex(blendRgba(foreground, white));
+}
 
 function hoveredReaderWord(spanHtml: string): { word: HTMLElement; stopHovering: () => Promise<void> } {
     vi.useFakeTimers();
@@ -851,8 +858,12 @@ describe('reader theme', () => {
         expect(root.style.getPropertyValue('--jpdb-reader-pitch-unknown-soft')).toBe('transparent');
         expect(root.style.getPropertyValue('--jpdb-ocr-text-color')).toBe('#fafafa');
         expect(root.style.getPropertyValue('--jpdb-ocr-outline-color')).toBe('#010203');
-        expect(root.style.getPropertyValue('--jpdb-ocr-background-rgba')).toBe('rgba(17,34,51,0.4)');
-        expect(root.style.getPropertyValue('--jpdb-ocr-background-active-rgba')).toBe('rgba(17,34,51,0.52)');
+        const ocrOpacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
+        const ocrBackground = accessibleOcrBackgroundColor(settings.accentColor, ocrOpacity);
+        const ocrBackgroundRgba = accentToRgba(ocrBackground, ocrOpacity);
+        expect(contrastRatio(compositeOverWhiteHex(ocrBackgroundRgba), '#ffffff')).toBeGreaterThanOrEqual(4.5);
+        expect(root.style.getPropertyValue('--jpdb-ocr-background-rgba')).toBe(ocrBackgroundRgba);
+        expect(root.style.getPropertyValue('--jpdb-ocr-background-active-rgba')).toBe(accentToRgba(ocrBackground, Math.min(1, ocrOpacity + 0.12)));
         expect(root.style.getPropertyValue('--jpdb-reader-font')).toBe('"Inter", system-ui, sans-serif');
         expect(root.style.getPropertyValue('--jpdb-reader-popup-font')).toBe('"Noto Sans JP", sans-serif');
         expect(root.style.getPropertyValue('--jpdb-reader-popup-font-weight')).toBe('420');

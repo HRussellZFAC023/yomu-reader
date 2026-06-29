@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Derived OCR and Immersion Kit image-caption backgrounds from the user\'s accent color while keeping the rendered backdrop readable with white OCR/caption text.': 'OCRとイマージョンキット画像キャプションの背景をユーザーのアクセントカラーから生成し、白いOCR／字幕テキストで読みやすい実際の背景になるようにしました。',
     "Removed the Study menu's Local Audio trailing slash so local and published link checks resolve to the page instead of a docs 404.": 'Studyメニューのローカル音声リンクの末尾スラッシュを外し、ローカルでも公開後でもリンクチェックがドキュメントの404ではなくページへ解決されるようにしました。',
     'Simplified the Batch Mine panel on video subtitles: the idle panel now shows only the Scan action, review actions appear after candidates are found, compact drawer controls scroll cleanly inside narrow side panels, and the redundant rail Tracks shortcut hides while the side panel already exposes a Tracks tab.': '動画字幕のBatch Mineパネルを簡素化しました。待機中はスキャン操作だけを表示し、候補が見つかった後に確認用の操作を表示します。狭いサイドパネルでもコンパクトなドロワー操作がきれいに横スクロールし、サイドパネル内にTracksタブがある間は重複するレール上のTracksショートカットを隠します。',
     'Added a Batch Mine tab to the video subtitle side panel. It scans the loaded transcript, compares parsed words against existing Jiten/JPDB/Anki states, ranks i+1 candidates first, preselects useful not-in-deck words, and lets you add or copy the selected batch after watching.': '動画字幕サイドパネルにBatch Mineタブを追加しました。読み込んだ文字起こしをスキャンし、解析済み単語を既存のJiten/JPDB/Anki状態と照合して、i+1候補を優先表示し、有用な未追加単語を事前選択し、視聴後に選択した一括候補を追加またはコピーできます。',

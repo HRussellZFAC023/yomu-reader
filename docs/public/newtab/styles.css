@@ -6816,11 +6816,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     var(--jpdb-reader-ocr-active-border, rgba(255, 255, 255, 0.24)) 42%,
     transparent
   );
-  background: color-mix(
-    in srgb,
-    var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg)) 42%,
-    transparent
-  );
+  background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg));
   box-shadow: 0 3px 10px
     color-mix(in srgb, var(--jpdb-reader-shadow, rgba(0, 0, 0, 0.28)) 30%, transparent);
 }
@@ -6830,11 +6826,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     0 2px 2px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
     0 0 3px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
     0 0 10px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline));
-  background: color-mix(
-    in srgb,
-    var(--jpdb-ocr-background-active-rgba, var(--jpdb-reader-ocr-active-bg)) 72%,
-    transparent
-  );
+  background: var(--jpdb-ocr-background-active-rgba, var(--jpdb-reader-ocr-active-bg));
   border-color: var(--jpdb-reader-ocr-active-border);
   box-shadow:
     0 6px 16px color-mix(in srgb, var(--jpdb-reader-shadow) 72%, transparent),
@@ -6900,11 +6892,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     0 2px 2px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
     0 0 3px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
     0 0 10px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline));
-  background: color-mix(
-    in srgb,
-    var(--jpdb-ocr-background-active-rgba, var(--jpdb-reader-ocr-active-bg)) 72%,
-    transparent
-  );
+  background: var(--jpdb-ocr-background-active-rgba, var(--jpdb-reader-ocr-active-bg));
   border-color: var(--jpdb-reader-ocr-active-border);
   box-shadow:
     0 6px 16px color-mix(in srgb, var(--jpdb-reader-shadow) 72%, transparent),

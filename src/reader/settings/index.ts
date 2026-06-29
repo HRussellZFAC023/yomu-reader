@@ -7,6 +7,7 @@ import { hasJitenApiCredential, hasJpdbApiCredential, isJitenApiCredential } fro
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists, subscribeToStoredValueChanges } from '../app/storage';
+import { sharedContrastRatio, sharedMixHex } from '../core/color-math';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences } from './dictionary';
@@ -32,9 +33,14 @@ const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
 export const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
 export const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
 export const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
-const DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
-const DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
-const DEFAULT_OCR_BACKGROUND_COLOR = OCR_OVERLAY_COLOR_TOKENS.background;
+const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
+const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
+const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
+const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
+const DEFAULT_OCR_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
+const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY);
+const LEGACY_DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
+const LEGACY_DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
 export const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 export const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
 const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
@@ -361,7 +367,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ocrTextColor: DEFAULT_OCR_TEXT_COLOR,
     ocrOutlineColor: DEFAULT_OCR_OUTLINE_COLOR,
     ocrBackgroundColor: DEFAULT_OCR_BACKGROUND_COLOR,
-    ocrBackgroundOpacity: 0.68,
+    ocrBackgroundOpacity: DEFAULT_OCR_BACKGROUND_OPACITY,
     ocrFontScale: 1,
     localDictionariesEnabled: true,
     localDictionaryMaxResults: 12,
@@ -826,6 +832,7 @@ function normalizeApiGradingProvider(value: unknown): ReaderSettings['apiGrading
 
 function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     const settings = value ?? {};
+    const ocrBackgroundOpacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
     return {
         audioViaBlob: booleanSetting(value, 'audioViaBlob'),
         audioFallbackChimeEnabled: booleanSetting(value, 'audioFallbackChimeEnabled'),
@@ -846,12 +853,22 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
         ocrOverlayTheme: normalizeOcrOverlayTheme(settings.ocrOverlayTheme),
         ocrEngine: normalizeOcrEngine(settings.ocrEngine),
         ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
-        ocrTextColor: sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
-        ocrOutlineColor: sanitizeAccentColor(settings.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor),
-        ocrBackgroundColor: sanitizeAccentColor(settings.ocrBackgroundColor, DEFAULT_SETTINGS.ocrBackgroundColor),
-        ocrBackgroundOpacity: clampNumber(settings.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
+        ocrTextColor: normalizeOcrTextColor(settings),
+        ocrOutlineColor: normalizeOcrOutlineColor(settings),
+        ocrBackgroundColor: accessibleOcrBackgroundColor(settings.accentColor, ocrBackgroundOpacity),
+        ocrBackgroundOpacity,
         ocrFontScale: clampNumber(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale),
     };
+}
+
+function normalizeOcrTextColor(settings: Partial<ReaderSettings>): string {
+    const color = sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor);
+    return color === LEGACY_DEFAULT_OCR_TEXT_COLOR ? DEFAULT_SETTINGS.ocrTextColor : color;
+}
+
+function normalizeOcrOutlineColor(settings: Partial<ReaderSettings>): string {
+    const color = sanitizeAccentColor(settings.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor);
+    return color === LEGACY_DEFAULT_OCR_OUTLINE_COLOR ? DEFAULT_SETTINGS.ocrOutlineColor : color;
 }
 
 function normalizeSubtitleSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
@@ -1304,6 +1321,33 @@ export function accentToRgba(color: string, alpha: number): string {
     const green = parseInt(safe.slice(3, 5), 16);
     const blue = parseInt(safe.slice(5, 7), 16);
     return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
+}
+
+export function accessibleOcrBackgroundOpacity(opacity: unknown): number {
+    return Math.max(
+        OCR_BACKGROUND_MIN_RENDERED_OPACITY,
+        clampNumber(opacity, 0, 1, DEFAULT_OCR_BACKGROUND_OPACITY),
+    );
+}
+
+export function accessibleOcrBackgroundColor(accentColor: unknown, opacity: unknown = DEFAULT_OCR_BACKGROUND_OPACITY): string {
+    const accent = sanitizeAccentColor(accentColor);
+    const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
+    if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+        return accent;
+    }
+    for (let amount = 0.08; amount <= 1; amount += 0.04) {
+        const candidate = sharedMixHex(accent, '#000000', amount, sanitizeAccentColor);
+        if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+            return candidate;
+        }
+    }
+    return '#000000';
+}
+
+function ocrRenderedBackgroundContrast(color: string, opacity: number): number {
+    const renderedOnWhite = sharedMixHex('#ffffff', color, opacity, sanitizeAccentColor);
+    return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
 }
 
 export function applyUrlBootstrapSettings(settings: ReaderSettings, search = location.search): ReaderSettings {

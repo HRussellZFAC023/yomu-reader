@@ -4,7 +4,11 @@
     white: "#ffffff"
   };
   const BRAND_COLOR_TOKENS = {
+    accent: "#5ea780",
     consoleAccent: "#247a58"
+  };
+  const OVERLAY_COLOR_TOKENS = {
+    text: CORE_COLOR_TOKENS.white
   };
   const DOODLE_COLOR_TOKENS = {
     ink: "#141820"
@@ -2244,7 +2248,44 @@
     IMMERSION_KIT_LOOKUP_LINK.id,
     UCHISEN_LOOKUP_LINK.id
   ]];
+  const FALLBACK_HEX_COLOR = "#000000";
+  function normalizeHexColor(color) {
+    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
+  }
+  function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
+    const l1 = relativeLuminance(a, normalizeColor);
+    const l2 = relativeLuminance(b, normalizeColor);
+    const light = Math.max(l1, l2);
+    const dark = Math.min(l1, l2);
+    return (light + 0.05) / (dark + 0.05);
+  }
+  function relativeLuminance(color, normalizeColor = normalizeHexColor) {
+    const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
+      const channel = value / 255;
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  }
+  function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
+    const a = sharedHexToRgb(from, normalizeColor);
+    const b = sharedHexToRgb(to, normalizeColor);
+    return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+  }
+  function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
+    const safe = normalizeHexColor(normalizeColor(color));
+    return [
+      parseInt(safe.slice(1, 3), 16),
+      parseInt(safe.slice(3, 5), 16),
+      parseInt(safe.slice(5, 7), 16)
+    ];
+  }
   Logger.scope("Settings");
+  const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
+  const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
+  const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
+  const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
+  const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
+  accessibleOcrBackgroundColor(DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY);
   const AUDIO_SOURCE_TYPE_VALUES = [
     "jpod101",
     "language-pod-101",
@@ -2262,6 +2303,42 @@
   ({
     dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
   });
+  function clampNumber(value, min, max, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+  }
+  function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
+    if (typeof value !== "string") return fallback;
+    const trimmed = value.trim();
+    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+    const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+    if (!shortHex) return fallback;
+    return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
+  }
+  function accessibleOcrBackgroundOpacity(opacity) {
+    return Math.max(
+      OCR_BACKGROUND_MIN_RENDERED_OPACITY,
+      clampNumber(opacity, 0, 1, DEFAULT_OCR_BACKGROUND_OPACITY)
+    );
+  }
+  function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
+    const accent = sanitizeAccentColor(accentColor);
+    const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
+    if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+      return accent;
+    }
+    for (let amount = 0.08; amount <= 1; amount += 0.04) {
+      const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
+      if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+        return candidate;
+      }
+    }
+    return "#000000";
+  }
+  function ocrRenderedBackgroundContrast(color, opacity) {
+    const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
+    return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
+  }
   new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")

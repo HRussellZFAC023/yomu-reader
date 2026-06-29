@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.246] - 2026-06-29
+
+### Fixed
+
+- Derived OCR and Immersion Kit image-caption backgrounds from the user's accent color while keeping the rendered backdrop readable with white OCR/caption text.
+
 ## [1.4.245] - 2026-06-29
 
 ### Changed
