@@ -1139,8 +1139,8 @@ export class NewTabController {
             this.renderOverflowMenuButton(newTabText(language, 'stats'), 'mode', language, {
                 dataset: { mode: 'stats' },
             }),
-            this.renderOverflowMenuLink('Local Audio', `${DOCS_BASE_URL}local-audio/`, language),
-            this.renderOverflowMenuLink('Changelog', `${DOCS_BASE_URL}changelog`, language),
+            this.renderOverflowMenuLink(uiText(language, 'localAudio'), `${DOCS_BASE_URL}local-audio/`, language),
+            this.renderOverflowMenuLink(uiText(language, 'changelog'), `${DOCS_BASE_URL}changelog`, language),
             this.renderOverflowMenuButton(newTabText(language, 'installStudyApp'), 'install-app', language, {
                 className: 'jpdb-reader-newtab-install-app',
                 dataset: { newtabInstallApp: true, installPromptAvailable: false },
@@ -1155,9 +1155,9 @@ export class NewTabController {
                 dataset: { nextLanguage },
             }),
             el('hr', { class: 'jpdb-reader-newtab-more-divider' }),
-            this.renderOverflowMenuLink('GitHub', GITHUB_REPOSITORY_URL, language),
+            this.renderOverflowMenuLink(uiText(language, 'github'), GITHUB_REPOSITORY_URL, language),
             this.renderOverflowMenuLink(uiText(language, 'discord'), DISCORD_INVITE_URL, language),
-            this.renderOverflowMenuLink('Support', `${DOCS_BASE_URL}support`, language),
+            this.renderOverflowMenuLink(uiText(language, 'support'), `${DOCS_BASE_URL}support`, language),
         );
     }
 

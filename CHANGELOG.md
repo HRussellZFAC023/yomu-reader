@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.240] - 2026-06-29
+
+### Fixed
+
+- Matched the Study, PDF Reader, and Video Player overflow menus to the homepage menu, including compact ellipsis styling, localized labels, and the same working tool/support links.
+- Kept New Tab Immersion Kit image captions in white caption text with the video-style fallback/shadow treatment in light mode, matching the readable dark-mode and popup implementations.
+
 ## [1.4.239] - 2026-06-29
 
 ### Fixed

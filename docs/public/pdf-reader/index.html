@@ -190,13 +190,20 @@
       cursor: pointer;
     }
 
-    .hamburger-icon {
-      width: 18px;
-      height: 14px;
-      background:
-        linear-gradient(currentColor, currentColor) 0 0 / 18px 2px no-repeat,
-        linear-gradient(currentColor, currentColor) 0 6px / 18px 2px no-repeat,
-        linear-gradient(currentColor, currentColor) 0 12px / 18px 2px no-repeat;
+    .more-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      color: currentColor;
+    }
+
+    .more-icon::before {
+      content: "...";
+      padding-bottom: 4px;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1;
     }
 
     .overflow-panel {
@@ -206,7 +213,7 @@
       z-index: 40;
       display: grid;
       gap: 2px;
-      min-width: 172px;
+      min-width: 190px;
       padding: 8px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -222,14 +229,14 @@
       align-items: center;
       justify-content: flex-start;
       width: 100%;
-      min-height: 34px;
+      min-height: 38px;
       padding: 0 10px;
       border: 0;
       border-radius: 6px;
       background: transparent;
       color: var(--ink);
       font-size: 13px;
-      font-weight: 720;
+      font-weight: 650;
       line-height: 1.2;
       text-align: left;
       text-decoration: none;
@@ -711,13 +718,18 @@
         <button class="language-button" type="button" data-language-toggle aria-label="Switch Yomu HUD to Japanese" lang="ja">あ</button>
         <details class="overflow-menu" data-overflow-menu>
           <summary class="overflow-summary" aria-label="Menu" data-overflow-summary>
-            <span class="hamburger-icon" aria-hidden="true"></span>
+            <span class="more-icon" aria-hidden="true"></span>
           </summary>
           <div class="overflow-panel">
             <button type="button" data-settings-trigger>Settings</button>
             <a href="../newtab/index.html" data-menu-study>Study</a>
             <a href="../video-player/index.html" data-menu-video>Video Player</a>
+            <a href="../pdf-reader/" data-menu-pdf-reader>PDF Reader</a>
+            <a href="../newtab/index.html?mode=stats" data-menu-stats>Stats</a>
             <a href="../local-audio" data-menu-local-audio>Local Audio</a>
+            <a href="../changelog" data-menu-changelog>Changelog</a>
+            <a href="https://github.com/HRussellZFAC023/yomu-reader" target="_blank" rel="noopener" data-menu-github>GitHub</a>
+            <a href="https://discord.gg/jD6NPURewD" target="_blank" rel="noopener" data-menu-discord>Discord</a>
             <a href="../support" data-menu-support>Support</a>
           </div>
         </details>
@@ -869,7 +881,12 @@
         openSettings: 'Open settings',
         study: 'Study',
         videoPlayer: 'Video Player',
+        pdfReader: 'PDF Reader',
+        stats: 'Stats',
         localAudio: 'Local Audio',
+        changelog: 'Changelog',
+        github: 'GitHub',
+        discord: 'Discord',
         support: 'Support',
         prevPage: 'Previous page',
         nextPage: 'Next page',
@@ -905,7 +922,12 @@
         openSettings: '設定を開く',
         study: '学習',
         videoPlayer: '動画プレイヤー',
+        pdfReader: 'PDFリーダー',
+        stats: '統計',
         localAudio: 'ローカル音声',
+        changelog: '変更履歴',
+        github: 'GitHub',
+        discord: 'Discord',
         support: 'サポート',
         prevPage: '前のページ',
         nextPage: '次のページ',
@@ -1050,7 +1072,12 @@
       }
       document.querySelector('[data-menu-study]')?.replaceChildren(t.study);
       document.querySelector('[data-menu-video]')?.replaceChildren(t.videoPlayer);
+      document.querySelector('[data-menu-pdf-reader]')?.replaceChildren(t.pdfReader);
+      document.querySelector('[data-menu-stats]')?.replaceChildren(t.stats);
       document.querySelector('[data-menu-local-audio]')?.replaceChildren(t.localAudio);
+      document.querySelector('[data-menu-changelog]')?.replaceChildren(t.changelog);
+      document.querySelector('[data-menu-github]')?.replaceChildren(t.github);
+      document.querySelector('[data-menu-discord]')?.replaceChildren(t.discord);
       document.querySelector('[data-menu-support]')?.replaceChildren(t.support);
       prevPageBtn?.setAttribute('aria-label', t.prevPage);
       prevPageBtn?.setAttribute('title', t.prevPage);

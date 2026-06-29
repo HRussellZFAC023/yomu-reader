@@ -90,6 +90,7 @@ const HOSTED_OVERFLOW_LINKS = [
     { text: 'Stats', href: '/newtab/index.html?mode=stats', target: '_self' },
     { text: 'Local Audio', href: '/local-audio' },
     { text: 'Changelog', href: '/changelog' },
+    { text: 'Support', href: '/support' },
 ] as const;
 
 const HOSTED_LANGUAGE_TOGGLE_STATES: Record<InterfaceLanguage, { lang: InterfaceLanguage; text: string }> = {
@@ -155,6 +156,8 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Matched the Study, PDF Reader, and Video Player overflow menus to the homepage menu, including compact ellipsis styling, localized labels, and the same working tool/support links.': 'Study、PDFリーダー、動画プレイヤーのオーバーフローメニューをホームページのメニューに揃えました。コンパクトな三点リーダー表示、ローカライズ済みラベル、同じツール／サポートリンクを使います。',
+    'Kept New Tab Immersion Kit image captions in white caption text with the video-style fallback/shadow treatment in light mode, matching the readable dark-mode and popup implementations.': '新しいタブのイマージョンキット画像キャプションを、ライトモードでも白い字幕テキストと動画風のフォールバック／影処理で表示し、読みやすいダークモードやポップアップの実装と揃えました。',
     'Restored settings saved under previous storage keys during update/reinstall recovery, including theme and accent color, while preserving any newer settings already changed after the update.': '更新または再インストール後の復旧時に、以前の保存キーに残っていたテーマやアクセントカラーなどの設定を復元し、更新後に変更された新しい設定は保持するようにしました。',
     'Fixed the study mode tab row so all six study tabs including Listen fit on one row instead of pushing the Listen tab onto a second line.': '学習モードのタブ列を修正し、リスニングを含む6つのタブがすべて1行に収まるようにしました。リスニングのタブが2行目に押し出されなくなります。',
     'Removed the note that said nothing uploads from the video player start screen in English and Japanese.': 'ビデオプレーヤーの開始画面から、アップロードはされませんという注記を英語と日本語で削除しました。',

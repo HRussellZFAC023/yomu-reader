@@ -589,8 +589,8 @@
   top: calc(100% + 8px);
   right: 0;
   z-index: 20;
-  min-width: 132px;
-  padding: 6px;
+  min-width: 190px;
+  padding: 8px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: var(--jpdb-reader-surface);
@@ -603,21 +603,22 @@
 
 .jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item {
   width: 100%;
-  min-height: 40px;
-  display: grid;
-  align-content: center;
+  min-height: 38px;
+  display: flex;
   align-items: center;
-  justify-items: start;
   justify-content: flex-start;
-  gap: 2px;
+  gap: 4px;
   border: 0;
   border-radius: 6px;
-  padding: 7px 12px;
+  padding: 0 10px;
   background: transparent;
   color: var(--jpdb-reader-text);
-  font-size: 12px;
-  font-weight: 760;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.2;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -629,10 +630,18 @@
 }
 
 .jpdb-reader-newtab-menu-description {
+  display: none;
   color: var(--jpdb-reader-muted);
   font-size: 11px;
   font-weight: 600;
   line-height: 1.25;
+}
+
+.jpdb-reader-newtab-more-divider {
+  height: 1px;
+  margin: 8px -8px;
+  border: 0;
+  background: var(--jpdb-reader-border);
 }
 
 .jpdb-reader-newtab-more-menu .jpdb-reader-newtab-menu-item:disabled {
@@ -3434,7 +3443,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   padding: 2px 6px;
   border-radius: 4px;
   transform: translateX(-50%);
-  color: var(--subtitle-color, var(--jpdb-reader-video-text));
+  color: var(--jpdb-reader-white);
   font:
     var(--subtitle-weight, 760)
     var(--subtitle-font-size, clamp(13px, 1.7vw, 18px)) /
@@ -3460,7 +3469,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-immersion
   .jpdb-reader-example-sentence
   .jpdb-reader-word {
-  --jpdb-reader-subtitle-fallback: var(--subtitle-color, var(--jpdb-reader-video-text));
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-white);
   display: inline;
   cursor: pointer;
   -webkit-box-decoration-break: clone;

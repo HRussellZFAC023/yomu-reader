@@ -1497,12 +1497,12 @@ describe('new tab review helpers', () => {
         expect(imageSentenceRule).toContain('left: 50%;');
         expect(imageSentenceRule).toContain('max-width: calc(100% - clamp(28px, 8%, 52px));');
         expect(imageSentenceRule).toContain('transform: translateX(-50%);');
-        expect(imageSentenceRule).toContain('color: var(--subtitle-color, var(--jpdb-reader-video-text));');
+        expect(imageSentenceRule).toContain('color: var(--jpdb-reader-white);');
         expect(imageSentenceRule).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg));');
         expect(imageSentenceRule).toContain('text-shadow: 0 1px 2px var(--subtitle-outline, var(--jpdb-reader-video-outline))');
         expect(imageSentenceRule).not.toContain('right: clamp(');
         expect(subtitleWordRule)
-            .toContain('--jpdb-reader-subtitle-fallback: var(--subtitle-color, var(--jpdb-reader-video-text));');
+            .toContain('--jpdb-reader-subtitle-fallback: var(--jpdb-reader-white);');
         expect(imageWordRule).toContain('-webkit-text-stroke: 0.02em');
         expect(imageTargetRule).toContain('var(--jpdb-reader-video-target-backdrop)');
         expect(normalizedCss)

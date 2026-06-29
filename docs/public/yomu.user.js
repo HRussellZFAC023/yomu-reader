@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.239
+// @version 1.4.240
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.239
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.239
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.239
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.239
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.240
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.240
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.240
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.240
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -8236,6 +8236,10 @@ const COPY = {
   videoPlayer: "Video Player",
   pdfReader: "PDF Reader",
   newTabPage: "Study",
+  localAudio: "Local Audio",
+  changelog: "Changelog",
+  support: "Support",
+  github: "GitHub",
   word: "Word",
   search: "Search",
   statsImportJpdbHistory: "Import JPDB review history",
@@ -9702,6 +9706,10 @@ helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
 newTabPage	学習
+localAudio	ローカル音声
+changelog	変更履歴
+support	サポート
+github	GitHub
 docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除。
@@ -37329,7 +37337,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.239"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.240"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

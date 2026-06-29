@@ -1978,6 +1978,10 @@
       videoPlayer: "Video Player",
       pdfReader: "PDF Reader",
       newTabPage: "Study",
+      localAudio: "Local Audio",
+      changelog: "Changelog",
+      support: "Support",
+      github: "GitHub",
       word: "Word",
       search: "Search",
       statsImportJpdbHistory: "Import JPDB review history",
@@ -3444,6 +3448,10 @@ helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
 newTabPage	学習
+localAudio	ローカル音声
+changelog	変更履歴
+support	サポート
+github	GitHub
 docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除。
@@ -25594,7 +25602,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.239".trim() ? "1.4.239".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.240".trim() ? "1.4.240".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -68641,8 +68649,8 @@ ${entry.url}`),
         this.renderOverflowMenuButton(newTabText(language, "stats"), "mode", language, {
           dataset: { mode: "stats" }
         }),
-        this.renderOverflowMenuLink("Local Audio", `${DOCS_BASE_URL}local-audio/`, language),
-        this.renderOverflowMenuLink("Changelog", `${DOCS_BASE_URL}changelog`, language),
+        this.renderOverflowMenuLink(uiText(language, "localAudio"), `${DOCS_BASE_URL}local-audio/`, language),
+        this.renderOverflowMenuLink(uiText(language, "changelog"), `${DOCS_BASE_URL}changelog`, language),
         this.renderOverflowMenuButton(newTabText(language, "installStudyApp"), "install-app", language, {
           className: "jpdb-reader-newtab-install-app",
           dataset: { newtabInstallApp: true, installPromptAvailable: false },
@@ -68657,9 +68665,9 @@ ${entry.url}`),
           dataset: { nextLanguage }
         }),
         el("hr", { class: "jpdb-reader-newtab-more-divider" }),
-        this.renderOverflowMenuLink("GitHub", GITHUB_REPOSITORY_URL, language),
+        this.renderOverflowMenuLink(uiText(language, "github"), GITHUB_REPOSITORY_URL, language),
         this.renderOverflowMenuLink(uiText(language, "discord"), DISCORD_INVITE_URL, language),
-        this.renderOverflowMenuLink("Support", `${DOCS_BASE_URL}support`, language)
+        this.renderOverflowMenuLink(uiText(language, "support"), `${DOCS_BASE_URL}support`, language)
       );
     }
     renderOverflowMenuButton(label, action, language, options = {}) {

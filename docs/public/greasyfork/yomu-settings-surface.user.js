@@ -4278,6 +4278,10 @@
       videoPlayer: "Video Player",
       pdfReader: "PDF Reader",
       newTabPage: "Study",
+      localAudio: "Local Audio",
+      changelog: "Changelog",
+      support: "Support",
+      github: "GitHub",
       word: "Word",
       search: "Search",
       statsImportJpdbHistory: "Import JPDB review history",
@@ -5725,6 +5729,10 @@ helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
 newTabPage	学習
+localAudio	ローカル音声
+changelog	変更履歴
+support	サポート
+github	GitHub
 docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除。
