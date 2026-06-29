@@ -712,7 +712,7 @@ function hostedEmptyStateReady(state) {
     const rects = [state.statusRect, ...state.chipRects];
     return state.hidden === false
         && includesText(state.title, 'Drop anime and subtitles')
-        && includesText(state.status, 'Nothing uploads')
+        && includesText(state.status, 'Open a video')
         && state.chips.some(chip => includesText(chip, 'MP4') && includesText(chip, 'MKV'))
         && state.chips.some(chip => includesText(chip, 'SRT') && includesText(chip, 'ASS'))
         && empty.width > 180
