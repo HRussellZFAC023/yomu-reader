@@ -155,6 +155,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Removed the note that said nothing uploads from the video player start screen in English and Japanese.': 'ビデオプレーヤーの開始画面から、アップロードはされませんという注記を英語と日本語で削除しました。',
     // Docs JA localization sweep (verified)
     'Kept the new tab study mode switcher on a single row that fits evenly across the available width on phones, tablets, and desktop, instead of wrapping the last tab onto its own line or scrolling it out of view.': '新しいタブの学習モード切り替えを1行に保ち、利用可能な幅に均等に収まるようにしました。スマートフォン・タブレット・デスクトップのいずれでも、最後のタブだけが折り返したり画面外にスクロールしたりしなくなります。',
     'Added a session stats panel to Listen mode that shows how many pitch items are due and your accuracy for each pitch pattern, and ordered the Listen queue to review due items first.': 'リスニングモードにセッション統計パネルを追加し、復習予定のアクセント項目数とアクセント型ごとの正答率を表示し、復習予定の項目を優先する順番にしました。',

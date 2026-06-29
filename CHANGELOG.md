@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.236] - 2026-06-29
+
+### Changed
+
+- Removed the note that said nothing uploads from the video player start screen in English and Japanese.
+
 ## [1.4.235] - 2026-06-29
 
 ### Added
