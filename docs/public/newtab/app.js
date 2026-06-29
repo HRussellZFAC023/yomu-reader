@@ -25558,7 +25558,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.231".trim() ? "1.4.231".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.232".trim() ? "1.4.232".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -55557,7 +55557,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     loadJitenVocabularyInfo(card) {
       const settings = this.settings();
       if (!settings.jitenDefinitionsEnabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
-      return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", this.dependencies.jiten.lookupVocabularyInfoForCard(card).catch((error) => {
+      return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", this.dependencies.jiten.lookupVocabularyInfoForCard(card).then((info) => {
+        this.applyJitenVocabularyInfoPitchAccent(card, info);
+        return info;
+      }).catch((error) => {
         log$d.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
         return null;
       }), null);
@@ -55701,6 +55704,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     applyLocalPitchAccent(card, metaEntries) {
       const patterns = localPitchPatternsFromMeta(card.reading, metaEntries);
+      if (!patterns.length) return;
+      if (!card.pitchAccent.length) {
+        card.pitchAccent = patterns;
+        return;
+      }
+      for (const pattern of patterns) {
+        if (!card.pitchAccent.includes(pattern)) card.pitchAccent.push(pattern);
+      }
+    }
+    applyJitenVocabularyInfoPitchAccent(card, info) {
+      if (!info?.pitchAccents.length) return;
+      const reading = cardPronunciationReading(card) || card.reading.trim();
+      const patterns = info.pitchAccents.map((position) => pitchPatternFromPosition(reading, position)).filter(Boolean);
       if (!patterns.length) return;
       if (!card.pitchAccent.length) {
         card.pitchAccent = patterns;
