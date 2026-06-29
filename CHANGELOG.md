@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.234] - 2026-06-29
+
+### Fixed
+
+- Kept the new tab study mode switcher on a single row that fits evenly across the available width on phones, tablets, and desktop, instead of wrapping the last tab onto its own line or scrolling it out of view.
+
 ## [1.4.233] - 2026-06-29
 
 ### Added

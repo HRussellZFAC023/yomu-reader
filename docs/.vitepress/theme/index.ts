@@ -156,6 +156,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    'Kept the new tab study mode switcher on a single row that fits evenly across the available width on phones, tablets, and desktop, instead of wrapping the last tab onto its own line or scrolling it out of view.': '新しいタブの学習モード切り替えを1行に保ち、利用可能な幅に均等に収まるようにしました。スマートフォン・タブレット・デスクトップのいずれでも、最後のタブだけが折り返したり画面外にスクロールしたりしなくなります。',
     'Added a Listen pitch-accent mode to the Study page with Perceive, Recall, and Shadow practice over a local spaced-repetition deck that grows automatically from the words you review.': '学習ページにアクセントのリスニングモードを追加しました。聞き取り・想起・シャドーイングの練習を、復習した単語から自動的に増えるローカルの間隔反復デッキで行えます。',
     'Added an audio-first downstep picker that plays a word and asks which pitch pattern you heard, and replays both words of a minimal pair when you miss.': '音声優先のアクセント位置セレクターを追加しました。単語を再生してどのアクセントに聞こえたかを尋ね、間違えるとミニマルペアの両方の語を再生します。',
     'Added optional local microphone recording and playback to Shadow practice so you can compare your pronunciation with the model without uploading any audio.': 'シャドーイング練習に任意のローカルマイク録音と再生を追加しました。音声をアップロードせずに自分の発音をお手本と比べられます。',
