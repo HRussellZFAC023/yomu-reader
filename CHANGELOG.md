@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.228] - 2026-06-29
+
+### Added
+
+- Added previous and next context lines to the YouTube shadowing drawer, each tappable to move shadowing practice onto that line.
+- Added local microphone self-recording and playback to the YouTube shadowing drawer so you can compare your pronunciation with the model without uploading any audio.
+
+### Fixed
+
+- Fixed the YouTube shadowing drawer loop control so it repeats the focused line reliably instead of playing on to the next one.
+- Fixed the YouTube shadowing drawer hide control so a hidden line is fully blurred over its word highlights instead of staying readable.
+
 ## [1.4.227] - 2026-06-29
 
 ### Added

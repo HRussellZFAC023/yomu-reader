@@ -163,7 +163,7 @@ export function setStylePropertyIfChanged(element: HTMLElement, property: string
     element.style.setProperty(property, value);
 }
 
-export type SubtitleIconName = 'auto-hide' | 'close' | 'copy' | 'eye' | 'eye-off' | 'fullscreen' | 'fullscreen-exit' | 'locate' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'pause' | 'play' | 'repeat' | 'style' | 'tracks' | 'transcript';
+export type SubtitleIconName = 'auto-hide' | 'close' | 'copy' | 'eye' | 'eye-off' | 'fullscreen' | 'fullscreen-exit' | 'locate' | 'menu' | 'mic' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'pause' | 'play' | 'repeat' | 'stop' | 'style' | 'tracks' | 'transcript';
 
 export function transcriptPlacementIcon(placement: ReaderSettings['subtitleTranscriptPlacement']): SubtitleIconName {
     if (placement === 'left') return 'panel-left';
@@ -182,12 +182,14 @@ export function subtitleIcon(name: SubtitleIconName): string {
         'fullscreen-exit': '<path d="M9 3v4a2 2 0 0 1-2 2H3"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M15 21v-4a2 2 0 0 1 2-2h4"/><path d="M9 21v-4a2 2 0 0 0-2-2H3"/>',
         locate: '<path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
         menu: '<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',
+        mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M8 21h8"/>',
         'panel-bottom': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 14h16"/>',
         'panel-left': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',
         'panel-right': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',
         pause: '<path d="M9 5v14"/><path d="M15 5v14"/>',
         play: '<path d="M8 5v14l11-7-11-7Z"/>',
         repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
+        stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
         style: '<path d="M4 7h5"/><path d="M15 7h5"/><circle cx="12" cy="7" r="2"/><path d="M4 17h9"/><path d="M19 17h1"/><circle cx="16" cy="17" r="2"/>',
         tracks: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',
         transcript: '<path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>',

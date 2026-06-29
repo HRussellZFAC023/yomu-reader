@@ -2692,6 +2692,92 @@ Watch the cat
         }
     });
 
+    it('keeps looping the pinned line after playback overshoots into the next cue', () => {
+        const { controller } = createInstalledSubtitleController();
+        const cue1 = { start: 3, end: 5, text: '一行目。', transcriptEligible: true };
+        const cue2 = { start: 5, end: 7, text: '二行目。', transcriptEligible: true };
+        const internals = controllerInternals<{
+            cues: Array<typeof cue1>;
+            currentCue: typeof cue1;
+            shadowLoopCue: typeof cue1 | undefined;
+            syncShadowLoop: () => void;
+        }>(controller);
+
+        try {
+            const video = attachVideo(controller, { currentTime: 3.25 });
+            internals.cues = [cue1, cue2];
+            internals.currentCue = cue1;
+            controller.refresh();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!.click();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-list [data-action="panel-shadow"]')!.click();
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            panel.querySelector<HTMLButtonElement>('[data-action="shadow-loop"]')!.click();
+            expect(internals.shadowLoopCue).toBe(cue1);
+
+            // The boundary frame was missed: playback ran into cue2 and the live
+            // currentCue already advanced. The loop must still pull back to cue1.
+            internals.currentCue = cue2;
+            video.currentTime = 5.2;
+            internals.syncShadowLoop();
+
+            expect(video.currentTime).toBe(3);
+            expect(internals.currentCue).toBe(cue1);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('shows previous and next context lines and jumps the focus when one is tapped', () => {
+        const { controller } = createInstalledSubtitleController();
+        const cue1 = { start: 3, end: 5, text: 'まえの行。', transcriptEligible: true };
+        const cue2 = { start: 5, end: 7, text: 'いまの行。', transcriptEligible: true };
+        const cue3 = { start: 7, end: 9, text: 'つぎの行。', transcriptEligible: true };
+        const internals = controllerInternals<{
+            cues: Array<typeof cue1>;
+            currentCue: typeof cue1;
+        }>(controller);
+
+        try {
+            attachVideo(controller, { currentTime: 5.5 });
+            internals.cues = [cue1, cue2, cue3];
+            internals.currentCue = cue2;
+            controller.refresh();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!.click();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-list [data-action="panel-shadow"]')!.click();
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.querySelector<HTMLElement>('.jpdb-subtitle-shadow-context-prev')?.textContent).toContain('まえの行');
+            expect(panel.querySelector<HTMLElement>('.jpdb-subtitle-shadow-context-next')?.textContent).toContain('つぎの行');
+
+            panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-shadow-context-next')!.click();
+            expect(internals.currentCue).toBe(cue3);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('exposes a self-recording control and omits context lines for a lone cue', () => {
+        const { controller } = createInstalledSubtitleController();
+        const cue = { start: 3, end: 5, text: '録音テスト。', transcriptEligible: true };
+        const internals = controllerInternals<{ cues: Array<typeof cue>; currentCue: typeof cue }>(controller);
+
+        try {
+            attachVideo(controller, { currentTime: 3.5 });
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!.click();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-list [data-action="panel-shadow"]')!.click();
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.querySelector('[data-action="shadow-record"]')).not.toBeNull();
+            expect(panel.querySelector('.jpdb-subtitle-shadow-context')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('opens the tracks drawer from the rail panel toggle when lines are unavailable', () => {
         const onSettingsChange = vi.fn();
         const { settings, controller } = createInstalledSubtitleController({ subtitleTranscriptVisible: false }, { onSettingsChange });
