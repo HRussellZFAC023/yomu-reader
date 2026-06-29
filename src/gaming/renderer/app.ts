@@ -108,7 +108,6 @@ async function boot(): Promise<void> {
     if (isOverlay) {
         document.documentElement.classList.add('yomu-gaming-overlay-document');
         document.body.classList.add('yomu-gaming-overlay-document');
-        bootOverlayReader();
         new OverlaySelectionController(appRoot, bridge, overlayCaptureMode).render();
         return;
     }
@@ -820,40 +819,6 @@ function scrollToInitialSettingsSection(form: HTMLFormElement): void {
     });
 }
 
-// Boot the REAL Yomu reader inside the overlay so OCR'd lines get furigana + the full
-// hover/click popover (definitions, pitch, kanji, SRS) in place — no browser bounce.
-// The reader reads its settings from its own storage key, so seed that from the gaming
-// profile, point cross-origin lookups at the public CORS proxy (the renderer cannot do
-// cross-origin fetch directly), and switch off the reader's own image-OCR so it never
-// tries to read our frozen backdrop image.
-function bootOverlayReader(): void {
-    const gaming = loadGamingSettings();
-    const readerSettings = normalizeReaderSettings({
-        ...gaming,
-        ocrEnabled: false,
-        ocrAutoScanImages: false,
-        showFloatingButton: false,
-        annotationsPaused: false,
-        manualScanEnabled: false,
-        lookupOnHover: true,
-        lookupOnClick: true,
-        // The overlay window runs with web security relaxed, so the reader can read
-        // cross-origin dictionary responses directly (its normal privileged path) without
-        // a proxy. A user-configured proxy still wins if they set one.
-        corsProxyUrl: (gaming.corsProxyUrl || '').trim(),
-    });
-    try {
-        localStorage.setItem(READER_SETTINGS_STORAGE_KEY, JSON.stringify(readerSettings));
-    } catch {
-        // A locked storage context just means the reader falls back to its defaults.
-    }
-    try {
-        bootReaderApp();
-    } catch (error) {
-        console.warn('Yomu Gaming could not start the inline reader.', error);
-    }
-}
-
 function loadGamingSettings(): ReaderSettings {
     const stored = parseStoredSettings();
     const ocrProvider = stored?.ocrProvider ?? DEFAULT_GAMING_OCR_PROVIDER;
@@ -931,8 +896,8 @@ class OverlaySelectionController {
     constructor(private root: HTMLElement, private gamingBridge: YomuGamingBridge, private captureMode: YomuGamingCaptureMode) {
         window.addEventListener('keydown', event => {
             if (event.key !== 'Escape') return;
-            // Let the reader close its own popover first; only then dismiss the overlay.
-            if (document.querySelector('.jpdb-reader-popup, [data-jpdb-reader-popup]')) return;
+            // Let the reader close its own word popover first; the next Escape closes the overlay.
+            if (document.querySelector('.jpdb-reader-popover')) return;
             void this.gamingBridge.hideOverlay();
         });
     }
@@ -1113,40 +1078,44 @@ class OverlaySelectionController {
         } finally {
             this.busy = false;
             this.render();
-            if (this.result?.lines?.length || this.result?.text) this.scheduleReaderScan();
+            if (this.result?.lines?.length || this.result?.text) ensureOverlayReader();
         }
-    }
-
-    // The reader's auto-scan observer does not reliably catch our one-shot innerHTML
-    // injection, so drive its real scan path explicitly via its configured scan shortcut
-    // (scanPageNow -> scanVisiblePage) — the exact code the reader runs everywhere else.
-    private scheduleReaderScan(): void {
-        const shortcuts = Array.from(new Set([
-            this.settings.shortcuts.scanPage,
-            DEFAULT_SETTINGS.shortcuts.scanPage,
-            'Alt+J',
-        ].map(shortcut => shortcut?.trim()).filter(Boolean) as string[]));
-        [80, 300, 800, 1600, 3000].forEach(delay => {
-            window.setTimeout(() => shortcuts.forEach(dispatchReaderScan), delay);
-        });
     }
 }
 
-function dispatchReaderScan(shortcut: string): void {
-    const parts = shortcut.split('+').map(part => part.trim()).filter(Boolean);
-    const key = parts[parts.length - 1] ?? '';
-    if (!key) return;
-    const modifiers = parts.slice(0, -1).map(part => part.toLowerCase());
-    const event = new KeyboardEvent('keydown', {
-        key: key.length === 1 ? key.toLowerCase() : key,
-        altKey: modifiers.includes('alt') || modifiers.includes('option'),
-        ctrlKey: modifiers.includes('ctrl') || modifiers.includes('control'),
-        metaKey: modifiers.includes('meta') || modifiers.includes('cmd') || modifiers.includes('command'),
-        shiftKey: modifiers.includes('shift'),
-        bubbles: true,
-        cancelable: true,
+let overlayReaderBooted = false;
+
+// Boot the REAL Yomu reader AFTER the OCR text nodes are in the DOM, so its initial
+// page scan picks them up (the scanner runs once on boot; collectScanTargets already
+// sees these nodes). The reader then renders furigana + its native hover/click popover
+// onto the OCR'd words — the same code path Yomu uses on every page. Booting once is
+// enough: its mutation observer re-scans later captures.
+function ensureOverlayReader(): void {
+    if (overlayReaderBooted) return;
+    overlayReaderBooted = true;
+    const gaming = loadGamingSettings();
+    const readerSettings = normalizeReaderSettings({
+        ...gaming,
+        ocrEnabled: false,
+        ocrAutoScanImages: false,
+        showFloatingButton: false,
+        annotationsPaused: false,
+        manualScanEnabled: false,
+        lookupOnHover: true,
+        lookupOnClick: true,
+        corsProxyUrl: (gaming.corsProxyUrl || '').trim(),
     });
-    document.dispatchEvent(event);
+    try {
+        localStorage.setItem(READER_SETTINGS_STORAGE_KEY, JSON.stringify(readerSettings));
+    } catch {
+        // A locked storage context just means the reader falls back to its defaults.
+    }
+    try {
+        bootReaderApp();
+    } catch (error) {
+        overlayReaderBooted = false;
+        console.warn('Yomu Gaming could not start the inline reader.', error);
+    }
 }
 
 function captureErrorResult(error: unknown): OverlayResult {

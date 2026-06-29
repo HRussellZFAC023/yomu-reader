@@ -1150,17 +1150,22 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] {
   --jpdb-ocr-auto-dark-surface: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 72%,
-    var(--jpdb-reader-theme-dark-surface, #20242b) 28%
+    rgba(9, 13, 20, 0.64) 78%,
+    var(--jpdb-reader-accent, #5ea780) 22%
+  );
+  --jpdb-ocr-auto-dark-visible: color-mix(
+    in srgb,
+    var(--jpdb-ocr-auto-dark-surface) 54%,
+    transparent
   );
   --jpdb-ocr-auto-dark-active: color-mix(
     in srgb,
-    var(--jpdb-ocr-auto-dark-surface) 88%,
+    var(--jpdb-ocr-auto-dark-surface) 72%,
     transparent
   );
   --jpdb-ocr-auto-dark-border: color-mix(
     in srgb,
-    var(--jpdb-reader-accent, #5ea780) 70%,
+    var(--jpdb-reader-accent, #5ea780) 58%,
     rgba(255, 255, 255, 0.16)
   );
 }
@@ -1221,9 +1226,24 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   flex-wrap: wrap;
 }
 .jpdb-ocr-line-visible {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
+  --jpdb-reader-word-accessible-color: currentColor;
+  color: var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text));
+  -webkit-text-fill-color: currentColor;
+  text-shadow:
+    0 1px 2px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
+    0 0 4px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline));
+  border-color: color-mix(
+    in srgb,
+    var(--jpdb-reader-ocr-active-border, rgba(255, 255, 255, 0.24)) 42%,
+    transparent
+  );
+  background: color-mix(
+    in srgb,
+    var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg)) 42%,
+    transparent
+  );
+  box-shadow: 0 3px 10px
+    color-mix(in srgb, var(--jpdb-reader-shadow, rgba(0, 0, 0, 0.28)) 30%, transparent);
 }
 .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
   color: var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text));
@@ -1231,13 +1251,29 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     0 2px 2px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
     0 0 3px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
     0 0 10px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline));
-  background: var(--jpdb-ocr-background-active-rgba, var(--jpdb-reader-ocr-active-bg));
+  background: color-mix(
+    in srgb,
+    var(--jpdb-ocr-background-active-rgba, var(--jpdb-reader-ocr-active-bg)) 72%,
+    transparent
+  );
   border-color: var(--jpdb-reader-ocr-active-border);
   box-shadow:
-    0 10px 24px var(--jpdb-reader-shadow),
+    0 6px 16px color-mix(in srgb, var(--jpdb-reader-shadow) 72%, transparent),
     inset 0 0 0 1px var(--jpdb-reader-ocr-active-inset);
   outline: none;
   z-index: 2;
+}
+
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line-visible,
+.jpdb-ocr-layer[data-ocr-overlay-theme="light"] .jpdb-ocr-line-visible {
+  color: var(--jpdb-reader-text);
+  -webkit-text-fill-color: currentColor;
+  text-shadow: none;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 58%, transparent);
+  border-color: color-mix(in srgb, var(--jpdb-reader-border) 58%, transparent);
+  box-shadow:
+    0 3px 10px color-mix(in srgb, var(--jpdb-reader-shadow) 34%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-white) 48%, transparent);
 }
 
 :is(.jpdb-reader-theme-light, .yomu-page-theme-light)
@@ -1252,7 +1288,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
       in srgb,
       var(--jpdb-reader-surface) 92%,
       var(--jpdb-reader-accent) 8%
-    ) 82%,
+    ) 64%,
     transparent
   );
   border-color: color-mix(
@@ -1261,7 +1297,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     var(--jpdb-reader-border)
   );
   box-shadow:
-    0 10px 24px color-mix(in srgb, var(--jpdb-reader-shadow) 70%, transparent),
+    0 5px 16px color-mix(in srgb, var(--jpdb-reader-shadow) 54%, transparent),
     inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-white) 68%, transparent);
 }
 
@@ -1285,31 +1321,52 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     0 2px 2px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
     0 0 3px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
     0 0 10px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline));
-  background: var(--jpdb-ocr-background-active-rgba, var(--jpdb-reader-ocr-active-bg));
+  background: color-mix(
+    in srgb,
+    var(--jpdb-ocr-background-active-rgba, var(--jpdb-reader-ocr-active-bg)) 72%,
+    transparent
+  );
   border-color: var(--jpdb-reader-ocr-active-border);
   box-shadow:
-    0 10px 24px var(--jpdb-reader-shadow),
+    0 6px 16px color-mix(in srgb, var(--jpdb-reader-shadow) 72%, transparent),
     inset 0 0 0 1px var(--jpdb-reader-ocr-active-inset);
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
+  .jpdb-ocr-line-visible {
+  color: var(--jpdb-reader-video-text, #ffffff);
+  -webkit-text-fill-color: currentColor;
+  text-shadow:
+    0 2px 2px var(--jpdb-reader-video-outline, rgba(0, 0, 0, 0.88)),
+    0 0 4px var(--jpdb-reader-video-outline, rgba(0, 0, 0, 0.88));
+  background: var(--jpdb-ocr-auto-dark-visible);
+  border-color: color-mix(in srgb, var(--jpdb-ocr-auto-dark-border) 52%, transparent);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+}
+.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
   .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
-  color: var(--jpdb-reader-accent-text, #11161d);
-  text-shadow: none;
+  color: var(--jpdb-reader-video-text, #ffffff);
+  text-shadow:
+    0 2px 2px var(--jpdb-reader-video-outline, rgba(0, 0, 0, 0.88)),
+    0 0 4px var(--jpdb-reader-video-outline, rgba(0, 0, 0, 0.88));
   background: var(--jpdb-ocr-auto-dark-active);
   border-color: var(--jpdb-ocr-auto-dark-border);
   box-shadow:
-    0 10px 24px color-mix(in srgb, rgba(0, 0, 0, 0.34) 76%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-white, #ffffff) 10%, transparent);
+    0 5px 16px color-mix(in srgb, rgba(0, 0, 0, 0.34) 64%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-white, #ffffff) 12%, transparent);
+}
+.jpdb-ocr-line:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent, #5ea780);
+  outline-offset: 2px;
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
   .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
   .jpdb-reader-word {
-  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-accent-text, #11161d);
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-video-text, #ffffff);
   color: var(
     --jpdb-reader-word-accessible-color,
-    var(--jpdb-reader-word-color-source, var(--jpdb-reader-accent-text, #11161d))
+    var(--jpdb-reader-word-color-source, var(--jpdb-reader-video-text, #ffffff))
   ) !important;
-  text-shadow: none;
+  text-shadow: inherit;
 }
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word {
   background-color: transparent !important;

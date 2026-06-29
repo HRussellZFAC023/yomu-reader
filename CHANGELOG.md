@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.230] - 2026-06-29
+
+### Fixed
+
+- Fixed Yomu Gaming so full-screen and area captures render recognized Japanese in place over the frozen screen instead of opening the old detached OCR panel.
+- Kept the Gaming lookup flow secure and native-feeling by moving dictionary lookup back through the Electron main process, preserving renderer sandboxing, and opening a compact in-place lookup popover from invisible OCR line targets.
+- Guarded broken stdout/stderr pipes in the packaged app so launching Yomu Gaming from a closed terminal or external process does not crash with `write EPIPE`.
+- Made paused-frame OCR overlays on dark video surfaces lighter and more readable by replacing the opaque accent block with a translucent caption-style treatment, visible keyboard focus, and Enter/Space activation for OCR line targets.
+
 ## [1.4.229] - 2026-06-29
 
 ### Fixed

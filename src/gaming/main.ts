@@ -61,6 +61,8 @@ const SHORTCUT_PART_ALIASES = new Map<string, string>([
     ['plus', 'Plus'],
 ]);
 
+installBrokenPipeGuard();
+
 if (process.env.YOMU_GAMING_USER_DATA_DIR) {
     app.setPath('userData', path.resolve(process.env.YOMU_GAMING_USER_DATA_DIR));
 }
@@ -181,12 +183,11 @@ function gamingWebPreferences(role: 'main' | 'overlay'): BrowserWindowConstructo
         // The preload only uses contextBridge + ipcRenderer, both available under the
         // sandbox, so a renderer compromise cannot reach Node primitives.
         sandbox: true,
-        // The overlay hosts the real Yomu reader, whose dictionary/pitch/audio lookups are
-        // cross-origin (jpdb/jiten/jisho/etc.). Those hosts send no CORS headers, so the
-        // reader can only read them with web security relaxed — exactly the privileged
-        // context it gets as a userscript/extension elsewhere. Scoped to the overlay
-        // window (which loads only our own bundled file:// renderer); the main settings
-        // window keeps web security on. The connect-src CSP still bounds reachable hosts.
+        // The overlay hosts the real Yomu reader, whose dictionary/pitch lookups are
+        // cross-origin (jpdb/jiten/jisho) and send no CORS headers — the same privileged
+        // network access the reader gets as a userscript/extension. Scoped to the overlay
+        // window (it only ever loads our own bundled file:// renderer); the settings window
+        // keeps web security on. The connect-src CSP still bounds reachable hosts.
         webSecurity: role === 'main',
     };
 }
@@ -218,6 +219,15 @@ function configureNativeAppMetadata(): void {
             applicationName: APP_NAME,
             applicationVersion: app.getVersion(),
             iconPath: appIconPath(),
+        });
+    }
+}
+
+function installBrokenPipeGuard(): void {
+    for (const stream of [process.stdout, process.stderr]) {
+        stream.on('error', error => {
+            if ((error as NodeJS.ErrnoException).code === 'EPIPE') return;
+            process.nextTick(() => { throw error; });
         });
     }
 }

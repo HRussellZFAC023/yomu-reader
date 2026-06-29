@@ -8381,6 +8381,7 @@ ${candidate.depth}`;
       element.addEventListener("pointerenter", () => this.activateOcrMarkup(element));
       element.addEventListener("focusin", () => this.activateOcrMarkup(element));
       element.addEventListener("pointerdown", (event) => this.activateOcrLineFromPointer(state2, element, event), true);
+      element.addEventListener("keydown", (event) => this.toggleOcrLinePinnedFromKeyboard(state2, element, event));
       element.addEventListener("click", (event) => this.toggleOcrLinePinned(state2, element, event));
       return element;
     }
@@ -8393,6 +8394,16 @@ ${candidate.depth}`;
       element.focus({ preventScroll: true });
       this.pinLine(state2, element);
       this.pointerActivatedOcrLines.set(element, Date.now());
+    }
+    toggleOcrLinePinnedFromKeyboard(state2, element, event) {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      if (element.dataset.pinned === "true") {
+        this.unpinLine(element);
+      } else {
+        this.pinLine(state2, element);
+      }
+      event.preventDefault();
+      event.stopPropagation();
     }
     toggleOcrLinePinned(state2, element, event) {
       if (this.wasRecentlyPointerActivated(element)) {
@@ -8420,11 +8431,13 @@ ${candidate.depth}`;
       this.activateOcrMarkup(element);
       element.classList.add("jpdb-ocr-line-active");
       element.dataset.pinned = "true";
+      element.setAttribute("aria-pressed", "true");
       this.schedulePosition();
     }
     unpinLine(element) {
       element.classList.remove("jpdb-ocr-line-active");
       element.dataset.pinned = "false";
+      element.setAttribute("aria-pressed", "false");
       this.schedulePosition();
     }
     unpinOcrLinesFromDocumentEvent(event) {
@@ -9581,7 +9594,9 @@ ${spelling}`);
     setOcrLineDataset(element, result, line, sentence);
     element.tabIndex = 0;
     element.style.writingMode = line.vertical ? "vertical-rl" : "horizontal-tb";
+    element.setAttribute("role", "button");
     element.setAttribute("aria-label", line.text);
+    element.setAttribute("aria-pressed", "false");
     const textElement = createOcrLineText(line, tokens, settings);
     element.append(textElement);
     element.dataset.hasFuri = String(Boolean(textElement.querySelector(".jpdb-reader-has-furi")));

@@ -149,17 +149,23 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('[data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:focus');
     });
 
-    it('keeps dark OCR auto highlights on an accent surface with readable text', () => {
+    it('keeps dark OCR auto overlays readable without an opaque accent block', () => {
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const darkAutoVisibleRule = css.match(/\.jpdb-ocr-layer\[data-ocr-overlay-theme="dark"\]\[data-ocr-overlay-variant="auto"\]\s*\.jpdb-ocr-line-visible\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
         const darkAutoRule = css.match(/\.jpdb-ocr-layer\[data-ocr-overlay-theme="dark"\]\[data-ocr-overlay-variant="auto"\]\s*\.jpdb-ocr-line:is\(:hover, :focus, \.jpdb-ocr-line-active\)\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
         const darkAutoWordRule = css.match(/\.jpdb-ocr-layer\[data-ocr-overlay-theme="dark"\]\[data-ocr-overlay-variant="auto"\]\s*\.jpdb-ocr-line:is\(:hover, :focus, \.jpdb-ocr-line-active\)\s*\.jpdb-reader-word\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
 
         expect(css).toContain('--jpdb-ocr-auto-dark-surface');
+        expect(css).toContain('--jpdb-ocr-auto-dark-visible');
         expect(css).toContain('--jpdb-ocr-auto-dark-active');
-        expect(darkAutoRule).toContain('color: var(--jpdb-reader-accent-text, #11161d)');
+        expect(darkAutoVisibleRule).toContain('color: var(--jpdb-reader-video-text, #ffffff)');
+        expect(darkAutoVisibleRule).toContain('background: var(--jpdb-ocr-auto-dark-visible)');
+        expect(darkAutoRule).toContain('color: var(--jpdb-reader-video-text, #ffffff)');
         expect(darkAutoRule).toContain('background: var(--jpdb-ocr-auto-dark-active)');
-        expect(darkAutoRule).toContain('text-shadow: none');
-        expect(darkAutoWordRule).toContain('--jpdb-reader-subtitle-fallback: var(--jpdb-reader-accent-text, #11161d)');
-        expect(darkAutoWordRule).toContain('var(--jpdb-reader-accent-text, #11161d)');
+        expect(darkAutoRule).toContain('var(--jpdb-reader-video-outline, rgba(0, 0, 0, 0.88))');
+        expect(css).toContain('.jpdb-ocr-line:focus-visible');
+        expect(darkAutoWordRule).toContain('--jpdb-reader-subtitle-fallback: var(--jpdb-reader-video-text, #ffffff)');
+        expect(darkAutoWordRule).toContain('var(--jpdb-reader-video-text, #ffffff)');
+        expect(darkAutoWordRule).toContain('text-shadow: inherit');
     });
 });

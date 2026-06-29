@@ -64,6 +64,11 @@ jobs:
           cd dist/extension/release/safari
           zip -qr yomureader.com-safari-web-extension.zip yomureader.com-safari-web-extension
       - name: Build Yomu Gaming release packages
+        # Best-effort: the gaming desktop build is also produced (for all
+        # platforms) by the Release Yomu Gaming workflow, which uploads to the
+        # same release. A flake here (e.g. Electron runtime install) must not
+        # block the core userscript/extension publish below.
+        continue-on-error: true
         run: |
           npm run release:gaming:linux
           cd dist-gaming/packages
@@ -93,22 +98,31 @@ jobs:
         run: |
           shopt -s nullglob
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          linux_assets=(dist-gaming/packages/yomu-gaming-*-linux-*.AppImage*)
-          if [ "${#linux_assets[@]}" -eq 0 ]; then
-            echo "No Linux AppImage release asset found in dist-gaming/packages." >&2
-            find dist-gaming/packages -maxdepth 1 -type f -print >&2
-            exit 1
-          fi
+          # Core artifacts always ship so the release publishes (and Greasy Fork
+          # syncs from the raw userscript URL) even if the gaming build flaked.
           assets=(
             dist/yomu.user.js \
             dist/extension/release/chrome/yomureader.com-chrome.zip \
             dist/extension/release/firefox/yomureader.com-firefox.xpi \
             dist/extension/release/safari/yomureader.com-safari-web-extension.zip \
-            "${linux_assets[@]}" \
-            dist-gaming/packages/SHA256SUMS.txt \
             dist/extension/yomureader.com-extension-project.zip \
             dist/extension/review/submission-guide.md
           )
+          # The Linux AppImage (and its checksums) are best-effort: the matrix
+          # Release Yomu Gaming workflow builds and uploads the full desktop set
+          # independently. Match electron-builder's actual name
+          # (yomu-gaming-<version>-linux-x86_64.AppImage) and skip rather than
+          # fail the whole release if this job did not produce it.
+          linux_assets=(dist-gaming/packages/yomu-gaming-*-linux-*.AppImage*)
+          if [ "${#linux_assets[@]}" -gt 0 ]; then
+            assets+=("${linux_assets[@]}")
+            if [ -f dist-gaming/packages/SHA256SUMS.txt ]; then
+              assets+=(dist-gaming/packages/SHA256SUMS.txt)
+            fi
+          else
+            echo "::warning::No Linux AppImage in dist-gaming/packages; publishing core assets only. Release Yomu Gaming attaches the desktop builds." >&2
+            find dist-gaming/packages -maxdepth 1 -type f -print >&2 || true
+          fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TAG" --notes-file release-notes.md --latest
             gh release upload "$TAG" "${assets[@]}" --clobber

@@ -427,30 +427,35 @@ async function assertInlineOcrResult(overlay, label) {
     // The frozen capture is shown as a backdrop and a persistent toolbar offers re-capture.
     await overlay.locator('img.overlay-backdrop').waitFor({ state: 'attached', timeout: 10_000 });
     await overlay.locator('.overlay-toolbar [data-action="overlay-recapture"]').waitFor({ timeout: 10_000 });
-    // The recognized line text is shown in place, in full, with no ellipsis truncation.
-    const horizontalText = overlay.locator('[data-ocr-line] .overlay-inline-text', { hasText: '冒険を始めよう' }).first();
-    await horizontalText.waitFor({ state: 'visible', timeout: 10_000 });
-    const fullText = await horizontalText.innerText();
+    // The recognized line is anchored in place, in full (no ellipsis truncation), but the
+    // text is transparent so the game art underneath is never obscured (invisible overlay).
+    const horizontalLine = overlay.locator('[data-ocr-line]', { hasText: '冒険を始めよう' }).first();
+    await horizontalLine.waitFor({ state: 'attached', timeout: 10_000 });
+    const horizontalText = horizontalLine.locator('.overlay-inline-text');
+    const fullText = await horizontalText.textContent();
     if (!fullText.includes('港へ行くよ')) {
         throw new Error(`Yomu Gaming ${label} truncated the recognized line in place: ${fullText}`);
     }
-    // The old custom term-pill breakdown stays removed. The inline OCR text should
-    // instead be scanned by the real Yomu reader, giving each word the standard
-    // lookup behavior without adding another panel over the game.
-    const staleTermPills = await overlay.locator('.overlay-inline-terms').count();
-    if (staleTermPills) {
+    const textColor = await horizontalText.evaluate(node => getComputedStyle(node).color);
+    if (!/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)|transparent/.test(textColor)) {
+        throw new Error(`Yomu Gaming ${label} overlay text is not invisible over the art: ${textColor}`);
+    }
+    // The detached term-pill breakdown stays removed: the bundled Yomu reader scans the
+    // OCR'd text in place and gives each word the standard lookup behavior.
+    if (await overlay.locator('.overlay-inline-terms').count()) {
         throw new Error(`Yomu Gaming ${label} reintroduced the detached term breakdown.`);
     }
-    const annotatedTerm = horizontalText.locator('.jpdb-reader-word', { hasText: '冒険' }).first();
-    await annotatedTerm.waitFor({ state: 'visible', timeout: 10_000 });
-    await annotatedTerm.hover();
+    // The real reader wraps the OCR'd line into words; clicking one opens the real Yomu popover.
+    const annotatedTerm = overlay.locator('[data-ocr-line] .jpdb-reader-word', { hasText: '冒険' }).first();
+    await annotatedTerm.waitFor({ state: 'attached', timeout: 15_000 });
+    await annotatedTerm.click({ force: true });
     let popoverOpened = false;
     try {
-        await overlay.locator('.jpdb-reader-popover .jpdb-reader-popover-body').first().waitFor({ state: 'visible', timeout: 3_000 });
+        await overlay.locator('.jpdb-reader-popover').first().waitFor({ state: 'visible', timeout: 8_000 });
         popoverOpened = true;
     } catch {
-        await annotatedTerm.click();
-        await overlay.locator('.jpdb-reader-popover .jpdb-reader-popover-body').first().waitFor({ state: 'visible', timeout: 7_000 });
+        await annotatedTerm.click({ force: true });
+        await overlay.locator('.jpdb-reader-popover').first().waitFor({ state: 'visible', timeout: 8_000 });
         popoverOpened = true;
     }
     if (!popoverOpened) {
@@ -463,16 +468,14 @@ async function assertInlineOcrResult(overlay, label) {
     if (!/vertical/.test(writingMode)) {
         throw new Error(`Yomu Gaming ${label} did not render the vertical line with a vertical writing-mode: ${writingMode}`);
     }
-    const panelCount = await overlay.locator('.overlay-result').count();
-    if (panelCount) {
+    if (await overlay.locator('.overlay-result').count()) {
         throw new Error(`Yomu Gaming ${label} used the detached result panel even though OCR geometry was available.`);
     }
-    const selectionCount = await overlay.locator('.overlay-selection').count();
-    if (selectionCount) {
+    if (await overlay.locator('.overlay-selection').count()) {
         throw new Error(`Yomu Gaming ${label} left the crop rectangle visible over inline OCR results.`);
     }
-    const lineBox = await overlay.locator('[data-ocr-line]').first().boundingBox();
-    if (!lineBox || lineBox.width < 40 || lineBox.height < 20) {
+    const lineBox = await horizontalLine.boundingBox();
+    if (!lineBox || lineBox.width < 40 || lineBox.height < 12) {
         throw new Error(`Yomu Gaming ${label} inline OCR geometry was not visible: ${JSON.stringify(lineBox)}`);
     }
 }

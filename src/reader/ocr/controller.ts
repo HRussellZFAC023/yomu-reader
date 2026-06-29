@@ -1130,6 +1130,7 @@ export class ImageOcrController {
         element.addEventListener('pointerenter', () => this.activateOcrMarkup(element));
         element.addEventListener('focusin', () => this.activateOcrMarkup(element));
         element.addEventListener('pointerdown', event => this.activateOcrLineFromPointer(state, element, event), true);
+        element.addEventListener('keydown', event => this.toggleOcrLinePinnedFromKeyboard(state, element, event));
         element.addEventListener('click', event => this.toggleOcrLinePinned(state, element, event));
         return element;
     }
@@ -1143,6 +1144,17 @@ export class ImageOcrController {
         element.focus({ preventScroll: true });
         this.pinLine(state, element);
         this.pointerActivatedOcrLines.set(element, Date.now());
+    }
+
+    private toggleOcrLinePinnedFromKeyboard(state: ImageState, element: HTMLElement, event: KeyboardEvent): void {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        if (element.dataset.pinned === 'true') {
+            this.unpinLine(element);
+        } else {
+            this.pinLine(state, element);
+        }
+        event.preventDefault();
+        event.stopPropagation();
     }
 
     private toggleOcrLinePinned(state: ImageState, element: HTMLElement, event: MouseEvent): void {
@@ -1180,12 +1192,14 @@ export class ImageOcrController {
         this.activateOcrMarkup(element);
         element.classList.add('jpdb-ocr-line-active');
         element.dataset.pinned = 'true';
+        element.setAttribute('aria-pressed', 'true');
         this.schedulePosition();
     }
 
     private unpinLine(element: HTMLElement): void {
         element.classList.remove('jpdb-ocr-line-active');
         element.dataset.pinned = 'false';
+        element.setAttribute('aria-pressed', 'false');
         this.schedulePosition();
     }
 
@@ -2595,7 +2609,9 @@ function createOcrLineElement(
     setOcrLineDataset(element, result, line, sentence);
     element.tabIndex = 0;
     element.style.writingMode = line.vertical ? 'vertical-rl' : 'horizontal-tb';
+    element.setAttribute('role', 'button');
     element.setAttribute('aria-label', line.text);
+    element.setAttribute('aria-pressed', 'false');
     const textElement = createOcrLineText(line, tokens, settings);
     element.append(textElement);
     element.dataset.hasFuri = String(Boolean(textElement.querySelector('.jpdb-reader-has-furi')));

@@ -232,13 +232,49 @@ describe('OCR sentence focus', () => {
             });
 
             const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            expect(line.getAttribute('role')).toBe('button');
+            expect(line.getAttribute('aria-pressed')).toBe('false');
             line.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
 
             expect(document.querySelector('.jpdb-ocr-touch-panel')).toBeNull();
             expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
+            expect(line.getAttribute('aria-pressed')).toBe('true');
 
             document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
             expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
+            expect(line.getAttribute('aria-pressed')).toBe('false');
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('toggles OCR sentence focus from the keyboard', async () => {
+        stubInstantIntersectionObserver();
+        const { controller } = createOcrImageControllerFixture();
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            });
+
+            const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            const enter = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter' });
+            line.dispatchEvent(enter);
+
+            expect(enter.defaultPrevented).toBe(true);
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
+            expect(line.getAttribute('aria-pressed')).toBe('true');
+
+            const space = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: ' ' });
+            line.dispatchEvent(space);
+
+            expect(space.defaultPrevented).toBe(true);
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
+            expect(line.getAttribute('aria-pressed')).toBe('false');
         } finally {
             controller.destroy();
             vi.unstubAllGlobals();
@@ -263,9 +299,11 @@ describe('OCR sentence focus', () => {
 
             expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
             expect(line.dataset.pinned).toBe('true');
+            expect(line.getAttribute('aria-pressed')).toBe('true');
 
             document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
             expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
+            expect(line.getAttribute('aria-pressed')).toBe('false');
         } finally {
             controller.destroy();
             vi.unstubAllGlobals();
@@ -734,10 +772,15 @@ describe('OCR sentence focus', () => {
         expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active),');
         expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="light"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)');
         expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) { color: var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text));');
-        expect(normalizedCss).toContain('--jpdb-ocr-auto-dark-surface: color-mix( in srgb, var(--jpdb-reader-accent, #5ea780) 72%, var(--jpdb-reader-theme-dark-surface, #20242b) 28% );');
-        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) { color: var(--jpdb-reader-accent-text, #11161d); text-shadow: none; background: var(--jpdb-ocr-auto-dark-active);');
+        expect(normalizedCss).toContain('--jpdb-ocr-auto-dark-surface: color-mix( in srgb, rgba(9, 13, 20, 0.64) 78%, var(--jpdb-reader-accent, #5ea780) 22% );');
+        expect(normalizedCss).toContain('--jpdb-ocr-auto-dark-visible: color-mix( in srgb, var(--jpdb-ocr-auto-dark-surface) 54%, transparent );');
+        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] .jpdb-ocr-line-visible { color: var(--jpdb-reader-video-text, #ffffff);');
+        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) { color: var(--jpdb-reader-video-text, #ffffff); text-shadow: 0 2px 2px var(--jpdb-reader-video-outline, rgba(0, 0, 0, 0.88)), 0 0 4px var(--jpdb-reader-video-outline, rgba(0, 0, 0, 0.88)); background: var(--jpdb-ocr-auto-dark-active);');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:focus-visible { outline: 2px solid var(--jpdb-reader-accent, #5ea780); outline-offset: 2px; }');
         expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="light"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
-        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-accent-text, #11161d);');
+        expect(normalizedCss).toContain('.jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"] .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-video-text, #ffffff);');
+        expect(normalizedCss).toContain('var(--jpdb-reader-word-color-source, var(--jpdb-reader-video-text, #ffffff))');
+        expect(normalizedCss).toContain('text-shadow: inherit;');
     });
 
     it('keeps the paused-frame OCR status pill readable in light mode', () => {

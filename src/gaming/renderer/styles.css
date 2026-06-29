@@ -558,10 +558,36 @@ textarea {
     gap: 10px;
 }
 
-.overlay-lookup-term {
-    font-size: 24px;
+.overlay-lookup-line {
+    overflow: hidden;
+    font-size: 17px;
     font-weight: 850;
-    line-height: 1.1;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.overlay-lookup-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.overlay-lookup-chips button {
+    min-height: 26px;
+    padding: 0 10px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jpdb-reader-black) 42%, transparent);
+    color: var(--jpdb-reader-white);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.overlay-lookup-chips button.is-selected {
+    border-color: color-mix(in srgb, var(--jpdb-reader-accent) 70%, transparent);
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
 }
 
 .overlay-lookup-head button {
@@ -814,6 +840,7 @@ textarea {
 .overlay-inline-line:hover,
 .overlay-inline-line:focus-within {
     background: color-mix(in srgb, var(--jpdb-reader-accent) 16%, transparent);
+    cursor: pointer;
 }
 
 .overlay-inline-line[data-vertical="true"] {
