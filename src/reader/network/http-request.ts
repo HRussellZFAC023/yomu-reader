@@ -3,6 +3,10 @@ import type { ReaderHttpOptions } from './http-options';
 import { getUserscriptHttpRequest } from '../userscript/index';
 
 export async function requestHttp(url: string, options: ReaderHttpOptions = {}): Promise<unknown> {
+    // Offline-first: when the browser is offline, skip the cross-origin attempt and
+    // let callers fall back to cache or queue the write (keeps an offline study run
+    // from firing doomed requests). Same-origin still flows (service worker serves it).
+    if (__YOMU_NEWTAB_BUILD__ && !navigator.onLine && !isSameOriginUrl(url)) throw Error('Offline');
     const userscriptRequest = getUserscriptHttpRequest();
     // preferFetch only makes sense same-origin; cross-origin fetch is blocked by
     // strict page CSPs (e.g. jpdb.io), so route it through the userscript request

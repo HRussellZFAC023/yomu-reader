@@ -33,6 +33,9 @@ export const SESSION_WORD_KEY = 'jpdb-reader-newtab-current-word';
 export const JPDB_ALL_DECKS = 'all';
 export const JPDB_DECK_SAMPLE_LIMIT = 6;
 export const NEW_TAB_WORD_LIMIT = 180;
+// Cap on how many of the session's due cards are pre-warmed into the offline cache
+// (definition + meta + pitch) so a study run works fully offline without a network.
+export const NEW_TAB_OFFLINE_WARM_LIMIT = 80;
 export const NEW_TAB_FALLBACK_SUPPLEMENT_MIN = 12;
 export const NEW_TAB_DICTIONARY_FALLBACK_RANKS = [2000, 6000] as const;
 export const NEW_TAB_NAVIGATION_DEDUPE_MS = 550;

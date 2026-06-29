@@ -1,10 +1,25 @@
 # Changelog
 
-## [1.4.220] - 2026-06-28
+## [1.4.221] - 2026-06-29
 
 ### Fixed
 
 - Removed the experimental subtitle Shadow drawer from the release branch so Yomu Video stays lean and publishable.
+
+## [1.4.220] - 2026-06-29
+
+### Added
+
+- Made study reviews work fully offline: every due card is warmed into the cache up front, grades are queued locally and sync back automatically when you reconnect, and a cached-card count plus a sync status now sit next to the session timer.
+
+### Changed
+
+- Cleaned up the study card front: the audio button now sits inline next to the word, the headword block is centered, the source pills are hidden on the front (they stay in the lookup view), and the landscape layout on iPad is tidier.
+
+## [1.4.219] - 2026-06-28
+
+### Fixed
+
 - Suppressed furigana on compact stacked app notices and helper rows that sit above action chips, including mobile YouTube AI question prompts, while keeping readable prose and media titles annotated. This keeps ruby from overlapping nearby controls on narrow layouts.
 
 ## [1.4.218] - 2026-06-28

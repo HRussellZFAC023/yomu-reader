@@ -77,10 +77,13 @@ export function newTabImmersionAudioUrls(example: ImmersionKitExample, client: I
 
 export function renderNewTabImmersionImage(imageUrl: string, overlay: HTMLElement | null = null): HTMLElement | null {
     if (!imageUrl) return null;
-    return el('div', { class: 'jpdb-reader-example-media' },
-        el('img', { class: 'jpdb-reader-example-image', src: imageUrl, alt: '', loading: 'eager', decoding: 'async', referrerPolicy: 'no-referrer', dataset: { yomuImmersionImageSrc: imageUrl } }),
-        overlay,
-    );
+    // Offline-first: don't paint the remote URL while the browser is offline — that
+    // fires a doomed media fetch. The blob-cache swap (fetchBlobUrl) still fills in a
+    // warmed image when one is cached; otherwise the image just stays hidden.
+    const online = typeof navigator === 'undefined' || navigator.onLine !== false;
+    const image = el('img', { class: 'jpdb-reader-example-image', alt: '', loading: 'eager', decoding: 'async', referrerPolicy: 'no-referrer', dataset: { yomuImmersionImageSrc: imageUrl } }) as HTMLImageElement;
+    if (online) image.src = imageUrl;
+    return el('div', { class: 'jpdb-reader-example-media' }, image, overlay);
 }
 
 export function syncNewTabImmersionFrameSubtitleSize(root: HTMLElement): void {

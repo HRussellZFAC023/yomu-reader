@@ -24,6 +24,7 @@ if (!library) {
 export default defineConfig({
     define: {
         __YOMU_EXTENSION_BUILD__: JSON.stringify(false),
+        __YOMU_NEWTAB_BUILD__: JSON.stringify(false),
         __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__: JSON.stringify(process.env.YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID ?? ''),
     },
     resolve: {

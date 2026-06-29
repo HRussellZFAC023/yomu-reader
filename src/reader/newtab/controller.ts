@@ -295,6 +295,7 @@ import {
     NEW_TAB_UNDO_REVIEW_WINDOW_MS,
     NEW_TAB_STATS_JPDB_CARD_LIMIT,
     NEW_TAB_STATS_JPDB_HISTORY_KEY,
+    NEW_TAB_OFFLINE_WARM_LIMIT,
     NEW_TAB_STUDY_INTERACTIVE_SELECTOR,
     NEW_TAB_WORD_LIMIT,
     NEW_TAB_WORD_STATE_CLASSES,
@@ -362,6 +363,14 @@ function orderedNewTabStatsProviderLabel(results: NewTabStatsApiProviderResult[]
         .map(result => result.provider.label)
         .sort((a, b) => newTabStatsProviderLabelRank(a) - newTabStatsProviderLabelRank(b))
         .join(' + ');
+}
+
+// Run low-priority work (offline cache warming) when the browser is idle, falling
+// back to a short timer where requestIdleCallback is unavailable (Safari/jsdom).
+function scheduleIdle(task: () => void): void {
+    const idle = (globalThis as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+    if (typeof idle === 'function') idle(task, { timeout: 1200 });
+    else setTimeout(task, 60);
 }
 
 function newTabStatsProviderLabelRank(label: string): number {
@@ -669,6 +678,12 @@ export class NewTabController {
     private keywordCache = new Map<string, string>();
     private readonly kanjiDetailSource: KanjiDetailSource;
     private readonly gradeQueue: NewTabGradeQueue;
+    // Offline-first session state surfaced next to the timer: how many review cards
+    // are warmed for offline study, plus the write-behind sync status.
+    private readonly offlineReadyKeys = new Set<string>();
+    private offlineWarmSignature = '';
+    private syncPendingCount = 0;
+    private lastSyncedAt: number | null = null;
     private uchisenDataCache = new Map<string, Promise<UchisenData | null>>();
     private immersionCache = new Map<string, Promise<ImmersionKitExample[]>>();
     private immersionExampleIndex = new Map<string, number>();
@@ -4034,7 +4049,9 @@ export class NewTabController {
 
     private renderSessionProgress(slots: NewTabStudySlots, card: JPDBCard, root: HTMLElement): void {
         const baseLabel = this.newTabCountLabel(card);
-        const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(this.sessionProgressCards()) : null;
+        const reviewCards = this.reviewCountMode ? this.sessionProgressCards() : [];
+        const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(reviewCards) : null;
+        if (this.reviewCountMode) this.warmOfflineCache(reviewCards);
         const labels = [
             this.fallbackStudyNotice ? this.text('reviewFallbackNotice') : '',
             this.dueSummaryLabel(),
@@ -4044,6 +4061,8 @@ export class NewTabController {
                 left: this.text('sessionLeft'),
                 due: this.text('statsDue'),
             }) : this.sessionElapsedLabel(),
+            snapshot ? this.offlineCacheSegment() : '',
+            snapshot ? this.syncStatusSegment() : '',
             this.dailyGoalLabel(),
         ].filter(Boolean);
         this.ensureSessionClock(root);
@@ -4059,6 +4078,63 @@ export class NewTabController {
     // it ticking and accumulates visible-tab time into the daily goal.
     private sessionElapsedLabel(): string {
         return formatNewTabSessionElapsed(this.sessionProgress.snapshot([]).elapsedMs);
+    }
+
+    // "cached N" — how many of the session's review cards are warmed for offline
+    // study (definition + meta + pitch persisted). Shown next to the timer.
+    private offlineCacheSegment(): string {
+        const count = this.offlineReadyKeys.size;
+        return count > 0 ? `${this.text('sessionCached')} ${count}` : '';
+    }
+
+    // Eventually-consistent sync status: how many grades are still queued to sync
+    // back to the providers, or a synced confirmation once the queue drains.
+    private syncStatusSegment(): string {
+        if (this.syncPendingCount > 0) return `${this.text('syncPending')} ${this.syncPendingCount}`;
+        return this.lastSyncedAt != null ? this.text('syncSynced') : '';
+    }
+
+    private markCardOfflineReady(card: JPDBCard): void {
+        const before = this.offlineReadyKeys.size;
+        this.offlineReadyKeys.add(this.offlineReadyKey(card));
+        if (this.offlineReadyKeys.size !== before) this.refreshSessionProgressSoon();
+    }
+
+    private offlineReadyKey(card: JPDBCard): string {
+        return card.sourceCardKey || cardKey(card);
+    }
+
+    private refreshSessionProgressSoon(): void {
+        // The 1s session clock already re-renders the progress line, so we only
+        // nudge a render when a clock is not active (e.g. just after enqueue).
+        const root = this.sessionClockRoot;
+        const card = this.visibleWords[this.index];
+        if (root?.isConnected && card && this.state.mode === 'word') {
+            this.renderSessionProgress(this.studySlots(root), card, root);
+        }
+    }
+
+    // Warm every due card's render data into the persistent caches once per session
+    // card-set, so an offline study run never has to reach the network. Bounded and
+    // yields between cards to avoid blocking the UI; only runs while online.
+    private warmOfflineCache(cards: readonly JPDBCard[]): void {
+        const load = this.dependencies.loadCardRenderData;
+        if (!load || typeof navigator !== 'undefined' && navigator.onLine === false) return;
+        const signature = `${cards.length}:${cards.slice(0, 3).map(card => this.offlineReadyKey(card)).join(',')}`;
+        if (signature === this.offlineWarmSignature) return;
+        this.offlineWarmSignature = signature;
+        const queue = cards.slice(0, NEW_TAB_OFFLINE_WARM_LIMIT);
+        const warmNext = async (index: number): Promise<void> => {
+            if (index >= queue.length) return;
+            const card = queue[index];
+            if (!this.offlineReadyKeys.has(this.offlineReadyKey(card)) && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+                await load(card).then(() => this.markCardOfflineReady(card)).catch(() => undefined);
+            } else {
+                this.markCardOfflineReady(card);
+            }
+            scheduleIdle(() => void warmNext(index + 1));
+        };
+        scheduleIdle(() => void warmNext(0));
     }
 
     private dailyGoalLabel(): string {
@@ -4746,25 +4822,35 @@ export class NewTabController {
         const reading = rawReading && !isPlainReadingDuplicatedByVisibleRuby(card, { ...settings, furiganaMode: 'all', showFurigana: true }, rawReading)
             ? rawReading
             : '';
-        const pills = data
-            ? this.dependencies.renderStudyWordPills?.(card, data.metaEntries, data.ankiLookup)
-                ?? this.dependencies.renderSearchWordPills?.(card, data.metaEntries, data.ankiLookup)
-                ?? ''
-            : '';
         let pitch = '';
         if (settings.showPitchAccent) {
             pitch = renderPitch(card, data?.metaEntries ?? [])
                 || (data ? renderExpressionComponentPitches(data.componentPitches ?? []) : '');
         }
         const pitchNode = pitch ? htmlToFirstElement(pitch) : null;
-        const pillsNode = pills ? htmlToFirstElement(pills) : null;
         const frequency = card.frequencyRank
             ? el('span', { class: 'jpdb-reader-meta jpdb-reader-newtab-study-meta' },
                 el('span', { class: 'jpdb-reader-frequency-pill' }, `#${card.frequencyRank}`))
             : null;
+        // Source pills (Jiten/JPDB/Jisho/コピー/Yomu/Jiten live) are intentionally NOT
+        // shown on the study card front — they stay in the lookup/detail view. The
+        // front keeps only the reading, frequency, and pitch as compact centered meta.
+        return el('span', { class: 'jpdb-reader-newtab-study-tools', dataset: { newtabStudyTools: true } },
+            el('span', { class: 'jpdb-reader-newtab-study-tool-main' },
+                reading ? el('span', { class: 'jpdb-reader-reading' }, reading) : null,
+                frequency,
+            ),
+            pitchNode ? el('span', { class: 'jpdb-reader-card-tools' }, pitchNode) : null,
+        );
+    }
+
+    // The study-word audio control now lives inline next to the headword (see
+    // renderSentencePrompt) instead of off to the side of the meta row.
+    private renderStudyWordAudioButton(): HTMLElement {
+        const settings = this.dependencies.getSettings();
         const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled');
         const audioButton = el('button', {
-            class: 'jpdb-reader-icon-btn jpdb-reader-audio-control',
+            class: 'jpdb-reader-icon-btn jpdb-reader-audio-control jpdb-reader-newtab-term-audio',
             type: 'button',
             dataset: { action: 'study-word-audio' },
             'aria-label': audioTitle,
@@ -4772,17 +4858,7 @@ export class NewTabController {
             disabled: !settings.audioEnabled,
         });
         setInnerHtml(audioButton, speakerIcon());
-        return el('span', { class: 'jpdb-reader-newtab-study-tools', dataset: { newtabStudyTools: true } },
-            el('span', { class: 'jpdb-reader-newtab-study-tool-main' },
-                reading ? el('span', { class: 'jpdb-reader-reading' }, reading) : null,
-                frequency,
-                pillsNode,
-            ),
-            el('span', { class: 'jpdb-reader-card-tools' },
-                pitchNode,
-                audioButton,
-            ),
-        );
+        return audioButton;
     }
 
     private async enrichWordPromptDetails(
@@ -4802,8 +4878,9 @@ export class NewTabController {
             || prompt.dataset.newtabStudyToolsRequest !== requestId
             || this.state.mode !== 'word'
             || cardKey(this.visibleWords[this.index]) !== key) return;
+        this.markCardOfflineReady(card);
         this.applyLocalStudyReading(card, data);
-        const term = prompt.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-front > .jpdb-reader-newtab-term');
+        const term = prompt.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-front .jpdb-reader-newtab-term');
         if (term) replaceChildrenWith(term, this.renderPromptReaderWord(card, state, currentSentence || card.spelling));
         prompt.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-front > [data-newtab-study-tools]')
             ?.replaceWith(this.renderWordPromptTools(card, data));
@@ -4887,7 +4964,10 @@ export class NewTabController {
 
     private renderSentencePrompt(card: JPDBCard, state: ReturnType<typeof primaryCardState>, sentence = ''): HTMLElement {
         const wrap = el('span', { class: 'jpdb-reader-newtab-front' },
-            el('span', { class: 'jpdb-reader-newtab-term' }, this.renderPromptReaderWord(card, state, sentence || card.spelling)),
+            el('span', { class: 'jpdb-reader-newtab-term-row' },
+                el('span', { class: 'jpdb-reader-newtab-term' }, this.renderPromptReaderWord(card, state, sentence || card.spelling)),
+                this.renderStudyWordAudioButton(),
+            ),
             this.renderWordPromptTools(card),
         );
         if (!sentence) return wrap;
@@ -4998,7 +5078,7 @@ export class NewTabController {
     }
 
     private updatePromptTermSentence(wrap: HTMLElement, sentence: string): void {
-        wrap.querySelectorAll<HTMLElement>(':scope > .jpdb-reader-newtab-term .jpdb-reader-word')
+        wrap.querySelectorAll<HTMLElement>(':scope .jpdb-reader-newtab-term .jpdb-reader-word')
             .forEach(word => { word.dataset.sentence = sentence; });
     }
 
@@ -7901,8 +7981,12 @@ export class NewTabController {
         if (!target) return false;
         if (!this.canReviewCard(target.card)) return false;
         const isCorrection = this.isReviewHistoryCard(target.card);
-        if (this.isOfflineSourceLabel(this.sourceLabel)) {
+        // Offline-first: when the browser is definitely offline, queue the grade
+        // straight away instead of attempting a doomed submit. The queue syncs on
+        // reconnect (eventually consistent), so no review is ever lost.
+        if (this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false) {
             if (await this.gradeQueue.enqueue(target.card, grade, this.offlineGradeTargets(target.card))) {
+                this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
                 this.setStatus(target.root, this.text('offlineGradeReconnect'));
                 if (!isCorrection) this.sessionProgress.recordReviewCompleted();
                 this.advanceAfterGrade(target.root, target.card, grade);
@@ -7931,6 +8015,7 @@ export class NewTabController {
         } catch (error) {
             log.warn('New tab grade failed', { term: target.card.spelling, source: target.card.source, grade }, error);
             if (!selectedTarget && await this.gradeQueue.enqueue(target.card, grade, this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card))) {
+                this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
                 this.setStatus(target.root, this.text('offlineGradeReconnect'));
                 if (!isCorrection) this.sessionProgress.recordReviewCompleted();
                 this.advanceAfterGrade(target.root, target.card, grade);
@@ -8256,8 +8341,11 @@ export class NewTabController {
         return this.offlineGradeTargets(card)[0] ?? null;
     }
 
-    private flushQueuedGrades(): Promise<void> {
-        return this.gradeQueue.flush();
+    private async flushQueuedGrades(): Promise<void> {
+        const remaining = await this.gradeQueue.flush();
+        this.syncPendingCount = remaining;
+        if (remaining === 0) this.lastSyncedAt = Date.now();
+        this.refreshSessionProgressSoon();
     }
 
     private async submitQueuedGrade(item: QueuedNewTabGrade): Promise<boolean> {
