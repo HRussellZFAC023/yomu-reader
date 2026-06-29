@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.239] - 2026-06-29
+
+### Fixed
+
+- Restored settings saved under previous storage keys during update/reinstall recovery, including theme and accent color, while preserving any newer settings already changed after the update.
+
 ## [1.4.238] - 2026-06-29
 
 ### Fixed

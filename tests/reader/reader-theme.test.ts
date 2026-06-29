@@ -7,10 +7,10 @@ import { ReaderApp } from '../../src/reader/app/main';
 import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../src/reader/theme/color-utils';
 import { applyReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
 import { refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
-import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../src/reader/settings/index';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
-const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
+const SETTINGS_STORAGE_KEY = SETTINGS_STORAGE_KEYS[0];
 const JAPANESE_SURFACE_CSS = [
     'src/reader/styles/popover-core.css',
     'src/reader/styles/kanji.css',
@@ -102,7 +102,7 @@ describe('reader theme', () => {
         resetReaderRootClassGuardForTests();
         document.documentElement.className = '';
         document.documentElement.removeAttribute('style');
-        localStorage.removeItem(SETTINGS_STORAGE_KEY);
+        for (const key of SETTINGS_STORAGE_KEYS) localStorage.removeItem(key);
     });
 
     it('does not throw when the userscript starts before document.documentElement exists', () => {
@@ -1090,6 +1090,52 @@ describe('reader theme', () => {
         const applied = applyReaderTheme(settings);
 
         expectPitchUnderlineOnlySettings(settings, applied, { subtitle: false });
+    });
+
+    it('promotes appearance settings saved under the previous storage key', async () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS[1], JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            theme: 'dark',
+            accentColor: '#ff3366',
+            wordColorKnown: '#123456',
+        }));
+
+        const settings = await loadSettings();
+        const stored = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEYS[0]) ?? '{}');
+
+        expect(settings.theme).toBe('dark');
+        expect(settings.accentColor).toBe('#ff3366');
+        expect(settings.wordColorKnown).toBe('#123456');
+        expect(stored.theme).toBe('dark');
+        expect(stored.accentColor).toBe('#ff3366');
+        expect(stored.wordColorKnown).toBe('#123456');
+    });
+
+    it('recovers legacy appearance settings when the current key was written with defaults', async () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS[0], JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'ja',
+            popoverWidth: 640,
+        }));
+        localStorage.setItem(SETTINGS_STORAGE_KEYS[1], JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            theme: 'dark',
+            accentColor: '#ff3366',
+            interfaceLanguage: 'auto',
+            popoverWidth: 480,
+        }));
+
+        const settings = await loadSettings();
+        const stored = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEYS[0]) ?? '{}');
+
+        expect(settings.theme).toBe('dark');
+        expect(settings.accentColor).toBe('#ff3366');
+        expect(settings.interfaceLanguage).toBe('ja');
+        expect(settings.popoverWidth).toBe(640);
+        expect(stored.theme).toBe('dark');
+        expect(stored.accentColor).toBe('#ff3366');
+        expect(stored.interfaceLanguage).toBe('ja');
+        expect(stored.popoverWidth).toBe(640);
     });
 
     it('does not apply double pitch channels from stale in-memory settings', () => {

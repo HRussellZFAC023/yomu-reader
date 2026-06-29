@@ -155,6 +155,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Restored settings saved under previous storage keys during update/reinstall recovery, including theme and accent color, while preserving any newer settings already changed after the update.': '更新または再インストール後の復旧時に、以前の保存キーに残っていたテーマやアクセントカラーなどの設定を復元し、更新後に変更された新しい設定は保持するようにしました。',
     'Fixed the study mode tab row so all six study tabs including Listen fit on one row instead of pushing the Listen tab onto a second line.': '学習モードのタブ列を修正し、リスニングを含む6つのタブがすべて1行に収まるようにしました。リスニングのタブが2行目に押し出されなくなります。',
     'Removed the note that said nothing uploads from the video player start screen in English and Japanese.': 'ビデオプレーヤーの開始画面から、アップロードはされませんという注記を英語と日本語で削除しました。',
     // Docs JA localization sweep (verified)

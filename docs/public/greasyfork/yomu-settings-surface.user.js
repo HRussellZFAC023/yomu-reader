@@ -2864,14 +2864,17 @@
   }
   async function saveSettings(settings) {
     try {
-      const normalizedSettings = mergeSettings(settings);
-      const storedSettings = stripUnsupportedSettings(normalizedSettings) ?? normalizedSettings;
-      await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
-      dispatchSettingsChange(storedSettings);
+      await persistSettings(settings);
     } catch (error) {
       log$4.warn("Settings save failed", { error });
       throw error;
     }
+  }
+  async function persistSettings(settings) {
+    const normalizedSettings = mergeSettings(settings);
+    const storedSettings = stripUnsupportedSettings(normalizedSettings) ?? normalizedSettings;
+    await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
+    dispatchSettingsChange(storedSettings);
   }
   function dispatchSettingsChange(settings) {
     try {

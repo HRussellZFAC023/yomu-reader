@@ -7137,12 +7137,39 @@ recommendedJiten	Jiten由来の頻度バッジです。
   async function loadSettings() {
     if (settingsResetInProgress) return mergeSettings(null);
     try {
-      const settings = mergeSettings(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
+      const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
+      let settings = mergeSettings(currentRecord);
+      let recoveredLegacySettings = false;
+      for (const key of LEGACY_SETTINGS_STORAGE_KEYS) {
+        const legacyRecord = settingsRecord(await gmStorageGet(key, null));
+        if (!legacyRecord) continue;
+        const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord));
+        settings = recovery.settings;
+        recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
+      }
+      if (recoveredLegacySettings) await persistSettings(settings);
       return settings;
     } catch (error) {
       log$B.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
+  }
+  function recoverLegacySettings(current, legacy) {
+    let settings = current;
+    let changed = false;
+    for (const key of Object.keys(DEFAULT_SETTINGS)) {
+      if (!settingsValueEquals(settings[key], DEFAULT_SETTINGS[key])) continue;
+      if (settingsValueEquals(legacy[key], DEFAULT_SETTINGS[key])) continue;
+      settings = { ...settings, [key]: legacy[key] };
+      changed = true;
+    }
+    return { settings, changed };
+  }
+  function settingsRecord(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  }
+  function settingsValueEquals(left, right) {
+    return left === right || JSON.stringify(left) === JSON.stringify(right);
   }
   function subscribeToSettingsStorageChanges(onSettings) {
     return subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, (value) => onSettings(mergeSettings(value)));
@@ -7153,14 +7180,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return;
     }
     try {
-      const normalizedSettings = mergeSettings(settings);
-      const storedSettings = stripUnsupportedSettings(normalizedSettings) ?? normalizedSettings;
-      await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
-      dispatchSettingsChange(storedSettings);
+      await persistSettings(settings);
     } catch (error) {
       log$B.warn("Settings save failed", { error });
       throw error;
     }
+  }
+  async function persistSettings(settings) {
+    const normalizedSettings = mergeSettings(settings);
+    const storedSettings = stripUnsupportedSettings(normalizedSettings) ?? normalizedSettings;
+    await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
+    dispatchSettingsChange(storedSettings);
   }
   function dispatchSettingsChange(settings) {
     try {
@@ -25564,7 +25594,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.238".trim() ? "1.4.238".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.239".trim() ? "1.4.239".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

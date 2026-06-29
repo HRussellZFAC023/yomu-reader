@@ -1384,12 +1384,50 @@ function normalizedOcrEngineInput(value: unknown): string {
 export async function loadSettings(): Promise<ReaderSettings> {
     if (settingsResetInProgress) return mergeSettings(null);
     try {
-        const settings = mergeSettings(await gmStorageGet<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
+        const currentRecord = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
+        let settings = mergeSettings(currentRecord);
+        let recoveredLegacySettings = false;
+
+        for (const key of LEGACY_SETTINGS_STORAGE_KEYS) {
+            const legacyRecord = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(key, null));
+            if (!legacyRecord) continue;
+
+            const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord));
+            settings = recovery.settings;
+            recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
+        }
+
+        if (recoveredLegacySettings) await persistSettings(settings);
         return settings;
     } catch (error) {
         log.warn('Settings load failed', { error });
         return mergeSettings(null);
     }
+}
+
+function recoverLegacySettings(current: ReaderSettings, legacy: ReaderSettings): { settings: ReaderSettings; changed: boolean } {
+    let settings = current;
+    let changed = false;
+
+    for (const key of Object.keys(DEFAULT_SETTINGS) as Array<keyof ReaderSettings>) {
+        if (!settingsValueEquals(settings[key], DEFAULT_SETTINGS[key])) continue;
+        if (settingsValueEquals(legacy[key], DEFAULT_SETTINGS[key])) continue;
+
+        settings = { ...settings, [key]: legacy[key] };
+        changed = true;
+    }
+
+    return { settings, changed };
+}
+
+function settingsRecord(value: unknown): Partial<ReaderSettings> | null {
+    return value && typeof value === 'object' && !Array.isArray(value)
+        ? value as Partial<ReaderSettings>
+        : null;
+}
+
+function settingsValueEquals(left: unknown, right: unknown): boolean {
+    return left === right || JSON.stringify(left) === JSON.stringify(right);
 }
 
 export function subscribeToSettingsStorageChanges(onSettings: (settings: ReaderSettings) => void): () => void {
@@ -1402,14 +1440,18 @@ export async function saveSettings(settings: ReaderSettings): Promise<void> {
         return;
     }
     try {
-        const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
-        const storedSettings = stripUnsupportedSettings(normalizedSettings) ?? normalizedSettings;
-        await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
-        dispatchSettingsChange(storedSettings);
+        await persistSettings(settings);
     } catch (error) {
         log.warn('Settings save failed', { error });
         throw error;
     }
+}
+
+async function persistSettings(settings: ReaderSettings): Promise<void> {
+    const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
+    const storedSettings = stripUnsupportedSettings(normalizedSettings) ?? normalizedSettings;
+    await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
+    dispatchSettingsChange(storedSettings);
 }
 
 function dispatchSettingsChange(settings: Partial<ReaderSettings>): void {

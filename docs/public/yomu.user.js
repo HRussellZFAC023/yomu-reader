@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.238
+// @version 1.4.239
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.238
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.238
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.238
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.238
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.239
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.239
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.239
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.239
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -3598,12 +3598,39 @@ function normalizedOcrEngineInput(value) {
 async function loadSettings() {
   if (settingsResetInProgress) return mergeSettings(null);
   try {
-  const settings = mergeSettings(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
+  const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
+  let settings = mergeSettings(currentRecord);
+  let recoveredLegacySettings = false;
+  for (const key of LEGACY_SETTINGS_STORAGE_KEYS) {
+    const legacyRecord = settingsRecord(await gmStorageGet(key, null));
+    if (!legacyRecord) continue;
+    const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord));
+    settings = recovery.settings;
+    recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
+  }
+  if (recoveredLegacySettings) await persistSettings(settings);
   return settings;
   } catch (error) {
   log$m.warn("Settings load failed", { error });
   return mergeSettings(null);
   }
+}
+function recoverLegacySettings(current, legacy) {
+  let settings = current;
+  let changed = false;
+  for (const key of Object.keys(DEFAULT_SETTINGS)) {
+  if (!settingsValueEquals(settings[key], DEFAULT_SETTINGS[key])) continue;
+  if (settingsValueEquals(legacy[key], DEFAULT_SETTINGS[key])) continue;
+  settings = { ...settings, [key]: legacy[key] };
+  changed = true;
+  }
+  return { settings, changed };
+}
+function settingsRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function settingsValueEquals(left, right) {
+  return left === right || JSON.stringify(left) === JSON.stringify(right);
 }
 function subscribeToSettingsStorageChanges(onSettings) {
   return subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, (value) => onSettings(mergeSettings(value)));
@@ -3614,14 +3641,17 @@ async function saveSettings(settings) {
   return;
   }
   try {
-  const normalizedSettings = mergeSettings(settings);
-  const storedSettings = stripUnsupportedSettings(normalizedSettings) ?? normalizedSettings;
-  await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
-  dispatchSettingsChange(storedSettings);
+  await persistSettings(settings);
   } catch (error) {
   log$m.warn("Settings save failed", { error });
   throw error;
   }
+}
+async function persistSettings(settings) {
+  const normalizedSettings = mergeSettings(settings);
+  const storedSettings = stripUnsupportedSettings(normalizedSettings) ?? normalizedSettings;
+  await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
+  dispatchSettingsChange(storedSettings);
 }
 function dispatchSettingsChange(settings) {
   try {
@@ -37299,7 +37329,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.238"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.239"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
