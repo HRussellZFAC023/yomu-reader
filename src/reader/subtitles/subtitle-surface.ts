@@ -19,6 +19,8 @@ export interface SubtitleElementLayout {
     height: number;
 }
 
+export type SubtitlePanelMode = 'lines' | 'tracks';
+
 export function renderPanelNavigationControls(enabled: boolean, language: InterfaceLanguage): string {
     const previous = uiText(language, 'previousSubtitle');
     const next = uiText(language, 'nextSubtitle');
@@ -30,7 +32,7 @@ export function renderPanelNavigationControls(enabled: boolean, language: Interf
     `;
 }
 
-export function renderPanelModeControls(mode: 'lines' | 'tracks', canShowLines: boolean, language: InterfaceLanguage): string {
+export function renderPanelModeControls(mode: SubtitlePanelMode, canShowLines: boolean, language: InterfaceLanguage): string {
     return `
         <div class="jpdb-subtitle-panel-mode" aria-label="${escapeHtml(uiText(language, 'subtitlePanelMode'))}">
             <button type="button" data-action="panel-lines" aria-pressed="${mode === 'lines'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(uiText(language, 'subtitleLines'))}</button>

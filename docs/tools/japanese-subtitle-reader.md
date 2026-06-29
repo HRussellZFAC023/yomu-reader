@@ -25,7 +25,7 @@ Video is some of the best Japanese input you can get — if you can actually rea
 
 - **Lookup-ready Japanese lines** — every subtitle word can open the popup dictionary.
 - **A second language track** — show a native-language subtitle line underneath for support.
-- **A transcript panel** — dock it left, right, or below the video. The active line highlights as it plays, and visible lines are hydrated into the same lookup words, so you can skim, jump to a line, and open a popup without leaving the video.
+- **A transcript and shadowing drawer** — dock it left, right, or below the video. The transcript highlights the active line and hydrates visible lines into lookup words; the Shadow tab focuses the current line with replay, loop, hide/reveal text, parsed Japanese, and the optional second-language line.
 - **Shortcuts** — previous subtitle, next subtitle, copy subtitle, and mine. The panel can be set to open only while the video is paused, and becomes a bottom sheet on phones so the video stays usable.
 
 <figure class="yomu-feature-shot">
@@ -50,7 +50,7 @@ It gives you the sentence-mining flow people like in asbplayer, but in the same 
 
 1. Install the free [よむ userscript](https://yomureader.com/yomu.user.js) (see the [setup guide](/getting-started)).
 2. Open a Japanese video, or open the [Yomu video player](/video-player/index.html) and load a file.
-3. Open the subtitle controls, turn on the transcript panel, and choose a word.
+3. Open the subtitle controls, turn on the transcript panel, and choose a word — or use the Shadow tab to replay and speak the current line.
 
 ## Questions
 

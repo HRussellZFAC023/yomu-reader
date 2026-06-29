@@ -144,7 +144,7 @@ const COMPACT_MEDIA_RUBY_RISK_ANCESTOR_LIMIT = 8;
 const COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT = 10;
 const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
 const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
-const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[aria-live],${selectorPairs('alert,banner,notice,notification,snackbar,toast', ['class'])}`;
+const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs('alert,banner,notice,notification,snackbar,toast', ['class'])},${selectorPairs('assistant,prompt,question', ['class', 'id'])}`;
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
 const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;
@@ -1819,12 +1819,13 @@ function targetForcesAllFurigana(parent: HTMLElement): boolean {
 }
 
 function shouldSuppressCompactScanRuby(parent: HTMLElement): boolean {
-    if (isYouTubeHost()) return shouldSuppressCompactMediaRuby(parent);
-    const compactChrome = compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent);
-    if (compactChrome) compactChrome.dataset.jpdbReaderPassiveChrome = 'true';
-    const constrainedNotification = compactConstrainedNotificationElement(parent);
-    if (constrainedNotification) constrainedNotification.dataset.jpdbReaderPassiveChrome = 'true';
-    return Boolean(compactChrome || constrainedNotification || shouldSuppressCompactMediaRuby(parent));
+    if (shouldSuppressCompactMediaRuby(parent)) return true;
+    const notice = compactConstrainedNotificationElement(parent);
+    if (notice) notice.dataset.jpdbReaderPassiveChrome = 'true';
+    if (isYouTubeHost()) return Boolean(notice);
+    const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent);
+    if (chrome) chrome.dataset.jpdbReaderPassiveChrome = 'true';
+    return Boolean(chrome || notice);
 }
 
 function compactInteractiveChromeElement(parent: HTMLElement): HTMLElement | null {
@@ -1928,15 +1929,11 @@ function isNotificationLikeContainer(container: HTMLElement): boolean {
 }
 
 function hasConstrainedNotificationGeometry(container: HTMLElement, textElement: HTMLElement): boolean {
-    const containerStyle = safeComputedStyle(container);
-    const textStyle = safeComputedStyle(textElement);
     const rect = container.getBoundingClientRect();
     const textRect = textElement.getBoundingClientRect();
-    const constrainedText = hasLineClamp(textStyle) || isEllipsisTextRow(textStyle) || hasClippedTextConstraint(textStyle);
-    const constrainedContainer = hasLineClamp(containerStyle) || isEllipsisTextRow(containerStyle) || hasClippedTextConstraint(containerStyle);
-    const compactHeight = (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT)
-        && (textRect.height === 0 || textRect.height <= LAYOUT_SENSITIVE_MAX_BOX_HEIGHT);
-    return compactHeight && (constrainedText || constrainedContainer) && !notificationContainerLooksLikePageSection(container);
+    return (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT)
+        && (textRect.height === 0 || textRect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT)
+        && !notificationContainerLooksLikePageSection(container);
 }
 
 function notificationContainerLooksLikePageSection(container: HTMLElement): boolean {
@@ -1948,6 +1945,7 @@ function notificationContainerLooksLikePageSection(container: HTMLElement): bool
 function hasNotificationActionPeer(container: HTMLElement, textElement: HTMLElement): boolean {
     const selector = 'a[href],button,[role="button"],[role="link"],[data-action]';
     if (Array.from(container.querySelectorAll<HTMLElement>(selector)).some(action => !action.contains(textElement))) return true;
+    if (container === textElement) return false;
     const row = container.parentElement;
     if (!row) return false;
     return Array.from(row.querySelectorAll<HTMLElement>(selector)).some(action => !container.contains(action));

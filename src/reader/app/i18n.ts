@@ -683,9 +683,10 @@ const COPY = {
         noSubtitleTracksDetected: 'No subtitle tracks detected yet.',
         resizeTranscriptPanel: 'Resize transcript panel',
         resizeSubtitleTracksPanel: 'Resize subtitle tracks panel',
-        subtitleNavigation: 'Subtitle navigation',
-        subtitlePanelMode: 'Subtitle panel mode',
+        subtitleNavigation: 'Subtitle nav',
+        subtitlePanelMode: 'Mode',
         subtitleLines: 'Lines',
+        shadow: 'Shadow',
         subtitleTracks: 'Tracks',
         subtitleTrackTiming: 'Subtitle timing',
         subtitleOffsetPrevious: 'Align previous subtitle to current time',
@@ -1478,9 +1479,10 @@ subtitleTracksDetected	件の字幕トラックを検出
 noSubtitleTracksDetected	字幕トラックは未検出です。
 resizeTranscriptPanel	文字起こしパネルのサイズ変更
 resizeSubtitleTracksPanel	字幕トラックパネルのサイズ変更
-subtitleNavigation	字幕ナビゲーション
-subtitlePanelMode	字幕パネル表示
+subtitleNavigation	字幕ナビ
+subtitlePanelMode	表示
 subtitleLines	行
+shadow	シャドー
 subtitleTracks	トラック
 subtitleTrackTiming	字幕タイミング
 subtitleOffsetPrevious	前の字幕を現在時刻に合わせる

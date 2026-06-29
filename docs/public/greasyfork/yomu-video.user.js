@@ -2033,7 +2033,7 @@
   `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar")}`;
   selectorPairs("banner,book,card,carousel,gallery,grid,item,lockup,movie,poster,product,rail,scroll,shelf,slick,slider,splide,swiper,thumb,tile,video,volume,work", ["class"]);
   `canvas,img,picture,svg,video,${selectorPairs("cover,image,poster,thumb", ["class"])}`;
-  `[role="alert"],[role="status"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])}`;
+  `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
   new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   function renderTokensToHtml(text, tokens, settings) {
     let html = "";
@@ -4296,9 +4296,10 @@
       noSubtitleTracksDetected: "No subtitle tracks detected yet.",
       resizeTranscriptPanel: "Resize transcript panel",
       resizeSubtitleTracksPanel: "Resize subtitle tracks panel",
-      subtitleNavigation: "Subtitle navigation",
-      subtitlePanelMode: "Subtitle panel mode",
+      subtitleNavigation: "Subtitle nav",
+      subtitlePanelMode: "Mode",
       subtitleLines: "Lines",
+      shadow: "Shadow",
       subtitleTracks: "Tracks",
       subtitleTrackTiming: "Subtitle timing",
       subtitleOffsetPrevious: "Align previous subtitle to current time",
@@ -5067,9 +5068,10 @@ subtitleTracksDetected	件の字幕トラックを検出
 noSubtitleTracksDetected	字幕トラックは未検出です。
 resizeTranscriptPanel	文字起こしパネルのサイズ変更
 resizeSubtitleTracksPanel	字幕トラックパネルのサイズ変更
-subtitleNavigation	字幕ナビゲーション
-subtitlePanelMode	字幕パネル表示
+subtitleNavigation	字幕ナビ
+subtitlePanelMode	表示
 subtitleLines	行
+shadow	シャドー
 subtitleTracks	トラック
 subtitleTrackTiming	字幕タイミング
 subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
@@ -16595,7 +16597,7 @@ ${spelling}`);
       this.updatePrimaryNativeTrackCue(track, active);
       this.updateSecondaryNativeTrackCue(track, active);
       this.render();
-      this.renderTranscriptPanel();
+      this.renderOpenSubtitlePanel();
       this.syncPauseTranscriptPanel();
       this.syncControls();
     }
@@ -16901,7 +16903,7 @@ ${spelling}`);
     }
     afterLoadedCueStateChanged() {
       this.render();
-      this.renderTranscriptPanel();
+      this.renderOpenSubtitlePanel();
       this.syncPauseTranscriptPanel();
       this.syncControls();
       this.warmParseAroundActiveCue();
@@ -17055,7 +17057,7 @@ ${spelling}`);
       this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text }])[0];
       if (selected?.loadingState === "waiting") selected.loadingState = "ready";
       this.render();
-      this.renderTranscriptPanel();
+      this.renderOpenSubtitlePanel();
       this.syncControls();
       void this.autoCopyCurrentCue();
     }
@@ -18434,7 +18436,7 @@ ${spelling}`);
       this.secondaryCue = this.secondaryCues.find((item) => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
       this.render();
       this.syncControls();
-      this.renderTranscriptPanel();
+      if (this.panelMode === "lines") this.renderTranscriptPanel();
     }
     toggleVideoPlayback() {
       const video = this.video;
@@ -19005,7 +19007,7 @@ ${spelling}`);
     syncPanelState() {
       const hasLines = Boolean(this.cues.length || this.currentCue?.text);
       const panel = this.transcriptPanel;
-      if (this.isTranscriptPanelOpen() && panel) {
+      if (panel) {
         panel.classList.toggle("jpdb-subtitle-lines-panel", this.panelMode === "lines");
         panel.classList.toggle("jpdb-subtitle-tracks-panel", this.panelMode === "tracks");
       }
@@ -19044,7 +19046,8 @@ ${spelling}`);
         this.closeTranscriptPanel();
         return;
       }
-      if (this.preferredTranscriptDrawerMode() === "tracks") this.openTracksPanel();
+      const mode = this.preferredTranscriptDrawerMode();
+      if (mode === "tracks") this.openTracksPanel();
       else this.openLinesPanel({ deferRender: true });
     }
     showTranscriptPanelElement() {
@@ -19161,8 +19164,9 @@ ${spelling}`);
       }
       if (!this.isTranscriptPanelOpen()) return;
       if (this.panelMode === "lines") {
-        if (this.hasTranscriptSurface()) this.renderTranscriptPanel(true);
-        else this.closeTranscriptPanel();
+        if (this.hasTranscriptSurface()) {
+          this.renderTranscriptPanel(true);
+        } else this.closeTranscriptPanel();
         return;
       }
       this.renderTrackPanel();

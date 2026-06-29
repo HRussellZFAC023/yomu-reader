@@ -80,7 +80,7 @@ Subscribe to a handful at your level, then let the filter and recommendations do
 Watching is the foundation, and looking words up in place makes it stick faster.
 
 1. **Watch for the gist first.** Pick a video you follow most of, and don't pause on every word the first time through.
-2. **Turn on the subtitle overlay.** よむ turns each Japanese subtitle line into lookup-ready words, shows a second native-language line, and gives a transcript panel with the active line highlighted.
+2. **Turn on the subtitle overlay.** よむ turns each Japanese subtitle line into lookup-ready words, shows a second native-language line, and gives a transcript panel with the active line highlighted plus a Shadow tab for replaying, looping, hiding, and speaking the current line.
 3. **Look up one word at a time.** Reading, meaning, pitch accent, frequency and example sentences appear in the popup.
 4. **Mine the keepers.** When a sentence is *almost* fully known except one new word, send it to Jiten, JPDB, or Anki from the popup — i+1 turned into a flashcard.
 

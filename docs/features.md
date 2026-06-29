@@ -78,9 +78,9 @@ For PC games, use the first-party [Yomu Gaming](/tools/yomu-gaming) app and down
 
 ## Video Subtitle Mining
 
-よむ can add an ASB-style subtitle overlay for video pages. Japanese subtitles can be parsed into lookup-ready words, native-language subtitle tracks can be shown as a secondary line, and the transcript panel can sit left, right, or below the video with the active line highlighted while you read.
+よむ can add an ASB-style subtitle overlay for video pages. Japanese subtitles can be parsed into lookup-ready words, native-language subtitle tracks can be shown as a secondary line, and the subtitle drawer can sit left, right, or below the video with tabs for transcript rows, shadowing practice, and track selection.
 
-The transcript works like the overlay: visible Japanese lines are parsed for lookup, so you can skim, jump to a line, and open the popup from the transcript.
+The transcript works like the overlay: visible Japanese lines are parsed for lookup, so you can skim, jump to a line, and open the popup from the transcript. The Shadow tab focuses on the current subtitle line with replay, loop, and hide/reveal controls for speaking practice while keeping parsed Japanese and the optional secondary line available.
 
 For local files, open the [Yomu video player](/video-player/index.html), drop in a browser-supported video, and use the Subtitles button to add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
 

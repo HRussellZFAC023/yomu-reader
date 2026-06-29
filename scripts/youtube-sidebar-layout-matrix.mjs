@@ -25,6 +25,7 @@ const companionPaths = ['yomu-anki.user.js', 'yomu-kanji-study.user.js', 'yomu-s
     .map(name => join(companionDir, name));
 const outputDir = resolve(process.env.YOMU_YOUTUBE_SIDEBAR_OUTPUT_DIR ?? join(artifacts, 'youtube-sidebar-matrix', 'working'));
 const headed = process.env.YOMU_YOUTUBE_SIDEBAR_HEADED === '1';
+const jpdbParseRequests = [];
 const placements = ['right', 'left', 'bottom'];
 const viewports = [
     { name: 'ipad-pro-portrait', viewport: { width: 1024, height: 1366 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
@@ -113,6 +114,9 @@ async function runScenario(browser, viewport, placement) {
         if (placement === 'bottom' || afterResize.placement === 'bottom') assertBottomResizePreservedPageContent(afterFullRender, afterResize, label);
         else assertSideResizeReservedPlayerSpace(afterFullRender, afterResize, label);
         await page.screenshot({ path: join(outputDir, `${label}-resized.png`), fullPage: false });
+        const shadowTab = viewport.name === 'desktop-1440' && placement === 'right'
+            ? await runShadowTabSequence(page, label)
+            : null;
 
         const switchTiming = viewport.name === 'ipad-pro-portrait' && placement === 'right'
             ? await runSwitchSequence(page)
@@ -129,6 +133,7 @@ async function runScenario(browser, viewport, placement) {
             resizeMs: resizeTiming.durationMs,
             previewRows: afterOpen.rowCount,
             fullRows: afterFullRender.rowCount,
+            shadowTab,
             switchTiming,
             autoTiming,
             subtitleHoverLookup,
@@ -273,10 +278,12 @@ async function installFixtureRoutes(page) {
     await page.route('https://www.youtube.com/api/timedtext**', route => route.fulfill({ body: youtubeTimedText(), contentType: 'text/xml' }));
     await page.route('https://jpdb.io/api/v1/parse', async route => {
         const body = JSON.parse(route.request().postData() || '{}');
+        const mocked = mockJpdbParseFromVocabulary(body, vocabulary);
+        jpdbParseRequests.push({ text: body?.text, tokenCount: mocked.tokens?.flat()?.length ?? 0, via: 'route' });
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify(mockJpdbParseFromVocabulary(body, vocabulary)),
+            body: JSON.stringify(mocked),
         });
     });
 }
@@ -292,9 +299,11 @@ function bridgeResponse(request) {
     }
     if (target.href.startsWith(JPDB_PARSE_URL)) {
         const body = parseJsonBody(gmRequestFetchBody(request));
+        const mocked = mockJpdbParseFromVocabulary(body, vocabulary);
+        jpdbParseRequests.push({ text: body?.text, tokenCount: mocked.tokens?.flat()?.length ?? 0, via: 'bridge' });
         return {
             status: 200,
-            responseText: JSON.stringify(mockJpdbParseFromVocabulary(body, vocabulary)),
+            responseText: JSON.stringify(mocked),
             contentType: 'application/json; charset=utf-8',
         };
     }
@@ -327,11 +336,13 @@ function smokeSettings(placement) {
     return {
         onboardingSeen: true,
         interfaceLanguage: 'en',
-        apiKey: 'fixture-key',
+        apiKey: '',
         jitenApiKey: '',
         ankiEnabled: false,
         ankiSectionEnabled: false,
         localDictionariesEnabled: false,
+        showFurigana: false,
+        showPitchAccent: false,
         audioEnabled: false,
         jpdbDefinitionsEnabled: false,
         enableLogging: false,
@@ -340,6 +351,7 @@ function smokeSettings(placement) {
         subtitleAutoDetect: true,
         subtitleOverlayVisible: true,
         subtitleSecondaryVisible: false,
+        subtitleKaraokeMode: false,
         subtitleTranscriptVisible: false,
         subtitleTranscriptAutoScroll: false,
         subtitleTranscriptPlacement: placement,
@@ -375,14 +387,29 @@ async function timePageAction(page, action) {
 }
 
 async function runSubtitleHoverLookup(page, label) {
-    await page.evaluate(() => {
-        const video = document.querySelector('video');
-        if (!video) return;
-        Object.defineProperty(video, 'currentTime', { configurable: true, writable: true, value: 1.4 });
-        video.dispatchEvent(new Event('timeupdate'));
-    });
+    await page.mouse.move(420, 520);
+    await page.waitForTimeout(80);
     const firstWord = page.locator('.jpdb-subtitle-primary .jpdb-reader-word').first();
-    await firstWord.waitFor({ state: 'visible', timeout: 5000 });
+    if (!await firstWord.waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false)) {
+        await page.evaluate(() => {
+            const video = document.querySelector('video');
+            if (!video) return;
+            Object.defineProperty(video, 'currentTime', { configurable: true, writable: true, value: 1.4 });
+            video.dispatchEvent(new Event('timeupdate'));
+        });
+        await firstWord.waitFor({ state: 'visible', timeout: 5000 }).catch(async error => {
+            const state = await page.evaluate(() => {
+                const primary = document.querySelector('.jpdb-subtitle-primary');
+                return {
+                    primaryText: primary?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+                    primaryHtml: primary?.innerHTML ?? '',
+                    playerClass: document.querySelector('.jpdb-subtitle-player')?.className ?? '',
+                    wordCount: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
+                };
+            });
+            throw new Error(`${error.message}\n${JSON.stringify({ ...state, jpdbParseRequests: jpdbParseRequests.slice(-8) }, null, 2)}`);
+        });
+    }
     const timing = await timePageAction(page, async () => {
         await firstWord.hover({ force: true });
         await page.locator('.jpdb-reader-popover .jpdb-reader-spelling').first().waitFor({ state: 'visible', timeout: 1000 });
@@ -392,6 +419,52 @@ async function runSubtitleHoverLookup(page, label) {
     await page.keyboard.press('Escape').catch(() => undefined);
     await page.waitForTimeout(60);
     return { durationMs: timing.durationMs, spelling: String(spelling ?? '').trim() };
+}
+
+async function runShadowTabSequence(page, label) {
+    const timing = await timePageAction(page, async () => {
+        await page.locator('.jpdb-subtitle-list [data-action="panel-shadow"]').evaluate(button => button.click());
+        await page.waitForFunction(() => {
+            const panel = document.querySelector('.jpdb-subtitle-list');
+            return panel instanceof HTMLElement
+                && panel.classList.contains('jpdb-subtitle-shadow-panel')
+                && panel.querySelector('[data-action="panel-shadow"]')?.getAttribute('aria-pressed') === 'true'
+                && Boolean(panel.querySelector('.jpdb-subtitle-shadow-line'));
+        }, null, { timeout: 3000 }).catch(async error => {
+            const state = await page.evaluate(() => {
+                const panel = document.querySelector('.jpdb-subtitle-list');
+                return {
+                    panelClass: panel instanceof HTMLElement ? panel.className : '',
+                    panelHidden: panel instanceof HTMLElement ? panel.hidden : null,
+                    panelText: panel?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 400) ?? '',
+                    shadowButton: panel?.querySelector('[data-action="panel-shadow"]')?.outerHTML ?? '',
+                    shadowLineCount: panel?.querySelectorAll('.jpdb-subtitle-shadow-line').length ?? 0,
+                    rowCount: panel?.querySelectorAll('.jpdb-subtitle-list-row').length ?? 0,
+                };
+            });
+            throw new Error(`${error.message}\n${JSON.stringify(state, null, 2)}`);
+        });
+    });
+    const state = await page.evaluate(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        const line = panel?.querySelector('.jpdb-subtitle-shadow-line');
+        return {
+            text: line?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+            hasReplay: Boolean(panel?.querySelector('[data-action="shadow-replay"]:not([disabled])')),
+            hasLoop: Boolean(panel?.querySelector('[data-action="shadow-loop"]:not([disabled])')),
+            hasToggle: Boolean(panel?.querySelector('[data-action="shadow-toggle-text"]:not([disabled])')),
+        };
+    });
+    assert(state.text.length > 0, `shadow tab did not show the active cue in ${label}`, state);
+    assert(state.hasReplay && state.hasLoop && state.hasToggle, `shadow tab controls were incomplete in ${label}`, state);
+    await page.locator('[data-action="shadow-toggle-text"]').first().click();
+    await page.waitForFunction(() => {
+        const line = document.querySelector('.jpdb-subtitle-shadow-line');
+        const toggle = document.querySelector('[data-action="shadow-toggle-text"]');
+        return line?.classList.contains('jpdb-subtitle-shadow-line-hidden') && toggle?.getAttribute('aria-pressed') === 'true';
+    }, null, { timeout: 1000 });
+    await page.screenshot({ path: join(outputDir, `${label}-shadow.png`), fullPage: false });
+    return { durationMs: timing.durationMs, text: state.text.slice(0, 40) };
 }
 
 async function resizeTranscriptPanelByKeyboard(page, placement) {

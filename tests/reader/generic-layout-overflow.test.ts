@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { applyTokensToScanTarget, collectFormControlTextTargetsIn, collectFragmentTextTargetsIn, collectTextTargetsIn, type FragmentTextTarget } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -7,6 +7,8 @@ import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 describe('generic reader layout overflow guards', () => {
     afterEach(() => {
         document.body.innerHTML = '';
+        vi.restoreAllMocks();
+        vi.unstubAllGlobals();
     });
 
     it('keeps residual readable prose ruby-enabled for mobile overflow handling', () => {
@@ -61,6 +63,75 @@ describe('generic reader layout overflow guards', () => {
         expect(row.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
         expect(row.querySelector('rt,.jpdb-reader-furi')).toBeNull();
         expect(Array.from(row.querySelectorAll<HTMLElement>('.jpdb-reader-word')).every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+    });
+
+    it('suppresses ruby on compact stacked app helper text above action chips', () => {
+        document.body.innerHTML = `
+            <section id="assistant-panel" class="assistant-question-panel" role="region">
+                <p id="helper" class="answer-notice">不正確な情報を表示することがあるため、生成された回答を再確認してください</p>
+                <div class="suggestion-chips">
+                    <button type="button">Why is this important?</button>
+                    <button type="button">What does it mean?</button>
+                </div>
+            </section>
+        `;
+        const panel = document.querySelector<HTMLElement>('#assistant-panel')!;
+        const helper = document.querySelector<HTMLElement>('#helper')!;
+        mockRect(panel, { width: 390, height: 150 });
+        mockRect(helper, { width: 340, height: 44 });
+        const target = collectTargets().find(candidate => candidate.text.includes('不正確な情報'));
+
+        expect(target).toBeTruthy();
+        expect(target?.suppressRuby).toBe(true);
+        expect(target?.passiveInteraction).toBe(true);
+
+        applyTokensToScanTarget(target!, [
+            token('不正確', target!.text.indexOf('不正確'), target!.text, 'ふせいかく'),
+            token('情報', target!.text.indexOf('情報'), target!.text, 'じょうほう'),
+        ], {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+
+        expect(panel.dataset.jpdbReaderPassiveChrome).toBe('true');
+        expect(helper.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
+        expect(helper.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+    });
+
+    it('suppresses ruby on mobile YouTube question helper rows without suppressing media titles', () => {
+        vi.stubGlobal('location', {
+            href: 'https://m.youtube.com/watch?v=clip',
+            origin: 'https://m.youtube.com',
+            hostname: 'm.youtube.com',
+            pathname: '/watch',
+        });
+        document.body.innerHTML = `
+            <div id="question-panel" class="ytm-ai-question-panel" role="region">
+                <div id="youtube-helper" class="answer-notice">生成された回答を再確認してください</div>
+                <button type="button">What does this mean?</button>
+            </div>
+            <ytm-watch-metadata>
+                <h1 id="video-title">日本語のニュース</h1>
+                <button type="button">共有</button>
+            </ytm-watch-metadata>
+        `;
+        const panel = document.querySelector<HTMLElement>('#question-panel')!;
+        const helper = document.querySelector<HTMLElement>('#youtube-helper')!;
+        const metadata = document.querySelector<HTMLElement>('ytm-watch-metadata')!;
+        const title = document.querySelector<HTMLElement>('#video-title')!;
+        mockRect(panel, { width: 390, height: 120 });
+        mockRect(helper, { width: 330, height: 38 });
+        mockRect(metadata, { width: 390, height: 130 });
+        mockRect(title, { width: 360, height: 36 });
+        const targets = collectTargets();
+        const helperTarget = targets.find(candidate => candidate.text.includes('生成された回答'));
+        const titleTarget = targets.find(candidate => candidate.text.includes('日本語のニュース'));
+
+        expect(helperTarget).toBeTruthy();
+        expect(helperTarget?.suppressRuby).toBe(true);
+        expect(titleTarget).toBeTruthy();
+        expect(titleTarget?.suppressRuby).not.toBe(true);
     });
 
     it('does not collect composer/editor placeholder text as page prose', () => {
@@ -124,6 +195,23 @@ function collectTargets(root: Node = document.body): FragmentTextTarget[] {
         includePassiveInteractions: true,
         heading: true,
         minLength: 1,
+    });
+}
+
+function mockRect(element: HTMLElement, rect: Pick<DOMRect, 'width' | 'height'>): void {
+    Object.defineProperty(element, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => ({
+            x: 0,
+            y: 0,
+            left: 0,
+            top: 0,
+            right: rect.width,
+            bottom: rect.height,
+            width: rect.width,
+            height: rect.height,
+            toJSON: () => ({}),
+        }) as DOMRect,
     });
 }
 

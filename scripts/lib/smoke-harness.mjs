@@ -264,7 +264,7 @@ function appendGmRequestBlobEntry(formData, entry) {
 }
 
 export function mockJpdbParseFromVocabulary(body, rows, options = {}) {
-    const paragraphs = Array.isArray(body.text) ? body.text.map(value => String(value)) : [];
+    const paragraphs = Array.isArray(body.text) ? body.text.map(value => String(value)) : body.text ? [String(body.text)] : [];
     const fixtureVocabulary = rows.map(normalizeJpdbVocabularyRow).sort((a, b) => b.surface.length - a.surface.length);
     const vocabulary = [];
     const vocabIndexBySpelling = new Map();

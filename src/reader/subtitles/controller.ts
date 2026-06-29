@@ -149,6 +149,7 @@ import {
     subtitleIcon,
     subtitleOverlayLayout,
     SUBTITLE_STYLE_FONT_FAMILY_VALUES,
+    type SubtitlePanelMode,
 } from './subtitle-surface';
 import {
     TRANSCRIPT_PANEL_ANIMATION_MS,
@@ -988,7 +989,7 @@ export class SubtitlePlayerController {
     private parsedTokenNotifiedAt = new Map<string, number>();
     private transcriptTextTargetsByParseKey = new Map<string, HTMLElement[]>();
     private renderSerial = 0;
-    private panelMode: 'lines' | 'tracks' = 'lines';
+    private panelMode: SubtitlePanelMode = 'lines';
     private lastTranscriptSignature = '';
     // The virtual window actually committed to the DOM by the last full render.
     // Reused while auto-following so consecutive active-line advances keep the
@@ -1713,7 +1714,7 @@ export class SubtitlePlayerController {
         this.updatePrimaryNativeTrackCue(track, active);
         this.updateSecondaryNativeTrackCue(track, active);
         this.render();
-        this.renderTranscriptPanel();
+        this.renderOpenSubtitlePanel();
         this.syncPauseTranscriptPanel();
         this.syncControls();
     }
@@ -2075,7 +2076,7 @@ export class SubtitlePlayerController {
 
     private afterLoadedCueStateChanged(): void {
         this.render();
-        this.renderTranscriptPanel();
+        this.renderOpenSubtitlePanel();
         this.syncPauseTranscriptPanel();
         this.syncControls();
         this.warmParseAroundActiveCue();
@@ -2267,7 +2268,7 @@ export class SubtitlePlayerController {
         this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text }])[0];
         if (selected?.loadingState === 'waiting') selected.loadingState = 'ready';
         this.render();
-        this.renderTranscriptPanel();
+        this.renderOpenSubtitlePanel();
         this.syncControls();
         void this.autoCopyCurrentCue();
     }
@@ -3906,7 +3907,7 @@ export class SubtitlePlayerController {
         this.secondaryCue = this.secondaryCues.find(item => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
         this.render();
         this.syncControls();
-        this.renderTranscriptPanel();
+        if (this.panelMode === 'lines') this.renderTranscriptPanel();
     }
 
     private toggleVideoPlayback(): void {
@@ -4568,7 +4569,7 @@ export class SubtitlePlayerController {
     private syncPanelState(): void {
         const hasLines = Boolean(this.cues.length || this.currentCue?.text);
         const panel = this.transcriptPanel;
-        if (this.isTranscriptPanelOpen() && panel) {
+        if (panel) {
             panel.classList.toggle('jpdb-subtitle-lines-panel', this.panelMode === 'lines');
             panel.classList.toggle('jpdb-subtitle-tracks-panel', this.panelMode === 'tracks');
         }
@@ -4599,7 +4600,7 @@ export class SubtitlePlayerController {
         return Boolean(this.cues.length || this.currentCue?.text || this.selectedTrackId);
     }
 
-    private preferredTranscriptDrawerMode(): 'lines' | 'tracks' {
+    private preferredTranscriptDrawerMode(): SubtitlePanelMode {
         if (this.panelMode === 'lines' && this.hasTranscriptSurface()) return 'lines';
         if (this.panelMode === 'tracks') return 'tracks';
         return this.hasTranscriptSurface() ? 'lines' : 'tracks';
@@ -4612,7 +4613,8 @@ export class SubtitlePlayerController {
             this.closeTranscriptPanel();
             return;
         }
-        if (this.preferredTranscriptDrawerMode() === 'tracks') this.openTracksPanel();
+        const mode = this.preferredTranscriptDrawerMode();
+        if (mode === 'tracks') this.openTracksPanel();
         else this.openLinesPanel({ deferRender: true });
     }
 
@@ -4748,7 +4750,9 @@ export class SubtitlePlayerController {
         }
         if (!this.isTranscriptPanelOpen()) return;
         if (this.panelMode === 'lines') {
-            if (this.hasTranscriptSurface()) this.renderTranscriptPanel(true);
+            if (this.hasTranscriptSurface()) {
+                this.renderTranscriptPanel(true);
+            }
             else this.closeTranscriptPanel();
             return;
         }

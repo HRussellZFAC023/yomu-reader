@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.218
+// @version 1.4.220
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.218
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.218
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.218
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.218
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.220
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.220
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.220
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.220
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -3769,7 +3769,7 @@ const COMPACT_MEDIA_RUBY_RISK_ANCESTOR_LIMIT = 8;
 const COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT = 10;
 const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
 const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
-const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])}`;
+const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
 const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;
@@ -4906,12 +4906,13 @@ function targetForcesAllFurigana(parent) {
   return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
 }
 function shouldSuppressCompactScanRuby(parent) {
-  if (isYouTubeHost()) return shouldSuppressCompactMediaRuby(parent);
-  const compactChrome = compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent);
-  if (compactChrome) compactChrome.dataset.jpdbReaderPassiveChrome = "true";
-  const constrainedNotification = compactConstrainedNotificationElement(parent);
-  if (constrainedNotification) constrainedNotification.dataset.jpdbReaderPassiveChrome = "true";
-  return Boolean(compactChrome || constrainedNotification || shouldSuppressCompactMediaRuby(parent));
+  if (shouldSuppressCompactMediaRuby(parent)) return true;
+  const notice = compactConstrainedNotificationElement(parent);
+  if (notice) notice.dataset.jpdbReaderPassiveChrome = "true";
+  if (isYouTubeHost()) return Boolean(notice);
+  const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent);
+  if (chrome) chrome.dataset.jpdbReaderPassiveChrome = "true";
+  return Boolean(chrome || notice);
 }
 function compactInteractiveChromeElement(parent) {
   if (parent.closest(READER_ROOT_SELECTOR$3)) return null;
@@ -4992,14 +4993,9 @@ function isNotificationLikeContainer(container) {
   return safeElementMatches$1(container, CONSTRAINED_NOTIFICATION_SELECTOR);
 }
 function hasConstrainedNotificationGeometry(container, textElement) {
-  const containerStyle = safeComputedStyle(container);
-  const textStyle = safeComputedStyle(textElement);
   const rect = container.getBoundingClientRect();
   const textRect = textElement.getBoundingClientRect();
-  const constrainedText = hasLineClamp(textStyle) || isEllipsisTextRow(textStyle) || hasClippedTextConstraint(textStyle);
-  const constrainedContainer = hasLineClamp(containerStyle) || isEllipsisTextRow(containerStyle) || hasClippedTextConstraint(containerStyle);
-  const compactHeight = (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && (textRect.height === 0 || textRect.height <= LAYOUT_SENSITIVE_MAX_BOX_HEIGHT);
-  return compactHeight && (constrainedText || constrainedContainer) && !notificationContainerLooksLikePageSection(container);
+  return (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && (textRect.height === 0 || textRect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && !notificationContainerLooksLikePageSection(container);
 }
 function notificationContainerLooksLikePageSection(container) {
   const rect = container.getBoundingClientRect();
@@ -5009,6 +5005,7 @@ function notificationContainerLooksLikePageSection(container) {
 function hasNotificationActionPeer(container, textElement) {
   const selector = 'a[href],button,[role="button"],[role="link"],[data-action]';
   if (Array.from(container.querySelectorAll(selector)).some((action) => !action.contains(textElement))) return true;
+  if (container === textElement) return false;
   const row = container.parentElement;
   if (!row) return false;
   return Array.from(row.querySelectorAll(selector)).some((action) => !container.contains(action));
@@ -8084,9 +8081,10 @@ const COPY = {
     noSubtitleTracksDetected: "No subtitle tracks detected yet.",
     resizeTranscriptPanel: "Resize transcript panel",
     resizeSubtitleTracksPanel: "Resize subtitle tracks panel",
-    subtitleNavigation: "Subtitle navigation",
-    subtitlePanelMode: "Subtitle panel mode",
+    subtitleNavigation: "Subtitle nav",
+    subtitlePanelMode: "Mode",
     subtitleLines: "Lines",
+    shadow: "Shadow",
     subtitleTracks: "Tracks",
     subtitleTrackTiming: "Subtitle timing",
     subtitleOffsetPrevious: "Align previous subtitle to current time",
@@ -8874,9 +8872,10 @@ subtitleTracksDetected	件の字幕トラックを検出
 noSubtitleTracksDetected	字幕トラックは未検出です。
 resizeTranscriptPanel	文字起こしパネルのサイズ変更
 resizeSubtitleTracksPanel	字幕トラックパネルのサイズ変更
-subtitleNavigation	字幕ナビゲーション
-subtitlePanelMode	字幕パネル表示
+subtitleNavigation	字幕ナビ
+subtitlePanelMode	表示
 subtitleLines	行
+shadow	シャドー
 subtitleTracks	トラック
 subtitleTrackTiming	字幕タイミング
 subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
@@ -37280,7 +37279,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.218"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.220"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

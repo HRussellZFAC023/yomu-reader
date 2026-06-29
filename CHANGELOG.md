@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.220] - 2026-06-28
+
+### Fixed
+
+- Removed the experimental subtitle Shadow drawer from the release branch so Yomu Video stays lean and publishable.
+- Suppressed furigana on compact stacked app notices and helper rows that sit above action chips, including mobile YouTube AI question prompts, while keeping readable prose and media titles annotated. This keeps ruby from overlapping nearby controls on narrow layouts.
+
 ## [1.4.218] - 2026-06-28
 
 ### Fixed
