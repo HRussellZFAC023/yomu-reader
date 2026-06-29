@@ -36,6 +36,11 @@ export interface SubtitleTrackPanelRenderState {
     placement: ReaderSettings['subtitleTranscriptPlacement'];
     language: InterfaceLanguage;
     animeSearchQuery?: string;
+    // Windowed render for videos with many (auto-translated) caption tracks: only
+    // tracks[start..end) become rows; spacers reserve the off-window scroll height.
+    // `tracks` stays the FULL list so the drawer meta + count resolve the selected
+    // primary/secondary even when they are scrolled out of the window.
+    virtual?: { start: number; end: number; topSpacer: number; bottomSpacer: number };
 }
 
 export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): string {
@@ -60,7 +65,7 @@ export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): 
                 ${renderPausePanelToggle(state.pausePanelEnabled, language)}
             </div>
         </div>
-        <div class="jpdb-subtitle-list-scroll">
+        <div class="jpdb-subtitle-list-scroll"${state.virtual ? ' data-virtualized="true"' : ''}>
             <div class="jpdb-subtitle-track-tools">
                 <button type="button" data-action="load">${escapeHtml(uiText(language, 'loadJapaneseSubtitles'))}</button>
                 <button type="button" data-action="load-secondary">${escapeHtml(uiText(language, 'loadNativeSubtitles'))}</button>
@@ -68,10 +73,22 @@ export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): 
             </div>
             <div class="jpdb-subtitle-track-summary">${escapeHtml(trackPanelSummaryText(state.autoDetected, language))}</div>
             <div class="jpdb-subtitle-track-hint">${escapeHtml(uiText(language, 'subtitleTracksHint'))}</div>
-            ${state.tracks.length ? state.tracks.map(track => renderSubtitleTrackRow(track, state)).join('') : ''}
+            ${state.virtual ? trackVirtualSpacer(state.virtual.topSpacer) : ''}
+            ${state.tracks.length ? trackPanelRows(state).map(track => renderSubtitleTrackRow(track, state)).join('') : ''}
+            ${state.virtual ? trackVirtualSpacer(state.virtual.bottomSpacer) : ''}
         </div>
         <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, 'resizeSubtitleTracksPanel'))}"></div>
     `;
+}
+
+function trackPanelRows(state: SubtitleTrackPanelRenderState): SubtitleTrackPanelTrack[] {
+    return state.virtual ? state.tracks.slice(state.virtual.start, state.virtual.end) : state.tracks;
+}
+
+function trackVirtualSpacer(height: number): string {
+    return height > 0
+        ? `<div class="jpdb-subtitle-list-spacer" aria-hidden="true" style="height:${Math.round(height)}px"></div>`
+        : '';
 }
 
 function jimakuAnimeSearchUrl(query = ''): string {

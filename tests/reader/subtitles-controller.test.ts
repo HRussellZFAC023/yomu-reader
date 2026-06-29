@@ -4267,6 +4267,45 @@ Watch the cat
         }
     });
 
+    it('virtualizes the tracks panel for videos with many auto-translated caption tracks', async () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleTranscriptVisible: false });
+        attachVideo(controller, { currentTime: 1 });
+        const makeTracks = (count: number) => Array.from({ length: count }, (_, index) => ({
+            id: `track-${index}`,
+            kind: 'youtube' as const,
+            label: `日本語 (ja) auto-translated source ${index}`,
+            language: 'ja',
+        }));
+        const internals = controllerInternals<{
+            tracks: ReturnType<typeof makeTracks>;
+            openTracksPanel: () => void;
+        }>(controller);
+
+        try {
+            // Below the threshold every row renders; nothing is virtualized.
+            internals.tracks = makeTracks(40);
+            internals.openTracksPanel();
+            let panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.querySelectorAll('.jpdb-subtitle-track-row')).toHaveLength(40);
+            expect(panel.querySelector('.jpdb-subtitle-list-scroll[data-virtualized="true"]')).toBeNull();
+            expect(panel.querySelectorAll('.jpdb-subtitle-list-spacer')).toHaveLength(0);
+
+            // Above the threshold only a window of rows is in the DOM, reserved by
+            // spacers, while the drawer meta still reports the full track count.
+            internals.tracks = makeTracks(200);
+            internals.openTracksPanel();
+            panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const rendered = panel.querySelectorAll('.jpdb-subtitle-track-row').length;
+            expect(rendered).toBeGreaterThan(0);
+            expect(rendered).toBeLessThan(200);
+            expect(panel.querySelector('.jpdb-subtitle-list-scroll[data-virtualized="true"]')).not.toBeNull();
+            expect(panel.querySelectorAll('.jpdb-subtitle-list-spacer').length).toBeGreaterThan(0);
+            expect(panel.querySelector('.jpdb-subtitle-drawer-meta')?.textContent).toContain('200');
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('aligns previous and next subtitle starts to the playhead from the tracks panel', async () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleTranscriptVisible: false });
         attachVideo(controller, { currentTime: 5 });

@@ -2,6 +2,12 @@
 
 ## [1.4.236] - 2026-06-29
 
+### Fixed
+
+- Made the YouTube subtitle Tracks tab open and resize smoothly on videos with many auto-translated caption tracks by rendering only the rows in view.
+
+## [1.4.236] - 2026-06-29
+
 ### Changed
 
 - Removed the note that said nothing uploads from the video player start screen in English and Japanese.

@@ -643,6 +643,10 @@ const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 64;
 const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
 const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 3;
 const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 21;
+// The Tracks panel scroll container starts with a fixed tools/summary/hint
+// block above the rows; this estimate maps scrollTop to a row index. It only
+// needs to be within an overscan window of the truth, so a fixed value is fine.
+const TRACKS_VIRTUAL_HEADER_PX = 140;
 const TRANSCRIPT_AUTO_SCROLL_RESUME_FALLBACK_SECONDS = 30;
 const TRANSCRIPT_AUTO_SCROLL_RESUME_LEGACY_DEFAULT_SECONDS = 4;
 // Housekeeping cadence while playing (track discovery, realign backstop, chrome
@@ -1030,6 +1034,11 @@ export class SubtitlePlayerController {
     private transcriptDeferredRenderTimer?: number;
     private transcriptVirtualRenderFrame?: number;
     private transcriptVirtualScrollTop = 0;
+    // Tracks-panel virtualization (parallel to the lines-panel window above):
+    // videos with auto-translated captions expose hundreds of track rows.
+    private renderedTracksVirtualWindow?: { start: number; end: number; rowCount: number };
+    private tracksVirtualRenderFrame?: number;
+    private tracksVirtualScrollTop = 0;
     // Manual-scroll override for transcript auto-follow: a user scroll pauses
     // the snap-to-active so advancing to the next cue does not yank the list
     // back; programmatic scrollIntoView calls are ignored for a short window so
@@ -1238,6 +1247,7 @@ export class SubtitlePlayerController {
         this.transcriptScrollFrame = clearWindowAnimationFrame(this.transcriptScrollFrame);
         this.transcriptHydrateFrame = clearWindowAnimationFrame(this.transcriptHydrateFrame);
         this.transcriptVirtualRenderFrame = clearWindowAnimationFrame(this.transcriptVirtualRenderFrame);
+        this.tracksVirtualRenderFrame = clearWindowAnimationFrame(this.tracksVirtualRenderFrame);
         this.clearDeferredTranscriptPanelRender();
         this.transcriptInsetRealignFrame = clearWindowAnimationFrame(this.transcriptInsetRealignFrame);
         this.transcriptViewportStabilizeTimer = clearWindowTimeout(this.transcriptViewportStabilizeTimer);
@@ -4996,6 +5006,10 @@ export class SubtitlePlayerController {
         this.panelMode = 'tracks';
         this.clearDeferredTranscriptPanelRender();
         this.clearTranscriptVirtualRender();
+        // A fresh tracks-tab open starts at the top of the (possibly virtualized) list.
+        this.tracksVirtualScrollTop = 0;
+        this.renderedTracksVirtualWindow = undefined;
+        this.tracksVirtualRenderFrame = clearWindowAnimationFrame(this.tracksVirtualRenderFrame);
         this.showTranscriptPanelElement();
         if (persist) {
             this.options.getSettings().subtitleTranscriptVisible = false;
@@ -6198,12 +6212,17 @@ export class SubtitlePlayerController {
         this.transcriptTextTargetsByParseKey.clear();
         const state = subtitleTrackPanelState(this.tracks);
         const settings = this.options.getSettings();
+        const tracks = state.tracks.map(track => ({
+            ...track,
+            timing: this.trackTimingControlState(track.id),
+        }));
+        const virtual = this.tracksVirtualWindow(tracks.length);
+        this.renderedTracksVirtualWindow = virtual
+            ? { start: virtual.start, end: virtual.end, rowCount: tracks.length }
+            : undefined;
         setInnerHtml(this.transcriptPanel, renderSubtitleTrackPanel({
             ...state,
-            tracks: state.tracks.map(track => ({
-                ...track,
-                timing: this.trackTimingControlState(track.id),
-            })),
+            tracks,
             selectedTrackId: this.selectedTrackId,
             secondaryTrackId: this.secondaryTrackId,
             hasTranscriptSurface: this.hasTranscriptSurface(),
@@ -6212,9 +6231,75 @@ export class SubtitlePlayerController {
             placement: this.effectiveTranscriptPlacement,
             language: settings.interfaceLanguage,
             animeSearchQuery: subtitleAnimeSearchQuery(this.video),
+            virtual,
         }));
+        this.restoreTracksVirtualScroll(virtual);
         this.bindTranscriptResizeHandle();
+        this.bindTracksScroller();
         this.syncPanelState();
+    }
+
+    // Render only the visible window of track rows (plus overscan) when a video
+    // exposes more than the threshold of (auto-translated) caption tracks, so the
+    // Tracks tab opens and the sidebar resizes without reflowing hundreds of rows.
+    private tracksVirtualWindow(rowCount: number): { start: number; end: number; topSpacer: number; bottomSpacer: number } | undefined {
+        if (rowCount <= TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD) return undefined;
+        const scroller = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll');
+        const clientHeight = Math.max(
+            scroller?.clientHeight ?? 0,
+            Math.round((this.transcriptPanel?.getBoundingClientRect().height ?? 0) * 0.72),
+            TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX * 6,
+        );
+        const scrollTop = Math.max(0, scroller?.scrollTop ?? this.tracksVirtualScrollTop);
+        const visibleRows = Math.max(
+            TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS,
+            Math.ceil(clientHeight / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) + TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS * 2,
+        );
+        const firstRow = Math.floor(Math.max(0, scrollTop - TRACKS_VIRTUAL_HEADER_PX) / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
+        const start = Math.max(0, Math.min(firstRow, Math.max(0, rowCount - visibleRows)));
+        const end = Math.min(rowCount, start + visibleRows);
+        return {
+            start,
+            end,
+            topSpacer: start * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX,
+            bottomSpacer: Math.max(0, (rowCount - end) * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX),
+        };
+    }
+
+    private restoreTracksVirtualScroll(virtual: { start: number } | undefined): void {
+        if (!virtual) return;
+        const scroller = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll');
+        if (!scroller) return;
+        const scrollTop = Math.max(0, this.tracksVirtualScrollTop);
+        if (Math.abs(scroller.scrollTop - scrollTop) > 1) scroller.scrollTop = scrollTop;
+    }
+
+    private bindTracksScroller(): void {
+        const scroller = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll');
+        if (!scroller || scroller.dataset.tracksVirtualBound === 'true') return;
+        scroller.dataset.tracksVirtualBound = 'true';
+        scroller.addEventListener('scroll', () => this.scheduleTracksVirtualRender(scroller), { passive: true });
+    }
+
+    private scheduleTracksVirtualRender(scroller: HTMLElement): void {
+        if (scroller.dataset.virtualized !== 'true') return;
+        this.tracksVirtualScrollTop = scroller.scrollTop;
+        if (this.tracksVirtualRenderFrame) return;
+        this.tracksVirtualRenderFrame = requestAnimationFrame(() => {
+            this.tracksVirtualRenderFrame = undefined;
+            if (this.destroyed || this.transcriptResizeActive || !this.isTranscriptPanelOpen() || this.panelMode !== 'tracks') return;
+            const prev = this.renderedTracksVirtualWindow;
+            if (!prev) return;
+            // Track discovery can add rows while the user scrolls; if the count
+            // moved, the cached window is stale — re-render against the live list.
+            if (this.tracks.length !== prev.rowCount) {
+                this.renderTrackPanel();
+                return;
+            }
+            const next = this.tracksVirtualWindow(prev.rowCount);
+            if (!next || (prev.start === next.start && prev.end === next.end)) return;
+            this.renderTrackPanel();
+        });
     }
 
     private trackTimingControlState(id: string): { offsetSeconds: number; canAdjust: boolean; canAlignPrevious: boolean; canAlignNext: boolean } | undefined {
