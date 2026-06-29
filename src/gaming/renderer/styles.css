@@ -163,13 +163,12 @@ textarea {
 
 .yomu-gaming-onboarding {
     display: grid;
-    grid-template-columns: minmax(220px, 1.1fr) minmax(240px, 0.9fr);
-    gap: 14px;
+    grid-template-columns: minmax(240px, 0.72fr) minmax(460px, 1.28fr);
+    gap: 8px 12px;
     width: min(1180px, 100%);
-    max-height: min(42vh, 360px);
     margin: 0 auto;
-    padding: 14px;
-    overflow: auto;
+    padding: 10px 12px;
+    overflow: visible;
     border: 1px solid var(--jpdb-reader-border);
     border-radius: 8px;
     background: color-mix(in srgb, var(--jpdb-reader-surface-2) 72%, transparent);
@@ -177,7 +176,7 @@ textarea {
 
 .yomu-gaming-first-run-copy {
     display: grid;
-    gap: 5px;
+    gap: 3px;
     align-content: start;
 }
 
@@ -193,7 +192,7 @@ textarea {
 .yomu-gaming-first-run-copy h1 {
     margin: 0;
     color: var(--jpdb-reader-text);
-    font-size: 24px;
+    font-size: 20px;
     line-height: 1.1;
 }
 
@@ -201,14 +200,16 @@ textarea {
     margin: 0;
     max-width: 58ch;
     color: var(--jpdb-reader-muted);
-    font-size: 13px;
-    line-height: 1.45;
+    font-size: 11px;
+    line-height: 1.3;
 }
 
 .yomu-gaming-first-run-controls {
     display: grid;
-    gap: 8px;
+    grid-template-columns: minmax(150px, 0.46fr) minmax(360px, 1.54fr);
+    gap: 7px;
     align-content: start;
+    align-items: start;
 }
 
 .yomu-gaming-first-run-controls label {
@@ -226,7 +227,7 @@ textarea {
 .yomu-gaming-first-run-controls input {
     width: 100%;
     min-width: 0;
-    min-height: 38px;
+    min-height: 32px;
     padding: 0 11px;
     border: 1px solid var(--jpdb-reader-border);
     border-radius: 8px;
@@ -237,10 +238,11 @@ textarea {
 
 .yomu-gaming-page-scan-setup {
     display: grid;
-    gap: 8px;
+    grid-template-columns: minmax(170px, 0.88fr) minmax(190px, 1.12fr);
+    gap: 5px 7px;
     min-width: 0;
     margin: 0;
-    padding: 10px;
+    padding: 6px;
     border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 78%, transparent);
     border-radius: 8px;
     background: color-mix(in srgb, var(--jpdb-reader-surface) 58%, transparent);
@@ -256,7 +258,7 @@ textarea {
 .yomu-gaming-segmented {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    min-height: 34px;
+    min-height: 30px;
     overflow: hidden;
     border: 1px solid var(--jpdb-reader-border);
     border-radius: 8px;
@@ -289,9 +291,9 @@ textarea {
     display: grid;
     place-items: center;
     width: 100%;
-    min-height: 34px;
+    min-height: 30px;
     color: var(--jpdb-reader-muted);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 850;
     pointer-events: none;
 }
@@ -343,28 +345,31 @@ textarea {
     display: grid;
     grid-column: 1 / -1;
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 8px;
+    gap: 5px;
 }
 
 .yomu-gaming-first-run-features > div {
     display: grid;
-    gap: 3px;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 4px;
+    align-items: baseline;
     min-width: 0;
-    padding: 8px;
+    min-height: 28px;
+    padding: 4px 7px;
     border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
     border-radius: 8px;
     background: color-mix(in srgb, var(--jpdb-reader-surface) 74%, transparent);
 }
 
 .yomu-gaming-first-run-features span {
-    white-space: normal;
+    white-space: nowrap;
 }
 
 .yomu-gaming-onboarding-summary {
     display: grid;
-    grid-column: 1 / -1;
+    grid-column: 1 / 2;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
+    gap: 6px;
     min-width: 0;
 }
 
@@ -383,17 +388,19 @@ textarea {
 .yomu-gaming-onboarding span {
     overflow: hidden;
     color: var(--jpdb-reader-muted);
-    font-size: 12px;
-    line-height: 1.35;
+    font-size: 11px;
+    line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .yomu-gaming-first-run-actions {
     display: flex;
-    grid-column: 1 / -1;
+    grid-column: 2 / 3;
     flex-wrap: wrap;
-    gap: 8px;
+    align-items: end;
+    justify-content: flex-end;
+    gap: 6px;
 }
 
 .yomu-gaming-settings .jpdb-reader-settings-scroll {
@@ -728,13 +735,29 @@ textarea {
         align-items: stretch;
         grid-template-columns: 1fr;
         width: 100%;
-        max-height: 44vh;
+        overflow: auto;
         border-width: 0 0 1px;
         border-radius: 0;
     }
 
     .yomu-gaming-onboarding-summary {
+        grid-column: 1 / -1;
         grid-template-columns: 1fr;
+    }
+
+    .yomu-gaming-first-run-controls,
+    .yomu-gaming-page-scan-setup {
+        grid-template-columns: 1fr;
+    }
+
+    .yomu-gaming-first-run-actions {
+        grid-column: 1 / -1;
+        justify-content: stretch;
+    }
+
+    .yomu-gaming-first-run-actions .jpdb-reader-btn {
+        flex: 1 1 120px;
+        justify-content: center;
     }
 
     .yomu-gaming-first-run-features {

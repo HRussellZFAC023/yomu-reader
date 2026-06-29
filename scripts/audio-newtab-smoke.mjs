@@ -140,8 +140,8 @@ function hostedStudyAnswerAudioScenario(origin) {
             await page.waitForSelector('[data-newtab-prompt] .jpdb-reader-newtab-term ruby', { timeout: 10_000 });
             await page.waitForSelector('[data-newtab-study-tools] .jpdb-reader-pitch svg', { timeout: 10_000 });
             await page.waitForSelector('[data-newtab-study-tools] .jpdb-reader-frequency-pill', { timeout: 10_000 });
-            await page.waitForSelector('[data-newtab-study-tools] [data-action="study-word-audio"]:not([disabled])', { timeout: 10_000 });
-            await page.locator('[data-newtab-study-tools] [data-action="study-word-audio"]').click();
+            await page.waitForSelector('.jpdb-reader-newtab-term-row [data-action="study-word-audio"]:not([disabled])', { timeout: 10_000 });
+            await page.locator('.jpdb-reader-newtab-term-row [data-action="study-word-audio"]').click();
             await waitForPlaybackSignalCount(page, 1, 'Hosted Study answer audio button produced no audio or speech signal');
         },
         assertResult: result => {
@@ -151,6 +151,8 @@ function hostedStudyAnswerAudioScenario(origin) {
             assert(result.speech.length === 0, 'Hosted Study fallback mode used browser text-to-speech while recorded clips were playable', result);
             assert(result.audiblePlays.length >= 1, 'Hosted Study did not record an audio play attempt', result);
             assert(/読.*む/.test(result.evidence.promptText), 'Hosted Study prompt evidence did not include the headword', result);
+            assert(result.evidence.compactTermHtml.includes('<ruby'), 'Hosted Study compact revealed term did not include furigana ruby', result);
+            assert(result.evidence.studySpeakerVisible === true && result.evidence.studySpeakerDisabled === false, 'Hosted Study speaker was not visible and enabled in final evidence', result);
             assert(result.evidence.studyToolsText.includes('#900'), 'Hosted Study answer evidence did not include the frequency pill', result);
         },
     };

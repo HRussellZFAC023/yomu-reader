@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // Playwright smoke for the hosted PDF reader (docs/public/pdf-reader).
 //
-// It serves docs/public over loopback, then for three PDFs generated on the fly
-// (text, text+image, image-only/scanned) it loads /pdf-reader/, uploads the
-// file, and asserts: PDF.js paints a page canvas; text PDFs expose a selectable
-// text layer; the scanned PDF is flagged with no usable text layer; the よむ
-// runtime auto-loads and OCRs the current scanned page without dense overlays.
+// It serves docs/public over loopback, then for PDFs generated on the fly
+// (text, text+image, image-only/scanned, image-backed OCR text) it loads
+// /pdf-reader/, uploads the file, and asserts: PDF.js paints a page canvas; text
+// PDFs expose a selectable text layer; scanned PDFs are flagged away from dense
+// inline page parsing; the よむ runtime auto-loads and OCRs scanned pages with
+// readable in-place targets.
 //
 // No binary fixtures are committed — tiny PDF fixtures are built in memory with
 // explicit ToUnicode maps so the text layer is deterministic on Linux runners.
@@ -14,6 +15,7 @@
 import path from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { deflateSync } from 'node:zlib';
 import { chromium } from 'playwright';
 
 import {
@@ -141,6 +143,18 @@ function multiPageImageOnlyPdfBytes() {
     ]);
 }
 
+function imageBackedOcrPdfBytes() {
+    return buildPdfFixture([{
+        lines: [
+            '画像の上に透明なOCR文字があります。',
+            'このページはスキャンとして扱います。',
+            '単語の色分けを重ねずにOCRで読みます。',
+        ],
+        scannedImage: true,
+        invisibleText: true,
+    }]);
+}
+
 function buildPdfFixture(pages) {
     const glyphs = collectGlyphs(pages);
     const objects = [];
@@ -157,14 +171,42 @@ function buildPdfFixture(pages) {
     const pagesRef = addObject('');
     const fontRef = glyphs.size ? addFontObjects(addObject, addStream, glyphs) : 0;
     const pageRefs = pages.map(page => {
+        const imageRef = page.scannedImage ? addImageObject(addStream) : 0;
         const contentRef = addStream('', pageContentStream(page, glyphs));
-        const resources = fontRef ? `/Resources << /Font << /F1 ${fontRef} 0 R >> >>` : '/Resources << >>';
+        const resourceParts = [];
+        if (fontRef) resourceParts.push(`/Font << /F1 ${fontRef} 0 R >>`);
+        if (imageRef) resourceParts.push(`/XObject << /ImScan ${imageRef} 0 R >>`);
+        const resources = `/Resources << ${resourceParts.join(' ')} >>`;
         return addObject(`<< /Type /Page /Parent ${pagesRef} 0 R /MediaBox [0 0 595 842] ${resources} /Contents ${contentRef} 0 R >>`);
     });
 
     setObject(catalogRef, `<< /Type /Catalog /Pages ${pagesRef} 0 R >>`);
     setObject(pagesRef, `<< /Type /Pages /Kids [${pageRefs.map(ref => `${ref} 0 R`).join(' ')}] /Count ${pageRefs.length} >>`);
     return serializePdf(objects, catalogRef);
+}
+
+function addImageObject(addStream) {
+    const width = 96;
+    const height = 128;
+    const pixels = Buffer.alloc(width * height * 3);
+    for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+            const offset = (y * width + x) * 3;
+            const paper = 235 + ((x + y) % 9);
+            pixels[offset] = paper;
+            pixels[offset + 1] = Math.max(0, paper - 8);
+            pixels[offset + 2] = Math.max(0, paper - 18);
+            if ((y > 18 && y < 24 && x > 14 && x < 82)
+                || (y > 46 && y < 52 && x > 10 && x < 74)
+                || (y > 74 && y < 80 && x > 18 && x < 88)) {
+                pixels[offset] = 56;
+                pixels[offset + 1] = 54;
+                pixels[offset + 2] = 48;
+            }
+        }
+    }
+    const body = deflateSync(pixels).toString('latin1');
+    return addStream(`/Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode`, body);
 }
 
 function collectGlyphs(pages) {
@@ -192,6 +234,9 @@ function addFontObjects(addObject, addStream, glyphs) {
 
 function pageContentStream(page, glyphs) {
     const commands = ['q 1 1 1 rg 0 0 595 842 re f Q'];
+    if (page.scannedImage) {
+        commands.push('q 451 0 0 650 72 96 cm /ImScan Do Q');
+    }
     if (page.graphic) {
         commands.push(
             'q 0.82 0.93 0.86 rg 72 402 320 200 re f Q',
@@ -212,7 +257,9 @@ function pageContentStream(page, glyphs) {
         );
     }
     if (page.lines.length) {
-        commands.push('BT', '/F1 20 Tf', '72 760 Td', '30 TL');
+        commands.push('BT', '/F1 20 Tf');
+        if (page.invisibleText) commands.push('3 Tr');
+        commands.push('72 760 Td', '30 TL');
         page.lines.forEach((line, index) => {
             if (index) commands.push('T*');
             commands.push(`<${encodedGlyphLine(line, glyphs)}> Tj`);
@@ -413,6 +460,7 @@ async function readState(page) {
             renderedCanvas: [...document.querySelectorAll('.pdf-page canvas')].some(c => c.width > 0),
             textSpanCount: document.querySelectorAll('.textLayer span').length,
             textSample: (document.querySelector('.textLayer')?.textContent ?? '').replace(/\s+/g, '').slice(0, 40),
+            textLayerEnhancedWords: document.querySelectorAll('.textLayer .jpdb-reader-word, .textLayer ruby').length,
             textPdfPages: document.querySelectorAll('.pdf-page.text-pdf').length,
             scannedPages: document.querySelectorAll('.pdf-page.scanned').length,
             ocrOffCanvases: document.querySelectorAll('.pdf-page canvas[data-yomu-canvas-ocr="off"]').length,
@@ -586,6 +634,7 @@ async function run() {
         const mixedPdf = mixedPdfBytes();
         const scannedPdf = imageOnlyPdfBytes();
         const scannedTwoPagePdf = multiPageImageOnlyPdfBytes();
+        const imageBackedOcrPdf = imageBackedOcrPdfBytes();
 
         // --- 1) text PDF: canvas + selectable Japanese text layer + runtime ---
         {
@@ -649,9 +698,9 @@ async function run() {
             assert(state.hiddenTextLayers > 0, 'scanned PDF should hide the empty text layer so OCR remains readable', state);
             assert(ocrRequests > beforeOcr, 'current scanned PDF should call the configured Yomu OCR endpoint', { beforeOcr, ocrRequests, ocrPayloads, state });
             assert(state.ocrLineCount > 0 && state.ocrTextSample.includes(OCR_SMOKE_TEXT), 'scanned PDF should render OCR text for lookup', state);
-            assert(state.ocrLineVisuals.every(line => line.backgroundColor === 'rgba(0, 0, 0, 0)' || line.backgroundColor === 'transparent'), 'scanned PDF OCR should not paint dense background blocks over the page by default', state);
-            assert(state.ocrLineVisuals.every(line => line.color === 'rgba(0, 0, 0, 0)' && line.textFillColor === 'rgba(0, 0, 0, 0)'), 'scanned PDF OCR line text should stay invisible until hover/focus', state);
-            assert(state.ocrLineVisuals.every(line => line.wordTextFillColor === 'rgba(0, 0, 0, 0)' && line.wordBackgroundImage === 'none' && line.wordBoxShadow === 'none'), 'scanned PDF OCR words should not leak reader colors or highlights over the page', state);
+            assert(state.ocrLineVisuals.every(line => line.backgroundColor !== 'rgba(0, 0, 0, 0)' && line.backgroundColor !== 'transparent'), 'scanned PDF OCR should paint readable in-place line targets', state);
+            assert(state.ocrLineVisuals.every(line => line.color !== 'rgba(0, 0, 0, 0)' && line.textFillColor !== 'rgba(0, 0, 0, 0)'), 'scanned PDF OCR line text should be readable without hover/focus', state);
+            assert(state.ocrLineVisuals.every(line => line.wordTextFillColor !== 'rgba(0, 0, 0, 0)' && line.wordBackgroundImage === 'none' && line.wordBoxShadow === 'none'), 'scanned PDF OCR words should not leak reader colors or highlights over the page', state);
             assert(state.ocrLineVisuals.every(line => line.furiOpacity === '' || line.furiOpacity === '0'), 'scanned PDF OCR furigana should stay hidden until hover/focus', state);
             const hoverVisual = await hoverFirstOcrLine(page);
             report.scannedHover = hoverVisual;
@@ -662,7 +711,28 @@ async function run() {
             await page.close();
         }
 
-        // --- 4) scanned page changes: OCR clears/retriggers and navigation stays quick ---
+        // --- 4) image-backed OCR text layer: classify as scanned, not dense inline text ---
+        {
+            const beforeOcr = ocrRequests;
+            const { page } = await openInReader(browser, server.origin, imageBackedOcrPdf, 'image-backed-ocr.pdf');
+            await waitForOcrText(page, OCR_SMOKE_TEXT, 'image-backed OCR PDF did not auto-OCR');
+            const state = await readState(page);
+            report.imageBackedOcr = state;
+            assert(state.renderedCanvas, 'image-backed OCR PDF should render the page image', state);
+            assert(state.textSpanCount > 0 && /透明なOCR文字/.test(state.textSample), 'image-backed OCR PDF should expose the embedded OCR text layer before classification hides it', state);
+            assert(state.scannedPages > 0 && state.textPdfPages === 0, 'image-backed OCR PDF should be classified as scanned, not text', state);
+            assert(state.firstPageTextReason === 'image-backed-invisible-text', 'image-backed OCR PDF should be classified by its invisible text over a raster page', state);
+            assert(state.hiddenTextLayers > 0, 'image-backed OCR PDF should hide the embedded OCR text layer', state);
+            assert(state.textLayerEnhancedWords === 0, 'image-backed OCR PDF should not render dense reader words/ruby into the hidden text layer', state);
+            assert(state.ocrOnCanvases > 0 && state.ocrOffCanvases === 0, 'image-backed OCR PDF canvas should opt into Yomu OCR', state);
+            assert(ocrRequests > beforeOcr, 'image-backed OCR PDF should call the configured Yomu OCR endpoint', { beforeOcr, ocrRequests, ocrPayloads, state });
+            assert(state.visibleOcrLineCount > 0 && state.visibleOcrTextSample.includes(OCR_SMOKE_TEXT), 'image-backed OCR PDF should render readable OCR line targets', state);
+            assert(state.ocrLineVisuals.every(line => line.wordBackgroundImage === 'none' && line.wordBoxShadow === 'none'), 'image-backed OCR PDF should suppress word-level OCR highlights', state);
+            await page.screenshot({ path: path.join(appRoot, 'qa-artifacts', 'pdf-reader-image-backed-ocr.png') }).catch(() => {});
+            await page.close();
+        }
+
+        // --- 5) scanned page changes: OCR clears/retriggers and navigation stays quick ---
         {
             queuedOcrTexts.length = 0;
             queuedOcrTexts.push(OCR_PAGE_ONE_TEXT, OCR_PAGE_TWO_TEXT);

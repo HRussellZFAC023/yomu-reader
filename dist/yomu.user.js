@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.222
+// @version 1.4.223
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.222
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.222
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.222
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.222
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.223
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.223
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.223
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.223
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -4906,6 +4906,7 @@ function targetForcesAllFurigana(parent) {
   return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
 }
 function shouldSuppressCompactScanRuby(parent) {
+  if (parent.closest(READER_ROOT_SELECTOR$3)) return false;
   if (shouldSuppressCompactMediaRuby(parent)) {
     markCompactMediaPassiveChrome(parent);
     return true;
@@ -4913,7 +4914,7 @@ function shouldSuppressCompactScanRuby(parent) {
   const notice = compactConstrainedNotificationElement(parent);
   if (notice) notice.dataset.jpdbReaderPassiveChrome = "true";
   if (isYouTubeHost()) return Boolean(notice);
-  const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent);
+  const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveInteractionRubyElement(parent) ?? compactPassiveChromeElement(parent);
   if (chrome) chrome.dataset.jpdbReaderPassiveChrome = "true";
   return Boolean(chrome || notice);
 }
@@ -4922,7 +4923,6 @@ function markCompactMediaPassiveChrome(parent) {
   host.dataset.jpdbReaderPassiveChrome = "true";
 }
 function compactInteractiveChromeElement(parent) {
-  if (parent.closest(READER_ROOT_SELECTOR$3)) return null;
   const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
   if (!chrome) return null;
   const text2 = compactInteractiveChromeText(chrome);
@@ -4936,12 +4936,24 @@ function compactInteractiveChromeText(element2) {
   return element2.textContent?.replace(/\s+/g, "").trim() ?? "";
 }
 function compactPassiveChromeElement(parent) {
-  if (parent.closest(READER_ROOT_SELECTOR$3)) return null;
   if (isReadableProseContext(parent)) return null;
   if (!isCompactInteractiveChromeContext(parent)) return null;
   const text2 = compactInteractiveChromeText(parent);
   if (!isCompactInteractiveChromeText(text2)) return null;
   return hasCompactInteractiveChromeRubyRisk(parent) ? parent : null;
+}
+function compactPassiveInteractionRubyElement(parent) {
+  if (isReadableProseContext(parent)) return null;
+  const interaction = parent.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+  if (!interaction) return null;
+  if (safeElementMatches$1(interaction, COMPACT_INTERACTIVE_CHROME_SELECTOR)) return null;
+  if (isLikelyProseElement(interaction)) return null;
+  if (!isCompactPassiveInteractionElement(interaction)) return null;
+  const style = safeComputedStyle(interaction);
+  if (isVerticalWritingMode(style.writingMode)) return interaction;
+  if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return interaction;
+  if (isCompactInteractiveChromeContext(interaction)) return interaction;
+  return hasCompactInteractiveChromeGeometry(interaction) ? interaction : null;
 }
 function isCompactInteractiveChromeText(text2) {
   const length = compactLength(text2);
@@ -5232,7 +5244,6 @@ function styleTextMirror(mirror, host, hasRuby = false) {
   mirror.style.setProperty("line-height", hasRuby ? rubyFriendlyMirrorLineHeight(style) : style.lineHeight);
   mirror.style.setProperty("letter-spacing", style.letterSpacing);
   mirror.style.setProperty("text-align", style.textAlign);
-  mirror.style.setProperty("color", style.color);
   mirror.style.setProperty("z-index", "1");
   if (hasRuby) mirror.dataset.jpdbReaderHasRuby = "true";
 }
@@ -6631,7 +6642,6 @@ function hasVisibleControlLinkBox(style) {
   return style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack || style.borderTopStyle !== "none" || style.borderBottomStyle !== "none";
 }
 const RUBY_ROOM_HARD_SKIP_SELECTOR = "[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending";
-const RUBY_ROOM_LAYOUT_HOST_SKIP_SELECTOR = 'ytd-text-inline-expander,yt-attributed-string,yt-formatted-string,.ytAttributedStringHost,.yt-core-attributed-string,.ytContentMetadataViewModelMetadataRow,yt-content-metadata-view-model,yt-button-shape,yt-button-view-model,button,[role="button"],ytd-app,ytm-app,ytd-rich-grid-renderer,ytd-rich-item-renderer,ytd-video-renderer,yt-lockup-view-model,ytm-rich-grid-renderer,ytm-video-with-context-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2,ytm-item-section-renderer';
 const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = "ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3";
 const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ":is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])";
 const RUBY_ROOM_MAX_PX = 400;
@@ -6658,9 +6668,7 @@ function makeRoomForRubyInCroppedRows(root = document) {
 }
 function rubyRoomBoxIsSkipped(box) {
   if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR)) return true;
-  if (!safeElementMatches$1(box, RUBY_ROOM_LAYOUT_HOST_SKIP_SELECTOR)) return false;
-  if (isGoogleSearchRubyRoomTextBox(box)) return false;
-  return !isYouTubeRubyRoomTextBox(box);
+  return !(isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box));
 }
 function isYouTubeRubyRoomTextBox(box) {
   if (safeElementMatches$1(box, "yt-attributed-string,yt-formatted-string,.ytAttributedStringHost,.yt-core-attributed-string")) {
@@ -37286,7 +37294,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.222"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.223"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

@@ -56,7 +56,7 @@ const SHORTCUT_PART_ALIASES = new Map<string, string>([
 if (process.env.YOMU_GAMING_USER_DATA_DIR) {
     app.setPath('userData', path.resolve(process.env.YOMU_GAMING_USER_DATA_DIR));
 }
-app.setName(APP_NAME);
+configureNativeAppMetadata();
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
@@ -150,6 +150,20 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<Browser
 
 function appIconPath(): string {
     return path.join(__dirname, 'yomu-gaming-512.png');
+}
+
+function configureNativeAppMetadata(): void {
+    app.setName(APP_NAME);
+    if (process.platform === 'win32') {
+        app.setAppUserModelId('com.yomureader.gaming');
+    }
+    if (process.platform === 'darwin') {
+        app.setAboutPanelOptions({
+            applicationName: APP_NAME,
+            applicationVersion: app.getVersion(),
+            iconPath: appIconPath(),
+        });
+    }
 }
 
 async function showOverlay(mode: YomuGamingCaptureMode = 'instant'): Promise<void> {

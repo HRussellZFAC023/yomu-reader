@@ -553,7 +553,8 @@
     }
 
     .empty {
-      width: auto;
+      width: min(720px, calc(100% - 24px));
+      align-self: center;
       flex: 1 1 auto;
       position: relative;
       margin: clamp(12px, 2vw, 18px);
@@ -687,7 +688,7 @@
     }
   </style>
 </head>
-<body>
+<body class="yomu-pdf-reader-page">
   <main class="app" data-app>
     <h1 class="sr-only" data-page-title>Yomu PDF</h1>
     <div class="chrome">
@@ -820,6 +821,7 @@
     const OCR_TEXT_LAYER_JP_GAP_RATIO = 0.035;
     const OCR_TEXT_LAYER_MIN_BREAKS = 36;
     const OCR_TEXT_LAYER_BREAK_RATIO = 0.04;
+    const DOMINANT_RASTER_IMAGE_AREA_RATIO = 0.45;
     // Backing-store caps. A canvas larger than the browser limit is silently
     // clamped — pdf.js then paints into the un-clamped space, so the page lands
     // in a corner and the rest stays black. Cap area and per-axis size well
@@ -1374,7 +1376,8 @@
         entry.status = 'done';
 
         const textLength = compactTextLength(textLayerDiv.textContent);
-        const classification = classifyPdfPageTextMode(textLayerDiv, textLength);
+        const pageStructure = await analyzePdfPageStructure(page, baseViewport);
+        const classification = classifyPdfPageTextMode(textLayerDiv, textLength, pageStructure);
         if (epoch !== renderEpoch) { entry.status = 'idle'; return; }
         markPdfPageTextMode(entry, classification.isScanned, textLength, classification.reason);
         if (classification.isScanned) maybeShowScannedNotice();
@@ -1388,8 +1391,11 @@
       }
     }
 
-    function classifyPdfPageTextMode(textLayerDiv, textLength) {
+    function classifyPdfPageTextMode(textLayerDiv, textLength, pageStructure) {
       if (textLength < SCANNED_TEXT_THRESHOLD) return { isScanned: true, reason: 'empty-text-layer' };
+      if (looksLikeImageBackedOcrPage(pageStructure, textLayerDiv, textLength)) {
+        return { isScanned: true, reason: pageStructure.invisibleText ? 'image-backed-invisible-text' : 'image-backed-ocr-text' };
+      }
       if (looksLikeEmbeddedOcrTextLayer(textLayerDiv, textLength)) {
         return { isScanned: true, reason: 'image-backed-ocr-text' };
       }
@@ -1398,6 +1404,96 @@
 
     function compactTextLength(value) {
       return (value || '').replace(/\s+/g, '').length;
+    }
+
+    async function analyzePdfPageStructure(page, baseViewport) {
+      const structure = { dominantRasterImage: false, invisibleText: false, maxRasterImageAreaRatio: 0 };
+      try {
+        const operatorList = await page.getOperatorList();
+        const ops = pdfjsLib.OPS || {};
+        const imageOps = new Set([
+          ops.paintImageMaskXObject,
+          ops.paintImageMaskXObjectGroup,
+          ops.paintImageXObject,
+          ops.paintInlineImageXObject,
+          ops.paintInlineImageXObjectGroup,
+          ops.paintImageXObjectRepeat,
+          ops.paintImageMaskXObjectRepeat,
+        ].filter(value => typeof value === 'number'));
+        const saveOp = ops.save;
+        const restoreOp = ops.restore;
+        const transformOp = ops.transform;
+        const textRenderingModeOp = ops.setTextRenderingMode;
+        const stack = [];
+        let ctm = [1, 0, 0, 1, 0, 0];
+        const pageArea = Math.max(1, baseViewport.width * baseViewport.height);
+
+        for (let index = 0; index < operatorList.fnArray.length; index += 1) {
+          const fn = operatorList.fnArray[index];
+          const args = operatorList.argsArray[index] || [];
+          if (fn === saveOp) {
+            stack.push(ctm);
+          } else if (fn === restoreOp) {
+            ctm = stack.pop() || [1, 0, 0, 1, 0, 0];
+          } else if (fn === transformOp) {
+            const matrix = pdfOperatorMatrix(args);
+            if (matrix) ctm = multiplyPdfMatrix(ctm, matrix);
+          } else if (fn === textRenderingModeOp && Number(args[0]) === 3) {
+            structure.invisibleText = true;
+          } else if (imageOps.has(fn)) {
+            const ratio = rasterImageAreaRatio(ctm, pageArea);
+            structure.maxRasterImageAreaRatio = Math.max(structure.maxRasterImageAreaRatio, ratio);
+          }
+        }
+        structure.dominantRasterImage = structure.maxRasterImageAreaRatio >= DOMINANT_RASTER_IMAGE_AREA_RATIO;
+      } catch (error) {
+        console.warn('[yomu-pdf] failed to inspect page operators', error);
+      }
+      return structure;
+    }
+
+    function looksLikeImageBackedOcrPage(pageStructure, textLayerDiv, textLength) {
+      if (!pageStructure?.dominantRasterImage) return false;
+      return pageStructure.invisibleText || looksLikeEmbeddedOcrTextLayer(textLayerDiv, textLength);
+    }
+
+    function pdfOperatorMatrix(args) {
+      if (Array.isArray(args) && args.length >= 6 && args.every(value => typeof value === 'number')) return args.slice(0, 6);
+      const first = args?.[0];
+      if (Array.isArray(first) && first.length >= 6 && first.every(value => typeof value === 'number')) return first.slice(0, 6);
+      return null;
+    }
+
+    function multiplyPdfMatrix(left, right) {
+      return [
+        left[0] * right[0] + left[2] * right[1],
+        left[1] * right[0] + left[3] * right[1],
+        left[0] * right[2] + left[2] * right[3],
+        left[1] * right[2] + left[3] * right[3],
+        left[0] * right[4] + left[2] * right[5] + left[4],
+        left[1] * right[4] + left[3] * right[5] + left[5],
+      ];
+    }
+
+    function rasterImageAreaRatio(matrix, pageArea) {
+      const points = [
+        applyPdfMatrix(matrix, 0, 0),
+        applyPdfMatrix(matrix, 1, 0),
+        applyPdfMatrix(matrix, 0, 1),
+        applyPdfMatrix(matrix, 1, 1),
+      ];
+      const xs = points.map(point => point[0]);
+      const ys = points.map(point => point[1]);
+      const width = Math.max(...xs) - Math.min(...xs);
+      const height = Math.max(...ys) - Math.min(...ys);
+      return Math.max(0, width * height) / pageArea;
+    }
+
+    function applyPdfMatrix(matrix, x, y) {
+      return [
+        matrix[0] * x + matrix[2] * y + matrix[4],
+        matrix[1] * x + matrix[3] * y + matrix[5],
+      ];
     }
 
     function looksLikeEmbeddedOcrTextLayer(textLayerDiv, textLength) {

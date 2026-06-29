@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.223] - 2026-06-29
+
+### Fixed
+
+- Made Yomu PDF detect image-backed scanned pages with embedded/invisible OCR text and show readable in-place OCR line targets instead of dense word overlays, while keeping real text PDFs on the selectable PDF text layer.
+- Tightened the generic layout guard so compact app controls, storefront cards, carousels, and composer mirrors stay lookupable without furigana or highlight styling pushing page UI out of place.
+- Kept Yomu Gaming on the browser image-OCR default and left local OCR as an advanced opt-in path, so the desktop app no longer opens with a tiny forced localhost endpoint as the main setup.
+
 ## [1.4.222] - 2026-06-29
 
 ### Fixed

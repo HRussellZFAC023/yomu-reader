@@ -1819,6 +1819,7 @@ function targetForcesAllFurigana(parent: HTMLElement): boolean {
 }
 
 function shouldSuppressCompactScanRuby(parent: HTMLElement): boolean {
+    if (parent.closest(READER_ROOT_SELECTOR)) return false;
     if (shouldSuppressCompactMediaRuby(parent)) {
         markCompactMediaPassiveChrome(parent);
         return true;
@@ -1826,7 +1827,9 @@ function shouldSuppressCompactScanRuby(parent: HTMLElement): boolean {
     const notice = compactConstrainedNotificationElement(parent);
     if (notice) notice.dataset.jpdbReaderPassiveChrome = 'true';
     if (isYouTubeHost()) return Boolean(notice);
-    const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent);
+    const chrome = compactInteractiveChromeElement(parent)
+        ?? compactPassiveInteractionRubyElement(parent)
+        ?? compactPassiveChromeElement(parent);
     if (chrome) chrome.dataset.jpdbReaderPassiveChrome = 'true';
     return Boolean(chrome || notice);
 }
@@ -1840,7 +1843,6 @@ function markCompactMediaPassiveChrome(parent: HTMLElement): void {
 }
 
 function compactInteractiveChromeElement(parent: HTMLElement): HTMLElement | null {
-    if (parent.closest(READER_ROOT_SELECTOR)) return null;
     const chrome = parent.closest<HTMLElement>(COMPACT_INTERACTIVE_CHROME_SELECTOR);
     if (!chrome) return null;
     const text = compactInteractiveChromeText(chrome);
@@ -1856,12 +1858,25 @@ function compactInteractiveChromeText(element: HTMLElement): string {
 }
 
 function compactPassiveChromeElement(parent: HTMLElement): HTMLElement | null {
-    if (parent.closest(READER_ROOT_SELECTOR)) return null;
     if (isReadableProseContext(parent)) return null;
     if (!isCompactInteractiveChromeContext(parent)) return null;
     const text = compactInteractiveChromeText(parent);
     if (!isCompactInteractiveChromeText(text)) return null;
     return hasCompactInteractiveChromeRubyRisk(parent) ? parent : null;
+}
+
+function compactPassiveInteractionRubyElement(parent: HTMLElement): HTMLElement | null {
+    if (isReadableProseContext(parent)) return null;
+    const interaction = parent.closest<HTMLElement>(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+    if (!interaction) return null;
+    if (safeElementMatches(interaction, COMPACT_INTERACTIVE_CHROME_SELECTOR)) return null;
+    if (isLikelyProseElement(interaction)) return null;
+    if (!isCompactPassiveInteractionElement(interaction)) return null;
+    const style = safeComputedStyle(interaction);
+    if (isVerticalWritingMode(style.writingMode)) return interaction;
+    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return interaction;
+    if (isCompactInteractiveChromeContext(interaction)) return interaction;
+    return hasCompactInteractiveChromeGeometry(interaction) ? interaction : null;
 }
 
 function isCompactInteractiveChromeText(text: string): boolean {
@@ -2220,7 +2235,6 @@ function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false
     mirror.style.setProperty('line-height', hasRuby ? rubyFriendlyMirrorLineHeight(style) : style.lineHeight);
     mirror.style.setProperty('letter-spacing', style.letterSpacing);
     mirror.style.setProperty('text-align', style.textAlign);
-    mirror.style.setProperty('color', style.color);
     mirror.style.setProperty('z-index', '1');
     if (hasRuby) mirror.dataset.jpdbReaderHasRuby = 'true';
 }
@@ -4041,29 +4055,15 @@ function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
         || style.borderBottomStyle !== 'none';
 }
 
-// UT-70: late-clamp reconciliation. Hosts that hydrate progressively
-// (YouTube custom elements on iPad Safari) can apply -webkit-line-clamp /
-// ellipsis styles AFTER we annotated, so scan-time layout sensitivity missed
-// them and the grown ruby line gets cropped — base text vanishes while the
-// furigana sliver stays. Sweep rendered words and strip ruby (keep color +
-// lookup) wherever an ancestor is, by now, a layout-sensitive text box.
-// UT-70/79 (user direction): when ruby makes a clamped/fixed-height row
-// overflow, do NOT strip the furigana — give the box room instead. Crop
-// detection stays measurement-based (computed styles + actual overflow, no
-// per-site lists); the room is the smallest honest fix per box kind:
-// line-clamp boxes keep their line count but lose the plain-text max-height,
-// other clipped boxes get their active height cap raised to the real content
-// height.
+// Late-clamp reconciliation for explicit rich-reader surfaces. Most generic
+// pages must keep their authored layout; compact scanner heuristics suppress
+// ruby there instead. The resize path remains for the whitelisted YouTube and
+// Google Search text boxes that historically need ruby room after hydration.
 // Containers we must never reserve ruby room on: cards the YouTube filter has
 // collapsed/hidden (sizing them un-collapses the filter into giant gaps) and
 // any aria-hidden subtree. Scanned words can live inside a collapsed card; room
 // must skip them.
 const RUBY_ROOM_HARD_SKIP_SELECTOR = '[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending';
-// YouTube's Polymer/view-model hosts own their measured height. Reserving
-// ruby room on them writes inline height/max-height that YouTube treats as
-// authoritative, causing watch descriptions to balloon and compact metadata
-// rows/action chips to stack or flicker.
-const RUBY_ROOM_LAYOUT_HOST_SKIP_SELECTOR = 'ytd-text-inline-expander,yt-attributed-string,yt-formatted-string,.ytAttributedStringHost,.yt-core-attributed-string,.ytContentMetadataViewModelMetadataRow,yt-content-metadata-view-model,yt-button-shape,yt-button-view-model,button,[role="button"],ytd-app,ytm-app,ytd-rich-grid-renderer,ytd-rich-item-renderer,ytd-video-renderer,yt-lockup-view-model,ytm-rich-grid-renderer,ytm-video-with-context-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2,ytm-item-section-renderer';
 const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = 'ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3';
 const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ':is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])';
 // A clamped/ellipsis text row's furigana never needs more than a few lines of
@@ -4096,9 +4096,7 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
 
 function rubyRoomBoxIsSkipped(box: HTMLElement): boolean {
     if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR)) return true;
-    if (!safeElementMatches(box, RUBY_ROOM_LAYOUT_HOST_SKIP_SELECTOR)) return false;
-    if (isGoogleSearchRubyRoomTextBox(box)) return false;
-    return !isYouTubeRubyRoomTextBox(box);
+    return !(isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box));
 }
 
 function isYouTubeRubyRoomTextBox(box: HTMLElement): boolean {

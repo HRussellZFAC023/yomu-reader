@@ -46,6 +46,7 @@ interface OverlayResult {
     terms: string[];
     lines?: OverlayLineResult[];
     error?: string;
+    fallback?: 'browser-ocr';
 }
 
 interface OverlayLineResult {
@@ -61,6 +62,8 @@ const GAMING_FIRST_RUN_SEEN_STORAGE_KEY = 'yomu-gaming-first-run-seen-v1';
 const PREVIOUS_OCR_ENDPOINT_STORAGE_KEY = 'yomu-gaming-ocr-endpoint';
 const PREVIOUS_OCR_ENGINE_STORAGE_KEY = 'yomu-gaming-ocr-engine';
 const DEFAULT_SETTINGS_PANEL = 'media';
+const DEFAULT_GAMING_OCR_PROVIDER: ReaderSettings['ocrProvider'] = 'google-lens';
+const DEFAULT_GAMING_OCR_ENDPOINT = '';
 const UNSUPPORTED_SETTINGS_ACTIONS = new Set([
     'factory-reset',
     'import-yomitan-settings',
@@ -371,7 +374,7 @@ function bindSettingsForm(form: HTMLFormElement): void {
         if (action === 'dismiss-gaming-first-run') {
             event.preventDefault();
             markGamingFirstRunSeen();
-            setShellStatus('First-run tips hidden. Use Capture area or the shortcut whenever you need them.', 'success');
+            setShellStatus('Ready. Use Capture area or the shortcut whenever you need them.', 'success');
             return;
         }
         if (action === 'sync-cloud-settings' || action === 'restore-cloud-settings') {
@@ -430,7 +433,7 @@ function bindGamingShellActions(form: HTMLFormElement): void {
             if (action === 'dismiss-gaming-first-run') {
                 event.preventDefault();
                 markGamingFirstRunSeen();
-                setShellStatus('First-run tips hidden. Press the shortcut for instant capture, or use Capture area.', 'success');
+                setShellStatus('Ready. Press the shortcut for instant capture, or use Capture area.', 'success');
             }
         });
     });
@@ -673,11 +676,11 @@ function applyGamingSettingsCopy(form: HTMLFormElement): void {
     }
     const ocrHelp = form.querySelector<HTMLElement>('#settings-help-ocr');
     if (ocrHelp) {
-        ocrHelp.textContent = 'Yomu keeps the same image-reading defaults as the browser reader. Native game capture can use an advanced local OCR endpoint when you want in-place desktop OCR.';
+        ocrHelp.textContent = 'Yomu Gaming starts with the same image-reading defaults as browser Yomu. Advanced local OCR is optional when you want fully in-place desktop targets.';
     }
     const localHelp = form.querySelector<HTMLElement>('[data-local-ocr][data-help-key="ocrLocalHelp"]');
     if (localHelp) {
-        localHelp.textContent = 'Advanced native overlay path: run MangaOCR, PaddleOCR, Apple Vision, or a compatible local HTTP OCR service, then paste its /ocr URL here.';
+        localHelp.textContent = 'Advanced native overlay path: connect a compatible local OCR service only if you want offline in-place desktop OCR.';
     }
 }
 
@@ -784,8 +787,8 @@ function captureShortcutHelpText(): string {
 
 function gamingOcrModeText(): string {
     if (!shellState.settings.ocrEnabled) return 'Image OCR off. Capture on demand.';
-    if (shellState.settings.ocrProvider === 'google-lens') return 'Google Lens style default.';
-    if (shellState.settings.ocrProvider === 'local-service') return 'Advanced local OCR.';
+    if (shellState.settings.ocrProvider === 'google-lens') return 'Browser image OCR default.';
+    if (shellState.settings.ocrProvider === 'local-service') return 'Advanced in-place OCR.';
     if (shellState.settings.ocrProvider === 'cloud-vision') return 'Cloud Vision.';
     return shellState.settings.ocrAutoScanImages
         ? 'Auto for images. Capture on demand.'
@@ -817,18 +820,24 @@ function scrollToInitialSettingsSection(form: HTMLFormElement): void {
 
 function loadGamingSettings(): ReaderSettings {
     const stored = parseStoredSettings();
+    const ocrProvider = stored?.ocrProvider ?? DEFAULT_GAMING_OCR_PROVIDER;
+    const useLocalOcr = ocrProvider === 'local-service';
     return normalizeReaderSettings({
         ...DEFAULT_SETTINGS,
         ...stored,
         theme: stored?.theme ?? 'light',
         ocrEnabled: stored?.ocrEnabled ?? true,
-        ocrProvider: stored?.ocrProvider ?? DEFAULT_SETTINGS.ocrProvider,
-        ocrEndpointUrl: stored?.ocrEndpointUrl
-            || localStorage.getItem(PREVIOUS_OCR_ENDPOINT_STORAGE_KEY)
-            || DEFAULT_SETTINGS.ocrEndpointUrl,
-        ocrEngine: stored?.ocrEngine
-            || localStorage.getItem(PREVIOUS_OCR_ENGINE_STORAGE_KEY)
-            || DEFAULT_SETTINGS.ocrEngine,
+        ocrProvider,
+        ocrEndpointUrl: useLocalOcr
+            ? stored?.ocrEndpointUrl
+                || localStorage.getItem(PREVIOUS_OCR_ENDPOINT_STORAGE_KEY)
+                || DEFAULT_SETTINGS.ocrEndpointUrl
+            : DEFAULT_GAMING_OCR_ENDPOINT,
+        ocrEngine: useLocalOcr
+            ? stored?.ocrEngine
+                || localStorage.getItem(PREVIOUS_OCR_ENGINE_STORAGE_KEY)
+                || DEFAULT_SETTINGS.ocrEngine
+            : DEFAULT_SETTINGS.ocrEngine,
         ocrLanguage: stored?.ocrLanguage ?? DEFAULT_SETTINGS.ocrLanguage,
     });
 }
@@ -846,8 +855,10 @@ function parseStoredSettings(): Partial<ReaderSettings> | null {
 
 function persistGamingSettings(settings: ReaderSettings): void {
     localStorage.setItem(GAMING_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-    localStorage.setItem(PREVIOUS_OCR_ENDPOINT_STORAGE_KEY, settings.ocrEndpointUrl);
-    localStorage.setItem(PREVIOUS_OCR_ENGINE_STORAGE_KEY, settings.ocrEngine);
+    if (settings.ocrProvider === 'local-service' && settings.ocrEndpointUrl.trim()) {
+        localStorage.setItem(PREVIOUS_OCR_ENDPOINT_STORAGE_KEY, settings.ocrEndpointUrl);
+        localStorage.setItem(PREVIOUS_OCR_ENGINE_STORAGE_KEY, settings.ocrEngine);
+    }
 }
 
 function snapshotSettingsObject(value: unknown): Partial<ReaderSettings> {
@@ -931,6 +942,9 @@ class OverlaySelectionController {
         this.root.querySelector<HTMLButtonElement>('[data-action="overlay-settings"]')?.addEventListener('click', () => {
             void this.gamingBridge.showApp().then(() => this.gamingBridge.hideOverlay());
         });
+        this.root.querySelector<HTMLButtonElement>('[data-action="overlay-open-ocr"]')?.addEventListener('click', () => {
+            void this.gamingBridge.openExternal('https://yomureader.com/tools/japanese-ocr').finally(() => this.gamingBridge.hideOverlay());
+        });
         this.root.querySelectorAll<HTMLButtonElement>('[data-action="open-yomu"]').forEach(button => {
             button.addEventListener('click', () => {
                 const term = button.dataset.term ?? '';
@@ -977,6 +991,25 @@ class OverlaySelectionController {
             this.render();
             return;
         }
+        if (this.settings.ocrProvider !== 'local-service') {
+            this.busy = true;
+            this.result = null;
+            this.render();
+            try {
+                await this.gamingBridge.capturePrimaryScreen();
+                this.result = { text: '', terms: [], fallback: 'browser-ocr' };
+            } catch (error) {
+                this.result = {
+                    text: '',
+                    terms: [],
+                    error: error instanceof Error ? error.message : 'Capture failed.',
+                };
+            } finally {
+                this.busy = false;
+                this.render();
+            }
+            return;
+        }
         this.busy = true;
         this.result = null;
         this.render();
@@ -1015,7 +1048,7 @@ class OverlaySelectionController {
 }
 
 function gamingOcrSetupError(settings: ReaderSettings): string {
-    if (settings.ocrProvider !== 'local-service') return 'Native game overlay OCR needs the advanced Local OCR server setting in this build.';
+    if (settings.ocrProvider !== 'local-service') return '';
     if (!settings.ocrEndpointUrl.trim()) return 'Add an advanced local OCR server URL in Settings.';
     return '';
 }
@@ -1092,6 +1125,17 @@ function overlayStatusHtml(label: string): string {
 function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelectionRect | null): string {
     if (result.lines?.length) return overlayInlineResultHtml(result);
     const style = overlayResultStyle(selection);
+    if (result.fallback === 'browser-ocr') {
+        return `<section class="overlay-result" style="${style}" role="status">
+            <strong>Use Yomu image OCR</strong>
+            <p>Default capture uses the same image-reading route as browser Yomu. Turn on advanced in-place OCR in Settings when you want game text targets directly over the screen.</p>
+            <div class="overlay-actions">
+                <button type="button" data-action="overlay-open-ocr">Open OCR</button>
+                <button type="button" data-action="overlay-settings">Settings</button>
+                <button type="button" data-action="overlay-done">Close</button>
+            </div>
+        </section>`;
+    }
     if (result.error) {
         return `<section class="overlay-result" style="${style}" role="status">
             <strong>${escapeHtml(result.error)}</strong>

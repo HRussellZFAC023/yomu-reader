@@ -50,6 +50,7 @@ try {
     step('launch Electron app');
     let page = await launchGamingApp();
     step('wait for Yomu settings shell');
+    await assertGamingWindowIdentity(page);
     await page.waitForSelector('.yomu-gaming-shell[data-yomu-gaming-ready="true"]', { timeout: 45_000 });
     await page.waitForSelector('.yomu-gaming-controlbar', { timeout: 45_000 });
     await page.waitForSelector('.jpdb-reader-settings[data-yomu-gaming-settings]', { timeout: 45_000 });
@@ -275,6 +276,10 @@ function crc32(buffer) {
 async function notePendingCaptureOnboarding(page) {
     const onboarding = page.locator('[data-yomu-gaming-first-run]');
     await onboarding.first().waitFor({ timeout: 10_000 });
+    const onboardingBox = await onboarding.first().boundingBox();
+    if (!onboardingBox || onboardingBox.height > 330) {
+        throw new Error(`Yomu Gaming first-run is too large for a clean native setup surface: ${JSON.stringify(onboardingBox)}`);
+    }
     const shortcutInput = onboarding.first().locator('[data-capture-shortcut-input]');
     await shortcutInput.waitFor({ timeout: 10_000 });
     if (await shortcutInput.getAttribute('readonly') !== null) {
@@ -288,6 +293,13 @@ async function notePendingCaptureOnboarding(page) {
     }
     if (/Local OCR|endpoint|127\.0\.0\.1/i.test(copy)) throw new Error(`Yomu Gaming first-run still exposes advanced OCR setup: ${copy}`);
     if (ambiguousScanCopyPattern.test(copy)) throw new Error(`Yomu Gaming onboarding still uses ambiguous scan copy: ${copy}`);
+}
+
+async function assertGamingWindowIdentity(page) {
+    const title = await page.title();
+    if (title !== 'Yomu Gaming') {
+        throw new Error(`Yomu Gaming window title was not branded correctly: ${title}`);
+    }
 }
 
 async function assertDefaultOcrPath(page) {

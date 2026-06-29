@@ -6792,6 +6792,101 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   text-shadow: none !important;
 }
 
+.yomu-pdf-reader-page .jpdb-ocr-layer .jpdb-ocr-line,
+.yomu-pdf-reader-page
+  .jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active) {
+  color: var(--jpdb-reader-text, #171a1f) !important;
+  -webkit-text-fill-color: var(--jpdb-reader-text, #171a1f) !important;
+  text-shadow: none !important;
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface, #ffffff) 94%,
+    transparent
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--jpdb-reader-border, rgba(20, 30, 45, 0.18)) 84%,
+    transparent
+  ) !important;
+  box-shadow:
+    0 3px 10px color-mix(in srgb, var(--jpdb-reader-shadow, rgba(20, 30, 45, 0.16)) 48%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-white, #ffffff) 60%, transparent) !important;
+  font-weight: 760;
+  z-index: 2;
+}
+
+.yomu-pdf-reader-page
+  .jpdb-ocr-layer
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface, #ffffff) 96%,
+    var(--jpdb-reader-accent, #5ea780) 4%
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent, #5ea780) 38%,
+    var(--jpdb-reader-border, rgba(20, 30, 45, 0.18))
+  ) !important;
+  box-shadow:
+    0 4px 14px color-mix(in srgb, var(--jpdb-reader-shadow, rgba(20, 30, 45, 0.16)) 54%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-white, #ffffff) 72%, transparent) !important;
+}
+
+.yomu-pdf-reader-page .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word,
+.yomu-pdf-reader-page
+  .jpdb-ocr-layer
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word,
+.yomu-pdf-reader-page
+  .jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-reader-word,
+.yomu-pdf-reader-page
+  .jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line-text,
+.yomu-pdf-reader-page
+  .jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-plain,
+.yomu-pdf-reader-page
+  .jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-ruby-base,
+.yomu-pdf-reader-page
+  .jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-ruby-base-text {
+  --jpdb-reader-word-accessible-color: currentColor;
+  --jpdb-reader-word-accessible-highlight: transparent;
+  --jpdb-reader-word-accessible-underline: transparent;
+  --jpdb-reader-word-color-source: currentColor;
+  --jpdb-reader-word-decoration-source: transparent;
+  --jpdb-reader-word-highlight-source: transparent;
+  --jpdb-reader-word-highlight-shadow-source: none;
+  --jpdb-reader-word-underline: transparent;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
+  text-decoration-color: transparent !important;
+  text-shadow: none !important;
+}
+
+.yomu-pdf-reader-page
+  .jpdb-ocr-layer
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-reader-word::after,
+.yomu-pdf-reader-page
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word::after {
+  border-block-end-color: transparent !important;
+  opacity: 0 !important;
+}
+
 /* Vertical-text OCR (mokuro / vertical manga & light novels): the reading
    belongs to the RIGHT of the kanji column, running top-to-bottom: real
    vertical ruby. The shared .jpdb-ocr-furi anchor is the horizontal

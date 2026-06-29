@@ -8251,6 +8251,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
   }
   function shouldSuppressCompactScanRuby(parent) {
+    if (parent.closest(READER_ROOT_SELECTOR)) return false;
     if (shouldSuppressCompactMediaRuby(parent)) {
       markCompactMediaPassiveChrome(parent);
       return true;
@@ -8258,7 +8259,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const notice = compactConstrainedNotificationElement(parent);
     if (notice) notice.dataset.jpdbReaderPassiveChrome = "true";
     if (isYouTubeHost$1()) return Boolean(notice);
-    const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent);
+    const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveInteractionRubyElement(parent) ?? compactPassiveChromeElement(parent);
     if (chrome) chrome.dataset.jpdbReaderPassiveChrome = "true";
     return Boolean(chrome || notice);
   }
@@ -8267,7 +8268,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     host.dataset.jpdbReaderPassiveChrome = "true";
   }
   function compactInteractiveChromeElement(parent) {
-    if (parent.closest(READER_ROOT_SELECTOR)) return null;
     const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
     if (!chrome) return null;
     const text2 = compactInteractiveChromeText(chrome);
@@ -8281,12 +8281,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return element.textContent?.replace(/\s+/g, "").trim() ?? "";
   }
   function compactPassiveChromeElement(parent) {
-    if (parent.closest(READER_ROOT_SELECTOR)) return null;
     if (isReadableProseContext(parent)) return null;
     if (!isCompactInteractiveChromeContext(parent)) return null;
     const text2 = compactInteractiveChromeText(parent);
     if (!isCompactInteractiveChromeText(text2)) return null;
     return hasCompactInteractiveChromeRubyRisk(parent) ? parent : null;
+  }
+  function compactPassiveInteractionRubyElement(parent) {
+    if (isReadableProseContext(parent)) return null;
+    const interaction = parent.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+    if (!interaction) return null;
+    if (safeElementMatches(interaction, COMPACT_INTERACTIVE_CHROME_SELECTOR)) return null;
+    if (isLikelyProseElement(interaction)) return null;
+    if (!isCompactPassiveInteractionElement(interaction)) return null;
+    const style = safeComputedStyle(interaction);
+    if (isVerticalWritingMode(style.writingMode)) return interaction;
+    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return interaction;
+    if (isCompactInteractiveChromeContext(interaction)) return interaction;
+    return hasCompactInteractiveChromeGeometry(interaction) ? interaction : null;
   }
   function isCompactInteractiveChromeText(text2) {
     const length = compactLength(text2);
@@ -8577,7 +8589,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.style.setProperty("line-height", hasRuby ? rubyFriendlyMirrorLineHeight(style) : style.lineHeight);
     mirror.style.setProperty("letter-spacing", style.letterSpacing);
     mirror.style.setProperty("text-align", style.textAlign);
-    mirror.style.setProperty("color", style.color);
     mirror.style.setProperty("z-index", "1");
     if (hasRuby) mirror.dataset.jpdbReaderHasRuby = "true";
   }
@@ -25542,7 +25553,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.222".trim() ? "1.4.222".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.223".trim() ? "1.4.223".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

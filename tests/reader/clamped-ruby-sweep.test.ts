@@ -28,11 +28,11 @@ function mockRect(el: HTMLElement, rect: Pick<DOMRect, 'top' | 'bottom' | 'heigh
     });
 }
 
-// UT-70/79 (user direction): ruby that makes a clamped row overflow KEEPS its
-// furigana — the box gets room instead (line-clamp boxes lose their
-// plain-text max-height; other clipped boxes grow to their content height).
+// The sweep is an explicit compatibility path for known rich-reader surfaces.
+// Generic pages keep their authored box sizes; compact scanner heuristics should
+// suppress ruby before this sweep has a chance to resize native layout.
 describe('makeRoomForRubyInCroppedRows', () => {
-    it('lifts the max-height of a cropping line-clamp box and keeps the ruby', () => {
+    it('leaves generic cropping line-clamp boxes at their authored size', () => {
         const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
             width: 320, height: 40, top: 0, left: 0, right: 320, bottom: 40, x: 0, y: 0, toJSON: () => ({}),
         } as DOMRect);
@@ -47,75 +47,74 @@ describe('makeRoomForRubyInCroppedRows', () => {
         const adjusted = makeRoomForRubyInCroppedRows(document);
         rectSpy.mockRestore();
 
-        expect(adjusted).toBe(1);
-        expect(titleBox.style.maxHeight).toBe('none');
-        expect(titleBox.dataset.yomuRubyRoom).toBe('true');
+        expect(adjusted).toBe(0);
+        expect(titleBox.style.maxHeight).toBe('40px');
+        expect(titleBox.dataset.yomuRubyRoom).toBeUndefined();
         // furigana survives everywhere
         expect(document.querySelectorAll('#title rt')).toHaveLength(1);
         expect(document.querySelector('#prose rt')?.textContent).toBe('べんきょう');
         document.body.innerHTML = '';
     });
 
-    it('raises non-clamp clipped boxes to their content height once', () => {
+    it('leaves generic non-clamp clipped boxes untouched', () => {
         document.body.innerHTML = `
             <div id="byline" style="overflow:hidden;max-height:22px">${annotatedWord()}チャンネル</div>
         `;
         const byline = document.querySelector<HTMLElement>('#byline')!;
         mockOverflow(byline, 34, 22);
-        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
-        expect(byline.style.maxHeight).toBe('34px');
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(byline.style.maxHeight).toBe('22px');
         expect(document.querySelector('#byline rt')).not.toBeNull();
-        // repeated sweeps do not re-adjust
         expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
         document.body.innerHTML = '';
     });
 
-    it('raises fixed-height clipped boxes instead of only changing max-height', () => {
+    it('leaves generic fixed-height clipped boxes untouched', () => {
         document.body.innerHTML = `
             <div id="title" style="overflow:hidden;height:22px;line-height:22px">${annotatedWord()}の動画</div>
         `;
         const title = document.querySelector<HTMLElement>('#title')!;
         mockOverflow(title, 36, 22);
 
-        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
-        expect(title.style.height).toBe('36px');
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(title.style.height).toBe('22px');
         expect(title.querySelector('rt')?.textContent).toBe('しんそつ');
         document.body.innerHTML = '';
     });
 
-    it('re-raises boxes that were marked roomy before later ruby layout needed more height', () => {
+    it('does not re-raise generic boxes when later ruby layout needs more height', () => {
         document.body.innerHTML = `
             <div id="title" style="overflow:hidden;height:22px;line-height:22px">${annotatedWord()}の動画</div>
         `;
         const title = document.querySelector<HTMLElement>('#title')!;
         mockOverflow(title, 34, 22);
 
-        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
-        expect(title.style.height).toBe('34px');
-        expect(title.dataset.yomuRubyRoomHeight).toBe('34');
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(title.style.height).toBe('22px');
+        expect(title.dataset.yomuRubyRoomHeight).toBeUndefined();
 
         mockOverflow(title, 48, 34);
 
-        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
-        expect(title.style.height).toBe('48px');
-        expect(title.dataset.yomuRubyRoomHeight).toBe('48');
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(title.style.height).toBe('22px');
+        expect(title.dataset.yomuRubyRoomHeight).toBeUndefined();
         document.body.innerHTML = '';
     });
 
-    it('does not treat a legacy ruby-room marker as proof that the box still fits', () => {
+    it('does not grow generic boxes that carry a legacy ruby-room marker', () => {
         document.body.innerHTML = `
             <div id="title" data-yomu-ruby-room="true" style="overflow:hidden;height:22px;line-height:22px">${annotatedWord()}の動画</div>
         `;
         const title = document.querySelector<HTMLElement>('#title')!;
         mockOverflow(title, 36, 22);
 
-        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
-        expect(title.style.height).toBe('36px');
-        expect(title.dataset.yomuRubyRoomHeight).toBe('36');
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(title.style.height).toBe('22px');
+        expect(title.dataset.yomuRubyRoomHeight).toBeUndefined();
         document.body.innerHTML = '';
     });
 
-    it('raises every nested clipped ancestor around ruby text', () => {
+    it('leaves nested generic clipped ancestors untouched', () => {
         document.body.innerHTML = `
             <a id="outer" style="display:block;overflow:hidden;height:42px;line-height:21px">
                 <span id="inner" style="display:block;overflow:hidden;max-height:21px">
@@ -128,14 +127,14 @@ describe('makeRoomForRubyInCroppedRows', () => {
         mockOverflow(inner, 34, 21);
         mockOverflow(outer, 58, 42);
 
-        expect(makeRoomForRubyInCroppedRows(document)).toBe(2);
-        expect(inner.style.maxHeight).toBe('34px');
-        expect(outer.style.height).toBe('58px');
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(inner.style.maxHeight).toBe('21px');
+        expect(outer.style.height).toBe('42px');
         expect(outer.querySelector('rt')?.textContent).toBe('しんそつ');
         document.body.innerHTML = '';
     });
 
-    it('raises clipped boxes when rendered ruby geometry exceeds the box without scroll overflow', () => {
+    it('leaves generic boxes untouched when rendered ruby geometry exceeds the box without scroll overflow', () => {
         document.body.innerHTML = `
             <div id="title" style="overflow:hidden;height:42px;line-height:21px">${annotatedWord()}の短い動画</div>
         `;
@@ -145,8 +144,8 @@ describe('makeRoomForRubyInCroppedRows', () => {
         mockRect(title, { top: 0, bottom: 42, height: 42 });
         mockRect(base, { top: 22, bottom: 44, height: 22 });
 
-        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
-        expect(title.style.height).toBe('44px');
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(title.style.height).toBe('42px');
         expect(title.querySelector('rt')?.textContent).toBe('しんそつ');
         document.body.innerHTML = '';
     });

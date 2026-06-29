@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { applyTokensToScanTarget, collectFormControlTextTargetsIn, collectFragmentTextTargetsIn, collectTextTargetsIn, type FragmentTextTarget } from '../../src/reader/dom';
+import { applyTokensToScanTarget, collectFormControlTextTargetsIn, collectFragmentTextTargetsIn, collectTextTargetsIn, makeRoomForRubyInCroppedRows, type FragmentTextTarget } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -174,6 +174,89 @@ describe('generic reader layout overflow guards', () => {
         expect(link.querySelector('rt,.jpdb-reader-furi')).toBeNull();
     });
 
+    it('suppresses ruby on compact tabindex and onclick controls without named button roles', () => {
+        document.body.innerHTML = `
+            <section class="mobile-market">
+                <div id="trade-chip" tabindex="0" onclick="void 0" style="display:flex;align-items:center;justify-content:center;width:112px;height:34px;max-height:34px;overflow:hidden;white-space:nowrap">
+                    注文確認
+                </div>
+            </section>
+        `;
+        const chip = document.querySelector<HTMLElement>('#trade-chip')!;
+        mockRect(chip, { width: 112, height: 34 });
+
+        const target = collectTargets().find(candidate => candidate.text.includes('注文確認'));
+
+        expect(target).toBeTruthy();
+        expect(target?.suppressRuby).toBe(true);
+        expect(target?.passiveInteraction).toBe(true);
+
+        applyTokensToScanTarget(target!, [
+            token('注文', target!.text.indexOf('注文'), target!.text, 'ちゅうもん'),
+            token('確認', target!.text.indexOf('確認'), target!.text, 'かくにん'),
+        ], {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+
+        expect(chip.dataset.jpdbReaderPassiveChrome).toBe('true');
+        expect(chip.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
+        expect(chip.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(Array.from(chip.querySelectorAll<HTMLElement>('.jpdb-reader-word')).every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+    });
+
+    it('does not reserve ruby room on generic clipped boxes', () => {
+        document.body.innerHTML = `
+            <div id="clipped" style="overflow:hidden;height:22px;max-height:22px;line-height:22px">
+                日本語の通知
+            </div>
+        `;
+        const clipped = document.querySelector<HTMLElement>('#clipped')!;
+        mockOverflow(clipped, 44, 22);
+        const target = collectTargets().find(candidate => candidate.text.includes('日本語の通知'));
+
+        expect(target).toBeTruthy();
+        applyTokensToScanTarget(target!, [
+            token('日本語', target!.text.indexOf('日本語'), target!.text, 'にほんご'),
+        ], {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+
+        expect(clipped.querySelector('rt,.jpdb-reader-furi')).not.toBeNull();
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(clipped.style.height).toBe('22px');
+        expect(clipped.style.maxHeight).toBe('22px');
+        expect(clipped.dataset.yomuRubyRoom).toBeUndefined();
+    });
+
+    it('lets non-destructive mirrors inherit host color after late theme changes', () => {
+        document.body.innerHTML = `
+            <div id="message" class="message-content" style="color: rgb(128, 128, 128)">
+                日本語の回答
+            </div>
+        `;
+        const host = document.querySelector<HTMLElement>('#message')!;
+        const target = collectTargets(host).find(candidate => candidate.text.includes('日本語の回答'));
+
+        expect(target).toBeTruthy();
+        applyTokensToScanTarget({ ...target!, nonDestructive: true }, [
+            token('日本語', target!.text.indexOf('日本語'), target!.text, 'にほんご'),
+        ], {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror).toBeTruthy();
+        expect(mirror.style.color).not.toBe('rgb(128, 128, 128)');
+        host.style.color = 'rgb(20, 20, 20)';
+        expect(getComputedStyle(mirror).color).toBe('rgb(20, 20, 20)');
+    });
+
     it('does not collect composer/editor placeholder text as page prose', () => {
         document.body.innerHTML = `
             <main>
@@ -256,6 +339,11 @@ function collectTargets(root: Node = document.body): FragmentTextTarget[] {
         heading: true,
         minLength: 1,
     });
+}
+
+function mockOverflow(element: HTMLElement, scrollHeight: number, clientHeight: number): void {
+    Object.defineProperty(element, 'scrollHeight', { value: scrollHeight, configurable: true });
+    Object.defineProperty(element, 'clientHeight', { value: clientHeight, configurable: true });
 }
 
 function mockRect(element: HTMLElement, rect: Pick<DOMRect, 'width' | 'height'>): void {
