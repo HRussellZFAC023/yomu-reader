@@ -34,7 +34,8 @@ function trimCommonWrapperIndent(source) {
   let blockComment = false;
   return source.split('\n').map(line => {
     const inTemplateAtLineStart = state === 'template';
-    const nextLine = !inTemplateAtLineStart && line.startsWith('  ') ? line.slice(2) : line;
+    const wrapperTrimmed = !inTemplateAtLineStart && line.startsWith('  ') ? line.slice(2) : line;
+    const nextLine = !inTemplateAtLineStart && wrapperTrimmed.startsWith('    ') ? wrapperTrimmed.slice(2) : wrapperTrimmed;
     scanLine(nextLine);
     return nextLine;
   }).join('\n');

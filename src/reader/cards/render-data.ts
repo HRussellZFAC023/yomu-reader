@@ -7,8 +7,9 @@ import type { JpdbClient } from '../jpdb/jpdb';
 import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { Logger } from '../app/logger';
+import { pitchPatternFromPosition } from '../lookup/pitch-accent';
 import { localPitchPatternFromMeta, localPitchPatternsFromMeta } from '../lookup/pitch-meta';
-import { isKanjiCharacter, type ExpressionComponentPitch } from '../popup/pitch';
+import { cardPronunciationReading, isKanjiCharacter, type ExpressionComponentPitch } from '../popup/pitch';
 import { shouldLookupAnkiStatus } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { isApiMiningEnabled, isJitenBackedCard } from './srs-providers';
@@ -212,7 +213,10 @@ export class CardRenderDataLoader {
     private loadJitenVocabularyInfo(card: JPDBCard): Promise<JitenVocabularyInfo | null> {
         const settings = this.settings();
         if (!settings.jitenDefinitionsEnabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== 'function') return Promise.resolve(null);
-        return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, 'Jiten vocabulary details', this.dependencies.jiten.lookupVocabularyInfoForCard(card).catch(error => {
+        return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, 'Jiten vocabulary details', this.dependencies.jiten.lookupVocabularyInfoForCard(card).then(info => {
+            this.applyJitenVocabularyInfoPitchAccent(card, info);
+            return info;
+        }).catch(error => {
             log.warn('Jiten vocabulary lookup failed', { term: card.spelling }, error);
             return null;
         }), null as JitenVocabularyInfo | null);
@@ -400,6 +404,22 @@ export class CardRenderDataLoader {
         }
         // UT-65: jpdb supplies one accent — append the other accepted
         // variants the pitch dictionary knows about.
+        for (const pattern of patterns) {
+            if (!card.pitchAccent.includes(pattern)) card.pitchAccent.push(pattern);
+        }
+    }
+
+    private applyJitenVocabularyInfoPitchAccent(card: JPDBCard, info: JitenVocabularyInfo | null): void {
+        if (!info?.pitchAccents.length) return;
+        const reading = cardPronunciationReading(card) || card.reading.trim();
+        const patterns = info.pitchAccents
+            .map(position => pitchPatternFromPosition(reading, position))
+            .filter(Boolean);
+        if (!patterns.length) return;
+        if (!card.pitchAccent.length) {
+            card.pitchAccent = patterns;
+            return;
+        }
         for (const pattern of patterns) {
             if (!card.pitchAccent.includes(pattern)) card.pitchAccent.push(pattern);
         }

@@ -13868,6 +13868,48 @@ describe('reader helpers', () => {
         expect(disabledListReaderStudyDecks).not.toHaveBeenCalled();
     });
 
+    it('renders Jiten vocabulary detail pitch in the popup header graph', async () => {
+        const lookupVocabularyInfoForCard = vi.fn(async () => ({
+            wordId: 42,
+            mainReading: { text: '読む', readingIndex: 2, frequencyRank: 500, usedInMediaAmount: null },
+            alternativeReadings: [],
+            partsOfSpeech: ['v5m'],
+            definitions: [],
+            pitchAccents: [1],
+            knownStates: ['new' as const],
+            composedOf: [],
+            usedIn: [],
+            usedInTotal: 0,
+            examples: [],
+        }));
+        const loader = testCardRenderDataLoader({
+            settings: cardDetailLoaderSettings({
+                apiKey: '',
+                jitenApiKey: 'jiten-key',
+                jitenDefinitionsEnabled: true,
+                showPitchAccent: true,
+            }),
+            jiten: { lookupVocabularyInfoForCard },
+            isJpdbBackedCard: () => false,
+        });
+        const lookupCard = jitenTestCard({ pitchAccent: [] });
+
+        const data = await loader.load(lookupCard).all;
+
+        expect(lookupVocabularyInfoForCard).toHaveBeenCalledWith(lookupCard);
+        expect(lookupCard.pitchAccent).toEqual(['HLL']);
+        document.body.innerHTML = renderModalCard(testCardPopoverRenderer({
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            showPitchAccent: true,
+        }), lookupCard, '読む。', data);
+        const pitch = document.querySelector('.jpdb-reader-card-tools .jpdb-reader-pitch');
+        expect(pitch).not.toBeNull();
+        expect(pitch?.querySelector('polyline.atamadaka')).not.toBeNull();
+        expect(pitch?.textContent).toContain('よ');
+        expect(pitch?.textContent).toContain('む');
+    });
+
     it('skips public JPDB vocabulary details for Jiten-backed cards without a JPDB key', async () => {
         const keylessLookup = vi.fn(async () => ({
             meanings: ['hidden'],

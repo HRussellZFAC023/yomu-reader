@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.232] - 2026-06-29
+
+### Fixed
+
+- Rendered Jiten vocabulary-detail pitch accents in the popup header graph instead of dropping them after the Jiten detail lookup.
+
 ## [1.4.231] - 2026-06-29
 
 ### Fixed
