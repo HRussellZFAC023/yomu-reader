@@ -23,7 +23,7 @@ export function evaluateNewTabRecallAnswer(card: JPDBCard, answer: string, readi
     return { outcome: 'incorrect', canonicalAnswer: candidates.canonicalAnswer, acceptedAnswers: candidates.acceptedAnswers };
 }
 
-export function newTabRecallAnswerCandidates(card: JPDBCard, reading = card.reading): {
+function newTabRecallAnswerCandidates(card: JPDBCard, reading = card.reading): {
     primaryAnswers: string[];
     acceptedAnswers: string[];
     canonicalAnswer: string;
