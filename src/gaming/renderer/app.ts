@@ -1094,6 +1094,10 @@ function ensureOverlayReader(): void {
     if (overlayReaderBooted) return;
     overlayReaderBooted = true;
     const gaming = loadGamingSettings();
+    // Over a game the cursor moves constantly, so default to click-to-read ("invisible
+    // till clicked"). Hover lookup only turns on if the player set a hold-key modifier in
+    // the gaming onboarding, in which case hover requires that key (never bare hover).
+    const hoverModifier = (gaming.shortcuts?.hoverLookup || '').trim();
     const readerSettings = normalizeReaderSettings({
         ...gaming,
         ocrEnabled: false,
@@ -1101,8 +1105,8 @@ function ensureOverlayReader(): void {
         showFloatingButton: false,
         annotationsPaused: false,
         manualScanEnabled: false,
-        lookupOnHover: true,
         lookupOnClick: true,
+        lookupOnHover: Boolean(hoverModifier),
         corsProxyUrl: (gaming.corsProxyUrl || '').trim(),
     });
     try {
