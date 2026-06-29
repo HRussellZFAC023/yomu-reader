@@ -7,7 +7,7 @@ const log = Logger.scope('NewTab');
 const STATE_STORAGE_KEY = 'jpdb-reader-newtab-ui';
 const STATE_CHANNEL_NAME = 'jpdb-reader-newtab-ui';
 
-export type NewTabMode = 'word' | 'kanji' | 'search' | 'stats';
+export type NewTabMode = 'word' | 'recall' | 'kanji' | 'search' | 'stats';
 export type NewTabSort = 'random' | 'frequency' | 'state';
 export type NewTabFilter = 'all' | 'study' | 'local' | CardState;
 
@@ -119,7 +119,7 @@ function frontFacingNewTabUiState(state: NewTabUiState): NewTabUiState {
 }
 
 function normalizeNewTabMode(value: unknown): NewTabMode {
-    return value === 'kanji' || value === 'search' || value === 'stats' ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
+    return value === 'recall' || value === 'kanji' || value === 'search' || value === 'stats' ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
 }
 
 function normalizeNewTabSort(value: unknown): NewTabSort {

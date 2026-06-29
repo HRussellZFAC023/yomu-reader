@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.4.226",
+  "version": "1.4.227",
   "private": true,
   "type": "module",
   "description": "よむ: a small Jiten/JPDB/Yomitan popup dictionary and subtitle miner userscript.",
@@ -93,6 +93,7 @@
     "smoke:google-search-reader": "node scripts/google-search-reader-smoke.mjs",
     "smoke:live-browser": "node scripts/live-browser-smoke.mjs",
     "smoke:mobile-docs": "node scripts/mobile-docs-regression-smoke.mjs",
+    "smoke:newtab-recall": "node scripts/newtab-recall-smoke.mjs",
     "smoke:newtab-study-underline": "node scripts/newtab-study-underline-smoke.mjs",
     "smoke:offline-study": "node scripts/offline-study-smoke.mjs",
     "smoke:ocr-provider-matrix": "node scripts/ocr-provider-matrix.mjs",

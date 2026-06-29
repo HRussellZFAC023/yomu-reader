@@ -36,6 +36,12 @@ A fresh install starts by sending you to **Settings → Dictionaries** so JMdict
   <figcaption>New-tab study using the current app defaults.</figcaption>
 </figure>
 
+## Recall before you grade
+
+Switch to **Recall** mode when you want a Bunpro-style production pass. The front shows the meaning; you type the Japanese word, or write it into the input with Apple Pencil/Scribble on iPad, then よむ reveals the answer and keeps the normal review buttons underneath.
+
+Exact spellings count as correct, readings are accepted when they identify the same card, and wrong answers still reveal the solution so you can choose the right SRS grade yourself. JPDB, Jiten, and Anki-backed cards all use their existing review adapters after reveal.
+
 ## Best daily-review surface on mobile
 
 On iPhone, iPad, and Android this is often the easiest place to do daily reviews. Add the hosted page as a Home Screen shortcut and study from the habit you already have.

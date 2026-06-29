@@ -156,6 +156,8 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
+    "Added Recall mode to the Study page: it shows the meaning first, accepts typed or Apple Pencil/Scribble Japanese answers, then reveals the word before submitting the user's chosen JPDB, Jiten, or Anki review grade.": '学習ページに Recall モードを追加しました。最初に意味を表示し、入力または Apple Pencil/Scribble で日本語の答えを書いてから単語を表示し、ユーザーが選んだ JPDB、Jiten、Anki の復習評価を送信します。',
+    'Added browser smoke coverage for Recall reviews across JPDB, Jiten, and AnkiConnect, including empty-answer, reading-accepted, wrong-answer, and provider payload checks.': 'JPDB、Jiten、AnkiConnect の Recall 復習をブラウザスモークで検証するようにしました。未入力、読みの許容、不正解、プロバイダー送信内容の確認を含みます。',
     'Added a Shadow tab to the YouTube subtitle drawer with current-line replay, cue looping, hide/reveal text, parsed Japanese, and secondary subtitle support for speaking practice.': 'YouTube字幕ドロワーにシャドータブを追加しました。現在行の再生、キューループ、本文の非表示／表示、解析済み日本語、第二字幕を使って発話練習できます。',
     'Removed the experimental subtitle Shadow drawer from the release branch so Yomu Video stays lean and publishable.': '実験的な字幕シャドードロワーをリリースブランチから削除し、Yomu Videoを軽量で公開可能な状態に保ちました。',
     'Made study reviews work fully offline: every due card is warmed into the cache up front, grades are queued locally and sync back automatically when you reconnect, and a cached-card count plus a sync status now sit next to the session timer.': '学習レビューを完全にオフラインで動作するようにしました。期限切れの各カードを事前にキャッシュへ温め、採点はローカルに保存して再接続時に自動で同期し、キャッシュ済み枚数と同期状況をセッションタイマーの隣に表示します。',

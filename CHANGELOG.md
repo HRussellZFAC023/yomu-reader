@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.227] - 2026-06-29
+
+### Added
+
+- Added Recall mode to the Study page: it shows the meaning first, accepts typed or Apple Pencil/Scribble Japanese answers, then reveals the word before submitting the user's chosen JPDB, Jiten, or Anki review grade.
+
+### Changed
+
+- Added browser smoke coverage for Recall reviews across JPDB, Jiten, and AnkiConnect, including empty-answer, reading-accepted, wrong-answer, and provider payload checks.
+
 ## [1.4.226] - 2026-06-29
 
 ### Fixed

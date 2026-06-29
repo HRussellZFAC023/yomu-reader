@@ -25558,7 +25558,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.226".trim() ? "1.4.226".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.227".trim() ? "1.4.227".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -58542,6 +58542,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       switchReviewSource: "Switch review source",
       dictionaryInstallNewTabHelp: "Optional: add a Yomitan dictionary in Settings for offline local results. Public lookup works without one.",
       newTabMode: "New tab mode",
+      recall: "Recall",
+      recallAnswer: "Answer",
+      recallCheck: "Check",
+      recallCorrect: "Correct",
+      recallAccepted: "Reading accepted",
+      recallIncorrect: "Not quite. Answer: {answer}",
+      recallEmpty: "Enter an answer",
+      recallPromptFallback: "Meaning",
       stats: "Stats",
       statsRefresh: "Refresh stats",
       statsCombined: "Combined",
@@ -58704,6 +58712,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     switchReviewSource: "復習ソースを切り替え",
     dictionaryInstallNewTabHelp: "ローカル結果が必要な場合のみ、設定でYomitan辞書を追加してください。公開JPDB検索は辞書なしで使えます。",
     newTabMode: "新しいタブのモード",
+    recall: "思い出す",
+    recallAnswer: "答え",
+    recallCheck: "確認",
+    recallCorrect: "正解",
+    recallAccepted: "読みも正解",
+    recallIncorrect: "惜しい。答え: {answer}",
+    recallEmpty: "答えを入力",
+    recallPromptFallback: "意味",
     stats: "統計",
     statsRefresh: "統計を更新",
     statsCombined: "合計",
@@ -63580,7 +63596,7 @@ ${reading}`);
     return { ...state2, revealAnswer: false };
   }
   function normalizeNewTabMode(value) {
-    return value === "kanji" || value === "search" || value === "stats" ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
+    return value === "recall" || value === "kanji" || value === "search" || value === "stats" ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
   }
   function normalizeNewTabSort(value) {
     return isNewTabSort(value) ? value : DEFAULT_NEW_TAB_UI_STATE.sort;
@@ -66235,6 +66251,52 @@ ${newTabCardReading(card)}`;
       gradeButton.setAttribute("aria-label", gradeLabel2 ? `${gradeLabel2}: ${label}` : label);
     });
   }
+  function evaluateNewTabRecallAnswer(card, answer, reading = card.reading) {
+    const candidates = newTabRecallAnswerCandidates(card, reading);
+    const normalized = normalizeNewTabRecallAnswer(answer);
+    if (!normalized) {
+      return { outcome: "empty", canonicalAnswer: candidates.canonicalAnswer, acceptedAnswers: candidates.acceptedAnswers };
+    }
+    if (candidates.primaryAnswers.some((candidate) => normalizeNewTabRecallAnswer(candidate) === normalized)) {
+      return { outcome: "correct", canonicalAnswer: candidates.canonicalAnswer, acceptedAnswers: candidates.acceptedAnswers };
+    }
+    if (candidates.acceptedAnswers.some((candidate) => normalizeNewTabRecallAnswer(candidate) === normalized)) {
+      return { outcome: "accepted", canonicalAnswer: candidates.canonicalAnswer, acceptedAnswers: candidates.acceptedAnswers };
+    }
+    return { outcome: "incorrect", canonicalAnswer: candidates.canonicalAnswer, acceptedAnswers: candidates.acceptedAnswers };
+  }
+  function newTabRecallAnswerCandidates(card, reading = card.reading) {
+    const primaryAnswers = uniqueRecallAnswers(splitRecallAnswers(card.spelling));
+    const acceptedAnswers = uniqueRecallAnswers([
+      ...splitRecallAnswers(reading),
+      ...(card.fallbackLookupTerms ?? []).flatMap(splitRecallAnswers)
+    ]).filter((candidate) => !sameRecallAnswer(candidate, card.spelling));
+    return {
+      primaryAnswers,
+      acceptedAnswers,
+      canonicalAnswer: primaryAnswers[0] ?? card.spelling.trim()
+    };
+  }
+  function normalizeNewTabRecallAnswer(value) {
+    return value.normalize("NFKC").replace(/[\s\u3000]/gu, "").toLowerCase();
+  }
+  function splitRecallAnswers(value) {
+    return (value ?? "").split(/[;；,，、/／|｜]/u).map((part) => part.trim()).filter(Boolean);
+  }
+  function uniqueRecallAnswers(values) {
+    const seen = /* @__PURE__ */ new Set();
+    const out = [];
+    for (const value of values) {
+      const normalized = normalizeNewTabRecallAnswer(value);
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+      out.push(value);
+    }
+    return out;
+  }
+  function sameRecallAnswer(left, right) {
+    return normalizeNewTabRecallAnswer(left) === normalizeNewTabRecallAnswer(right);
+  }
   const DEFAULT_THRESHOLD_PX = 96;
   const DEFAULT_MAX_PROGRESS_PX = 144;
   const START_SLOP_PX = 8;
@@ -67332,11 +67394,15 @@ ${entry.url}`),
     return getPitchClass(card.pitchAccent, newTabCardReading(card)) || "unknown";
   }
   const log$3 = Logger.scope("NewTab");
+  const NEW_TAB_MODE_NAMES = /* @__PURE__ */ new Set(["word", "recall", "kanji", "search", "stats"]);
+  function isNewTabModeName(value) {
+    return Boolean(value && NEW_TAB_MODE_NAMES.has(value));
+  }
   function newTabRouteMode() {
     try {
       const url = new URL(location.href);
       const mode = url.searchParams.get("mode") || url.searchParams.get("view") || url.hash.replace(/^#/u, "");
-      if (mode === "stats" || mode === "search" || mode === "kanji" || mode === "word") return mode;
+      if (isNewTabModeName(mode)) return mode;
       return newTabRouteSearchQuery(url) ? "search" : null;
     } catch {
       return null;
@@ -67443,6 +67509,8 @@ ${entry.url}`),
     searchHandwritingGeneration = 0;
     searchHandwritingDebounce;
     searchHandwritingShapeCandidateCache = /* @__PURE__ */ new Map();
+    recallAnswers = /* @__PURE__ */ new Map();
+    recallOutcomes = /* @__PURE__ */ new Map();
     rootEventController;
     rootClickHandlers = [
       (root, _target, event, action) => this.handleRootUtilityClick(root, event, action),
@@ -67464,6 +67532,7 @@ ${entry.url}`),
       "continue-batch": (root) => {
         void this.continueAfterBatch(root);
       },
+      "recall-submit": (root) => this.submitRecallAnswer(root),
       grade: (root, target) => this.gradeFromStudyClick(root, target),
       "jpdb-kanji-action": (root, target) => {
         void this.performJpdbKanjiAction(root, this.kanjiActionIdFromTarget(target));
@@ -67653,6 +67722,8 @@ ${entry.url}`),
       this.frontSentenceCache.clear();
       this.parsedSentenceCache.clear();
       this.doodlePreviewCache.clear();
+      this.recallAnswers.clear();
+      this.recallOutcomes.clear();
       this.immersionAudioPlayer.reset();
       this.statsSnapshot = emptyStatsDashboardSnapshot();
       this.statsLoaded = false;
@@ -67688,6 +67759,7 @@ ${entry.url}`),
               "div",
               { class: "jpdb-reader-newtab-mode", role: "group", "aria-label": newTabText(language, "newTabMode") },
               el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "word" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "word")),
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "recall" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, newTabText(language, "recall")),
               el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "kanji" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "kanji")),
               el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "search" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "search")),
               el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "stats" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, newTabText(language, "stats"))
@@ -67852,6 +67924,11 @@ ${entry.url}`),
         this.performSearchFromInput(root);
       }, { signal: controller.signal });
       root.addEventListener("input", (event) => {
+        const recallInput = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-recall-input]") : null;
+        if (recallInput && root.contains(recallInput)) {
+          this.updateRecallAnswer(root, recallInput.value, false);
+          return;
+        }
         const input2 = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-search-input]") : null;
         if (!input2 || !root.contains(input2)) return;
         this.searchQuery = input2.value;
@@ -67930,6 +68007,13 @@ ${entry.url}`),
         const file = input2.files?.[0];
         if (file) void this.importJpdbStatsFile(root, file);
         input2.value = "";
+      }, { signal: controller.signal });
+      root.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        const input2 = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-recall-input]") : null;
+        if (!input2 || !root.contains(input2)) return;
+        event.preventDefault();
+        this.submitRecallAnswer(root);
       }, { signal: controller.signal });
       root.addEventListener("dragover", (event) => {
         const dropzone = this.statsDropzoneTarget(root, event);
@@ -68192,7 +68276,7 @@ ${entry.url}`),
       if (action === "mode") {
         event.preventDefault();
         const requestedMode = target.closest("[data-mode]")?.dataset.mode;
-        const mode = requestedMode === "kanji" || requestedMode === "search" || requestedMode === "stats" ? requestedMode : "word";
+        const mode = isNewTabModeName(requestedMode) ? requestedMode : "word";
         this.setState({ mode, revealAnswer: false }, root, { preserveWord: true });
         return true;
       }
@@ -68240,6 +68324,7 @@ ${entry.url}`),
     }
     handleStudyCardClick(root, target, event) {
       if (this.state.mode === "search") return;
+      if (this.state.mode === "recall" && !this.shouldRenderCardAsKanji(this.visibleWords[this.index])) return;
       const study = target.closest("[data-newtab-study]");
       if (study && !isNewTabStudyInteractiveTarget(target)) {
         event.preventDefault();
@@ -68610,9 +68695,19 @@ ${entry.url}`),
       this.setState({ revealAnswer: willReveal }, root, { preserveWord: true });
       this.maybeAutoPlayRevealedImmersionAudio(current, willReveal);
     }
+    revealCurrentCard(root, current = this.visibleWords[this.index]) {
+      if (!current) return;
+      if (this.state.revealAnswer) {
+        this.renderWord(root, current);
+        return;
+      }
+      if (current.reviewSource === "jpdb-live") this.dependencies.jpdbReviewBridge.reveal();
+      this.setState({ revealAnswer: true }, root, { preserveWord: true });
+      this.maybeAutoPlayRevealedImmersionAudio(current, true);
+    }
     maybeAutoPlayRevealedImmersionAudio(card, revealed) {
       const settings = this.dependencies.getSettings();
-      if (!revealed || !card || this.state.mode !== "word") return;
+      if (!revealed || !card || !this.isVocabularyStudyMode(this.state.mode)) return;
       if (!settings.immersionKitEnabled || !settings.immersionKitAutoPlayAudio) return;
       if (!settings.audioEnabled) return;
       if (!canAttemptAudiblePlayback(true)) return;
@@ -69246,7 +69341,7 @@ ${entry.url}`),
       if (plan.studyFallback.kind !== "study-supplement") return false;
       if (this.shouldLoadEmptyApiStudyFallback(accumulator)) return true;
       if (accumulator.reviewCountMode) return false;
-      const studyCount = this.state.mode === "kanji" ? this.kanjiStudyCardsFromSourceCards(accumulator.cards).length : accumulator.cards.length;
+      const studyCount = this.currentModeStudyCardCount(accumulator.cards);
       return studyCount < plan.studyFallback.minCards && !accumulator.cards.some((card) => this.isDictionaryCard(card));
     }
     shouldLoadEmptyApiStudyFallback(accumulator) {
@@ -69810,7 +69905,7 @@ ${entry.url}`),
       if (shouldClearReviewHistory) this.clearReviewHistory();
       this.persistState();
       this.syncMode(root);
-      if ((this.state.mode === "word" || this.state.mode === "kanji") && !this.allWords.length) {
+      if (this.isStudyCardMode(this.state.mode) && !this.allWords.length) {
         this.ensureStudySurface(root);
         void this.loadWordsInto(root, options.preserveWord, { useOfflineCache: true });
         return;
@@ -69962,7 +70057,7 @@ ${entry.url}`),
     // study directly as words. Progression is unaffected either way: card
     // states live at the provider, the toggle only changes queue composition.
     applyKanjiUnlockQueue(pool) {
-      if (this.state.mode !== "word" || !this.dependencies.getSettings().newTabKanjiUnlockEnabled) return pool;
+      if (!this.isVocabularyStudyMode(this.state.mode) || !this.dependencies.getSettings().newTabKanjiUnlockEnabled) return pool;
       const out = [];
       const seenKanji = /* @__PURE__ */ new Set();
       for (const card of pool) {
@@ -69981,6 +70076,12 @@ ${entry.url}`),
     }
     cardsForCurrentMode(cards) {
       return this.state.mode === "kanji" ? this.kanjiStudyCardsFromSourceCards(cards) : cards;
+    }
+    isStudyCardMode(mode) {
+      return mode === "word" || mode === "recall" || mode === "kanji";
+    }
+    isVocabularyStudyMode(mode) {
+      return mode === "word" || mode === "recall";
     }
     kanjiStudyCardsFromSourceCards(cards) {
       const selected = [];
@@ -70238,6 +70339,7 @@ ${entry.url}`),
     }
     renderPromptForMode(slots, card, state2, renderAsKanji = this.shouldRenderCardAsKanji(card)) {
       if (renderAsKanji) this.renderKanjiPrompt(slots, card);
+      else if (this.state.mode === "recall") this.renderRecallPrompt(slots, card, state2);
       else this.renderWordPrompt(slots, card, state2);
     }
     shouldRenderCardAsKanji(card) {
@@ -70309,7 +70411,7 @@ ${entry.url}`),
     refreshSessionProgressSoon() {
       const root = this.sessionClockRoot;
       const card = this.visibleWords[this.index];
-      if (root?.isConnected && card && this.state.mode === "word") {
+      if (root?.isConnected && card && this.isVocabularyStudyMode(this.state.mode)) {
         this.renderSessionProgress(this.studySlots(root), card, root);
       }
     }
@@ -70355,7 +70457,7 @@ ${entry.url}`),
       this.sessionClockRoot = null;
     }
     tickSessionClock() {
-      if (typeof document === "undefined" || this.state.mode !== "word") {
+      if (typeof document === "undefined" || !this.isVocabularyStudyMode(this.state.mode)) {
         this.stopSessionClock();
         return;
       }
@@ -70683,7 +70785,7 @@ ${entry.url}`),
     // when no SRS source is configured, the fallback notice carries a
     // "Connect" button that opens settings.
     appendConnectSrsCta(countSlot) {
-      if (this.reviewCountMode || this.state.mode !== "word") return;
+      if (this.reviewCountMode || !this.isVocabularyStudyMode(this.state.mode)) return;
       const settings = this.dependencies.getSettings();
       if (hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || settings.ankiEnabled || settings.newTabAnkiEnabled) return;
       countSlot.append(el("button", {
@@ -70733,7 +70835,7 @@ ${entry.url}`),
       prompt.lang = this.state.revealAnswer ? "ja" : "en";
       prompt.dataset.newtabExpression = "true";
       prompt.closest(".jpdb-reader-newtab-study")?.classList.remove("jpdb-reader-newtab-study-anki-card");
-      prompt.classList.remove("jpdb-reader-newtab-prompt-anki-card");
+      prompt.classList.remove("jpdb-reader-newtab-prompt-anki-card", "jpdb-reader-newtab-recall-prompt");
       if (this.state.revealAnswer) replaceChildrenWith(prompt, this.kanjiPopoverButton(kanji));
       else replaceChildrenWith(prompt, this.renderKanjiPromptKeywords(keywords));
     }
@@ -70853,6 +70955,130 @@ ${entry.url}`),
       this.renderWordAnswer(slots.answer, card);
       this.renderWordMeaning(slots.meaning, card);
       void this.renderImmersionExample(slots, card);
+    }
+    renderRecallPrompt(slots, card, state2) {
+      if (slots.prompt) this.renderRecallQuestion(slots.prompt, card);
+      this.renderRecallAnswer(slots.answer, card, state2);
+      this.renderRecallMeaning(slots.meaning, card);
+      if (this.state.revealAnswer) void this.renderImmersionExample(slots, card);
+    }
+    renderRecallQuestion(prompt, card) {
+      prompt.lang = "en";
+      delete prompt.dataset.newtabExpression;
+      delete prompt.dataset.newtabSentenceRequest;
+      delete prompt.dataset.newtabPromptParseRequest;
+      prompt.classList.remove("jpdb-reader-newtab-prompt-anki-card", "jpdb-reader-newtab-prompt-has-sentence");
+      prompt.classList.add("jpdb-reader-newtab-recall-prompt");
+      prompt.closest(".jpdb-reader-newtab-study")?.classList.remove("jpdb-reader-newtab-study-anki-card");
+      replaceChildrenWith(
+        prompt,
+        el("span", { class: "jpdb-reader-newtab-recall-question" }, firstCardMeaning(card) || this.text("recallPromptFallback"))
+      );
+    }
+    renderRecallAnswer(answer, card, state2) {
+      if (!answer) return;
+      delete answer.dataset.newtabAnswerDetailsRequest;
+      const key = cardKey(card);
+      const value = this.recallAnswers.get(key) ?? "";
+      const outcome = this.recallOutcomes.get(key);
+      const evaluation = evaluateNewTabRecallAnswer(card, value, newTabCardReading(card));
+      answer.dataset.recallOutcome = outcome ?? "pending";
+      replaceChildrenWith(
+        answer,
+        el(
+          "form",
+          { class: "jpdb-reader-newtab-recall-form", dataset: { newtabRecallForm: true } },
+          el("input", {
+            class: "jpdb-reader-newtab-recall-input",
+            dataset: { newtabRecallInput: true },
+            value,
+            placeholder: this.text("recallAnswer"),
+            autocomplete: "off",
+            autocapitalize: "none",
+            autocorrect: "off",
+            spellcheck: false,
+            inputmode: "text",
+            enterkeyhint: "done",
+            lang: "ja",
+            "aria-label": this.text("recallAnswer"),
+            disabled: this.state.revealAnswer
+          }),
+          el("button", {
+            class: "jpdb-reader-newtab-recall-check",
+            type: "button",
+            dataset: { newtabAction: "recall-submit" }
+          }, this.text("recallCheck"))
+        ),
+        outcome ? el("div", {
+          class: "jpdb-reader-newtab-recall-result",
+          dataset: { newtabRecallResult: outcome }
+        }, this.recallOutcomeLabel(outcome, evaluation.canonicalAnswer)) : null,
+        this.state.revealAnswer ? this.renderRecallSolution(card, state2) : null
+      );
+      if (!this.state.revealAnswer) this.focusRecallInputSoon(answer);
+    }
+    renderRecallSolution(card, state2) {
+      return el(
+        "div",
+        { class: "jpdb-reader-newtab-recall-solution", lang: "ja" },
+        el(
+          "span",
+          { class: "jpdb-reader-newtab-term-row" },
+          el("span", { class: "jpdb-reader-newtab-term" }, this.renderPromptReaderWord(card, state2, card.sentence || card.spelling)),
+          this.renderStudyWordAudioButton(card)
+        )
+      );
+    }
+    renderRecallMeaning(meaning, card) {
+      if (!meaning) return;
+      if (!this.state.revealAnswer) {
+        meaning.replaceChildren();
+        return;
+      }
+      this.renderWordMeaning(meaning, card);
+    }
+    focusRecallInputSoon(answer) {
+      if (typeof window === "undefined") return;
+      window.setTimeout(() => {
+        const input2 = answer.querySelector("[data-newtab-recall-input]");
+        if (!input2?.isConnected || input2.disabled) return;
+        const active = document.activeElement;
+        if (active && active !== document.body && active !== answer.closest("[data-newtab-study]")) return;
+        input2.focus({ preventScroll: true });
+      }, 0);
+    }
+    updateRecallAnswer(root, value, submitted) {
+      const card = this.visibleWords[this.index];
+      if (!card) return;
+      const key = cardKey(card);
+      this.recallAnswers.set(key, value);
+      if (submitted) {
+        this.recallOutcomes.set(key, evaluateNewTabRecallAnswer(card, value, newTabCardReading(card)).outcome);
+      } else {
+        this.recallOutcomes.delete(key);
+        root.querySelector("[data-newtab-recall-result]")?.remove();
+        const answer = root.querySelector("[data-newtab-answer]");
+        if (answer) answer.dataset.recallOutcome = "pending";
+      }
+    }
+    submitRecallAnswer(root) {
+      const card = this.visibleWords[this.index];
+      const input2 = root.querySelector("[data-newtab-recall-input]");
+      if (!card || !input2) return;
+      const evaluation = evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
+      this.recallAnswers.set(cardKey(card), input2.value);
+      this.recallOutcomes.set(cardKey(card), evaluation.outcome);
+      if (evaluation.outcome === "empty") {
+        this.renderWord(root, card);
+        return;
+      }
+      this.revealCurrentCard(root, card);
+    }
+    recallOutcomeLabel(outcome, answer) {
+      if (outcome === "correct") return this.text("recallCorrect");
+      if (outcome === "accepted") return this.text("recallAccepted");
+      if (outcome === "incorrect") return this.formatNewTabText("recallIncorrect", { answer });
+      return this.text("recallEmpty");
     }
     renderWordAnswer(answer, _card) {
       if (!answer) return;
@@ -70994,7 +71220,7 @@ ${entry.url}`),
       const html = renderAnkiRenderedCardStudyBody(renderedCard, this.state.revealAnswer, this.language(), card.ankiAudioFilenames ?? []);
       if (!html) return false;
       slots.prompt.lang = "";
-      slots.prompt.classList.remove("jpdb-reader-newtab-prompt-has-sentence");
+      slots.prompt.classList.remove("jpdb-reader-newtab-prompt-has-sentence", "jpdb-reader-newtab-recall-prompt");
       slots.prompt.classList.add("jpdb-reader-newtab-prompt-anki-card");
       slots.prompt.closest(".jpdb-reader-newtab-study")?.classList.add("jpdb-reader-newtab-study-anki-card");
       delete slots.prompt.dataset.newtabExpression;
@@ -71023,7 +71249,7 @@ ${entry.url}`),
       const promptSentence = this.wordPromptSentence(sentence);
       prompt.lang = "ja";
       prompt.dataset.newtabExpression = "true";
-      prompt.classList.remove("jpdb-reader-newtab-prompt-anki-card");
+      prompt.classList.remove("jpdb-reader-newtab-prompt-anki-card", "jpdb-reader-newtab-recall-prompt");
       prompt.closest(".jpdb-reader-newtab-study")?.classList.remove("jpdb-reader-newtab-study-anki-card");
       prompt.classList.toggle("jpdb-reader-newtab-prompt-has-sentence", Boolean(promptSentence));
       delete prompt.dataset.newtabSentenceRequest;
@@ -71204,7 +71430,7 @@ ${entry.url}`),
       return this.state.revealAnswer && Boolean(meaning) && this.dependencies.getSettings().immersionKitEnabled;
     }
     canAppendImmersionExample(meaning, key, examples) {
-      return Boolean(examples.length) && cardKey(this.visibleWords[this.index]) === key && meaning.isConnected && this.state.mode === "word" && this.state.revealAnswer;
+      return Boolean(examples.length) && cardKey(this.visibleWords[this.index]) === key && meaning.isConnected && this.isVocabularyStudyMode(this.state.mode) && this.state.revealAnswer;
     }
     renderNewTabImmersionCard(card, examples, index) {
       const settings = this.dependencies.getSettings();
@@ -71229,7 +71455,7 @@ ${entry.url}`),
       this.highlightNewTabImmersionTarget(root, card);
     }
     canApplyNewTabImmersionParse(root, key) {
-      return root.isConnected && cardKey(this.visibleWords[this.index]) === key && this.state.mode === "word" && this.state.revealAnswer;
+      return root.isConnected && cardKey(this.visibleWords[this.index]) === key && this.isVocabularyStudyMode(this.state.mode) && this.state.revealAnswer;
     }
     async parseNewTabSentenceElement(sentence, sentenceText, card, isCurrent) {
       const cached = this.cachedParsedNewTabSentenceTokens(sentenceText);
@@ -71498,7 +71724,7 @@ ${entry.url}`),
       await this.immersionAudioPlayer.playSource(source, isCurrent);
     }
     isCurrentRevealedWordCard(key) {
-      return this.state.mode === "word" && this.state.revealAnswer && cardKey(this.visibleWords[this.index]) === key;
+      return this.isVocabularyStudyMode(this.state.mode) && this.state.revealAnswer && cardKey(this.visibleWords[this.index]) === key;
     }
     newTabImmersionAudioSource(example) {
       const urls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
@@ -71598,7 +71824,7 @@ ${entry.url}`),
       }
     }
     shouldPrefetchNewTabImmersion() {
-      return this.state.mode === "word" && this.visibleWords.length > 0 && this.dependencies.getSettings().immersionKitEnabled && typeof this.dependencies.immersionKit?.search === "function";
+      return this.isVocabularyStudyMode(this.state.mode) && this.visibleWords.length > 0 && this.dependencies.getSettings().immersionKitEnabled && typeof this.dependencies.immersionKit?.search === "function";
     }
     prefetchNewTabImmersionCard(card, context) {
       void this.loadImmersionExamples(card).then((examples) => {
@@ -71610,7 +71836,7 @@ ${entry.url}`),
       }).catch(() => void 0);
     }
     isCurrentImmersionPrefetchGeneration(generation) {
-      return generation === this.immersionPrefetchGeneration && this.state.mode === "word";
+      return generation === this.immersionPrefetchGeneration && this.isVocabularyStudyMode(this.state.mode);
     }
     prefetchNewTabParsedSentence(sentence) {
       const text2 = sentence.trim();
@@ -72203,6 +72429,7 @@ ${entry.url}`),
       if (!promptSlot) return;
       promptSlot.lang = lang;
       delete promptSlot.dataset.newtabExpression;
+      promptSlot.classList.remove("jpdb-reader-newtab-prompt-anki-card", "jpdb-reader-newtab-prompt-has-sentence", "jpdb-reader-newtab-recall-prompt");
       promptSlot.textContent = prompt;
     }
     renderEmptyControls(controls) {
@@ -73478,9 +73705,13 @@ ${entry.url}`),
       replaceChildrenWith(slots.controls, buttons);
     }
     controlButtonsForCard(card) {
+      if (this.isRecallWordCard(card)) return this.recallControlButtons(card);
       if (!this.canReviewCard(card)) return this.navigationControlButtons(this.text(this.state.revealAnswer ? "hide" : "reveal"));
       if (!this.state.revealAnswer) return this.navigationControlButtons(this.text("reveal"));
       return this.gradeControlButtons(card);
+    }
+    isRecallWordCard(card) {
+      return this.state.mode === "recall" && !this.shouldRenderCardAsKanji(card);
     }
     canReviewCard(card) {
       if (this.isOfflineSourceLabel(this.sourceLabel) && !this.offlineGradeTargets(card).length) return false;
@@ -73505,6 +73736,16 @@ ${entry.url}`),
           revealLabel,
           revealShortcut && newTabKeyHintsRenderable() ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, revealShortcut) : null
         ),
+        el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": this.text("nextWord") }, this.text("nextWord"))
+      ];
+    }
+    recallControlButtons(card) {
+      if (this.state.revealAnswer) {
+        return this.canReviewCard(card) ? this.gradeControlButtons(card) : this.navigationControlButtons(this.text("hide"));
+      }
+      return [
+        el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": this.text("previousWord") }, this.text("previousWord")),
+        el("button", { type: "button", dataset: { newtabAction: "recall-submit" } }, this.text("recallCheck")),
         el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": this.text("nextWord") }, this.text("nextWord"))
       ];
     }
@@ -74183,7 +74424,7 @@ ${entry.url}`),
       });
     }
     shouldPrefetchWordPitch() {
-      return this.state.mode === "word" && this.visibleWords.length > 0 && this.dependencies.getSettings().showPitchAccent;
+      return this.isVocabularyStudyMode(this.state.mode) && this.visibleWords.length > 0 && this.dependencies.getSettings().showPitchAccent;
     }
     prefetchWordPitch(card) {
       if (!this.shouldEnrichWordPitch(card)) return;
@@ -74259,6 +74500,7 @@ ${entry.url}`),
     syncMode(root) {
       this.syncKeyHintVisibility(root);
       root.classList.toggle("jpdb-reader-newtab-search-mode", this.state.mode === "search");
+      root.classList.toggle("jpdb-reader-newtab-recall-mode", this.state.mode === "recall");
       root.classList.toggle("jpdb-reader-newtab-kanji-mode", this.state.mode === "kanji");
       root.classList.toggle("jpdb-reader-newtab-stats-mode", this.state.mode === "stats");
       const search = root.querySelector("[data-newtab-search]");
@@ -74281,7 +74523,7 @@ ${entry.url}`),
       if (!select2) return;
       const settings = this.dependencies.getSettings();
       const hasProvider = hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || Boolean(settings.ankiEnabled && settings.newTabAnkiEnabled);
-      const show = this.state.mode === "word" && hasProvider;
+      const show = this.isVocabularyStudyMode(this.state.mode) && hasProvider;
       select2.hidden = !show;
       if (!show) return;
       replaceChildrenWith(select2, NEW_TAB_FILTERS.map((filter) => el("option", {
@@ -74298,21 +74540,30 @@ ${entry.url}`),
       if (!select2) return;
       const settings = this.dependencies.getSettings();
       if (this.state.mode === "search") {
-        const show2 = hasJpdbApiCredential(settings);
-        select2.hidden = !show2;
-        if (show2) void this.populateDeckSelector(select2, settings);
+        this.syncSearchDeckSelector(select2, settings);
         return;
       }
-      if (this.state.mode !== "word") {
+      if (!this.isVocabularyStudyMode(this.state.mode)) {
         select2.hidden = true;
         return;
       }
       if (this.state.source === "anki") {
-        const show2 = settings.ankiEnabled && settings.newTabAnkiEnabled;
-        select2.hidden = !show2;
-        if (show2) void this.populateAnkiDeckSelector(select2);
+        this.syncAnkiDeckSelector(select2, settings);
         return;
       }
+      this.syncJpdbDeckSelector(select2, settings);
+    }
+    syncSearchDeckSelector(select2, settings) {
+      const show = hasJpdbApiCredential(settings);
+      select2.hidden = !show;
+      if (show) void this.populateDeckSelector(select2, settings);
+    }
+    syncAnkiDeckSelector(select2, settings) {
+      const show = settings.ankiEnabled && settings.newTabAnkiEnabled;
+      select2.hidden = !show;
+      if (show) void this.populateAnkiDeckSelector(select2);
+    }
+    syncJpdbDeckSelector(select2, settings) {
       const sourceAllowsJpdb = this.state.source === "auto" || this.state.source === "jpdb";
       const show = sourceAllowsJpdb && (hasJpdbApiCredential(settings) || hasJitenApiCredential(settings));
       select2.hidden = !show;
@@ -74460,7 +74711,7 @@ ${entry.url}`),
     lastSyncedCardUrlKey = "";
     handlingCardPopstate = false;
     syncCardUrl(card) {
-      if (this.state.mode !== "word" || typeof history === "undefined") return;
+      if (!this.isVocabularyStudyMode(this.state.mode) || typeof history === "undefined") return;
       if (!isYomuNewTabUrl(location.href)) return;
       const key = this.cardSelectionKey(card);
       if (key === this.lastSyncedCardUrlKey) return;
@@ -74481,7 +74732,7 @@ ${entry.url}`),
       }
     }
     handleCardPopstate(root) {
-      if (this.state.mode !== "word") return;
+      if (!this.isVocabularyStudyMode(this.state.mode)) return;
       const key = this.cardKeyFromLocation();
       if (!key || key === this.lastSyncedCardUrlKey) return;
       if (this.canUndoLastReview() && this.lastUndoableReview && this.cardMatchesSelectionKey(this.lastUndoableReview.card, key)) {
@@ -74607,7 +74858,7 @@ ${entry.url}`),
     return Boolean(target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR));
   }
   function isNewTabStudyKeyboardMode(mode) {
-    return mode === "word" || mode === "kanji";
+    return mode === "word" || mode === "recall" || mode === "kanji";
   }
   function isNewTabKeyboardCaptureBlockedTarget(target) {
     return Boolean(target.closest([
