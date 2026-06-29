@@ -84,7 +84,7 @@ export function subtitleBatchMiningTsv(candidates: SubtitleBatchMiningCandidate[
     ].join('\n');
 }
 
-export function isSubtitleBatchMiningCandidateSelectedByDefault(card: JPDBCard, iPlusOne: boolean): boolean {
+function isSubtitleBatchMiningCandidateSelectedByDefault(card: JPDBCard, iPlusOne: boolean): boolean {
     if (!iPlusOne) return false;
     const states = normalizeCardStates(card.cardState);
     return !states.some(state => BATCH_ALREADY_QUEUED_STATES.has(state));
