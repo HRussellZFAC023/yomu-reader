@@ -1448,11 +1448,11 @@ describe('new tab review helpers', () => {
         expect(normalizedCss)
             .toContain('@media (max-width: 860px) { .jpdb-reader-newtab-topbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand controls" "mode mode";');
         expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-mode { grid-area: mode; width: 100%; min-width: 0; max-width: none; justify-self: stretch; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(88px, 1fr); grid-template-columns: none; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; }');
+            .toContain('.jpdb-reader-newtab-mode { grid-area: mode; width: 100%; min-width: 0; max-width: none; justify-self: stretch; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; }');
         expect(normalizedCss)
             .toContain('.jpdb-reader-newtab-mode button { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }');
         expect(normalizedCss)
-            .toContain('@media (max-width: 420px) { .jpdb-reader-newtab-shell { width: min(100vw - 12px, 420px); } .jpdb-reader-newtab-mode { grid-auto-columns: minmax(76px, 1fr); grid-template-columns: none; }');
+            .toContain('@media (max-width: 420px) { .jpdb-reader-newtab-shell { width: min(100vw - 12px, 420px); } .jpdb-reader-newtab-mode button { min-height: 36px; padding-inline: 6px; font-size: 10px; }');
     });
 
     it('styles current Anki card audio as the newtab icon speaker', () => {
@@ -1603,7 +1603,7 @@ describe('new tab review helpers', () => {
         expect(normalizedCss)
             .toContain('.jpdb-reader-newtab-theme-controls { grid-area: controls; justify-self: end; min-width: 0; }');
         expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-mode { grid-area: mode; width: 100%; min-width: 0; max-width: none; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(82px, 1fr); grid-template-columns: none; justify-self: stretch; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; }');
+            .toContain('.jpdb-reader-newtab-mode button { min-width: 0; padding: 0 8px; font-size: 11px; white-space: nowrap; }');
         expect(normalizedCss)
             .toContain('.jpdb-reader-newtab-brand span { display: none; }');
     });
