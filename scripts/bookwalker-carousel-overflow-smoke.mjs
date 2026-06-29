@@ -103,6 +103,7 @@ writeFileSync(entryPath, `
             side: rectMetrics('[data-bookwalker-side-card]'),
             rubyCount: scoped.querySelectorAll('rt,.jpdb-reader-furi').length,
             passiveCount: scoped.querySelectorAll('.jpdb-reader-passive-word').length,
+            passiveChromeHostCount: scoped.querySelectorAll('[data-jpdb-reader-passive-chrome="true"]').length,
             mirrorCount: scoped.querySelectorAll('.jpdb-reader-text-mirror').length,
             inlineWordCount,
             overflowVisibleHosts,
@@ -129,6 +130,7 @@ writeFileSync(entryPath, `
             ctaTop: ctaRect?.top ?? 0,
             rubyCount: document.querySelectorAll('[data-product-title] rt,.jpdb-reader-furi').length,
             passiveCount: document.querySelectorAll('[data-product-title] .jpdb-reader-passive-word').length,
+            passiveChromeHostCount: document.querySelectorAll('[data-product-card] [data-jpdb-reader-passive-chrome="true"]').length,
         };
     }
 
@@ -249,6 +251,7 @@ try {
         assert(result.applied >= 8, 'BookWalker storefront smoke did not annotate enough targets', result);
         assert(result.after.rubyCount === 0, 'BookWalker storefront rendered ruby in compact commerce layout', result);
         assert(result.after.passiveCount >= 8, 'BookWalker storefront words should still be lookupable as passive words', result);
+        assert(result.after.passiveChromeHostCount >= 1, 'BookWalker storefront should mark compact media hosts as passive chrome', result);
         assert(result.after.mirrorCount === 0, 'BookWalker storefront should not hide native text behind text mirrors', result);
         assert(result.after.inlineWordCount >= 8, 'BookWalker storefront should render passive lookup words inline with native text', result);
         assert(result.after.hiddenNativeHosts === 0, 'BookWalker storefront should not hide native text hosts', result);
@@ -273,6 +276,7 @@ try {
         assert(productGallery.target.passiveInteraction, 'product gallery target should remain passive', productGallery);
         assert(productGallery.after.rubyCount === 0, 'product gallery rendered ruby in compact card text', productGallery);
         assert(productGallery.after.passiveCount >= 2, 'product gallery words should still be lookupable', productGallery);
+        assert(productGallery.after.passiveChromeHostCount >= 1, 'product gallery should mark compact media hosts as passive chrome', productGallery);
         assert(productGallery.after.gridScrollWidth <= productGallery.after.gridClientWidth + 2, 'product gallery overflowed after Yomu rendered words', productGallery);
         assert(productGallery.after.titleScrollHeight <= productGallery.after.titleClientHeight + 2, 'product gallery title height expanded after annotation', productGallery);
         assert(productGallery.after.cardScrollHeight <= productGallery.after.cardHeight + 2, 'product gallery card height expanded after annotation', productGallery);

@@ -1819,13 +1819,24 @@ function targetForcesAllFurigana(parent: HTMLElement): boolean {
 }
 
 function shouldSuppressCompactScanRuby(parent: HTMLElement): boolean {
-    if (shouldSuppressCompactMediaRuby(parent)) return true;
+    if (shouldSuppressCompactMediaRuby(parent)) {
+        markCompactMediaPassiveChrome(parent);
+        return true;
+    }
     const notice = compactConstrainedNotificationElement(parent);
     if (notice) notice.dataset.jpdbReaderPassiveChrome = 'true';
     if (isYouTubeHost()) return Boolean(notice);
     const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent);
     if (chrome) chrome.dataset.jpdbReaderPassiveChrome = 'true';
     return Boolean(chrome || notice);
+}
+
+function markCompactMediaPassiveChrome(parent: HTMLElement): void {
+    const host = parent.closest<HTMLElement>('a[href],button,[role="link"],[role="button"]')
+        ?? closestCompactMediaContext(parent)
+        ?? closestMediaCarousel(parent)?.element
+        ?? parent;
+    host.dataset.jpdbReaderPassiveChrome = 'true';
 }
 
 function compactInteractiveChromeElement(parent: HTMLElement): HTMLElement | null {

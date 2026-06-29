@@ -2387,11 +2387,9 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 .jpdb-reader-newtab-kanji-backing-word {
   width: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: baseline;
-  gap: 6px 10px;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
   color: var(--jpdb-reader-muted);
   font-size: clamp(1rem, 2.4vw, 1.25rem);
   font-weight: 700;
@@ -2399,9 +2397,57 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   text-align: center;
 }
 
-.jpdb-reader-newtab-kanji-backing-word .jpdb-reader-newtab-kanji-popover-word {
+.jpdb-reader-newtab-kanji-backing-term-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.4vw, 14px);
+  width: 100%;
+  min-width: 0;
+}
+
+.jpdb-reader-newtab-kanji-backing-word .jpdb-reader-newtab-kanji-backing-term {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--jpdb-reader-text);
   font-size: clamp(1.35rem, 3.4vw, 1.9rem);
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.jpdb-reader-newtab-kanji-backing-term .jpdb-reader-word {
+  --jpdb-reader-word-color-source: currentColor;
+  --jpdb-reader-word-accessible-color: currentColor;
+  --jpdb-reader-word-decoration-source: transparent;
+  --jpdb-reader-word-underline: transparent;
+  --jpdb-reader-word-highlight-source: transparent;
+  --jpdb-reader-word-highlight-paint: transparent;
+  --jpdb-reader-word-accessible-highlight: transparent;
+  --jpdb-reader-word-highlight-shadow-source: none;
+  padding: 0;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border-radius: 0;
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
+  text-decoration-color: transparent !important;
+  text-shadow: none;
+}
+
+.jpdb-reader-newtab-kanji-backing-term ruby {
+  ruby-position: over;
+}
+
+.jpdb-reader-newtab-kanji-backing-term rt {
+  font-size: 0.34em;
+  font-weight: 760;
+  line-height: 1;
 }
 
 .jpdb-reader-newtab-kanji-backing-reading,

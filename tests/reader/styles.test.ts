@@ -137,4 +137,29 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('overflow-wrap: normal');
         expect(css).toContain('line-height: inherit;');
     });
+
+    it('keeps hover layered over highlights while passive chrome strips highlight paint', () => {
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const hoverRule = css.match(/\.jpdb-reader-word:hover,\s*\.jpdb-reader-word:focus\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
+
+        expect(hoverRule).toContain('linear-gradient(var(--jpdb-reader-hover)');
+        expect(hoverRule).toContain('var(--jpdb-reader-word-accessible-highlight');
+        expect(hoverRule).toContain('var(--jpdb-reader-word-highlight-source, transparent)');
+        expect(css).toContain('[data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:hover');
+        expect(css).toContain('[data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:focus');
+    });
+
+    it('keeps dark OCR auto highlights on an accent surface with readable text', () => {
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const darkAutoRule = css.match(/\.jpdb-ocr-layer\[data-ocr-overlay-theme="dark"\]\[data-ocr-overlay-variant="auto"\]\s*\.jpdb-ocr-line:is\(:hover, :focus, \.jpdb-ocr-line-active\)\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
+        const darkAutoWordRule = css.match(/\.jpdb-ocr-layer\[data-ocr-overlay-theme="dark"\]\[data-ocr-overlay-variant="auto"\]\s*\.jpdb-ocr-line:is\(:hover, :focus, \.jpdb-ocr-line-active\)\s*\.jpdb-reader-word\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
+
+        expect(css).toContain('--jpdb-ocr-auto-dark-surface');
+        expect(css).toContain('--jpdb-ocr-auto-dark-active');
+        expect(darkAutoRule).toContain('color: var(--jpdb-reader-accent-text, #11161d)');
+        expect(darkAutoRule).toContain('background: var(--jpdb-ocr-auto-dark-active)');
+        expect(darkAutoRule).toContain('text-shadow: none');
+        expect(darkAutoWordRule).toContain('--jpdb-reader-subtitle-fallback: var(--jpdb-reader-accent-text, #11161d)');
+        expect(darkAutoWordRule).toContain('var(--jpdb-reader-accent-text, #11161d)');
+    });
 });

@@ -8251,13 +8251,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
   }
   function shouldSuppressCompactScanRuby(parent) {
-    if (shouldSuppressCompactMediaRuby(parent)) return true;
+    if (shouldSuppressCompactMediaRuby(parent)) {
+      markCompactMediaPassiveChrome(parent);
+      return true;
+    }
     const notice = compactConstrainedNotificationElement(parent);
     if (notice) notice.dataset.jpdbReaderPassiveChrome = "true";
     if (isYouTubeHost$1()) return Boolean(notice);
     const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent);
     if (chrome) chrome.dataset.jpdbReaderPassiveChrome = "true";
     return Boolean(chrome || notice);
+  }
+  function markCompactMediaPassiveChrome(parent) {
+    const host = parent.closest('a[href],button,[role="link"],[role="button"]') ?? closestCompactMediaContext(parent) ?? closestMediaCarousel(parent)?.element ?? parent;
+    host.dataset.jpdbReaderPassiveChrome = "true";
   }
   function compactInteractiveChromeElement(parent) {
     if (parent.closest(READER_ROOT_SELECTOR)) return null;
@@ -25535,7 +25542,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.221".trim() ? "1.4.221".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.4.222".trim() ? "1.4.222".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -70562,19 +70569,29 @@ ${entry.url}`),
       );
     }
     renderJitenKanjiBackingWord(card, kanji) {
-      if (!isJitenSrsCard(card) || isStandaloneKanjiCard(card, kanji) || card.spelling === kanji) return null;
-      const reading = newTabCardOptionalReading(card);
-      const meaning = firstCardMeaning(card);
+      const sourceCard = this.sourceCardForVisibleCard(card) ?? card;
+      if (!isJitenSrsCard(sourceCard) || isStandaloneKanjiCard(sourceCard, kanji) || sourceCard.spelling === kanji) return null;
+      const settings = this.dependencies.getSettings();
+      const reading = newTabCardOptionalReading(sourceCard);
+      const visibleReading = reading && !isPlainReadingDuplicatedByVisibleRuby(sourceCard, { ...settings, furiganaMode: "all", showFurigana: true }, reading) ? reading : "";
+      const meaning = firstCardMeaning(sourceCard);
+      const state2 = primaryCardState(sourceCard);
       return el(
         "div",
         { class: "jpdb-reader-newtab-kanji-backing-word", dataset: { newtabKanjiBackingWord: true } },
-        el("button", {
-          class: "jpdb-reader-newtab-kanji-popover-word",
-          type: "button",
-          dataset: { action: "similar-word", expression: card.spelling, reading: card.reading },
-          title: `${this.text("lookUp")}: ${card.spelling}`
-        }, card.spelling),
-        reading ? el("span", { class: "jpdb-reader-newtab-kanji-backing-reading", lang: "ja" }, reading) : null,
+        el(
+          "span",
+          { class: "jpdb-reader-newtab-kanji-backing-term-row" },
+          el("button", {
+            class: "jpdb-reader-newtab-kanji-popover-word jpdb-reader-newtab-kanji-backing-term",
+            type: "button",
+            lang: "ja",
+            dataset: { action: "similar-word", expression: sourceCard.spelling, reading: sourceCard.reading },
+            title: `${this.text("lookUp")}: ${sourceCard.spelling}`
+          }, this.renderPromptReaderWord(sourceCard, state2, sourceCard.spelling)),
+          this.renderStudyWordAudioButton()
+        ),
+        visibleReading ? el("span", { class: "jpdb-reader-newtab-kanji-backing-reading", lang: "ja" }, visibleReading) : null,
         meaning ? el("span", { class: "jpdb-reader-newtab-kanji-backing-meaning" }, meaning) : null
       );
     }
@@ -71260,7 +71277,7 @@ ${entry.url}`),
       const example = examples[this.normalizedImmersionExampleIndex(key, examples)];
       if (!example) return;
       const source = this.newTabImmersionAudioSource(example);
-      if (!source || this.immersionAudioPlayer.isPlaying(source.key)) return;
+      if (!source) return;
       await this.immersionAudioPlayer.playSource(source, isCurrent);
     }
     isCurrentRevealedWordCard(key) {

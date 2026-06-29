@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.222] - 2026-06-29
+
+### Fixed
+
+- Kept BookWalker-style storefront, gallery, and compact media card text lookupable without letting Yomu highlights or furigana resize carousels, cards, or side login panels.
+- Restored cleaner Study reverse-side word context for Jiten kanji cards: backing words now show inline furigana and the audio button, and Immersion Kit audio replay works on every speaker click.
+
 ## [1.4.221] - 2026-06-29
 
 ### Fixed

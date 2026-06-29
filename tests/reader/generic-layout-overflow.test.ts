@@ -134,6 +134,46 @@ describe('generic reader layout overflow guards', () => {
         expect(titleTarget?.suppressRuby).not.toBe(true);
     });
 
+    it('marks compact media tiles as passive chrome so highlights cannot resize card layouts', () => {
+        document.body.innerHTML = `
+            <section class="book-carousel">
+                <article class="book-card" style="width:156px">
+                    <a id="book-link" class="book-link" href="/book/1" style="display:block;overflow:hidden;height:210px">
+                        <img src="/cover.jpg" alt="">
+                        <span id="book-title" class="book-title" style="display:block;overflow:hidden;line-height:18px;height:36px">日本語の漫画タイトル</span>
+                    </a>
+                </article>
+            </section>
+        `;
+        const card = document.querySelector<HTMLElement>('.book-card')!;
+        const link = document.querySelector<HTMLElement>('#book-link')!;
+        const title = document.querySelector<HTMLElement>('#book-title')!;
+        mockRect(card, { width: 156, height: 240 });
+        mockRect(link, { width: 148, height: 210 });
+        mockRect(title, { width: 140, height: 36 });
+
+        const target = collectTargets().find(candidate => candidate.text.includes('日本語の漫画タイトル'));
+
+        expect(target).toBeTruthy();
+        expect(target?.suppressRuby).toBe(true);
+        expect(target?.passiveInteraction).toBe(true);
+        expect(link.dataset.jpdbReaderPassiveChrome).toBe('true');
+
+        applyTokensToScanTarget(target!, [
+            token('日本語', target!.text.indexOf('日本語'), target!.text, 'にほんご'),
+            token('漫画', target!.text.indexOf('漫画'), target!.text, 'まんが'),
+        ], {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+
+        const words = Array.from(link.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        expect(words).toHaveLength(2);
+        expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+        expect(link.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+    });
+
     it('does not collect composer/editor placeholder text as page prose', () => {
         document.body.innerHTML = `
             <main>
@@ -154,6 +194,26 @@ describe('generic reader layout overflow guards', () => {
         expect(targets.map(target => target.text)).not.toContain('送信');
         expect(collectTextTargetsIn(document.body, 20, false, { includeReaderRoot: false }).map(target => target.text)).not.toContain('送信');
         expect(collectTargets(sendButton)).toEqual([]);
+    });
+
+    it('does not collect mirrored searchbox placeholder text from editable control surfaces', () => {
+        document.body.innerHTML = `
+            <main>
+                <article><p>通常の検索説明文です。</p></article>
+                <div role="searchbox" aria-placeholder="日本語を検索" contenteditable="true">
+                    <span>日本語を検索</span>
+                </div>
+                <div role="textbox" data-placeholder="メッセージを入力" contenteditable="true">
+                    <p>メッセージを入力</p>
+                </div>
+            </main>
+        `;
+
+        const targets = collectTargets();
+
+        expect(targets.map(target => target.text)).toContain('通常の検索説明文です。');
+        expect(targets.map(target => target.text)).not.toContain('日本語を検索');
+        expect(targets.map(target => target.text)).not.toContain('メッセージを入力');
     });
 
     it('keeps readable prose under composer-named containers annotatable', () => {

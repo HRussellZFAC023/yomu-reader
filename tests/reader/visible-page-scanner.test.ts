@@ -329,6 +329,7 @@ describe('VisiblePageScanner', () => {
             expect(word).not.toBeNull();
             expect(word.dataset.jpdbReaderPassive).toBe('true');
             expect(word.querySelector('rt')).toBeNull();
+            expect(title.closest('[data-jpdb-reader-passive-chrome="true"]')).not.toBeNull();
             expect(title.textContent).toContain('人妻温泉旅行');
         } finally {
             scanner.destroy();
@@ -384,6 +385,7 @@ describe('VisiblePageScanner', () => {
             expect(word).not.toBeNull();
             expect(word?.dataset.jpdbReaderPassive).toBe('true');
             expect(word?.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            expect(title.closest('[data-jpdb-reader-passive-chrome="true"]')).not.toBeNull();
             expect(title.textContent).toContain('日本語の漫画タイトル');
         } finally {
             scanner.destroy();
@@ -444,6 +446,7 @@ describe('VisiblePageScanner', () => {
             expect(word).not.toBeNull();
             expect(word?.dataset.jpdbReaderPassive).toBe('true');
             expect(word?.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            expect(title.closest('[data-jpdb-reader-passive-chrome="true"]')).not.toBeNull();
             expect(title.textContent).toContain('あなた達それでも先生ですかっ');
         } finally {
             scanner.destroy();

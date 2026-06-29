@@ -13664,9 +13664,12 @@ describe('new tab review helpers', () => {
             expect(meaning.querySelector<HTMLImageElement>('.jpdb-reader-example-image')?.getAttribute('src')).toBe('https://media.test/second.jpg');
             expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/second.jpg'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
 
+            played.splice(0);
             await privateController.playCurrentImmersionAudio(card);
             expect(played).toEqual(['https://media.test/second.mp3']);
             expect(fetchBlobUrl).not.toHaveBeenCalledWith(['https://media.test/second.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
+            await privateController.playCurrentImmersionAudio(card);
+            expect(played).toEqual(['https://media.test/second.mp3', 'https://media.test/second.mp3']);
 
             resolveSecondImage('blob:http://localhost/second.jpg');
 
@@ -13769,6 +13772,8 @@ describe('new tab review helpers', () => {
 
             meaning.querySelector<HTMLButtonElement>('[data-immersion-action="audio"]')?.click();
             await waitForExpect(() => expect(played).toEqual(['https://media.test/second.mp3']));
+            meaning.querySelector<HTMLButtonElement>('[data-immersion-action="audio"]')?.click();
+            await waitForExpect(() => expect(played).toEqual(['https://media.test/second.mp3', 'https://media.test/second.mp3']));
 
             meaning.querySelector<HTMLButtonElement>('[data-immersion-action="previous"]')?.click();
             await waitForExpect(() => expect(activeSentence()).toBe('お母ちゃん中学生？'));
@@ -14645,18 +14650,31 @@ describe('new tab review helpers', () => {
         };
         const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, immersionKitEnabled: false, kanjiImmersionKitEnabled: false }));
         const root = renderEnabledNewTabRoot(controller);
-        Object.assign(controller as unknown as { visibleWords: JPDBCard[]; sourceLabel: string; state: { mode: string; revealAnswer: boolean } }, {
-            visibleWords: [card],
+        const internals = controller as unknown as {
+            allWords: JPDBCard[];
+            visibleWords: JPDBCard[];
+            sourceLabel: string;
+            state: { mode: string; revealAnswer: boolean };
+            kanjiStudyCardFromSourceCard(card: JPDBCard, kanji: string): JPDBCard;
+            renderWord(root: HTMLElement, card: JPDBCard): void;
+        };
+        const kanjiCard = internals.kanjiStudyCardFromSourceCard(card, '図');
+        Object.assign(internals, {
+            allWords: [card],
+            visibleWords: [kanjiCard],
             sourceLabel: 'Jiten',
             state: { mode: 'kanji', revealAnswer: true },
         });
 
-        (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
+        internals.renderWord(root, kanjiCard);
 
         const backingWord = root.querySelector<HTMLElement>('[data-newtab-kanji-backing-word]');
         expect(backingWord?.textContent).toContain('図鑑');
         expect(backingWord?.textContent).toContain('ずかん');
         expect(backingWord?.textContent).toContain('picture book; field guide');
+        expect(backingWord?.querySelector('.jpdb-reader-word')?.textContent).toContain('図鑑');
+        expect(backingWord?.querySelector('.jpdb-reader-word rt')?.textContent).toContain('ずかん');
+        expect(backingWord?.querySelector('[data-action="study-word-audio"]')).toBeTruthy();
     });
 
     it('does not recheck an empty dictionary source on a later new-tab render', async () => {

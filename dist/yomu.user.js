@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.221
+// @version 1.4.222
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.221
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.221
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.221
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.221
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.222
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.222
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.222
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.222
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -4906,13 +4906,20 @@ function targetForcesAllFurigana(parent) {
   return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
 }
 function shouldSuppressCompactScanRuby(parent) {
-  if (shouldSuppressCompactMediaRuby(parent)) return true;
+  if (shouldSuppressCompactMediaRuby(parent)) {
+    markCompactMediaPassiveChrome(parent);
+    return true;
+  }
   const notice = compactConstrainedNotificationElement(parent);
   if (notice) notice.dataset.jpdbReaderPassiveChrome = "true";
   if (isYouTubeHost()) return Boolean(notice);
   const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent);
   if (chrome) chrome.dataset.jpdbReaderPassiveChrome = "true";
   return Boolean(chrome || notice);
+}
+function markCompactMediaPassiveChrome(parent) {
+  const host = parent.closest('a[href],button,[role="link"],[role="button"]') ?? closestCompactMediaContext(parent) ?? closestMediaCarousel(parent)?.element ?? parent;
+  host.dataset.jpdbReaderPassiveChrome = "true";
 }
 function compactInteractiveChromeElement(parent) {
   if (parent.closest(READER_ROOT_SELECTOR$3)) return null;
@@ -37279,7 +37286,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.221"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.222"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

@@ -4690,17 +4690,27 @@ export class NewTabController {
     }
 
     private renderJitenKanjiBackingWord(card: JPDBCard, kanji: string): HTMLElement | null {
-        if (!isJitenSrsCard(card) || isStandaloneKanjiCard(card, kanji) || card.spelling === kanji) return null;
-        const reading = newTabCardOptionalReading(card);
-        const meaning = firstCardMeaning(card);
+        const sourceCard = this.sourceCardForVisibleCard(card) ?? card;
+        if (!isJitenSrsCard(sourceCard) || isStandaloneKanjiCard(sourceCard, kanji) || sourceCard.spelling === kanji) return null;
+        const settings = this.dependencies.getSettings();
+        const reading = newTabCardOptionalReading(sourceCard);
+        const visibleReading = reading && !isPlainReadingDuplicatedByVisibleRuby(sourceCard, { ...settings, furiganaMode: 'all', showFurigana: true }, reading)
+            ? reading
+            : '';
+        const meaning = firstCardMeaning(sourceCard);
+        const state = primaryCardState(sourceCard);
         return el('div', { class: 'jpdb-reader-newtab-kanji-backing-word', dataset: { newtabKanjiBackingWord: true } },
-            el('button', {
-                class: 'jpdb-reader-newtab-kanji-popover-word',
-                type: 'button',
-                dataset: { action: 'similar-word', expression: card.spelling, reading: card.reading },
-                title: `${this.text('lookUp')}: ${card.spelling}`,
-            }, card.spelling),
-            reading ? el('span', { class: 'jpdb-reader-newtab-kanji-backing-reading', lang: 'ja' }, reading) : null,
+            el('span', { class: 'jpdb-reader-newtab-kanji-backing-term-row' },
+                el('button', {
+                    class: 'jpdb-reader-newtab-kanji-popover-word jpdb-reader-newtab-kanji-backing-term',
+                    type: 'button',
+                    lang: 'ja',
+                    dataset: { action: 'similar-word', expression: sourceCard.spelling, reading: sourceCard.reading },
+                    title: `${this.text('lookUp')}: ${sourceCard.spelling}`,
+                }, this.renderPromptReaderWord(sourceCard, state, sourceCard.spelling)),
+                this.renderStudyWordAudioButton(),
+            ),
+            visibleReading ? el('span', { class: 'jpdb-reader-newtab-kanji-backing-reading', lang: 'ja' }, visibleReading) : null,
             meaning ? el('span', { class: 'jpdb-reader-newtab-kanji-backing-meaning' }, meaning) : null,
         );
     }
@@ -5525,7 +5535,7 @@ export class NewTabController {
         const example = examples[this.normalizedImmersionExampleIndex(key, examples)];
         if (!example) return;
         const source = this.newTabImmersionAudioSource(example);
-        if (!source || this.immersionAudioPlayer.isPlaying(source.key)) return;
+        if (!source) return;
         await this.immersionAudioPlayer.playSource(source, isCurrent);
     }
 
