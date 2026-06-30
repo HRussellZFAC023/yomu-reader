@@ -11089,6 +11089,44 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('shows a compact first-run guide for the enabled merged study steps', async () => {
+        const settings = { ...DEFAULT_SETTINGS, newTabStudyTourSeen: false };
+        const onSettingsChange = vi.fn();
+        const controller = newTabPromptController(settings, { onSettingsChange });
+        const card = newTabTestCard({
+            spelling: '猫',
+            reading: 'ねこ',
+            meanings: [{ glosses: ['cat'], partOfSpeech: [] }],
+            sentence: '猫が好きです。',
+            pitchAccent: ['LH'],
+        });
+        const root = renderSeededNewTabWord(controller, card, {
+            sourceLabel: 'Dictionaries',
+            state: { mode: 'word', revealAnswer: false },
+            bindRootEvents: true,
+        });
+
+        try {
+            const tour = root.querySelector<HTMLElement>('[data-newtab-study-tour]')!;
+            expect(tour.hidden).toBe(false);
+            expect(tour.textContent).toContain('One review, a few quick checks. Grade once at the reveal.');
+            expect(tour.textContent).toContain('Draw it before the answers appear.');
+            expect(tour.textContent).toContain('Type the missing Japanese.');
+            expect(tour.textContent).toContain('Listen and choose the pitch shape.');
+            expect(tour.textContent).toContain('Check the details, then grade.');
+
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="dismiss-study-tour"]')!.click();
+
+            expect(settings.newTabStudyTourSeen).toBe(true);
+            await waitForExpect(() => {
+                expect(onSettingsChange).toHaveBeenCalledTimes(1);
+                expect(tour.hidden).toBe(true);
+            });
+        } finally {
+            root.remove();
+        }
+    });
+
     it('uses configurable navigation shortcuts to advance merged study subtasks before changing cards', () => {
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,

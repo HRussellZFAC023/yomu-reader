@@ -4398,23 +4398,39 @@ export class NewTabController {
         const settings = this.dependencies.getSettings();
         const showTour = !settings.newTabStudyTourSeen && this.isStudyCardMode(this.state.mode) && session.steps.length > 1;
         if (showTour) {
-            const flow = session.steps.map(step => step.label).join(' → ');
             slot.hidden = false;
+            slot.dataset.studyTourMode = 'guide';
             replaceChildrenWith(slot,
-                el('span', {}, flow),
+                el('div', { class: 'jpdb-reader-newtab-study-tour-body' },
+                    el('p', { class: 'jpdb-reader-newtab-study-tour-intro' }, this.text('studyTourIntro')),
+                    el('ol', { class: 'jpdb-reader-newtab-study-tour-list' },
+                        session.steps.map((step, index) => this.studyTourStep(step, index))),
+                ),
                 el('button', { type: 'button', dataset: { newtabAction: 'dismiss-study-tour' } }, this.text('studyTourStart')),
             );
             return;
         }
         if (session.activeStep.kind === 'speaking' && !this.speakingPaused()) {
             slot.hidden = false;
+            slot.dataset.studyTourMode = 'pause';
             replaceChildrenWith(slot,
                 el('button', { type: 'button', dataset: { newtabAction: 'pause-speaking' } }, this.text('pauseSpeaking')),
             );
             return;
         }
         slot.hidden = true;
+        delete slot.dataset.studyTourMode;
         slot.replaceChildren();
+    }
+
+    private studyTourStep(step: NewTabStudyStep, index: number): HTMLLIElement {
+        return el('li', { class: 'jpdb-reader-newtab-study-tour-step', dataset: { gradeable: String(step.gradeable) } },
+            el('span', { class: 'jpdb-reader-newtab-study-tour-index' }, String(index + 1)),
+            el('span', { class: 'jpdb-reader-newtab-study-tour-copy' },
+                el('span', { class: 'jpdb-reader-newtab-study-tour-label' }, step.label),
+                el('span', { class: 'jpdb-reader-newtab-study-tour-note' }, this.text(studyTourCopyKey(step.kind))),
+            ),
+        );
     }
 
     private renderPromptForMode(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>, renderAsKanji = this.shouldRenderCardAsKanji(card)): void {
@@ -10149,6 +10165,15 @@ function listenSubModeForStudyStepKind(kind: NewTabStudyStepKind): NewTabListenS
     if (kind === 'speaking') return 'shadow';
     if (kind === 'listen-pitch') return 'perceive';
     return null;
+}
+
+function studyTourCopyKey(kind: NewTabStudyStepKind): NewTabCopyKey {
+    if (kind === 'kanji-doodle') return 'studyTourKanji';
+    if (kind === 'recall-cloze') return 'studyTourRecall';
+    if (kind === 'listen-pitch') return 'studyTourListen';
+    if (kind === 'speaking') return 'studyTourSpeaking';
+    if (kind === 'final-reveal') return 'studyTourReveal';
+    return 'studyTourWord';
 }
 
 function appendSpeakingDisabledStep(steps: ReaderSettings['newTabStudyDisabledSteps']): ReaderSettings['newTabStudyDisabledSteps'] {
