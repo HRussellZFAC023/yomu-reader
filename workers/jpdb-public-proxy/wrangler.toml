@@ -1,6 +1,17 @@
 name = "yomu-jpdb-public-proxy"
 main = "src/index.ts"
-compatibility_date = "2026-05-15"
+compatibility_date = "2026-06-29"
+workers_dev = true
+preview_urls = true
+
+[[routes]]
+pattern = "edge.yomureader.com"
+custom_domain = true
 
 [vars]
-EXTRA_ALLOWED_HOSTS = ""
+PUBLIC_PROXY_DISABLED = "false"
+PUBLIC_PROXY_DAILY_REQUEST_LIMIT = "100000"
+PUBLIC_PROXY_ANALYTICS_LOGS = "false"
+
+[observability]
+enabled = true

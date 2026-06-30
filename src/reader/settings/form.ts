@@ -11,20 +11,22 @@ import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, 
 import { COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, colorSourceOptions, readOption, settingsColorSourceValue } from './form-read';
 import type { ColorSourceSettingName } from './form-read';
 import { FONT_FAMILY_PRESETS } from './font-presets';
-import { renderSourceRowsList } from './form-source-rows';
+import { renderRowOrderTools, renderSourceRowsList } from './form-source-rows';
 import { CLOUD_SETTINGS_SYNC_ENABLED } from './cloud-sync';
 import { renderAnkiMiningSettingsPanel, renderDeckControls as renderJpdbDeckControls } from './anki-mining-panel';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import {
     MOBILE_ANKI_SETUP_DOCS_URL,
     ankiStatusLineForSettings,
+    localizeBunproStatus,
     localizeInitialAnkiStatus,
     localizeJpdbStatus,
     renderAnkiStatusHtml,
+    renderBunproStatusLine,
     renderJpdbStatusLine,
 } from './status-lines';
 import { uniqueStrings } from '../core/string-utils';
-import type { DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, ReaderColorSource, ReaderSettings } from '../app/types';
+import type { DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
 import type { RecommendedDictionary } from '../dictionaries/recommended';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from '../dictionaries/recommended';
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
@@ -34,11 +36,12 @@ export { readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { renderAudioSourceEditor, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
 export { installSourceRowDrag, updateSourceRowEditor } from './form-order';
 export { renderAnkiDeckLibraryOptions, renderAnkiFieldMappingEditor, renderAnkiLibraryOptions, renderAnkiTemplatePreview, renderDeckControls } from './anki-mining-panel';
-export { ankiStatusLineForSettings, formatSettingsStatusLine, jpdbStatusLineForSettings, renderAnkiStatusHtml } from './status-lines';
+export { ankiStatusLineForSettings, bunproStatusLineForSettings, formatSettingsStatusLine, jpdbStatusLineForSettings, renderAnkiStatusHtml } from './status-lines';
 export type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './status-lines';
 
 const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
 const DEFAULT_JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
+const DEFAULT_BUNPRO_SETTINGS_URL = 'https://bunpro.jp/settings/api';
 const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb-public-proxy/src/index.ts`;
 const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
@@ -59,6 +62,20 @@ const API_KEY_INPUT_ATTRIBUTES = {
 } as const;
 const API_KEY_INPUT_ATTRIBUTE_HTML = ' autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
 const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
+const NEW_TAB_STUDY_STEP_LABELS: Record<NewTabStudyChallengeStep, string> = {
+    'kanji-doodle': 'Kanji drawing',
+    word: 'Word meaning',
+    'recall-cloze': 'Write in sentence',
+    'listen-pitch': 'Pitch listening',
+    speaking: 'Speaking',
+};
+const NEW_TAB_STUDY_STEP_HELP: Record<NewTabStudyChallengeStep, string> = {
+    'kanji-doodle': 'Draw each kanji before the word answer is shown.',
+    word: 'Japanese front, meaning and reading on reveal.',
+    'recall-cloze': 'Type the missing word in the example sentence.',
+    'listen-pitch': 'Hear the word and choose the pitch pattern.',
+    speaking: 'Repeat the word aloud when microphone feedback is available.',
+};
 const DEFAULT_SETTINGS_PANEL = 'appearance';
 const SETTINGS_TABS: readonly { panel: string; label: string; labelKey?: SettingsTextKey; active?: boolean }[] = [
     { panel: 'appearance', label: 'Appearance', active: true },
@@ -229,6 +246,7 @@ function renderSettingsSearch(language: InterfaceLanguage): string {
 
 function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: string, jitenSettingsUrl: string): string {
     const jpdbStatus = renderJpdbStatusLine(settings);
+    const bunproStatus = renderBunproStatusLine(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api" hidden>
                 <legend>API</legend>
@@ -237,14 +255,19 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                     <div class="grid">
                         ${input('apiCredentialJiten', `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
                         ${input('apiCredentialJpdb', `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
+                        ${input('apiCredentialBunproLegacy', `Bunpro API key <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproApiKey, 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
+                        ${input('apiCredentialBunpro', `Bunpro frontend API token <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproFrontendApiToken, 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input', placeholder: 'frontend_api_token' })}
+                        <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml(settings.bunproFrontendApiTokenExpiresAt)}">
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.</div>
                 </div>
                 ${jpdbStatus}
+                ${bunproStatus}
                 <div data-jpdb-decks>
                     ${renderJpdbDeckControls(settings, [], hasJpdbApiCredential(settings), settings.interfaceLanguage)}
                 </div>
                 ${checkbox('jpdbMiningEnabled', 'Allow API review/deck changes', settings.jpdbMiningEnabled)}
+                ${checkbox('bunproMiningEnabled', 'Allow Bunpro review/mining', settings.bunproMiningEnabled)}
                 ${checkbox('addToForq', 'Also copy JPDB adds to forq', settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
                 ${checkbox('enableReviews', 'Show review buttons', settings.enableReviews)}
                 <div class="jpdb-reader-settings-subsection">
@@ -311,12 +334,14 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                         ${runningAsBrowserExtension() ? checkbox('newTabEnabled', 'Set Study as the new tab', settings.newTabEnabled) : ''}
                         ${checkbox('newTabAnkiEnabled', 'Use Anki cards in Study', settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
-                        ${select('newTabSource', 'Study review source', settings.newTabSource, [['auto', 'Auto: API/Anki, then study words'], ['jpdb', 'API SRS (Jiten / JPDB)'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
+                        ${select('newTabSource', 'Study review source', settings.newTabSource, [['auto', 'Auto: Yomu, accounts, then study words'], ['yomu-local', 'Yomu local SRS'], ['jpdb', 'API SRS (Jiten / JPDB)'], ['bunpro', 'Bunpro'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
+                        ${checkbox('yomuLocalSrsEnabled', 'Enable local Yomu SRS', settings.yomuLocalSrsEnabled)}
                         ${select('newTabJpdbReviewMode', 'API review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
                         <div data-review-config ${settings.enableReviews ? '' : 'hidden'}>
                             ${select('twoButtonReviews', 'Review rating scale', settings.twoButtonReviews ? 'true' : 'false', [['false', 'Five point: NOTHING to EASY'], ['true', 'Two point: FAIL / PASS']])}
                         </div>
                         ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings))}
+                        ${renderNewTabStudyStepOrderEditor(settings)}
                         ${checkbox('newTabParsingEnabled', 'Parse sentences on Study', settings.newTabParsingEnabled)}
                         ${checkbox('newTabKanjiUnlockEnabled', 'Study kanji before unlocking words', settings.newTabKanjiUnlockEnabled)}
                         ${checkbox('newTabStopAtBatchEnd', 'Stop at the end of each batch', settings.newTabStopAtBatchEnd)}
@@ -336,6 +361,42 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                     <div class="jpdb-reader-help" data-newtab-address-help>Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.</div>
                     <div class="jpdb-reader-help" data-newtab-offline-help>Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.</div>
                 </div>
+    `;
+}
+
+function renderNewTabStudyStepOrderEditor(settings: ReaderSettings): string {
+    const disabled = new Set(settings.newTabStudyDisabledSteps);
+    return `
+                        <div class="jpdb-reader-settings-field-wide jpdb-reader-settings-study-steps" data-source-editor data-study-step-editor>
+                            <div class="jpdb-reader-settings-label-text">Study steps</div>
+                            <div class="jpdb-reader-help">Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.</div>
+                            <div class="jpdb-reader-dictionary-head jpdb-reader-order-head compact no-remove">
+                                <span>On</span>
+                                <span>Step</span>
+                                <span>Order</span>
+                            </div>
+                            ${settings.newTabStudyStepOrder.map((step, index) => renderNewTabStudyStepRow(step, index, !disabled.has(step))).join('')}
+                            <input name="newTabStudyTourSeen" type="hidden" value="${settings.newTabStudyTourSeen ? 'true' : 'false'}">
+                        </div>
+    `;
+}
+
+function renderNewTabStudyStepRow(step: NewTabStudyChallengeStep, index: number, enabled: boolean): string {
+    return `
+                            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row compact no-remove" data-source-row data-study-step-row data-source-id="study-step-${escapeHtml(step)}">
+                                <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
+                                    <input name="newTabStudyEnabledStep" type="checkbox" value="${escapeHtml(step)}" ${enabled ? 'checked' : ''}>
+                                    <span>${index + 1}</span>
+                                </label>
+                                <span class="jpdb-reader-field-display">${escapeHtml(NEW_TAB_STUDY_STEP_LABELS[step])}</span>
+                                ${renderRowOrderTools({
+                                    upAction: 'dictionary-source-up',
+                                    downAction: 'dictionary-source-down',
+                                    labels: { drag: 'Drag to reorder', up: 'Move up', down: 'Move down' },
+                                    leading: `<input name="newTabStudyStepOrder" type="hidden" value="${escapeHtml(step)}">`,
+                                })}
+                                <div class="jpdb-reader-dictionary-row-help">${escapeHtml(NEW_TAB_STUDY_STEP_HELP[step])}</div>
+                            </div>
     `;
 }
 
@@ -1188,6 +1249,8 @@ function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void
     if (jpdbSettings) jpdbSettings.textContent = text('jpdbSettings');
     const jitenSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jiten.moe/settings"]');
     if (jitenSettings) jitenSettings.textContent = text('jitenSettings');
+    const bunproSettings = form.querySelector<HTMLAnchorElement>('label a[href*="bunpro.jp/settings"]');
+    if (bunproSettings) bunproSettings.textContent = text('bunproSettings');
     const nadeshikoKeyLink = form.querySelector<HTMLAnchorElement>('label a[href*="nadeshiko.co/user/developer"]');
     if (nadeshikoKeyLink) nadeshikoKeyLink.textContent = text('getNadeshikoKey');
     localizeBlockControlLabel(form, 'ocrEndpointUrl', text('ocrEndpointUrl'));
@@ -1247,6 +1310,8 @@ function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText)
     setSelectOptionLabels(form, 'newTabSource', [
         ['auto', text('newTabAuto')],
         ['jpdb', text('newTabApiSrs')],
+        ['bunpro', text('newTabBunpro')],
+        ['yomu-local', text('newTabYomuLocal')],
         ['anki', 'Anki'],
         ['dictionary', text('dictionaryFallback')],
     ]);
@@ -1508,6 +1573,7 @@ function localizeSettingsEditorChrome(form: HTMLFormElement, text: SettingsText)
     localizeDeckControls(form, text);
     const statusLanguage = resolveUiLanguageFromText(text);
     localizeJpdbStatus(form, statusLanguage);
+    localizeBunproStatus(form, statusLanguage);
     localizeInitialAnkiStatus(form, statusLanguage);
     localizeSourceRows(form, text);
     localizeRecommendedDictionaryGroups(form, text);
@@ -1743,8 +1809,8 @@ function localizeDictionaryStatus(form: HTMLFormElement, text: SettingsText): vo
 }
 
 const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
-    'apiCredential', 'apiCredentialJpdb', 'apiCredentialJiten', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
-    'jpdbMiningEnabled', 'addToForq', 'enableReviews', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
+    'apiCredential', 'apiCredentialJpdb', 'apiCredentialJiten', 'apiCredentialBunproLegacy', 'apiCredentialBunpro', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
+    'jpdbMiningEnabled', 'bunproMiningEnabled', 'yomuLocalSrsEnabled', 'addToForq', 'enableReviews', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
     'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'stickyBottomSheet', 'popoverBackdropEnabled', 'popoverWidth',
     'popoverHeight', 'popoverHeightMode', 'selectionPopoverShowTranslation', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
     'enableLogging', 'accentColor', 'newTabAnkiEnabled', 'newTabSource',

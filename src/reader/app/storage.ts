@@ -16,6 +16,7 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
     'jpdb-reader-newtab-ui',
     'jpdb-reader-newtab-jpdb-stats-history',
     'jpdb-reader-newtab-disabled-anki-decks',
+    'yomu:srs-local:v1',
     'jpdb-reader-source-open-state',
     'jpdb-reader-settings-drawer-height-ratio',
     'jpdb-reader-sheet-height-ratio',
@@ -35,6 +36,9 @@ const MANAGED_INDEXED_DB_NAMES = [
 ];
 const EXCLUDED_BACKUP_STORAGE_KEYS = new Set([
     FACTORY_RESET_SIGNAL_KEY,
+    // Transient cloud-sync handoff written before an OAuth redirect. Factory
+    // reset owns it via the '__yomu' prefix, but backups must not replay it.
+    '__yomu_cloud_settings_sync_pending_action',
 ]);
 
 type SyncStorageRead<T> = { kind: 'found'; value: T } | { kind: 'fallback' };

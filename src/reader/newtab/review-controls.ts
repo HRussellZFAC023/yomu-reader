@@ -4,14 +4,14 @@ import type { NewTabReviewTarget } from './review-targets';
 
 export interface NewTabLookupReviewTarget {
     id: string;
-    kind: 'jpdb' | 'jiten' | 'anki';
+    kind: 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki';
     label: string;
     shortLabel: string;
     ankiCardId?: number;
 }
 
 export interface NewTabLookupReviewTargetSelection {
-    kind: 'jpdb' | 'jiten' | 'anki';
+    kind: NewTabLookupReviewTarget['kind'];
     ankiCardId?: number;
 }
 
@@ -27,17 +27,21 @@ export interface NewTabReviewSourceSummary {
     targets: NewTabReviewTarget[];
     hasJpdb: boolean;
     hasJiten: boolean;
+    hasBunpro: boolean;
+    hasYomuLocal: boolean;
     hasAnki: boolean;
 }
 
 interface NewTabGradeTargetLabels {
     all: string;
     anki: string;
+    bunpro: string;
     jiten: string;
     jitenAndAnki: string;
     jpdb: string;
     jpdbAndAnki: string;
     jpdbAndJiten: string;
+    yomuLocal: string;
 }
 
 interface RenderNewTabGradeControlsOptions {
@@ -58,6 +62,8 @@ export function summarizeNewTabReviewSources(targets: NewTabReviewTarget[]): New
         targets,
         hasJpdb: targets.some(target => isJpdbReviewTarget(target)),
         hasJiten: targets.includes('jiten-api'),
+        hasBunpro: targets.includes('bunpro-api'),
+        hasYomuLocal: targets.includes('yomu-local'),
         hasAnki: targets.includes('anki'),
     };
 }
@@ -67,6 +73,8 @@ function isJpdbReviewTarget(target: NewTabReviewTarget): boolean {
 }
 
 export function newTabGradeTargetLabel(summary: NewTabReviewSourceSummary, labels: NewTabGradeTargetLabels): string {
+    if (summary.hasBunpro) return labels.bunpro;
+    if (summary.hasYomuLocal) return labels.yomuLocal;
     if (summary.hasJpdb && summary.hasJiten) return summary.hasAnki ? labels.all : labels.jpdbAndJiten;
     if (summary.hasJiten && summary.hasAnki) return labels.jitenAndAnki;
     if (summary.hasJpdb && summary.hasAnki) return labels.jpdbAndAnki;
@@ -76,6 +84,8 @@ export function newTabGradeTargetLabel(summary: NewTabReviewSourceSummary, label
 }
 
 export function newTabApiGradeTargetShortLabel(summary: NewTabReviewSourceSummary): string {
+    if (summary.hasBunpro) return 'Bunpro';
+    if (summary.hasYomuLocal) return 'Yomu';
     if (summary.hasJpdb && summary.hasJiten) return 'Jiten + JPDB';
     return summary.hasJiten ? 'Jiten' : 'JPDB';
 }
@@ -85,7 +95,7 @@ export function newTabMainGradeTargetOptions(
     combinedLabel: string,
     bothLabel: string,
 ): NewTabMainGradeTargetOption[] {
-    const hasApi = targets.some(target => target.kind === 'jpdb' || target.kind === 'jiten');
+    const hasApi = targets.some(target => target.kind !== 'anki');
     const ankiTargets = targets.filter(target => target.kind === 'anki' && target.ankiCardId);
     const options = targets.map(newTabMainGradeTargetOptionFromLookupTarget);
     if (hasApi && ankiTargets.length) {
@@ -114,6 +124,8 @@ export function selectedNewTabMainGradeTarget(root: HTMLElement): NewTabLookupRe
     if (!option) return undefined;
     if (option.dataset.newtabReviewTarget === 'jpdb') return { kind: 'jpdb' };
     if (option.dataset.newtabReviewTarget === 'jiten') return { kind: 'jiten' };
+    if (option.dataset.newtabReviewTarget === 'bunpro') return { kind: 'bunpro' };
+    if (option.dataset.newtabReviewTarget === 'yomu-local') return { kind: 'yomu-local' };
     if (option.dataset.newtabReviewTarget !== 'anki') return undefined;
     const ankiCardId = Number(option.dataset.ankiCardId);
     return Number.isFinite(ankiCardId) && ankiCardId > 0
@@ -225,7 +237,9 @@ function renderNewTabGradeButton(
 export function newTabKeyHintsRenderable(): boolean {
     if (typeof matchMedia !== 'function') return true;
     try {
-        return !matchMedia('(pointer: coarse)').matches;
+        const hasFinePointer = matchMedia('(pointer: fine)').matches || matchMedia('(any-pointer: fine)').matches;
+        const hasHover = matchMedia('(hover: hover)').matches || matchMedia('(any-hover: hover)').matches;
+        return hasFinePointer || hasHover;
     } catch {
         return true;
     }

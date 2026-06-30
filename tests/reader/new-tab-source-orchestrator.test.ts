@@ -1,57 +1,43 @@
 import { describe, expect, it } from 'vitest';
-import { autoReviewSourceResults, emptyNewTabLoadAccumulator, newTabLoadResult } from '../../src/reader/newtab/source-orchestrator';
-import type { JPDBCard } from '../../src/reader/app/types';
-import type { NewTabLoadResult } from '../../src/reader/newtab/source-orchestrator';
 
-function orchestratorCard(spelling: string, reading: string, extras: Partial<JPDBCard> = {}): JPDBCard {
+import type { JPDBCard } from '../../src/reader/app/types';
+import { autoReviewSourceResults } from '../../src/reader/newtab/source-orchestrator';
+import { newTabSourceLoadPlan } from '../../src/reader/newtab/source';
+
+function card(overrides: Partial<JPDBCard>): JPDBCard {
     return {
         vid: 1,
         sid: 1,
         rid: 1,
-        spelling,
-        reading,
+        spelling: '読む',
+        reading: 'よむ',
         frequencyRank: null,
         partOfSpeech: [],
         meanings: [],
-        cardState: ['new'],
+        cardState: ['due'],
         pitchAccent: [],
         wordWithReading: null,
-        ...extras,
-    } as JPDBCard;
+        ...overrides,
+    };
 }
 
-function loadResult(cards: JPDBCard[], sourceLabel: string): NewTabLoadResult {
-    return { cards, sourceLabel, reviewCountMode: true };
-}
-
-describe('new tab source orchestrator', () => {
-    it('dedupes the same card across providers when readings differ only by kana script', () => {
-        const jpdb = loadResult([orchestratorCard('ベッド', 'ベッド')], 'JPDB');
-        const anki = loadResult([
-            orchestratorCard('ベッド', 'べっど', { ankiNoteId: 42 }),
-            orchestratorCard('猫', 'ねこ', { ankiNoteId: 43 }),
-        ], 'Anki');
-
-        const [mergedJpdb, remainingAnki] = autoReviewSourceResults(jpdb, anki);
-
-        expect(mergedJpdb.cards).toHaveLength(1);
-        expect(mergedJpdb.cards[0]?.ankiNoteId).toBe(42);
-        expect(remainingAnki.cards.map(card => card.spelling)).toEqual(['猫']);
+describe('new-tab source orchestration', () => {
+    it('keeps auto local-first before optional account sources', () => {
+        expect(newTabSourceLoadPlan('auto', 12).primarySources).toEqual(['yomu-local', 'jpdb', 'bunpro', 'anki']);
     });
 
-    it('carries the practice-word fallback notice through to the load result', () => {
-        const accumulator = emptyNewTabLoadAccumulator();
-        accumulator.fallbackNotice = true;
-        accumulator.labels.push('Study words');
+    it('dedupes JPDB and Anki without dropping Bunpro or local source results', () => {
+        const results = autoReviewSourceResults(
+            { sourceLabel: 'Yomu', reviewCountMode: true, cards: [card({ source: 'yomu-local', reviewSource: 'yomu-local', spelling: '図鑑', reading: 'ずかん' })] },
+            { sourceLabel: 'JPDB', reviewCountMode: true, cards: [card({ source: 'jpdb', reviewSource: 'jpdb-api', spelling: '読む', reading: 'よむ' })] },
+            { sourceLabel: 'Bunpro', reviewCountMode: true, cards: [card({ source: 'bunpro', reviewSource: 'bunpro-api', spelling: '〜ている', reading: 'ている' })] },
+            { sourceLabel: 'Anki', reviewCountMode: true, cards: [card({ source: 'anki', reviewSource: 'anki', spelling: '読む', reading: 'よむ', ankiCardId: 42 })] },
+        );
 
-        const result = newTabLoadResult(accumulator, 'en');
-
-        expect(result.fallbackNotice).toBe(true);
-        expect(result.sourceLabel).toBe('Study words');
-    });
-
-    it('does not flag results that came from the requested review sources', () => {
-        const result = newTabLoadResult(emptyNewTabLoadAccumulator(), 'en');
-        expect(result.fallbackNotice).toBeUndefined();
+        expect(results.map(result => result.sourceLabel)).toEqual(['Yomu', 'JPDB', 'Bunpro', 'Anki']);
+        expect(results[1]?.cards[0]?.ankiCardId).toBe(42);
+        expect(results[3]?.cards).toEqual([]);
+        expect(results[0]?.cards[0]?.spelling).toBe('図鑑');
+        expect(results[2]?.cards[0]?.spelling).toBe('〜ている');
     });
 });

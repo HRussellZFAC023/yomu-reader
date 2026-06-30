@@ -1,0 +1,29 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "yomu-support",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": true,
+  "routes": [
+    {
+      "pattern": "support.yomureader.com",
+      "custom_domain": true
+    }
+  ],
+  "vars": {
+    "SUPPORT_BANNER_ENABLED": "true",
+    "SUPPORT_DAILY_BUDGET_GBP": "10",
+    "SUPPORT_DONATION_GOAL_GBP": "10",
+    "SUPPORT_DONATIONS_TODAY_GBP": "0",
+    "SUPPORT_ESTIMATED_DAILY_COST_GBP": "0",
+    "SUPPORT_FALLBACK_DONATE_URL": "https://paypal.me/HenryRussell163",
+    "SUPPORT_SUCCESS_URL": "https://yomureader.com/support?donation=success",
+    "SUPPORT_CANCEL_URL": "https://yomureader.com/support?donation=cancelled"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

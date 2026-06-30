@@ -67,12 +67,15 @@ const COPY = {
         apiCredential: 'API key',
         apiCredentialJpdb: 'JPDB API key',
         apiCredentialJiten: 'Jiten API key',
+        apiCredentialBunpro: 'Bunpro frontend API token',
+        apiCredentialBunproLegacy: 'Bunpro API key',
         apiKey: 'API key',
         jitenApiKey: 'Jiten API key',
         apiAccess: 'API access',
-        apiAccessHelp: 'Paste separate Jiten and JPDB keys. Study decks stay scoped to the selected provider; local dictionaries still work without keys.',
+        apiAccessHelp: 'Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.',
         jpdbSettings: 'JPDB settings',
         jitenSettings: 'Jiten settings',
+        bunproSettings: 'Bunpro settings',
         jpdbApiKeyConfigured: 'JPDB key set.',
         jpdbAndJitenApiKeysConfigured: 'Jiten and JPDB keys are set.',
         jpdbApiKeyMissing: 'No JPDB key.',
@@ -88,6 +91,8 @@ const COPY = {
         statusError: 'Error',
         disabledControlDescription: 'Controlled by another setting.',
         jpdbMiningEnabled: 'Allow API review/deck changes',
+        bunproMiningEnabled: 'Allow Bunpro review/mining',
+        yomuLocalSrsEnabled: 'Enable local Yomu SRS',
         addToForq: 'Also copy JPDB adds to forq',
         enableReviews: 'Show review buttons',
         reviewRatingScale: 'Review rating scale',
@@ -147,8 +152,10 @@ const COPY = {
         newTabAnkiReviewDecks: 'Anki review decks',
         newTabAnkiReviewDecksHelp: 'Uncheck decks to skip.',
         newTabSource: 'Study review source',
-        newTabAuto: 'Auto: API/Anki, then study words',
+        newTabAuto: 'Auto: Yomu, accounts, then study words',
         newTabApiSrs: 'API SRS (Jiten / JPDB)',
+        newTabBunpro: 'Bunpro',
+        newTabYomuLocal: 'Yomu local SRS',
         dictionaryFallback: 'Dictionary fallback',
         newTabJpdbReviewMode: 'API review mode',
         newTabJpdbReviewAuto: 'Auto: live kanji + API vocabulary',
@@ -1745,12 +1752,15 @@ api	API
 apiCredential	APIキー
 apiCredentialJpdb	JPDB APIキー
 apiCredentialJiten	Jiten APIキー
+apiCredentialBunpro	Bunpro frontend API token
+apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenとJPDBのキーを別々に貼ります。学習デッキは選択中のサービスに適用され、キーなしでもローカル辞書は使えます。
+apiAccessHelp	APIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から、Bunproはfrontend_api_tokenを使います。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
+bunproSettings	Bunpro設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbApiKeyMissing	JPDBキーなし。
 jpdbConnected	JPDBに接続しました。
@@ -1765,6 +1775,8 @@ statusAttention	設定が必要
 statusError	エラー
 disabledControlDescription	別設定で制御中。
 jpdbMiningEnabled	APIの復習・デッキ変更を許可
+bunproMiningEnabled	Bunproの復習・採掘を許可
+yomuLocalSrsEnabled	ローカルよむSRSを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -1819,8 +1831,10 @@ newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
-newTabAuto	自動: API/Anki後に学習語
+newTabAuto	自動: よむ・アカウント後に学習語
 newTabApiSrs	API SRS（Jiten / JPDB）
+newTabBunpro	Bunpro
+newTabYomuLocal	ローカルよむSRS
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字+API語彙

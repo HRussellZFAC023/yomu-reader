@@ -1,5 +1,5 @@
 import { Logger } from '../app/logger';
-import { SETTINGS_CHANGE_EVENT } from '../app/constants';
+import { SETTINGS_CHANGE_EVENT, YOMU_HOSTED_AUDIO_URL } from '../app/constants';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OCR_OVERLAY_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
@@ -8,7 +8,7 @@ import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings,
 import { hasOwn, stringValue, trimmedText } from './values';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists, subscribeToStoredValueChanges } from '../app/storage';
 import { sharedContrastRatio, sharedMixHex } from '../core/color-math';
-import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
+import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences } from './dictionary';
 
@@ -27,7 +27,7 @@ const log = Logger.scope('Settings');
 let settingsResetInProgress = false;
 
 const DEFAULT_AUDIO_URL =
-    'http://localhost:9090/?term={term}&reading={reading}';
+    YOMU_HOSTED_AUDIO_URL;
 
 const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
 export const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
@@ -68,6 +68,7 @@ const AUDIO_SOURCE_TYPE_VALUES: AudioSourceType[] = [
 export const AUDIO_SOURCE_UI_TYPE_VALUES = AUDIO_SOURCE_TYPE_VALUES.filter(type => type !== 'custom');
 
 export const DEFAULT_AUDIO_SOURCES: AudioSourceSetting[] = [
+    { type: 'custom-json', url: YOMU_HOSTED_AUDIO_URL, voice: '', enabled: true },
     { type: 'jpod101', url: '', voice: '', enabled: true },
     { type: 'language-pod-101', url: '', voice: '', enabled: true },
     { type: 'jisho', url: '', voice: '', enabled: true },
@@ -141,6 +142,8 @@ const SOURCE_ALIAS_SETTING_KEYS = [
 ] as const satisfies readonly (keyof ReaderSettings)[];
 const MINING_BOOLEAN_SETTING_KEYS = [
     'jpdbMiningEnabled',
+    'bunproMiningEnabled',
+    'yomuLocalSrsEnabled',
     'dictionarySourcesInitiallyExpanded',
 ] as const;
 const SUBTITLE_BOOLEAN_SETTING_KEYS = [
@@ -204,9 +207,17 @@ const IMMERSION_EXAMPLE_SOURCES = ['nadeshiko', 'combined', 'immersion-kit'] as 
 const OCR_OVERLAY_THEMES = ['auto', 'dark', 'light'] as const satisfies readonly OcrOverlayTheme[];
 const SUBTITLE_CONTROL_MODES = ['always', 'hidden', 'auto'] as const satisfies readonly ReaderSettings['subtitleControlsMode'][];
 const SUBTITLE_TRANSCRIPT_PLACEMENTS = ['left', 'bottom', 'right'] as const satisfies readonly ReaderSettings['subtitleTranscriptPlacement'][];
-const NEW_TAB_SOURCES = ['jpdb', 'anki', 'auto', 'dictionary'] as const satisfies readonly ReaderSettings['newTabSource'][];
+const NEW_TAB_SOURCES = ['jpdb', 'bunpro', 'yomu-local', 'anki', 'auto', 'dictionary'] as const satisfies readonly ReaderSettings['newTabSource'][];
 const NEW_TAB_JPDB_REVIEW_MODES = ['auto', 'api-vocabulary', 'live-review'] as const satisfies readonly ReaderSettings['newTabJpdbReviewMode'][];
 const NEW_TAB_KANJI_KEYWORD_SOURCES = ['auto', 'rtk', 'jpdb', 'local'] as const satisfies readonly ReaderSettings['newTabKanjiKeywordSource'][];
+export const DEFAULT_NEW_TAB_STUDY_STEP_ORDER: NewTabStudyChallengeStep[] = [
+    'kanji-doodle',
+    'word',
+    'recall-cloze',
+    'listen-pitch',
+    'speaking',
+];
+const NEW_TAB_STUDY_CHALLENGE_STEPS = new Set<NewTabStudyChallengeStep>(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
 
 const LEGACY_COLOR_CHANNEL_DEFAULTS: Record<ReaderColorChannelKey, ReaderColorSource> = {
     wordHighlightColorSource: 'auto',
@@ -226,6 +237,9 @@ type LegacyReaderSettings = Partial<ReaderSettings> & { wordHighlightMode?: Lega
 export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
     jitenApiKey: '',
+    bunproApiKey: '',
+    bunproFrontendApiToken: '',
+    bunproFrontendApiTokenExpiresAt: '',
     onboardingSeen: false,
     interfaceLanguage: 'en',
     accentColor: DEFAULT_ACCENT_COLOR,
@@ -334,6 +348,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     newTabSwipeReviews: true,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
+    newTabStudyStepOrder: [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER],
+    newTabStudyDisabledSteps: [],
+    newTabStudyTourSeen: false,
     puckPositionX: undefined,
     puckPositionY: undefined,
     manualScanEnabled: false,
@@ -439,6 +456,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
     popupFontWeight: 400,
     jpdbMiningEnabled: true,
+    bunproMiningEnabled: false,
+    yomuLocalSrsEnabled: true,
     apiGradingProvider: 'jiten',
     miningDeck: 'forq',
     autoMineOnReview: false,
@@ -528,15 +547,18 @@ export function normalizeReaderSettings(value: Partial<ReaderSettings> | null | 
     return mergeSettings(value as LegacyReaderSettings | null);
 }
 
-function normalizeApiCredentialSettings(value: LegacyReaderSettings | null | undefined): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'> {
+function normalizeApiCredentialSettings(value: LegacyReaderSettings | null | undefined): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey' | 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt'> {
     const apiKey = trimmedStringSetting(value, 'apiKey', DEFAULT_SETTINGS.apiKey);
     const jitenApiKey = trimmedStringSetting(value, 'jitenApiKey', DEFAULT_SETTINGS.jitenApiKey);
+    const bunproApiKey = trimmedStringSetting(value, 'bunproApiKey', DEFAULT_SETTINGS.bunproApiKey);
+    const bunproFrontendApiToken = trimmedStringSetting(value, 'bunproFrontendApiToken', DEFAULT_SETTINGS.bunproFrontendApiToken);
+    const bunproFrontendApiTokenExpiresAt = normalizeOptionalIsoDateString(value?.bunproFrontendApiTokenExpiresAt);
     // UT-56: Jiten and JPDB credentials COEXIST — the study queue loads both
     // providers in parallel, so a Jiten key must not wipe the JPDB key (that
     // wipe made the study page silently diverge from jpdb Learn). A
     // jiten-prefixed value in the JPDB slot still routes to the Jiten slot.
-    if (isJitenApiCredential(apiKey)) return { apiKey: '', jitenApiKey: jitenApiKey || apiKey };
-    return { apiKey, jitenApiKey };
+    if (isJitenApiCredential(apiKey)) return { apiKey: '', jitenApiKey: jitenApiKey || apiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt };
+    return { apiKey, jitenApiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt };
 }
 
 function stripUnsupportedSettings(value: LegacyReaderSettings | null | undefined): Partial<ReaderSettings> | null {
@@ -740,7 +762,36 @@ function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial
         newTabSwipeReviews: booleanSetting(value, 'newTabSwipeReviews'),
         newTabKanjiAutogradeEnabled: booleanSetting(value, 'newTabKanjiAutogradeEnabled'),
         newTabKanjiAutoSubmit: booleanSetting(value, 'newTabKanjiAutoSubmit'),
+        newTabStudyStepOrder: normalizeNewTabStudyStepOrder(value?.newTabStudyStepOrder),
+        newTabStudyDisabledSteps: normalizeNewTabStudyDisabledSteps(value?.newTabStudyDisabledSteps),
+        newTabStudyTourSeen: booleanSetting(value, 'newTabStudyTourSeen'),
     };
+}
+
+function normalizeNewTabStudyStepOrder(value: unknown): NewTabStudyChallengeStep[] {
+    const ordered = normalizeStudyStepList(value);
+    return [
+        ...ordered,
+        ...DEFAULT_NEW_TAB_STUDY_STEP_ORDER.filter(step => !ordered.includes(step)),
+    ];
+}
+
+function normalizeNewTabStudyDisabledSteps(value: unknown): NewTabStudyChallengeStep[] {
+    return normalizeStudyStepList(value);
+}
+
+function normalizeStudyStepList(value: unknown): NewTabStudyChallengeStep[] {
+    if (!Array.isArray(value)) return [];
+    const out: NewTabStudyChallengeStep[] = [];
+    for (const item of value) {
+        if (!isNewTabStudyChallengeStep(item) || out.includes(item)) continue;
+        out.push(item);
+    }
+    return out;
+}
+
+function isNewTabStudyChallengeStep(value: unknown): value is NewTabStudyChallengeStep {
+    return typeof value === 'string' && NEW_TAB_STUDY_CHALLENGE_STEPS.has(value as NewTabStudyChallengeStep);
 }
 
 function normalizeReaderDisplaySettings(value: LegacyReaderSettings | null): Partial<ReaderSettings> {
@@ -827,7 +878,14 @@ function normalizeMiningSettings(value: Partial<ReaderSettings> | null): Partial
 
 function normalizeApiGradingProvider(value: unknown): ReaderSettings['apiGradingProvider'] {
     if (value === 'jpdb') return 'jpdb';
+    if (value === 'bunpro') return 'bunpro';
     return DEFAULT_SETTINGS.apiGradingProvider;
+}
+
+function normalizeOptionalIsoDateString(value: unknown): string {
+    if (typeof value !== 'string' || !value.trim()) return '';
+    const time = Date.parse(value.trim());
+    return Number.isFinite(time) ? new Date(time).toISOString() : '';
 }
 
 function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {

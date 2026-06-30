@@ -19,6 +19,12 @@ import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/sett
 // These tests assert English UI copy; pin the interface language since the
 // shipped default is now 'ja'.
 const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
+const WORD_ONLY_STUDY_DISABLED_STEPS: typeof DEFAULT_SETTINGS.newTabStudyDisabledSteps = [
+    'kanji-doodle',
+    'recall-cloze',
+    'listen-pitch',
+    'speaking',
+];
 import { definitionSourceRows } from '../../src/reader/sources/sections';
 import { renderNewTabGradeControlButtons, summarizeNewTabReviewSources } from '../../src/reader/newtab/review-controls';
 import type { JPDBCard, JPDBGrade, JPDBToken } from '../../src/reader/app/types';
@@ -930,6 +936,25 @@ function newTabPromptText(root: ParentNode = document): string {
         ?? '';
 }
 
+let syntheticNewTabNavigationTime = Date.now();
+
+function clickNewTabNext(root: ParentNode = document): void {
+    const button = root.querySelector<HTMLButtonElement>('[data-newtab-action="next"]');
+    if (!button) return;
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+    syntheticNewTabNavigationTime = Math.max(syntheticNewTabNavigationTime + 1_000, Date.now() + 1_000);
+    Object.defineProperty(event, 'timeStamp', { configurable: true, value: syntheticNewTabNavigationTime });
+    button.dispatchEvent(event);
+}
+
+function advanceNewTabStudyCard(root: ParentNode = document, clicks = 2): void {
+    for (let count = 0; count < clicks; count += 1) clickNewTabNext(root);
+}
+
+function showNextNewTabWord(controller: NewTabController): void {
+    (controller as unknown as { showNextWord(): void }).showNextWord();
+}
+
 function expectNewTabStatusToggleTarget(target: string, root: ParentNode = document): void {
     const status = newTabStatusButton(root);
     expect(status.textContent).toContain('JPDB + Anki ⇄');
@@ -1422,7 +1447,7 @@ describe('new tab review helpers', () => {
     it('keeps new-tab source load fallback policy explicit', () => {
         expect(newTabSourceLoadPlan('auto', 3)).toEqual({
             kind: 'auto-review',
-            primarySources: ['jpdb', 'anki'],
+            primarySources: ['yomu-local', 'jpdb', 'bunpro', 'anki'],
             studyFallback: { kind: 'unconfigured-auto-study' },
         });
         expect(newTabSourceLoadPlan('jpdb', 3)).toEqual({
@@ -1439,6 +1464,16 @@ describe('new tab review helpers', () => {
             kind: 'explicit-source',
             primarySources: ['dictionary'],
             studyFallback: { kind: 'none' },
+        });
+        expect(newTabSourceLoadPlan('bunpro', 3)).toEqual({
+            kind: 'explicit-source',
+            primarySources: ['bunpro'],
+            studyFallback: { kind: 'study-supplement', minCards: 3 },
+        });
+        expect(newTabSourceLoadPlan('yomu-local', 3)).toEqual({
+            kind: 'explicit-source',
+            primarySources: ['yomu-local'],
+            studyFallback: { kind: 'study-supplement', minCards: 3 },
         });
     });
 
@@ -5682,7 +5717,7 @@ describe('new tab review helpers', () => {
         expectNewTabPromptText('読む');
         expect(listRandomTopTerms).not.toHaveBeenCalled();
 
-        document.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
+        advanceNewTabStudyCard(document, 3);
         expectNewTabPromptText('読む');
 
         resetNewTabReviewStorage();
@@ -5713,7 +5748,7 @@ describe('new tab review helpers', () => {
         await controller.renderPage();
         expectNewTabPromptText('読む');
 
-        document.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
+        advanceNewTabStudyCard(document, 3);
 
         await waitForExpect(() => {
             expectNewTabPromptText('書く');
@@ -5772,7 +5807,7 @@ describe('new tab review helpers', () => {
                 expect(state.visibleWords[state.index]?.spelling).toBe('日');
             });
 
-            document.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
+            showNextNewTabWord(controller);
 
             await waitForExpect(() => {
                 const state = controller as unknown as { visibleWords: JPDBCard[]; index: number };
@@ -5927,7 +5962,7 @@ describe('new tab review helpers', () => {
         await controller.renderPage();
         expect(newTabPromptText()).toBe('暗記');
 
-        document.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
+        showNextNewTabWord(controller);
 
         await waitForExpect(() => {
             expect(newTabPromptText()).toBe('例文');
@@ -6829,6 +6864,7 @@ describe('new tab review helpers', () => {
         const controller = newTabBareController(() => ({
                 ...DEFAULT_SETTINGS,
                 immersionKitEnabled: false,
+                newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
             }));
         const root = renderSeededNewTabWord(controller, first, {
             visibleWords: [first, second],
@@ -6922,6 +6958,7 @@ describe('new tab review helpers', () => {
                 newTabOfflineEnabled: true,
                 newTabParsingEnabled: false,
                 newTabFrontSentenceEnabled: false,
+                newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
             }), {
             jpdb: { reviewCard } as never,
         });
@@ -7819,6 +7856,7 @@ describe('new tab review helpers', () => {
             jpdbMiningEnabled: true,
             enableReviews: true,
             immersionKitEnabled: false,
+            newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
         }, {
             jpdb: { reviewCard } as never,
         });
@@ -7864,7 +7902,7 @@ describe('new tab review helpers', () => {
             expect(reviewCard).toHaveBeenCalledTimes(1);
             expect(root.querySelector<HTMLElement>('[data-newtab-count]')?.dataset.sessionCompletedReviews).toBe('0');
             // With the undo consumed, Previous is plain navigation again.
-            root.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
+            showNextNewTabWord(controller);
             await waitForExpect(() => {
                 expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('次');
             });
@@ -7883,6 +7921,7 @@ describe('new tab review helpers', () => {
             jpdbMiningEnabled: true,
             enableReviews: true,
             immersionKitEnabled: false,
+            newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
         }));
         const root = renderSeededNewTabWord(controller, current, {
             allWords: [current],
@@ -7916,6 +7955,7 @@ describe('new tab review helpers', () => {
             jpdbMiningEnabled: true,
             enableReviews: true,
             immersionKitEnabled: false,
+            newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
         }));
         const root = renderSeededNewTabWord(controller, first, {
             allWords: [first, second],
@@ -8485,7 +8525,7 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('renders compact study prompt tools with furigana, pitch, frequency, and inline audio (no source pills on front)', async () => {
+    it('renders compact study prompt tools with furigana, pitch, and inline audio (no source pills or frequency on front)', async () => {
         const card = newTabTestCard({
             spelling: '返す',
             reading: 'かえす',
@@ -8530,8 +8570,8 @@ describe('new tab review helpers', () => {
             const tools = root.querySelector<HTMLElement>('[data-newtab-study-tools]')!;
             expect(root.querySelector('[data-newtab-answer-header]')).toBeNull();
             expect(term.querySelector('ruby')?.textContent).toContain('かえ');
-            expect(tools.textContent).toContain('#777');
-            expect(tools.querySelector('.jpdb-reader-frequency-pill')?.textContent).toContain('#777');
+            expect(tools.textContent).not.toContain('#777');
+            expect(tools.querySelector('.jpdb-reader-frequency-pill')).toBeNull();
             expect(tools.querySelector('.jpdb-reader-pitch svg')).not.toBeNull();
             await waitForExpect(() => {
                 expect(loadCardRenderData).toHaveBeenCalledWith(card);
@@ -14033,7 +14073,7 @@ describe('new tab review helpers', () => {
             expect(root.querySelector('.jpdb-reader-newtab-immersion')).toBeNull();
             (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
 
-            root.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
+            advanceNewTabStudyCard(root, 3);
             await waitForExpect(() => {
                 expect(search.mock.calls.map(([query]) => query)).toContain('書く');
             });
@@ -14158,7 +14198,7 @@ describe('new tab review helpers', () => {
             parseContent.mockClear();
             (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
 
-            root.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
+            advanceNewTabStudyCard(root, 3);
 
             await waitForExpect(() => {
                 const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-sentence .jpdb-reader-word');
@@ -15700,10 +15740,10 @@ describe('new tab review helpers', () => {
         expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords[0]?.spelling).toBe('読む');
         // Word study always shows the ticking session timer + daily goal now
         // (user-requested session timer).
-        // UT-41: the unconfigured practice state appends a connect CTA after
-        // the session text.
+        // Yomu local SRS is now the default no-account path, so first-run
+        // study stays unblocked without a provider-connection nudge.
         expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^\d\d:\d\d · 0\/60 min/);
-        expect(root.querySelector('[data-newtab-count] .jpdb-reader-newtab-connect-cta')).not.toBeNull();
+        expect(root.querySelector('[data-newtab-count] .jpdb-reader-newtab-connect-cta')).toBeNull();
         sessionStorage.removeItem('jpdb-reader-newtab-current-word');
     });
 
@@ -15843,7 +15883,7 @@ describe('new tab review helpers', () => {
                 expect(document.querySelector('[data-newtab-prompt]')?.textContent).toContain('read');
             });
 
-            document.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
+            showNextNewTabWord(controller);
             await waitForExpect(() => {
                 expect(document.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe('2:2:書く:かく');
                 expect(document.querySelector('[data-newtab-prompt]')?.textContent).toContain('write');

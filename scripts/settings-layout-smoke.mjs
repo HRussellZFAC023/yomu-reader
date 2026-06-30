@@ -146,7 +146,10 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
         await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab', { timeout: 12_000 });
         await openSettingsFromNewTabMenu(page);
         await selectSettingsPanel(page, scenario.panel);
-        await waitForRealSettingsRubyAndPitch(page, scenario.panel, requests, browserMessages);
+        const rubyPitchMinimums = settingsRubyPitchMinimums(scenario.panel);
+        if (rubyPitchMinimums) {
+            await waitForRealSettingsRubyAndPitch(page, scenario.panel, rubyPitchMinimums, requests, browserMessages);
+        }
 
         const snapshot = await settingsLayoutSnapshot(page, scenario.panel);
         const screenshotPath = path.join(ARTIFACT_DIR, `settings-layout-${scenario.name}.png`);
@@ -159,8 +162,10 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
 
         assert(snapshot.dialog.visible, `${scenario.name} settings dialog did not open`, snapshot);
         assert(snapshot.panel.visible, `${scenario.name} ${scenario.panel} settings panel is not visible`, snapshot);
-        assert(snapshot.rubyCount >= 4, `${scenario.name} settings did not render real ruby/furigana`, snapshot);
-        assert(snapshot.pitchWordCount >= 2, `${scenario.name} settings did not hydrate pitch classes`, snapshot);
+        if (rubyPitchMinimums) {
+            assert(snapshot.rubyCount >= rubyPitchMinimums.ruby, `${scenario.name} settings did not render real ruby/furigana`, snapshot);
+            assert(snapshot.pitchWordCount >= rubyPitchMinimums.pitch, `${scenario.name} settings did not hydrate pitch classes`, snapshot);
+        }
         assert(snapshot.selectOptionMetaCount === 0, `${scenario.name} repeated select option metadata leaked into settings`, snapshot);
         assert(snapshot.longSelectMirrorCount === 0, `${scenario.name} select mirrors rendered option lists instead of selected values`, snapshot);
         if (scenario.panel === 'media') {
@@ -200,6 +205,19 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
     } finally {
         await context.close();
     }
+}
+
+function settingsRubyPitchMinimums(panel) {
+    // Require hydrated learner text only on tabs that intentionally carry
+    // Japanese previews/source examples. Utility tabs are still covered for
+    // layout, overflow, screenshots, and native-control interaction.
+    const minimums = {
+        appearance: { ruby: 4, pitch: 2 },
+        api: { ruby: 4, pitch: 2 },
+        dictionaries: { ruby: 4, pitch: 2 },
+        newTab: { ruby: 2, pitch: 2 },
+    };
+    return minimums[panel] ?? null;
 }
 
 function serveHostedNewTabRequest(request, response) {
@@ -244,16 +262,16 @@ async function selectSettingsPanel(page, panel) {
     await page.waitForSelector(`.jpdb-reader-settings [data-settings-panel="${panel}"]:not([hidden])`, { timeout: 8_000 });
 }
 
-async function waitForRealSettingsRubyAndPitch(page, panel, requests, browserMessages) {
+async function waitForRealSettingsRubyAndPitch(page, panel, minimums, requests, browserMessages) {
     try {
-        await page.waitForFunction(({ panelName }) => {
+        await page.waitForFunction(({ panelName, rubyMinimum, pitchMinimum }) => {
         const root = document.querySelector(`.jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden])`);
         if (!root) return false;
         const rubyCount = root.querySelectorAll('.jpdb-reader-word.jpdb-reader-has-furi rt').length;
         const pitchCount = [...root.querySelectorAll('.jpdb-reader-word')]
             .filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/.test(className))).length;
-        return rubyCount >= 4 && pitchCount >= 2;
-        }, { panelName: panel }, { timeout: 30_000 });
+        return rubyCount >= rubyMinimum && pitchCount >= pitchMinimum;
+        }, { panelName: panel, rubyMinimum: minimums.ruby, pitchMinimum: minimums.pitch }, { timeout: 30_000 });
     } catch (error) {
         const snapshot = await settingsHydrationSnapshot(page, panel);
         throw new Error(`Settings ruby/pitch did not hydrate for ${panel}: ${error.message}\n${JSON.stringify({ snapshot, requests, browserMessages }, null, 2)}`);

@@ -25,6 +25,8 @@ export const NEW_TAB_WORD_STATE_CLASSES: CardState[] = [
 
 export const NEW_TAB_SOURCE_LABELS: Record<NewTabConcreteSource, string> = {
     jpdb: 'JPDB',
+    bunpro: 'Bunpro',
+    'yomu-local': 'Yomu',
     anki: 'Anki',
     dictionary: 'Dictionary',
 };

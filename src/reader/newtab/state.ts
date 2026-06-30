@@ -155,7 +155,7 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isNewTabSource(value: unknown): value is NewTabWordSource {
-    return value === 'auto' || value === 'jpdb' || value === 'anki' || value === 'dictionary';
+    return value === 'auto' || value === 'jpdb' || value === 'bunpro' || value === 'yomu-local' || value === 'anki' || value === 'dictionary';
 }
 
 function isNewTabSort(value: unknown): value is NewTabSort {

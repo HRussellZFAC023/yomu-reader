@@ -17,14 +17,14 @@ export function newTabSourceLoadPlan(source: ReaderSettings['newTabSource'], fal
     if (source === 'auto') {
         return {
             kind: 'auto-review',
-            primarySources: ['jpdb', 'anki'],
+            primarySources: ['yomu-local', 'jpdb', 'bunpro', 'anki'],
             studyFallback: { kind: 'unconfigured-auto-study' },
         };
     }
     return {
         kind: 'explicit-source',
         primarySources: [source],
-        studyFallback: source === 'jpdb'
+        studyFallback: source === 'jpdb' || source === 'bunpro' || source === 'yomu-local'
             ? { kind: 'study-supplement', minCards: fallbackSupplementMin }
             : { kind: 'none' },
     };

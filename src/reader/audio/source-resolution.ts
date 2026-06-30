@@ -1,4 +1,5 @@
 import { ShuffledAudioDeck } from './playback-queue';
+import { YOMU_HOSTED_AUDIO_URL } from '../app/constants';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../app/types';
 
 export interface AudioCandidate {
@@ -26,7 +27,15 @@ export interface OrderedAudioSource {
     signature: string;
 }
 
-const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'jiten-tts', 'jpdb-tts', 'text-to-speech'];
+const REQUIRED_JA_AUDIO_SOURCES: AudioSourceSetting[] = [
+    { type: 'custom-json', url: YOMU_HOSTED_AUDIO_URL, voice: '', enabled: true },
+    { type: 'jpod101', url: '', voice: '', enabled: true },
+    { type: 'language-pod-101', url: '', voice: '', enabled: true },
+    { type: 'jisho', url: '', voice: '', enabled: true },
+    { type: 'jiten-tts', url: '', voice: '', enabled: true },
+    { type: 'jpdb-tts', url: '', voice: '', enabled: true },
+    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+];
 
 export function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSetting[] {
     const sources = settings.audioSources.filter(source => source.enabled);
@@ -36,8 +45,8 @@ export function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSet
     return [
         ...sources,
         ...REQUIRED_JA_AUDIO_SOURCES
-            .filter(type => !configuredTypes.has(type))
-            .map(type => ({ type, url: '', voice: '', enabled: true })),
+            .filter(source => !configuredTypes.has(source.type))
+            .map(source => ({ ...source })),
     ];
 }
 

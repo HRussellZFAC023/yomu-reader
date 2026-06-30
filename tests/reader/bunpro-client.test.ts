@@ -1,0 +1,95 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import { BunproClient, BunproApiError } from '../../src/reader/bunpro/bunpro';
+import type { ReaderHttpOptions } from '../../src/reader/network/http-options';
+
+describe('BunproClient', () => {
+    it('uses the frontend token as a bearer token without public proxy fallback', async () => {
+        const request = vi.fn(async () => ({ user: { data: { id: '1' } } }));
+        const client = new BunproClient({
+            getFrontendToken: () => 'token-123',
+            requestImpl: request,
+        });
+
+        await expect(client.getUser()).resolves.toEqual({ user: { data: { id: '1' } } });
+
+        const [url, options] = request.mock.calls[0] as unknown as [string, ReaderHttpOptions];
+        expect(url).toBe('https://api.bunpro.jp/api/frontend/user');
+        expect(options.headers).toMatchObject({
+            Authorization: 'Bearer token-123',
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+        });
+        expect(options.allowDirectCrossOrigin).toBe(true);
+        expect(options.allowPublicProxies).toBe(false);
+        expect(options.allowSensitiveConfiguredProxy).toBe(false);
+        expect(options.credentials).toBe('omit');
+    });
+
+    it('posts compact frontend search requests and trims bulky sections', async () => {
+        const request = vi.fn(async () => ({
+            grammar_points: { data: [{ id: 'g1' }, { id: 'g2' }] },
+            vocabs: { data: [{ id: 'v1' }, { id: 'v2' }] },
+        }));
+        const client = new BunproClient({
+            getFrontendToken: () => 'token-123',
+            requestImpl: request,
+        });
+
+        await expect(client.search('読む', { grammar: false, vocab: true, limit: 1 })).resolves.toEqual({
+            grammar_points: { data: [{ id: 'g1' }] },
+            vocabs: { data: [{ id: 'v1' }] },
+        });
+
+        const [url, options] = request.mock.calls[0] as unknown as [string, ReaderHttpOptions];
+        expect(url).toBe('https://api.bunpro.jp/api/frontend/search/reviewables_v1_1');
+        expect(options.method).toBe('POST');
+        expect(JSON.parse(String(options.data))).toMatchObject({
+            query: '読む',
+            is_searching_grammar: false,
+            is_searching_vocab: true,
+        });
+    });
+
+    it('maps review action requests to Bunpro reviewable tuples', async () => {
+        const request = vi.fn(async () => ({ ok: true }));
+        const client = new BunproClient({
+            getFrontendToken: () => 'token-123',
+            requestImpl: request,
+        });
+
+        await client.updateReviewsViaActionType({
+            actionType: 'add',
+            deckId: 7,
+            reviewables: [{ type: 'Vocab', id: 42 }],
+        });
+
+        const [url, options] = request.mock.calls[0] as unknown as [string, ReaderHttpOptions];
+        expect(url).toBe('https://api.bunpro.jp/api/frontend/reviews/update_via_action_type');
+        expect(options.method).toBe('PATCH');
+        expect(JSON.parse(String(options.data))).toEqual({
+            deck_id: 7,
+            action_type: 'add',
+            reviewables: [['Vocab', 42]],
+        });
+    });
+
+    it('supports the legacy API key only for legacy endpoints', async () => {
+        const request = vi.fn(async () => ({ requested_information: { reviews_available: 3 } }));
+        const client = new BunproClient({
+            getLegacyApiKey: () => 'legacy-key',
+            requestImpl: request,
+        });
+
+        await client.getLegacyStudyQueue();
+
+        const [url, options] = request.mock.calls[0] as unknown as [string, ReaderHttpOptions];
+        expect(url).toBe('https://bunpro.jp/api/user/legacy-key/study_queue');
+        expect(options.headers).toEqual({ Accept: 'application/json' });
+    });
+
+    it('fails clearly when the frontend token is missing', async () => {
+        const client = new BunproClient({ getFrontendToken: () => '' });
+        await expect(client.getDueCount()).rejects.toBeInstanceOf(BunproApiError);
+    });
+});

@@ -96,7 +96,14 @@ import {
     shouldLookupAnkiStatus,
     subscribeToSettingsStorageChanges,
 } from '../settings';
-import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential } from '../settings/api-credential';
+import {
+    effectiveBunproFrontendApiToken,
+    effectiveBunproLegacyApiKey,
+    effectiveJitenApiKey,
+    effectiveJpdbApiKey,
+    hasJitenApiCredential,
+    isBunproFrontendCredentialExpired,
+} from '../settings/api-credential';
 import { clearRenderedWordAnkiState, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../dom/rendered-word-state';
 import { refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
@@ -127,6 +134,8 @@ import { installUchisenCarousel, loadUchisenData } from '../dictionaries/uchisen
 import { addWindowEventListener } from '../platform/window-events';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
+import { BunproClient } from '../bunpro/bunpro';
+import { createBunproSrsAdapter, createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs';
 
 import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
 
@@ -239,6 +248,12 @@ export class NewTabRuntime {
     private immersionKit = new ImmersionKitClient();
     private audio = new AudioPlayer(() => this.settings);
     private anki = new AnkiConnectClient(() => this.settings);
+    private bunpro = new BunproClient({
+        getFrontendToken: () => this.activeBunproFrontendApiToken(),
+        getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings),
+    });
+    private bunproSrs = createBunproSrsAdapter(this.bunpro);
+    private yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
     private rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : createNoopRtkClient();
     private jpdbReviewBridge = createJpdbReviewBridgeClient();
     private dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
@@ -558,6 +573,10 @@ export class NewTabRuntime {
             jpdbVocabulary: this.jpdbVocabulary,
             jpdbPublicPitch: this.jpdbPublicPitch,
             jpdbReviewBridge: this.jpdbReviewBridge,
+            srsAdapters: {
+                bunpro: this.bunproSrs,
+                'yomu-local': this.yomuLocalSrs,
+            },
             parser: this.parser,
             dictionaries: this.dictionaries,
             onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
@@ -639,6 +658,12 @@ export class NewTabRuntime {
 
     private showSettings(panel?: string): void {
         this.settingsDialog.open(panel);
+    }
+
+    private activeBunproFrontendApiToken(): string {
+        return isBunproFrontendCredentialExpired(this.settings)
+            ? ''
+            : effectiveBunproFrontendApiToken(this.settings);
     }
 
     private mountSettingsDialog(backdrop: HTMLElement, form: HTMLFormElement): void {

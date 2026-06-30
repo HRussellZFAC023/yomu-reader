@@ -39,7 +39,7 @@ describe('audio module boundaries', () => {
 
     it('keeps built-in lookup source fallbacks in source resolution', () => {
         expect(getOrderedAudioSources({ ...DEFAULT_SETTINGS, audioSources: [] }).map(source => source.type))
-            .toEqual(['jpod101', 'language-pod-101', 'jisho', 'jiten-tts', 'jpdb-tts', 'text-to-speech']);
+            .toEqual(['custom-json', 'jpod101', 'language-pod-101', 'jisho', 'jiten-tts', 'jpdb-tts', 'text-to-speech']);
     });
 
     it('shuffles API text-to-speech voices even when source order is fixed', () => {

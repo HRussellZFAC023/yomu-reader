@@ -1,6 +1,9 @@
 import type { ReaderSettings } from '../app/types';
 
-export type ApiCredentialSettings = Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'>;
+export type ApiCredentialSettings =
+    Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'>
+    & Partial<Pick<ReaderSettings, 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt'>>;
+export type BunproCredentialSettings = Partial<Pick<ReaderSettings, 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt'>>;
 
 const JITEN_API_KEY_PREFIX = 'ak_';
 
@@ -34,6 +37,29 @@ export function hasJitenApiCredential(settings: ApiCredentialSettings): boolean 
     return Boolean(effectiveJitenApiKey(settings));
 }
 
+export function effectiveBunproFrontendApiToken(settings: BunproCredentialSettings): string {
+    return settings.bunproFrontendApiToken?.trim() ?? '';
+}
+
+export function effectiveBunproLegacyApiKey(settings: BunproCredentialSettings): string {
+    return settings.bunproApiKey?.trim() ?? '';
+}
+
+export function hasBunproFrontendCredential(settings: BunproCredentialSettings): boolean {
+    return Boolean(effectiveBunproFrontendApiToken(settings));
+}
+
+export function hasBunproLegacyCredential(settings: BunproCredentialSettings): boolean {
+    return Boolean(effectiveBunproLegacyApiKey(settings));
+}
+
+export function isBunproFrontendCredentialExpired(settings: BunproCredentialSettings, now = Date.now()): boolean {
+    const raw = settings.bunproFrontendApiTokenExpiresAt?.trim();
+    if (!raw || !hasBunproFrontendCredential(settings)) return false;
+    const expiresAt = Date.parse(raw);
+    return Number.isFinite(expiresAt) && expiresAt <= now;
+}
+
 function splitApiCredential(value: string): ApiCredentialSettings {
     const credential = value.trim();
     if (!credential) return { apiKey: '', jitenApiKey: '' };
@@ -43,18 +69,23 @@ function splitApiCredential(value: string): ApiCredentialSettings {
 }
 
 export function readApiCredentialsFromFormData(data: FormData): ApiCredentialSettings {
+    const bunpro = readBunproCredentialsFromFormData(data);
     // UT-56: dedicated per-provider fields; values still auto-route by
     // prefix so a Jiten key pasted into the JPDB field lands correctly.
     if (data.has('apiCredentialJpdb') || data.has('apiCredentialJiten')) {
-        return mergeApiCredentialValues(
-            String(data.get('apiCredentialJpdb') ?? ''),
-            String(data.get('apiCredentialJiten') ?? ''),
-        );
+        return {
+            ...mergeApiCredentialValues(
+                String(data.get('apiCredentialJpdb') ?? ''),
+                String(data.get('apiCredentialJiten') ?? ''),
+            ),
+            ...bunpro,
+        };
     }
-    if (data.has('apiCredential')) return splitApiCredential(String(data.get('apiCredential') ?? ''));
+    if (data.has('apiCredential')) return { ...splitApiCredential(String(data.get('apiCredential') ?? '')), ...bunpro };
     return {
         apiKey: String(data.get('apiKey') ?? '').trim(),
         jitenApiKey: String(data.get('jitenApiKey') ?? '').trim(),
+        ...bunpro,
     };
 }
 
@@ -67,4 +98,12 @@ export function mergeApiCredentialValues(jpdbValue: string, jitenValue: string):
 
 export function isJitenApiCredential(value: string): boolean {
     return value.trim().startsWith(JITEN_API_KEY_PREFIX);
+}
+
+function readBunproCredentialsFromFormData(data: FormData): Pick<ApiCredentialSettings, 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt'> {
+    return {
+        bunproApiKey: String(data.get('apiCredentialBunproLegacy') ?? data.get('bunproApiKey') ?? '').trim(),
+        bunproFrontendApiToken: String(data.get('apiCredentialBunpro') ?? data.get('bunproFrontendApiToken') ?? '').trim(),
+        bunproFrontendApiTokenExpiresAt: String(data.get('bunproFrontendApiTokenExpiresAt') ?? '').trim(),
+    };
 }

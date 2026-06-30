@@ -33,6 +33,8 @@ function snapshot(): StatsDashboardSnapshot {
     return {
         jpdb: statsSource('jpdb'),
         jiten: statsSource('jiten'),
+        bunpro: statsSource('bunpro'),
+        yomuLocal: statsSource('yomu-local'),
         anki: statsSource('anki'),
         combined: { ...statsSource('jpdb'), id: 'combined' },
     };
@@ -65,6 +67,7 @@ describe('new tab stats view', () => {
 
     it('renders separate source tabs only for visible stats sources', () => {
         const visibleSnapshot = snapshot();
+        visibleSnapshot.bunpro = { ...statsSource('bunpro'), status: 'setup', daily: [], cards: { ...EMPTY_CARDS } };
         visibleSnapshot.anki = { ...statsSource('anki'), status: 'setup', daily: [], cards: { ...EMPTY_CARDS } };
         const root = renderNewTabStatsContent({
             activityMetric: 'reviews',
@@ -75,6 +78,6 @@ describe('new tab stats view', () => {
         });
         const tabs = Array.from(root.querySelectorAll<HTMLElement>('[data-stats-source]')).map(tab => tab.dataset.statsSource);
 
-        expect(tabs).toEqual(['combined', 'jpdb', 'jiten']);
+        expect(tabs).toEqual(['combined', 'jpdb', 'jiten', 'yomu-local']);
     });
 });

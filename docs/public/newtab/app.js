@@ -66,7 +66,8 @@
   const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}`;
   const ANKI_CONNECT_ADDON_URL = "https://ankiweb.net/shared/info/2055492159";
   const DISCORD_INVITE_URL = "https://discord.gg/jD6NPURewD";
-  const DONATE_URL = "https://paypal.me/HenryRussell163";
+  const DONATE_URL = "https://support.yomureader.com/donate";
+  const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
   const USERSCRIPT_INSTALL_URL = `${DOCS_BASE_URL}yomu.user.js`;
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
   const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
@@ -86,15 +87,74 @@
   const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
   const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
   const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
+  const PRIVATE_IPV4_RANGES = [
+    [0, 16777215],
+    [167772160, 184549375],
+    [1681915904, 1686110207],
+    [2130706432, 2147483647],
+    [2851995648, 2852061183],
+    [2886729728, 2887778303],
+    [3232235520, 3232301055]
+  ];
+  function isPrivateOrLocalHostname(hostname) {
+    const host = stripIpv6Brackets(hostname.trim().toLowerCase());
+    if (!host) return true;
+    return isLocalhostName(host) || isPrivateIpv4(host) || isPrivateIpv6(host);
+  }
+  function stripIpv6Brackets(host) {
+    return host.replace(/^\[/u, "").replace(/\]$/u, "");
+  }
+  function isLocalhostName(host) {
+    return host === "localhost" || host.endsWith(".localhost");
+  }
+  function isPrivateIpv4(host) {
+    const value = ipv4LiteralToInt(host);
+    return value !== null && isPrivateIpv4Int(value);
+  }
+  function isPrivateIpv4Int(value) {
+    return PRIVATE_IPV4_RANGES.some(([low, high]) => value >= low && value <= high);
+  }
+  function ipv4LiteralToInt(host) {
+    const fields = host.split(".");
+    if (fields.length === 0 || fields.length > 4) return null;
+    const values = [];
+    for (const field of fields) {
+      const value = parseIpv4Field(field);
+      if (value === null) return null;
+      values.push(value);
+    }
+    const head = values.slice(0, -1);
+    if (head.some((value) => value > 255)) return null;
+    const tail = values[values.length - 1];
+    const tailBytes = 4 - head.length;
+    const tailMax = tailBytes >= 4 ? 4294967295 : 256 ** tailBytes - 1;
+    if (tail > tailMax) return null;
+    let result = 0;
+    for (const value of head) result = result * 256 + value;
+    return result * 256 ** tailBytes + tail;
+  }
+  function parseIpv4Field(field) {
+    if (!field) return null;
+    if (/^0x[0-9a-f]+$/iu.test(field)) return finiteNonNegative(parseInt(field.slice(2), 16));
+    if (/^0[0-7]+$/u.test(field)) return finiteNonNegative(parseInt(field.slice(1), 8));
+    if (/^[0-9]+$/u.test(field)) return finiteNonNegative(parseInt(field, 10));
+    return null;
+  }
+  function finiteNonNegative(value) {
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  }
+  function isPrivateIpv6(host) {
+    if (!host.includes(":")) return false;
+    if (host === "::1" || host === "::") return true;
+    const mapped = host.match(/^::(?:ffff:)?(\d{1,3}(?:\.\d{1,3}){3})$/u);
+    if (mapped) {
+      const value = ipv4LiteralToInt(mapped[1]);
+      if (value !== null && isPrivateIpv4Int(value)) return true;
+    }
+    return host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/u.test(host);
+  }
   const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
   const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
-  const PRIVATE_IPV4_HOSTNAME_PATTERNS = [
-    /^(?:0|10|127)\./,
-    /^169\.254\./,
-    /^192\.168\./,
-    /^172\.(?:1[6-9]|2\d|3[0-1])\./
-  ];
-  const PRIVATE_IPV6_HOSTNAME_PREFIXES = ["fc", "fd", "fe80:"];
   const IMMERSION_KIT_API_HOSTS = /* @__PURE__ */ new Set([
     "apiv2express.immersionkit.com",
     "apiv2.immersionkit.com"
@@ -103,6 +163,12 @@
     "d1pra95f92lrn3.cloudfront.net",
     "d1vjc5dkcd3yh2.cloudfront.net"
   ]);
+  const YOMU_PUBLIC_PROXY_HOSTS = /* @__PURE__ */ new Set([
+    "yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev",
+    "edge.yomureader.com",
+    "proxy.yomureader.com"
+  ]);
+  const YOMU_SHARED_PUBLIC_PROXY_URL = "https://edge.yomureader.com/";
   function configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) {
     const proxyUrl = configuredProxyUrl.trim();
     if (!proxyUrl) return null;
@@ -116,6 +182,10 @@
   }
   function isProxySafeRequest(targetUrl, options) {
     return !hasSensitiveRequestHeaders(options.headers) && !hasCredentialedRequest(options.credentials) && !isPrivateJpdbTarget(targetUrl, options) && !isPrivateNetworkTarget(targetUrl) && !hasSensitiveUrlParams(targetUrl);
+  }
+  function isSharedPublicProxySafeRequest(targetUrl, options) {
+    const target = fetchTarget(targetUrl);
+    return Boolean(target && isProxySafeRequest(targetUrl, options) && isReadMethod(options.method) && isSharedPublicProxyAllowlistedTarget(target));
   }
   function shouldPreferProxyFirst(targetUrl, hasDirectCandidate, proxySafe) {
     return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && isHostedGithubPagesApp$1() && isCrossOriginHttpUrl(targetUrl);
@@ -133,8 +203,10 @@
     const method = requestMethod(options);
     return Boolean(target && isCrossOriginHttpTarget(target) && (isKnownCorsBlockedConfiguredProxyTarget(target, method) || isJpdbPublicLookupTarget(target, method) || isLocalHostedBrowserCorsTarget(target, method)));
   }
-  function builtInProxyUrls(_targetUrl, _options) {
-    return [];
+  function builtInProxyUrls(targetUrl, options) {
+    if (!isOfficialHostedReaderOrigin$1() || !isSharedPublicProxySafeRequest(targetUrl, options)) return [];
+    const proxyUrl = configuredProxyFetchUrl$1(targetUrl, YOMU_SHARED_PUBLIC_PROXY_URL);
+    return proxyUrl ? [proxyUrl] : [];
   }
   function isJpdbPublicAudioUrl(targetUrl) {
     try {
@@ -144,8 +216,13 @@
       return false;
     }
   }
-  function isYomuPublicProxyUrl(_candidateUrl) {
-    return false;
+  function isYomuPublicProxyUrl(candidateUrl) {
+    try {
+      const url = new URL(candidateUrl);
+      return YOMU_PUBLIC_PROXY_HOSTS.has(url.hostname);
+    } catch {
+      return false;
+    }
   }
   function isKnownDirectCorsTarget(targetUrl) {
     try {
@@ -157,6 +234,24 @@
   }
   function isKnownCorsBlockedConfiguredProxyTarget(target, method) {
     return method === "GET" && (isJpdbPublicAudioUrl(target.href) || target.hostname === "jisho.org" && target.pathname.startsWith("/search/") || target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php" || target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/") || target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname)));
+  }
+  function isSharedPublicProxyAllowlistedTarget(target) {
+    const host = target.hostname.toLowerCase();
+    const path = target.pathname;
+    if (target.protocol !== "https:") return false;
+    if (host === "api.jiten.moe") {
+      return path.startsWith("/api/tts/word/") || path.startsWith("/api/tts/sentence/") || path === "/api/vocabulary/search" || path === "/api/vocabulary/parse" || path === "/api/vocabulary/parse-normalised" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(path) || path.startsWith("/api/kanji/");
+    }
+    if (host === "jpdb.io") {
+      return path === "/search" || path.startsWith("/vocabulary/") || path.startsWith("/kanji/") || path.startsWith("/static/v/");
+    }
+    if (host === "jisho.org") return path.startsWith("/search/");
+    if (host === "assets.languagepod101.com") return path === "/dictionary/japanese/audiomp3.php";
+    if (host === "cdn.innovativelanguage.com") return path.includes("/learningcenter/audio/");
+    if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith("/audio/");
+    if (host === "uchisen.com") return path.startsWith("/kanji/");
+    if (host === "ik.imagekit.io") return path.startsWith("/uchisen/generated/saved/");
+    return IMMERSION_KIT_API_HOSTS.has(host) && path === "/search";
   }
   function isJpdbPublicLookupTarget(target, method) {
     return method === "GET" && target.hostname === "jpdb.io" && (target.pathname === "/search" || target.pathname.startsWith("/vocabulary/"));
@@ -173,6 +268,10 @@
     } catch {
       return false;
     }
+  }
+  function isOfficialHostedReaderOrigin$1() {
+    if (typeof location === "undefined") return false;
+    return location.hostname === "yomureader.com" || location.hostname === "www.yomureader.com";
   }
   function isLocalHostedApp() {
     if (typeof location === "undefined") return false;
@@ -219,24 +318,10 @@
   function isPrivateNetworkTarget(targetUrl) {
     try {
       const url = new URL(targetUrl, location.href);
-      return isPrivateHostname(url.hostname);
+      return isPrivateOrLocalHostname(url.hostname);
     } catch {
       return false;
     }
-  }
-  function isPrivateHostname(hostname) {
-    const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
-    return isLocalhostHostname(host) || isPrivateIpv4Hostname(host) || isPrivateIpv6Hostname(host);
-  }
-  function isLocalhostHostname(host) {
-    return host === "localhost" || host.endsWith(".localhost");
-  }
-  function isPrivateIpv4Hostname(host) {
-    return PRIVATE_IPV4_HOSTNAME_PATTERNS.some((pattern) => pattern.test(host));
-  }
-  function isPrivateIpv6Hostname(host) {
-    if (!host.includes(":")) return false;
-    return host === "::1" || PRIVATE_IPV6_HOSTNAME_PREFIXES.some((prefix) => host.startsWith(prefix));
   }
   function hasSensitiveUrlParams(targetUrl) {
     try {
@@ -272,13 +357,50 @@
     if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
       return { url: candidate.url, options };
     }
+    return {
+      url: proxyControlUrl(candidate.url, options.headers),
+      options: {
+        ...options,
+        headers: stripProxyOnlyHeaders(options.headers, ["x-access", "x-forcecaf"])
+      }
+    };
+  }
+  function proxyControlUrl(candidateUrl, headers) {
+    const forceCaf = headerValue(headers, "x-forcecaf");
+    if (!forceCaf) return candidateUrl;
+    try {
+      const url = new URL(candidateUrl);
+      url.searchParams.set("x-forcecaf", forceCaf);
+      return url.href;
+    } catch {
+      return candidateUrl;
+    }
+  }
+  function stripProxyOnlyHeaders(headers, names) {
+    if (!headers) return headers;
+    const excluded = new Set(names.map((name) => name.toLowerCase()));
+    const sanitized = {};
+    new Headers(headers).forEach((value, key) => {
+      if (!excluded.has(key.toLowerCase())) sanitized[key] = value;
+    });
+    return Object.keys(sanitized).length ? sanitized : void 0;
+  }
+  function headerValue(headers, name) {
+    if (!headers) return "";
+    return new Headers(headers).get(name) ?? "";
   }
   function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
     const proxySafe = isProxySafeRequest(targetUrl, options);
     const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
-    const configured = configuredProxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) : null;
+    const configuredUrl = configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl);
+    const configuredUrlIsSharedPublicProxy = configuredUrl ? isYomuPublicProxyUrl(configuredUrl) : false;
+    const configured = configuredProxySafe && options.allowConfiguredProxy !== false && !configuredUrlIsSharedPublicProxy ? configuredUrl : null;
     const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
-    const publicProxies = publicProxySafe ? builtInProxyUrls() : [];
+    const configuredPublicProxy = publicProxySafe && configuredUrlIsSharedPublicProxy ? configuredUrl : null;
+    const publicProxies = publicProxySafe ? [
+      configuredPublicProxy,
+      ...builtInProxyUrls(targetUrl, options)
+    ].filter((url) => Boolean(url)) : [];
     const direct = directFetchUrl(targetUrl, options, Boolean(configured));
     const directCandidate = direct ? { url: direct, kind: "direct" } : null;
     const proxyCandidates = [
@@ -877,6 +999,9 @@
     "yomu-",
     "yomu:",
     "yomu.",
+    // Yomu-internal redirect handoff keys use a leading double underscore.
+    // Factory reset clears hosted web storage by managed prefix, so include it.
+    "__yomu",
     "jpdb-reader-",
     "jpdb-popup-reader-"
   ];
@@ -1097,19 +1222,18 @@
   function userscriptTextResponse(response) {
     return String(response.responseText ?? response.response ?? "");
   }
-  const YOMU_HOSTED_FALLBACK_PROXY_URL = "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/";
-  function hostedFallbackProxyUrl(url) {
+  function hostedFallbackProxyUrl(url, options = {}) {
     if (getUserscriptHttpRequest()) return "";
     if (!isOfficialHostedReaderOrigin()) return "";
-    if (isSameOriginUrl(url) || !/^https?:\/\//i.test(url)) return "";
-    return YOMU_HOSTED_FALLBACK_PROXY_URL;
+    if (!isSharedPublicProxySafeRequest(url, options)) return "";
+    return YOMU_SHARED_PUBLIC_PROXY_URL;
   }
   function isOfficialHostedReaderOrigin() {
     if (typeof location === "undefined") return false;
     return location.hostname === "yomureader.com" || location.hostname === "www.yomureader.com";
   }
   async function requestViaFetch(url, options) {
-    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url), {
+    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options), {
       method: options.method ?? "GET",
       headers: options.headers,
       body: options.data,
@@ -1241,12 +1365,15 @@
       apiCredential: "API key",
       apiCredentialJpdb: "JPDB API key",
       apiCredentialJiten: "Jiten API key",
+      apiCredentialBunpro: "Bunpro frontend API token",
+      apiCredentialBunproLegacy: "Bunpro API key",
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste separate Jiten and JPDB keys. Study decks stay scoped to the selected provider; local dictionaries still work without keys.",
+      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
+      bunproSettings: "Bunpro settings",
       jpdbApiKeyConfigured: "JPDB key set.",
       jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
       jpdbApiKeyMissing: "No JPDB key.",
@@ -1262,6 +1389,8 @@
       statusError: "Error",
       disabledControlDescription: "Controlled by another setting.",
       jpdbMiningEnabled: "Allow API review/deck changes",
+      bunproMiningEnabled: "Allow Bunpro review/mining",
+      yomuLocalSrsEnabled: "Enable local Yomu SRS",
       addToForq: "Also copy JPDB adds to forq",
       enableReviews: "Show review buttons",
       reviewRatingScale: "Review rating scale",
@@ -1321,8 +1450,10 @@
       newTabAnkiReviewDecks: "Anki review decks",
       newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
       newTabSource: "Study review source",
-      newTabAuto: "Auto: API/Anki, then study words",
+      newTabAuto: "Auto: Yomu, accounts, then study words",
       newTabApiSrs: "API SRS (Jiten / JPDB)",
+      newTabBunpro: "Bunpro",
+      newTabYomuLocal: "Yomu local SRS",
       dictionaryFallback: "Dictionary fallback",
       newTabJpdbReviewMode: "API review mode",
       newTabJpdbReviewAuto: "Auto: live kanji + API vocabulary",
@@ -2913,12 +3044,15 @@ api	API
 apiCredential	APIキー
 apiCredentialJpdb	JPDB APIキー
 apiCredentialJiten	Jiten APIキー
+apiCredentialBunpro	Bunpro frontend API token
+apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenとJPDBのキーを別々に貼ります。学習デッキは選択中のサービスに適用され、キーなしでもローカル辞書は使えます。
+apiAccessHelp	APIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から、Bunproはfrontend_api_tokenを使います。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
+bunproSettings	Bunpro設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbApiKeyMissing	JPDBキーなし。
 jpdbConnected	JPDBに接続しました。
@@ -2933,6 +3067,8 @@ statusAttention	設定が必要
 statusError	エラー
 disabledControlDescription	別設定で制御中。
 jpdbMiningEnabled	APIの復習・デッキ変更を許可
+bunproMiningEnabled	Bunproの復習・採掘を許可
+yomuLocalSrsEnabled	ローカルよむSRSを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -2987,8 +3123,10 @@ newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
-newTabAuto	自動: API/Anki後に学習語
+newTabAuto	自動: よむ・アカウント後に学習語
 newTabApiSrs	API SRS（Jiten / JPDB）
+newTabBunpro	Bunpro
+newTabYomuLocal	ローカルよむSRS
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字+API語彙
@@ -3679,6 +3817,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const LOOKUP_PILL_COLOR_TOKENS = {
     jpdb: { bg: "#2563c7", border: "#4f8ff0", text: CORE_COLOR_TOKENS.white },
     jiten: { bg: "#13845f", border: "#34c89a", text: CORE_COLOR_TOKENS.white },
+    bunpro: { bg: "#be3455", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
     "yomu-search": { bg: "#b83280", border: "#f472b6", text: CORE_COLOR_TOKENS.white },
     jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
     weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
@@ -3734,6 +3873,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "jpdb-reader-newtab-ui",
     "jpdb-reader-newtab-jpdb-stats-history",
     "jpdb-reader-newtab-disabled-anki-decks",
+    "yomu:srs-local:v1",
     "jpdb-reader-source-open-state",
     "jpdb-reader-settings-drawer-height-ratio",
     "jpdb-reader-sheet-height-ratio",
@@ -3752,7 +3892,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "yomu-anki-status-index"
   ];
   const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
-    FACTORY_RESET_SIGNAL_KEY
+    FACTORY_RESET_SIGNAL_KEY,
+    // Transient cloud-sync handoff written before an OAuth redirect. Factory
+    // reset owns it via the '__yomu' prefix, but backups must not replay it.
+    "__yomu_cloud_settings_sync_pending_action"
   ]);
   async function gmStorageGet(key, fallback) {
     const getValue = asyncGmGetValue();
@@ -4236,22 +4379,42 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function hasJitenApiCredential(settings) {
     return Boolean(effectiveJitenApiKey(settings));
   }
+  function effectiveBunproFrontendApiToken(settings) {
+    return settings.bunproFrontendApiToken?.trim() ?? "";
+  }
+  function effectiveBunproLegacyApiKey(settings) {
+    return settings.bunproApiKey?.trim() ?? "";
+  }
+  function hasBunproFrontendCredential(settings) {
+    return Boolean(effectiveBunproFrontendApiToken(settings));
+  }
+  function isBunproFrontendCredentialExpired(settings, now = Date.now()) {
+    const raw = settings.bunproFrontendApiTokenExpiresAt?.trim();
+    if (!raw || !hasBunproFrontendCredential(settings)) return false;
+    const expiresAt = Date.parse(raw);
+    return Number.isFinite(expiresAt) && expiresAt <= now;
+  }
   function splitApiCredential(value) {
     const credential = value.trim();
     if (!credential) return { apiKey: "", jitenApiKey: "" };
     return isJitenApiCredential(credential) ? { apiKey: "", jitenApiKey: credential } : { apiKey: credential, jitenApiKey: "" };
   }
   function readApiCredentialsFromFormData(data) {
+    const bunpro = readBunproCredentialsFromFormData(data);
     if (data.has("apiCredentialJpdb") || data.has("apiCredentialJiten")) {
-      return mergeApiCredentialValues(
-        String(data.get("apiCredentialJpdb") ?? ""),
-        String(data.get("apiCredentialJiten") ?? "")
-      );
+      return {
+        ...mergeApiCredentialValues(
+          String(data.get("apiCredentialJpdb") ?? ""),
+          String(data.get("apiCredentialJiten") ?? "")
+        ),
+        ...bunpro
+      };
     }
-    if (data.has("apiCredential")) return splitApiCredential(String(data.get("apiCredential") ?? ""));
+    if (data.has("apiCredential")) return { ...splitApiCredential(String(data.get("apiCredential") ?? "")), ...bunpro };
     return {
       apiKey: String(data.get("apiKey") ?? "").trim(),
-      jitenApiKey: String(data.get("jitenApiKey") ?? "").trim()
+      jitenApiKey: String(data.get("jitenApiKey") ?? "").trim(),
+      ...bunpro
     };
   }
   function mergeApiCredentialValues(jpdbValue, jitenValue) {
@@ -4262,6 +4425,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function isJitenApiCredential(value) {
     return value.trim().startsWith(JITEN_API_KEY_PREFIX);
+  }
+  function readBunproCredentialsFromFormData(data) {
+    return {
+      bunproApiKey: String(data.get("apiCredentialBunproLegacy") ?? data.get("bunproApiKey") ?? "").trim(),
+      bunproFrontendApiToken: String(data.get("apiCredentialBunpro") ?? data.get("bunproFrontendApiToken") ?? "").trim(),
+      bunproFrontendApiTokenExpiresAt: String(data.get("bunproFrontendApiTokenExpiresAt") ?? "").trim()
+    };
   }
   const __vite_import_meta_env__ = { "DEV": false };
   const LOG_PREFIX = "[Yomu]";
@@ -5659,6 +5829,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     urlTemplate: "https://jiten.moe/parse?text={query}",
     enabled: true
   };
+  const BUNPRO_LOOKUP_LINK = {
+    id: "bunpro",
+    label: "Bunpro",
+    urlTemplate: "https://bunpro.jp/search?query={query}",
+    enabled: false
+  };
   const WEBLIO_LOOKUP_LINK = {
     id: "weblio",
     label: "Weblio",
@@ -5709,6 +5885,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     JPDB_LOOKUP_LINK,
     JPDB_LIVE_FREQUENCY_PILL,
     YOMU_LOOKUP_LINK,
+    BUNPRO_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     KOTOBANK_LOOKUP_LINK,
@@ -6081,7 +6258,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ];
   const log$B = Logger.scope("Settings");
   let settingsResetInProgress = false;
-  const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
+  const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
   const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
   const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
   const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
@@ -6115,6 +6292,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ];
   const AUDIO_SOURCE_UI_TYPE_VALUES = AUDIO_SOURCE_TYPE_VALUES.filter((type) => type !== "custom");
   const DEFAULT_AUDIO_SOURCES = [
+    { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
     { type: "jpod101", url: "", voice: "", enabled: true },
     { type: "language-pod-101", url: "", voice: "", enabled: true },
     { type: "jisho", url: "", voice: "", enabled: true },
@@ -6174,6 +6352,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ];
   const MINING_BOOLEAN_SETTING_KEYS = [
     "jpdbMiningEnabled",
+    "bunproMiningEnabled",
+    "yomuLocalSrsEnabled",
     "dictionarySourcesInitiallyExpanded"
   ];
   const SUBTITLE_BOOLEAN_SETTING_KEYS = [
@@ -6237,9 +6417,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const OCR_OVERLAY_THEMES = ["auto", "dark", "light"];
   const SUBTITLE_CONTROL_MODES = ["always", "hidden", "auto"];
   const SUBTITLE_TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
-  const NEW_TAB_SOURCES = ["jpdb", "anki", "auto", "dictionary"];
+  const NEW_TAB_SOURCES = ["jpdb", "bunpro", "yomu-local", "anki", "auto", "dictionary"];
   const NEW_TAB_JPDB_REVIEW_MODES = ["auto", "api-vocabulary", "live-review"];
   const NEW_TAB_KANJI_KEYWORD_SOURCES = ["auto", "rtk", "jpdb", "local"];
+  const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
+    "kanji-doodle",
+    "word",
+    "recall-cloze",
+    "listen-pitch",
+    "speaking"
+  ];
+  const NEW_TAB_STUDY_CHALLENGE_STEPS$1 = new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
   const LEGACY_COLOR_CHANNEL_DEFAULTS = {
     wordHighlightColorSource: "auto",
     wordUnderlineColorSource: "auto",
@@ -6255,6 +6443,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const DEFAULT_SETTINGS = {
     apiKey: "",
     jitenApiKey: "",
+    bunproApiKey: "",
+    bunproFrontendApiToken: "",
+    bunproFrontendApiTokenExpiresAt: "",
     onboardingSeen: false,
     interfaceLanguage: "en",
     accentColor: DEFAULT_ACCENT_COLOR,
@@ -6363,6 +6554,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     newTabSwipeReviews: true,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
+    newTabStudyStepOrder: [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER],
+    newTabStudyDisabledSteps: [],
+    newTabStudyTourSeen: false,
     puckPositionX: void 0,
     puckPositionY: void 0,
     manualScanEnabled: false,
@@ -6468,6 +6662,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
     popupFontWeight: 400,
     jpdbMiningEnabled: true,
+    bunproMiningEnabled: false,
+    yomuLocalSrsEnabled: true,
     apiGradingProvider: "jiten",
     miningDeck: "forq",
     autoMineOnReview: false,
@@ -6556,8 +6752,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function normalizeApiCredentialSettings(value) {
     const apiKey = trimmedStringSetting(value, "apiKey", DEFAULT_SETTINGS.apiKey);
     const jitenApiKey = trimmedStringSetting(value, "jitenApiKey", DEFAULT_SETTINGS.jitenApiKey);
-    if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: jitenApiKey || apiKey };
-    return { apiKey, jitenApiKey };
+    const bunproApiKey = trimmedStringSetting(value, "bunproApiKey", DEFAULT_SETTINGS.bunproApiKey);
+    const bunproFrontendApiToken = trimmedStringSetting(value, "bunproFrontendApiToken", DEFAULT_SETTINGS.bunproFrontendApiToken);
+    const bunproFrontendApiTokenExpiresAt = normalizeOptionalIsoDateString(value?.bunproFrontendApiTokenExpiresAt);
+    if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: jitenApiKey || apiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt };
+    return { apiKey, jitenApiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt };
   }
   function stripUnsupportedSettings(value) {
     if (!value) return null;
@@ -6714,8 +6913,33 @@ recommendedJiten	Jiten由来の頻度バッジです。
       newTabStopAtBatchEnd: booleanSetting(value, "newTabStopAtBatchEnd"),
       newTabSwipeReviews: booleanSetting(value, "newTabSwipeReviews"),
       newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
-      newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
+      newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit"),
+      newTabStudyStepOrder: normalizeNewTabStudyStepOrder(value?.newTabStudyStepOrder),
+      newTabStudyDisabledSteps: normalizeNewTabStudyDisabledSteps(value?.newTabStudyDisabledSteps),
+      newTabStudyTourSeen: booleanSetting(value, "newTabStudyTourSeen")
     };
+  }
+  function normalizeNewTabStudyStepOrder(value) {
+    const ordered = normalizeStudyStepList(value);
+    return [
+      ...ordered,
+      ...DEFAULT_NEW_TAB_STUDY_STEP_ORDER.filter((step) => !ordered.includes(step))
+    ];
+  }
+  function normalizeNewTabStudyDisabledSteps(value) {
+    return normalizeStudyStepList(value);
+  }
+  function normalizeStudyStepList(value) {
+    if (!Array.isArray(value)) return [];
+    const out = [];
+    for (const item of value) {
+      if (!isNewTabStudyChallengeStep$1(item) || out.includes(item)) continue;
+      out.push(item);
+    }
+    return out;
+  }
+  function isNewTabStudyChallengeStep$1(value) {
+    return typeof value === "string" && NEW_TAB_STUDY_CHALLENGE_STEPS$1.has(value);
   }
   function normalizeReaderDisplaySettings(value) {
     const settings = value ?? {};
@@ -6789,7 +7013,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function normalizeApiGradingProvider(value) {
     if (value === "jpdb") return "jpdb";
+    if (value === "bunpro") return "bunpro";
     return DEFAULT_SETTINGS.apiGradingProvider;
+  }
+  function normalizeOptionalIsoDateString(value) {
+    if (typeof value !== "string" || !value.trim()) return "";
+    const time = Date.parse(value.trim());
+    return Number.isFinite(time) ? new Date(time).toISOString() : "";
   }
   function normalizeMediaSettings(value) {
     const settings = value ?? {};
@@ -7334,7 +7564,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (insertIndex < 0) sources.push(source);
     else sources.splice(insertIndex, 0, source);
   }
-  const KANJI_RE$3 = /[\u3400-\u9fff]/u;
+  const KANJI_RE$4 = /[\u3400-\u9fff]/u;
   const KANA_CHAR_RE$1 = /[\u3040-\u30ffー・]/u;
   const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
   const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
@@ -9452,7 +9682,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function hasDifficultKanji(surface) {
     for (const char of surface) {
-      if (KANJI_RE$3.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+      if (KANJI_RE$4.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
     }
     return false;
   }
@@ -9497,7 +9727,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const baseSpelling = spelling.trim();
     const baseReading = reading.trim();
     if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-    if (!KANJI_RE$3.test(visibleSurface) || !KANA_RE$1.test(baseReading) || baseReading === baseSpelling) return [];
+    if (!KANJI_RE$4.test(visibleSurface) || !KANA_RE$1.test(baseReading) || baseReading === baseSpelling) return [];
     for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
       if (!baseReading.endsWith(spellingSuffix)) continue;
       const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
@@ -9520,7 +9750,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
     const trimmed = trimSharedKanaAffixes$1(surfaceStem, readingStem);
     if (!trimmed.surface || !trimmed.reading) return [];
-    if (!KANJI_RE$3.test(trimmed.surface) || !KANA_RE$1.test(trimmed.reading)) return [];
+    if (!KANJI_RE$4.test(trimmed.surface) || !KANA_RE$1.test(trimmed.reading)) return [];
     return [{
       text: trimmed.reading,
       start: trimmed.offset,
@@ -9556,7 +9786,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         const range = localRubyRange(surface, token, ruby);
         if (!range) return [];
         const base = surface.slice(range.start, range.end);
-        if (!KANJI_RE$3.test(base)) return [];
+        if (!KANJI_RE$4.test(base)) return [];
         if (!KANA_CHAR_RE$1.test(base)) return [ruby];
         const parts = kanjiOnlyRubySegments(surface, token, ruby);
         return parts.length ? parts : [ruby];
@@ -9567,7 +9797,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function sourceTokenRubies(surface, token) {
     if (token.rubies.length) return token.rubies;
     const reading = token.card.reading.trim();
-    if (!surface || !KANJI_RE$3.test(surface) || !reading || reading === surface || !KANA_RE$1.test(reading)) return [];
+    if (!surface || !KANJI_RE$4.test(surface) || !reading || reading === surface || !KANA_RE$1.test(reading)) return [];
     const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
     if (inferred.length) {
       return inferred.map((ruby) => ({
@@ -9595,7 +9825,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return { start, end };
   }
   function kanjiRubyParts(base, reading) {
-    if (!base || !reading || !KANJI_RE$3.test(base)) return [];
+    if (!base || !reading || !KANJI_RE$4.test(base)) return [];
     if (!KANA_RE$1.test(reading)) return [{ text: reading, start: 0, end: base.length }];
     const anchors = alignRubyKanaAnchors(base, reading);
     if (!anchors) return trimRubyPartToKanji(base, reading);
@@ -9616,7 +9846,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function trimRubyPartToKanji(base, reading) {
     const trimmed = trimSharedKanaAffixes$1(base, reading);
-    if (!trimmed.surface || !trimmed.reading || !KANJI_RE$3.test(trimmed.surface)) return [];
+    if (!trimmed.surface || !trimmed.reading || !KANJI_RE$4.test(trimmed.surface)) return [];
     const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
     if (kanjiOnly) {
       return [{
@@ -9634,11 +9864,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function kanaTrimmedKanjiRange(base, reading) {
     if (!KANA_RE$1.test(reading) || !KANA_CHAR_RE$1.test(base)) return null;
     const chars = Array.from(base);
-    const first2 = chars.findIndex((char) => KANJI_RE$3.test(char));
+    const first2 = chars.findIndex((char) => KANJI_RE$4.test(char));
     if (first2 < 0) return null;
     let last = -1;
     for (let index = chars.length - 1; index >= first2; index -= 1) {
-      if (KANJI_RE$3.test(chars[index])) {
+      if (KANJI_RE$4.test(chars[index])) {
         last = index;
         break;
       }
@@ -9685,7 +9915,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return rubyGapCanOwnReading(base.slice(baseOffset), reading.slice(readingOffset));
   }
   function rubyGapCanOwnReading(base, reading) {
-    return KANJI_RE$3.test(base) ? reading.length > 0 : reading.length === 0;
+    return KANJI_RE$4.test(base) ? reading.length > 0 : reading.length === 0;
   }
   function rubyBaseKanaRuns(base) {
     const runs = [];
@@ -10953,7 +11183,7 @@ ${item.sequence ?? ""}`;
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$8(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord$9(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -10984,7 +11214,7 @@ ${item.sequence ?? ""}`;
   function shouldReadRecordTextKey(key, options) {
     return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
   }
-  function isRecord$8(value) {
+  function isRecord$9(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const STRUCTURED_CONTENT_TAGS = /* @__PURE__ */ new Set([
@@ -11050,7 +11280,7 @@ ${item.sequence ?? ""}`;
     if (value == null) return "";
     if (isStructuredPrimitive(value)) return escapeHtml(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context);
-    if (!isRecord$7(value)) return "";
+    if (!isRecord$8(value)) return "";
     return renderGlossaryRecord(value, context);
   }
   function isStructuredPrimitive(value) {
@@ -11350,7 +11580,7 @@ ${item.sequence ?? ""}`;
   function camelToKebabCase(value) {
     return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
   }
-  function isRecord$7(value) {
+  function isRecord$8(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function escapeHtml(value) {
@@ -17044,14 +17274,22 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const index = ids.indexOf(id);
     if (index >= 0) ids.splice(index, 1);
   }
-  const REQUIRED_JA_AUDIO_SOURCES = ["jpod101", "language-pod-101", "jisho", "jiten-tts", "jpdb-tts", "text-to-speech"];
+  const REQUIRED_JA_AUDIO_SOURCES = [
+    { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+    { type: "jpod101", url: "", voice: "", enabled: true },
+    { type: "language-pod-101", url: "", voice: "", enabled: true },
+    { type: "jisho", url: "", voice: "", enabled: true },
+    { type: "jiten-tts", url: "", voice: "", enabled: true },
+    { type: "jpdb-tts", url: "", voice: "", enabled: true },
+    { type: "text-to-speech", url: "", voice: "", enabled: true }
+  ];
   function getOrderedAudioSources(settings) {
     const sources = settings.audioSources.filter((source) => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
     const configuredTypes = new Set(settings.audioSources.map((source) => source.type));
     return [
       ...sources,
-      ...REQUIRED_JA_AUDIO_SOURCES.filter((type) => !configuredTypes.has(type)).map((type) => ({ type, url: "", voice: "", enabled: true }))
+      ...REQUIRED_JA_AUDIO_SOURCES.filter((source) => !configuredTypes.has(source.type)).map((source) => ({ ...source }))
     ];
   }
   function preloadableAudioSources(sources, settings) {
@@ -17404,7 +17642,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return value;
     }
   }
-  function uniqueStrings$1(values, options = {}) {
+  function uniqueStrings$2(values, options = {}) {
     const seen = /* @__PURE__ */ new Set();
     const result = [];
     for (const value of values) {
@@ -17418,10 +17656,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return result;
   }
   function uniqueNonEmptyStrings(values) {
-    return uniqueStrings$1(values, { dropEmpty: true });
+    return uniqueStrings$2(values, { dropEmpty: true });
   }
   function uniqueTrimmedStrings(values) {
-    return uniqueStrings$1(values, { trim: true, dropEmpty: true });
+    return uniqueStrings$2(values, { trim: true, dropEmpty: true });
   }
   const JITEN_TTS_API_BASE_URL = "https://api.jiten.moe/api/tts";
   const JITEN_TTS_RANDOM_VOICES = ["female", "female2", "male", "male2", "asmr"];
@@ -17659,7 +17897,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return wordId === void 0 || readingIndex === void 0 ? null : { wordId, readingIndex };
   }
   async function lookupJitenAudioReference(card, timeoutMs, proxyUrl) {
-    const queries = uniqueStrings$1([card.spelling, card.reading].map((value) => value.trim()).filter(Boolean));
+    const queries = uniqueStrings$2([card.spelling, card.reading].map((value) => value.trim()).filter(Boolean));
     for (const query of queries) {
       const url = `${JITEN_VOCABULARY_SEARCH_URL}?query=${encodeURIComponent(query)}&limit=8`;
       const response = await requestAudioUrl(url, "text", timeoutMs, {
@@ -17743,16 +17981,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function jpdbVocabularyAudioLookupUrls(card) {
     const urls = [];
     if (card.vid > 0) urls.push(jpdbVocabularyUrl(card.vid, card.spelling, card.reading));
-    for (const query of uniqueStrings$1([card.spelling, card.reading].filter(Boolean))) {
+    for (const query of uniqueStrings$2([card.spelling, card.reading].filter(Boolean))) {
       urls.push(`${JPDB_SEARCH_URL$1}?q=${encodeURIComponent(query)}`);
     }
-    return uniqueStrings$1(urls);
+    return uniqueStrings$2(urls);
   }
   function jpdbVocabularyUrl(vid, spelling, reading) {
     return `${JPDB_VOCABULARY_BASE_URL$1}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`;
   }
   function extractJpdbVocabularyAudioIds(html, card, sourceUrl = "") {
-    return uniqueStrings$1(jpdbVocabularyAudioHtmlBlocks(html, card, sourceUrl).flatMap(extractJpdbVocabularyAudioIdsFromHtml));
+    return uniqueStrings$2(jpdbVocabularyAudioHtmlBlocks(html, card, sourceUrl).flatMap(extractJpdbVocabularyAudioIdsFromHtml));
   }
   function jpdbVocabularyAudioHtmlBlocks(html, card, sourceUrl = "") {
     const resultBlocks = findHtmlBlocksByClass(html, "result").filter((block) => htmlBlockHasClass(block, "vocabulary") && jpdbVocabularyBlockMatchesCard(block, card));
@@ -21212,7 +21450,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const code = value.codePointAt(0) ?? 0;
     return code >= 13312 && code <= 40959;
   }
-  function containsKanji(value) {
+  function containsKanji$1(value) {
     return Array.from(value).some(isKanjiCharacter$1);
   }
   function cleanPronunciationReading(value) {
@@ -21220,7 +21458,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function pronunciationCandidate(value) {
     const reading = cleanPronunciationReading(value);
-    if (!reading || containsKanji(reading)) return "";
+    if (!reading || containsKanji$1(reading)) return "";
     return isKanaPronunciation(reading) ? reading : "";
   }
   function isKanaPronunciation(value) {
@@ -25063,14 +25301,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
-  const KANJI_RE$2 = /[\u3400-\u9fff]/u;
+  const KANJI_RE$3 = /[\u3400-\u9fff]/u;
   const log$q = Logger.scope("RTK");
   class RtkClient {
     cache = /* @__PURE__ */ new Map();
     keywordIndex;
     // fallow-ignore-next-line unused-class-member
     lookup(kanji) {
-      if (!KANJI_RE$2.test(kanji)) return Promise.resolve(null);
+      if (!KANJI_RE$3.test(kanji)) return Promise.resolve(null);
       const key = Array.from(kanji)[0] ?? kanji;
       let promise = this.cache.get(key);
       if (!promise) {
@@ -25129,7 +25367,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       onYomi,
       kunYomi,
       elements,
-      componentKanji: [...new Set(Array.from(elements).filter((character) => KANJI_RE$2.test(character) && character !== kanji))],
+      componentKanji: [...new Set(Array.from(elements).filter((character) => KANJI_RE$3.test(character) && character !== kanji))],
       heisigStory,
       heisigComment,
       koohiiStories
@@ -25195,7 +25433,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return Array.from(value ?? "").find(isKanjiCharacter) ?? "";
   }
   function isKanjiCharacter(character) {
-    return KANJI_RE$2.test(character);
+    return KANJI_RE$3.test(character);
   }
   function addRtkKeywordIndexEntry(entries, collisions, key, kanji) {
     if (!key || collisions.has(key)) return;
@@ -25672,7 +25910,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.4.246".trim() ? "1.4.246".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.5.0".trim() ? "1.5.0".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -26922,6 +27160,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["kanjivg", "kanjivgEnabled", "kanjivgPriority", "kanjivgAlias"],
     ["kanjiOrigins", "kanjiOriginsEnabled", "kanjiOriginsPriority", "kanjiOriginsAlias"]
   ];
+  const NEW_TAB_STUDY_CHALLENGE_STEPS = [
+    "kanji-doodle",
+    "word",
+    "recall-cloze",
+    "listen-pitch",
+    "speaking"
+  ];
   function settingsColorSourceValue(settings, name) {
     const source = settings[name];
     return source === "auto" ? DEFAULT_COLOR_SOURCE_VALUES[name] : source;
@@ -27102,7 +27347,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       newTabEnabled: runningAsBrowserExtension() ? has("newTabEnabled") : current.newTabEnabled,
       newTabAnkiEnabled: has("newTabAnkiEnabled"),
       newTabAnkiDisabledDecks: get("newTabAnkiDisabledDecks").split(",").map((deck) => deck.trim()).filter(Boolean),
-      newTabSource: readOption(get("newTabSource"), ["auto", "jpdb", "anki", "dictionary"], current.newTabSource),
+      newTabSource: readOption(get("newTabSource"), ["auto", "jpdb", "bunpro", "yomu-local", "anki", "dictionary"], current.newTabSource),
       newTabJpdbDeck: get("newTabJpdbDeck").trim() || current.newTabJpdbDeck,
       newTabJpdbReviewMode: readOption(get("newTabJpdbReviewMode"), ["auto", "api-vocabulary", "live-review"], current.newTabJpdbReviewMode),
       corsProxyUrl: get("corsProxyUrl").trim(),
@@ -27116,8 +27361,23 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       newTabStopAtBatchEnd: has("newTabStopAtBatchEnd"),
       newTabSwipeReviews: has("newTabSwipeReviews"),
       newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled"),
-      newTabKanjiAutoSubmit: has("newTabKanjiAutoSubmit")
+      newTabKanjiAutoSubmit: has("newTabKanjiAutoSubmit"),
+      newTabStudyStepOrder: readNewTabStudyStepOrder(reader, current),
+      newTabStudyDisabledSteps: readNewTabStudyDisabledSteps(reader, current),
+      newTabStudyTourSeen: get("newTabStudyTourSeen") === "true"
     };
+  }
+  function readNewTabStudyStepOrder(reader, current) {
+    const ordered = reader.getAll("newTabStudyStepOrder").filter(isNewTabStudyChallengeStep);
+    return ordered.length ? ordered : current.newTabStudyStepOrder;
+  }
+  function readNewTabStudyDisabledSteps(reader, current) {
+    const ordered = readNewTabStudyStepOrder(reader, current);
+    const enabled = new Set(reader.getAll("newTabStudyEnabledStep").filter(isNewTabStudyChallengeStep));
+    return ordered.filter((step) => !enabled.has(step));
+  }
+  function isNewTabStudyChallengeStep(value) {
+    return NEW_TAB_STUDY_CHALLENGE_STEPS.includes(value);
   }
   function readReadingDisplayFormSettings(reader, furiganaMode) {
     const { has } = reader;
@@ -27234,6 +27494,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const { get, has } = reader;
     return {
       jpdbMiningEnabled: has("jpdbMiningEnabled"),
+      bunproMiningEnabled: has("bunproMiningEnabled"),
+      yomuLocalSrsEnabled: has("yomuLocalSrsEnabled"),
       autoMineOnReview: has("autoMineOnReview"),
       miningDeck: get("miningDeck").trim() || "forq",
       neverForgetDeck: get("neverForgetDeck").trim() || "never-forget",
@@ -27937,9 +28199,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       q: `name = '${SETTINGS_FILE_NAME.replace(/'/g, "\\'")}'`
     });
     const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`);
-    const files = isRecord$6(body) && Array.isArray(body.files) ? body.files : [];
+    const files = isRecord$7(body) && Array.isArray(body.files) ? body.files : [];
     const first2 = files[0];
-    return isRecord$6(first2) && typeof first2.id === "string" ? first2 : null;
+    return isRecord$7(first2) && typeof first2.id === "string" ? first2 : null;
   }
   async function createSettingsFile(serialized) {
     const boundary = `yomu_drive_sync_${randomBoundary()}`;
@@ -28081,7 +28343,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function parseOAuthWindowName(value) {
     try {
       const parsed = JSON.parse(value);
-      return isRecord$6(parsed) ? parsed : null;
+      return isRecord$7(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -28091,7 +28353,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!encoded) return null;
     try {
       const parsed = JSON.parse(encoded);
-      return isRecord$6(parsed) ? parsed : null;
+      return isRecord$7(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -28171,12 +28433,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     } catch {
       return null;
     }
-    if (!isRecord$6(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
-    if (!isRecord$6(parsed.settings)) return null;
+    if (!isRecord$7(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
+    if (!isRecord$7(parsed.settings)) return null;
     return parsed;
   }
   function driveFileFromResponse(value) {
-    if (isRecord$6(value) && typeof value.id === "string") return value;
+    if (isRecord$7(value) && typeof value.id === "string") return value;
     throw new Error("Google Drive did not return the saved file.");
   }
   function isUnauthorized(error) {
@@ -28188,7 +28450,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function randomBoundary() {
     return Math.random().toString(36).slice(2) + Date.now().toString(36);
   }
-  function isRecord$6(value) {
+  function isRecord$7(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function renderAnkiTagsEditor(value, language) {
@@ -28229,7 +28491,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     renderAnkiTagChips(editor, tags, language);
   }
   function ankiTagList(value) {
-    return uniqueStrings$1(value.split(/[\s,]+/u).map((tag) => tag.trim()).filter(Boolean));
+    return uniqueStrings$2(value.split(/[\s,]+/u).map((tag) => tag.trim()).filter(Boolean));
   }
   function renderAnkiTagChipHtml(tags, language) {
     return tags.map((tag) => `
@@ -28316,7 +28578,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     `;
   }
   function renderAnkiLibraryOptions(options, value, language = "en") {
-    const values = uniqueStrings$1([value, ...options].filter(Boolean));
+    const values = uniqueStrings$2([value, ...options].filter(Boolean));
     const rows = values.map((option) => `<option value="${escapeHtml$1(option)}" ${option === value ? "selected" : ""}>${escapeHtml$1(option)}</option>`);
     return rows.length ? rows.join("") : `<option value="" selected>${escapedUiText$2(language, "scanAnkiFirst")}</option>`;
   }
@@ -28326,7 +28588,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderAnkiFieldMappingEditor(settings, modelName = settings.ankiModel, scannedFields = [], language = settings.interfaceLanguage, confidenceByRole = {}) {
     const model = modelName.trim();
     const mapping = model ? settings.ankiFieldMappings[model] ?? {} : {};
-    const fields = uniqueStrings$1([...scannedFields, ...Object.values(mapping).filter(Boolean)]);
+    const fields = uniqueStrings$2([...scannedFields, ...Object.values(mapping).filter(Boolean)]);
     const options = (selected = "") => [
       `<option value="" ${selected ? "" : "selected"}>${escapedUiText$2(language, "notMapped")}</option>`,
       ...fields.map((field) => `<option value="${escapeHtml$1(field)}" ${field === selected ? "selected" : ""}>${escapeHtml$1(field)}</option>`)
@@ -28436,11 +28698,36 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const { message, tone } = jpdbStatusLineForSettings(settings, settings.interfaceLanguage);
     return `<div class="jpdb-reader-help jpdb-reader-status-line" data-jpdb-status data-status-tone="${tone}" role="status" aria-live="polite">${formatSettingsStatusLine({ message, tone }, settings.interfaceLanguage)}</div>`;
   }
+  function renderBunproStatusLine(settings) {
+    const line = bunproStatusLineForSettings(settings, settings.interfaceLanguage);
+    return `<div class="jpdb-reader-help jpdb-reader-status-line" data-bunpro-status data-status-tone="${line.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(line, settings.interfaceLanguage)}</div>`;
+  }
   function formatStatusTemplate(template, values) {
     return template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
   }
   function jpdbStatusLineForSettings(settings, language) {
     return jpdbStatusLineFromValues(hasJpdbApiCredential(settings), hasJitenApiCredential(settings), language);
+  }
+  function bunproStatusLineForSettings(settings, language) {
+    if (!hasBunproFrontendCredential(settings)) {
+      return {
+        message: resolveUiLanguage(language) === "ja" ? "Bunproトークンなし。" : "No Bunpro token.",
+        tone: "pending"
+      };
+    }
+    if (isBunproFrontendCredentialExpired(settings)) {
+      return {
+        message: resolveUiLanguage(language) === "ja" ? "Bunproトークンの期限切れ。" : "Bunpro token expired.",
+        tone: "error"
+      };
+    }
+    const expiresAt = settings.bunproFrontendApiTokenExpiresAt?.trim() ?? "";
+    const date = expiresAt ? new Date(expiresAt) : null;
+    const expires = date && Number.isFinite(date.getTime()) ? date.toLocaleDateString(resolveUiLanguage(language) === "ja" ? "ja-JP" : "en-GB") : "";
+    return {
+      message: expires ? resolveUiLanguage(language) === "ja" ? `Bunproトークンあり。期限: ${expires}` : `Bunpro token set. Expires ${expires}.` : resolveUiLanguage(language) === "ja" ? "Bunproトークンあり。" : "Bunpro token set.",
+      tone: "success"
+    };
   }
   function jpdbStatusLineFromValues(hasJpdbApiKey, hasJitenApiKey, language) {
     if (!hasJpdbApiKey && !hasJitenApiKey) {
@@ -28553,6 +28840,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     status.dataset.statusTone = line.tone;
     status.replaceChildren(line.message);
   }
+  function localizeBunproStatus(form, language) {
+    const status = form.querySelector("[data-bunpro-status]");
+    if (!status) return;
+    const credentials = readApiCredentialsFromFormData(new FormData(form));
+    const line = bunproStatusLineForSettings(credentials, language);
+    status.dataset.statusTone = line.tone;
+    status.replaceChildren(line.message);
+  }
   function localizeInitialAnkiStatus(form, language) {
     const status = form.querySelector("[data-anki-status]");
     if (!status || !isInitialAnkiSettingsStatus(status.textContent ?? "")) return;
@@ -28567,6 +28862,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   const COLOR_SOURCE_CLASS_VALUES = ["status", "jpdb", "anki", "pitch"];
   const DEFAULT_JITEN_SETTINGS_URL = "https://jiten.moe/settings";
+  const DEFAULT_BUNPRO_SETTINGS_URL = "https://bunpro.jp/settings/api";
   const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb-public-proxy/src/index.ts`;
   const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
   const DISABLED_SETTINGS_CONTROL_DESCRIPTION_ID = "jpdb-reader-disabled-control-description";
@@ -28583,6 +28879,20 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   };
   const API_KEY_INPUT_ATTRIBUTE_HTML = ' autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
   const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
+  const NEW_TAB_STUDY_STEP_LABELS = {
+    "kanji-doodle": "Kanji drawing",
+    word: "Word meaning",
+    "recall-cloze": "Write in sentence",
+    "listen-pitch": "Pitch listening",
+    speaking: "Speaking"
+  };
+  const NEW_TAB_STUDY_STEP_HELP = {
+    "kanji-doodle": "Draw each kanji before the word answer is shown.",
+    word: "Japanese front, meaning and reading on reveal.",
+    "recall-cloze": "Type the missing word in the example sentence.",
+    "listen-pitch": "Hear the word and choose the pitch pattern.",
+    speaking: "Repeat the word aloud when microphone feedback is available."
+  };
   const DEFAULT_SETTINGS_PANEL = "appearance";
   const SETTINGS_TABS = [
     { panel: "appearance", label: "Appearance", active: true },
@@ -28746,6 +29056,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function renderApiSettingsPanel(settings, jpdbSettingsUrl, jitenSettingsUrl) {
     const jpdbStatus = renderJpdbStatusLine(settings);
+    const bunproStatus = renderBunproStatusLine(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api" hidden>
                 <legend>API</legend>
@@ -28754,14 +29065,19 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     <div class="grid">
                         ${input("apiCredentialJiten", `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialJpdb", `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
+                        ${input("apiCredentialBunproLegacy", `Bunpro API key <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproApiKey, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
+                        ${input("apiCredentialBunpro", `Bunpro frontend API token <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproFrontendApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "frontend_api_token" })}
+                        <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml$1(settings.bunproFrontendApiTokenExpiresAt)}">
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Study deck choices stay scoped to the selected provider, and you can use either service, both, or neither with local dictionaries.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.</div>
                 </div>
                 ${jpdbStatus}
+                ${bunproStatus}
                 <div data-jpdb-decks>
                     ${renderDeckControls(settings, [], hasJpdbApiCredential(settings), settings.interfaceLanguage)}
                 </div>
                 ${checkbox("jpdbMiningEnabled", "Allow API review/deck changes", settings.jpdbMiningEnabled)}
+                ${checkbox("bunproMiningEnabled", "Allow Bunpro review/mining", settings.bunproMiningEnabled)}
                 ${checkbox("addToForq", "Also copy JPDB adds to forq", settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
                 ${checkbox("enableReviews", "Show review buttons", settings.enableReviews)}
                 <div class="jpdb-reader-settings-subsection">
@@ -28824,12 +29140,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                         ${runningAsBrowserExtension() ? checkbox("newTabEnabled", "Set Study as the new tab", settings.newTabEnabled) : ""}
                         ${checkbox("newTabAnkiEnabled", "Use Anki cards in Study", settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
-                        ${select("newTabSource", "Study review source", settings.newTabSource, [["auto", "Auto: API/Anki, then study words"], ["jpdb", "API SRS (Jiten / JPDB)"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
+                        ${select("newTabSource", "Study review source", settings.newTabSource, [["auto", "Auto: Yomu, accounts, then study words"], ["yomu-local", "Yomu local SRS"], ["jpdb", "API SRS (Jiten / JPDB)"], ["bunpro", "Bunpro"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
+                        ${checkbox("yomuLocalSrsEnabled", "Enable local Yomu SRS", settings.yomuLocalSrsEnabled)}
                         ${select("newTabJpdbReviewMode", "API review mode", settings.newTabJpdbReviewMode, [["auto", "Auto: live kanji + API vocabulary"], ["live-review", "Live JPDB review session"], ["api-vocabulary", "API vocabulary only"]])}
                         <div data-review-config ${settings.enableReviews ? "" : "hidden"}>
                             ${select("twoButtonReviews", "Review rating scale", settings.twoButtonReviews ? "true" : "false", [["false", "Five point: NOTHING to EASY"], ["true", "Two point: FAIL / PASS"]])}
                         </div>
                         ${select("newTabKanjiKeywordSource", "Kanji keyword source", settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings))}
+                        ${renderNewTabStudyStepOrderEditor(settings)}
                         ${checkbox("newTabParsingEnabled", "Parse sentences on Study", settings.newTabParsingEnabled)}
                         ${checkbox("newTabKanjiUnlockEnabled", "Study kanji before unlocking words", settings.newTabKanjiUnlockEnabled)}
                         ${checkbox("newTabStopAtBatchEnd", "Stop at the end of each batch", settings.newTabStopAtBatchEnd)}
@@ -28849,6 +29167,40 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     <div class="jpdb-reader-help" data-newtab-address-help>Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.</div>
                     <div class="jpdb-reader-help" data-newtab-offline-help>Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.</div>
                 </div>
+    `;
+  }
+  function renderNewTabStudyStepOrderEditor(settings) {
+    const disabled = new Set(settings.newTabStudyDisabledSteps);
+    return `
+                        <div class="jpdb-reader-settings-field-wide jpdb-reader-settings-study-steps" data-source-editor data-study-step-editor>
+                            <div class="jpdb-reader-settings-label-text">Study steps</div>
+                            <div class="jpdb-reader-help">Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.</div>
+                            <div class="jpdb-reader-dictionary-head jpdb-reader-order-head compact no-remove">
+                                <span>On</span>
+                                <span>Step</span>
+                                <span>Order</span>
+                            </div>
+                            ${settings.newTabStudyStepOrder.map((step, index) => renderNewTabStudyStepRow(step, index, !disabled.has(step))).join("")}
+                            <input name="newTabStudyTourSeen" type="hidden" value="${settings.newTabStudyTourSeen ? "true" : "false"}">
+                        </div>
+    `;
+  }
+  function renderNewTabStudyStepRow(step, index, enabled) {
+    return `
+                            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row compact no-remove" data-source-row data-study-step-row data-source-id="study-step-${escapeHtml$1(step)}">
+                                <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
+                                    <input name="newTabStudyEnabledStep" type="checkbox" value="${escapeHtml$1(step)}" ${enabled ? "checked" : ""}>
+                                    <span>${index + 1}</span>
+                                </label>
+                                <span class="jpdb-reader-field-display">${escapeHtml$1(NEW_TAB_STUDY_STEP_LABELS[step])}</span>
+                                ${renderRowOrderTools({
+      upAction: "dictionary-source-up",
+      downAction: "dictionary-source-down",
+      labels: { drag: "Drag to reorder", up: "Move up", down: "Move down" },
+      leading: `<input name="newTabStudyStepOrder" type="hidden" value="${escapeHtml$1(step)}">`
+    })}
+                                <div class="jpdb-reader-dictionary-row-help">${escapeHtml$1(NEW_TAB_STUDY_STEP_HELP[step])}</div>
+                            </div>
     `;
   }
   function kanjiKeywordSourceOptions(settings, text2) {
@@ -28876,7 +29228,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function renderNewTabAnkiDeckSelector(disabledDecks, deckNames, language) {
     const disabled = canonicalNewTabAnkiDisabledDecks(disabledDecks);
-    const decks = uniqueStrings$1([...deckNames, ...disabled]).map((deck) => deck.trim()).filter(Boolean);
+    const decks = uniqueStrings$2([...deckNames, ...disabled]).map((deck) => deck.trim()).filter(Boolean);
     if (!decks.length) return "";
     return `
                             <div class="jpdb-reader-newtab-anki-decks-head">
@@ -29616,6 +29968,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (jpdbSettings) jpdbSettings.textContent = text2("jpdbSettings");
     const jitenSettings = form.querySelector('label a[href*="jiten.moe/settings"]');
     if (jitenSettings) jitenSettings.textContent = text2("jitenSettings");
+    const bunproSettings = form.querySelector('label a[href*="bunpro.jp/settings"]');
+    if (bunproSettings) bunproSettings.textContent = text2("bunproSettings");
     const nadeshikoKeyLink = form.querySelector('label a[href*="nadeshiko.co/user/developer"]');
     if (nadeshikoKeyLink) nadeshikoKeyLink.textContent = text2("getNadeshikoKey");
     localizeBlockControlLabel(form, "ocrEndpointUrl", text2("ocrEndpointUrl"));
@@ -29668,6 +30022,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     setSelectOptionLabels(form, "newTabSource", [
       ["auto", text2("newTabAuto")],
       ["jpdb", text2("newTabApiSrs")],
+      ["bunpro", text2("newTabBunpro")],
+      ["yomu-local", text2("newTabYomuLocal")],
       ["anki", "Anki"],
       ["dictionary", text2("dictionaryFallback")]
     ]);
@@ -29905,6 +30261,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     localizeDeckControls(form, text2);
     const statusLanguage2 = resolveUiLanguageFromText(text2);
     localizeJpdbStatus(form, statusLanguage2);
+    localizeBunproStatus(form, statusLanguage2);
     localizeInitialAnkiStatus(form, statusLanguage2);
     localizeSourceRows(form, text2);
     localizeRecommendedDictionaryGroups(form, text2);
@@ -30109,11 +30466,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "apiCredential",
     "apiCredentialJpdb",
     "apiCredentialJiten",
+    "apiCredentialBunproLegacy",
+    "apiCredentialBunpro",
     "miningDeck",
     "newTabJpdbDeck",
     "neverForgetDeck",
     "blacklistDeck",
     "jpdbMiningEnabled",
+    "bunproMiningEnabled",
+    "yomuLocalSrsEnabled",
     "addToForq",
     "enableReviews",
     "jpdbPageEnhancementsEnabled",
@@ -31555,7 +31916,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       });
       syncJpdbMiningDependentSettings(form);
       syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-      for (const apiKeyInput of form.querySelectorAll('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"]')) {
+      for (const apiKeyInput of form.querySelectorAll('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"], input[name="apiCredentialBunproLegacy"], input[name="apiCredentialBunpro"], input[name="bunproFrontendApiTokenExpiresAt"]')) {
         apiKeyInput.addEventListener("input", () => this.syncJpdbStatus(form));
         apiKeyInput.addEventListener("change", () => {
           reconcileApiCredentialInputs(form);
@@ -31752,14 +32113,20 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       }
     }
     syncJpdbStatus(form) {
+      const formSettings = readFormSettings(new FormData(form), this.settings);
+      const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
       const status = form.querySelector("[data-jpdb-status]");
-      if (!status) return;
-      const line = jpdbStatusLineForSettings(
-        readFormSettings(new FormData(form), this.settings),
-        getFormInterfaceLanguage(form, this.settings.interfaceLanguage)
-      );
-      status.dataset.statusTone = line.tone;
-      status.textContent = formatSettingsStatusLine(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+      if (status) {
+        const line = jpdbStatusLineForSettings(formSettings, language);
+        status.dataset.statusTone = line.tone;
+        status.textContent = formatSettingsStatusLine(line, language);
+      }
+      const bunproStatus = form.querySelector("[data-bunpro-status]");
+      if (bunproStatus) {
+        const line = bunproStatusLineForSettings(formSettings, language);
+        bunproStatus.dataset.statusTone = line.tone;
+        bunproStatus.textContent = formatSettingsStatusLine(line, language);
+      }
       this.refreshSettingsJapaneseParse(form);
     }
     // Live probe via jpdb /ping: upgrades the static "key set" line to a real
@@ -34978,10 +35345,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const source = normalizeFallbackTerm(text2);
     if (!source) return [];
     const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
-    return uniqueStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
+    return uniqueStrings$1([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
   }
   function fallbackLookupTermsForCard(card) {
-    return dictionaryFirstFallbackLookupTerms(uniqueStrings([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean)));
+    return dictionaryFirstFallbackLookupTerms(uniqueStrings$1([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean)));
   }
   function isUsefulFallbackLookupCandidate(candidate) {
     return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
@@ -34999,12 +35366,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function dictionaryFirstFallbackLookupTerms(terms) {
     const [source, ...candidates] = terms;
     const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
-    return uniqueStrings([...terminal, ...candidates, source ?? ""]);
+    return uniqueStrings$1([...terminal, ...candidates, source ?? ""]);
   }
   function isTerminalDictionaryFallbackTerm(term) {
     return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
   }
-  function uniqueStrings(values) {
+  function uniqueStrings$1(values) {
     const seen = /* @__PURE__ */ new Set();
     return values.filter((value) => {
       if (!value) return false;
@@ -35195,7 +35562,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       nextIndex: includesClosingQuote ? index + 1 : index
     };
   }
-  const KANJI_RE$1 = /[\u3400-\u9fff]/u;
+  const KANJI_RE$2 = /[\u3400-\u9fff]/u;
   const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
   function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
     const tokens = rawTokens.map((innerTokens, index) => parseParagraphTokens(paragraphs[index] ?? "", innerTokens, cards));
@@ -35266,7 +35633,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function shouldRepairCardReading(card, surface, rubies) {
     if (!rubies.length || !surface || card.spelling !== surface) return false;
-    if (!KANJI_RE$1.test(card.spelling)) return false;
+    if (!KANJI_RE$2.test(card.spelling)) return false;
     const reading = card.reading.trim();
     return !reading || reading === card.spelling || KANA_RE.test(reading);
   }
@@ -42031,7 +42398,7 @@ ${spelling}`);
   function translatedYouTubePlayerTrack(track, source) {
     const translationLanguage = youtubePlayerTranslationLanguage(track);
     if (!translationLanguage) return source;
-    if (!isRecord$5(source)) return track.youtubeTrack ?? source;
+    if (!isRecord$6(source)) return track.youtubeTrack ?? source;
     return {
       ...source,
       translationLanguage
@@ -42039,7 +42406,7 @@ ${spelling}`);
   }
   function youtubePlayerTranslationLanguage(track) {
     const raw = track.youtubeTrack;
-    if (isRecord$5(raw) && raw.translationLanguage) return raw.translationLanguage;
+    if (isRecord$6(raw) && raw.translationLanguage) return raw.translationLanguage;
     const languageCode = track.targetLanguage || track.language;
     if (!languageCode) return null;
     return {
@@ -42049,10 +42416,10 @@ ${spelling}`);
   }
   function youtubePlayerTranslationSource(track) {
     const raw = track.youtubeTrack;
-    if (!isRecord$5(raw)) return null;
+    if (!isRecord$6(raw)) return null;
     return raw.source ?? null;
   }
-  function isRecord$5(value) {
+  function isRecord$6(value) {
     return Boolean(value && typeof value === "object");
   }
   function findPreferredYouTubeCaptionCandidate(track) {
@@ -44656,7 +45023,7 @@ ${spelling}`);
   }
   function subtitleFilesFromHostEvent(event) {
     const rawDetail = event instanceof CustomEvent ? detailValue(event) : void 0;
-    const detail = isRecord$4(rawDetail) ? rawDetail : {};
+    const detail = isRecord$5(rawDetail) ? rawDetail : {};
     const explicitJobs = [
       ...hostedSubtitleFileJobs("primary", detail.primary ?? detail.primaryFiles),
       ...hostedSubtitleFileJobs("secondary", detail.secondary ?? detail.secondaryFiles)
@@ -44738,7 +45105,7 @@ ${spelling}`);
     if (suffix === "weight") output.textContent = String(Math.round(value));
     else output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
   }
-  function isRecord$4(value) {
+  function isRecord$5(value) {
     return Boolean(value && typeof value === "object");
   }
   class SubtitlePlayerController {
@@ -54797,7 +55164,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       sid: scope.dataset.cardHighlightSid
     };
   }
-  const KANJI_RE = /[\u3400-\u9fff]/u;
+  const KANJI_RE$1 = /[\u3400-\u9fff]/u;
   const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
   function compactReading(value) {
     return value.replace(/\s+/g, "").trim();
@@ -54871,7 +55238,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return reading;
   }
   function unannotatedPronunciationText(value) {
-    return Array.from(value).filter((character) => !KANJI_RE.test(character)).join("");
+    return Array.from(value).filter((character) => !KANJI_RE$1.test(character)).join("");
   }
   const LOCAL_TAG_SPLIT_RE = /[\s,;|/]+/;
   const HIDDEN_LOCAL_TERM_TAGS = /* @__PURE__ */ new Set(["0", "1", "2", "3", "4", "5"]);
@@ -55565,7 +55932,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return context;
   }
   function storedMiningContextRecord(value, expectedTerm) {
-    if (!isRecord$3(value)) return null;
+    if (!isRecord$4(value)) return null;
     return text$1(value.term) === expectedTerm ? value : null;
   }
   function storedMiningSourceKind(value) {
@@ -55584,7 +55951,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isMiningSourceKind(value) {
     return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
   }
-  function isRecord$3(value) {
+  function isRecord$4(value) {
     return Boolean(value && typeof value === "object");
   }
   function optionalText(value) {
@@ -55892,7 +56259,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const canShowProviderStatus = Boolean(provider?.hasApiKey);
       return [
         renderMetaReading(card, settings),
-        card.frequencyRank && !canShowProviderStatus ? renderMetaFrequencyRank(card.frequencyRank, settings.interfaceLanguage) : "",
+        shouldRenderMetaFrequencyRank(card, provider, settings) ? renderMetaFrequencyRank(card.frequencyRank, settings.interfaceLanguage) : "",
         canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state2}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state2, settings.interfaceLanguage))}</span>` : "",
         renderAnkiMeta(data.ankiLookup, settings)
       ].filter(Boolean);
@@ -56037,6 +56404,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const label = uiText(language, "factFrequency");
     const value = `#${rank}`;
     return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill jpdb-reader-meta-pill" data-dictionary="JPDB" style="${pillStyle("frequency:JPDB")}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(`${label}: ${value}`)}">${escapeHtml$1(value)}</span>`;
+  }
+  function shouldRenderMetaFrequencyRank(card, provider, settings) {
+    if (!card.frequencyRank || provider?.hasApiKey) return false;
+    if (settings.showLookupPillFrequency === false) return true;
+    const liveProvider = liveFrequencyProviderForCard(card);
+    if (!liveProvider) return true;
+    const enabledLookupLinks = new Set(settings.dictionaryLookupLinks.filter((link) => link.enabled).map((link) => link.id));
+    return !(enabledLookupLinks.has(liveProvider) && enabledLookupLinks.has(`${liveProvider}-frequency`));
+  }
+  function liveFrequencyProviderForCard(card) {
+    if (card.source === "jiten" || card.reviewSource === "jiten-api") return "jiten";
+    if (card.source === "local" || card.source === "fallback" || card.source === "anki" || card.source === "bunpro" || card.source === "yomu-local") return null;
+    if (card.reviewSource === "dictionary" || card.reviewSource === "anki" || card.reviewSource === "bunpro-api" || card.reviewSource === "yomu-local") return null;
+    return "jpdb";
   }
   function renderAnkiMeta(lookup, settings) {
     if (!settings.ankiEnabled) return "";
@@ -57849,7 +58230,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
   }
   function normalizeExample(value, provider = "immersion-kit") {
-    return isRecord$2(value) ? normalizeExampleRecord(value, provider) : null;
+    return isRecord$3(value) ? normalizeExampleRecord(value, provider) : null;
   }
   function normalizeExampleRecord(record, provider = "immersion-kit") {
     const id = text(record.id);
@@ -57890,18 +58271,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function nadeshikoResponseRecord(data) {
     if (Array.isArray(data)) return { segments: data };
-    return isRecord$2(data) ? data : null;
+    return isRecord$3(data) ? data : null;
   }
   function nadeshikoSegments(response) {
     return firstArrayField(response, ["segments", "examples", "results", "data"]);
   }
   function nadeshikoMediaMap(response) {
     const includes = response.includes;
-    const media = isRecord$2(includes) ? includes.media : void 0;
-    return isRecord$2(media) ? media : {};
+    const media = isRecord$3(includes) ? includes.media : void 0;
+    return isRecord$3(media) ? media : {};
   }
   function normalizeNadeshikoExample(value, mediaById) {
-    if (!isRecord$2(value)) return null;
+    if (!isRecord$3(value)) return null;
     const sentence = nadeshikoSentence(value);
     if (!sentence) return null;
     const ids = nadeshikoExampleIds(value);
@@ -57938,7 +58319,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return recordField(mediaById[mediaPublicId]);
   }
   function recordField(value) {
-    return isRecord$2(value) ? value : {};
+    return isRecord$3(value) ? value : {};
   }
   function nadeshikoSourceTitle(record, media) {
     return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
@@ -57957,7 +58338,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function nestedText(record, key, fields) {
     const value = record[key];
-    return isRecord$2(value) ? firstText(value, fields) : "";
+    return isRecord$3(value) ? firstText(value, fields) : "";
   }
   function directMediaUrl(example, kind) {
     return kind === "image" ? example.imageUrl : example.soundUrl;
@@ -57995,7 +58376,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function text(value) {
     return typeof value === "string" ? value.trim() : "";
   }
-  function isRecord$2(value) {
+  function isRecord$3(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function titleSlugFromId(id) {
@@ -59447,6 +59828,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       recallIncorrect: "Not quite. Answer: {answer}",
       recallEmpty: "Enter an answer",
       recallPromptFallback: "Meaning",
+      studyTourStart: "Start",
+      pauseSpeaking: "Pause speaking 15 min",
       listen: "Listen",
       listenSubModeGroup: "Listen practice mode",
       listenPerceive: "Perceive",
@@ -59472,6 +59855,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       listenEmptyDictionary: "Listen mode needs pitch-accent data. Add a JPDB or Jiten API key (or enable Anki) in Settings to unlock pitch practice.",
       listenSeedFrom: "Seeded from your study words",
       listenMicListenBack: "Record & compare",
+      listenMicRecording: "Recording...",
       listenMicHint: "Records ~3s locally for playback only — never uploaded",
       listenMicModel: "Model",
       listenMicYou: "You",
@@ -59609,6 +59993,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       gradeTargetBoth: "Both",
       gradeTargetJpdb: "Grades JPDB",
       gradeTargetJiten: "Grades Jiten",
+      gradeTargetBunpro: "Grades Bunpro",
+      gradeTargetYomuLocal: "Grades Yomu",
       gradeTargetAnki: "Grades Anki card: {target}",
       gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
       gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
@@ -59650,6 +60036,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     recallIncorrect: "惜しい。答え: {answer}",
     recallEmpty: "答えを入力",
     recallPromptFallback: "意味",
+    studyTourStart: "開始",
+    pauseSpeaking: "スピーキングを15分休む",
     listen: "リスニング",
     listenSubModeGroup: "リスニング練習モード",
     listenPerceive: "聞き取り",
@@ -59675,6 +60063,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     listenEmptyDictionary: "リスニングモードにはアクセントデータが必要です。設定でJPDBまたはJitenのAPIキーを追加（あるいはAnkiを有効化）してください。",
     listenSeedFrom: "学習した単語から追加されました",
     listenMicListenBack: "録音して比較",
+    listenMicRecording: "録音中...",
     listenMicHint: "再生用に約3秒だけローカル録音します（アップロードされません）",
     listenMicModel: "お手本",
     listenMicYou: "あなた",
@@ -59812,6 +60201,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     gradeTargetBoth: "両方",
     gradeTargetJpdb: "JPDBを採点",
     gradeTargetJiten: "Jitenを採点",
+    gradeTargetBunpro: "Bunproを採点",
+    gradeTargetYomuLocal: "よむを採点",
     gradeTargetAnki: "Ankiカードを採点: {target}",
     gradeTargetJpdbAndAnki: "JPDB + Ankiカードを採点: {target}",
     gradeTargetJitenAndAnki: "Jiten + Ankiカードを採点: {target}",
@@ -60012,7 +60403,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const API_BASE = "https://jpdb.io/api/v1";
   const RATE_LIMIT_BACKOFF_MS = 3e4;
   const CONNECTION_FAILURE_BACKOFF_MS = 3e4;
-  const REQUEST_TIMEOUT_MS$3 = 3e4;
+  const REQUEST_TIMEOUT_MS$4 = 3e4;
   const RETRYABLE_READ_DELAY_MS = 1500;
   const RETRYABLE_READ_ATTEMPTS = 2;
   const RETRYABLE_API_READ_ENDPOINTS = /* @__PURE__ */ new Set([
@@ -60140,7 +60531,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           method: "POST",
           headers,
           body: data
-        }, REQUEST_TIMEOUT_MS$3);
+        }, REQUEST_TIMEOUT_MS$4);
         if (!response.ok && candidate !== url) {
           lastError = new Error(`JPDB proxy request failed (${response.status}).`);
           continue;
@@ -60231,7 +60622,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         headers,
         data,
         responseType: "text",
-        timeout: REQUEST_TIMEOUT_MS$3,
+        timeout: REQUEST_TIMEOUT_MS$4,
         onload: handleLoad,
         onerror: reject,
         ontimeout: () => reject(new Error("JPDB request timed out."))
@@ -60785,7 +61176,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : void 0;
   }
   const JITEN_API_BASE_URL = "https://api.jiten.moe/api";
-  const REQUEST_TIMEOUT_MS$2 = 3e4;
+  const REQUEST_TIMEOUT_MS$3 = 3e4;
   const MISSING_API_KEY_MESSAGE = "Jiten API key is not set.";
   class JitenApiError extends Error {
     constructor(message, status) {
@@ -61099,7 +61490,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             headers: this.headers(apiKey),
             body: data
           },
-          this.options.timeoutMs ?? REQUEST_TIMEOUT_MS$2
+          this.options.timeoutMs ?? REQUEST_TIMEOUT_MS$3
         );
         return parseJitenResponse(response, authenticated);
       }
@@ -61109,7 +61500,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           headers: this.headers(apiKey),
           data,
           responseType: "json",
-          timeoutMs: this.options.timeoutMs ?? REQUEST_TIMEOUT_MS$2,
+          timeoutMs: this.options.timeoutMs ?? REQUEST_TIMEOUT_MS$3,
           timeoutLabel: "Jiten request timed out.",
           failureLabel: "Jiten request",
           statusFailureMessage: (status) => `Jiten request failed (${status}).`,
@@ -62104,7 +62495,7 @@ ${key}`] = { t: now, v: value };
   const readPublicJitenCache = cache$1.read;
   const writePublicJitenCache = cache$1.write;
   const JITEN_PUBLIC_API_BASE_URL = "https://api.jiten.moe/api";
-  const REQUEST_TIMEOUT_MS$1 = 1500;
+  const REQUEST_TIMEOUT_MS$2 = 1500;
   const CACHE_TTL_MS$1 = 10 * 60 * 1e3;
   const CACHE_LIMIT$1 = 800;
   const DETAIL_CONCURRENCY = 4;
@@ -62321,7 +62712,7 @@ ${key}`] = { t: now, v: value };
       const request = this.options.requestJsonImpl ?? requestJson$3;
       return request(endpointUrl(this.options.baseUrl, endpoint), {
         responseType: "json",
-        timeoutMs: REQUEST_TIMEOUT_MS$1,
+        timeoutMs: REQUEST_TIMEOUT_MS$2,
         timeoutLabel: "Jiten timeout.",
         failureLabel: "Jiten",
         statusFailureMessage: (status) => `Jiten fail (${status}).`,
@@ -62358,9 +62749,9 @@ ${key}`] = { t: now, v: value };
     }
   }
   function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
-    if (!isRecord$1(payload)) return null;
+    if (!isRecord$2(payload)) return null;
     const wordId = finiteInteger(payload.wordId) ?? fallback.wordId;
-    const mainReading = isRecord$1(payload.mainReading) ? payload.mainReading : {};
+    const mainReading = isRecord$2(payload.mainReading) ? payload.mainReading : {};
     const annotatedReading = stringValue(mainReading.text) || requestedTerm;
     const spelling = cleanAnnotatedJitenText(annotatedReading) || requestedTerm;
     const reading = cleanJitenAnnotatedReading(annotatedReading) || spelling;
@@ -62415,7 +62806,7 @@ ${key}`] = { t: now, v: value };
     };
   }
   function normalizePublicParseWord(value) {
-    if (!isRecord$1(value)) return null;
+    if (!isRecord$2(value)) return null;
     const wordId = finiteInteger(value.wordId);
     const readingIndex = finiteInteger(value.readingIndex);
     const originalText = stringValue(value.originalText);
@@ -62528,11 +62919,11 @@ ${key}`] = { t: now, v: value };
   function endpointUrl(baseUrl, endpoint) {
     return `${(baseUrl ?? JITEN_PUBLIC_API_BASE_URL).replace(/\/+$/u, "")}/${endpoint.replace(/^\/+/u, "")}`;
   }
-  function isRecord$1(value) {
+  function isRecord$2(value) {
     return Boolean(value && typeof value === "object");
   }
   function arrayRecords(value) {
-    return Array.isArray(value) ? value.filter(isRecord$1) : [];
+    return Array.isArray(value) ? value.filter(isRecord$2) : [];
   }
   function stringArray(value) {
     if (typeof value === "string") return [value];
@@ -62557,11 +62948,11 @@ ${key}`] = { t: now, v: value };
     log$7.warn(message, context, error);
   }
   function errorName(error) {
-    return isRecord$1(error) && typeof error.name === "string" ? error.name : "";
+    return isRecord$2(error) && typeof error.name === "string" ? error.name : "";
   }
   function errorMessage(error) {
     if (error instanceof Error) return error.message;
-    return isRecord$1(error) && typeof error.message === "string" ? error.message : "";
+    return isRecord$2(error) && typeof error.message === "string" ? error.message : "";
   }
   const JITEN_KANJI_WORD_PAGE_SIZE = 9;
   const CARD_STATES = /* @__PURE__ */ new Set([
@@ -63046,7 +63437,7 @@ ${key}`] = { t: now, v: value };
   function pitchSegmentReading(segment) {
     return Array.from(compactJpdbText(segment.textContent ?? "")).filter((character) => PITCH_KANA.test(character)).join("");
   }
-  const REQUEST_TIMEOUT_MS = 6e3;
+  const REQUEST_TIMEOUT_MS$1 = 6e3;
   const CACHE_TTL_MS = 10 * 60 * 1e3;
   const CACHE_LIMIT = 600;
   const log$6 = Logger.scope("JpdbPublicPitch");
@@ -63112,7 +63503,7 @@ ${normalizedReading}`;
   function requestText$1(url, proxyUrl = "") {
     return requestPublicJpdbText(url, {
       proxyUrl,
-      timeoutMs: REQUEST_TIMEOUT_MS,
+      timeoutMs: REQUEST_TIMEOUT_MS$1,
       failureLabel: "Public JPDB pitch request",
       timeoutLabel: "Public JPDB pitch request timed out."
     });
@@ -64551,7 +64942,7 @@ ${reading}`);
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
   function isNewTabSource(value) {
-    return value === "auto" || value === "jpdb" || value === "anki" || value === "dictionary";
+    return value === "auto" || value === "jpdb" || value === "bunpro" || value === "yomu-local" || value === "anki" || value === "dictionary";
   }
   function isNewTabSort(value) {
     return value === "random" || value === "frequency" || value === "state";
@@ -64934,14 +65325,19 @@ ${reading}`);
       accumulator.labels.push(result.sourceLabel);
     }
   }
-  function autoReviewSourceResults(jpdbResult, ankiResult) {
-    if (!jpdbResult.cards.length || !ankiResult.cards.length) return [jpdbResult, ankiResult];
+  function autoReviewSourceResults(...results) {
+    const jpdbIndex = results.findIndex((result) => result.sourceLabel.includes("JPDB") || result.sourceLabel.includes("Jiten"));
+    const ankiIndex = results.findIndex((result) => result.sourceLabel.startsWith("Anki"));
+    const jpdbResult = jpdbIndex >= 0 ? results[jpdbIndex] : void 0;
+    const ankiResult = ankiIndex >= 0 ? results[ankiIndex] : void 0;
+    if (!jpdbResult || !ankiResult) return results;
+    if (!jpdbResult.cards.length || !ankiResult.cards.length) return results;
     const ankiByKey = /* @__PURE__ */ new Map();
     for (const card of ankiResult.cards) {
       const key = autoReviewMergeKey(card);
       if (key && !ankiByKey.has(key)) ankiByKey.set(key, card);
     }
-    if (!ankiByKey.size) return [jpdbResult, ankiResult];
+    if (!ankiByKey.size) return results;
     const matchedAnkiKeys = /* @__PURE__ */ new Set();
     const cards = jpdbResult.cards.map((card) => {
       const key = autoReviewMergeKey(card);
@@ -64950,11 +65346,11 @@ ${reading}`);
       matchedAnkiKeys.add(key);
       return mergeDedupeCardMetadata(card, ankiCard);
     });
-    if (!matchedAnkiKeys.size) return [jpdbResult, ankiResult];
-    return [
-      { ...jpdbResult, cards },
-      { ...ankiResult, cards: ankiResult.cards.filter((card) => !matchedAnkiKeys.has(autoReviewMergeKey(card))) }
-    ];
+    if (!matchedAnkiKeys.size) return results;
+    const merged = [...results];
+    merged[jpdbIndex] = { ...jpdbResult, cards };
+    merged[ankiIndex] = { ...ankiResult, cards: ankiResult.cards.filter((card) => !matchedAnkiKeys.has(autoReviewMergeKey(card))) };
+    return merged;
   }
   function interleavedNewTabLoadAccumulator(results) {
     const accumulator = emptyNewTabLoadAccumulator();
@@ -65047,7 +65443,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     }
   }
   function isReviewSource(source) {
-    return source === "anki" || source === "jpdb-api" || source === "jpdb-live" || source === "jiten-api";
+    return source === "anki" || source === "jpdb-api" || source === "jpdb-live" || source === "jiten-api" || source === "bunpro-api" || source === "yomu-local";
   }
   function isPositiveJpdbCard(card) {
     return card.source === "jpdb" && card.vid > 0 && card.sid > 0;
@@ -65060,6 +65456,8 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   }
   function newTabCardSourceLabel(card, language) {
     if (card.source === "anki" || card.reviewSource === "anki") return ankiReviewSourceLabel(card, language);
+    if (card.source === "bunpro" || card.reviewSource === "bunpro-api") return "Bunpro";
+    if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return "Yomu";
     if (card.source === "local" || card.source === "fallback" || card.reviewSource === "dictionary") return uiText(language, "dictionary");
     if (isJitenSrsCard(card)) return "Jiten";
     if (card.source === "jpdb" || card.reviewSource === "jpdb-api" || card.reviewSource === "jpdb-live") return "JPDB";
@@ -65090,11 +65488,15 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     } else if ((card.reviewSource === "jpdb-api" || isPositiveJpdbCard(card)) && settings.jpdbMiningEnabled && hasJpdbApiCredential(settings)) {
       add("jpdb-api");
     }
+    if (card.reviewSource === "bunpro-api" && settings.bunproMiningEnabled && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings)) {
+      add("bunpro-api");
+    }
+    if (card.reviewSource === "yomu-local" && settings.yomuLocalSrsEnabled) add("yomu-local");
     if (settings.ankiEnabled && settings.newTabAnkiEnabled && ankiCardId) add("anki");
     return targets;
   }
   function queueableNewTabReviewTargets(targets) {
-    return targets.filter((target) => target === "anki" || target === "jpdb-api" || target === "jiten-api");
+    return targets.filter((target) => target === "anki" || target === "jpdb-api" || target === "jiten-api" || target === "bunpro-api" || target === "yomu-local");
   }
   function passingNewTabGrade(grade) {
     return grade === "pass" || grade === "easy" || grade === "okay";
@@ -65301,6 +65703,8 @@ ${newTabCardReading(card)}`;
   ];
   const NEW_TAB_SOURCE_LABELS = {
     jpdb: "JPDB",
+    bunpro: "Bunpro",
+    "yomu-local": "Yomu",
     anki: "Anki",
     dictionary: "Dictionary"
   };
@@ -65876,14 +66280,14 @@ ${newTabCardReading(card)}`;
     if (source === "auto") {
       return {
         kind: "auto-review",
-        primarySources: ["jpdb", "anki"],
+        primarySources: ["yomu-local", "jpdb", "bunpro", "anki"],
         studyFallback: { kind: "unconfigured-auto-study" }
       };
     }
     return {
       kind: "explicit-source",
       primarySources: [source],
-      studyFallback: source === "jpdb" ? { kind: "study-supplement", minCards: fallbackSupplementMin } : { kind: "none" }
+      studyFallback: source === "jpdb" || source === "bunpro" || source === "yomu-local" ? { kind: "study-supplement", minCards: fallbackSupplementMin } : { kind: "none" }
     };
   }
   const EMPTY_CARDS = {
@@ -65905,12 +66309,16 @@ ${newTabCardReading(card)}`;
   function emptyStatsDashboardSnapshot() {
     const jpdb = emptyStatsSource("jpdb", "JPDB", "Add JPDB data to see stats.");
     const jiten = emptyStatsSource("jiten", "Jiten", "Add Jiten data to see stats.");
+    const bunpro = emptyStatsSource("bunpro", "Bunpro", "Connect Bunpro to see stats.");
+    const yomuLocal = emptyStatsSource("yomu-local", "Yomu", "Local Yomu SRS is ready.");
     const anki = emptyStatsSource("anki", "Anki", "Connect Anki to see stats.");
     return {
       jpdb,
       jiten,
+      bunpro,
+      yomuLocal,
       anki,
-      combined: combineStatsSources(jpdb, jiten, anki)
+      combined: combineStatsSources(jpdb, jiten, yomuLocal, bunpro, anki)
     };
   }
   function emptyStatsSource(id, label, message, status = "setup") {
@@ -66087,7 +66495,7 @@ ${newTabCardReading(card)}`;
   }
   function recentDailyPoints(points, days = 30, today = /* @__PURE__ */ new Date()) {
     const byDate = new Map(points.map((point) => [point.date, point]));
-    const end = startOfLocalDay(today).getTime();
+    const end = startOfLocalDay$1(today).getTime();
     const out = [];
     for (let offset = days - 1; offset >= 0; offset--) {
       const date = dateKey(new Date(end - offset * DAY_MS$1));
@@ -66125,6 +66533,8 @@ ${newTabCardReading(card)}`;
   function statsSourceForId(snapshot, id) {
     if (id === "jpdb") return snapshot.jpdb;
     if (id === "jiten") return snapshot.jiten;
+    if (id === "bunpro") return snapshot.bunpro;
+    if (id === "yomu-local") return snapshot.yomuLocal;
     if (id === "anki") return snapshot.anki;
     return snapshot.combined;
   }
@@ -66167,7 +66577,7 @@ ${newTabCardReading(card)}`;
     if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) return 0;
     const active = new Set(points.filter((point) => point.reviews > 0).map((point) => point.date));
     let streak = 0;
-    for (let cursor = startOfLocalDay(/* @__PURE__ */ new Date(`${date}T00:00:00`)); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS$1)) {
+    for (let cursor = startOfLocalDay$1(/* @__PURE__ */ new Date(`${date}T00:00:00`)); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS$1)) {
       streak += 1;
     }
     return streak;
@@ -66370,13 +66780,13 @@ ${newTabCardReading(card)}`;
   }
   function jpdbReviewCards(value) {
     if (Array.isArray(value)) return value;
-    if (!isRecord(value)) return [];
+    if (!isRecord$1(value)) return [];
     const cards = Object.entries(value).filter(([key, item]) => key.startsWith("cards_") && Array.isArray(item)).flatMap(([, item]) => item);
     if (cards.length) return cards;
     return Array.isArray(value.cards) ? value.cards : [];
   }
   function normalizeJpdbReviewEntries(card) {
-    if (!isRecord(card) || !Array.isArray(card.reviews)) return [];
+    if (!isRecord$1(card) || !Array.isArray(card.reviews)) return [];
     return card.reviews.map(normalizeJpdbReview).filter((review) => review !== null).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
   function normalizeJpdbReview(value) {
@@ -66389,7 +66799,7 @@ ${newTabCardReading(card)}`;
         minutes: numberValue(value[5]) / 6e4
       };
     }
-    if (!isRecord(value)) return null;
+    if (!isRecord$1(value)) return null;
     const timestamp = reviewTimestamp(value.timestamp ?? value.time ?? value.date);
     if (!timestamp) return null;
     return {
@@ -66431,7 +66841,7 @@ ${newTabCardReading(card)}`;
   function streakStats(points) {
     const active = new Set(points.filter((point) => point.reviews > 0).map((point) => point.date));
     let current = 0;
-    for (let cursor = startOfLocalDay(/* @__PURE__ */ new Date()); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS$1)) {
+    for (let cursor = startOfLocalDay$1(/* @__PURE__ */ new Date()); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS$1)) {
       current += 1;
     }
     let longest = 0;
@@ -66439,7 +66849,7 @@ ${newTabCardReading(card)}`;
     let previousTime = 0;
     for (const point of points) {
       if (point.reviews <= 0) continue;
-      const time = startOfLocalDay(/* @__PURE__ */ new Date(`${point.date}T00:00:00`)).getTime();
+      const time = startOfLocalDay$1(/* @__PURE__ */ new Date(`${point.date}T00:00:00`)).getTime();
       run = previousTime && time - previousTime === DAY_MS$1 ? run + 1 : 1;
       longest = Math.max(longest, run);
       previousTime = time;
@@ -66470,13 +66880,13 @@ ${newTabCardReading(card)}`;
     return { date, reviews: 0, correct: 0, failed: 0, newCards: 0, minutes: 0 };
   }
   function dateKey(date) {
-    const local = startOfLocalDay(date);
+    const local = startOfLocalDay$1(date);
     const year = local.getFullYear();
     const month = String(local.getMonth() + 1).padStart(2, "0");
     const day = String(local.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
-  function startOfLocalDay(date) {
+  function startOfLocalDay$1(date) {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
   }
   function startOfLocalMonth(date) {
@@ -66496,7 +66906,7 @@ ${newTabCardReading(card)}`;
     const number = Number(value);
     return Number.isFinite(number) ? number : 0;
   }
-  function isRecord(value) {
+  function isRecord$1(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
   function renderNewTabStatsContent(options) {
@@ -66867,6 +67277,8 @@ ${newTabCardReading(card)}`;
     return [
       ["jpdb", snapshot.jpdb],
       ["jiten", snapshot.jiten],
+      ["yomu-local", snapshot.yomuLocal],
+      ["bunpro", snapshot.bunpro],
       ["anki", snapshot.anki]
     ].filter(([, source]) => statsSourceHasVisibleData(source));
   }
@@ -66879,6 +67291,8 @@ ${newTabCardReading(card)}`;
   function fallbackStatsSourceLabel(source) {
     if (source === "jpdb") return "JPDB";
     if (source === "jiten") return "Jiten";
+    if (source === "bunpro") return "Bunpro";
+    if (source === "yomu-local") return "Yomu";
     return "Anki";
   }
   function renderStatsAnkiDeckToggles(source, text2) {
@@ -67014,6 +67428,8 @@ ${newTabCardReading(card)}`;
       targets,
       hasJpdb: targets.some((target) => isJpdbReviewTarget(target)),
       hasJiten: targets.includes("jiten-api"),
+      hasBunpro: targets.includes("bunpro-api"),
+      hasYomuLocal: targets.includes("yomu-local"),
       hasAnki: targets.includes("anki")
     };
   }
@@ -67021,6 +67437,8 @@ ${newTabCardReading(card)}`;
     return target === "jpdb-api" || target === "jpdb-live";
   }
   function newTabGradeTargetLabel(summary, labels) {
+    if (summary.hasBunpro) return labels.bunpro;
+    if (summary.hasYomuLocal) return labels.yomuLocal;
     if (summary.hasJpdb && summary.hasJiten) return summary.hasAnki ? labels.all : labels.jpdbAndJiten;
     if (summary.hasJiten && summary.hasAnki) return labels.jitenAndAnki;
     if (summary.hasJpdb && summary.hasAnki) return labels.jpdbAndAnki;
@@ -67029,11 +67447,13 @@ ${newTabCardReading(card)}`;
     return labels.jpdb;
   }
   function newTabApiGradeTargetShortLabel(summary) {
+    if (summary.hasBunpro) return "Bunpro";
+    if (summary.hasYomuLocal) return "Yomu";
     if (summary.hasJpdb && summary.hasJiten) return "Jiten + JPDB";
     return summary.hasJiten ? "Jiten" : "JPDB";
   }
   function newTabMainGradeTargetOptions(targets, combinedLabel, bothLabel) {
-    const hasApi = targets.some((target) => target.kind === "jpdb" || target.kind === "jiten");
+    const hasApi = targets.some((target) => target.kind !== "anki");
     const ankiTargets = targets.filter((target) => target.kind === "anki" && target.ankiCardId);
     const options = targets.map(newTabMainGradeTargetOptionFromLookupTarget);
     if (hasApi && ankiTargets.length) {
@@ -67060,6 +67480,8 @@ ${newTabCardReading(card)}`;
     if (!option) return void 0;
     if (option.dataset.newtabReviewTarget === "jpdb") return { kind: "jpdb" };
     if (option.dataset.newtabReviewTarget === "jiten") return { kind: "jiten" };
+    if (option.dataset.newtabReviewTarget === "bunpro") return { kind: "bunpro" };
+    if (option.dataset.newtabReviewTarget === "yomu-local") return { kind: "yomu-local" };
     if (option.dataset.newtabReviewTarget !== "anki") return void 0;
     const ankiCardId = Number(option.dataset.ankiCardId);
     return Number.isFinite(ankiCardId) && ankiCardId > 0 ? { kind: "anki", ankiCardId } : void 0;
@@ -67166,7 +67588,9 @@ ${newTabCardReading(card)}`;
   function newTabKeyHintsRenderable() {
     if (typeof matchMedia !== "function") return true;
     try {
-      return !matchMedia("(pointer: coarse)").matches;
+      const hasFinePointer = matchMedia("(pointer: fine)").matches || matchMedia("(any-pointer: fine)").matches;
+      const hasHover = matchMedia("(hover: hover)").matches || matchMedia("(any-hover: hover)").matches;
+      return hasFinePointer || hasHover;
     } catch {
       return true;
     }
@@ -67202,6 +67626,22 @@ ${newTabCardReading(card)}`;
     }
     return { outcome: "incorrect", canonicalAnswer: candidates.canonicalAnswer, acceptedAnswers: candidates.acceptedAnswers };
   }
+  function buildNewTabRecallCloze(card, sentence, reading = card.reading) {
+    const normalizedSentence = sentence.replace(/\s+/gu, " ").trim();
+    const candidates = newTabRecallAnswerCandidates(card, reading);
+    const target = recallClozeTarget(normalizedSentence, candidates.primaryAnswers) || recallClozeTarget(normalizedSentence, candidates.acceptedAnswers);
+    if (!normalizedSentence || !target || sameRecallAnswer(normalizedSentence, target)) {
+      return { sentence: normalizedSentence, before: "", answer: candidates.canonicalAnswer, after: "", hasCloze: false };
+    }
+    const start = normalizedSentence.indexOf(target);
+    return {
+      sentence: normalizedSentence,
+      before: normalizedSentence.slice(0, start),
+      answer: target,
+      after: normalizedSentence.slice(start + target.length),
+      hasCloze: true
+    };
+  }
   function newTabRecallAnswerCandidates(card, reading = card.reading) {
     const primaryAnswers = uniqueRecallAnswers(splitRecallAnswers(card.spelling));
     const acceptedAnswers = uniqueRecallAnswers([
@@ -67233,6 +67673,9 @@ ${newTabCardReading(card)}`;
   }
   function sameRecallAnswer(left, right) {
     return normalizeNewTabRecallAnswer(left) === normalizeNewTabRecallAnswer(right);
+  }
+  function recallClozeTarget(sentence, candidates) {
+    return candidates.filter((candidate) => candidate && sentence.includes(candidate)).sort((a, b) => b.length - a.length)[0] ?? "";
   }
   const PITCH_ITEMS_KEY = "yomu-pitch-items:v1";
   const PITCH_HISTORY_KEY = "yomu-pitch-history:v1";
@@ -67468,7 +67911,8 @@ ${newTabCardReading(card)}`;
     return className ? t(PITCH_CLASS_LABEL_KEYS[className]) : "";
   }
   function iconButton(action, label, extraAttrs = "") {
-    return `<button type="button" class="jpdb-reader-newtab-listen-btn" data-newtab-action="${action}" ${extraAttrs} title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${escapeHtml$1(label)}</button>`;
+    const content = action.startsWith("listen-play") ? speakerIcon() : escapeHtml$1(label);
+    return `<button type="button" class="jpdb-reader-newtab-listen-btn" data-newtab-action="${action}" ${extraAttrs} title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${content}</button>`;
   }
   function renderPositionPicker(item, selectedPosition, revealed, t) {
     const moraCount = splitMorae(item.reading).length;
@@ -67517,14 +67961,10 @@ ${newTabCardReading(card)}`;
             </div>
         </div>`;
   }
-  function renderGradeRow(grades, t) {
-    const buttons = grades.map((entry) => `<button type="button" class="jpdb-reader-newtab-listen-grade" data-newtab-action="listen-grade" data-grade="${entry.grade}">${escapeHtml$1(t(entry.key))}</button>`).join("");
-    return `<div class="jpdb-reader-newtab-listen-grades" role="group">${buttons}</div>`;
-  }
   function renderRecordRow(view, t) {
     if (!view.micEnabled) return "";
     if (view.micUnavailable) return `<span class="jpdb-reader-newtab-listen-note">${escapeHtml$1(t("listenMicUnavailable"))}</span>`;
-    const recordLabel = view.recording ? t("listenShadowAgain") : t("listenMicListenBack");
+    const recordLabel = view.recording ? t("listenMicRecording") : t("listenMicListenBack");
     return `
         <div class="jpdb-reader-newtab-listen-record">
             <button type="button" class="jpdb-reader-newtab-listen-btn${view.recording ? " jpdb-reader-newtab-listen-recording" : ""}" data-newtab-action="listen-record" aria-pressed="${view.recording}">${escapeHtml$1(recordLabel)}</button>
@@ -67532,20 +67972,8 @@ ${newTabCardReading(card)}`;
             <span class="jpdb-reader-newtab-listen-note">${escapeHtml$1(t("listenMicHint"))}</span>
         </div>`;
   }
-  function renderListenStats(stats, t) {
-    if (!stats.deckSize) return "";
-    const chips = stats.accuracy.filter((entry) => entry.total > 0 && PITCH_CLASS_LABEL_KEYS[entry.pitchClass]).map((entry) => `<span class="jpdb-reader-newtab-listen-stat">${escapeHtml$1(pitchClassLabel(entry.pitchClass, t))} ${Math.round(entry.correct / entry.total * 100)}%</span>`).join("");
-    return `<div class="jpdb-reader-newtab-listen-stats">
-        <span class="jpdb-reader-newtab-listen-stat">${stats.due} ${escapeHtml$1(t("listenDue"))}</span>
-        ${chips}
-    </div>`;
-  }
   function renderListenCard(view, t) {
-    const promptKey = view.subMode === "perceive" ? "listenPerceivePrompt" : view.subMode === "recall" ? "listenRecallPrompt" : "listenShadowPrompt";
-    const sections = [
-      renderListenStats(view.stats, t),
-      `<div class="jpdb-reader-newtab-listen-prompt">${escapeHtml$1(t(promptKey))}</div>`
-    ];
+    const sections = [];
     if (view.subMode !== "recall" || view.revealed) {
       sections.push(`<div class="jpdb-reader-newtab-listen-audio">
             ${view.hasAudio ? iconButton("listen-play", t("listenReplay")) : `<span class="jpdb-reader-newtab-listen-note">${escapeHtml$1(t("listenNoAudio"))}</span>`}
@@ -67560,10 +67988,7 @@ ${newTabCardReading(card)}`;
     if (view.subMode === "shadow") {
       sections.push(renderAnswerContour(view.item, t));
       sections.push(renderRecordRow(view, t));
-      sections.push(renderGradeRow([
-        { grade: "something", key: "listenShadowAgain" },
-        { grade: "okay", key: "listenShadowGood" }
-      ], t));
+      sections.push(`<div class="jpdb-reader-newtab-listen-grades"><button type="button" class="jpdb-reader-newtab-listen-grade" data-newtab-action="listen-next">${escapeHtml$1(t("listenReveal"))}</button></div>`);
       return `<div class="jpdb-reader-newtab-listen-card" data-listen-submode="shadow">${sections.join("")}</div>`;
     }
     if (!view.revealed) {
@@ -67577,15 +68002,90 @@ ${newTabCardReading(card)}`;
         sections.push(renderAnswerContour(view.item, t));
       }
       if (view.subMode === "recall") {
-        sections.push(renderGradeRow([
-          { grade: "something", key: "listenShadowAgain" },
-          { grade: "okay", key: "listenShadowGood" }
-        ], t));
+        sections.push(`<div class="jpdb-reader-newtab-listen-grades"><button type="button" class="jpdb-reader-newtab-listen-grade" data-newtab-action="listen-next">${escapeHtml$1(t("listenReveal"))}</button></div>`);
       } else {
         sections.push(`<div class="jpdb-reader-newtab-listen-grades"><button type="button" class="jpdb-reader-newtab-listen-grade" data-newtab-action="listen-next">${escapeHtml$1(t("listenReveal"))}</button></div>`);
       }
     }
     return `<div class="jpdb-reader-newtab-listen-card" data-listen-submode="${view.subMode}">${sections.join("")}</div>`;
+  }
+  const KANJI_RE = /[\u3400-\u9fff々〆]/u;
+  const STUDY_STEP_LABELS = {
+    "kanji-doodle": "Kanji",
+    word: "Word",
+    "recall-cloze": "Recall",
+    "listen-pitch": "Listen",
+    speaking: "Speak",
+    "final-reveal": "Reveal"
+  };
+  function createNewTabStudySession(card, options) {
+    const steps = mergedStudyStepsForCard(card, options);
+    const activeKind = activeStudyStepKind(options);
+    const activeStep = steps.find((step) => step.kind === activeKind) ?? steps[0] ?? studyStep("word", "word");
+    const gradeStep = steps.find((step) => step.kind === "final-reveal") ?? activeStep;
+    return { steps, activeStep, gradeStep };
+  }
+  function mergedStudyStepsForCard(card, options) {
+    const available = /* @__PURE__ */ new Set();
+    if (options.renderAsKanji || containsKanji(card.spelling)) available.add("kanji-doodle");
+    available.add("word");
+    if (options.hasRecallCloze) available.add("recall-cloze");
+    if (options.hasPitchStep) {
+      available.add("listen-pitch");
+      available.add("speaking");
+    }
+    const disabled = new Set(options.disabledSteps ?? []);
+    const ordered = normalizedChallengeStepOrder(options.stepOrder);
+    const steps = ordered.filter((kind) => available.has(kind) && !disabled.has(kind)).map((kind) => studyStep(kind, studyModeForStep(kind)));
+    if (!steps.some((step) => step.kind === "word")) steps.unshift(studyStep("word", "word"));
+    steps.push(studyStep("final-reveal", options.renderAsKanji ? "kanji" : "word", true));
+    return dedupeStudySteps(steps);
+  }
+  function activeStudyStepKind(options) {
+    if (options.revealAnswer && options.mode !== "listen") return "final-reveal";
+    if (options.renderAsKanji) return "kanji-doodle";
+    if (options.mode === "recall") return "recall-cloze";
+    if (options.mode === "listen") return options.listenSubMode === "shadow" ? "speaking" : "listen-pitch";
+    return "word";
+  }
+  function studyStep(kind, mode, gradeable = false) {
+    return { kind, mode, gradeable, label: STUDY_STEP_LABELS[kind] };
+  }
+  function normalizedChallengeStepOrder(order) {
+    const configured = Array.isArray(order) ? order : [];
+    return dedupeChallengeSteps([
+      ...configured,
+      "kanji-doodle",
+      "word",
+      "recall-cloze",
+      "listen-pitch",
+      "speaking"
+    ]);
+  }
+  function dedupeChallengeSteps(steps) {
+    const seen = /* @__PURE__ */ new Set();
+    return steps.filter((step) => {
+      if (seen.has(step)) return false;
+      seen.add(step);
+      return true;
+    });
+  }
+  function studyModeForStep(kind) {
+    if (kind === "kanji-doodle") return "kanji";
+    if (kind === "recall-cloze") return "recall";
+    if (kind === "listen-pitch" || kind === "speaking") return "listen";
+    return "word";
+  }
+  function dedupeStudySteps(steps) {
+    const seen = /* @__PURE__ */ new Set();
+    return steps.filter((step) => {
+      if (seen.has(step.kind)) return false;
+      seen.add(step.kind);
+      return true;
+    });
+  }
+  function containsKanji(value) {
+    return Array.from(value).some((character) => KANJI_RE.test(character));
   }
   const DEFAULT_THRESHOLD_PX = 96;
   const DEFAULT_MAX_PROGRESS_PX = 144;
@@ -68354,7 +68854,7 @@ ${entry.url}`),
     return typeof record.id === "string" && typeof record.at === "number";
   }
   function hasQueuedGradeTarget(record) {
-    return record.target === "anki" || record.target === "jpdb-api" || record.target === "jiten-api";
+    return record.target === "anki" || record.target === "jpdb-api" || record.target === "jiten-api" || record.target === "bunpro-api" || record.target === "yomu-local";
   }
   function hasQueuedGradePayload(record) {
     return isObjectRecord(record.card) && typeof record.attempts === "number";
@@ -68816,6 +69316,7 @@ ${entry.url}`),
     listenRecordingUrl;
     listenRecordingAudio;
     listenRecordingUnavailable = false;
+    speakingPausedUntil = 0;
     recallOutcomes = /* @__PURE__ */ new Map();
     rootEventController;
     rootClickHandlers = [
@@ -68838,6 +69339,11 @@ ${entry.url}`),
       "continue-batch": (root) => {
         void this.continueAfterBatch(root);
       },
+      "study-step": (root, target) => this.activateStudyStepFromClick(root, target),
+      "dismiss-study-tour": (root) => {
+        void this.dismissStudyTour(root);
+      },
+      "pause-speaking": (root) => this.pauseSpeaking(root),
       "recall-submit": (root) => this.submitRecallAnswer(root),
       "listen-pick": (root, target) => this.handleListenPick(root, target),
       "listen-play": () => {
@@ -69111,6 +69617,8 @@ ${entry.url}`),
             "section",
             { class: "jpdb-reader-newtab-study", dataset: { newtabStudy: true }, "aria-live": "polite" },
             el("div", { class: "jpdb-reader-newtab-count", dataset: { newtabCount: true }, hidden: true }),
+            el("div", { class: "jpdb-reader-newtab-study-steps", dataset: { newtabStudySteps: true }, role: "list" }),
+            el("div", { class: "jpdb-reader-newtab-study-tour", dataset: { newtabStudyTour: true }, hidden: true }),
             el("h1", { class: "jpdb-reader-newtab-prompt jpdb-reader-parseable", dataset: { newtabPrompt: true }, lang: "ja" }, APP_NAME),
             el(
               "div",
@@ -69635,12 +70143,61 @@ ${entry.url}`),
       handler(root, target, event);
       return true;
     }
+    activateStudyStepFromClick(root, target) {
+      const kind = target.closest("[data-study-step-kind]")?.dataset.studyStepKind;
+      if (isNewTabStudyStepKind(kind)) this.activateStudyStep(root, kind);
+    }
+    activateStudyStep(root, kind) {
+      if (kind === "final-reveal") {
+        const card = this.visibleWords[this.index];
+        const mode = card && this.shouldRenderCardAsKanji(card) ? "kanji" : "word";
+        this.setState({ mode, revealAnswer: true }, root, { preserveWord: true });
+        this.maybeAutoPlayRevealedImmersionAudio(card, true);
+        return;
+      }
+      this.setState({
+        mode: modeForStudyStepKind(kind),
+        listenSubMode: listenSubModeForStudyStepKind(kind) ?? this.state.listenSubMode,
+        revealAnswer: false
+      }, root, { preserveWord: true });
+    }
+    async dismissStudyTour(root) {
+      const settings = this.dependencies.getSettings();
+      if (!settings.newTabStudyTourSeen) {
+        settings.newTabStudyTourSeen = true;
+        await this.dependencies.onSettingsChange();
+      }
+      const card = this.visibleWords[this.index];
+      if (card) this.renderWord(root, card);
+    }
+    pauseSpeaking(root) {
+      this.speakingPausedUntil = Date.now() + 15 * 6e4;
+      this.activateStudyStep(root, "final-reveal");
+    }
+    speakingPaused() {
+      return Date.now() < this.speakingPausedUntil;
+    }
     navigateFromPointer(direction, event) {
-      if (this.acceptPointerNavigation(direction, event)) this.showWordInDirection(direction);
+      if (!this.acceptPointerNavigation(direction, event)) return;
+      if (this.navigateStudyStep(direction)) return;
+      this.showWordInDirection(direction);
     }
     showWordInDirection(direction) {
       if (direction === "next") this.showNextWord();
       else this.showPreviousWord();
+    }
+    navigateStudyStep(direction) {
+      const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
+      const card = this.visibleWords[this.index];
+      if (!root || !card || this.state.mode === "search" || this.state.mode === "stats") return false;
+      const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
+      const activeIndex = session.steps.findIndex((step) => step.kind === session.activeStep.kind);
+      if (activeIndex < 0) return false;
+      const nextIndex = direction === "next" ? activeIndex + 1 : activeIndex - 1;
+      const next = session.steps[nextIndex];
+      if (!next) return false;
+      this.activateStudyStep(root, next.kind);
+      return true;
     }
     gradeFromStudyClick(root, target) {
       const grade = target.closest("[data-grade]")?.dataset.grade;
@@ -70269,7 +70826,7 @@ ${entry.url}`),
       }));
     }
     studyStatsTroubleCards(root) {
-      const source = this.statsSelectedSource === "jpdb" || this.statsSelectedSource === "jiten" ? "jpdb" : this.statsSelectedSource === "anki" ? "anki" : "auto";
+      const source = this.studySourceForSelectedStats();
       this.statsStudyFilter = "trouble";
       this.allWords = [];
       this.visibleWords = [];
@@ -70280,6 +70837,13 @@ ${entry.url}`),
       this.syncMode(root);
       this.ensureStudySurface(root);
       void this.loadWordsInto(root, false, { useOfflineCache: false });
+    }
+    studySourceForSelectedStats() {
+      if (this.statsSelectedSource === "jpdb" || this.statsSelectedSource === "jiten") return "jpdb";
+      if (this.statsSelectedSource === "bunpro") return "bunpro";
+      if (this.statsSelectedSource === "yomu-local") return "yomu-local";
+      if (this.statsSelectedSource === "anki") return "anki";
+      return "auto";
     }
     filterStatsStudyCards(cards) {
       if (this.statsStudyFilter !== "trouble") return cards;
@@ -70297,14 +70861,18 @@ ${entry.url}`),
       this.statsSnapshot = {
         jpdb: hasJpdbApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jpdb) : emptyStatsSource("jpdb", "JPDB", this.text("statsApiKeyMissing"), "setup"),
         jiten: hasJitenApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jiten) : emptyStatsSource("jiten", "Jiten", this.text("statsApiKeyMissing"), "setup"),
+        bunpro: this.canUseBunproSource() ? this.loadingStatsSource(this.statsSnapshot.bunpro) : emptyStatsSource("bunpro", "Bunpro", this.text("statsApiKeyMissing"), "setup"),
+        yomuLocal: settings.yomuLocalSrsEnabled ? this.loadingStatsSource(this.statsSnapshot.yomuLocal) : emptyStatsSource("yomu-local", "Yomu", this.text("statsNoData"), "setup"),
         anki: this.shouldLoadAnkiStats(settings) ? this.loadingStatsSource(this.statsSnapshot.anki) : emptyStatsSource("anki", "Anki", this.text("statsConnectAnki"), "setup"),
         combined: this.loadingStatsSource(this.statsSnapshot.combined)
       };
       this.renderStats(root);
-      const [history2, jpdb, jiten, anki] = await Promise.all([
+      const [history2, jpdb, jiten, bunpro, yomuLocal, anki] = await Promise.all([
         this.readJpdbStatsHistory(),
         this.loadJpdbStatsSource(),
         this.loadJitenStatsSource(),
+        this.loadSrsAdapterStatsSource("bunpro"),
+        this.loadSrsAdapterStatsSource("yomu-local"),
         this.loadAnkiStatsSource()
       ]);
       if (generation !== this.statsGeneration || !root.isConnected) return;
@@ -70313,8 +70881,10 @@ ${entry.url}`),
       this.statsSnapshot = {
         jpdb: jpdbWithHistory,
         jiten: jitenWithHistory,
+        bunpro,
+        yomuLocal,
         anki,
-        combined: combineStatsSources(jpdbWithHistory, jitenWithHistory, anki)
+        combined: combineStatsSources(jpdbWithHistory, jitenWithHistory, yomuLocal, bunpro, anki)
       };
       this.statsLoaded = true;
       this.renderStats(root);
@@ -70437,6 +71007,34 @@ ${entry.url}`),
       ));
       return dedupeWords(groups.flat()).slice(0, NEW_TAB_STATS_JPDB_CARD_LIMIT);
     }
+    async loadSrsAdapterStatsSource(source) {
+      const adapter = this.dependencies.srsAdapters?.[source];
+      const label = adapter?.label || NEW_TAB_SOURCE_LABELS[source];
+      if (!adapter || !adapter.hasCredential()) {
+        return emptyStatsSource(source, label, source === "yomu-local" ? this.text("statsNoData") : this.text("statsApiKeyMissing"), "setup");
+      }
+      try {
+        const [stats, queue] = await Promise.all([
+          adapter.stats(),
+          adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT)
+        ]);
+        const cards = queue.cards.map((card) => this.srsReviewableToNewTabCard(card)).filter((card) => card !== null);
+        const snapshot = statsFromApiCards(cards, label, this.apiStatsLoadedMessage(label, cards.length), source);
+        return {
+          ...snapshot,
+          message: cards.length || stats.reviewsDue || stats.reviewsToday ? snapshot.message : this.text("statsNoData"),
+          reviewsToday: stats.reviewsToday ?? snapshot.reviewsToday,
+          cards: {
+            ...snapshot.cards,
+            due: stats.reviewsDue ?? snapshot.cards.due
+          },
+          updatedAt: stats.fetchedAt
+        };
+      } catch (error) {
+        log$3.warn(`${label} stats failed`, error);
+        return emptyStatsSource(source, label, error instanceof Error ? error.message : this.text("couldNotLoadWords"), "error");
+      }
+    }
     async loadAnkiStatsSource() {
       if (!this.shouldLoadAnkiStats(this.dependencies.getSettings())) {
         return emptyStatsSource("anki", "Anki", this.text("statsConnectAnki"), "setup");
@@ -70464,7 +71062,7 @@ ${entry.url}`),
           ...this.statsSnapshot,
           anki: emptyStatsSource("anki", "Anki", this.text("statsAnkiUnavailable"), "error")
         };
-        this.statsSnapshot.combined = combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.jiten, this.statsSnapshot.anki);
+        this.statsSnapshot.combined = combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.jiten, this.statsSnapshot.yomuLocal, this.statsSnapshot.bunpro, this.statsSnapshot.anki);
         this.renderStats(root);
         return;
       }
@@ -70500,7 +71098,7 @@ ${entry.url}`),
       this.statsSnapshot = {
         ...this.statsSnapshot,
         anki: nextAnki,
-        combined: combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.jiten, nextAnki)
+        combined: combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.jiten, this.statsSnapshot.yomuLocal, this.statsSnapshot.bunpro, nextAnki)
       };
       this.renderStats(root);
     }
@@ -70530,8 +71128,10 @@ ${entry.url}`),
         this.statsSnapshot = {
           jpdb,
           jiten: this.statsSnapshot.jiten,
+          bunpro: this.statsSnapshot.bunpro,
+          yomuLocal: this.statsSnapshot.yomuLocal,
           anki: this.statsSnapshot.anki,
-          combined: combineStatsSources(jpdb, this.statsSnapshot.jiten, this.statsSnapshot.anki)
+          combined: combineStatsSources(jpdb, this.statsSnapshot.jiten, this.statsSnapshot.yomuLocal, this.statsSnapshot.bunpro, this.statsSnapshot.anki)
         };
         this.statsSelectedSource = this.statsSelectedSource === "anki" ? "combined" : this.statsSelectedSource;
         this.statsLoaded = true;
@@ -70545,7 +71145,7 @@ ${entry.url}`),
             message: this.text("statsImportFailed")
           }
         };
-        this.statsSnapshot.combined = combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.jiten, this.statsSnapshot.anki);
+        this.statsSnapshot.combined = combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.jiten, this.statsSnapshot.yomuLocal, this.statsSnapshot.bunpro, this.statsSnapshot.anki);
       }
       this.renderStats(root);
     }
@@ -70595,26 +71195,27 @@ ${entry.url}`),
       return newTabSourceLoadPlan(this.state.source, NEW_TAB_FALLBACK_SUPPLEMENT_MIN);
     }
     async loadConfiguredWordSources(plan, onProgress) {
-      if (plan.kind === "auto-review") return this.loadAutoReviewWordSources(onProgress);
+      if (plan.kind === "auto-review") return this.loadAutoReviewWordSources(plan.primarySources, onProgress);
       const accumulator = emptyNewTabLoadAccumulator();
       for (const source of plan.primarySources) {
         await this.appendLoadedWordsFromSource(accumulator, source, onProgress);
       }
       return accumulator;
     }
-    async loadAutoReviewWordSources(_onProgress) {
-      const results = await this.loadAutoReviewSourceResults();
+    async loadAutoReviewWordSources(sources, onProgress) {
+      const results = await this.loadAutoReviewSourceResults(sources, onProgress);
       return this.accumulateAutoReviewSourceResults(results);
     }
-    async loadAutoReviewSourceResults() {
-      const jpdbCacheContext = this.sourceCacheContext("jpdb");
-      const ankiCacheContext = this.sourceCacheContext("anki");
-      const jpdbPromise = this.loadJpdbWords({ allowPublicFallback: false, timeoutMs: NEW_TAB_REVIEW_SOURCE_TIMEOUT_MS });
-      const ankiPromise = this.loadAnkiWords(NEW_TAB_REVIEW_SOURCE_TIMEOUT_MS);
-      const [jpdbResult, ankiResult] = await Promise.all([jpdbPromise, ankiPromise]);
-      this.rememberSourceResult("jpdb", jpdbResult, jpdbCacheContext);
-      this.rememberSourceResult("anki", ankiResult, ankiCacheContext);
-      return autoReviewSourceResults(jpdbResult, ankiResult);
+    async loadAutoReviewSourceResults(sources, onProgress) {
+      const results = await Promise.all(sources.map((source) => this.loadAutoReviewSourceResult(source, onProgress)));
+      return autoReviewSourceResults(...results);
+    }
+    async loadAutoReviewSourceResult(source, onProgress) {
+      const cached = this.cachedSourceResult(source);
+      if (cached) return cached;
+      const cacheContext = this.sourceCacheContext(source);
+      const result = source === "jpdb" ? await this.loadJpdbWords({ allowPublicFallback: false, timeoutMs: NEW_TAB_REVIEW_SOURCE_TIMEOUT_MS }) : source === "anki" ? await this.loadAnkiWords(NEW_TAB_REVIEW_SOURCE_TIMEOUT_MS) : await this.loadWordsFromSourceUncached(source, onProgress);
+      return this.rememberSourceResult(source, result, cacheContext);
     }
     accumulateAutoReviewSourceResults(results) {
       const accumulator = emptyNewTabLoadAccumulator();
@@ -70666,7 +71267,7 @@ ${entry.url}`),
     }
     hasConfiguredReviewSources() {
       const settings = this.dependencies.getSettings();
-      return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || Boolean(settings.ankiEnabled && settings.newTabAnkiEnabled);
+      return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || Boolean(settings.ankiEnabled && settings.newTabAnkiEnabled) || this.canUseBunproSource();
     }
     shouldUseJitenOnlyApiStudyFallback(plan, accumulator) {
       if (this.currentModeStudyCardCount(accumulator.cards) || this.shouldKeepEmptyReviewLoad(accumulator)) return false;
@@ -70759,6 +71360,7 @@ ${entry.url}`),
     loadWordsFromSourceUncached(source, onProgress) {
       if (source === "anki") return this.loadAnkiWords();
       if (source === "jpdb") return this.loadJpdbWords();
+      if (source === "bunpro" || source === "yomu-local") return this.loadSrsAdapterWords(source);
       return this.loadDictionaryWords(onProgress);
     }
     cachedSourceResult(source) {
@@ -70777,7 +71379,7 @@ ${entry.url}`),
       if (context && (context.version !== this.sourceCacheVersion(source) || context.signature !== this.sourceCacheSignature(source))) {
         return result;
       }
-      if (result.cards.length || source === "anki" || source === "dictionary") {
+      if (result.cards.length || source === "anki" || source === "dictionary" || source === "bunpro" || source === "yomu-local") {
         this.sourceResultCache.set(source, {
           signature: context?.signature ?? this.sourceCacheSignature(source),
           result: {
@@ -70799,7 +71401,7 @@ ${entry.url}`),
     }
     clearSourceResultCache() {
       this.sourceResultCache.clear();
-      for (const source of ["jpdb", "anki", "dictionary"]) {
+      for (const source of ["jpdb", "bunpro", "yomu-local", "anki", "dictionary"]) {
         this.bumpSourceCacheVersion(source);
       }
     }
@@ -70827,8 +71429,77 @@ ${entry.url}`),
         activeAnkiDeck: this.normalizedAnkiDeckScope(),
         ankiModel: settings.ankiModel,
         ankiDisabledDecks: settings.newTabAnkiDisabledDecks,
+        bunproToken: Boolean(settings.bunproFrontendApiToken),
+        bunproTokenExpiresAt: settings.bunproFrontendApiTokenExpiresAt,
+        bunproMiningEnabled: settings.bunproMiningEnabled,
+        yomuLocalSrsEnabled: settings.yomuLocalSrsEnabled,
         dictionaries: settings.localDictionariesEnabled,
         dictionaryPreferences: settings.dictionaryPreferences
+      });
+    }
+    async loadSrsAdapterWords(source, limit = NEW_TAB_WORD_LIMIT) {
+      const adapter = this.dependencies.srsAdapters?.[source];
+      const sourceLabel = adapter?.label || NEW_TAB_SOURCE_LABELS[source];
+      const settings = this.dependencies.getSettings();
+      if (source === "bunpro" && !settings.bunproMiningEnabled || source === "yomu-local" && !settings.yomuLocalSrsEnabled) {
+        return {
+          cards: [],
+          sourceLabel,
+          reviewCountMode: this.state.source === source,
+          emptyMessageKey: "couldNotLoadWords"
+        };
+      }
+      if (!adapter || !adapter.hasCredential()) {
+        return {
+          cards: [],
+          sourceLabel,
+          reviewCountMode: true,
+          emptyMessageKey: "couldNotLoadWords"
+        };
+      }
+      const cardLimit = Math.max(1, Math.floor(limit));
+      const loaded = await this.remoteSourceResult(
+        `${sourceLabel} queue`,
+        adapter.queue(cardLimit),
+        null,
+        NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS
+      );
+      const cards = (loaded.value?.cards ?? []).map((card) => this.srsReviewableToNewTabCard(card)).filter((card) => card !== null).slice(0, cardLimit);
+      return {
+        cards,
+        sourceLabel,
+        reviewCountMode: true,
+        emptyMessageKey: loaded.failed ? "couldNotLoadWords" : void 0
+      };
+    }
+    srsReviewableToNewTabCard(card) {
+      if (card.providerId !== "bunpro" && card.providerId !== "yomu-local") return null;
+      const expression = card.expression.trim();
+      if (!expression) return null;
+      const reading = card.reading.trim() || expression;
+      const providerKey = `${card.providerId}:${card.providerCardId}`;
+      return normalizeNewTabCard({
+        vid: stableNegativeNewTabId(`srs-vocab:${providerKey}`),
+        sid: stableNegativeNewTabId(`srs-sentence:${providerKey}`),
+        rid: stableNegativeNewTabId(`srs-review:${card.providerReviewId || card.providerCardId}`),
+        spelling: expression,
+        reading,
+        frequencyRank: null,
+        partOfSpeech: srsReviewablePartOfSpeech(card),
+        meanings: card.meanings,
+        cardState: card.state,
+        pitchAccent: [],
+        dueAt: card.dueAt ?? null,
+        lastReviewAt: card.lastReviewAt ?? null,
+        wordWithReading: reading && reading !== expression ? `${expression}【${reading}】` : expression,
+        source: card.providerId,
+        reviewSource: card.providerId === "bunpro" ? "bunpro-api" : "yomu-local",
+        sourceDeckName: card.srsLevel,
+        sourceCardKey: providerKey,
+        bunproReviewId: card.providerId === "bunpro" ? card.providerReviewId : void 0,
+        bunproReviewableId: card.providerId === "bunpro" ? optionalPositiveNumber(card.providerReviewableId) : void 0,
+        bunproReviewableType: card.providerId === "bunpro" ? bunproReviewableType(card.kind) : void 0,
+        bunproSrsLevel: card.providerId === "bunpro" ? card.srsLevel : void 0
       });
     }
     async loadAnkiWords(timeoutMs = NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, limit = NEW_TAB_WORD_LIMIT) {
@@ -71293,10 +71964,14 @@ ${entry.url}`),
     emptyCachedResultMatchesSource(result, source) {
       if (source === "anki") return false;
       if (source === "jpdb") return result.sourceLabel.startsWith("JPDB") || result.sourceLabel.startsWith("Jiten");
+      if (source === "bunpro") return result.sourceLabel.startsWith("Bunpro");
+      if (source === "yomu-local") return result.sourceLabel.startsWith("Yomu");
       return result.sourceLabel === this.text("dictionary");
     }
     cardPrimaryNewTabSource(card) {
       if (card.source === "anki" || card.reviewSource === "anki") return "anki";
+      if (card.source === "bunpro" || card.reviewSource === "bunpro-api") return "bunpro";
+      if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return "yomu-local";
       if (card.source === "jpdb" || card.source === "jiten" || card.reviewSource === "jpdb-api" || card.reviewSource === "jpdb-live" || card.reviewSource === "jiten-api") {
         return "jpdb";
       }
@@ -71665,11 +72340,20 @@ ${entry.url}`),
       root.classList.remove("jpdb-reader-newtab-setup-mode", "jpdb-reader-newtab-empty-mode");
       root.classList.toggle("jpdb-reader-newtab-revealed", this.state.revealAnswer);
       const renderAsKanji = this.shouldRenderCardAsKanji(card);
+      const session = this.studySessionForCard(card, renderAsKanji);
       root.classList.toggle("jpdb-reader-newtab-kanji-mode", renderAsKanji);
+      root.classList.toggle("jpdb-reader-newtab-final-reveal-mode", session.activeStep.kind === "final-reveal");
       root.classList.toggle("jpdb-reader-newtab-review-mode", this.canReviewCard(card));
+      if (study) {
+        study.dataset.newtabStudyStep = session.activeStep.kind;
+        study.dataset.newtabStudyFlow = session.steps.map((step) => step.kind).join(" ");
+        study.dataset.newtabGradeStep = session.gradeStep.kind;
+      }
       this.syncThemeToggle(root);
       const slots = this.studySlots(root);
       const state2 = primaryCardState(card.cardState);
+      this.renderStudySteps(slots.steps, session);
+      this.renderStudyTour(slots.tour, session);
       this.renderPromptForMode(slots, card, state2, renderAsKanji);
       this.renderSessionProgress(slots, card, root);
       if (slots.reveal) slots.reveal.textContent = this.revealButtonLabel();
@@ -71679,6 +72363,76 @@ ${entry.url}`),
       if (!renderAsKanji) this.dependencies.preloadWordAudio?.(card);
       this.prefetchNearbyWordPitch(card);
       this.prefetchNearbyImmersionExamples(card, prefetchGeneration);
+    }
+    studySessionForCard(card, renderAsKanji = this.shouldRenderCardAsKanji(card)) {
+      const settings = this.dependencies.getSettings();
+      const reading = cardPronunciationReading(card);
+      return createNewTabStudySession(card, {
+        mode: this.state.mode,
+        listenSubMode: this.state.listenSubMode,
+        revealAnswer: this.state.revealAnswer,
+        renderAsKanji,
+        hasPitchStep: pitchNumberForReading(card.pitchAccent, reading) != null,
+        hasRecallCloze: buildNewTabRecallCloze(card, this.frontSentenceFromCard(card), newTabCardReading(card)).hasCloze,
+        stepOrder: settings.newTabStudyStepOrder,
+        disabledSteps: this.speakingPaused() ? appendSpeakingDisabledStep(settings.newTabStudyDisabledSteps) : settings.newTabStudyDisabledSteps
+      });
+    }
+    renderStudySteps(slot, session) {
+      if (!slot) return;
+      if (session.steps.length <= 1 || this.state.mode === "search" || this.state.mode === "stats") {
+        slot.replaceChildren();
+        slot.hidden = true;
+        return;
+      }
+      slot.hidden = false;
+      replaceChildrenWith(slot, session.steps.map((step, index) => this.studyStepButton(step, index, session)));
+    }
+    studyStepButton(step, index, session) {
+      const active = step.kind === session.activeStep.kind;
+      return el(
+        "button",
+        {
+          type: "button",
+          class: "jpdb-reader-newtab-study-step",
+          dataset: {
+            newtabAction: "study-step",
+            studyStepKind: step.kind,
+            active: String(active),
+            gradeable: String(step.gradeable)
+          },
+          role: "listitem",
+          "aria-current": active ? "step" : void 0,
+          title: step.label
+        },
+        el("span", { class: "jpdb-reader-newtab-study-step-index" }, String(index + 1)),
+        el("span", { class: "jpdb-reader-newtab-study-step-label" }, step.label)
+      );
+    }
+    renderStudyTour(slot, session) {
+      if (!slot) return;
+      const settings = this.dependencies.getSettings();
+      const showTour = !settings.newTabStudyTourSeen && this.isStudyCardMode(this.state.mode) && session.steps.length > 1;
+      if (showTour) {
+        const flow = session.steps.map((step) => step.label).join(" → ");
+        slot.hidden = false;
+        replaceChildrenWith(
+          slot,
+          el("span", {}, flow),
+          el("button", { type: "button", dataset: { newtabAction: "dismiss-study-tour" } }, this.text("studyTourStart"))
+        );
+        return;
+      }
+      if (session.activeStep.kind === "speaking" && !this.speakingPaused()) {
+        slot.hidden = false;
+        replaceChildrenWith(
+          slot,
+          el("button", { type: "button", dataset: { newtabAction: "pause-speaking" } }, this.text("pauseSpeaking"))
+        );
+        return;
+      }
+      slot.hidden = true;
+      slot.replaceChildren();
     }
     renderPromptForMode(slots, card, state2, renderAsKanji = this.shouldRenderCardAsKanji(card)) {
       if (renderAsKanji) this.renderKanjiPrompt(slots, card);
@@ -71843,7 +72597,7 @@ ${entry.url}`),
       this.showNextWord();
     }
     // Keyboard for Listen: digits 0-N pick the downstep, R/P replays the model,
-    // B plays the contrast pair, Enter/Space advances once revealed. Kept separate
+    // B plays the contrast pair, Enter/Space advances. Kept separate
     // from the vocab keyboard machine (grade shortcuts, reveal toggle) which doesn't
     // apply to the pitch drills.
     handleListenKeydown(root, event) {
@@ -71865,7 +72619,6 @@ ${entry.url}`),
         return;
       }
       if (key === "Enter" || key === " ") {
-        if (this.state.listenSubMode === "recall" && this.listenRevealed) return;
         event.preventDefault();
         this.advanceListen(root);
       }
@@ -72129,7 +72882,9 @@ ${entry.url}`),
       };
       if (summary.hasJiten) add("Jiten");
       if (summary.hasJpdb) add("JPDB");
-      if (summary.hasAnki) add(summary.hasJpdb || summary.hasJiten ? "Anki" : this.ankiReviewSourceLabel(card));
+      if (summary.hasBunpro) add("Bunpro");
+      if (summary.hasYomuLocal) add("Yomu");
+      if (summary.hasAnki) add(summary.hasJpdb || summary.hasJiten || summary.hasBunpro || summary.hasYomuLocal ? "Anki" : this.ankiReviewSourceLabel(card));
       return labels;
     }
     ankiReviewSourceLabel(card) {
@@ -72185,7 +72940,7 @@ ${entry.url}`),
         return "jiten";
       }
       const source = this.cardReviewSource(card);
-      return source === "jpdb" || source === "anki" ? source : null;
+      return source === "jpdb" || source === "anki" || source === "bunpro" || source === "yomu-local" ? source : null;
     }
     reviewTargetSources(card) {
       const summary = this.reviewSourceSummary(card);
@@ -72195,6 +72950,8 @@ ${entry.url}`),
       };
       if (summary.hasJiten) add("jiten");
       if (summary.hasJpdb) add("jpdb");
+      if (summary.hasBunpro) add("bunpro");
+      if (summary.hasYomuLocal) add("yomu-local");
       if (summary.hasAnki) add("anki");
       return sources;
     }
@@ -72213,7 +72970,7 @@ ${entry.url}`),
         this.renderPlainStatus(statusSlot, "");
         return;
       }
-      const source = this.state.source === "jpdb" || this.state.source === "anki" ? this.state.source : null;
+      const source = this.state.source === "jpdb" || this.state.source === "bunpro" || this.state.source === "yomu-local" || this.state.source === "anki" ? this.state.source : null;
       if (!source) {
         this.renderPlainStatus(statusSlot, "");
         return;
@@ -72243,6 +73000,8 @@ ${entry.url}`),
       if (statusSlot instanceof HTMLButtonElement) statusSlot.disabled = true;
     }
     emptySourceToggleTarget(source) {
+      if (source === "bunpro") return this.canUseYomuLocalSource() ? "yomu-local" : this.canUseJpdbSource() ? "jpdb" : null;
+      if (source === "yomu-local") return this.canUseJpdbSource() ? "jpdb" : this.canUseBunproSource() ? "bunpro" : this.canOfferAnkiSource() ? "anki" : null;
       if (source === "jpdb") return this.canOfferAnkiSource() ? "anki" : null;
       return this.canUseJpdbSource() ? "jpdb" : null;
     }
@@ -72255,14 +73014,16 @@ ${entry.url}`),
     }
     sourceToggleClickTarget(target) {
       const renderedTarget = target.closest("[data-source-toggle-target]")?.dataset.sourceToggleTarget;
-      if (renderedTarget === "jpdb" || renderedTarget === "anki" || renderedTarget === "dictionary") return renderedTarget;
+      if (renderedTarget === "jpdb" || renderedTarget === "bunpro" || renderedTarget === "yomu-local" || renderedTarget === "anki" || renderedTarget === "dictionary") return renderedTarget;
       const card = this.visibleWords[this.index];
       return card ? this.sourceToggleTarget(card) : null;
     }
     sourceToggleSources(card) {
       const context = this.sourceToggleContext(card);
       const sources = uniqueConcreteSources([
+        this.yomuLocalToggleSource(context),
         this.jpdbToggleSource(context),
+        this.bunproToggleSource(context),
         this.shouldSuppressJitenOnlyJpdbCardToggle(card) ? null : this.ankiToggleSource(context)
       ]);
       if (this.shouldIncludeDictionaryToggleSource(context, sources)) sources.push("dictionary");
@@ -72280,18 +73041,34 @@ ${entry.url}`),
         configured: this.dependencies.getSettings().newTabSource,
         hasJpdb: summary.hasJpdb,
         hasJiten: summary.hasJiten,
+        hasBunpro: summary.hasBunpro,
+        hasYomuLocal: summary.hasYomuLocal,
         hasAnki: summary.hasAnki,
         canUseJpdb: this.canUseJpdbSource(),
+        canUseBunpro: this.canUseBunproSource(),
+        canUseYomuLocal: this.canUseYomuLocalSource(),
         canUseAnki: this.canUseAnkiSource(),
         canOfferAnki: this.canOfferAnkiSource(),
         ankiUnavailable: this.cachedSourceUnavailable("anki")
       };
+    }
+    yomuLocalToggleSource(context) {
+      return this.shouldIncludeYomuLocalToggleSource(context) ? "yomu-local" : null;
+    }
+    shouldIncludeYomuLocalToggleSource(context) {
+      return context.hasYomuLocal || context.canUseYomuLocal || context.current === "yomu-local" || context.selected === "yomu-local";
     }
     jpdbToggleSource(context) {
       return this.shouldIncludeJpdbToggleSource(context) ? "jpdb" : null;
     }
     shouldIncludeJpdbToggleSource(context) {
       return context.hasJpdb || context.hasJiten || context.canUseJpdb || context.current === "jpdb" || context.selected === "jpdb";
+    }
+    bunproToggleSource(context) {
+      return this.shouldIncludeBunproToggleSource(context) ? "bunpro" : null;
+    }
+    shouldIncludeBunproToggleSource(context) {
+      return context.hasBunpro || context.canUseBunpro || context.current === "bunpro" || context.selected === "bunpro";
     }
     ankiToggleSource(context) {
       return this.shouldIncludeAnkiToggleSource(context) ? "anki" : null;
@@ -72332,6 +73109,8 @@ ${entry.url}`),
       if (this.sourceLabel.includes(" + ")) return null;
       if (this.sourceLabel.startsWith(NEW_TAB_SOURCE_LABELS.jpdb)) return "jpdb";
       if (this.sourceLabel.startsWith("Jiten")) return "jpdb";
+      if (this.sourceLabel.startsWith(NEW_TAB_SOURCE_LABELS.bunpro)) return "bunpro";
+      if (this.sourceLabel.startsWith(NEW_TAB_SOURCE_LABELS["yomu-local"])) return "yomu-local";
       if (this.sourceLabel.startsWith(NEW_TAB_SOURCE_LABELS.anki)) return "anki";
       return this.sourceLabel === this.text("dictionary") ? "dictionary" : null;
     }
@@ -72344,6 +73123,13 @@ ${entry.url}`),
     }
     canUseJpdbSource() {
       return this.hasAvailableJpdbReviewSource(this.dependencies.getSettings());
+    }
+    canUseBunproSource() {
+      const adapter = this.dependencies.srsAdapters?.bunpro;
+      return Boolean(this.dependencies.getSettings().bunproMiningEnabled && adapter?.hasCredential());
+    }
+    canUseYomuLocalSource() {
+      return this.dependencies.getSettings().yomuLocalSrsEnabled && Boolean(this.dependencies.srsAdapters?.["yomu-local"]);
     }
     hasAvailableJpdbReviewSource(settings) {
       if (hasJpdbApiCredential(settings)) return true;
@@ -72363,12 +73149,16 @@ ${entry.url}`),
     }
     cardReviewSource(card) {
       if (card.source === "anki" || card.reviewSource === "anki") return "anki";
+      if (card.source === "bunpro" || card.reviewSource === "bunpro-api") return "bunpro";
+      if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return "yomu-local";
       if (card.source === "jiten" || card.reviewSource === "jiten-api") return "jpdb";
       if (card.source === "jpdb" || card.reviewSource === "jpdb-api" || card.reviewSource === "jpdb-live") return "jpdb";
       return "dictionary";
     }
     sourceToggleLabel(source) {
       if (source === "jpdb") return this.jpdbSourceToggleLabel();
+      if (source === "bunpro") return "Bunpro";
+      if (source === "yomu-local") return "Yomu";
       if (source === "anki") return "Anki";
       return this.text("dictionary");
     }
@@ -72394,6 +73184,7 @@ ${entry.url}`),
     appendConnectSrsCta(countSlot) {
       if (this.reviewCountMode || !this.isVocabularyStudyMode(this.state.mode)) return;
       const settings = this.dependencies.getSettings();
+      if (settings.yomuLocalSrsEnabled) return;
       if (hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || settings.ankiEnabled || settings.newTabAnkiEnabled) return;
       countSlot.append(el("button", {
         type: "button",
@@ -72418,6 +73209,8 @@ ${entry.url}`),
     }
     studySlots(root) {
       return {
+        steps: root.querySelector("[data-newtab-study-steps]"),
+        tour: root.querySelector("[data-newtab-study-tour]"),
         progress: null,
         timer: null,
         prompt: root.querySelector("[data-newtab-prompt]"),
@@ -72570,17 +73363,27 @@ ${entry.url}`),
       if (this.state.revealAnswer) void this.renderImmersionExample(slots, card);
     }
     renderRecallQuestion(prompt, card) {
-      prompt.lang = "en";
+      const cloze = buildNewTabRecallCloze(card, this.frontSentenceFromCard(card), newTabCardReading(card));
+      const meaning = firstCardMeaning(card) || this.text("recallPromptFallback");
+      prompt.lang = cloze.hasCloze ? "ja" : "en";
       delete prompt.dataset.newtabExpression;
       delete prompt.dataset.newtabSentenceRequest;
       delete prompt.dataset.newtabPromptParseRequest;
       prompt.classList.remove("jpdb-reader-newtab-prompt-anki-card", "jpdb-reader-newtab-prompt-has-sentence");
       prompt.classList.add("jpdb-reader-newtab-recall-prompt");
       prompt.closest(".jpdb-reader-newtab-study")?.classList.remove("jpdb-reader-newtab-study-anki-card");
-      replaceChildrenWith(
-        prompt,
-        el("span", { class: "jpdb-reader-newtab-recall-question" }, firstCardMeaning(card) || this.text("recallPromptFallback"))
-      );
+      replaceChildrenWith(prompt, cloze.hasCloze ? el(
+        "span",
+        { class: "jpdb-reader-newtab-recall-question jpdb-reader-newtab-recall-cloze" },
+        el(
+          "span",
+          { class: "jpdb-reader-newtab-recall-cloze-sentence" },
+          cloze.before,
+          el("span", { class: "jpdb-reader-newtab-recall-gap", "aria-label": this.text("recallAnswer") }),
+          cloze.after
+        ),
+        el("span", { class: "jpdb-reader-newtab-recall-hint", lang: resolveUiLanguage(this.language()) === "ja" ? "ja" : "en" }, meaning)
+      ) : el("span", { class: "jpdb-reader-newtab-recall-question" }, meaning));
     }
     renderRecallAnswer(answer, card, state2) {
       if (!answer) return;
@@ -72625,13 +73428,14 @@ ${entry.url}`),
       if (!this.state.revealAnswer) this.focusRecallInputSoon(answer);
     }
     renderRecallSolution(card, state2) {
+      const cloze = buildNewTabRecallCloze(card, this.frontSentenceFromCard(card), newTabCardReading(card));
       return el(
         "div",
         { class: "jpdb-reader-newtab-recall-solution", lang: "ja" },
         el(
           "span",
           { class: "jpdb-reader-newtab-term-row" },
-          el("span", { class: "jpdb-reader-newtab-term" }, this.renderPromptReaderWord(card, state2, card.sentence || card.spelling)),
+          cloze.hasCloze ? this.renderWordPromptSentenceNode(card, state2, cloze.sentence) : el("span", { class: "jpdb-reader-newtab-term" }, this.renderPromptReaderWord(card, state2, card.sentence || card.spelling)),
           this.renderStudyWordAudioButton(card)
         )
       );
@@ -72762,19 +73566,13 @@ ${entry.url}`),
         pitch = renderPitch(card, data?.metaEntries ?? []) || (data ? renderExpressionComponentPitches(data.componentPitches ?? []) : "");
       }
       const pitchNode = pitch ? htmlToFirstElement(pitch) : null;
-      const frequency = card.frequencyRank ? el(
-        "span",
-        { class: "jpdb-reader-meta jpdb-reader-newtab-study-meta" },
-        el("span", { class: "jpdb-reader-frequency-pill" }, `#${card.frequencyRank}`)
-      ) : null;
       return el(
         "span",
         { class: "jpdb-reader-newtab-study-tools", dataset: { newtabStudyTools: true } },
         el(
           "span",
           { class: "jpdb-reader-newtab-study-tool-main" },
-          reading ? el("span", { class: "jpdb-reader-reading" }, reading) : null,
-          frequency
+          reading ? el("span", { class: "jpdb-reader-reading" }, reading) : null
         ),
         pitchNode ? el("span", { class: "jpdb-reader-card-tools" }, pitchNode) : null
       );
@@ -75397,11 +76195,13 @@ ${entry.url}`),
       return newTabGradeTargetLabel(summary, {
         all: this.formatNewTabText("gradeTargetAllProviders", { target: ankiTarget }),
         anki: this.formatNewTabText("gradeTargetAnki", { target: ankiTarget }),
+        bunpro: this.text("gradeTargetBunpro"),
         jiten: this.text("gradeTargetJiten"),
         jitenAndAnki: this.formatNewTabText("gradeTargetJitenAndAnki", { target: ankiTarget }),
         jpdb: this.text("gradeTargetJpdb"),
         jpdbAndAnki: this.formatNewTabText("gradeTargetJpdbAndAnki", { target: ankiTarget }),
-        jpdbAndJiten: this.text("gradeTargetJpdbAndJiten")
+        jpdbAndJiten: this.text("gradeTargetJpdbAndJiten"),
+        yomuLocal: this.text("gradeTargetYomuLocal")
       });
     }
     apiGradeTargetShortLabel(card) {
@@ -75424,6 +76224,12 @@ ${entry.url}`),
       }
       if (targets.some((target) => target === "jpdb-api" || target === "jpdb-live")) {
         result.push({ id: "jpdb", kind: "jpdb", label: this.text("gradeTargetJpdb"), shortLabel: "JPDB" });
+      }
+      if (targets.includes("bunpro-api")) {
+        result.push({ id: "bunpro", kind: "bunpro", label: this.text("gradeTargetBunpro"), shortLabel: "Bunpro" });
+      }
+      if (targets.includes("yomu-local")) {
+        result.push({ id: "yomu-local", kind: "yomu-local", label: this.text("gradeTargetYomuLocal"), shortLabel: "Yomu" });
       }
       const settings = this.dependencies.getSettings();
       const ankiTargets = settings.ankiEnabled && settings.newTabAnkiEnabled ? this.lookupAnkiReviewTargets(card, data) : [];
@@ -75563,6 +76369,8 @@ ${entry.url}`),
       const targets = this.lookupReviewTargetsForCard(card);
       if (selectedTarget.kind === "jpdb") return targets.find((target) => target.kind === "jpdb") ?? null;
       if (selectedTarget.kind === "jiten") return targets.find((target) => target.kind === "jiten") ?? null;
+      if (selectedTarget.kind === "bunpro") return targets.find((target) => target.kind === "bunpro") ?? null;
+      if (selectedTarget.kind === "yomu-local") return targets.find((target) => target.kind === "yomu-local") ?? null;
       const selectedCardId = Number(selectedTarget.ankiCardId);
       if (!Number.isFinite(selectedCardId) || selectedCardId <= 0) return null;
       return targets.find((target) => target.kind === "anki" && target.ankiCardId === selectedCardId) ?? null;
@@ -75570,6 +76378,8 @@ ${entry.url}`),
     reviewTargetForLookupKind(card, kind) {
       if (kind === "jpdb") return this.reviewTargetsForCard(card).find((candidate) => candidate === "jpdb-api" || candidate === "jpdb-live") ?? null;
       if (kind === "jiten") return this.reviewTargetsForCard(card).find((candidate) => candidate === "jiten-api") ?? null;
+      if (kind === "bunpro") return this.reviewTargetsForCard(card).find((candidate) => candidate === "bunpro-api") ?? null;
+      if (kind === "yomu-local") return this.reviewTargetsForCard(card).find((candidate) => candidate === "yomu-local") ?? null;
       return null;
     }
     async submitReviewTarget(card, target, grade) {
@@ -75585,7 +76395,38 @@ ${entry.url}`),
         await this.submitJitenApiGrade(card, grade);
         return;
       }
+      if (target === "bunpro-api" || target === "yomu-local") {
+        await this.submitSrsAdapterGrade(card, target, grade);
+        return;
+      }
       await this.submitJpdbApiGrade(card, grade);
+    }
+    async submitSrsAdapterGrade(card, target, grade) {
+      const source = target === "bunpro-api" ? "bunpro" : "yomu-local";
+      const adapter = this.dependencies.srsAdapters?.[source];
+      if (!adapter || !adapter.hasCredential()) throw new Error(this.text("couldNotSubmitGrade"));
+      await adapter.review({ card: this.newTabCardToSrsReviewable(card, source), grade, sentence: sentenceForCard(card) });
+      this.publishGradedCardState(card);
+    }
+    newTabCardToSrsReviewable(card, source) {
+      const expression = card.spelling.trim();
+      const reading = newTabCardReading(card).trim() || expression;
+      const providerCardId = source === "bunpro" ? card.bunproReviewId || stringifyPositiveNumber(card.bunproReviewableId) || card.sourceCardKey || cardKey(card) : card.sourceCardKey || cardKey(card);
+      return {
+        providerId: source,
+        providerCardId,
+        providerReviewId: source === "bunpro" ? card.bunproReviewId || providerCardId : providerCardId,
+        providerReviewableId: source === "bunpro" ? stringifyPositiveNumber(card.bunproReviewableId) : void 0,
+        kind: source === "bunpro" ? bunproReviewableKind(card.bunproReviewableType) : "vocabulary",
+        expression,
+        reading,
+        meanings: card.meanings,
+        state: card.cardState,
+        srsLevel: source === "bunpro" ? card.bunproSrsLevel : void 0,
+        dueAt: card.dueAt,
+        lastReviewAt: card.lastReviewAt,
+        raw: card
+      };
     }
     // New-tab side of the cross-tab card-state mutation bus: after a grade
     // lands (and the provider refresh updated this card object), pages with
@@ -75781,6 +76622,8 @@ ${entry.url}`),
       const targets = this.reviewTargetsForCard(card);
       if (targets.includes("anki")) this.invalidateSourceResultCache("anki");
       if (targets.some((target) => target === "jpdb-api" || target === "jpdb-live" || target === "jiten-api")) this.invalidateSourceResultCache("jpdb");
+      if (targets.includes("bunpro-api")) this.invalidateSourceResultCache("bunpro");
+      if (targets.includes("yomu-local")) this.invalidateSourceResultCache("yomu-local");
     }
     ankiCardIdForReview(card) {
       const cardId = card.ankiCardId ?? (card.source === "anki" || card.reviewSource === "anki" ? card.rid : void 0);
@@ -75802,6 +76645,10 @@ ${entry.url}`),
       }
       if (item.target === "jiten-api") {
         await this.submitJitenApiGrade(item.card, item.grade);
+        return true;
+      }
+      if (item.target === "bunpro-api" || item.target === "yomu-local") {
+        await this.submitSrsAdapterGrade(item.card, item.target, item.grade);
         return true;
       }
       await this.submitJpdbApiGrade(item.card, item.grade);
@@ -76457,8 +77304,28 @@ ${entry.url}`),
   function uniqueConcreteSources(sources) {
     return sources.filter((source, index) => Boolean(source) && sources.indexOf(source) === index);
   }
+  function srsReviewablePartOfSpeech(card) {
+    const existing = uniqueTrimmedStrings(card.meanings.flatMap((meaning) => meaning.partOfSpeech ?? []));
+    if (existing.length) return existing;
+    return card.kind === "grammar" ? ["grammar"] : [];
+  }
+  function optionalPositiveNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? Math.floor(number) : void 0;
+  }
+  function stringifyPositiveNumber(value) {
+    return value !== void 0 && Number.isFinite(value) && value > 0 ? String(Math.floor(value)) : void 0;
+  }
+  function bunproReviewableType(kind) {
+    if (kind === "grammar" || kind === "vocabulary" || kind === "sentence") return kind;
+    return "unknown";
+  }
+  function bunproReviewableKind(type) {
+    if (type === "grammar" || type === "vocabulary" || type === "sentence") return type;
+    return "unknown";
+  }
   function statsSourceIdFromValue(value) {
-    if (value === "jpdb" || value === "jiten" || value === "anki" || value === "combined") return value;
+    if (value === "jpdb" || value === "jiten" || value === "bunpro" || value === "yomu-local" || value === "anki" || value === "combined") return value;
     return "combined";
   }
   function isNewTabRevealKey(key) {
@@ -76482,6 +77349,23 @@ ${entry.url}`),
   }
   function isNewTabStudyKeyboardMode(mode) {
     return mode === "word" || mode === "recall" || mode === "kanji" || mode === "listen";
+  }
+  function isNewTabStudyStepKind(value) {
+    return value === "kanji-doodle" || value === "word" || value === "recall-cloze" || value === "listen-pitch" || value === "speaking" || value === "final-reveal";
+  }
+  function modeForStudyStepKind(kind) {
+    if (kind === "kanji-doodle") return "kanji";
+    if (kind === "recall-cloze") return "recall";
+    if (kind === "listen-pitch" || kind === "speaking") return "listen";
+    return "word";
+  }
+  function listenSubModeForStudyStepKind(kind) {
+    if (kind === "speaking") return "shadow";
+    if (kind === "listen-pitch") return "perceive";
+    return null;
+  }
+  function appendSpeakingDisabledStep(steps) {
+    return steps.includes("speaking") ? steps : [...steps, "speaking"];
   }
   function isNewTabKeyboardCaptureBlockedTarget(target) {
     return Boolean(target.closest([
@@ -77930,6 +78814,667 @@ ${entry.url}`),
   function isSingleKanji(value) {
     return /^[\u4e00-\u9faf\u3400-\u4dbf\u3005-\u3007]$/u.test(value.trim());
   }
+  const BUNPRO_FRONTEND_API_BASE_URL = "https://api.bunpro.jp/api/frontend";
+  const BUNPRO_LEGACY_API_BASE_URL = "https://bunpro.jp/api/user";
+  const REQUEST_TIMEOUT_MS = 3e4;
+  const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired/i;
+  class BunproApiError extends Error {
+    constructor(message, status) {
+      super(message);
+      this.status = status;
+      this.name = "BunproApiError";
+    }
+  }
+  class BunproClient {
+    getFrontendToken;
+    getLegacyApiKey;
+    frontendBaseUrl;
+    legacyBaseUrl;
+    requestImpl;
+    timeoutMs;
+    constructor(options = {}) {
+      this.getFrontendToken = options.getFrontendToken ?? (() => "");
+      this.getLegacyApiKey = options.getLegacyApiKey ?? (() => "");
+      this.frontendBaseUrl = trimBaseUrl(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
+      this.legacyBaseUrl = trimBaseUrl(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
+      this.requestImpl = options.requestImpl ?? requestHttp;
+      this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
+    }
+    hasFrontendCredential() {
+      return Boolean(this.getFrontendToken().trim());
+    }
+    hasLegacyCredential() {
+      return Boolean(this.getLegacyApiKey().trim());
+    }
+    getUser() {
+      return this.frontend("/user");
+    }
+    getDueCount() {
+      return this.frontend("/user/due");
+    }
+    getQueue() {
+      return this.frontend("/user/queue");
+    }
+    getUserFurigana() {
+      return this.frontend("/user/user_furigana");
+    }
+    getReviews(page = 1, perPage = 25) {
+      return this.frontend("/reviews", {
+        query: {
+          page: String(Math.max(1, Math.floor(page))),
+          per_page: String(Math.max(1, Math.floor(perPage)))
+        }
+      });
+    }
+    getBaseStats() {
+      return this.frontend("/user_stats/base_stats");
+    }
+    getJlptProgress() {
+      return this.frontend("/user_stats/jlpt_progress_mixed");
+    }
+    getSrsOverview() {
+      return this.frontend("/user_stats/srs_level_overview");
+    }
+    getSrsLevelDetails(level, reviewableType, page = 1) {
+      return this.frontend("/user_stats/srs_level_details", {
+        query: {
+          level: String(Math.max(1, Math.floor(level))),
+          reviewable_type: reviewableType,
+          page: String(Math.max(1, Math.floor(page)))
+        }
+      });
+    }
+    getForecastDaily() {
+      return this.frontend("/user_stats/forecast_daily");
+    }
+    getForecastHourly() {
+      return this.frontend("/user_stats/forecast_hourly");
+    }
+    getReviewActivity() {
+      return this.frontend("/user_stats/review_activity");
+    }
+    getVocab(slugOrId) {
+      return this.frontend(`/reviewables/vocab/${encodeURIComponent(String(slugOrId))}`);
+    }
+    async search(query, options = {}) {
+      return this.frontend("/search/reviewables_v1_1", {
+        method: "POST",
+        body: {
+          query,
+          options: {
+            include_reviews: true,
+            include_bookmarks: true,
+            include_notes: true,
+            only_bookmarks: false
+          },
+          is_searching_grammar: options.grammar ?? true,
+          is_searching_vocab: options.vocab ?? true
+        },
+        trimLimit: options.limit
+      });
+    }
+    updateReviewsViaActionType(request) {
+      return this.frontend("/reviews/update_via_action_type", {
+        method: "PATCH",
+        body: {
+          deck_id: request.deckId ?? null,
+          action_type: request.actionType,
+          reviewables: request.reviewables.map((item) => [item.type, item.id])
+        }
+      });
+    }
+    updateReview(reviewId, body) {
+      return this.frontend(`/reviews/${encodeURIComponent(String(reviewId))}/update`, {
+        method: "POST",
+        body
+      });
+    }
+    getLegacyStudyQueue() {
+      return this.legacy("/study_queue");
+    }
+    getLegacyRecentItems(limit = 10) {
+      return this.legacy(`/recent_items/${Math.min(Math.max(Math.floor(limit), 1), 50)}`);
+    }
+    async frontend(path, options = {}) {
+      const token = this.getFrontendToken().trim();
+      if (!token) throw new BunproApiError("Bunpro frontend token is not set.");
+      const url = urlWithQuery(`${this.frontendBaseUrl}${path}`, options.query);
+      const response = await this.requestJson(url, {
+        method: options.method ?? "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json"
+        },
+        data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
+        statusFailureMessage: (status) => status === 401 ? "Bunpro token expired or was denied (401)." : `Bunpro API request failed (${status}).`
+      });
+      return options.trimLimit ? trimBunproSearchResponse(response, options.trimLimit) : response;
+    }
+    legacy(path) {
+      const apiKey = this.getLegacyApiKey().trim();
+      if (!apiKey) throw new BunproApiError("Bunpro legacy API key is not set.");
+      return this.requestJson(`${this.legacyBaseUrl}/${encodeURIComponent(apiKey)}${path}`, {
+        method: "GET",
+        headers: { Accept: "application/json" }
+      });
+    }
+    async requestJson(url, options) {
+      try {
+        return await this.requestImpl(url, {
+          ...options,
+          responseType: "json",
+          timeoutMs: this.timeoutMs,
+          preferFetch: true,
+          allowDirectCrossOrigin: true,
+          allowPublicProxies: false,
+          allowSensitiveConfiguredProxy: false,
+          credentials: "omit",
+          referrerPolicy: "no-referrer",
+          failureLabel: "Bunpro request"
+        });
+      } catch (error) {
+        throw normalizeBunproError(error);
+      }
+    }
+  }
+  function normalizeBunproError(error) {
+    if (error instanceof BunproApiError) return error;
+    if (!(error instanceof Error)) return new BunproApiError("Bunpro request failed.");
+    if (TOKEN_EXPIRED_CODE_RE.test(error.message)) return new BunproApiError("Bunpro token expired or was denied.", 401);
+    return error;
+  }
+  function trimBaseUrl(value) {
+    return value.replace(/\/+$/u, "");
+  }
+  function urlWithQuery(url, query) {
+    if (!query) return url;
+    const next = new URL(url);
+    Object.entries(query).forEach(([key, value]) => {
+      if (value !== void 0) next.searchParams.set(key, value);
+    });
+    return next.href;
+  }
+  function trimBunproSearchResponse(raw, limit) {
+    const maxItems = Math.max(1, Math.floor(limit));
+    if (!raw || typeof raw !== "object") return raw;
+    const value = raw;
+    return {
+      ...value,
+      grammar_points: trimBunproSearchSection(value.grammar_points, maxItems),
+      vocabs: trimBunproSearchSection(value.vocabs, maxItems)
+    };
+  }
+  function trimBunproSearchSection(section, limit) {
+    if (!section || typeof section !== "object") return section;
+    const value = section;
+    if (!Array.isArray(value.data)) return section;
+    return { ...value, data: value.data.slice(0, limit) };
+  }
+  const BUNPRO_SETTINGS_URL = "https://bunpro.jp/settings/api";
+  function createBunproSrsAdapter(client) {
+    return {
+      id: "bunpro",
+      label: "Bunpro",
+      capabilities: { stats: true, queue: true, review: true, mine: true, import: false },
+      hasCredential: () => client.hasFrontendCredential(),
+      verify: () => client.getUser().then(() => true, () => false),
+      stats: async () => normalizeBunproStatsResponse(await client.getBaseStats()),
+      queue: async (limit) => normalizeBunproQueueResponse(await client.getQueue(), limit),
+      review: (request) => reviewBunproCard(client, request),
+      mine: (request) => mineBunproCard(client, request)
+    };
+  }
+  function normalizeBunproQueueResponse(raw, limit = 50) {
+    const cards = collectBunproReviewables(raw).map(normalizeBunproReviewable).filter((card) => card !== null).slice(0, Math.max(0, Math.floor(limit)));
+    return {
+      providerId: "bunpro",
+      fetchedAt: Date.now(),
+      cards,
+      dueCount: readFirstNumber(raw, ["due_count", "dueCount", "reviews_due", "reviewsDue"]) ?? cards.filter((card) => card.state.includes("due")).length,
+      newCount: readFirstNumber(raw, ["new_count", "newCount", "new_cards", "newCards"]) ?? cards.filter((card) => card.state.includes("new")).length,
+      reviewCount: readFirstNumber(raw, ["review_count", "reviewCount", "reviews_count", "reviewsCount"]) ?? cards.length
+    };
+  }
+  function normalizeBunproStatsResponse(raw) {
+    return {
+      providerId: "bunpro",
+      fetchedAt: Date.now(),
+      reviewsDue: readFirstNumber(raw, ["reviews_due", "reviewsDue", "due", "due_count"]),
+      reviewsToday: readFirstNumber(raw, ["reviews_today", "reviewsToday", "reviews_done_today"]),
+      newToday: readFirstNumber(raw, ["new_today", "newToday", "new_cards_today"]),
+      streakDays: readFirstNumber(raw, ["streak", "streak_days", "streakDays"]),
+      levelCounts: normalizeLevelCounts(raw),
+      raw
+    };
+  }
+  function normalizeBunproReviewable(raw) {
+    const record = reviewableRecord(raw);
+    if (!record) return null;
+    const id = readString(record, ["id", "review_id", "reviewId", "card_id", "cardId"]) || readString(raw, ["id"]) || readString(record, ["reviewable_id", "reviewableId", "grammar_id", "grammarId", "vocab_id", "vocabId"]);
+    const reviewableId = readString(record, ["reviewable_id", "reviewableId", "grammar_id", "grammarId", "vocab_id", "vocabId"]);
+    const expression = readString(record, ["grammar_point", "grammarPoint", "japanese", "word", "expression", "slug", "title"]) || readString(raw, ["slug", "title"]);
+    if (!id || !expression) return null;
+    const kind = normalizeBunproKind(readString(record, ["reviewable_type", "reviewableType", "type", "kind"]));
+    const slug = readString(record, ["slug", "grammar_point_slug", "grammarPointSlug"]);
+    return {
+      providerId: "bunpro",
+      providerCardId: id,
+      providerReviewId: readString(record, ["review_id", "reviewId"]) || id,
+      providerReviewableId: reviewableId || void 0,
+      kind,
+      expression,
+      reading: readString(record, ["reading", "kana", "furigana"]) || expression,
+      meanings: normalizeBunproMeanings(record, kind),
+      state: normalizeBunproCardState(readString(record, ["srs_stage", "srsStage", "srs_level", "srsLevel", "status", "state"])),
+      srsLevel: readString(record, ["srs_stage", "srsStage", "srs_level", "srsLevel"]) || void 0,
+      dueAt: readFirstDate(record, ["next_review_at", "nextReviewAt", "due_at", "dueAt"]),
+      lastReviewAt: readFirstDate(record, ["last_reviewed_at", "lastReviewedAt", "last_review_at", "lastReviewAt"]),
+      sourceUrl: bunproReviewableUrl(kind, slug || reviewableId || id),
+      raw
+    };
+  }
+  async function reviewBunproCard(client, request) {
+    const reviewId = request.card.providerReviewId || request.card.providerCardId;
+    const raw = await client.updateReview(reviewId, {
+      grade: request.grade,
+      rating: bunproRatingForGrade(request.grade),
+      sentence: request.sentence
+    });
+    return { card: normalizeBunproReviewable(raw) ?? request.card, raw };
+  }
+  async function mineBunproCard(client, request) {
+    const rawSearch = await client.search(request.expression, { grammar: request.kind !== "vocabulary", vocab: request.kind !== "grammar", limit: 1 });
+    const reviewable = normalizeBunproReviewable(firstBunproSearchHit(rawSearch));
+    if (!reviewable?.providerReviewableId) return { card: reviewable ?? void 0, raw: rawSearch };
+    const type = reviewable.kind === "vocabulary" ? "Vocab" : "GrammarPoint";
+    const raw = await client.updateReviewsViaActionType({
+      actionType: "add",
+      reviewables: [{ type, id: Number(reviewable.providerReviewableId) }]
+    });
+    return { card: reviewable, raw };
+  }
+  function bunproRatingForGrade(grade) {
+    if (grade === "nothing" || grade === "fail" || grade === "again") return 1;
+    if (grade === "something" || grade === "hard") return 2;
+    if (grade === "okay" || grade === "pass" || grade === "good") return 3;
+    return 4;
+  }
+  function collectBunproReviewables(raw) {
+    const arrays = [
+      readArray(raw, ["data"]),
+      readArray(raw, ["reviews"]),
+      readArray(raw, ["reviewables"]),
+      readArray(raw, ["items"]),
+      readArray(raw, ["queue"]),
+      readArray(raw, ["due"])
+    ];
+    return arrays.find((items) => items.length) ?? (Array.isArray(raw) ? raw : []);
+  }
+  function firstBunproSearchHit(raw) {
+    const record = isRecord(raw) ? raw : {};
+    return readArray(record.grammar_points, ["data"])[0] ?? readArray(record.vocabs, ["data"])[0] ?? readArray(raw, ["data", "reviewables"])[0] ?? raw;
+  }
+  function reviewableRecord(raw) {
+    const unwrapped = unwrapBunproData(raw);
+    if (!isRecord(unwrapped)) return null;
+    const attributes = objectAt(unwrapped, "attributes");
+    return attributes ? { ...unwrapped, ...attributes } : unwrapped;
+  }
+  function unwrapBunproData(value) {
+    if (!isRecord(value)) return value;
+    const data = value.data;
+    if (isRecord(data) && !Array.isArray(data)) return data;
+    const review = value.review;
+    if (isRecord(review)) return review;
+    const item = value.item;
+    if (isRecord(item)) return item;
+    return value;
+  }
+  function normalizeBunproKind(value) {
+    const normalized = value.toLowerCase();
+    if (normalized.includes("vocab")) return "vocabulary";
+    if (normalized.includes("grammar")) return "grammar";
+    if (normalized.includes("kanji")) return "kanji";
+    if (normalized.includes("sentence") || normalized.includes("question")) return "sentence";
+    return "grammar";
+  }
+  function normalizeBunproCardState(value) {
+    const normalized = value.toLowerCase();
+    if (!normalized) return ["in-deck"];
+    if (normalized.includes("due") || normalized.includes("review")) return ["due"];
+    if (normalized.includes("new") || normalized.includes("beginner")) return ["new"];
+    if (normalized.includes("ghost") || normalized.includes("fail")) return ["failed"];
+    if (normalized.includes("master") || normalized.includes("known")) return ["known"];
+    if (normalized.includes("seasoned") || normalized.includes("expert") || normalized.includes("adept")) return ["learning"];
+    return ["in-deck"];
+  }
+  function normalizeBunproMeanings(record, kind) {
+    const glosses = readStringList(record, ["meaning", "meanings", "english", "translation", "translations", "definition"]).filter(Boolean);
+    return glosses.length ? [{ glosses, partOfSpeech: kind === "grammar" ? ["grammar"] : [] }] : [];
+  }
+  function normalizeLevelCounts(raw) {
+    const record = objectAt(raw, "srs_level_counts") ?? objectAt(raw, "srsLevelCounts") ?? objectAt(raw, "level_counts") ?? objectAt(raw, "levelCounts");
+    if (!record) return void 0;
+    const counts = {};
+    for (const [key, value] of Object.entries(record)) {
+      const number = Number(value);
+      if (Number.isFinite(number)) counts[key] = number;
+    }
+    return Object.keys(counts).length ? counts : void 0;
+  }
+  function bunproReviewableUrl(kind, slugOrId) {
+    const value = slugOrId.trim();
+    if (!value) return BUNPRO_SETTINGS_URL;
+    const encoded = encodeURIComponent(value);
+    if (kind === "vocabulary") return `https://bunpro.jp/vocabs/${encoded}`;
+    if (kind === "sentence") return BUNPRO_SETTINGS_URL;
+    return `https://bunpro.jp/grammar_points/${encoded}`;
+  }
+  function readFirstDate(value, keys) {
+    const raw = readString(value, keys);
+    if (!raw) return null;
+    const parsed = Date.parse(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  function readFirstNumber(value, keys) {
+    const record = isRecord(value) ? value : null;
+    if (!record) return void 0;
+    for (const key of keys) {
+      const number = Number(record[key]);
+      if (Number.isFinite(number)) return number;
+    }
+    const data = record.data;
+    if (isRecord(data) && !Array.isArray(data)) return readFirstNumber(data, keys);
+    const attributes = objectAt(record, "attributes");
+    return attributes ? readFirstNumber(attributes, keys) : void 0;
+  }
+  function readString(value, keys) {
+    const record = isRecord(value) ? value : null;
+    if (!record) return "";
+    for (const key of keys) {
+      const raw = record[key];
+      if (typeof raw === "string" && raw.trim()) return raw.trim();
+      if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
+    }
+    const data = record.data;
+    if (isRecord(data) && !Array.isArray(data)) return readString(data, keys);
+    return "";
+  }
+  function readStringList(value, keys) {
+    const record = isRecord(value) ? value : null;
+    if (!record) return [];
+    for (const key of keys) {
+      const raw = record[key];
+      if (typeof raw === "string" && raw.trim()) return [raw.trim()];
+      if (Array.isArray(raw)) return raw.map((item) => typeof item === "string" ? item.trim() : "").filter(Boolean);
+    }
+    return [];
+  }
+  function readArray(value, keys) {
+    const record = isRecord(value) ? value : null;
+    if (!record) return [];
+    for (const key of keys) {
+      const raw = record[key];
+      if (Array.isArray(raw)) return raw;
+    }
+    const data = record.data;
+    if (isRecord(data) && !Array.isArray(data)) return readArray(data, keys);
+    return [];
+  }
+  function objectAt(value, key) {
+    if (!isRecord(value)) return null;
+    const nested = value[key];
+    return isRecord(nested) && !Array.isArray(nested) ? nested : null;
+  }
+  function isRecord(value) {
+    return Boolean(value && typeof value === "object");
+  }
+  const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
+  const EMPTY_DECK = { version: 1, cards: {} };
+  class LocalYomuSrsRepository {
+    constructor(now = () => Date.now()) {
+      this.now = now;
+    }
+    async importBatch(batch) {
+      const deck = await this.readDeck();
+      let imported = 0;
+      let skipped = 0;
+      for (const item of batch.items) {
+        const card = this.cardFromImportItem(item, batch.importedAt);
+        if (!card) {
+          skipped++;
+          continue;
+        }
+        const existing = deck.cards[card.id];
+        if (existing) {
+          deck.cards[card.id] = {
+            ...existing,
+            meanings: uniqueStrings([...existing.meanings, ...card.meanings]),
+            sentence: existing.sentence || card.sentence,
+            sourceUrl: existing.sourceUrl || card.sourceUrl,
+            tags: uniqueStrings([...existing.tags ?? [], ...card.tags ?? []]),
+            updatedAt: batch.importedAt
+          };
+          skipped++;
+        } else {
+          deck.cards[card.id] = card;
+          imported++;
+        }
+      }
+      await this.writeDeck(deck);
+      return { imported, skipped };
+    }
+    async queue(limit = 50) {
+      const now = this.now();
+      const cards = Object.values((await this.readDeck()).cards);
+      const due = cards.filter((card) => card.dueAt <= now).sort((a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt).slice(0, Math.max(0, Math.floor(limit))).map((card) => this.toReviewable(card, now));
+      return {
+        providerId: "yomu-local",
+        fetchedAt: now,
+        cards: due,
+        dueCount: cards.filter((card) => card.dueAt <= now && card.reviews > 0).length,
+        newCount: cards.filter((card) => card.reviews === 0).length,
+        reviewCount: due.length
+      };
+    }
+    async stats() {
+      const now = this.now();
+      const cards = Object.values((await this.readDeck()).cards);
+      const today = startOfLocalDay(now);
+      return {
+        providerId: "yomu-local",
+        fetchedAt: now,
+        reviewsDue: cards.filter((card) => card.dueAt <= now).length,
+        reviewsToday: cards.filter((card) => (card.lastReviewAt ?? 0) >= today).length,
+        newToday: cards.filter((card) => card.createdAt >= today).length,
+        levelCounts: {
+          new: cards.filter((card) => card.reviews === 0).length,
+          learning: cards.filter((card) => card.reviews > 0 && card.intervalDays < 21).length,
+          known: cards.filter((card) => card.intervalDays >= 21).length
+        }
+      };
+    }
+    async review(request) {
+      const deck = await this.readDeck();
+      const id = request.card.providerCardId || localCardId(request.card.expression, request.card.reading);
+      const existing = deck.cards[id] ?? this.cardFromReviewable(request.card, this.now());
+      const updated = scheduleReviewedCard(existing, request.grade, this.now());
+      deck.cards[id] = updated;
+      await this.writeDeck(deck);
+      return { card: this.toReviewable(updated, this.now()), raw: updated };
+    }
+    async mine(request) {
+      const now = this.now();
+      const card = reviewableFromMiningRequest(request, now);
+      const raw = await this.importBatch({
+        source: "manual-mining",
+        importedAt: now,
+        items: [{
+          expression: card.expression,
+          reading: card.reading,
+          meanings: card.meanings.flatMap((meaning) => meaning.glosses),
+          sentence: request.sentence,
+          sourceUrl: request.sourceUrl
+        }]
+      });
+      return { card, raw };
+    }
+    async readDeck() {
+      const stored = await gmStorageGet(YOMU_LOCAL_SRS_STORAGE_KEY, null).catch(() => null);
+      if (!stored || stored.version !== 1 || !stored.cards || typeof stored.cards !== "object") return { ...EMPTY_DECK, cards: {} };
+      return { version: 1, cards: normalizeStoredCards(stored.cards) };
+    }
+    writeDeck(deck) {
+      return gmStorageSet(YOMU_LOCAL_SRS_STORAGE_KEY, deck);
+    }
+    cardFromImportItem(item, now) {
+      const expression = item.expression.trim();
+      if (!expression) return null;
+      const reading = item.reading?.trim() || expression;
+      return {
+        id: item.sourceProviderId && item.sourceCardId ? `${item.sourceProviderId}:${item.sourceCardId}` : localCardId(expression, reading),
+        expression,
+        reading,
+        meanings: uniqueStrings(item.meanings ?? []),
+        sentence: item.sentence?.trim() || void 0,
+        sourceProviderId: item.sourceProviderId,
+        sourceCardId: item.sourceCardId,
+        sourceUrl: item.sourceUrl,
+        tags: uniqueStrings(item.tags ?? []),
+        dueAt: item.dueAt ?? now,
+        lastReviewAt: null,
+        createdAt: now,
+        updatedAt: now,
+        reviews: 0,
+        lapses: 0,
+        intervalDays: 0,
+        ease: 2.5
+      };
+    }
+    cardFromReviewable(card, now) {
+      return {
+        id: card.providerCardId || localCardId(card.expression, card.reading),
+        expression: card.expression,
+        reading: card.reading || card.expression,
+        meanings: card.meanings.flatMap((meaning) => meaning.glosses),
+        sourceProviderId: card.providerId,
+        sourceCardId: card.providerCardId,
+        sourceUrl: card.sourceUrl,
+        dueAt: card.dueAt ?? now,
+        lastReviewAt: card.lastReviewAt ?? null,
+        createdAt: now,
+        updatedAt: now,
+        reviews: 0,
+        lapses: 0,
+        intervalDays: 0,
+        ease: 2.5
+      };
+    }
+    toReviewable(card, now) {
+      return {
+        providerId: "yomu-local",
+        providerCardId: card.id,
+        providerReviewId: card.id,
+        kind: "vocabulary",
+        expression: card.expression,
+        reading: card.reading,
+        meanings: meaningsFromGlosses(card.meanings),
+        state: localCardState(card, now),
+        srsLevel: localSrsLevel(card),
+        dueAt: card.dueAt,
+        lastReviewAt: card.lastReviewAt,
+        sourceUrl: card.sourceUrl,
+        raw: card
+      };
+    }
+  }
+  function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
+    return {
+      id: "yomu-local",
+      label: "Yomu",
+      capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
+      hasCredential: () => true,
+      verify: async () => true,
+      stats: () => repository.stats(),
+      queue: (limit) => repository.queue(limit),
+      review: (request) => repository.review(request),
+      mine: (request) => repository.mine(request),
+      importBatch: (batch) => repository.importBatch(batch)
+    };
+  }
+  function scheduleReviewedCard(card, grade, now) {
+    const failed = grade === "nothing" || grade === "something" || grade === "fail" || grade === "again";
+    const intervalDays = failed ? 0 : nextIntervalDays(card, grade);
+    return {
+      ...card,
+      reviews: card.reviews + 1,
+      lapses: card.lapses + (failed ? 1 : 0),
+      intervalDays,
+      ease: Math.min(3.2, Math.max(1.3, card.ease + easeDelta(grade))),
+      dueAt: now + (failed ? 10 * 6e4 : intervalDays * 864e5),
+      lastReviewAt: now,
+      updatedAt: now
+    };
+  }
+  function nextIntervalDays(card, grade) {
+    if (card.reviews <= 0) return grade === "easy" ? 4 : grade === "hard" ? 1 : 2;
+    const multiplier = grade === "easy" ? card.ease + 0.7 : grade === "hard" ? 1.2 : card.ease;
+    return Math.max(1, Math.round(Math.max(1, card.intervalDays) * multiplier));
+  }
+  function easeDelta(grade) {
+    if (grade === "easy") return 0.15;
+    if (grade === "hard") return -0.15;
+    if (grade === "nothing" || grade === "something" || grade === "fail" || grade === "again") return -0.25;
+    return 0;
+  }
+  function reviewableFromMiningRequest(request, now) {
+    const expression = request.expression.trim();
+    const reading = request.reading?.trim() || expression;
+    return {
+      providerId: "yomu-local",
+      providerCardId: localCardId(expression, reading),
+      providerReviewId: localCardId(expression, reading),
+      kind: request.kind ?? "vocabulary",
+      expression,
+      reading,
+      meanings: request.meaning ? meaningsFromGlosses([request.meaning]) : [],
+      state: ["new"],
+      dueAt: now,
+      lastReviewAt: null,
+      sourceUrl: request.sourceUrl
+    };
+  }
+  function normalizeStoredCards(cards) {
+    return Object.fromEntries(Object.entries(cards).filter(([, card]) => Boolean(card?.id && card.expression)));
+  }
+  function localCardId(expression, reading) {
+    return `${expression.trim()}\0${reading.trim() || expression.trim()}`;
+  }
+  function meaningsFromGlosses(glosses) {
+    const normalized = uniqueStrings(glosses.map((gloss) => gloss.trim()).filter(Boolean));
+    return normalized.length ? [{ glosses: normalized, partOfSpeech: [] }] : [];
+  }
+  function localCardState(card, now) {
+    if (card.reviews === 0) return ["new"];
+    if (card.dueAt <= now) return ["due"];
+    if (card.intervalDays >= 21) return ["known"];
+    return ["learning"];
+  }
+  function localSrsLevel(card) {
+    if (card.reviews === 0) return "New";
+    if (card.intervalDays >= 21) return "Known";
+    if (card.intervalDays >= 7) return "Young";
+    return "Learning";
+  }
+  function startOfLocalDay(now) {
+    const date = new Date(now);
+    date.setHours(0, 0, 0, 0);
+    return date.getTime();
+  }
+  function uniqueStrings(values) {
+    return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+  }
   const log = Logger.scope("NewTabRuntime");
   const NEW_TAB_POPOVER_PARSE_TIMEOUT_MS = 1200;
   const NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS = 1e4;
@@ -77991,6 +79536,12 @@ ${entry.url}`),
     immersionKit = new ImmersionKitClient();
     audio = new AudioPlayer(() => this.settings);
     anki = new AnkiConnectClient(() => this.settings);
+    bunpro = new BunproClient({
+      getFrontendToken: () => this.activeBunproFrontendApiToken(),
+      getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings)
+    });
+    bunproSrs = createBunproSrsAdapter(this.bunpro);
+    yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
     rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : createNoopRtkClient();
     jpdbReviewBridge = createJpdbReviewBridgeClient();
     dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
@@ -78297,6 +79848,10 @@ ${entry.url}`),
         jpdbVocabulary: this.jpdbVocabulary,
         jpdbPublicPitch: this.jpdbPublicPitch,
         jpdbReviewBridge: this.jpdbReviewBridge,
+        srsAdapters: {
+          bunpro: this.bunproSrs,
+          "yomu-local": this.yomuLocalSrs
+        },
         parser: this.parser,
         dictionaries: this.dictionaries,
         onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
@@ -78376,6 +79931,9 @@ ${entry.url}`),
     }
     showSettings(panel) {
       this.settingsDialog.open(panel);
+    }
+    activeBunproFrontendApiToken() {
+      return isBunproFrontendCredentialExpired(this.settings) ? "" : effectiveBunproFrontendApiToken(this.settings);
     }
     mountSettingsDialog(backdrop, form) {
       this.dismiss();

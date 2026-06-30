@@ -122,6 +122,9 @@ describe('new-tab Listen mode', () => {
             internals.renderWord(root, internals.visibleWords[0]);
             // はし is 2 morae -> positions 0,1,2 = three buttons.
             expect(root.querySelectorAll('[data-listen-pos]')).toHaveLength(3);
+            expect(root.querySelector('.jpdb-reader-newtab-listen-stats')).toBeNull();
+            expect(root.querySelector('.jpdb-reader-newtab-listen-prompt')).toBeNull();
+            expect(root.querySelector('[data-newtab-action="listen-play"] svg')).not.toBeNull();
             expect(playWordAudio).toHaveBeenCalledTimes(1);
         } finally {
             controller.destroy();
@@ -171,7 +174,8 @@ describe('new-tab Listen mode', () => {
             // No picker grading yet — Recall reveals then offers self-grade buttons.
             internals.pickListenPosition(1);
             expect(internals.pitchSrs.item(pitchItemKey('はし', 1))?.reps).toBe(0); // not graded on pick
-            expect(root.querySelector('[data-newtab-action="listen-grade"]')).not.toBeNull();
+            expect(root.querySelector('[data-newtab-action="listen-next"]')).not.toBeNull();
+            expect(root.querySelector('[data-newtab-action="listen-grade"]')).toBeNull();
         } finally {
             controller.destroy();
         }

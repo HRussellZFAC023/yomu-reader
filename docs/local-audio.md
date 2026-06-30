@@ -9,10 +9,20 @@ description: Add Japanese word audio to よむ. Use a hosted Yomitan-compatible 
 
 | What you want | Best choice |
 | --- | --- |
-| The easiest setup | Use the hosted Ultimate Yomitan Audio URL |
+| The easiest setup | Use the built-in Yomu hosted audio source or a hosted Ultimate Yomitan Audio URL |
 | Audio files stored on your own computer | Download and run the local audio server |
 
 The hosted option is the least fuss. Use the local server only if you're okay keeping a small helper app running on your computer.
+
+## Yomu Hosted Audio
+
+Yomu includes this Yomitan-compatible source first in the default audio list:
+
+```text
+https://audio.yomureader.com/?term={term}&reading={reading}
+```
+
+It is designed for licensed recorded audio and returns an empty result quickly when the public source is paused or still being filled. That keeps the rest of your configured sources working normally.
 
 ## Easiest: Hosted Audio
 
@@ -29,7 +39,7 @@ Add it to よむ:
 
 ## Cloudflare Hosting Status
 
-よむ does not ship a default public Ultimate audio proxy. A Cloudflare Worker can technically proxy or serve Yomitan-compatible audio, and Wrangler is available for this repository's existing Cloudflare Worker, but it is not safe to deploy a default shared audio source without an explicit audio license, storage plan, and traffic budget.
+よむ has a Cloudflare Worker shell for `audio.yomureader.com`. It should serve only licensed audio or a private upstream we are allowed to redistribute.
 
 The safe deployment plan is:
 

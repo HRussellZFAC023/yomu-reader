@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.246
+// @version 1.5.0
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.246
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.246
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.246
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.246
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.0
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.0
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.0
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.0
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -234,6 +234,7 @@ const DEFAULT_PITCH_COLOR_TOKENS = {
 const LOOKUP_PILL_COLOR_TOKENS = {
   jpdb: { bg: "#2563c7", border: "#4f8ff0", text: CORE_COLOR_TOKENS.white },
   jiten: { bg: "#13845f", border: "#34c89a", text: CORE_COLOR_TOKENS.white },
+  bunpro: { bg: "#be3455", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
   "yomu-search": { bg: "#b83280", border: "#f472b6", text: CORE_COLOR_TOKENS.white },
   jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
   weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
@@ -927,6 +928,7 @@ const MANAGED_STORAGE_KEY_PREFIXES = [
   "yomu-",
   "yomu:",
   "yomu.",
+  "__yomu",
   "jpdb-reader-",
   "jpdb-popup-reader-"
 ];
@@ -941,6 +943,7 @@ const GITHUB_OWNER = "HRussellZFAC023";
 const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
 const DOCS_ORIGIN = "https://yomureader.com";
 const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
+const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
 const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
 const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
 const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
@@ -1427,6 +1430,7 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
   "jpdb-reader-newtab-ui",
   "jpdb-reader-newtab-jpdb-stats-history",
   "jpdb-reader-newtab-disabled-anki-decks",
+  "yomu:srs-local:v1",
   "jpdb-reader-source-open-state",
   "jpdb-reader-settings-drawer-height-ratio",
   "jpdb-reader-sheet-height-ratio",
@@ -2112,6 +2116,12 @@ const JITEN_LOOKUP_LINK = {
   urlTemplate: "https://jiten.moe/parse?text={query}",
   enabled: true
 };
+const BUNPRO_LOOKUP_LINK = {
+  id: "bunpro",
+  label: "Bunpro",
+  urlTemplate: "https://bunpro.jp/search?query={query}",
+  enabled: false
+};
 const WEBLIO_LOOKUP_LINK = {
   id: "weblio",
   label: "Weblio",
@@ -2162,6 +2172,7 @@ const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
   JPDB_LOOKUP_LINK,
   JPDB_LIVE_FREQUENCY_PILL,
   YOMU_LOOKUP_LINK,
+  BUNPRO_LOOKUP_LINK,
   JISHO_LOOKUP_LINK,
   WEBLIO_LOOKUP_LINK,
   KOTOBANK_LOOKUP_LINK,
@@ -2505,7 +2516,7 @@ const SETTINGS_STORAGE_KEYS = [
 ];
 const log$m = Logger.scope("Settings");
 let settingsResetInProgress = false;
-const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
+const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
 const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
 const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
 const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
@@ -2537,6 +2548,7 @@ const AUDIO_SOURCE_TYPE_VALUES = [
   "custom-json"
 ];
 const DEFAULT_AUDIO_SOURCES = [
+  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
   { type: "jpod101", url: "", voice: "", enabled: true },
   { type: "language-pod-101", url: "", voice: "", enabled: true },
   { type: "jisho", url: "", voice: "", enabled: true },
@@ -2596,6 +2608,8 @@ const SOURCE_ALIAS_SETTING_KEYS = [
 ];
 const MINING_BOOLEAN_SETTING_KEYS = [
   "jpdbMiningEnabled",
+  "bunproMiningEnabled",
+  "yomuLocalSrsEnabled",
   "dictionarySourcesInitiallyExpanded"
 ];
 const SUBTITLE_BOOLEAN_SETTING_KEYS = [
@@ -2659,9 +2673,17 @@ const IMMERSION_EXAMPLE_SOURCES = ["nadeshiko", "combined", "immersion-kit"];
 const OCR_OVERLAY_THEMES = ["auto", "dark", "light"];
 const SUBTITLE_CONTROL_MODES = ["always", "hidden", "auto"];
 const SUBTITLE_TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
-const NEW_TAB_SOURCES = ["jpdb", "anki", "auto", "dictionary"];
+const NEW_TAB_SOURCES = ["jpdb", "bunpro", "yomu-local", "anki", "auto", "dictionary"];
 const NEW_TAB_JPDB_REVIEW_MODES = ["auto", "api-vocabulary", "live-review"];
 const NEW_TAB_KANJI_KEYWORD_SOURCES = ["auto", "rtk", "jpdb", "local"];
+const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
+  "kanji-doodle",
+  "word",
+  "recall-cloze",
+  "listen-pitch",
+  "speaking"
+];
+const NEW_TAB_STUDY_CHALLENGE_STEPS = new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
 const LEGACY_COLOR_CHANNEL_DEFAULTS = {
   wordHighlightColorSource: "auto",
   wordUnderlineColorSource: "auto",
@@ -2677,6 +2699,9 @@ const LEGACY_NEXT_SUBTITLE_SHORTCUT = "Alt+ArrowRight";
 const DEFAULT_SETTINGS = {
   apiKey: "",
   jitenApiKey: "",
+  bunproApiKey: "",
+  bunproFrontendApiToken: "",
+  bunproFrontendApiTokenExpiresAt: "",
   onboardingSeen: false,
   interfaceLanguage: "en",
   accentColor: DEFAULT_ACCENT_COLOR,
@@ -2785,6 +2810,9 @@ const DEFAULT_SETTINGS = {
   newTabSwipeReviews: true,
   newTabKanjiAutogradeEnabled: true,
   newTabKanjiAutoSubmit: false,
+  newTabStudyStepOrder: [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER],
+  newTabStudyDisabledSteps: [],
+  newTabStudyTourSeen: false,
   puckPositionX: void 0,
   puckPositionY: void 0,
   manualScanEnabled: false,
@@ -2889,6 +2917,8 @@ const DEFAULT_SETTINGS = {
   popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
   popupFontWeight: 400,
   jpdbMiningEnabled: true,
+  bunproMiningEnabled: false,
+  yomuLocalSrsEnabled: true,
   apiGradingProvider: "jiten",
   miningDeck: "forq",
   autoMineOnReview: false,
@@ -2974,8 +3004,11 @@ function mergeSettings(value) {
 function normalizeApiCredentialSettings(value) {
   const apiKey = trimmedStringSetting(value, "apiKey", DEFAULT_SETTINGS.apiKey);
   const jitenApiKey = trimmedStringSetting(value, "jitenApiKey", DEFAULT_SETTINGS.jitenApiKey);
-  if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: jitenApiKey || apiKey };
-  return { apiKey, jitenApiKey };
+  const bunproApiKey = trimmedStringSetting(value, "bunproApiKey", DEFAULT_SETTINGS.bunproApiKey);
+  const bunproFrontendApiToken = trimmedStringSetting(value, "bunproFrontendApiToken", DEFAULT_SETTINGS.bunproFrontendApiToken);
+  const bunproFrontendApiTokenExpiresAt = normalizeOptionalIsoDateString(value?.bunproFrontendApiTokenExpiresAt);
+  if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: jitenApiKey || apiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt };
+  return { apiKey, jitenApiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt };
 }
 function stripUnsupportedSettings(value) {
   if (!value) return null;
@@ -3132,8 +3165,33 @@ function normalizeNewTabSettings(value) {
   newTabStopAtBatchEnd: booleanSetting(value, "newTabStopAtBatchEnd"),
   newTabSwipeReviews: booleanSetting(value, "newTabSwipeReviews"),
   newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
-  newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
+  newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit"),
+  newTabStudyStepOrder: normalizeNewTabStudyStepOrder(value?.newTabStudyStepOrder),
+  newTabStudyDisabledSteps: normalizeNewTabStudyDisabledSteps(value?.newTabStudyDisabledSteps),
+  newTabStudyTourSeen: booleanSetting(value, "newTabStudyTourSeen")
   };
+}
+function normalizeNewTabStudyStepOrder(value) {
+  const ordered = normalizeStudyStepList(value);
+  return [
+  ...ordered,
+  ...DEFAULT_NEW_TAB_STUDY_STEP_ORDER.filter((step) => !ordered.includes(step))
+  ];
+}
+function normalizeNewTabStudyDisabledSteps(value) {
+  return normalizeStudyStepList(value);
+}
+function normalizeStudyStepList(value) {
+  if (!Array.isArray(value)) return [];
+  const out = [];
+  for (const item of value) {
+  if (!isNewTabStudyChallengeStep(item) || out.includes(item)) continue;
+  out.push(item);
+  }
+  return out;
+}
+function isNewTabStudyChallengeStep(value) {
+  return typeof value === "string" && NEW_TAB_STUDY_CHALLENGE_STEPS.has(value);
 }
 function normalizeReaderDisplaySettings(value) {
   const settings = value ?? {};
@@ -3207,7 +3265,13 @@ function normalizeMiningSettings(value) {
 }
 function normalizeApiGradingProvider(value) {
   if (value === "jpdb") return "jpdb";
+  if (value === "bunpro") return "bunpro";
   return DEFAULT_SETTINGS.apiGradingProvider;
+}
+function normalizeOptionalIsoDateString(value) {
+  if (typeof value !== "string" || !value.trim()) return "";
+  const time = Date.parse(value.trim());
+  return Number.isFinite(time) ? new Date(time).toISOString() : "";
 }
 function normalizeMediaSettings(value) {
   const settings = value ?? {};
@@ -6829,15 +6893,74 @@ function previousRubyRoomHeight(box) {
 function baseVisibleInBox(baseRect, boxRect) {
   return baseRect.bottom > boxRect.top + 1 && baseRect.top < boxRect.bottom - 1;
 }
+const PRIVATE_IPV4_RANGES = [
+  [0, 16777215],
+  [167772160, 184549375],
+  [1681915904, 1686110207],
+  [2130706432, 2147483647],
+  [2851995648, 2852061183],
+  [2886729728, 2887778303],
+  [3232235520, 3232301055]
+];
+function isPrivateOrLocalHostname(hostname) {
+  const host = stripIpv6Brackets(hostname.trim().toLowerCase());
+  if (!host) return true;
+  return isLocalhostName(host) || isPrivateIpv4(host) || isPrivateIpv6(host);
+}
+function stripIpv6Brackets(host) {
+  return host.replace(/^\[/u, "").replace(/\]$/u, "");
+}
+function isLocalhostName(host) {
+  return host === "localhost" || host.endsWith(".localhost");
+}
+function isPrivateIpv4(host) {
+  const value = ipv4LiteralToInt(host);
+  return value !== null && isPrivateIpv4Int(value);
+}
+function isPrivateIpv4Int(value) {
+  return PRIVATE_IPV4_RANGES.some(([low, high]) => value >= low && value <= high);
+}
+function ipv4LiteralToInt(host) {
+  const fields = host.split(".");
+  if (fields.length === 0 || fields.length > 4) return null;
+  const values = [];
+  for (const field of fields) {
+  const value = parseIpv4Field(field);
+  if (value === null) return null;
+  values.push(value);
+  }
+  const head = values.slice(0, -1);
+  if (head.some((value) => value > 255)) return null;
+  const tail = values[values.length - 1];
+  const tailBytes = 4 - head.length;
+  const tailMax = tailBytes >= 4 ? 4294967295 : 256 ** tailBytes - 1;
+  if (tail > tailMax) return null;
+  let result = 0;
+  for (const value of head) result = result * 256 + value;
+  return result * 256 ** tailBytes + tail;
+}
+function parseIpv4Field(field) {
+  if (!field) return null;
+  if (/^0x[0-9a-f]+$/iu.test(field)) return finiteNonNegative(parseInt(field.slice(2), 16));
+  if (/^0[0-7]+$/u.test(field)) return finiteNonNegative(parseInt(field.slice(1), 8));
+  if (/^[0-9]+$/u.test(field)) return finiteNonNegative(parseInt(field, 10));
+  return null;
+}
+function finiteNonNegative(value) {
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+function isPrivateIpv6(host) {
+  if (!host.includes(":")) return false;
+  if (host === "::1" || host === "::") return true;
+  const mapped = host.match(/^::(?:ffff:)?(\d{1,3}(?:\.\d{1,3}){3})$/u);
+  if (mapped) {
+  const value = ipv4LiteralToInt(mapped[1]);
+  if (value !== null && isPrivateIpv4Int(value)) return true;
+  }
+  return host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/u.test(host);
+}
 const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
 const READ_METHODS = new Set(["GET", "HEAD"]);
-const PRIVATE_IPV4_HOSTNAME_PATTERNS = [
-  /^(?:0|10|127)\./,
-  /^169\.254\./,
-  /^192\.168\./,
-  /^172\.(?:1[6-9]|2\d|3[0-1])\./
-];
-const PRIVATE_IPV6_HOSTNAME_PREFIXES = ["fc", "fd", "fe80:"];
 const IMMERSION_KIT_API_HOSTS = new Set([
   "apiv2express.immersionkit.com",
   "apiv2.immersionkit.com"
@@ -6846,6 +6969,12 @@ const KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS = new Set([
   "d1pra95f92lrn3.cloudfront.net",
   "d1vjc5dkcd3yh2.cloudfront.net"
 ]);
+const YOMU_PUBLIC_PROXY_HOSTS = new Set([
+  "yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev",
+  "edge.yomureader.com",
+  "proxy.yomureader.com"
+]);
+const YOMU_SHARED_PUBLIC_PROXY_URL = "https://edge.yomureader.com/";
 function configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) {
   const proxyUrl = configuredProxyUrl.trim();
   if (!proxyUrl) return null;
@@ -6859,6 +6988,10 @@ function configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) {
 }
 function isProxySafeRequest(targetUrl, options) {
   return !hasSensitiveRequestHeaders(options.headers) && !hasCredentialedRequest(options.credentials) && !isPrivateJpdbTarget(targetUrl, options) && !isPrivateNetworkTarget(targetUrl) && !hasSensitiveUrlParams(targetUrl);
+}
+function isSharedPublicProxySafeRequest(targetUrl, options) {
+  const target = fetchTarget(targetUrl);
+  return Boolean(target && isProxySafeRequest(targetUrl, options) && isReadMethod(options.method) && isSharedPublicProxyAllowlistedTarget(target));
 }
 function shouldPreferProxyFirst(targetUrl, hasDirectCandidate, proxySafe) {
   return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && isHostedGithubPagesApp$1() && isCrossOriginHttpUrl(targetUrl);
@@ -6876,8 +7009,10 @@ function shouldSkipDirectCrossOriginFetch(targetUrl, options) {
   const method = requestMethod(options);
   return Boolean(target && isCrossOriginHttpTarget(target) && (isKnownCorsBlockedConfiguredProxyTarget(target, method) || isJpdbPublicLookupTarget(target, method) || isLocalHostedBrowserCorsTarget(target, method)));
 }
-function builtInProxyUrls(_targetUrl, _options) {
-  return [];
+function builtInProxyUrls(targetUrl, options) {
+  if (!isOfficialHostedReaderOrigin$1() || !isSharedPublicProxySafeRequest(targetUrl, options)) return [];
+  const proxyUrl = configuredProxyFetchUrl$1(targetUrl, YOMU_SHARED_PUBLIC_PROXY_URL);
+  return proxyUrl ? [proxyUrl] : [];
 }
 function isJpdbPublicAudioUrl(targetUrl) {
   try {
@@ -6887,8 +7022,13 @@ function isJpdbPublicAudioUrl(targetUrl) {
   return false;
   }
 }
-function isYomuPublicProxyUrl(_candidateUrl) {
+function isYomuPublicProxyUrl(candidateUrl) {
+  try {
+  const url = new URL(candidateUrl);
+  return YOMU_PUBLIC_PROXY_HOSTS.has(url.hostname);
+  } catch {
   return false;
+  }
 }
 function isKnownDirectCorsTarget(targetUrl) {
   try {
@@ -6900,6 +7040,24 @@ function isKnownDirectCorsTarget(targetUrl) {
 }
 function isKnownCorsBlockedConfiguredProxyTarget(target, method) {
   return method === "GET" && (isJpdbPublicAudioUrl(target.href) || target.hostname === "jisho.org" && target.pathname.startsWith("/search/") || target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php" || target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/") || target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname)));
+}
+function isSharedPublicProxyAllowlistedTarget(target) {
+  const host = target.hostname.toLowerCase();
+  const path = target.pathname;
+  if (target.protocol !== "https:") return false;
+  if (host === "api.jiten.moe") {
+  return path.startsWith("/api/tts/word/") || path.startsWith("/api/tts/sentence/") || path === "/api/vocabulary/search" || path === "/api/vocabulary/parse" || path === "/api/vocabulary/parse-normalised" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(path) || path.startsWith("/api/kanji/");
+  }
+  if (host === "jpdb.io") {
+  return path === "/search" || path.startsWith("/vocabulary/") || path.startsWith("/kanji/") || path.startsWith("/static/v/");
+  }
+  if (host === "jisho.org") return path.startsWith("/search/");
+  if (host === "assets.languagepod101.com") return path === "/dictionary/japanese/audiomp3.php";
+  if (host === "cdn.innovativelanguage.com") return path.includes("/learningcenter/audio/");
+  if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith("/audio/");
+  if (host === "uchisen.com") return path.startsWith("/kanji/");
+  if (host === "ik.imagekit.io") return path.startsWith("/uchisen/generated/saved/");
+  return IMMERSION_KIT_API_HOSTS.has(host) && path === "/search";
 }
 function isJpdbPublicLookupTarget(target, method) {
   return method === "GET" && target.hostname === "jpdb.io" && (target.pathname === "/search" || target.pathname.startsWith("/vocabulary/"));
@@ -6916,6 +7074,10 @@ function isHostedGithubPagesApp$1() {
   } catch {
   return false;
   }
+}
+function isOfficialHostedReaderOrigin$1() {
+  if (typeof location === "undefined") return false;
+  return location.hostname === "yomureader.com" || location.hostname === "www.yomureader.com";
 }
 function isLocalHostedApp() {
   if (typeof location === "undefined") return false;
@@ -6962,24 +7124,10 @@ function isPrivateJpdbTarget(targetUrl, options) {
 function isPrivateNetworkTarget(targetUrl) {
   try {
   const url = new URL(targetUrl, location.href);
-  return isPrivateHostname(url.hostname);
+  return isPrivateOrLocalHostname(url.hostname);
   } catch {
   return false;
   }
-}
-function isPrivateHostname(hostname) {
-  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  return isLocalhostHostname(host) || isPrivateIpv4Hostname(host) || isPrivateIpv6Hostname(host);
-}
-function isLocalhostHostname(host) {
-  return host === "localhost" || host.endsWith(".localhost");
-}
-function isPrivateIpv4Hostname(host) {
-  return PRIVATE_IPV4_HOSTNAME_PATTERNS.some((pattern) => pattern.test(host));
-}
-function isPrivateIpv6Hostname(host) {
-  if (!host.includes(":")) return false;
-  return host === "::1" || PRIVATE_IPV6_HOSTNAME_PREFIXES.some((prefix) => host.startsWith(prefix));
 }
 function hasSensitiveUrlParams(targetUrl) {
   try {
@@ -7015,13 +7163,50 @@ function fetchAttemptForCandidate(targetUrl, candidate, options) {
   if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
   return { url: candidate.url, options };
   }
+  return {
+  url: proxyControlUrl(candidate.url, options.headers),
+  options: {
+    ...options,
+    headers: stripProxyOnlyHeaders(options.headers, ["x-access", "x-forcecaf"])
+  }
+  };
+}
+function proxyControlUrl(candidateUrl, headers) {
+  const forceCaf = headerValue(headers, "x-forcecaf");
+  if (!forceCaf) return candidateUrl;
+  try {
+  const url = new URL(candidateUrl);
+  url.searchParams.set("x-forcecaf", forceCaf);
+  return url.href;
+  } catch {
+  return candidateUrl;
+  }
+}
+function stripProxyOnlyHeaders(headers, names) {
+  if (!headers) return headers;
+  const excluded = new Set(names.map((name) => name.toLowerCase()));
+  const sanitized = {};
+  new Headers(headers).forEach((value, key) => {
+  if (!excluded.has(key.toLowerCase())) sanitized[key] = value;
+  });
+  return Object.keys(sanitized).length ? sanitized : void 0;
+}
+function headerValue(headers, name) {
+  if (!headers) return "";
+  return new Headers(headers).get(name) ?? "";
 }
 function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
   const proxySafe = isProxySafeRequest(targetUrl, options);
   const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
-  const configured = configuredProxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) : null;
+  const configuredUrl = configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl);
+  const configuredUrlIsSharedPublicProxy = configuredUrl ? isYomuPublicProxyUrl(configuredUrl) : false;
+  const configured = configuredProxySafe && options.allowConfiguredProxy !== false && !configuredUrlIsSharedPublicProxy ? configuredUrl : null;
   const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
-  const publicProxies = publicProxySafe ? builtInProxyUrls() : [];
+  const configuredPublicProxy = publicProxySafe && configuredUrlIsSharedPublicProxy ? configuredUrl : null;
+  const publicProxies = publicProxySafe ? [
+  configuredPublicProxy,
+  ...builtInProxyUrls(targetUrl, options)
+  ].filter((url) => Boolean(url)) : [];
   const direct = directFetchUrl(targetUrl, options, Boolean(configured));
   const directCandidate = direct ? { url: direct, kind: "direct" } : null;
   const proxyCandidates = [
@@ -7423,19 +7608,18 @@ function userscriptJsonResponse(response) {
 function userscriptTextResponse(response) {
   return String(response.responseText ?? response.response ?? "");
 }
-const YOMU_HOSTED_FALLBACK_PROXY_URL = "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/";
-function hostedFallbackProxyUrl(url) {
+function hostedFallbackProxyUrl(url, options = {}) {
   if (getUserscriptHttpRequest()) return "";
   if (!isOfficialHostedReaderOrigin()) return "";
-  if (isSameOriginUrl(url) || !/^https?:\/\//i.test(url)) return "";
-  return YOMU_HOSTED_FALLBACK_PROXY_URL;
+  if (!isSharedPublicProxySafeRequest(url, options)) return "";
+  return YOMU_SHARED_PUBLIC_PROXY_URL;
 }
 function isOfficialHostedReaderOrigin() {
   if (typeof location === "undefined") return false;
   return location.hostname === "yomureader.com" || location.hostname === "www.yomureader.com";
 }
 async function requestViaFetch(url, options) {
-  const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url), {
+  const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options), {
   method: options.method ?? "GET",
   headers: options.headers,
   body: options.data,
@@ -7567,12 +7751,15 @@ const COPY = {
   apiCredential: "API key",
   apiCredentialJpdb: "JPDB API key",
   apiCredentialJiten: "Jiten API key",
+  apiCredentialBunpro: "Bunpro frontend API token",
+  apiCredentialBunproLegacy: "Bunpro API key",
   apiKey: "API key",
   jitenApiKey: "Jiten API key",
   apiAccess: "API access",
-  apiAccessHelp: "Paste separate Jiten and JPDB keys. Study decks stay scoped to the selected provider; local dictionaries still work without keys.",
+  apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.",
   jpdbSettings: "JPDB settings",
   jitenSettings: "Jiten settings",
+  bunproSettings: "Bunpro settings",
   jpdbApiKeyConfigured: "JPDB key set.",
   jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
   jpdbApiKeyMissing: "No JPDB key.",
@@ -7588,6 +7775,8 @@ const COPY = {
   statusError: "Error",
   disabledControlDescription: "Controlled by another setting.",
   jpdbMiningEnabled: "Allow API review/deck changes",
+  bunproMiningEnabled: "Allow Bunpro review/mining",
+  yomuLocalSrsEnabled: "Enable local Yomu SRS",
   addToForq: "Also copy JPDB adds to forq",
   enableReviews: "Show review buttons",
   reviewRatingScale: "Review rating scale",
@@ -7647,8 +7836,10 @@ const COPY = {
   newTabAnkiReviewDecks: "Anki review decks",
   newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
   newTabSource: "Study review source",
-  newTabAuto: "Auto: API/Anki, then study words",
+  newTabAuto: "Auto: Yomu, accounts, then study words",
   newTabApiSrs: "API SRS (Jiten / JPDB)",
+  newTabBunpro: "Bunpro",
+  newTabYomuLocal: "Yomu local SRS",
   dictionaryFallback: "Dictionary fallback",
   newTabJpdbReviewMode: "API review mode",
   newTabJpdbReviewAuto: "Auto: live kanji + API vocabulary",
@@ -9239,12 +9430,15 @@ api	API
 apiCredential	APIキー
 apiCredentialJpdb	JPDB APIキー
 apiCredentialJiten	Jiten APIキー
+apiCredentialBunpro	Bunpro frontend API token
+apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenとJPDBのキーを別々に貼ります。学習デッキは選択中のサービスに適用され、キーなしでもローカル辞書は使えます。
+apiAccessHelp	APIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から、Bunproはfrontend_api_tokenを使います。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
+bunproSettings	Bunpro設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbApiKeyMissing	JPDBキーなし。
 jpdbConnected	JPDBに接続しました。
@@ -9259,6 +9453,8 @@ statusAttention	設定が必要
 statusError	エラー
 disabledControlDescription	別設定で制御中。
 jpdbMiningEnabled	APIの復習・デッキ変更を許可
+bunproMiningEnabled	Bunproの復習・採掘を許可
+yomuLocalSrsEnabled	ローカルよむSRSを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -9313,8 +9509,10 @@ newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
-newTabAuto	自動: API/Anki後に学習語
+newTabAuto	自動: よむ・アカウント後に学習語
 newTabApiSrs	API SRS（Jiten / JPDB）
+newTabBunpro	Bunpro
+newTabYomuLocal	ローカルよむSRS
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字+API語彙
@@ -9991,14 +10189,22 @@ function removeAudioDeckId(ids, id) {
   const index = ids.indexOf(id);
   if (index >= 0) ids.splice(index, 1);
 }
-const REQUIRED_JA_AUDIO_SOURCES = ["jpod101", "language-pod-101", "jisho", "jiten-tts", "jpdb-tts", "text-to-speech"];
+const REQUIRED_JA_AUDIO_SOURCES = [
+  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+  { type: "jpod101", url: "", voice: "", enabled: true },
+  { type: "language-pod-101", url: "", voice: "", enabled: true },
+  { type: "jisho", url: "", voice: "", enabled: true },
+  { type: "jiten-tts", url: "", voice: "", enabled: true },
+  { type: "jpdb-tts", url: "", voice: "", enabled: true },
+  { type: "text-to-speech", url: "", voice: "", enabled: true }
+];
 function getOrderedAudioSources(settings) {
   const sources = settings.audioSources.filter((source) => source.enabled);
   if (!settings.audioEnableDefaultSources) return sources;
   const configuredTypes = new Set(settings.audioSources.map((source) => source.type));
   return [
   ...sources,
-  ...REQUIRED_JA_AUDIO_SOURCES.filter((type) => !configuredTypes.has(type)).map((type) => ({ type, url: "", voice: "", enabled: true }))
+  ...REQUIRED_JA_AUDIO_SOURCES.filter((source) => !configuredTypes.has(source.type)).map((source) => ({ ...source }))
   ];
 }
 function preloadableAudioSources(sources, settings) {
@@ -21342,7 +21548,7 @@ ${entry.reading || ""}`;
       const canShowProviderStatus = Boolean(provider?.hasApiKey);
       return [
         renderMetaReading(card, settings),
-        card.frequencyRank && !canShowProviderStatus ? renderMetaFrequencyRank(card.frequencyRank, settings.interfaceLanguage) : "",
+        shouldRenderMetaFrequencyRank(card, provider, settings) ? renderMetaFrequencyRank(card.frequencyRank, settings.interfaceLanguage) : "",
         canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state, settings.interfaceLanguage))}</span>` : "",
         renderAnkiMeta(data.ankiLookup, settings)
       ].filter(Boolean);
@@ -21487,6 +21693,20 @@ ${entry.reading || ""}`;
     const label = uiText(language, "factFrequency");
     const value = `#${rank}`;
     return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill jpdb-reader-meta-pill" data-dictionary="JPDB" style="${pillStyle("frequency:JPDB")}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(`${label}: ${value}`)}">${escapeHtml$1(value)}</span>`;
+  }
+  function shouldRenderMetaFrequencyRank(card, provider, settings) {
+    if (!card.frequencyRank || provider?.hasApiKey) return false;
+    if (settings.showLookupPillFrequency === false) return true;
+    const liveProvider = liveFrequencyProviderForCard(card);
+    if (!liveProvider) return true;
+    const enabledLookupLinks = new Set(settings.dictionaryLookupLinks.filter((link) => link.enabled).map((link) => link.id));
+    return !(enabledLookupLinks.has(liveProvider) && enabledLookupLinks.has(`${liveProvider}-frequency`));
+  }
+  function liveFrequencyProviderForCard(card) {
+    if (card.source === "jiten" || card.reviewSource === "jiten-api") return "jiten";
+    if (card.source === "local" || card.source === "fallback" || card.source === "anki" || card.source === "bunpro" || card.source === "yomu-local") return null;
+    if (card.reviewSource === "dictionary" || card.reviewSource === "anki" || card.reviewSource === "bunpro-api" || card.reviewSource === "yomu-local") return null;
+    return "jpdb";
   }
   function renderAnkiMeta(lookup, settings) {
     if (!settings.ankiEnabled) return "";
@@ -37407,7 +37627,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.4.246"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.0"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

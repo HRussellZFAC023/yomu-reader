@@ -4,7 +4,7 @@
 // downstep position picker renders N+1 options for the reading, (2) a pick grades
 // and persists a local pitch SRS item to GM storage, (3) the Perceive verdict +
 // model audio fire, and (4) the Perceive/Recall/Shadow sub-mode switcher works,
-// including the Shadow self-recording control.
+// including the lean Shadow self-recording + continue controls.
 import { chromium } from 'playwright';
 import { assert, launchSmokeBrowser } from './lib/smoke-harness.mjs';
 import { bootStudySession, createStudyServer, createStudySettings } from './lib/study-fixture.mjs';
@@ -52,15 +52,17 @@ async function run() {
         const recallHasMeaning = await page.evaluate(() => (document.querySelector('.jpdb-reader-newtab-listen-cue')?.textContent || '').trim().length > 0);
         assert(recallHasMeaning, 'Recall sub-mode did not front the word + meaning');
 
-        // --- Shadow sub-mode: contour + self-grade + record control ---
+        // --- Shadow sub-mode: contour + recording + continue control ---
         await page.click('[data-newtab-action="listen-submode"][data-listen-submode="shadow"]');
         await page.waitForSelector('[data-listen-submode="shadow"]', { timeout: 5_000 });
         const hasRecord = await page.evaluate(() => Boolean(document.querySelector('[data-newtab-action="listen-record"]')));
+        const hasContinue = await page.evaluate(() => Boolean(document.querySelector('[data-newtab-action="listen-next"]')));
         const hasShadowGrade = await page.evaluate(() => Boolean(document.querySelector('[data-newtab-action="listen-grade"]')));
         assert(hasRecord, 'Shadow sub-mode missing the self-recording control');
-        assert(hasShadowGrade, 'Shadow sub-mode missing the self-grade buttons');
+        assert(hasContinue, 'Shadow sub-mode missing the continue control');
+        assert(!hasShadowGrade, 'Shadow sub-mode should not show old self-grade buttons');
 
-        const result = { options: reading, items, switcherVisible, verdictCorrect, recallHasMeaning, hasRecord };
+        const result = { options: reading, items, switcherVisible, verdictCorrect, recallHasMeaning, hasRecord, hasContinue };
         console.log(JSON.stringify(result, null, 2));
         console.log('listen-mode smoke passed');
         await context.close();

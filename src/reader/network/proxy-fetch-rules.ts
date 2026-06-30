@@ -1,4 +1,5 @@
 import { APP_REPOSITORY_NAME, DOCS_ORIGIN, GITHUB_PAGES_ORIGIN } from '../app/constants';
+import { isPrivateOrLocalHostname } from './private-host';
 
 interface ProxyRuleOptions {
     method?: RequestInit['method'];
@@ -8,13 +9,6 @@ interface ProxyRuleOptions {
 
 const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
 const READ_METHODS = new Set(['GET', 'HEAD']);
-const PRIVATE_IPV4_HOSTNAME_PATTERNS = [
-    /^(?:0|10|127)\./,
-    /^169\.254\./,
-    /^192\.168\./,
-    /^172\.(?:1[6-9]|2\d|3[0-1])\./,
-];
-const PRIVATE_IPV6_HOSTNAME_PREFIXES = ['fc', 'fd', 'fe80:'];
 const IMMERSION_KIT_API_HOSTS = new Set([
     'apiv2express.immersionkit.com',
     'apiv2.immersionkit.com',
@@ -23,6 +17,12 @@ const KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS = new Set([
     'd1pra95f92lrn3.cloudfront.net',
     'd1vjc5dkcd3yh2.cloudfront.net',
 ]);
+const YOMU_PUBLIC_PROXY_HOSTS = new Set([
+    'yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev',
+    'edge.yomureader.com',
+    'proxy.yomureader.com',
+]);
+export const YOMU_SHARED_PUBLIC_PROXY_URL = 'https://edge.yomureader.com/';
 
 export function configuredProxyFetchUrl(targetUrl: string, configuredProxyUrl: string): string | null {
     const proxyUrl = configuredProxyUrl.trim();
@@ -42,6 +42,14 @@ export function isProxySafeRequest(targetUrl: string, options: ProxyRuleOptions)
         && !isPrivateJpdbTarget(targetUrl, options)
         && !isPrivateNetworkTarget(targetUrl)
         && !hasSensitiveUrlParams(targetUrl);
+}
+
+export function isSharedPublicProxySafeRequest(targetUrl: string, options: ProxyRuleOptions): boolean {
+    const target = fetchTarget(targetUrl);
+    return Boolean(target
+        && isProxySafeRequest(targetUrl, options)
+        && isReadMethod(options.method)
+        && isSharedPublicProxyAllowlistedTarget(target));
 }
 
 export function shouldPreferProxyFirst(targetUrl: string, hasDirectCandidate: boolean, proxySafe: boolean): boolean {
@@ -74,8 +82,10 @@ export function shouldSkipDirectCrossOriginFetch(targetUrl: string, options: Pro
             || isLocalHostedBrowserCorsTarget(target, method)));
 }
 
-export function builtInProxyUrls(_targetUrl: string, _options: ProxyRuleOptions): string[] {
-    return [];
+export function builtInProxyUrls(targetUrl: string, options: ProxyRuleOptions): string[] {
+    if (!isOfficialHostedReaderOrigin() || !isSharedPublicProxySafeRequest(targetUrl, options)) return [];
+    const proxyUrl = configuredProxyFetchUrl(targetUrl, YOMU_SHARED_PUBLIC_PROXY_URL);
+    return proxyUrl ? [proxyUrl] : [];
 }
 
 export function isJpdbPublicAudioUrl(targetUrl: string): boolean {
@@ -88,8 +98,13 @@ export function isJpdbPublicAudioUrl(targetUrl: string): boolean {
     }
 }
 
-export function isYomuPublicProxyUrl(_candidateUrl: string): boolean {
-    return false;
+export function isYomuPublicProxyUrl(candidateUrl: string): boolean {
+    try {
+        const url = new URL(candidateUrl);
+        return YOMU_PUBLIC_PROXY_HOSTS.has(url.hostname);
+    } catch {
+        return false;
+    }
 }
 
 function isKnownDirectCorsTarget(targetUrl: string): boolean {
@@ -115,6 +130,34 @@ function isKnownCorsBlockedConfiguredProxyTarget(target: URL, method: string): b
                     || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname))));
 }
 
+function isSharedPublicProxyAllowlistedTarget(target: URL): boolean {
+    const host = target.hostname.toLowerCase();
+    const path = target.pathname;
+    if (target.protocol !== 'https:') return false;
+    if (host === 'api.jiten.moe') {
+        return path.startsWith('/api/tts/word/')
+            || path.startsWith('/api/tts/sentence/')
+            || path === '/api/vocabulary/search'
+            || path === '/api/vocabulary/parse'
+            || path === '/api/vocabulary/parse-normalised'
+            || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(path)
+            || path.startsWith('/api/kanji/');
+    }
+    if (host === 'jpdb.io') {
+        return path === '/search'
+            || path.startsWith('/vocabulary/')
+            || path.startsWith('/kanji/')
+            || path.startsWith('/static/v/');
+    }
+    if (host === 'jisho.org') return path.startsWith('/search/');
+    if (host === 'assets.languagepod101.com') return path === '/dictionary/japanese/audiomp3.php';
+    if (host === 'cdn.innovativelanguage.com') return path.includes('/learningcenter/audio/');
+    if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith('/audio/');
+    if (host === 'uchisen.com') return path.startsWith('/kanji/');
+    if (host === 'ik.imagekit.io') return path.startsWith('/uchisen/generated/saved/');
+    return IMMERSION_KIT_API_HOSTS.has(host) && path === '/search';
+}
+
 function isJpdbPublicLookupTarget(target: URL, method: string): boolean {
     return method === 'GET'
         && target.hostname === 'jpdb.io'
@@ -138,6 +181,11 @@ function isHostedGithubPagesApp(): boolean {
     } catch {
         return false;
     }
+}
+
+function isOfficialHostedReaderOrigin(): boolean {
+    if (typeof location === 'undefined') return false;
+    return location.hostname === 'yomureader.com' || location.hostname === 'www.yomureader.com';
 }
 
 function isLocalHostedApp(): boolean {
@@ -198,31 +246,10 @@ function isPrivateJpdbTarget(targetUrl: string, options: ProxyRuleOptions): bool
 function isPrivateNetworkTarget(targetUrl: string): boolean {
     try {
         const url = new URL(targetUrl, location.href);
-        return isPrivateHostname(url.hostname);
+        return isPrivateOrLocalHostname(url.hostname);
     } catch {
         return false;
     }
-}
-
-function isPrivateHostname(hostname: string): boolean {
-    const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
-    return isLocalhostHostname(host)
-        || isPrivateIpv4Hostname(host)
-        || isPrivateIpv6Hostname(host);
-}
-
-function isLocalhostHostname(host: string): boolean {
-    return host === 'localhost' || host.endsWith('.localhost');
-}
-
-function isPrivateIpv4Hostname(host: string): boolean {
-    return PRIVATE_IPV4_HOSTNAME_PATTERNS.some(pattern => pattern.test(host));
-}
-
-function isPrivateIpv6Hostname(host: string): boolean {
-    if (!host.includes(':')) return false;
-    return host === '::1'
-        || PRIVATE_IPV6_HOSTNAME_PREFIXES.some(prefix => host.startsWith(prefix));
 }
 
 function hasSensitiveUrlParams(targetUrl: string): boolean {

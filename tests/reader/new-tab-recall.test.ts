@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { NewTabController } from '../../src/reader/newtab/controller';
-import { evaluateNewTabRecallAnswer, normalizeNewTabRecallAnswer } from '../../src/reader/newtab/recall-practice';
+import { buildNewTabRecallCloze, evaluateNewTabRecallAnswer, normalizeNewTabRecallAnswer } from '../../src/reader/newtab/recall-practice';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 
 function recallCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
@@ -120,6 +120,16 @@ describe('new-tab recall answer matching', () => {
         expect(evaluateNewTabRecallAnswer(card, '医者').outcome).toBe('incorrect');
         expect(evaluateNewTabRecallAnswer(card, '   ').outcome).toBe('empty');
     });
+
+    it('builds a sentence cloze around the target spelling', () => {
+        const card = recallCard({ sentence: '昨日、弁護士に相談した。' });
+        expect(buildNewTabRecallCloze(card, card.sentence ?? '')).toMatchObject({
+            before: '昨日、',
+            answer: '弁護士',
+            after: 'に相談した。',
+            hasCloze: true,
+        });
+    });
 });
 
 describe('new-tab Recall mode', () => {
@@ -143,6 +153,24 @@ describe('new-tab Recall mode', () => {
 
             await internals.gradeCurrentCard('okay');
             expect(jpdb.reviewCard).toHaveBeenCalledWith(card, 'okay');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('fronts a Bunpro-style sentence gap when sentence context exists', () => {
+        const card = recallCard({ sentence: '昨日、弁護士に相談した。' });
+        const { controller, internals } = recallController(card);
+        const root = recallRoot();
+        try {
+            internals.renderWord(root, card);
+
+            const prompt = root.querySelector('[data-newtab-prompt]');
+            expect(prompt?.textContent).toContain('昨日、');
+            expect(prompt?.textContent).toContain('に相談した。');
+            expect(prompt?.textContent).toContain('lawyer');
+            expect(prompt?.textContent).not.toContain('弁護士');
+            expect(root.querySelector('.jpdb-reader-newtab-recall-gap')).not.toBeNull();
         } finally {
             controller.destroy();
         }

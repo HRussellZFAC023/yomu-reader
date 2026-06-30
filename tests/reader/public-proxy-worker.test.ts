@@ -36,8 +36,8 @@ describe("Yomu public proxy Worker", () => {
       expect(await response.text()).toBe("ok");
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(
-        (fetchMock.mock.calls[0][0] as Request).headers.get("accept"),
-      ).toBe("text/html");
+        (fetchMock.mock.calls[0][0] as Request).headers.has("accept"),
+      ).toBe(false);
       expect(
         (fetchMock.mock.calls[1][0] as Request).headers.has("accept"),
       ).toBe(false);
@@ -183,7 +183,7 @@ describe("Yomu public proxy Worker", () => {
     }
   });
 
-  it("never edge-caches authenticated (per-user) requests", async () => {
+  it("rejects authenticated requests before cache or upstream fetch", async () => {
     const upstream = vi.fn(() =>
       Promise.resolve(new Response("info", { status: 200 })),
     );
@@ -195,7 +195,7 @@ describe("Yomu public proxy Worker", () => {
       encodeURIComponent("https://api.jiten.moe/api/vocabulary/123/0/info");
 
     try {
-      await PublicProxyWorker.fetch(
+      const response = await PublicProxyWorker.fetch(
         new Request(proxyUrl, {
           headers: {
             authorization: "ApiKey secret",
@@ -205,8 +205,11 @@ describe("Yomu public proxy Worker", () => {
         {},
         { waitUntil: vi.fn() },
       );
+      expect(response.status).toBe(400);
+      expect(response.headers.get("x-yomu-proxy-error")).toBe("sensitive-request");
       expect(backend.match).not.toHaveBeenCalled();
       expect(backend.put).not.toHaveBeenCalled();
+      expect(upstream).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
     }
@@ -355,7 +358,7 @@ describe("Yomu public proxy Worker", () => {
     }
   });
 
-  it("does not cache or coalesce non-allowlisted hosts", async () => {
+  it("rejects non-allowlisted hosts before cache or upstream fetch", async () => {
     const upstream = vi.fn(async () =>
       new Response("ok", {
         status: 200,
@@ -377,12 +380,104 @@ describe("Yomu public proxy Worker", () => {
       );
 
     try {
-      await call();
-      await call();
-      // Non-allowlisted host: never cached, never coalesced → each call hits origin.
+      const first = await call();
+      const second = await call();
+      expect(first.status).toBe(400);
+      expect(second.status).toBe(400);
       expect(backend.match).not.toHaveBeenCalled();
       expect(backend.put).not.toHaveBeenCalled();
-      expect(upstream).toHaveBeenCalledTimes(2);
+      expect(upstream).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("rejects sensitive URL parameters on otherwise allowlisted hosts", async () => {
+    const upstream = vi.fn(async () => new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", upstream);
+    const proxyUrl =
+      "https://yomu-jpdb-public-proxy.example/?url=" +
+      encodeURIComponent("https://jpdb.io/search?q=%E5%9B%B3&token=secret");
+
+    try {
+      const response = await PublicProxyWorker.fetch(
+        new Request(proxyUrl, { headers: { origin: "https://hrussellzfac023.github.io" } }),
+        {},
+        { waitUntil: vi.fn() },
+      );
+      expect(response.status).toBe(400);
+      expect(response.headers.get("x-yomu-proxy-error")).toBe("sensitive-request");
+      expect(upstream).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("serves status without exposing query strings or request headers", async () => {
+    const response = await PublicProxyWorker.fetch(
+      new Request("https://yomu-jpdb-public-proxy.example/status", {
+        headers: { origin: "https://yomureader.com" },
+      }),
+      { PUBLIC_PROXY_DAILY_REQUEST_LIMIT: "10", PUBLIC_PROXY_ANALYTICS_LOGS: "true" },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    const body = await response.json() as {
+      status: string;
+      policy: { anonymousOnly: boolean; arbitraryTargets: boolean };
+      analytics: { structuredLogs: boolean; logsTargetQueries: boolean; logsRequestHeaders: boolean };
+      budget: { limit: number; count: number; remaining: number };
+    };
+    expect(body.status).toBe("ok");
+    expect(body.policy).toMatchObject({ anonymousOnly: true, arbitraryTargets: false });
+    expect(body.analytics).toMatchObject({ structuredLogs: true, logsTargetQueries: false, logsRequestHeaders: false });
+    expect(body.budget).toMatchObject({ limit: 10, count: 0, remaining: 10 });
+  });
+
+  it("can be disabled by environment kill switch", async () => {
+    const upstream = vi.fn(async () => new Response("unexpected"));
+    vi.stubGlobal("fetch", upstream);
+    const response = await PublicProxyWorker.fetch(
+      new Request(
+        "https://yomu-jpdb-public-proxy.example/?url=" +
+          encodeURIComponent("https://jpdb.io/search?q=%E8%AA%AD"),
+      ),
+      { PUBLIC_PROXY_DISABLED: "true" },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("x-yomu-proxy-error")).toBe("disabled");
+    expect(upstream).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("stops forwarding after the configured daily request budget", async () => {
+    const upstream = vi.fn(async () => new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", upstream);
+    const proxyUrl =
+      "https://yomu-jpdb-public-proxy.example/?url=" +
+      encodeURIComponent("https://jpdb.io/search?q=%E8%AA%AD");
+    const env = { PUBLIC_PROXY_DAILY_REQUEST_LIMIT: "1" };
+
+    try {
+      const first = await PublicProxyWorker.fetch(
+        new Request(proxyUrl),
+        env,
+        { waitUntil: vi.fn() },
+      );
+      const second = await PublicProxyWorker.fetch(
+        new Request(proxyUrl),
+        env,
+        { waitUntil: vi.fn() },
+      );
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(429);
+      expect(second.headers.get("x-yomu-proxy-error")).toBe("budget-exhausted");
+      expect(upstream).toHaveBeenCalledTimes(1);
     } finally {
       vi.unstubAllGlobals();
     }

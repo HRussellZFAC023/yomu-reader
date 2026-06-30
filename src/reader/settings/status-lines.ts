@@ -2,7 +2,7 @@ import { ANKI_CONNECT_ADDON_URL, DOCS_BASE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml } from '../dom/index';
 import { formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { hasUserscriptAnkiBridge } from '../anki/index';
-import { hasJitenApiCredential, hasJpdbApiCredential, readApiCredentialsFromFormData } from './api-credential';
+import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, readApiCredentialsFromFormData, type BunproCredentialSettings } from './api-credential';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 export const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}getting-started#use-desktop-anki-from-a-phone-ipad-or-android`;
@@ -37,12 +37,43 @@ export function renderJpdbStatusLine(settings: ReaderSettings): string {
     return `<div class="jpdb-reader-help jpdb-reader-status-line" data-jpdb-status data-status-tone="${tone}" role="status" aria-live="polite">${formatSettingsStatusLine({ message, tone }, settings.interfaceLanguage)}</div>`;
 }
 
+export function renderBunproStatusLine(settings: ReaderSettings): string {
+    const line = bunproStatusLineForSettings(settings, settings.interfaceLanguage);
+    return `<div class="jpdb-reader-help jpdb-reader-status-line" data-bunpro-status data-status-tone="${line.tone}" role="status" aria-live="polite">${formatSettingsStatusLine(line, settings.interfaceLanguage)}</div>`;
+}
+
 function formatStatusTemplate(template: string, values: Record<string, string>): string {
     return template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? '');
 }
 
 export function jpdbStatusLineForSettings(settings: Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'>, language: InterfaceLanguage): SettingsStatusLine {
     return jpdbStatusLineFromValues(hasJpdbApiCredential(settings), hasJitenApiCredential(settings), language);
+}
+
+export function bunproStatusLineForSettings(settings: BunproCredentialSettings, language: InterfaceLanguage): SettingsStatusLine {
+    if (!hasBunproFrontendCredential(settings)) {
+        return {
+            message: resolveUiLanguage(language) === 'ja' ? 'Bunproトークンなし。' : 'No Bunpro token.',
+            tone: 'pending',
+        };
+    }
+    if (isBunproFrontendCredentialExpired(settings)) {
+        return {
+            message: resolveUiLanguage(language) === 'ja' ? 'Bunproトークンの期限切れ。' : 'Bunpro token expired.',
+            tone: 'error',
+        };
+    }
+    const expiresAt = settings.bunproFrontendApiTokenExpiresAt?.trim() ?? '';
+    const date = expiresAt ? new Date(expiresAt) : null;
+    const expires = date && Number.isFinite(date.getTime())
+        ? date.toLocaleDateString(resolveUiLanguage(language) === 'ja' ? 'ja-JP' : 'en-GB')
+        : '';
+    return {
+        message: expires
+            ? (resolveUiLanguage(language) === 'ja' ? `Bunproトークンあり。期限: ${expires}` : `Bunpro token set. Expires ${expires}.`)
+            : (resolveUiLanguage(language) === 'ja' ? 'Bunproトークンあり。' : 'Bunpro token set.'),
+        tone: 'success',
+    };
 }
 
 function jpdbStatusLineFromValues(hasJpdbApiKey: boolean, hasJitenApiKey: boolean, language: InterfaceLanguage): SettingsStatusLine {
@@ -172,6 +203,15 @@ export function localizeJpdbStatus(form: HTMLFormElement, language: InterfaceLan
     if (!status) return;
     const credentials = readApiCredentialsFromFormData(new FormData(form));
     const line = jpdbStatusLineFromValues(hasJpdbApiCredential(credentials), hasJitenApiCredential(credentials), language);
+    status.dataset.statusTone = line.tone;
+    status.replaceChildren(line.message);
+}
+
+export function localizeBunproStatus(form: HTMLFormElement, language: InterfaceLanguage): void {
+    const status = form.querySelector<HTMLElement>('[data-bunpro-status]');
+    if (!status) return;
+    const credentials = readApiCredentialsFromFormData(new FormData(form));
+    const line = bunproStatusLineForSettings(credentials, language);
     status.dataset.statusTone = line.tone;
     status.replaceChildren(line.message);
 }

@@ -38,6 +38,7 @@ import {
     renderRecommendedDictionaries,
     appearancePreviewContentHtml,
     renderSettingsForm,
+    bunproStatusLineForSettings,
     jpdbStatusLineForSettings,
     syncAudioSourceRow,
     syncBrowserTtsVoiceOptions,
@@ -943,7 +944,7 @@ export class SettingsDialogController {
         });
         syncJpdbMiningDependentSettings(form);
         syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        for (const apiKeyInput of form.querySelectorAll<HTMLInputElement>('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"]')) {
+        for (const apiKeyInput of form.querySelectorAll<HTMLInputElement>('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"], input[name="apiCredentialBunproLegacy"], input[name="apiCredentialBunpro"], input[name="bunproFrontendApiTokenExpiresAt"]')) {
             apiKeyInput.addEventListener('input', () => this.syncJpdbStatus(form));
             apiKeyInput.addEventListener('change', () => {
                 reconcileApiCredentialInputs(form);
@@ -1161,14 +1162,20 @@ export class SettingsDialogController {
     }
 
     private syncJpdbStatus(form: HTMLFormElement): void {
+        const formSettings = readFormSettings(new FormData(form), this.settings);
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         const status = form.querySelector<HTMLElement>('[data-jpdb-status]');
-        if (!status) return;
-        const line = jpdbStatusLineForSettings(
-            readFormSettings(new FormData(form), this.settings),
-            getFormInterfaceLanguage(form, this.settings.interfaceLanguage),
-        );
-        status.dataset.statusTone = line.tone;
-        status.textContent = formatSettingsStatusLine(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+        if (status) {
+            const line = jpdbStatusLineForSettings(formSettings, language);
+            status.dataset.statusTone = line.tone;
+            status.textContent = formatSettingsStatusLine(line, language);
+        }
+        const bunproStatus = form.querySelector<HTMLElement>('[data-bunpro-status]');
+        if (bunproStatus) {
+            const line = bunproStatusLineForSettings(formSettings, language);
+            bunproStatus.dataset.statusTone = line.tone;
+            bunproStatus.textContent = formatSettingsStatusLine(line, language);
+        }
         this.refreshSettingsJapaneseParse(form);
     }
 

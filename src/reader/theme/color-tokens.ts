@@ -63,6 +63,7 @@ export const DEFAULT_PITCH_COLOR_TOKENS = {
 export const LOOKUP_PILL_COLOR_TOKENS = {
     jpdb: { bg: '#2563c7', border: '#4f8ff0', text: CORE_COLOR_TOKENS.white },
     jiten: { bg: '#13845f', border: '#34c89a', text: CORE_COLOR_TOKENS.white },
+    bunpro: { bg: '#be3455', border: '#fb7185', text: CORE_COLOR_TOKENS.white },
     'yomu-search': { bg: '#b83280', border: '#f472b6', text: CORE_COLOR_TOKENS.white },
     jisho: { bg: '#4f46c7', border: '#7567f0', text: CORE_COLOR_TOKENS.white },
     weblio: { bg: '#0f766e', border: '#2dd4bf', text: CORE_COLOR_TOKENS.white },

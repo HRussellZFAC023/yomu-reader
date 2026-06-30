@@ -53,6 +53,13 @@ const JITEN_LOOKUP_LINK: DictionaryLookupLink = {
     enabled: true,
 };
 
+const BUNPRO_LOOKUP_LINK: DictionaryLookupLink = {
+    id: 'bunpro',
+    label: 'Bunpro',
+    urlTemplate: 'https://bunpro.jp/search?query={query}',
+    enabled: false,
+};
+
 const WEBLIO_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'weblio',
     label: 'Weblio',
@@ -111,6 +118,7 @@ export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
     JPDB_LOOKUP_LINK,
     JPDB_LIVE_FREQUENCY_PILL,
     YOMU_LOOKUP_LINK,
+    BUNPRO_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     KOTOBANK_LOOKUP_LINK,

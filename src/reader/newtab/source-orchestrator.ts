@@ -62,14 +62,19 @@ export function appendNewTabLoadResult(accumulator: NewTabLoadAccumulator, resul
     }
 }
 
-export function autoReviewSourceResults(jpdbResult: NewTabLoadResult, ankiResult: NewTabLoadResult): NewTabLoadResult[] {
-    if (!jpdbResult.cards.length || !ankiResult.cards.length) return [jpdbResult, ankiResult];
+export function autoReviewSourceResults(...results: NewTabLoadResult[]): NewTabLoadResult[] {
+    const jpdbIndex = results.findIndex(result => result.sourceLabel.includes('JPDB') || result.sourceLabel.includes('Jiten'));
+    const ankiIndex = results.findIndex(result => result.sourceLabel.startsWith('Anki'));
+    const jpdbResult = jpdbIndex >= 0 ? results[jpdbIndex] : undefined;
+    const ankiResult = ankiIndex >= 0 ? results[ankiIndex] : undefined;
+    if (!jpdbResult || !ankiResult) return results;
+    if (!jpdbResult.cards.length || !ankiResult.cards.length) return results;
     const ankiByKey = new Map<string, JPDBCard>();
     for (const card of ankiResult.cards) {
         const key = autoReviewMergeKey(card);
         if (key && !ankiByKey.has(key)) ankiByKey.set(key, card);
     }
-    if (!ankiByKey.size) return [jpdbResult, ankiResult];
+    if (!ankiByKey.size) return results;
 
     const matchedAnkiKeys = new Set<string>();
     const cards = jpdbResult.cards.map(card => {
@@ -79,12 +84,12 @@ export function autoReviewSourceResults(jpdbResult: NewTabLoadResult, ankiResult
         matchedAnkiKeys.add(key);
         return mergeDedupeCardMetadata(card, ankiCard);
     });
-    if (!matchedAnkiKeys.size) return [jpdbResult, ankiResult];
+    if (!matchedAnkiKeys.size) return results;
 
-    return [
-        { ...jpdbResult, cards },
-        { ...ankiResult, cards: ankiResult.cards.filter(card => !matchedAnkiKeys.has(autoReviewMergeKey(card))) },
-    ];
+    const merged = [...results];
+    merged[jpdbIndex] = { ...jpdbResult, cards };
+    merged[ankiIndex] = { ...ankiResult, cards: ankiResult.cards.filter(card => !matchedAnkiKeys.has(autoReviewMergeKey(card))) };
+    return merged;
 }
 
 export function interleavedNewTabLoadAccumulator(results: NewTabLoadResult[]): NewTabLoadAccumulator {

@@ -1,14 +1,26 @@
 # Yomu JPDB Public Proxy
 
-Cloudflare Worker CORS proxy for public resources used by Yomu. It accepts public HTTP and HTTPS targets as a fallback for hosted-page media, public pages, dictionary ZIP downloads, and custom audio sources. It forwards arbitrary HTTP methods so user-configured audio and dictionary workflows can work through the same endpoint.
+Cloudflare Worker CORS proxy for public resources used by Yomu. It is intentionally narrow: anonymous `GET`/`HEAD` requests to allowlisted JPDB, Jiten, Jisho, ImmersionKit, Uchisen, and known public audio URLs only. It rejects credential headers, sensitive URL parameters, private-network targets, arbitrary hosts, and write methods.
 
 It accepts:
 
 ```text
-https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=https://jpdb.io/kanji/%E5%9B%B3
+https://edge.yomureader.com/?url=https://jpdb.io/kanji/%E5%9B%B3
 ```
 
-The worker strips hop-by-hop and browser metadata headers before forwarding, adds CORS response headers, removes `set-cookie`, and injects the public JPDB static-audio access header for `/static/v/` audio assets. It is a broad public proxy by design; restrict `isAllowedPublicProxyTarget` before deploying if you want a narrower private endpoint.
+The worker strips caller headers before forwarding, adds CORS response headers, removes `set-cookie`, and injects the public JPDB static-audio access header for `/static/v/` audio assets.
+
+Health/status:
+
+```text
+https://edge.yomureader.com/status
+```
+
+Runtime knobs:
+
+- `PUBLIC_PROXY_DISABLED=true` returns `503` without touching upstreams.
+- `PUBLIC_PROXY_DAILY_REQUEST_LIMIT=<n>` caps forwarded requests per isolate/day. Production starts at `100000` as a soft guard; set `0` only for controlled smoke tests.
+- `PUBLIC_PROXY_ANALYTICS_LOGS=true` writes sanitized structured logs: host, target kind, status, outcome, and budget counters only. It never logs query strings, request headers, cookies, or tokens.
 
 ## Rate-limit politeness
 
@@ -25,3 +37,5 @@ Deploy:
 ```bash
 npx wrangler deploy --config workers/jpdb-public-proxy/wrangler.toml
 ```
+
+Production should run on a Cloudflare zone route/custom domain such as `edge.yomureader.com`. The old `workers.dev` URL stays useful for smoke tests, but the hosted reader defaults to the Yomu-domain endpoint so edge caching works consistently.

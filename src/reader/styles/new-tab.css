@@ -1047,6 +1047,97 @@
   display: none;
 }
 
+.jpdb-reader-newtab-study-steps {
+  width: min(560px, calc(100vw - 40px));
+  min-height: 28px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.jpdb-reader-newtab-study-steps[hidden],
+.jpdb-reader-newtab-study-steps:empty {
+  display: none;
+}
+
+.jpdb-reader-newtab-study-step {
+  height: 28px;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px 0 6px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 82%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, transparent);
+  color: color-mix(in srgb, var(--jpdb-reader-text) 78%, var(--jpdb-reader-muted));
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.jpdb-reader-newtab-study-step-index {
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jpdb-reader-muted) 16%, transparent);
+  color: inherit;
+  font-size: 10px;
+}
+
+.jpdb-reader-newtab-study-step[data-active="true"] {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 72%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent-soft) 48%, var(--jpdb-reader-surface));
+  color: var(--jpdb-reader-text);
+}
+
+.jpdb-reader-newtab-study-step[data-active="true"] .jpdb-reader-newtab-study-step-index {
+  background: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-contrast, #ffffff);
+}
+
+.jpdb-reader-newtab-study-tour {
+  width: min(520px, calc(100vw - 40px));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 7px 8px 7px 12px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 36%, var(--jpdb-reader-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-accent-soft) 30%, var(--jpdb-reader-surface));
+  color: var(--jpdb-reader-text);
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.jpdb-reader-newtab-study-tour[hidden],
+.jpdb-reader-newtab-study-tour:empty {
+  display: none;
+}
+
+.jpdb-reader-newtab-study-tour button {
+  min-height: 28px;
+  padding: 0 11px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border));
+  border-radius: 999px;
+  background: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-contrast, #ffffff);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .jpdb-reader-newtab-count:empty {
   min-height: 0;
   padding: 0;
@@ -1495,6 +1586,36 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   max-width: 100%;
   overflow-wrap: anywhere;
   text-wrap: balance;
+}
+
+.jpdb-reader-newtab-recall-cloze {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.jpdb-reader-newtab-recall-cloze-sentence {
+  display: block;
+  max-width: min(100%, 760px);
+  overflow-wrap: anywhere;
+}
+
+.jpdb-reader-newtab-recall-gap {
+  display: inline-block;
+  min-width: min(7ch, 34vw);
+  height: 0.14em;
+  margin: 0 0.16em;
+  border-radius: 999px;
+  background: currentColor;
+  vertical-align: baseline;
+  transform: translateY(-0.08em);
+}
+
+.jpdb-reader-newtab-recall-hint {
+  color: var(--jpdb-reader-newtab-study-muted);
+  font-size: clamp(0.95rem, 2.6vw, 1.25rem);
+  font-weight: 780;
+  line-height: 1.25;
 }
 
 .jpdb-reader-newtab-kanji-front-keywords {
@@ -4005,7 +4126,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   font: 600 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-@media (pointer: coarse) {
+@media (hover: none) and (pointer: coarse) {
   .jpdb-reader-newtab-key-hint {
     display: none;
   }
@@ -4225,6 +4346,20 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 .jpdb-reader-newtab-listen-btn:hover {
   border-color: var(--jpdb-reader-accent);
+}
+.jpdb-reader-newtab-listen-icon-btn {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  min-height: 42px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 999px;
+}
+.jpdb-reader-newtab-listen-icon-btn svg {
+  width: 20px;
+  height: 20px;
 }
 .jpdb-reader-newtab-listen-recording {
   border-color: var(--jpdb-reader-danger, #d9534f);

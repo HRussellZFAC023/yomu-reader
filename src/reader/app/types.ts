@@ -74,11 +74,18 @@ export type AnkiFieldMappingRole = 'expression' | 'reading' | 'meaning' | 'sente
 export type AnkiFieldMapping = Partial<Record<AnkiFieldMappingRole, string>>;
 export type AnkiFieldMappings = Record<string, AnkiFieldMapping>;
 
-export type NewTabWordSource = 'auto' | 'jpdb' | 'anki' | 'dictionary';
+export type NewTabWordSource = 'auto' | 'jpdb' | 'bunpro' | 'yomu-local' | 'anki' | 'dictionary';
 
 export type NewTabJpdbReviewMode = 'auto' | 'api-vocabulary' | 'live-review';
 
 export type NewTabKanjiKeywordSource = 'auto' | 'rtk' | 'jpdb' | 'local';
+
+export type NewTabStudyChallengeStep =
+    | 'kanji-doodle'
+    | 'word'
+    | 'recall-cloze'
+    | 'listen-pitch'
+    | 'speaking';
 
 export type ReaderColorSource = 'auto' | 'status' | 'jpdb' | 'anki' | 'pitch' | 'off';
 
@@ -137,9 +144,9 @@ export interface JPDBCard {
     // Provider review timestamp (unix milliseconds), used by the My Cards history sort.
     lastReviewAt?: number | null;
     wordWithReading: string | null;
-    source?: 'jpdb' | 'jiten' | 'local' | 'anki' | 'fallback';
+    source?: 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'local' | 'anki' | 'fallback';
     sentence?: string;
-    reviewSource?: 'jpdb-api' | 'jpdb-live' | 'jiten-api' | 'anki' | 'dictionary';
+    reviewSource?: 'jpdb-api' | 'jpdb-live' | 'jiten-api' | 'bunpro-api' | 'yomu-local' | 'anki' | 'dictionary';
     jitenWordId?: number;
     jitenReadingIndex?: number;
     // Provider-neutral deck/list membership names for rendered-word styling.
@@ -166,6 +173,10 @@ export interface JPDBCard {
     }>;
     ankiAudioFilenames?: string[];
     jpdbReviewId?: string;
+    bunproReviewId?: string;
+    bunproReviewableId?: number;
+    bunproReviewableType?: 'grammar' | 'vocabulary' | 'sentence' | 'unknown';
+    bunproSrsLevel?: string;
     kanjiKeyword?: string;
     sourceCardKey?: string;
     fallbackLookupTerms?: string[];
@@ -228,6 +239,9 @@ export interface JPDBParseResult {
 export interface ReaderSettings {
     apiKey: string;
     jitenApiKey: string;
+    bunproApiKey: string;
+    bunproFrontendApiToken: string;
+    bunproFrontendApiTokenExpiresAt: string;
     onboardingSeen: boolean;
     interfaceLanguage: InterfaceLanguage;
     accentColor: string;
@@ -344,6 +358,9 @@ export interface ReaderSettings {
     newTabSwipeReviews: boolean;
     newTabKanjiAutogradeEnabled: boolean;
     newTabKanjiAutoSubmit: boolean;
+    newTabStudyStepOrder: NewTabStudyChallengeStep[];
+    newTabStudyDisabledSteps: NewTabStudyChallengeStep[];
+    newTabStudyTourSeen: boolean;
     puckPositionX?: number;
     puckPositionY?: number;
     // Master pause toggled from the puck radial. While paused, Yomu adds no new
@@ -466,7 +483,9 @@ export interface ReaderSettings {
     miningDeck: string;
     autoMineOnReview: boolean;
     jpdbMiningEnabled: boolean;
-    apiGradingProvider: 'jpdb' | 'jiten';
+    bunproMiningEnabled: boolean;
+    yomuLocalSrsEnabled: boolean;
+    apiGradingProvider: 'jpdb' | 'jiten' | 'bunpro';
     neverForgetDeck: string;
     blacklistDeck: string;
     addToForq: boolean;

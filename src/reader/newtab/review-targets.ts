@@ -1,8 +1,8 @@
 import { uiText } from '../app/i18n';
-import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
+import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 
-export type QueuedNewTabGradeTarget = 'anki' | 'jpdb-api' | 'jiten-api';
+export type QueuedNewTabGradeTarget = 'anki' | 'jpdb-api' | 'jiten-api' | 'bunpro-api' | 'yomu-local';
 export type NewTabReviewTarget = QueuedNewTabGradeTarget | 'jpdb-live';
 
 export interface NewTabGradeFailure {
@@ -18,7 +18,12 @@ export class NewTabGradeSubmissionError extends Error {
 }
 
 export function isReviewSource(source: JPDBCard['reviewSource']): boolean {
-    return source === 'anki' || source === 'jpdb-api' || source === 'jpdb-live' || source === 'jiten-api';
+    return source === 'anki'
+        || source === 'jpdb-api'
+        || source === 'jpdb-live'
+        || source === 'jiten-api'
+        || source === 'bunpro-api'
+        || source === 'yomu-local';
 }
 
 export function isPositiveJpdbCard(card: JPDBCard): boolean {
@@ -38,6 +43,8 @@ function isJitenGradableCard(card: JPDBCard): boolean {
 
 export function newTabCardSourceLabel(card: JPDBCard, language: ReaderSettings['interfaceLanguage']): string {
     if (card.source === 'anki' || card.reviewSource === 'anki') return ankiReviewSourceLabel(card, language);
+    if (card.source === 'bunpro' || card.reviewSource === 'bunpro-api') return 'Bunpro';
+    if (card.source === 'yomu-local' || card.reviewSource === 'yomu-local') return 'Yomu';
     if (card.source === 'local' || card.source === 'fallback' || card.reviewSource === 'dictionary') return uiText(language, 'dictionary');
     if (isJitenSrsCard(card)) return 'Jiten';
     if (card.source === 'jpdb' || card.reviewSource === 'jpdb-api' || card.reviewSource === 'jpdb-live') return 'JPDB';
@@ -78,12 +85,23 @@ export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSetti
         && hasJpdbApiCredential(settings)) {
         add('jpdb-api');
     }
+    if (card.reviewSource === 'bunpro-api'
+        && settings.bunproMiningEnabled
+        && hasBunproFrontendCredential(settings)
+        && !isBunproFrontendCredentialExpired(settings)) {
+        add('bunpro-api');
+    }
+    if (card.reviewSource === 'yomu-local' && settings.yomuLocalSrsEnabled) add('yomu-local');
     if (settings.ankiEnabled && settings.newTabAnkiEnabled && ankiCardId) add('anki');
     return targets;
 }
 
 export function queueableNewTabReviewTargets(targets: NewTabReviewTarget[]): QueuedNewTabGradeTarget[] {
-    return targets.filter((target): target is QueuedNewTabGradeTarget => target === 'anki' || target === 'jpdb-api' || target === 'jiten-api');
+    return targets.filter((target): target is QueuedNewTabGradeTarget => target === 'anki'
+        || target === 'jpdb-api'
+        || target === 'jiten-api'
+        || target === 'bunpro-api'
+        || target === 'yomu-local');
 }
 
 export function passingNewTabGrade(grade: JPDBGrade): boolean {

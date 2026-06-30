@@ -108,12 +108,20 @@ function headerValue(headers: HeadersInit | undefined, name: string): string {
 function fetchUrlCandidates(targetUrl: string, configuredProxyUrl: string, options: ProxyFetchOptions): FetchUrlCandidate[] {
     const proxySafe = isProxySafeRequest(targetUrl, options);
     const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
-    const configured = configuredProxySafe && options.allowConfiguredProxy !== false
-        ? configuredProxyFetchUrl(targetUrl, configuredProxyUrl)
+    const configuredUrl = configuredProxyFetchUrl(targetUrl, configuredProxyUrl);
+    const configuredUrlIsSharedPublicProxy = configuredUrl ? isYomuPublicProxyUrl(configuredUrl) : false;
+    const configured = configuredProxySafe && options.allowConfiguredProxy !== false && !configuredUrlIsSharedPublicProxy
+        ? configuredUrl
         : null;
     const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
+    const configuredPublicProxy = publicProxySafe && configuredUrlIsSharedPublicProxy
+        ? configuredUrl
+        : null;
     const publicProxies = publicProxySafe
-        ? builtInProxyUrls(targetUrl, options)
+        ? [
+            configuredPublicProxy,
+            ...builtInProxyUrls(targetUrl, options),
+        ].filter((url): url is string => Boolean(url))
         : [];
     const direct = directFetchUrl(targetUrl, options, Boolean(configured));
     const directCandidate = direct ? { url: direct, kind: 'direct' as const } : null;

@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.5.0] - 2026-06-29
+
+### Added
+
+- Added the merged visual Study flow with reorderable/skippable kanji drawing, word meaning, cloze recall, listening, speaking, reveal, and final grading steps.
+- Added local-first Yomu SRS, Bunpro queue/mining/lookups, study stats, SRS import groundwork, and local queued grading for users without connected accounts.
+- Added Yomu-hosted audio/support worker scaffolding, donation budget status UI, and hosted audio as the first default audio source.
+
+### Changed
+
+- Consolidated Study/New Tab settings into a dedicated Study tab and kept no-account learners unblocked by default.
+- Simplified review UI by moving frequency into dictionary pills, replacing the large replay button with a speaker control, and removing redundant listen prompts/buttons.
+
+### Fixed
+
+- Hardened proxy fetch rules and factory reset coverage so account, source, pill, and local SRS settings are reset consistently.
+
 ## [1.4.246] - 2026-06-29
 
 ### Fixed

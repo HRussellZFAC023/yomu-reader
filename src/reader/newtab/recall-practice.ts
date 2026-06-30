@@ -8,6 +8,14 @@ export interface NewTabRecallEvaluation {
     acceptedAnswers: string[];
 }
 
+export interface NewTabRecallCloze {
+    sentence: string;
+    before: string;
+    answer: string;
+    after: string;
+    hasCloze: boolean;
+}
+
 export function evaluateNewTabRecallAnswer(card: JPDBCard, answer: string, reading = card.reading): NewTabRecallEvaluation {
     const candidates = newTabRecallAnswerCandidates(card, reading);
     const normalized = normalizeNewTabRecallAnswer(answer);
@@ -21,6 +29,24 @@ export function evaluateNewTabRecallAnswer(card: JPDBCard, answer: string, readi
         return { outcome: 'accepted', canonicalAnswer: candidates.canonicalAnswer, acceptedAnswers: candidates.acceptedAnswers };
     }
     return { outcome: 'incorrect', canonicalAnswer: candidates.canonicalAnswer, acceptedAnswers: candidates.acceptedAnswers };
+}
+
+export function buildNewTabRecallCloze(card: JPDBCard, sentence: string, reading = card.reading): NewTabRecallCloze {
+    const normalizedSentence = sentence.replace(/\s+/gu, ' ').trim();
+    const candidates = newTabRecallAnswerCandidates(card, reading);
+    const target = recallClozeTarget(normalizedSentence, candidates.primaryAnswers)
+        || recallClozeTarget(normalizedSentence, candidates.acceptedAnswers);
+    if (!normalizedSentence || !target || sameRecallAnswer(normalizedSentence, target)) {
+        return { sentence: normalizedSentence, before: '', answer: candidates.canonicalAnswer, after: '', hasCloze: false };
+    }
+    const start = normalizedSentence.indexOf(target);
+    return {
+        sentence: normalizedSentence,
+        before: normalizedSentence.slice(0, start),
+        answer: target,
+        after: normalizedSentence.slice(start + target.length),
+        hasCloze: true,
+    };
 }
 
 function newTabRecallAnswerCandidates(card: JPDBCard, reading = card.reading): {
@@ -68,4 +94,10 @@ function uniqueRecallAnswers(values: string[]): string[] {
 
 function sameRecallAnswer(left: string, right: string): boolean {
     return normalizeNewTabRecallAnswer(left) === normalizeNewTabRecallAnswer(right);
+}
+
+function recallClozeTarget(sentence: string, candidates: string[]): string {
+    return candidates
+        .filter(candidate => candidate && sentence.includes(candidate))
+        .sort((a, b) => b.length - a.length)[0] ?? '';
 }

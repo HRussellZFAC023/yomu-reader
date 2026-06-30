@@ -7,7 +7,7 @@ import { resolveAnkiWordAudio } from '../../src/reader/anki/audio';
 import { AudioPlayer, decodeJpdbAudioBlob, findAudioUrl, findAudioUrls, formatAudioUrl, getAudioCandidates, isUnavailableJapanesePod101Audio, jpdbAudioRequest, normalizeJpdbAudioIds, ShuffledAudioDeck } from '../../src/reader/audio/player';
 import { positionPopover } from '../../src/reader/ui/browser';
 import { CardActionController } from '../../src/reader/cards/action-controller';
-import { CardPopoverRenderer, updatePopoverReviewTargetSelection } from '../../src/reader/cards/popover-renderer';
+import { CardPopoverRenderer, updatePopoverReviewTargetSelection, type CardPopoverRendererDependencies } from '../../src/reader/cards/popover-renderer';
 import { CardRenderDataLoader, type CardRenderData } from '../../src/reader/cards/render-data';
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
 import { IMMERSION_KIT_SOURCE_ID, NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/app/constants';
@@ -517,7 +517,7 @@ function jpdbDeckVocabularyInfoRow(
     ];
 }
 
-function testCardPopoverRenderer(settings: Partial<ReaderSettings> = {}): CardPopoverRenderer {
+function testCardPopoverRenderer(settings: Partial<ReaderSettings> = {}, overrides: Partial<CardPopoverRendererDependencies> = {}): CardPopoverRenderer {
     return new CardPopoverRenderer({
         getSettings: () => ({
             ...DEFAULT_SETTINGS,
@@ -530,6 +530,7 @@ function testCardPopoverRenderer(settings: Partial<ReaderSettings> = {}): CardPo
         renderDefinitionSources: () => '',
         dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
         dictionaryLabel: name => name,
+        ...overrides,
     });
 }
 
@@ -5558,7 +5559,7 @@ describe('reader helpers', () => {
         const meta = document.querySelector<HTMLElement>('.jpdb-reader-meta')!;
         const metaItems = [...meta.children].map(child => child.textContent?.trim() ?? '');
 
-        expect(metaItems).toEqual(['にほんご', '#250', 'Anki Due']);
+        expect(metaItems).toEqual(['にほんご', 'Anki Due']);
         expect(meta.querySelector('.jpdb-reader-state-dot.jpdb-not-in-deck')).toBeNull();
         expect(meta.querySelector('.jpdb-reader-state-dot.anki-due')).not.toBeNull();
         expect(document.querySelector('.jpdb-reader-reading')).toBeNull();
@@ -5577,22 +5578,36 @@ describe('reader helpers', () => {
         expect(metaText).not.toContain('Not in deck');
     });
 
-    it('hides JPDB and Anki deck status when neither source is connected', () => {
-        const renderer = testCardPopoverRenderer({
+    it('hides disconnected deck status and keeps live frequency in the lookup pill', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'en' as const,
             apiKey: '',
             jpdbMiningEnabled: true,
             ankiEnabled: true,
+        };
+        const renderer = testCardPopoverRenderer(settings, {
+            renderWordPills: (lookupCard, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, jitenVocabularyInfo) => renderWordPills({
+                card: lookupCard,
+                jpdbUrl,
+                metaEntries,
+                overrideQuery,
+                ankiLookup,
+                jitenVocabularyInfo,
+                settings,
+                isJpdbBackedCard: () => true,
+                dictionaryLabel: name => name,
+            }),
         });
 
         document.body.innerHTML = renderModalCard(renderer, { ...card, frequencyRank: 2600, cardState: ['not-in-deck'] }, '前後です。');
         const metaText = readerMetaText();
 
-        expect(metaText).toContain('#2600');
-        const frequencyPill = document.querySelector<HTMLElement>('.jpdb-reader-meta .jpdb-reader-pill.jpdb-reader-frequency-pill')!;
-        expect(frequencyPill).not.toBeNull();
-        expect(frequencyPill.classList.contains('jpdb-reader-meta-pill')).toBe(true);
-        expect(frequencyPill.dataset.dictionary).toBe('JPDB');
-        expect(frequencyPill.getAttribute('aria-label')).toBe('Frequency: #2600');
+        expect(metaText).not.toContain('#2600');
+        expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-pill.jpdb-reader-frequency-pill')).toBeNull();
+        const jpdbPill = document.querySelector<HTMLElement>('.jpdb-reader-heading .jpdb-reader-jpdb-pill');
+        expect(jpdbPill?.textContent).toContain('JPDB #2600');
+        expect((document.body.textContent?.match(/#2600/g) ?? []).length).toBe(1);
         expect(metaText).not.toContain('Not in deck');
         expect(metaText).not.toContain('Anki');
     });
@@ -9324,6 +9339,7 @@ describe('reader helpers', () => {
 
     it('keeps JPDB and browser text-to-speech enabled in the default audio fallbacks', () => {
         expect(DEFAULT_AUDIO_SOURCES.map(source => source.type)).toEqual([
+            'custom-json',
             'jpod101',
             'language-pod-101',
             'jisho',
@@ -9332,11 +9348,13 @@ describe('reader helpers', () => {
             'text-to-speech',
         ]);
         expect(normalizeAudioSources([
+            { type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true },
             { type: 'jpod101', url: '', voice: '', enabled: true },
             { type: 'language-pod-101', url: '', voice: '', enabled: true },
             { type: 'jisho', url: '', voice: '', enabled: true },
             { type: 'text-to-speech', url: '', voice: '', enabled: true },
         ]).map(source => source.type)).toEqual([
+            'custom-json',
             'jpod101',
             'language-pod-101',
             'jisho',
@@ -9344,9 +9362,11 @@ describe('reader helpers', () => {
             'jpdb-tts',
             'text-to-speech',
         ]);
+        expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true });
         expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'jiten-tts', url: '', voice: '', enabled: true });
         expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'jpdb-tts', url: '', voice: '', enabled: true });
         expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'text-to-speech', url: '', voice: '', enabled: true });
+        expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true });
         expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'jiten-tts', url: '', voice: '', enabled: true });
         expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'jpdb-tts', url: '', voice: '', enabled: true });
         expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'text-to-speech', url: '', voice: '', enabled: true });
@@ -11841,6 +11861,7 @@ describe('reader helpers', () => {
             ['jpdb', true],
             ['jpdb-frequency', true],
             ['yomu-search', true],
+            ['bunpro', false],
             ['jisho', false],
             ['weblio', false],
             ['kotobank', false],
@@ -11856,6 +11877,7 @@ describe('reader helpers', () => {
             ['jpdb', true],
             ['jpdb-frequency', true],
             ['yomu-search', true],
+            ['bunpro', false],
             ['jisho', false],
             ['weblio', false],
             ['kotobank', false],
@@ -11871,6 +11893,7 @@ describe('reader helpers', () => {
             ['jpdb', 'JPDB', 'https://jpdb.io/search?q={query}'],
             ['jpdb-frequency', 'JPDB', ''],
             ['yomu-search', 'Yomu', `${NEW_TAB_PAGE_URL}index.html?q={query}`],
+            ['bunpro', 'Bunpro', 'https://bunpro.jp/search?query={query}'],
             ['jisho', 'Jisho', 'https://jisho.org/search/{query}'],
             ['weblio', 'Weblio', 'https://www.weblio.jp/content/{query}'],
             ['kotobank', 'Kotobank', 'https://kotobank.jp/search?q={query}'],
@@ -11889,6 +11912,7 @@ describe('reader helpers', () => {
             { id: 'jpdb' },
             { id: 'jpdb-frequency' },
             { id: 'yomu-search' },
+            { id: 'bunpro' },
             { id: 'jisho' },
             { id: 'weblio' },
             { id: 'kotobank' },
@@ -11923,6 +11947,7 @@ describe('reader helpers', () => {
                 ['jpdb', true],
                 ['jpdb-frequency', true],
                 ['yomu-search', true],
+                ['bunpro', false],
                 ['jisho', false],
                 ['weblio', false],
                 ['kotobank', false],
@@ -12271,7 +12296,7 @@ describe('reader helpers', () => {
         expect(resetButton?.dataset.action).toBe('factory-reset');
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="support"]')).toBeNull();
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="issues"]')?.href).toContain('/issues');
-        expect(form.querySelector<HTMLAnchorElement>('[data-help-link="donate"]')?.href).toContain('paypal.me');
+        expect(form.querySelector<HTMLAnchorElement>('[data-help-link="donate"]')?.href).toBe('https://support.yomureader.com/donate');
         expect(form.querySelector<HTMLElement>('[data-help-support-copy]')?.textContent).toContain('free userscript');
         expect(form.querySelector<HTMLElement>('[data-help-support-copy-extra]')?.textContent).toContain('Donations are optional');
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="discord"]')?.href).toBe('https://discord.gg/jD6NPURewD');
@@ -12572,24 +12597,25 @@ describe('reader helpers', () => {
         }
     });
 
-    it('allows public Worker proxying for arbitrary HTTP targets and methods', () => {
+    it('allows public Worker proxying only for allowlisted anonymous reads', () => {
         expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/kanji/%E5%9B%B3'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/vocabulary/123/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/static/v/m1/e9cac7e3d132'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://uchisen.com/kanji/%E5%9B%B3'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://ik.imagekit.io/uchisen/generated/saved/generated_sample.jpg'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('GET', new URL('https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('GET', new URL('https://release-assets.githubusercontent.com/github-production-release-asset/123/asset-id?sig=github-signed'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('GET', new URL('https://example.com/dict.zip'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('GET', new URL('https://cdn.example.com/audio.mp3'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('POST', new URL('https://www.japanesepod101.com/learningcenter/reference/dictionary_post'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('POST', new URL('https://jpdb.io/api/v1/lookup-vocabulary'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/api/v1/lookup-vocabulary'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('POST', new URL('https://jpdb.io/prioritize'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('PUT', new URL('https://api.example.com/items/1'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('PATCH', new URL('https://api.example.com/items/1'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('DELETE', new URL('https://api.example.com/items/1'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('GET', new URL('http://127.0.0.1/audio.mp3'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('HEAD', new URL('https://api.jiten.moe/api/vocabulary/123/0/info'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://release-assets.githubusercontent.com/github-production-release-asset/123/asset-id?sig=github-signed'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://example.com/dict.zip'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://cdn.example.com/audio.mp3'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('POST', new URL('https://www.japanesepod101.com/learningcenter/reference/dictionary_post'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('POST', new URL('https://jpdb.io/api/v1/lookup-vocabulary'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/api/v1/lookup-vocabulary'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('POST', new URL('https://jpdb.io/prioritize'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('PUT', new URL('https://api.example.com/items/1'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('PATCH', new URL('https://api.example.com/items/1'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('DELETE', new URL('https://api.example.com/items/1'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('GET', new URL('http://127.0.0.1/audio.mp3'))).toBe(false);
         expect(isAllowedPublicProxyTarget('GET', new URL('file:///tmp/audio.mp3'))).toBe(false);
     });
 
@@ -12622,7 +12648,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('forwards JPDB public audio access headers through the public Worker', async () => {
+    it('injects JPDB public audio access headers through the public Worker', async () => {
         const upstreamFetch = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('audio', { status: 200 })));
         vi.stubGlobal('fetch', upstreamFetch);
 
@@ -12633,7 +12659,7 @@ describe('reader helpers', () => {
                     headers: {
                         Origin: 'http://127.0.0.1:5174',
                         'Access-Control-Request-Method': 'GET',
-                        'Access-Control-Request-Headers': 'x-access, x-forcecaf',
+                        'Access-Control-Request-Headers': 'x-forcecaf',
                     },
                 }),
                 {},
@@ -12651,7 +12677,7 @@ describe('reader helpers', () => {
             );
 
             const upstreamRequest = upstreamFetch.mock.calls[0]?.[0] as unknown as Request;
-            expect(preflight.headers.get('access-control-allow-headers')).toContain('x-access');
+            expect(preflight.headers.get('access-control-allow-headers')).not.toContain('x-access');
             expect(preflight.headers.get('access-control-allow-headers')).toContain('x-forcecaf');
             expect(response.status).toBe(200);
             expect(upstreamRequest.url).toBe('https://jpdb.io/static/v/m1/e9cac7e3d132');
@@ -12683,7 +12709,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('forwards arbitrary public Worker methods, bodies, and request headers', async () => {
+    it('rejects arbitrary public Worker methods, bodies, and credential headers', async () => {
         const upstreamFetch = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('updated', {
             status: 202,
             headers: { 'X-Upstream-Trace': 'trace-1' },
@@ -12707,18 +12733,10 @@ describe('reader helpers', () => {
                 { waitUntil: vi.fn() },
             );
 
-            const upstreamRequest = upstreamFetch.mock.calls[0]?.[0] as unknown as Request;
-            expect(response.status).toBe(202);
+            expect(response.status).toBe(400);
             expect(response.headers.get('access-control-allow-origin')).toBe('https://hrussellzfac023.github.io');
-            expect(response.headers.get('access-control-allow-credentials')).toBe('true');
-            expect(response.headers.get('access-control-expose-headers')).toContain('x-upstream-trace');
-            expect(upstreamRequest.url).toBe('https://api.example.com/items/1?debug=1');
-            expect(upstreamRequest.method).toBe('PATCH');
-            expect(upstreamRequest.headers.get('authorization')).toBe('Bearer token');
-            expect(upstreamRequest.headers.get('content-type')).toBe('application/json');
-            expect(upstreamRequest.headers.get('x-custom-request')).toBe('yes');
-            expect(upstreamRequest.headers.has('sec-fetch-mode')).toBe(false);
-            expect(await upstreamRequest.text()).toBe(JSON.stringify({ name: '読む' }));
+            expect(response.headers.get('access-control-allow-credentials')).toBeNull();
+            expect(upstreamFetch).not.toHaveBeenCalled();
         } finally {
             vi.unstubAllGlobals();
         }

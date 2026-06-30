@@ -4,7 +4,7 @@ import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, MAX_DICTIONA
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { combinedApiCredentialLabel, readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
-import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ReaderColorSource, ReaderSettings } from '../app/types';
+import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
 
 const log = Logger.scope('SettingsForm');
@@ -101,6 +101,13 @@ const KANJI_ADDON_SOURCE_ROWS = [
     ['kanjivg', 'kanjivgEnabled', 'kanjivgPriority', 'kanjivgAlias'],
     ['kanjiOrigins', 'kanjiOriginsEnabled', 'kanjiOriginsPriority', 'kanjiOriginsAlias'],
 ] as const satisfies readonly SourcePriorityFormRow[];
+const NEW_TAB_STUDY_CHALLENGE_STEPS = [
+    'kanji-doodle',
+    'word',
+    'recall-cloze',
+    'listen-pitch',
+    'speaking',
+] as const satisfies readonly NewTabStudyChallengeStep[];
 
 export function settingsColorSourceValue(settings: ReaderSettings, name: ColorSourceSettingName): SelectableReaderColorSource {
     const source = settings[name];
@@ -313,7 +320,7 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
         newTabEnabled: runningAsBrowserExtension() ? has('newTabEnabled') : current.newTabEnabled,
         newTabAnkiEnabled: has('newTabAnkiEnabled'),
         newTabAnkiDisabledDecks: get('newTabAnkiDisabledDecks').split(',').map(deck => deck.trim()).filter(Boolean),
-        newTabSource: readOption(get('newTabSource'), ['auto', 'jpdb', 'anki', 'dictionary'] as const, current.newTabSource),
+        newTabSource: readOption(get('newTabSource'), ['auto', 'jpdb', 'bunpro', 'yomu-local', 'anki', 'dictionary'] as const, current.newTabSource),
         newTabJpdbDeck: get('newTabJpdbDeck').trim() || current.newTabJpdbDeck,
         newTabJpdbReviewMode: readOption(get('newTabJpdbReviewMode'), ['auto', 'api-vocabulary', 'live-review'] as const, current.newTabJpdbReviewMode),
         corsProxyUrl: get('corsProxyUrl').trim(),
@@ -328,7 +335,26 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
         newTabSwipeReviews: has('newTabSwipeReviews'),
         newTabKanjiAutogradeEnabled: has('newTabKanjiAutogradeEnabled'),
         newTabKanjiAutoSubmit: has('newTabKanjiAutoSubmit'),
+        newTabStudyStepOrder: readNewTabStudyStepOrder(reader, current),
+        newTabStudyDisabledSteps: readNewTabStudyDisabledSteps(reader, current),
+        newTabStudyTourSeen: get('newTabStudyTourSeen') === 'true',
     };
+}
+
+function readNewTabStudyStepOrder(reader: SettingsFormReader, current: ReaderSettings): NewTabStudyChallengeStep[] {
+    const ordered = reader.getAll('newTabStudyStepOrder')
+        .filter(isNewTabStudyChallengeStep);
+    return ordered.length ? ordered : current.newTabStudyStepOrder;
+}
+
+function readNewTabStudyDisabledSteps(reader: SettingsFormReader, current: ReaderSettings): NewTabStudyChallengeStep[] {
+    const ordered = readNewTabStudyStepOrder(reader, current);
+    const enabled = new Set(reader.getAll('newTabStudyEnabledStep').filter(isNewTabStudyChallengeStep));
+    return ordered.filter(step => !enabled.has(step));
+}
+
+function isNewTabStudyChallengeStep(value: string): value is NewTabStudyChallengeStep {
+    return (NEW_TAB_STUDY_CHALLENGE_STEPS as readonly string[]).includes(value);
 }
 
 function readReadingDisplayFormSettings(
@@ -466,6 +492,8 @@ function readMiningFormSettings(reader: SettingsFormReader): Partial<ReaderSetti
     const { get, has } = reader;
     return {
         jpdbMiningEnabled: has('jpdbMiningEnabled'),
+        bunproMiningEnabled: has('bunproMiningEnabled'),
+        yomuLocalSrsEnabled: has('yomuLocalSrsEnabled'),
         autoMineOnReview: has('autoMineOnReview'),
         miningDeck: get('miningDeck').trim() || 'forq',
         neverForgetDeck: get('neverForgetDeck').trim() || 'never-forget',

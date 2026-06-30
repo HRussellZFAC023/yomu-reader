@@ -1,7 +1,7 @@
 import { primaryCardState } from '../cards/state';
 import type { CardState, JPDBCard } from './types';
 
-export type StatsSourceId = 'combined' | 'jpdb' | 'jiten' | 'anki';
+export type StatsSourceId = 'combined' | 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki';
 export type StatsSourceStatus = 'setup' | 'loading' | 'ready' | 'partial' | 'error';
 export type StatsActivityMetric = 'reviews' | 'minutes' | 'newCards';
 
@@ -67,6 +67,8 @@ export interface StatsCombinedSnapshot extends Omit<StatsSourceSnapshot, 'id'> {
 export interface StatsDashboardSnapshot {
     jpdb: StatsSourceSnapshot;
     jiten: StatsSourceSnapshot;
+    bunpro: StatsSourceSnapshot;
+    yomuLocal: StatsSourceSnapshot;
     anki: StatsSourceSnapshot;
     combined: StatsCombinedSnapshot;
 }
@@ -127,12 +129,16 @@ const ANKI_RETENTION_CARD_LIMIT = 5_000;
 export function emptyStatsDashboardSnapshot(): StatsDashboardSnapshot {
     const jpdb = emptyStatsSource('jpdb', 'JPDB', 'Add JPDB data to see stats.');
     const jiten = emptyStatsSource('jiten', 'Jiten', 'Add Jiten data to see stats.');
+    const bunpro = emptyStatsSource('bunpro', 'Bunpro', 'Connect Bunpro to see stats.');
+    const yomuLocal = emptyStatsSource('yomu-local', 'Yomu', 'Local Yomu SRS is ready.');
     const anki = emptyStatsSource('anki', 'Anki', 'Connect Anki to see stats.');
     return {
         jpdb,
         jiten,
+        bunpro,
+        yomuLocal,
         anki,
-        combined: combineStatsSources(jpdb, jiten, anki),
+        combined: combineStatsSources(jpdb, jiten, yomuLocal, bunpro, anki),
     };
 }
 
@@ -383,6 +389,8 @@ export function monthlyActivityHeatmaps(points: StatsDailyPoint[], months = 6, t
 export function statsSourceForId(snapshot: StatsDashboardSnapshot, id: StatsSourceId): StatsSourceSnapshot | StatsCombinedSnapshot {
     if (id === 'jpdb') return snapshot.jpdb;
     if (id === 'jiten') return snapshot.jiten;
+    if (id === 'bunpro') return snapshot.bunpro;
+    if (id === 'yomu-local') return snapshot.yomuLocal;
     if (id === 'anki') return snapshot.anki;
     return snapshot.combined;
 }

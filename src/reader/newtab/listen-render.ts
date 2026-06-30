@@ -9,6 +9,7 @@ import { renderPitchGraphSvg } from '../popup/pitch';
 import type { NewTabCopyKey } from './i18n';
 import type { NewTabListenSubMode } from './state';
 import type { PitchClassAccuracy, PitchSrsItem } from './pitch-srs';
+import { speakerIcon } from '../ui/icons';
 
 export type ListenOutcome = 'correct' | 'wrong';
 
@@ -55,7 +56,8 @@ function pitchClassLabel(className: PitchClassName | '', t: Translate): string {
 }
 
 function iconButton(action: string, label: string, extraAttrs = ''): string {
-    return `<button type="button" class="jpdb-reader-newtab-listen-btn" data-newtab-action="${action}" ${extraAttrs} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
+    const content = action.startsWith('listen-play') ? speakerIcon() : escapeHtml(label);
+    return `<button type="button" class="jpdb-reader-newtab-listen-btn" data-newtab-action="${action}" ${extraAttrs} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${content}</button>`;
 }
 
 // The downstep-position picker: N+1 buttons (0=heiban … N=odaka) each previewing
@@ -113,17 +115,10 @@ function renderContrastBlock(view: ListenCardView, t: Translate): string {
         </div>`;
 }
 
-function renderGradeRow(grades: Array<{ grade: string; key: NewTabCopyKey }>, t: Translate): string {
-    const buttons = grades
-        .map(entry => `<button type="button" class="jpdb-reader-newtab-listen-grade" data-newtab-action="listen-grade" data-grade="${entry.grade}">${escapeHtml(t(entry.key))}</button>`)
-        .join('');
-    return `<div class="jpdb-reader-newtab-listen-grades" role="group">${buttons}</div>`;
-}
-
 function renderRecordRow(view: ListenCardView, t: Translate): string {
     if (!view.micEnabled) return '';
     if (view.micUnavailable) return `<span class="jpdb-reader-newtab-listen-note">${escapeHtml(t('listenMicUnavailable'))}</span>`;
-    const recordLabel = view.recording ? t('listenShadowAgain') : t('listenMicListenBack');
+    const recordLabel = view.recording ? t('listenMicRecording') : t('listenMicListenBack');
     return `
         <div class="jpdb-reader-newtab-listen-record">
             <button type="button" class="jpdb-reader-newtab-listen-btn${view.recording ? ' jpdb-reader-newtab-listen-recording' : ''}" data-newtab-action="listen-record" aria-pressed="${view.recording}">${escapeHtml(recordLabel)}</button>
@@ -132,26 +127,8 @@ function renderRecordRow(view: ListenCardView, t: Translate): string {
         </div>`;
 }
 
-// Session HUD: due-now count + a per-pattern accuracy chip per class with history
-// (kotu-style "Heiban 80%"), so progress through the SRS deck is visible at a glance.
-function renderListenStats(stats: ListenStats, t: Translate): string {
-    if (!stats.deckSize) return '';
-    const chips = stats.accuracy
-        .filter(entry => entry.total > 0 && PITCH_CLASS_LABEL_KEYS[entry.pitchClass])
-        .map(entry => `<span class="jpdb-reader-newtab-listen-stat">${escapeHtml(pitchClassLabel(entry.pitchClass, t))} ${Math.round((entry.correct / entry.total) * 100)}%</span>`)
-        .join('');
-    return `<div class="jpdb-reader-newtab-listen-stats">
-        <span class="jpdb-reader-newtab-listen-stat">${stats.due} ${escapeHtml(t('listenDue'))}</span>
-        ${chips}
-    </div>`;
-}
-
 export function renderListenCard(view: ListenCardView, t: Translate): string {
-    const promptKey: NewTabCopyKey = view.subMode === 'perceive' ? 'listenPerceivePrompt' : view.subMode === 'recall' ? 'listenRecallPrompt' : 'listenShadowPrompt';
-    const sections: string[] = [
-        renderListenStats(view.stats, t),
-        `<div class="jpdb-reader-newtab-listen-prompt">${escapeHtml(t(promptKey))}</div>`,
-    ];
+    const sections: string[] = [];
 
     // Audio control (perceive + shadow lead with sound; recall hides it until reveal).
     if (view.subMode !== 'recall' || view.revealed) {
@@ -170,10 +147,7 @@ export function renderListenCard(view: ListenCardView, t: Translate): string {
     if (view.subMode === 'shadow') {
         sections.push(renderAnswerContour(view.item, t));
         sections.push(renderRecordRow(view, t));
-        sections.push(renderGradeRow([
-            { grade: 'something', key: 'listenShadowAgain' },
-            { grade: 'okay', key: 'listenShadowGood' },
-        ], t));
+        sections.push(`<div class="jpdb-reader-newtab-listen-grades"><button type="button" class="jpdb-reader-newtab-listen-grade" data-newtab-action="listen-next">${escapeHtml(t('listenReveal'))}</button></div>`);
         return `<div class="jpdb-reader-newtab-listen-card" data-listen-submode="shadow">${sections.join('')}</div>`;
     }
 
@@ -193,10 +167,7 @@ export function renderListenCard(view: ListenCardView, t: Translate): string {
         // Recall self-grades (the pick pre-suggests the outcome); Perceive was
         // auto-graded on the pick, so it just advances to the next card.
         if (view.subMode === 'recall') {
-            sections.push(renderGradeRow([
-                { grade: 'something', key: 'listenShadowAgain' },
-                { grade: 'okay', key: 'listenShadowGood' },
-            ], t));
+            sections.push(`<div class="jpdb-reader-newtab-listen-grades"><button type="button" class="jpdb-reader-newtab-listen-grade" data-newtab-action="listen-next">${escapeHtml(t('listenReveal'))}</button></div>`);
         } else {
             sections.push(`<div class="jpdb-reader-newtab-listen-grades"><button type="button" class="jpdb-reader-newtab-listen-grade" data-newtab-action="listen-next">${escapeHtml(t('listenReveal'))}</button></div>`);
         }

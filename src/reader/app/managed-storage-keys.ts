@@ -5,6 +5,9 @@ export const MANAGED_STORAGE_KEY_PREFIXES = [
     'yomu-',
     'yomu:',
     'yomu.',
+    // Yomu-internal redirect handoff keys use a leading double underscore.
+    // Factory reset clears hosted web storage by managed prefix, so include it.
+    '__yomu',
     'jpdb-reader-',
     'jpdb-popup-reader-',
 ];

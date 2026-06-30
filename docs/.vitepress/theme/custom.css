@@ -100,6 +100,102 @@
   color: var(--vp-c-brand-1);
 }
 
+.yomu-support-banner {
+  position: sticky;
+  top: 64px;
+  z-index: 39;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  padding: 9px max(16px, env(safe-area-inset-right)) 9px max(16px, env(safe-area-inset-left));
+  border-bottom: 1px solid var(--vp-c-divider);
+  background: color-mix(in srgb, var(--vp-c-bg) 90%, var(--vp-c-brand-soft));
+  color: var(--vp-c-text-1);
+  box-shadow: 0 8px 24px var(--yomu-doc-panel-shadow);
+}
+
+.yomu-support-banner-copy {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.yomu-support-banner-copy strong {
+  font-weight: 760;
+}
+
+.yomu-support-banner-copy span {
+  color: var(--vp-c-text-2);
+}
+
+.yomu-support-banner-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.yomu-support-banner-donate,
+.yomu-support-banner-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  border: 1px solid var(--vp-c-brand-1);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1;
+}
+
+.yomu-support-banner-donate {
+  padding: 0 12px;
+  background: var(--vp-c-brand-1);
+  color: var(--yomu-doc-accent-ink) !important;
+  text-decoration: none !important;
+}
+
+.yomu-support-banner-close {
+  width: 32px;
+  padding: 0;
+  background: transparent;
+  color: var(--vp-c-text-2);
+  cursor: pointer;
+}
+
+.yomu-support-banner-donate:hover,
+.yomu-support-banner-donate:focus-visible {
+  background: var(--vp-c-brand-2);
+  border-color: var(--vp-c-brand-2);
+}
+
+.yomu-support-banner-close:hover,
+.yomu-support-banner-close:focus-visible {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+}
+
+@media (max-width: 720px) {
+  .yomu-support-banner {
+    position: static;
+    align-items: stretch;
+    justify-content: space-between;
+    padding-block: 10px;
+  }
+
+  .yomu-support-banner-copy {
+    justify-content: flex-start;
+    text-align: left;
+  }
+}
+
 .VPImage.logo {
   width: 36px;
   height: 36px;

@@ -18,7 +18,7 @@ describe('hostedFallbackProxyUrl', () => {
         uninstallUserscriptHttpBridge();
         vi.stubGlobal('location', new URL('https://yomureader.com/'));
         const proxied = hostedFallbackProxyUrl('https://api.jiten.moe/api/vocabulary/parse?text=%E9%9F%B3%E6%A5%BD');
-        expect(proxied).toMatch(/^https:\/\/[^/]*workers\.dev\//);
+        expect(proxied).toBe('https://edge.yomureader.com/');
     });
 
     it('never proxies same-origin or non-http requests', () => {

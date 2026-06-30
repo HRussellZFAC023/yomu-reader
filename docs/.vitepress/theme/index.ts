@@ -27,6 +27,10 @@ const YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-runtime';
 const YOMU_HOSTED_SETTINGS_COMPANION_SCRIPT_ID = 'yomu-hosted-settings-companion';
 const YOMU_HOSTED_VIDEO_COMPANION_SCRIPT_ID = 'yomu-hosted-video-companion';
 const LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
+const YOMU_SUPPORT_STATUS_URL = 'https://support.yomureader.com/status';
+const YOMU_SUPPORT_DONATE_URL = 'https://support.yomureader.com/donate';
+const YOMU_SUPPORT_BANNER_ID = 'yomu-support-banner';
+const YOMU_SUPPORT_BANNER_DISMISSED_KEY = 'yomu-support-banner-dismissed-version';
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 const HOSTED_DOCS_TRANSLATION_LEAF_SELECTOR = 'h1, h2, h3, h4, p, li, a, button, span, strong, small, figcaption, dt, dd, th, td, summary, label';
 const HOSTED_DOCS_HEAD_TRANSLATION_SELECTOR = [
@@ -56,6 +60,21 @@ const HOSTED_RUNTIME_SCROLL_MARGIN_PX = 160;
 const HOSTED_JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const HOSTED_DOCS_TRANSLATED_ATTRIBUTES = ['aria-label', 'title', 'alt', 'placeholder'] as const;
 type HostedDocsTranslatedAttribute = typeof HOSTED_DOCS_TRANSLATED_ATTRIBUTES[number];
+interface HostedSupportStatus {
+    dailyBudgetGbp?: number;
+    donationGoalGbp?: number;
+    donationsTodayGbp?: number;
+    donateUrl?: string;
+    banner?: {
+        enabled?: boolean;
+        dismissVersion?: string;
+        message?: string;
+        costLabel?: string;
+        goalLabel?: string;
+        ctaLabel?: string;
+        donateUrl?: string;
+    };
+}
 const HOSTED_RUNTIME_TARGET_SELECTOR = [
     '[data-yomu-runtime-surface]',
     '.VPHero',
@@ -156,6 +175,12 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Added the merged visual Study flow with reorderable/skippable kanji drawing, word meaning, cloze recall, listening, speaking, reveal, and final grading steps.': '並べ替えやスキップができる漢字書き取り、単語の意味、穴埋め想起、リスニング、発話、答え表示、最終評価をまとめた、視覚的な統合学習フローを追加しました。',
+    'Added local-first Yomu SRS, Bunpro queue/mining/lookups, study stats, SRS import groundwork, and local queued grading for users without connected accounts.': 'アカウント接続なしでも使えるローカル優先のYomu SRS、Bunproのキュー・採掘・検索、学習統計、SRSインポートの土台、ローカルに保存される評価キューを追加しました。',
+    'Added Yomu-hosted audio/support worker scaffolding, donation budget status UI, and hosted audio as the first default audio source.': 'Yomuホスト音声とサポートWorkerの土台、寄付と運用予算の状況UI、既定の音声ソース先頭としてのホスト音声を追加しました。',
+    'Consolidated Study/New Tab settings into a dedicated Study tab and kept no-account learners unblocked by default.': 'Study/New Tab関連の設定を専用の学習タブへまとめ、アカウントがない学習者も最初から進められる既定にしました。',
+    'Simplified review UI by moving frequency into dictionary pills, replacing the large replay button with a speaker control, and removing redundant listen prompts/buttons.': '頻度表示を辞書ピルへ移し、大きなReplayボタンをスピーカー操作に置き換え、重複したリスニングの案内やボタンを削除して復習UIを簡素化しました。',
+    'Hardened proxy fetch rules and factory reset coverage so account, source, pill, and local SRS settings are reset consistently.': 'プロキシ取得ルールとファクトリーリセット対象を強化し、アカウント、ソース、ピル、ローカルSRSの設定が一貫してリセットされるようにしました。',
     'Derived OCR and Immersion Kit image-caption backgrounds from the user\'s accent color while keeping the rendered backdrop readable with white OCR/caption text.': 'OCRとイマージョンキット画像キャプションの背景をユーザーのアクセントカラーから生成し、白いOCR／字幕テキストで読みやすい実際の背景になるようにしました。',
     "Removed the Study menu's Local Audio trailing slash so local and published link checks resolve to the page instead of a docs 404.": 'Studyメニューのローカル音声リンクの末尾スラッシュを外し、ローカルでも公開後でもリンクチェックがドキュメントの404ではなくページへ解決されるようにしました。',
     'Simplified the Batch Mine panel on video subtitles: the idle panel now shows only the Scan action, review actions appear after candidates are found, compact drawer controls scroll cleanly inside narrow side panels, and the redundant rail Tracks shortcut hides while the side panel already exposes a Tracks tab.': '動画字幕のBatch Mineパネルを簡素化しました。待機中はスキャン操作だけを表示し、候補が見つかった後に確認用の操作を表示します。狭いサイドパネルでもコンパクトなドロワー操作がきれいに横スクロールし、サイドパネル内にTracksタブがある間は重複するレール上のTracksショートカットを隠します。',
@@ -1984,6 +2009,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Return to the main documentation hub for setup, features, and changelog pages.': 'セットアップ、機能、変更履歴ページのためにメインのドキュメントハブに戻ります。',
     'currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.': 'などは現在月額10ドルからの有料プランを宣伝していますが、よむは同様の核となる読書およびマイニングのワークフローを無料で提供します。',
     'Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.': '寄付は任意です。寄付は、リーダーの磨き込みを維持するための時間、テスト端末、サービス、メンテナンス、およびAIトークンの費用を賄うのに役立ちます。現実的には、よむの開発でAI/APIトークンに費やした額は、寄付で回収できる見込みの額をはるかに上回っていますが、少額の寄付でもその負担を和らげることができます。個人的には、十分なお金を貯めて日本に移住し、遠距離恋愛中の日本人彼女と結婚するのが私の夢です。皆様からのご支援のすべてが、その未来を引き寄せ、よむのメンテナンス継続、バグ修正、および学習者が求める機能の追加への励みになります。',
+    'Service Budget': 'サービス予算',
     'Look up a word and press the speaker button.': '単語を検索してスピーカーボタンを押します。',
     'よむ - Free Japanese popup dictionary & immersion reader': 'よむ - 無料の日本語ポップアップ辞書・没入リーダー',
     'よむ - Free Japanese popup reader': 'よむ - 無料の日本語ポップアップリーダー',
@@ -2973,6 +2999,7 @@ function installHostedDocsEnhancements(): void {
     syncLandmarks();
     installHostedLanguageToggle();
     installHostedOverflowMenu();
+    installHostedSupportBanner();
     installHostedAccentSync();
     localizeHostedDocsCopy();
     scheduleHostedDocsLocalization();
@@ -2985,6 +3012,7 @@ function installHostedDocsEnhancements(): void {
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
         syncHostedMobileNavSettings();
+        installHostedSupportBanner();
         scheduleHostedDocsLocalization({ resetReaderWords: true });
     });
     window.addEventListener('hashchange', () => window.requestAnimationFrame(() => {
@@ -2992,6 +3020,7 @@ function installHostedDocsEnhancements(): void {
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
         syncHostedMobileNavSettings();
+        installHostedSupportBanner();
         scheduleHostedDocsLocalization();
         prepareHostedYomuRuntime();
         installHostedHomepageInteractions();
@@ -3002,6 +3031,7 @@ function installHostedDocsEnhancements(): void {
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
         syncHostedMobileNavSettings();
+        installHostedSupportBanner();
         scheduleHostedDocsLocalization();
         prepareHostedYomuRuntime();
         installHostedHomepageInteractions();
@@ -3012,6 +3042,132 @@ function installHostedDocsEnhancements(): void {
 function registerHostedDocsServiceWorker(): void {
     if (!('serviceWorker' in navigator)) return;
     void navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => undefined);
+}
+
+function installHostedSupportBanner(): void {
+    const existing = document.getElementById(YOMU_SUPPORT_BANNER_ID);
+    if (existing) return;
+    void loadHostedSupportStatus()
+        .then(status => {
+            if (!shouldShowHostedSupportBanner(status)) return;
+            const banner = renderHostedSupportBanner(status);
+            document.body.prepend(banner);
+        })
+        .catch(() => {
+            const fallback = fallbackHostedSupportStatus();
+            if (!shouldShowHostedSupportBanner(fallback)) return;
+            document.body.prepend(renderHostedSupportBanner(fallback));
+        });
+}
+
+async function loadHostedSupportStatus(): Promise<HostedSupportStatus> {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 2400);
+    try {
+        const response = await fetch(YOMU_SUPPORT_STATUS_URL, {
+            credentials: 'omit',
+            referrerPolicy: 'no-referrer',
+            signal: controller.signal,
+        });
+        if (!response.ok) throw new Error('Support status unavailable');
+        return await response.json() as HostedSupportStatus;
+    } finally {
+        window.clearTimeout(timeout);
+    }
+}
+
+function shouldShowHostedSupportBanner(status: HostedSupportStatus): boolean {
+    const banner = status.banner;
+    if (banner?.enabled === false) return false;
+    const version = hostedSupportDismissVersion(status);
+    return window.localStorage.getItem(YOMU_SUPPORT_BANNER_DISMISSED_KEY) !== version;
+}
+
+function renderHostedSupportBanner(status: HostedSupportStatus): HTMLElement {
+    const banner = document.createElement('aside');
+    banner.id = YOMU_SUPPORT_BANNER_ID;
+    banner.className = 'yomu-support-banner';
+    banner.setAttribute('aria-label', 'Yomu service funding');
+    banner.dataset.yomuSupportBanner = 'true';
+
+    const copy = document.createElement('div');
+    copy.className = 'yomu-support-banner-copy';
+
+    const message = document.createElement('strong');
+    message.textContent = hostedSupportMessage(status);
+    copy.append(message);
+
+    const meta = document.createElement('span');
+    meta.textContent = hostedSupportMeta(status);
+    copy.append(meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'yomu-support-banner-actions';
+
+    const donate = document.createElement('a');
+    donate.className = 'yomu-support-banner-donate';
+    donate.href = hostedSupportDonateUrl(status);
+    donate.target = '_blank';
+    donate.rel = 'noopener';
+    donate.textContent = status.banner?.ctaLabel || 'Donate';
+    actions.append(donate);
+
+    const close = document.createElement('button');
+    close.className = 'yomu-support-banner-close';
+    close.type = 'button';
+    close.setAttribute('aria-label', 'Dismiss support banner');
+    close.textContent = '×';
+    close.addEventListener('click', () => {
+        window.localStorage.setItem(YOMU_SUPPORT_BANNER_DISMISSED_KEY, hostedSupportDismissVersion(status));
+        banner.remove();
+    });
+    actions.append(close);
+
+    banner.append(copy, actions);
+    return banner;
+}
+
+function hostedSupportMessage(status: HostedSupportStatus): string {
+    return status.banner?.message
+        || 'Yomu shared services are donation funded. If the daily goal is missed, shared audio and proxy caching may pause.';
+}
+
+function hostedSupportMeta(status: HostedSupportStatus): string {
+    const cost = status.banner?.costLabel || `Running cost target: ${formatHostedSupportGbp(status.dailyBudgetGbp ?? 10)}/day`;
+    const goal = status.banner?.goalLabel || `Donations today: ${formatHostedSupportGbp(status.donationsTodayGbp ?? 0)} / ${formatHostedSupportGbp(status.donationGoalGbp ?? 10)}`;
+    return `${cost} · ${goal}`;
+}
+
+function hostedSupportDonateUrl(status: HostedSupportStatus): string {
+    const candidate = status.banner?.donateUrl || status.donateUrl || YOMU_SUPPORT_DONATE_URL;
+    try {
+        const url = new URL(candidate);
+        return url.protocol === 'https:' ? url.href : YOMU_SUPPORT_DONATE_URL;
+    } catch {
+        return YOMU_SUPPORT_DONATE_URL;
+    }
+}
+
+function hostedSupportDismissVersion(status: HostedSupportStatus): string {
+    return status.banner?.dismissVersion || '2026-06-29-v1';
+}
+
+function fallbackHostedSupportStatus(): HostedSupportStatus {
+    return {
+        dailyBudgetGbp: 10,
+        donationGoalGbp: 10,
+        donationsTodayGbp: 0,
+        donateUrl: YOMU_SUPPORT_DONATE_URL,
+        banner: {
+            enabled: true,
+            dismissVersion: '2026-06-29-v1',
+            donateUrl: YOMU_SUPPORT_DONATE_URL,
+        },
+    };
+}
+
+function formatHostedSupportGbp(value: number): string {
+    return `£${value.toFixed(value % 1 === 0 ? 0 : 2)}`;
 }
 
 function syncHostedLanguageFromSettingsEvent(event: Event): void {

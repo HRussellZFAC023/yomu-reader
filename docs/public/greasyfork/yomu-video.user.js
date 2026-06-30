@@ -949,6 +949,9 @@
     "yomu-",
     "yomu:",
     "yomu.",
+    // Yomu-internal redirect handoff keys use a leading double underscore.
+    // Factory reset clears hosted web storage by managed prefix, so include it.
+    "__yomu",
     "jpdb-reader-",
     "jpdb-popup-reader-"
   ];
@@ -962,6 +965,7 @@
   const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
   const DOCS_ORIGIN = "https://yomureader.com";
   const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
+  const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
@@ -1498,6 +1502,12 @@
     urlTemplate: "https://jiten.moe/parse?text={query}",
     enabled: true
   };
+  const BUNPRO_LOOKUP_LINK = {
+    id: "bunpro",
+    label: "Bunpro",
+    urlTemplate: "https://bunpro.jp/search?query={query}",
+    enabled: false
+  };
   const WEBLIO_LOOKUP_LINK = {
     id: "weblio",
     label: "Weblio",
@@ -1548,6 +1558,7 @@
     JPDB_LOOKUP_LINK,
     JPDB_LIVE_FREQUENCY_PILL,
     YOMU_LOOKUP_LINK,
+    BUNPRO_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     KOTOBANK_LOOKUP_LINK,
@@ -1681,7 +1692,7 @@
     return key === "Alt" || key === "Ctrl" || key === "Meta" || key === "Shift";
   }
   Logger.scope("Settings");
-  const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
+  const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
   const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
   const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
   const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
@@ -1711,6 +1722,7 @@
     "custom-json"
   ];
   const DEFAULT_AUDIO_SOURCES = [
+    { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
     { type: "jpod101", url: "", voice: "", enabled: true },
     { type: "language-pod-101", url: "", voice: "", enabled: true },
     { type: "jisho", url: "", voice: "", enabled: true },
@@ -1728,9 +1740,20 @@
     subtitleUnderlineColorSource: "pitch",
     subtitleTextColorSource: "anki"
   };
+  const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
+    "kanji-doodle",
+    "word",
+    "recall-cloze",
+    "listen-pitch",
+    "speaking"
+  ];
+  new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
   const DEFAULT_SETTINGS = {
     apiKey: "",
     jitenApiKey: "",
+    bunproApiKey: "",
+    bunproFrontendApiToken: "",
+    bunproFrontendApiTokenExpiresAt: "",
     onboardingSeen: false,
     interfaceLanguage: "en",
     accentColor: DEFAULT_ACCENT_COLOR,
@@ -1839,6 +1862,9 @@
     newTabSwipeReviews: true,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
+    newTabStudyStepOrder: [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER],
+    newTabStudyDisabledSteps: [],
+    newTabStudyTourSeen: false,
     puckPositionX: void 0,
     puckPositionY: void 0,
     manualScanEnabled: false,
@@ -1944,6 +1970,8 @@
     popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
     popupFontWeight: 400,
     jpdbMiningEnabled: true,
+    bunproMiningEnabled: false,
+    yomuLocalSrsEnabled: true,
     apiGradingProvider: "jiten",
     miningDeck: "forq",
     autoMineOnReview: false,
@@ -3095,15 +3123,74 @@
   function isPromiseLike(value) {
     return Boolean(value && typeof value.then === "function");
   }
+  const PRIVATE_IPV4_RANGES = [
+    [0, 16777215],
+    [167772160, 184549375],
+    [1681915904, 1686110207],
+    [2130706432, 2147483647],
+    [2851995648, 2852061183],
+    [2886729728, 2887778303],
+    [3232235520, 3232301055]
+  ];
+  function isPrivateOrLocalHostname(hostname) {
+    const host = stripIpv6Brackets(hostname.trim().toLowerCase());
+    if (!host) return true;
+    return isLocalhostName(host) || isPrivateIpv4(host) || isPrivateIpv6(host);
+  }
+  function stripIpv6Brackets(host) {
+    return host.replace(/^\[/u, "").replace(/\]$/u, "");
+  }
+  function isLocalhostName(host) {
+    return host === "localhost" || host.endsWith(".localhost");
+  }
+  function isPrivateIpv4(host) {
+    const value = ipv4LiteralToInt(host);
+    return value !== null && isPrivateIpv4Int(value);
+  }
+  function isPrivateIpv4Int(value) {
+    return PRIVATE_IPV4_RANGES.some(([low, high]) => value >= low && value <= high);
+  }
+  function ipv4LiteralToInt(host) {
+    const fields = host.split(".");
+    if (fields.length === 0 || fields.length > 4) return null;
+    const values = [];
+    for (const field of fields) {
+      const value = parseIpv4Field(field);
+      if (value === null) return null;
+      values.push(value);
+    }
+    const head = values.slice(0, -1);
+    if (head.some((value) => value > 255)) return null;
+    const tail = values[values.length - 1];
+    const tailBytes = 4 - head.length;
+    const tailMax = tailBytes >= 4 ? 4294967295 : 256 ** tailBytes - 1;
+    if (tail > tailMax) return null;
+    let result = 0;
+    for (const value of head) result = result * 256 + value;
+    return result * 256 ** tailBytes + tail;
+  }
+  function parseIpv4Field(field) {
+    if (!field) return null;
+    if (/^0x[0-9a-f]+$/iu.test(field)) return finiteNonNegative(parseInt(field.slice(2), 16));
+    if (/^0[0-7]+$/u.test(field)) return finiteNonNegative(parseInt(field.slice(1), 8));
+    if (/^[0-9]+$/u.test(field)) return finiteNonNegative(parseInt(field, 10));
+    return null;
+  }
+  function finiteNonNegative(value) {
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  }
+  function isPrivateIpv6(host) {
+    if (!host.includes(":")) return false;
+    if (host === "::1" || host === "::") return true;
+    const mapped = host.match(/^::(?:ffff:)?(\d{1,3}(?:\.\d{1,3}){3})$/u);
+    if (mapped) {
+      const value = ipv4LiteralToInt(mapped[1]);
+      if (value !== null && isPrivateIpv4Int(value)) return true;
+    }
+    return host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/u.test(host);
+  }
   const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
   const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
-  const PRIVATE_IPV4_HOSTNAME_PATTERNS = [
-    /^(?:0|10|127)\./,
-    /^169\.254\./,
-    /^192\.168\./,
-    /^172\.(?:1[6-9]|2\d|3[0-1])\./
-  ];
-  const PRIVATE_IPV6_HOSTNAME_PREFIXES = ["fc", "fd", "fe80:"];
   const IMMERSION_KIT_API_HOSTS = /* @__PURE__ */ new Set([
     "apiv2express.immersionkit.com",
     "apiv2.immersionkit.com"
@@ -3112,6 +3199,12 @@
     "d1pra95f92lrn3.cloudfront.net",
     "d1vjc5dkcd3yh2.cloudfront.net"
   ]);
+  const YOMU_PUBLIC_PROXY_HOSTS = /* @__PURE__ */ new Set([
+    "yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev",
+    "edge.yomureader.com",
+    "proxy.yomureader.com"
+  ]);
+  const YOMU_SHARED_PUBLIC_PROXY_URL = "https://edge.yomureader.com/";
   function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
     const proxyUrl = configuredProxyUrl.trim();
     if (!proxyUrl) return null;
@@ -3125,6 +3218,10 @@
   }
   function isProxySafeRequest(targetUrl, options) {
     return !hasSensitiveRequestHeaders(options.headers) && !hasCredentialedRequest(options.credentials) && !isPrivateJpdbTarget(targetUrl, options) && !isPrivateNetworkTarget(targetUrl) && !hasSensitiveUrlParams(targetUrl);
+  }
+  function isSharedPublicProxySafeRequest(targetUrl, options) {
+    const target = fetchTarget(targetUrl);
+    return Boolean(target && isProxySafeRequest(targetUrl, options) && isReadMethod(options.method) && isSharedPublicProxyAllowlistedTarget(target));
   }
   function shouldPreferProxyFirst(targetUrl, hasDirectCandidate, proxySafe) {
     return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && isHostedGithubPagesApp() && isCrossOriginHttpUrl(targetUrl);
@@ -3142,8 +3239,10 @@
     const method = requestMethod(options);
     return Boolean(target && isCrossOriginHttpTarget(target) && (isKnownCorsBlockedConfiguredProxyTarget(target, method) || isJpdbPublicLookupTarget(target, method) || isLocalHostedBrowserCorsTarget(target, method)));
   }
-  function builtInProxyUrls(_targetUrl, _options) {
-    return [];
+  function builtInProxyUrls(targetUrl, options) {
+    if (!isOfficialHostedReaderOrigin$1() || !isSharedPublicProxySafeRequest(targetUrl, options)) return [];
+    const proxyUrl = configuredProxyFetchUrl(targetUrl, YOMU_SHARED_PUBLIC_PROXY_URL);
+    return proxyUrl ? [proxyUrl] : [];
   }
   function isJpdbPublicAudioUrl(targetUrl) {
     try {
@@ -3153,8 +3252,13 @@
       return false;
     }
   }
-  function isYomuPublicProxyUrl(_candidateUrl) {
-    return false;
+  function isYomuPublicProxyUrl(candidateUrl) {
+    try {
+      const url = new URL(candidateUrl);
+      return YOMU_PUBLIC_PROXY_HOSTS.has(url.hostname);
+    } catch {
+      return false;
+    }
   }
   function isKnownDirectCorsTarget(targetUrl) {
     try {
@@ -3166,6 +3270,24 @@
   }
   function isKnownCorsBlockedConfiguredProxyTarget(target, method) {
     return method === "GET" && (isJpdbPublicAudioUrl(target.href) || target.hostname === "jisho.org" && target.pathname.startsWith("/search/") || target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php" || target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/") || target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname)));
+  }
+  function isSharedPublicProxyAllowlistedTarget(target) {
+    const host = target.hostname.toLowerCase();
+    const path = target.pathname;
+    if (target.protocol !== "https:") return false;
+    if (host === "api.jiten.moe") {
+      return path.startsWith("/api/tts/word/") || path.startsWith("/api/tts/sentence/") || path === "/api/vocabulary/search" || path === "/api/vocabulary/parse" || path === "/api/vocabulary/parse-normalised" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(path) || path.startsWith("/api/kanji/");
+    }
+    if (host === "jpdb.io") {
+      return path === "/search" || path.startsWith("/vocabulary/") || path.startsWith("/kanji/") || path.startsWith("/static/v/");
+    }
+    if (host === "jisho.org") return path.startsWith("/search/");
+    if (host === "assets.languagepod101.com") return path === "/dictionary/japanese/audiomp3.php";
+    if (host === "cdn.innovativelanguage.com") return path.includes("/learningcenter/audio/");
+    if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith("/audio/");
+    if (host === "uchisen.com") return path.startsWith("/kanji/");
+    if (host === "ik.imagekit.io") return path.startsWith("/uchisen/generated/saved/");
+    return IMMERSION_KIT_API_HOSTS.has(host) && path === "/search";
   }
   function isJpdbPublicLookupTarget(target, method) {
     return method === "GET" && target.hostname === "jpdb.io" && (target.pathname === "/search" || target.pathname.startsWith("/vocabulary/"));
@@ -3182,6 +3304,10 @@
     } catch {
       return false;
     }
+  }
+  function isOfficialHostedReaderOrigin$1() {
+    if (typeof location === "undefined") return false;
+    return location.hostname === "yomureader.com" || location.hostname === "www.yomureader.com";
   }
   function isLocalHostedApp() {
     if (typeof location === "undefined") return false;
@@ -3228,24 +3354,10 @@
   function isPrivateNetworkTarget(targetUrl) {
     try {
       const url = new URL(targetUrl, location.href);
-      return isPrivateHostname(url.hostname);
+      return isPrivateOrLocalHostname(url.hostname);
     } catch {
       return false;
     }
-  }
-  function isPrivateHostname(hostname) {
-    const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
-    return isLocalhostHostname(host) || isPrivateIpv4Hostname(host) || isPrivateIpv6Hostname(host);
-  }
-  function isLocalhostHostname(host) {
-    return host === "localhost" || host.endsWith(".localhost");
-  }
-  function isPrivateIpv4Hostname(host) {
-    return PRIVATE_IPV4_HOSTNAME_PATTERNS.some((pattern) => pattern.test(host));
-  }
-  function isPrivateIpv6Hostname(host) {
-    if (!host.includes(":")) return false;
-    return host === "::1" || PRIVATE_IPV6_HOSTNAME_PREFIXES.some((prefix) => host.startsWith(prefix));
   }
   function hasSensitiveUrlParams(targetUrl) {
     try {
@@ -3281,13 +3393,50 @@
     if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
       return { url: candidate.url, options };
     }
+    return {
+      url: proxyControlUrl(candidate.url, options.headers),
+      options: {
+        ...options,
+        headers: stripProxyOnlyHeaders(options.headers, ["x-access", "x-forcecaf"])
+      }
+    };
+  }
+  function proxyControlUrl(candidateUrl, headers) {
+    const forceCaf = headerValue(headers, "x-forcecaf");
+    if (!forceCaf) return candidateUrl;
+    try {
+      const url = new URL(candidateUrl);
+      url.searchParams.set("x-forcecaf", forceCaf);
+      return url.href;
+    } catch {
+      return candidateUrl;
+    }
+  }
+  function stripProxyOnlyHeaders(headers, names) {
+    if (!headers) return headers;
+    const excluded = new Set(names.map((name) => name.toLowerCase()));
+    const sanitized = {};
+    new Headers(headers).forEach((value, key) => {
+      if (!excluded.has(key.toLowerCase())) sanitized[key] = value;
+    });
+    return Object.keys(sanitized).length ? sanitized : void 0;
+  }
+  function headerValue(headers, name) {
+    if (!headers) return "";
+    return new Headers(headers).get(name) ?? "";
   }
   function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
     const proxySafe = isProxySafeRequest(targetUrl, options);
     const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
-    const configured = configuredProxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl(targetUrl, configuredProxyUrl) : null;
+    const configuredUrl = configuredProxyFetchUrl(targetUrl, configuredProxyUrl);
+    const configuredUrlIsSharedPublicProxy = configuredUrl ? isYomuPublicProxyUrl(configuredUrl) : false;
+    const configured = configuredProxySafe && options.allowConfiguredProxy !== false && !configuredUrlIsSharedPublicProxy ? configuredUrl : null;
     const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
-    const publicProxies = publicProxySafe ? builtInProxyUrls() : [];
+    const configuredPublicProxy = publicProxySafe && configuredUrlIsSharedPublicProxy ? configuredUrl : null;
+    const publicProxies = publicProxySafe ? [
+      configuredPublicProxy,
+      ...builtInProxyUrls(targetUrl, options)
+    ].filter((url) => Boolean(url)) : [];
     const direct = directFetchUrl(targetUrl, options, Boolean(configured));
     const directCandidate = direct ? { url: direct, kind: "direct" } : null;
     const proxyCandidates = [
@@ -3602,19 +3751,18 @@
   function userscriptTextResponse(response) {
     return String(response.responseText ?? response.response ?? "");
   }
-  const YOMU_HOSTED_FALLBACK_PROXY_URL = "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/";
-  function hostedFallbackProxyUrl(url) {
+  function hostedFallbackProxyUrl(url, options = {}) {
     if (getUserscriptHttpRequest()) return "";
     if (!isOfficialHostedReaderOrigin()) return "";
-    if (isSameOriginUrl(url) || !/^https?:\/\//i.test(url)) return "";
-    return YOMU_HOSTED_FALLBACK_PROXY_URL;
+    if (!isSharedPublicProxySafeRequest(url, options)) return "";
+    return YOMU_SHARED_PUBLIC_PROXY_URL;
   }
   function isOfficialHostedReaderOrigin() {
     if (typeof location === "undefined") return false;
     return location.hostname === "yomureader.com" || location.hostname === "www.yomureader.com";
   }
   async function requestViaFetch(url, options) {
-    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url), {
+    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options), {
       method: options.method ?? "GET",
       headers: options.headers,
       body: options.data,
@@ -3733,12 +3881,15 @@
       apiCredential: "API key",
       apiCredentialJpdb: "JPDB API key",
       apiCredentialJiten: "Jiten API key",
+      apiCredentialBunpro: "Bunpro frontend API token",
+      apiCredentialBunproLegacy: "Bunpro API key",
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste separate Jiten and JPDB keys. Study decks stay scoped to the selected provider; local dictionaries still work without keys.",
+      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
+      bunproSettings: "Bunpro settings",
       jpdbApiKeyConfigured: "JPDB key set.",
       jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
       jpdbApiKeyMissing: "No JPDB key.",
@@ -3754,6 +3905,8 @@
       statusError: "Error",
       disabledControlDescription: "Controlled by another setting.",
       jpdbMiningEnabled: "Allow API review/deck changes",
+      bunproMiningEnabled: "Allow Bunpro review/mining",
+      yomuLocalSrsEnabled: "Enable local Yomu SRS",
       addToForq: "Also copy JPDB adds to forq",
       enableReviews: "Show review buttons",
       reviewRatingScale: "Review rating scale",
@@ -3813,8 +3966,10 @@
       newTabAnkiReviewDecks: "Anki review decks",
       newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
       newTabSource: "Study review source",
-      newTabAuto: "Auto: API/Anki, then study words",
+      newTabAuto: "Auto: Yomu, accounts, then study words",
       newTabApiSrs: "API SRS (Jiten / JPDB)",
+      newTabBunpro: "Bunpro",
+      newTabYomuLocal: "Yomu local SRS",
       dictionaryFallback: "Dictionary fallback",
       newTabJpdbReviewMode: "API review mode",
       newTabJpdbReviewAuto: "Auto: live kanji + API vocabulary",
@@ -5405,12 +5560,15 @@ api	API
 apiCredential	APIキー
 apiCredentialJpdb	JPDB APIキー
 apiCredentialJiten	Jiten APIキー
+apiCredentialBunpro	Bunpro frontend API token
+apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenとJPDBのキーを別々に貼ります。学習デッキは選択中のサービスに適用され、キーなしでもローカル辞書は使えます。
+apiAccessHelp	APIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から、Bunproはfrontend_api_tokenを使います。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
+bunproSettings	Bunpro設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbApiKeyMissing	JPDBキーなし。
 jpdbConnected	JPDBに接続しました。
@@ -5425,6 +5583,8 @@ statusAttention	設定が必要
 statusError	エラー
 disabledControlDescription	別設定で制御中。
 jpdbMiningEnabled	APIの復習・デッキ変更を許可
+bunproMiningEnabled	Bunproの復習・採掘を許可
+yomuLocalSrsEnabled	ローカルよむSRSを有効化
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
@@ -5479,8 +5639,10 @@ newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
-newTabAuto	自動: API/Anki後に学習語
+newTabAuto	自動: よむ・アカウント後に学習語
 newTabApiSrs	API SRS（Jiten / JPDB）
+newTabBunpro	Bunpro
+newTabYomuLocal	ローカルよむSRS
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字+API語彙

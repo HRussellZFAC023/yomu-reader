@@ -108,7 +108,11 @@ function hasQueuedGradeIdentity(record: Partial<QueuedNewTabGrade>): boolean {
 }
 
 function hasQueuedGradeTarget(record: Partial<QueuedNewTabGrade>): boolean {
-    return record.target === 'anki' || record.target === 'jpdb-api' || record.target === 'jiten-api';
+    return record.target === 'anki'
+        || record.target === 'jpdb-api'
+        || record.target === 'jiten-api'
+        || record.target === 'bunpro-api'
+        || record.target === 'yomu-local';
 }
 
 function hasQueuedGradePayload(record: Partial<QueuedNewTabGrade>): boolean {

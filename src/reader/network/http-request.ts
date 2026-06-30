@@ -1,4 +1,5 @@
 import { fetchWithCorsFallbacks } from './proxy-fetch';
+import { isSharedPublicProxySafeRequest, YOMU_SHARED_PUBLIC_PROXY_URL } from './proxy-fetch-rules';
 import type { ReaderHttpOptions } from './http-options';
 import { getUserscriptHttpRequest } from '../userscript/index';
 
@@ -131,13 +132,11 @@ function userscriptTextResponse(response: UserscriptHttpResponse): string {
 // hosted reader cannot parse subtitles or fetch readings/pitch, and its captions
 // silently degrade to reading-less, pitch-less fallback tokens (and the failing
 // parse retries churn the caption, making word taps miss).
-const YOMU_HOSTED_FALLBACK_PROXY_URL = 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/';
-
-export function hostedFallbackProxyUrl(url: string): string {
+export function hostedFallbackProxyUrl(url: string, options: ReaderHttpOptions = {}): string {
     if (getUserscriptHttpRequest()) return '';        // GM bypasses CORS — no proxy needed
     if (!isOfficialHostedReaderOrigin()) return '';   // only Yomu's own hosted pages opt in
-    if (isSameOriginUrl(url) || !/^https?:\/\//i.test(url)) return '';
-    return YOMU_HOSTED_FALLBACK_PROXY_URL;
+    if (!isSharedPublicProxySafeRequest(url, options)) return '';
+    return YOMU_SHARED_PUBLIC_PROXY_URL;
 }
 
 // Scoped to Yomu's official hosted reader so a normal userscript page never silently
@@ -149,7 +148,7 @@ function isOfficialHostedReaderOrigin(): boolean {
 }
 
 async function requestViaFetch(url: string, options: ReaderHttpOptions): Promise<unknown> {
-    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? '').trim() || hostedFallbackProxyUrl(url), {
+    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? '').trim() || hostedFallbackProxyUrl(url, options), {
         method: options.method ?? 'GET',
         headers: options.headers,
         body: options.data,

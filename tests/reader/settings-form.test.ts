@@ -521,7 +521,7 @@ describe('settings form localization', () => {
         expect(topLevelLegendsForControl(form, 'twoButtonReviews')).toEqual(['Study']);
         expect(labelForControl(form, 'twoButtonReviews')).toContain('Review rating scale');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API review mode');
-        expect(optionText(form, 'newTabSource', 'auto')).toBe('Auto: API/Anki, then study words');
+        expect(optionText(form, 'newTabSource', 'auto')).toBe('Auto: Yomu, accounts, then study words');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS (Jiten / JPDB)');
         expect(optionText(form, 'twoButtonReviews', 'true')).toBe('Two point: FAIL / PASS');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then JPDB kanji facts, then local');
@@ -607,7 +607,8 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLAnchorElement>('a[href="https://jiten.moe/settings"]')?.textContent).toBe('Jiten settings');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Paste separate API keys here');
         expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('JPDB keys come from JPDB settings');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Study deck choices stay scoped to the selected provider');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Bunpro uses the frontend_api_token');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('Local Yomu SRS works without an account');
 
         jpdbInput.value = '  next-jpdb  ';
         jitenInput.value = '';
@@ -629,6 +630,15 @@ describe('settings form localization', () => {
         expect(saved.jitenApiKey).toBe('ak_misplaced');
 
         expect(normalizeReaderSettings({ jitenApiKey: '  stored-jiten  ' }).jitenApiKey).toBe('stored-jiten');
+        expect(normalizeReaderSettings({
+            bunproApiKey: ' legacy-bunpro ',
+            bunproFrontendApiToken: ' frontend-bunpro ',
+            bunproFrontendApiTokenExpiresAt: '2026-07-06T16:05:56.552Z',
+        })).toMatchObject({
+            bunproApiKey: 'legacy-bunpro',
+            bunproFrontendApiToken: 'frontend-bunpro',
+            bunproFrontendApiTokenExpiresAt: '2026-07-06T16:05:56.552Z',
+        });
         expect(normalizeReaderSettings({ apiKey: '  ak_legacy-jiten  ' })).toMatchObject({ apiKey: '', jitenApiKey: 'ak_legacy-jiten' });
         expect(normalizeReaderSettings({ apiKey: 'jpdb-key', jitenApiKey: 'ak_jiten-key' })).toMatchObject({
             apiKey: 'jpdb-key',
@@ -1992,12 +2002,12 @@ describe('settings form localization', () => {
         expect(form.lang).toBe('ja');
         expect(settingsText(form, 'h2')).toBe('よむ 設定');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API復習モード');
-        expect(optionText(form, 'newTabSource', 'auto')).toBe('自動: API/Anki後に学習語');
+        expect(optionText(form, 'newTabSource', 'auto')).toBe('自動: よむ・アカウント後に学習語');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（Jiten / JPDB）');
         expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順）');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('JitenとJPDBのキーを別々に貼ります');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('キーなしでもローカル辞書は使えます');
-        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('学習デッキは選択中のサービスに適用され');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('APIキーを別々に貼ります');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('ローカルよむSRSはアカウントなしで使えます');
+        expect(settingsText(form, '[data-jpdb-api-key-help]')).toContain('frontend_api_token');
         expect(labelForControl(form, 'newTabKanjiKeywordSource')).toContain('漢字キーワードのソース');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動: RTK、JPDB、ローカル');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（Jiten / JPDB）');
