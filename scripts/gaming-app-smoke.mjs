@@ -362,23 +362,22 @@ function attachPageDiagnostics(page) {
     });
 }
 
+function isTransparentPaint(value) {
+    return !value || value === 'transparent' || /rgba\([^)]*,\s*0(?:\.0+)?\s*\)/.test(value);
+}
+
 async function assertInlineOcrResult(overlay, label) {
     await overlay.locator('[data-overlay-inline]').waitFor({ timeout: 10_000 });
     // The frozen capture is shown as a backdrop and a persistent toolbar offers re-capture.
     await overlay.locator('img.overlay-backdrop').waitFor({ state: 'attached', timeout: 10_000 });
     await overlay.locator('.overlay-toolbar [data-action="overlay-recapture"]').waitFor({ timeout: 10_000 });
-    // The recognized line is anchored in place, in full (no ellipsis truncation), but the
-    // text is transparent so the game art underneath is never obscured (invisible overlay).
+    // The recognized line is anchored in place and readable in full (no ellipsis truncation).
     const horizontalLine = overlay.locator('[data-ocr-line]', { hasText: '冒険を始めよう' }).first();
     await horizontalLine.waitFor({ state: 'attached', timeout: 10_000 });
     const horizontalText = horizontalLine.locator('.overlay-inline-text');
     const fullText = await horizontalText.textContent();
     if (!fullText.includes('港へ行くよ')) {
         throw new Error(`Yomu Gaming ${label} truncated the recognized line in place: ${fullText}`);
-    }
-    const textColor = await horizontalText.evaluate(node => getComputedStyle(node).color);
-    if (!/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)|transparent/.test(textColor)) {
-        throw new Error(`Yomu Gaming ${label} overlay text is not invisible over the art: ${textColor}`);
     }
     // The detached term-pill breakdown stays removed: the bundled Yomu reader scans the
     // OCR'd text in place and gives each word the standard lookup behavior.
@@ -388,6 +387,25 @@ async function assertInlineOcrResult(overlay, label) {
     // The real reader wraps the OCR'd line into words; clicking one opens the real Yomu popover.
     const annotatedTerm = overlay.locator('[data-ocr-line] .jpdb-reader-word', { hasText: '冒険' }).first();
     await annotatedTerm.waitFor({ state: 'attached', timeout: 15_000 });
+    const termPaint = await annotatedTerm.evaluate(node => {
+        const style = getComputedStyle(node);
+        const rect = node.getBoundingClientRect();
+        return {
+            text: node.textContent || '',
+            color: style.color,
+            textFill: style.getPropertyValue('-webkit-text-fill-color'),
+            background: style.backgroundColor,
+            opacity: style.opacity,
+            width: rect.width,
+            height: rect.height,
+        };
+    });
+    if (isTransparentPaint(termPaint.color) || isTransparentPaint(termPaint.textFill) || Number(termPaint.opacity) <= 0.05) {
+        throw new Error(`Yomu Gaming ${label} rendered inline OCR words invisibly: ${JSON.stringify(termPaint)}`);
+    }
+    if (termPaint.width < 8 || termPaint.height < 8) {
+        throw new Error(`Yomu Gaming ${label} inline OCR word paint box is too small: ${JSON.stringify(termPaint)}`);
+    }
     await annotatedTerm.click({ force: true });
     let popoverOpened = false;
     try {

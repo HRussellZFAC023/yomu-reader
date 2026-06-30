@@ -15,6 +15,7 @@
 
 ### Fixed
 
+- Made Yomu Gaming in-place OCR words readable over captured screens while keeping the detached OCR result panel out of the main flow.
 - Hardened proxy fetch rules and factory reset coverage so account, source, pill, and local SRS settings are reset consistently.
 
 ## [1.4.246] - 2026-06-29

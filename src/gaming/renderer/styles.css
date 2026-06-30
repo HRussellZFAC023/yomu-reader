@@ -854,7 +854,7 @@ textarea {
     font-size: 15px;
     line-height: 1.25;
     white-space: nowrap;
-    /* Transparent so the underlying game/manga glyphs are not obscured or doubled. */
+    /* Hide the raw OCR text; the reader-injected word spans below are the visible layer. */
     color: transparent;
     -webkit-text-fill-color: transparent;
     cursor: help;
@@ -867,18 +867,21 @@ textarea {
     max-height: calc(100vh - 24px);
 }
 
-/* The reader paints furigana + known-word colours onto the words it scans. Over a game
-   image those would double up with the original art, so keep them transparent in the
-   overlay — the real Yomu popover is the readable output. */
-.overlay-inline-text :is(.jpdb-reader-word, ruby, rt, rp),
-.overlay-result-text :is(.jpdb-reader-word, ruby, rt, rp) {
-    color: transparent !important;
-    -webkit-text-fill-color: transparent !important;
-    background: transparent !important;
-    border-color: transparent !important;
-    box-shadow: none !important;
-    text-decoration: none !important;
-    text-shadow: none !important;
+/* Keep geometry-backed OCR readable in place instead of forcing users into a detached
+   panel. The dark chip is intentionally subtle so it works over games, manga, and video. */
+.overlay-inline-text :is(.jpdb-reader-word, ruby, rt, rp) {
+    color: var(--jpdb-reader-white) !important;
+    -webkit-text-fill-color: var(--jpdb-reader-white) !important;
+    text-shadow:
+        0 1px 2px color-mix(in srgb, var(--jpdb-reader-black) 90%, transparent),
+        0 0 5px color-mix(in srgb, var(--jpdb-reader-black) 78%, transparent) !important;
+}
+
+.overlay-inline-text .jpdb-reader-word {
+    border-radius: 0.22em;
+    background: color-mix(in srgb, var(--jpdb-reader-black) 34%, transparent) !important;
+    border-color: color-mix(in srgb, var(--jpdb-reader-white) 14%, transparent) !important;
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--jpdb-reader-black) 42%, transparent) !important;
 }
 
 /* Text-only OCR (no per-line geometry) has nothing behind it, so show it as a readable
