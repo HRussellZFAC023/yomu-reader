@@ -70960,6 +70960,7 @@ ${newTabCardReading(card)}`;
       if (Array.isArray(storedHistory)) this.history = storedHistory.slice(-PITCH_HISTORY_LIMIT);
       this.loaded = true;
     }
+    // fallow-ignore-next-line unused-class-member
     size() {
       return this.items.size;
     }
@@ -70969,6 +70970,7 @@ ${newTabCardReading(card)}`;
     allItems() {
       return [...this.items.values()];
     }
+    // fallow-ignore-next-line unused-class-member
     dueCount(now) {
       let count = 0;
       for (const item of this.items.values()) if (isPitchItemDue(item, now)) count += 1;
@@ -70988,6 +70990,7 @@ ${newTabCardReading(card)}`;
       this.schedulePersistItems();
       return seeded;
     }
+    // fallow-ignore-next-line unused-class-member
     grade(key, grade, subMode, options) {
       const item = this.items.get(key);
       if (!item) return null;
@@ -71004,6 +71007,7 @@ ${newTabCardReading(card)}`;
       this.schedulePersistItems();
       return updated;
     }
+    // fallow-ignore-next-line unused-class-member
     accuracyByClass() {
       return pitchAccuracyByClass(this.history);
     }
@@ -82604,6 +82608,7 @@ ${entry.url}`),
     hasFrontendCredential() {
       return Boolean(this.getFrontendToken().trim());
     }
+    // fallow-ignore-next-line unused-class-member
     hasLegacyCredential() {
       return Boolean(this.getLegacyApiKey().trim());
     }
@@ -82616,9 +82621,11 @@ ${entry.url}`),
     getQueue() {
       return this.frontend("/user/queue");
     }
+    // fallow-ignore-next-line unused-class-member
     getUserFurigana() {
       return this.frontend("/user/user_furigana");
     }
+    // fallow-ignore-next-line unused-class-member
     getReviews(page = 1, perPage = 25) {
       return this.frontend("/reviews", {
         query: {
@@ -82630,12 +82637,15 @@ ${entry.url}`),
     getBaseStats() {
       return this.frontend("/user_stats/base_stats");
     }
+    // fallow-ignore-next-line unused-class-member
     getJlptProgress() {
       return this.frontend("/user_stats/jlpt_progress_mixed");
     }
+    // fallow-ignore-next-line unused-class-member
     getSrsOverview() {
       return this.frontend("/user_stats/srs_level_overview");
     }
+    // fallow-ignore-next-line unused-class-member
     getSrsLevelDetails(level, reviewableType, page = 1) {
       return this.frontend("/user_stats/srs_level_details", {
         query: {
@@ -82645,15 +82655,19 @@ ${entry.url}`),
         }
       });
     }
+    // fallow-ignore-next-line unused-class-member
     getForecastDaily() {
       return this.frontend("/user_stats/forecast_daily");
     }
+    // fallow-ignore-next-line unused-class-member
     getForecastHourly() {
       return this.frontend("/user_stats/forecast_hourly");
     }
+    // fallow-ignore-next-line unused-class-member
     getReviewActivity() {
       return this.frontend("/user_stats/review_activity");
     }
+    // fallow-ignore-next-line unused-class-member
     getVocab(slugOrId) {
       return this.frontend(`/reviewables/vocab/${encodeURIComponent(String(slugOrId))}`);
     }
@@ -82693,6 +82707,7 @@ ${entry.url}`),
     getLegacyStudyQueue() {
       return this.legacy("/study_queue");
     }
+    // fallow-ignore-next-line unused-class-member
     getLegacyRecentItems(limit = 10) {
       return this.legacy(`/recent_items/${Math.min(Math.max(Math.floor(limit), 1), 50)}`);
     }
@@ -83051,6 +83066,7 @@ ${entry.url}`),
       await this.writeDeck(deck);
       return { imported, skipped };
     }
+    // fallow-ignore-next-line unused-class-member
     async queue(limit = 50) {
       const now = this.now();
       const cards = Object.values((await this.readDeck()).cards);
@@ -83064,6 +83080,7 @@ ${entry.url}`),
         reviewCount: due.length
       };
     }
+    // fallow-ignore-next-line unused-class-member
     async stats() {
       const now = this.now();
       const cards = Object.values((await this.readDeck()).cards);
@@ -83081,6 +83098,7 @@ ${entry.url}`),
         }
       };
     }
+    // fallow-ignore-next-line unused-class-member
     async review(request) {
       const deck = await this.readDeck();
       const id = request.card.providerCardId || localCardId(request.card.expression, request.card.reading);
@@ -83090,6 +83108,7 @@ ${entry.url}`),
       await this.writeDeck(deck);
       return { card: this.toReviewable(updated, this.now()), raw: updated };
     }
+    // fallow-ignore-next-line unused-class-member
     async mine(request) {
       const now = this.now();
       const card = reviewableFromMiningRequest(request, now);
