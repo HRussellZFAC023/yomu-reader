@@ -13,6 +13,12 @@ describe('FactoryResetCoordinator', () => {
     });
 
     it('removes the reset coordination signal before reloading', async () => {
+        const caches = new Set(['yomu-newtab-old', 'foreign-cache']);
+        const deleteCache = vi.fn(async (key: string) => caches.delete(key));
+        vi.stubGlobal('caches', {
+            keys: vi.fn(async () => [...caches]),
+            delete: deleteCache,
+        });
         const { coordinator, gmValues, reload } = setupFactoryResetHarness({
             resetDictionaryDatabase: vi.fn(async () => ({ cleared: true, deleted: true })),
         });
@@ -22,6 +28,8 @@ describe('FactoryResetCoordinator', () => {
         await reset;
 
         expect(gmValues.has('yomu:factory-reset-signal')).toBe(false);
+        expect(deleteCache).toHaveBeenCalledWith('yomu-newtab-old');
+        expect(caches.has('foreign-cache')).toBe(true);
         expect(reload).toHaveBeenCalledOnce();
     });
 

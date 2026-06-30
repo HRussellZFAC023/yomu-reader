@@ -34,6 +34,9 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
 const MANAGED_INDEXED_DB_NAMES = [
     'yomu-anki-status-index',
 ];
+const MANAGED_CACHE_NAME_PREFIXES = [
+    'yomu-newtab-',
+];
 const EXCLUDED_BACKUP_STORAGE_KEYS = new Set([
     FACTORY_RESET_SIGNAL_KEY,
     // Transient cloud-sync handoff written before an OAuth redirect. Factory
@@ -202,7 +205,35 @@ export async function clearManagedStoredValues(): Promise<number> {
         count++;
     }
     await clearManagedIndexedDatabases();
+    count += await clearManagedBrowserCaches();
+    count += await unregisterManagedServiceWorkers();
     return count;
+}
+
+export async function clearManagedBrowserCaches(): Promise<number> {
+    if (typeof caches === 'undefined') return 0;
+    try {
+        const keys = await caches.keys();
+        const managedKeys = keys.filter(isManagedBrowserCacheName);
+        const deleted = await Promise.all(managedKeys.map(key => caches.delete(key)));
+        return deleted.filter(Boolean).length;
+    } catch (error) {
+        debugStorageError('Cache API clear failed', 'managed-caches', error);
+        return 0;
+    }
+}
+
+export async function unregisterManagedServiceWorkers(): Promise<number> {
+    if (typeof navigator === 'undefined' || !navigator.serviceWorker?.getRegistrations) return 0;
+    try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        const managedRegistrations = registrations.filter(isManagedServiceWorkerRegistration);
+        const unregistered = await Promise.all(managedRegistrations.map(registration => registration.unregister()));
+        return unregistered.filter(Boolean).length;
+    } catch (error) {
+        debugStorageError('Service worker unregister failed', 'managed-service-workers', error);
+        return 0;
+    }
 }
 
 export async function clearFactoryResetSignal(): Promise<void> {
@@ -468,6 +499,23 @@ function isHostedYomuOrigin(): boolean {
 
 async function clearManagedIndexedDatabases(): Promise<void> {
     await Promise.all(MANAGED_INDEXED_DB_NAMES.map(deleteIndexedDbDatabase));
+}
+
+function isManagedBrowserCacheName(name: string): boolean {
+    return MANAGED_CACHE_NAME_PREFIXES.some(prefix => name.startsWith(prefix));
+}
+
+function isManagedServiceWorkerRegistration(registration: ServiceWorkerRegistration): boolean {
+    return [
+        registration.scope,
+        registration.active?.scriptURL,
+        registration.installing?.scriptURL,
+        registration.waiting?.scriptURL,
+    ].some(hasManagedNewTabServiceWorkerPath);
+}
+
+function hasManagedNewTabServiceWorkerPath(value: string | undefined): boolean {
+    return typeof value === 'string' && value.includes('/newtab/');
 }
 
 function deleteIndexedDbDatabase(name: string): Promise<void> {

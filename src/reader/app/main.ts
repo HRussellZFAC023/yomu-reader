@@ -242,6 +242,7 @@ import {
 } from '../study/mining-controls';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
 import { NativeTitleGuard } from './native-title-guard';
+import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
@@ -1208,6 +1209,8 @@ export class ReaderApp {
         this.nearbyReaderAudioPreloadTimer = undefined;
         this.cardRenderRequest++;
         await this.dictionaries.invalidateForFactoryReset();
+        await clearManagedBrowserCaches();
+        await unregisterManagedServiceWorkers();
     }
 
     private installStyles(): void {

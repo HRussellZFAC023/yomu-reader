@@ -50,6 +50,43 @@ describe('factory reset storage completeness', () => {
         expect(store.size).toBe(0);
     });
 
+    it('clears Study PWA caches and only unregisters Study service workers', async () => {
+        const caches = new Set(['yomu-newtab-v1', 'yomu-newtab-v2', 'foreign-cache']);
+        const deleteCache = vi.fn(async (key: string) => caches.delete(key));
+        const unregisterNewtab = vi.fn(async () => true);
+        const unregisterDocs = vi.fn(async () => true);
+        vi.stubGlobal('caches', {
+            keys: vi.fn(async () => [...caches]),
+            delete: deleteCache,
+        });
+        vi.stubGlobal('navigator', {
+            serviceWorker: {
+                getRegistrations: vi.fn(async () => [
+                    {
+                        scope: 'https://yomureader.com/newtab/',
+                        active: { scriptURL: 'https://yomureader.com/newtab/sw.js' },
+                        unregister: unregisterNewtab,
+                    },
+                    {
+                        scope: 'https://yomureader.com/',
+                        active: { scriptURL: 'https://yomureader.com/sw.js' },
+                        unregister: unregisterDocs,
+                    },
+                ]),
+            },
+        });
+
+        const removed = await clearManagedStoredValues();
+
+        expect(deleteCache).toHaveBeenCalledWith('yomu-newtab-v1');
+        expect(deleteCache).toHaveBeenCalledWith('yomu-newtab-v2');
+        expect(deleteCache).not.toHaveBeenCalledWith('foreign-cache');
+        expect(caches.has('foreign-cache')).toBe(true);
+        expect(unregisterNewtab).toHaveBeenCalledOnce();
+        expect(unregisterDocs).not.toHaveBeenCalled();
+        expect(removed).toBeGreaterThanOrEqual(3);
+    });
+
     it('clears lookup pill selections so settings return to defaults after reset', async () => {
         const customLinks = DEFAULT_SETTINGS.dictionaryLookupLinks.slice(0, 1);
         localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({

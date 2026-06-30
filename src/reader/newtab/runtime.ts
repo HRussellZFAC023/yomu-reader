@@ -24,6 +24,7 @@ import { DictionarySourceStateController } from '../sources/state';
 import { escapeHtml, HAS_JAPANESE, inferredInflectedSurfaceRubies, readerWordSurfaceText, setInnerHtml, unwrapReaderWords } from '../dom';
 import { DictionaryStyleController } from '../sources/styles';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from '../app/factory-reset-coordinator';
+import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from '../app/storage';
 import { ImmersionKitClient } from '../immersion/kit';
 import { ImmersionPopoverController } from '../immersion/popover-controller';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
@@ -539,6 +540,8 @@ export class NewTabRuntime {
         this.lastAutoAudioKey = '';
         this.lastAutoAudioAt = 0;
         await this.dictionaries.invalidateForFactoryReset();
+        await clearManagedBrowserCaches();
+        await unregisterManagedServiceWorkers();
     }
 
     private installExternalRefreshListener(): void {
