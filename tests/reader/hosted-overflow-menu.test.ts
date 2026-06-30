@@ -21,6 +21,15 @@ describe('hosted overflow menus', () => {
         expect(config).toContain("const pdfReaderLink = '/pdf-reader/index.html';");
     });
 
+    it('keeps support banner status on the Yomu domain with a workers.dev fallback during DNS migration', () => {
+        const theme = readProjectFile('docs/.vitepress/theme/index.ts');
+
+        expect(theme).toContain("const YOMU_SUPPORT_STATUS_URL = 'https://support.yomureader.com/status'");
+        expect(theme).toContain("const YOMU_SUPPORT_DONATE_URL = 'https://support.yomureader.com/donate'");
+        expect(theme).toContain("const YOMU_SUPPORT_FALLBACK_STATUS_URL = 'https://yomu-support.henry-robert-christopher-russell.workers.dev/status'");
+        expect(theme).toContain("for (const url of [YOMU_SUPPORT_STATUS_URL, YOMU_SUPPORT_FALLBACK_STATUS_URL])");
+    });
+
     it('uses homepage-style labels and compact sizing on the newtab menu', () => {
         const controller = readProjectFile('src/reader/newtab/controller.ts');
         const css = readProjectFile('src/reader/styles/new-tab.css').replace(/\s+/g, ' ');

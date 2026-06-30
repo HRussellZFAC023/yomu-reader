@@ -29,6 +29,8 @@ const YOMU_HOSTED_VIDEO_COMPANION_SCRIPT_ID = 'yomu-hosted-video-companion';
 const LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
 const YOMU_SUPPORT_STATUS_URL = 'https://support.yomureader.com/status';
 const YOMU_SUPPORT_DONATE_URL = 'https://support.yomureader.com/donate';
+const YOMU_SUPPORT_FALLBACK_STATUS_URL = 'https://yomu-support.henry-robert-christopher-russell.workers.dev/status';
+const YOMU_SUPPORT_FALLBACK_DONATE_URL = 'https://yomu-support.henry-robert-christopher-russell.workers.dev/donate';
 const YOMU_SUPPORT_BANNER_ID = 'yomu-support-banner';
 const YOMU_SUPPORT_BANNER_DISMISSED_KEY = 'yomu-support-banner-dismissed-version';
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
@@ -3061,10 +3063,22 @@ function installHostedSupportBanner(): void {
 }
 
 async function loadHostedSupportStatus(): Promise<HostedSupportStatus> {
+    let lastError: unknown;
+    for (const url of [YOMU_SUPPORT_STATUS_URL, YOMU_SUPPORT_FALLBACK_STATUS_URL]) {
+        try {
+            return await fetchHostedSupportStatus(url);
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    throw lastError instanceof Error ? lastError : new Error('Support status unavailable');
+}
+
+async function fetchHostedSupportStatus(url: string): Promise<HostedSupportStatus> {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 2400);
     try {
-        const response = await fetch(YOMU_SUPPORT_STATUS_URL, {
+        const response = await fetch(url, {
             credentials: 'omit',
             referrerPolicy: 'no-referrer',
             signal: controller.signal,
@@ -3157,11 +3171,11 @@ function fallbackHostedSupportStatus(): HostedSupportStatus {
         dailyBudgetGbp: 10,
         donationGoalGbp: 10,
         donationsTodayGbp: 0,
-        donateUrl: YOMU_SUPPORT_DONATE_URL,
+        donateUrl: YOMU_SUPPORT_FALLBACK_DONATE_URL,
         banner: {
             enabled: true,
             dismissVersion: '2026-06-29-v1',
-            donateUrl: YOMU_SUPPORT_DONATE_URL,
+            donateUrl: YOMU_SUPPORT_FALLBACK_DONATE_URL,
         },
     };
 }
