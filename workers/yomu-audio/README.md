@@ -15,6 +15,20 @@ The worker has two serving modes:
 
 If neither R2 nor an upstream is configured, it returns an empty Yomitan-compatible audio list quickly so Yomu falls through to the next audio source.
 
+## Bootstrap before R2 is enabled
+
+Cloudflare accounts must enable R2 before Wrangler can deploy a Worker with an R2 binding. To attach `audio.yomureader.com` while that account-level switch is still pending, deploy the disabled bootstrap config:
+
+```bash
+npx wrangler deploy --config workers/yomu-audio/wrangler.bootstrap.jsonc
+```
+
+That deploys the same Worker without the `AUDIO_BUCKET` binding and with `AUDIO_DISABLED=true`, so `/status` works and audio lookups return an empty Yomitan-compatible list. After R2 is enabled and the bucket is uploaded, redeploy the canonical config:
+
+```bash
+npx wrangler deploy --config workers/yomu-audio/wrangler.jsonc
+```
+
 ## Export from the local audio server
 
 Create a TSV of terms to seed:
