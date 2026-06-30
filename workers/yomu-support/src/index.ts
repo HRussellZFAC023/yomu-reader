@@ -5,14 +5,21 @@ const DEFAULT_MAX_DONATION_GBP = 100;
 const DEFAULT_SUPPORT_URL = "https://yomureader.com/support";
 const DEFAULT_FALLBACK_DONATE_URL = "https://paypal.me/HenryRussell163";
 const STRIPE_CHECKOUT_SESSIONS_URL = "https://api.stripe.com/v1/checkout/sessions";
+const STRIPE_WEBHOOK_TOLERANCE_SECONDS = 300;
 const READ_METHODS = new Set(["GET", "HEAD"]);
+const STRIPE_DONATION_EVENT_TYPES = new Set([
+  "checkout.session.completed",
+  "checkout.session.async_payment_succeeded",
+]);
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
 }
 
 interface Env {
+  SUPPORT_DB?: D1Database;
   STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
   SUPPORT_BANNER_ENABLED?: string;
   SUPPORT_DAILY_BUDGET_GBP?: string;
   SUPPORT_DONATION_GOAL_GBP?: string;
@@ -23,6 +30,22 @@ interface Env {
   SUPPORT_CANCEL_URL?: string;
 }
 
+interface D1Database {
+  prepare(query: string): D1PreparedStatement;
+}
+
+interface D1PreparedStatement {
+  bind(...values: unknown[]): D1PreparedStatement;
+  first<T = unknown>(): Promise<T | null>;
+  run<T = unknown>(): Promise<D1Result<T>>;
+}
+
+interface D1Result<T = unknown> {
+  results?: T[];
+  success?: boolean;
+  meta?: { changes?: number };
+}
+
 interface SupportStatus {
   service: "yomu-support";
   status: "ok" | "stripe-unconfigured";
@@ -30,6 +53,7 @@ interface SupportStatus {
   dailyBudgetGbp: number;
   donationGoalGbp: number;
   donationsTodayGbp: number;
+  donationsSource: "d1" | "env";
   estimatedDailyCostGbp: number;
   goalMet: boolean;
   donateUrl: string;
@@ -43,6 +67,25 @@ interface SupportStatus {
     ctaLabel: string;
     donateUrl: string;
   };
+}
+
+interface DonationSnapshot {
+  donationsTodayGbp: number;
+  source: "d1" | "env";
+}
+
+interface StripeSignatureVerification {
+  timestamp: number;
+}
+
+interface StripeDonationEvent {
+  id: string;
+  eventType: string;
+  day: string;
+  amountMinor: number;
+  currency: "gbp";
+  stripeSessionId: string;
+  stripeCreatedAt: number;
 }
 
 export default {
@@ -62,13 +105,18 @@ export default {
 
 async function handleRequest(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
   if (isCorsPreflight(request)) return preflight(request);
+  const url = new URL(request.url);
+
+  if (url.pathname === "/stripe/webhook" || url.pathname === "/webhook") {
+    return handleStripeWebhook(request, env);
+  }
+
   if (!READ_METHODS.has(request.method.trim().toUpperCase())) {
     return textResponse("Method not allowed.", 405, { allow: "GET, HEAD, OPTIONS" });
   }
 
-  const url = new URL(request.url);
   if (url.pathname === "/status" || url.pathname === "/healthz") {
-    return jsonResponse(request, supportStatus(request, env), 200, {
+    return jsonResponse(request, await supportStatus(request, env), 200, {
       "cache-control": "public, max-age=60",
     });
   }
@@ -80,10 +128,11 @@ async function handleRequest(request: Request, env: Env, _ctx: ExecutionContext)
   return Response.redirect(DEFAULT_SUPPORT_URL, 302);
 }
 
-function supportStatus(request: Request, env: Env): SupportStatus {
+async function supportStatus(request: Request, env: Env): Promise<SupportStatus> {
   const dailyBudgetGbp = positiveNumberEnv(env.SUPPORT_DAILY_BUDGET_GBP, DEFAULT_DAILY_BUDGET_GBP);
   const donationGoalGbp = positiveNumberEnv(env.SUPPORT_DONATION_GOAL_GBP, dailyBudgetGbp);
-  const donationsTodayGbp = nonNegativeNumberEnv(env.SUPPORT_DONATIONS_TODAY_GBP, 0);
+  const donations = await donationSnapshotForToday(env);
+  const donationsTodayGbp = donations.donationsTodayGbp;
   const estimatedDailyCostGbp = nonNegativeNumberEnv(env.SUPPORT_ESTIMATED_DAILY_COST_GBP, 0);
   const goalMet = donationsTodayGbp >= donationGoalGbp;
   const donateUrl = donateUrlFor(request);
@@ -96,6 +145,7 @@ function supportStatus(request: Request, env: Env): SupportStatus {
     dailyBudgetGbp,
     donationGoalGbp,
     donationsTodayGbp,
+    donationsSource: donations.source,
     estimatedDailyCostGbp,
     goalMet,
     donateUrl,
@@ -116,6 +166,31 @@ function supportStatus(request: Request, env: Env): SupportStatus {
       donateUrl,
     },
   };
+}
+
+async function donationSnapshotForToday(env: Env): Promise<DonationSnapshot> {
+  const fallback: DonationSnapshot = {
+    donationsTodayGbp: nonNegativeNumberEnv(env.SUPPORT_DONATIONS_TODAY_GBP, 0),
+    source: "env",
+  };
+  if (!env.SUPPORT_DB) return fallback;
+  try {
+    const row = await env.SUPPORT_DB.prepare(`
+      SELECT COALESCE(SUM(amount_minor), 0) AS total_minor
+      FROM donation_events
+      WHERE day = ? AND currency = 'gbp'
+    `).bind(utcDayKey()).first<{ total_minor?: number | null }>();
+    return {
+      donationsTodayGbp: nonNegativeNumber(row?.total_minor, 0) / 100,
+      source: "d1",
+    };
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "yomu_support_donation_status_failed",
+      message: error instanceof Error ? error.message : "unknown",
+    }));
+    return fallback;
+  }
 }
 
 async function createDonationCheckout(request: Request, env: Env): Promise<Response> {
@@ -153,6 +228,149 @@ async function createDonationCheckout(request: Request, env: Env): Promise<Respo
     return Response.redirect(fallbackDonateUrl(env), 302);
   }
   return Response.redirect(checkoutUrl, 303);
+}
+
+async function handleStripeWebhook(request: Request, env: Env): Promise<Response> {
+  if (request.method.trim().toUpperCase() !== "POST") {
+    return textResponse("Method not allowed.", 405, { allow: "POST" });
+  }
+  if (!env.STRIPE_WEBHOOK_SECRET || !env.SUPPORT_DB) {
+    return textResponse("Stripe webhook is not configured.", 503);
+  }
+
+  const payload = await request.text();
+  const verification = await verifyStripeSignature(payload, request.headers.get("stripe-signature"), env.STRIPE_WEBHOOK_SECRET);
+  if (!verification) return textResponse("Invalid Stripe signature.", 400);
+
+  const event = parseStripeWebhookPayload(payload);
+  const donation = stripeDonationFromEvent(event, verification.timestamp);
+  if (!donation) return jsonResponse(request, { received: true, recorded: false }, 200);
+
+  await recordDonationEvent(env.SUPPORT_DB, donation);
+  return jsonResponse(request, { received: true, recorded: true }, 200);
+}
+
+async function verifyStripeSignature(
+  payload: string,
+  signatureHeader: string | null,
+  secret: string,
+  nowMs = Date.now(),
+): Promise<StripeSignatureVerification | null> {
+  const parsed = parseStripeSignatureHeader(signatureHeader);
+  if (!parsed || Math.abs(nowMs / 1000 - parsed.timestamp) > STRIPE_WEBHOOK_TOLERANCE_SECONDS) return null;
+  const expected = await hmacSha256Hex(secret, `${parsed.timestamp}.${payload}`);
+  return parsed.signatures.some(signature => timingSafeEqualHex(signature, expected))
+    ? { timestamp: parsed.timestamp }
+    : null;
+}
+
+function parseStripeSignatureHeader(header: string | null): { timestamp: number; signatures: string[] } | null {
+  if (!header) return null;
+  const signatures: string[] = [];
+  let timestamp = 0;
+  for (const part of header.split(",")) {
+    const separator = part.indexOf("=");
+    if (separator <= 0) continue;
+    const key = part.slice(0, separator).trim();
+    const value = part.slice(separator + 1).trim();
+    if (key === "t") timestamp = Number(value);
+    else if (key === "v1" && /^[a-f0-9]{64}$/i.test(value)) signatures.push(value.toLowerCase());
+  }
+  return Number.isFinite(timestamp) && timestamp > 0 && signatures.length ? { timestamp, signatures } : null;
+}
+
+async function hmacSha256Hex(secret: string, value: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(value));
+  return bytesToHex(new Uint8Array(signature));
+}
+
+function timingSafeEqualHex(left: string, right: string): boolean {
+  const leftBytes = hexToBytes(left);
+  const rightBytes = hexToBytes(right);
+  if (!leftBytes || !rightBytes || leftBytes.length !== rightBytes.length) return false;
+  let diff = 0;
+  for (let index = 0; index < leftBytes.length; index += 1) {
+    diff |= leftBytes[index]! ^ rightBytes[index]!;
+  }
+  return diff === 0;
+}
+
+function hexToBytes(hex: string): Uint8Array | null {
+  if (!/^(?:[a-f0-9]{2})+$/i.test(hex)) return null;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let index = 0; index < bytes.length; index += 1) {
+    bytes[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function parseStripeWebhookPayload(payload: string): unknown {
+  try {
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
+}
+
+function stripeDonationFromEvent(event: unknown, receivedTimestamp: number): StripeDonationEvent | null {
+  const record = objectRecord(event);
+  const eventType = stringField(record, "type");
+  if (!record || !eventType || !STRIPE_DONATION_EVENT_TYPES.has(eventType)) return null;
+  const id = stringField(record, "id");
+  const data = objectRecord(record.data);
+  const session = objectRecord(data?.object);
+  const amountMinor = numberField(session, "amount_total");
+  const currency = stringField(session, "currency")?.toLowerCase();
+  const stripeSessionId = stringField(session, "id");
+  const paymentStatus = stringField(session, "payment_status");
+  if (!id || !stripeSessionId || !amountMinor || amountMinor <= 0 || currency !== "gbp") return null;
+  if (paymentStatus && paymentStatus !== "paid" && paymentStatus !== "no_payment_required") return null;
+  const stripeCreatedAt = numberField(record, "created") ?? receivedTimestamp;
+  return {
+    id,
+    eventType,
+    day: utcDayKey(new Date(stripeCreatedAt * 1000)),
+    amountMinor: Math.round(amountMinor),
+    currency: "gbp",
+    stripeSessionId,
+    stripeCreatedAt,
+  };
+}
+
+async function recordDonationEvent(db: D1Database, donation: StripeDonationEvent): Promise<void> {
+  await db.prepare(`
+    INSERT OR IGNORE INTO donation_events (
+      id,
+      day,
+      amount_minor,
+      currency,
+      event_type,
+      stripe_session_id,
+      stripe_created_at,
+      received_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    donation.id,
+    donation.day,
+    donation.amountMinor,
+    donation.currency,
+    donation.eventType,
+    donation.stripeSessionId,
+    donation.stripeCreatedAt,
+    new Date().toISOString(),
+  ).run();
 }
 
 function donationAmountMinor(url: URL, env: Env): number {
@@ -198,6 +416,10 @@ function fallbackDonateUrl(env: Env): string {
 function positiveNumberEnv(raw: string | undefined, fallback: number): number {
   const value = Number(raw);
   return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function nonNegativeNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
 function nonNegativeNumberEnv(raw: string | undefined, fallback: number): number {
@@ -247,6 +469,24 @@ function corsHeaders(request: Request): Headers {
 
 function falseyEnv(value: string | undefined): boolean {
   return /^(?:0|false|no|off)$/i.test(value?.trim() ?? "");
+}
+
+function utcDayKey(now = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+function objectRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? value as Record<string, unknown> : null;
+}
+
+function stringField(record: Record<string, unknown> | null, key: string): string | null {
+  const value = record?.[key];
+  return typeof value === "string" ? value : null;
+}
+
+function numberField(record: Record<string, unknown> | null, key: string): number | null {
+  const value = record?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function safePath(request: Request): string {

@@ -25,5 +25,12 @@
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "SUPPORT_DB",
+      "database_name": "yomu-support",
+      "database_id": "c39e8f5c-e6fc-44e0-9b0c-987cde5bcd3c"
+    }
+  ]
 }

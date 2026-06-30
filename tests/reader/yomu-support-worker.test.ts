@@ -25,6 +25,7 @@ describe("Yomu support Worker", () => {
       status: string;
       dailyBudgetGbp: number;
       donationsTodayGbp: number;
+      donationsSource: string;
       donationGoalGbp: number;
       donateUrl: string;
       banner: { enabled: boolean; message: string; goalLabel: string };
@@ -33,6 +34,7 @@ describe("Yomu support Worker", () => {
     expect(body.status).toBe("stripe-unconfigured");
     expect(body.dailyBudgetGbp).toBe(10);
     expect(body.donationsTodayGbp).toBe(3.5);
+    expect(body.donationsSource).toBe("env");
     expect(body.donationGoalGbp).toBe(10);
     expect(body.donateUrl).toBe("https://support.yomureader.com/donate");
     expect(body.banner.enabled).toBe(true);
@@ -74,4 +76,131 @@ describe("Yomu support Worker", () => {
     expect(response.headers.get("location")).toBe("https://checkout.stripe.com/c/session");
     expect(stripeFetch).toHaveBeenCalledTimes(1);
   });
+
+  it("records signed Stripe Checkout donation webhooks once and reflects them in status", async () => {
+    const db = mockSupportDb();
+    const timestamp = Math.floor(Date.now() / 1000);
+    const payload = JSON.stringify({
+      id: "evt_donation_1",
+      type: "checkout.session.completed",
+      created: timestamp,
+      data: {
+        object: {
+          id: "cs_test_1",
+          amount_total: 750,
+          currency: "gbp",
+          payment_status: "paid",
+        },
+      },
+    });
+    const webhookRequest = new Request("https://support.yomureader.com/stripe/webhook", {
+      method: "POST",
+      headers: { "stripe-signature": await stripeSignatureHeader(payload, "whsec_test", timestamp) },
+      body: payload,
+    });
+    const env = { STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db };
+
+    const first = await SupportWorker.fetch(webhookRequest.clone(), env, { waitUntil: vi.fn() });
+    const duplicate = await SupportWorker.fetch(webhookRequest.clone(), env, { waitUntil: vi.fn() });
+    const status = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      { ...env, SUPPORT_DONATION_GOAL_GBP: "10" },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(first.status).toBe(200);
+    await expect(first.json()).resolves.toEqual({ received: true, recorded: true });
+    expect(duplicate.status).toBe(200);
+    expect(db.rows).toHaveLength(1);
+    await expect(status.json()).resolves.toMatchObject({
+      donationsSource: "d1",
+      donationsTodayGbp: 7.5,
+      donationGoalGbp: 10,
+      goalMet: false,
+    });
+  });
+
+  it("rejects Stripe webhooks with invalid signatures before recording", async () => {
+    const db = mockSupportDb();
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/stripe/webhook", {
+        method: "POST",
+        headers: { "stripe-signature": "t=100,v1=bad" },
+        body: JSON.stringify({ id: "evt_bad" }),
+      }),
+      { STRIPE_WEBHOOK_SECRET: "whsec_test", SUPPORT_DB: db },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(400);
+    expect(db.rows).toHaveLength(0);
+  });
 });
+
+type DonationRow = {
+  id: string;
+  day: string;
+  amountMinor: number;
+  currency: string;
+  eventType: string;
+  stripeSessionId: string;
+  stripeCreatedAt: number;
+  receivedAt: string;
+};
+
+function mockSupportDb(initialRows: DonationRow[] = []) {
+  const rows = [...initialRows];
+  return {
+    rows,
+    prepare(query: string) {
+      let values: unknown[] = [];
+      return {
+        bind(...bound: unknown[]) {
+          values = bound;
+          return this;
+        },
+        async first<T>() {
+          if (/SELECT COALESCE\(SUM\(amount_minor\), 0\)/.test(query)) {
+            const day = String(values[0] ?? "");
+            const total_minor = rows
+              .filter(row => row.day === day && row.currency === "gbp")
+              .reduce((sum, row) => sum + row.amountMinor, 0);
+            return { total_minor } as T;
+          }
+          return null;
+        },
+        async run() {
+          if (/INSERT OR IGNORE INTO donation_events/.test(query)) {
+            const id = String(values[0] ?? "");
+            if (!rows.some(row => row.id === id)) {
+              rows.push({
+                id,
+                day: String(values[1] ?? ""),
+                amountMinor: Number(values[2] ?? 0),
+                currency: String(values[3] ?? ""),
+                eventType: String(values[4] ?? ""),
+                stripeSessionId: String(values[5] ?? ""),
+                stripeCreatedAt: Number(values[6] ?? 0),
+                receivedAt: String(values[7] ?? ""),
+              });
+            }
+          }
+          return { success: true };
+        },
+      };
+    },
+  };
+}
+
+async function stripeSignatureHeader(payload: string, secret: string, timestamp: number): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(`${timestamp}.${payload}`));
+  return `t=${timestamp},v1=${Array.from(new Uint8Array(signature), byte => byte.toString(16).padStart(2, "0")).join("")}`;
+}
