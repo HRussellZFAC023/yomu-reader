@@ -51,4 +51,26 @@ describe('new-tab review controls', () => {
 
         expect(buttons[0]?.querySelector('.jpdb-reader-newtab-key-hint')).toBeNull();
     });
+
+    it('does not render shortcut hints when the Study hint setting is off', () => {
+        vi.stubGlobal('matchMedia', (query: string) => ({
+            matches: query.includes('pointer: fine') || query.includes('hover: hover'),
+        }));
+
+        expect(newTabKeyHintsRenderable(false)).toBe(false);
+        const buttons = renderNewTabGradeControlButtons({
+            apiShortLabel: 'JPDB',
+            bothLabel: 'Both',
+            grades: [['okay', 'Okay']],
+            selectorLabel: 'Grade target',
+            keyHints: { okay: 'K' },
+            selectedOption: undefined,
+            showShortcutHints: false,
+            summary: { targets: [], hasJpdb: true, hasJiten: false, hasBunpro: false, hasYomuLocal: false, hasAnki: false },
+            targetLabel: 'Grades JPDB',
+            targetOptions: [],
+        });
+
+        expect(buttons[0]?.querySelector('.jpdb-reader-newtab-key-hint')).toBeNull();
+    });
 });

@@ -179,6 +179,7 @@ const COPY = {
         newTabKanjiUnlockEnabled: 'Study kanji before unlocking words',
         newTabStopAtBatchEnd: 'Stop at the end of each batch',
         newTabSwipeReviews: 'Swipe cards to grade (left = fail, right = pass)',
+        newTabShortcutHintsEnabled: 'Show Study keyboard shortcut hints',
         newTabUrl: 'Study address',
         newTabOfflineHelp: 'Caches due cards and queued grades.',
         newTabAddressHelp: 'Use as a start page or iPad shortcut.',
@@ -1866,6 +1867,7 @@ newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
 newTabKanjiUnlockEnabled	漢字後に単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
 newTabSwipeReviews	スワイプ採点（左=失敗、右=合格）
+newTabShortcutHintsEnabled	学習のキーボードショートカットヒントを表示
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	カードと未送信採点を保存。
 newTabAddressHelp	新規タブやiPadホーム画面用。

@@ -333,6 +333,7 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
         newTabKanjiUnlockEnabled: has('newTabKanjiUnlockEnabled'),
         newTabStopAtBatchEnd: has('newTabStopAtBatchEnd'),
         newTabSwipeReviews: has('newTabSwipeReviews'),
+        newTabShortcutHintsEnabled: has('newTabShortcutHintsEnabled'),
         newTabKanjiAutogradeEnabled: has('newTabKanjiAutogradeEnabled'),
         newTabKanjiAutoSubmit: has('newTabKanjiAutoSubmit'),
         newTabStudyStepOrder: readNewTabStudyStepOrder(reader, current),

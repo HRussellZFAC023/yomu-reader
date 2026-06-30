@@ -8714,10 +8714,11 @@ export class NewTabController {
 
     private navigationControlButtons(revealLabel: string): HTMLElement[] {
         const revealShortcut = this.studyShortcutHint(['studyReveal', 'studyRevealAlternate']);
+        const showShortcutHints = this.dependencies.getSettings().newTabShortcutHintsEnabled;
         return [
             el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': this.text('previousWord') }, this.text('previousWord')),
             el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, revealLabel,
-                revealShortcut && newTabKeyHintsRenderable() ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, revealShortcut) : null),
+                revealShortcut && newTabKeyHintsRenderable(showShortcutHints) ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, revealShortcut) : null),
             el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': this.text('nextWord') }, this.text('nextWord')),
         ];
     }
@@ -8744,6 +8745,7 @@ export class NewTabController {
             grades: newTabGradeOptions(this.dependencies.getSettings()),
             intervals: card.reviewGradeIntervals,
             keyHints: this.studyGradeShortcutHints(),
+            showShortcutHints: this.dependencies.getSettings().newTabShortcutHintsEnabled,
             selectorLabel: this.text('gradeTargetSelector'),
             selectedOption: targetOptions[0],
             summary: this.reviewSourceSummary(card),

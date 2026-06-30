@@ -50,6 +50,7 @@ interface RenderNewTabGradeControlsOptions {
     grades: Array<[JPDBGrade, string]>;
     intervals?: Partial<Record<JPDBGrade, { buttonLabel?: string; intervalLabel?: string; label?: string }>>;
     keyHints?: Partial<Record<JPDBGrade, string>>;
+    showShortcutHints?: boolean;
     selectorLabel: string;
     selectedOption?: NewTabMainGradeTargetOption;
     summary: NewTabReviewSourceSummary;
@@ -114,7 +115,7 @@ export function newTabMainGradeTargetOptions(
 
 export function renderNewTabGradeControlButtons(options: RenderNewTabGradeControlsOptions): HTMLElement[] {
     return [
-        ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade], options.keyHints?.[grade])),
+        ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade], options.keyHints?.[grade], options.showShortcutHints !== false)),
         renderNewTabGradeTargetControl(options),
     ];
 }
@@ -217,6 +218,7 @@ function renderNewTabGradeButton(
     targetLabel: string,
     interval?: { buttonLabel?: string; intervalLabel?: string; label?: string },
     keyHint?: string,
+    showShortcutHints = true,
 ): HTMLButtonElement {
     const intervalLabel = interval?.buttonLabel || interval?.intervalLabel || '';
     const aria = [label, intervalLabel].filter(Boolean).join(', ');
@@ -231,10 +233,11 @@ function renderNewTabGradeButton(
     // jpdb.io/Jiten parity: both advertise their grading keys on the controls.
     // UT-54: touch-only devices never render the hint at all (the CSS
     // pointer:coarse rule stays as a belt for hybrid devices).
-    keyHint?.trim() && newTabKeyHintsRenderable() ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, keyHint.trim()) : null);
+    keyHint?.trim() && newTabKeyHintsRenderable(showShortcutHints) ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, keyHint.trim()) : null);
 }
 
-export function newTabKeyHintsRenderable(): boolean {
+export function newTabKeyHintsRenderable(showShortcutHints = true): boolean {
+    if (!showShortcutHints) return false;
     if (typeof matchMedia !== 'function') return true;
     try {
         const hasFinePointer = matchMedia('(pointer: fine)').matches || matchMedia('(any-pointer: fine)').matches;

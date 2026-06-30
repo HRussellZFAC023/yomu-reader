@@ -747,6 +747,7 @@ describe('settings form localization', () => {
             ankiEnabled: defaults.ankiEnabled,
             newTabAnkiEnabled: defaults.newTabAnkiEnabled,
             ankiMobileHandoff: defaults.ankiMobileHandoff,
+            newTabShortcutHintsEnabled: defaults.newTabShortcutHintsEnabled,
             showFloatingButton: defaults.showFloatingButton,
             puckPositionX: defaults.puckPositionX,
             puckPositionY: defaults.puckPositionY,
@@ -759,6 +760,7 @@ describe('settings form localization', () => {
             ankiEnabled: false,
             newTabAnkiEnabled: false,
             ankiMobileHandoff: false,
+            newTabShortcutHintsEnabled: true,
             showFloatingButton: true,
             puckPositionX: undefined,
             puckPositionY: undefined,
@@ -773,6 +775,7 @@ describe('settings form localization', () => {
             ankiEnabled: checkboxValue(form, 'ankiEnabled'),
             newTabAnkiEnabled: checkboxValue(form, 'newTabAnkiEnabled'),
             ankiMobileHandoff: checkboxValue(form, 'ankiMobileHandoff'),
+            newTabShortcutHintsEnabled: checkboxValue(form, 'newTabShortcutHintsEnabled'),
             showFloatingButton: checkboxValue(form, 'showFloatingButton'),
             audioEnabled: checkboxValue(form, 'audioEnabled'),
             autoPlayAudio: checkboxValue(form, 'autoPlayAudio'),
@@ -783,6 +786,7 @@ describe('settings form localization', () => {
             ankiEnabled: false,
             newTabAnkiEnabled: false,
             ankiMobileHandoff: false,
+            newTabShortcutHintsEnabled: true,
             showFloatingButton: true,
             audioEnabled: true,
             autoPlayAudio: true,
@@ -790,6 +794,9 @@ describe('settings form localization', () => {
             audioAutoPlayMode: 'all',
             popupMode: 'auto',
         });
+
+        form.querySelector<HTMLInputElement>('input[name="newTabShortcutHintsEnabled"]')!.checked = false;
+        expect(readFormSettings(new FormData(form), defaults).newTabShortcutHintsEnabled).toBe(false);
     });
 
     it('normalizes saved lookup links so Jiten stays before JPDB', () => {

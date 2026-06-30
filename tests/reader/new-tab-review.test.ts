@@ -4722,6 +4722,20 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('hides reveal shortcut hints when Study shortcut hints are disabled', () => {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, newTabShortcutHintsEnabled: false }, {});
+        const card = newTabTestCard({ spelling: '読む', reading: 'よむ', source: 'local' });
+        const root = renderSeededNewTabWord(controller, card, {
+            sourceLabel: 'Dictionaries',
+            state: { source: 'dictionary', revealAnswer: false },
+        });
+        try {
+            expect(root.querySelector('[data-newtab-action="reveal"] .jpdb-reader-newtab-key-hint')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('renders the Composed-of component-kanji line on revealed word backs (SH-4)', async () => {
         const rtkLookup = vi.fn(async (kanji: string) => kanji === '日' ? { keyword: 'day' } : null);
         const jpdbKanjiLookup = vi.fn(async (kanji: string) => kanji === '本' ? { keyword: 'book' } : null);

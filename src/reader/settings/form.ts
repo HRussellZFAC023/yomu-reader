@@ -346,6 +346,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                         ${checkbox('newTabKanjiUnlockEnabled', 'Study kanji before unlocking words', settings.newTabKanjiUnlockEnabled)}
                         ${checkbox('newTabStopAtBatchEnd', 'Stop at the end of each batch', settings.newTabStopAtBatchEnd)}
                         ${checkbox('newTabSwipeReviews', 'Swipe cards to grade (left = fail, right = pass)', settings.newTabSwipeReviews)}
+                        ${checkbox('newTabShortcutHintsEnabled', 'Show Study keyboard shortcut hints', settings.newTabShortcutHintsEnabled)}
                         ${checkbox('newTabFrontSentenceEnabled', 'Show sentence on word fronts', settings.newTabFrontSentenceEnabled)}
                         ${checkbox('newTabKanjiAutogradeEnabled', 'Autograde kanji drawing', settings.newTabKanjiAutogradeEnabled)}
                         ${checkbox('newTabKanjiAutoSubmit', 'Submit kanji grade after autograde', settings.newTabKanjiAutoSubmit)}
@@ -1815,7 +1816,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'popoverHeight', 'popoverHeightMode', 'selectionPopoverShowTranslation', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
     'enableLogging', 'accentColor', 'newTabAnkiEnabled', 'newTabSource',
     'newTabJpdbReviewMode', 'corsProxyUrl', 'newTabKanjiKeywordSource', 'newTabParsingEnabled', 'newTabFrontSentenceEnabled',
-    'newTabKanjiAutogradeEnabled', 'newTabKanjiAutoSubmit', 'newTabOfflineEnabled', 'newTabOfflineLimit', 'newTabDailyGoalMinutes', 'newTabKanjiUnlockEnabled', 'newTabStopAtBatchEnd', 'newTabSwipeReviews', 'newTabUrl',
+    'newTabKanjiAutogradeEnabled', 'newTabKanjiAutoSubmit', 'newTabOfflineEnabled', 'newTabOfflineLimit', 'newTabDailyGoalMinutes', 'newTabKanjiUnlockEnabled', 'newTabStopAtBatchEnd', 'newTabSwipeReviews', 'newTabShortcutHintsEnabled', 'newTabUrl',
     'wordColorNew', 'wordColorLearning', 'wordColorKnown', 'wordColorDue', 'wordColorFailed',
     'wordColorIgnored', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorKifuku', 'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',

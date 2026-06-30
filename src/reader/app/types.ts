@@ -356,6 +356,7 @@ export interface ReaderSettings {
     newTabKanjiUnlockEnabled: boolean;
     newTabStopAtBatchEnd: boolean;
     newTabSwipeReviews: boolean;
+    newTabShortcutHintsEnabled: boolean;
     newTabKanjiAutogradeEnabled: boolean;
     newTabKanjiAutoSubmit: boolean;
     newTabStudyStepOrder: NewTabStudyChallengeStep[];
