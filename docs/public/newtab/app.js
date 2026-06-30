@@ -69977,7 +69977,7 @@ ${entry.url}`),
       const direction = this.studyNavigationDirection(event, settings);
       if (direction) {
         event.preventDefault();
-        this.showWordInDirection(direction);
+        if (!this.navigateStudyStep(direction)) this.showWordInDirection(direction);
         return;
       }
       if (this.matchesStudyRevealShortcut(root, event, target, settings)) {
