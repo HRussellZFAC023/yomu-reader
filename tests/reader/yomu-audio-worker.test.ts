@@ -1,8 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import AudioWorker from "../../workers/yomu-audio/src/index";
+import AudioWorker, { resetAudioWorkerCacheForTests } from "../../workers/yomu-audio/src/index";
+
+type MockR2Object = {
+  body: ReadableStream | null;
+  size: number;
+  etag: string;
+  httpMetadata?: { contentType?: string };
+  text?: () => Promise<string>;
+  writeHttpMetadata?: (headers: Headers) => void;
+};
 
 describe("Yomu audio Worker", () => {
   afterEach(() => {
+    resetAudioWorkerCacheForTests();
     vi.unstubAllGlobals();
   });
 
@@ -62,6 +72,65 @@ describe("Yomu audio Worker", () => {
     expect(backend.put).toHaveBeenCalledTimes(1);
   });
 
+  it("returns Yomitan-compatible audio JSON from an R2 manifest before falling back to an upstream", async () => {
+    const bucket = mockAudioBucket({
+      "index/audio-index.json": {
+        contentType: "application/json",
+        body: JSON.stringify({
+          entries: {
+            "猫\tねこ": [
+              { name: "nhk16 ネコ", path: "nhk16/media/20170726141547.mp3" },
+            ],
+          },
+        }),
+      },
+    });
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await AudioWorker.fetch(
+      new Request("https://audio.yomureader.com/?term=%E7%8C%AB&reading=%E3%81%AD%E3%81%93", {
+        headers: { origin: "https://yomureader.com" },
+      }),
+      { AUDIO_BUCKET: bucket, AUDIO_UPSTREAM_URL: "https://licensed-audio.example/" },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("access-control-allow-origin")).toBe("https://yomureader.com");
+    await expect(response.json()).resolves.toEqual({
+      type: "audioSourceList",
+      audioSources: [{
+        name: "nhk16 ネコ",
+        url: "https://audio.yomureader.com/audio/nhk16/media/20170726141547.mp3",
+      }],
+    });
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("serves R2 audio objects with CORS, cache headers, and content metadata", async () => {
+    const bucket = mockAudioBucket({
+      "nhk16/media/20170726141547.mp3": {
+        contentType: "audio/mpeg",
+        body: "mp3 bytes",
+      },
+    });
+
+    const response = await AudioWorker.fetch(
+      new Request("https://audio.yomureader.com/audio/nhk16/media/20170726141547.mp3", {
+        headers: { origin: "https://yomureader.com" },
+      }),
+      { AUDIO_BUCKET: bucket },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("audio/mpeg");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(response.headers.get("access-control-allow-origin")).toBe("https://yomureader.com");
+    await expect(response.text()).resolves.toBe("mp3 bytes");
+  });
+
   it("serves status for setup checks", async () => {
     const response = await AudioWorker.fetch(
       new Request("https://audio.yomureader.com/status"),
@@ -74,6 +143,27 @@ describe("Yomu audio Worker", () => {
       service: "yomu-audio",
       status: "ok",
       upstreamConfigured: true,
+      r2Configured: false,
+      manifestKey: "index/audio-index.json",
     });
   });
 });
+
+function mockAudioBucket(objects: Record<string, { body: string; contentType: string }>) {
+  return {
+    async get(key: string): Promise<MockR2Object | null> {
+      const object = objects[key];
+      if (!object) return null;
+      return {
+        body: new Response(object.body).body,
+        size: object.body.length,
+        etag: `"${key}"`,
+        httpMetadata: { contentType: object.contentType },
+        text: async () => object.body,
+        writeHttpMetadata: (headers: Headers) => {
+          headers.set("content-type", object.contentType);
+        },
+      };
+    },
+  };
+}

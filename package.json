@@ -32,6 +32,7 @@
     ]
   },
   "scripts": {
+    "audio:export": "node scripts/export-yomu-audio-from-local.mjs",
     "build": "npm run build:userscript",
     "build:extension": "npm run build:userscript:self-contained && node scripts/build-extension.mjs",
     "build:gaming": "npm run build:gaming:renderer && npm run build:gaming:main",

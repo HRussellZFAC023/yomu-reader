@@ -8,7 +8,38 @@ The endpoint accepts:
 https://audio.yomureader.com/?term=猫&reading=ねこ
 ```
 
-If `AUDIO_UPSTREAM_URL` is configured, the worker forwards `term` and `reading` to that upstream, strips cookies, adds CORS, and caches successful responses at the edge. If no upstream is configured, it returns an empty Yomitan-compatible audio list quickly so Yomu falls through to the next audio source.
+The worker has two serving modes:
+
+1. R2 manifest mode: read `index/audio-index.json` from the `AUDIO_BUCKET` binding, return matching Yomitan-compatible audio JSON, and serve stored files from `/audio/<key>`.
+2. Upstream mode: if `AUDIO_UPSTREAM_URL` is configured and the manifest has no match, forward `term` and `reading` to that upstream, strip cookies, add CORS, and cache successful responses at the edge.
+
+If neither R2 nor an upstream is configured, it returns an empty Yomitan-compatible audio list quickly so Yomu falls through to the next audio source.
+
+## Export from the local audio server
+
+Create a TSV of terms to seed:
+
+```text
+猫	ねこ
+図鑑	ずかん
+```
+
+Run the local server on `localhost:9090`, then export:
+
+```bash
+npm run audio:export -- --words ./audio-seed.tsv --out tmp/yomu-audio-export
+```
+
+Upload the manifest and files:
+
+```bash
+npx wrangler r2 bucket create yomu-audio
+npx wrangler r2 object put yomu-audio/index/audio-index.json --file tmp/yomu-audio-export/index/audio-index.json
+find tmp/yomu-audio-export -type f ! -path '*/index/audio-index.json' -print0 | while IFS= read -r -d '' file; do
+  key="${file#tmp/yomu-audio-export/}"
+  npx wrangler r2 object put "yomu-audio/$key" --file "$file"
+done
+```
 
 Set the upstream after the licensed/public audio hosting decision is final:
 

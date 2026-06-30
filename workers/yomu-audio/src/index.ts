@@ -1,11 +1,15 @@
 const READ_METHODS = new Set(["GET", "HEAD"]);
-const DEFAULT_EMPTY_AUDIO_RESPONSE = { type: "audioSourceList", audioSources: [] };
+const DEFAULT_EMPTY_AUDIO_RESPONSE: AudioSourceListResponse = { type: "audioSourceList", audioSources: [] };
+const DEFAULT_AUDIO_MANIFEST_KEY = "index/audio-index.json";
+const MANIFEST_CACHE_TTL_MS = 60_000;
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
 }
 
 interface Env {
+  AUDIO_BUCKET?: R2Bucket;
+  AUDIO_MANIFEST_KEY?: string;
   AUDIO_UPSTREAM_URL?: string;
   AUDIO_DISABLED?: string;
   AUDIO_ANALYTICS_LOGS?: string;
@@ -14,12 +18,59 @@ interface Env {
 interface AudioStatus {
   service: "yomu-audio";
   status: "ok" | "disabled" | "unconfigured";
+  r2Configured: boolean;
+  manifestKey: string;
   upstreamConfigured: boolean;
   cors: true;
   cache: {
     queryTtlSeconds: number;
   };
 }
+
+interface R2Bucket {
+  get(key: string): Promise<R2ObjectBody | null>;
+}
+
+interface R2ObjectBody {
+  body: ReadableStream | null;
+  size?: number;
+  etag?: string;
+  httpMetadata?: { contentType?: string };
+  writeHttpMetadata?(headers: Headers): void;
+  text?(): Promise<string>;
+}
+
+interface AudioManifest {
+  entries?: Record<string, AudioManifestSource[]> | AudioManifestRecord[];
+}
+
+interface AudioManifestRecord {
+  term?: string;
+  reading?: string;
+  sources?: AudioManifestSource[];
+  audioSources?: AudioManifestSource[];
+}
+
+interface AudioManifestSource {
+  name?: string;
+  path?: string;
+  key?: string;
+  url?: string;
+  contentType?: string;
+}
+
+interface AudioSourceListResponse {
+  type: "audioSourceList";
+  audioSources: Array<{ name: string; url: string }>;
+}
+
+interface CachedManifest {
+  key: string;
+  expiresAt: number;
+  manifest: AudioManifest | null;
+}
+
+let cachedManifest: CachedManifest | null = null;
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -49,6 +100,10 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
     return jsonResponse(request, audioStatus(env), 200, { "cache-control": "public, max-age=60" });
   }
 
+  if (url.pathname.startsWith("/audio/")) {
+    return serveR2AudioObject(request, env, decodeURIComponent(url.pathname.slice("/audio/".length)));
+  }
+
   if (truthyEnv(env.AUDIO_DISABLED)) {
     return jsonResponse(request, DEFAULT_EMPTY_AUDIO_RESPONSE, 200, { "x-yomu-audio-error": "disabled" });
   }
@@ -56,6 +111,13 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
   const term = url.searchParams.get("term")?.trim() ?? "";
   const reading = url.searchParams.get("reading")?.trim() ?? "";
   if (!term && !reading) return jsonResponse(request, DEFAULT_EMPTY_AUDIO_RESPONSE, 200);
+
+  const manifestAudio = await audioSourcesFromManifest(request, env, term, reading);
+  if (manifestAudio) {
+    const response = jsonResponse(request, manifestAudio, 200, { "cache-control": "public, max-age=3600" });
+    recordAudioAnalytics(ctx, env, request, 200, "r2-manifest");
+    return response;
+  }
 
   const upstream = upstreamAudioUrl(env, term, reading);
   if (!upstream) return jsonResponse(request, DEFAULT_EMPTY_AUDIO_RESPONSE, 200, { "x-yomu-audio-error": "unconfigured" });
@@ -70,18 +132,114 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
   });
   const normalized = normalizeAudioResponse(response);
   ctx.waitUntil(cachePut(request, upstream, normalized.clone()));
-  recordAudioAnalytics(ctx, env, request, response.status);
+  recordAudioAnalytics(ctx, env, request, response.status, "upstream");
   return withCors(request, normalized);
 }
 
 function audioStatus(env: Env): AudioStatus {
+  const r2Configured = Boolean(env.AUDIO_BUCKET);
+  const upstreamConfigured = Boolean(env.AUDIO_UPSTREAM_URL?.trim());
   return {
     service: "yomu-audio",
-    status: truthyEnv(env.AUDIO_DISABLED) ? "disabled" : env.AUDIO_UPSTREAM_URL ? "ok" : "unconfigured",
-    upstreamConfigured: Boolean(env.AUDIO_UPSTREAM_URL?.trim()),
+    status: truthyEnv(env.AUDIO_DISABLED) ? "disabled" : r2Configured || upstreamConfigured ? "ok" : "unconfigured",
+    r2Configured,
+    manifestKey: manifestKey(env),
+    upstreamConfigured,
     cors: true,
     cache: { queryTtlSeconds: 3600 },
   };
+}
+
+async function serveR2AudioObject(request: Request, env: Env, rawKey: string): Promise<Response> {
+  if (isUnsafeAudioKey(rawKey)) return textResponse(request, "Audio object not found.", 404);
+  if (!env.AUDIO_BUCKET) return textResponse(request, "Audio storage is not configured.", 404);
+  const object = await env.AUDIO_BUCKET.get(rawKey);
+  if (!object?.body) return textResponse(request, "Audio object not found.", 404);
+  const headers = new Headers({
+    "cache-control": "public, max-age=31536000, immutable",
+    "accept-ranges": "bytes",
+  });
+  object.writeHttpMetadata?.(headers);
+  if (!headers.has("content-type")) headers.set("content-type", object.httpMetadata?.contentType || contentTypeForAudioKey(rawKey));
+  if (object.etag) headers.set("etag", object.etag);
+  if (typeof object.size === "number") headers.set("content-length", String(object.size));
+  return withCors(request, new Response(request.method === "HEAD" ? null : object.body, { status: 200, headers }));
+}
+
+async function audioSourcesFromManifest(
+  request: Request,
+  env: Env,
+  term: string,
+  reading: string,
+): Promise<AudioSourceListResponse | null> {
+  if (!env.AUDIO_BUCKET) return null;
+  const manifest = await loadAudioManifest(env);
+  const sources = lookupManifestSources(manifest, term, reading);
+  if (!sources.length) return null;
+  const origin = new URL(request.url).origin;
+  return {
+    type: "audioSourceList",
+    audioSources: sources.map((source) => ({
+      name: source.name?.trim() || source.path || source.key || "Yomu audio",
+      url: manifestSourceUrl(origin, source),
+    })),
+  };
+}
+
+async function loadAudioManifest(env: Env): Promise<AudioManifest | null> {
+  const key = manifestKey(env);
+  const now = Date.now();
+  if (cachedManifest?.key === key && cachedManifest.expiresAt > now) return cachedManifest.manifest;
+  const object = await env.AUDIO_BUCKET?.get(key);
+  const manifest = object ? parseAudioManifest(await r2ObjectText(object)) : null;
+  cachedManifest = { key, manifest, expiresAt: now + MANIFEST_CACHE_TTL_MS };
+  return manifest;
+}
+
+function lookupManifestSources(manifest: AudioManifest | null, term: string, reading: string): AudioManifestSource[] {
+  if (!manifest?.entries) return [];
+  if (!Array.isArray(manifest.entries)) {
+    return [
+      ...(manifest.entries[manifestKeyFor(term, reading)] ?? []),
+      ...(manifest.entries[manifestKeyFor(term, "")] ?? []),
+    ].filter(isManifestSource);
+  }
+  return manifest.entries
+    .filter((record) => normalizedManifestText(record.term) === normalizedManifestText(term)
+      && (!normalizedManifestText(record.reading) || normalizedManifestText(record.reading) === normalizedManifestText(reading)))
+    .flatMap((record) => record.sources ?? record.audioSources ?? [])
+    .filter(isManifestSource);
+}
+
+function manifestSourceUrl(origin: string, source: AudioManifestSource): string {
+  const externalUrl = safeExternalAudioUrl(source.url);
+  if (externalUrl) return externalUrl;
+  const key = source.path || source.key || "";
+  return `${origin}/audio/${key.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+function safeExternalAudioUrl(raw: string | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseAudioManifest(text: string): AudioManifest | null {
+  try {
+    const value = JSON.parse(text);
+    return value && typeof value === "object" ? value as AudioManifest : null;
+  } catch {
+    return null;
+  }
+}
+
+async function r2ObjectText(object: R2ObjectBody): Promise<string> {
+  if (typeof object.text === "function") return object.text();
+  return object.body ? await new Response(object.body).text() : "";
 }
 
 function upstreamAudioUrl(env: Env, term: string, reading: string): string | null {
@@ -134,16 +292,53 @@ function cacheKey(upstream: string): Request {
   return new Request(upstream, { method: "GET" });
 }
 
-function recordAudioAnalytics(ctx: ExecutionContext, env: Env, request: Request, status: number): void {
+function recordAudioAnalytics(ctx: ExecutionContext, env: Env, request: Request, status: number, source: "r2-manifest" | "upstream"): void {
   if (!truthyEnv(env.AUDIO_ANALYTICS_LOGS)) return;
   ctx.waitUntil(Promise.resolve().then(() => {
     console.log(JSON.stringify({
       event: "yomu_audio_request",
       status,
+      source,
       hasTerm: new URL(request.url).searchParams.has("term"),
       hasReading: new URL(request.url).searchParams.has("reading"),
     }));
   }));
+}
+
+function manifestKey(env: Env): string {
+  return env.AUDIO_MANIFEST_KEY?.trim() || DEFAULT_AUDIO_MANIFEST_KEY;
+}
+
+function manifestKeyFor(term: string, reading: string): string {
+  return `${normalizedManifestText(term)}\t${normalizedManifestText(reading)}`;
+}
+
+function normalizedManifestText(value: string | undefined): string {
+  return (value ?? "").trim().normalize("NFC");
+}
+
+function isManifestSource(value: unknown): value is AudioManifestSource {
+  return Boolean(value && typeof value === "object" && (typeof (value as AudioManifestSource).url === "string"
+    || typeof (value as AudioManifestSource).path === "string"
+    || typeof (value as AudioManifestSource).key === "string"));
+}
+
+function isUnsafeAudioKey(key: string): boolean {
+  return !key || key.startsWith("/") || key.includes("..") || /[\u0000-\u001f\\]/u.test(key);
+}
+
+function contentTypeForAudioKey(key: string): string {
+  const lower = key.toLowerCase();
+  if (lower.endsWith(".mp3")) return "audio/mpeg";
+  if (lower.endsWith(".ogg")) return "audio/ogg";
+  if (lower.endsWith(".opus")) return "audio/ogg; codecs=opus";
+  if (lower.endsWith(".wav")) return "audio/wav";
+  if (lower.endsWith(".m4a") || lower.endsWith(".mp4")) return "audio/mp4";
+  return "application/octet-stream";
+}
+
+export function resetAudioWorkerCacheForTests(): void {
+  cachedManifest = null;
 }
 
 function isCorsPreflight(request: Request): boolean {

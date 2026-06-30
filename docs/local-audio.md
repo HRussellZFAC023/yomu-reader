@@ -39,16 +39,16 @@ Add it to よむ:
 
 ## Cloudflare Hosting Status
 
-よむ has a Cloudflare Worker shell for `audio.yomureader.com`. It should serve only licensed audio or a private upstream we are allowed to redistribute.
+よむ has a Cloudflare Worker for `audio.yomureader.com`. It can serve a licensed R2-backed audio manifest, or proxy a private upstream we are allowed to redistribute.
 
 The safe deployment plan is:
 
 1. Confirm the audio source license allows public redistribution or provide a private upstream URL/token.
-2. Store only licensed audio in a Cloudflare R2 bucket or proxy only a private, authenticated upstream.
-3. Put a Worker in front of the bucket/upstream that accepts `term` and `reading`, returns Yomitan-compatible JSON, and adds CORS for よむ.
-4. Keep the Worker URL opt-in as a Custom URL source until the usage and legal constraints are known.
+2. Export a manifest from the local audio server with `npm run audio:export -- --words ./audio-seed.tsv --out tmp/yomu-audio-export`.
+3. Store only licensed audio in the `yomu-audio` Cloudflare R2 bucket, or proxy only a private, authenticated upstream.
+4. Put the Worker in front of the bucket/upstream. It accepts `term` and `reading`, returns Yomitan-compatible JSON, serves `/audio/...` files with CORS, and falls through cleanly when no match exists.
 
-Cost-wise, the public default remains blocked. Workers Free is limited to 100,000 requests per day and R2's free tier is limited to 10 GB-month storage, 1 million Class A operations, and 10 million Class B operations per month. A public pronunciation source can exceed request limits long before it looks large, and a full audio corpus may exceed free storage. See Cloudflare's current [Workers limits](https://developers.cloudflare.com/workers/platform/limits/) and [R2 pricing](https://developers.cloudflare.com/r2/pricing/) before deploying.
+Cost-wise, the public default remains cautious: when the public source is empty or paused, よむ immediately falls through to the next audio source. Workers Free is limited to 100,000 requests per day and R2's free tier is limited to 10 GB-month storage, 1 million Class A operations, and 10 million Class B operations per month. A public pronunciation source can exceed request limits long before it looks large, and a full audio corpus may exceed free storage. See Cloudflare's current [Workers limits](https://developers.cloudflare.com/workers/platform/limits/) and [R2 pricing](https://developers.cloudflare.com/r2/pricing/) before deploying.
 
 ## Local Audio: What You Need
 

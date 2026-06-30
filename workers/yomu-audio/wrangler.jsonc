@@ -13,9 +13,16 @@
     }
   ],
   "vars": {
+    "AUDIO_MANIFEST_KEY": "index/audio-index.json",
     "AUDIO_DISABLED": "false",
     "AUDIO_ANALYTICS_LOGS": "false"
   },
+  "r2_buckets": [
+    {
+      "binding": "AUDIO_BUCKET",
+      "bucket_name": "yomu-audio"
+    }
+  ],
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1
