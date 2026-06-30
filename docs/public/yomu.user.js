@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.5.0
+// @version 1.5.1
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.0
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.0
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.0
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.0
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.1
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.1
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.1
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.1
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -31530,8 +31530,8 @@ const BLOOMEE_LANDING_ROOTS = [
   ".ctaarea p"
 ].join(",");
 const BOOKWALKER_STOREFRONT_HOSTS = new Set(["bookwalker.jp", "www.bookwalker.jp"]);
-const BOOKWALKER_READER_PARSER_ID = "bookwalker-reader-no-dom-parser";
-const BOOKWALKER_STOREFRONT_PARSER_ID = "bookwalker-storefront-no-dom-parser";
+const BOOKWALKER_READER_PARSER_ID = "bookwalker-reader";
+const BOOKWALKER_STOREFRONT_PARSER_ID = "bookwalker-storefront";
 const BOOKWALKER_TEXT_METADATA_ROOTS = [
   "#bookTitle",
   "#book-title",
@@ -31553,6 +31553,7 @@ const BOOKWALKER_TEXT_METADATA_ROOTS = [
   ".m-bookDetailLead",
   ".m-bookDetailDescription"
 ];
+const BOOKWALKER_READER_SETTINGS_SELECTOR = '.settings-popover,[class*="setting" i],[id*="setting" i],[aria-label*="設定"],[role="dialog"],[role="menu"]';
 const YOMUYOMU_HOSTS = new Set(["yomuyomu.app", "www.yomuyomu.app"]);
 const YOMUYOMU_READER_ROOTS = [
   '#du-reading-screen canvas[lang*="ja" i]',
@@ -31618,13 +31619,13 @@ const SITE_PARSER_PROFILES = [
   },
   {
   id: BOOKWALKER_READER_PARSER_ID,
-  roots: BOOKWALKER_TEXT_METADATA_ROOTS,
+  roots: [...BOOKWALKER_TEXT_METADATA_ROOTS, BOOKWALKER_READER_SETTINGS_SELECTOR],
   exclude: COMMON_EXCLUDE,
   allowUiText: true,
   minLength: 1,
   disableGenericDomScan: true,
   suppressResidualVisibleScan: true,
-  includePassiveInteractionRoots: false,
+  includePassiveInteractionRoots: true,
   matches: (url) => isBookWalkerReaderUrl(url)
   },
   {
@@ -32243,25 +32244,25 @@ function siteScanTargetWithProfileOptions(profile, target) {
   suppressRuby: targetSuppressRuby || suppressRuby || void 0,
   passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || void 0,
   singlePassScan: profile.singlePassScan || void 0,
-  nonDestructive: siteScanTargetUsesNonDestructive(profile) || void 0
+  nonDestructive: profile.nonDestructive || void 0
   };
   return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
 }
 function profileKeepsProfileRootRuby(profile) {
   return isYouTubeSiteParserProfile(profile) || profile.id === BOOKWALKER_READER_PARSER_ID;
 }
-function siteScanTargetUsesNonDestructive(profile) {
-  if (!profile.nonDestructive) return false;
-  return true;
-}
 function isYouTubeSiteParserProfile(profile) {
-  return profile.id === "youtube-comments-parser" || profile.id === "youtube-chrome-parser" || profile.id === "youtube-watch-guide-parser" || profile.id === "youtube-live-chat-parser";
+  return profile.id.startsWith("youtube-") && profile.id !== "youtube-live-chat-frame-parser";
 }
 function shouldSuppressSiteScanRuby(profile, target) {
+  if (profile.id === BOOKWALKER_READER_PARSER_ID) return isBookWalkerReaderPassiveChromeTarget(target.parent);
   if (profile.id === BOOKWALKER_STOREFRONT_PARSER_ID) return true;
   if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
   if (profile.id === "jiten-parser") return isJitenStudyPromptTarget(target.parent, target.text);
   return false;
+}
+function isBookWalkerReaderPassiveChromeTarget(parent) {
+  return Boolean(parent.closest(PASSIVE_INTERACTION_ROOTS) || parent.closest(BOOKWALKER_READER_SETTINGS_SELECTOR));
 }
 function isJpdbReviewPromptTarget(parent, text2) {
   if (location.hostname !== "jpdb.io" || !location.pathname.startsWith("/review")) return false;
@@ -37711,7 +37712,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.0"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.1"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

@@ -13,6 +13,7 @@ import {
     captureCanvasDataUrl,
     collectBackgroundImageReaderSurfaces,
     collectCanvasReaderSurfaces,
+    isBookwalkerContinuousScrollCanvas,
     isBookwalkerViewerHost,
     isCanvasReadable,
     isManualCanvasReaderSurface,
@@ -21,7 +22,7 @@ import {
     readerCanvasSourceImageUrl,
 } from './canvas-readers';
 import { captureReaderSurfaceViaExtensionScreenshot } from './extension-screenshot';
-import { captureCanvasMirror } from './canvas-mirror';
+import { captureCanvasMirror, markCanvasMirrorSkip } from './canvas-mirror';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { waitForIdle } from '../platform/idle';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
@@ -120,6 +121,7 @@ const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
 const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
 const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
 const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8000;
+const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
 const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
 const GOOGLE_LENS_API_KEY = 'AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY';
 const DEFAULT_LOCAL_OCR_ENDPOINT_URL = 'http://127.0.0.1:7331/ocr';
@@ -960,7 +962,32 @@ export class ImageOcrController {
     private recognizeImage(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
         const recognizer = ocrRecognizer(settings);
         if (!recognizer) return Promise.resolve(null);
+        if (this.shouldSplitBookwalkerSpreadFrame(image)) return this.recognizeBookwalkerSpreadFrame(image, settings, recognizer);
         return this.recognizeWithDarkPass(image, settings, recognizer);
+    }
+
+    private shouldSplitBookwalkerSpreadFrame(image: HTMLImageElement): boolean {
+        const canvas = this.canvasFrameSources.get(image);
+        if (!canvas || !isWideBookwalkerSpreadCanvas(canvas)) return false;
+        try {
+            const size = loadedImageSize(image);
+            return size.width / Math.max(1, size.height) >= BOOKWALKER_SPREAD_MIN_ASPECT;
+        } catch {
+            return false;
+        }
+    }
+
+    private async recognizeBookwalkerSpreadFrame(
+        image: HTMLImageElement,
+        settings: ReaderSettings,
+        recognizer: OcrRecognizer,
+    ): Promise<OcrResult | null> {
+        const slices = await splitImageIntoPageColumns(image);
+        const results = await Promise.all(slices.map(async slice => {
+            const result = await this.recognizeWithDarkPass(slice.image, settings, recognizer).catch(() => null);
+            return result ? offsetOcrResult(result, slice.left, 0, slice.totalWidth, slice.totalHeight) : null;
+        }));
+        return mergeOcrResults(slices[0]?.totalWidth ?? 0, slices[0]?.totalHeight ?? 0, results);
     }
 
     // Normal recognition always runs. A second, inverted pass is spent only when
@@ -1734,7 +1761,7 @@ export class ImageOcrController {
             frame.className = 'jpdb-ocr-canvas-frame';
             frame.dataset.yomuCanvasFrame = 'true';
             // Set before the load → enqueue so the OCR cache keys by stable content.
-            if (contentKey) frame.dataset.ocrContentKey = contentKey;
+            if (contentKey) frame.dataset.ocrContentKey = canvasFrameContentKey(contentKey, canvas);
             frame.alt = '';
             positionCanvasFrameImage(frame, frameRect);
             frame.addEventListener('load', () => {
@@ -3186,8 +3213,58 @@ export function mergeDarkPassResult(normal: OcrResult | null, inverted: OcrResul
 function drawImageToCanvas(image: HTMLImageElement, maxPixels: number): HTMLCanvasElement {
     const size = loadedImageSize(image);
     const canvas = scaledCanvas(size, maxPixels);
-    drawableCanvasContext(canvas).drawImage(image, 0, 0, canvas.width, canvas.height);
+    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, 0, 0, canvas.width, canvas.height);
     return canvas;
+}
+
+interface OcrImageSlice {
+    image: HTMLImageElement;
+    left: number;
+    totalWidth: number;
+    totalHeight: number;
+}
+
+async function splitImageIntoPageColumns(image: HTMLImageElement): Promise<OcrImageSlice[]> {
+    const size = loadedImageSize(image);
+    const mid = Math.round(size.width / 2);
+    return Promise.all([
+        cropOcrImageColumn(image, 0, mid, size),
+        cropOcrImageColumn(image, mid, size.width - mid, size),
+    ]);
+}
+
+async function cropOcrImageColumn(
+    image: HTMLImageElement,
+    left: number,
+    width: number,
+    size: { width: number; height: number },
+): Promise<OcrImageSlice> {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, width);
+    canvas.height = Math.max(1, size.height);
+    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, left, 0, width, size.height, 0, 0, canvas.width, canvas.height);
+    return {
+        image: await loadImage(canvas.toDataURL('image/jpeg', 0.9)),
+        left,
+        totalWidth: size.width,
+        totalHeight: size.height,
+    };
+}
+
+function offsetOcrResult(result: OcrResult, left: number, top: number, width: number, height: number): OcrResult {
+    return {
+        width,
+        height,
+        lines: result.lines.map(line => ({
+            ...line,
+            box: { ...line.box, left: line.box.left + left, top: line.box.top + top },
+        })),
+    };
+}
+
+function mergeOcrResults(width: number, height: number, results: Array<OcrResult | null>): OcrResult | null {
+    const lines = results.flatMap(result => result?.lines ?? []);
+    return width && height && lines.length ? { width, height, lines } : null;
 }
 
 function loadedImageSize(image: HTMLImageElement): { width: number; height: number } {
@@ -3974,6 +4051,16 @@ function ocrResultTextKey(result: OcrResult | undefined): string {
 
 function readerRasterSurfaceSnapshotKey(surface: HTMLCanvasElement | HTMLElement): string {
     return surface instanceof HTMLCanvasElement ? canvasSurfaceSnapshotKey(surface) : backgroundSurfaceCacheKey(surface);
+}
+
+function canvasFrameContentKey(contentKey: string, canvas: HTMLCanvasElement): string {
+    return isWideBookwalkerSpreadCanvas(canvas) ? `${contentKey}:bw-spread-v2` : contentKey;
+}
+
+function isWideBookwalkerSpreadCanvas(canvas: HTMLCanvasElement): boolean {
+    return isBookwalkerViewerHost()
+        && !isBookwalkerContinuousScrollCanvas(canvas)
+        && canvas.width / Math.max(1, canvas.height) >= BOOKWALKER_SPREAD_MIN_ASPECT;
 }
 
 // Per-canvas identity of the page currently painted into this surface: the viewer's

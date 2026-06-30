@@ -154,9 +154,9 @@ function pageCanvases(
         .filter(canvas => !shouldSkipCanvasReaderSurface(canvas))
         .filter(isVisibleCanvasReaderSurface)
         .filter(canvas => isLikelyPageCanvas(canvas, lenient));
-    return isBookwalkerViewerHost(hostname) && options.preferBookwalkerCurrent !== false
-        ? preferCurrentScreenCanvases(canvases)
-        : canvases;
+    if (!isBookwalkerViewerHost(hostname) || options.preferBookwalkerCurrent === false) return canvases;
+    const continuousScroll = bookwalkerContinuousScrollCanvases(canvases, hostname);
+    return continuousScroll.length ? continuousScroll : preferCurrentScreenCanvases(canvases);
 }
 
 function shouldSkipCanvasReaderSurface(canvas: HTMLCanvasElement): boolean {
@@ -192,6 +192,38 @@ function hasForcedCanvasReaderShape(canvas: HTMLCanvasElement): boolean {
     if (Math.max(width, height) < MIN_PAGE_CANVAS_DIMENSION || Math.min(width, height) < MIN_RENDERED_DIMENSION) return false;
     const aspect = width / height;
     return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
+}
+
+// In BookWalker's vertical/continuous mode the visible document pages live in a
+// stacked canvas run. The older NFBR DOM exposed that stack as #viewportW /
+// .overScroll; live Firefox can expose the same mode under plain #viewport. The
+// viewer can also leave #viewport0/#viewport1 page buffers mounted at the same
+// screen rect; in Firefox those buffers may be blank from Yomu's side and have no
+// mirror records, so treating them as current pages makes OCR spin forever with
+// no frame to scan.
+function bookwalkerContinuousScrollCanvases(canvases: HTMLCanvasElement[], hostname: string = location.hostname): HTMLCanvasElement[] {
+    const scrollCanvases = canvases.filter(canvas => isBookwalkerContinuousScrollCanvasForHost(canvas, hostname));
+    if (scrollCanvases.length < 2) return [];
+    return hasVerticallyStackedDocumentPageRun(scrollCanvases) ? scrollCanvases : [];
+}
+
+export function isBookwalkerContinuousScrollCanvas(canvas: HTMLCanvasElement): boolean {
+    return isBookwalkerContinuousScrollCanvasForHost(canvas, location.hostname);
+}
+
+function isBookwalkerContinuousScrollCanvasForHost(canvas: HTMLCanvasElement, hostname: string): boolean {
+    if (!isBookwalkerViewerHost(hostname)) return false;
+    const viewport = canvas.closest<HTMLElement>(VIEWPORT_CONTAINER_SELECTOR);
+    if (!viewport) return false;
+    if (viewport.id === 'viewportW' || viewport.classList.contains('overScroll')) return true;
+    // Live BookWalker Firefox vertical mode uses a single #viewport with many
+    // real page canvases stacked through document scroll. Normal page/spread mode
+    // may also have a #viewport, but it does not contain a vertical page run.
+    const viewportCanvases = Array.from(viewport.querySelectorAll<HTMLCanvasElement>('canvas'))
+        .filter(canvasInViewport => !shouldSkipCanvasReaderSurface(canvasInViewport))
+        .filter(isVisibleCanvasReaderSurface)
+        .filter(canvasInViewport => isLikelyPageCanvas(canvasInViewport, true));
+    return hasVerticallyStackedDocumentPageRun(viewportCanvases);
 }
 
 // BookWalker's NFBR viewer keeps the previous/next page painted in an off-screen
@@ -350,10 +382,9 @@ export function canvasReaderPageCounter(): string {
 // Cheap page-change fingerprint for canvas readers.
 export function canvasReaderPageSignature(): string {
     const canvases = pageCanvases();
+    const counter = canvasReaderSignatureCounter(canvases);
     const rawCanvases = isBookwalkerViewerHost() ? pageCanvases(location.hostname, { preferBookwalkerCurrent: false }) : canvases;
-    const verticalStack = isBookwalkerViewerHost() && hasVerticallyStackedDocumentPageRun(rawCanvases);
-    const counter = verticalStack ? '' : canvasReaderPageCounter();
-    const scroll = isBookwalkerViewerHost() && !verticalStack && shouldUseBookwalkerScrollSignature(rawCanvases)
+    const scroll = isBookwalkerViewerHost() && shouldUseBookwalkerScrollSignature(rawCanvases)
         ? Math.round((window.scrollY || 0) / 40)
         : 0;
     const tokens = canvasReaderContentTokens(canvases);
@@ -363,6 +394,19 @@ export function canvasReaderPageSignature(): string {
         .map(element => `${element.getAttribute('data-page-index') ?? ''}:${backgroundImageReaderUrl(element) ?? ''}`)
         .join('|');
     return `${counter}|${scroll}|${surfaces}|${content}|${backgrounds}`;
+}
+
+function canvasReaderSignatureCounter(canvases: HTMLCanvasElement[]): string {
+    const counter = canvasReaderPageCounter();
+    if (isBookwalkerViewerHost() && shouldIgnoreBookwalkerCounterForCanvasSignature(canvases)) return '';
+    return counter;
+}
+
+function shouldIgnoreBookwalkerCounterForCanvasSignature(canvases: HTMLCanvasElement[]): boolean {
+    try {
+        if (new URL(location.href).searchParams.get('cty') === '2') return true;
+    } catch { /* fall through to layout detection */ }
+    return hasVerticallyStackedDocumentPageRun(canvases);
 }
 
 function shouldUseBookwalkerScrollSignature(canvases: HTMLCanvasElement[]): boolean {

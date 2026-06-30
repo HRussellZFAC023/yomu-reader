@@ -90,7 +90,7 @@ describe('BookWalker vertical-mode OCR identity stability', () => {
         const canvas = clusterCanvas('m6');
 
         const token = canvasMirrorContentToken(canvas);
-        expect(token).toBe('m:https://cdn/pageA.jpg');
+        expect(token).toBe('m:https://cdn/pageA.jpg:0:0:-1:-1:0:0:-1:-1');
 
         bumpEpoch(42);
         expect(canvasMirrorContentToken(canvas)).toBe(token);

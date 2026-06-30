@@ -483,8 +483,8 @@ const BLOOMEE_LANDING_ROOTS = [
     '.ctaarea p',
 ].join(',');
 const BOOKWALKER_STOREFRONT_HOSTS = new Set(['bookwalker.jp', 'www.bookwalker.jp']);
-const BOOKWALKER_READER_PARSER_ID = 'bookwalker-reader-no-dom-parser';
-const BOOKWALKER_STOREFRONT_PARSER_ID = 'bookwalker-storefront-no-dom-parser';
+const BOOKWALKER_READER_PARSER_ID = 'bookwalker-reader';
+const BOOKWALKER_STOREFRONT_PARSER_ID = 'bookwalker-storefront';
 const BOOKWALKER_TEXT_METADATA_ROOTS = [
     '#bookTitle',
     '#book-title',
@@ -506,6 +506,7 @@ const BOOKWALKER_TEXT_METADATA_ROOTS = [
     '.m-bookDetailLead',
     '.m-bookDetailDescription',
 ];
+const BOOKWALKER_READER_SETTINGS_SELECTOR = '.settings-popover,[class*="setting" i],[id*="setting" i],[aria-label*="設定"],[role="dialog"],[role="menu"]';
 const YOMUYOMU_HOSTS = new Set(['yomuyomu.app', 'www.yomuyomu.app']);
 const YOMUYOMU_READER_ROOTS = [
     '#du-reading-screen canvas[lang*="ja" i]',
@@ -576,13 +577,13 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     },
     {
         id: BOOKWALKER_READER_PARSER_ID,
-        roots: BOOKWALKER_TEXT_METADATA_ROOTS,
+        roots: [...BOOKWALKER_TEXT_METADATA_ROOTS, BOOKWALKER_READER_SETTINGS_SELECTOR],
         exclude: COMMON_EXCLUDE,
         allowUiText: true,
         minLength: 1,
         disableGenericDomScan: true,
         suppressResidualVisibleScan: true,
-        includePassiveInteractionRoots: false,
+        includePassiveInteractionRoots: true,
         matches: url => isBookWalkerReaderUrl(url),
     },
     {
@@ -1304,7 +1305,7 @@ function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: Fr
         suppressRuby: targetSuppressRuby || suppressRuby || undefined,
         passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || undefined,
         singlePassScan: profile.singlePassScan || undefined,
-        nonDestructive: siteScanTargetUsesNonDestructive(profile) || undefined,
+        nonDestructive: profile.nonDestructive || undefined,
     };
     return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
 }
@@ -1313,23 +1314,20 @@ function profileKeepsProfileRootRuby(profile: SiteParserProfile): boolean {
     return isYouTubeSiteParserProfile(profile) || profile.id === BOOKWALKER_READER_PARSER_ID;
 }
 
-function siteScanTargetUsesNonDestructive(profile: SiteParserProfile): boolean {
-    if (!profile.nonDestructive) return false;
-    return true;
-}
-
 function isYouTubeSiteParserProfile(profile: SiteParserProfile): boolean {
-    return profile.id === 'youtube-comments-parser'
-        || profile.id === 'youtube-chrome-parser'
-        || profile.id === 'youtube-watch-guide-parser'
-        || profile.id === 'youtube-live-chat-parser';
+    return profile.id.startsWith('youtube-') && profile.id !== 'youtube-live-chat-frame-parser';
 }
 
 function shouldSuppressSiteScanRuby(profile: SiteParserProfile, target: FragmentTextTarget): boolean {
+    if (profile.id === BOOKWALKER_READER_PARSER_ID) return isBookWalkerReaderPassiveChromeTarget(target.parent);
     if (profile.id === BOOKWALKER_STOREFRONT_PARSER_ID) return true;
     if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
     if (profile.id === 'jiten-parser') return isJitenStudyPromptTarget(target.parent, target.text);
     return false;
+}
+
+function isBookWalkerReaderPassiveChromeTarget(parent: HTMLElement): boolean {
+    return Boolean(parent.closest(PASSIVE_INTERACTION_ROOTS) || parent.closest(BOOKWALKER_READER_SETTINGS_SELECTOR));
 }
 
 function isJpdbReviewPromptTarget(parent: HTMLElement, text: string): boolean {

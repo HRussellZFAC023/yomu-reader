@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.1] - 2026-06-30
+
+### Fixed
+
+- Merged the BookWalker Firefox OCR repair so tainted reader canvases can replay reused source buffers, recover late source-image records, and keep continuous/vertical scrolling from getting stuck on the first page.
+- Split wide non-continuous BookWalker spreads into per-page OCR passes and versioned their OCR cache keys so sparse old single-pass spread results are not reused after page turns.
+- Kept BookWalker reader chrome/settings text lookupable with passive annotations while preserving compact controls, and kept storefront annotations contained so product/carousel/sidebar layout is not resized by Yomu.
+
 ## [1.5.0] - 2026-06-29
 
 ### Added

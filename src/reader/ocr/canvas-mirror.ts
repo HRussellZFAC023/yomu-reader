@@ -8,6 +8,9 @@ export interface MirrorOp {
     seq: number;
     srcId: string | null; // id of the source canvas when the draw source is a canvas (recurse)
     url: string;          // source <img> URL ('' when source is a canvas/other)
+    srcW?: number;        // source canvas dimensions when srcOps snapshots a reused buffer
+    srcH?: number;
+    srcOps?: MirrorOp[];  // source canvas content at composite time, before later reuse/pruning
     sx: number; sy: number; sw: number; sh: number; // source rect; sw < 0 ⇒ no source rect
     dx: number; dy: number; dw: number; dh: number; // dest rect; dw < 0 ⇒ no dest size
     clear: boolean;
@@ -26,6 +29,17 @@ const RELOAD_GUARD_WINDOW_MS = 8000;
 const RELOAD_GUARD_LIMIT = 4;
 let recorderLoadGuardChecked = false;
 let recorderLoopBroken = false;
+let recorderInstallRetryTimer = 0;
+let recorderInstallRetryCount = 0;
+let recorderInstallDOMContentLoadedHooked = false;
+
+const RECORDER_INSTALL_RETRY_DELAYS_MS = [0, 16, 50, 150, 400, 1000];
+const MIRROR_SYNC_EMPTY_THROTTLE_MS = 250;
+let lastMirrorSyncEpoch = '';
+let lastMirrorSyncAt = 0;
+let lastMirrorSyncResult = false;
+const lastMirrorTargetSyncEpoch = new Map<string, string>();
+const mirrorContentSummaryCache = new Map<string, { epoch: string; token: string }>();
 
 // Counts page loads within a short window using sessionStorage (shared with the
 // page realm, survives reloads in the same tab). Counts ONCE per load. Returns true
@@ -54,19 +68,29 @@ function recorderReloadLoopDetected(): boolean {
 // synchronous request/response to copy records into the reader's realm.
 const EPOCH_ATTR = 'data-yomu-mirror-epoch';
 const MARKER_ATTR = 'data-yomu-mirror-recorder';
+const METHOD_ATTR = 'data-yomu-mirror-method';
 const DUMP_ATTR = 'data-yomu-mirror-dump';
+const REQUEST_ATTR = 'data-yomu-mirror-request';
+const SUMMARY_REQUEST_PREFIX = 'summary:';
 const PULL_EVENT = 'yomu-canvas-mirror-pull';
 
-interface RecorderOpts { a: string; m: number; k: number; e: string; d: string; p: string; r: string; }
+interface RecorderOpts { a: string; m: number; k: number; e: string; d: string; q?: string; p: string; r: string; }
 
 export interface MirrorGlobalState {
     seq: number; nextId: number; installed: boolean; epoch?: number;
     records: Record<string, MirrorRecord>;
 }
-// Share state between the userscript sandbox and page main world.
+interface MirrorBridgePayload {
+    records?: Record<string, MirrorRecord>;
+    summaries?: Record<string, string>;
+    seq?: number;
+    nextId?: number;
+    epoch?: number;
+}
+// Content-world reader state. Page-world recorder state is copied here through
+// the shared-DOM bridge; do not store page-world objects in this realm.
 function pageWindow(): typeof globalThis & { __yomuCanvasMirror?: MirrorGlobalState } {
-    const uw = (globalThis as unknown as { unsafeWindow?: typeof globalThis }).unsafeWindow;
-    return (uw || globalThis) as typeof globalThis & { __yomuCanvasMirror?: MirrorGlobalState };
+    return globalThis as typeof globalThis & { __yomuCanvasMirror?: MirrorGlobalState };
 }
 function state(): MirrorGlobalState {
     const win = pageWindow();
@@ -90,6 +114,24 @@ const destKey = (op: MirrorOp): string => `${op.dx},${op.dy},${op.dw},${op.dh}`;
 
 // Current content = latest non-clear op per destination before `beforeSeq`.
 export function selectLatestContentOps(ops: readonly MirrorOp[], beforeSeq: number): MirrorOp[] {
+    return selectLatestContentOpsBefore(ops, beforeSeq);
+}
+
+function selectLatestReplayOps(ops: readonly MirrorOp[], beforeSeq: number): MirrorOp[] {
+    let replaySeq = beforeSeq;
+    for (let index = ops.length - 1; index >= 0; index--) {
+        const op = ops[index]!;
+        if (op.seq >= replaySeq) continue;
+        if (op.clear) {
+            replaySeq = op.seq;
+            continue;
+        }
+        break;
+    }
+    return selectLatestContentOpsBefore(ops, replaySeq);
+}
+
+function selectLatestContentOpsBefore(ops: readonly MirrorOp[], beforeSeq: number): MirrorOp[] {
     const byDest = new Map<string, MirrorOp>();
     for (const op of ops) {
         if (op.seq >= beforeSeq) continue;
@@ -116,12 +158,35 @@ export function collectLeafUrls(
     if (!record) return out;
     // Keep `seen` per path; spreads can revisit a shared buffer at different seqs.
     const next = new Set(seen).add(id);
-    for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
-        if (op.srcId) {
+    for (const op of selectLatestReplayOps(record.ops, beforeSeq)) {
+        if (op.srcOps?.length) collectLeafUrlsFromSnapshot(op.srcOps, lookup, out, next, depth + 1);
+        else if (op.srcId) {
             const before = out.size;
             collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
             if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
                 collectLeafUrls(op.srcId, Number.POSITIVE_INFINITY, lookup, out, next, depth + 1);
+            }
+        }
+        else if (op.url) out.add(op.url);
+    }
+    return out;
+}
+
+function collectLeafUrlsFromSnapshot(
+    ops: readonly MirrorOp[],
+    lookup: (id: string) => MirrorRecord | undefined,
+    out: Set<string>,
+    seen: Set<string>,
+    depth: number,
+): Set<string> {
+    if (depth > MAX_REBUILD_DEPTH) return out;
+    for (const op of selectLatestReplayOps(ops, Number.POSITIVE_INFINITY)) {
+        if (op.srcOps?.length) collectLeafUrlsFromSnapshot(op.srcOps, lookup, out, seen, depth + 1);
+        else if (op.srcId) {
+            const before = out.size;
+            collectLeafUrls(op.srcId, op.seq, lookup, out, seen, depth + 1);
+            if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
+                collectLeafUrls(op.srcId, Number.POSITIVE_INFINITY, lookup, out, seen, depth + 1);
             }
         }
         else if (op.url) out.add(op.url);
@@ -138,6 +203,78 @@ function shouldUseLatestSourceFallback(
     const record = lookup(id);
     if (!record?.ops.length) return false;
     return !record.ops.some(op => !op.clear && op.seq < beforeSeq);
+}
+
+function collectLeafContentFingerprints(
+    id: string | null,
+    beforeSeq: number,
+    lookup: (id: string) => MirrorRecord | undefined,
+    out: Set<string> = new Set(),
+    seen: Set<string> = new Set(),
+    depth = 0,
+): Set<string> {
+    if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
+    const record = lookup(id);
+    if (!record) return out;
+    const next = new Set(seen).add(id);
+    for (const op of selectLatestReplayOps(record.ops, beforeSeq)) {
+        if (op.srcOps?.length) {
+            collectLeafContentFingerprintsFromSnapshot(op.srcOps, lookup, out, next, depth + 1);
+        } else if (op.srcId) {
+            const before = out.size;
+            collectLeafContentFingerprints(op.srcId, op.seq, lookup, out, next, depth + 1);
+            if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
+                collectLeafContentFingerprints(op.srcId, Number.POSITIVE_INFINITY, lookup, out, next, depth + 1);
+            }
+        } else if (op.url) {
+            out.add([
+                canonicalBookwalkerAssetUrl(op.url),
+                op.sx,
+                op.sy,
+                op.sw,
+                op.sh,
+                op.dx,
+                op.dy,
+                op.dw,
+                op.dh,
+            ].join(':'));
+        }
+    }
+    return out;
+}
+
+function collectLeafContentFingerprintsFromSnapshot(
+    ops: readonly MirrorOp[],
+    lookup: (id: string) => MirrorRecord | undefined,
+    out: Set<string>,
+    seen: Set<string>,
+    depth: number,
+): Set<string> {
+    if (depth > MAX_REBUILD_DEPTH) return out;
+    for (const op of selectLatestReplayOps(ops, Number.POSITIVE_INFINITY)) {
+        if (op.srcOps?.length) {
+            collectLeafContentFingerprintsFromSnapshot(op.srcOps, lookup, out, seen, depth + 1);
+        } else if (op.srcId) {
+            const before = out.size;
+            collectLeafContentFingerprints(op.srcId, op.seq, lookup, out, seen, depth + 1);
+            if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
+                collectLeafContentFingerprints(op.srcId, Number.POSITIVE_INFINITY, lookup, out, seen, depth + 1);
+            }
+        } else if (op.url) {
+            out.add([
+                canonicalBookwalkerAssetUrl(op.url),
+                op.sx,
+                op.sy,
+                op.sw,
+                op.sh,
+                op.dx,
+                op.dy,
+                op.dw,
+                op.dh,
+            ].join(':'));
+        }
+    }
+    return out;
 }
 
 function markSkip(context: CanvasRenderingContext2D | null): CanvasRenderingContext2D | null {
@@ -170,13 +307,14 @@ function rebuildById(
     id: string,
     beforeSeq: number,
     images: Map<string, CanvasImageSource>,
+    canvases: Map<string, HTMLCanvasElement>,
     seen: Set<string>,
     depth: number,
 ): HTMLCanvasElement | null {
     if (depth > MAX_REBUILD_DEPTH || seen.has(id)) return null;
     const record = state().records[id];
     if (!record || !record.w || !record.h) return null;
-    const ops = selectLatestContentOps(record.ops, beforeSeq);
+    const ops = selectLatestReplayOps(record.ops, beforeSeq);
     if (!ops.length) return null;
     const out = document.createElement('canvas');
     out.width = record.w; out.height = record.h;
@@ -186,11 +324,15 @@ function rebuildById(
     let drew = 0;
     for (const op of ops) {
         let source: CanvasImageSource | null = null;
-        if (op.srcId) {
-            source = rebuildById(op.srcId, op.seq, images, new Set(seen), depth + 1);
-            if (!source && shouldUseLatestSourceFallback(op.srcId, op.seq, key => state().records[key])) {
-                source = rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, new Set(seen), depth + 1);
-            }
+        if (op.srcOps?.length && op.srcW && op.srcH) {
+            source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1);
+        } else if (op.srcId) {
+            source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1)
+                ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, key => state().records[key])
+                    ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1)
+                    : null)
+                ?? canvases.get(op.srcId)
+                ?? null;
         }
         else if (op.url) source = images.get(op.url) ?? null;
         if (!source) continue;
@@ -204,31 +346,136 @@ function rebuildById(
     return drew ? out : null;
 }
 
+function rebuildSnapshotSource(
+    ops: readonly MirrorOp[],
+    width: number,
+    height: number,
+    images: Map<string, CanvasImageSource>,
+    canvases: Map<string, HTMLCanvasElement>,
+    seen: Set<string>,
+    depth: number,
+): HTMLCanvasElement | null {
+    if (depth > MAX_REBUILD_DEPTH || !width || !height) return null;
+    const contentOps = selectLatestReplayOps(ops, Number.POSITIVE_INFINITY);
+    if (!contentOps.length) return null;
+    const out = document.createElement('canvas');
+    out.width = width;
+    out.height = height;
+    const ctx = markSkip(out.getContext('2d', { willReadFrequently: true }));
+    if (!ctx) return null;
+    let drew = 0;
+    for (const op of contentOps) {
+        let source: CanvasImageSource | null = null;
+        if (op.srcOps?.length && op.srcW && op.srcH) {
+            source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1);
+        } else if (op.srcId) {
+            source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1)
+                ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, key => state().records[key])
+                    ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1)
+                    : null)
+                ?? canvases.get(op.srcId)
+                ?? null;
+        } else if (op.url) {
+            source = images.get(op.url) ?? null;
+        }
+        if (!source) continue;
+        try {
+            if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
+            else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
+            else ctx.drawImage(source, op.dx, op.dy);
+            drew++;
+        } catch { /* a stale or clipped source — skip this tile */ }
+    }
+    return drew ? out : null;
+}
+
 // fallow-ignore-next-line unused-export
 export function canvasMirrorHasOps(canvas: object): boolean {
     const id = canvasId(canvas, false);
-    return !!id && (state().records[id]?.ops.length ?? 0) > 0;
+    if (!id) return false;
+    const s = state();
+    if (!(s.records[id]?.ops.length)) pullPageMirrorRecords(s, id);
+    return (s.records[id]?.ops.length ?? 0) > 0;
 }
 
 // Copy the page-world recorder's records into this (content-world) realm's state
 // over the shared DOM. dispatchEvent is synchronous, so the page-world responder
 // has written the JSON dump by the time dispatch returns. No-op (returns false)
 // when the page recorder isn't present or the reader already shares its realm.
-export function pullPageMirrorRecords(target: MirrorGlobalState = state()): boolean {
+export function pullPageMirrorRecords(target: MirrorGlobalState = state(), scope?: object | string | null): boolean {
+    const requestedId = typeof scope === 'string' ? scope : scope ? (canvasId(scope, false) ?? '') : '';
+    const parsed = requestPageMirrorPayload(requestedId);
+    if (!parsed?.records) return false;
+    mergeMirrorPayloadMetadata(target, parsed);
+    if (requestedId) {
+        let copied = false;
+        for (const [id, record] of Object.entries(parsed.records)) {
+            target.records[id] = record;
+            copied = true;
+        }
+        if (!copied) delete target.records[requestedId];
+        lastMirrorTargetSyncEpoch.set(requestedId, canvasMirrorTurnToken());
+    } else {
+        target.records = parsed.records;
+        lastMirrorTargetSyncEpoch.clear();
+    }
+    return true;
+}
+
+function pullPageMirrorContentSummary(id: string, target: MirrorGlobalState = state()): string {
+    const parsed = requestPageMirrorPayload(`${SUMMARY_REQUEST_PREFIX}${id}`);
+    if (!parsed) return '';
+    mergeMirrorPayloadMetadata(target, parsed);
+    const token = parsed.summaries?.[id] ?? '';
+    const epoch = canvasMirrorTurnToken();
+    if (token) mirrorContentSummaryCache.set(id, { epoch, token });
+    else mirrorContentSummaryCache.delete(id);
+    return token;
+}
+
+function requestPageMirrorPayload(request: string): MirrorBridgePayload | null {
     try {
         const root = document.documentElement;
-        if (!root || !recorderMarkerPresent()) return false;
-        root.dispatchEvent(new CustomEvent(PULL_EVENT));
+        if (!root || !recorderMarkerPresent()) return null;
+        if (request) root.setAttribute(REQUEST_ATTR, request);
+        else root.removeAttribute(REQUEST_ATTR);
+        try {
+            root.dispatchEvent(new CustomEvent(PULL_EVENT));
+        } finally {
+            if (request) root.removeAttribute(REQUEST_ATTR);
+        }
         const text = root.querySelector('[' + DUMP_ATTR + ']')?.textContent;
-        if (!text) return false;
-        const parsed = JSON.parse(text) as { records?: Record<string, MirrorRecord>; seq?: number; nextId?: number; epoch?: number };
-        if (!parsed?.records) return false;
-        target.records = parsed.records;
-        if (typeof parsed.seq === 'number') target.seq = Math.max(target.seq, parsed.seq);
-        if (typeof parsed.nextId === 'number') target.nextId = Math.max(target.nextId, parsed.nextId);
-        if (typeof parsed.epoch === 'number') target.epoch = parsed.epoch;
-        return true;
-    } catch { return false; }
+        if (!text) return null;
+        return JSON.parse(text) as MirrorBridgePayload;
+    } catch { return null; }
+}
+
+function mergeMirrorPayloadMetadata(target: MirrorGlobalState, parsed: MirrorBridgePayload): void {
+    if (typeof parsed.seq === 'number') target.seq = Math.max(target.seq, parsed.seq);
+    if (typeof parsed.nextId === 'number') target.nextId = Math.max(target.nextId, parsed.nextId);
+    if (typeof parsed.epoch === 'number') target.epoch = parsed.epoch;
+}
+
+export function syncCanvasMirrorRecords(): boolean {
+    const target = state();
+    const epoch = canvasMirrorTurnToken();
+    const now = Date.now();
+    if (epoch) {
+        if (epoch === lastMirrorSyncEpoch) return lastMirrorSyncResult || hasMirrorRecords(target);
+    } else if (now - lastMirrorSyncAt < MIRROR_SYNC_EMPTY_THROTTLE_MS) {
+        return lastMirrorSyncResult || hasMirrorRecords(target);
+    }
+    lastMirrorSyncEpoch = epoch;
+    lastMirrorSyncAt = now;
+    lastMirrorSyncResult = pullPageMirrorRecords(target);
+    return lastMirrorSyncResult || hasMirrorRecords(target);
+}
+
+function hasMirrorRecords(target: MirrorGlobalState): boolean {
+    for (const key in target.records) {
+        if (target.records[key]?.ops.length) return true;
+    }
+    return false;
 }
 
 // Realm-agnostic page-turn token for tainted DRM canvases the pixel sampler can't
@@ -251,9 +498,79 @@ export function canvasMirrorContentToken(canvas: object): string {
     const id = canvasId(canvas, false);
     if (!id) return '';
     const s = state();
-    if (!(s.records[id]?.ops.length)) pullPageMirrorRecords(s);
-    const urls = collectLeafUrls(id, Number.POSITIVE_INFINITY, key => s.records[key]);
-    return urls.size ? `m:${[...urls].sort().join('')}` : '';
+    const epoch = canvasMirrorTurnToken();
+    if (recorderMarkerPresent()) {
+        const cachedSummary = mirrorContentSummaryCache.get(id);
+        if (cachedSummary && (!epoch || cachedSummary.epoch === epoch)) return cachedSummary.token;
+        const summary = pullPageMirrorContentSummary(id, s);
+        if (summary) return summary;
+    }
+    if (!(s.records[id]?.ops.length) || (epoch && lastMirrorTargetSyncEpoch.get(id) !== epoch)) {
+        pullPageMirrorRecords(s, id);
+    }
+    const content = collectLeafContentFingerprints(id, Number.POSITIVE_INFINITY, key => s.records[key]);
+    if (content.size) return `m:${[...content].sort().join('')}`;
+    const record = s.records[id];
+    const fingerprint = record ? operationContentFingerprint(id, record) : '';
+    return fingerprint ? `o:${fingerprint}` : '';
+}
+
+function operationContentFingerprint(id: string, record: MirrorRecord): string {
+    const ops = selectLatestReplayOps(record.ops, Number.POSITIVE_INFINITY);
+    if (!ops.length) return '';
+    return [
+        id,
+        record.w,
+        record.h,
+        ...ops.map(op => [
+            op.srcId ?? '',
+            canonicalBookwalkerAssetUrl(op.url),
+            op.sx,
+            op.sy,
+            op.sw,
+            op.sh,
+            op.dx,
+            op.dy,
+            op.dw,
+            op.dh,
+        ].join(':')),
+    ].join('|');
+}
+
+export function canonicalBookwalkerAssetUrl(rawUrl: string): string {
+    if (!rawUrl) return '';
+    try {
+        const url = new URL(rawUrl, location.href);
+        if (isBookwalkerAssetHost(url.hostname)) {
+            url.hash = '';
+            for (const key of [...url.searchParams.keys()]) {
+                if (isVolatileSignedUrlParam(key)) url.searchParams.delete(key);
+            }
+            url.searchParams.sort();
+        }
+        return url.toString();
+    } catch {
+        return rawUrl;
+    }
+}
+
+function isBookwalkerAssetHost(hostname: string): boolean {
+    return hostname === 'bookwalker.jp'
+        || hostname.endsWith('.bookwalker.jp');
+}
+
+function isVolatileSignedUrlParam(key: string): boolean {
+    const lower = key.toLowerCase();
+    return lower === 'policy'
+        || lower === 'signature'
+        || lower === 'key-pair-id'
+        || lower === 'expires'
+        || lower === 'uuid'
+        || lower === 'bid'
+        || lower === 'ht'
+        || lower === 'hti'
+        || lower === 'pfcd'
+        || lower.startsWith('x-amz-');
 }
 
 // Rebuild `canvas` onto an untainted canvas by replaying the engine's recorded draw
@@ -273,7 +590,7 @@ export async function captureCanvasMirror(
     // Isolated content world with no unsafeWindow (Safari "Userscripts"): the engine
     // recorded into the PAGE-world __yomuCanvasMirror this realm can't see, so its own
     // records map is empty. Pull the page-world records over the shared-DOM bridge.
-    if (id && !(s.records[id]?.ops.length)) pullPageMirrorRecords(s);
+    if (id && recorderMarkerPresent()) pullPageMirrorRecords(s, id);
     const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, key => s.records[key]) : new Set<string>();
     const images = new Map<string, CanvasImageSource>();
     if (urls.size) {
@@ -281,7 +598,12 @@ export async function captureCanvasMirror(
             try { const image = await loadCleanImage(url); if (image) images.set(url, image); } catch { /* skip */ }
         }));
     }
-    const rebuilt = (id && images.size) ? rebuildById(id, Number.POSITIVE_INFINITY, images, new Set(), 0) : null;
+    const canvases = new Map(
+        Array.from(document.querySelectorAll<HTMLCanvasElement>(`canvas[${ID_ATTR}]`))
+            .map(source => [source.getAttribute(ID_ATTR) ?? '', source] as const)
+            .filter(([sourceId]) => sourceId),
+    );
+    const rebuilt = id ? rebuildById(id, Number.POSITIVE_INFINITY, images, canvases, new Set(), 0) : null;
     return rebuilt && isReadable(rebuilt) ? rebuilt : undefined;
 }
 
@@ -300,10 +622,12 @@ interface Context2DPrototype {
 // main-world reader can read directly. Must reference ONLY its parameters.
 export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void {
     if (win.__yomuCanvasMirrorRecorder) return;
-    win.__yomuCanvasMirrorRecorder = true;
+    const HC = (win as { HTMLCanvasElement?: unknown }).HTMLCanvasElement as (new () => unknown) | undefined;
+    const OC = (win as { OffscreenCanvas?: unknown }).OffscreenCanvas as (new () => unknown) | undefined;
+    const w2 = win as { CanvasRenderingContext2D?: { prototype: Context2DPrototype }; OffscreenCanvasRenderingContext2D?: { prototype: Context2DPrototype } };
+    if (!w2.CanvasRenderingContext2D?.prototype && !w2.OffscreenCanvasRenderingContext2D?.prototype) return;
     const ATTR = opts.a, MAX = opts.m, KEEP = opts.k;
-    const S = (win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, epoch: 0, records: Object.create(null) }) as MirrorGlobalState;
-    S.installed = true;
+    const S = (win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: false, epoch: 0, records: Object.create(null) }) as MirrorGlobalState;
     // Shared-DOM channel for an isolated content-world reader (no unsafeWindow):
     // a turn token (epoch), an install marker, and a synchronous record dump.
     const doc = win.document;
@@ -320,20 +644,6 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
         S.epoch = (S.epoch || 0) + 1;
         if (root) { try { root.setAttribute(opts.e, String(S.epoch)); } catch { /* */ } }
     };
-    if (doc && root) {
-        try { root.setAttribute(opts.r, '1'); } catch { /* */ }
-        try {
-            root.addEventListener(opts.p, () => {
-                try {
-                    let node = root.querySelector('[' + opts.d + ']');
-                    if (!node) { const created = doc.createElement('div'); created.setAttribute(opts.d, '1'); created.style.display = 'none'; root.appendChild(created); node = created; }
-                    node.textContent = JSON.stringify({ records: S.records, seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
-                } catch { /* */ }
-            });
-        } catch { /* */ }
-    }
-    const HC = (win as { HTMLCanvasElement?: unknown }).HTMLCanvasElement as (new () => unknown) | undefined;
-    const OC = (win as { OffscreenCanvas?: unknown }).OffscreenCanvas as (new () => unknown) | undefined;
     const isCanvas = (o: unknown): boolean => Boolean(o) && ((HC != null && o instanceof HC) || (OC != null && o instanceof OC));
     const srcUrl = (o: unknown): string => { const m = o as { currentSrc?: string; src?: string } | null; return m ? ((typeof m.currentSrc === 'string' && m.currentSrc) || (typeof m.src === 'string' && m.src) || '') : ''; };
     const idOf = (c: unknown, create: boolean): string | null => {
@@ -342,15 +652,194 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
         if (el && el.__yomuMid) return el.__yomuMid; if (el && create) { try { return (el.__yomuMid = 'm' + (S.nextId++)); } catch { return null; } } return null;
     };
     const rec = (id: string, w: number, h: number): MirrorRecord => { let r = S.records[id]; if (!r) { r = { w, h, ops: [] }; S.records[id] = r; } if (w) r.w = w; if (h) r.h = h; if (r.ops.length >= MAX) r.ops.splice(0, r.ops.length - KEEP); return r; };
-    const patch = (p: Context2DPrototype | undefined): void => {
-        if (!p || p.__yomuMirrorPatched) return; p.__yomuMirrorPatched = true;
+    const dKey = (op: MirrorOp): string => op.dx + ',' + op.dy + ',' + op.dw + ',' + op.dh;
+    const latestOpsBefore = (ops: MirrorOp[], beforeSeq: number): MirrorOp[] => {
+        const byDest = new Map<string, MirrorOp>();
+        for (const op of ops) {
+            if (op.seq >= beforeSeq) continue;
+            if (op.clear) { byDest.clear(); continue; }
+            byDest.set(dKey(op), op);
+        }
+        return Array.from(byDest.values()).sort((a, b) => a.seq - b.seq);
+    };
+    const latestOps = (ops: MirrorOp[], beforeSeq: number): MirrorOp[] => {
+        let replaySeq = beforeSeq;
+        for (let index = ops.length - 1; index >= 0; index--) {
+            const op = ops[index];
+            if (!op || op.seq >= replaySeq) continue;
+            if (op.clear) {
+                replaySeq = op.seq;
+                continue;
+            }
+            break;
+        }
+        return latestOpsBefore(ops, replaySeq);
+    };
+    const snapshotOps = (id: string | null, beforeSeq: number, depth: number): MirrorOp[] => {
+        if (!id || depth > 4) return [];
+        const sourceRecord = S.records[id];
+        if (!sourceRecord) return [];
+        return latestOps(sourceRecord.ops, beforeSeq).map(sourceOp => {
+            const copy = { ...sourceOp };
+            if (sourceOp.srcId) {
+                const nestedRecord = S.records[sourceOp.srcId];
+                if (nestedRecord) {
+                    copy.srcW = nestedRecord.w;
+                    copy.srcH = nestedRecord.h;
+                    const nested = snapshotOps(sourceOp.srcId, sourceOp.seq, depth + 1);
+                    if (nested.length) copy.srcOps = nested;
+                }
+            }
+            return copy;
+        });
+    };
+    const addSnapshotDependencies = (ops: MirrorOp[], out: Record<string, MirrorRecord>, seen: Record<string, true>, depth: number): void => {
+        if (depth > 6) return;
+        for (const op of ops) {
+            if (op.srcOps?.length) addSnapshotDependencies(op.srcOps, out, seen, depth + 1);
+            else if (op.srcId) addRecordClosure(op.srcId, out, seen, depth + 1);
+        }
+    };
+    const addRecordClosure = (id: string, out: Record<string, MirrorRecord>, seen: Record<string, true>, depth: number): void => {
+        if (!id || seen[id] || depth > 6) return;
+        const record = S.records[id];
+        if (!record) return;
+        seen[id] = true;
+        out[id] = record;
+        addSnapshotDependencies(record.ops, out, seen, depth + 1);
+    };
+    const requestedRecords = (id: string): Record<string, MirrorRecord> => {
+        if (!id) return S.records;
+        const out = Object.create(null) as Record<string, MirrorRecord>;
+        addRecordClosure(id, out, Object.create(null) as Record<string, true>, 0);
+        return out;
+    };
+    const volatileSignedParam = (key: string): boolean => {
+        const lower = key.toLowerCase();
+        return lower === 'policy'
+            || lower === 'signature'
+            || lower === 'key-pair-id'
+            || lower === 'expires'
+            || lower === 'uuid'
+            || lower === 'bid'
+            || lower === 'ht'
+            || lower === 'hti'
+            || lower === 'pfcd'
+            || lower.startsWith('x-amz-');
+    };
+    const canonicalUrl = (raw: string): string => {
+        if (!raw) return '';
+        try {
+            const url = new URL(raw, win.location?.href || doc?.location?.href || '');
+            if (url.hostname === 'bookwalker.jp' || url.hostname.endsWith('.bookwalker.jp')) {
+                url.hash = '';
+                for (const key of Array.from(url.searchParams.keys())) {
+                    if (volatileSignedParam(key)) url.searchParams.delete(key);
+                }
+                url.searchParams.sort();
+            }
+            return url.toString();
+        } catch {
+            return raw;
+        }
+    };
+    const hashText = (value: string): string => {
+        let hash = 2166136261;
+        for (let index = 0; index < value.length; index++) {
+            hash ^= value.charCodeAt(index);
+            hash = Math.imul(hash, 16777619);
+        }
+        return (hash >>> 0).toString(36);
+    };
+    const leafFingerprint = (op: MirrorOp): string => [
+        canonicalUrl(op.url),
+        op.sx,
+        op.sy,
+        op.sw,
+        op.sh,
+        op.dx,
+        op.dy,
+        op.dw,
+        op.dh,
+    ].join(':');
+    const addLeafFingerprintsFromOps = (ops: MirrorOp[], out: Record<string, boolean>, seen: Record<string, boolean>, depth: number): void => {
+        if (depth > 6) return;
+        for (const op of latestOps(ops, Number.POSITIVE_INFINITY)) {
+            if (op.srcOps?.length) addLeafFingerprintsFromOps(op.srcOps, out, seen, depth + 1);
+            else if (op.srcId) addLeafFingerprints(op.srcId, op.seq, out, seen, depth + 1);
+            else if (op.url) out[leafFingerprint(op)] = true;
+        }
+    };
+    const addLeafFingerprints = (id: string, beforeSeq: number, out: Record<string, boolean>, seen: Record<string, boolean>, depth: number): void => {
+        if (!id || seen[id] || depth > 6) return;
+        const record = S.records[id];
+        if (!record) return;
+        const nextSeen = { ...seen, [id]: true };
+        for (const op of latestOps(record.ops, beforeSeq)) {
+            if (op.srcOps?.length) addLeafFingerprintsFromOps(op.srcOps, out, nextSeen, depth + 1);
+            else if (op.srcId) addLeafFingerprints(op.srcId, op.seq, out, nextSeen, depth + 1);
+            else if (op.url) out[leafFingerprint(op)] = true;
+        }
+    };
+    const operationSummaryToken = (id: string, record: MirrorRecord): string => {
+        const ops = latestOps(record.ops, Number.POSITIVE_INFINITY);
+        if (!ops.length) return '';
+        const payload = [
+            id,
+            record.w,
+            record.h,
+            ...ops.map(op => [
+                op.srcId || '',
+                canonicalUrl(op.url),
+                op.sx,
+                op.sy,
+                op.sw,
+                op.sh,
+                op.dx,
+                op.dy,
+                op.dw,
+                op.dh,
+            ].join(':')),
+        ].join('|');
+        return `o:${hashText(payload)}`;
+    };
+    const summaryToken = (id: string): string => {
+        const record = S.records[id];
+        if (!record) return '';
+        const leafs = Object.create(null) as Record<string, boolean>;
+        addLeafFingerprints(id, Number.POSITIVE_INFINITY, leafs, Object.create(null) as Record<string, boolean>, 0);
+        const keys = Object.keys(leafs).sort();
+        if (keys.length) return `m:${hashText(keys.join('\u0001'))}`;
+        return operationSummaryToken(id, record);
+    };
+    const requestedSummaries = (id: string): Record<string, string> => {
+        const out = Object.create(null) as Record<string, string>;
+        if (!id) return out;
+        const token = summaryToken(id);
+        if (token) out[id] = token;
+        return out;
+    };
+    const patch = (p: Context2DPrototype | undefined): boolean => {
+        if (!p) return false;
+        if (p.__yomuMirrorPatched) return true;
+        p.__yomuMirrorPatched = true;
         const draw = p.drawImage;
         p.drawImage = function (this: Context2DPrototype, src: unknown) {
             if (!this.__yomuMirrorSkip) { try {
                 const cid = idOf(this.canvas, true);
                 if (cid) {
                     const r = rec(cid, this.canvas.width, this.canvas.height); const a = arguments as unknown as ArrayLike<number>;
-                    const o: MirrorOp = { seq: S.seq++, srcId: isCanvas(src) ? idOf(src, true) : null, url: isCanvas(src) ? '' : srcUrl(src), sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false };
+                    const sourceId = isCanvas(src) ? idOf(src, true) : null;
+                    const o: MirrorOp = { seq: S.seq++, srcId: sourceId, url: sourceId ? '' : srcUrl(src), sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false };
+                    if (sourceId) {
+                        const sourceRecord = S.records[sourceId];
+                        if (sourceRecord) {
+                            o.srcW = sourceRecord.w;
+                            o.srcH = sourceRecord.h;
+                            const snapshot = snapshotOps(sourceId, o.seq, 0);
+                            if (snapshot.length) o.srcOps = snapshot;
+                        }
+                    }
                     // `arguments` includes the source image at [0], so coordinates start at a[1].
                     if (a.length === 9) { o.sx = a[1]; o.sy = a[2]; o.sw = a[3]; o.sh = a[4]; o.dx = a[5]; o.dy = a[6]; o.dw = a[7]; o.dh = a[8]; }
                     else if (a.length === 5) { o.dx = a[1]; o.dy = a[2]; o.dw = a[3]; o.dh = a[4]; }
@@ -375,24 +864,54 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
             if (!this.__yomuMirrorSkip) { try { if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) { const cid = idOf(this.canvas, true); if (cid) { rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: '', sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true }); bumpEpoch(this.canvas); } } } catch { /* */ } }
             return clr.apply(this, arguments as unknown as [number, number, number, number]);
         } as typeof p.clearRect;
+        return true;
     };
-    const w2 = win as { CanvasRenderingContext2D?: { prototype: Context2DPrototype }; OffscreenCanvasRenderingContext2D?: { prototype: Context2DPrototype } };
-    patch(w2.CanvasRenderingContext2D?.prototype);
-    patch(w2.OffscreenCanvasRenderingContext2D?.prototype);
+    const patchedCanvas = patch(w2.CanvasRenderingContext2D?.prototype);
+    const patchedOffscreen = patch(w2.OffscreenCanvasRenderingContext2D?.prototype);
+    const patched = patchedCanvas || patchedOffscreen;
+    if (!patched) return;
+    win.__yomuCanvasMirrorRecorder = true;
+    S.installed = true;
+    if (doc && root) {
+        try { root.setAttribute(opts.r, '1'); } catch { /* */ }
+        try {
+            root.addEventListener(opts.p, () => {
+                try {
+                    let node = root.querySelector('[' + opts.d + ']');
+                    if (!node) { const created = doc.createElement('div'); created.setAttribute(opts.d, '1'); created.style.display = 'none'; root.appendChild(created); node = created; }
+                    const requestAttr = opts.q || 'data-yomu-mirror-request';
+                    const request = root.getAttribute(requestAttr) || '';
+                    if (request.indexOf('summary:') === 0) {
+                        node.textContent = JSON.stringify({ summaries: requestedSummaries(request.slice('summary:'.length)), seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
+                    } else {
+                        node.textContent = JSON.stringify({ records: requestedRecords(request), seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
+                    }
+                } catch { /* */ }
+            });
+        } catch { /* */ }
+    }
 }
 
 interface PageWindowLike {
     __yomuCanvasMirror?: MirrorGlobalState;
     __yomuCanvasMirrorRecorder?: boolean;
     document?: Document;
+    location?: { href?: string };
     CanvasRenderingContext2D?: { prototype: Context2DPrototype };
     OffscreenCanvasRenderingContext2D?: { prototype: Context2DPrototype };
     HTMLCanvasElement?: unknown;
     OffscreenCanvas?: unknown;
 }
 
+interface UserscriptGlobal {
+    unsafeWindow?: PageWindowLike;
+    GM_info?: unknown;
+    GM?: unknown;
+    GM_xmlhttpRequest?: unknown;
+}
+
 function recorderOpts(): RecorderOpts {
-    return { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP, e: EPOCH_ATTR, d: DUMP_ATTR, p: PULL_EVENT, r: MARKER_ATTR };
+    return { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP, e: EPOCH_ATTR, d: DUMP_ATTR, q: REQUEST_ATTR, p: PULL_EVENT, r: MARKER_ATTR };
 }
 
 // Inject the recorder into the page main world. A <script> appended to the DOM
@@ -415,7 +934,41 @@ function injectRecorderIntoPage(opts: RecorderOpts): boolean {
         parent.append(script);
         script.remove();
     } catch { return false; }
-    return recorderMarkerPresent() || Boolean((pageWindow() as PageWindowLike).__yomuCanvasMirror);
+    return recorderMarkerPresent() || Boolean((pageWindow() as PageWindowLike).__yomuCanvasMirror?.installed);
+}
+
+function installRecorderThroughUnsafeWindow(opts: RecorderOpts): boolean {
+    const win = userscriptUnsafeWindow();
+    if (!win) return false;
+    try {
+        recorderBootstrap(win, opts);
+    } catch { return false; }
+    return recorderMarkerPresent() || recorderWindowInstalled(win);
+}
+
+function userscriptUnsafeWindow(): PageWindowLike | null {
+    const uw = (globalThis as unknown as UserscriptGlobal).unsafeWindow;
+    if (!uw || uw === (globalThis as unknown as PageWindowLike)) return null;
+    return uw;
+}
+
+function scheduleRecorderInstallRetry(hostname: string): void {
+    if (recorderInstallRetryTimer) return;
+    const delay = RECORDER_INSTALL_RETRY_DELAYS_MS[Math.min(recorderInstallRetryCount, RECORDER_INSTALL_RETRY_DELAYS_MS.length - 1)] ?? 1000;
+    recorderInstallRetryCount += 1;
+    recorderInstallRetryTimer = window.setTimeout(() => {
+        recorderInstallRetryTimer = 0;
+        installCanvasMirrorRecorder(hostname);
+    }, delay);
+    if (!recorderInstallDOMContentLoadedHooked && document.readyState === 'loading') {
+        recorderInstallDOMContentLoadedHooked = true;
+        document.addEventListener('DOMContentLoaded', () => {
+            if (recorderAlreadyInstalled()) return;
+            if (recorderInstallRetryTimer) window.clearTimeout(recorderInstallRetryTimer);
+            recorderInstallRetryTimer = 0;
+            installCanvasMirrorRecorder(hostname);
+        }, { once: true });
+    }
 }
 
 // The page-world recorder sets MARKER_ATTR on documentElement; the DOM is shared
@@ -426,9 +979,23 @@ function recorderMarkerPresent(): boolean {
 
 function recorderAlreadyInstalled(): boolean {
     if (recorderMarkerPresent()) return true;
-    const uw = (globalThis as unknown as { unsafeWindow?: PageWindowLike }).unsafeWindow;
-    return Boolean(uw?.__yomuCanvasMirror?.installed)
-        || Boolean((pageWindow() as PageWindowLike).__yomuCanvasMirror?.installed);
+    const uw = userscriptUnsafeWindow();
+    return (uw ? recorderWindowInstalled(uw) : false)
+        || recorderWindowInstalled(pageWindow() as PageWindowLike);
+}
+
+function recorderWindowInstalled(win: PageWindowLike): boolean {
+    try { return Boolean(win.__yomuCanvasMirror?.installed); } catch { return false; }
+}
+
+function likelyUserscriptContentSandbox(): boolean {
+    const g = globalThis as unknown as UserscriptGlobal;
+    return Boolean(g.unsafeWindow && g.unsafeWindow !== (globalThis as unknown as PageWindowLike))
+        || Boolean(g.GM_info || g.GM || g.GM_xmlhttpRequest);
+}
+
+function markRecorderMethod(method: string): void {
+    try { document.documentElement?.setAttribute(METHOD_ATTR, method); } catch { /* */ }
 }
 
 function createTrustedMirrorScript(code: string): unknown {
@@ -453,14 +1020,23 @@ export function installCanvasMirrorRecorder(hostname: string = location.hostname
     if (!isBookwalkerViewerHost(hostname)) return;
     if (recorderAlreadyInstalled()) return;
     if (recorderReloadLoopDetected()) return;
+    if (!document.head && !document.documentElement) { scheduleRecorderInstallRetry(hostname); return; }
+    const opts = recorderOpts();
     // Inject into the page world first (do NOT touch state() before injecting on a
     // sandboxed manager, or `??=` would create a sandbox-compartment state the page
     // recorder then reuses and the reader can't read).
-    if (injectRecorderIntoPage(recorderOpts())) return;
+    if (injectRecorderIntoPage(opts)) { markRecorderMethod('script'); return; }
+    if (document.readyState === 'loading') { scheduleRecorderInstallRetry(hostname); return; }
+    if (!likelyUserscriptContentSandbox() && installRecorderThroughUnsafeWindow(opts)) {
+        markRecorderMethod('unsafeWindow');
+        return;
+    }
+    if (likelyUserscriptContentSandbox()) return;
     // Injection blocked (CSP / Trusted Types with no usable nonce): patch this realm
     // directly. This still captures draws when the script already runs in the page
     // world (globalThis === page window).
     const s = state();
     if (s.installed) return;
-    recorderBootstrap(pageWindow() as PageWindowLike, recorderOpts());
+    recorderBootstrap(pageWindow() as PageWindowLike, opts);
+    if (recorderAlreadyInstalled()) markRecorderMethod('current');
 }

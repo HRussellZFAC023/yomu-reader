@@ -29142,7 +29142,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.5.0".trim() ? "1.5.0".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.5.1".trim() ? "1.5.1".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -36420,6 +36420,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const RELOAD_GUARD_LIMIT = 4;
   let recorderLoadGuardChecked = false;
   let recorderLoopBroken = false;
+  let recorderInstallRetryTimer = 0;
+  let recorderInstallRetryCount = 0;
+  let recorderInstallDOMContentLoadedHooked = false;
+  const RECORDER_INSTALL_RETRY_DELAYS_MS = [0, 16, 50, 150, 400, 1e3];
+  const lastMirrorTargetSyncEpoch = /* @__PURE__ */ new Map();
+  const mirrorContentSummaryCache = /* @__PURE__ */ new Map();
   function recorderReloadLoopDetected() {
     if (recorderLoadGuardChecked) return recorderLoopBroken;
     recorderLoadGuardChecked = true;
@@ -36442,11 +36448,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   const EPOCH_ATTR = "data-yomu-mirror-epoch";
   const MARKER_ATTR = "data-yomu-mirror-recorder";
+  const METHOD_ATTR = "data-yomu-mirror-method";
   const DUMP_ATTR = "data-yomu-mirror-dump";
+  const REQUEST_ATTR = "data-yomu-mirror-request";
+  const SUMMARY_REQUEST_PREFIX = "summary:";
   const PULL_EVENT = "yomu-canvas-mirror-pull";
   function pageWindow() {
-    const uw = globalThis.unsafeWindow;
-    return uw || globalThis;
+    return globalThis;
   }
   function state() {
     const win = pageWindow();
@@ -36471,7 +36479,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return null;
   }
   const destKey = (op) => `${op.dx},${op.dy},${op.dw},${op.dh}`;
-  function selectLatestContentOps(ops, beforeSeq) {
+  function selectLatestReplayOps(ops, beforeSeq) {
+    let replaySeq = beforeSeq;
+    for (let index = ops.length - 1; index >= 0; index--) {
+      const op = ops[index];
+      if (op.seq >= replaySeq) continue;
+      if (op.clear) {
+        replaySeq = op.seq;
+        continue;
+      }
+      break;
+    }
+    return selectLatestContentOpsBefore(ops, replaySeq);
+  }
+  function selectLatestContentOpsBefore(ops, beforeSeq) {
     const byDest = /* @__PURE__ */ new Map();
     for (const op of ops) {
       if (op.seq >= beforeSeq) continue;
@@ -36488,12 +36509,27 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const record = lookup(id);
     if (!record) return out;
     const next = new Set(seen).add(id);
-    for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
-      if (op.srcId) {
+    for (const op of selectLatestReplayOps(record.ops, beforeSeq)) {
+      if (op.srcOps?.length) collectLeafUrlsFromSnapshot(op.srcOps, lookup, out, next, depth + 1);
+      else if (op.srcId) {
         const before = out.size;
         collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
         if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
           collectLeafUrls(op.srcId, Number.POSITIVE_INFINITY, lookup, out, next, depth + 1);
+        }
+      } else if (op.url) out.add(op.url);
+    }
+    return out;
+  }
+  function collectLeafUrlsFromSnapshot(ops, lookup, out, seen, depth) {
+    if (depth > MAX_REBUILD_DEPTH) return out;
+    for (const op of selectLatestReplayOps(ops, Number.POSITIVE_INFINITY)) {
+      if (op.srcOps?.length) collectLeafUrlsFromSnapshot(op.srcOps, lookup, out, seen, depth + 1);
+      else if (op.srcId) {
+        const before = out.size;
+        collectLeafUrls(op.srcId, op.seq, lookup, out, seen, depth + 1);
+        if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
+          collectLeafUrls(op.srcId, Number.POSITIVE_INFINITY, lookup, out, seen, depth + 1);
         }
       } else if (op.url) out.add(op.url);
     }
@@ -36504,6 +36540,63 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const record = lookup(id);
     if (!record?.ops.length) return false;
     return !record.ops.some((op) => !op.clear && op.seq < beforeSeq);
+  }
+  function collectLeafContentFingerprints(id, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
+    if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
+    const record = lookup(id);
+    if (!record) return out;
+    const next = new Set(seen).add(id);
+    for (const op of selectLatestReplayOps(record.ops, beforeSeq)) {
+      if (op.srcOps?.length) {
+        collectLeafContentFingerprintsFromSnapshot(op.srcOps, lookup, out, next, depth + 1);
+      } else if (op.srcId) {
+        const before = out.size;
+        collectLeafContentFingerprints(op.srcId, op.seq, lookup, out, next, depth + 1);
+        if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
+          collectLeafContentFingerprints(op.srcId, Number.POSITIVE_INFINITY, lookup, out, next, depth + 1);
+        }
+      } else if (op.url) {
+        out.add([
+          canonicalBookwalkerAssetUrl(op.url),
+          op.sx,
+          op.sy,
+          op.sw,
+          op.sh,
+          op.dx,
+          op.dy,
+          op.dw,
+          op.dh
+        ].join(":"));
+      }
+    }
+    return out;
+  }
+  function collectLeafContentFingerprintsFromSnapshot(ops, lookup, out, seen, depth) {
+    if (depth > MAX_REBUILD_DEPTH) return out;
+    for (const op of selectLatestReplayOps(ops, Number.POSITIVE_INFINITY)) {
+      if (op.srcOps?.length) {
+        collectLeafContentFingerprintsFromSnapshot(op.srcOps, lookup, out, seen, depth + 1);
+      } else if (op.srcId) {
+        const before = out.size;
+        collectLeafContentFingerprints(op.srcId, op.seq, lookup, out, seen, depth + 1);
+        if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
+          collectLeafContentFingerprints(op.srcId, Number.POSITIVE_INFINITY, lookup, out, seen, depth + 1);
+        }
+      } else if (op.url) {
+        out.add([
+          canonicalBookwalkerAssetUrl(op.url),
+          op.sx,
+          op.sy,
+          op.sw,
+          op.sh,
+          op.dx,
+          op.dy,
+          op.dw,
+          op.dh
+        ].join(":"));
+      }
+    }
+    return out;
   }
   function markSkip(context) {
     if (context) context.__yomuMirrorSkip = true;
@@ -36521,11 +36614,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return false;
     }
   }
-  function rebuildById(id, beforeSeq, images, seen, depth) {
+  function rebuildById(id, beforeSeq, images, canvases, seen, depth) {
     if (depth > MAX_REBUILD_DEPTH || seen.has(id)) return null;
     const record = state().records[id];
     if (!record || !record.w || !record.h) return null;
-    const ops = selectLatestContentOps(record.ops, beforeSeq);
+    const ops = selectLatestReplayOps(record.ops, beforeSeq);
     if (!ops.length) return null;
     const out = document.createElement("canvas");
     out.width = record.w;
@@ -36536,11 +36629,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     let drew = 0;
     for (const op of ops) {
       let source = null;
-      if (op.srcId) {
-        source = rebuildById(op.srcId, op.seq, images, new Set(seen), depth + 1);
-        if (!source && shouldUseLatestSourceFallback(op.srcId, op.seq, (key) => state().records[key])) {
-          source = rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, new Set(seen), depth + 1);
-        }
+      if (op.srcOps?.length && op.srcW && op.srcH) {
+        source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1);
+      } else if (op.srcId) {
+        source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1) ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, (key) => state().records[key]) ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1) : null) ?? canvases.get(op.srcId) ?? null;
       } else if (op.url) source = images.get(op.url) ?? null;
       if (!source) continue;
       try {
@@ -36553,23 +36645,87 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return drew ? out : null;
   }
-  function pullPageMirrorRecords(target = state()) {
+  function rebuildSnapshotSource(ops, width, height, images, canvases, seen, depth) {
+    if (depth > MAX_REBUILD_DEPTH || !width || !height) return null;
+    const contentOps = selectLatestReplayOps(ops, Number.POSITIVE_INFINITY);
+    if (!contentOps.length) return null;
+    const out = document.createElement("canvas");
+    out.width = width;
+    out.height = height;
+    const ctx = markSkip(out.getContext("2d", { willReadFrequently: true }));
+    if (!ctx) return null;
+    let drew = 0;
+    for (const op of contentOps) {
+      let source = null;
+      if (op.srcOps?.length && op.srcW && op.srcH) {
+        source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1);
+      } else if (op.srcId) {
+        source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1) ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, (key) => state().records[key]) ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1) : null) ?? canvases.get(op.srcId) ?? null;
+      } else if (op.url) {
+        source = images.get(op.url) ?? null;
+      }
+      if (!source) continue;
+      try {
+        if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
+        else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
+        else ctx.drawImage(source, op.dx, op.dy);
+        drew++;
+      } catch {
+      }
+    }
+    return drew ? out : null;
+  }
+  function pullPageMirrorRecords(target = state(), scope) {
+    const requestedId = typeof scope === "string" ? scope : scope ? canvasId(scope, false) ?? "" : "";
+    const parsed = requestPageMirrorPayload(requestedId);
+    if (!parsed?.records) return false;
+    mergeMirrorPayloadMetadata(target, parsed);
+    if (requestedId) {
+      let copied = false;
+      for (const [id, record] of Object.entries(parsed.records)) {
+        target.records[id] = record;
+        copied = true;
+      }
+      if (!copied) delete target.records[requestedId];
+      lastMirrorTargetSyncEpoch.set(requestedId, canvasMirrorTurnToken());
+    } else {
+      target.records = parsed.records;
+      lastMirrorTargetSyncEpoch.clear();
+    }
+    return true;
+  }
+  function pullPageMirrorContentSummary(id, target = state()) {
+    const parsed = requestPageMirrorPayload(`${SUMMARY_REQUEST_PREFIX}${id}`);
+    if (!parsed) return "";
+    mergeMirrorPayloadMetadata(target, parsed);
+    const token = parsed.summaries?.[id] ?? "";
+    const epoch = canvasMirrorTurnToken();
+    if (token) mirrorContentSummaryCache.set(id, { epoch, token });
+    else mirrorContentSummaryCache.delete(id);
+    return token;
+  }
+  function requestPageMirrorPayload(request) {
     try {
       const root = document.documentElement;
-      if (!root || !recorderMarkerPresent()) return false;
-      root.dispatchEvent(new CustomEvent(PULL_EVENT));
+      if (!root || !recorderMarkerPresent()) return null;
+      if (request) root.setAttribute(REQUEST_ATTR, request);
+      else root.removeAttribute(REQUEST_ATTR);
+      try {
+        root.dispatchEvent(new CustomEvent(PULL_EVENT));
+      } finally {
+        if (request) root.removeAttribute(REQUEST_ATTR);
+      }
       const text2 = root.querySelector("[" + DUMP_ATTR + "]")?.textContent;
-      if (!text2) return false;
-      const parsed = JSON.parse(text2);
-      if (!parsed?.records) return false;
-      target.records = parsed.records;
-      if (typeof parsed.seq === "number") target.seq = Math.max(target.seq, parsed.seq);
-      if (typeof parsed.nextId === "number") target.nextId = Math.max(target.nextId, parsed.nextId);
-      if (typeof parsed.epoch === "number") target.epoch = parsed.epoch;
-      return true;
+      if (!text2) return null;
+      return JSON.parse(text2);
     } catch {
-      return false;
+      return null;
     }
+  }
+  function mergeMirrorPayloadMetadata(target, parsed) {
+    if (typeof parsed.seq === "number") target.seq = Math.max(target.seq, parsed.seq);
+    if (typeof parsed.nextId === "number") target.nextId = Math.max(target.nextId, parsed.nextId);
+    if (typeof parsed.epoch === "number") target.epoch = parsed.epoch;
   }
   function canvasMirrorTurnToken() {
     try {
@@ -36582,15 +36738,71 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const id = canvasId(canvas, false);
     if (!id) return "";
     const s = state();
-    if (!s.records[id]?.ops.length) pullPageMirrorRecords(s);
-    const urls = collectLeafUrls(id, Number.POSITIVE_INFINITY, (key) => s.records[key]);
-    return urls.size ? `m:${[...urls].sort().join("")}` : "";
+    const epoch = canvasMirrorTurnToken();
+    if (recorderMarkerPresent()) {
+      const cachedSummary = mirrorContentSummaryCache.get(id);
+      if (cachedSummary && (!epoch || cachedSummary.epoch === epoch)) return cachedSummary.token;
+      const summary = pullPageMirrorContentSummary(id, s);
+      if (summary) return summary;
+    }
+    if (!s.records[id]?.ops.length || epoch && lastMirrorTargetSyncEpoch.get(id) !== epoch) {
+      pullPageMirrorRecords(s, id);
+    }
+    const content = collectLeafContentFingerprints(id, Number.POSITIVE_INFINITY, (key) => s.records[key]);
+    if (content.size) return `m:${[...content].sort().join("")}`;
+    const record = s.records[id];
+    const fingerprint = record ? operationContentFingerprint(id, record) : "";
+    return fingerprint ? `o:${fingerprint}` : "";
+  }
+  function operationContentFingerprint(id, record) {
+    const ops = selectLatestReplayOps(record.ops, Number.POSITIVE_INFINITY);
+    if (!ops.length) return "";
+    return [
+      id,
+      record.w,
+      record.h,
+      ...ops.map((op) => [
+        op.srcId ?? "",
+        canonicalBookwalkerAssetUrl(op.url),
+        op.sx,
+        op.sy,
+        op.sw,
+        op.sh,
+        op.dx,
+        op.dy,
+        op.dw,
+        op.dh
+      ].join(":"))
+    ].join("|");
+  }
+  function canonicalBookwalkerAssetUrl(rawUrl) {
+    if (!rawUrl) return "";
+    try {
+      const url = new URL(rawUrl, location.href);
+      if (isBookwalkerAssetHost(url.hostname)) {
+        url.hash = "";
+        for (const key of [...url.searchParams.keys()]) {
+          if (isVolatileSignedUrlParam(key)) url.searchParams.delete(key);
+        }
+        url.searchParams.sort();
+      }
+      return url.toString();
+    } catch {
+      return rawUrl;
+    }
+  }
+  function isBookwalkerAssetHost(hostname) {
+    return hostname === "bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
+  }
+  function isVolatileSignedUrlParam(key) {
+    const lower = key.toLowerCase();
+    return lower === "policy" || lower === "signature" || lower === "key-pair-id" || lower === "expires" || lower === "uuid" || lower === "bid" || lower === "ht" || lower === "hti" || lower === "pfcd" || lower.startsWith("x-amz-");
   }
   async function captureCanvasMirror(canvas, loadCleanImage) {
     installCanvasMirrorRecorder();
     const s = state();
     const id = canvasId(canvas, false);
-    if (id && !s.records[id]?.ops.length) pullPageMirrorRecords(s);
+    if (id && recorderMarkerPresent()) pullPageMirrorRecords(s, id);
     const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, (key) => s.records[key]) : /* @__PURE__ */ new Set();
     const images = /* @__PURE__ */ new Map();
     if (urls.size) {
@@ -36602,15 +36814,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         }
       }));
     }
-    const rebuilt = id && images.size ? rebuildById(id, Number.POSITIVE_INFINITY, images, /* @__PURE__ */ new Set(), 0) : null;
+    const canvases = new Map(
+      Array.from(document.querySelectorAll(`canvas[${ID_ATTR}]`)).map((source) => [source.getAttribute(ID_ATTR) ?? "", source]).filter(([sourceId]) => sourceId)
+    );
+    const rebuilt = id ? rebuildById(id, Number.POSITIVE_INFINITY, images, canvases, /* @__PURE__ */ new Set(), 0) : null;
     return rebuilt && isReadable(rebuilt) ? rebuilt : void 0;
   }
   function recorderBootstrap(win, opts) {
     if (win.__yomuCanvasMirrorRecorder) return;
-    win.__yomuCanvasMirrorRecorder = true;
+    const HC = win.HTMLCanvasElement;
+    const OC = win.OffscreenCanvas;
+    const w2 = win;
+    if (!w2.CanvasRenderingContext2D?.prototype && !w2.OffscreenCanvasRenderingContext2D?.prototype) return;
     const ATTR = opts.a, MAX = opts.m, KEEP = opts.k;
-    const S = win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, epoch: 0, records: /* @__PURE__ */ Object.create(null) };
-    S.installed = true;
+    const S = win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: false, epoch: 0, records: /* @__PURE__ */ Object.create(null) };
     const doc = win.document;
     const root = doc && doc.documentElement;
     let lastDrawUrl = "";
@@ -36624,31 +36841,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         }
       }
     };
-    if (doc && root) {
-      try {
-        root.setAttribute(opts.r, "1");
-      } catch {
-      }
-      try {
-        root.addEventListener(opts.p, () => {
-          try {
-            let node = root.querySelector("[" + opts.d + "]");
-            if (!node) {
-              const created = doc.createElement("div");
-              created.setAttribute(opts.d, "1");
-              created.style.display = "none";
-              root.appendChild(created);
-              node = created;
-            }
-            node.textContent = JSON.stringify({ records: S.records, seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
-          } catch {
-          }
-        });
-      } catch {
-      }
-    }
-    const HC = win.HTMLCanvasElement;
-    const OC = win.OffscreenCanvas;
     const isCanvas = (o) => Boolean(o) && (HC != null && o instanceof HC || OC != null && o instanceof OC);
     const srcUrl = (o) => {
       const m = o;
@@ -36689,8 +36881,170 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (r.ops.length >= MAX) r.ops.splice(0, r.ops.length - KEEP);
       return r;
     };
+    const dKey = (op) => op.dx + "," + op.dy + "," + op.dw + "," + op.dh;
+    const latestOpsBefore = (ops, beforeSeq) => {
+      const byDest = /* @__PURE__ */ new Map();
+      for (const op of ops) {
+        if (op.seq >= beforeSeq) continue;
+        if (op.clear) {
+          byDest.clear();
+          continue;
+        }
+        byDest.set(dKey(op), op);
+      }
+      return Array.from(byDest.values()).sort((a, b) => a.seq - b.seq);
+    };
+    const latestOps = (ops, beforeSeq) => {
+      let replaySeq = beforeSeq;
+      for (let index = ops.length - 1; index >= 0; index--) {
+        const op = ops[index];
+        if (!op || op.seq >= replaySeq) continue;
+        if (op.clear) {
+          replaySeq = op.seq;
+          continue;
+        }
+        break;
+      }
+      return latestOpsBefore(ops, replaySeq);
+    };
+    const snapshotOps = (id, beforeSeq, depth) => {
+      if (!id || depth > 4) return [];
+      const sourceRecord = S.records[id];
+      if (!sourceRecord) return [];
+      return latestOps(sourceRecord.ops, beforeSeq).map((sourceOp) => {
+        const copy = { ...sourceOp };
+        if (sourceOp.srcId) {
+          const nestedRecord = S.records[sourceOp.srcId];
+          if (nestedRecord) {
+            copy.srcW = nestedRecord.w;
+            copy.srcH = nestedRecord.h;
+            const nested = snapshotOps(sourceOp.srcId, sourceOp.seq, depth + 1);
+            if (nested.length) copy.srcOps = nested;
+          }
+        }
+        return copy;
+      });
+    };
+    const addSnapshotDependencies = (ops, out, seen, depth) => {
+      if (depth > 6) return;
+      for (const op of ops) {
+        if (op.srcOps?.length) addSnapshotDependencies(op.srcOps, out, seen, depth + 1);
+        else if (op.srcId) addRecordClosure(op.srcId, out, seen, depth + 1);
+      }
+    };
+    const addRecordClosure = (id, out, seen, depth) => {
+      if (!id || seen[id] || depth > 6) return;
+      const record = S.records[id];
+      if (!record) return;
+      seen[id] = true;
+      out[id] = record;
+      addSnapshotDependencies(record.ops, out, seen, depth + 1);
+    };
+    const requestedRecords = (id) => {
+      if (!id) return S.records;
+      const out = /* @__PURE__ */ Object.create(null);
+      addRecordClosure(id, out, /* @__PURE__ */ Object.create(null), 0);
+      return out;
+    };
+    const volatileSignedParam = (key) => {
+      const lower = key.toLowerCase();
+      return lower === "policy" || lower === "signature" || lower === "key-pair-id" || lower === "expires" || lower === "uuid" || lower === "bid" || lower === "ht" || lower === "hti" || lower === "pfcd" || lower.startsWith("x-amz-");
+    };
+    const canonicalUrl = (raw) => {
+      if (!raw) return "";
+      try {
+        const url = new URL(raw, win.location?.href || doc?.location?.href || "");
+        if (url.hostname === "bookwalker.jp" || url.hostname.endsWith(".bookwalker.jp")) {
+          url.hash = "";
+          for (const key of Array.from(url.searchParams.keys())) {
+            if (volatileSignedParam(key)) url.searchParams.delete(key);
+          }
+          url.searchParams.sort();
+        }
+        return url.toString();
+      } catch {
+        return raw;
+      }
+    };
+    const hashText = (value) => {
+      let hash = 2166136261;
+      for (let index = 0; index < value.length; index++) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+      }
+      return (hash >>> 0).toString(36);
+    };
+    const leafFingerprint = (op) => [
+      canonicalUrl(op.url),
+      op.sx,
+      op.sy,
+      op.sw,
+      op.sh,
+      op.dx,
+      op.dy,
+      op.dw,
+      op.dh
+    ].join(":");
+    const addLeafFingerprintsFromOps = (ops, out, seen, depth) => {
+      if (depth > 6) return;
+      for (const op of latestOps(ops, Number.POSITIVE_INFINITY)) {
+        if (op.srcOps?.length) addLeafFingerprintsFromOps(op.srcOps, out, seen, depth + 1);
+        else if (op.srcId) addLeafFingerprints(op.srcId, op.seq, out, seen, depth + 1);
+        else if (op.url) out[leafFingerprint(op)] = true;
+      }
+    };
+    const addLeafFingerprints = (id, beforeSeq, out, seen, depth) => {
+      if (!id || seen[id] || depth > 6) return;
+      const record = S.records[id];
+      if (!record) return;
+      const nextSeen = { ...seen, [id]: true };
+      for (const op of latestOps(record.ops, beforeSeq)) {
+        if (op.srcOps?.length) addLeafFingerprintsFromOps(op.srcOps, out, nextSeen, depth + 1);
+        else if (op.srcId) addLeafFingerprints(op.srcId, op.seq, out, nextSeen, depth + 1);
+        else if (op.url) out[leafFingerprint(op)] = true;
+      }
+    };
+    const operationSummaryToken = (id, record) => {
+      const ops = latestOps(record.ops, Number.POSITIVE_INFINITY);
+      if (!ops.length) return "";
+      const payload = [
+        id,
+        record.w,
+        record.h,
+        ...ops.map((op) => [
+          op.srcId || "",
+          canonicalUrl(op.url),
+          op.sx,
+          op.sy,
+          op.sw,
+          op.sh,
+          op.dx,
+          op.dy,
+          op.dw,
+          op.dh
+        ].join(":"))
+      ].join("|");
+      return `o:${hashText(payload)}`;
+    };
+    const summaryToken = (id) => {
+      const record = S.records[id];
+      if (!record) return "";
+      const leafs = /* @__PURE__ */ Object.create(null);
+      addLeafFingerprints(id, Number.POSITIVE_INFINITY, leafs, /* @__PURE__ */ Object.create(null), 0);
+      const keys = Object.keys(leafs).sort();
+      if (keys.length) return `m:${hashText(keys.join(""))}`;
+      return operationSummaryToken(id, record);
+    };
+    const requestedSummaries = (id) => {
+      const out = /* @__PURE__ */ Object.create(null);
+      if (!id) return out;
+      const token = summaryToken(id);
+      if (token) out[id] = token;
+      return out;
+    };
     const patch = (p) => {
-      if (!p || p.__yomuMirrorPatched) return;
+      if (!p) return false;
+      if (p.__yomuMirrorPatched) return true;
       p.__yomuMirrorPatched = true;
       const draw = p.drawImage;
       p.drawImage = function(src) {
@@ -36700,7 +37054,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             if (cid) {
               const r = rec(cid, this.canvas.width, this.canvas.height);
               const a = arguments;
-              const o = { seq: S.seq++, srcId: isCanvas(src) ? idOf(src, true) : null, url: isCanvas(src) ? "" : srcUrl(src), sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false };
+              const sourceId = isCanvas(src) ? idOf(src, true) : null;
+              const o = { seq: S.seq++, srcId: sourceId, url: sourceId ? "" : srcUrl(src), sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false };
+              if (sourceId) {
+                const sourceRecord = S.records[sourceId];
+                if (sourceRecord) {
+                  o.srcW = sourceRecord.w;
+                  o.srcH = sourceRecord.h;
+                  const snapshot = snapshotOps(sourceId, o.seq, 0);
+                  if (snapshot.length) o.srcOps = snapshot;
+                }
+              }
               if (a.length === 9) {
                 o.sx = a[1];
                 o.sy = a[2];
@@ -36747,13 +37111,46 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         }
         return clr.apply(this, arguments);
       };
+      return true;
     };
-    const w2 = win;
-    patch(w2.CanvasRenderingContext2D?.prototype);
-    patch(w2.OffscreenCanvasRenderingContext2D?.prototype);
+    const patchedCanvas = patch(w2.CanvasRenderingContext2D?.prototype);
+    const patchedOffscreen = patch(w2.OffscreenCanvasRenderingContext2D?.prototype);
+    const patched = patchedCanvas || patchedOffscreen;
+    if (!patched) return;
+    win.__yomuCanvasMirrorRecorder = true;
+    S.installed = true;
+    if (doc && root) {
+      try {
+        root.setAttribute(opts.r, "1");
+      } catch {
+      }
+      try {
+        root.addEventListener(opts.p, () => {
+          try {
+            let node = root.querySelector("[" + opts.d + "]");
+            if (!node) {
+              const created = doc.createElement("div");
+              created.setAttribute(opts.d, "1");
+              created.style.display = "none";
+              root.appendChild(created);
+              node = created;
+            }
+            const requestAttr = opts.q || "data-yomu-mirror-request";
+            const request = root.getAttribute(requestAttr) || "";
+            if (request.indexOf("summary:") === 0) {
+              node.textContent = JSON.stringify({ summaries: requestedSummaries(request.slice("summary:".length)), seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
+            } else {
+              node.textContent = JSON.stringify({ records: requestedRecords(request), seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
+            }
+          } catch {
+          }
+        });
+      } catch {
+      }
+    }
   }
   function recorderOpts() {
-    return { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP, e: EPOCH_ATTR, d: DUMP_ATTR, p: PULL_EVENT, r: MARKER_ATTR };
+    return { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP, e: EPOCH_ATTR, d: DUMP_ATTR, q: REQUEST_ATTR, p: PULL_EVENT, r: MARKER_ATTR };
   }
   function injectRecorderIntoPage(opts) {
     const parent = document.head || document.documentElement;
@@ -36771,7 +37168,40 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     } catch {
       return false;
     }
-    return recorderMarkerPresent() || Boolean(pageWindow().__yomuCanvasMirror);
+    return recorderMarkerPresent() || Boolean(pageWindow().__yomuCanvasMirror?.installed);
+  }
+  function installRecorderThroughUnsafeWindow(opts) {
+    const win = userscriptUnsafeWindow();
+    if (!win) return false;
+    try {
+      recorderBootstrap(win, opts);
+    } catch {
+      return false;
+    }
+    return recorderMarkerPresent() || recorderWindowInstalled(win);
+  }
+  function userscriptUnsafeWindow() {
+    const uw = globalThis.unsafeWindow;
+    if (!uw || uw === globalThis) return null;
+    return uw;
+  }
+  function scheduleRecorderInstallRetry(hostname) {
+    if (recorderInstallRetryTimer) return;
+    const delay2 = RECORDER_INSTALL_RETRY_DELAYS_MS[Math.min(recorderInstallRetryCount, RECORDER_INSTALL_RETRY_DELAYS_MS.length - 1)] ?? 1e3;
+    recorderInstallRetryCount += 1;
+    recorderInstallRetryTimer = window.setTimeout(() => {
+      recorderInstallRetryTimer = 0;
+      installCanvasMirrorRecorder(hostname);
+    }, delay2);
+    if (!recorderInstallDOMContentLoadedHooked && document.readyState === "loading") {
+      recorderInstallDOMContentLoadedHooked = true;
+      document.addEventListener("DOMContentLoaded", () => {
+        if (recorderAlreadyInstalled()) return;
+        if (recorderInstallRetryTimer) window.clearTimeout(recorderInstallRetryTimer);
+        recorderInstallRetryTimer = 0;
+        installCanvasMirrorRecorder(hostname);
+      }, { once: true });
+    }
   }
   function recorderMarkerPresent() {
     try {
@@ -36782,8 +37212,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function recorderAlreadyInstalled() {
     if (recorderMarkerPresent()) return true;
-    const uw = globalThis.unsafeWindow;
-    return Boolean(uw?.__yomuCanvasMirror?.installed) || Boolean(pageWindow().__yomuCanvasMirror?.installed);
+    const uw = userscriptUnsafeWindow();
+    return (uw ? recorderWindowInstalled(uw) : false) || recorderWindowInstalled(pageWindow());
+  }
+  function recorderWindowInstalled(win) {
+    try {
+      return Boolean(win.__yomuCanvasMirror?.installed);
+    } catch {
+      return false;
+    }
+  }
+  function likelyUserscriptContentSandbox() {
+    const g = globalThis;
+    return Boolean(g.unsafeWindow && g.unsafeWindow !== globalThis) || Boolean(g.GM_info || g.GM || g.GM_xmlhttpRequest);
+  }
+  function markRecorderMethod(method) {
+    try {
+      document.documentElement?.setAttribute(METHOD_ATTR, method);
+    } catch {
+    }
   }
   function createTrustedMirrorScript(code) {
     try {
@@ -36799,10 +37246,28 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!isBookwalkerViewerHost(hostname)) return;
     if (recorderAlreadyInstalled()) return;
     if (recorderReloadLoopDetected()) return;
-    if (injectRecorderIntoPage(recorderOpts())) return;
+    if (!document.head && !document.documentElement) {
+      scheduleRecorderInstallRetry(hostname);
+      return;
+    }
+    const opts = recorderOpts();
+    if (injectRecorderIntoPage(opts)) {
+      markRecorderMethod("script");
+      return;
+    }
+    if (document.readyState === "loading") {
+      scheduleRecorderInstallRetry(hostname);
+      return;
+    }
+    if (!likelyUserscriptContentSandbox() && installRecorderThroughUnsafeWindow(opts)) {
+      markRecorderMethod("unsafeWindow");
+      return;
+    }
+    if (likelyUserscriptContentSandbox()) return;
     const s = state();
     if (s.installed) return;
-    recorderBootstrap(pageWindow(), recorderOpts());
+    recorderBootstrap(pageWindow(), opts);
+    if (recorderAlreadyInstalled()) markRecorderMethod("current");
   }
   function normalizeOcrRenderedText(root) {
     normalizeOcrRuby(root);
@@ -37064,7 +37529,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function pageCanvases(hostname = location.hostname, options = {}) {
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
     const canvases = Array.from(document.querySelectorAll("canvas")).filter((canvas) => !shouldSkipCanvasReaderSurface(canvas)).filter(isVisibleCanvasReaderSurface).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
-    return isBookwalkerViewerHost(hostname) && options.preferBookwalkerCurrent !== false ? preferCurrentScreenCanvases(canvases) : canvases;
+    if (!isBookwalkerViewerHost(hostname) || options.preferBookwalkerCurrent === false) return canvases;
+    const continuousScroll = bookwalkerContinuousScrollCanvases(canvases, hostname);
+    return continuousScroll.length ? continuousScroll : preferCurrentScreenCanvases(canvases);
   }
   function shouldSkipCanvasReaderSurface(canvas) {
     const mode = canvasOcrMode(canvas);
@@ -37091,6 +37558,22 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (Math.max(width, height) < MIN_PAGE_CANVAS_DIMENSION || Math.min(width, height) < MIN_RENDERED_DIMENSION) return false;
     const aspect = width / height;
     return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
+  }
+  function bookwalkerContinuousScrollCanvases(canvases, hostname = location.hostname) {
+    const scrollCanvases = canvases.filter((canvas) => isBookwalkerContinuousScrollCanvasForHost(canvas, hostname));
+    if (scrollCanvases.length < 2) return [];
+    return hasVerticallyStackedDocumentPageRun(scrollCanvases) ? scrollCanvases : [];
+  }
+  function isBookwalkerContinuousScrollCanvas(canvas) {
+    return isBookwalkerContinuousScrollCanvasForHost(canvas, location.hostname);
+  }
+  function isBookwalkerContinuousScrollCanvasForHost(canvas, hostname) {
+    if (!isBookwalkerViewerHost(hostname)) return false;
+    const viewport = canvas.closest(VIEWPORT_CONTAINER_SELECTOR);
+    if (!viewport) return false;
+    if (viewport.id === "viewportW" || viewport.classList.contains("overScroll")) return true;
+    const viewportCanvases = Array.from(viewport.querySelectorAll("canvas")).filter((canvasInViewport) => !shouldSkipCanvasReaderSurface(canvasInViewport)).filter(isVisibleCanvasReaderSurface).filter((canvasInViewport) => isLikelyPageCanvas(canvasInViewport, true));
+    return hasVerticallyStackedDocumentPageRun(viewportCanvases);
   }
   function preferCurrentScreenCanvases(canvases) {
     if (canvases.length < 2) return canvases;
@@ -37189,15 +37672,26 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function canvasReaderPageSignature() {
     const canvases = pageCanvases();
+    const counter = canvasReaderSignatureCounter(canvases);
     const rawCanvases = isBookwalkerViewerHost() ? pageCanvases(location.hostname, { preferBookwalkerCurrent: false }) : canvases;
-    const verticalStack = isBookwalkerViewerHost() && hasVerticallyStackedDocumentPageRun(rawCanvases);
-    const counter = verticalStack ? "" : canvasReaderPageCounter();
-    const scroll = isBookwalkerViewerHost() && !verticalStack && shouldUseBookwalkerScrollSignature(rawCanvases) ? Math.round((window.scrollY || 0) / 40) : 0;
+    const scroll = isBookwalkerViewerHost() && shouldUseBookwalkerScrollSignature(rawCanvases) ? Math.round((window.scrollY || 0) / 40) : 0;
     const tokens = canvasReaderContentTokens(canvases);
     const surfaces = tokens.length;
     const content = tokens.join(",");
     const backgrounds = backgroundImagePages().map((element) => `${element.getAttribute("data-page-index") ?? ""}:${backgroundImageReaderUrl(element) ?? ""}`).join("|");
     return `${counter}|${scroll}|${surfaces}|${content}|${backgrounds}`;
+  }
+  function canvasReaderSignatureCounter(canvases) {
+    const counter = canvasReaderPageCounter();
+    if (isBookwalkerViewerHost() && shouldIgnoreBookwalkerCounterForCanvasSignature(canvases)) return "";
+    return counter;
+  }
+  function shouldIgnoreBookwalkerCounterForCanvasSignature(canvases) {
+    try {
+      if (new URL(location.href).searchParams.get("cty") === "2") return true;
+    } catch {
+    }
+    return hasVerticallyStackedDocumentPageRun(canvases);
   }
   function shouldUseBookwalkerScrollSignature(canvases) {
     return !hasDistinctVisiblePageLayout(visibleViewportCanvases(canvases)) && !hasVerticallyStackedDocumentPageRun(canvases);
@@ -39539,6 +40033,7 @@ ${spelling}`);
   const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
   const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
   const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8e3;
+  const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
   const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
@@ -40242,7 +40737,26 @@ ${spelling}`);
     recognizeImage(image, settings) {
       const recognizer = ocrRecognizer(settings);
       if (!recognizer) return Promise.resolve(null);
+      if (this.shouldSplitBookwalkerSpreadFrame(image)) return this.recognizeBookwalkerSpreadFrame(image, settings, recognizer);
       return this.recognizeWithDarkPass(image, settings, recognizer);
+    }
+    shouldSplitBookwalkerSpreadFrame(image) {
+      const canvas = this.canvasFrameSources.get(image);
+      if (!canvas || !isWideBookwalkerSpreadCanvas(canvas)) return false;
+      try {
+        const size = loadedImageSize(image);
+        return size.width / Math.max(1, size.height) >= BOOKWALKER_SPREAD_MIN_ASPECT;
+      } catch {
+        return false;
+      }
+    }
+    async recognizeBookwalkerSpreadFrame(image, settings, recognizer) {
+      const slices = await splitImageIntoPageColumns(image);
+      const results = await Promise.all(slices.map(async (slice) => {
+        const result = await this.recognizeWithDarkPass(slice.image, settings, recognizer).catch(() => null);
+        return result ? offsetOcrResult(result, slice.left, 0, slice.totalWidth, slice.totalHeight) : null;
+      }));
+      return mergeOcrResults(slices[0]?.totalWidth ?? 0, slices[0]?.totalHeight ?? 0, results);
     }
     // Normal recognition always runs. A second, inverted pass is spent only when
     // the image has a dark region (where white-on-black text could hide) AND that
@@ -40848,7 +41362,7 @@ ${spelling}`);
         const frame = document.createElement("img");
         frame.className = "jpdb-ocr-canvas-frame";
         frame.dataset.yomuCanvasFrame = "true";
-        if (contentKey) frame.dataset.ocrContentKey = contentKey;
+        if (contentKey) frame.dataset.ocrContentKey = canvasFrameContentKey(contentKey, canvas);
         frame.alt = "";
         positionCanvasFrameImage(frame, frameRect);
         frame.addEventListener("load", () => {
@@ -42052,8 +42566,42 @@ ${spelling}`);
   function drawImageToCanvas(image, maxPixels) {
     const size = loadedImageSize(image);
     const canvas = scaledCanvas(size, maxPixels);
-    drawableCanvasContext(canvas).drawImage(image, 0, 0, canvas.width, canvas.height);
+    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, 0, 0, canvas.width, canvas.height);
     return canvas;
+  }
+  async function splitImageIntoPageColumns(image) {
+    const size = loadedImageSize(image);
+    const mid = Math.round(size.width / 2);
+    return Promise.all([
+      cropOcrImageColumn(image, 0, mid, size),
+      cropOcrImageColumn(image, mid, size.width - mid, size)
+    ]);
+  }
+  async function cropOcrImageColumn(image, left, width, size) {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, width);
+    canvas.height = Math.max(1, size.height);
+    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, left, 0, width, size.height, 0, 0, canvas.width, canvas.height);
+    return {
+      image: await loadImage(canvas.toDataURL("image/jpeg", 0.9)),
+      left,
+      totalWidth: size.width,
+      totalHeight: size.height
+    };
+  }
+  function offsetOcrResult(result, left, top, width, height) {
+    return {
+      width,
+      height,
+      lines: result.lines.map((line) => ({
+        ...line,
+        box: { ...line.box, left: line.box.left + left, top: line.box.top + top }
+      }))
+    };
+  }
+  function mergeOcrResults(width, height, results) {
+    const lines = results.flatMap((result) => result?.lines ?? []);
+    return width && height && lines.length ? { width, height, lines } : null;
   }
   function loadedImageSize(image) {
     const width = image.naturalWidth || image.width;
@@ -42651,6 +43199,12 @@ ${spelling}`);
   }
   function readerRasterSurfaceSnapshotKey(surface) {
     return surface instanceof HTMLCanvasElement ? canvasSurfaceSnapshotKey(surface) : backgroundSurfaceCacheKey(surface);
+  }
+  function canvasFrameContentKey(contentKey, canvas) {
+    return isWideBookwalkerSpreadCanvas(canvas) ? `${contentKey}:bw-spread-v2` : contentKey;
+  }
+  function isWideBookwalkerSpreadCanvas(canvas) {
+    return isBookwalkerViewerHost() && !isBookwalkerContinuousScrollCanvas(canvas) && canvas.width / Math.max(1, canvas.height) >= BOOKWALKER_SPREAD_MIN_ASPECT;
   }
   function canvasSurfaceSnapshotKey(canvas) {
     const surfaceId = canvasReaderSurfaceId(canvas);
