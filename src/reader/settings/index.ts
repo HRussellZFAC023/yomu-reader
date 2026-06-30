@@ -69,6 +69,24 @@ export const AUDIO_SOURCE_UI_TYPE_VALUES = AUDIO_SOURCE_TYPE_VALUES.filter(type 
 
 export const DEFAULT_AUDIO_SOURCES: AudioSourceSetting[] = [
     { type: 'custom-json', url: YOMU_HOSTED_AUDIO_URL, voice: '', enabled: true },
+    { type: 'jpod101', url: '', voice: '', enabled: false },
+    { type: 'language-pod-101', url: '', voice: '', enabled: false },
+    { type: 'jisho', url: '', voice: '', enabled: false },
+    { type: 'jiten-tts', url: '', voice: '', enabled: false },
+    { type: 'jpdb-tts', url: '', voice: '', enabled: false },
+    { type: 'text-to-speech', url: '', voice: '', enabled: false },
+];
+
+const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_TYPE_VALUES);
+const LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS: AudioSourceSetting[] = [
+    { type: 'custom-json', url: YOMU_HOSTED_AUDIO_URL, voice: '', enabled: true },
+    { type: 'jpod101', url: '', voice: '', enabled: true },
+    { type: 'language-pod-101', url: '', voice: '', enabled: true },
+    { type: 'jisho', url: '', voice: '', enabled: true },
+    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+];
+const LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS: AudioSourceSetting[] = [
+    { type: 'custom-json', url: YOMU_HOSTED_AUDIO_URL, voice: '', enabled: true },
     { type: 'jpod101', url: '', voice: '', enabled: true },
     { type: 'language-pod-101', url: '', voice: '', enabled: true },
     { type: 'jisho', url: '', voice: '', enabled: true },
@@ -76,9 +94,11 @@ export const DEFAULT_AUDIO_SOURCES: AudioSourceSetting[] = [
     { type: 'jpdb-tts', url: '', voice: '', enabled: true },
     { type: 'text-to-speech', url: '', voice: '', enabled: true },
 ];
-
-const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_TYPE_VALUES);
-const LEGACY_DEFAULT_AUDIO_SOURCE_TYPES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'text-to-speech'];
+const DEFAULT_OFF_AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(
+    DEFAULT_AUDIO_SOURCES
+        .filter(source => source.type !== 'custom-json' || source.url !== YOMU_HOSTED_AUDIO_URL)
+        .map(source => source.type),
+);
 const READER_COLOR_SOURCES = new Set<ReaderColorSource>(['auto', 'status', 'jpdb', 'anki', 'pitch', 'off']);
 const EXPLICIT_FURIGANA_MODES = new Set<FuriganaMode>(['all', 'difficult-kanji', 'known-status', 'hover']);
 const OCR_ENGINE_ALIASES = new Map<string, string>([
@@ -1638,13 +1658,37 @@ function isHostedAudioSource(source: AudioSourceSetting): boolean {
 }
 
 function migrateLegacyDefaultAudioSources(sources: AudioSourceSetting[]): AudioSourceSetting[] {
-    const types = new Set(sources.map(source => source.type));
-    if (!LEGACY_DEFAULT_AUDIO_SOURCE_TYPES.every(type => types.has(type))) return sources;
+    if (!isUntouchedLegacyDefaultAudioSources(sources)) return sources;
 
     const migrated = sources.map(source => ({ ...source }));
-    ensureBuiltInAudioSource(migrated, { type: 'jpdb-tts', url: '', voice: '', enabled: true }, 'text-to-speech');
-    ensureBuiltInAudioSource(migrated, { type: 'jiten-tts', url: '', voice: '', enabled: true }, 'jpdb-tts');
+    ensureBuiltInAudioSource(migrated, { type: 'jpdb-tts', url: '', voice: '', enabled: false }, 'text-to-speech');
+    ensureBuiltInAudioSource(migrated, { type: 'jiten-tts', url: '', voice: '', enabled: false }, 'jpdb-tts');
+    for (const source of migrated) {
+        if (isDefaultOffAudioSource(source)) source.enabled = false;
+    }
     return migrated;
+}
+
+function isUntouchedLegacyDefaultAudioSources(sources: AudioSourceSetting[]): boolean {
+    return audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS)
+        || audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS);
+}
+
+function audioSourceListMatches(sources: AudioSourceSetting[], expected: AudioSourceSetting[]): boolean {
+    return sources.length === expected.length
+        && expected.every((source, index) => audioSourceMatches(sources[index], source));
+}
+
+function audioSourceMatches(source: AudioSourceSetting | undefined, expected: AudioSourceSetting): boolean {
+    return Boolean(source
+        && source.type === expected.type
+        && source.url === expected.url
+        && source.voice === expected.voice
+        && source.enabled === expected.enabled);
+}
+
+function isDefaultOffAudioSource(source: AudioSourceSetting): boolean {
+    return DEFAULT_OFF_AUDIO_SOURCE_TYPES.has(source.type) && !source.url.trim() && !source.voice.trim();
 }
 
 function ensureBuiltInAudioSource(sources: AudioSourceSetting[], source: AudioSourceSetting, beforeType: AudioSourceType): void {

@@ -72,7 +72,7 @@ const COPY = {
         apiKey: 'API key',
         jitenApiKey: 'Jiten API key',
         apiAccess: 'API access',
-        apiAccessHelp: 'Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.',
+        apiAccessHelp: 'Paste separate API keys here. For Bunpro, open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.',
         jpdbSettings: 'JPDB settings',
         jitenSettings: 'Jiten settings',
         bunproSettings: 'Bunpro settings',
@@ -1772,7 +1772,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	APIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から、Bunproはfrontend_api_tokenを使います。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	APIキーを別々に貼ります。Bunproはログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定

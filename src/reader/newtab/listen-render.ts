@@ -140,7 +140,34 @@ function renderSpeakingScore(view: ListenCardView, t: Translate): string {
         retry: 'listenMicScoreRetry',
     };
     const state = view.speakingScore.verdict;
-    return `<span class="jpdb-reader-newtab-listen-score" data-speaking-score-state="${state}">${escapeHtml(t(labelKey[state]))} ${view.speakingScore.score}%</span>`;
+    return `
+        <div class="jpdb-reader-newtab-listen-score-panel" data-speaking-score-state="${state}">
+            <span class="jpdb-reader-newtab-listen-score" data-speaking-score-state="${state}">${escapeHtml(t(labelKey[state]))} ${view.speakingScore.score}%</span>
+            <span class="jpdb-reader-newtab-listen-score-tip">${escapeHtml(t(speakingScoreTipKey(view.speakingScore)))}</span>
+            ${state === 'good' ? '' : renderSpeakingContourComparison(view.item, view.speakingScore, t)}
+        </div>`;
+}
+
+function renderSpeakingContourComparison(item: PitchSrsItem, score: SpeakingPitchScore, t: Translate): string {
+    const expectedGraph = renderPitchGraphSvg(item.reading, score.expectedPattern);
+    const observedGraph = renderPitchGraphSvg(item.reading, score.observedPattern);
+    return `
+        <div class="jpdb-reader-newtab-listen-score-contours">
+            <span>${escapeHtml(t('listenMicExpected'))}</span>
+            <span class="jpdb-reader-newtab-listen-score-graph">${expectedGraph}</span>
+            <span>${escapeHtml(t('listenMicYouContour'))}</span>
+            <span class="jpdb-reader-newtab-listen-score-graph">${observedGraph}</span>
+        </div>`;
+}
+
+function speakingScoreTipKey(score: SpeakingPitchScore): NewTabCopyKey {
+    if (score.verdict === 'good') return 'listenMicTipMatched';
+    const expected = score.expectedPattern;
+    const observed = score.observedPattern;
+    if (expected[0] !== observed[0]) return expected[0] === 'L' ? 'listenMicTipStartLow' : 'listenMicTipStartHigh';
+    if (expected.includes('HL') && !observed.includes('HL')) return 'listenMicTipMakeDropClear';
+    if (expected.includes('LH') && !observed.includes('LH')) return 'listenMicTipMakeRiseClear';
+    return 'listenMicTipListenAgain';
 }
 
 export function renderListenCard(view: ListenCardView, t: Translate): string {

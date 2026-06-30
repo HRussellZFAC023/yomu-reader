@@ -28,6 +28,10 @@ describe('hosted overflow menus', () => {
         expect(theme).toContain("const YOMU_SUPPORT_DONATE_URL = 'https://support.yomureader.com/donate'");
         expect(theme).toContain("const YOMU_SUPPORT_FALLBACK_STATUS_URL = 'https://yomu-support.henry-robert-christopher-russell.workers.dev/status'");
         expect(theme).toContain("for (const url of [YOMU_SUPPORT_STATUS_URL, YOMU_SUPPORT_FALLBACK_STATUS_URL])");
+        expect(theme).not.toContain("fallbackHostedSupportStatus");
+        expect(theme).toContain("const YOMU_SUPPORT_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1000");
+        expect(theme).toContain("dismissedUntil: Date.now() + YOMU_SUPPORT_BANNER_DISMISS_MS");
+        expect(theme).toContain("Yomu's Ultimate Audio is donation funded.");
     });
 
     it('uses homepage-style labels and compact sizing on the newtab menu', () => {
@@ -40,8 +44,12 @@ describe('hosted overflow menus', () => {
         expect(controller).toContain("uiText(language, 'changelog')");
         expect(controller).toContain("uiText(language, 'support')");
         expect(controller).toContain("uiText(language, 'github')");
+        expect(controller).toContain("SUPPORT_STATUS_URL");
+        expect(controller).toContain("NEW_TAB_SUPPORT_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1000");
+        expect(controller).toContain("dismiss-support-banner");
         expect(controller).not.toContain("this.renderOverflowMenuLink('Local Audio'");
         expect(controller).not.toContain("this.renderOverflowMenuLink('Support'");
+        expect(css).toContain('.jpdb-reader-newtab-support-banner {');
         expect(css).toContain('min-width: 190px; padding: 8px;');
         expect(css).toContain('.jpdb-reader-newtab-menu-description { display: none;');
     });

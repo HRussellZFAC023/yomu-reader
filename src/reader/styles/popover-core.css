@@ -1079,6 +1079,82 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
   background: color-mix(in srgb, var(--jpdb-reader-danger) 11%, var(--jpdb-reader-surface-2));
   color: var(--jpdb-reader-danger-readable);
 }
+
+.jpdb-reader-bunpro-token-importer {
+  position: fixed;
+  z-index: 2147483646;
+  inset: auto 18px 18px auto;
+  width: min(360px, calc(100vw - 28px));
+  color: var(--jpdb-reader-text);
+  font: 14px/1.45 var(--jpdb-reader-popup-font-family, var(--jpdb-reader-font-family, system-ui, sans-serif));
+  pointer-events: auto;
+}
+
+.jpdb-reader-bunpro-token-importer-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 36%, var(--jpdb-reader-border));
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  box-shadow: 0 12px 34px var(--jpdb-reader-shadow);
+}
+
+.jpdb-reader-bunpro-token-importer-title {
+  font-weight: 750;
+  color: var(--jpdb-reader-text);
+}
+
+.jpdb-reader-bunpro-token-importer p {
+  margin: 0;
+  color: var(--jpdb-reader-muted);
+}
+
+.jpdb-reader-bunpro-token-importer-meta {
+  font-size: 12px;
+  color: var(--jpdb-reader-muted);
+}
+
+.jpdb-reader-bunpro-token-importer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.jpdb-reader-bunpro-token-importer-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 68%, var(--jpdb-reader-border));
+  border-radius: 999px;
+  background: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-contrast, #ffffff);
+  font-weight: 700;
+}
+
+.jpdb-reader-bunpro-token-importer-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.jpdb-reader-bunpro-token-importer [data-bunpro-import-status] {
+  flex: 1 1 130px;
+  min-width: 0;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .jpdb-reader-bunpro-token-importer {
+    inset: auto 12px 12px 12px;
+    width: auto;
+  }
+}
 .jpdb-reader-meanings {
   margin: 9px 0;
   display: grid;

@@ -27,28 +27,17 @@ export interface OrderedAudioSource {
     signature: string;
 }
 
-const REQUIRED_JA_AUDIO_SOURCES: AudioSourceSetting[] = [
-    { type: 'custom-json', url: YOMU_HOSTED_AUDIO_URL, voice: '', enabled: true },
-    { type: 'jpod101', url: '', voice: '', enabled: true },
-    { type: 'language-pod-101', url: '', voice: '', enabled: true },
-    { type: 'jisho', url: '', voice: '', enabled: true },
-    { type: 'jiten-tts', url: '', voice: '', enabled: true },
-    { type: 'jpdb-tts', url: '', voice: '', enabled: true },
-    { type: 'text-to-speech', url: '', voice: '', enabled: true },
-];
+const YOMU_HOSTED_AUDIO_SOURCE: AudioSourceSetting =
+    { type: 'custom-json', url: YOMU_HOSTED_AUDIO_URL, voice: '', enabled: true };
 
 export function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSetting[] {
     const sources = settings.audioSources.filter(source => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
 
-    const configuredTypes = new Set(settings.audioSources.map(source => source.type));
-    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? REQUIRED_JA_AUDIO_SOURCES[0]!;
+    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
     return [
         ...(hosted.enabled ? [{ ...hosted }] : []),
         ...sources.filter(source => !isYomuHostedAudioSource(source)),
-        ...REQUIRED_JA_AUDIO_SOURCES
-            .filter(source => !isYomuHostedAudioSource(source) && !configuredTypes.has(source.type))
-            .map(source => ({ ...source })),
     ];
 }
 

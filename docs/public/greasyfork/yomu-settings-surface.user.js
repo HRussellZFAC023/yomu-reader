@@ -1999,6 +1999,23 @@
   const AUDIO_SOURCE_UI_TYPE_VALUES = AUDIO_SOURCE_TYPE_VALUES.filter((type) => type !== "custom");
   const DEFAULT_AUDIO_SOURCES = [
     { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+    { type: "jpod101", url: "", voice: "", enabled: false },
+    { type: "language-pod-101", url: "", voice: "", enabled: false },
+    { type: "jisho", url: "", voice: "", enabled: false },
+    { type: "jiten-tts", url: "", voice: "", enabled: false },
+    { type: "jpdb-tts", url: "", voice: "", enabled: false },
+    { type: "text-to-speech", url: "", voice: "", enabled: false }
+  ];
+  const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
+  const LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS = [
+    { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+    { type: "jpod101", url: "", voice: "", enabled: true },
+    { type: "language-pod-101", url: "", voice: "", enabled: true },
+    { type: "jisho", url: "", voice: "", enabled: true },
+    { type: "text-to-speech", url: "", voice: "", enabled: true }
+  ];
+  const LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS = [
+    { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
     { type: "jpod101", url: "", voice: "", enabled: true },
     { type: "language-pod-101", url: "", voice: "", enabled: true },
     { type: "jisho", url: "", voice: "", enabled: true },
@@ -2006,8 +2023,9 @@
     { type: "jpdb-tts", url: "", voice: "", enabled: true },
     { type: "text-to-speech", url: "", voice: "", enabled: true }
   ];
-  const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
-  const LEGACY_DEFAULT_AUDIO_SOURCE_TYPES = ["jpod101", "language-pod-101", "jisho", "text-to-speech"];
+  const DEFAULT_OFF_AUDIO_SOURCE_TYPES = new Set(
+    DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
+  );
   const READER_COLOR_SOURCES = /* @__PURE__ */ new Set(["auto", "status", "jpdb", "anki", "pitch", "off"]);
   const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status", "hover"]);
   const OCR_ENGINE_ALIASES = /* @__PURE__ */ new Map([
@@ -3146,12 +3164,26 @@
     return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
   }
   function migrateLegacyDefaultAudioSources(sources) {
-    const types = new Set(sources.map((source) => source.type));
-    if (!LEGACY_DEFAULT_AUDIO_SOURCE_TYPES.every((type) => types.has(type))) return sources;
+    if (!isUntouchedLegacyDefaultAudioSources(sources)) return sources;
     const migrated = sources.map((source) => ({ ...source }));
-    ensureBuiltInAudioSource(migrated, { type: "jpdb-tts", url: "", voice: "", enabled: true }, "text-to-speech");
-    ensureBuiltInAudioSource(migrated, { type: "jiten-tts", url: "", voice: "", enabled: true }, "jpdb-tts");
+    ensureBuiltInAudioSource(migrated, { type: "jpdb-tts", url: "", voice: "", enabled: false }, "text-to-speech");
+    ensureBuiltInAudioSource(migrated, { type: "jiten-tts", url: "", voice: "", enabled: false }, "jpdb-tts");
+    for (const source of migrated) {
+      if (isDefaultOffAudioSource(source)) source.enabled = false;
+    }
     return migrated;
+  }
+  function isUntouchedLegacyDefaultAudioSources(sources) {
+    return audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS) || audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS);
+  }
+  function audioSourceListMatches(sources, expected) {
+    return sources.length === expected.length && expected.every((source, index) => audioSourceMatches(sources[index], source));
+  }
+  function audioSourceMatches(source, expected) {
+    return Boolean(source && source.type === expected.type && source.url === expected.url && source.voice === expected.voice && source.enabled === expected.enabled);
+  }
+  function isDefaultOffAudioSource(source) {
+    return DEFAULT_OFF_AUDIO_SOURCE_TYPES.has(source.type) && !source.url.trim() && !source.voice.trim();
   }
   function ensureBuiltInAudioSource(sources, source, beforeType) {
     if (sources.some((candidate) => candidate.type === source.type)) return;
@@ -3904,7 +3936,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.",
+      apiAccessHelp: "Paste separate API keys here. For Bunpro, open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       bunproSettings: "Bunpro settings",
@@ -5579,7 +5611,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	APIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から、Bunproはfrontend_api_tokenを使います。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	APIキーを別々に貼ります。Bunproはログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
@@ -9032,7 +9064,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                         ${input("apiCredentialBunpro", `Bunpro frontend API token <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproFrontendApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "frontend_api_token" })}
                         <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml(settings.bunproFrontendApiTokenExpiresAt)}">
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. For Bunpro, open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.</div>
                 </div>
                 ${jpdbStatus}
                 ${bunproStatus}

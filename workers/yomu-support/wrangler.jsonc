@@ -15,10 +15,11 @@
   "vars": {
     "SUPPORT_BANNER_ENABLED": "true",
     "SUPPORT_DAILY_BUDGET_GBP": "10",
-    "SUPPORT_DONATION_GOAL_GBP": "10",
+    "SUPPORT_DONATION_GOAL_MONTHLY_GBP": "10",
     "SUPPORT_DONATIONS_TODAY_GBP": "0",
+    "SUPPORT_DONATIONS_THIS_MONTH_GBP": "0",
     "SUPPORT_ESTIMATED_DAILY_COST_GBP": "0",
-    "SUPPORT_FALLBACK_DONATE_URL": "https://paypal.me/HenryRussell163",
+    "SUPPORT_ESTIMATED_MONTHLY_COST_GBP": "10",
     "SUPPORT_SUCCESS_URL": "https://yomureader.com/support?donation=success",
     "SUPPORT_CANCEL_URL": "https://yomureader.com/support?donation=cancelled"
   },

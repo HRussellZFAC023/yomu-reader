@@ -2621,6 +2621,23 @@ const AUDIO_SOURCE_TYPE_VALUES = [
 ];
 const DEFAULT_AUDIO_SOURCES = [
   { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+  { type: "jpod101", url: "", voice: "", enabled: false },
+  { type: "language-pod-101", url: "", voice: "", enabled: false },
+  { type: "jisho", url: "", voice: "", enabled: false },
+  { type: "jiten-tts", url: "", voice: "", enabled: false },
+  { type: "jpdb-tts", url: "", voice: "", enabled: false },
+  { type: "text-to-speech", url: "", voice: "", enabled: false }
+];
+const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
+const LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS = [
+  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+  { type: "jpod101", url: "", voice: "", enabled: true },
+  { type: "language-pod-101", url: "", voice: "", enabled: true },
+  { type: "jisho", url: "", voice: "", enabled: true },
+  { type: "text-to-speech", url: "", voice: "", enabled: true }
+];
+const LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS = [
+  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
   { type: "jpod101", url: "", voice: "", enabled: true },
   { type: "language-pod-101", url: "", voice: "", enabled: true },
   { type: "jisho", url: "", voice: "", enabled: true },
@@ -2628,8 +2645,9 @@ const DEFAULT_AUDIO_SOURCES = [
   { type: "jpdb-tts", url: "", voice: "", enabled: true },
   { type: "text-to-speech", url: "", voice: "", enabled: true }
 ];
-const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
-const LEGACY_DEFAULT_AUDIO_SOURCE_TYPES = ["jpod101", "language-pod-101", "jisho", "text-to-speech"];
+const DEFAULT_OFF_AUDIO_SOURCE_TYPES = new Set(
+  DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
+);
 const READER_COLOR_SOURCES = new Set(["auto", "status", "jpdb", "anki", "pitch", "off"]);
 const EXPLICIT_FURIGANA_MODES = new Set(["all", "difficult-kanji", "known-status", "hover"]);
 const OCR_ENGINE_ALIASES = new Map([
@@ -3921,12 +3939,26 @@ function isHostedAudioSource(source) {
   return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
 }
 function migrateLegacyDefaultAudioSources(sources) {
-  const types = new Set(sources.map((source) => source.type));
-  if (!LEGACY_DEFAULT_AUDIO_SOURCE_TYPES.every((type) => types.has(type))) return sources;
+  if (!isUntouchedLegacyDefaultAudioSources(sources)) return sources;
   const migrated = sources.map((source) => ({ ...source }));
-  ensureBuiltInAudioSource(migrated, { type: "jpdb-tts", url: "", voice: "", enabled: true }, "text-to-speech");
-  ensureBuiltInAudioSource(migrated, { type: "jiten-tts", url: "", voice: "", enabled: true }, "jpdb-tts");
+  ensureBuiltInAudioSource(migrated, { type: "jpdb-tts", url: "", voice: "", enabled: false }, "text-to-speech");
+  ensureBuiltInAudioSource(migrated, { type: "jiten-tts", url: "", voice: "", enabled: false }, "jpdb-tts");
+  for (const source of migrated) {
+  if (isDefaultOffAudioSource(source)) source.enabled = false;
+  }
   return migrated;
+}
+function isUntouchedLegacyDefaultAudioSources(sources) {
+  return audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS) || audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS);
+}
+function audioSourceListMatches(sources, expected) {
+  return sources.length === expected.length && expected.every((source, index) => audioSourceMatches(sources[index], source));
+}
+function audioSourceMatches(source, expected) {
+  return Boolean(source && source.type === expected.type && source.url === expected.url && source.voice === expected.voice && source.enabled === expected.enabled);
+}
+function isDefaultOffAudioSource(source) {
+  return DEFAULT_OFF_AUDIO_SOURCE_TYPES.has(source.type) && !source.url.trim() && !source.voice.trim();
 }
 function ensureBuiltInAudioSource(sources, source, beforeType) {
   if (sources.some((candidate) => candidate.type === source.type)) return;
@@ -7844,7 +7876,7 @@ const COPY = {
   apiKey: "API key",
   jitenApiKey: "Jiten API key",
   apiAccess: "API access",
-  apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.",
+  apiAccessHelp: "Paste separate API keys here. For Bunpro, open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
   jpdbSettings: "JPDB settings",
   jitenSettings: "Jiten settings",
   bunproSettings: "Bunpro settings",
@@ -8968,18 +9000,18 @@ const CARD_STATE_LABEL_KEYS = {
   unparsed: "stateUnparsed"
 };
 function parseUiCopyTable(rows) {
-  const copy = {};
+  const copy2 = {};
   rows.trim().split("\n").forEach((row) => {
   const tab = row.indexOf("	");
   if (tab < 0) {
     const key = row.trim();
-    if (key) copy[key] = "";
+    if (key) copy2[key] = "";
     return;
   }
   if (tab === 0) return;
-  copy[row.slice(0, tab)] = row.slice(tab + 1).replaceAll("{APP_NAME}", APP_NAME);
+  copy2[row.slice(0, tab)] = row.slice(tab + 1).replaceAll("{APP_NAME}", APP_NAME);
   });
-  return copy;
+  return copy2;
 }
 const JA_COPY = parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
@@ -9538,7 +9570,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	APIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から、Bunproはfrontend_api_tokenを使います。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	APIキーを別々に貼ります。Bunproはログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
@@ -10253,24 +10285,14 @@ function removeAudioDeckId(ids, id) {
   const index = ids.indexOf(id);
   if (index >= 0) ids.splice(index, 1);
 }
-const REQUIRED_JA_AUDIO_SOURCES = [
-  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-  { type: "jpod101", url: "", voice: "", enabled: true },
-  { type: "language-pod-101", url: "", voice: "", enabled: true },
-  { type: "jisho", url: "", voice: "", enabled: true },
-  { type: "jiten-tts", url: "", voice: "", enabled: true },
-  { type: "jpdb-tts", url: "", voice: "", enabled: true },
-  { type: "text-to-speech", url: "", voice: "", enabled: true }
-];
+const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
 function getOrderedAudioSources(settings) {
   const sources = settings.audioSources.filter((source) => source.enabled);
   if (!settings.audioEnableDefaultSources) return sources;
-  const configuredTypes = new Set(settings.audioSources.map((source) => source.type));
-  const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? REQUIRED_JA_AUDIO_SOURCES[0];
+  const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
   return [
   ...hosted.enabled ? [{ ...hosted }] : [],
-  ...sources.filter((source) => !isYomuHostedAudioSource(source)),
-  ...REQUIRED_JA_AUDIO_SOURCES.filter((source) => !isYomuHostedAudioSource(source) && !configuredTypes.has(source.type)).map((source) => ({ ...source }))
+  ...sources.filter((source) => !isYomuHostedAudioSource(source))
   ];
 }
 function isYomuHostedAudioSource(source) {
@@ -34637,7 +34659,7 @@ class OnboardingController {
   closeButton.addEventListener("click", () => void this.complete(false));
   const eyebrow = element("div", "jpdb-reader-onboarding-eyebrow", uiText(this.options.getSettings().interfaceLanguage, "onboardingEyebrow"));
   const title = element("h2", "", APP_NAME);
-  const copy = element(
+  const copy2 = element(
     "p",
     "",
     uiText(this.options.getSettings().interfaceLanguage, "onboardingCopy")
@@ -34742,7 +34764,7 @@ class OnboardingController {
     if (event.key !== "Enter" && event.key !== " ") return;
     if (this.handleWordLookup(event)) event.preventDefault();
   });
-  this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, actions, featureList);
+  this.panel.append(closeButton, eyebrow, title, copy2, basics, immersionOptions, actions, featureList);
   this.syncThemeSwitch();
   this.syncAccentPicker(this.accentColorInput.value);
   document.body.append(this.backdrop, this.panel);
@@ -34769,8 +34791,8 @@ class OnboardingController {
   if (!panel) return;
   panel.setAttribute("aria-label", uiText(language, "welcomeLabel"));
   panel.querySelector(".jpdb-reader-onboarding-eyebrow")?.replaceChildren(uiText(language, "onboardingEyebrow"));
-  const copy = panel.querySelector("p");
-  copy?.replaceChildren(uiText(language, "onboardingCopy"));
+  const copy2 = panel.querySelector("p");
+  copy2?.replaceChildren(uiText(language, "onboardingCopy"));
   panel.querySelector(".jpdb-reader-onboarding-language span")?.replaceChildren(uiText(language, "onboardingLanguage"));
   panel.querySelector('[data-onboarding-copy="theme"]')?.replaceChildren(uiText(language, "theme"));
   panel.querySelector(".jpdb-reader-onboarding-options legend")?.replaceChildren(uiText(language, "onboardingImmersionOptions"));
@@ -34967,11 +34989,11 @@ function isOnboardingCommandWord(word) {
 function checkboxLabel(input, text2) {
   const label = document.createElement("label");
   label.className = "inline";
-  const copy = document.createElement("span");
-  copy.id = onboardingCopyId(input.name);
-  copy.dataset.onboardingCopy = input.name;
-  copy.textContent = text2;
-  label.append(input, copy);
+  const copy2 = document.createElement("span");
+  copy2.id = onboardingCopyId(input.name);
+  copy2.dataset.onboardingCopy = input.name;
+  copy2.textContent = text2;
+  label.append(input, copy2);
   return label;
 }
 function onboardingCopyId(name) {
@@ -35458,7 +35480,7 @@ function sp(p, k, v, r = EN_LOCALE_RE) {
 }
 function mergeCookie(name, values, domain) {
   try {
-  const params = new URLSearchParams(cookieValue(name));
+  const params = new URLSearchParams(cookieValue$1(name));
   for (const [key, value] of Object.entries(values)) params.set(key, value);
   writeCookie(name, params.toString(), domain, 31536e3);
   } catch {
@@ -35466,7 +35488,7 @@ function mergeCookie(name, values, domain) {
 }
 function clearCookieValues(name, keys, domain) {
   try {
-  const currentValue = cookieValue(name);
+  const currentValue = cookieValue$1(name);
   if (!currentValue) return;
   const params = new URLSearchParams(currentValue);
   for (const key of keys) params.delete(key);
@@ -35481,7 +35503,7 @@ function writeCookie(name, value, domain, maxAge) {
   const securePart = location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${name}=${value}; Path=/; Max-Age=${maxAge}; SameSite=Lax${securePart}${domainPart}`;
 }
-function cookieValue(name) {
+function cookieValue$1(name) {
   const prefix = `${name}=`;
   return document.cookie.split(/;\s*/).find((cookie) => cookie.startsWith(prefix))?.slice(prefix.length) ?? "";
 }
@@ -36866,6 +36888,196 @@ function trimBunproSearchSection(section, limit) {
   const value = section;
   if (!Array.isArray(value.data)) return section;
   return { ...value, data: value.data.slice(0, limit) };
+}
+const BUNPRO_FRONTEND_API_TOKEN_COOKIE = "frontend_api_token";
+const IMPORTER_ID = "jpdb-reader-bunpro-token-importer";
+const BUNPRO_SETTINGS_PATH = "/settings/api";
+function isBunproApiSettingsPage(href = safeHref()) {
+  try {
+  const url = new URL(href, safeHref());
+  const host = url.hostname.toLowerCase();
+  return (host === "bunpro.jp" || host.endsWith(".bunpro.jp")) && normalizePathname(url.pathname) === BUNPRO_SETTINGS_PATH;
+  } catch {
+  return false;
+  }
+}
+async function readBunproFrontendToken(options = {}) {
+  const fromCookieStore = await readBunproFrontendTokenFromCookieStore(options.cookieStore ?? globalCookieStore());
+  if (fromCookieStore) return fromCookieStore;
+  return readBunproFrontendTokenFromCookieHeader(options.cookieHeader?.() ?? safeDocumentCookie());
+}
+function readBunproFrontendTokenFromCookieHeader(cookieHeader) {
+  const token = cookieValue(cookieHeader, BUNPRO_FRONTEND_API_TOKEN_COOKIE);
+  return token ? { token, expiresAt: "" } : null;
+}
+async function installBunproFrontendTokenImporter(options) {
+  if (typeof document === "undefined") return;
+  if (!isBunproApiSettingsPage(options.href)) return;
+  await waitForBody();
+  if (!document.body || document.getElementById(IMPORTER_ID)) return;
+  const language = resolveUiLanguage(options.language?.() ?? options.getSettings().interfaceLanguage);
+  const token = await readBunproFrontendToken(options);
+  const root = document.createElement("section");
+  root.id = IMPORTER_ID;
+  root.className = "jpdb-reader-bunpro-token-importer";
+  root.dataset.jpdbReaderRoot = "true";
+  root.setAttribute("role", "region");
+  root.setAttribute("aria-label", copy(language).title);
+  root.append(renderBunproImporterContent(token, language));
+  document.body.append(root);
+  const button2 = root.querySelector('[data-action="import-bunpro-token"]');
+  button2?.addEventListener("click", () => {
+  void importBunproToken(token, options, root, language);
+  });
+}
+async function importBunproToken(token, options, root, language) {
+  const latestToken = token ?? await readBunproFrontendToken(options);
+  const ui = copy(language);
+  const status = root.querySelector("[data-bunpro-import-status]");
+  if (!latestToken) {
+  if (status) status.textContent = ui.missing;
+  return;
+  }
+  const nextSettings = {
+  ...options.getSettings(),
+  bunproFrontendApiToken: latestToken.token,
+  bunproFrontendApiTokenExpiresAt: latestToken.expiresAt,
+  bunproMiningEnabled: true
+  };
+  if (status) status.textContent = ui.saving;
+  try {
+  options.setSettings(nextSettings);
+  await options.saveSettings(nextSettings);
+  if (status) status.textContent = ui.saved;
+  options.toast?.(ui.saved);
+  } catch {
+  if (status) status.textContent = ui.failed;
+  options.toast?.(ui.failed);
+  }
+}
+function renderBunproImporterContent(token, language) {
+  const ui = copy(language);
+  const content = document.createElement("div");
+  content.className = "jpdb-reader-bunpro-token-importer-card";
+  const title = document.createElement("div");
+  title.className = "jpdb-reader-bunpro-token-importer-title";
+  title.textContent = ui.title;
+  const body = document.createElement("p");
+  body.textContent = token ? ui.ready : ui.missing;
+  const meta = document.createElement("div");
+  meta.className = "jpdb-reader-bunpro-token-importer-meta";
+  meta.textContent = token?.expiresAt ? ui.expires(token.expiresAt) : ui.expiryUnknown;
+  const actions = document.createElement("div");
+  actions.className = "jpdb-reader-bunpro-token-importer-actions";
+  const button2 = document.createElement("button");
+  button2.type = "button";
+  button2.className = "jpdb-reader-bunpro-token-importer-button";
+  button2.dataset.action = "import-bunpro-token";
+  button2.disabled = !token;
+  button2.textContent = ui.action;
+  const status = document.createElement("span");
+  status.dataset.bunproImportStatus = "true";
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+  actions.append(button2, status);
+  content.append(title, body, meta, actions);
+  return content;
+}
+async function readBunproFrontendTokenFromCookieStore(cookieStore) {
+  if (!cookieStore?.get) return null;
+  try {
+  const cookie = await cookieStore.get(BUNPRO_FRONTEND_API_TOKEN_COOKIE);
+  const token = normalizeCookieValue(cookie?.value ?? "");
+  if (!token) return null;
+  return { token, expiresAt: normalizeCookieExpires(cookie?.expires) };
+  } catch {
+  return null;
+  }
+}
+function cookieValue(cookieHeader, name) {
+  const parts = cookieHeader.split(";");
+  for (const part of parts) {
+  const [rawName, ...rawValue] = part.split("=");
+  if (rawName?.trim() !== name) continue;
+  return normalizeCookieValue(rawValue.join("="));
+  }
+  return "";
+}
+function normalizeCookieValue(value) {
+  const trimmed = value.trim().replace(/^"|"$/g, "");
+  if (!trimmed) return "";
+  try {
+  return decodeURIComponent(trimmed).trim();
+  } catch {
+  return trimmed;
+  }
+}
+function normalizeCookieExpires(value) {
+  if (value instanceof Date) return finiteDateIso(value);
+  if (typeof value === "number") {
+  if (!Number.isFinite(value) || value <= 0) return "";
+  return finiteDateIso(new Date(value));
+  }
+  if (typeof value === "string") {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? finiteDateIso(new Date(parsed)) : "";
+  }
+  return "";
+}
+function finiteDateIso(date) {
+  return Number.isFinite(date.getTime()) ? date.toISOString() : "";
+}
+function normalizePathname(pathname) {
+  return pathname.replace(/\/+$/u, "") || "/";
+}
+function globalCookieStore() {
+  return globalThis.cookieStore;
+}
+function safeDocumentCookie() {
+  try {
+  return document.cookie ?? "";
+  } catch {
+  return "";
+  }
+}
+function safeHref() {
+  try {
+  return location.href;
+  } catch {
+  return "https://bunpro.jp/settings/api";
+  }
+}
+function waitForBody() {
+  if (document.body || document.readyState !== "loading") return Promise.resolve();
+  return new Promise((resolve) => {
+  document.addEventListener("DOMContentLoaded", () => resolve(), { once: true });
+  });
+}
+function copy(language) {
+  if (language === "ja") {
+  return {
+    title: "Yomu Bunpro連携",
+    ready: "Bunproのログイン用トークンを見つけました。Yomuに保存してBunpro復習を有効にできます。",
+    missing: "Bunproにログインしてから、このページを再読み込みしてください。",
+    expiryUnknown: "有効期限はブラウザから読めませんでした。",
+    expires: (iso) => `期限: ${new Date(iso).toLocaleDateString("ja-JP")}`,
+    action: "Yomuで使う",
+    saving: "保存中...",
+    saved: "BunproトークンをYomuに保存しました。",
+    failed: "保存できませんでした。Yomuの権限を確認してください。"
+  };
+  }
+  return {
+  title: "Yomu Bunpro setup",
+  ready: "Yomu found your Bunpro session token. Save it to enable Bunpro reviews and mining.",
+  missing: "Log in to Bunpro, then refresh this page.",
+  expiryUnknown: "Expiry is not visible in this browser.",
+  expires: (iso) => `Expires ${new Date(iso).toLocaleDateString("en-GB")}`,
+  action: "Use in Yomu",
+  saving: "Saving...",
+  saved: "Bunpro token saved to Yomu.",
+  failed: "Could not save. Check your Yomu userscript permissions."
+  };
 }
 const BUNPRO_SETTINGS_URL = "https://bunpro.jp/settings/api";
 function createBunproSrsAdapter(client) {
@@ -39157,6 +39369,7 @@ class ReaderApp {
     return;
   }
   this.installFab();
+  void this.installBunproTokenImporter();
   this.subtitles.init();
   this.ocr.init();
   this.disposeMokuroOcrToggleWatch?.();
@@ -39172,6 +39385,17 @@ class ReaderApp {
   } else {
     this.scheduleAnkiStatusWarmup();
   }
+  }
+  async installBunproTokenImporter() {
+  await installBunproFrontendTokenImporter({
+    getSettings: () => this.settings,
+    setSettings: (settings) => {
+      this.settings = settings;
+    },
+    saveSettings,
+    toast: (message) => this.toast(message),
+    language: () => this.settings.interfaceLanguage
+  });
   }
   installCardStateSignalSubscription() {
   this.unsubscribeCardStateSignals?.();

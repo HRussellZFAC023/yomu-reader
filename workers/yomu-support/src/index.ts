@@ -1,11 +1,12 @@
 const DEFAULT_DAILY_BUDGET_GBP = 10;
+const DEFAULT_MONTHLY_DONATION_FLOOR_GBP = 10;
 const DEFAULT_DONATION_GBP = 5;
 const DEFAULT_MIN_DONATION_GBP = 1;
 const DEFAULT_MAX_DONATION_GBP = 100;
 const DEFAULT_SUPPORT_URL = "https://yomureader.com/support";
-const DEFAULT_FALLBACK_DONATE_URL = "https://paypal.me/HenryRussell163";
 const STRIPE_CHECKOUT_SESSIONS_URL = "https://api.stripe.com/v1/checkout/sessions";
 const STRIPE_WEBHOOK_TOLERANCE_SECONDS = 300;
+const SUPPORT_BANNER_DISMISS_VERSION = "ultimate-audio-v1";
 const READ_METHODS = new Set(["GET", "HEAD"]);
 const STRIPE_DONATION_EVENT_TYPES = new Set([
   "checkout.session.completed",
@@ -23,9 +24,12 @@ interface Env {
   SUPPORT_BANNER_ENABLED?: string;
   SUPPORT_DAILY_BUDGET_GBP?: string;
   SUPPORT_DONATION_GOAL_GBP?: string;
+  SUPPORT_DONATION_GOAL_MONTHLY_GBP?: string;
   SUPPORT_DONATIONS_TODAY_GBP?: string;
+  SUPPORT_DONATIONS_THIS_MONTH_GBP?: string;
   SUPPORT_ESTIMATED_DAILY_COST_GBP?: string;
-  SUPPORT_FALLBACK_DONATE_URL?: string;
+  SUPPORT_ESTIMATED_MONTHLY_COST_GBP?: string;
+  SUPPORT_STRIPE_PAYMENT_LINK_URL?: string;
   SUPPORT_SUCCESS_URL?: string;
   SUPPORT_CANCEL_URL?: string;
 }
@@ -53,8 +57,10 @@ interface SupportStatus {
   dailyBudgetGbp: number;
   donationGoalGbp: number;
   donationsTodayGbp: number;
+  donationsThisMonthGbp: number;
   donationsSource: "d1" | "env";
   estimatedDailyCostGbp: number;
+  estimatedMonthlyCostGbp: number;
   goalMet: boolean;
   donateUrl: string;
   featuresAtRisk: string[];
@@ -71,6 +77,7 @@ interface SupportStatus {
 
 interface DonationSnapshot {
   donationsTodayGbp: number;
+  donationsThisMonthGbp: number;
   source: "d1" | "env";
 }
 
@@ -130,14 +137,16 @@ async function handleRequest(request: Request, env: Env, _ctx: ExecutionContext)
 
 async function supportStatus(request: Request, env: Env): Promise<SupportStatus> {
   const dailyBudgetGbp = positiveNumberEnv(env.SUPPORT_DAILY_BUDGET_GBP, DEFAULT_DAILY_BUDGET_GBP);
-  const donationGoalGbp = positiveNumberEnv(env.SUPPORT_DONATION_GOAL_GBP, dailyBudgetGbp);
-  const donations = await donationSnapshotForToday(env);
-  const donationsTodayGbp = donations.donationsTodayGbp;
   const estimatedDailyCostGbp = nonNegativeNumberEnv(env.SUPPORT_ESTIMATED_DAILY_COST_GBP, 0);
-  const goalMet = donationsTodayGbp >= donationGoalGbp;
+  const estimatedMonthlyCostGbp = monthlyCostEstimate(env, estimatedDailyCostGbp);
+  const donationGoalGbp = monthlyDonationGoal(env, estimatedMonthlyCostGbp);
+  const donations = await donationSnapshot(env);
+  const donationsTodayGbp = donations.donationsTodayGbp;
+  const donationsThisMonthGbp = donations.donationsThisMonthGbp;
+  const goalMet = donationsThisMonthGbp >= donationGoalGbp;
   const donateUrl = donateUrlFor(request);
-  const costLabel = `Running cost target: ${gbp(dailyBudgetGbp)}/day`;
-  const goalLabel = `Donations today: ${gbp(donationsTodayGbp)} / ${gbp(donationGoalGbp)}`;
+  const costLabel = `Donation goal: ${gbp(donationGoalGbp)}/month`;
+  const goalLabel = `This month: ${gbp(donationsThisMonthGbp)} / ${gbp(donationGoalGbp)}`;
   return {
     service: "yomu-support",
     status: env.STRIPE_SECRET_KEY ? "ok" : "stripe-unconfigured",
@@ -145,21 +154,19 @@ async function supportStatus(request: Request, env: Env): Promise<SupportStatus>
     dailyBudgetGbp,
     donationGoalGbp,
     donationsTodayGbp,
+    donationsThisMonthGbp,
     donationsSource: donations.source,
     estimatedDailyCostGbp,
+    estimatedMonthlyCostGbp,
     goalMet,
     donateUrl,
-    featuresAtRisk: [
-      "shared recorded audio",
-      "public CORS fallback",
-      "edge-cached Jiten and JPDB public lookups",
-    ],
+    featuresAtRisk: ["Ultimate Audio"],
     banner: {
       enabled: !falseyEnv(env.SUPPORT_BANNER_ENABLED),
-      dismissVersion: "2026-06-29-v1",
+      dismissVersion: SUPPORT_BANNER_DISMISS_VERSION,
       message: goalMet
-        ? "Yomu shared services are funded for today."
-        : "Yomu shared services are donation funded. If the daily goal is missed, shared audio and proxy caching may pause.",
+        ? "Yomu's Ultimate Audio is funded for this month."
+        : "Yomu's Ultimate Audio is donation funded. If this month's goal is missed, fast real-audio playback for words and shadowing will switch off next month.",
       costLabel,
       goalLabel,
       ctaLabel: "Donate",
@@ -168,20 +175,32 @@ async function supportStatus(request: Request, env: Env): Promise<SupportStatus>
   };
 }
 
-async function donationSnapshotForToday(env: Env): Promise<DonationSnapshot> {
+async function donationSnapshot(env: Env): Promise<DonationSnapshot> {
   const fallback: DonationSnapshot = {
     donationsTodayGbp: nonNegativeNumberEnv(env.SUPPORT_DONATIONS_TODAY_GBP, 0),
+    donationsThisMonthGbp: nonNegativeNumberEnv(
+      env.SUPPORT_DONATIONS_THIS_MONTH_GBP,
+      nonNegativeNumberEnv(env.SUPPORT_DONATIONS_TODAY_GBP, 0),
+    ),
     source: "env",
   };
   if (!env.SUPPORT_DB) return fallback;
   try {
-    const row = await env.SUPPORT_DB.prepare(`
+    const [today, month] = await Promise.all([
+      env.SUPPORT_DB.prepare(`
       SELECT COALESCE(SUM(amount_minor), 0) AS total_minor
       FROM donation_events
       WHERE day = ? AND currency = 'gbp'
-    `).bind(utcDayKey()).first<{ total_minor?: number | null }>();
+      `).bind(utcDayKey()).first<{ total_minor?: number | null }>(),
+      env.SUPPORT_DB.prepare(`
+      SELECT COALESCE(SUM(amount_minor), 0) AS total_minor
+      FROM donation_events
+      WHERE day >= ? AND day < ? AND currency = 'gbp'
+      `).bind(utcMonthKey(), nextUtcMonthKey()).first<{ total_minor?: number | null }>(),
+    ]);
     return {
-      donationsTodayGbp: nonNegativeNumber(row?.total_minor, 0) / 100,
+      donationsTodayGbp: nonNegativeNumber(today?.total_minor, 0) / 100,
+      donationsThisMonthGbp: nonNegativeNumber(month?.total_minor, 0) / 100,
       source: "d1",
     };
   } catch (error) {
@@ -195,7 +214,8 @@ async function donationSnapshotForToday(env: Env): Promise<DonationSnapshot> {
 
 async function createDonationCheckout(request: Request, env: Env): Promise<Response> {
   if (!env.STRIPE_SECRET_KEY) {
-    return Response.redirect(fallbackDonateUrl(env), 302);
+    const fallbackUrl = fallbackDonateUrl(env);
+    return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
   }
 
   const amountMinor = donationAmountMinor(new URL(request.url), env);
@@ -225,9 +245,16 @@ async function createDonationCheckout(request: Request, env: Env): Promise<Respo
       event: "yomu_support_stripe_checkout_failed",
       status: response.status,
     }));
-    return Response.redirect(fallbackDonateUrl(env), 302);
+    const fallbackUrl = fallbackDonateUrl(env);
+    return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
   }
   return Response.redirect(checkoutUrl, 303);
+}
+
+function donationUnavailableResponse(): Response {
+  return textResponse("Stripe donations are temporarily unavailable. Please try again later.", 503, {
+    "cache-control": "no-store",
+  });
 }
 
 async function handleStripeWebhook(request: Request, env: Env): Promise<Response> {
@@ -379,8 +406,22 @@ function donationAmountMinor(url: URL, env: Env): number {
   const min = positiveNumberEnv(undefined, DEFAULT_MIN_DONATION_GBP);
   const max = positiveNumberEnv(undefined, DEFAULT_MAX_DONATION_GBP);
   const pounds = Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : DEFAULT_DONATION_GBP;
-  const configuredGoal = positiveNumberEnv(env.SUPPORT_DONATION_GOAL_GBP, DEFAULT_DAILY_BUDGET_GBP);
+  const configuredGoal = monthlyDonationGoal(env, monthlyCostEstimate(env, nonNegativeNumberEnv(env.SUPPORT_ESTIMATED_DAILY_COST_GBP, 0)));
   return Math.round(Math.min(Math.max(pounds, min), Math.max(max, configuredGoal)) * 100);
+}
+
+function monthlyCostEstimate(env: Env, estimatedDailyCostGbp: number): number {
+  const configuredMonthly = nonNegativeNumberEnv(env.SUPPORT_ESTIMATED_MONTHLY_COST_GBP, NaN);
+  if (Number.isFinite(configuredMonthly)) return configuredMonthly;
+  return estimatedDailyCostGbp * daysInUtcMonth();
+}
+
+function monthlyDonationGoal(env: Env, estimatedMonthlyCostGbp: number): number {
+  const configuredGoal = positiveNumberEnv(
+    env.SUPPORT_DONATION_GOAL_MONTHLY_GBP ?? env.SUPPORT_DONATION_GOAL_GBP,
+    estimatedMonthlyCostGbp,
+  );
+  return Math.max(DEFAULT_MONTHLY_DONATION_FLOOR_GBP, configuredGoal);
 }
 
 function checkoutSessionUrl(payload: unknown): string | null {
@@ -404,13 +445,28 @@ function donateUrlFor(request: Request): string {
 }
 
 function fallbackDonateUrl(env: Env): string {
-  const fallback = env.SUPPORT_FALLBACK_DONATE_URL?.trim() || DEFAULT_FALLBACK_DONATE_URL;
+  const fallback = env.SUPPORT_STRIPE_PAYMENT_LINK_URL?.trim() || "";
   try {
     const url = new URL(fallback);
-    return url.protocol === "https:" ? url.href : DEFAULT_FALLBACK_DONATE_URL;
+    if (url.protocol !== "https:") return "";
+    if (url.hostname === "yomureader.com" && url.pathname.replace(/\/$/u, "") === "/support") return "";
+    return url.href;
   } catch {
-    return DEFAULT_FALLBACK_DONATE_URL;
+    return "";
   }
+}
+
+function utcMonthKey(date = new Date()): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function nextUtcMonthKey(date = new Date()): string {
+  const next = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
+  return utcMonthKey(next);
+}
+
+function daysInUtcMonth(date = new Date()): number {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
 }
 
 function positiveNumberEnv(raw: string | undefined, fallback: number): number {

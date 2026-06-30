@@ -67,6 +67,7 @@
   const ANKI_CONNECT_ADDON_URL = "https://ankiweb.net/shared/info/2055492159";
   const DISCORD_INVITE_URL = "https://discord.gg/jD6NPURewD";
   const DONATE_URL = "https://support.yomureader.com/donate";
+  const SUPPORT_STATUS_URL = "https://support.yomureader.com/status";
   const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
   const USERSCRIPT_INSTALL_URL = `${DOCS_BASE_URL}yomu.user.js`;
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
@@ -1373,7 +1374,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.",
+      apiAccessHelp: "Paste separate API keys here. For Bunpro, open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       bunproSettings: "Bunpro settings",
@@ -3067,7 +3068,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	APIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から、Bunproはfrontend_api_tokenを使います。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	APIキーを別々に貼ります。Bunproはログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
@@ -6435,6 +6436,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const AUDIO_SOURCE_UI_TYPE_VALUES = AUDIO_SOURCE_TYPE_VALUES.filter((type) => type !== "custom");
   const DEFAULT_AUDIO_SOURCES = [
     { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+    { type: "jpod101", url: "", voice: "", enabled: false },
+    { type: "language-pod-101", url: "", voice: "", enabled: false },
+    { type: "jisho", url: "", voice: "", enabled: false },
+    { type: "jiten-tts", url: "", voice: "", enabled: false },
+    { type: "jpdb-tts", url: "", voice: "", enabled: false },
+    { type: "text-to-speech", url: "", voice: "", enabled: false }
+  ];
+  const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
+  const LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS = [
+    { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+    { type: "jpod101", url: "", voice: "", enabled: true },
+    { type: "language-pod-101", url: "", voice: "", enabled: true },
+    { type: "jisho", url: "", voice: "", enabled: true },
+    { type: "text-to-speech", url: "", voice: "", enabled: true }
+  ];
+  const LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS = [
+    { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
     { type: "jpod101", url: "", voice: "", enabled: true },
     { type: "language-pod-101", url: "", voice: "", enabled: true },
     { type: "jisho", url: "", voice: "", enabled: true },
@@ -6442,8 +6460,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { type: "jpdb-tts", url: "", voice: "", enabled: true },
     { type: "text-to-speech", url: "", voice: "", enabled: true }
   ];
-  const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
-  const LEGACY_DEFAULT_AUDIO_SOURCE_TYPES = ["jpod101", "language-pod-101", "jisho", "text-to-speech"];
+  const DEFAULT_OFF_AUDIO_SOURCE_TYPES = new Set(
+    DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
+  );
   const READER_COLOR_SOURCES = /* @__PURE__ */ new Set(["auto", "status", "jpdb", "anki", "pitch", "off"]);
   const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status", "hover"]);
   const OCR_ENGINE_ALIASES = /* @__PURE__ */ new Map([
@@ -7706,12 +7725,26 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
   }
   function migrateLegacyDefaultAudioSources(sources) {
-    const types = new Set(sources.map((source) => source.type));
-    if (!LEGACY_DEFAULT_AUDIO_SOURCE_TYPES.every((type) => types.has(type))) return sources;
+    if (!isUntouchedLegacyDefaultAudioSources(sources)) return sources;
     const migrated = sources.map((source) => ({ ...source }));
-    ensureBuiltInAudioSource(migrated, { type: "jpdb-tts", url: "", voice: "", enabled: true }, "text-to-speech");
-    ensureBuiltInAudioSource(migrated, { type: "jiten-tts", url: "", voice: "", enabled: true }, "jpdb-tts");
+    ensureBuiltInAudioSource(migrated, { type: "jpdb-tts", url: "", voice: "", enabled: false }, "text-to-speech");
+    ensureBuiltInAudioSource(migrated, { type: "jiten-tts", url: "", voice: "", enabled: false }, "jpdb-tts");
+    for (const source of migrated) {
+      if (isDefaultOffAudioSource(source)) source.enabled = false;
+    }
     return migrated;
+  }
+  function isUntouchedLegacyDefaultAudioSources(sources) {
+    return audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS) || audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS);
+  }
+  function audioSourceListMatches(sources, expected) {
+    return sources.length === expected.length && expected.every((source, index) => audioSourceMatches(sources[index], source));
+  }
+  function audioSourceMatches(source, expected) {
+    return Boolean(source && source.type === expected.type && source.url === expected.url && source.voice === expected.voice && source.enabled === expected.enabled);
+  }
+  function isDefaultOffAudioSource(source) {
+    return DEFAULT_OFF_AUDIO_SOURCE_TYPES.has(source.type) && !source.url.trim() && !source.voice.trim();
   }
   function ensureBuiltInAudioSource(sources, source, beforeType) {
     if (sources.some((candidate) => candidate.type === source.type)) return;
@@ -17429,24 +17462,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const index = ids.indexOf(id);
     if (index >= 0) ids.splice(index, 1);
   }
-  const REQUIRED_JA_AUDIO_SOURCES = [
-    { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-    { type: "jpod101", url: "", voice: "", enabled: true },
-    { type: "language-pod-101", url: "", voice: "", enabled: true },
-    { type: "jisho", url: "", voice: "", enabled: true },
-    { type: "jiten-tts", url: "", voice: "", enabled: true },
-    { type: "jpdb-tts", url: "", voice: "", enabled: true },
-    { type: "text-to-speech", url: "", voice: "", enabled: true }
-  ];
+  const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
   function getOrderedAudioSources(settings) {
     const sources = settings.audioSources.filter((source) => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
-    const configuredTypes = new Set(settings.audioSources.map((source) => source.type));
-    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? REQUIRED_JA_AUDIO_SOURCES[0];
+    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
     return [
       ...hosted.enabled ? [{ ...hosted }] : [],
-      ...sources.filter((source) => !isYomuHostedAudioSource(source)),
-      ...REQUIRED_JA_AUDIO_SOURCES.filter((source) => !isYomuHostedAudioSource(source) && !configuredTypes.has(source.type)).map((source) => ({ ...source }))
+      ...sources.filter((source) => !isYomuHostedAudioSource(source))
     ];
   }
   function isYomuHostedAudioSource(source) {
@@ -32303,7 +32326,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
                         ${input("apiCredentialBunpro", `Bunpro frontend API token <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproFrontendApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "frontend_api_token" })}
                         <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml$1(settings.bunproFrontendApiTokenExpiresAt)}">
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste separate API keys here. For Bunpro, open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.</div>
                 </div>
                 ${jpdbStatus}
                 ${bunproStatus}
@@ -62927,6 +62950,9 @@ ${spelling}`);
       studyTourSpeaking: "Say it aloud; pause any time.",
       studyTourReveal: "Check the details, then grade.",
       studyTourStart: "Start",
+      supportBannerLabel: "Yomu support status",
+      supportBannerDismiss: "Dismiss support status",
+      supportBannerMessage: "Yomu's Ultimate Audio is donation funded. If this month's goal is missed, fast real-audio playback for words and shadowing will switch off next month.",
       pauseSpeaking: "Pause speaking 15 min",
       listen: "Listen",
       listenSubModeGroup: "Listen practice mode",
@@ -62945,19 +62971,27 @@ ${spelling}`);
       listenAccuracy: "Accuracy",
       listenDue: "pitch due",
       listenNew: "new",
-      listenNoAudio: "No audio available — shadow from the contour",
+      listenNoAudio: "No audio found yet — add a source in Settings or shadow from the contour",
       listenEmptyTitle: "No pitch items yet",
       listenEmpty: "Study some words first — your pitch deck grows automatically as you review, or open Perceive to start from your current words.",
       listenEmptyDictionary: "Listen needs pitch data. Yomu adds it from studied words; connected sources add more coverage.",
       listenSeedFrom: "Seeded from your study words",
       listenMicListenBack: "Record & compare",
       listenMicRecording: "Recording...",
-      listenMicHint: "Scored locally from your pitch contour — never uploaded",
+      listenMicHint: "Records for about 3 seconds. Scored on this device.",
       listenMicScoring: "Scoring...",
       listenMicNoPitch: "No clear pitch",
       listenMicScoreGood: "Good",
       listenMicScoreClose: "Close",
-      listenMicScoreRetry: "Try again",
+      listenMicScoreRetry: "Practice",
+      listenMicExpected: "Model",
+      listenMicYouContour: "You",
+      listenMicTipMatched: "Contour matched",
+      listenMicTipStartLow: "Start lower, then rise",
+      listenMicTipStartHigh: "Start high, then drop",
+      listenMicTipMakeDropClear: "Make the drop clearer",
+      listenMicTipMakeRiseClear: "Make the rise clearer",
+      listenMicTipListenAgain: "Listen once, then record again",
       listenMicModel: "Model",
       listenMicYou: "You",
       listenMicUnavailable: "Microphone unavailable",
@@ -63145,6 +63179,9 @@ ${spelling}`);
     studyTourSpeaking: "声に出します。いつでも一時停止できます。",
     studyTourReveal: "内容を確認してから採点します。",
     studyTourStart: "開始",
+    supportBannerLabel: "よむ支援状況",
+    supportBannerDismiss: "支援状況を閉じる",
+    supportBannerMessage: "よむのUltimate Audioは寄付で運用されています。今月の目標に届かない場合、単語とシャドーイング用の高速な実音声再生は翌月停止します。",
     pauseSpeaking: "スピーキングを15分休む",
     listen: "リスニング",
     listenSubModeGroup: "リスニング練習モード",
@@ -63163,19 +63200,27 @@ ${spelling}`);
     listenAccuracy: "正答率",
     listenDue: "件のアクセント復習",
     listenNew: "新規",
-    listenNoAudio: "音声がありません — 図を見てシャドーイング",
+    listenNoAudio: "音声がまだありません — 設定で音声ソースを追加するか、図を見て練習できます",
     listenEmptyTitle: "アクセント項目がまだありません",
     listenEmpty: "まず単語を学習してください。復習するとアクセントデッキが自動的に増えます。「聞き取り」で今の単語から始めることもできます。",
     listenEmptyDictionary: "リスニングにはアクセントデータが必要です。よむは学習した単語から追加し、連携ソースでさらに増やせます。",
     listenSeedFrom: "学習した単語から追加されました",
     listenMicListenBack: "録音して比較",
     listenMicRecording: "録音中...",
-    listenMicHint: "音程を端末内で採点します（アップロードされません）",
+    listenMicHint: "約3秒録音し、この端末で採点します。",
     listenMicScoring: "採点中...",
     listenMicNoPitch: "音程が取れませんでした",
     listenMicScoreGood: "良い",
     listenMicScoreClose: "近い",
-    listenMicScoreRetry: "もう一度",
+    listenMicScoreRetry: "練習",
+    listenMicExpected: "お手本",
+    listenMicYouContour: "あなた",
+    listenMicTipMatched: "高低が合っています",
+    listenMicTipStartLow: "低く始めて上げます",
+    listenMicTipStartHigh: "高く始めて下げます",
+    listenMicTipMakeDropClear: "下がり目をはっきり",
+    listenMicTipMakeRiseClear: "上がり目をはっきり",
+    listenMicTipListenAgain: "一度聞いてからもう一度",
     listenMicModel: "お手本",
     listenMicYou: "あなた",
     listenMicUnavailable: "マイクを使用できません",
@@ -71116,7 +71161,32 @@ ${newTabCardReading(card)}`;
       retry: "listenMicScoreRetry"
     };
     const state2 = view.speakingScore.verdict;
-    return `<span class="jpdb-reader-newtab-listen-score" data-speaking-score-state="${state2}">${escapeHtml$1(t(labelKey[state2]))} ${view.speakingScore.score}%</span>`;
+    return `
+        <div class="jpdb-reader-newtab-listen-score-panel" data-speaking-score-state="${state2}">
+            <span class="jpdb-reader-newtab-listen-score" data-speaking-score-state="${state2}">${escapeHtml$1(t(labelKey[state2]))} ${view.speakingScore.score}%</span>
+            <span class="jpdb-reader-newtab-listen-score-tip">${escapeHtml$1(t(speakingScoreTipKey(view.speakingScore)))}</span>
+            ${state2 === "good" ? "" : renderSpeakingContourComparison(view.item, view.speakingScore, t)}
+        </div>`;
+  }
+  function renderSpeakingContourComparison(item, score, t) {
+    const expectedGraph = renderPitchGraphSvg(item.reading, score.expectedPattern);
+    const observedGraph = renderPitchGraphSvg(item.reading, score.observedPattern);
+    return `
+        <div class="jpdb-reader-newtab-listen-score-contours">
+            <span>${escapeHtml$1(t("listenMicExpected"))}</span>
+            <span class="jpdb-reader-newtab-listen-score-graph">${expectedGraph}</span>
+            <span>${escapeHtml$1(t("listenMicYouContour"))}</span>
+            <span class="jpdb-reader-newtab-listen-score-graph">${observedGraph}</span>
+        </div>`;
+  }
+  function speakingScoreTipKey(score) {
+    if (score.verdict === "good") return "listenMicTipMatched";
+    const expected = score.expectedPattern;
+    const observed = score.observedPattern;
+    if (expected[0] !== observed[0]) return expected[0] === "L" ? "listenMicTipStartLow" : "listenMicTipStartHigh";
+    if (expected.includes("HL") && !observed.includes("HL")) return "listenMicTipMakeDropClear";
+    if (expected.includes("LH") && !observed.includes("LH")) return "listenMicTipMakeRiseClear";
+    return "listenMicTipListenAgain";
   }
   function renderListenCard(view, t) {
     const sections = [];
@@ -72505,6 +72575,8 @@ ${entry.url}`),
   }
   const log$3 = Logger.scope("NewTab");
   const NEW_TAB_MODE_NAMES = /* @__PURE__ */ new Set(["word", "recall", "kanji", "search", "stats", "listen"]);
+  const NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY = "yomu-newtab-support-banner-dismissed";
+  const NEW_TAB_SUPPORT_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1e3;
   function isNewTabModeName(value) {
     return Boolean(value && NEW_TAB_MODE_NAMES.has(value));
   }
@@ -72531,6 +72603,45 @@ ${entry.url}`),
       if (value) return value;
     }
     return "";
+  }
+  function newTabSupportMeta(status) {
+    const cost = status.banner?.costLabel || `Donation goal: ${formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10))}/month`;
+    const goal = status.banner?.goalLabel || `This month: ${formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0)} / ${formatNewTabSupportGbp(status.donationGoalGbp ?? 10)}`;
+    return `${cost} · ${goal}`;
+  }
+  function newTabSupportDonateUrl(status) {
+    const candidate = status.banner?.donateUrl || status.donateUrl || DONATE_URL;
+    try {
+      const url = new URL(candidate);
+      return url.protocol === "https:" ? url.href : DONATE_URL;
+    } catch {
+      return DONATE_URL;
+    }
+  }
+  function newTabSupportDismissVersion(status) {
+    return status.banner?.dismissVersion || "ultimate-audio-monthly-v1";
+  }
+  function isNewTabSupportBannerDismissed(version) {
+    try {
+      const raw = window.localStorage.getItem(NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      return parsed.version === version && typeof parsed.dismissedUntil === "number" && parsed.dismissedUntil > Date.now();
+    } catch {
+      return false;
+    }
+  }
+  function rememberNewTabSupportBannerDismissal(version) {
+    try {
+      window.localStorage.setItem(NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY, JSON.stringify({
+        version,
+        dismissedUntil: Date.now() + NEW_TAB_SUPPORT_BANNER_DISMISS_MS
+      }));
+    } catch {
+    }
+  }
+  function formatNewTabSupportGbp(value) {
+    return `£${value.toFixed(value % 1 === 0 ? 0 : 2)}`;
   }
   class NewTabController {
     constructor(dependencies) {
@@ -72636,6 +72747,7 @@ ${entry.url}`),
     listenRecordingUrl;
     listenRecordingAudio;
     listenRecordingUnavailable = false;
+    listenRecordingStopTimer;
     listenSpeakingScore = null;
     listenSpeakingScoring = false;
     listenSpeakingScoreGeneration = 0;
@@ -72748,6 +72860,7 @@ ${entry.url}`),
       }
       this.syncThemeToggle(root);
       this.syncInstallAppButton(root);
+      void this.syncSupportBanner(root);
       if (this.state.mode === "search") {
         this.renderSearch(root);
         return;
@@ -73012,7 +73125,8 @@ ${entry.url}`),
             el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": newTabText(language, "previousWord") }, newTabText(language, "previousWord")),
             el("button", { type: "button", dataset: { newtabAction: "reveal" } }, uiText(language, "reveal")),
             el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": newTabText(language, "nextWord") }, newTabText(language, "nextWord"))
-          )
+          ),
+          el("aside", { class: "jpdb-reader-newtab-support-banner", dataset: { newtabSupportBanner: true }, hidden: true, "aria-label": newTabText(language, "supportBannerLabel") })
         )
       );
     }
@@ -73396,6 +73510,11 @@ ${entry.url}`),
         void this.installStudyApp(root);
         return true;
       }
+      if (action === "dismiss-support-banner") {
+        event.preventDefault();
+        this.dismissSupportBanner(root);
+        return true;
+      }
       return false;
     }
     async installStudyApp(root) {
@@ -73431,6 +73550,91 @@ ${entry.url}`),
       button.setAttribute("aria-label", this.text("installStudyApp"));
       const description = button.querySelector(".jpdb-reader-newtab-menu-description");
       if (description) description.textContent = status;
+    }
+    async syncSupportBanner(root) {
+      const banner = root.querySelector("[data-newtab-support-banner]");
+      if (!banner) return;
+      if (!this.shouldRequestSupportBanner()) {
+        this.hideSupportBanner(banner);
+        return;
+      }
+      try {
+        const status = await this.fetchSupportStatus();
+        if (!root.contains(banner)) return;
+        if (!this.shouldShowSupportBanner(status)) {
+          this.hideSupportBanner(banner);
+          return;
+        }
+        this.renderSupportBanner(banner, status);
+      } catch {
+        this.hideSupportBanner(banner);
+      }
+    }
+    shouldRequestSupportBanner() {
+      try {
+        return location.origin === new URL(DOCS_BASE_URL).origin;
+      } catch {
+        return false;
+      }
+    }
+    async fetchSupportStatus() {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 2400);
+      try {
+        const response = await fetch(SUPPORT_STATUS_URL, {
+          credentials: "omit",
+          referrerPolicy: "no-referrer",
+          signal: controller.signal
+        });
+        if (!response.ok) throw new Error("Support status unavailable");
+        return await response.json();
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }
+    shouldShowSupportBanner(status) {
+      if (status.banner?.enabled === false) return false;
+      return !isNewTabSupportBannerDismissed(newTabSupportDismissVersion(status));
+    }
+    renderSupportBanner(banner, status) {
+      const version = newTabSupportDismissVersion(status);
+      banner.dataset.supportDismissVersion = version;
+      banner.replaceChildren(
+        el(
+          "div",
+          { class: "jpdb-reader-newtab-support-copy" },
+          el("strong", {}, status.banner?.message || this.text("supportBannerMessage")),
+          el("span", {}, newTabSupportMeta(status))
+        ),
+        el(
+          "div",
+          { class: "jpdb-reader-newtab-support-actions" },
+          el("a", {
+            class: "jpdb-reader-newtab-support-donate",
+            href: newTabSupportDonateUrl(status),
+            target: "_blank",
+            rel: "noopener"
+          }, status.banner?.ctaLabel || this.text("donate")),
+          el("button", {
+            class: "jpdb-reader-newtab-support-close",
+            type: "button",
+            dataset: { newtabAction: "dismiss-support-banner" },
+            "aria-label": this.text("supportBannerDismiss")
+          }, "×")
+        )
+      );
+      banner.hidden = false;
+    }
+    hideSupportBanner(banner) {
+      banner.hidden = true;
+      banner.replaceChildren();
+      delete banner.dataset.supportDismissVersion;
+    }
+    dismissSupportBanner(root) {
+      const banner = root.querySelector("[data-newtab-support-banner]");
+      if (!banner) return;
+      rememberNewTabSupportBannerDismissal(banner.dataset.supportDismissVersion || "ultimate-audio-monthly-v1");
+      this.hideSupportBanner(banner);
     }
     isStandalonePwa() {
       if (typeof navigator === "undefined") return false;
@@ -76059,7 +76263,7 @@ ${entry.url}`),
     }
     async toggleListenRecording() {
       if (this.listenRecorder && this.listenRecorder.state !== "inactive") {
-        this.listenRecorder.stop();
+        this.stopListenRecorder();
         return;
       }
       const mediaDevices = navigator.mediaDevices;
@@ -76083,6 +76287,10 @@ ${entry.url}`),
           if (event.data && event.data.size) chunks2.push(event.data);
         });
         recorder.addEventListener("stop", () => {
+          if (this.listenRecordingStopTimer) {
+            clearTimeout(this.listenRecordingStopTimer);
+            this.listenRecordingStopTimer = void 0;
+          }
           stream.getTracks().forEach((track) => track.stop());
           this.clearListenRecording();
           const blob = chunks2.length ? new Blob(chunks2, { type: recorder.mimeType || "audio/webm" }) : null;
@@ -76097,12 +76305,27 @@ ${entry.url}`),
         this.listenRecordingUnavailable = false;
         this.listenRecorder = recorder;
         recorder.start();
+        this.listenRecordingStopTimer = setTimeout(() => {
+          if (this.listenRecorder === recorder && recorder.state !== "inactive") this.stopListenRecorder();
+        }, 3200);
         this.rerenderActiveListen();
       } catch (error) {
         log$3.warn("Listen self-recording unavailable", error);
         this.listenRecorder = void 0;
         this.listenRecordingUnavailable = true;
         this.rerenderActiveListen();
+      }
+    }
+    stopListenRecorder() {
+      if (this.listenRecordingStopTimer) {
+        clearTimeout(this.listenRecordingStopTimer);
+        this.listenRecordingStopTimer = void 0;
+      }
+      if (this.listenRecorder && this.listenRecorder.state !== "inactive") {
+        try {
+          this.listenRecorder.stop();
+        } catch {
+        }
       }
     }
     async scoreListenRecording(blob, itemKey, generation) {
@@ -76132,6 +76355,10 @@ ${entry.url}`),
       }
     }
     clearListenRecording() {
+      if (this.listenRecordingStopTimer) {
+        clearTimeout(this.listenRecordingStopTimer);
+        this.listenRecordingStopTimer = void 0;
+      }
       if (this.listenRecordingAudio) {
         try {
           this.listenRecordingAudio.pause();

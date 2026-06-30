@@ -30,9 +30,9 @@ const LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
 const YOMU_SUPPORT_STATUS_URL = 'https://support.yomureader.com/status';
 const YOMU_SUPPORT_DONATE_URL = 'https://support.yomureader.com/donate';
 const YOMU_SUPPORT_FALLBACK_STATUS_URL = 'https://yomu-support.henry-robert-christopher-russell.workers.dev/status';
-const YOMU_SUPPORT_FALLBACK_DONATE_URL = 'https://yomu-support.henry-robert-christopher-russell.workers.dev/donate';
 const YOMU_SUPPORT_BANNER_ID = 'yomu-support-banner';
 const YOMU_SUPPORT_BANNER_DISMISSED_KEY = 'yomu-support-banner-dismissed-version';
+const YOMU_SUPPORT_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1000;
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 const HOSTED_DOCS_TRANSLATION_LEAF_SELECTOR = 'h1, h2, h3, h4, p, li, a, button, span, strong, small, figcaption, dt, dd, th, td, summary, label';
 const HOSTED_DOCS_HEAD_TRANSLATION_SELECTOR = [
@@ -66,6 +66,8 @@ interface HostedSupportStatus {
     dailyBudgetGbp?: number;
     donationGoalGbp?: number;
     donationsTodayGbp?: number;
+    donationsThisMonthGbp?: number;
+    estimatedMonthlyCostGbp?: number;
     donateUrl?: string;
     banner?: {
         enabled?: boolean;
@@ -3059,11 +3061,7 @@ function installHostedSupportBanner(): void {
             const banner = renderHostedSupportBanner(status);
             document.body.prepend(banner);
         })
-        .catch(() => {
-            const fallback = fallbackHostedSupportStatus();
-            if (!shouldShowHostedSupportBanner(fallback)) return;
-            document.body.prepend(renderHostedSupportBanner(fallback));
-        });
+        .catch(() => undefined);
 }
 
 async function loadHostedSupportStatus(): Promise<HostedSupportStatus> {
@@ -3098,7 +3096,7 @@ function shouldShowHostedSupportBanner(status: HostedSupportStatus): boolean {
     const banner = status.banner;
     if (banner?.enabled === false) return false;
     const version = hostedSupportDismissVersion(status);
-    return window.localStorage.getItem(YOMU_SUPPORT_BANNER_DISMISSED_KEY) !== version;
+    return !isHostedSupportDismissed(version);
 }
 
 function renderHostedSupportBanner(status: HostedSupportStatus): HTMLElement {
@@ -3136,7 +3134,7 @@ function renderHostedSupportBanner(status: HostedSupportStatus): HTMLElement {
     close.setAttribute('aria-label', 'Dismiss support banner');
     close.textContent = '×';
     close.addEventListener('click', () => {
-        window.localStorage.setItem(YOMU_SUPPORT_BANNER_DISMISSED_KEY, hostedSupportDismissVersion(status));
+        rememberHostedSupportDismissal(hostedSupportDismissVersion(status));
         banner.remove();
     });
     actions.append(close);
@@ -3147,12 +3145,12 @@ function renderHostedSupportBanner(status: HostedSupportStatus): HTMLElement {
 
 function hostedSupportMessage(status: HostedSupportStatus): string {
     return status.banner?.message
-        || 'Yomu shared services are donation funded. If the daily goal is missed, shared audio and proxy caching may pause.';
+        || "Yomu's Ultimate Audio is donation funded. If this month's goal is missed, fast real-audio playback for words and shadowing will switch off next month.";
 }
 
 function hostedSupportMeta(status: HostedSupportStatus): string {
-    const cost = status.banner?.costLabel || `Running cost target: ${formatHostedSupportGbp(status.dailyBudgetGbp ?? 10)}/day`;
-    const goal = status.banner?.goalLabel || `Donations today: ${formatHostedSupportGbp(status.donationsTodayGbp ?? 0)} / ${formatHostedSupportGbp(status.donationGoalGbp ?? 10)}`;
+    const cost = status.banner?.costLabel || `Donation goal: ${formatHostedSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10))}/month`;
+    const goal = status.banner?.goalLabel || `This month: ${formatHostedSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0)} / ${formatHostedSupportGbp(status.donationGoalGbp ?? 10)}`;
     return `${cost} · ${goal}`;
 }
 
@@ -3167,21 +3165,31 @@ function hostedSupportDonateUrl(status: HostedSupportStatus): string {
 }
 
 function hostedSupportDismissVersion(status: HostedSupportStatus): string {
-    return status.banner?.dismissVersion || '2026-06-29-v1';
+    return status.banner?.dismissVersion || 'ultimate-audio-monthly-v1';
 }
 
-function fallbackHostedSupportStatus(): HostedSupportStatus {
-    return {
-        dailyBudgetGbp: 10,
-        donationGoalGbp: 10,
-        donationsTodayGbp: 0,
-        donateUrl: YOMU_SUPPORT_FALLBACK_DONATE_URL,
-        banner: {
-            enabled: true,
-            dismissVersion: '2026-06-29-v1',
-            donateUrl: YOMU_SUPPORT_FALLBACK_DONATE_URL,
-        },
-    };
+function isHostedSupportDismissed(version: string): boolean {
+    try {
+        const raw = window.localStorage.getItem(YOMU_SUPPORT_BANNER_DISMISSED_KEY);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw) as { version?: unknown; dismissedUntil?: unknown };
+        return parsed.version === version
+            && typeof parsed.dismissedUntil === 'number'
+            && parsed.dismissedUntil > Date.now();
+    } catch {
+        return false;
+    }
+}
+
+function rememberHostedSupportDismissal(version: string): void {
+    try {
+        window.localStorage.setItem(YOMU_SUPPORT_BANNER_DISMISSED_KEY, JSON.stringify({
+            version,
+            dismissedUntil: Date.now() + YOMU_SUPPORT_BANNER_DISMISS_MS,
+        }));
+    } catch {
+        // Storage may be blocked; closing still removes this instance.
+    }
 }
 
 function formatHostedSupportGbp(value: number): string {

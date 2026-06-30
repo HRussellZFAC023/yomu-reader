@@ -114,7 +114,7 @@ Open よむ settings with the floating よむ button to switch these on when you
 - **Video subtitles** — parse Japanese subtitle lines for lookup, with a transcript panel. For local files, use the [video player](/video-player/index.html).
 - **PDFs** — open the [PDF reader](/pdf-reader/index.html) when the Japanese is in a textbook, scan, or article file.
 - **Anki** — turn lookups into flashcards. Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full setup; phones and tablets can reach a desktop Anki over Wi-Fi or Tailscale, or hand off new notes to AnkiMobile/AnkiDroid.
-- **Audio** — the easiest option is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). To self-host instead, see [Local Audio](/local-audio).
+- **Audio** — Yomu hosted audio is on by default. Add [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/) or a local server only if you want another source.
 - **Study page** — open the [new-tab study app](/newtab/index.html) for daily review.
 
 ## What to read

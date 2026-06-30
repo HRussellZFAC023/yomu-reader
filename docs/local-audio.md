@@ -9,7 +9,7 @@ description: Add Japanese word audio to よむ. Use a hosted Yomitan-compatible 
 
 | What you want | Best choice |
 | --- | --- |
-| The easiest setup | Use the built-in Yomu hosted audio source or a hosted Ultimate Yomitan Audio URL |
+| The easiest setup | Use the built-in Yomu hosted audio source |
 | Audio files stored on your own computer | Download and run the local audio server |
 
 The hosted option is the least fuss. Use the local server only if you're okay keeping a small helper app running on your computer.
@@ -24,7 +24,7 @@ https://audio.yomureader.com/?term={term}&reading={reading}
 
 It is designed for licensed recorded audio and returns an empty result quickly when the public source is paused or still being filled. That keeps the rest of your configured sources working normally.
 
-## Easiest: Hosted Audio
+## Optional: Ultimate Yomitan Audio
 
 [Ultimate Yomitan Audio Source](https://animecards.site/yomitan_audio/) gives you a personal audio URL after you subscribe through Patreon and authenticate. That URL works with よむ directly — no audio files to download and nothing to run on your computer.
 
@@ -181,7 +181,7 @@ http://localhost:9393/?term={term}&reading={reading}
 
 Leave `{term}` and `{reading}` exactly as written. よむ replaces those placeholders for each word you look up.
 
-Jiten/JPDB and browser text-to-speech rows are fallback-only by default, so **Shuffle audio** still prefers recorded clips first. Shuffle mode behaves like a shuffled deck: よむ tries every available candidate for a word before reshuffling, instead of independently picking a random clip each time. In Settings > Audio, change **Text-to-speech handling** to **Follow source order / shuffle** if you want TTS rows to follow your source order or shuffled audio setting.
+Jiten/JPDB and browser text-to-speech rows are off by default. Turn them on only if you want synthetic fallback audio. Shuffle mode behaves like a shuffled deck: よむ tries every available candidate for a word before reshuffling, instead of independently picking a random clip each time. In Settings > Audio, change **Text-to-speech handling** to **Follow source order / shuffle** if you want TTS rows to follow your source order or shuffled audio setting.
 
 ## Using an iPad or Another Device
 

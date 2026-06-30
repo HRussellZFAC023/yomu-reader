@@ -2188,14 +2188,17 @@
   ];
   const DEFAULT_AUDIO_SOURCES = [
     { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-    { type: "jpod101", url: "", voice: "", enabled: true },
-    { type: "language-pod-101", url: "", voice: "", enabled: true },
-    { type: "jisho", url: "", voice: "", enabled: true },
-    { type: "jiten-tts", url: "", voice: "", enabled: true },
-    { type: "jpdb-tts", url: "", voice: "", enabled: true },
-    { type: "text-to-speech", url: "", voice: "", enabled: true }
+    { type: "jpod101", url: "", voice: "", enabled: false },
+    { type: "language-pod-101", url: "", voice: "", enabled: false },
+    { type: "jisho", url: "", voice: "", enabled: false },
+    { type: "jiten-tts", url: "", voice: "", enabled: false },
+    { type: "jpdb-tts", url: "", voice: "", enabled: false },
+    { type: "text-to-speech", url: "", voice: "", enabled: false }
   ];
   new Set(AUDIO_SOURCE_TYPE_VALUES);
+  new Set(
+    DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
+  );
   const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status", "hover"]);
   const DEFAULT_COLOR_CHANNELS = {
     wordHighlightColorSource: "jpdb",
@@ -4384,7 +4387,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.",
+      apiAccessHelp: "Paste separate API keys here. For Bunpro, open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       bunproSettings: "Bunpro settings",
@@ -6078,7 +6081,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	APIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から、Bunproはfrontend_api_tokenを使います。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	APIキーを別々に貼ります。Bunproはログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定

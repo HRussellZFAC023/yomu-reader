@@ -318,8 +318,56 @@ describe('new-tab Listen mode', () => {
         };
         const root = document.createElement('div');
         root.innerHTML = renderListenCard(view, key => newTabText('en', key));
-        expect(root.querySelector('[data-speaking-score-state="good"]')?.textContent).toBe('Good 88%');
-        expect(root.querySelector('.jpdb-reader-newtab-listen-note')?.textContent).toContain('Scored locally');
+        expect(root.querySelector('.jpdb-reader-newtab-listen-score[data-speaking-score-state="good"]')?.textContent).toBe('Good 88%');
+        expect(root.querySelector('.jpdb-reader-newtab-listen-score-tip')?.textContent).toBe('Contour matched');
+        expect(root.querySelector('.jpdb-reader-newtab-listen-note')?.textContent).toContain('Scored on this device');
         expect(root.querySelector('[data-newtab-action="listen-next"]')?.textContent).toBe('Continue');
+    });
+
+    it('turns a speaking mismatch into a short coaching cue and visual contour comparison', () => {
+        const item: PitchSrsItem = {
+            key: 'よむ#0',
+            reading: 'よむ',
+            pitchNumber: 0,
+            pattern: 'LH',
+            pitchClass: 'heiban',
+            displaySpelling: '読む',
+            due: 0,
+            intervalDays: 0,
+            ease: 2.5,
+            reps: 0,
+            lapses: 0,
+            introducedAt: 0,
+        };
+        const view: ListenCardView = {
+            item,
+            meaning: 'to read',
+            subMode: 'shadow',
+            revealed: true,
+            selectedPosition: null,
+            outcome: null,
+            hasAudio: true,
+            recording: false,
+            hasRecording: true,
+            speakingScore: {
+                score: 28,
+                verdict: 'retry',
+                expectedPattern: 'LH',
+                observedPattern: 'HL',
+                voicedRatio: 0.72,
+                frameCount: 18,
+            },
+            speakingScoring: false,
+            micEnabled: true,
+            micUnavailable: false,
+            contrast: null,
+        };
+        const root = document.createElement('div');
+        root.innerHTML = renderListenCard(view, key => newTabText('en', key));
+        expect(root.querySelector('.jpdb-reader-newtab-listen-score[data-speaking-score-state="retry"]')?.textContent).toBe('Practice 28%');
+        expect(root.querySelector('.jpdb-reader-newtab-listen-score-tip')?.textContent).toBe('Start lower, then rise');
+        expect(root.querySelector('.jpdb-reader-newtab-listen-score-contours')?.textContent).toContain('Model');
+        expect(root.querySelector('.jpdb-reader-newtab-listen-score-contours')?.textContent).toContain('You');
+        expect(root.querySelectorAll('.jpdb-reader-newtab-listen-score-graph svg')).toHaveLength(2);
     });
 });

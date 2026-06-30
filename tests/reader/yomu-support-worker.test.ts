@@ -13,8 +13,8 @@ describe("Yomu support Worker", () => {
       }),
       {
         SUPPORT_DAILY_BUDGET_GBP: "10",
-        SUPPORT_DONATION_GOAL_GBP: "10",
-        SUPPORT_DONATIONS_TODAY_GBP: "3.5",
+        SUPPORT_DONATION_GOAL_MONTHLY_GBP: "10",
+        SUPPORT_DONATIONS_THIS_MONTH_GBP: "3.5",
       },
       { waitUntil: vi.fn() },
     );
@@ -25,33 +25,52 @@ describe("Yomu support Worker", () => {
       status: string;
       dailyBudgetGbp: number;
       donationsTodayGbp: number;
+      donationsThisMonthGbp: number;
       donationsSource: string;
       donationGoalGbp: number;
+      estimatedMonthlyCostGbp: number;
       donateUrl: string;
-      banner: { enabled: boolean; message: string; goalLabel: string };
+      featuresAtRisk: string[];
+      banner: { enabled: boolean; dismissVersion: string; message: string; costLabel: string; goalLabel: string };
       STRIPE_SECRET_KEY?: string;
     };
     expect(body.status).toBe("stripe-unconfigured");
     expect(body.dailyBudgetGbp).toBe(10);
-    expect(body.donationsTodayGbp).toBe(3.5);
+    expect(body.donationsTodayGbp).toBe(0);
+    expect(body.donationsThisMonthGbp).toBe(3.5);
     expect(body.donationsSource).toBe("env");
     expect(body.donationGoalGbp).toBe(10);
+    expect(body.estimatedMonthlyCostGbp).toBe(0);
     expect(body.donateUrl).toBe("https://support.yomureader.com/donate");
     expect(body.banner.enabled).toBe(true);
-    expect(body.banner.goalLabel).toContain("£3.50 / £10");
-    expect(body.banner.message).toContain("donation funded");
+    expect(body.banner.dismissVersion).toBe("ultimate-audio-v1");
+    expect(body.featuresAtRisk).toEqual(["Ultimate Audio"]);
+    expect(body.banner.costLabel).toBe("Donation goal: £10/month");
+    expect(body.banner.goalLabel).toContain("This month: £3.50 / £10");
+    expect(body.banner.message).toContain("Ultimate Audio");
     expect(body.STRIPE_SECRET_KEY).toBeUndefined();
   });
 
-  it("redirects donation requests to fallback when Stripe is not configured", async () => {
+  it("redirects donation requests to a Stripe Payment Link fallback when Checkout is not configured", async () => {
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/donate"),
-      { SUPPORT_FALLBACK_DONATE_URL: "https://paypal.me/HenryRussell163" },
+      { SUPPORT_STRIPE_PAYMENT_LINK_URL: "https://buy.stripe.com/test_yomu" },
       { waitUntil: vi.fn() },
     );
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("https://paypal.me/HenryRussell163");
+    expect(response.headers.get("location")).toBe("https://buy.stripe.com/test_yomu");
+  });
+
+  it("does not loop through the support page when no Stripe donation path is available", async () => {
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/donate"),
+      {},
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.text()).resolves.toContain("Stripe donations are temporarily unavailable");
   });
 
   it("creates Stripe Checkout sessions server-side and redirects to Stripe", async () => {
@@ -115,6 +134,7 @@ describe("Yomu support Worker", () => {
     await expect(status.json()).resolves.toMatchObject({
       donationsSource: "d1",
       donationsTodayGbp: 7.5,
+      donationsThisMonthGbp: 7.5,
       donationGoalGbp: 10,
       goalMet: false,
     });
@@ -161,6 +181,14 @@ function mockSupportDb(initialRows: DonationRow[] = []) {
         },
         async first<T>() {
           if (/SELECT COALESCE\(SUM\(amount_minor\), 0\)/.test(query)) {
+            if (/day >= \? AND day < \?/.test(query)) {
+              const start = String(values[0] ?? "");
+              const end = String(values[1] ?? "");
+              const total_minor = rows
+                .filter(row => row.day >= start && row.day < end && row.currency === "gbp")
+                .reduce((sum, row) => sum + row.amountMinor, 0);
+              return { total_minor } as T;
+            }
             const day = String(values[0] ?? "");
             const total_minor = rows
               .filter(row => row.day === day && row.currency === "gbp")

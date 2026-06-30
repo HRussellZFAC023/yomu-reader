@@ -1271,7 +1271,7 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste separate API keys here. Jiten keys start with ak_; JPDB keys come from JPDB settings. Bunpro uses the frontend_api_token. Local Yomu SRS works without an account.",
+      apiAccessHelp: "Paste separate API keys here. For Bunpro, open Bunpro settings while signed in and press the Yomu import button. Local Yomu SRS works without an account.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       bunproSettings: "Bunpro settings",
@@ -2965,7 +2965,7 @@ apiCredentialBunproLegacy	Bunpro APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	APIキーを別々に貼ります。Jitenキーはak_で始まります。JPDBキーはJPDB設定から、Bunproはfrontend_api_tokenを使います。ローカルよむSRSはアカウントなしで使えます。
+apiAccessHelp	APIキーを別々に貼ります。Bunproはログインした状態でBunpro設定を開き、Yomuの取り込みボタンを押します。ローカルよむSRSはアカウントなしで使えます。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
@@ -4927,7 +4927,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "custom",
     "custom-json"
   ];
+  const DEFAULT_AUDIO_SOURCES = [
+    { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+    { type: "jpod101", url: "", voice: "", enabled: false },
+    { type: "language-pod-101", url: "", voice: "", enabled: false },
+    { type: "jisho", url: "", voice: "", enabled: false },
+    { type: "jiten-tts", url: "", voice: "", enabled: false },
+    { type: "jpdb-tts", url: "", voice: "", enabled: false },
+    { type: "text-to-speech", url: "", voice: "", enabled: false }
+  ];
   new Set(AUDIO_SOURCE_TYPE_VALUES);
+  new Set(
+    DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
+  );
   const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
     "kanji-doodle",
     "word",
@@ -8376,24 +8388,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const index = ids.indexOf(id);
     if (index >= 0) ids.splice(index, 1);
   }
-  const REQUIRED_JA_AUDIO_SOURCES = [
-    { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-    { type: "jpod101", url: "", voice: "", enabled: true },
-    { type: "language-pod-101", url: "", voice: "", enabled: true },
-    { type: "jisho", url: "", voice: "", enabled: true },
-    { type: "jiten-tts", url: "", voice: "", enabled: true },
-    { type: "jpdb-tts", url: "", voice: "", enabled: true },
-    { type: "text-to-speech", url: "", voice: "", enabled: true }
-  ];
+  const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
   function getOrderedAudioSources(settings) {
     const sources = settings.audioSources.filter((source) => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
-    const configuredTypes = new Set(settings.audioSources.map((source) => source.type));
-    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? REQUIRED_JA_AUDIO_SOURCES[0];
+    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
     return [
       ...hosted.enabled ? [{ ...hosted }] : [],
-      ...sources.filter((source) => !isYomuHostedAudioSource(source)),
-      ...REQUIRED_JA_AUDIO_SOURCES.filter((source) => !isYomuHostedAudioSource(source) && !configuredTypes.has(source.type)).map((source) => ({ ...source }))
+      ...sources.filter((source) => !isYomuHostedAudioSource(source))
     ];
   }
   function isYomuHostedAudioSource(source) {

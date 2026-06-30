@@ -37,9 +37,9 @@ describe('audio module boundaries', () => {
         })).resolves.toBeNull();
     });
 
-    it('keeps built-in lookup source fallbacks in source resolution', () => {
+    it('keeps Yomu hosted audio as the sole default lookup source', () => {
         expect(getOrderedAudioSources({ ...DEFAULT_SETTINGS, audioSources: [] }).map(source => source.type))
-            .toEqual(['custom-json', 'jpod101', 'language-pod-101', 'jisho', 'jiten-tts', 'jpdb-tts', 'text-to-speech']);
+            .toEqual(['custom-json']);
     });
 
     it('shuffles API text-to-speech voices even when source order is fixed', () => {
@@ -48,7 +48,7 @@ describe('audio module boundaries', () => {
         expect(audioCandidateSelectionMode('jisho', 'first')).toBe('first');
     });
 
-    it('keeps Yomu-hosted audio first while preserving configured sources ahead of other built-in defaults', () => {
+    it('keeps Yomu-hosted audio first while preserving explicitly enabled configured sources', () => {
         const custom = customJsonSource('http://localhost:9090/?term={term}&reading={reading}');
         const ordered = getOrderedAudioSources({ ...DEFAULT_SETTINGS, audioSources: [custom, jishoSource()] });
 
@@ -58,9 +58,7 @@ describe('audio module boundaries', () => {
         });
         expect(ordered[1]).toMatchObject({ type: 'custom-json', url: 'http://localhost:9090/?term={term}&reading={reading}' });
         expect(ordered[2]?.type).toBe('jisho');
-        const types = ordered.map(source => source.type);
-        expect(types).toContain('jpod101');
-        expect(types.indexOf('jisho')).toBeLessThan(types.indexOf('jpod101'));
+        expect(ordered.map(source => source.type)).toEqual(['custom-json', 'custom-json', 'jisho']);
     });
 
     it('plays sources strictly in their authored order without reshuffling the priority list', () => {

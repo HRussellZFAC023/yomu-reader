@@ -9551,7 +9551,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps JPDB and browser text-to-speech enabled in the default audio fallbacks', () => {
+    it('keeps Yomu hosted audio default-on and every other built-in audio source default-off', () => {
         expect(DEFAULT_AUDIO_SOURCES.map(source => source.type)).toEqual([
             'custom-json',
             'jpod101',
@@ -9561,29 +9561,47 @@ describe('reader helpers', () => {
             'jpdb-tts',
             'text-to-speech',
         ]);
+        expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true });
+        expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'jpod101', url: '', voice: '', enabled: false });
+        expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'language-pod-101', url: '', voice: '', enabled: false });
+        expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'jisho', url: '', voice: '', enabled: false });
+        expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'jiten-tts', url: '', voice: '', enabled: false });
+        expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'jpdb-tts', url: '', voice: '', enabled: false });
+        expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'text-to-speech', url: '', voice: '', enabled: false });
         expect(normalizeAudioSources([
             { type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true },
             { type: 'jpod101', url: '', voice: '', enabled: true },
             { type: 'language-pod-101', url: '', voice: '', enabled: true },
             { type: 'jisho', url: '', voice: '', enabled: true },
             { type: 'text-to-speech', url: '', voice: '', enabled: true },
-        ]).map(source => source.type)).toEqual([
-            'custom-json',
-            'jpod101',
-            'language-pod-101',
-            'jisho',
-            'jiten-tts',
-            'jpdb-tts',
-            'text-to-speech',
+        ])).toEqual([
+            { type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true },
+            { type: 'jpod101', url: '', voice: '', enabled: false },
+            { type: 'language-pod-101', url: '', voice: '', enabled: false },
+            { type: 'jisho', url: '', voice: '', enabled: false },
+            { type: 'jiten-tts', url: '', voice: '', enabled: false },
+            { type: 'jpdb-tts', url: '', voice: '', enabled: false },
+            { type: 'text-to-speech', url: '', voice: '', enabled: false },
         ]);
-        expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true });
-        expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'jiten-tts', url: '', voice: '', enabled: true });
-        expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'jpdb-tts', url: '', voice: '', enabled: true });
-        expect(DEFAULT_AUDIO_SOURCES).toContainEqual({ type: 'text-to-speech', url: '', voice: '', enabled: true });
+        expect(normalizeAudioSources([
+            { type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true },
+            { type: 'jpod101', url: '', voice: '', enabled: true },
+            { type: 'language-pod-101', url: '', voice: '', enabled: true },
+            { type: 'jisho', url: '', voice: '', enabled: true },
+            { type: 'text-to-speech', url: '', voice: '', enabled: true },
+            { type: 'custom-json', url: 'http://localhost:9090/?term={term}&reading={reading}', voice: '', enabled: true },
+        ])).toEqual([
+            { type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true },
+            { type: 'jpod101', url: '', voice: '', enabled: true },
+            { type: 'language-pod-101', url: '', voice: '', enabled: true },
+            { type: 'jisho', url: '', voice: '', enabled: true },
+            { type: 'text-to-speech', url: '', voice: '', enabled: true },
+            { type: 'custom-json', url: 'http://localhost:9090/?term={term}&reading={reading}', voice: '', enabled: true },
+        ]);
         expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true });
-        expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'jiten-tts', url: '', voice: '', enabled: true });
-        expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'jpdb-tts', url: '', voice: '', enabled: true });
-        expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'text-to-speech', url: '', voice: '', enabled: true });
+        expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'jiten-tts', url: '', voice: '', enabled: false });
+        expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'jpdb-tts', url: '', voice: '', enabled: false });
+        expect(normalizeAudioSources(undefined)).toContainEqual({ type: 'text-to-speech', url: '', voice: '', enabled: false });
         expect(DEFAULT_SETTINGS.audioEnabled).toBe(true);
         expect(DEFAULT_SETTINGS.audioFallbackChimeEnabled).toBe(true);
         expect(DEFAULT_SETTINGS.autoPlayAudio).toBe(true);
@@ -11366,7 +11384,15 @@ describe('reader helpers', () => {
         mockSpeechSynthesis(spoken, [{ name: 'Kyoko', lang: 'ja-JP', default: true }] as SpeechSynthesisVoice[]);
 
         try {
-            const player = new AudioPlayer(() => ({ ...DEFAULT_SETTINGS, audioSelectionMode: 'first' }));
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioSources: [
+                    { type: 'jisho', url: '', voice: '', enabled: true },
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                ],
+            }));
 
             await expect(player.play(card)).resolves.toBe(true);
 

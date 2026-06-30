@@ -116,7 +116,7 @@
   min-height: 100dvh;
   margin: 0 auto;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   gap: clamp(12px, 2.2vh, 22px);
   padding: max(18px, env(safe-area-inset-top)) 0
     max(82px, calc(18px + env(safe-area-inset-bottom)));
@@ -158,6 +158,83 @@
   grid-template-columns: minmax(44px, 1fr) auto minmax(44px, 1fr);
   align-items: center;
   gap: 6px;
+}
+
+.jpdb-reader-newtab-support-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-bg) 88%, var(--jpdb-reader-accent) 12%);
+  color: var(--jpdb-reader-text);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+}
+
+.jpdb-reader-newtab-support-banner[hidden] {
+  display: none;
+}
+
+.jpdb-reader-newtab-support-copy {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  min-width: 0;
+  font: 700 12px/1.35 var(--jpdb-reader-font);
+  text-align: center;
+}
+
+.jpdb-reader-newtab-support-copy span {
+  color: var(--jpdb-reader-muted);
+}
+
+.jpdb-reader-newtab-support-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.jpdb-reader-newtab-support-donate,
+.jpdb-reader-newtab-support-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  border: 1px solid var(--jpdb-reader-accent);
+  border-radius: 8px;
+  font: 800 12px/1 var(--jpdb-reader-font);
+}
+
+.jpdb-reader-newtab-support-donate {
+  padding: 0 11px;
+  background: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-ink);
+  text-decoration: none;
+}
+
+.jpdb-reader-newtab-support-close {
+  width: 30px;
+  padding: 0;
+  background: transparent;
+  color: var(--jpdb-reader-muted);
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .jpdb-reader-newtab-support-banner {
+    align-items: stretch;
+    justify-content: space-between;
+  }
+
+  .jpdb-reader-newtab-support-copy {
+    justify-content: flex-start;
+    text-align: left;
+  }
 }
 
 .jpdb-reader-newtab-theme-controls {
@@ -4554,6 +4631,12 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   font: 800 11px/1 var(--jpdb-reader-font);
   white-space: nowrap;
 }
+.jpdb-reader-newtab-listen-score-panel {
+  display: inline-grid;
+  justify-items: center;
+  gap: 4px;
+  max-width: min(360px, 100%);
+}
 .jpdb-reader-newtab-listen-score[data-speaking-score-state="good"] {
   border-color: var(--jpdb-reader-success, #2e9b57);
   background: color-mix(in srgb, var(--jpdb-reader-success, #2e9b57) 16%, transparent);
@@ -4565,9 +4648,26 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   color: var(--jpdb-reader-accent);
 }
 .jpdb-reader-newtab-listen-score[data-speaking-score-state="retry"] {
-  border-color: var(--jpdb-reader-danger, #d9534f);
-  background: color-mix(in srgb, var(--jpdb-reader-danger, #d9534f) 14%, transparent);
-  color: var(--jpdb-reader-danger, #d9534f);
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 42%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent-soft) 44%, transparent);
+  color: var(--jpdb-reader-text);
+}
+.jpdb-reader-newtab-listen-score-tip {
+  color: var(--jpdb-reader-muted);
+  font: 700 11px/1.2 var(--jpdb-reader-font);
+}
+.jpdb-reader-newtab-listen-score-contours {
+  display: grid;
+  grid-template-columns: auto minmax(72px, 112px);
+  align-items: center;
+  gap: 2px 8px;
+  color: var(--jpdb-reader-muted);
+  font: 700 10px/1.1 var(--jpdb-reader-font);
+}
+.jpdb-reader-newtab-listen-score-graph svg {
+  width: 96px;
+  max-width: 100%;
+  height: auto;
 }
 .jpdb-reader-newtab-listen-cue {
   display: grid;

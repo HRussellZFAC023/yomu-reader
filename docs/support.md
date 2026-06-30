@@ -30,7 +30,9 @@ Donations are optional. They help cover testing devices, hosting, API usage, mai
 
 ## Service Budget
 
-The shared Yomu services are capped around **£10/day** while the project is donation funded. If donations do not cover the goal, the first things to pause are shared recorded audio, the public CORS fallback, and edge-cached public Jiten/JPDB lookups. The reader, local dictionaries, local SRS, and userscript core stay free and local-first.
+The donation goal follows current monthly running costs with a **£10/month floor**. If the monthly goal is not met, **Ultimate Audio** will switch off for the next month. Ultimate Audio provides fast real-audio playback for words and shadowing practice. Reading, dictionaries you keep on your device, study, and card mining stay free.
+
+Supporters may be thanked in additional ways as よむ grows.
 
 ## Quick Actions
 

@@ -31,7 +31,7 @@ import { isJitenBackedCard } from '../cards/srs-providers';
 import type { CardRenderData } from '../cards/render-data';
 import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
-import { APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, PDF_READER_PAGE_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
+import { APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, PDF_READER_PAGE_URL, SUPPORT_STATUS_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
 import { nearestElementByPoint, pointerPointFromEvent, pointInElementClientRects } from '../dom/pointer-geometry';
@@ -662,8 +662,27 @@ interface PortableStudyCardIdentity {
     reading: string;
 }
 
+interface NewTabSupportStatus {
+    donationGoalGbp?: number;
+    donationsTodayGbp?: number;
+    donationsThisMonthGbp?: number;
+    estimatedMonthlyCostGbp?: number;
+    donateUrl?: string;
+    banner?: {
+        enabled?: boolean;
+        dismissVersion?: string;
+        message?: string;
+        costLabel?: string;
+        goalLabel?: string;
+        ctaLabel?: string;
+        donateUrl?: string;
+    };
+}
+
 const log = Logger.scope('NewTab');
 const NEW_TAB_MODE_NAMES = new Set<string>(['word', 'recall', 'kanji', 'search', 'stats', 'listen']);
+const NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY = 'yomu-newtab-support-banner-dismissed';
+const NEW_TAB_SUPPORT_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1000;
 
 function isNewTabModeName(value: string | undefined | null): value is NewTabMode {
     return Boolean(value && NEW_TAB_MODE_NAMES.has(value));
@@ -694,6 +713,54 @@ function newTabRouteSearchQuery(url: URL): string {
         if (value) return value;
     }
     return '';
+}
+
+function newTabSupportMeta(status: NewTabSupportStatus): string {
+    const cost = status.banner?.costLabel || `Donation goal: ${formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10))}/month`;
+    const goal = status.banner?.goalLabel || `This month: ${formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0)} / ${formatNewTabSupportGbp(status.donationGoalGbp ?? 10)}`;
+    return `${cost} · ${goal}`;
+}
+
+function newTabSupportDonateUrl(status: NewTabSupportStatus): string {
+    const candidate = status.banner?.donateUrl || status.donateUrl || DONATE_URL;
+    try {
+        const url = new URL(candidate);
+        return url.protocol === 'https:' ? url.href : DONATE_URL;
+    } catch {
+        return DONATE_URL;
+    }
+}
+
+function newTabSupportDismissVersion(status: NewTabSupportStatus): string {
+    return status.banner?.dismissVersion || 'ultimate-audio-monthly-v1';
+}
+
+function isNewTabSupportBannerDismissed(version: string): boolean {
+    try {
+        const raw = window.localStorage.getItem(NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw) as { version?: unknown; dismissedUntil?: unknown };
+        return parsed.version === version
+            && typeof parsed.dismissedUntil === 'number'
+            && parsed.dismissedUntil > Date.now();
+    } catch {
+        return false;
+    }
+}
+
+function rememberNewTabSupportBannerDismissal(version: string): void {
+    try {
+        window.localStorage.setItem(NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY, JSON.stringify({
+            version,
+            dismissedUntil: Date.now() + NEW_TAB_SUPPORT_BANNER_DISMISS_MS,
+        }));
+    } catch {
+        // Storage may be blocked; closing still removes the current banner.
+    }
+}
+
+function formatNewTabSupportGbp(value: number): string {
+    return `£${value.toFixed(value % 1 === 0 ? 0 : 2)}`;
 }
 
 export class NewTabController {
@@ -765,6 +832,7 @@ export class NewTabController {
     private listenRecordingUrl: string | undefined;
     private listenRecordingAudio: HTMLAudioElement | undefined;
     private listenRecordingUnavailable = false;
+    private listenRecordingStopTimer: ReturnType<typeof setTimeout> | undefined;
     private listenSpeakingScore: SpeakingPitchScore | null = null;
     private listenSpeakingScoring = false;
     private listenSpeakingScoreGeneration = 0;
@@ -896,6 +964,7 @@ export class NewTabController {
         }
         this.syncThemeToggle(root);
         this.syncInstallAppButton(root);
+        void this.syncSupportBanner(root);
 
         if (this.state.mode === 'search') {
             this.renderSearch(root);
@@ -1161,6 +1230,7 @@ export class NewTabController {
                     el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, uiText(language, 'reveal')),
                     el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': newTabText(language, 'nextWord') }, newTabText(language, 'nextWord')),
                 ),
+                el('aside', { class: 'jpdb-reader-newtab-support-banner', dataset: { newtabSupportBanner: true }, hidden: true, 'aria-label': newTabText(language, 'supportBannerLabel') }),
             ),
         );
     }
@@ -1606,6 +1676,11 @@ export class NewTabController {
             void this.installStudyApp(root);
             return true;
         }
+        if (action === 'dismiss-support-banner') {
+            event.preventDefault();
+            this.dismissSupportBanner(root);
+            return true;
+        }
         return false;
     }
 
@@ -1645,6 +1720,94 @@ export class NewTabController {
         button.setAttribute('aria-label', this.text('installStudyApp'));
         const description = button.querySelector<HTMLElement>('.jpdb-reader-newtab-menu-description');
         if (description) description.textContent = status;
+    }
+
+    private async syncSupportBanner(root: HTMLElement): Promise<void> {
+        const banner = root.querySelector<HTMLElement>('[data-newtab-support-banner]');
+        if (!banner) return;
+        if (!this.shouldRequestSupportBanner()) {
+            this.hideSupportBanner(banner);
+            return;
+        }
+        try {
+            const status = await this.fetchSupportStatus();
+            if (!root.contains(banner)) return;
+            if (!this.shouldShowSupportBanner(status)) {
+                this.hideSupportBanner(banner);
+                return;
+            }
+            this.renderSupportBanner(banner, status);
+        } catch {
+            this.hideSupportBanner(banner);
+        }
+    }
+
+    private shouldRequestSupportBanner(): boolean {
+        try {
+            return location.origin === new URL(DOCS_BASE_URL).origin;
+        } catch {
+            return false;
+        }
+    }
+
+    private async fetchSupportStatus(): Promise<NewTabSupportStatus> {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 2400);
+        try {
+            const response = await fetch(SUPPORT_STATUS_URL, {
+                credentials: 'omit',
+                referrerPolicy: 'no-referrer',
+                signal: controller.signal,
+            });
+            if (!response.ok) throw new Error('Support status unavailable');
+            return await response.json() as NewTabSupportStatus;
+        } finally {
+            window.clearTimeout(timeout);
+        }
+    }
+
+    private shouldShowSupportBanner(status: NewTabSupportStatus): boolean {
+        if (status.banner?.enabled === false) return false;
+        return !isNewTabSupportBannerDismissed(newTabSupportDismissVersion(status));
+    }
+
+    private renderSupportBanner(banner: HTMLElement, status: NewTabSupportStatus): void {
+        const version = newTabSupportDismissVersion(status);
+        banner.dataset.supportDismissVersion = version;
+        banner.replaceChildren(
+            el('div', { class: 'jpdb-reader-newtab-support-copy' },
+                el('strong', {}, status.banner?.message || this.text('supportBannerMessage')),
+                el('span', {}, newTabSupportMeta(status)),
+            ),
+            el('div', { class: 'jpdb-reader-newtab-support-actions' },
+                el('a', {
+                    class: 'jpdb-reader-newtab-support-donate',
+                    href: newTabSupportDonateUrl(status),
+                    target: '_blank',
+                    rel: 'noopener',
+                }, status.banner?.ctaLabel || this.text('donate')),
+                el('button', {
+                    class: 'jpdb-reader-newtab-support-close',
+                    type: 'button',
+                    dataset: { newtabAction: 'dismiss-support-banner' },
+                    'aria-label': this.text('supportBannerDismiss'),
+                }, '×'),
+            ),
+        );
+        banner.hidden = false;
+    }
+
+    private hideSupportBanner(banner: HTMLElement): void {
+        banner.hidden = true;
+        banner.replaceChildren();
+        delete banner.dataset.supportDismissVersion;
+    }
+
+    private dismissSupportBanner(root: HTMLElement): void {
+        const banner = root.querySelector<HTMLElement>('[data-newtab-support-banner]');
+        if (!banner) return;
+        rememberNewTabSupportBannerDismissal(banner.dataset.supportDismissVersion || 'ultimate-audio-monthly-v1');
+        this.hideSupportBanner(banner);
     }
 
     private isStandalonePwa(): boolean {
@@ -4759,7 +4922,7 @@ export class NewTabController {
 
     private async toggleListenRecording(): Promise<void> {
         if (this.listenRecorder && this.listenRecorder.state !== 'inactive') {
-            this.listenRecorder.stop();
+            this.stopListenRecorder();
             return;
         }
         const mediaDevices = navigator.mediaDevices;
@@ -4781,6 +4944,10 @@ export class NewTabController {
             const chunks: Blob[] = [];
             recorder.addEventListener('dataavailable', event => { if (event.data && event.data.size) chunks.push(event.data); });
             recorder.addEventListener('stop', () => {
+                if (this.listenRecordingStopTimer) {
+                    clearTimeout(this.listenRecordingStopTimer);
+                    this.listenRecordingStopTimer = undefined;
+                }
                 stream.getTracks().forEach(track => track.stop());
                 this.clearListenRecording(); // also nulls listenRecorder + revokes any prior url
                 const blob = chunks.length ? new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }) : null;
@@ -4795,12 +4962,25 @@ export class NewTabController {
             this.listenRecordingUnavailable = false;
             this.listenRecorder = recorder;
             recorder.start();
+            this.listenRecordingStopTimer = setTimeout(() => {
+                if (this.listenRecorder === recorder && recorder.state !== 'inactive') this.stopListenRecorder();
+            }, 3200);
             this.rerenderActiveListen();
         } catch (error) {
             log.warn('Listen self-recording unavailable', error);
             this.listenRecorder = undefined;
             this.listenRecordingUnavailable = true;
             this.rerenderActiveListen();
+        }
+    }
+
+    private stopListenRecorder(): void {
+        if (this.listenRecordingStopTimer) {
+            clearTimeout(this.listenRecordingStopTimer);
+            this.listenRecordingStopTimer = undefined;
+        }
+        if (this.listenRecorder && this.listenRecorder.state !== 'inactive') {
+            try { this.listenRecorder.stop(); } catch { /* already stopping */ }
         }
     }
 
@@ -4834,6 +5014,10 @@ export class NewTabController {
     }
 
     private clearListenRecording(): void {
+        if (this.listenRecordingStopTimer) {
+            clearTimeout(this.listenRecordingStopTimer);
+            this.listenRecordingStopTimer = undefined;
+        }
         if (this.listenRecordingAudio) {
             try { this.listenRecordingAudio.pause(); } catch { /* already stopped */ }
             this.listenRecordingAudio = undefined;

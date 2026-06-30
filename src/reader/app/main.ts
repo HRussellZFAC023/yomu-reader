@@ -311,6 +311,7 @@ import {
     isBunproFrontendCredentialExpired,
 } from '../settings/api-credential';
 import { BunproClient } from '../bunpro/bunpro';
+import { installBunproFrontendTokenImporter } from '../bunpro/frontend-token-importer';
 import { createBunproSrsAdapter, createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
 import { applyHostTheme, detectHostTheme, isHostThemeAuthoritative, isThemeSyncHost, jitenThemeCookieMatches, observeHostTheme, type HostTheme } from '../theme/host-theme';
@@ -998,6 +999,7 @@ export class ReaderApp {
             return;
         }
         this.installFab();
+        void this.installBunproTokenImporter();
         this.subtitles.init();
         this.ocr.init();
         // mokuro's own "OCR enabled" toggle lives outside the reader's settings;
@@ -1017,6 +1019,16 @@ export class ReaderApp {
         } else {
             this.scheduleAnkiStatusWarmup();
         }
+    }
+
+    private async installBunproTokenImporter(): Promise<void> {
+        await installBunproFrontendTokenImporter({
+            getSettings: () => this.settings,
+            setSettings: settings => { this.settings = settings; },
+            saveSettings,
+            toast: message => this.toast(message),
+            language: () => this.settings.interfaceLanguage,
+        });
     }
 
     // Cross-tab card-state mutation bus: grading or mining a card in another
