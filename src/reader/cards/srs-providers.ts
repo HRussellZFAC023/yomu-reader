@@ -7,7 +7,7 @@ import type { UiCopyKey } from '../app/i18n';
 import type { ApiDeck, CardState, JPDBCard, JPDBDeck, JPDBGrade, ReaderSettings } from '../app/types';
 import type { YomuSrsAdapter, YomuSrsMiningRequest, YomuSrsReviewable, YomuSrsReviewableKind } from '../srs';
 
-export type ApiSrsProviderId = 'jpdb' | 'jiten' | 'bunpro';
+export type ApiSrsProviderId = 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local';
 export type ApiSrsDeckSource = ApiSrsProviderId;
 export type ApiSrsToggleDeckState = 'never-forget' | 'blacklisted';
 export type ApiSrsDeckState = ApiSrsToggleDeckState | 'mining' | 'suspended' | 'forgotten';
@@ -44,6 +44,7 @@ export interface ApiSrsProviderDeckData {
 
 export interface ApiSrsProviderActionContext {
     sourceTitle?: string;
+    sourceUrl?: string;
 }
 
 export interface ApiSrsProviderReviewOptions {
@@ -55,6 +56,7 @@ export interface ApiSrsProviderAdapterOptions {
     jpdb: JpdbClient;
     jiten?: JitenApiClient;
     bunpro?: YomuSrsAdapter;
+    yomuLocal?: YomuSrsAdapter;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
 }
 
@@ -87,6 +89,14 @@ export function apiSrsProviderAvailability(
 }
 
 function apiSrsProviderView(id: ApiSrsProviderId, settings: ReaderSettings): ApiSrsProviderView {
+    if (id === 'yomu-local') {
+        return {
+            id: 'yomu-local',
+            label: 'Yomu',
+            deckSource: 'yomu-local',
+            hasApiKey: settings.yomuLocalSrsEnabled,
+        };
+    }
     if (id === 'bunpro') {
         return {
             id: 'bunpro',
@@ -119,6 +129,11 @@ export function apiSrsProviderViewForCard(
     if (jpdbUsable && jitenUsable) return apiSrsProviderView(apiGradingProviderPreference(settings), settings);
     if (jpdbUsable) return apiSrsProviderView('jpdb', settings);
     if (jitenUsable) return apiSrsProviderView('jiten', settings);
+    // Local-first fallback: when no external SRS can act on this word, Yomu
+    // still lets the learner mine/review in this browser without an account.
+    // Keep expired/disabled Bunpro-backed cards labelled as Bunpro so token
+    // expiry remains visible instead of being hidden behind the local fallback.
+    if (!bunproBacked && settings.yomuLocalSrsEnabled) return apiSrsProviderView('yomu-local', settings);
     // Neither key is usable: surface the backing provider for the status label
     // only (no grading UI renders without a key).
     if (jpdbBacked) return apiSrsProviderView('jpdb', settings);
@@ -128,10 +143,11 @@ export function apiSrsProviderViewForCard(
 }
 
 export function isApiMiningEnabled(settings: ReaderSettings): boolean {
-    return settings.jpdbMiningEnabled || settings.bunproMiningEnabled;
+    return settings.jpdbMiningEnabled || settings.bunproMiningEnabled || settings.yomuLocalSrsEnabled;
 }
 
 export function isApiSrsProviderEnabled(settings: ReaderSettings, providerId: ApiSrsProviderId | undefined): boolean {
+    if (providerId === 'yomu-local') return settings.yomuLocalSrsEnabled;
     return providerId === 'bunpro' ? settings.bunproMiningEnabled : settings.jpdbMiningEnabled;
 }
 
@@ -145,6 +161,7 @@ export function createApiSrsProviderAdapters(options: ApiSrsProviderAdapterOptio
         ? [createJitenSrsProviderAdapter(options.jiten, settings), jpdbProvider]
         : [jpdbProvider];
     if (options.bunpro) providers.unshift(createBunproSrsProviderAdapter(options.bunpro, settings));
+    if (options.yomuLocal) providers.push(createYomuLocalSrsProviderAdapter(options.yomuLocal, settings));
     return providers;
 }
 
@@ -213,6 +230,37 @@ function createBunproSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Reade
                 sentence: reviewOptions.sentence,
             });
             return {};
+        },
+        setDeckState: async () => undefined,
+    };
+}
+
+function createYomuLocalSrsProviderAdapter(adapter: YomuSrsAdapter, settings: ReaderSettings): ApiSrsProviderAdapter {
+    return {
+        id: 'yomu-local',
+        label: 'Yomu',
+        deckSource: 'yomu-local',
+        hasApiKey: settings.yomuLocalSrsEnabled && adapter.hasCredential(),
+        addApiKeyRequiredKey: 'yomuLocalSrsDisabled',
+        reviewApiKeyRequiredKey: 'yomuLocalSrsDisabled',
+        deckStateApiKeyRequiredKey: 'yomuLocalSrsDisabled',
+        addedToastKey: 'addedToYomuLocal',
+        supportsCard: card => Boolean(card.spelling.trim()),
+        supportsDeckState: () => false,
+        selectedDeckId: () => 'yomu-local',
+        selectedDeckLabel: () => 'Yomu',
+        addToDeck: async (_deckId, card, sentence, context) => {
+            await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context));
+        },
+        reviewCard: async (card, grade, reviewOptions = {}) => {
+            const wasNotInDeck = normalizeCardStates(card.cardState).includes('not-in-deck')
+                || card.reviewSource !== 'yomu-local';
+            await adapter.review({
+                card: yomuLocalReviewableFromCard(card),
+                grade,
+                sentence: reviewOptions.sentence,
+            });
+            return { addedBeforeReview: wasNotInDeck };
         },
         setDeckState: async () => undefined,
     };
@@ -305,6 +353,37 @@ function bunproMiningRequestFromCard(card: JPDBCard, sentence: string | undefine
 function bunproReviewableKind(type: JPDBCard['bunproReviewableType']): YomuSrsReviewableKind {
     if (type === 'vocabulary' || type === 'grammar' || type === 'sentence') return type;
     return 'unknown';
+}
+
+function yomuLocalReviewableFromCard(card: JPDBCard): YomuSrsReviewable {
+    const expression = card.spelling.trim();
+    const reading = card.reading.trim() || expression;
+    const providerCardId = card.sourceCardKey || `${expression}\u0000${reading}`;
+    return {
+        providerId: 'yomu-local',
+        providerCardId,
+        providerReviewId: providerCardId,
+        kind: 'vocabulary',
+        expression,
+        reading,
+        meanings: card.meanings,
+        state: card.cardState,
+        dueAt: card.dueAt,
+        lastReviewAt: card.lastReviewAt,
+        raw: card,
+    };
+}
+
+function yomuLocalMiningRequestFromCard(card: JPDBCard, sentence: string | undefined, context?: ApiSrsProviderActionContext): YomuSrsMiningRequest {
+    return {
+        expression: card.spelling,
+        reading: card.reading,
+        meaning: card.meanings.flatMap(meaning => meaning.glosses).join('; '),
+        sentence,
+        sourceTitle: context?.sourceTitle,
+        sourceUrl: context?.sourceUrl,
+        kind: 'vocabulary',
+    };
 }
 
 function stringifyPositiveNumber(value: number | undefined): string | undefined {

@@ -101,10 +101,12 @@ const COPY = {
         gradeTargetJpdb: 'Grades JPDB',
         gradeTargetJiten: 'Grades Jiten',
         gradeTargetBunpro: 'Grades Bunpro',
+        gradeTargetYomuLocal: 'Grades Yomu',
         gradeTargetAnki: 'Grades Anki card: {target}',
         gradeTargetJpdbAndAnki: 'Grades JPDB + Anki card: {target}',
         gradeTargetJitenAndAnki: 'Grades Jiten + Anki card: {target}',
         gradeTargetBunproAndAnki: 'Grades Bunpro + Anki card: {target}',
+        gradeTargetYomuLocalAndAnki: 'Grades Yomu + Anki card: {target}',
         missingAnkiCardId: 'Missing Anki card id.',
         jpdbPageEnhancements: 'Dictionary site enhancements',
         jpdbPageEnhancementsEnabled: 'Enhance dictionary pages',
@@ -1036,9 +1038,11 @@ const COPY = {
         jitenDeckStateApiKeyRequired: 'Add a Jiten API key to change Jiten vocabulary state.',
         jitenAddApiKeyRequired: 'Add a Jiten API key, or use Add to Anki.',
         bunproAddApiKeyRequired: 'Add a Bunpro frontend API token, or use Add to Anki.',
+        yomuLocalSrsDisabled: 'Enable local Yomu SRS in Settings first.',
         chooseJitenStudyDeck: 'Choose a Jiten study deck first.',
         addedToJiten: 'Added to Jiten.',
         addedToBunpro: 'Added to Bunpro.',
+        addedToYomuLocal: 'Added to Yomu.',
         kanjiDetailsUnavailable: 'Kanji details are not available yet.',
         loadingDictionaryDetails: 'Loading dictionary details...',
         sourceSingular: 'source',
@@ -1681,9 +1685,11 @@ addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
 jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
 bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
+yomuLocalSrsDisabled	先に設定でローカルよむSRSを有効にしてください。
 chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
 addedToJiten	Jitenに追加しました。
 addedToBunpro	Bunproに追加しました。
+addedToYomuLocal	よむに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 sourceSingular	ソース
@@ -1794,10 +1800,12 @@ gradeTargetBoth	両方
 gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
 gradeTargetBunpro	Bunproを採点
+gradeTargetYomuLocal	よむを採点
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
 gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
+gradeTargetYomuLocalAndAnki	よむ + Ankiカードを採点: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張

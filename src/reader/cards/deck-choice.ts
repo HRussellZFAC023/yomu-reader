@@ -2,11 +2,12 @@ import { escapeHtml } from '../dom/index';
 import { uiText } from '../app/i18n';
 import type { ApiDeck, JPDBDeck, ReaderSettings } from '../app/types';
 
-type SrsDeckSource = 'jpdb' | 'jiten' | 'anki';
+type SrsDeckSource = 'jpdb' | 'jiten' | 'yomu-local' | 'anki';
 
 export interface DeckChoiceRenderOptions {
     includeJpdb?: boolean;
     includeJiten?: boolean;
+    includeYomuLocal?: boolean;
     jitenDecks?: ApiDeck[];
 }
 
@@ -20,6 +21,7 @@ export function renderDeckChoiceOptions(
     const options: Array<[string, string]> = [];
     if (renderOptions.includeJpdb) addJpdbDeckChoiceOptions(settings, options, jpdbDecks);
     if (renderOptions.includeJiten) addJitenDeckChoiceOptions(options, renderOptions.jitenDecks ?? []);
+    if (renderOptions.includeYomuLocal && settings.yomuLocalSrsEnabled) addDeckChoiceOption(options, 'yomu-local', 'yomu-local', 'Yomu');
     if (settings.ankiEnabled) addAnkiDeckChoiceOptions(settings, options, ankiDecks);
     if (!options.length) return '';
     return deckChoicePlaceholderOption(settings) + options.map(renderDeckChoiceOption).join('');

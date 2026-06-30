@@ -12,7 +12,7 @@ import { localPitchPatternFromMeta, localPitchPatternsFromMeta } from '../lookup
 import { cardPronunciationReading, isKanjiCharacter, type ExpressionComponentPitch } from '../popup/pitch';
 import { shouldLookupAnkiStatus } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
-import { isApiMiningEnabled, isJitenBackedCard } from './srs-providers';
+import { isJitenBackedCard } from './srs-providers';
 import type { ApiDeck, JPDBCard, JPDBDeck, ReaderSettings } from '../app/types';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 
@@ -250,7 +250,7 @@ export class CardRenderDataLoader {
 
     private loadJpdbDecks(card: JPDBCard): Promise<JPDBDeck[]> {
         const settings = this.settings();
-        if (!isApiMiningEnabled(settings) || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
+        if (!settings.jpdbMiningEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, 'JPDB deck list', this.cachedJpdbDecks(settings).catch(error => {
             log.warn('JPDB deck list failed', { term: card.spelling }, error);
             return [];
@@ -267,7 +267,7 @@ export class CardRenderDataLoader {
 
     private loadJitenDecks(card: JPDBCard): Promise<ApiDeck[]> {
         const settings = this.settings();
-        if (!isApiMiningEnabled(settings) || !isJitenBackedCard(card) || !hasJitenApiCredential(settings)) return Promise.resolve([]);
+        if (!settings.jpdbMiningEnabled || !isJitenBackedCard(card) || !hasJitenApiCredential(settings)) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, 'Jiten deck list', this.cachedJitenDecks(settings).catch(error => {
             log.warn('Jiten deck list failed', { term: card.spelling }, error);
             return [];
@@ -289,7 +289,7 @@ export class CardRenderDataLoader {
     private loadJpdbDeckMembership(card: JPDBCard): Promise<boolean> {
         const settings = this.settings();
         if (!cardNeedsJpdbDeckPoolLookup(card)) return Promise.resolve(false);
-        if (!isApiMiningEnabled(settings) || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve(false);
+        if (!settings.jpdbMiningEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve(false);
         const isInUserDeckPool = this.dependencies.jpdb.isInUserDeckPool?.bind(this.dependencies.jpdb);
         if (typeof isInUserDeckPool !== 'function') return Promise.resolve(false);
         return this.withFallback(card, CARD_RENDER_DECK_POOL_TIMEOUT_MS, 'JPDB pooled deck membership', isInUserDeckPool(card).catch(error => {
@@ -479,7 +479,7 @@ export class CardRenderDataLoader {
             ankiMobileHandoff: settings.ankiMobileHandoff,
             jpdbDefinitions: settings.jpdbDefinitionsEnabled,
             jitenDefinitions: settings.jitenDefinitionsEnabled,
-            apiMining: isApiMiningEnabled(settings),
+            apiMining: settings.jpdbMiningEnabled || settings.bunproMiningEnabled,
             hasApiKey: hasJpdbApiCredential(settings),
             hasJitenApiKey: hasJitenApiCredential(settings),
             dictionaries: settings.dictionaryPreferences.map(preference => ({

@@ -311,7 +311,7 @@ import {
     isBunproFrontendCredentialExpired,
 } from '../settings/api-credential';
 import { BunproClient } from '../bunpro/bunpro';
-import { createBunproSrsAdapter } from '../srs';
+import { createBunproSrsAdapter, createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
 import { applyHostTheme, detectHostTheme, isHostThemeAuthoritative, isThemeSyncHost, jitenThemeCookieMatches, observeHostTheme, type HostTheme } from '../theme/host-theme';
 import { showReaderToast } from '../ui/toast';
@@ -605,6 +605,7 @@ export class ReaderApp {
         getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings),
     });
     private bunproSrs = createBunproSrsAdapter(this.bunpro);
+    private yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
     private rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : null;
     private dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
     private cardRenderData = new CardRenderDataLoader({
@@ -664,6 +665,7 @@ export class ReaderApp {
         jiten: this.jiten,
         srsAdapters: {
             bunpro: this.bunproSrs,
+            'yomu-local': this.yomuLocalSrs,
         },
         anki: this.anki,
         dictionaries: this.dictionaries,

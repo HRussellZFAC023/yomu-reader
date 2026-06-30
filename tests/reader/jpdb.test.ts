@@ -6634,6 +6634,29 @@ describe('reader helpers', () => {
         expect(document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="deck-picker"]')).toBeNull();
     });
 
+    it('renders local Yomu SRS mining and review controls without external accounts', () => {
+        const renderer = testCardPopoverRenderer({
+            apiKey: '',
+            jitenApiKey: '',
+            bunproFrontendApiToken: '',
+            yomuLocalSrsEnabled: true,
+            enableReviews: true,
+        });
+
+        document.body.innerHTML = renderModalCard(renderer, {
+            ...card,
+            meanings: [{ glosses: ['to eat'], partOfSpeech: ['v1'] }],
+            cardState: ['not-in-deck'],
+        }, 'ご飯を食べる。');
+
+        expect(readerMetaText()).not.toContain('Yomu');
+        expect(document.querySelector('[data-action="grade-provider-toggle"]')).toBeNull();
+        expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'yomu-local')).toBe(true);
+        expect(document.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Yomu');
+        const addButton = document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="add"]');
+        expect(addButton?.dataset.deckSource).toBe('yomu-local');
+    });
+
     it('keeps dictionary, Immersion Kit, and study source stacks available for Jiten-backed cards', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -6798,6 +6821,70 @@ describe('reader helpers', () => {
             }),
         }));
         expect(toast).toHaveBeenCalledWith('Added to Bunpro.');
+    });
+
+    it('mines and reviews page words through the local Yomu SRS adapter without accounts', async () => {
+        const mine = vi.fn(async () => ({}));
+        const review = vi.fn(async () => ({}));
+        const addToDeck = vi.fn(async () => undefined);
+        const toast = vi.fn();
+        const controller = testCardActionController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                ankiEnabled: false,
+                yomuLocalSrsEnabled: true,
+                enableReviews: true,
+            }),
+            jpdb: { addToDeck } as unknown as JpdbClient,
+            srsAdapters: {
+                'yomu-local': {
+                    id: 'yomu-local',
+                    label: 'Yomu',
+                    capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
+                    hasCredential: () => true,
+                    verify: vi.fn(),
+                    stats: vi.fn(),
+                    queue: vi.fn(),
+                    review,
+                    mine,
+                } as never,
+            },
+            toast,
+        });
+        const localCard: JPDBCard = {
+            ...card,
+            meanings: [{ glosses: ['to eat'], partOfSpeech: ['v1'] }],
+            cardState: ['not-in-deck'],
+        };
+        const button = document.createElement('button');
+        button.dataset.action = 'add';
+        button.dataset.deckSource = 'yomu-local';
+
+        await expect(controller.perform('add', button, localCard, 'ご飯を食べる。')).resolves.toBe(true);
+        await expect(controller.reviewGrade('okay', localCard, 'ご飯を食べる。', { target: 'yomu-local' })).resolves.toBeUndefined();
+
+        expect(mine).toHaveBeenCalledWith(expect.objectContaining({
+            expression: '食べる',
+            reading: 'たべる',
+            meaning: 'to eat',
+            sentence: 'ご飯を食べる。',
+            kind: 'vocabulary',
+        }));
+        expect(review).toHaveBeenCalledWith(expect.objectContaining({
+            grade: 'okay',
+            sentence: 'ご飯を食べる。',
+            card: expect.objectContaining({
+                providerId: 'yomu-local',
+                providerCardId: '食べる\u0000たべる',
+                providerReviewId: '食べる\u0000たべる',
+                kind: 'vocabulary',
+            }),
+        }));
+        expect(addToDeck).not.toHaveBeenCalled();
+        expect(toast).toHaveBeenCalledWith('Added to Yomu.');
+        expect(toast).toHaveBeenCalledWith('Added to deck and reviewed.');
     });
 
     it('says when captured media cannot follow a mine into a Jiten deck (no media API)', async () => {

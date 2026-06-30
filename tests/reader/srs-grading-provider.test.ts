@@ -79,9 +79,17 @@ describe('apiSrsProviderViewForCard', () => {
         expect(apiSrsProviderViewForCard(dualCard, jitenKeyOnly, isJpdbBackedCard)?.id).toBe('jiten');
     });
 
-    it('reflects the key presence in hasApiKey', () => {
+    it('falls back to local Yomu SRS when external keys are absent', () => {
         expect(apiSrsProviderViewForCard(jpdbOnlyCard, settings({ apiKey: 'jpdb-key' }), isJpdbBackedCard)?.hasApiKey).toBe(true);
-        expect(apiSrsProviderViewForCard(jpdbOnlyCard, settings({ apiKey: '' }), isJpdbBackedCard)?.hasApiKey).toBe(false);
+        expect(apiSrsProviderViewForCard(jpdbOnlyCard, settings({ apiKey: '' }), isJpdbBackedCard)).toMatchObject({
+            id: 'yomu-local',
+            label: 'Yomu',
+            hasApiKey: true,
+        });
+        expect(apiSrsProviderViewForCard(jpdbOnlyCard, settings({ apiKey: '', yomuLocalSrsEnabled: false }), isJpdbBackedCard)).toMatchObject({
+            id: 'jpdb',
+            hasApiKey: false,
+        });
     });
 
     it('uses Bunpro for Bunpro-backed cards and respects frontend token expiry', () => {

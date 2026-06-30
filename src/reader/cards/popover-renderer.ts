@@ -58,7 +58,7 @@ interface ReviewButtonsRenderOptions {
 
 interface PopoverReviewTarget {
     id: string;
-    kind: 'both' | 'jpdb' | 'jiten' | 'bunpro' | 'anki';
+    kind: 'both' | 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki';
     label: string;
     shortLabel: string;
     ankiCardId?: number;
@@ -247,6 +247,9 @@ export class CardPopoverRenderer {
         if (earlyResult !== undefined) return earlyResult;
         const targets = this.popoverReviewTargets(card, data, provider, language);
         if (targets.length) return this.renderTargetedReviewButtons(targets, language, targets.length > 1, this.canSwitchProvider(provider), provider);
+        if (provider?.id === 'yomu-local' && card.reviewSource === 'jpdb-live') {
+            return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
+        }
         if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
             return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
         }
@@ -291,7 +294,7 @@ export class CardPopoverRenderer {
 
     private canSwitchProvider(provider: ApiSrsProviderView | null): boolean {
         const settings = this.settings();
-        return !!(provider && provider.id !== 'bunpro' && settings.apiKey && settings.jitenApiKey);
+        return !!(provider && provider.id !== 'bunpro' && provider.id !== 'yomu-local' && settings.apiKey && settings.jitenApiKey);
     }
 
     private popoverReviewTargets(
@@ -300,8 +303,9 @@ export class CardPopoverRenderer {
         provider: ApiSrsProviderView | null,
         language: InterfaceLanguage,
     ): PopoverReviewTarget[] {
-        const apiTargets = this.apiReviewTargets(card, provider, language);
         const ankiTargets = this.ankiReviewTargets(data, language);
+        if (provider?.id === 'yomu-local' && ankiTargets.length) return ankiTargets;
+        const apiTargets = this.apiReviewTargets(card, provider, language);
         if (apiTargets.length && ankiTargets.length) {
             const apiProvider = this.providerForReviewTarget(apiTargets[0], provider);
             if (!apiProvider) return [...apiTargets, ...ankiTargets];
@@ -316,11 +320,12 @@ export class CardPopoverRenderer {
         return apiTargets;
     }
 
-    private apiReviewTargets(_card: JPDBCard, provider: ApiSrsProviderView | null, _language: InterfaceLanguage): PopoverReviewTarget[] {
+    private apiReviewTargets(card: JPDBCard, provider: ApiSrsProviderView | null, _language: InterfaceLanguage): PopoverReviewTarget[] {
         // `provider` already reflects the user's chosen grading provider (the
         // target-gutter toggle resolves it via apiSrsProviderViewForCard), so the grade
         // row tracks one API target. Switching providers happens from the gutter
         // toggle, not a second selector here.
+        if (provider?.id === 'yomu-local' && card.reviewSource === 'jpdb-live') return [];
         if (provider && this.canReviewWithApiProvider(provider)) return [this.apiReviewTarget(provider, _language)];
         return [];
     }
@@ -329,10 +334,19 @@ export class CardPopoverRenderer {
         if (target.kind === 'jpdb') return { id: 'jpdb', label: 'JPDB', deckSource: 'jpdb', hasApiKey: true };
         if (target.kind === 'jiten') return { id: 'jiten', label: 'Jiten', deckSource: 'jiten', hasApiKey: true };
         if (target.kind === 'bunpro') return { id: 'bunpro', label: 'Bunpro', deckSource: 'bunpro', hasApiKey: true };
+        if (target.kind === 'yomu-local') return { id: 'yomu-local', label: 'Yomu', deckSource: 'yomu-local', hasApiKey: true };
         return fallback;
     }
 
     private apiReviewTarget(provider: ApiSrsProviderView, language: InterfaceLanguage): PopoverReviewTarget {
+        if (provider.id === 'yomu-local') {
+            return {
+                id: 'yomu-local',
+                kind: 'yomu-local',
+                label: uiText(language, 'gradeTargetYomuLocal'),
+                shortLabel: provider.label,
+            };
+        }
         if (provider.id === 'bunpro') {
             return {
                 id: 'bunpro',
@@ -353,7 +367,9 @@ export class CardPopoverRenderer {
     private bothReviewTarget(provider: ApiSrsProviderView, ankiTarget: PopoverReviewTarget, language: InterfaceLanguage): PopoverReviewTarget {
         const label = provider.id === 'bunpro'
             ? uiText(language, 'gradeTargetBunproAndAnki')
-            : provider.id === 'jiten'
+            : provider.id === 'yomu-local'
+                ? uiText(language, 'gradeTargetYomuLocalAndAnki')
+                : provider.id === 'jiten'
                 ? uiText(language, 'gradeTargetJitenAndAnki')
                 : uiText(language, 'gradeTargetJpdbAndAnki');
         return {
@@ -416,7 +432,7 @@ export class CardPopoverRenderer {
 
     private renderMetaItems(card: JPDBCard, provider: ApiSrsProviderView | null, state: string, data: CardRenderData & { loading: boolean }): string[] {
         const settings = this.settings();
-        const canShowProviderStatus = Boolean(provider?.hasApiKey);
+        const canShowProviderStatus = Boolean(provider?.hasApiKey && provider.id !== 'yomu-local');
         return [
             renderMetaReading(card, settings),
             shouldRenderMetaFrequencyRank(card, provider, settings) ? renderMetaFrequencyRank(card.frequencyRank!, settings.interfaceLanguage) : '',
@@ -579,6 +595,7 @@ function renderAddDeckSelect(
     const deckOptions = renderDeckChoiceOptions(settings, data.jpdbDecks, data.ankiDecks, {
         includeJpdb: provider?.id === 'jpdb',
         includeJiten: provider?.id === 'jiten',
+        includeYomuLocal: settings.yomuLocalSrsEnabled,
         jitenDecks: data.jitenDecks ?? [],
     });
     if (!deckOptions) return '';
@@ -587,13 +604,14 @@ function renderAddDeckSelect(
 
 function renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string, provider: ApiSrsProviderView | null): string {
     const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
-    const directAdd = provider?.id === 'bunpro';
+    const directAdd = provider?.id === 'bunpro' || provider?.id === 'yomu-local';
+    const directDeckSource = provider?.id === 'bunpro' ? 'bunpro' : provider?.id === 'yomu-local' ? 'yomu-local' : '';
     // Jiten now follows the same Add to deck / Never forget / Blacklist pattern
     // as JPDB; its old Mining/Suspended/Forget row was removed.
     return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
                     <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
-                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="${directAdd ? 'add' : 'deck-picker'}"${directAdd ? ' data-deck-source="bunpro"' : ''} aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>
+                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="${directAdd ? 'add' : 'deck-picker'}"${directAdd ? ` data-deck-source="${directDeckSource}"` : ''} aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>
                         <button class="jpdb-reader-btn nf${state.isNeverForget ? ' danger' : ''}" data-action="neverforget" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
                         <button class="jpdb-reader-btn blacklist" data-action="blacklist" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
                     </div>
@@ -615,7 +633,7 @@ function renderMetaFrequencyRank(rank: number, language: InterfaceLanguage): str
 }
 
 function shouldRenderMetaFrequencyRank(card: JPDBCard, provider: ApiSrsProviderView | null, settings: ReaderSettings): boolean {
-    if (!card.frequencyRank || provider?.hasApiKey) return false;
+    if (!card.frequencyRank || (provider?.hasApiKey && provider.id !== 'yomu-local')) return false;
     if (settings.showLookupPillFrequency === false) return true;
     const liveProvider = liveFrequencyProviderForCard(card);
     if (!liveProvider) return true;

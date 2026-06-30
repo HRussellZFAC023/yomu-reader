@@ -38,7 +38,7 @@ interface CardActionControllerOptions {
     getSettings: () => ReaderSettings;
     jpdb: JpdbClient;
     jiten?: JitenApiClient;
-    srsAdapters?: Partial<Record<'bunpro', YomuSrsAdapter>>;
+    srsAdapters?: Partial<Record<'bunpro' | 'yomu-local', YomuSrsAdapter>>;
     anki: AnkiConnectClient;
     dictionaries: YomitanDictionaryStore;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
@@ -55,7 +55,7 @@ interface CardActionControllerOptions {
     parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
     toast: (message: string) => void;
     invalidateCardData?: () => void;
-    setApiGradingProvider?: (provider: ApiSrsProviderId) => void;
+    setApiGradingProvider?: (provider: ReaderSettings['apiGradingProvider']) => void;
     onAnkiStatusChanged?: (card: JPDBCard) => void;
     onApiCardStateChanged?: (card: JPDBCard) => void;
 }
@@ -278,7 +278,7 @@ export class CardActionController {
         const settings = this.options.getSettings();
         const current = this.apiProviderForCard(card, settings);
         if (!current?.hasApiKey) return;
-        const next: ApiSrsProviderId = current.id === 'jiten' ? 'jpdb' : 'jiten';
+        const next: ReaderSettings['apiGradingProvider'] = current.id === 'jiten' ? 'jpdb' : 'jiten';
         const provider = this.apiProviders(settings).find(p => p.id === next && p.hasApiKey);
         if (!provider) return;
         const target = provider.supportsCard(card)
@@ -300,6 +300,7 @@ export class CardActionController {
     }
 
     private async resolveProviderCard(card: JPDBCard, id: ApiSrsProviderId): Promise<JPDBCard | null> {
+        if (id === 'yomu-local') return card;
         try {
             const [tokens = []] = id === 'jiten'
                 ? await (this.options.jiten?.parse?.([card.spelling]) ?? Promise.resolve([] as JPDBToken[][]))
@@ -312,6 +313,7 @@ export class CardActionController {
 
     private async refreshProviderState(card: JPDBCard, providerId: ApiSrsProviderId): Promise<void> {
         try {
+            if (providerId === 'bunpro' || providerId === 'yomu-local') return;
             if (providerId === 'jiten') await this.options.jiten?.refreshCardState?.(card);
             else await this.options.jpdb.refreshCardState?.(card);
         } catch {
@@ -350,6 +352,7 @@ export class CardActionController {
             jpdb: this.options.jpdb,
             jiten: this.options.jiten,
             bunpro: this.options.srsAdapters?.bunpro,
+            yomuLocal: this.options.srsAdapters?.['yomu-local'],
             isJpdbBackedCard: this.options.isJpdbBackedCard,
         }, settings);
     }
@@ -398,11 +401,13 @@ export class CardActionController {
             ? 'jitenAddApiKeyRequired'
             : deck.source === 'bunpro'
                 ? 'bunproAddApiKeyRequired'
-                : 'jpdbAddApiKeyRequired';
+                : deck.source === 'yomu-local'
+                    ? 'yomuLocalSrsDisabled'
+                    : 'jpdbAddApiKeyRequired';
         this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.addApiKeyRequiredKey ?? fallbackKey));
         const selectedDeckId = provider.selectedDeckId(deck.id, settings);
         if (!selectedDeckId) throw new Error(uiText(settings.interfaceLanguage, provider.id === 'jiten' ? 'chooseJitenStudyDeck' : provider.addApiKeyRequiredKey));
-        await provider.addToDeck(selectedDeckId, card, sentence, { sourceTitle: document.title });
+        await provider.addToDeck(selectedDeckId, card, sentence, { sourceTitle: document.title, sourceUrl: location.href });
         const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings);
         if (minedToAnkiToo) await this.addToAnki(card, sentence, settings.ankiDeck, context);
         // Jiten/JPDB deck APIs cannot store media: when the user captured an
@@ -520,7 +525,7 @@ export class CardActionController {
             await this.answerAnkiCard(grade, card, options.ankiCardId);
             return;
         }
-        if (options.target === 'jpdb' || options.target === 'jiten' || options.target === 'bunpro') {
+        if (options.target === 'jpdb' || options.target === 'jiten' || options.target === 'bunpro' || options.target === 'yomu-local') {
             await this.reviewApiCard(grade, card, sentence, { ...options, providerId: options.target });
             return;
         }
@@ -836,7 +841,7 @@ function exactCard(source: JPDBCard, tokens: JPDBToken[]): JPDBCard | null {
 
 function reviewTargetKind(value: string | undefined): PopoverReviewTargetKind | undefined {
     if (value === 'both' || value === 'anki') return value;
-    if (value === 'jpdb' || value === 'jiten' || value === 'bunpro') return value;
+    if (value === 'jpdb' || value === 'jiten' || value === 'bunpro' || value === 'yomu-local') return value;
     return undefined;
 }
 
@@ -869,6 +874,7 @@ function selectedDeckSource(button: HTMLButtonElement): SelectedDeckChoice['sour
     if (button.dataset.deckSource === 'anki') return 'anki';
     if (button.dataset.deckSource === 'jiten') return 'jiten';
     if (button.dataset.deckSource === 'bunpro') return 'bunpro';
+    if (button.dataset.deckSource === 'yomu-local') return 'yomu-local';
     return 'jpdb';
 }
 
@@ -881,6 +887,7 @@ function selectedDeckId(button: HTMLButtonElement, settings: ReaderSettings, sou
 function defaultDeckIdForSource(source: SelectedDeckChoice['source'], settings: ReaderSettings): string {
     if (source === 'anki') return defaultAnkiDeckName(settings);
     if (source === 'jiten') return '';
+    if (source === 'yomu-local') return 'yomu-local';
     return defaultJpdbDeckId(settings);
 }
 
