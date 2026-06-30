@@ -15816,6 +15816,67 @@ describe('new tab review helpers', () => {
         sessionStorage.removeItem('jpdb-reader-newtab-current-word');
     });
 
+    it('restores a shared card URL ahead of stored session position and queue order', () => {
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        const read = newTabTestCard({ vid: 1, spelling: '読む', reading: 'よむ', source: 'local' });
+        const write = newTabTestCard({ vid: 2, spelling: '書く', reading: 'かく', source: 'local' });
+        sessionStorage.setItem(NEW_TAB_CURRENT_WORD_KEY, JSON.stringify({
+            signature: 'dictionary|word|Dictionaries',
+            key: cardKey(read),
+        }));
+        window.history.replaceState(null, '', `/newtab/index.html#card=${encodeURIComponent(cardKey(write))}`);
+        const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, newTabSource: 'dictionary', immersionKitEnabled: false }));
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+
+        try {
+            applySeededNewTabWords(controller, root, {
+                allWords: [read, write],
+                sourceLabel: 'Dictionaries',
+                state: { mode: 'word', sort: 'random', filter: 'all', source: 'dictionary', revealAnswer: false },
+            });
+
+            expect(newTabPromptText(root)).toBe('書く');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe(cardKey(write));
+            expect(location.hash).toBe(`#card=${encodeURIComponent(cardKey(write))}`);
+        } finally {
+            root.remove();
+            sessionStorage.removeItem(NEW_TAB_CURRENT_WORD_KEY);
+        }
+    });
+
+    it('uses permanent card URLs for next and popstate navigation', () => {
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        window.history.replaceState(null, '', '/newtab/index.html');
+        const read = newTabTestCard({ vid: 1, spelling: '読む', reading: 'よむ', source: 'local' });
+        const write = newTabTestCard({ vid: 2, spelling: '書く', reading: 'かく', source: 'local' });
+        const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, newTabSource: 'dictionary', immersionKitEnabled: false }));
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+
+        try {
+            applySeededNewTabWords(controller, root, {
+                allWords: [read, write],
+                sourceLabel: 'Dictionaries',
+                state: { mode: 'word', sort: 'random', filter: 'all', source: 'dictionary', revealAnswer: false },
+            });
+
+            expect(newTabPromptText(root)).toBe('読む');
+            expect(location.hash).toBe(`#card=${encodeURIComponent(cardKey(read))}`);
+
+            (controller as unknown as { showNextWord(): void }).showNextWord();
+            expect(newTabPromptText(root)).toBe('書く');
+            expect(location.hash).toBe(`#card=${encodeURIComponent(cardKey(write))}`);
+
+            window.history.replaceState(null, '', `/newtab/index.html#card=${encodeURIComponent(cardKey(read))}`);
+            (controller as unknown as { handleCardPopstate(root: HTMLElement): void }).handleCardPopstate(root);
+
+            expect(newTabPromptText(root)).toBe('読む');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe(cardKey(read));
+            expect(location.hash).toBe(`#card=${encodeURIComponent(cardKey(read))}`);
+        } finally {
+            root.remove();
+        }
+    });
+
     it('shows cached new-tab cards while refreshing live sources', async () => {
         document.body.replaceChildren();
         localStorage.removeItem('jpdb-reader-newtab-ui');
