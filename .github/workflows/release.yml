@@ -46,6 +46,9 @@ jobs:
       - run: npm run smoke:p0
         env:
           YOMU_PLAYWRIGHT_CHANNEL: chrome
+      - run: npm run smoke:offline-study
+        env:
+          YOMU_PLAYWRIGHT_CHANNEL: chrome
       - run: xvfb-run -a npm run smoke:gaming
         env:
           YOMU_PLAYWRIGHT_CHANNEL: chrome

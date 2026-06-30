@@ -101,6 +101,9 @@ jobs:
       - run: node scripts/sync-docs-userscript.cjs
       - run: npm run docs:build
       - run: npm run verify
+      - run: npm run smoke:offline-study
+        env:
+          YOMU_PLAYWRIGHT_CHANNEL: chrome
       - run: npm run smoke:p0
         env:
           YOMU_PLAYWRIGHT_CHANNEL: chrome
