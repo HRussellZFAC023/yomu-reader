@@ -873,6 +873,10 @@
     "proxy.yomureader.com"
   ]);
   const YOMU_SHARED_PUBLIC_PROXY_URL = "https://edge.yomureader.com/";
+  const YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS = [
+    YOMU_SHARED_PUBLIC_PROXY_URL,
+    "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/"
+  ];
   function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
     const proxyUrl = configuredProxyUrl.trim();
     if (!proxyUrl) return null;
@@ -909,8 +913,7 @@
   }
   function builtInProxyUrls(targetUrl, options) {
     if (!isOfficialHostedReaderOrigin$1() || !isSharedPublicProxySafeRequest(targetUrl, options)) return [];
-    const proxyUrl = configuredProxyFetchUrl(targetUrl, YOMU_SHARED_PUBLIC_PROXY_URL);
-    return proxyUrl ? [proxyUrl] : [];
+    return YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS.map((proxyUrl) => configuredProxyFetchUrl(targetUrl, proxyUrl)).filter((url) => Boolean(url));
   }
   function isJpdbPublicAudioUrl(targetUrl) {
     try {

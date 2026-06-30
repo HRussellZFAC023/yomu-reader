@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { hostedFallbackProxyUrl } from '../../src/reader/network/http-request';
+import { proxyUrlCandidates } from '../../src/reader/network/proxy-fetch';
 import { installUserscriptHttpBridge, uninstallUserscriptHttpBridge } from '../../src/reader/userscript/index';
 
 // The hosted reader (yomureader.com homepage demo, /video-player/, /newtab/) runs
@@ -19,6 +20,16 @@ describe('hostedFallbackProxyUrl', () => {
         vi.stubGlobal('location', new URL('https://yomureader.com/'));
         const proxied = hostedFallbackProxyUrl('https://api.jiten.moe/api/vocabulary/parse?text=%E9%9F%B3%E6%A5%BD');
         expect(proxied).toBe('https://edge.yomureader.com/');
+    });
+
+    it('keeps the deployed workers.dev proxy as a fallback while the Yomu domain is being attached', () => {
+        uninstallUserscriptHttpBridge();
+        vi.stubGlobal('location', new URL('https://yomureader.com/'));
+        const target = 'https://api.jiten.moe/api/vocabulary/parse?text=%E9%9F%B3%E6%A5%BD';
+        expect(proxyUrlCandidates(target)).toEqual([
+            `https://edge.yomureader.com/?url=${encodeURIComponent(target)}`,
+            `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(target)}`,
+        ]);
     });
 
     it('never proxies same-origin or non-http requests', () => {

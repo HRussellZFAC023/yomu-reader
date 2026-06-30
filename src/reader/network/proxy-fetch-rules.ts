@@ -23,6 +23,10 @@ const YOMU_PUBLIC_PROXY_HOSTS = new Set([
     'proxy.yomureader.com',
 ]);
 export const YOMU_SHARED_PUBLIC_PROXY_URL = 'https://edge.yomureader.com/';
+const YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS = [
+    YOMU_SHARED_PUBLIC_PROXY_URL,
+    'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/',
+];
 
 export function configuredProxyFetchUrl(targetUrl: string, configuredProxyUrl: string): string | null {
     const proxyUrl = configuredProxyUrl.trim();
@@ -84,8 +88,9 @@ export function shouldSkipDirectCrossOriginFetch(targetUrl: string, options: Pro
 
 export function builtInProxyUrls(targetUrl: string, options: ProxyRuleOptions): string[] {
     if (!isOfficialHostedReaderOrigin() || !isSharedPublicProxySafeRequest(targetUrl, options)) return [];
-    const proxyUrl = configuredProxyFetchUrl(targetUrl, YOMU_SHARED_PUBLIC_PROXY_URL);
-    return proxyUrl ? [proxyUrl] : [];
+    return YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS
+        .map(proxyUrl => configuredProxyFetchUrl(targetUrl, proxyUrl))
+        .filter((url): url is string => Boolean(url));
 }
 
 export function isJpdbPublicAudioUrl(targetUrl: string): boolean {
