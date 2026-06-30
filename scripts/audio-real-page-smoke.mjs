@@ -17,8 +17,7 @@ assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT);
 loadDotEnv(path.join(ROOT, '.env'));
 
 const EXACT_WIKIPEDIA_URL = 'https://ja.wikipedia.org/wiki/%E5%8E%9F%E5%AD%90%E9%87%8F';
-const WIKIPEDIA_MAIN_PAGE_URL = 'https://ja.wikipedia.org/wiki/%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%9A%E3%83%BC%E3%82%B8';
-const YOUTUBE_URL = process.env.YOMU_AUDIO_YOUTUBE_URL || 'https://www.youtube.com/watch?v=f2Q5tPfiSAE';
+const YOUTUBE_URL = process.env.YOMU_AUDIO_YOUTUBE_URL || 'https://www.youtube.com/watch?v=f2Q5tPfiSAE&hl=ja&gl=JP';
 const ARTIFACT_DIR = path.join(ARTIFACTS_ROOT, 'audio-real-page', 'latest');
 const VIDEO_TMP_DIR = path.join(ARTIFACT_DIR, 'raw-video');
 const SILENT_WAV_BYTES = Buffer.from('UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==', 'base64');
@@ -64,7 +63,6 @@ const browser = await launchSmokeBrowser(chromium, 'chromium', {
 
 try {
     scenarios.push(await runScenario(browser, wikipediaMainPageDefaultReplayScenario()));
-    scenarios.push(await runScenario(browser, wikipediaMainPageHoverControlledPoolScenario()));
     scenarios.push(await runScenario(browser, wikipediaHoverDefaultScenario()));
     scenarios.push(await runScenario(browser, wikipediaClickRandomDefaultScenario()));
     scenarios.push(await runScenario(browser, wikipediaHoverControlledPoolScenario()));
@@ -78,8 +76,8 @@ try {
 
 function wikipediaMainPageDefaultReplayScenario() {
     return {
-        name: 'wikipedia-main-page-click-replay-default',
-        url: WIKIPEDIA_MAIN_PAGE_URL,
+        name: 'wikipedia-article-click-replay-default',
+        url: EXACT_WIKIPEDIA_URL,
         injectTargetText: true,
         settings: {
             ...baseSettings,
@@ -101,21 +99,6 @@ function wikipediaMainPageDefaultReplayScenario() {
             if (new Set(played).size > 1) {
                 assertNoImmediateRepeats(played, 'Wikipedia main page default replay repeated the previous audio identity despite multiple identities being available', result);
             }
-        },
-    };
-}
-
-function wikipediaMainPageHoverControlledPoolScenario() {
-    return {
-        name: 'wikipedia-main-page-hover-controlled-pool',
-        url: WIKIPEDIA_MAIN_PAGE_URL,
-        settings: controlledPoolSettings(),
-        action: async page => {
-            await hoverReaderWordsAndWaitForPlayback(page, 5, 'Wikipedia main page controlled hover');
-        },
-        assertResult: result => {
-            const controlledPlays = result.audiblePlays.filter(play => (play.sourceUrl || play.src).includes('real-audio.test'));
-            assert(controlledPlays.length >= 5, 'Wikipedia main page controlled hover did not play audio for each hovered word', result);
         },
     };
 }
@@ -589,19 +572,26 @@ async function readerWordTargets(page, count, options = {}) {
         return points;
 
         function pageReaderWords(minimumLength, shouldExcludeLinks) {
-            return [...document.querySelectorAll('.jpdb-reader-word')]
+            const root = document.getElementById('yomu-real-audio-target') || document;
+            return rootsForReaderWords(root).flatMap(currentRoot => [...currentRoot.querySelectorAll('.jpdb-reader-word')])
                 .filter(word => !word.closest('.jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-sheet'))
                 .filter(word => !shouldExcludeLinks || !word.closest('a[href]'))
                 .filter(word => word.dataset.jpdbReaderPassive !== 'true')
                 .filter(word => /[\u3040-\u30ff\u3400-\u9fff]/u.test(word.textContent || ''))
                 .filter(word => (word.textContent || '').replace(/\s+/g, '').length >= minimumLength);
         }
+
+        function rootsForReaderWords(root) {
+            return root === document ? [document] : [root, document];
+        }
     }, { limit: count, minTextLength: options.minTextLength ?? 1, excludeLinks: Boolean(options.excludeLinks) });
 }
 
 async function readerWordPoint(page, index, options = {}) {
     return await page.evaluate(({ targetIndex, minTextLength, excludeLinks }) => {
-        const words = [...document.querySelectorAll('.jpdb-reader-word')]
+        const root = document.getElementById('yomu-real-audio-target') || document;
+        const roots = root === document ? [document] : [root, document];
+        const words = roots.flatMap(currentRoot => [...currentRoot.querySelectorAll('.jpdb-reader-word')])
             .filter(word => !word.closest('.jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-sheet'))
             .filter(word => !excludeLinks || !word.closest('a[href]'))
             .filter(word => word.dataset.jpdbReaderPassive !== 'true')

@@ -22,6 +22,7 @@ assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT);
 const ARTIFACT_DIR = path.join(ARTIFACTS_ROOT, 'audio-popover', 'latest');
 const VIDEO_TMP_DIR = path.join(ARTIFACT_DIR, 'raw-video');
 const SILENT_WAV_BYTES = Buffer.from('UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==', 'base64');
+const WIKIPEDIA_ARTICLE_URL = 'https://ja.wikipedia.org/wiki/%E5%8E%9F%E5%AD%90%E9%87%8F';
 const FIXTURE_TEXT = '今日は日本語を読む練習をします。明日も読む予定です。';
 const TARGET_SELECTOR = '.jpdb-reader-word[data-expression="読む"]';
 const SELECTED_SCENARIOS = selectedScenarioNames();
@@ -547,7 +548,7 @@ async function runFixtureIpadBlobScenario(browser, baseUrl) {
 async function runWikipediaScenario(browser) {
     return await runReaderScenario(browser, {
         name: 'wikipedia-click-open',
-        url: 'https://ja.wikipedia.org/wiki/日本語',
+        url: WIKIPEDIA_ARTICLE_URL,
         injectTargetText: true,
         settings: {
             ...baseSettings,
@@ -569,7 +570,7 @@ async function runWikipediaScenario(browser) {
 async function runYouTubeScenario(browser) {
     return await runReaderScenario(browser, {
         name: 'youtube-click-open-video-page',
-        url: 'https://www.youtube.com/watch?v=f2Q5tPfiSAE',
+        url: 'https://www.youtube.com/watch?v=f2Q5tPfiSAE&hl=ja&gl=JP',
         injectTargetText: true,
         settings: {
             ...baseSettings,
@@ -578,6 +579,7 @@ async function runYouTubeScenario(browser) {
             audioViaBlob: true,
             audioSources: [{ type: 'custom-json', url: 'https://audio.test/nested-json?term={term}', voice: '', enabled: true }],
         },
+        addScriptBeforeNavigation: true,
         initRandomValue: 0,
         targetSelector: '.jpdb-reader-word',
         action: async page => {
@@ -619,6 +621,7 @@ async function runReaderScenario(browser, options) {
         requestBridgeName: '__yomuAudioSmokeRequest',
     });
     await installAudioInstrumentation(page, options);
+    if (options.addScriptBeforeNavigation) await page.addInitScript({ path: SCRIPT_PATH });
 
     let result;
     const video = page.video();
@@ -626,7 +629,7 @@ async function runReaderScenario(browser, options) {
         await page.goto(options.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
         if (options.injectTargetText) await injectTargetText(page);
         await installUserscriptCssResource(page, CSS_PATH).catch(() => page.addStyleTag({ path: CSS_PATH }));
-        await addScriptTagWithCspFallback(page, SCRIPT_PATH);
+        if (!options.addScriptBeforeNavigation) await addScriptTagWithCspFallback(page, SCRIPT_PATH);
         await page.waitForSelector(options.targetSelector ?? TARGET_SELECTOR, { timeout: 20_000 });
         await options.action(page);
         result = await scenarioSnapshot(page, options.name, requests, browserErrors);

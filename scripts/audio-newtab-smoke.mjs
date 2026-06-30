@@ -122,7 +122,7 @@ if (scenarios.some(scenario => scenario.status !== 'pass')) {
 
 function hostedStudyAnswerAudioScenario(origin) {
     return {
-        name: 'hosted-newtab-study-answer-audio-furigana-pitch-frequency',
+        name: 'hosted-newtab-study-answer-audio-furigana-pitch',
         url: `${origin}/newtab/index.html?smoke=audio-newtab-study`,
         settings: {
             ...baseSettings,
@@ -139,7 +139,6 @@ function hostedStudyAnswerAudioScenario(origin) {
             await page.locator('[data-newtab-action="reveal"]').click();
             await page.waitForSelector('[data-newtab-prompt] .jpdb-reader-newtab-term ruby', { timeout: 10_000 });
             await page.waitForSelector('[data-newtab-study-tools] .jpdb-reader-pitch svg', { timeout: 10_000 });
-            await page.waitForSelector('[data-newtab-study-tools] .jpdb-reader-frequency-pill', { timeout: 10_000 });
             await page.waitForSelector('.jpdb-reader-newtab-term-row [data-action="study-word-audio"]:not([disabled])', { timeout: 10_000 });
             await page.locator('.jpdb-reader-newtab-term-row [data-action="study-word-audio"]').click();
             await waitForPlaybackSignalCount(page, 1, 'Hosted Study answer audio button produced no audio or speech signal');
@@ -153,7 +152,7 @@ function hostedStudyAnswerAudioScenario(origin) {
             assert(/読.*む/.test(result.evidence.promptText), 'Hosted Study prompt evidence did not include the headword', result);
             assert(result.evidence.compactTermHtml.includes('<ruby'), 'Hosted Study compact revealed term did not include furigana ruby', result);
             assert(result.evidence.studySpeakerVisible === true && result.evidence.studySpeakerDisabled === false, 'Hosted Study speaker was not visible and enabled in final evidence', result);
-            assert(result.evidence.studyToolsText.includes('#900'), 'Hosted Study answer evidence did not include the frequency pill', result);
+            assert(!result.evidence.studyToolsText.includes('#900'), 'Hosted Study answer still showed the frequency pill on the card front/reveal tools', result);
         },
     };
 }
