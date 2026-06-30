@@ -75,18 +75,18 @@ const baseSettings = {
     showFloatingButton: false,
     enableLogging: false,
     shortcuts: {
-        scanPage: 'Alt+J',
+        scanPage: 'Shift+J',
         hoverLookup: '',
-        openSettings: 'Alt+Shift+J',
+        openSettings: 'Ctrl+Shift+J',
         playAudio: 'A',
         closePopup: 'Escape',
-        previousLookupWord: 'Alt+Shift+ArrowLeft',
-        nextLookupWord: 'Alt+Shift+ArrowRight',
-        previousSubtitle: 'Alt+ArrowLeft',
-        nextSubtitle: 'Alt+ArrowRight',
-        copySubtitle: 'Alt+C',
-        toggleOcr: 'Alt+O',
-        scanImages: 'Alt+I',
+        previousLookupWord: 'Shift+ArrowLeft',
+        nextLookupWord: 'Shift+ArrowRight',
+        previousSubtitle: 'A',
+        nextSubtitle: 'D',
+        copySubtitle: 'Shift+C',
+        toggleOcr: 'Shift+O',
+        scanImages: 'Shift+I',
         gradeNothing: '1',
         gradeSomething: '2',
         gradeHard: '3',
@@ -353,8 +353,8 @@ function boxAtLeast(box, minWidth, minHeight) {
 async function verifyShortcutSettings(page) {
     await page.locator('[data-action="settings-panel"][data-panel="shortcuts"]').click();
     const shortcuts = await readShortcutSettings(page);
-    assert(shortcuts.previous === 'Alt+Shift+ArrowLeft', 'Previous word shortcut missing from settings', shortcuts);
-    assert(shortcuts.next === 'Alt+Shift+ArrowRight', 'Next word shortcut missing from settings', shortcuts);
+    assert(shortcuts.previous === 'Shift+ArrowLeft', 'Previous word shortcut missing from settings', shortcuts);
+    assert(shortcuts.next === 'Shift+ArrowRight', 'Next word shortcut missing from settings', shortcuts);
     assert(includesText(shortcuts.visibleText, 'Previous word'), 'Word navigation shortcut labels were not discoverable', shortcuts);
     assert(includesText(shortcuts.visibleText, 'Next word'), 'Word navigation shortcut labels were not discoverable', shortcuts);
 }

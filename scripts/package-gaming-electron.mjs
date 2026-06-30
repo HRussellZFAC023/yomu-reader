@@ -47,7 +47,7 @@ const artifactPaths = await build({
         productName: 'Yomu Gaming',
         copyright: 'Copyright Yomu Reader contributors',
         electronVersion,
-        icon: path.join(appRoot, 'public', 'app-icons', 'yomu-gaming-512.png'),
+        icon: path.join(distRoot, 'yomu-icon-512.png'),
         asar: true,
         npmRebuild: false,
         directories: {

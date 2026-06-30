@@ -1609,8 +1609,8 @@ describe('settings form localization', () => {
         expect(fontWeight.value).toBe('400');
         expect(pausePanel.checked).toBe(false);
         expect(form.querySelector('select[name="subtitleTranscriptPlacement"]')).toBeNull();
-        expect(previousWord.value).toBe('Alt+Shift+ArrowLeft');
-        expect(nextWord.value).toBe('Alt+Shift+ArrowRight');
+        expect(previousWord.value).toBe('Shift+ArrowLeft');
+        expect(nextWord.value).toBe('Shift+ArrowRight');
         expect(previousSubtitle.value).toBe('A');
         expect(nextSubtitle.value).toBe('D');
         expect(DEFAULT_SETTINGS.shortcuts.toggleSubtitleOverlay).toBe('Shift+H');
@@ -1968,7 +1968,7 @@ describe('settings form localization', () => {
         expect(form.querySelector('.jpdb-reader-radio-group > legend')?.textContent).toBe('Examples per word limit');
     });
 
-    it('restores YouTube filter controls and the Alt+Y shortcut', () => {
+    it('restores YouTube filter controls and the default YouTube shortcut', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         const filter = form.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]')!;
@@ -1981,12 +1981,12 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.preferJapaneseSiteLanguage).toBe(true);
         expect(DEFAULT_SETTINGS.youtubeShowChannelRecommendations).toBe(true);
         expect(DEFAULT_SETTINGS.youtubeShowFilterNotice).toBe(true);
-        expect(DEFAULT_SETTINGS.shortcuts.toggleYoutubeImmersion).toBe('Alt+Y');
+        expect(DEFAULT_SETTINGS.shortcuts.toggleYoutubeImmersion).toBe('Shift+Y');
         expect(filter.checked).toBe(true);
         expect(siteLanguage.checked).toBe(true);
         expect(channelSuggestions.checked).toBe(true);
         expect(notice.checked).toBe(true);
-        expect(shortcut.value).toBe('Alt+Y');
+        expect(shortcut.value).toBe('Shift+Y');
 
         filter.checked = false;
         siteLanguage.checked = false;

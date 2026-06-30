@@ -39,7 +39,7 @@ function fixtureHtml() {
 </script></body></html>`;
 }
 
-const SETTINGS = { onboardingSeen: true, interfaceLanguage: 'en', apiKey: '', ankiEnabled: false, audioEnabled: false, enableLogging: false, ocrEnabled: true, ocrProvider: 'off', shortcuts: { openSettings: 'Alt+Shift+J' } };
+const SETTINGS = { onboardingSeen: true, interfaceLanguage: 'en', apiKey: '', ankiEnabled: false, audioEnabled: false, enableLogging: false, ocrEnabled: true, ocrProvider: 'off', shortcuts: { openSettings: 'Ctrl+Shift+J' } };
 const failures = [];
 const rows = [];
 
@@ -71,7 +71,7 @@ async function runCase(engineName) {
     await addScriptTagWithCspFallback(page, SCRIPT_PATH);
     await page.waitForTimeout(700);
 
-    await page.keyboard.press('Alt+Shift+J');
+    await page.keyboard.press('Control+Shift+J');
     const opened = await page.waitForSelector('.jpdb-reader-settings .jpdb-reader-settings-scroll', { timeout: 8000 }).then(() => true).catch(() => false);
     if (!opened) { console.log(`FAIL: ${label} — settings panel never opened`); failures.push(label); rows.push({ label, ok: false }); await ctx.close(); await browser.close(); return; }
     await page.waitForTimeout(200);

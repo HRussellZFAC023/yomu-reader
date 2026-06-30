@@ -32,7 +32,7 @@ declare global {
     }
 }
 
-const APP_ICON_URL = new URL('../../../public/app-icons/yomu-gaming-512.png', import.meta.url).href;
+const APP_ICON_URL = './yomu-icon-512.png';
 
 interface SettingsShellState {
     environment: YomuGamingEnvironment | null;
@@ -97,7 +97,7 @@ let captureShortcutPersistToken = 0;
 const shellState: SettingsShellState = {
     environment: null,
     settings: loadGamingSettings(),
-    status: 'Ready for instant game capture.',
+    status: 'Ready to read game text.',
     statusTone: 'idle',
 };
 
@@ -138,8 +138,7 @@ function renderSettingsShell(): void {
     activateSettingsPanel(form, DEFAULT_SETTINGS_PANEL);
     scrollToInitialSettingsSection(form);
     installShortcutCapture(form);
-    syncGamingPageScanControls(form);
-    installGamingCaptureAction(form);
+    removeGamingFooterDuplicates(form);
     syncOcrProviderFields(form);
     hideUnsupportedSettingsActions(form);
     bindCaptureShortcutInputs(appRoot);
@@ -155,12 +154,12 @@ function renderGamingControlBar(): string {
                 <img src="${escapeHtml(APP_ICON_URL)}" alt="" aria-hidden="true">
                 <div>
                     <strong>Yomu Gaming</strong>
-                    <span>Screen text lookup for games and desktop apps</span>
+                    <span>Read Japanese in games and desktop apps</span>
                 </div>
             </div>
             <div class="yomu-gaming-capture-controls">
-                <button class="jpdb-reader-btn add" type="button" data-action="instant-capture">Capture screen</button>
-                <button class="jpdb-reader-btn" type="button" data-action="area-capture">Capture area</button>
+                <button class="jpdb-reader-btn add" type="button" data-action="instant-capture">Read screen</button>
+                <button class="jpdb-reader-btn" type="button" data-action="area-capture">Select area</button>
                 <kbd data-hotkey>${escapeHtml(hotkeyLabel())}</kbd>
             </div>
             <div class="yomu-gaming-shell-status" data-gaming-shell-status data-status-tone="${shellState.statusTone}">${escapeHtml(shellState.status)}</div>
@@ -179,71 +178,27 @@ function installGamingOnboarding(form: HTMLFormElement): void {
     section.dataset.gamingShellActions = 'true';
     section.innerHTML = `
         <div class="yomu-gaming-first-run-copy">
-            <p class="yomu-gaming-kicker">First run</p>
-            <h1>Read game text with Yomu.</h1>
-            <p>Press the shortcut to capture the whole screen and place lookup targets over Japanese text. Capture area is there when a scene is noisy.</p>
+            <p class="yomu-gaming-kicker">Japanese anywhere on your PC</p>
+            <h1>Yomu Gaming is ready.</h1>
+            <p>Use Google Lens-style image OCR to place lookup targets directly over game text. Press the shortcut for a quick read, or select a smaller area when the scene is busy.</p>
         </div>
         <div class="yomu-gaming-first-run-controls">
             <label>
                 <span>Capture shortcut</span>
                 <input data-capture-shortcut-input value="${escapeHtml(hotkeyLabel())}" aria-label="Capture shortcut" autocomplete="off" inputmode="none" spellcheck="false">
             </label>
-            <fieldset class="yomu-gaming-page-scan-setup" data-gaming-page-scan-setup>
-                <legend>Page scanning</legend>
-                <div class="yomu-gaming-segmented" role="radiogroup" aria-label="Page scan mode">
-                    ${gamingPageScanModeOption('off', 'Off')}
-                    ${gamingPageScanModeOption('auto', 'Auto')}
-                    ${gamingPageScanModeOption('manual', 'Manual')}
-                </div>
-                <label data-gaming-manual-scan-shortcut ${gamingPageScanModeValue(shellState.settings) === 'manual' ? '' : 'hidden'}>
-                    <span>Manual scan shortcut</span>
-                    <input name="shortcuts.scanPage" data-shortcut-input value="${escapeHtml(shellState.settings.shortcuts.scanPage)}" placeholder="Press keys" aria-label="Manual scan shortcut" autocomplete="off" inputmode="none" spellcheck="false">
-                </label>
-                <label>
-                    <span>Scan modifier key</span>
-                    <input name="shortcuts.hoverLookup" data-shortcut-input value="${escapeHtml(shellState.settings.shortcuts.hoverLookup)}" placeholder="Blank means hover without a key" aria-label="Scan modifier key" autocomplete="off" inputmode="none" spellcheck="false">
-                </label>
-            </fieldset>
-        </div>
-        <div class="yomu-gaming-first-run-features" aria-label="Yomu reading surfaces">
-            <div data-yomu-gaming-feature="Text"><strong>Text</strong><span>Hover or tap scanned Japanese.</span></div>
-            <div data-yomu-gaming-feature="Images"><strong>Images</strong><span>Read image text through OCR.</span></div>
-            <div data-yomu-gaming-feature="Video"><strong>Video</strong><span>Make subtitle words tappable.</span></div>
-            <div data-yomu-gaming-feature="Control"><strong>Control</strong><span>Tune features, shortcuts, and color.</span></div>
-            <div data-yomu-gaming-feature="Study"><strong>Study</strong><span>Review words and kanji in Yomu.</span></div>
-            <div data-yomu-gaming-feature="Game"><strong>Game</strong><span>Install the Yomu app to use in games or anywhere on the PC.</span></div>
         </div>
         <div class="yomu-gaming-onboarding-summary">
             <div><strong>Shortcut</strong><span data-gaming-onboarding-status>${escapeHtml(gamingOnboardingStatusText())}</span></div>
             <div><strong>Image OCR</strong><span data-gaming-ocr-mode>${escapeHtml(gamingOcrModeText())}</span></div>
-            <div><strong>Page text</strong><span data-gaming-page-scan-mode>${escapeHtml(gamingPageScanModeText())}</span></div>
         </div>
         <div class="yomu-gaming-first-run-actions">
-            <button class="jpdb-reader-btn add" type="button" data-action="test-capture-overlay">Test capture</button>
-            <button class="jpdb-reader-btn" type="button" data-action="start-overlay">Capture area</button>
-            <button class="jpdb-reader-btn" type="button" data-action="dismiss-gaming-first-run">Start using Yomu</button>
+            <button class="jpdb-reader-btn add" type="button" data-action="test-capture-overlay">Try now</button>
+            <button class="jpdb-reader-btn" type="button" data-action="start-overlay">Choose area</button>
+            <button class="jpdb-reader-btn" type="button" data-action="dismiss-gaming-first-run">Done</button>
         </div>
     `;
     shell.insertBefore(section, form);
-    section.addEventListener('change', event => {
-        const target = event.target as HTMLElement;
-        if (!target.closest('[name="gamingPageScanMode"]')) return;
-        const mode = pageScanModeValue((target as HTMLInputElement).value);
-        syncSharedPageScanModeFromGamingOnboarding(form, mode);
-        syncGamingPageScanControls(section, mode);
-        persistSettingsFromForm(form);
-    });
-    section.addEventListener('input', event => {
-        const target = event.target as HTMLInputElement;
-        if (target.name !== 'shortcuts.scanPage' && target.name !== 'shortcuts.hoverLookup') return;
-        syncShortcutFromGamingOnboarding(form, target.name, target.value);
-        persistSettingsFromForm(form);
-    });
-}
-
-function gamingPageScanModeOption(value: 'off' | 'auto' | 'manual', label: string): string {
-    const checked = gamingPageScanModeValue(shellState.settings) === value ? ' checked' : '';
-    return `<label><input type="radio" name="gamingPageScanMode" value="${value}"${checked}><span>${label}</span></label>`;
 }
 
 function installGamingCaptureShortcutSection(form: HTMLFormElement): void {
@@ -264,17 +219,13 @@ function installGamingCaptureShortcutSection(form: HTMLFormElement): void {
     panel.insertBefore(section, grid ?? panel.firstChild);
 }
 
-function installGamingCaptureAction(form: HTMLFormElement): void {
-    if (form.querySelector('.yomu-gaming-capture-button')) return;
-    const footer = form.querySelector<HTMLElement>('.footer');
-    if (!footer) return;
-    const button = document.createElement('button');
-    button.className = 'jpdb-reader-btn add yomu-gaming-capture-button';
-    button.type = 'button';
-    button.dataset.action = 'area-capture';
-    button.setAttribute('aria-label', 'Capture a game screen area');
-    button.innerHTML = '<span>Capture area</span>';
-    footer.insertBefore(button, footer.querySelector('[data-action="cancel"]'));
+function removeGamingFooterDuplicates(form: HTMLFormElement): void {
+    form.querySelectorAll('.yomu-gaming-capture-button').forEach(element => element.remove());
+    form.querySelectorAll<HTMLElement>('[data-settings-save-status]').forEach(element => {
+        element.textContent = '';
+        element.hidden = true;
+        element.setAttribute('aria-hidden', 'true');
+    });
 }
 
 function installNativeSettingsSyncSection(form: HTMLFormElement): void {
@@ -316,13 +267,6 @@ function bindSettingsForm(form: HTMLFormElement): void {
         activateSettingsPanel(form, nextTab?.dataset.panel ?? DEFAULT_SETTINGS_PANEL);
     });
     form.addEventListener('click', event => {
-        const pageScanInput = (event.target as HTMLElement).closest<HTMLInputElement>('input[name="gamingPageScanMode"]');
-        if (pageScanInput) {
-            pageScanInput.checked = true;
-            syncSharedPageScanModeFromGamingOnboarding(form);
-            persistSettingsFromForm(form);
-            return;
-        }
         const anchor = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href]');
         if (anchor) {
             event.preventDefault();
@@ -375,7 +319,7 @@ function bindSettingsForm(form: HTMLFormElement): void {
         if (action === 'dismiss-gaming-first-run') {
             event.preventDefault();
             markGamingFirstRunSeen();
-            setShellStatus('Ready. Use Capture area or the shortcut whenever you need them.', 'success');
+            setShellStatus('Ready. Press the shortcut for a quick read, or use Select area.', 'success');
             return;
         }
         if (action === 'sync-cloud-settings' || action === 'restore-cloud-settings') {
@@ -398,7 +342,6 @@ function bindSettingsForm(form: HTMLFormElement): void {
             syncBrowserTtsVoiceOptions(form);
         }
         if (target.closest('[name="ocrProvider"]')) syncOcrProviderFields(form);
-        if (target.closest('[name="gamingPageScanMode"]')) syncSharedPageScanModeFromGamingOnboarding(form);
         if (target.closest('[name="interfaceLanguage"]')) localizeAfterLanguageChange(form);
         if (target.closest('[name="theme"], [data-theme-value]')) applyDocumentTheme(readFormSettings(new FormData(form), shellState.settings));
         persistSettingsFromForm(form);
@@ -434,7 +377,7 @@ function bindGamingShellActions(form: HTMLFormElement): void {
             if (action === 'dismiss-gaming-first-run') {
                 event.preventDefault();
                 markGamingFirstRunSeen();
-                setShellStatus('Ready. Press the shortcut for instant capture, or use Capture area.', 'success');
+                setShellStatus('Ready. Press the shortcut for a quick read, or use Select area.', 'success');
             }
         });
     });
@@ -542,50 +485,7 @@ function persistSettingsFromForm(form: HTMLFormElement): void {
     persistGamingSettings(shellState.settings);
     applyDocumentTheme(shellState.settings);
     syncDisabledSettingsControlDescriptions(form, shellState.settings.interfaceLanguage);
-    syncGamingPageScanControls(appRoot);
     updateHotkeyCopy();
-}
-
-function syncSharedPageScanModeFromGamingOnboarding(form: HTMLFormElement, selectedMode?: 'off' | 'auto' | 'manual'): void {
-    const mode = selectedMode ?? gamingPageScanModeFromForm(form);
-    applyGamingPageScanModeToForm(form, mode);
-    syncGamingPageScanControls(form, mode);
-}
-
-function syncGamingPageScanControls(root: ParentNode, mode = gamingPageScanModeValue(shellState.settings)): void {
-    root.querySelectorAll<HTMLInputElement>('input[name="gamingPageScanMode"]').forEach(input => {
-        input.checked = input.value === mode;
-    });
-    root.querySelectorAll<HTMLElement>('[data-gaming-manual-scan-shortcut]').forEach(node => {
-        node.hidden = mode !== 'manual';
-    });
-}
-
-function gamingPageScanModeFromForm(form: HTMLFormElement): 'off' | 'auto' | 'manual' {
-    const selected = form.querySelector<HTMLInputElement>('input[name="gamingPageScanMode"]:checked')?.value;
-    return pageScanModeValue(selected) ?? gamingPageScanModeValue(shellState.settings);
-}
-
-function pageScanModeValue(value: unknown): 'off' | 'auto' | 'manual' | undefined {
-    return value === 'off' || value === 'auto' || value === 'manual' ? value : undefined;
-}
-
-function applyGamingPageScanModeToForm(form: HTMLFormElement, mode: 'off' | 'auto' | 'manual'): void {
-    shellState.settings.annotationsPaused = mode === 'off';
-    shellState.settings.manualScanEnabled = mode === 'manual';
-    const pageScanMode = form.querySelector<HTMLSelectElement>('select[name="pageScanMode"]');
-    if (pageScanMode) pageScanMode.value = mode;
-    form.querySelectorAll<HTMLInputElement>('input[name="pageScanMode"]').forEach(input => {
-        input.checked = input.value === mode;
-    });
-    const manualScan = form.querySelector<HTMLInputElement>('input[name="manualScanEnabled"]');
-    if (manualScan) manualScan.checked = mode === 'manual';
-}
-
-function syncShortcutFromGamingOnboarding(form: HTMLFormElement, name: 'shortcuts.scanPage' | 'shortcuts.hoverLookup', value: string): void {
-    form.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`).forEach(input => {
-        if (input.value !== value) input.value = value;
-    });
 }
 
 function syncFirstRunOcrEndpoint(form: HTMLFormElement, value: string): void {
@@ -661,7 +561,6 @@ function localizeAfterLanguageChange(form: HTMLFormElement): void {
     applyGamingSettingsCopy(form);
     hideUnsupportedSettingsActions(form);
     syncOcrProviderFields(form);
-    syncGamingPageScanControls(form);
 }
 
 function applyGamingSettingsCopy(form: HTMLFormElement): void {
@@ -718,7 +617,12 @@ function nextSettingsTabIndex(key: string, currentIndex: number, length: number)
 function setShellStatus(status: string, tone: SettingsShellState['statusTone'] = 'idle'): void {
     shellState.status = status;
     shellState.statusTone = tone;
-    appRoot.querySelectorAll<HTMLElement>('[data-settings-save-status], [data-gaming-shell-status]').forEach(element => {
+    appRoot.querySelectorAll<HTMLElement>('[data-settings-save-status]').forEach(element => {
+        element.textContent = '';
+        element.hidden = true;
+        element.setAttribute('aria-hidden', 'true');
+    });
+    appRoot.querySelectorAll<HTMLElement>('[data-gaming-shell-status]').forEach(element => {
         element.textContent = status;
         element.dataset.statusTone = tone;
         element.hidden = false;
@@ -734,9 +638,6 @@ function updateHotkeyCopy(): void {
     });
     appRoot.querySelectorAll<HTMLElement>('[data-gaming-ocr-mode]').forEach(element => {
         element.textContent = gamingOcrModeText();
-    });
-    appRoot.querySelectorAll<HTMLElement>('[data-gaming-page-scan-mode]').forEach(element => {
-        element.textContent = gamingPageScanModeText();
     });
     appRoot.querySelectorAll<HTMLInputElement>('[data-capture-shortcut-input]').forEach(element => {
         element.value = hotkeyLabel();
@@ -756,10 +657,10 @@ function updateCaptureOnboardingStatus(): void {
         return;
     }
     if (shellState.environment?.hotkeyRegistered) {
-        setShellStatus(`Ready. Press ${label} for instant capture, or use Capture area.`, 'idle');
+        setShellStatus(`Ready. Press ${label} to read the screen, or use Select area.`, 'idle');
         return;
     }
-    setShellStatus(`Capture area is ready. ${label} was not registered in this session.`, 'warning');
+    setShellStatus(`Select area is ready. ${label} was not registered in this session.`, 'warning');
 }
 
 function hotkeyLabel(): string {
@@ -768,7 +669,7 @@ function hotkeyLabel(): string {
         .replace('CommandOrControl', shellState.environment?.platform === 'darwin' ? 'Cmd' : 'Ctrl')
         .replace(/\bControl\b/g, 'Ctrl')
         .replace(/\bCommand\b/g, 'Cmd')
-        .replace(/\bOption\b/g, 'Alt')
+        .replace(/\bOption\b/g, shellState.environment?.platform === 'darwin' ? 'Option' : 'Alt')
         .replace(/\bSuper\b/g, 'Meta');
 }
 
@@ -777,13 +678,13 @@ function gamingOnboardingStatusText(): string {
     if (shellState.environment?.hotkeyError) return shellState.environment.hotkeyError;
     return shellState.environment?.hotkeyRegistered
         ? `${label}: read screen.`
-        : `${label} is unavailable here; Test capture still works.`;
+        : `${label} is unavailable here; Try now still works.`;
 }
 
 function captureShortcutHelpText(): string {
     return shellState.environment?.hotkeyError
         ? shellState.environment.hotkeyError
-        : 'Focus the field and press the keys to use for instant game capture.';
+        : 'Focus the field and press the keys to read the screen.';
 }
 
 function gamingOcrModeText(): string {
@@ -794,18 +695,6 @@ function gamingOcrModeText(): string {
     return shellState.settings.ocrAutoScanImages
         ? 'Auto for images. Capture on demand.'
         : 'Tap or hover. Capture on demand.';
-}
-
-function gamingPageScanModeText(): string {
-    if (shellState.settings.annotationsPaused) return 'Page text scanning off.';
-    return shellState.settings.manualScanEnabled
-        ? `Manual page scan: ${shellState.settings.shortcuts.scanPage || 'no shortcut set'}.`
-        : 'Auto page text scanning.';
-}
-
-function gamingPageScanModeValue(settings: ReaderSettings): 'off' | 'auto' | 'manual' {
-    if (settings.annotationsPaused) return 'off';
-    return settings.manualScanEnabled ? 'manual' : 'auto';
 }
 
 function currentOverlayCaptureMode(): YomuGamingCaptureMode {

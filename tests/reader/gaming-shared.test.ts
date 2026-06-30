@@ -41,18 +41,19 @@ describe('Yomu Gaming shared helpers', () => {
         expect(url.searchParams.get('q')).toBe('冒険');
     });
 
-    it('keeps Electron first-run page scan setup wired to shared settings fields', () => {
+    it('keeps Electron first-run focused on capture while page scanning stays in Settings', () => {
         const source = readFileSync(path.join(process.cwd(), 'src/gaming/renderer/app.ts'), 'utf8');
 
-        expect(source).toContain('data-gaming-page-scan-setup');
-        expect(source).toContain('name="gamingPageScanMode"');
-        expect(source).toContain("gamingPageScanModeOption('off', 'Off')");
-        expect(source).toContain("gamingPageScanModeOption('auto', 'Auto')");
-        expect(source).toContain("gamingPageScanModeOption('manual', 'Manual')");
-        expect(source).toContain('data-gaming-manual-scan-shortcut');
-        expect(source).toContain('name="shortcuts.scanPage"');
-        expect(source).toContain('name="shortcuts.hoverLookup"');
-        expect(source).toContain('syncSharedPageScanModeFromGamingOnboarding');
-        expect(source).toContain('syncGamingPageScanControls');
+        expect(source).toContain('Yomu Gaming is ready.');
+        expect(source).toContain('Google Lens-style image OCR');
+        expect(source).toContain('data-action="test-capture-overlay"');
+        expect(source).toContain('data-action="start-overlay"');
+        expect(source).toContain("replaceControlLabel(form, 'shortcuts.scanPage', 'Manual page scan shortcut')");
+        expect(source).toContain("replaceControlLabel(form, 'shortcuts.hoverLookup', 'Scan modifier key')");
+        expect(source).not.toContain('data-gaming-page-scan-setup');
+        expect(source).not.toContain('name="gamingPageScanMode"');
+        expect(source).not.toContain('data-gaming-manual-scan-shortcut');
+        expect(source).not.toContain('syncSharedPageScanModeFromGamingOnboarding');
+        expect(source).not.toContain('syncGamingPageScanControls');
     });
 });

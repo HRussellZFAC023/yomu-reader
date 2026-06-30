@@ -135,16 +135,16 @@ const baseSettings = {
     enableReviews: true,
     twoButtonReviews: false,
     shortcuts: {
-        scanPage: 'Alt+J',
+        scanPage: 'Shift+J',
         hoverLookup: '',
-        openSettings: 'Alt+Shift+J',
+        openSettings: 'Ctrl+Shift+J',
         playAudio: 'A',
         closePopup: 'Escape',
-        previousSubtitle: 'Alt+ArrowLeft',
-        nextSubtitle: 'Alt+ArrowRight',
-        copySubtitle: 'Alt+C',
-        toggleOcr: 'Alt+O',
-        scanImages: 'Alt+I',
+        previousSubtitle: 'A',
+        nextSubtitle: 'D',
+        copySubtitle: 'Shift+C',
+        toggleOcr: 'Shift+O',
+        scanImages: 'Shift+I',
         gradeNothing: '1',
         gradeSomething: '2',
         gradeHard: '3',
@@ -1012,7 +1012,7 @@ async function openSettingsFromPuck(page) {
         await radialSettings.click();
     }
     if (!await page.locator('.jpdb-reader-settings').isVisible().catch(() => false)) {
-        await page.keyboard.press('Alt+Shift+J');
+        await page.keyboard.press('Control+Shift+J');
     }
     await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
     assertAudit(await page.locator('.jpdb-reader-quick').count() === 0, 'puck opened the removed quick controls panel');
@@ -1743,7 +1743,7 @@ async function auditOnboardingMobile(browser, server) {
     await page.screenshot({ path: path.join(ARTIFACTS, 'onboarding-mobile.png'), fullPage: false });
     await page.locator('[data-onboarding-action="api-key"]').click();
     if (!await page.locator('.jpdb-reader-settings').isVisible().catch(() => false)) {
-        await page.keyboard.press('Alt+Shift+J');
+        await page.keyboard.press('Control+Shift+J');
     }
     await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
     await page.close();

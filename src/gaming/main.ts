@@ -172,7 +172,7 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<Browser
 }
 
 function appIconPath(): string {
-    return path.join(__dirname, 'yomu-gaming-512.png');
+    return path.join(__dirname, 'yomu-icon-512.png');
 }
 
 function gamingWebPreferences(role: 'main' | 'overlay'): BrowserWindowConstructorOptions['webPreferences'] {

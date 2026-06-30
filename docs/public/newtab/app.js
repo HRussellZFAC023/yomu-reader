@@ -1401,9 +1401,13 @@
       gradeTargetBoth: "Both",
       gradeTargetJpdb: "Grades JPDB",
       gradeTargetJiten: "Grades Jiten",
+      gradeTargetBunpro: "Grades Bunpro",
+      gradeTargetYomuLocal: "Grades Yomu",
       gradeTargetAnki: "Grades Anki card: {target}",
       gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
       gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
+      gradeTargetBunproAndAnki: "Grades Bunpro + Anki card: {target}",
+      gradeTargetYomuLocalAndAnki: "Grades Yomu + Anki card: {target}",
       missingAnkiCardId: "Missing Anki card id.",
       jpdbPageEnhancements: "Dictionary site enhancements",
       jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
@@ -1478,6 +1482,7 @@
       newTabKanjiUnlockEnabled: "Study kanji before unlocking words",
       newTabStopAtBatchEnd: "Stop at the end of each batch",
       newTabSwipeReviews: "Swipe cards to grade (left = fail, right = pass)",
+      newTabShortcutHintsEnabled: "Show Study keyboard shortcut hints",
       newTabUrl: "Study address",
       newTabOfflineHelp: "Caches due cards and queued grades.",
       newTabAddressHelp: "Use as a start page or iPad shortcut.",
@@ -2140,6 +2145,7 @@
       apiSrsActionsDisabled: "API mining actions are disabled in settings.",
       addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
       addJitenApiKeyReview: "Add a Jiten API key to review Jiten cards.",
+      addBunproApiKeyReview: "Add a Bunpro frontend API token to review Bunpro cards.",
       actionFailed: "Action failed.",
       dictionary: "Dictionary",
       dictionariesExported: "Dictionaries exported.",
@@ -2332,8 +2338,12 @@
       addedToJpdb: "Added to JPDB.",
       jitenDeckStateApiKeyRequired: "Add a Jiten API key to change Jiten vocabulary state.",
       jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
+      bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
+      yomuLocalSrsDisabled: "Enable local Yomu SRS in Settings first.",
       chooseJitenStudyDeck: "Choose a Jiten study deck first.",
       addedToJiten: "Added to Jiten.",
+      addedToBunpro: "Added to Bunpro.",
+      addedToYomuLocal: "Added to Yomu.",
       kanjiDetailsUnavailable: "Kanji details are not available yet.",
       loadingDictionaryDetails: "Loading dictionary details...",
       sourceSingular: "source",
@@ -2567,6 +2577,7 @@ jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。
 apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
+addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。
 actionFailed	操作に失敗しました。
 noDefinitions	有効な定義ソースから結果が返りませんでした。
 dictionary	辞書
@@ -2969,8 +2980,12 @@ jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
 addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
 jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
+bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
+yomuLocalSrsDisabled	先に設定でローカルよむSRSを有効にしてください。
 chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
 addedToJiten	Jitenに追加しました。
+addedToBunpro	Bunproに追加しました。
+addedToYomuLocal	よむに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 sourceSingular	ソース
@@ -3079,9 +3094,13 @@ gradeTargetSelector	採点先
 gradeTargetBoth	両方
 gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
+gradeTargetBunpro	Bunproを採点
+gradeTargetYomuLocal	よむを採点
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
+gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
+gradeTargetYomuLocalAndAnki	よむ + Ankiカードを採点: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
@@ -3151,6 +3170,7 @@ newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
 newTabKanjiUnlockEnabled	漢字後に単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
 newTabSwipeReviews	スワイプ採点（左=失敗、右=合格）
+newTabShortcutHintsEnabled	学習のキーボードショートカットヒントを表示
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	カードと未送信採点を保存。
 newTabAddressHelp	新規タブやiPadホーム画面用。
@@ -3894,6 +3914,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const MANAGED_INDEXED_DB_NAMES = [
     "yomu-anki-status-index"
   ];
+  const MANAGED_CACHE_NAME_PREFIXES = [
+    "yomu-newtab-"
+  ];
   const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
     FACTORY_RESET_SIGNAL_KEY,
     // Transient cloud-sync handoff written before an OAuth redirect. Factory
@@ -4023,7 +4046,33 @@ recommendedJiten	Jiten由来の頻度バッジです。
       count++;
     }
     await clearManagedIndexedDatabases();
+    count += await clearManagedBrowserCaches();
+    count += await unregisterManagedServiceWorkers();
     return count;
+  }
+  async function clearManagedBrowserCaches() {
+    if (typeof caches === "undefined") return 0;
+    try {
+      const keys = await caches.keys();
+      const managedKeys = keys.filter(isManagedBrowserCacheName);
+      const deleted = await Promise.all(managedKeys.map((key) => caches.delete(key)));
+      return deleted.filter(Boolean).length;
+    } catch (error) {
+      debugStorageError("Cache API clear failed", "managed-caches", error);
+      return 0;
+    }
+  }
+  async function unregisterManagedServiceWorkers() {
+    if (typeof navigator === "undefined" || !navigator.serviceWorker?.getRegistrations) return 0;
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      const managedRegistrations = registrations.filter(isManagedServiceWorkerRegistration);
+      const unregistered = await Promise.all(managedRegistrations.map((registration) => registration.unregister()));
+      return unregistered.filter(Boolean).length;
+    } catch (error) {
+      debugStorageError("Service worker unregister failed", "managed-service-workers", error);
+      return 0;
+    }
   }
   async function clearFactoryResetSignal() {
     await gmStorageDelete(FACTORY_RESET_SIGNAL_KEY);
@@ -4235,6 +4284,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   async function clearManagedIndexedDatabases() {
     await Promise.all(MANAGED_INDEXED_DB_NAMES.map(deleteIndexedDbDatabase));
+  }
+  function isManagedBrowserCacheName(name) {
+    return MANAGED_CACHE_NAME_PREFIXES.some((prefix) => name.startsWith(prefix));
+  }
+  function isManagedServiceWorkerRegistration(registration) {
+    return [
+      registration.scope,
+      registration.active?.scriptURL,
+      registration.installing?.scriptURL,
+      registration.waiting?.scriptURL
+    ].some(hasManagedNewTabServiceWorkerPath);
+  }
+  function hasManagedNewTabServiceWorkerPath(value) {
+    return typeof value === "string" && value.includes("/newtab/");
   }
   function deleteIndexedDbDatabase(name) {
     if (typeof indexedDB === "undefined") return Promise.resolve();
@@ -6555,6 +6618,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     newTabKanjiUnlockEnabled: true,
     newTabStopAtBatchEnd: false,
     newTabSwipeReviews: true,
+    newTabShortcutHintsEnabled: true,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
     newTabStudyStepOrder: [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER],
@@ -6678,21 +6742,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
     studyTranslationPriority: 10,
     studyGrammarPriority: 20,
     shortcuts: {
-      scanPage: "Alt+J",
+      scanPage: "Shift+J",
       hoverLookup: "",
-      openSettings: "Alt+Shift+J",
+      openSettings: "Ctrl+Shift+J",
       playAudio: "A",
       closePopup: "Escape",
-      previousLookupWord: "Alt+Shift+ArrowLeft",
-      nextLookupWord: "Alt+Shift+ArrowRight",
+      previousLookupWord: "Shift+ArrowLeft",
+      nextLookupWord: "Shift+ArrowRight",
       previousSubtitle: "A",
       nextSubtitle: "D",
-      copySubtitle: "Alt+C",
-      toggleOcr: "Alt+O",
+      copySubtitle: "Shift+C",
+      toggleOcr: "Shift+O",
       toggleSubtitleOverlay: "Shift+H",
-      toggleYoutubeImmersion: "Alt+Y",
-      scanImages: "Alt+I",
-      massReviewVisible: "Alt+M",
+      toggleYoutubeImmersion: "Shift+Y",
+      scanImages: "Shift+I",
+      massReviewVisible: "Shift+M",
       studyReveal: "Space",
       studyRevealAlternate: "Enter",
       studyUndo: "U",
@@ -6915,6 +6979,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       newTabKanjiUnlockEnabled: booleanSetting(value, "newTabKanjiUnlockEnabled"),
       newTabStopAtBatchEnd: booleanSetting(value, "newTabStopAtBatchEnd"),
       newTabSwipeReviews: booleanSetting(value, "newTabSwipeReviews"),
+      newTabShortcutHintsEnabled: booleanSetting(value, "newTabShortcutHintsEnabled"),
       newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit"),
       newTabStudyStepOrder: normalizeNewTabStudyStepOrder(value?.newTabStudyStepOrder),
@@ -7016,6 +7081,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function normalizeApiGradingProvider(value) {
     if (value === "jpdb") return "jpdb";
+    if (value === "jiten") return "jiten";
     if (value === "bunpro") return "bunpro";
     return DEFAULT_SETTINGS.apiGradingProvider;
   }
@@ -27363,6 +27429,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       newTabKanjiUnlockEnabled: has("newTabKanjiUnlockEnabled"),
       newTabStopAtBatchEnd: has("newTabStopAtBatchEnd"),
       newTabSwipeReviews: has("newTabSwipeReviews"),
+      newTabShortcutHintsEnabled: has("newTabShortcutHintsEnabled"),
       newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: has("newTabKanjiAutoSubmit"),
       newTabStudyStepOrder: readNewTabStudyStepOrder(reader, current),
@@ -29155,6 +29222,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                         ${checkbox("newTabKanjiUnlockEnabled", "Study kanji before unlocking words", settings.newTabKanjiUnlockEnabled)}
                         ${checkbox("newTabStopAtBatchEnd", "Stop at the end of each batch", settings.newTabStopAtBatchEnd)}
                         ${checkbox("newTabSwipeReviews", "Swipe cards to grade (left = fail, right = pass)", settings.newTabSwipeReviews)}
+                        ${checkbox("newTabShortcutHintsEnabled", "Show Study keyboard shortcut hints", settings.newTabShortcutHintsEnabled)}
                         ${checkbox("newTabFrontSentenceEnabled", "Show sentence on word fronts", settings.newTabFrontSentenceEnabled)}
                         ${checkbox("newTabKanjiAutogradeEnabled", "Autograde kanji drawing", settings.newTabKanjiAutogradeEnabled)}
                         ${checkbox("newTabKanjiAutoSubmit", "Submit kanji grade after autograde", settings.newTabKanjiAutoSubmit)}
@@ -30510,6 +30578,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "newTabKanjiUnlockEnabled",
     "newTabStopAtBatchEnd",
     "newTabSwipeReviews",
+    "newTabShortcutHintsEnabled",
     "newTabUrl",
     "wordColorNew",
     "wordColorLearning",
@@ -43934,6 +44003,7 @@ ${spelling}`);
     const options = [];
     if (renderOptions.includeJpdb) addJpdbDeckChoiceOptions(settings, options, jpdbDecks);
     if (renderOptions.includeJiten) addJitenDeckChoiceOptions(options, renderOptions.jitenDecks ?? []);
+    if (renderOptions.includeYomuLocal && settings.yomuLocalSrsEnabled) addDeckChoiceOption(options, "yomu-local", "yomu-local", "Yomu");
     if (settings.ankiEnabled) addAnkiDeckChoiceOptions(settings, options, ankiDecks);
     if (!options.length) return "";
     return deckChoicePlaceholderOption(settings) + options.map(renderDeckChoiceOption).join("");
@@ -43983,25 +44053,51 @@ ${spelling}`);
     return typeof value === "boolean" ? { includeJpdb: value } : value;
   }
   function apiGradingProviderPreference(settings) {
+    if (settings.apiGradingProvider === "bunpro") return "bunpro";
     return settings.apiGradingProvider === "jiten" ? "jiten" : "jpdb";
   }
   function apiSrsProviderView(id, settings) {
+    if (id === "yomu-local") {
+      return {
+        id: "yomu-local",
+        label: "Yomu",
+        deckSource: "yomu-local",
+        hasApiKey: settings.yomuLocalSrsEnabled
+      };
+    }
+    if (id === "bunpro") {
+      return {
+        id: "bunpro",
+        label: "Bunpro",
+        deckSource: "bunpro",
+        hasApiKey: hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings)
+      };
+    }
     return id === "jiten" ? { id: "jiten", label: "Jiten", deckSource: "jiten", hasApiKey: hasJitenApiCredential(settings) } : { id: "jpdb", label: "JPDB", deckSource: "jpdb", hasApiKey: hasJpdbApiCredential(settings) };
   }
   function apiSrsProviderViewForCard(card, settings, isJpdbBackedCard) {
     const jpdbBacked = isJpdbBackedCard(card);
     const jitenBacked = isJitenBackedCard(card);
+    const bunproBacked = isBunproBackedCard(card);
     const jpdbUsable = jpdbBacked && hasJpdbApiCredential(settings);
     const jitenUsable = jitenBacked && hasJitenApiCredential(settings);
+    const bunproUsable = bunproBacked && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings);
+    if (bunproUsable) return apiSrsProviderView("bunpro", settings);
     if (jpdbUsable && jitenUsable) return apiSrsProviderView(apiGradingProviderPreference(settings), settings);
     if (jpdbUsable) return apiSrsProviderView("jpdb", settings);
     if (jitenUsable) return apiSrsProviderView("jiten", settings);
+    if (!bunproBacked && settings.yomuLocalSrsEnabled) return apiSrsProviderView("yomu-local", settings);
     if (jpdbBacked) return apiSrsProviderView("jpdb", settings);
     if (jitenBacked) return apiSrsProviderView("jiten", settings);
+    if (bunproBacked) return apiSrsProviderView("bunpro", settings);
     return null;
   }
   function isApiMiningEnabled(settings) {
-    return settings.jpdbMiningEnabled;
+    return settings.jpdbMiningEnabled || settings.bunproMiningEnabled || settings.yomuLocalSrsEnabled;
+  }
+  function isApiSrsProviderEnabled(settings, providerId) {
+    if (providerId === "yomu-local") return settings.yomuLocalSrsEnabled;
+    return providerId === "bunpro" ? settings.bunproMiningEnabled : settings.jpdbMiningEnabled;
   }
   function shouldMineAnkiAlongsideApi(settings) {
     return settings.ankiEnabled && settings.ankiMineWithJpdb;
@@ -44009,6 +44105,8 @@ ${spelling}`);
   function createApiSrsProviderAdapters(options, settings) {
     const jpdbProvider = createJpdbSrsProviderAdapter(options.jpdb, options.isJpdbBackedCard, settings);
     const providers = options.jiten ? [createJitenSrsProviderAdapter(options.jiten, settings), jpdbProvider] : [jpdbProvider];
+    if (options.bunpro) providers.unshift(createBunproSrsProviderAdapter(options.bunpro, settings));
+    if (options.yomuLocal) providers.push(createYomuLocalSrsProviderAdapter(options.yomuLocal, settings));
     return providers;
   }
   function createJpdbSrsProviderAdapter(jpdb, isJpdbBackedCard, settings) {
@@ -44045,6 +44143,63 @@ ${spelling}`);
           await jpdb.addToDeck(deckId, card);
         }
       }
+    };
+  }
+  function createBunproSrsProviderAdapter(adapter, settings) {
+    return {
+      id: "bunpro",
+      label: "Bunpro",
+      deckSource: "bunpro",
+      hasApiKey: settings.bunproMiningEnabled && adapter.hasCredential(),
+      addApiKeyRequiredKey: "bunproAddApiKeyRequired",
+      reviewApiKeyRequiredKey: "addBunproApiKeyReview",
+      deckStateApiKeyRequiredKey: "bunproAddApiKeyRequired",
+      addedToastKey: "addedToBunpro",
+      supportsCard: isBunproBackedCard,
+      supportsDeckState: () => false,
+      selectedDeckId: () => "bunpro",
+      selectedDeckLabel: () => "Bunpro",
+      addToDeck: async (_deckId, card, sentence, context) => {
+        await adapter.mine(bunproMiningRequestFromCard(card, sentence, context));
+      },
+      reviewCard: async (card, grade, reviewOptions = {}) => {
+        await adapter.review({
+          card: bunproReviewableFromCard(card),
+          grade,
+          sentence: reviewOptions.sentence
+        });
+        return {};
+      },
+      setDeckState: async () => void 0
+    };
+  }
+  function createYomuLocalSrsProviderAdapter(adapter, settings) {
+    return {
+      id: "yomu-local",
+      label: "Yomu",
+      deckSource: "yomu-local",
+      hasApiKey: settings.yomuLocalSrsEnabled && adapter.hasCredential(),
+      addApiKeyRequiredKey: "yomuLocalSrsDisabled",
+      reviewApiKeyRequiredKey: "yomuLocalSrsDisabled",
+      deckStateApiKeyRequiredKey: "yomuLocalSrsDisabled",
+      addedToastKey: "addedToYomuLocal",
+      supportsCard: (card) => Boolean(card.spelling.trim()),
+      supportsDeckState: () => false,
+      selectedDeckId: () => "yomu-local",
+      selectedDeckLabel: () => "Yomu",
+      addToDeck: async (_deckId, card, sentence, context) => {
+        await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context));
+      },
+      reviewCard: async (card, grade, reviewOptions = {}) => {
+        const wasNotInDeck = normalizeCardStates(card.cardState).includes("not-in-deck") || card.reviewSource !== "yomu-local";
+        await adapter.review({
+          card: yomuLocalReviewableFromCard(card),
+          grade,
+          sentence: reviewOptions.sentence
+        });
+        return { addedBeforeReview: wasNotInDeck };
+      },
+      setDeckState: async () => void 0
     };
   }
   function createJitenSrsProviderAdapter(jiten, settings) {
@@ -44085,6 +44240,75 @@ ${spelling}`);
   }
   function isJitenBackedCard(card) {
     return card.source === "jiten" || finitePositiveInteger(card.jitenWordId) !== void 0 && finiteNonNegativeInteger(card.jitenReadingIndex) !== void 0;
+  }
+  function isBunproBackedCard(card) {
+    return card.source === "bunpro" || card.reviewSource === "bunpro-api" || Boolean(card.bunproReviewId || card.bunproReviewableId);
+  }
+  function bunproReviewableFromCard(card) {
+    const expression = card.spelling.trim();
+    const reading = card.reading.trim() || expression;
+    const providerCardId = card.bunproReviewId || stringifyPositiveNumber$1(card.bunproReviewableId) || card.sourceCardKey || `${card.vid}:${card.sid}:${card.rid}`;
+    return {
+      providerId: "bunpro",
+      providerCardId,
+      providerReviewId: card.bunproReviewId || providerCardId,
+      providerReviewableId: stringifyPositiveNumber$1(card.bunproReviewableId),
+      kind: bunproReviewableKind$1(card.bunproReviewableType),
+      expression,
+      reading,
+      meanings: card.meanings,
+      state: card.cardState,
+      srsLevel: card.bunproSrsLevel,
+      dueAt: card.dueAt,
+      lastReviewAt: card.lastReviewAt,
+      raw: card
+    };
+  }
+  function bunproMiningRequestFromCard(card, sentence, context) {
+    return {
+      expression: card.spelling,
+      reading: card.reading,
+      meaning: card.meanings.flatMap((meaning) => meaning.glosses).join("; "),
+      sentence,
+      sourceTitle: context?.sourceTitle,
+      kind: bunproReviewableKind$1(card.bunproReviewableType)
+    };
+  }
+  function bunproReviewableKind$1(type) {
+    if (type === "vocabulary" || type === "grammar" || type === "sentence") return type;
+    return "unknown";
+  }
+  function yomuLocalReviewableFromCard(card) {
+    const expression = card.spelling.trim();
+    const reading = card.reading.trim() || expression;
+    const providerCardId = card.sourceCardKey || `${expression}\0${reading}`;
+    return {
+      providerId: "yomu-local",
+      providerCardId,
+      providerReviewId: providerCardId,
+      kind: "vocabulary",
+      expression,
+      reading,
+      meanings: card.meanings,
+      state: card.cardState,
+      dueAt: card.dueAt,
+      lastReviewAt: card.lastReviewAt,
+      raw: card
+    };
+  }
+  function yomuLocalMiningRequestFromCard(card, sentence, context) {
+    return {
+      expression: card.spelling,
+      reading: card.reading,
+      meaning: card.meanings.flatMap((meaning) => meaning.glosses).join("; "),
+      sentence,
+      sourceTitle: context?.sourceTitle,
+      sourceUrl: context?.sourceUrl,
+      kind: "vocabulary"
+    };
+  }
+  function stringifyPositiveNumber$1(value) {
+    return typeof value === "number" && Number.isInteger(value) && value > 0 ? String(value) : void 0;
   }
   function jitenVocabularyStateForApiState(state2) {
     if (state2 === "blacklisted") return "blacklist";
@@ -54410,7 +54634,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     async addBatchMiningCard(card, sentence) {
       const settings = this.options.getSettings();
-      const provider = isApiMiningEnabled(settings) ? this.apiProviderForCard(card, settings) : null;
+      const candidate = isApiMiningEnabled(settings) ? this.apiProviderForCard(card, settings) : null;
+      const provider = candidate && isApiSrsProviderEnabled(settings, candidate.id) ? candidate : null;
       if (provider?.hasApiKey) {
         const deckId = provider.id === "jiten" ? String((await this.options.jiten?.listStudyDecks?.().catch(() => []))?.[0]?.id ?? "") : provider.selectedDeckId(settings.miningDeck, settings);
         if (!deckId) throw new Error(uiText(settings.interfaceLanguage, provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey));
@@ -54557,6 +54782,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       });
     }
     async resolveProviderCard(card, id) {
+      if (id === "yomu-local") return card;
       try {
         const [tokens = []] = id === "jiten" ? await (this.options.jiten?.parse?.([card.spelling]) ?? Promise.resolve([])) : await this.options.jpdb.parse([card.spelling]);
         return exactCard(card, tokens);
@@ -54566,6 +54792,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     async refreshProviderState(card, providerId) {
       try {
+        if (providerId === "bunpro" || providerId === "yomu-local") return;
         if (providerId === "jiten") await this.options.jiten?.refreshCardState?.(card);
         else await this.options.jpdb.refreshCardState?.(card);
       } catch {
@@ -54598,6 +54825,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return createApiSrsProviderAdapters({
         jpdb: this.options.jpdb,
         jiten: this.options.jiten,
+        bunpro: this.options.srsAdapters?.bunpro,
+        yomuLocal: this.options.srsAdapters?.["yomu-local"],
         isJpdbBackedCard: this.options.isJpdbBackedCard
       }, settings);
     }
@@ -54616,7 +54845,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     assertApiProviderActionAllowed(provider, message) {
       const settings = this.options.getSettings();
-      if (!isApiMiningEnabled(settings)) throw new Error(uiText(settings.interfaceLanguage, "apiSrsActionsDisabled"));
+      if (!isApiSrsProviderEnabled(settings, provider?.id)) throw new Error(uiText(settings.interfaceLanguage, "apiSrsActionsDisabled"));
       if (!provider?.hasApiKey) throw new Error(message);
     }
     assertApiProviderReviewAllowed(provider, message) {
@@ -54632,15 +54861,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return;
       }
       const provider = this.apiProviderForDeckSource(deck.source, card, settings);
-      const fallbackKey = deck.source === "jiten" ? "jitenAddApiKeyRequired" : "jpdbAddApiKeyRequired";
+      const fallbackKey = deck.source === "jiten" ? "jitenAddApiKeyRequired" : deck.source === "bunpro" ? "bunproAddApiKeyRequired" : deck.source === "yomu-local" ? "yomuLocalSrsDisabled" : "jpdbAddApiKeyRequired";
       this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.addApiKeyRequiredKey ?? fallbackKey));
       const selectedDeckId2 = provider.selectedDeckId(deck.id, settings);
-      if (!selectedDeckId2) throw new Error(uiText(settings.interfaceLanguage, "chooseJitenStudyDeck"));
-      await provider.addToDeck(selectedDeckId2, card, sentence, { sourceTitle: document.title });
+      if (!selectedDeckId2) throw new Error(uiText(settings.interfaceLanguage, provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey));
+      await provider.addToDeck(selectedDeckId2, card, sentence, { sourceTitle: document.title, sourceUrl: location.href });
       const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings);
       if (minedToAnkiToo) await this.addToAnki(card, sentence, settings.ankiDeck, context);
       const miningContext = await Promise.resolve(this.options.resolveMiningContext(card, sentence)).catch(() => null);
-      const droppedMedia = !minedToAnkiToo && Boolean(miningContext?.imageDataUrl || miningContext?.audioDataUrl);
+      const droppedMedia = provider.id !== "bunpro" && !minedToAnkiToo && Boolean(miningContext?.imageDataUrl || miningContext?.audioDataUrl);
       const addedToast = uiText(settings.interfaceLanguage, provider.addedToastKey);
       this.options.toast(droppedMedia ? `${addedToast} ${uiText(settings.interfaceLanguage, "apiDeckMediaNotSupported")}` : addedToast);
       this.notifyApiCardStateChanged(card);
@@ -54734,7 +54963,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         await this.answerAnkiCard(grade, card, options.ankiCardId);
         return;
       }
-      if (options.target === "jpdb" || options.target === "jiten") {
+      if (options.target === "jpdb" || options.target === "jiten" || options.target === "bunpro" || options.target === "yomu-local") {
         await this.reviewApiCard(grade, card, sentence, { ...options, providerId: options.target });
         return;
       }
@@ -54990,7 +55219,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function reviewTargetKind(value) {
     if (value === "both" || value === "anki") return value;
-    if (value === "jpdb" || value === "jiten") return value;
+    if (value === "jpdb" || value === "jiten" || value === "bunpro" || value === "yomu-local") return value;
     return void 0;
   }
   function isAnkiDeckState(state2) {
@@ -55016,6 +55245,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function selectedDeckSource$1(button) {
     if (button.dataset.deckSource === "anki") return "anki";
     if (button.dataset.deckSource === "jiten") return "jiten";
+    if (button.dataset.deckSource === "bunpro") return "bunpro";
+    if (button.dataset.deckSource === "yomu-local") return "yomu-local";
     return "jpdb";
   }
   function selectedDeckId(button, settings, source) {
@@ -55026,6 +55257,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function defaultDeckIdForSource(source, settings) {
     if (source === "anki") return defaultAnkiDeckName(settings);
     if (source === "jiten") return "";
+    if (source === "yomu-local") return "yomu-local";
     return defaultJpdbDeckId(settings);
   }
   function defaultAnkiDeckName(settings) {
@@ -56144,6 +56376,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (earlyResult !== void 0) return earlyResult;
       const targets = this.popoverReviewTargets(card, data, provider, language);
       if (targets.length) return this.renderTargetedReviewButtons(targets, language, targets.length > 1, this.canSwitchProvider(provider), provider);
+      if (provider?.id === "yomu-local" && card.reviewSource === "jpdb-live") {
+        return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
+      }
       if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
         return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       }
@@ -56168,15 +56403,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     canReviewWithApiProvider(provider) {
       const settings = this.settings();
-      return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
+      return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
     }
     canSwitchProvider(provider) {
       const settings = this.settings();
-      return !!(provider && settings.apiKey && settings.jitenApiKey);
+      return !!(provider && provider.id !== "bunpro" && provider.id !== "yomu-local" && settings.apiKey && settings.jitenApiKey);
     }
     popoverReviewTargets(card, data, provider, language) {
-      const apiTargets = this.apiReviewTargets(card, provider, language);
       const ankiTargets = this.ankiReviewTargets(data, language);
+      if (provider?.id === "yomu-local" && ankiTargets.length) return ankiTargets;
+      const apiTargets = this.apiReviewTargets(card, provider, language);
       if (apiTargets.length && ankiTargets.length) {
         const apiProvider = this.providerForReviewTarget(apiTargets[0], provider);
         if (!apiProvider) return [...apiTargets, ...ankiTargets];
@@ -56190,16 +56426,35 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (ankiTargets.length) return ankiTargets;
       return apiTargets;
     }
-    apiReviewTargets(_card, provider, _language) {
+    apiReviewTargets(card, provider, _language) {
+      if (provider?.id === "yomu-local" && card.reviewSource === "jpdb-live") return [];
       if (provider && this.canReviewWithApiProvider(provider)) return [this.apiReviewTarget(provider, _language)];
       return [];
     }
     providerForReviewTarget(target, fallback) {
       if (target.kind === "jpdb") return { id: "jpdb", label: "JPDB", deckSource: "jpdb", hasApiKey: true };
       if (target.kind === "jiten") return { id: "jiten", label: "Jiten", deckSource: "jiten", hasApiKey: true };
+      if (target.kind === "bunpro") return { id: "bunpro", label: "Bunpro", deckSource: "bunpro", hasApiKey: true };
+      if (target.kind === "yomu-local") return { id: "yomu-local", label: "Yomu", deckSource: "yomu-local", hasApiKey: true };
       return fallback;
     }
     apiReviewTarget(provider, language) {
+      if (provider.id === "yomu-local") {
+        return {
+          id: "yomu-local",
+          kind: "yomu-local",
+          label: uiText(language, "gradeTargetYomuLocal"),
+          shortLabel: provider.label
+        };
+      }
+      if (provider.id === "bunpro") {
+        return {
+          id: "bunpro",
+          kind: "bunpro",
+          label: uiText(language, "gradeTargetBunpro"),
+          shortLabel: provider.label
+        };
+      }
       const isJiten = provider.id === "jiten";
       return {
         id: provider.id,
@@ -56209,7 +56464,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       };
     }
     bothReviewTarget(provider, ankiTarget, language) {
-      const label = provider.id === "jiten" ? uiText(language, "gradeTargetJitenAndAnki") : uiText(language, "gradeTargetJpdbAndAnki");
+      const label = provider.id === "bunpro" ? uiText(language, "gradeTargetBunproAndAnki") : provider.id === "yomu-local" ? uiText(language, "gradeTargetYomuLocalAndAnki") : provider.id === "jiten" ? uiText(language, "gradeTargetJitenAndAnki") : uiText(language, "gradeTargetJpdbAndAnki");
       return {
         id: "both",
         kind: "both",
@@ -56259,7 +56514,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     renderMetaItems(card, provider, state2, data) {
       const settings = this.settings();
-      const canShowProviderStatus = Boolean(provider?.hasApiKey);
+      const canShowProviderStatus = Boolean(provider?.hasApiKey && provider.id !== "yomu-local");
       return [
         renderMetaReading(card, settings),
         shouldRenderMetaFrequencyRank(card, provider, settings) ? renderMetaFrequencyRank(card.frequencyRank, settings.interfaceLanguage) : "",
@@ -56371,26 +56626,29 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!canRenderApiMiningActions(settings, provider)) return "";
     const state2 = miningActionState(cardStates, language);
     const addDeckSelect = renderAddDeckSelect(settings, data, language, provider);
-    return renderApiMiningActionDetails(language, state2, addDeckSelect);
+    return renderApiMiningActionDetails(language, state2, addDeckSelect, provider);
   }
   function canRenderApiMiningActions(settings, provider) {
-    return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
+    return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
   }
   function renderAddDeckSelect(settings, data, language, provider) {
     const deckOptions = renderDeckChoiceOptions(settings, data.jpdbDecks, data.ankiDecks, {
       includeJpdb: provider?.id === "jpdb",
       includeJiten: provider?.id === "jiten",
+      includeYomuLocal: settings.yomuLocalSrsEnabled,
       jitenDecks: data.jitenDecks ?? []
     });
     if (!deckOptions) return "";
     return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml$1(uiText(language, "deck"))}" hidden>${deckOptions}</select>`;
   }
-  function renderApiMiningActionDetails(language, state2, addDeckSelect, _provider) {
+  function renderApiMiningActionDetails(language, state2, addDeckSelect, provider) {
     const addToDeckLabel = `${uiText(language, "addToDeck")} +`;
+    const directAdd = provider?.id === "bunpro" || provider?.id === "yomu-local";
+    const directDeckSource = provider?.id === "bunpro" ? "bunpro" : provider?.id === "yomu-local" ? "yomu-local" : "";
     return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$1(uiText(language, "deckActions"))}">
                     <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
-                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" aria-expanded="false">${escapeHtml$1(addToDeckLabel)}</button>
+                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="${directAdd ? "add" : "deck-picker"}"${directAdd ? ` data-deck-source="${directDeckSource}"` : ""} aria-expanded="false">${escapeHtml$1(addToDeckLabel)}</button>
                         <button class="jpdb-reader-btn nf${state2.isNeverForget ? " danger" : ""}" data-action="neverforget" aria-pressed="${state2.isNeverForget}">${state2.neverForgetLabel}</button>
                         <button class="jpdb-reader-btn blacklist" data-action="blacklist" aria-pressed="${state2.isBlacklisted}">${state2.blacklistLabel}</button>
                     </div>
@@ -56409,7 +56667,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill jpdb-reader-meta-pill" data-dictionary="JPDB" style="${pillStyle("frequency:JPDB")}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(`${label}: ${value}`)}">${escapeHtml$1(value)}</span>`;
   }
   function shouldRenderMetaFrequencyRank(card, provider, settings) {
-    if (!card.frequencyRank || provider?.hasApiKey) return false;
+    if (!card.frequencyRank || provider?.hasApiKey && provider.id !== "yomu-local") return false;
     if (settings.showLookupPillFrequency === false) return true;
     const liveProvider = liveFrequencyProviderForCard(card);
     if (!liveProvider) return true;
@@ -56674,7 +56932,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     loadJpdbDecks(card) {
       const settings = this.settings();
-      if (!isApiMiningEnabled(settings) || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
+      if (!settings.jpdbMiningEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "JPDB deck list", this.cachedJpdbDecks(settings).catch((error) => {
         log$d.warn("JPDB deck list failed", { term: card.spelling }, error);
         return [];
@@ -56689,7 +56947,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     loadJitenDecks(card) {
       const settings = this.settings();
-      if (!isApiMiningEnabled(settings) || !isJitenBackedCard(card) || !hasJitenApiCredential(settings)) return Promise.resolve([]);
+      if (!settings.jpdbMiningEnabled || !isJitenBackedCard(card) || !hasJitenApiCredential(settings)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Jiten deck list", this.cachedJitenDecks(settings).catch((error) => {
         log$d.warn("Jiten deck list failed", { term: card.spelling }, error);
         return [];
@@ -56709,7 +56967,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     loadJpdbDeckMembership(card) {
       const settings = this.settings();
       if (!cardNeedsJpdbDeckPoolLookup(card)) return Promise.resolve(false);
-      if (!isApiMiningEnabled(settings) || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve(false);
+      if (!settings.jpdbMiningEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve(false);
       const isInUserDeckPool = this.dependencies.jpdb.isInUserDeckPool?.bind(this.dependencies.jpdb);
       if (typeof isInUserDeckPool !== "function") return Promise.resolve(false);
       return this.withFallback(card, CARD_RENDER_DECK_POOL_TIMEOUT_MS, "JPDB pooled deck membership", isInUserDeckPool(card).catch((error) => {
@@ -56861,7 +57119,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         ankiMobileHandoff: settings.ankiMobileHandoff,
         jpdbDefinitions: settings.jpdbDefinitionsEnabled,
         jitenDefinitions: settings.jitenDefinitionsEnabled,
-        apiMining: isApiMiningEnabled(settings),
+        apiMining: settings.jpdbMiningEnabled || settings.bunproMiningEnabled,
         hasApiKey: hasJpdbApiCredential(settings),
         hasJitenApiKey: hasJitenApiCredential(settings),
         dictionaries: settings.dictionaryPreferences.map((preference) => ({
@@ -59831,6 +60089,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       recallIncorrect: "Not quite. Answer: {answer}",
       recallEmpty: "Enter an answer",
       recallPromptFallback: "Meaning",
+      studyTourIntro: "One review, a few quick checks. Grade once at the reveal.",
+      studyTourKanji: "Draw it before the answers appear.",
+      studyTourWord: "Read the word in context.",
+      studyTourRecall: "Type the missing Japanese.",
+      studyTourListen: "Listen and choose the pitch shape.",
+      studyTourSpeaking: "Say it aloud; pause any time.",
+      studyTourReveal: "Check the details, then grade.",
       studyTourStart: "Start",
       pauseSpeaking: "Pause speaking 15 min",
       listen: "Listen",
@@ -59842,9 +60107,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       listenRecallPrompt: "Recall the pitch accent",
       listenShadowPrompt: "Say it aloud, matching the rise and fall",
       listenPlay: "Play",
-      listenReplay: "Replay (R)",
-      listenPlayBoth: "Play both (B)",
-      listenReveal: "Reveal (Space)",
+      listenReplay: "Replay",
+      listenPlayBoth: "Play both",
+      listenReveal: "Reveal",
       listenCorrect: "Correct!",
       listenTryAgain: "Not quite — listen to both, then continue",
       listenShadowAgain: "Again",
@@ -60039,6 +60304,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     recallIncorrect: "惜しい。答え: {answer}",
     recallEmpty: "答えを入力",
     recallPromptFallback: "意味",
+    studyTourIntro: "ひとつの復習で、短い確認を順番に。採点は最後だけです。",
+    studyTourKanji: "答えを見る前に書いて確認します。",
+    studyTourWord: "文の中で単語を読みます。",
+    studyTourRecall: "空欄の日本語を入力します。",
+    studyTourListen: "音声を聞いてアクセントを選びます。",
+    studyTourSpeaking: "声に出します。いつでも一時停止できます。",
+    studyTourReveal: "内容を確認してから採点します。",
     studyTourStart: "開始",
     pauseSpeaking: "スピーキングを15分休む",
     listen: "リスニング",
@@ -60050,9 +60322,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     listenRecallPrompt: "アクセントを思い出してください",
     listenShadowPrompt: "高低に合わせて声に出してみましょう",
     listenPlay: "再生",
-    listenReplay: "もう一度 (R)",
-    listenPlayBoth: "両方再生 (B)",
-    listenReveal: "答えを見る (Space)",
+    listenReplay: "もう一度",
+    listenPlayBoth: "両方再生",
+    listenReveal: "答えを見る",
     listenCorrect: "正解！",
     listenTryAgain: "惜しい — 両方を聞いてから次へ",
     listenShadowAgain: "もう一度",
@@ -67474,7 +67746,7 @@ ${newTabCardReading(card)}`;
   }
   function renderNewTabGradeControlButtons(options) {
     return [
-      ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade], options.keyHints?.[grade])),
+      ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade], options.keyHints?.[grade], options.showShortcutHints !== false)),
       renderNewTabGradeTargetControl(options)
     ];
   }
@@ -67569,7 +67841,7 @@ ${newTabCardReading(card)}`;
       }
     }, option.shortLabel)));
   }
-  function renderNewTabGradeButton(grade, label, targetLabel, interval, keyHint) {
+  function renderNewTabGradeButton(grade, label, targetLabel, interval, keyHint, showShortcutHints = true) {
     const intervalLabel = interval?.buttonLabel || interval?.intervalLabel || "";
     const aria = [label, intervalLabel].filter(Boolean).join(", ");
     const title = [targetLabel, interval?.label || intervalLabel].filter(Boolean).join(" · ");
@@ -67585,10 +67857,11 @@ ${newTabCardReading(card)}`;
       // jpdb.io/Jiten parity: both advertise their grading keys on the controls.
       // UT-54: touch-only devices never render the hint at all (the CSS
       // pointer:coarse rule stays as a belt for hybrid devices).
-      keyHint?.trim() && newTabKeyHintsRenderable() ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, keyHint.trim()) : null
+      keyHint?.trim() && newTabKeyHintsRenderable(showShortcutHints) ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, keyHint.trim()) : null
     );
   }
-  function newTabKeyHintsRenderable() {
+  function newTabKeyHintsRenderable(showShortcutHints = true) {
+    if (!showShortcutHints) return false;
     if (typeof matchMedia !== "function") return true;
     try {
       const hasFinePointer = matchMedia("(pointer: fine)").matches || matchMedia("(any-pointer: fine)").matches;
@@ -69970,7 +70243,7 @@ ${entry.url}`),
     handleStudyKeydown(root, event, target) {
       if (!isNewTabStudyKeyboardMode(this.state.mode)) return;
       if (this.state.mode === "listen") {
-        this.handleListenKeydown(root, event);
+        this.handleListenKeydown(root, event, target);
         return;
       }
       const settings = this.dependencies.getSettings();
@@ -72417,17 +72690,27 @@ ${entry.url}`),
       const settings = this.dependencies.getSettings();
       const showTour = !settings.newTabStudyTourSeen && this.isStudyCardMode(this.state.mode) && session.steps.length > 1;
       if (showTour) {
-        const flow = session.steps.map((step) => step.label).join(" → ");
         slot.hidden = false;
+        slot.dataset.studyTourMode = "guide";
         replaceChildrenWith(
           slot,
-          el("span", {}, flow),
+          el(
+            "div",
+            { class: "jpdb-reader-newtab-study-tour-body" },
+            el("p", { class: "jpdb-reader-newtab-study-tour-intro" }, this.text("studyTourIntro")),
+            el(
+              "ol",
+              { class: "jpdb-reader-newtab-study-tour-list" },
+              session.steps.map((step, index) => this.studyTourStep(step, index))
+            )
+          ),
           el("button", { type: "button", dataset: { newtabAction: "dismiss-study-tour" } }, this.text("studyTourStart"))
         );
         return;
       }
       if (session.activeStep.kind === "speaking" && !this.speakingPaused()) {
         slot.hidden = false;
+        slot.dataset.studyTourMode = "pause";
         replaceChildrenWith(
           slot,
           el("button", { type: "button", dataset: { newtabAction: "pause-speaking" } }, this.text("pauseSpeaking"))
@@ -72435,7 +72718,21 @@ ${entry.url}`),
         return;
       }
       slot.hidden = true;
+      delete slot.dataset.studyTourMode;
       slot.replaceChildren();
+    }
+    studyTourStep(step, index) {
+      return el(
+        "li",
+        { class: "jpdb-reader-newtab-study-tour-step", dataset: { gradeable: String(step.gradeable) } },
+        el("span", { class: "jpdb-reader-newtab-study-tour-index" }, String(index + 1)),
+        el(
+          "span",
+          { class: "jpdb-reader-newtab-study-tour-copy" },
+          el("span", { class: "jpdb-reader-newtab-study-tour-label" }, step.label),
+          el("span", { class: "jpdb-reader-newtab-study-tour-note" }, this.text(studyTourCopyKey(step.kind)))
+        )
+      );
     }
     renderPromptForMode(slots, card, state2, renderAsKanji = this.shouldRenderCardAsKanji(card)) {
       if (renderAsKanji) this.renderKanjiPrompt(slots, card);
@@ -72561,7 +72858,6 @@ ${entry.url}`),
       this.listenRevealed = true;
       this.listenOutcome = correct ? "correct" : "wrong";
       if (this.state.listenSubMode === "perceive") {
-        this.gradeListenItem(correct ? "okay" : "something", correct);
         if (!correct) this.prepareListenContrast();
       }
       this.rerenderActiveListen();
@@ -72571,16 +72867,7 @@ ${entry.url}`),
     handleListenGrade(root, target) {
       const grade = target.closest("[data-grade]")?.dataset.grade;
       if (!grade || !this.listenItem) return;
-      if (this.state.listenSubMode === "shadow" && isFailGrade(grade)) {
-        this.advanceListen(root);
-        return;
-      }
-      this.gradeListenItem(grade, !isFailGrade(grade));
       this.advanceListen(root);
-    }
-    gradeListenItem(grade, correct) {
-      if (!this.listenItem) return;
-      this.pitchSrs.grade(this.listenItem.key, grade, this.state.listenSubMode, { correct, now: Date.now() });
     }
     prepareListenContrast() {
       if (!this.listenItem) return;
@@ -72596,34 +72883,41 @@ ${entry.url}`),
       this.listenContrastCard = null;
       this.listenAudioGeneration += 1;
       this.clearListenRecording();
+      if (this.navigateStudyStep("next")) return;
       this.visibleWords = this.studyPoolForCurrentMode();
       this.showNextWord();
     }
-    // Keyboard for Listen: digits 0-N pick the downstep, R/P replays the model,
-    // B plays the contrast pair, Enter/Space advances. Kept separate
-    // from the vocab keyboard machine (grade shortcuts, reveal toggle) which doesn't
-    // apply to the pitch drills.
-    handleListenKeydown(root, event) {
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
-      const key = event.key;
-      if (/^[0-9]$/u.test(key) && !this.listenRevealed && this.state.listenSubMode !== "shadow") {
+    // Keyboard for Listen: digits 0-N pick the downstep, configured Study keys
+    // advance within the merged session, and configured audio keys replay the model.
+    // The contrast-pair shortcut stays local to the error state.
+    handleListenKeydown(root, event, target) {
+      const settings = this.dependencies.getSettings();
+      const direction = this.studyNavigationDirection(event, settings);
+      if (direction) {
         event.preventDefault();
-        this.pickListenPosition(Number(key));
+        if (!this.navigateStudyStep(direction)) this.showWordInDirection(direction);
         return;
       }
-      if (key === "r" || key === "R" || key === "p" || key === "P") {
+      if (this.matchesStudyRevealShortcut(root, event, target, settings)) {
+        event.preventDefault();
+        this.dismissKeyHints(root);
+        this.advanceListen(root);
+        return;
+      }
+      if (matchesShortcut(event, settings.shortcuts.playAudio)) {
         event.preventDefault();
         void this.playListenModelAudio();
+        return;
+      }
+      const key = event.key;
+      if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && /^[0-9]$/u.test(key) && !this.listenRevealed && this.state.listenSubMode !== "shadow") {
+        event.preventDefault();
+        this.pickListenPosition(Number(key));
         return;
       }
       if ((key === "b" || key === "B") && this.listenContrastCard) {
         event.preventDefault();
         void this.playListenContrast();
-        return;
-      }
-      if (key === "Enter" || key === " ") {
-        event.preventDefault();
-        this.advanceListen(root);
       }
     }
     async playListenModelAudio() {
@@ -76136,13 +76430,14 @@ ${entry.url}`),
     }
     navigationControlButtons(revealLabel) {
       const revealShortcut = this.studyShortcutHint(["studyReveal", "studyRevealAlternate"]);
+      const showShortcutHints = this.dependencies.getSettings().newTabShortcutHintsEnabled;
       return [
         el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": this.text("previousWord") }, this.text("previousWord")),
         el(
           "button",
           { type: "button", dataset: { newtabAction: "reveal" } },
           revealLabel,
-          revealShortcut && newTabKeyHintsRenderable() ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, revealShortcut) : null
+          revealShortcut && newTabKeyHintsRenderable(showShortcutHints) ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, revealShortcut) : null
         ),
         el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": this.text("nextWord") }, this.text("nextWord"))
       ];
@@ -76166,6 +76461,7 @@ ${entry.url}`),
         grades: newTabGradeOptions(this.dependencies.getSettings()),
         intervals: card.reviewGradeIntervals,
         keyHints: this.studyGradeShortcutHints(),
+        showShortcutHints: this.dependencies.getSettings().newTabShortcutHintsEnabled,
         selectorLabel: this.text("gradeTargetSelector"),
         selectedOption: targetOptions[0],
         summary: this.reviewSourceSummary(card),
@@ -77366,6 +77662,14 @@ ${entry.url}`),
     if (kind === "speaking") return "shadow";
     if (kind === "listen-pitch") return "perceive";
     return null;
+  }
+  function studyTourCopyKey(kind) {
+    if (kind === "kanji-doodle") return "studyTourKanji";
+    if (kind === "recall-cloze") return "studyTourRecall";
+    if (kind === "listen-pitch") return "studyTourListen";
+    if (kind === "speaking") return "studyTourSpeaking";
+    if (kind === "final-reveal") return "studyTourReveal";
+    return "studyTourWord";
   }
   function appendSpeakingDisabledStep(steps) {
     return steps.includes("speaking") ? steps : [...steps, "speaking"];
@@ -79819,6 +80123,8 @@ ${entry.url}`),
       this.lastAutoAudioKey = "";
       this.lastAutoAudioAt = 0;
       await this.dictionaries.invalidateForFactoryReset();
+      await clearManagedBrowserCaches();
+      await unregisterManagedServiceWorkers();
     }
     installExternalRefreshListener() {
       this.externalRefreshController?.abort();
