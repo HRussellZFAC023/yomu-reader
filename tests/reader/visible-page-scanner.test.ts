@@ -504,6 +504,7 @@ describe('VisiblePageScanner', () => {
             expect(words).toHaveLength(2);
             expect(words.map(word => word.dataset.expression)).toEqual(['現地', 'ツアー']);
             expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+            expect(words.every(word => word.closest<HTMLElement>('[data-jpdb-reader-passive-atomic="true"]'))).toBe(true);
             expect(words.every(word => word.querySelector('rt,.jpdb-reader-furi') === null)).toBe(true);
             expect(words.map(word => word.style.getPropertyValue('display'))).toEqual(['inline', 'inline']);
             expect(words.map(word => word.style.getPropertyPriority('display'))).toEqual(['important', 'important']);

@@ -36891,6 +36891,7 @@ describe('reader helpers', () => {
         const words = Array.from(document.querySelectorAll<HTMLElement>('#globalnav .jpdb-reader-word'));
         expect(words).toHaveLength(2);
         expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+        expect(words.every(word => word.closest<HTMLElement>('[data-jpdb-reader-passive-atomic="true"]'))).toBe(true);
         expect(words.map(readerWordSurfaceText)).toEqual(['現地', 'ツアー']);
         expect(words.every(word => word.querySelector('rt,.jpdb-reader-furi') === null)).toBe(true);
         expect(words.map(word => getComputedStyle(word).display)).toEqual(['inline', 'inline']);

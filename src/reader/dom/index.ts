@@ -1823,21 +1823,27 @@ function shouldSuppressCompactScanRuby(parent: HTMLElement): boolean {
         return true;
     }
     const notice = compactConstrainedNotificationElement(parent);
-    if (notice) notice.dataset.jpdbReaderPassiveChrome = 'true';
+    if (notice) markPassiveChromeElement(notice, true);
     if (isYouTubeHost()) return Boolean(notice);
     const chrome = compactInteractiveChromeElement(parent)
         ?? compactPassiveInteractionRubyElement(parent)
         ?? compactPassiveChromeElement(parent);
-    if (chrome) chrome.dataset.jpdbReaderPassiveChrome = 'true';
+    if (chrome) markPassiveChromeElement(chrome, true);
     return Boolean(chrome || notice);
 }
 
 function markCompactMediaPassiveChrome(parent: HTMLElement): void {
-    const host = parent.closest<HTMLElement>('a[href],button,[role="link"],[role="button"]')
+    const mediaLink = parent.closest<HTMLElement>('a[href],button,[role="link"],[role="button"]');
+    const host = mediaLink
         ?? closestCompactMediaContext(parent)
         ?? closestMediaCarousel(parent)?.element
         ?? parent;
-    host.dataset.jpdbReaderPassiveChrome = 'true';
+    markPassiveChromeElement(host, Boolean(mediaLink && isNavigationChromeContext(mediaLink)));
+}
+
+function markPassiveChromeElement(element: HTMLElement, atomic = false): void {
+    element.dataset.jpdbReaderPassiveChrome = 'true';
+    if (atomic) element.dataset.jpdbReaderPassiveAtomic = 'true';
 }
 
 function compactInteractiveChromeElement(parent: HTMLElement): HTMLElement | null {

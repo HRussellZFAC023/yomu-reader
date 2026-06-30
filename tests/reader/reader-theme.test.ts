@@ -946,7 +946,8 @@ describe('reader theme', () => {
         const normalizedCss = READER_WORD_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-paint: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) );');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; cursor: inherit; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; --jpdb-reader-word-decoration-source: transparent; --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none; --jpdb-reader-word-underline: transparent; display: inline !important; white-space: inherit; word-break: inherit; overflow-wrap: inherit !important; line-break: inherit;');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active) { --jpdb-reader-word-accessible-color: currentColor; --jpdb-reader-word-accessible-highlight: transparent; --jpdb-reader-word-accessible-underline: transparent;');
         expect(normalizedCss).toContain(':is(button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none; }');
         expect(normalizedCss).toContain(') .jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; color: var(--jpdb-reader-word-accessible-color, currentColor) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor); }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word.jpdb-reader-passive-word:hover, .jpdb-reader-word.jpdb-reader-passive-word:focus');

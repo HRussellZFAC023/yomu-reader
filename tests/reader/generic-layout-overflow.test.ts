@@ -60,6 +60,7 @@ describe('generic reader layout overflow guards', () => {
 
         const row = document.querySelector<HTMLElement>('#account-row')!;
         expect(row.dataset.jpdbReaderPassiveChrome).toBe('true');
+        expect(row.dataset.jpdbReaderPassiveAtomic).toBe('true');
         expect(row.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
         expect(row.querySelector('.jpdb-reader-text-mirror')).toBeNull();
         expect(row.textContent?.replace(/\s+/g, '').trim()).toBe('アカウントを選択');
@@ -206,6 +207,7 @@ describe('generic reader layout overflow guards', () => {
         expect(target?.suppressRuby).toBe(true);
         expect(target?.passiveInteraction).toBe(true);
         expect(link.dataset.jpdbReaderPassiveChrome).toBe('true');
+        expect(link.dataset.jpdbReaderPassiveAtomic).toBeUndefined();
 
         applyTokensToScanTarget(target!, [
             token('日本語', target!.text.indexOf('日本語'), target!.text, 'にほんご'),

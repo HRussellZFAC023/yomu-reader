@@ -165,7 +165,7 @@ writeFileSync(entryPath, `
                 targets: {
                     count: targets.length,
                     allStorefrontSafe: targets.every(target => 'parserId' in target && (
-                        target.parserId === 'bookwalker-storefront-no-dom-parser'
+                        target.parserId === 'bookwalker-storefront'
                         || target.parserId === 'residual-visible-japanese-parser'
                     )),
                     allSuppressRuby: targets.every(target => target.suppressRuby === true),
@@ -267,7 +267,7 @@ try {
 
         assert(forcedRuby.after.rubyCount > 0, 'control fixture did not render forced ruby', forcedRuby);
         assert(
-            forcedRuby.after.carousel.titleScrollWidth > forcedRuby.after.carousel.titleClientWidth + 2,
+            forcedRuby.after.carousel.titleClientWidth > forcedRuby.before.carousel.titleClientWidth + 2,
             'control fixture with forced ruby should demonstrate compact-title sizing pressure',
             forcedRuby,
         );

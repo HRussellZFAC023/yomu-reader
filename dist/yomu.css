@@ -541,10 +541,28 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 .jpdb-reader-word.jpdb-reader-passive-word {
   --jpdb-reader-word-color-source: currentColor;
+  --jpdb-reader-word-decoration-source: transparent;
+  --jpdb-reader-word-highlight-source: transparent;
+  --jpdb-reader-word-highlight-shadow-source: none;
+  --jpdb-reader-word-underline: transparent;
+  display: inline !important;
+  white-space: inherit;
+  word-break: inherit;
+  overflow-wrap: inherit !important;
+  line-break: inherit;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
   cursor: inherit;
+  text-decoration-color: transparent !important;
 }
 
 [data-jpdb-reader-passive-chrome] .jpdb-reader-passive-word {
+  white-space: inherit;
+}
+
+:is(button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-atomic="true"])
+  .jpdb-reader-passive-word {
   white-space: nowrap;
 }
 
@@ -1108,6 +1126,26 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   color: var(--jpdb-reader-word-accessible-color, currentColor) !important;
   -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor);
 }
+.jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active) {
+  --jpdb-reader-word-accessible-color: currentColor;
+  --jpdb-reader-word-accessible-highlight: transparent;
+  --jpdb-reader-word-accessible-underline: transparent;
+  --jpdb-reader-word-color-source: currentColor;
+  --jpdb-reader-word-decoration-source: transparent;
+  --jpdb-reader-word-highlight-source: transparent;
+  --jpdb-reader-word-highlight-shadow-source: none;
+  --jpdb-reader-word-underline: transparent;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: currentColor !important;
+  -webkit-text-fill-color: currentColor;
+  text-decoration-color: transparent !important;
+  text-shadow: none;
+}
+.jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active)::after {
+  border-block-end-color: transparent !important;
+}
 :is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)
   .jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) {
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
@@ -1420,6 +1458,15 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   display: inline;
   text-overflow: ellipsis;
   overflow: hidden;
+}
+
+.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status[data-yomu-ocr-retry="true"] {
+  cursor: pointer;
+}
+
+.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status[data-yomu-ocr-retry="true"]:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent, #6aa4ff);
+  outline-offset: 3px;
 }
 
 @keyframes jpdb-ocr-video-frame-status-spin {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.5.3
+// @version 1.5.4
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,11 +9,14 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.3
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.3
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.3
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.3
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.4
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.4
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.4
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.4
 // @resource yomuCss  https://yomureader.com/yomu.css
+// @connect bookwalker.jp
+// @connect viewer.bookwalker.jp
+// @connect bw-bv-epubs.bookwalker.jp
 // @connect *
 // @grant GM.deleteValue
 // @grant GM.getValue
@@ -5189,15 +5192,20 @@ function shouldSuppressCompactScanRuby(parent) {
   return true;
   }
   const notice = compactConstrainedNotificationElement(parent);
-  if (notice) notice.dataset.jpdbReaderPassiveChrome = "true";
+  if (notice) markPassiveChromeElement(notice, true);
   if (isYouTubeHost()) return Boolean(notice);
   const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveInteractionRubyElement(parent) ?? compactPassiveChromeElement(parent);
-  if (chrome) chrome.dataset.jpdbReaderPassiveChrome = "true";
+  if (chrome) markPassiveChromeElement(chrome, true);
   return Boolean(chrome || notice);
 }
 function markCompactMediaPassiveChrome(parent) {
-  const host = parent.closest('a[href],button,[role="link"],[role="button"]') ?? closestCompactMediaContext(parent) ?? closestMediaCarousel(parent)?.element ?? parent;
-  host.dataset.jpdbReaderPassiveChrome = "true";
+  const mediaLink = parent.closest('a[href],button,[role="link"],[role="button"]');
+  const host = mediaLink ?? closestCompactMediaContext(parent) ?? closestMediaCarousel(parent)?.element ?? parent;
+  markPassiveChromeElement(host, Boolean(mediaLink && isNavigationChromeContext(mediaLink)));
+}
+function markPassiveChromeElement(element2, atomic = false) {
+  element2.dataset.jpdbReaderPassiveChrome = "true";
+  if (atomic) element2.dataset.jpdbReaderPassiveAtomic = "true";
 }
 function compactInteractiveChromeElement(parent) {
   const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
@@ -8592,6 +8600,7 @@ const COPY = {
   ocrPausedFrameReady: "Text ready",
   ocrPausedFrameNoText: "No text found",
   ocrPausedFrameFailed: "Could not read text",
+  ocrRetryScan: "Scan again",
   ocrNoReadableImages: "No readable images nearby.",
   gradeNothing: "Grade NOTHING",
   gradeSomething: "Grade SOMETHING",
@@ -9365,6 +9374,7 @@ ocrPausedFrameScanning	スキャン中...
 ocrPausedFrameReady	テキスト準備完了
 ocrPausedFrameNoText	テキストが見つかりません
 ocrPausedFrameFailed	テキストを読み取れませんでした
+ocrRetryScan	再スキャン
 ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
@@ -37984,7 +37994,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.3"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.4"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

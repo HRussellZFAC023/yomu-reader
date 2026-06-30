@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.5.4] - 2026-07-01
+
+### Fixed
+
+- Kept passive page annotations layout-neutral by default so BookWalker and other storefront cards, carousels, sidebars, and compact controls stay lookupable without Yomu changing wrapping, sizing, or permanent highlights.
+- Stabilized BookWalker continuous/vertical OCR so capped empty scans stop re-running until the user retries, same-page scroll keeps the current OCR state, and the mostly visible page is scanned ahead of tiny previous-page slivers.
+- Kept BookWalker OCR provider failures terminal until the user retries, preventing repeated scrolling from flashing between Scanning and Could not read text on the same page.
+- Kept automatic reader-raster OCR text hidden until hover/focus, while adding a Scan again retry affordance to BookWalker canvas status pills and recapturing only useful ready pages after zoom changes.
+- Declared BookWalker viewer and image CDN access explicitly in the userscript metadata so Firefox/Tampermonkey reinstalls do not prompt on every signed page image.
+
 ## [1.5.3] - 2026-06-30
 
 ### Fixed

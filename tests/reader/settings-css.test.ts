@@ -93,6 +93,16 @@ describe('settings CSS', () => {
         expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-word.jpdb-pitch-unknown { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown); --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-unknown-readable); --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent); --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-unknown, transparent); }');
     });
 
+    it('keeps passive page annotations layout-neutral until hover or focus', () => {
+        const normalizedReaderWordsOcrCss = normalizeCss(READER_WORDS_OCR_CSS);
+
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; --jpdb-reader-word-decoration-source: transparent; --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none; --jpdb-reader-word-underline: transparent; display: inline !important; white-space: inherit; word-break: inherit; overflow-wrap: inherit !important; line-break: inherit;');
+        expect(normalizedReaderWordsOcrCss).toContain('[data-jpdb-reader-passive-chrome] .jpdb-reader-passive-word { white-space: inherit; }');
+        expect(normalizedReaderWordsOcrCss).toContain(':is(button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-atomic="true"]) .jpdb-reader-passive-word { white-space: nowrap; }');
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active) { --jpdb-reader-word-accessible-color: currentColor; --jpdb-reader-word-accessible-highlight: transparent; --jpdb-reader-word-accessible-underline: transparent;');
+        expect(normalizedReaderWordsOcrCss).toContain('background-image: none !important; box-shadow: none !important; color: currentColor !important; -webkit-text-fill-color: currentColor; text-decoration-color: transparent !important; text-shadow: none; }');
+    });
+
     it('reserves subtitle line height for furigana on player overlays', () => {
         const normalizedSubtitlesCss = normalizeCss(SUBTITLES_YOUTUBE_CSS);
 

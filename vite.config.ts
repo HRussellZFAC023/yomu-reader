@@ -18,8 +18,15 @@ const rawReaderCssUrl = `${docsUrl}yomu.css`;
 const userscriptIcon = `${docsUrl}favicon-32x32.png`;
 const broadUserscriptMatch = ['*://*/*', 'file:///*'];
 // Required for user-configured audio, OCR, proxy, dictionary,
-// AnkiConnect-compatible, Tailnet, and local service URLs.
-const userscriptConnect = ['*'];
+// AnkiConnect-compatible, Tailnet, and local service URLs. Keep high-volume
+// reader sources explicit before the wildcard so Tampermonkey can avoid
+// prompting for every signed BookWalker page image in Firefox.
+const userscriptConnect = [
+    'bookwalker.jp',
+    'viewer.bookwalker.jp',
+    'bw-bv-epubs.bookwalker.jp',
+    '*',
+];
 const userscriptGrant: NonNullable<MonkeyUserScript['grant']> = [
     'GM.xmlHttpRequest',
     'GM.setValue',

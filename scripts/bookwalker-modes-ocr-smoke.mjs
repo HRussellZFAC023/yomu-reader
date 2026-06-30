@@ -325,7 +325,7 @@ async function runCase(engineName, mode) {
     });
     const settingsChrome = await page.evaluate(() => window.__yomuSettingsChromeState());
     const settingsChromeClean = settingsChrome.exists
-        && settingsChrome.words === 0
+        && settingsChrome.words >= 1
         && settingsChrome.ruby === 0
         && settingsChrome.mirrors === 0
         && settingsChrome.overflowedLabels === 0;

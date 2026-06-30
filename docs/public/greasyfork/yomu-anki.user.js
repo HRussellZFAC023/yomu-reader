@@ -1984,6 +1984,7 @@
       ocrPausedFrameReady: "Text ready",
       ocrPausedFrameNoText: "No text found",
       ocrPausedFrameFailed: "Could not read text",
+      ocrRetryScan: "Scan again",
       ocrNoReadableImages: "No readable images nearby.",
       gradeNothing: "Grade NOTHING",
       gradeSomething: "Grade SOMETHING",
@@ -2757,6 +2758,7 @@ ocrPausedFrameScanning	スキャン中...
 ocrPausedFrameReady	テキスト準備完了
 ocrPausedFrameNoText	テキストが見つかりません
 ocrPausedFrameFailed	テキストを読み取れませんでした
+ocrRetryScan	再スキャン
 ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
