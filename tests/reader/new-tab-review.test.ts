@@ -11015,6 +11015,7 @@ describe('new tab review helpers', () => {
     it('uses configurable shortcuts for study reveal and navigation', () => {
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
+            newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
             shortcuts: {
                 ...DEFAULT_SETTINGS.shortcuts,
                 studyReveal: 'R',
@@ -11064,14 +11065,69 @@ describe('new tab review helpers', () => {
 
             const previous = dispatchNewTabKeyboard(root, 'H');
             expect(previous.defaultPrevented).toBe(true);
+            expect(navigation.previous).toBe(0);
+
+            const previousCard = dispatchNewTabKeyboard(root, 'H');
+            expect(previousCard.defaultPrevented).toBe(true);
             expect(navigation.previous).toBe(1);
         } finally {
             root.remove();
         }
     });
 
+    it('uses configurable navigation shortcuts to advance merged study subtasks before changing cards', () => {
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            shortcuts: {
+                ...DEFAULT_SETTINGS.shortcuts,
+                studyPrevious: 'H',
+                studyPreviousAlternate: '',
+                studyNext: 'L',
+                studyNextAlternate: '',
+            },
+        });
+        const card = newTabTestCard({
+            spelling: '猫',
+            reading: 'ねこ',
+            meanings: [{ glosses: ['cat'], partOfSpeech: [] }],
+            sentence: '猫が好きです。',
+            pitchAccent: [],
+        });
+        const nextCard = newTabTestCard({ spelling: '犬', reading: 'いぬ' });
+        const root = renderSeededNewTabWord(controller, card, {
+            visibleWords: [card, nextCard],
+            sourceLabel: 'Dictionaries',
+            state: { mode: 'word', revealAnswer: false },
+            bindRootEvents: true,
+        });
+        const navigation = { next: 0 };
+        (controller as unknown as { showNextWord(): void }).showNextWord = () => {
+            navigation.next += 1;
+        };
+
+        try {
+            const study = root.querySelector<HTMLElement>('[data-newtab-study]')!;
+            expect(study.dataset.newtabStudyStep).toBe('word');
+
+            const next = dispatchNewTabKeyboard(root, 'L');
+            expect(next.defaultPrevented).toBe(true);
+            expect(navigation.next).toBe(0);
+            expect(study.dataset.newtabStudyStep).toBe('recall-cloze');
+            expect(root.querySelector('[data-newtab-recall-input]')).not.toBeNull();
+
+            const previous = dispatchNewTabKeyboard(root, 'H');
+            expect(previous.defaultPrevented).toBe(true);
+            expect(study.dataset.newtabStudyStep).toBe('word');
+        } finally {
+            root.remove();
+        }
+    });
+
     it('uses arrow keys for previous and next word study cards', () => {
-        const controller = newTabPromptController();
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
+        });
         const cards = [
             newTabTestCard({ spelling: '一', reading: 'いち' }),
             newTabTestCard({ spelling: '二', reading: 'に' }),
@@ -11091,12 +11147,25 @@ describe('new tab review helpers', () => {
         };
 
         try {
+            const study = root.querySelector<HTMLElement>('[data-newtab-study]')!;
+            expect(study.dataset.newtabStudyStep).toBe('word');
+
             const right = dispatchNewTabKeyboard(root, 'ArrowRight');
             expect(right.defaultPrevented).toBe(true);
+            expect(study.dataset.newtabStudyStep).toBe('final-reveal');
+            expect(navigation.next).toBe(0);
+
+            const nextCard = dispatchNewTabKeyboard(root, 'ArrowRight');
+            expect(nextCard.defaultPrevented).toBe(true);
             expect(navigation.next).toBe(1);
 
             const left = dispatchNewTabKeyboard(root, 'ArrowLeft');
             expect(left.defaultPrevented).toBe(true);
+            expect(study.dataset.newtabStudyStep).toBe('word');
+            expect(navigation.previous).toBe(0);
+
+            const previousCard = dispatchNewTabKeyboard(root, 'ArrowLeft');
+            expect(previousCard.defaultPrevented).toBe(true);
             expect(navigation.previous).toBe(1);
         } finally {
             root.remove();
