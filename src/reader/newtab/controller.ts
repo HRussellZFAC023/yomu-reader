@@ -146,7 +146,7 @@ import {
     type NewTabReviewSourceSummary,
 } from './review-controls';
 import { buildNewTabRecallCloze, evaluateNewTabRecallAnswer, type NewTabRecallOutcome } from './recall-practice';
-import { PitchSrsStore, isFailGrade, pitchItemKey, pitchSeedFromCard, type PitchSrsItem } from './pitch-srs';
+import { PitchSrsStore, pitchItemKey, pitchSeedFromCard, type PitchSrsItem } from './pitch-srs';
 import { findPitchContrast } from './pitch-pairs';
 import { renderListenCard, type ListenCardView, type ListenOutcome } from './listen-render';
 import { createNewTabStudySession, type NewTabStudySession, type NewTabStudyStep, type NewTabStudyStepKind } from './study-session';
@@ -1471,7 +1471,7 @@ export class NewTabController {
     private handleStudyKeydown(root: HTMLElement, event: KeyboardEvent, target: HTMLElement | null): void {
         if (!isNewTabStudyKeyboardMode(this.state.mode)) return;
         if (this.state.mode === 'listen') {
-            this.handleListenKeydown(root, event);
+            this.handleListenKeydown(root, event, target);
             return;
         }
         const settings = this.dependencies.getSettings();
@@ -4554,7 +4554,6 @@ export class NewTabController {
         this.listenRevealed = true;
         this.listenOutcome = correct ? 'correct' : 'wrong';
         if (this.state.listenSubMode === 'perceive') {
-            this.gradeListenItem(correct ? 'okay' : 'something', correct);
             if (!correct) this.prepareListenContrast();
         }
         this.rerenderActiveListen();
@@ -4565,18 +4564,7 @@ export class NewTabController {
     private handleListenGrade(root: HTMLElement, target: HTMLElement): void {
         const grade = target.closest<HTMLElement>('[data-grade]')?.dataset.grade as JPDBGrade | undefined;
         if (!grade || !this.listenItem) return;
-        // Production (shadow) is additive-only: a missed shadow never demotes.
-        if (this.state.listenSubMode === 'shadow' && isFailGrade(grade)) {
-            this.advanceListen(root);
-            return;
-        }
-        this.gradeListenItem(grade, !isFailGrade(grade));
         this.advanceListen(root);
-    }
-
-    private gradeListenItem(grade: JPDBGrade, correct: boolean): void {
-        if (!this.listenItem) return;
-        this.pitchSrs.grade(this.listenItem.key, grade, this.state.listenSubMode, { correct, now: Date.now() });
     }
 
     private prepareListenContrast(): void {
@@ -4594,39 +4582,44 @@ export class NewTabController {
         this.listenContrastCard = null;
         this.listenAudioGeneration += 1; // invalidate any in-flight model/contrast clip
         this.clearListenRecording();
-        // Listen is a within-session drill that re-cycles the pitch pool; long-term
-        // mastery lives in the pitch SRS deck (due scheduling), not in pool membership,
-        // so cards are not removed here. Refresh eligibility, then advance — showNextWord
-        // guards an empty pool internally, so we never render an out-of-range card.
+        if (this.navigateStudyStep('next')) return;
+        // Legacy standalone listen fallback: if there is no next merged study
+        // step, keep the old pitch-card cycling behavior.
         this.visibleWords = this.studyPoolForCurrentMode();
         this.showNextWord();
     }
 
-    // Keyboard for Listen: digits 0-N pick the downstep, R/P replays the model,
-    // B plays the contrast pair, Enter/Space advances. Kept separate
-    // from the vocab keyboard machine (grade shortcuts, reveal toggle) which doesn't
-    // apply to the pitch drills.
-    private handleListenKeydown(root: HTMLElement, event: KeyboardEvent): void {
-        if (event.altKey || event.ctrlKey || event.metaKey) return;
-        const key = event.key;
-        if (/^[0-9]$/u.test(key) && !this.listenRevealed && this.state.listenSubMode !== 'shadow') {
+    // Keyboard for Listen: digits 0-N pick the downstep, configured Study keys
+    // advance within the merged session, and configured audio keys replay the model.
+    // The contrast-pair shortcut stays local to the error state.
+    private handleListenKeydown(root: HTMLElement, event: KeyboardEvent, target: HTMLElement | null): void {
+        const settings = this.dependencies.getSettings();
+        const direction = this.studyNavigationDirection(event, settings);
+        if (direction) {
             event.preventDefault();
-            this.pickListenPosition(Number(key));
+            if (!this.navigateStudyStep(direction)) this.showWordInDirection(direction);
             return;
         }
-        if (key === 'r' || key === 'R' || key === 'p' || key === 'P') {
+        if (this.matchesStudyRevealShortcut(root, event, target, settings)) {
+            event.preventDefault();
+            this.dismissKeyHints(root);
+            this.advanceListen(root);
+            return;
+        }
+        if (matchesShortcut(event, settings.shortcuts.playAudio)) {
             event.preventDefault();
             void this.playListenModelAudio();
+            return;
+        }
+        const key = event.key;
+        if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && /^[0-9]$/u.test(key) && !this.listenRevealed && this.state.listenSubMode !== 'shadow') {
+            event.preventDefault();
+            this.pickListenPosition(Number(key));
             return;
         }
         if ((key === 'b' || key === 'B') && this.listenContrastCard) {
             event.preventDefault();
             void this.playListenContrast();
-            return;
-        }
-        if (key === 'Enter' || key === ' ') {
-            event.preventDefault();
-            this.advanceListen(root);
         }
     }
 

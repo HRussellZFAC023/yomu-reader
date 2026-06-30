@@ -53,6 +53,7 @@ interface ListenInternals {
     state: Record<string, unknown>;
     pitchSrs: { item(key: string): PitchSrsItem | undefined; size(): number };
     renderWord(root: HTMLElement, card: JPDBCard): void;
+    bindRootEvents(root: HTMLElement): void;
     pickListenPosition(position: number): void;
     advanceListen(root: HTMLElement): void;
     gradeCurrentCard(grade: string): Promise<boolean>;
@@ -131,22 +132,62 @@ describe('new-tab Listen mode', () => {
         }
     });
 
-    it('grades the pitch SRS item okay on a correct Perceive pick and lapses on a wrong one', () => {
+    it('uses configured Study reveal and audio shortcuts in Listen mode', () => {
+        const { controller, internals, playWordAudio } = listenController([pitchCard()], 'perceive', {
+            shortcuts: {
+                ...DEFAULT_SETTINGS.shortcuts,
+                studyReveal: 'K',
+                studyRevealAlternate: '',
+                playAudio: 'Alt+P',
+            },
+        });
+        const root = listenRoot();
+        try {
+            internals.bindRootEvents(root);
+            internals.renderWord(root, internals.visibleWords[0]);
+            playWordAudio.mockClear();
+
+            const staleSpace = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+            root.dispatchEvent(staleSpace);
+            expect(staleSpace.defaultPrevented).toBe(false);
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('listen-pitch');
+
+            const replay = new KeyboardEvent('keydown', { key: 'p', altKey: true, bubbles: true, cancelable: true });
+            root.dispatchEvent(replay);
+            expect(replay.defaultPrevented).toBe(true);
+            expect(playWordAudio).toHaveBeenCalledTimes(1);
+
+            const legacyReplay = new KeyboardEvent('keydown', { key: 'r', bubbles: true, cancelable: true });
+            root.dispatchEvent(legacyReplay);
+            expect(legacyReplay.defaultPrevented).toBe(false);
+            expect(playWordAudio).toHaveBeenCalledTimes(1);
+
+            const reveal = new KeyboardEvent('keydown', { key: 'k', bubbles: true, cancelable: true });
+            root.dispatchEvent(reveal);
+            expect(reveal.defaultPrevented).toBe(true);
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('speaking');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('shows a correct Perceive outcome without grading the pitch SRS before final review', () => {
         const { controller, internals } = listenController([pitchCard()], 'perceive');
         const root = listenRoot();
         try {
             internals.renderWord(root, internals.visibleWords[0]);
             internals.pickListenPosition(1); // correct (atamadaka)
             const item = internals.pitchSrs.item(pitchItemKey('はし', 1));
-            expect(item?.reps).toBe(1);
+            expect(item?.reps).toBe(0);
             expect(item?.lapses).toBe(0);
             expect(root.querySelector('.jpdb-reader-newtab-listen-verdict-correct')).not.toBeNull();
+            expect(root.querySelector('[data-newtab-action="listen-next"]')).not.toBeNull();
         } finally {
             controller.destroy();
         }
     });
 
-    it('records a lapse and surfaces the contrast block on a wrong Perceive pick', () => {
+    it('surfaces the contrast block on a wrong Perceive pick without a separate pitch grade', () => {
         // Two same-reading cards with different downstep form a strict minimal pair.
         const hashiAtamadaka = pitchCard();
         const hashiOdaka = pitchCard({ vid: 11, spelling: '橋', pitchAccent: [pitchPatternFromPosition('はし', 2)] });
@@ -156,7 +197,7 @@ describe('new-tab Listen mode', () => {
             internals.renderWord(root, internals.visibleWords[0]);
             internals.pickListenPosition(2); // wrong (真 answer is 1)
             const item = internals.pitchSrs.item(pitchItemKey('はし', 1));
-            expect(item?.lapses).toBe(1);
+            expect(item?.lapses).toBe(0);
             expect(item?.reps).toBe(0);
             expect(root.querySelector('.jpdb-reader-newtab-listen-verdict-wrong')).not.toBeNull();
             expect(root.querySelector('.jpdb-reader-newtab-listen-contrast')).not.toBeNull();
@@ -199,17 +240,21 @@ describe('new-tab Listen mode', () => {
         }
     });
 
-    it('advances through the queue without a null-deref crash and keeps rendering a card', () => {
+    it('advances listen controls through merged study steps before changing cards', () => {
         const cards = [pitchCard(), pitchCard({ vid: 11, spelling: '橋', pitchAccent: [pitchPatternFromPosition('はし', 2)] })];
         const { controller, internals } = listenController(cards, 'perceive');
         const root = listenRoot();
         try {
             internals.renderWord(root, internals.visibleWords[0]);
-            // Advance more times than there are cards: must wrap, never deref undefined.
-            expect(() => {
-                for (let i = 0; i < 4; i += 1) internals.advanceListen(root);
-            }).not.toThrow();
-            expect(root.querySelector('.jpdb-reader-newtab-listen-card')).not.toBeNull();
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('listen-pitch');
+            internals.advanceListen(root);
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('speaking');
+            expect(internals.visibleWords[internals.index]?.spelling).toBe('箸');
+            internals.advanceListen(root);
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('final-reveal');
+            expect(internals.visibleWords[internals.index]?.spelling).toBe('箸');
+            expect(root.classList.contains('jpdb-reader-newtab-final-reveal-mode')).toBe(true);
+            expect(root.querySelector('.jpdb-reader-newtab-listen-card')).toBeNull();
         } finally {
             controller.destroy();
         }
