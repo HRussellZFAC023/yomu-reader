@@ -3325,7 +3325,7 @@
 
 ### Added
 
-- Mass review (Jiten): press Alt+M (configurable under Settings → Shortcuts) to review every visible due/learning Jiten word on screen as Good in a single batch — the same 'review everything on screen' flow JitenReader users know. Word colors refresh right after.
+- Mass review (Jiten): use the mining mark shortcut (`Shift+M` by default, configurable under Settings → Shortcuts) to review every visible due/learning Jiten word on screen as Good in a single batch — the same 'review everything on screen' flow JitenReader users know. Word colors refresh right after.
 
 ## [0.6.133] - 2026-06-12
 

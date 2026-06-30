@@ -99,14 +99,14 @@ That's the whole loop. Everything below is optional.
 [Jiten](https://jiten.moe/) and [JPDB](https://jpdb.io/) can give よむ word status and mining actions. Local dictionary lookup works fine without them, but connecting one makes progress tracking easier.
 
 1. Open your Jiten or JPDB settings and copy your API key.
-2. In よむ, open settings: use the floating よむ button, or press `Alt+Shift+J` on a computer.
+2. In よむ, open settings with the floating よむ button. The **Open settings** shortcut is configurable in Settings → Shortcuts.
 3. Paste the key into the matching **API key** field and save.
 
 You can also study from imported dictionaries instead — see Settings → Dictionaries. Source-specific mining actions still need that source's key.
 
 ## Turn on more tools
 
-Open よむ settings (floating button or `Alt+Shift+J`) to switch these on when you want them. Each is covered in [Features](/features).
+Open よむ settings with the floating よむ button to switch these on when you want them. The **Open settings** shortcut is configurable in Settings → Shortcuts. Each is covered in [Features](/features).
 
 - **Dictionaries** — import any Yomitan ZIP dictionary, or download JMdict for offline definitions. Settings → Dictionaries.
 - **Images (OCR)** — look up Japanese text inside manga panels and screenshots. Settings → Images.

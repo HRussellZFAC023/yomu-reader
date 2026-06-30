@@ -8,7 +8,7 @@ head:
   - - script
     - type: application/ld+json
     - |-
-      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is comprehensible input for Japanese?","acceptedAnswer":{"@type":"Answer","text":"Japanese you can mostly understand — your current level plus a little new (i+1). On YouTube it means channels pitched at or just above your level, like Comprehensible Japanese for beginners."}},{"@type":"Question","name":"How do I turn YouTube into a Japanese feed?","acceptedAnswer":{"@type":"Answer","text":"Install よむ — the YouTube immersion filter is on by default, then toggles with Alt+Y."}},{"@type":"Question","name":"What are the best Japanese YouTube channels for beginners?","acceptedAnswer":{"@type":"Answer","text":"For N5, start with Comprehensible Japanese (@cijapanese), then Nihongo con Teppei, WAKU WAKU JAPANESE and Japanese with Shun — see the full N5→N1 list above."}}]}
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is comprehensible input for Japanese?","acceptedAnswer":{"@type":"Answer","text":"Japanese you can mostly understand — your current level plus a little new (i+1). On YouTube it means channels pitched at or just above your level, like Comprehensible Japanese for beginners."}},{"@type":"Question","name":"How do I turn YouTube into a Japanese feed?","acceptedAnswer":{"@type":"Answer","text":"Install よむ — the YouTube immersion filter is on by default, then toggles with the YouTube filter shortcut."}},{"@type":"Question","name":"What are the best Japanese YouTube channels for beginners?","acceptedAnswer":{"@type":"Answer","text":"For N5, start with Comprehensible Japanese (@cijapanese), then Nihongo con Teppei, WAKU WAKU JAPANESE and Japanese with Shun — see the full N5→N1 list above."}}]}
 ---
 
 # Comprehensible input Japanese on YouTube: best channels and how to filter your feed
@@ -23,7 +23,7 @@ The practical takeaway: pick videos where you understand most of what is happeni
 
 ## Turn YouTube into a Japanese feed
 
-YouTube's homepage keeps serving whatever you usually watch. よむ's **YouTube immersion filter** reshapes the feed: it's on by default, uses available title metadata, keeps likely Japanese-learning videos even with English titles, hides likely non-Japanese cards across the homepage, search and sidebar, and toggles with **Alt+Y** — all without touching playback. Full details on the [features](/features) page.
+YouTube's homepage keeps serving whatever you usually watch. よむ's **YouTube immersion filter** reshapes the feed: it's on by default, uses available title metadata, keeps likely Japanese-learning videos even with English titles, hides likely non-Japanese cards across the homepage, search and sidebar, and toggles with the YouTube filter shortcut (**Shift+Y** by default, configurable in Settings → Shortcuts) — all without touching playback. Full details on the [features](/features) page.
 
 <figure class="yomu-feature-shot"><img :src="'/screenshots/real-youtube-filter.png'" alt="YouTube homepage with non-Japanese video cards filtered out by よむ"><figcaption>The immersion filter keeps Japanese and comprehensible-input videos and hides the rest.</figcaption></figure>
 
@@ -95,7 +95,7 @@ Japanese you can mostly understand — your current level plus a little new (i+1
 
 ### How do I turn YouTube into a Japanese feed?
 
-Install よむ — the YouTube immersion filter is on by default, then toggles with Alt+Y. See [Turn YouTube into a Japanese feed](#turn-youtube-into-a-japanese-feed) above and the [features](/features) page.
+Install よむ — the YouTube immersion filter is on by default, then toggles with the YouTube filter shortcut. See [Turn YouTube into a Japanese feed](#turn-youtube-into-a-japanese-feed) above and the [features](/features) page.
 
 ### What are the best Japanese YouTube channels for beginners?
 

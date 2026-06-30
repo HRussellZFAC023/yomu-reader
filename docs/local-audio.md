@@ -30,7 +30,7 @@ It is designed for licensed recorded audio and returns an empty result quickly w
 
 Add it to よむ:
 
-1. Open よむ settings with the floating よむ button or `Alt+Shift+J`.
+1. Open よむ settings with the floating よむ button. The **Open settings** shortcut is configurable in Settings → Shortcuts.
 2. Go to Audio.
 3. Press Add audio source.
 4. Set Type to Custom URL.
@@ -164,7 +164,7 @@ If the browser says the page cannot be reached, the server is not running, the w
 ## Step 5: Add It to よむ
 
 1. Open a page where よむ is running.
-2. Open settings with the floating よむ button or `Alt+Shift+J`.
+2. Open settings with the floating よむ button. The **Open settings** shortcut is configurable in Settings → Shortcuts.
 3. Open Audio.
 4. Turn on Enable audio playback for terms.
 5. Press Add audio source.

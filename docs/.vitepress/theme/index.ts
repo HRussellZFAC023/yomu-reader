@@ -1496,7 +1496,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'JPDB settings': 'JPDB設定',
     'Copy your API key from the API section.': 'APIセクションからAPIキーをコピーします。',
     'Open your Jiten or JPDB settings and copy your API key.': 'JitenまたはJPDBの設定を開き、APIキーをコピーします。',
-    'Open よむ settings with the floating よむ button or the shortcut Alt+Shift+J.': 'フローティングのよむボタン、またはショートカットAlt+Shift+Jでよむ設定を開きます。',
+    'Open よむ settings with the floating よむ button. The Open settings shortcut is configurable in Settings → Shortcuts.': 'フローティングのよむボタンでよむ設定を開きます。「Open settings」のショートカットは Settings → Shortcuts で変更できます。',
     'Paste the key into the API key field.': 'API key欄にキーを貼り付けます。',
     'Paste the key into the matching': '対応する',
     'Save.': '保存します。',
