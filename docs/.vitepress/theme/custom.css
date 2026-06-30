@@ -285,10 +285,24 @@ html[lang="ja"] .VPHomeHero .tagline {
 
 .VPHomeHero .actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-start;
   gap: 8px;
-  padding-top: 16px;
+  max-width: 100%;
+  margin-inline: -2px;
+  padding: 16px 2px 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.VPHomeHero .actions::-webkit-scrollbar {
+  display: none;
+}
+
+.VPHomeHero .actions .action {
+  flex: 0 0 auto;
+  padding: 0;
 }
 
 .VPHomeHero .actions .VPButton {
@@ -301,6 +315,7 @@ html[lang="ja"] .VPHomeHero .tagline {
   font-size: 14px;
   line-height: 1.2;
   text-align: center;
+  white-space: nowrap;
 }
 
 .VPHomeHero .actions .VPButton:has(.jpdb-reader-word.jpdb-reader-has-furi) {
@@ -387,6 +402,9 @@ html[lang="ja"] .VPHomeHero .tagline {
   }
 
   .VPHomeHero .main {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
     text-align: left;
   }
 
@@ -412,15 +430,15 @@ html[lang="ja"] .VPHomeHero .tagline {
     font-size: 17px;
   }
 
-  /* Content-sized pills that wrap instead of chunky full-width blocks. */
+  /* Content-sized pills that remain a single row instead of chunky full-width blocks. */
   .VPHomeHero .actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-start !important;
-    width: auto;
-    max-width: none;
+    width: 100%;
+    max-width: 100%;
     gap: 8px;
-    padding-top: 16px;
+    padding: 16px 2px 2px;
   }
 
   .VPHomeHero .actions .action,
@@ -507,6 +525,10 @@ html[lang="ja"] .VPHomeHero .tagline {
     padding-block: 26px 30px;
   }
 
+  .VPHomeHero .main {
+    width: 100%;
+  }
+
   .VPHomeHero .text {
     max-width: 100%;
     font-size: clamp(34px, 10.5vw, 46px);
@@ -515,6 +537,16 @@ html[lang="ja"] .VPHomeHero .tagline {
   .VPHomeHero .tagline {
     font-size: 16px;
     line-height: 1.55;
+  }
+
+  .VPHomeHero .actions {
+    gap: 6px;
+  }
+
+  .VPHomeHero .actions .VPButton {
+    min-height: 38px;
+    padding-inline: 12px;
+    font-size: 13px;
   }
 }
 

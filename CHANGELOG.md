@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.2] - 2026-06-30
+
+### Fixed
+
+- Kept the homepage hero action pills on one row by removing VitePress' extra action padding, preventing text wrapping inside pills, and letting narrow screens scroll the row without widening the page.
+
 ## [1.5.1] - 2026-06-30
 
 ### Fixed
