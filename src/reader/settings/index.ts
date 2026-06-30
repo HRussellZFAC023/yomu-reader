@@ -878,6 +878,7 @@ function normalizeMiningSettings(value: Partial<ReaderSettings> | null): Partial
 
 function normalizeApiGradingProvider(value: unknown): ReaderSettings['apiGradingProvider'] {
     if (value === 'jpdb') return 'jpdb';
+    if (value === 'jiten') return 'jiten';
     if (value === 'bunpro') return 'bunpro';
     return DEFAULT_SETTINGS.apiGradingProvider;
 }

@@ -14,6 +14,7 @@ import {
     createApiSrsProviderAdapters,
     cardStateForApiState,
     isApiMiningEnabled,
+    isApiSrsProviderEnabled,
     shouldMineAnkiAlongsideApi,
     type ApiSrsDeckSource,
     type ApiSrsDeckState,
@@ -23,6 +24,7 @@ import {
 } from './srs-providers';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import { YomitanDictionaryStore } from '../dictionaries/yomitan';
+import type { YomuSrsAdapter } from '../srs';
 import type { GrammarHint } from '../study/tools';
 
 interface ShowCardOptions {
@@ -36,6 +38,7 @@ interface CardActionControllerOptions {
     getSettings: () => ReaderSettings;
     jpdb: JpdbClient;
     jiten?: JitenApiClient;
+    srsAdapters?: Partial<Record<'bunpro', YomuSrsAdapter>>;
     anki: AnkiConnectClient;
     dictionaries: YomitanDictionaryStore;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
@@ -121,7 +124,8 @@ export class CardActionController {
 
     private async addBatchMiningCard(card: JPDBCard, sentence: string | undefined): Promise<boolean> {
         const settings = this.options.getSettings();
-        const provider = isApiMiningEnabled(settings) ? this.apiProviderForCard(card, settings) : null;
+        const candidate = isApiMiningEnabled(settings) ? this.apiProviderForCard(card, settings) : null;
+        const provider = candidate && isApiSrsProviderEnabled(settings, candidate.id) ? candidate : null;
         if (provider?.hasApiKey) {
             const deckId = provider.id === 'jiten'
                 ? String((await this.options.jiten?.listStudyDecks?.().catch(() => []))?.[0]?.id ?? '')
@@ -345,6 +349,7 @@ export class CardActionController {
         return createApiSrsProviderAdapters({
             jpdb: this.options.jpdb,
             jiten: this.options.jiten,
+            bunpro: this.options.srsAdapters?.bunpro,
             isJpdbBackedCard: this.options.isJpdbBackedCard,
         }, settings);
     }
@@ -370,7 +375,7 @@ export class CardActionController {
 
     private assertApiProviderActionAllowed(provider: ApiSrsProviderAdapter | null, message: string): asserts provider is ApiSrsProviderAdapter {
         const settings = this.options.getSettings();
-        if (!isApiMiningEnabled(settings)) throw new Error(uiText(settings.interfaceLanguage, 'apiSrsActionsDisabled'));
+        if (!isApiSrsProviderEnabled(settings, provider?.id)) throw new Error(uiText(settings.interfaceLanguage, 'apiSrsActionsDisabled'));
         if (!provider?.hasApiKey) throw new Error(message);
     }
 
@@ -389,10 +394,14 @@ export class CardActionController {
         }
 
         const provider = this.apiProviderForDeckSource(deck.source, card, settings);
-        const fallbackKey = deck.source === 'jiten' ? 'jitenAddApiKeyRequired' : 'jpdbAddApiKeyRequired';
+        const fallbackKey = deck.source === 'jiten'
+            ? 'jitenAddApiKeyRequired'
+            : deck.source === 'bunpro'
+                ? 'bunproAddApiKeyRequired'
+                : 'jpdbAddApiKeyRequired';
         this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.addApiKeyRequiredKey ?? fallbackKey));
         const selectedDeckId = provider.selectedDeckId(deck.id, settings);
-        if (!selectedDeckId) throw new Error(uiText(settings.interfaceLanguage, 'chooseJitenStudyDeck'));
+        if (!selectedDeckId) throw new Error(uiText(settings.interfaceLanguage, provider.id === 'jiten' ? 'chooseJitenStudyDeck' : provider.addApiKeyRequiredKey));
         await provider.addToDeck(selectedDeckId, card, sentence, { sourceTitle: document.title });
         const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings);
         if (minedToAnkiToo) await this.addToAnki(card, sentence, settings.ankiDeck, context);
@@ -400,7 +409,7 @@ export class CardActionController {
         // image or audio for this mine and no Anki note carries it, say so
         // instead of silently dropping it.
         const miningContext = await Promise.resolve(this.options.resolveMiningContext(card, sentence)).catch(() => null);
-        const droppedMedia = !minedToAnkiToo && Boolean(miningContext?.imageDataUrl || miningContext?.audioDataUrl);
+        const droppedMedia = provider.id !== 'bunpro' && !minedToAnkiToo && Boolean(miningContext?.imageDataUrl || miningContext?.audioDataUrl);
         const addedToast = uiText(settings.interfaceLanguage, provider.addedToastKey);
         this.options.toast(droppedMedia
             ? `${addedToast} ${uiText(settings.interfaceLanguage, 'apiDeckMediaNotSupported')}`
@@ -511,7 +520,7 @@ export class CardActionController {
             await this.answerAnkiCard(grade, card, options.ankiCardId);
             return;
         }
-        if (options.target === 'jpdb' || options.target === 'jiten') {
+        if (options.target === 'jpdb' || options.target === 'jiten' || options.target === 'bunpro') {
             await this.reviewApiCard(grade, card, sentence, { ...options, providerId: options.target });
             return;
         }
@@ -827,7 +836,7 @@ function exactCard(source: JPDBCard, tokens: JPDBToken[]): JPDBCard | null {
 
 function reviewTargetKind(value: string | undefined): PopoverReviewTargetKind | undefined {
     if (value === 'both' || value === 'anki') return value;
-    if (value === 'jpdb' || value === 'jiten') return value;
+    if (value === 'jpdb' || value === 'jiten' || value === 'bunpro') return value;
     return undefined;
 }
 
@@ -859,6 +868,7 @@ function selectedDeckChoice(button: HTMLButtonElement, settings: ReaderSettings)
 function selectedDeckSource(button: HTMLButtonElement): SelectedDeckChoice['source'] {
     if (button.dataset.deckSource === 'anki') return 'anki';
     if (button.dataset.deckSource === 'jiten') return 'jiten';
+    if (button.dataset.deckSource === 'bunpro') return 'bunpro';
     return 'jpdb';
 }
 

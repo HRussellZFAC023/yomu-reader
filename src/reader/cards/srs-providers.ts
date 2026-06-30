@@ -1,12 +1,13 @@
 import { normalizeCardStates } from './state';
 import { jpdbDeckLabel } from './deck-choice';
-import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
+import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import type { JitenApiClient, JitenVocabularyDeckState } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { UiCopyKey } from '../app/i18n';
 import type { ApiDeck, CardState, JPDBCard, JPDBDeck, JPDBGrade, ReaderSettings } from '../app/types';
+import type { YomuSrsAdapter, YomuSrsMiningRequest, YomuSrsReviewable, YomuSrsReviewableKind } from '../srs';
 
-export type ApiSrsProviderId = 'jpdb' | 'jiten';
+export type ApiSrsProviderId = 'jpdb' | 'jiten' | 'bunpro';
 export type ApiSrsDeckSource = ApiSrsProviderId;
 export type ApiSrsToggleDeckState = 'never-forget' | 'blacklisted';
 export type ApiSrsDeckState = ApiSrsToggleDeckState | 'mining' | 'suspended' | 'forgotten';
@@ -53,6 +54,7 @@ export interface ApiSrsProviderReviewOptions {
 export interface ApiSrsProviderAdapterOptions {
     jpdb: JpdbClient;
     jiten?: JitenApiClient;
+    bunpro?: YomuSrsAdapter;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
 }
 
@@ -65,6 +67,7 @@ export interface ApiSrsProviderAvailability {
 // API keys are set and the card can be graded by both; otherwise the card's
 // own backing provider wins.
 export function apiGradingProviderPreference(settings: ReaderSettings): ApiSrsProviderId {
+    if (settings.apiGradingProvider === 'bunpro') return 'bunpro';
     return settings.apiGradingProvider === 'jiten' ? 'jiten' : 'jpdb';
 }
 
@@ -84,6 +87,14 @@ export function apiSrsProviderAvailability(
 }
 
 function apiSrsProviderView(id: ApiSrsProviderId, settings: ReaderSettings): ApiSrsProviderView {
+    if (id === 'bunpro') {
+        return {
+            id: 'bunpro',
+            label: 'Bunpro',
+            deckSource: 'bunpro',
+            hasApiKey: hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings),
+        };
+    }
     return id === 'jiten'
         ? { id: 'jiten', label: 'Jiten', deckSource: 'jiten', hasApiKey: hasJitenApiCredential(settings) }
         : { id: 'jpdb', label: 'JPDB', deckSource: 'jpdb', hasApiKey: hasJpdbApiCredential(settings) };
@@ -96,8 +107,11 @@ export function apiSrsProviderViewForCard(
 ): ApiSrsProviderView | null {
     const jpdbBacked = isJpdbBackedCard(card);
     const jitenBacked = isJitenBackedCard(card);
+    const bunproBacked = isBunproBackedCard(card);
     const jpdbUsable = jpdbBacked && hasJpdbApiCredential(settings);
     const jitenUsable = jitenBacked && hasJitenApiCredential(settings);
+    const bunproUsable = bunproBacked && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings);
+    if (bunproUsable) return apiSrsProviderView('bunpro', settings);
     // Both services can grade this word and both keys are set -> follow the
     // toggle. Otherwise prefer whichever service has a usable key. A word may be
     // jiten-backed via keyless enrichment, so the fallback must be gated on the
@@ -109,11 +123,16 @@ export function apiSrsProviderViewForCard(
     // only (no grading UI renders without a key).
     if (jpdbBacked) return apiSrsProviderView('jpdb', settings);
     if (jitenBacked) return apiSrsProviderView('jiten', settings);
+    if (bunproBacked) return apiSrsProviderView('bunpro', settings);
     return null;
 }
 
 export function isApiMiningEnabled(settings: ReaderSettings): boolean {
-    return settings.jpdbMiningEnabled;
+    return settings.jpdbMiningEnabled || settings.bunproMiningEnabled;
+}
+
+export function isApiSrsProviderEnabled(settings: ReaderSettings, providerId: ApiSrsProviderId | undefined): boolean {
+    return providerId === 'bunpro' ? settings.bunproMiningEnabled : settings.jpdbMiningEnabled;
 }
 
 export function shouldMineAnkiAlongsideApi(settings: ReaderSettings): boolean {
@@ -125,6 +144,7 @@ export function createApiSrsProviderAdapters(options: ApiSrsProviderAdapterOptio
     const providers: ApiSrsProviderAdapter[] = options.jiten
         ? [createJitenSrsProviderAdapter(options.jiten, settings), jpdbProvider]
         : [jpdbProvider];
+    if (options.bunpro) providers.unshift(createBunproSrsProviderAdapter(options.bunpro, settings));
     return providers;
 }
 
@@ -166,6 +186,35 @@ function createJpdbSrsProviderAdapter(
                 await jpdb.addToDeck(deckId, card);
             }
         },
+    };
+}
+
+function createBunproSrsProviderAdapter(adapter: YomuSrsAdapter, settings: ReaderSettings): ApiSrsProviderAdapter {
+    return {
+        id: 'bunpro',
+        label: 'Bunpro',
+        deckSource: 'bunpro',
+        hasApiKey: settings.bunproMiningEnabled && adapter.hasCredential(),
+        addApiKeyRequiredKey: 'bunproAddApiKeyRequired',
+        reviewApiKeyRequiredKey: 'addBunproApiKeyReview',
+        deckStateApiKeyRequiredKey: 'bunproAddApiKeyRequired',
+        addedToastKey: 'addedToBunpro',
+        supportsCard: isBunproBackedCard,
+        supportsDeckState: () => false,
+        selectedDeckId: () => 'bunpro',
+        selectedDeckLabel: () => 'Bunpro',
+        addToDeck: async (_deckId, card, sentence, context) => {
+            await adapter.mine(bunproMiningRequestFromCard(card, sentence, context));
+        },
+        reviewCard: async (card, grade, reviewOptions = {}) => {
+            await adapter.review({
+                card: bunproReviewableFromCard(card),
+                grade,
+                sentence: reviewOptions.sentence,
+            });
+            return {};
+        },
+        setDeckState: async () => undefined,
     };
 }
 
@@ -213,6 +262,53 @@ export function isJitenBackedCard(card: JPDBCard): boolean {
     return card.source === 'jiten'
         || (finitePositiveInteger(card.jitenWordId) !== undefined
             && finiteNonNegativeInteger(card.jitenReadingIndex) !== undefined);
+}
+
+export function isBunproBackedCard(card: JPDBCard): boolean {
+    return card.source === 'bunpro'
+        || card.reviewSource === 'bunpro-api'
+        || Boolean(card.bunproReviewId || card.bunproReviewableId);
+}
+
+function bunproReviewableFromCard(card: JPDBCard): YomuSrsReviewable {
+    const expression = card.spelling.trim();
+    const reading = card.reading.trim() || expression;
+    const providerCardId = card.bunproReviewId || stringifyPositiveNumber(card.bunproReviewableId) || card.sourceCardKey || `${card.vid}:${card.sid}:${card.rid}`;
+    return {
+        providerId: 'bunpro',
+        providerCardId,
+        providerReviewId: card.bunproReviewId || providerCardId,
+        providerReviewableId: stringifyPositiveNumber(card.bunproReviewableId),
+        kind: bunproReviewableKind(card.bunproReviewableType),
+        expression,
+        reading,
+        meanings: card.meanings,
+        state: card.cardState,
+        srsLevel: card.bunproSrsLevel,
+        dueAt: card.dueAt,
+        lastReviewAt: card.lastReviewAt,
+        raw: card,
+    };
+}
+
+function bunproMiningRequestFromCard(card: JPDBCard, sentence: string | undefined, context?: ApiSrsProviderActionContext): YomuSrsMiningRequest {
+    return {
+        expression: card.spelling,
+        reading: card.reading,
+        meaning: card.meanings.flatMap(meaning => meaning.glosses).join('; '),
+        sentence,
+        sourceTitle: context?.sourceTitle,
+        kind: bunproReviewableKind(card.bunproReviewableType),
+    };
+}
+
+function bunproReviewableKind(type: JPDBCard['bunproReviewableType']): YomuSrsReviewableKind {
+    if (type === 'vocabulary' || type === 'grammar' || type === 'sentence') return type;
+    return 'unknown';
+}
+
+function stringifyPositiveNumber(value: number | undefined): string | undefined {
+    return typeof value === 'number' && Number.isInteger(value) && value > 0 ? String(value) : undefined;
 }
 
 function jitenVocabularyStateForApiState(state: ApiSrsDeckState): JitenVocabularyDeckState {

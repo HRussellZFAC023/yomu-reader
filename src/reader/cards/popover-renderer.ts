@@ -13,7 +13,7 @@ import { loadMiningContext } from '../study/mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
 import { cardPronunciationReading, renderExpressionComponentPitches, renderPitch } from '../popup/render';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
-import { apiSrsProviderViewForCard, isApiMiningEnabled, type ApiSrsProviderView } from './srs-providers';
+import { apiSrsProviderViewForCard, isApiSrsProviderEnabled, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
@@ -58,7 +58,7 @@ interface ReviewButtonsRenderOptions {
 
 interface PopoverReviewTarget {
     id: string;
-    kind: 'both' | 'jpdb' | 'jiten' | 'anki';
+    kind: 'both' | 'jpdb' | 'jiten' | 'bunpro' | 'anki';
     label: string;
     shortLabel: string;
     ankiCardId?: number;
@@ -286,12 +286,12 @@ export class CardPopoverRenderer {
 
     private canReviewWithApiProvider(provider: ApiSrsProviderView | null): boolean {
         const settings = this.settings();
-        return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
+        return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
     }
 
     private canSwitchProvider(provider: ApiSrsProviderView | null): boolean {
         const settings = this.settings();
-        return !!(provider && settings.apiKey && settings.jitenApiKey);
+        return !!(provider && provider.id !== 'bunpro' && settings.apiKey && settings.jitenApiKey);
     }
 
     private popoverReviewTargets(
@@ -328,10 +328,19 @@ export class CardPopoverRenderer {
     private providerForReviewTarget(target: PopoverReviewTarget, fallback: ApiSrsProviderView | null): ApiSrsProviderView | null {
         if (target.kind === 'jpdb') return { id: 'jpdb', label: 'JPDB', deckSource: 'jpdb', hasApiKey: true };
         if (target.kind === 'jiten') return { id: 'jiten', label: 'Jiten', deckSource: 'jiten', hasApiKey: true };
+        if (target.kind === 'bunpro') return { id: 'bunpro', label: 'Bunpro', deckSource: 'bunpro', hasApiKey: true };
         return fallback;
     }
 
     private apiReviewTarget(provider: ApiSrsProviderView, language: InterfaceLanguage): PopoverReviewTarget {
+        if (provider.id === 'bunpro') {
+            return {
+                id: 'bunpro',
+                kind: 'bunpro',
+                label: uiText(language, 'gradeTargetBunpro'),
+                shortLabel: provider.label,
+            };
+        }
         const isJiten = provider.id === 'jiten';
         return {
             id: provider.id,
@@ -342,9 +351,11 @@ export class CardPopoverRenderer {
     }
 
     private bothReviewTarget(provider: ApiSrsProviderView, ankiTarget: PopoverReviewTarget, language: InterfaceLanguage): PopoverReviewTarget {
-        const label = provider.id === 'jiten'
-            ? uiText(language, 'gradeTargetJitenAndAnki')
-            : uiText(language, 'gradeTargetJpdbAndAnki');
+        const label = provider.id === 'bunpro'
+            ? uiText(language, 'gradeTargetBunproAndAnki')
+            : provider.id === 'jiten'
+                ? uiText(language, 'gradeTargetJitenAndAnki')
+                : uiText(language, 'gradeTargetJpdbAndAnki');
         return {
             id: 'both',
             kind: 'both',
@@ -556,7 +567,7 @@ function renderApiMiningActions(
 }
 
 function canRenderApiMiningActions(settings: ReaderSettings, provider: ApiSrsProviderView | null): boolean {
-    return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
+    return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
 }
 
 function renderAddDeckSelect(
@@ -574,14 +585,15 @@ function renderAddDeckSelect(
     return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}" hidden>${deckOptions}</select>`;
 }
 
-function renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string, _provider: ApiSrsProviderView | null): string {
+function renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string, provider: ApiSrsProviderView | null): string {
     const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
+    const directAdd = provider?.id === 'bunpro';
     // Jiten now follows the same Add to deck / Never forget / Blacklist pattern
     // as JPDB; its old Mining/Suspended/Forget row was removed.
     return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
                     <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
-                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>
+                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="${directAdd ? 'add' : 'deck-picker'}"${directAdd ? ' data-deck-source="bunpro"' : ''} aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>
                         <button class="jpdb-reader-btn nf${state.isNeverForget ? ' danger' : ''}" data-action="neverforget" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
                         <button class="jpdb-reader-btn blacklist" data-action="blacklist" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
                     </div>

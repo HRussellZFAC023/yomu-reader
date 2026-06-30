@@ -100,9 +100,11 @@ const COPY = {
         gradeTargetBoth: 'Both',
         gradeTargetJpdb: 'Grades JPDB',
         gradeTargetJiten: 'Grades Jiten',
+        gradeTargetBunpro: 'Grades Bunpro',
         gradeTargetAnki: 'Grades Anki card: {target}',
         gradeTargetJpdbAndAnki: 'Grades JPDB + Anki card: {target}',
         gradeTargetJitenAndAnki: 'Grades Jiten + Anki card: {target}',
+        gradeTargetBunproAndAnki: 'Grades Bunpro + Anki card: {target}',
         missingAnkiCardId: 'Missing Anki card id.',
         jpdbPageEnhancements: 'Dictionary site enhancements',
         jpdbPageEnhancementsEnabled: 'Enhance dictionary pages',
@@ -839,6 +841,7 @@ const COPY = {
         apiSrsActionsDisabled: 'API mining actions are disabled in settings.',
         addJpdbApiKeyReview: 'Add a JPDB API key to review JPDB cards.',
         addJitenApiKeyReview: 'Add a Jiten API key to review Jiten cards.',
+        addBunproApiKeyReview: 'Add a Bunpro frontend API token to review Bunpro cards.',
         actionFailed: 'Action failed.',
         dictionary: 'Dictionary',
         dictionariesExported: 'Dictionaries exported.',
@@ -1031,8 +1034,10 @@ const COPY = {
         addedToJpdb: 'Added to JPDB.',
         jitenDeckStateApiKeyRequired: 'Add a Jiten API key to change Jiten vocabulary state.',
         jitenAddApiKeyRequired: 'Add a Jiten API key, or use Add to Anki.',
+        bunproAddApiKeyRequired: 'Add a Bunpro frontend API token, or use Add to Anki.',
         chooseJitenStudyDeck: 'Choose a Jiten study deck first.',
         addedToJiten: 'Added to Jiten.',
+        addedToBunpro: 'Added to Bunpro.',
         kanjiDetailsUnavailable: 'Kanji details are not available yet.',
         loadingDictionaryDetails: 'Loading dictionary details...',
         sourceSingular: 'source',
@@ -1271,6 +1276,7 @@ jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。
 apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
+addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です。
 actionFailed	操作に失敗しました。
 noDefinitions	有効な定義ソースから結果が返りませんでした。
 dictionary	辞書
@@ -1673,8 +1679,10 @@ jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
 addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
 jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
+bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
 chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
 addedToJiten	Jitenに追加しました。
+addedToBunpro	Bunproに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 sourceSingular	ソース
@@ -1784,9 +1792,11 @@ gradeTargetSelector	採点先
 gradeTargetBoth	両方
 gradeTargetJpdb	JPDBを採点
 gradeTargetJiten	Jitenを採点
+gradeTargetBunpro	Bunproを採点
 gradeTargetAnki	Ankiカードを採点: {target}
 gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
 gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
+gradeTargetBunproAndAnki	Bunpro + Ankiカードを採点: {target}
 missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張

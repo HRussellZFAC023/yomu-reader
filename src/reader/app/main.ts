@@ -300,7 +300,17 @@ import {
     shouldLookupAnkiStatus,
     subscribeToSettingsStorageChanges,
 } from '../settings/index';
-import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
+import {
+    effectiveBunproFrontendApiToken,
+    effectiveBunproLegacyApiKey,
+    effectiveJitenApiKey,
+    effectiveJpdbApiKey,
+    hasJitenApiCredential,
+    hasJpdbApiCredential,
+    isBunproFrontendCredentialExpired,
+} from '../settings/api-credential';
+import { BunproClient } from '../bunpro/bunpro';
+import { createBunproSrsAdapter } from '../srs';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
 import { applyHostTheme, detectHostTheme, isHostThemeAuthoritative, isThemeSyncHost, jitenThemeCookieMatches, observeHostTheme, type HostTheme } from '../theme/host-theme';
 import { showReaderToast } from '../ui/toast';
@@ -589,6 +599,11 @@ export class ReaderApp {
     private immersionKit = new ImmersionKitClient();
     private audio = new AudioPlayer(() => this.settings);
     private anki = new AnkiConnectClient(() => this.settings);
+    private bunpro = new BunproClient({
+        getFrontendToken: () => this.activeBunproFrontendApiToken(),
+        getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings),
+    });
+    private bunproSrs = createBunproSrsAdapter(this.bunpro);
     private rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : null;
     private dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
     private cardRenderData = new CardRenderDataLoader({
@@ -646,6 +661,9 @@ export class ReaderApp {
         getSettings: () => this.settings,
         jpdb: this.jpdb,
         jiten: this.jiten,
+        srsAdapters: {
+            bunpro: this.bunproSrs,
+        },
         anki: this.anki,
         dictionaries: this.dictionaries,
         isJpdbBackedCard: card => this.isJpdbBackedCard(card),
@@ -738,6 +756,12 @@ export class ReaderApp {
     });
     private settingsDialog?: SettingsDialogControllerInstance;
     private stackedSettingsDialog?: SettingsDialogStack;
+
+    private activeBunproFrontendApiToken(): string {
+        return isBunproFrontendCredentialExpired(this.settings)
+            ? ''
+            : effectiveBunproFrontendApiToken(this.settings);
+    }
     private activePopover?: HTMLElement;
     private activeBackdrop?: HTMLElement;
     private lastCard?: JPDBCard;

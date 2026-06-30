@@ -24,12 +24,21 @@ const baseCard: JPDBCard = {
 const dualCard: JPDBCard = { ...baseCard, source: 'jpdb', jitenWordId: 42, jitenReadingIndex: 0 };
 const jpdbOnlyCard: JPDBCard = { ...baseCard, source: 'jpdb' };
 const jitenCard: JPDBCard = { ...baseCard, source: 'jiten', vid: 42, sid: 0, jitenWordId: 42, jitenReadingIndex: 0 };
+const bunproCard: JPDBCard = {
+    ...baseCard,
+    source: 'bunpro',
+    reviewSource: 'bunpro-api',
+    bunproReviewId: '123',
+    bunproReviewableId: 456,
+    bunproReviewableType: 'vocabulary',
+};
 
 describe('apiGradingProviderPreference', () => {
     it('defaults to jiten and honors an explicit jpdb preference', () => {
         expect(apiGradingProviderPreference(settings())).toBe('jiten');
         expect(apiGradingProviderPreference(settings({ apiGradingProvider: 'jiten' }))).toBe('jiten');
         expect(apiGradingProviderPreference(settings({ apiGradingProvider: 'jpdb' }))).toBe('jpdb');
+        expect(apiGradingProviderPreference(settings({ apiGradingProvider: 'bunpro' }))).toBe('bunpro');
     });
 });
 
@@ -73,5 +82,29 @@ describe('apiSrsProviderViewForCard', () => {
     it('reflects the key presence in hasApiKey', () => {
         expect(apiSrsProviderViewForCard(jpdbOnlyCard, settings({ apiKey: 'jpdb-key' }), isJpdbBackedCard)?.hasApiKey).toBe(true);
         expect(apiSrsProviderViewForCard(jpdbOnlyCard, settings({ apiKey: '' }), isJpdbBackedCard)?.hasApiKey).toBe(false);
+    });
+
+    it('uses Bunpro for Bunpro-backed cards and respects frontend token expiry', () => {
+        const active = settings({
+            bunproFrontendApiToken: 'bunpro-token',
+            bunproFrontendApiTokenExpiresAt: '2999-01-01T00:00:00.000Z',
+            bunproMiningEnabled: true,
+            apiGradingProvider: 'bunpro',
+        });
+        const expired = settings({
+            ...active,
+            bunproFrontendApiTokenExpiresAt: '2000-01-01T00:00:00.000Z',
+        });
+
+        expect(apiSrsProviderViewForCard(bunproCard, active, isJpdbBackedCard)).toMatchObject({
+            id: 'bunpro',
+            label: 'Bunpro',
+            deckSource: 'bunpro',
+            hasApiKey: true,
+        });
+        expect(apiSrsProviderViewForCard(bunproCard, expired, isJpdbBackedCard)).toMatchObject({
+            id: 'bunpro',
+            hasApiKey: false,
+        });
     });
 });

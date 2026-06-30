@@ -6607,6 +6607,33 @@ describe('reader helpers', () => {
         expect(mount.querySelector<HTMLButtonElement>('[data-action="grade"][data-grade="okay"]')?.title).toBe('Grades Jiten');
     });
 
+    it('renders Bunpro-backed review and direct mining controls without a provider toggle', () => {
+        const renderer = testCardPopoverRenderer({
+            bunproFrontendApiToken: 'bunpro-token',
+            bunproMiningEnabled: true,
+            enableReviews: true,
+        });
+        const bunproCard: JPDBCard = {
+            ...card,
+            source: 'bunpro',
+            reviewSource: 'bunpro-api',
+            bunproReviewId: '123',
+            bunproReviewableId: 456,
+            bunproReviewableType: 'vocabulary',
+            cardState: ['due'],
+        };
+
+        document.body.innerHTML = renderModalCard(renderer, bunproCard, 'ご飯を食べる。');
+
+        expect(readerMetaText()).toContain('Bunpro');
+        expect(document.querySelector('[data-action="grade-provider-toggle"]')).toBeNull();
+        expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'bunpro')).toBe(true);
+        expect(document.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Bunpro');
+        const addButton = document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="add"]');
+        expect(addButton?.dataset.deckSource).toBe('bunpro');
+        expect(document.querySelector<HTMLButtonElement>('.jpdb-reader-mining-title[data-action="deck-picker"]')).toBeNull();
+    });
+
     it('keeps dictionary, Immersion Kit, and study source stacks available for Jiten-backed cards', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -6705,6 +6732,72 @@ describe('reader helpers', () => {
         expect(setVocabularyState).toHaveBeenCalledWith(jitenCard, 'neverForget', 'add');
         expect(addToDeck).not.toHaveBeenCalled();
         expect(toast).toHaveBeenCalledWith('Added to Jiten.');
+    });
+
+    it('mines and reviews Bunpro-backed cards through the Bunpro SRS adapter', async () => {
+        const mine = vi.fn(async () => ({}));
+        const review = vi.fn(async () => ({}));
+        const toast = vi.fn();
+        const controller = testCardActionController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: false,
+                bunproFrontendApiToken: 'bunpro-token',
+                bunproMiningEnabled: true,
+                enableReviews: true,
+            }),
+            srsAdapters: {
+                bunpro: {
+                    id: 'bunpro',
+                    label: 'Bunpro',
+                    capabilities: { stats: true, queue: true, review: true, mine: true, import: false },
+                    hasCredential: () => true,
+                    verify: vi.fn(),
+                    stats: vi.fn(),
+                    queue: vi.fn(),
+                    review,
+                    mine,
+                } as never,
+            },
+            isJpdbBackedCard: () => false,
+            toast,
+        });
+        const bunproCard: JPDBCard = {
+            ...card,
+            source: 'bunpro',
+            reviewSource: 'bunpro-api',
+            bunproReviewId: '123',
+            bunproReviewableId: 456,
+            bunproReviewableType: 'vocabulary',
+            meanings: [{ glosses: ['to eat'], partOfSpeech: ['v1'] }],
+            cardState: ['due'],
+        };
+        const button = document.createElement('button');
+        button.dataset.action = 'add';
+        button.dataset.deckSource = 'bunpro';
+
+        await expect(controller.perform('add', button, { ...bunproCard, cardState: ['not-in-deck'] }, 'ご飯を食べる。')).resolves.toBe(true);
+        await expect(controller.reviewGrade('okay', bunproCard, 'ご飯を食べる。', { target: 'bunpro' })).resolves.toBeUndefined();
+
+        expect(mine).toHaveBeenCalledWith(expect.objectContaining({
+            expression: '食べる',
+            reading: 'たべる',
+            meaning: 'to eat',
+            sentence: 'ご飯を食べる。',
+            kind: 'vocabulary',
+        }));
+        expect(review).toHaveBeenCalledWith(expect.objectContaining({
+            grade: 'okay',
+            sentence: 'ご飯を食べる。',
+            card: expect.objectContaining({
+                providerId: 'bunpro',
+                providerCardId: '123',
+                providerReviewId: '123',
+                providerReviewableId: '456',
+                kind: 'vocabulary',
+            }),
+        }));
+        expect(toast).toHaveBeenCalledWith('Added to Bunpro.');
     });
 
     it('says when captured media cannot follow a mine into a Jiten deck (no media API)', async () => {
