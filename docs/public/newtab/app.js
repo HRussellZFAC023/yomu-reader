@@ -29165,7 +29165,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.5.2".trim() ? "1.5.2".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.5.3".trim() ? "1.5.3".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -46931,6 +46931,12 @@ ${spelling}`);
   }
   function renderSubtitleTrackPanel(state2) {
     const language = state2.language;
+    const drawerActions = [
+      state2.hasTranscriptSurface ? renderPanelModeControls("tracks", true, language) : "",
+      state2.hasNavigableLines ? renderPanelNavigationControls(true, language) : "",
+      state2.hasTranscriptSurface ? renderPanelPlacementControls(state2.placement, language) : "",
+      state2.hasTranscriptSurface ? renderPausePanelToggle(state2.pausePanelEnabled, language) : ""
+    ].filter(Boolean).join("");
     return `
         <div class="jpdb-subtitle-drawer-head">
             <div class="jpdb-subtitle-drawer-brand">
@@ -46944,12 +46950,7 @@ ${spelling}`);
       language
     }))}</span>
             </div>
-            <div class="jpdb-subtitle-drawer-actions">
-                ${renderPanelModeControls("tracks", state2.hasTranscriptSurface, language)}
-                ${state2.hasNavigableLines ? renderPanelNavigationControls(true, language) : ""}
-                ${renderPanelPlacementControls(state2.placement, language)}
-                ${renderPausePanelToggle(state2.pausePanelEnabled, language)}
-            </div>
+            ${drawerActions ? `<div class="jpdb-subtitle-drawer-actions">${drawerActions}</div>` : ""}
         </div>
         <div class="jpdb-subtitle-list-scroll"${state2.virtual ? ' data-virtualized="true"' : ""}>
             <div class="jpdb-subtitle-track-tools">
@@ -48879,7 +48880,19 @@ ${spelling}`);
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
   const DOM_CAPTION_MISSING_GRACE_MS = 1200;
   const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = "youtube-dom-caption-fallback";
-  const SUBTITLE_FILE_ACCEPT = ".srt,.vtt,.ass,.ssa,text/vtt";
+  const SUBTITLE_FILE_ACCEPT = [
+    ".srt",
+    ".vtt",
+    ".ass",
+    ".ssa",
+    "text/vtt",
+    "text/plain",
+    "text/x-subrip",
+    "text/x-ssa",
+    "text/x-ass",
+    "application/x-subrip",
+    "application/srt"
+  ].join(",");
   const log$i = Logger.scope("Subtitles");
   const TRACK_LOAD_OPTIONS = {
     requestText: requestSubtitleText,
@@ -49044,6 +49057,10 @@ ${spelling}`);
       { kind: "primary", file: primary },
       ...[...primaryCandidates, ...fallbackCandidates, ...secondaryCandidates].map((file) => ({ kind: "secondary", file }))
     ];
+  }
+  function subtitleFilePickerJobs(kind, files) {
+    if (files.length <= 1 || kind === "secondary") return files.map((file) => ({ kind, file }));
+    return inferHostedSubtitleFileJobs(files);
   }
   function isSubtitleFileName(name) {
     return /\.(?:srt|vtt|ass|ssa)$/iu.test(name);
@@ -49419,7 +49436,8 @@ ${spelling}`);
     }
     syncRootVisibility(settings) {
       if (!this.root) return;
-      const hidden = shouldHideSubtitleRoot(settings, this.video, this.cues, this.tracks);
+      const tracksPanelOpen = settings.subtitlePlayerEnabled && this.panelMode === "tracks" && this.isTranscriptPanelOpen();
+      const hidden = !tracksPanelOpen && shouldHideSubtitleRoot(settings, this.video, this.cues, this.tracks);
       this.root.hidden = hidden;
       if (hidden && this.transcriptPanel) this.hideTranscriptPanelElement({ immediate: true });
       this.root.classList.toggle("jpdb-subtitle-hidden", !settings.subtitleOverlayVisible);
@@ -50228,7 +50246,7 @@ ${spelling}`);
     }
     shouldUseDomCaptionFallback(selected) {
       if (!this.canUseDomCaptionFallback(selected)) return false;
-      return this.options.getSettings().subtitleOverlayVisible;
+      return this.options.getSettings().subtitleOverlayVisible || this.isTranscriptPanelOpen();
     }
     canUseDomCaptionFallback(selected) {
       return canUseDomCaptionFallback({
@@ -51827,15 +51845,24 @@ ${spelling}`);
       const input2 = document.createElement("input");
       input2.type = "file";
       input2.accept = SUBTITLE_FILE_ACCEPT;
+      input2.multiple = true;
       input2.style.setProperty("display", "none", "important");
       input2.addEventListener("change", () => {
-        const file = input2.files?.[0];
-        input2.remove();
-        if (file) void this.loadSubtitleFile(kind, file);
+        const files = Array.from(input2.files ?? []);
+        if (!files.length) {
+          input2.remove();
+          return;
+        }
+        void this.loadSubtitleFilesFromPicker(kind, files).finally(() => input2.remove());
       }, { once: true });
       input2.addEventListener("cancel", () => input2.remove(), { once: true });
       (document.body || document.documentElement).appendChild(input2);
       input2.click();
+    }
+    async loadSubtitleFilesFromPicker(kind, files) {
+      const jobs = subtitleFilePickerJobs(kind, files);
+      if (!jobs.length) return;
+      await this.loadHostedSubtitleFileJobs({ jobs, openPanel: false });
     }
     loadSubtitleFilesFromHost(event) {
       const request = subtitleFilesFromHostEvent(event);
@@ -52207,11 +52234,15 @@ ${spelling}`);
       if (!button) return;
       const active = this.isFullscreenActive();
       const label = uiText(this.options.getSettings().interfaceLanguage, active ? "exitFullscreen" : "enterFullscreen");
+      button.hidden = this.shouldHideFullscreenRailButton();
       button.disabled = !this.video;
       button.title = label;
       button.setAttribute("aria-label", label);
       button.setAttribute("aria-pressed", String(active));
       setInnerHtml(button, subtitleIcon(active ? "fullscreen-exit" : "fullscreen"));
+    }
+    shouldHideFullscreenRailButton() {
+      return Boolean(this.video?.closest("[data-yomu-video-frame]"));
     }
     syncLineNavigationButtons(hasLines) {
       const panelOpen = this.isTranscriptPanelDockedOpen();

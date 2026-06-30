@@ -678,7 +678,19 @@ const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2000;
 const DOM_CAPTION_STABLE_DELAY_MS = 180;
 const DOM_CAPTION_MISSING_GRACE_MS = 1200;
 const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = 'youtube-dom-caption-fallback';
-const SUBTITLE_FILE_ACCEPT = '.srt,.vtt,.ass,.ssa,text/vtt';
+const SUBTITLE_FILE_ACCEPT = [
+    '.srt',
+    '.vtt',
+    '.ass',
+    '.ssa',
+    'text/vtt',
+    'text/plain',
+    'text/x-subrip',
+    'text/x-ssa',
+    'text/x-ass',
+    'application/x-subrip',
+    'application/srt',
+].join(',');
 const log = Logger.scope('Subtitles');
 const TRACK_LOAD_OPTIONS: Omit<SubtitleTrackLoadOptions<SubtitleTrackOption>, 'tracks' | 'transcriptEligible'> = {
     requestText: defaultRequestSubtitleText,
@@ -930,6 +942,11 @@ function inferHostedSubtitleFileJobs(files: File[]): HostedSubtitleFileJob[] {
         { kind: 'primary', file: primary },
         ...[...primaryCandidates, ...fallbackCandidates, ...secondaryCandidates].map(file => ({ kind: 'secondary' as const, file })),
     ];
+}
+
+function subtitleFilePickerJobs(kind: 'primary' | 'secondary', files: File[]): HostedSubtitleFileJob[] {
+    if (files.length <= 1 || kind === 'secondary') return files.map(file => ({ kind, file }));
+    return inferHostedSubtitleFileJobs(files);
 }
 
 function isSubtitleFileName(name: string): boolean {
@@ -1317,7 +1334,8 @@ export class SubtitlePlayerController {
 
     private syncRootVisibility(settings: ReaderSettings): void {
         if (!this.root) return;
-        const hidden = shouldHideSubtitleRoot(settings, this.video, this.cues, this.tracks);
+        const tracksPanelOpen = settings.subtitlePlayerEnabled && this.panelMode === 'tracks' && this.isTranscriptPanelOpen();
+        const hidden = !tracksPanelOpen && shouldHideSubtitleRoot(settings, this.video, this.cues, this.tracks);
         this.root.hidden = hidden;
         if (hidden && this.transcriptPanel) this.hideTranscriptPanelElement({ immediate: true });
         this.root.classList.toggle('jpdb-subtitle-hidden', !settings.subtitleOverlayVisible);
@@ -2263,7 +2281,7 @@ export class SubtitlePlayerController {
 
     private shouldUseDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
         if (!this.canUseDomCaptionFallback(selected)) return false;
-        return this.options.getSettings().subtitleOverlayVisible;
+        return this.options.getSettings().subtitleOverlayVisible || this.isTranscriptPanelOpen();
     }
 
     private canUseDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
@@ -4166,15 +4184,26 @@ export class SubtitlePlayerController {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = SUBTITLE_FILE_ACCEPT;
+        input.multiple = true;
         input.style.setProperty('display', 'none', 'important');
         input.addEventListener('change', () => {
-            const file = input.files?.[0];
-            input.remove();
-            if (file) void this.loadSubtitleFile(kind, file);
+            const files = Array.from(input.files ?? []);
+            if (!files.length) {
+                input.remove();
+                return;
+            }
+            void this.loadSubtitleFilesFromPicker(kind, files)
+                .finally(() => input.remove());
         }, { once: true });
         input.addEventListener('cancel', () => input.remove(), { once: true });
         (document.body || document.documentElement).appendChild(input);
         input.click();
+    }
+
+    private async loadSubtitleFilesFromPicker(kind: 'primary' | 'secondary', files: File[]): Promise<void> {
+        const jobs = subtitleFilePickerJobs(kind, files);
+        if (!jobs.length) return;
+        await this.loadHostedSubtitleFileJobs({ jobs, openPanel: false });
     }
 
     private loadSubtitleFilesFromHost(event: Event): void {
@@ -4613,11 +4642,16 @@ export class SubtitlePlayerController {
         if (!button) return;
         const active = this.isFullscreenActive();
         const label = uiText(this.options.getSettings().interfaceLanguage, active ? 'exitFullscreen' : 'enterFullscreen');
+        button.hidden = this.shouldHideFullscreenRailButton();
         button.disabled = !this.video;
         button.title = label;
         button.setAttribute('aria-label', label);
         button.setAttribute('aria-pressed', String(active));
         setInnerHtml(button, subtitleIcon(active ? 'fullscreen-exit' : 'fullscreen'));
+    }
+
+    private shouldHideFullscreenRailButton(): boolean {
+        return Boolean(this.video?.closest('[data-yomu-video-frame]'));
     }
 
     private syncLineNavigationButtons(hasLines: boolean): void {

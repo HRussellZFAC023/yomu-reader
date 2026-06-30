@@ -408,7 +408,7 @@ describe('SubtitlePlayerController', () => {
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
     });
 
-    it('requests fullscreen on the video frame from the rail control', () => {
+    it('hides the duplicate rail fullscreen control on the hosted video frame', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         const fullscreenStub = stubFullscreenElement(null);
         try {
@@ -423,9 +423,9 @@ describe('SubtitlePlayerController', () => {
             controller.refresh();
 
             const button = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="fullscreen"]')!;
-            expect(button.disabled).toBe(false);
+            expect(button.hidden).toBe(true);
 
-            button.click();
+            controllerInternals<{ togglePlayerFullscreen: () => void }>(controller).togglePlayerFullscreen();
 
             expect(requestFullscreen).toHaveBeenCalledTimes(1);
             expect(requestFullscreen.mock.instances[0]).toBe(frame);
@@ -434,6 +434,7 @@ describe('SubtitlePlayerController', () => {
             controllerInternals<{ syncFullscreenState: () => void; syncControls: () => void }>(controller).syncFullscreenState();
             controllerInternals<{ syncControls: () => void }>(controller).syncControls();
 
+            expect(button.hidden).toBe(true);
             expect(button.getAttribute('aria-pressed')).toBe('true');
             expect(button.getAttribute('aria-label')).toBe('Exit fullscreen');
         } finally {
@@ -442,7 +443,7 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('falls back to inline fullscreen from the rail control when the frame has no fullscreen API', () => {
+    it('keeps hosted fullscreen fallback available while the duplicate rail control is hidden', () => {
         document.body.innerHTML = '<section data-yomu-video-frame><video controls></video></section>';
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         const fullscreenStub = stubFullscreenElement(null);
@@ -458,15 +459,15 @@ describe('SubtitlePlayerController', () => {
             controller.refresh();
 
             const button = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="fullscreen"]')!;
-            button.click();
+            expect(button.hidden).toBe(true);
+            controllerInternals<{ togglePlayerFullscreen: () => void }>(controller).togglePlayerFullscreen();
 
             expect(frame.getAttribute('data-yomu-inline-fullscreen')).toBe('true');
             expect(frame.hasAttribute('fullscreen')).toBe(true);
             expect(document.documentElement.classList.contains('jpdb-subtitle-inline-fullscreen')).toBe(true);
             expect(document.querySelector<HTMLElement>('.jpdb-subtitle-player')?.parentElement).toBe(frame);
-            expect(button.getAttribute('aria-pressed')).toBe('true');
 
-            button.click();
+            controllerInternals<{ togglePlayerFullscreen: () => void }>(controller).togglePlayerFullscreen();
 
             expect(frame.hasAttribute('data-yomu-inline-fullscreen')).toBe(false);
             expect(document.documentElement.classList.contains('jpdb-subtitle-inline-fullscreen')).toBe(false);
@@ -873,6 +874,30 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('keeps the tracks upload panel open before a video is detected', () => {
+        const { controller } = createInstalledSubtitleController();
+
+        try {
+            controllerInternals<{ openTracksPanel: () => void }>(controller).openTracksPanel();
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(root.hidden).toBe(false);
+            expect(panel.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
+            expect(panel.textContent).toContain('Load Japanese subtitles');
+            expect(panel.textContent).toContain('Load native subtitles');
+            expect(panel.querySelector('[data-action="panel-lines"]')).toBeNull();
+            expect(panel.querySelector('[data-action="panel-shadow"]')).toBeNull();
+            expect(panel.querySelector('[data-action="panel-mine"]')).toBeNull();
+            expect(panel.querySelector('[data-action="transcript-placement"]')).toBeNull();
+            expect(panel.querySelector('[data-action="toggle-pause-panel"]')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('shows the remembered transcript placement on the closed rail toggle', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -920,12 +945,65 @@ describe('SubtitlePlayerController', () => {
 
             const picker = document.querySelector<HTMLInputElement>('input[type="file"]')!;
             expect(root.querySelector('input[type="file"]')).toBeNull();
+            expect(picker.multiple).toBe(true);
+            expect(picker.accept).toContain('.ass');
+            expect(picker.accept).toContain('text/plain');
+            expect(picker.accept).toContain('application/x-subrip');
             expect(picker.style.getPropertyValue('display')).toBe('none');
             expect(picker.style.getPropertyPriority('display')).toBe('important');
             expect(clickSpy).toHaveBeenCalledTimes(1);
 
             picker.dispatchEvent(new Event('cancel'));
             expect(document.querySelector('input[type="file"]')).toBeNull();
+        } finally {
+            clickSpy.mockRestore();
+            controller.destroy();
+        }
+    });
+
+    it('keeps manual subtitle picker files readable until upload finishes', async () => {
+        const { controller } = createSubtitleController(makeSubtitleSettings());
+        const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined);
+        const primary = new File([`
+[Script Info]
+Title: picker
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:04.00,Default,,0,0,0,,猫を見る
+`], 'episode.ja.ass', { type: 'text/plain' });
+        const native = new File([`1
+00:00:00,000 --> 00:00:04,000
+Watch the cat
+`], 'episode.en.srt', { type: 'application/x-subrip' });
+
+        try {
+            controller.init();
+            attachVideo(controller, { currentTime: 1 });
+            (controller as unknown as { openTracksPanel: () => void }).openTracksPanel();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-list [data-action="load"]')!.click();
+
+            const picker = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+            Object.defineProperty(picker, 'files', { configurable: true, value: [native, primary] });
+            picker.dispatchEvent(new Event('change'));
+
+            expect(document.querySelector('input[type="file"]')).toBe(picker);
+
+            await vi.waitFor(() => {
+                expect(document.querySelector('input[type="file"]')).toBeNull();
+                const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list');
+                expect(panel?.textContent).toContain('episode.ja');
+                expect(panel?.textContent).toContain('episode.en');
+                expect(panel?.querySelector('[data-action="panel-shadow"]')).not.toBeNull();
+                expect(panel?.querySelector('[data-action="panel-mine"]')).not.toBeNull();
+            });
+
+            const internals = controllerInternals<{
+                selectedTrackId: string;
+                secondaryTrackId: string;
+                tracks: Array<{ id: string; label: string }>;
+            }>(controller);
+            expect(internals.tracks.find(track => track.id === internals.selectedTrackId)?.label).toBe('episode.ja');
+            expect(internals.tracks.find(track => track.id === internals.secondaryTrackId)?.label).toBe('episode.en');
         } finally {
             clickSpy.mockRestore();
             controller.destroy();
@@ -2868,8 +2946,10 @@ Watch the cat
             expect(jimakuSearch.href).toBe('https://jimaku.cc/opensearch/redirect?anime=true&query=Sousou%20no%20Frieren%20S01E01');
             expect(jimakuSearch.target).toBe('_blank');
             expect(jimakuSearch.rel).toContain('noopener');
-            expect(panel.querySelector<HTMLButtonElement>('[data-action="panel-tracks"]')?.getAttribute('aria-pressed')).toBe('true');
-            expect(panel.querySelector<HTMLButtonElement>('[data-action="panel-lines"]')?.disabled).toBe(true);
+            expect(panel.querySelector('[data-action="panel-tracks"]')).toBeNull();
+            expect(panel.querySelector('[data-action="panel-lines"]')).toBeNull();
+            expect(panel.querySelector('[data-action="panel-shadow"]')).toBeNull();
+            expect(panel.querySelector('[data-action="panel-mine"]')).toBeNull();
             expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(true);
             expect(settings.subtitleTranscriptVisible).toBe(false);
             expect(onSettingsChange).toHaveBeenCalled();
@@ -4774,6 +4854,53 @@ Watch the cat
             expect(internals.lastAppliedSubtitleHtml).toBe(stableHtml);
         } finally {
             nowSpy.mockRestore();
+        }
+    });
+
+    it('mirrors Netflix-shaped DOM captions while the subtitle panel is open with the overlay off', () => {
+        let nowMs = 0;
+        const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => nowMs);
+        const { controller } = createInstalledSubtitleController({
+            subtitleOverlayVisible: false,
+            subtitleTranscriptVisible: false,
+        });
+
+        try {
+            document.body.insertAdjacentHTML('afterbegin', `
+                <div class="watch-video">
+                    <video controls></video>
+                    <div class="player-timedtext-text-container">
+                        <span data-uia="player-subtitle-text">今日は映画を見ます。</span>
+                    </div>
+                </div>
+            `);
+            const video = document.querySelector('video') as HTMLVideoElement;
+            attachVideo(controller, {
+                video,
+                currentTime: 12,
+                rect: { left: 80, right: 1040, top: 40, bottom: 580, width: 960, height: 540 } as DOMRect,
+            });
+            mockNetflixCaptionGeometry(document.querySelector<HTMLElement>('.player-timedtext-text-container')!);
+            mockNetflixCaptionGeometry(document.querySelector<HTMLElement>('[data-uia="player-subtitle-text"]')!);
+
+            const internals = controllerInternals<{
+                currentCue?: { text: string };
+                openTracksPanel: () => void;
+                updateFromDomCaptions: () => void;
+            }>(controller);
+            internals.openTracksPanel();
+            internals.updateFromDomCaptions();
+            nowMs += 200;
+            internals.updateFromDomCaptions();
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const linesButton = panel.querySelector<HTMLButtonElement>('[data-action="panel-lines"]')!;
+            expect(internals.currentCue?.text).toBe('今日は映画を見ます。');
+            expect(panel.hidden).toBe(false);
+            expect(linesButton.disabled).toBe(false);
+        } finally {
+            nowSpy.mockRestore();
+            controller.destroy();
         }
     });
 

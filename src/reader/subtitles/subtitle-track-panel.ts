@@ -45,6 +45,12 @@ export interface SubtitleTrackPanelRenderState {
 
 export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): string {
     const language = state.language;
+    const drawerActions = [
+        state.hasTranscriptSurface ? renderPanelModeControls('tracks', true, language) : '',
+        state.hasNavigableLines ? renderPanelNavigationControls(true, language) : '',
+        state.hasTranscriptSurface ? renderPanelPlacementControls(state.placement, language) : '',
+        state.hasTranscriptSurface ? renderPausePanelToggle(state.pausePanelEnabled, language) : '',
+    ].filter(Boolean).join('');
     return `
         <div class="jpdb-subtitle-drawer-head">
             <div class="jpdb-subtitle-drawer-brand">
@@ -58,12 +64,7 @@ export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): 
                     language,
                 }))}</span>
             </div>
-            <div class="jpdb-subtitle-drawer-actions">
-                ${renderPanelModeControls('tracks', state.hasTranscriptSurface, language)}
-                ${state.hasNavigableLines ? renderPanelNavigationControls(true, language) : ''}
-                ${renderPanelPlacementControls(state.placement, language)}
-                ${renderPausePanelToggle(state.pausePanelEnabled, language)}
-            </div>
+            ${drawerActions ? `<div class="jpdb-subtitle-drawer-actions">${drawerActions}</div>` : ''}
         </div>
         <div class="jpdb-subtitle-list-scroll"${state.virtual ? ' data-virtualized="true"' : ''}>
             <div class="jpdb-subtitle-track-tools">

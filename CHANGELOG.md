@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.3] - 2026-06-30
+
+### Fixed
+
+- Kept the hosted video subtitle panel open as an upload surface before a video is detected, so the Subtitles button exposes the manual Japanese/native subtitle loaders instead of bouncing users back to the file picker.
+- Fixed manual subtitle uploads from mobile/iPad file pickers by accepting common subtitle MIME types, allowing multi-file selection, and keeping the hidden input alive until .ass, .ssa, .srt, and .vtt reads finish.
+- Mirrored Netflix-style DOM captions while the subtitle panel is open, even when the persistent subtitle overlay is off.
+
 ## [1.5.2] - 2026-06-30
 
 ### Fixed

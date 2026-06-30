@@ -284,12 +284,84 @@ async function assertBatchMineTranscript(page) {
     return state;
 }
 
+async function assertShadowPractice(page) {
+    await ensureSubtitlePanelOpen(page);
+    await page.locator('.jpdb-subtitle-panel-mode [data-action="panel-shadow"]').click({ force: true });
+    await page.waitForSelector('.jpdb-subtitle-shadow-card', { timeout: 5000 });
+    const initial = await readShadowPracticeState(page);
+    assert(initial.modePressed === 'true', 'Shadow panel did not stay selected', initial);
+    assert(/シスコ|昨日|オンライン学習/u.test(initial.currentText), 'Shadow panel did not show the active Japanese line', initial);
+    assert(/English native/i.test(initial.secondaryText), 'Shadow panel did not show the aligned native line', initial);
+    assert(initial.actions.includes('shadow-replay'), 'Shadow panel did not render replay', initial);
+    assert(initial.actions.includes('shadow-loop'), 'Shadow panel did not render loop', initial);
+    assert(initial.actions.includes('shadow-toggle-text'), 'Shadow panel did not render hide/show text', initial);
+    assert(initial.actions.includes('shadow-record'), 'Shadow panel did not render record', initial);
+
+    await page.locator('.jpdb-subtitle-shadow-actions [data-action="shadow-toggle-text"]').click({ force: true });
+    await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-shadow-line')?.classList.contains('jpdb-subtitle-shadow-line-hidden'), null, { timeout: 2000 });
+
+    await page.evaluate(() => {
+        window.__yomuShadowRecordClicks = 0;
+        document.addEventListener('click', event => {
+            if (event.target?.closest?.('[data-action="shadow-record"]')) window.__yomuShadowRecordClicks += 1;
+        }, { capture: true, once: true });
+    });
+    await page.locator('.jpdb-subtitle-shadow-actions [data-action="shadow-record"]').click({ force: true });
+    await page.waitForFunction(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        return document.querySelector('[data-action="shadow-record"]')?.getAttribute('aria-pressed') === 'true'
+            || /Mic unavailable/i.test(panel?.textContent ?? '');
+    }, null, { timeout: 5000 }).catch(() => undefined);
+    const recording = await readShadowPracticeState(page);
+    assert(recording.recordPressed === 'true', 'Shadow recording did not enter recording state', recording);
+    assert(!recording.micUnavailable, 'Shadow recording reported the microphone as unavailable before recording', recording);
+    await page.waitForTimeout(650);
+    await page.locator('.jpdb-subtitle-shadow-actions [data-action="shadow-record"]').click({ force: true });
+    await page.waitForFunction(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        return Boolean(document.querySelector('[data-action="shadow-play-recording"]'))
+            || /Mic unavailable/i.test(panel?.textContent ?? '');
+    }, null, { timeout: 8000 });
+
+    const recorded = await readShadowPracticeState(page);
+    assert(recorded.hasPlayback, 'Shadow recording did not create a playable take', recorded);
+    assert(!recorded.micUnavailable, 'Shadow recording reported the microphone as unavailable', recorded);
+    return { initial, recorded };
+}
+
+async function readShadowPracticeState(page) {
+    return page.evaluate(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        return {
+            modePressed: document.querySelector('.jpdb-subtitle-panel-mode [data-action="panel-shadow"]')?.getAttribute('aria-pressed') ?? '',
+            currentText: document.querySelector('.jpdb-subtitle-shadow-current .jpdb-subtitle-shadow-line')?.textContent?.trim() ?? '',
+            secondaryText: document.querySelector('.jpdb-subtitle-shadow-secondary')?.textContent?.trim() ?? '',
+            actions: [...document.querySelectorAll('.jpdb-subtitle-shadow-actions button')].map(button => button.dataset.action),
+            recordPressed: document.querySelector('[data-action="shadow-record"]')?.getAttribute('aria-pressed') ?? '',
+            recordClicks: window.__yomuShadowRecordClicks ?? 0,
+            hiddenLine: document.querySelector('.jpdb-subtitle-shadow-line')?.classList.contains('jpdb-subtitle-shadow-line-hidden') ?? false,
+            hasPlayback: Boolean(document.querySelector('[data-action="shadow-play-recording"]')),
+            micUnavailable: /Mic unavailable/i.test(panel?.textContent ?? ''),
+            text: panel?.textContent?.slice(0, 700) ?? '',
+        };
+    });
+}
+
 async function chooseSubtitleFile(page, action, filePath) {
     await showSubtitleTracks(page);
     const chooserPromise = page.waitForEvent('filechooser');
     await page.locator(`.jpdb-subtitle-track-tools [data-action="${action}"]`).click({ force: true });
     const chooser = await chooserPromise;
     await chooser.setFiles(filePath);
+}
+
+async function grantMicrophonePermission(page, targetUrl) {
+    try {
+        await page.context().grantPermissions(['microphone'], { origin: new URL(targetUrl).origin });
+    } catch {
+        // Older browser channels can ignore explicit permission grants; the fake
+        // media-device launch flags below still cover the local smoke path.
+    }
 }
 
 async function ensureUserscript(page) {
@@ -385,6 +457,7 @@ async function installUserscriptBridge(page, css) {
 
 async function runLocalSmoke(browser) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+    await grantMicrophonePermission(page, localUrl);
     page.on('pageerror', error => {
         console.error('PAGE ERROR:', error);
     });
@@ -421,6 +494,7 @@ async function runLocalSmoke(browser) {
     await page.evaluate(() => { document.querySelector('video').currentTime = 1.4; });
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length > 0, null, { timeout: 10000 });
     const batchMine = await assertBatchMineTranscript(page);
+    const shadow = await assertShadowPractice(page);
     await showTranscriptLines(page);
     await page.waitForTimeout(200);
 
@@ -429,6 +503,7 @@ async function runLocalSmoke(browser) {
         const secondary = document.querySelector('.jpdb-subtitle-secondary');
         return {
             rowCount: rows.length,
+            rowText: rows.join('\n'),
             containsNativeInRows: rows.some(text => /English native subtitle/i.test(text)),
             karaokeWords: document.querySelectorAll('.jpdb-subtitle-karaoke-word').length,
             parsedPlayerWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
@@ -450,6 +525,8 @@ async function runLocalSmoke(browser) {
     const initial = { ...subtitleState, ...await readDrawerLayout(page) };
 
     assert(initial.rowCount >= 3, 'Expected full transcript rows to load', initial);
+    assert(/シスコ|昨日|オンライン学習/u.test(initial.rowText), 'Expected the first primary subtitle cue to appear in transcript rows', initial);
+    assert(/自動生成字幕/u.test(initial.rowText), 'Expected the long primary subtitle cue to appear in transcript rows', initial);
     assert(!initial.containsNativeInRows, 'Native subtitles should not appear in transcript rows', initial);
     assert(initial.karaokeWords > 0 || initial.parsedPlayerWords > 0, 'Expected parsed or karaoke word spans in the player', initial);
     assert(initial.parsedRowWords > 0, 'Expected parsed word spans in the transcript rows', initial);
@@ -485,7 +562,7 @@ async function runLocalSmoke(browser) {
     assert(panelSizeDelta(initial.panel, resized.panel) >= 24, 'Transcript drawer did not resize', { initial, resized });
 
     await page.close();
-    return { initial, resized, batchMine };
+    return { initial, resized, batchMine, shadow };
 }
 
 async function runLocalMobileWrapSmoke(browser) {
@@ -738,12 +815,12 @@ async function launchSmokeBrowser(options) {
 }
 
 function launchBrowserChannel(options, channel) {
-    return chromium.launch({ ...options, channel });
+    return chromium.launch(withSmokeBrowserArgs({ ...options, channel }));
 }
 
 async function launchDefaultSmokeBrowser(options) {
     try {
-        return await chromium.launch(options);
+        return await chromium.launch(withSmokeBrowserArgs(options));
     } catch (error) {
         return launchChromeFallback(options, error);
     }
@@ -752,6 +829,11 @@ async function launchDefaultSmokeBrowser(options) {
 function launchChromeFallback(options, error) {
     if (!isMissingPlaywrightBrowser(error)) throw error;
     return launchBrowserChannel(options, 'chrome');
+}
+
+function withSmokeBrowserArgs(options) {
+    const mediaArgs = ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'];
+    return { ...options, args: [...new Set([...(options.args ?? []), ...mediaArgs])] };
 }
 
 function isMissingPlaywrightBrowser(error) {
