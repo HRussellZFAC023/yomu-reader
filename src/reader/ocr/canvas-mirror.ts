@@ -456,6 +456,7 @@ function mergeMirrorPayloadMetadata(target: MirrorGlobalState, parsed: MirrorBri
     if (typeof parsed.epoch === 'number') target.epoch = parsed.epoch;
 }
 
+// fallow-ignore-next-line unused-export
 export function syncCanvasMirrorRecords(): boolean {
     const target = state();
     const epoch = canvasMirrorTurnToken();
@@ -537,7 +538,7 @@ function operationContentFingerprint(id: string, record: MirrorRecord): string {
     ].join('|');
 }
 
-export function canonicalBookwalkerAssetUrl(rawUrl: string): string {
+function canonicalBookwalkerAssetUrl(rawUrl: string): string {
     if (!rawUrl) return '';
     try {
         const url = new URL(rawUrl, location.href);

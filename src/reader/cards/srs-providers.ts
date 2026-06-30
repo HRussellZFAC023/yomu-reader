@@ -312,7 +312,7 @@ export function isJitenBackedCard(card: JPDBCard): boolean {
             && finiteNonNegativeInteger(card.jitenReadingIndex) !== undefined);
 }
 
-export function isBunproBackedCard(card: JPDBCard): boolean {
+function isBunproBackedCard(card: JPDBCard): boolean {
     return card.source === 'bunpro'
         || card.reviewSource === 'bunpro-api'
         || Boolean(card.bunproReviewId || card.bunproReviewableId);

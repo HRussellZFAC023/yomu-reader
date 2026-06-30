@@ -70,7 +70,7 @@ export function pitchItemKey(reading: string, pitchNumber: number): string {
     return `${reading}#${pitchNumber}`;
 }
 
-export function isFailGrade(grade: JPDBGrade): boolean {
+function isFailGrade(grade: JPDBGrade): boolean {
     return grade === 'fail' || grade === 'nothing' || grade === 'something';
 }
 
@@ -197,6 +197,7 @@ export class PitchSrsStore {
         this.loaded = true;
     }
 
+    // fallow-ignore-next-line unused-class-member
     size(): number {
         return this.items.size;
     }
@@ -209,6 +210,7 @@ export class PitchSrsStore {
         return [...this.items.values()];
     }
 
+    // fallow-ignore-next-line unused-class-member
     dueCount(now: number): number {
         let count = 0;
         for (const item of this.items.values()) if (isPitchItemDue(item, now)) count += 1;
@@ -231,6 +233,7 @@ export class PitchSrsStore {
         return seeded;
     }
 
+    // fallow-ignore-next-line unused-class-member
     grade(key: string, grade: JPDBGrade, subMode: PitchSubMode, options: { correct: boolean; now: number }): PitchSrsItem | null {
         const item = this.items.get(key);
         if (!item) return null;
@@ -248,6 +251,7 @@ export class PitchSrsStore {
         return updated;
     }
 
+    // fallow-ignore-next-line unused-class-member
     accuracyByClass(): PitchClassAccuracy[] {
         return pitchAccuracyByClass(this.history);
     }

@@ -574,11 +574,9 @@ function fontFamilyMatchesPopupStack(fontFamily) {
 }
 
 async function pressWordNavigationShortcut(page, key) {
-    await page.keyboard.down('Alt');
     await page.keyboard.down('Shift');
     await page.keyboard.press(key);
     await page.keyboard.up('Shift');
-    await page.keyboard.up('Alt');
 }
 
 async function selectKeyboardWordRange(page, startIndex, endIndex) {

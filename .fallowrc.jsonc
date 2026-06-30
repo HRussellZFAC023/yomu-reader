@@ -110,6 +110,10 @@
       "exports": ["renderImmersionExampleActions"]
     },
     {
+      "file": "src/reader/settings/index.ts",
+      "exports": ["DEFAULT_NEW_TAB_STUDY_STEP_ORDER"]
+    },
+    {
       "file": "src/reader/newtab/card-view.ts",
       "exports": ["newTabImmersionProviderLabel"]
     }

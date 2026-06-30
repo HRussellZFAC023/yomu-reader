@@ -13,7 +13,7 @@ import type {
     YomuSrsStatsSnapshot,
 } from './types';
 
-export const YOMU_LOCAL_SRS_STORAGE_KEY = 'yomu:srs-local:v1';
+const YOMU_LOCAL_SRS_STORAGE_KEY = 'yomu:srs-local:v1';
 
 interface StoredYomuSrsDeck {
     version: 1;
@@ -75,6 +75,7 @@ export class LocalYomuSrsRepository {
         return { imported, skipped };
     }
 
+    // fallow-ignore-next-line unused-class-member
     async queue(limit = 50): Promise<YomuSrsQueueSnapshot> {
         const now = this.now();
         const cards = Object.values((await this.readDeck()).cards);
@@ -93,6 +94,7 @@ export class LocalYomuSrsRepository {
         };
     }
 
+    // fallow-ignore-next-line unused-class-member
     async stats(): Promise<YomuSrsStatsSnapshot> {
         const now = this.now();
         const cards = Object.values((await this.readDeck()).cards);
@@ -111,6 +113,7 @@ export class LocalYomuSrsRepository {
         };
     }
 
+    // fallow-ignore-next-line unused-class-member
     async review(request: YomuSrsReviewRequest): Promise<YomuSrsReviewResult> {
         const deck = await this.readDeck();
         const id = request.card.providerCardId || localCardId(request.card.expression, request.card.reading);
@@ -121,6 +124,7 @@ export class LocalYomuSrsRepository {
         return { card: this.toReviewable(updated, this.now()), raw: updated };
     }
 
+    // fallow-ignore-next-line unused-class-member
     async mine(request: YomuSrsMiningRequest): Promise<YomuSrsMiningResult> {
         const now = this.now();
         const card = reviewableFromMiningRequest(request, now);

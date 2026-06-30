@@ -49,6 +49,7 @@ export function hasBunproFrontendCredential(settings: BunproCredentialSettings):
     return Boolean(effectiveBunproFrontendApiToken(settings));
 }
 
+// fallow-ignore-next-line unused-export
 export function hasBunproLegacyCredential(settings: BunproCredentialSettings): boolean {
     return Boolean(effectiveBunproLegacyApiKey(settings));
 }

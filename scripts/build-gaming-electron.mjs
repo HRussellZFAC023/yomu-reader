@@ -2,7 +2,6 @@
 
 import { build } from 'esbuild';
 import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,7 +9,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, '..');
 const outDir = path.join(appRoot, 'dist-gaming', 'electron');
 const rendererOutDir = path.join(appRoot, 'dist-gaming', 'renderer');
-const sharedIconSvg = path.join(appRoot, 'public', 'yomu-icon.svg');
+const sourceIconPng = path.join(appRoot, 'public', 'app-icons', 'yomu-gaming-512.png');
 const generatedIconPng = path.join(appRoot, 'dist-gaming', 'yomu-icon-512.png');
 
 rmSync(outDir, { recursive: true, force: true });
@@ -40,17 +39,14 @@ await Promise.all([
 ]);
 
 mkdirSync(path.dirname(generatedIconPng), { recursive: true });
-generatePngIcon(sharedIconSvg, generatedIconPng);
+copyAppIcon(sourceIconPng, generatedIconPng);
 copyFileSync(generatedIconPng, path.join(outDir, 'yomu-icon-512.png'));
 mkdirSync(rendererOutDir, { recursive: true });
 copyFileSync(generatedIconPng, path.join(rendererOutDir, 'yomu-icon-512.png'));
 
-function generatePngIcon(sourceSvg, outputPng) {
-    if (!existsSync(sourceSvg)) {
-        throw new Error(`Missing shared Yomu icon: ${sourceSvg}`);
+function copyAppIcon(sourcePng, outputPng) {
+    if (!existsSync(sourcePng)) {
+        throw new Error(`Missing Yomu Gaming icon: ${sourcePng}`);
     }
-    if (process.platform !== 'darwin') {
-        throw new Error('Could not generate a PNG icon from public/yomu-icon.svg. Run the gaming build on macOS or add a cross-platform SVG-to-PNG converter.');
-    }
-    execFileSync('sips', ['-s', 'format', 'png', '-z', '512', '512', sourceSvg, '--out', outputPng], { stdio: 'ignore' });
+    copyFileSync(sourcePng, outputPng);
 }

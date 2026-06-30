@@ -1,8 +1,8 @@
 import { requestHttp } from '../network/http-request';
 import type { ReaderHttpOptions } from '../network/http-options';
 
-export const BUNPRO_FRONTEND_API_BASE_URL = 'https://api.bunpro.jp/api/frontend';
-export const BUNPRO_LEGACY_API_BASE_URL = 'https://bunpro.jp/api/user';
+const BUNPRO_FRONTEND_API_BASE_URL = 'https://api.bunpro.jp/api/frontend';
+const BUNPRO_LEGACY_API_BASE_URL = 'https://bunpro.jp/api/user';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
@@ -63,6 +63,7 @@ export class BunproClient {
         return Boolean(this.getFrontendToken().trim());
     }
 
+    // fallow-ignore-next-line unused-class-member
     hasLegacyCredential(): boolean {
         return Boolean(this.getLegacyApiKey().trim());
     }
@@ -79,10 +80,12 @@ export class BunproClient {
         return this.frontend('/user/queue');
     }
 
+    // fallow-ignore-next-line unused-class-member
     getUserFurigana(): Promise<unknown> {
         return this.frontend('/user/user_furigana');
     }
 
+    // fallow-ignore-next-line unused-class-member
     getReviews(page = 1, perPage = 25): Promise<unknown> {
         return this.frontend('/reviews', {
             query: {
@@ -96,14 +99,17 @@ export class BunproClient {
         return this.frontend('/user_stats/base_stats');
     }
 
+    // fallow-ignore-next-line unused-class-member
     getJlptProgress(): Promise<unknown> {
         return this.frontend('/user_stats/jlpt_progress_mixed');
     }
 
+    // fallow-ignore-next-line unused-class-member
     getSrsOverview(): Promise<unknown> {
         return this.frontend('/user_stats/srs_level_overview');
     }
 
+    // fallow-ignore-next-line unused-class-member
     getSrsLevelDetails(level: number, reviewableType: BunproReviewableReference['type'], page = 1): Promise<unknown> {
         return this.frontend('/user_stats/srs_level_details', {
             query: {
@@ -114,18 +120,22 @@ export class BunproClient {
         });
     }
 
+    // fallow-ignore-next-line unused-class-member
     getForecastDaily(): Promise<unknown> {
         return this.frontend('/user_stats/forecast_daily');
     }
 
+    // fallow-ignore-next-line unused-class-member
     getForecastHourly(): Promise<unknown> {
         return this.frontend('/user_stats/forecast_hourly');
     }
 
+    // fallow-ignore-next-line unused-class-member
     getReviewActivity(): Promise<unknown> {
         return this.frontend('/user_stats/review_activity');
     }
 
+    // fallow-ignore-next-line unused-class-member
     getVocab(slugOrId: string | number): Promise<unknown> {
         return this.frontend(`/reviewables/vocab/${encodeURIComponent(String(slugOrId))}`);
     }
@@ -170,6 +180,7 @@ export class BunproClient {
         return this.legacy('/study_queue');
     }
 
+    // fallow-ignore-next-line unused-class-member
     getLegacyRecentItems(limit = 10): Promise<unknown> {
         return this.legacy(`/recent_items/${Math.min(Math.max(Math.floor(limit), 1), 50)}`);
     }
