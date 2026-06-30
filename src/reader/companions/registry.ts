@@ -35,6 +35,16 @@ export type MobileAnkiHandoffAppNameFn = typeof import('../anki/mobile-handoff')
 export type ResolveAnkiWordAudioFn = typeof import('../anki/audio').resolveAnkiWordAudio;
 type InstallUchisenCarouselFn = typeof import('../dictionaries/uchisen').installUchisenCarousel;
 type LoadUchisenDataFn = typeof import('../dictionaries/uchisen').loadUchisenData;
+type ResetGrammarRuleDataCacheForTestsFn = typeof import('../study/tools-impl').resetGrammarRuleDataCacheForTests;
+type ListLocalGrammarRuleExamplesFn = typeof import('../study/tools-impl').listLocalGrammarRuleExamples;
+type ListLocalGrammarRulesFn = typeof import('../study/tools-impl').listLocalGrammarRules;
+type DetectGrammarHintsFn = typeof import('../study/tools-impl').detectGrammarHints;
+type PreloadGrammarResourcesFn = typeof import('../study/tools-impl').preloadGrammarResources;
+type PreloadJapaneseSentenceTranslationFn = typeof import('../study/tools-impl').preloadJapaneseSentenceTranslation;
+type SetGrammarRuleKnownFn = typeof import('../study/tools-impl').setGrammarRuleKnown;
+type SetKnownGrammarVisibleFn = typeof import('../study/tools-impl').setKnownGrammarVisible;
+type TranslateJapaneseSentenceFn = typeof import('../study/tools-impl').translateJapaneseSentence;
+type RenderGrammarHintsFn = typeof import('../study/tools-impl').renderGrammarHints;
 
 interface YomuCompanionRegistry {
     anki?: {
@@ -88,6 +98,16 @@ interface YomuCompanionRegistry {
         buildKanjiOriginGraph: typeof import('../kanji/origin').buildKanjiOriginGraph;
         installUchisenCarousel: InstallUchisenCarouselFn;
         loadUchisenData: LoadUchisenDataFn;
+        resetGrammarRuleDataCacheForTests?: ResetGrammarRuleDataCacheForTestsFn;
+        listLocalGrammarRuleExamples?: ListLocalGrammarRuleExamplesFn;
+        listLocalGrammarRules?: ListLocalGrammarRulesFn;
+        detectGrammarHints?: DetectGrammarHintsFn;
+        preloadGrammarResources?: PreloadGrammarResourcesFn;
+        preloadJapaneseSentenceTranslation?: PreloadJapaneseSentenceTranslationFn;
+        setGrammarRuleKnown?: SetGrammarRuleKnownFn;
+        setKnownGrammarVisible?: SetKnownGrammarVisibleFn;
+        translateJapaneseSentence?: TranslateJapaneseSentenceFn;
+        renderGrammarHints?: RenderGrammarHintsFn;
     };
 }
 

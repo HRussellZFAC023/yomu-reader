@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { browseStateCounts, filterBrowseCards, renderBrowseChips, renderBrowseControls, renderBrowseList, sortBrowseCards } from '../../src/reader/newtab/browse-view';
+import { browseSourceForCard, browseStateCounts, filterBrowseCards, renderBrowseChips, renderBrowseControls, renderBrowseList, renderBrowseSourceChips, sortBrowseCards } from '../../src/reader/newtab/browse-view';
 import { renderSearchKanjiResults, renderSearchWordResults } from '../../src/reader/newtab/search-view';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { CardState, JPDBCard } from '../../src/reader/app/types';
@@ -45,6 +45,37 @@ describe('study-page card browser (SH-3)', () => {
         expect(filterBrowseCards(pool, new Set(['known']), 'かく')).toHaveLength(0);
         // Multi-select chips: due OR learning.
         expect(filterBrowseCards(pool, new Set(['due', 'learning']), '').map(c => c.spelling)).toEqual(['書く', '話す']);
+    });
+
+    it('filters and labels JPDB, Jiten, Bunpro, Yomu, and Anki card sources', () => {
+        const mixed = [
+            card('読む', ['known'], { source: 'jpdb' }),
+            card('電車', ['due'], { source: 'jiten', reviewSource: 'jiten-api', jitenWordId: 2700 }),
+            card('文法', ['learning'], { source: 'local', reviewSource: 'bunpro-api' }),
+            card('自習', ['new'], { source: 'yomu-local', reviewSource: 'yomu-local' }),
+            card('暗記', ['due'], { source: 'anki', reviewSource: 'anki' }),
+        ];
+
+        expect(mixed.map(browseSourceForCard)).toEqual(['jpdb', 'jiten', 'bunpro', 'yomu-local', 'anki']);
+        expect(filterBrowseCards(mixed, new Set(), '', new Set(['bunpro', 'yomu-local'])).map(c => c.spelling)).toEqual(['文法', '自習']);
+
+        const chips = renderBrowseSourceChips(mixed, new Set(['bunpro']), {
+            all: 'All',
+            jpdb: 'JPDB',
+            jiten: 'Jiten',
+            bunpro: 'Bunpro',
+            yomuLocal: 'Yomu',
+            anki: 'Anki',
+        });
+        expect([...chips.querySelectorAll('button')].map(button => button.textContent)).toEqual([
+            'All 5',
+            'Jiten 1',
+            'JPDB 1',
+            'Bunpro 1',
+            'Yomu 1',
+            'Anki 1',
+        ]);
+        expect(chips.querySelector('[data-browse-source-filter="bunpro"]')?.getAttribute('aria-pressed')).toBe('true');
     });
 
     it('ranks prefix matches ahead of substring matches (typing よ)', () => {

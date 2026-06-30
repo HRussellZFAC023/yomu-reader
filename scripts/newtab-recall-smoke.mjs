@@ -55,6 +55,7 @@ const JPDB_CARD = card({
     reading: 'ふくしゅう',
     meanings: [{ glosses: ['review; revision'], partOfSpeech: ['vn'] }],
     partOfSpeech: ['vn'],
+    sentence: '今日は復習をします。',
     source: 'jpdb',
     reviewSource: 'jpdb-api',
 });
@@ -66,6 +67,7 @@ const JITEN_CARD = card({
     reading: 'べんごし',
     meanings: [{ glosses: ['lawyer'], partOfSpeech: ['n'] }],
     partOfSpeech: ['n'],
+    sentence: '弁護士に相談する。',
     source: 'jiten',
     reviewSource: 'jiten-api',
     jitenWordId: 2402,
@@ -79,6 +81,7 @@ const ANKI_CARD = card({
     reading: 'がくしゅうのうりょく',
     meanings: [{ glosses: ['learning ability'], partOfSpeech: ['n'] }],
     partOfSpeech: ['n'],
+    sentence: '学習能力を高める。',
     source: 'anki',
     reviewSource: 'anki',
     ankiCardId: ANKI_CARD_ID,
@@ -218,7 +221,8 @@ async function runRecallScenario(browser, baseUrl, scenario) {
         await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab-recall-mode[data-newtab-bound="true"]', { timeout: 15_000 });
         const input = page.locator('[data-newtab-recall-input]').first();
         await input.waitFor({ state: 'visible', timeout: 15_000 });
-        await expectText(page, '[data-newtab-prompt]', firstGloss(scenario.card));
+        await page.locator('.jpdb-reader-newtab-recall-gap').first().waitFor({ state: 'visible', timeout: 15_000 });
+        await expectText(page, '[data-newtab-prompt]', scenario.card.sentence.replace(scenario.card.spelling, '').slice(0, 3));
         assert(!(await isRevealed(page)), `${scenario.name} started revealed`);
 
         if (scenario.precheckEmpty) {
@@ -381,7 +385,7 @@ function settings(overrides = {}) {
         ankiDeck: 'Mining',
         ankiModel: 'Imported Japanese',
         newTabParsingEnabled: false,
-        newTabFrontSentenceEnabled: false,
+        newTabFrontSentenceEnabled: true,
         immersionKitEnabled: false,
         localDictionariesEnabled: false,
         studyTranslationEnabled: false,

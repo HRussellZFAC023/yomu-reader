@@ -50,11 +50,20 @@ describe('factory reset storage completeness', () => {
         expect(store.size).toBe(0);
     });
 
-    it('clears Study PWA caches and only unregisters Study service workers', async () => {
-        const caches = new Set(['yomu-newtab-v1', 'yomu-newtab-v2', 'foreign-cache']);
+    it('clears all Yomu PWA caches and unregisters Yomu service workers', async () => {
+        const caches = new Set([
+            'yomu-newtab-v1',
+            'yomu-newtab-v2',
+            'yomu-pdf-reader-v1.4.196',
+            'yomu-video-player-v1',
+            'yomu-docs-shell-v1',
+            'foreign-cache',
+        ]);
         const deleteCache = vi.fn(async (key: string) => caches.delete(key));
         const unregisterNewtab = vi.fn(async () => true);
         const unregisterDocs = vi.fn(async () => true);
+        const unregisterPdf = vi.fn(async () => true);
+        const unregisterForeign = vi.fn(async () => true);
         vi.stubGlobal('caches', {
             keys: vi.fn(async () => [...caches]),
             delete: deleteCache,
@@ -72,6 +81,16 @@ describe('factory reset storage completeness', () => {
                         active: { scriptURL: 'https://yomureader.com/sw.js' },
                         unregister: unregisterDocs,
                     },
+                    {
+                        scope: 'https://yomureader.com/pdf-reader/',
+                        active: { scriptURL: 'https://yomureader.com/pdf-reader/sw.js' },
+                        unregister: unregisterPdf,
+                    },
+                    {
+                        scope: 'https://example.com/',
+                        active: { scriptURL: 'https://example.com/sw.js' },
+                        unregister: unregisterForeign,
+                    },
                 ]),
             },
         });
@@ -80,11 +99,16 @@ describe('factory reset storage completeness', () => {
 
         expect(deleteCache).toHaveBeenCalledWith('yomu-newtab-v1');
         expect(deleteCache).toHaveBeenCalledWith('yomu-newtab-v2');
+        expect(deleteCache).toHaveBeenCalledWith('yomu-pdf-reader-v1.4.196');
+        expect(deleteCache).toHaveBeenCalledWith('yomu-video-player-v1');
+        expect(deleteCache).toHaveBeenCalledWith('yomu-docs-shell-v1');
         expect(deleteCache).not.toHaveBeenCalledWith('foreign-cache');
         expect(caches.has('foreign-cache')).toBe(true);
         expect(unregisterNewtab).toHaveBeenCalledOnce();
-        expect(unregisterDocs).not.toHaveBeenCalled();
-        expect(removed).toBeGreaterThanOrEqual(3);
+        expect(unregisterDocs).toHaveBeenCalledOnce();
+        expect(unregisterPdf).toHaveBeenCalledOnce();
+        expect(unregisterForeign).not.toHaveBeenCalled();
+        expect(removed).toBeGreaterThanOrEqual(8);
     });
 
     it('clears lookup pill selections so settings return to defaults after reset', async () => {

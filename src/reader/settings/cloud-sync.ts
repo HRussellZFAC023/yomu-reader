@@ -1,3 +1,4 @@
+import { exportManagedStoredValues } from '../app/storage';
 import type { ReaderSettings } from '../app/types';
 
 type ExtensionRuntimeApi = {
@@ -13,6 +14,7 @@ export interface CloudSettingsSyncSnapshot {
     formatVersion: 1;
     syncedAt: string;
     settings: ReaderSettings;
+    storage?: Record<string, unknown>;
 }
 
 export interface CloudSettingsSyncMetadata {
@@ -54,6 +56,7 @@ export async function uploadCloudSettingsToCloud(settings: ReaderSettings): Prom
         formatVersion: 1,
         syncedAt: new Date().toISOString(),
         settings,
+        storage: await exportManagedStoredValues(),
     };
     const response = await sendCloudSettingsSyncMessage({ command: 'upload', snapshot });
     return response.metadata ?? { syncedAt: snapshot.syncedAt };

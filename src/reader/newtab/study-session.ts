@@ -28,6 +28,7 @@ export interface NewTabStudySessionOptions {
     hasRecallCloze: boolean;
     stepOrder?: NewTabStudyChallengeStep[];
     disabledSteps?: NewTabStudyChallengeStep[];
+    activeStepKind?: NewTabStudyStepKind | null;
 }
 
 const KANJI_RE = /[\u3400-\u9fff々〆]/u;
@@ -63,13 +64,13 @@ function mergedStudyStepsForCard(card: JPDBCard, options: NewTabStudySessionOpti
     const steps = ordered
         .filter(kind => available.has(kind) && !disabled.has(kind))
         .map(kind => studyStep(kind, studyModeForStep(kind)));
-    if (!steps.some(step => step.kind === 'word')) steps.unshift(studyStep('word', 'word'));
     steps.push(studyStep('final-reveal', options.renderAsKanji ? 'kanji' : 'word', true));
     return dedupeStudySteps(steps);
 }
 
 function activeStudyStepKind(options: NewTabStudySessionOptions): NewTabStudyStepKind {
     if (options.revealAnswer && options.mode !== 'listen') return 'final-reveal';
+    if (options.activeStepKind) return options.activeStepKind;
     if (options.renderAsKanji) return 'kanji-doodle';
     if (options.mode === 'recall') return 'recall-cloze';
     if (options.mode === 'listen') return options.listenSubMode === 'shadow' ? 'speaking' : 'listen-pitch';

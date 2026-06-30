@@ -1,7 +1,7 @@
 import { escapeHtml } from '../dom/index';
 import { renderFrequencyPill } from './definition-render';
 import { formatUiText, uiText } from '../app/i18n';
-import { bestFrequencyEntries, formatLookupUrl, lookupPillStyle, pillStyle } from '../dictionaries/display';
+import { bestFrequencyEntries, formatLookupUrl, lookupPillStyle } from '../dictionaries/display';
 import { canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiLookupResult } from '../anki/index';
 import { ankiIcon, copyIcon, externalLinkIcon } from '../ui/icons';
 import { replaceOptionalElement } from '../app/dom-helpers';
@@ -265,10 +265,9 @@ function frequencyPillsByLookupId(options: WordPillRenderOptions): { pills: Map<
     // The merged rank is the whole-word frequency; on a single-kanji lookup that
     // is the parent word's rank, not the kanji's, so don't surface it there.
     if (options.overrideQuery && isSingleKanji(options.overrideQuery)) return { pills, mergedLiveRanks };
-    // When the toggle is on, fold each live rank into its sibling link pill — but
-    // only when that sibling link is actually enabled to carry it; otherwise (or
-    // when the toggle is off) keep the legacy standalone pill so the rank never
-    // vanishes. A local frequency badge for the same provider always wins.
+    // When the toggle is on, fold each live rank into its sibling link pill.
+    // Disabled lookup/frequency pills intentionally do not fall back to a
+    // standalone chip; the rank should live with the lookup pill or stay hidden.
     const mergeIntoLinkPill = options.settings.showLookupPillFrequency !== false;
     const enabledLinkIds = new Set(options.settings.dictionaryLookupLinks.filter(link => link.enabled).map(link => link.id));
     for (const link of options.settings.dictionaryLookupLinks) {
@@ -277,10 +276,7 @@ function frequencyPillsByLookupId(options: WordPillRenderOptions): { pills: Map<
         if (!provider || localProviders.has(provider)) continue;
         const rank = provider === 'jiten' ? liveJitenFrequencyRank(options) : liveJpdbFrequencyRank(options);
         if (!rank) continue;
-        // Built-in provider label so the standalone fallback never shows a stale
-        // saved "Jiten live"/"JPDB live" label.
         if (mergeIntoLinkPill && enabledLinkIds.has(provider)) mergedLiveRanks.set(provider, rank);
-        else pills.set(link.id, renderLiveFrequencyPill(provider, rank, provider === 'jiten' ? 'Jiten' : 'JPDB'));
     }
     return { pills, mergedLiveRanks };
 }
@@ -297,11 +293,6 @@ function localFrequencyLookupLabel(settings: ReaderSettings, dictionary: string)
 
 function localFrequencyLookupPillId(dictionary: string): string {
     return `frequency-local:${dictionary}`;
-}
-
-function renderLiveFrequencyPill(provider: 'jiten' | 'jpdb', rank: number, label: string): string {
-    const dictionary = provider === 'jiten' ? 'Jiten' : 'JPDB';
-    return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml(dictionary)}" data-frequency-source="live" style="${pillStyle(`frequency-live:${provider}`)}" title="${escapeHtml(`${label} live site frequency`)}">${escapeHtml(label)} #${escapeHtml(String(rank))}</span>`;
 }
 
 function liveFrequencyProvider(link: ReaderSettings['dictionaryLookupLinks'][number]): 'jiten' | 'jpdb' | null {

@@ -887,6 +887,7 @@
   }
   const MISSING = { missing: true };
   const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
+  const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
   const KNOWN_MANAGED_STORAGE_KEYS = [
     "jpdb-popup-reader-settings",
     "jpdb-reader-settings",
@@ -898,7 +899,7 @@
     "jpdb-reader-newtab-ui",
     "jpdb-reader-newtab-jpdb-stats-history",
     "jpdb-reader-newtab-disabled-anki-decks",
-    "yomu:srs-local:v1",
+    YOMU_LOCAL_SRS_STORAGE_KEY,
     "jpdb-reader-source-open-state",
     "jpdb-reader-settings-drawer-height-ratio",
     "jpdb-reader-sheet-height-ratio",
@@ -1020,8 +1021,9 @@
   async function importStoredValues(values) {
     let count = 0;
     for (const [key, value] of managedStoredValueEntries(values)) {
-      await gmStorageSet(key, value);
-      localStorageSet(key, value);
+      const storedValue = key === YOMU_LOCAL_SRS_STORAGE_KEY ? await mergeYomuLocalSrsDeckImport(value) : value;
+      await gmStorageSet(key, storedValue);
+      localStorageSet(key, storedValue);
       count++;
     }
     return count;
@@ -1031,6 +1033,67 @@
   }
   function isStorageImportRecord(values) {
     return Boolean(values && typeof values === "object" && !Array.isArray(values));
+  }
+  async function mergeYomuLocalSrsDeckImport(imported) {
+    const importedDeck = yomuLocalSrsDeckRecord(imported);
+    if (!importedDeck) return imported;
+    const existingDeck = yomuLocalSrsDeckRecord(await gmStorageGet(YOMU_LOCAL_SRS_STORAGE_KEY, null).catch(() => null));
+    if (!existingDeck) return importedDeck;
+    return {
+      version: 1,
+      cards: mergeYomuLocalSrsCards(existingDeck.cards, importedDeck.cards)
+    };
+  }
+  function yomuLocalSrsDeckRecord(value) {
+    if (!isPlainRecord(value) || value.version !== 1 || !isPlainRecord(value.cards)) return null;
+    const cards = {};
+    for (const [id, card] of Object.entries(value.cards)) {
+      if (isPlainRecord(card)) cards[id] = card;
+    }
+    return { version: 1, cards };
+  }
+  function mergeYomuLocalSrsCards(existingCards, importedCards) {
+    const cards = { ...existingCards };
+    for (const [id, importedCard] of Object.entries(importedCards)) {
+      const existingCard = cards[id];
+      cards[id] = existingCard ? mergeYomuLocalSrsCard(existingCard, importedCard) : importedCard;
+    }
+    return cards;
+  }
+  function mergeYomuLocalSrsCard(existingCard, importedCard) {
+    return {
+      ...importedCard,
+      ...existingCard,
+      meanings: uniquePrimitiveStrings([
+        ...stringArray(importedCard.meanings),
+        ...stringArray(existingCard.meanings)
+      ]),
+      sentence: existingCard.sentence || importedCard.sentence,
+      sourceUrl: existingCard.sourceUrl || importedCard.sourceUrl,
+      tags: uniquePrimitiveStrings([
+        ...stringArray(importedCard.tags),
+        ...stringArray(existingCard.tags)
+      ]),
+      createdAt: minFiniteNumber(importedCard.createdAt, existingCard.createdAt) ?? existingCard.createdAt ?? importedCard.createdAt,
+      updatedAt: maxFiniteNumber(importedCard.updatedAt, existingCard.updatedAt) ?? existingCard.updatedAt ?? importedCard.updatedAt
+    };
+  }
+  function stringArray(value) {
+    return Array.isArray(value) ? value.filter((item) => typeof item === "string" && item.trim().length > 0) : [];
+  }
+  function uniquePrimitiveStrings(values) {
+    return Array.from(new Set(values));
+  }
+  function minFiniteNumber(a, b) {
+    const values = [a, b].filter((value) => typeof value === "number" && Number.isFinite(value));
+    return values.length ? Math.min(...values) : void 0;
+  }
+  function maxFiniteNumber(a, b) {
+    const values = [a, b].filter((value) => typeof value === "number" && Number.isFinite(value));
+    return values.length ? Math.max(...values) : void 0;
+  }
+  function isPlainRecord(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
   async function storageKeys(prefixes) {
     const keys = /* @__PURE__ */ new Set();
@@ -3066,11 +3129,21 @@
   }
   function normalizeAudioSources(value, legacyUrl) {
     const sources = Array.isArray(value) ? value.map(normalizeAudioSource).filter((source) => source !== null) : [];
-    if (Array.isArray(value)) return migrateLegacyDefaultAudioSources(sources);
+    if (Array.isArray(value)) return sources.length ? ensureHostedAudioSourceFirst(migrateLegacyDefaultAudioSources(sources)) : sources;
     if (typeof legacyUrl === "string" && legacyUrl.trim()) {
-      return [{ type: "custom-json", url: legacyUrl.trim(), voice: "", enabled: true }];
+      return ensureHostedAudioSourceFirst([{ type: "custom-json", url: legacyUrl.trim(), voice: "", enabled: true }]);
     }
     return DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
+  }
+  function ensureHostedAudioSourceFirst(sources) {
+    const hosted = sources.find(isHostedAudioSource) ?? DEFAULT_AUDIO_SOURCES[0];
+    return [
+      { ...hosted },
+      ...sources.filter((source) => !isHostedAudioSource(source)).map((source) => ({ ...source }))
+    ];
+  }
+  function isHostedAudioSource(source) {
+    return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
   }
   function migrateLegacyDefaultAudioSources(sources) {
     const types = new Set(sources.map((source) => source.type));
@@ -4304,7 +4377,7 @@
       dictionarySourcesInitiallyExpanded: "Open sources by default",
       localDictionaryMaxResults: "Dictionary result limit",
       cloudSettingsSync: "Google Drive settings sync",
-      cloudSettingsSyncHelp: "Stores your Yomu settings in Google Drive app data. Dictionaries stay local.",
+      cloudSettingsSyncHelp: "Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.",
       importSettings: "Import settings JSON",
       exportSettings: "Export settings JSON",
       importDictionaries: "Import dictionaries",
@@ -7859,7 +7932,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       formatName: "yomu-google-drive-settings-sync",
       formatVersion: 1,
       syncedAt: (/* @__PURE__ */ new Date()).toISOString(),
-      settings
+      settings,
+      storage: await exportManagedStoredValues()
     };
     const serialized = JSON.stringify(snapshot);
     const existing = await findSettingsFile();
@@ -9563,7 +9637,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return `
                 <div class="jpdb-reader-settings-subsection" data-cloud-settings-sync>
                     <div class="jpdb-reader-local-title" data-cloud-settings-sync-title>Google Drive settings sync</div>
-                    <div class="jpdb-reader-help" data-help-key="cloudSettingsSyncHelp">Stores your Yomu settings in Google Drive app data. Dictionaries stay local.</div>
+                    <div class="jpdb-reader-help" data-help-key="cloudSettingsSyncHelp">Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.</div>
                     <div class="jpdb-reader-settings-actions jpdb-reader-settings-actions-single">
                         <button class="jpdb-reader-btn" type="button" data-action="sync-cloud-settings">${uploadLabel}</button>
                         <button class="jpdb-reader-btn" type="button" data-action="restore-cloud-settings">${restoreLabel}</button>
@@ -12937,6 +13011,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ...snapshot.settings,
         shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts }
       });
+      await importStoredValues(snapshot.storage);
       await saveSettings(this.settings);
       const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language);
       setStatus?.(message);

@@ -34,9 +34,12 @@ interface InstallLookupOutsideDismissOptions {
 }
 
 export function newTabLookupReviewTargetSelection(button: HTMLButtonElement): NewTabLookupReviewTargetSelection | undefined {
-    if (button.dataset.newtabReviewTarget === 'jpdb') return { kind: 'jpdb' };
-    if (button.dataset.newtabReviewTarget === 'jiten') return { kind: 'jiten' };
-    if (button.dataset.newtabReviewTarget !== 'anki') return undefined;
+    const target = button.dataset.newtabReviewTarget || button.dataset.reviewTarget || '';
+    if (target === 'jpdb') return { kind: 'jpdb' };
+    if (target === 'jiten') return { kind: 'jiten' };
+    if (target === 'bunpro') return { kind: 'bunpro' };
+    if (target === 'yomu-local') return { kind: 'yomu-local' };
+    if (target !== 'anki') return undefined;
     const ankiCardId = Number(button.dataset.ankiCardId);
     return Number.isFinite(ankiCardId) && ankiCardId > 0
         ? { kind: 'anki', ankiCardId }

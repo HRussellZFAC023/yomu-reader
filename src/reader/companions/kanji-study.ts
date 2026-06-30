@@ -11,6 +11,18 @@ import { renderKanjiOrigins } from '../popup/kanji-origin';
 import { renderKanjiPractice } from '../popup/kanji-practice';
 import { installKanjiPracticeDoodle } from '../kanji/practice-grader';
 import { RtkClient } from '../kanji/rtk';
+import {
+    detectGrammarHints,
+    listLocalGrammarRuleExamples,
+    listLocalGrammarRules,
+    preloadGrammarResources,
+    preloadJapaneseSentenceTranslation,
+    renderGrammarHints,
+    resetGrammarRuleDataCacheForTests,
+    setGrammarRuleKnown,
+    setKnownGrammarVisible,
+    translateJapaneseSentence,
+} from '../study/tools-impl';
 
 registerYomuCompanion('kanjiStudy', {
     KanjiOriginClient,
@@ -31,4 +43,14 @@ registerYomuCompanion('kanjiStudy', {
     buildKanjiOriginGraph,
     installUchisenCarousel,
     loadUchisenData,
+    resetGrammarRuleDataCacheForTests,
+    listLocalGrammarRuleExamples,
+    listLocalGrammarRules,
+    detectGrammarHints,
+    preloadGrammarResources,
+    preloadJapaneseSentenceTranslation,
+    setGrammarRuleKnown,
+    setKnownGrammarVisible,
+    translateJapaneseSentence,
+    renderGrammarHints,
 });

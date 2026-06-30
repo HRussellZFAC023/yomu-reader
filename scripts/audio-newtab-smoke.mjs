@@ -22,6 +22,7 @@ const NEWTAB_DIR = path.join(DOCS_PUBLIC_ROOT, 'newtab');
 const ARTIFACT_DIR = path.join(ARTIFACTS_ROOT, 'audio-newtab', 'latest');
 const VIDEO_TMP_DIR = path.join(ARTIFACT_DIR, 'raw-video');
 const DEFAULT_PROXY_ORIGIN = 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev';
+const YOMU_HOSTED_AUDIO_URL = 'https://audio.yomureader.com/?term={term}&reading={reading}';
 const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
 const SILENT_WAV_BYTES = Buffer.from('UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==', 'base64');
 const HOSTED_READING_CARD = {
@@ -138,15 +139,15 @@ function hostedStudyAnswerAudioScenario(origin) {
             await page.waitForSelector('[data-newtab-prompt]', { timeout: 15_000 });
             await page.locator('[data-newtab-action="reveal"]').click();
             await page.waitForSelector('[data-newtab-prompt] .jpdb-reader-newtab-term ruby', { timeout: 10_000 });
-            await page.waitForSelector('[data-newtab-study-tools] .jpdb-reader-pitch svg', { timeout: 10_000 });
             await page.waitForSelector('.jpdb-reader-newtab-term-row [data-action="study-word-audio"]:not([disabled])', { timeout: 10_000 });
             await page.locator('.jpdb-reader-newtab-term-row [data-action="study-word-audio"]').click();
             await waitForPlaybackSignalCount(page, 1, 'Hosted Study answer audio button produced no audio or speech signal');
         },
         assertResult: result => {
             assert(result.noUserscriptBridge, 'Hosted Study smoke unexpectedly had a userscript HTTP bridge installed', result);
-            assert(result.requests.some(request => targetUrl(request).startsWith('https://audio.test/nested-json')), 'Hosted Study audio did not request the nested custom JSON source', result);
-            assert(result.requests.some(request => targetUrl(request).includes('/clip-')), 'Hosted Study audio did not request a recorded clip', result);
+            assert(result.fetches.some(request => targetUrl(request).startsWith('https://audio.yomureader.com/?')), 'Hosted Study audio did not request the Yomu-hosted JSON source', result);
+            assert(result.fetches.some(request => targetUrl(request).startsWith('https://audio.yomureader.com/audio/')), 'Hosted Study audio did not request a hosted recorded clip', result);
+            assert(!result.requests.some(request => targetUrl(request).startsWith('https://audio.test/nested-json')), 'Hosted Study used the nested custom JSON source before the hosted source', result);
             assert(result.speech.length === 0, 'Hosted Study fallback mode used browser text-to-speech while recorded clips were playable', result);
             assert(result.audiblePlays.length >= 1, 'Hosted Study did not record an audio play attempt', result);
             assert(/読.*む/.test(result.evidence.promptText), 'Hosted Study prompt evidence did not include the headword', result);
@@ -170,6 +171,7 @@ function hostedStudyLocalAudioCorsScenario(origin) {
             showPitchAccent: true,
             audioViaBlob: false,
             audioSources: [
+                { type: 'custom-json', url: YOMU_HOSTED_AUDIO_URL, voice: '', enabled: false },
                 { type: 'custom-json', url: 'https://audio.test/local-json?term={term}&reading={reading}', voice: '', enabled: true },
             ],
         },
@@ -227,12 +229,12 @@ function hostedSearchAudioScenario(origin) {
         assertResult: result => {
             assert(result.noUserscriptBridge, 'Hosted newtab smoke unexpectedly had a userscript HTTP bridge installed', result);
             assert(result.evidence.searchText.includes('読む') || result.evidence.detailText.includes('読む'), 'Hosted newtab search did not keep a usable result after public lookup was unavailable', result);
-            assert(result.requests.some(request => targetUrl(request).startsWith('https://audio.test/nested-json')), 'Hosted newtab audio did not request the nested custom JSON source', result);
-            assert(result.requests.some(request => targetUrl(request).includes('/clip-a.mp3')), 'Hosted newtab audio did not request clip-a', result);
-            assert(result.requests.some(request => targetUrl(request).includes('/clip-b.mp3')), 'Hosted newtab audio did not request clip-b', result);
+            assert(result.fetches.some(request => targetUrl(request).startsWith('https://audio.yomureader.com/?')), 'Hosted newtab audio did not request the Yomu-hosted JSON source', result);
+            assert(result.fetches.some(request => targetUrl(request).startsWith('https://audio.yomureader.com/audio/')), 'Hosted newtab audio did not request hosted recorded clips', result);
+            assert(!result.requests.some(request => targetUrl(request).startsWith('https://audio.test/nested-json')), 'Hosted newtab used the nested custom JSON source before the hosted source', result);
             assert(result.speech.length === 0, 'Hosted newtab fallback mode used browser text-to-speech while recorded clips were playable', result);
             assert(result.audiblePlays.length >= 3, 'Hosted newtab did not record three audio play attempts', result);
-            const urls = result.audiblePlays.map(play => play.sourceUrl || play.src).filter(url => url.includes('/clip-'));
+            const urls = result.audiblePlays.map(play => play.sourceUrl || play.src).filter(url => url.startsWith('https://audio.yomureader.com/audio/'));
             assert(urls.length >= 3, 'Hosted newtab did not play source-backed clips for each click', result);
             assertNoImmediateRepeats(urls, 'Hosted newtab random replay repeated the previous recorded clip immediately', result);
         },

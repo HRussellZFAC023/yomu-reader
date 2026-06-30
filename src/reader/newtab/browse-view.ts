@@ -11,7 +11,7 @@ import { cardKey } from '../cards/utils';
 import type { CardState, JPDBCard, ReaderSettings } from '../app/types';
 
 export type BrowseFilter = 'all' | CardState;
-export type BrowseSourceFilter = 'jpdb' | 'jiten' | 'anki';
+export type BrowseSourceFilter = 'jpdb' | 'jiten' | 'bunpro' | 'yomu-local' | 'anki';
 export type BrowseSourceChip = 'all' | BrowseSourceFilter;
 export type BrowseSortKey = 'queue' | 'alpha' | 'frequency' | 'history';
 
@@ -42,6 +42,8 @@ export function browseStateCounts(cards: JPDBCard[]): Map<CardState, number> {
 
 export function browseSourceForCard(card: JPDBCard): BrowseSourceFilter {
     if (card.source === 'anki' || card.reviewSource === 'anki') return 'anki';
+    if (card.source === 'bunpro' || card.reviewSource === 'bunpro-api') return 'bunpro';
+    if (card.source === 'yomu-local' || card.reviewSource === 'yomu-local') return 'yomu-local';
     if (card.source === 'jiten' || card.reviewSource === 'jiten-api' || typeof card.jitenWordId === 'number') return 'jiten';
     return 'jpdb';
 }
@@ -80,6 +82,8 @@ export interface BrowseSourceFilterCopy {
     all: string;
     jpdb: string;
     jiten: string;
+    bunpro: string;
+    yomuLocal: string;
     anki: string;
 }
 
@@ -92,6 +96,8 @@ export function renderBrowseSourceChips(
     const labels: Record<BrowseSourceFilter, string> = {
         jpdb: copy.jpdb,
         jiten: copy.jiten,
+        bunpro: copy.bunpro,
+        'yomu-local': copy.yomuLocal,
         anki: copy.anki,
     };
     const chip = (filter: BrowseSourceChip, label: string, count: number, pressed: boolean): HTMLElement => el('button', {
@@ -102,7 +108,7 @@ export function renderBrowseSourceChips(
     }, `${label} ${count}`);
     return el('div', { class: 'jpdb-reader-newtab-browse-chips jpdb-reader-newtab-browse-source-chips', role: 'group' },
         chip('all', copy.all, cards.length, active.size === 0),
-        ...(['jiten', 'jpdb', 'anki'] as const)
+        ...(['jiten', 'jpdb', 'bunpro', 'yomu-local', 'anki'] as const)
             .filter(source => (counts.get(source) ?? 0) > 0)
             .map(source => chip(source, labels[source], counts.get(source) ?? 0, active.has(source))),
     );

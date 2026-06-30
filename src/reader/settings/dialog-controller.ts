@@ -1671,6 +1671,7 @@ export class SettingsDialogController {
             ...snapshot.settings,
             shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts },
         });
+        await importStoredValues(snapshot.storage);
         await saveSettings(this.settings);
         const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language);
         setStatus?.(message);

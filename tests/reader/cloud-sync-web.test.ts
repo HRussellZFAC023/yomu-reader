@@ -34,6 +34,7 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
         requestJson.mockReset();
         requestText.mockReset();
         stubGoogleToken();
+        localStorage.clear();
         const globals = globalThis as Record<string, unknown>;
         delete globals.GM;
         delete globals.GM_info;
@@ -41,6 +42,7 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
 
     afterEach(() => {
         vi.unstubAllGlobals();
+        localStorage.clear();
         window.name = '';
         history.replaceState(null, '', '/');
         delete (globalThis as Record<string, unknown>).__YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__;
@@ -54,6 +56,7 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
     });
 
     it('creates a new appData file on first upload, authorised with a GIS bearer token', async () => {
+        localStorage.setItem('yomu:srs-local:v1', JSON.stringify({ version: 1, cards: { local: { expression: '読む' } } }));
         requestJson.mockImplementation(async (url: string) => {
             if (url.includes('uploadType=multipart')) return { id: 'file-1', modifiedTime: '2026-06-25T00:00:00Z' };
             if (url.includes('spaces=appDataFolder')) return { files: [] };
@@ -69,6 +72,7 @@ describe('cloud-sync-web (serverless Google Drive settings sync)', () => {
         expect(create?.[1]?.allowDirectCrossOrigin).toBe(true);
         expect(String(create?.[1]?.data)).toContain('appDataFolder');
         expect(String(create?.[1]?.data)).toContain('"theme":"dark"');
+        expect(String(create?.[1]?.data)).toContain('"yomu:srs-local:v1"');
     });
 
     it('navigates the current tab to the hosted OAuth broker from userscript contexts', async () => {

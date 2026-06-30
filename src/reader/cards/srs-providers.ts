@@ -346,6 +346,7 @@ function bunproMiningRequestFromCard(card: JPDBCard, sentence: string | undefine
         meaning: card.meanings.flatMap(meaning => meaning.glosses).join('; '),
         sentence,
         sourceTitle: context?.sourceTitle,
+        sourceUrl: context?.sourceUrl,
         kind: bunproReviewableKind(card.bunproReviewableType),
     };
 }

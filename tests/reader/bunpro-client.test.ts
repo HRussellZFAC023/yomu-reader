@@ -92,4 +92,20 @@ describe('BunproClient', () => {
         const client = new BunproClient({ getFrontendToken: () => '' });
         await expect(client.getDueCount()).rejects.toBeInstanceOf(BunproApiError);
     });
+
+    it('normalizes frontend token expiry into a typed 401 error', async () => {
+        const request = vi.fn(async () => {
+            throw Object.assign(new Error('Bunpro API request failed (401).'), { status: 401 });
+        });
+        const client = new BunproClient({
+            getFrontendToken: () => 'expired-token',
+            requestImpl: request,
+        });
+
+        await expect(client.getUser()).rejects.toMatchObject({
+            name: 'BunproApiError',
+            status: 401,
+            message: 'Bunpro token expired or was denied.',
+        });
+    });
 });

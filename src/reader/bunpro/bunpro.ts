@@ -5,7 +5,7 @@ export const BUNPRO_FRONTEND_API_BASE_URL = 'https://api.bunpro.jp/api/frontend'
 export const BUNPRO_LEGACY_API_BASE_URL = 'https://bunpro.jp/api/user';
 
 const REQUEST_TIMEOUT_MS = 30_000;
-const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired/i;
+const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
 
 type BunproRequest = (url: string, options?: ReaderHttpOptions) => Promise<unknown>;
 
@@ -231,9 +231,16 @@ interface BunproFrontendRequestOptions {
 
 function normalizeBunproError(error: unknown): Error {
     if (error instanceof BunproApiError) return error;
-    if (!(error instanceof Error)) return new BunproApiError('Bunpro request failed.');
-    if (TOKEN_EXPIRED_CODE_RE.test(error.message)) return new BunproApiError('Bunpro token expired or was denied.', 401);
+    const status = errorStatus(error);
+    if (!(error instanceof Error)) return new BunproApiError('Bunpro request failed.', status);
+    if (status === 401 || TOKEN_EXPIRED_CODE_RE.test(error.message)) return new BunproApiError('Bunpro token expired or was denied.', 401);
     return error;
+}
+
+function errorStatus(error: unknown): number | undefined {
+    if (!error || typeof error !== 'object') return undefined;
+    const status = (error as { status?: unknown; statusCode?: unknown }).status ?? (error as { statusCode?: unknown }).statusCode;
+    return typeof status === 'number' && Number.isFinite(status) ? status : undefined;
 }
 
 function trimBaseUrl(value: string): string {

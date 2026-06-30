@@ -125,6 +125,10 @@ function assertKanjiStudySplitBoundary() {
     ['installKanjiPracticeDoodle', 'function installKanjiPracticeDoodle('],
     ['installKanjiDoodle', 'function installKanjiDoodle('],
     ['assessKanjiStrokes', 'function assessKanjiStrokes('],
+    ['grammar pattern table', 'const GRAMMAR_PATTERNS'],
+    ['grammar pattern parser', 'function grammarPatternFromRow'],
+    ['grammar false-positive filters', 'const BARE_MITAI_DESIRE_FALSE_POSITIVE_RE'],
+    ['grammar hint example renderer', 'function renderGrammarHintExamples'],
   ];
 
   for (const [label, signature] of extractedSignatures) {

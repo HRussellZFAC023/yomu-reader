@@ -266,4 +266,79 @@ describe('managed storage backup', () => {
         expect(localStorage.getItem('yomu:factory-reset-signal')).toBeNull();
         expect(localStorage.getItem('unrelated-key')).toBeNull();
     });
+
+    it('merges imported local Yomu SRS decks instead of clobbering current progress', async () => {
+        localStorage.setItem('yomu:srs-local:v1', JSON.stringify({
+            version: 1,
+            cards: {
+                '読む\u0000よむ': {
+                    id: '読む\u0000よむ',
+                    expression: '読む',
+                    reading: 'よむ',
+                    meanings: ['read'],
+                    tags: ['local'],
+                    dueAt: 2000,
+                    lastReviewAt: 1500,
+                    createdAt: 1000,
+                    updatedAt: 2000,
+                    reviews: 3,
+                    lapses: 0,
+                    intervalDays: 7,
+                    ease: 2.6,
+                },
+            },
+        }));
+
+        const count = await importStoredValues({
+            'yomu:srs-local:v1': {
+                version: 1,
+                cards: {
+                    '読む\u0000よむ': {
+                        id: '読む\u0000よむ',
+                        expression: '読む',
+                        reading: 'よむ',
+                        meanings: ['to read'],
+                        tags: ['backup'],
+                        dueAt: 500,
+                        lastReviewAt: null,
+                        createdAt: 500,
+                        updatedAt: 1200,
+                        reviews: 0,
+                        lapses: 0,
+                        intervalDays: 0,
+                        ease: 2.5,
+                    },
+                    '図鑑\u0000ずかん': {
+                        id: '図鑑\u0000ずかん',
+                        expression: '図鑑',
+                        reading: 'ずかん',
+                        meanings: ['illustrated reference book'],
+                        tags: ['backup'],
+                        dueAt: 500,
+                        lastReviewAt: null,
+                        createdAt: 500,
+                        updatedAt: 500,
+                        reviews: 0,
+                        lapses: 0,
+                        intervalDays: 0,
+                        ease: 2.5,
+                    },
+                },
+            },
+        });
+
+        const deck = JSON.parse(localStorage.getItem('yomu:srs-local:v1') ?? 'null');
+
+        expect(count).toBe(1);
+        expect(Object.keys(deck.cards).sort()).toEqual(['図鑑\u0000ずかん', '読む\u0000よむ']);
+        expect(deck.cards['読む\u0000よむ']).toMatchObject({
+            dueAt: 2000,
+            reviews: 3,
+            intervalDays: 7,
+            meanings: ['to read', 'read'],
+            tags: ['backup', 'local'],
+            createdAt: 500,
+            updatedAt: 2000,
+        });
+    });
 });

@@ -1419,6 +1419,7 @@ function noop$1() {
 const MISSING = { missing: true };
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
+const YOMU_LOCAL_SRS_STORAGE_KEY$1 = "yomu:srs-local:v1";
 const KNOWN_MANAGED_STORAGE_KEYS = [
   "jpdb-popup-reader-settings",
   "jpdb-reader-settings",
@@ -1430,7 +1431,7 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
   "jpdb-reader-newtab-ui",
   "jpdb-reader-newtab-jpdb-stats-history",
   "jpdb-reader-newtab-disabled-anki-decks",
-  "yomu:srs-local:v1",
+  YOMU_LOCAL_SRS_STORAGE_KEY$1,
   "jpdb-reader-source-open-state",
   "jpdb-reader-settings-drawer-height-ratio",
   "jpdb-reader-sheet-height-ratio",
@@ -1449,7 +1450,10 @@ const MANAGED_INDEXED_DB_NAMES = [
   "yomu-anki-status-index"
 ];
 const MANAGED_CACHE_NAME_PREFIXES = [
-  "yomu-newtab-"
+  "yomu-newtab-",
+  "yomu-pdf-reader-",
+  "yomu-video-player-",
+  "yomu-docs-shell-"
 ];
 async function gmStorageGet(key, fallback) {
   const getValue = asyncGmGetValue();
@@ -1761,10 +1765,20 @@ function isManagedServiceWorkerRegistration(registration) {
   registration.active?.scriptURL,
   registration.installing?.scriptURL,
   registration.waiting?.scriptURL
-  ].some(hasManagedNewTabServiceWorkerPath);
+  ].some(hasManagedYomuServiceWorkerPath);
 }
-function hasManagedNewTabServiceWorkerPath(value) {
-  return typeof value === "string" && value.includes("/newtab/");
+function hasManagedYomuServiceWorkerPath(value) {
+  if (typeof value !== "string") return false;
+  try {
+  const url = new URL(value, location.href);
+  if (!isManagedServiceWorkerOrigin(url)) return false;
+  return url.pathname === "/sw.js" || url.pathname.endsWith("/sw.js") || url.pathname.includes("/newtab/") || url.pathname.includes("/pdf-reader/") || url.pathname.includes("/video-player/");
+  } catch {
+  return value.includes("/newtab/") || value.includes("/pdf-reader/") || value.includes("/video-player/") || value.endsWith("/sw.js");
+  }
+}
+function isManagedServiceWorkerOrigin(url) {
+  return url.origin === DOCS_ORIGIN || url.hostname === "hrussellzfac023.github.io" || /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname);
 }
 function deleteIndexedDbDatabase(name) {
   if (typeof indexedDB === "undefined") return Promise.resolve();
@@ -2572,7 +2586,7 @@ const SETTINGS_STORAGE_KEYS = [
   SETTINGS_STORAGE_KEY,
   ...LEGACY_SETTINGS_STORAGE_KEYS
 ];
-const log$m = Logger.scope("Settings");
+const log$l = Logger.scope("Settings");
 let settingsResetInProgress = false;
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
 const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
@@ -3732,7 +3746,7 @@ function applyUrlBootstrapSettings(settings, search = location.search) {
   const params = new URLSearchParams(search);
   const bootstrap = urlBootstrapSettings(params);
   if (!hasUrlBootstrapSettings(bootstrap)) return settings;
-  log$m.info("Applying URL bootstrap settings", {
+  log$l.info("Applying URL bootstrap settings", {
   hasApiKey: Boolean(bootstrap.apiKey),
   hasAudio: Boolean(bootstrap.audio),
   hasOcr: Boolean(bootstrap.ocr)
@@ -3804,7 +3818,7 @@ async function loadSettings() {
   if (recoveredLegacySettings) await persistSettings(settings);
   return settings;
   } catch (error) {
-  log$m.warn("Settings load failed", { error });
+  log$l.warn("Settings load failed", { error });
   return mergeSettings(null);
   }
 }
@@ -3830,13 +3844,13 @@ function subscribeToSettingsStorageChanges(onSettings) {
 }
 async function saveSettings(settings) {
   if (settingsResetInProgress) {
-  log$m.warn("Skipped save during reset");
+  log$l.warn("Skipped save during reset");
   return;
   }
   try {
   await persistSettings(settings);
   } catch (error) {
-  log$m.warn("Settings save failed", { error });
+  log$l.warn("Settings save failed", { error });
   throw error;
   }
 }
@@ -3890,11 +3904,21 @@ function audioSourceEnabled(value) {
 }
 function normalizeAudioSources(value, legacyUrl) {
   const sources = Array.isArray(value) ? value.map(normalizeAudioSource).filter((source) => source !== null) : [];
-  if (Array.isArray(value)) return migrateLegacyDefaultAudioSources(sources);
+  if (Array.isArray(value)) return sources.length ? ensureHostedAudioSourceFirst(migrateLegacyDefaultAudioSources(sources)) : sources;
   if (typeof legacyUrl === "string" && legacyUrl.trim()) {
-  return [{ type: "custom-json", url: legacyUrl.trim(), voice: "", enabled: true }];
+  return ensureHostedAudioSourceFirst([{ type: "custom-json", url: legacyUrl.trim(), voice: "", enabled: true }]);
   }
   return DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
+}
+function ensureHostedAudioSourceFirst(sources) {
+  const hosted = sources.find(isHostedAudioSource) ?? DEFAULT_AUDIO_SOURCES[0];
+  return [
+  { ...hosted },
+  ...sources.filter((source) => !isHostedAudioSource(source)).map((source) => ({ ...source }))
+  ];
+}
+function isHostedAudioSource(source) {
+  return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
 }
 function migrateLegacyDefaultAudioSources(sources) {
   const types = new Set(sources.map((source) => source.type));
@@ -7745,7 +7769,7 @@ async function requestBlob$2(url, options = {}) {
   if (isBlobLike(value)) return new Blob([await value.arrayBuffer()], { type: value.type });
   throw new Error(options.blobFailureMessage ?? `${options.failureLabel ?? "Request"} did not return a blob.`);
 }
-async function requestJson$2(url, options = {}) {
+async function requestJson$1(url, options = {}) {
   const value = await requestHttp(url, { ...options, responseType: "json" });
   return value;
 }
@@ -8293,7 +8317,7 @@ const COPY = {
   dictionarySourcesInitiallyExpanded: "Open sources by default",
   localDictionaryMaxResults: "Dictionary result limit",
   cloudSettingsSync: "Google Drive settings sync",
-  cloudSettingsSyncHelp: "Stores your Yomu settings in Google Drive app data. Dictionaries stay local.",
+  cloudSettingsSyncHelp: "Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.",
   importSettings: "Import settings JSON",
   exportSettings: "Export settings JSON",
   importDictionaries: "Import dictionaries",
@@ -10142,8 +10166,6 @@ recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `);
-const JA_GRAMMAR_RULE_COPY_URL = `${DOCS_BASE_URL}data/ja-grammar-rule-copy.json`;
-let jaGrammarRuleCopyPromise;
 function resolveUiLanguage(language) {
   if (language === "ja" || language === "en") return language;
   return browserPrefersJapanese() ? "ja" : "en";
@@ -10157,11 +10179,6 @@ function browserPrefersJapanese() {
 }
 function isJapaneseLocale(value) {
   return typeof value === "string" && value.toLowerCase().startsWith("ja");
-}
-async function grammarRuleText(language, ruleId) {
-  if (resolveUiLanguage(language) !== "ja") return void 0;
-  const copy = await loadJaGrammarRuleCopy();
-  return copy[ruleId];
 }
 function uiText(language, key) {
   return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? "未翻訳" : COPY.en[key];
@@ -10178,43 +10195,6 @@ function formatUiText(language, key, values) {
 }
 function uiList(language, parts) {
   return new Intl.ListFormat(resolveUiLanguage(language), { style: "short", type: "conjunction" }).format(parts);
-}
-async function loadJaGrammarRuleCopy() {
-  jaGrammarRuleCopyPromise ??= requestJson$2(JA_GRAMMAR_RULE_COPY_URL, {
-  failureLabel: "Japanese grammar copy request",
-  timeoutMs: 15e3,
-  allowDirectCrossOrigin: true,
-  credentials: "omit",
-  anonymous: true
-  }).then(normalizeGrammarRuleCopy).catch(() => {
-  jaGrammarRuleCopyPromise = void 0;
-  return {};
-  });
-  return jaGrammarRuleCopyPromise;
-}
-function normalizeGrammarRuleCopy(value) {
-  if (!isGrammarRuleCopyRecord(value)) return {};
-  const copy = {};
-  for (const [ruleId, item] of Object.entries(value)) {
-  const ruleCopy = normalizeGrammarRuleCopyItem(item);
-  if (!ruleCopy) continue;
-  copy[ruleId] = ruleCopy;
-  }
-  return copy;
-}
-function normalizeGrammarRuleCopyItem(value) {
-  if (!isGrammarRuleCopyRecord(value)) return null;
-  const kind = grammarRuleCopyText(value.kind);
-  const short = grammarRuleCopyText(value.short);
-  const detail = grammarRuleCopyText(value.detail);
-  if (kind === void 0 || short === void 0 || detail === void 0) return null;
-  return { kind, short, detail };
-}
-function grammarRuleCopyText(value) {
-  return typeof value === "string" ? value : void 0;
-}
-function isGrammarRuleCopyRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 class ShuffledAudioDeck {
   constructor(random = Math.random) {
@@ -10286,10 +10266,15 @@ function getOrderedAudioSources(settings) {
   const sources = settings.audioSources.filter((source) => source.enabled);
   if (!settings.audioEnableDefaultSources) return sources;
   const configuredTypes = new Set(settings.audioSources.map((source) => source.type));
+  const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? REQUIRED_JA_AUDIO_SOURCES[0];
   return [
-  ...sources,
-  ...REQUIRED_JA_AUDIO_SOURCES.filter((source) => !configuredTypes.has(source.type)).map((source) => ({ ...source }))
+  ...hosted.enabled ? [{ ...hosted }] : [],
+  ...sources.filter((source) => !isYomuHostedAudioSource(source)),
+  ...REQUIRED_JA_AUDIO_SOURCES.filter((source) => !isYomuHostedAudioSource(source) && !configuredTypes.has(source.type)).map((source) => ({ ...source }))
   ];
+}
+function isYomuHostedAudioSource(source) {
+  return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
 }
 function preloadableAudioSources(sources, settings) {
   return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTextToSpeechFallbackSource(source));
@@ -10699,7 +10684,7 @@ const JPDB_TTS_VOICE_PREFIXES = {
   m2: ["m2"]
 };
 const JISHO_TEXT_PROXY_BASE_URL = "https://r.jina.ai/http://jisho.org/search";
-const JAPANESE_TEXT_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+const JAPANESE_TEXT_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const AUDIO_QUERY_PLACEHOLDER_RE = /\{(?:term|reading)\}/;
 const AUDIO_PRECONNECT_RELS = ["preconnect", "dns-prefetch"];
 const preconnectedAudioOrigins = new Set();
@@ -11011,7 +10996,7 @@ function isJpdbSearchUrl(value) {
 }
 function isJpdbAliasLookup(card, sourceUrl) {
   const query = jpdbSearchQuery(sourceUrl);
-  if (!query || JAPANESE_TEXT_RE$2.test(query)) return false;
+  if (!query || JAPANESE_TEXT_RE$1.test(query)) return false;
   const normalizedQuery = cleanJpdbIdentityText(query);
   return [card.spelling, card.reading].some((value) => cleanJpdbIdentityText(value) === normalizedQuery);
 }
@@ -11633,7 +11618,7 @@ const SOFT_CHIME_NOTES = [
   { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
 ];
 const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-const log$l = Logger.scope("Audio");
+const log$k = Logger.scope("Audio");
 class AudioPlaybackAttemptError extends Error {
   constructor(error) {
   super(error instanceof Error ? error.message : String(error));
@@ -11671,7 +11656,7 @@ class AudioPlayer {
   const reservedAudio = this.takeGestureAudioElement(request) ?? this.reserveGestureAudioElement(request);
   this.stopCurrent(reservedAudio);
   if (!request.sources.length) return await this.playNoAudioSources(card, request);
-  const done = log$l.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+  const done = log$k.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
   const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, request.userGesture, reservedAudio);
   done();
   return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, request.userGesture, result);
@@ -11726,14 +11711,14 @@ class AudioPlayer {
   if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
   }
   async playNoAudioSources(card, request) {
-  log$l.warn("No audio sources configured", { term: card.spelling });
+  log$k.warn("No audio sources configured", { term: card.spelling });
   return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent, request.userGesture);
   }
   async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result) {
   if (result.state === "played") return true;
   if (result.state === "playback-error") return false;
   if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-  log$l.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+  log$k.warn("No playable audio found", { term: card.spelling, errors: result.errors });
   return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture);
   }
   async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio) {
@@ -11899,7 +11884,7 @@ class AudioPlayer {
     void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, userGesture).catch((error) => {
       const audioId = audioIds[index];
       if (audioId) this.markJpdbAudioUnavailable(audioId);
-      log$l.warn("JPDB grouped audio segment failed", { audioId }, error);
+      log$k.warn("JPDB grouped audio segment failed", { audioId }, error);
     });
   }, { once: true });
   }
@@ -11974,7 +11959,7 @@ class AudioPlayer {
     const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate, sourceType, reservedAudio).catch(() => void 0);
     if (fallbackAudio) {
       audio = fallbackAudio;
-      log$l.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
+      log$k.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
     } else {
       errors.push(audioErrorMessage(error));
       if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
@@ -13001,7 +12986,7 @@ function isDisabledControl(control) {
   if (control.closest('[aria-disabled="true"]')) return true;
   return control.matches(":disabled, fieldset[disabled] *");
 }
-const log$k = Logger.scope("CardStateSignal");
+const log$j = Logger.scope("CardStateSignal");
 const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
 const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
 const SEEN_SIGNAL_LIMIT = 32;
@@ -13039,7 +13024,7 @@ function publishCardStateSignal(card) {
   try {
   gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
   } catch (error) {
-  log$k.debug("GM card-state publish failed", error);
+  log$j.debug("GM card-state publish failed", error);
   }
   publishBroadcastCardStateSignal(signal);
 }
@@ -13050,7 +13035,7 @@ function publishBroadcastCardStateSignal(signal) {
   channel.postMessage(signal);
   channel.close();
   } catch (error) {
-  log$k.debug("Broadcast card-state publish failed", error);
+  log$j.debug("Broadcast card-state publish failed", error);
   }
 }
 function subscribeToCardStateSignals(onCard) {
@@ -13074,7 +13059,7 @@ function subscribeToCardStateSignals(onCard) {
       if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
     });
   } catch (error) {
-    log$k.debug("GM card-state listener failed", error);
+    log$j.debug("GM card-state listener failed", error);
   }
   }
   if (typeof BroadcastChannel === "function") {
@@ -13083,7 +13068,7 @@ function subscribeToCardStateSignals(onCard) {
     channel.onmessage = (event) => handle(event.data);
     cleanups.push(() => channel.close());
   } catch (error) {
-    log$k.debug("Broadcast card-state listener failed", error);
+    log$j.debug("Broadcast card-state listener failed", error);
   }
   }
   return () => cleanups.forEach((cleanup) => cleanup());
@@ -13793,12 +13778,26 @@ function storeHeightRatio(storageKey, height, viewportHeight) {
   const ratio = Math.max(0, Math.min(1, height / viewportHeight));
   gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
 }
-function pruneOldestCacheEntries(cache2, limit) {
-  while (cache2.size > limit) {
-  const oldest = cache2.keys().next();
-  if (oldest.done) break;
-  cache2.delete(oldest.value);
-  }
+function detectGrammarHints(sentence) {
+  return yomuKanjiStudyCompanion()?.detectGrammarHints?.(sentence) ?? [];
+}
+function preloadGrammarResources(sentence, language = "en") {
+  return yomuKanjiStudyCompanion()?.preloadGrammarResources?.(sentence, language) ?? [];
+}
+function preloadJapaneseSentenceTranslation(sentence, language = "en") {
+  yomuKanjiStudyCompanion()?.preloadJapaneseSentenceTranslation?.(sentence, language);
+}
+function setGrammarRuleKnown(ruleId, known) {
+  return yomuKanjiStudyCompanion()?.setGrammarRuleKnown?.(ruleId, known) ?? { knownRuleIds: [], showKnown: false };
+}
+function setKnownGrammarVisible(showKnown) {
+  return yomuKanjiStudyCompanion()?.setKnownGrammarVisible?.(showKnown) ?? { knownRuleIds: [], showKnown };
+}
+async function translateJapaneseSentence(sentence, language = "en") {
+  return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(sentence));
+}
+async function renderGrammarHints(hints, sentence, preferences, language = "en", options = {}) {
+  return await (yomuKanjiStudyCompanion()?.renderGrammarHints?.(hints, sentence, preferences, language, options) ?? Promise.resolve(""));
 }
 function externalLinkIcon() {
   return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -13841,14 +13840,6 @@ function renderStudyMeaningBlock(text2, language, resultAttrs = "") {
     <div class="jpdb-reader-study-label">${escapeHtml$1(uiText(language, "meaning"))}</div>
     <div class="jpdb-reader-study-translation"${studyAttrs(resultAttrs)}>${escapeHtml$1(text2)}</div>`);
 }
-function renderStudyEmpty(text2) {
-  return `<div class="jpdb-reader-study-empty">${escapeHtml$1(text2)}</div>`;
-}
-function renderStudyList(items, attrs = "") {
-  return `<ol class="jpdb-reader-study-list"${studyAttrs(attrs)}>
-    ${items.join("")}
-    </ol>`;
-}
 function renderStudySentenceAudioButton(language, options) {
   const readSentence = uiText(language, options.audioEnabled ? "readSentenceAloud" : "audioPlaybackDisabled");
   const sentenceAttr = options.sentence ? ` data-study-sentence="${escapeHtml$1(options.sentence)}"` : "";
@@ -13860,856 +13851,6 @@ function studyBlockClassName(className) {
 function studyAttrs(attrs) {
   const trimmed = attrs.trim();
   return trimmed ? ` ${trimmed}` : "";
-}
-const GRAMMAR_PATTERN_DATA = String.raw`
-potential-koto-ga-dekiru	N4	ことができる	{F}ことができ(?:る|ます|ない|ません|た|ました|なかった|ませんでした)?	5	h	@g/koto-ga-dekiru/
-potential-dekiru	N4	できる	{P}でき(?:る|ます|た|ました|ない|ません|なかった|ませんでした)	8	h
-obligation-nakereba-naranai	N4	なければならない	{F}(?:なければならない|なければなりません|なくてはならない|なくてはなりません|なくてはいけない|なくてはいけません|なければいけない|なければいけません|なきゃ(?:いけない|だめ)?|なくちゃ(?:いけない|だめ)?|ないといけない|ねばならない)	4	h	@g/nakereba-naranai/
-permission-not-required-nakutemo-ii	N5	なくてもいい	{F}なくても(?:いい|よい|大丈夫)(?:です)?	4	h
-prohibition-tewa-ikenai	N4	てはいけない	{F}(?:(?:[てで]は|ちゃ|じゃ)いけ(?:ない|ません|なかった|ませんでした)|(?:[てで]は|ちゃ|じゃ)なら(?:ない|ません)|(?:[てで]は|ちゃ|じゃ)だめ(?:だ|です)?)	5	h	@g/tewa-ikenai/
-permission-temo-ii	N5	てもいい	{F}[てで]も(?:いい|よい|よかった|よくない|よくありません|大丈夫(?:です)?|かまわない|かまいません|構わない|構いません)(?:です)?	5	h	@g/temoii/
-request-te-kudasai	N5	てください	{F}[てで]ください(?:ませんか)?	6	h
-polite-request-te-itadakemasen-ka	N4	ていただけませんか	{F}[てで](?:いただけませんか|くださいませんか)	6	h
-request-naide-kudasai	N5	ないでください	{F}ないでください	5	h
-advice-hou-ga-ii	N4	方がいい	{F}ほうが(?:いい|よい)(?:です)?	6	h
-command-nasai	N4	なさい	{F}なさい	6	h
-experience-ta-koto-ga-aru	N4	たことがある	{F}たことが(?:あ(?:る|ります|った|りました|りません|りませんでした)|ない|なかった|ありません|ありませんでした)	6	h	@g/ta-koto-ga-aru/
-completion-te-shimau	N4	てしまう	(?:{F}[てで]しま(?:う|います|った|いました|わない|いません|わなかった|いませんでした)|{F}(?:ちゃう|ちゃいます|ちゃった|ちゃいました|ちゃわない|ちゃいません|ちゃわなかった|ちゃいませんでした|じゃう|じゃいます|じゃった|じゃいました|じゃわない|じゃいません|じゃわなかった|じゃいませんでした))	6	h	@g/te-shimau/
-attempt-te-miru	N4	てみる	{F}[てで]み(?:る|ます|た|ました|たい|ない|ません|なかった|ませんでした)	6	h	@g/te-miru/
-preparation-te-oku	N4	ておく	(?:{F}[てで]お(?:く|きます|いた|きました|かない|きません|かなかった|きませんでした)|{F}(?:とく|ときます|といた|ときました|とかない|ときません|とかなかった|ときませんでした|どく|どきます|どいた|どきました|どかない|どきません|どかなかった|どきませんでした))	6	h	@g/teoku/
-desire-other-te-hoshii	N4	てほしい	{F}[てで]ほし(?:い|いです|かった|かったです|くない|くありません|くなかった|くありませんでした)	7	h
-benefactive-te-kureru-morau	N4	てくれる / てもらう	{F}[てで](?:くれ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|くださ(?:る|います|った|いました|らない|いません|らなかった|いませんでした)|あげ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|や(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)|もら(?:う|います|った|いました|わない|いません|わなかった|いませんでした|え(?:る|ます|た|ました|ない|ません|なかった|ませんでした))|いただ(?:く|きます|いた|きました|かない|きません|かなかった|きませんでした|け(?:る|ます|た|ました|ない|ません|なかった|ませんでした)))	8	m	@g/te-kureru/
-change-you-ni-naru	N4	ようになる	{F}ようにな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています|っていない|っていません)	8	h	@g/you-ni-naru/
-habit-you-ni-suru	N4	ようにする	{F}ように(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした))	8	h	@g/you-ni-suru/
-verb-suru	N5	する	(?:{P}を)?{P}(?:す(?:る|れば|るな|るの|ること|るため|る前|る後)|し(?:ます|ました|ません|ませんでした|た|て|ない|なかった|なければ|よう|ろ)|され(?:る|ます|た|ました)|させ(?:る|ます|た|ました)|でき(?:る|ます|た|ました|ない|ません))	1d	h	@g/suru/
-choice-ni-suru	N4	にする	{P}に(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	a	h
-change-ku-suru	N4	くする	{P}く(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	a	h
-change-ku-naru-ni-naru	N5	くなる / になる	(?:{P}くな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)|{P}(?<!よう)にな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)|{P}とな(?:る|ります|った|りました))	a	h
-copula-desu-da	N5	です / だ	(?:です|でした|だ|だった)(?=$|[、。！？!?よねな])	17	h	@g/desu/
-negative-copula-dewa-nai	N5	ではない / じゃない	(?:では|じゃ)(?:ない|ありません|なかった|ありませんでした)	c	h
-formal-copula-de-aru	N3	である	であ(?:る|ります|った|りました)	k	h
-voice-causative-passive	N3	させられる	{F}(?:させられ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]せられ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]され(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	8	m	@g/verb-causative-form-saseru/
-voice-causative	N4	させる	{F}(?:させ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]せ(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	9	m	@g/verb-causative-form-saseru/
-voice-passive-potential	N4	れる / られる	{F}(?:られ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまわ]れ(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	9	m	@g/verb-passive-form-rareru/
-evidence-rashii-mitai	N4	らしい / みたい	(?:{F}らし(?:い|かった|くない|く)|{F}みたい(?:だ|です|でした|じゃない|ではない|に|な)?(?=$|[、。！？!?ねよ]))	9	m	@g/rashii/
-modality-kamoshirenai	N4	かもしれない	(?:かもしれない|かもしれません|かも)	9	h	@g/kamoshirenai/
-modality-deshou-darou	N5	でしょう / だろう	(?:でしょう|でしょうか|だろう|だろうか)	a	h	@g/deshou/
-quotation-to-omou	N4	と思う	{F}と思(?:う|います|った|いました|っている|っています|わない|いません|わなかった|いませんでした)	a	h	@g/to-omou/
-attempt-you-to-suru	N3	ようとする	{F}ようと(?:す(?:る|ます|た|ました|ている|ています)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	b	m	@g/verb-volitional-form-you/
-plan-tsumori-yotei	N4	つもり / 予定	{F}(?:つもり|予定)(?:だ|です|だった|でした)?	c	m	@g/tsumori/
-expectation-hazu	N4	はず	{F}はず(?:だ|です|だった|でした|がない|はない)?	c	h	@g/hazu/
-reasoning-wake	N3	わけ	{F}わけ(?:ではない|じゃない|がない|にはいかない|だ|です)?	o	m	@g/wake/
-reasoning-wake-dewa-nai	N3	わけではない	{F}わけ(?:では|じゃ)(?:ない|ありません)	b	h
-impossibility-wake-ga-nai	N3	わけがない	{F}わけが(?:ない|ありません)	b	h
-constraint-wake-ni-wa-ikanai	N3	わけにはいかない	{F}わけにはい(?:かない|きません)	b	h
-purpose-tame-ni	N4	ために	{F}ために	c	h	@g/tame-ni/
-purpose-you-ni	N4	ように	{F}ように	s	m	@g/you-ni/
-timing-tokoro	N4	ところ	{F}ところ(?:だ|です|だった|でした|で|に)?	e	m	@j/tokoro-bakari/
-simultaneous-nagara	N4	ながら	{F}(?<!残念)ながら	e	h	@g/nagara/
-state-mama	N3	まま	{F}まま	f	m	@g/mama/
-list-tari	N5	たり	(?:[^、。！？!?\\s]{1,30}?[だた]り[^、。！？!?\\s]{1,30}?[だた]り(?:する|します|した|しました|しない|しません|しなかった|しませんでした)?|{F}[だた]り(?:する|します|した|しました|しない|しません|しなかった|しませんでした))	g	m	@g/tari/
-limitation-bakari	N4	ばかり	{F}ばかり	g	m	@j/tokoro-bakari/
-recent-ta-bakari	N4	たばかり	{F}たばかり(?:だ|です|だった|でした)?	c	h	@j/tokoro-bakari/
-limitation-dake-shika	N5	だけ / しか	{F}(?:だけ|しか)	i	m	@g/dake/
-degree-hodo-kurai	N4	ほど / くらい	{F}(?:ほど|くらい|ぐらい)	i	m	@g/hodo/
-role-toshite	N3	として	{F}として	i	h
-relation-ni-yotte	N3	によって	{F}によ(?:って|る)	i
-topic-ni-tsuite	N3	について	{F}について	i	h
-target-ni-taishite	N3	に対して	{F}に対(?:して|する|し)	i
-concession-ni-mo-kakawarazu	N2	にもかかわらず	{F}にもかかわらず	i	h
-concession-kuse-ni	N3	くせに	{F}くせに	i
-suffix-tachi	N5	たち / 達	{P}(?:たち|(?<!友)達)	1e
-particle-wa	N5	は	{P}は(?!ず)	1j	h	@g/particle-wa/
-particle-ga	N5	が	{P}が	1j	h	@g/particle-ga/
-particle-wo	N5	を	{P}を	1j	h	@g/particle-wo/
-particle-de	N5	で	{P}(?<![まん])で(?!き|す|し)	1j	m	@g/particle-de/
-particle-ni	N5	に	{P}に(?!なる)	1j	m	@g/particle-ni/
-particle-e	N5	へ	{P}へ	1j
-particle-to	N5	と	{P}(?<![っッこコ])と(?!して|いう|思)	1j	m	@g/particle-to/
-particle-no	N5	の	{P}の	1j	m	@g/particle-no-noun-modifier/
-particle-mo	N5	も	{P}も	1j
-particle-ya	N5	や	{P}や	1j
-aspect-te-iru	N5	ている	{F}[てで](?:いる|います|いた|いました|いない|いません|いなかった|いませんでした|る|た)	14	h	@g/verb-continuous-form-teiru/
-aspect-te-aru	N4	てある	{F}[てで]あ(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)	c	h
-aspect-te-kuru	N4	てくる	{F}[てで](?:くる|きます|きた|きました|こない|きません|こなかった|きませんでした)	k
-aspect-te-iku	N4	ていく	{F}[てで]い(?:く|きます|った|きました|かない|きません|かなかった|きませんでした)	k
-desire-tai	N5	たい	{F}(?:たい(?:です)?|たく(?:ない|ありません|なかった|ありませんでした)|たかった(?:です)?)	18	h	@g/tai-form/
-ease-yasui-nikui	N4	やすい / にくい	{F}(?:やすい|にくい|づらい)	m	h
-excess-sugiru	N4	すぎる	{F}すぎ(?:る|ます|た|ました|て|ない|ません|なかった|ませんでした|だ|です)	m	h
-method-kata	N5	方	{F}方	1c
-negative-nai	N5	ない	{F}(?:ない|ません|なかった|ませんでした)	1a	m	@g/verb-negative-nai-form/
-polite-past-mashita	N5	ました	{F}ました	18	h	@g/masu/
-polite-masu	N5	ます	{F}ます	19	m	@g/masu/
-conditional-tara	N4	たら	{F}たら	h	h	@g/conditional-form-tara/
-conditional-ba	N4	ば	{F}(?:えば|ければ)	i	h	@g/verb-conditional-form-ba/
-conditional-ba-ii	N4	ばいい / ばよかった	{F}(?:えば|ければ|[えけげせてねべめれ]ば)(?:いい|よい|よかった)(?:です)?	d
-conditional-nara	N4	なら	{F}なら(?:ば)?	i	h
-conditional-to	N4	と	{F}と(?=、)	12
-concession-temo-demo	N4	ても / でも	{F}[てで]も	s	m	@g/temo/
-reason-node	N4	ので	(?:なので|ので)(?!は)	m	h	@g/conjunctive-particle-node/
-reason-kara	N5	から	{F}から	z	m	@g/particle-kara/
-appearance-sou	N4	そう	{F}そう(?:に|な)?	u	m	@g/verb-sou/
-hearsay-sou-da	N4	そうだ	{F}(?:る|い|だ|た|ない)そう(?:だ|です)	j
-volitional-you	N5	よう	{F}(?:よう|ろう)	19	m	@g/verb-volitional-form-you/
-concession-noni	N4	のに	のに	k	h	@g/conjunctive-particle-noni/
-nominalizer-koto	N5	こと	こと(?:が|を|に|は|も)	16	m	@g/koto/
-plain-past-ta	N5	た	(?:{F}(?:かった|だった|った|いた|いだ|(?<!で)した|んだ|[きぎしじちにびみりえけげせてねべめれ]た|[来見寝出]た)|(?<!で)した)(?![いらり])	1b
-sequence-te-kara	N5	てから	{F}[てで]から	d	h
-time-mae-ni	N5	前に	{F}前に	m
-time-ato-de-ni	N5	後で / 後に	{F}後(?:で|に)	m
-time-toki	N5	とき	{F}とき	m
-limit-made-made-ni	N5	まで / までに	{F}まで(?:に)?	s
-comparison-yori-nohou	N5	より / の方が	{F}(?:より|のほうが|の方が)	u
-superlative-ichiban	N5	一番	一番	m	h
-question-ka-douka	N4	かどうか	{F}かどうか	d	h
-purpose-masu-stem-ni-iku	N5	に行く / に来る	{F}[いきぎしじちにびみりえけげせてねべめ見寝出]に(?:行(?:く|きます|った|きました)|来(?:る|ます|た|ました)|帰(?:る|ります|った|りました))	e	h
-nominalizer-no	N5	の	{F}の(?=[はがをにも])	i	m	@g/no-nominalizer/
-quotation-to-iu	N4	という	{F}という	e
-casual-tte	N4	って	{F}って(?=(?:言|聞|思|呼|書|いう|こと|、|。|？|!|！|$))	o
-explanation-n-desu	N5	んです / のです	{F}(?:ん|の)です	m
-explanation-no-da	N4	のだ / んだ	{F}(?:の|ん)(?:だ|だった|じゃない|ではない)	m
-existence-ga-aru-iru	N5	がある / がいる	{P}が(?:あ(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)|い(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	o	h
-skill-ga-suki-jouzu-heta	N5	が好き / が上手 / が下手	{P}が(?:好き|すき|上手|じょうず|下手|へた)(?:だ|です|ではない|じゃない)?	i	h
-skill-no-ga-suki	N5	のが好き	{F}のが(?:好き|すき|嫌い|きらい|上手|じょうず|下手|へた|得意|苦手)(?:だ|です|ではない|じゃない)?	g	h
-invitation-mashou	N5	ましょう / ましょうか	{F}ましょう(?:か)?	c	h
-invitation-masen-ka	N5	ませんか	{F}ませんか	b	h
-relief-te-yokatta	N4	てよかった	{F}[てで]よかった(?:です)?	a	h
-without-zuni	N4	ずに	{F}ずに	c	h
-without-naide	N4	ないで	{F}ないで(?!ください)	g	h
-apology-te-sumimasen	N4	てすみません	{F}[てで]すみません	a	h
-necessity-ga-hitsuyou	N4	が必要	{P}が必要(?:だ|です|だった|でした)?	f	h
-sensation-ga-suru	N4	がする	{P}が(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	d	h
-case-baai	N4	場合	{F}場合(?:は|には)?	g	h
-examples-nado	N4	など	{P}など	g	h
-examples-toka	N4	とか	{F}とか(?:{F}とか)?	i
-hearsay-to-iwarete-iru	N4	と言われている	{F}と言われてい(?:る|ます|ない|ません)|{F}と言われ(?:た|ました)	a	h
-hearsay-to-kiita	N4	と聞いた	{F}と聞(?:いた|きました|いている|いています)	c	h
-similarity-you-da	N4	ようだ / ような	{F}よう(?:だ|です|な|に)	t
-permission-sasete-kudasai	N4	させてください	{F}させてください	5	h
-decision-koto-ni-suru	N4	ことにする	{F}ことに(?:す(?:る|ます|た|ました|ている|ています)|し(?:ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした))	9	h
-arrangement-koto-ni-naru	N4	ことになる	{F}ことにな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)	9	h
-honorific-o-go-ni-naru-suru	N3	お〜になる / お〜する	(?:お|ご){F}(?:になる|になります|する|します|いたす|いたします|ください)	8
-polite-gozaimasu	N5	ございます	{F}ござい(?:ます|ました|ません|ませんでした)	u
-advice-beki	N3	べき	{F}べき(?:だ|です|ではない|じゃない)?	f	h
-time-aida-aida-ni	N4	間 / 間に	{F}間(?:に|は)?	m
-time-uchi-ni	N3	うちに	{F}うちに	e
-time-saichuu-ni	N3	最中に	{F}最中に	g	h
-repetition-tabi-ni	N3	たびに	{F}たびに	e	h
-incidental-tsuide-ni	N3	ついでに	{F}ついでに	e
-phase-compound-verb	N4	始める / 続ける / 終わる	{F}(?:(?:始め|続け)(?:る|ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした)|(?:出し|終わ)(?:る|ます|た|ました))	i
-state-ppanashi	N3	っぱなし	{F}っぱなし	e	h
-covered-darake	N3	だらけ	{F}だらけ	f	h
-fresh-tate	N3	たて	{F}たて	i
-elapsed-buri-ni	N3	ぶりに	{F}ぶりに	e	h
-interval-goto-ni	N3	ごとに	{F}ごとに	e	h
-interval-oki-ni	N3	おきに	{F}おきに	f	h
-emphasis-kara-koso	N3	からこそ	{F}からこそ	c	h
-source-ni-yoru-to	N3	によると / によれば	{F}によ(?:ると|れば)	c	h
-topic-ni-kansuru	N3	に関する	{F}に関する	d	h
-context-ni-okeru	N3	における	{F}における	d	h
-standard-ni-shite-wa	N3	にしては	{F}にしては	e	h
-simultaneous-to-douji-ni	N3	と同時に	{F}と同時に	c	h
-supposition-to-shitara	N3	としたら / とすれば	{F}と(?:したら|すれば|すると)	d	h
-almost-tokoro-datta	N3	ところだった	{F}ところ(?:だった|でした)	c	h
-nonlimiting-wa-mochiron	N3	はもちろん	{F}はもちろん	e	h
-pretend-furi-wo-suru	N3	ふりをする	{F}ふりを(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています))	c	h
-instant-ta-totan-ni	N3	たとたんに	{F}たとたん(?:に)?	c	h
-difficulty-gatai	N3	がたい	{F}がたい	i	h
-only-shika-nai	N3	しかない	{F}しか(?:ない|ありません|なかった|ありませんでした)	c	h
-emphasis-sae	N3	さえ / でさえ	[^、。！？!?\s]{1,24}(?:で)?さえ	i
-emphasis-koso	N3	こそ	{P}こそ	i
-try-te-goran	N3	てごらん	{F}[てで]ごらん	d	h
-cause-sei-okage-de	N3	せいで / おかげで	{F}(?:せい|おかげ)で	e	h
-manner-toori	N3	とおり	{F}(?:とおり|通り)(?:に|だ|です)?	g	h
-certainty-ni-chigai-nai	N3	に違いない	{F}に違い(?:ない|ありません)	f	h
-certainty-ni-kimatte-iru	N3	に決まっている	{F}に決まってい(?:る|ます)	f	h
-qualification-to-wa-kagiranai	N3	とは限らない	{F}とは限(?:らない|りません)	f	h
-contrast-ippou-de	N3	一方で	{F}一方(?:で)?	g
-contrast-hanmen	N3	反面	{F}反面	g
-substitution-kawari-ni	N3	かわりに	{F}かわりに	g
-topic-ni-kanshite	N3	に関して	{F}に関して	h	h
-comparison-ni-kurabete	N3	に比べて	{F}に比べて	h	h
-basis-ni-motozuite	N3	に基づいて	{F}に基づいて	h	h
-following-ni-sotte	N3	に沿って	{F}に沿って	h
-following-change-ni-shitagatte	N3	に従って	{F}に従って	h
-change-ni-tsurete	N3	につれて	{F}につれて	h
-together-to-tomo-ni	N3	とともに	{F}とともに	h
-context-ni-oite	N3	において	{F}において	h	h
-means-wo-tsuujite-tooshite	N3	を通じて / を通して	{F}を通(?:じて|して)	h
-representative-wo-hajime	N3	をはじめ	{F}をはじめ	h
-limit-ni-kagiru-kagirazu	N3	に限る / に限らず	{F}に限(?:る|ります|らない|らず|って)	h
-suffix-gachi	N3	がち	{F}がち	o
-suffix-gimi	N3	気味	{F}気味	o
-suffix-ge	N3	げ	{F}げ	o
-suffix-ppoi	N3	っぽい	{F}っぽい	o
-negative-youni-nai	N3	ようがない	{F}ようが(?:ない|ありません)	g	h
-impossible-kkonai	N3	っこない	{F}っこない	i
-condition-kara-ni-wa	N2	からには	{F}からには	c	h
-qualification-kara-to-itte	N2	からといって	{F}からといって	c	h
-condition-nai-kagiri	N2	ない限り	{F}ない限り	c	h
-condition-ijou-wa	N2	以上は	{F}以上は	b	h
-condition-ue-wa	N2	上は	{F}上は	c	h
-sequence-ue-de	N2	上で	{F}上で	d	h
-addition-ue-ni	N2	上に	{F}上に	d	h
-viewpoint-kara-miru-to	N2	から見ると / からすると	{F}から(?:見ると|見れば|すると|すれば|言うと|言えば)	g
-starting-kara-shite	N2	からして	{F}からして	g
-concession-ni-shitemo-toshitemo	N2	にしても / としても	{F}(?:にしても|としても)	e	h
-concession-ni-shiro-ni-seyo	N2	にしろ / にせよ	{F}に(?:しろ|せよ)	e	h
-after-all-ageku	N2	あげく	{F}あげく(?:に)?	d	h
-after-effort-sue-ni	N2	末に	{F}末に	d	h
-only-ni-suginai	N2	にすぎない	{F}にすぎ(?:ない|ません)	e	h
-essence-ni-hoka-naranai	N2	にほかならない	{F}にほかならない	e	h
-necessity-zaru-wo-enai	N2	ざるを得ない	{F}ざるを得(?:ない|ません)	a	h
-compulsion-zu-ni-wa-irarenai	N2	ずにはいられない	{F}(?:ずには|ないでは)いられ(?:ない|ません|なかった|ませんでした)	a	h
-possibility-eru-enai	N2	得る / 得ない	{F}得(?:る|ます|た|ました|ない|ません|なかった|ませんでした)	k
-risk-kanenai	N2	かねない	{F}かね(?:ない|ません)	e	h
-difficulty-kaneru	N2	かねる	{F}かね(?:る|ます|た|ました)	e	h
-emotion-te-naranai	N2	てならない	{F}[てで]ならない	e
-emotion-te-tamaranai	N2	てたまらない	{F}[てで]たまらない	e
-emotion-te-shouganai	N2	てしょうがない	{F}[てで](?:しょうがない|仕方がない)	e
-timing-shidai	N2	次第	{F}次第	g
-time-sai-ni	N2	際に	{F}際に	g	h
-occasion-ni-atatte	N2	にあたって	{F}にあたって	g	h
-occasion-ni-saishite	N2	に際して	{F}に際して	g	h
-prior-ni-sakidatte	N2	に先立って	{F}に先立って	g	h
-trigger-wo-kikkake-ni	N2	をきっかけに	{F}をきっかけに	g	h
-trigger-wo-keiki-ni	N2	を契機に	{F}を契機に	g
-span-ni-watatte	N2	にわたって	{F}にわたって	h	h
-accompany-ni-tomonatte	N2	に伴って	{F}に伴って	h	h
-response-ni-oujite	N2	に応じて	{F}に応じて	h
-basis-wo-fumaete	N2	を踏まえて	{F}を踏まえて	h	h
-merit-dake-atte	N2	だけあって	{F}だけあって	g
-because-dake-ni	N2	だけに	{F}だけに	g
-concession-youga-maiga	N1	ようが / まいが	{F}(?:ろうが|ようが){F}まいが	8	h
-concession-nagara-mo	N2	ながらも	{F}ながらも	g
-continuation-tsutsu	N2	つつ / つつある	{F}つつ(?:ある)?	i
-cause-bakari-ni	N2	ばかりに	{F}ばかりに	f	h
-contrast-dokoro-ka	N2	どころか	{F}どころか	f	h
-impossible-dokoro-dewa-nai	N2	どころではない	{F}どころではない	f	h
-nonlimiting-dake-denaku	N3	だけでなく	{F}だけでなく	k	h
-regardless-ni-kakawarazu	N2	にかかわらず	{F}にかかわらず	g	h
-contrary-ni-hanshite	N2	に反して	{F}に反して	g	h
-addition-ni-kuwaete	N2	に加えて	{F}に加えて	g	h
-target-ni-kotaete	N2	に応えて	{F}に(?:応|こた)えて	h
-center-wo-chuushin-ni	N2	を中心に	{F}を中心に	h	h
-regardless-wo-toyazu	N2	を問わず	{F}を問わず	g	h
-topic-wo-megutte	N2	をめぐって	{F}をめぐって	g	h
-direction-muke-muki	N3	向け / 向き	{F}向(?:け|き)	m
-relative-wari-ni	N2	わりに	{F}わりに	i
-memory-kke	N2	っけ	{F}っけ	s
-quote-to-iu-yori	N2	というより	{F}というより	i
-example-to-itta	N2	といった	{F}といった(?=[^、。！？!?\\s])	k
-topic-to-ieba	N2	といえば	{F}といえば	k
-thing-mono-da	N2	ものだ	{F}もの(?:だ|です)	o
-cause-mono-dakara	N2	ものだから	{F}ものだから	g
-concession-mono-no	N2	ものの	{F}ものの	g	h
-advice-koto-da	N2	ことだ	{F}こと(?:だ|です)	m
-unnecessary-koto-wa-nai	N2	ことはない	{F}ことは(?:ない|ありません)	e	h
-double-negative-nai-koto-wa-nai	N2	ないことはない	{F}ないことは(?:ない|ありません)	d	h
-explanation-to-iu-koto-da	N2	ということだ	{F}ということ(?:だ|です)	g
-nature-to-iu-mono-da	N2	というものだ	{F}というもの(?:だ|です)	g
-not-nature-to-iu-mono-dewa-nai	N2	というものではない	{F}というものでは(?:ない|ありません)	f
-wish-nai-mono-ka	N2	ないものか	{F}ないものか	g
-instant-ga-hayai-ka	N1	が早いか	{F}が早いか	8	h
-instant-ya-inaya	N1	や否や	{F}や否や	8	h
-instant-nari	N1	なり	{F}なり	c
-repetition-soba-kara	N1	そばから	{F}そばから	a	h
-unexpected-ka-to-omoi-kiya	N1	かと思いきや	{F}かと思いきや	a	h
-incidental-katagata	N1	かたがた	{F}かたがた	e
-incidental-gatera	N1	がてら	{F}がてら	e
-starting-wo-kawakiri-ni	N1	を皮切りに	{F}を皮切りに	e	h
-endpoint-wo-kagiri-ni	N1	を限りに	{F}を限りに	e	h
-means-wo-motte	N1	をもって	{F}をもって	e	h
-turning-wo-sakai-ni	N1	を境に	{F}を境に	f
-range-ni-itaru-made	N1	に至るまで	{F}に至るまで	e	h
-stage-ni-itatte	N1	に至って	{F}に至って(?:は|も)?	f
-context-ni-atte	N1	にあって	{F}にあって	g
-standard-ni-sokushite	N1	に即して	{F}に即して	f	h
-exclusive-wo-oite	N1	をおいて	{F}をおいて	d	h
-defiance-wo-mono-to-mo-sezu	N1	をものともせず	{F}をものともせず	c	h
-forced-wo-yogi-naku-sareru	N1	を余儀なくされる	{F}を余儀なくされ(?:る|ます|た|ました)	a	h
-force-wo-yogi-naku-saseru	N1	を余儀なくさせる	{F}を余儀なくさせ(?:る|ます|た|ました)	a	h
-emotion-ni-taenai	N1	に堪えない	{F}に堪え(?:ない|ません)	e
-reluctance-ni-shinobinai	N1	に忍びない	{F}に忍びない	d	h
-easy-inference-ni-katagunai	N1	に難くない	{F}に難くない	d	h
-worthy-ni-ataru	N1	に値する	{F}に値する	d	h
-sufficient-ni-taru	N1	に足る	{F}に足る	d
-utmost-no-itari	N1	の至り	{F}の至り	g
-extreme-kiwamaru-kiwamarinai	N1	極まる / 極まりない	{F}(?:極まる|極まりない)	g
-deep-wish-te-yamanai	N1	てやまない	{F}[てで]や(?:まない|みません)	c	h
-since-te-kara-to-iu-mono	N1	てからというもの	{F}[てで]からというもの	a	h
-consequence-zu-ni-wa-okanai	N1	ずにはおかない	{F}(?:ずには|ないでは)おかない	a	h
-consequence-zu-ni-wa-sumanai	N1	ずにはすまない	{F}(?:ずには|ないでは)すまない	a	h
-prohibition-bekarazu	N1	べからず	{F}べからず	c	h
-improper-majiki	N1	まじき	{F}まじき	c	h
-role-taru-mono	N1	たるもの	{F}たるもの	c	h
-surprise-tomo-arou-mono-ga	N1	ともあろうものが	{F}ともあろうものが	c	h
-stage-tomo-naru-to	N1	ともなると	{F}ともなると	e
-any-de-are	N1	であれ	{F}であれ	g
-pair-to-ii-to-ii	N1	といい	[^、。！？!?\\s]{1,24}といい[^、。！？!?\\s]{1,24}といい	i
-concession-to-wa-ie	N1	とはいえ	{F}とはいえ	e	h
-without-nakushite	N1	なくして	{F}なくして	d	h
-basis-atte-no	N1	あっての	{F}あっての	d
-unique-nara-dewa	N1	ならでは	{F}ならでは	d	h
-covered-mamire	N1	まみれ	{F}まみれ	k
-full-zukume	N1	ずくめ	{F}ずくめ	k
-depending-ikan	N1	いかん	{F}いかん(?:だ|で|によって|にかかわらず)?	g
-result-shimatsu-da	N1	始末だ	{F}始末(?:だ|です)	i
-rhetorical-denakute-nandarou	N1	でなくてなんだろう	{F}でなくてなんだろう	i
-extreme-to-ittara-nai	N1	といったらない	{F}といったらない	i
-extreme-tara-aryashinai	N1	たらありゃしない	{F}たらありゃしない	i
-best-ni-koshita-koto-wa-nai	N2	に越したことはない	{F}に越したことは(?:ない|ありません)	e	h
-excess-ni-mo-hodo-ga-aru	N1	にもほどがある	{F}にもほどがある	e	h
-emphatic-no-nanno	N1	のなんの	{F}のなんの	m
-minimal-tari-tomo	N1	たりとも	{F}たりとも	e	h
-minimal-dani	N1	だに	{F}だに	k
-minimal-sura	N1	すら	{F}すら	k
-comparison-gotoki	N1	ごとき	{F}ごとき	k
-suffix-meku	N1	めく	{F}め(?:く|いて|き)	k
-unnecessary-made-mo-nai	N1	までもない	{F}までもない	e	h
-unnecessary-ni-wa-oyobanai	N1	には及ばない	{F}には及(?:ばない|びません)	g
-situation-tokoro-wo	N1	ところを	{F}ところを	e	h
-`;
-const log$j = Logger.scope("StudyTools");
-const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
-const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
-const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
-const MAX_LOCAL_GRAMMAR_HINTS = 12;
-const GRAMMAR_HINT_CACHE_LIMIT = 240;
-const TRANSLATION_CACHE_LIMIT = 160;
-const TRANSLATION_TIMEOUT_MS = 5e3;
-const GRAMMAR_RULE_DATA_TIMEOUT_MS = 15e3;
-const EN_GRAMMAR_RULE_DATA_URL = `${DOCS_BASE_URL}data/en-grammar-rule-copy.json`;
-const ENGLISH_TEXT_RE = /[A-Za-z]{3,}/u;
-const JAPANESE_TEXT_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-function gp(ruleId, level, name, source, url = "", confidence = "medium", priority2 = 30) {
-  return { ruleId, level, pattern: new RegExp(source, "gu"), name, url, confidence, priority: priority2 };
-}
-function grammarPatternFromRow(row) {
-  const [ruleId, level, name, source, priority2, confidence = "m", url = ""] = row.split("	");
-  return gp(
-  ruleId,
-  level,
-  name,
-  source.replaceAll("{F}", FORM_CHUNK).replaceAll("{P}", PARTICLE_CHUNK),
-  expandGrammarGuideUrl(url),
-  confidence === "h" ? "high" : "medium",
-  parseInt(priority2, 36)
-  );
-}
-function expandGrammarGuideUrl(url) {
-  if (!url) return "";
-  return url.replace("@g/", "https://www.tofugu.com/japanese-grammar/").replace("@j/", "https://www.tofugu.com/japanese/");
-}
-const GRAMMAR_PATTERNS = GRAMMAR_PATTERN_DATA.trim().split("\n").map(grammarPatternFromRow);
-const translationCache = new Map();
-const translationInFlight = new Map();
-const grammarHintCache = new Map();
-let grammarRuleDataPromise;
-function detectGrammarHints(sentence) {
-  const normalized = sentence.normalize("NFKC").replace(/\s+/g, "");
-  const cached = grammarHintCache.get(normalized);
-  if (cached) return cached;
-  const seenMatches = new Set();
-  const seenNames = new Map();
-  const selected = [];
-  const ranked = GRAMMAR_PATTERNS.flatMap((item) => grammarMatches(item, normalized)).sort(compareRankedGrammarHints);
-  for (const item of ranked) {
-  const key = `${item.ruleId}:${item.match}:${item.index}`;
-  if (seenMatches.has(key)) continue;
-  const count = seenNames.get(item.ruleId) ?? 0;
-  if (count >= 2) continue;
-  if (selected.some((existing) => shouldSuppressOverlappingGrammarHint(existing, item))) continue;
-  seenMatches.add(key);
-  seenNames.set(item.ruleId, count + 1);
-  selected.push(item);
-  if (selected.length >= MAX_LOCAL_GRAMMAR_HINTS) break;
-  }
-  const hints = selected.sort(compareGrammarHints).map(({ priority: _priority, ...hint }) => hint);
-  cacheGrammarHints(normalized, hints);
-  return hints;
-}
-function preloadGrammarResources(sentence, language = "en") {
-  const hints = detectGrammarHints(sentence);
-  if (hints.length) void loadGrammarRuleData().catch(() => void 0);
-  if (language === "ja" && hints.length) {
-  void grammarRuleText(language, hints[0].ruleId).catch(() => void 0);
-  }
-  return hints;
-}
-function preloadJapaneseSentenceTranslation(sentence, language = "en") {
-  void translateJapaneseSentence(sentence, language).catch(() => void 0);
-}
-function cacheGrammarHints(key, hints) {
-  if (!key) return;
-  grammarHintCache.set(key, hints);
-  if (grammarHintCache.size <= GRAMMAR_HINT_CACHE_LIMIT) return;
-  const oldest = grammarHintCache.keys().next().value;
-  if (typeof oldest === "string") grammarHintCache.delete(oldest);
-}
-function compareRankedGrammarHints(a, b) {
-  return a.priority - b.priority || a.index - b.index || b.match.length - a.match.length || a.name.localeCompare(b.name);
-}
-function compareGrammarHints(a, b) {
-  return a.index - b.index || a.name.localeCompare(b.name);
-}
-function shouldSuppressOverlappingGrammarHint(existing, next) {
-  if (!grammarHintRangesOverlap(existing, next)) return false;
-  if (sameGrammarHintLocation(existing, next)) return true;
-  if (shouldKeepOverlappingGrammarHint(existing, next)) return false;
-  return shouldSuppressLooseGrammarHint(existing, next) || shouldSuppressContainedGrammarHint(existing, next);
-}
-function sameGrammarHintLocation(existing, next) {
-  return existing.match === next.match && existing.index === next.index;
-}
-function grammarHintRangesOverlap(a, b) {
-  const aEnd = a.index + a.match.length;
-  const bEnd = b.index + b.match.length;
-  return a.index < bEnd && b.index < aEnd;
-}
-function shouldKeepOverlappingGrammarHint(existing, next) {
-  return isCopulaPriorityException(existing, next) || areBothHighConfidenceGrammarHints(existing, next);
-}
-function isCopulaPriorityException(existing, next) {
-  return existing.ruleId === "copula-desu-da" && next.priority < 50;
-}
-function areBothHighConfidenceGrammarHints(existing, next) {
-  return existing.priority < 40 && next.priority < 40;
-}
-function shouldSuppressLooseGrammarHint(existing, next) {
-  return next.priority >= 40 && existing.priority < next.priority;
-}
-function shouldSuppressContainedGrammarHint(existing, next) {
-  return grammarHintContains(existing, next) && existing.priority <= next.priority && existing.match.length > next.match.length;
-}
-function grammarHintContains(outer, inner) {
-  return inner.index >= outer.index && grammarHintEnd(inner) <= grammarHintEnd(outer);
-}
-function grammarHintEnd(hint) {
-  return hint.index + hint.match.length;
-}
-function readGrammarPreferences() {
-  const fallback = { knownRuleIds: [], showKnown: false };
-  try {
-  const raw = globalThis.localStorage?.getItem(GRAMMAR_PREFERENCES_KEY);
-  if (!raw) return fallback;
-  const parsed = JSON.parse(raw);
-  return {
-    knownRuleIds: Array.isArray(parsed.knownRuleIds) ? parsed.knownRuleIds.filter((id) => typeof id === "string" && id.length > 0) : [],
-    showKnown: parsed.showKnown === true
-  };
-  } catch (error) {
-  log$j.warn("Grammar preference read failed", { error });
-  return fallback;
-  }
-}
-function writeGrammarPreferences(preferences) {
-  try {
-  const uniqueKnownRuleIds = Array.from(new Set(preferences.knownRuleIds)).sort();
-  globalThis.localStorage?.setItem(GRAMMAR_PREFERENCES_KEY, JSON.stringify({
-    knownRuleIds: uniqueKnownRuleIds,
-    showKnown: preferences.showKnown
-  }));
-  } catch (error) {
-  log$j.warn("Grammar preference write failed", { error });
-  }
-}
-function setGrammarRuleKnown(ruleId, known) {
-  const preferences = readGrammarPreferences();
-  const knownRuleIds = new Set(preferences.knownRuleIds);
-  if (known) knownRuleIds.add(ruleId);
-  else knownRuleIds.delete(ruleId);
-  const next = { ...preferences, knownRuleIds: Array.from(knownRuleIds) };
-  writeGrammarPreferences(next);
-  return next;
-}
-function setKnownGrammarVisible(showKnown) {
-  const next = { ...readGrammarPreferences(), showKnown };
-  writeGrammarPreferences(next);
-  return next;
-}
-async function translateJapaneseSentence(sentence, language = "en") {
-  const trimmed = sentence.trim();
-  if (!trimmed) return "";
-  const requestSentence = normalizeSentenceForTranslationRequest(trimmed);
-  const targetLanguage = translationTargetLanguage();
-  const cacheKey = `${targetLanguage}:${requestSentence}`;
-  const cached = translationCache.get(cacheKey);
-  if (cached) {
-  return cached;
-  }
-  const inFlight = translationInFlight.get(cacheKey);
-  if (inFlight) {
-  return inFlight;
-  }
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(requestSentence)}`;
-  const promise = (async () => {
-  const done = log$j.time("Translate sentence", { sentenceLength: trimmed.length });
-  try {
-    const json = await requestJson$1(url);
-    const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
-    if (!translated) throw new Error("No translation returned.");
-    translationCache.set(cacheKey, translated);
-    pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
-    log$j.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
-    return translated;
-  } catch (error) {
-    log$j.warn("Translation failed", { sentenceLength: trimmed.length, error });
-    throw error;
-  } finally {
-    done();
-  }
-  })();
-  translationInFlight.set(cacheKey, promise);
-  void promise.then(() => {
-  if (translationInFlight.get(cacheKey) === promise) translationInFlight.delete(cacheKey);
-  }, () => {
-  if (translationInFlight.get(cacheKey) === promise) translationInFlight.delete(cacheKey);
-  });
-  return promise;
-}
-function translationTargetLanguage(_language) {
-  return "en";
-}
-function normalizeSentenceForTranslationRequest(sentence) {
-  return sentence.replace(/[「『]/g, '"').replace(/[」』]/g, '"');
-}
-async function renderGrammarHints(hints, sentence, preferences = readGrammarPreferences(), language = "en", options = {}) {
-  if (!hints.length) return "";
-  const knownRuleIds = new Set(preferences.knownRuleIds);
-  const visibleHints = visibleGrammarHints(hints, knownRuleIds, preferences.showKnown);
-  const visibleGroups = groupGrammarHintsByRule(visibleHints);
-  const knownCount = countKnownGrammarHints(hints, knownRuleIds);
-  const audioEnabled = options.audioEnabled ?? true;
-  return `
-    ${renderGrammarSentence(sentence, language, audioEnabled)}
-    ${renderGrammarToolbar(visibleGroups.length, knownCount, preferences.showKnown, language)}
-    ${await renderGrammarHintList(visibleGroups, knownRuleIds, language, audioEnabled)}`;
-}
-function visibleGrammarHints(hints, knownRuleIds, showKnown) {
-  return showKnown ? hints : hints.filter((hint) => !knownRuleIds.has(hint.ruleId));
-}
-function countKnownGrammarHints(hints, knownRuleIds) {
-  return new Set(hints.filter((hint) => knownRuleIds.has(hint.ruleId)).map((hint) => hint.ruleId)).size;
-}
-function groupGrammarHintsByRule(hints) {
-  const groups = new Map();
-  for (const hint of hints) {
-  const existing = groups.get(hint.ruleId);
-  if (existing) {
-    existing.count += 1;
-    continue;
-  }
-  groups.set(hint.ruleId, { hint, count: 1 });
-  }
-  return Array.from(groups.values());
-}
-function renderGrammarSentence(sentence, language, audioEnabled) {
-  return renderStudySentenceBlock(sentence, language, { audioEnabled }, "data-grammar-sentence");
-}
-function renderGrammarToolbar(visibleCount, knownCount, showKnown, language) {
-  const hiddenKnownCount = showKnown ? 0 : knownCount;
-  return `
-    <div class="jpdb-reader-grammar-toolbar" data-grammar-toolbar>
-        <div class="jpdb-reader-grammar-summary">${escapeHtml$1(grammarSummary(visibleCount, hiddenKnownCount, language))}</div>
-        ${renderGrammarKnownVisibilityButton(knownCount, showKnown, language)}
-    </div>`;
-}
-function renderGrammarKnownVisibilityButton(knownCount, showKnown, language) {
-  if (!knownCount) return "";
-  const label = showKnown ? uiText(language, "grammarHideKnown") : uiText(language, "grammarShowKnown");
-  return `<button class="jpdb-reader-grammar-toggle" type="button" data-action="study-grammar-toggle-known-visibility" aria-pressed="${showKnown ? "true" : "false"}">${label}</button>`;
-}
-async function renderGrammarHintList(visibleGroups, knownRuleIds, language, audioEnabled) {
-  if (!visibleGroups.length) return renderStudyEmpty(uiText(language, "allDetectedGrammarKnown"));
-  const items = await Promise.all(visibleGroups.map((group) => renderGrammarHintItem(group, knownRuleIds.has(group.hint.ruleId), language, audioEnabled)));
-  return renderStudyList(items, "data-grammar-list");
-}
-async function renderGrammarHintItem(group, known, language, audioEnabled) {
-  const { hint, count } = group;
-  const details = await grammarHintDetails(hint, language);
-  const displayName = grammarDisplayName(hint, language);
-  return `
-        <li class="jpdb-reader-study-item${known ? " known" : ""}" data-grammar-rule-id="${escapeHtml$1(hint.ruleId)}">
-            <div class="jpdb-reader-study-name">
-                <span>${escapeHtml$1(displayName)}</span>
-                <span class="jpdb-reader-grammar-level">${escapeHtml$1(grammarLevelText(hint.level, language))}</span>
-            </div>
-            <div class="jpdb-reader-study-body">
-                <div class="jpdb-reader-study-item-head">
-                    <div class="jpdb-reader-study-kind">${escapeHtml$1(details.kind)}</div>
-                    <div class="jpdb-reader-grammar-actions">
-                        ${renderGrammarRepeatCount(count)}
-                        <button class="jpdb-reader-grammar-known" type="button" data-action="study-grammar-toggle-known" data-grammar-rule-id="${escapeHtml$1(hint.ruleId)}" data-grammar-known="${known ? "true" : "false"}" aria-pressed="${known ? "true" : "false"}">${known ? uiText(language, "grammarReview") : uiText(language, "grammarKnown")}</button>
-                    </div>
-                </div>
-                <div class="jpdb-reader-study-short jpdb-reader-parseable">${escapeHtml$1(details.short)}</div>
-                <details class="jpdb-reader-grammar-more">
-                    <summary>${escapeHtml$1(uiText(language, "grammarDetails"))}</summary>
-                    <div class="jpdb-reader-study-detail jpdb-reader-parseable">${escapeHtml$1(details.detail)}</div>
-                    <div class="jpdb-reader-study-match"><span>${escapeHtml$1(uiText(language, "grammarFoundIn"))}</span><span class="jpdb-reader-study-match-text jpdb-reader-parseable">${escapeHtml$1(hint.match)}</span></div>
-                    ${renderGrammarHintExamples(details.examples, language, audioEnabled)}
-                    ${renderGrammarHintGuide(details.url ?? "", language)}
-                </details>
-            </div>
-        </li>`;
-}
-function renderGrammarRepeatCount(count) {
-  return count > 1 ? `<span class="jpdb-reader-grammar-repeat">x${count}</span>` : "";
-}
-async function grammarHintDetails(hint, language) {
-  const fallback = grammarHintFallbackData(hint, language);
-  const englishData = await loadGrammarRuleData().then((data) => data[hint.ruleId]).catch(() => void 0);
-  const base = englishData ? { ...fallback, ...englishData } : fallback;
-  if (language !== "ja") return base;
-  const ruleCopy = await grammarRuleText(language, hint.ruleId);
-  if (ruleCopy) return { ...base, ...ruleCopy };
-  const name = grammarDisplayName(hint, language);
-  return {
-  ...base,
-  kind: uiText(language, "grammar"),
-  short: interpolateUiText(language, "grammarGenericShort", { name, match: hint.match }),
-  detail: interpolateUiText(language, "grammarGenericDetail", { name, match: hint.match })
-  };
-}
-function grammarHintFallbackData(hint, language) {
-  return {
-  kind: hint.kind || uiText(language, "grammar"),
-  short: hint.short || grammarDisplayName(hint, language),
-  detail: hint.detail || grammarDisplayName(hint, language),
-  url: hint.url || void 0,
-  examples: hint.examples ?? []
-  };
-}
-function grammarLevelText(level, language) {
-  return language === "ja" && level === "Core" ? uiText(language, "grammarLevelCore") : level;
-}
-function grammarDisplayName(hint, language) {
-  if (language !== "ja" || !ENGLISH_TEXT_RE.test(hint.name)) return hint.name;
-  if (JAPANESE_TEXT_RE$1.test(hint.match)) return hint.match;
-  return japaneseGrammarText(hint.name) || hint.name;
-}
-function japaneseGrammarText(value) {
-  return (value.match(/[ぁ-んァ-ヶ一-龯々〆ヵヶー〜]+/gu) ?? []).join(" / ");
-}
-function interpolateUiText(language, key, values) {
-  return uiText(language, key).replace(/\{(\w+)}/g, (_, name) => values[name] ?? "");
-}
-function renderGrammarHintExamples(examples, language, audioEnabled) {
-  const visibleExamples = examples.slice(0, 2);
-  if (!visibleExamples.length) return "";
-  return `<div class="jpdb-reader-grammar-examples"><span>${escapeHtml$1(uiText(language, "grammarExample"))}</span>${visibleExamples.map((example) => renderGrammarExample(example, language, audioEnabled)).join("")}</div>`;
-}
-function renderGrammarExample(example, language, audioEnabled) {
-  const english = language === "ja" || !example.english ? "" : `<div>${escapeHtml$1(example.english)}</div>`;
-  const note = language === "ja" || !example.note || ENGLISH_TEXT_RE.test(example.note) ? "" : `<div>${escapeHtml$1(example.note)}</div>`;
-  return `<div class="jpdb-reader-grammar-example jpdb-reader-parseable">
-    <div class="jpdb-reader-grammar-example-japanese">
-        <span class="jpdb-reader-parseable">${escapeHtml$1(example.japanese)}</span>
-        ${renderStudySentenceAudioButton(language, { audioEnabled, sentence: example.japanese })}
-    </div>
-    ${english}${note}
-  </div>`;
-}
-function renderGrammarHintGuide(url, language) {
-  return url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml$1(url)}" target="_blank" rel="noopener">${escapeHtml$1(uiText(language, "grammarGuide"))}</a>` : "";
-}
-const BARE_MITAI_DESIRE_FALSE_POSITIVE_RE = /(?:読み|飲み|住み|休み|頼み|望み|悩み|包み|噛み|組み|編み|摘み|進み|歩み|楽しみ|悲しみ|苦しみ|試み)たい$/u;
-const LEXICAL_DESIRE_TAI_RE = /^(?:いたい|痛い|冷たい|重たい|やたい)(?:です)?$/u;
-const LEXICAL_NEGATIVE_NAI_RE = /(?:少ない|危ない|まかない|何気ない|さりげない|なにげない)$/u;
-const LEXICAL_METHOD_KATA_RE = /(?:夕方|地方|親方|行方|方法|の方)$/u;
-const LEXICAL_SUFFIX_GE_RE = /(?:からあげ|おかげ|さりげ|なにげ)$/u;
-const LEXICAL_SUFFIX_MEKU_RE = /(?:きめき|きらめく|ひらめき|うごめく)$/u;
-const LEXICAL_POSSIBILITY_ERU_RE = /^(?:得る|得ます|得た|得ました|得ない|得ません|得なかった|得ませんでした)$/u;
-const PRONOUN_POSSESSIVE_NOMINALIZER_RE = /(?:私|僕|俺|彼|彼女|誰|何)の$/u;
-const GRAMMAR_MATCH_SKIP_PREDICATES = {
-  "appearance-sou": ({ rawMatch }) => rawMatch === "そう" || /(?:かわいそう|ごちそう)$/u.test(rawMatch),
-  "hearsay-sou-da": ({ rawMatch }) => /(?:かわいそう|ごちそう)/u.test(rawMatch),
-  "volitional-you": ({ rawMatch }) => rawMatch === "よう" || rawMatch === "さよう",
-  "similarity-you-da": ({ rawMatch }) => rawMatch.startsWith("さよう"),
-  "conditional-nara": ({ rawMatch }) => rawMatch.endsWith("さようなら"),
-  "desire-tai": ({ rawMatch }) => LEXICAL_DESIRE_TAI_RE.test(rawMatch),
-  "without-naide": ({ rawMatch, following }) => rawMatch.endsWith("ないで") && following.startsWith("す"),
-  "negative-nai": ({ rawMatch }) => LEXICAL_NEGATIVE_NAI_RE.test(rawMatch),
-  "method-kata": shouldSkipMethodKataMatch,
-  "suffix-ge": ({ rawMatch }) => LEXICAL_SUFFIX_GE_RE.test(rawMatch),
-  "state-mama": ({ rawMatch, before }) => rawMatch.includes("わがまま") || rawMatch === "まま" && before.endsWith("わが"),
-  "difficulty-gatai": ({ rawMatch }) => rawMatch.endsWith("ありがたい"),
-  "substitution-kawari-ni": ({ rawMatch }) => rawMatch.endsWith("おかわりに"),
-  "suffix-meku": ({ rawMatch }) => LEXICAL_SUFFIX_MEKU_RE.test(rawMatch),
-  "possibility-eru-enai": ({ rawMatch }) => LEXICAL_POSSIBILITY_ERU_RE.test(rawMatch) || rawMatch.startsWith("心得"),
-  "suffix-gimi": ({ rawMatch }) => rawMatch.endsWith("不気味"),
-  "fresh-tate": ({ rawMatch }) => rawMatch === "たて",
-  "elapsed-buri-ni": ({ rawMatch }) => rawMatch.endsWith("すぶりに"),
-  "ease-yasui-nikui": ({ rawMatch }) => rawMatch === "やすい",
-  "examples-toka": ({ following }) => following.startsWith("言") || following.startsWith("聞") || following.startsWith("思"),
-  "explanation-no-da": ({ rawMatch }) => /(?:私|僕|俺|彼|彼女|誰|何)の(?:だ|だった|じゃない|ではない)$/u.test(rawMatch),
-  "skill-no-ga-suki": shouldSkipPronounPossessiveNominalizerMatch,
-  "nominalizer-no": shouldSkipPronounPossessiveNominalizerMatch,
-  "sensation-ga-suru": ({ rawMatch }) => /(?:彼|彼女|私|僕|俺|君|あなた|先生|友だち|子ども)がす/u.test(rawMatch),
-  "standard-ni-shite-wa": ({ following }) => /^(?:いけ|なら|だめ)/u.test(following),
-  "emphasis-sae": ({ rawMatch }) => rawMatch.endsWith("ささえ"),
-  "emphasis-koso": ({ rawMatch }) => rawMatch.endsWith("ようこそ"),
-  "evidence-rashii-mitai": ({ rawMatch }) => BARE_MITAI_DESIRE_FALSE_POSITIVE_RE.test(rawMatch)
-};
-function shouldSkipGrammarMatch(item, sentence, match) {
-  const predicate = GRAMMAR_MATCH_SKIP_PREDICATES[item.ruleId];
-  if (!predicate) return false;
-  return predicate(grammarMatchContext(sentence, match));
-}
-function grammarMatchContext(sentence, match) {
-  const rawMatch = match[0];
-  const start = match.index ?? 0;
-  const end = start + rawMatch.length;
-  return {
-  rawMatch,
-  before: sentence.slice(Math.max(0, start - 4), start),
-  following: sentence.slice(end, end + 6)
-  };
-}
-function shouldSkipMethodKataMatch({ rawMatch, before, following }) {
-  return LEXICAL_METHOD_KATA_RE.test(rawMatch) || rawMatch === "方" && (following.startsWith("法") || before.endsWith("の") || /[夕地親行]/u.test(before.slice(-1)));
-}
-function shouldSkipPronounPossessiveNominalizerMatch({ rawMatch }) {
-  return PRONOUN_POSSESSIVE_NOMINALIZER_RE.test(rawMatch);
-}
-function grammarMatches(item, sentence) {
-  return Array.from(sentence.matchAll(item.pattern)).filter((match) => !shouldSkipGrammarMatch(item, sentence, match)).map((match) => {
-  const rawMatch = match[0];
-  const learnerFacingMatch = learnerMatch(item.name, rawMatch);
-  const learnerOffset = rawMatch.lastIndexOf(learnerFacingMatch);
-  const indexOffset = learnerOffset > 0 ? learnerOffset : 0;
-  return {
-    ruleId: item.ruleId,
-    name: item.name,
-    level: item.level,
-    kind: "Grammar",
-    short: item.name,
-    detail: item.name,
-    url: item.url,
-    match: learnerFacingMatch,
-    confidence: item.confidence,
-    index: (match.index ?? 0) + indexOffset,
-    priority: item.priority,
-    examples: []
-  };
-  }).filter((hint) => hint.match.length > 0);
-}
-function grammarSummary(visibleCount, hiddenKnownCount, language) {
-  const shown = `${visibleCount} ${uiText(language, "grammarShown")}`;
-  if (hiddenKnownCount) return `${shown} · ${hiddenKnownCount} ${uiText(language, "grammarKnownHidden")}`;
-  return shown;
-}
-const LEARNER_MATCH_ENDING_NAMES = new Set([
-  "たい",
-  "ない",
-  "ました",
-  "ます",
-  "た",
-  "よう",
-  "そう",
-  "方",
-  "やすい / にくい",
-  "すぎる",
-  "れる / られる",
-  "させる",
-  "させられる",
-  "がち",
-  "気味",
-  "げ",
-  "っぽい",
-  "めく"
-]);
-const LEARNER_MATCH_HELPER_NAMES = new Set([
-  "てください",
-  "ていただけませんか",
-  "ないでください",
-  "させてください",
-  "てほしい",
-  "てくれる / てもらう",
-  "てしまう",
-  "てみる",
-  "ておく",
-  "ている",
-  "てある",
-  "てくる",
-  "ていく",
-  "てから"
-]);
-function learnerMatch(name, rawMatch) {
-  let match = rawMatch.replace(/^(?:そして|それで|でも|また|しかし|それに|つまり|ただし|だから)/u, "");
-  if (LEARNER_MATCH_HELPER_NAMES.has(name)) {
-  const afterClauseBoundary = match.replace(/^.*(?:[、。！？!?]|たら|なら|ので|から)/u, "");
-  if (afterClauseBoundary) match = afterClauseBoundary;
-  }
-  if (!LEARNER_MATCH_ENDING_NAMES.has(name)) return match;
-  const afterLastParticle = match.replace(/^.*[はがをにへともやの]/u, "");
-  return afterLastParticle || match;
-}
-async function loadGrammarRuleData() {
-  grammarRuleDataPromise ??= requestJson$1(EN_GRAMMAR_RULE_DATA_URL, {
-  timeoutMs: GRAMMAR_RULE_DATA_TIMEOUT_MS,
-  failureLabel: "English grammar rule data request",
-  timeoutLabel: "Grammar rule data timed out."
-  }).then(normalizeGrammarRuleData).catch(() => {
-  grammarRuleDataPromise = void 0;
-  return {};
-  });
-  return grammarRuleDataPromise;
-}
-function normalizeGrammarRuleData(value) {
-  if (!isObjectRecord(value)) return {};
-  const data = {};
-  for (const [ruleId, item] of Object.entries(value)) {
-  const normalized = normalizeGrammarRuleDataItem(item);
-  if (normalized) data[ruleId] = normalized;
-  }
-  return data;
-}
-function normalizeGrammarRuleDataItem(item) {
-  if (!isObjectRecord(item)) return void 0;
-  const candidate = item;
-  if (!hasRequiredGrammarRuleData(candidate)) return void 0;
-  return {
-  kind: candidate.kind,
-  short: candidate.short,
-  detail: candidate.detail,
-  url: grammarRuleDataUrl(candidate.url),
-  examples: normalizeGrammarExamples(candidate.examples)
-  };
-}
-function hasRequiredGrammarRuleData(candidate) {
-  return typeof candidate.kind === "string" && typeof candidate.short === "string" && typeof candidate.detail === "string";
-}
-function grammarRuleDataUrl(value) {
-  return typeof value === "string" && value ? value : void 0;
-}
-function normalizeGrammarExamples(value) {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item) => {
-  if (!item || typeof item !== "object" || Array.isArray(item)) return [];
-  const candidate = item;
-  if (typeof candidate.japanese !== "string" || typeof candidate.english !== "string") return [];
-  return [{
-    japanese: candidate.japanese,
-    english: candidate.english,
-    ...typeof candidate.note === "string" ? { note: candidate.note } : {}
-  }];
-  });
-}
-function isObjectRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-function requestJson$1(url, options = {}) {
-  return requestJson$2(url, {
-  timeoutMs: options.timeoutMs ?? TRANSLATION_TIMEOUT_MS,
-  allowDirectCrossOrigin: true,
-  allowConfiguredProxy: false,
-  allowPublicProxies: false,
-  preferFetch: true,
-  failureLabel: options.failureLabel ?? "Translation request",
-  timeoutLabel: options.timeoutLabel ?? "Translation timed out."
-  });
 }
 const log$i = Logger.scope("StudyRender");
 async function renderStudyToolResult(button2, action, sentence, grammarHints, language = "en", options = {}) {
@@ -15043,6 +14184,7 @@ function bunproMiningRequestFromCard(card, sentence, context) {
   meaning: card.meanings.flatMap((meaning) => meaning.glosses).join("; "),
   sentence,
   sourceTitle: context?.sourceTitle,
+  sourceUrl: context?.sourceUrl,
   kind: bunproReviewableKind(card.bunproReviewableType)
   };
 }
@@ -21818,7 +20960,7 @@ ${entry.reading || ""}`;
       const canShowProviderStatus = Boolean(provider?.hasApiKey && provider.id !== "yomu-local");
       return [
         renderMetaReading(card, settings),
-        shouldRenderMetaFrequencyRank(card, provider, settings) ? renderMetaFrequencyRank(card.frequencyRank, settings.interfaceLanguage) : "",
+        "",
         canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state, settings.interfaceLanguage))}</span>` : "",
         renderAnkiMeta(data.ankiLookup, settings)
       ].filter(Boolean);
@@ -21857,7 +20999,7 @@ ${entry.reading || ""}`;
     if (labelText) labelText.textContent = label;
     actions.querySelectorAll('[data-review-target-row] [data-action="grade"][data-grade]').forEach((button2) => {
       button2.dataset.reviewTarget = target;
-      if ("newtabReviewTarget" in button2.dataset) button2.dataset.newtabReviewTarget = target;
+      button2.dataset.newtabReviewTarget = target;
       if (ankiCardId) button2.dataset.ankiCardId = ankiCardId;
       else delete button2.dataset.ankiCardId;
       const buttonLabel = button2.textContent?.trim() ?? "";
@@ -21904,7 +21046,7 @@ ${entry.reading || ""}`;
     return `<div class="jpdb-reader-sr-only jpdb-reader-newtab-sr-only" data-review-target-label><span data-newtab-grade-target-text>${escapeHtml$1(target.label)}</span></div>`;
   }
   function reviewTargetButtonAttrs(target) {
-    return ` data-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}`;
+    return ` data-review-target="${target.kind}" data-newtab-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}`;
   }
   function formatTargetLabel(template, target) {
     return template.replaceAll("{target}", target);
@@ -21961,25 +21103,6 @@ ${entry.reading || ""}`;
     const reading = cardPronunciationReading(card);
     if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return "";
     return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$1(reading)}</span>` : "";
-  }
-  function renderMetaFrequencyRank(rank, language) {
-    const label = uiText(language, "factFrequency");
-    const value = `#${rank}`;
-    return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill jpdb-reader-meta-pill" data-dictionary="JPDB" style="${pillStyle("frequency:JPDB")}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(`${label}: ${value}`)}">${escapeHtml$1(value)}</span>`;
-  }
-  function shouldRenderMetaFrequencyRank(card, provider, settings) {
-    if (!card.frequencyRank || provider?.hasApiKey && provider.id !== "yomu-local") return false;
-    if (settings.showLookupPillFrequency === false) return true;
-    const liveProvider = liveFrequencyProviderForCard(card);
-    if (!liveProvider) return true;
-    const enabledLookupLinks = new Set(settings.dictionaryLookupLinks.filter((link) => link.enabled).map((link) => link.id));
-    return !(enabledLookupLinks.has(liveProvider) && enabledLookupLinks.has(`${liveProvider}-frequency`));
-  }
-  function liveFrequencyProviderForCard(card) {
-    if (card.source === "jiten" || card.reviewSource === "jiten-api") return "jiten";
-    if (card.source === "local" || card.source === "fallback" || card.source === "anki" || card.source === "bunpro" || card.source === "yomu-local") return null;
-    if (card.reviewSource === "dictionary" || card.reviewSource === "anki" || card.reviewSource === "bunpro-api" || card.reviewSource === "yomu-local") return null;
-    return "jpdb";
   }
   function renderAnkiMeta(lookup, settings) {
     if (!settings.ankiEnabled) return "";
@@ -23727,6 +22850,13 @@ ${glossaryKey}`;
   function renderImmersionSource(params) {
     return params.renderImmersionSource ? params.renderImmersionSource() : renderDefinitionSourceImmersionMount(params.settings, params.sourceAttributes);
   }
+  function pruneOldestCacheEntries(cache2, limit) {
+    while (cache2.size > limit) {
+      const oldest = cache2.keys().next();
+      if (oldest.done) break;
+      cache2.delete(oldest.value);
+    }
+  }
   function isAbortError$2(error) {
     return errorName$1(error) === "AbortError";
   }
@@ -23955,7 +23085,7 @@ ${glossaryKey}`;
     searchNadeshiko(query, settings, options) {
       const apiKey = settings.nadeshikoApiKey.trim();
       if (!apiKey) return Promise.resolve([]);
-      return requestJson$2(`${NADESHIKO_API_BASE}/search`, {
+      return requestJson$1(`${NADESHIKO_API_BASE}/search`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -24349,7 +23479,7 @@ ${glossaryKey}`;
     return error instanceof Error ? error : new Error(fallback);
   }
   function requestJsonCandidate(url, timeoutMs, proxyUrl = "", signal, language = "en") {
-    return requestJson$2(url, {
+    return requestJson$1(url, {
       proxyUrl,
       timeoutMs,
       allowDirectCrossOrigin: true,
@@ -28949,7 +28079,7 @@ ${key}`] = { t: now, v: value };
       return promise;
     }
     requestJson(endpoint) {
-      const request = this.options.requestJsonImpl ?? requestJson$2;
+      const request = this.options.requestJsonImpl ?? requestJson$1;
       return request(endpointUrl(this.options.baseUrl, endpoint), {
         responseType: "json",
         timeoutMs: REQUEST_TIMEOUT_MS$3,
@@ -34287,7 +33417,6 @@ function frequencyPillsByLookupId(options) {
   const rank = provider === "jiten" ? liveJitenFrequencyRank(options) : liveJpdbFrequencyRank(options);
   if (!rank) continue;
   if (mergeIntoLinkPill && enabledLinkIds.has(provider)) mergedLiveRanks.set(provider, rank);
-  else pills.set(link.id, renderLiveFrequencyPill(provider, rank, provider === "jiten" ? "Jiten" : "JPDB"));
   }
   return { pills, mergedLiveRanks };
 }
@@ -34301,10 +33430,6 @@ function localFrequencyLookupLabel(settings, dictionary) {
 }
 function localFrequencyLookupPillId(dictionary) {
   return `frequency-local:${dictionary}`;
-}
-function renderLiveFrequencyPill(provider, rank, label) {
-  const dictionary = provider === "jiten" ? "Jiten" : "JPDB";
-  return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml$1(dictionary)}" data-frequency-source="live" style="${pillStyle(`frequency-live:${provider}`)}" title="${escapeHtml$1(`${label} live site frequency`)}">${escapeHtml$1(label)} #${escapeHtml$1(String(rank))}</span>`;
 }
 function liveFrequencyProvider(link) {
   if (link.id === "jiten-frequency") return "jiten";
@@ -37541,7 +36666,7 @@ function clearContrastVars(word) {
 const BUNPRO_FRONTEND_API_BASE_URL = "https://api.bunpro.jp/api/frontend";
 const BUNPRO_LEGACY_API_BASE_URL = "https://bunpro.jp/api/user";
 const REQUEST_TIMEOUT_MS = 3e4;
-const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired/i;
+const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
 class BunproApiError extends Error {
   constructor(message, status) {
   super(message);
@@ -37704,9 +36829,15 @@ class BunproClient {
 }
 function normalizeBunproError(error) {
   if (error instanceof BunproApiError) return error;
-  if (!(error instanceof Error)) return new BunproApiError("Bunpro request failed.");
-  if (TOKEN_EXPIRED_CODE_RE.test(error.message)) return new BunproApiError("Bunpro token expired or was denied.", 401);
+  const status = errorStatus(error);
+  if (!(error instanceof Error)) return new BunproApiError("Bunpro request failed.", status);
+  if (status === 401 || TOKEN_EXPIRED_CODE_RE.test(error.message)) return new BunproApiError("Bunpro token expired or was denied.", 401);
   return error;
+}
+function errorStatus(error) {
+  if (!error || typeof error !== "object") return void 0;
+  const status = error.status ?? error.statusCode;
+  return typeof status === "number" && Number.isFinite(status) ? status : void 0;
 }
 function trimBaseUrl(value) {
   return value.replace(/\/+$/u, "");
@@ -37750,7 +36881,7 @@ function createBunproSrsAdapter(client) {
   };
 }
 function normalizeBunproQueueResponse(raw, limit = 50) {
-  const cards = collectBunproReviewables(raw).map(normalizeBunproReviewable).filter((card) => card !== null).slice(0, Math.max(0, Math.floor(limit)));
+  const cards = collectBunproReviewables(raw).map((card) => normalizeBunproReviewable(card)).filter((card) => card !== null).slice(0, Math.max(0, Math.floor(limit)));
   return {
   providerId: "bunpro",
   fetchedAt: Date.now(),
@@ -37772,14 +36903,17 @@ function normalizeBunproStatsResponse(raw) {
   raw
   };
 }
-function normalizeBunproReviewable(raw) {
+function normalizeBunproReviewable(raw, fallbackKind = "grammar") {
   const record = reviewableRecord(raw);
   if (!record) return null;
   const id = readString(record, ["id", "review_id", "reviewId", "card_id", "cardId"]) || readString(raw, ["id"]) || readString(record, ["reviewable_id", "reviewableId", "grammar_id", "grammarId", "vocab_id", "vocabId"]);
   const reviewableId = readString(record, ["reviewable_id", "reviewableId", "grammar_id", "grammarId", "vocab_id", "vocabId"]);
   const expression = readString(record, ["grammar_point", "grammarPoint", "japanese", "word", "expression", "slug", "title"]) || readString(raw, ["slug", "title"]);
   if (!id || !expression) return null;
-  const kind = normalizeBunproKind(readString(record, ["reviewable_type", "reviewableType", "type", "kind"]));
+  const kind = normalizeBunproKind(
+  readString(record, ["reviewable_type", "reviewableType", "type", "kind"]),
+  inferBunproKind(record, fallbackKind)
+  );
   const slug = readString(record, ["slug", "grammar_point_slug", "grammarPointSlug"]);
   return {
   providerId: "bunpro",
@@ -37809,14 +36943,23 @@ async function reviewBunproCard(client, request) {
 }
 async function mineBunproCard(client, request) {
   const rawSearch = await client.search(request.expression, { grammar: request.kind !== "vocabulary", vocab: request.kind !== "grammar", limit: 1 });
-  const reviewable = normalizeBunproReviewable(firstBunproSearchHit(rawSearch));
-  if (!reviewable?.providerReviewableId) return { card: reviewable ?? void 0, raw: rawSearch };
+  const requestedKind = request.kind === "grammar" ? "grammar" : "vocabulary";
+  const reviewable = normalizeBunproReviewable(firstBunproSearchHit(rawSearch, requestedKind), requestedKind);
+  if (!reviewable) throw new BunproApiError(`No Bunpro item found for "${request.expression}".`);
+  if (reviewable.kind !== "vocabulary" && reviewable.kind !== "grammar") {
+  throw new BunproApiError(`Bunpro can only add vocabulary and grammar points from Yomu (${reviewable.kind} was returned).`);
+  }
+  const providerReviewableId = reviewable.providerReviewableId || reviewable.providerCardId;
+  const providerReviewableIdNumber = Number(providerReviewableId);
+  if (!Number.isFinite(providerReviewableIdNumber) || providerReviewableIdNumber <= 0) {
+  throw new BunproApiError(`Bunpro returned no addable reviewable id for "${request.expression}".`);
+  }
   const type = reviewable.kind === "vocabulary" ? "Vocab" : "GrammarPoint";
   const raw = await client.updateReviewsViaActionType({
   actionType: "add",
-  reviewables: [{ type, id: Number(reviewable.providerReviewableId) }]
+  reviewables: [{ type, id: providerReviewableIdNumber }]
   });
-  return { card: reviewable, raw };
+  return { card: { ...reviewable, providerReviewableId }, raw };
 }
 function bunproRatingForGrade(grade) {
   if (grade === "nothing" || grade === "fail" || grade === "again") return 1;
@@ -37835,9 +36978,11 @@ function collectBunproReviewables(raw) {
   ];
   return arrays.find((items) => items.length) ?? (Array.isArray(raw) ? raw : []);
 }
-function firstBunproSearchHit(raw) {
+function firstBunproSearchHit(raw, preferredKind = "grammar") {
   const record = isRecord(raw) ? raw : {};
-  return readArray(record.grammar_points, ["data"])[0] ?? readArray(record.vocabs, ["data"])[0] ?? readArray(raw, ["data", "reviewables"])[0] ?? raw;
+  const grammarHit = readArray(record.grammar_points, ["data"])[0];
+  const vocabHit = readArray(record.vocabs, ["data"])[0];
+  return preferredKind === "vocabulary" ? vocabHit ?? grammarHit : grammarHit ?? vocabHit ?? readArray(raw, ["data", "reviewables"])[0] ?? raw;
 }
 function reviewableRecord(raw) {
   const unwrapped = unwrapBunproData(raw);
@@ -37855,13 +37000,18 @@ function unwrapBunproData(value) {
   if (isRecord(item)) return item;
   return value;
 }
-function normalizeBunproKind(value) {
+function normalizeBunproKind(value, fallback) {
   const normalized = value.toLowerCase();
   if (normalized.includes("vocab")) return "vocabulary";
   if (normalized.includes("grammar")) return "grammar";
   if (normalized.includes("kanji")) return "kanji";
   if (normalized.includes("sentence") || normalized.includes("question")) return "sentence";
-  return "grammar";
+  return fallback;
+}
+function inferBunproKind(record, fallback) {
+  if (readString(record, ["vocab_id", "vocabId", "vocabulary_id", "vocabularyId", "word"])) return "vocabulary";
+  if (readString(record, ["grammar_id", "grammarId", "grammar_point", "grammarPoint"])) return "grammar";
+  return fallback;
 }
 function normalizeBunproCardState(value) {
   const normalized = value.toLowerCase();

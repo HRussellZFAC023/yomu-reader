@@ -4,6 +4,8 @@ import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
 import { pitchItemKey, type PitchSrsItem } from '../../src/reader/newtab/pitch-srs';
+import { renderListenCard, type ListenCardView } from '../../src/reader/newtab/listen-render';
+import { newTabText } from '../../src/reader/newtab/i18n';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 
 // 箸 = atamadaka (downstep 1) for the 2-mora reading はし.
@@ -125,6 +127,7 @@ describe('new-tab Listen mode', () => {
             expect(root.querySelectorAll('[data-listen-pos]')).toHaveLength(3);
             expect(root.querySelector('.jpdb-reader-newtab-listen-stats')).toBeNull();
             expect(root.querySelector('.jpdb-reader-newtab-listen-prompt')).toBeNull();
+            expect(Array.from(root.querySelectorAll('.jpdb-reader-newtab-listen-pos-name'), element => element.textContent)).toEqual(['平板', '頭高', '尾高']);
             expect(root.querySelector('[data-newtab-action="listen-play"] svg')).not.toBeNull();
             expect(playWordAudio).toHaveBeenCalledTimes(1);
         } finally {
@@ -181,7 +184,7 @@ describe('new-tab Listen mode', () => {
             expect(item?.reps).toBe(0);
             expect(item?.lapses).toBe(0);
             expect(root.querySelector('.jpdb-reader-newtab-listen-verdict-correct')).not.toBeNull();
-            expect(root.querySelector('[data-newtab-action="listen-next"]')).not.toBeNull();
+            expect(root.querySelector('[data-newtab-action="listen-next"]')?.textContent).toBe('Continue');
         } finally {
             controller.destroy();
         }
@@ -195,6 +198,7 @@ describe('new-tab Listen mode', () => {
         const root = listenRoot();
         try {
             internals.renderWord(root, internals.visibleWords[0]);
+            expect(root.querySelector('[data-newtab-action="listen-play"]')?.classList.contains('jpdb-reader-newtab-listen-icon-btn')).toBe(true);
             internals.pickListenPosition(2); // wrong (真 answer is 1)
             const item = internals.pitchSrs.item(pitchItemKey('はし', 1));
             expect(item?.lapses).toBe(0);
@@ -272,5 +276,50 @@ describe('new-tab Listen mode', () => {
         } finally {
             controller.destroy();
         }
+    });
+
+    it('shows local speaking pitch feedback in Shadow without turning it into a grade', () => {
+        const item: PitchSrsItem = {
+            key: 'はし#1',
+            reading: 'はし',
+            pitchNumber: 1,
+            pattern: 'HL',
+            pitchClass: 'atamadaka',
+            displaySpelling: '箸',
+            due: 0,
+            intervalDays: 0,
+            ease: 2.5,
+            reps: 0,
+            lapses: 0,
+            introducedAt: 0,
+        };
+        const view: ListenCardView = {
+            item,
+            meaning: 'chopsticks',
+            subMode: 'shadow',
+            revealed: true,
+            selectedPosition: null,
+            outcome: null,
+            hasAudio: true,
+            recording: false,
+            hasRecording: true,
+            speakingScore: {
+                score: 88,
+                verdict: 'good',
+                expectedPattern: 'HL',
+                observedPattern: 'HL',
+                voicedRatio: 0.84,
+                frameCount: 20,
+            },
+            speakingScoring: false,
+            micEnabled: true,
+            micUnavailable: false,
+            contrast: null,
+        };
+        const root = document.createElement('div');
+        root.innerHTML = renderListenCard(view, key => newTabText('en', key));
+        expect(root.querySelector('[data-speaking-score-state="good"]')?.textContent).toBe('Good 88%');
+        expect(root.querySelector('.jpdb-reader-newtab-listen-note')?.textContent).toContain('Scored locally');
+        expect(root.querySelector('[data-newtab-action="listen-next"]')?.textContent).toBe('Continue');
     });
 });

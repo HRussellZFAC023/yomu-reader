@@ -1,6 +1,7 @@
 import type { ReaderSettings } from '../app/types';
 import type { CloudSettingsAuthRedirectResult, CloudSettingsSyncMetadata, CloudSettingsSyncSnapshot } from './cloud-sync';
 import { requestJson, requestText } from '../network/http';
+import { exportManagedStoredValues } from '../app/storage';
 
 // Serverless Google Drive settings sync for the userscript and hosted reader.
 //
@@ -66,6 +67,7 @@ export async function uploadCloudSettingsToCloud(settings: ReaderSettings): Prom
         formatVersion: 1,
         syncedAt: new Date().toISOString(),
         settings,
+        storage: await exportManagedStoredValues(),
     };
     const serialized = JSON.stringify(snapshot);
     const existing = await findSettingsFile();

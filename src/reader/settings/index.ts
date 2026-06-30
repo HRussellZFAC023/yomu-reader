@@ -1617,12 +1617,24 @@ export function normalizeAudioSources(value: unknown, legacyUrl?: string): Audio
     const sources = Array.isArray(value)
         ? value.map(normalizeAudioSource).filter((source): source is AudioSourceSetting => source !== null)
         : [];
-    if (Array.isArray(value)) return migrateLegacyDefaultAudioSources(sources);
+    if (Array.isArray(value)) return sources.length ? ensureHostedAudioSourceFirst(migrateLegacyDefaultAudioSources(sources)) : sources;
 
     if (typeof legacyUrl === 'string' && legacyUrl.trim()) {
-        return [{ type: 'custom-json', url: legacyUrl.trim(), voice: '', enabled: true }];
+        return ensureHostedAudioSourceFirst([{ type: 'custom-json', url: legacyUrl.trim(), voice: '', enabled: true }]);
     }
     return DEFAULT_AUDIO_SOURCES.map(source => ({ ...source }));
+}
+
+function ensureHostedAudioSourceFirst(sources: AudioSourceSetting[]): AudioSourceSetting[] {
+    const hosted = sources.find(isHostedAudioSource) ?? DEFAULT_AUDIO_SOURCES[0]!;
+    return [
+        { ...hosted },
+        ...sources.filter(source => !isHostedAudioSource(source)).map(source => ({ ...source })),
+    ];
+}
+
+function isHostedAudioSource(source: AudioSourceSetting): boolean {
+    return source.type === 'custom-json' && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
 }
 
 function migrateLegacyDefaultAudioSources(sources: AudioSourceSetting[]): AudioSourceSetting[] {

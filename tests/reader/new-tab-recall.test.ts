@@ -15,6 +15,7 @@ function recallCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         frequencyRank: 1200,
         partOfSpeech: ['n'],
         meanings: [{ glosses: ['lawyer'], partOfSpeech: ['n'] }],
+        sentence: '昨日、弁護士に相談した。',
         cardState: ['due'],
         pitchAccent: [],
         wordWithReading: null,

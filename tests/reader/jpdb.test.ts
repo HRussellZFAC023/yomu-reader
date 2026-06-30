@@ -5612,6 +5612,40 @@ describe('reader helpers', () => {
         expect(metaText).not.toContain('Anki');
     });
 
+    it('keeps local JPDB frequency in the JPDB lookup pill instead of duplicating a raw meta chip', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'en' as const,
+            apiKey: '',
+            jpdbMiningEnabled: true,
+        };
+        const renderer = testCardPopoverRenderer(settings, {
+            renderWordPills: (lookupCard, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, jitenVocabularyInfo) => renderWordPills({
+                card: lookupCard,
+                jpdbUrl,
+                metaEntries,
+                overrideQuery,
+                ankiLookup,
+                jitenVocabularyInfo,
+                settings,
+                isJpdbBackedCard: () => true,
+                dictionaryLabel: name => name,
+            }),
+        });
+
+        document.body.innerHTML = renderModalCard(renderer, {
+            ...card,
+            source: 'local',
+            frequencyRank: 18447,
+            cardState: ['not-in-deck'],
+        }, '図鑑を読む。');
+
+        expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-pill.jpdb-reader-frequency-pill')).toBeNull();
+        const jpdbPill = document.querySelector<HTMLElement>('.jpdb-reader-heading .jpdb-reader-jpdb-pill');
+        expect(jpdbPill?.textContent).toContain('JPDB #18447');
+        expect((document.body.textContent?.match(/#18447/g) ?? []).length).toBe(1);
+    });
+
     it('shows JPDB status in dictionary meta when the API key is active but writes are disabled', () => {
         const renderer = testCardPopoverRenderer({
             interfaceLanguage: 'en',
@@ -5686,7 +5720,7 @@ describe('reader helpers', () => {
         expect(html).not.toContain('>Uchisen ');
     });
 
-    it('merges the live Jiten frequency rank inline into the Jiten pill (and reverts when the toggle is off)', () => {
+    it('merges the live Jiten frequency rank inline into the Jiten pill without duplicating a standalone meta pill', () => {
         const jitenCard = { ...card, source: 'jiten' as const, frequencyRank: 18447, pitchAccent: [] };
         const baseSettings = {
             ...DEFAULT_SETTINGS,
@@ -5712,12 +5746,13 @@ describe('reader helpers', () => {
             isJpdbBackedCard: () => false,
             dictionaryLabel: name => name,
         });
-        // Toggle off restores the standalone live-frequency pill.
-        expect(split).toContain('data-frequency-source="live"');
-        expect(split).toContain('>Jiten #18447</span>');
+        // Toggle off removes the rank from the lookup pill instead of bringing
+        // back a duplicate standalone frequency chip in the meta row.
+        expect(split).not.toContain('data-frequency-source="live"');
+        expect(split).not.toContain('>Jiten #18447');
     });
 
-    it('keeps the live rank as a standalone pill when its sibling link pill is disabled', () => {
+    it('does not render a standalone live rank when its sibling lookup pill is disabled', () => {
         const jitenCard = { ...card, source: 'jiten' as const, frequencyRank: 18447, pitchAccent: [] };
         const html = renderWordPills({
             card: jitenCard,
@@ -5731,9 +5766,8 @@ describe('reader helpers', () => {
             isJpdbBackedCard: () => false,
             dictionaryLabel: name => name,
         });
-        // Rank must not vanish: it falls back to the standalone pill.
-        expect(html).toContain('data-frequency-source="live"');
-        expect(html).toContain('>Jiten #18447</span>');
+        expect(html).not.toContain('data-frequency-source="live"');
+        expect(html).not.toContain('>Jiten #18447');
     });
 
     it('does not weld the whole-word frequency rank onto a single-kanji lookup pill', () => {
@@ -21602,6 +21636,7 @@ describe('reader helpers', () => {
     it('preserves an intentionally empty Yomitan-style audio source list', () => {
         expect(normalizeAudioSources([])).toEqual([]);
         expect(normalizeAudioSources(undefined, 'http://localhost:9090/?term={term}')).toMatchObject([
+            { type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', enabled: true },
             { type: 'custom-json', url: 'http://localhost:9090/?term={term}', enabled: true },
         ]);
     });

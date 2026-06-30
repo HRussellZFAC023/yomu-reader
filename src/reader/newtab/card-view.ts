@@ -33,6 +33,15 @@ export function renderNewTabSentenceHtml(sentence: string, card: JPDBCard, setti
         : renderCardHighlightedTextHtml(sentence, card);
 }
 
+export function hiddenNewTabStudySentenceSettings(settings: ReaderSettings): ReaderSettings {
+    return {
+        ...newTabStudySentenceSettings(settings),
+        furiganaMode: 'off',
+        showFurigana: false,
+        showPitchAccent: false,
+    };
+}
+
 // UT-22: study sentences are an SRS surface — words the user already knows
 // (known / mature / never-forget …) must not carry furigana even when the
 // global furigana mode is "all", or the page keeps feeding answers for

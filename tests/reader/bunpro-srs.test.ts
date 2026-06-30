@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BunproClient } from '../../src/reader/bunpro/bunpro';
+import { BunproApiError, BunproClient } from '../../src/reader/bunpro/bunpro';
+import type { ReaderHttpOptions } from '../../src/reader/network/http-options';
 import { createBunproSrsAdapter, normalizeBunproQueueResponse, normalizeBunproReviewable, normalizeBunproStatsResponse } from '../../src/reader/srs/bunpro';
 import { LocalYomuSrsRepository, createYomuLocalSrsAdapter, yomuSrsImportBatch } from '../../src/reader/srs/local-yomu';
 
@@ -70,7 +71,7 @@ describe('Bunpro SRS adapter', () => {
     });
 
     it('routes queue and final grades through the Bunpro client boundary', async () => {
-        const request = vi.fn(async (url: string) => {
+        const request = vi.fn<[string, ReaderHttpOptions?], Promise<unknown>>(async (url, _options) => {
             if (url.endsWith('/user/queue')) return { reviews: [{ id: 10, reviewable_type: 'Vocab', word: '読む', reading: 'よむ' }] };
             if (url.endsWith('/reviews/10/update')) return { id: 10, word: '読む', reading: 'よむ' };
             return {};
@@ -85,6 +86,66 @@ describe('Bunpro SRS adapter', () => {
             'https://api.bunpro.jp/api/frontend/user/queue',
             'https://api.bunpro.jp/api/frontend/reviews/10/update',
         ]);
+    });
+
+    it('adds mined vocabulary through the Bunpro reviewable action endpoint', async () => {
+        const request = vi.fn(async (url: string) => {
+            if (url.endsWith('/search/reviewables_v1_1')) {
+                return { vocabs: { data: [{ id: 42, reviewable_type: 'Vocab', word: '読む', reading: 'よむ', meaning: 'to read' }] } };
+            }
+            if (url.endsWith('/reviews/update_via_action_type')) return { ok: true };
+            return {};
+        });
+        const adapter = createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => 'token', requestImpl: request }));
+
+        const result = await adapter.mine({ expression: '読む', reading: 'よむ', kind: 'vocabulary' });
+
+        expect(result.card).toMatchObject({ expression: '読む', providerReviewableId: '42', kind: 'vocabulary' });
+        const calls = request.mock.calls as Array<[string, ReaderHttpOptions?]>;
+        const updateOptions = calls[1]?.[1];
+        if (!updateOptions) throw new Error('Expected Bunpro update request options.');
+        expect(JSON.parse(String(updateOptions.data))).toEqual({
+            deck_id: null,
+            action_type: 'add',
+            reviewables: [['Vocab', 42]],
+        });
+    });
+
+    it('prefers vocabulary search hits and infers missing Bunpro reviewable types from the requested mining kind', async () => {
+        const request = vi.fn(async (url: string) => {
+            if (url.endsWith('/search/reviewables_v1_1')) {
+                return {
+                    grammar_points: { data: [{ id: 9, grammar_point: '〜よう', reading: 'よう', meaning: 'appearance' }] },
+                    vocabs: { data: [{ id: 42, word: '読む', reading: 'よむ', meaning: 'to read' }] },
+                };
+            }
+            if (url.endsWith('/reviews/update_via_action_type')) return { ok: true };
+            return {};
+        });
+        const adapter = createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => 'token', requestImpl: request }));
+
+        const result = await adapter.mine({ expression: '読む', reading: 'よむ', kind: 'vocabulary' });
+
+        expect(result.card).toMatchObject({ expression: '読む', providerReviewableId: '42', kind: 'vocabulary' });
+        const calls = request.mock.calls as Array<[string, ReaderHttpOptions?]>;
+        const updateOptions = calls[1]?.[1];
+        if (!updateOptions) throw new Error('Expected Bunpro update request options.');
+        expect(JSON.parse(String(updateOptions.data))).toMatchObject({
+            action_type: 'add',
+            reviewables: [['Vocab', 42]],
+        });
+    });
+
+    it('rejects Bunpro mining when search returns no addable item', async () => {
+        const request = vi.fn(async (url: string) => {
+            if (url.endsWith('/search/reviewables_v1_1')) return { grammar_points: { data: [] }, vocabs: { data: [] } };
+            if (url.endsWith('/reviews/update_via_action_type')) return { ok: true };
+            return {};
+        });
+        const adapter = createBunproSrsAdapter(new BunproClient({ getFrontendToken: () => 'token', requestImpl: request }));
+
+        await expect(adapter.mine({ expression: '幻語', kind: 'vocabulary' })).rejects.toBeInstanceOf(BunproApiError);
+        expect(request.mock.calls.map(([url]) => String(url)).filter(url => url.endsWith('/reviews/update_via_action_type'))).toHaveLength(0);
     });
 });
 

@@ -480,7 +480,7 @@ export function updatePopoverReviewTargetSelection(select: HTMLSelectElement): v
     if (labelText) labelText.textContent = label;
     actions.querySelectorAll<HTMLButtonElement>('[data-review-target-row] [data-action="grade"][data-grade]').forEach(button => {
         button.dataset.reviewTarget = target;
-        if ('newtabReviewTarget' in button.dataset) button.dataset.newtabReviewTarget = target;
+        button.dataset.newtabReviewTarget = target;
         if (ankiCardId) button.dataset.ankiCardId = ankiCardId;
         else delete button.dataset.ankiCardId;
         const buttonLabel = button.textContent?.trim() ?? '';
@@ -541,7 +541,7 @@ function renderReviewTargetLabel(target: PopoverReviewTarget): string {
 }
 
 function reviewTargetButtonAttrs(target: PopoverReviewTarget): string {
-    return ` data-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}`;
+    return ` data-review-target="${target.kind}" data-newtab-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}`;
 }
 
 function formatTargetLabel(template: string, target: string): string {
@@ -633,19 +633,10 @@ function renderMetaFrequencyRank(rank: number, language: InterfaceLanguage): str
 }
 
 function shouldRenderMetaFrequencyRank(card: JPDBCard, provider: ApiSrsProviderView | null, settings: ReaderSettings): boolean {
-    if (!card.frequencyRank || (provider?.hasApiKey && provider.id !== 'yomu-local')) return false;
-    if (settings.showLookupPillFrequency === false) return true;
-    const liveProvider = liveFrequencyProviderForCard(card);
-    if (!liveProvider) return true;
-    const enabledLookupLinks = new Set(settings.dictionaryLookupLinks.filter(link => link.enabled).map(link => link.id));
-    return !(enabledLookupLinks.has(liveProvider) && enabledLookupLinks.has(`${liveProvider}-frequency`));
-}
-
-function liveFrequencyProviderForCard(card: JPDBCard): 'jiten' | 'jpdb' | null {
-    if (card.source === 'jiten' || card.reviewSource === 'jiten-api') return 'jiten';
-    if (card.source === 'local' || card.source === 'fallback' || card.source === 'anki' || card.source === 'bunpro' || card.source === 'yomu-local') return null;
-    if (card.reviewSource === 'dictionary' || card.reviewSource === 'anki' || card.reviewSource === 'bunpro-api' || card.reviewSource === 'yomu-local') return null;
-    return 'jpdb';
+    void card;
+    void provider;
+    void settings;
+    return false;
 }
 
 function renderAnkiMeta(lookup: CardRenderData['ankiLookup'], settings: ReaderSettings): string {

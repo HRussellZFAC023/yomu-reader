@@ -5,6 +5,7 @@ import { getUserscriptGmStorage } from '../userscript/storage-bridge';
 const MISSING = { missing: true };
 const FACTORY_RESET_SIGNAL_KEY = 'yomu:factory-reset-signal';
 const FACTORY_RESET_CHANNEL_NAME = 'yomu:factory-reset';
+const YOMU_LOCAL_SRS_STORAGE_KEY = 'yomu:srs-local:v1';
 const KNOWN_MANAGED_STORAGE_KEYS = [
     'jpdb-popup-reader-settings',
     'jpdb-reader-settings',
@@ -16,7 +17,7 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
     'jpdb-reader-newtab-ui',
     'jpdb-reader-newtab-jpdb-stats-history',
     'jpdb-reader-newtab-disabled-anki-decks',
-    'yomu:srs-local:v1',
+    YOMU_LOCAL_SRS_STORAGE_KEY,
     'jpdb-reader-source-open-state',
     'jpdb-reader-settings-drawer-height-ratio',
     'jpdb-reader-sheet-height-ratio',
@@ -36,6 +37,9 @@ const MANAGED_INDEXED_DB_NAMES = [
 ];
 const MANAGED_CACHE_NAME_PREFIXES = [
     'yomu-newtab-',
+    'yomu-pdf-reader-',
+    'yomu-video-player-',
+    'yomu-docs-shell-',
 ];
 const EXCLUDED_BACKUP_STORAGE_KEYS = new Set([
     FACTORY_RESET_SIGNAL_KEY,
@@ -178,8 +182,11 @@ export async function exportManagedStoredValues(): Promise<Record<string, unknow
 export async function importStoredValues(values: unknown): Promise<number> {
     let count = 0;
     for (const [key, value] of managedStoredValueEntries(values)) {
-        await gmStorageSet(key, value);
-        localStorageSet(key, value);
+        const storedValue = key === YOMU_LOCAL_SRS_STORAGE_KEY
+            ? await mergeYomuLocalSrsDeckImport(value)
+            : value;
+        await gmStorageSet(key, storedValue);
+        localStorageSet(key, storedValue);
         count++;
     }
     return count;
@@ -193,6 +200,79 @@ function managedStoredValueEntries(values: unknown): Array<[string, unknown]> {
 
 function isStorageImportRecord(values: unknown): values is Record<string, unknown> {
     return Boolean(values && typeof values === 'object' && !Array.isArray(values));
+}
+
+async function mergeYomuLocalSrsDeckImport(imported: unknown): Promise<unknown> {
+    const importedDeck = yomuLocalSrsDeckRecord(imported);
+    if (!importedDeck) return imported;
+    const existingDeck = yomuLocalSrsDeckRecord(await gmStorageGet<unknown>(YOMU_LOCAL_SRS_STORAGE_KEY, null).catch(() => null));
+    if (!existingDeck) return importedDeck;
+    return {
+        version: 1,
+        cards: mergeYomuLocalSrsCards(existingDeck.cards, importedDeck.cards),
+    };
+}
+
+function yomuLocalSrsDeckRecord(value: unknown): { version: 1; cards: Record<string, Record<string, unknown>> } | null {
+    if (!isPlainRecord(value) || value.version !== 1 || !isPlainRecord(value.cards)) return null;
+    const cards: Record<string, Record<string, unknown>> = {};
+    for (const [id, card] of Object.entries(value.cards)) {
+        if (isPlainRecord(card)) cards[id] = card;
+    }
+    return { version: 1, cards };
+}
+
+function mergeYomuLocalSrsCards(
+    existingCards: Record<string, Record<string, unknown>>,
+    importedCards: Record<string, Record<string, unknown>>,
+): Record<string, Record<string, unknown>> {
+    const cards = { ...existingCards };
+    for (const [id, importedCard] of Object.entries(importedCards)) {
+        const existingCard = cards[id];
+        cards[id] = existingCard ? mergeYomuLocalSrsCard(existingCard, importedCard) : importedCard;
+    }
+    return cards;
+}
+
+function mergeYomuLocalSrsCard(existingCard: Record<string, unknown>, importedCard: Record<string, unknown>): Record<string, unknown> {
+    return {
+        ...importedCard,
+        ...existingCard,
+        meanings: uniquePrimitiveStrings([
+            ...stringArray(importedCard.meanings),
+            ...stringArray(existingCard.meanings),
+        ]),
+        sentence: existingCard.sentence || importedCard.sentence,
+        sourceUrl: existingCard.sourceUrl || importedCard.sourceUrl,
+        tags: uniquePrimitiveStrings([
+            ...stringArray(importedCard.tags),
+            ...stringArray(existingCard.tags),
+        ]),
+        createdAt: minFiniteNumber(importedCard.createdAt, existingCard.createdAt) ?? existingCard.createdAt ?? importedCard.createdAt,
+        updatedAt: maxFiniteNumber(importedCard.updatedAt, existingCard.updatedAt) ?? existingCard.updatedAt ?? importedCard.updatedAt,
+    };
+}
+
+function stringArray(value: unknown): string[] {
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : [];
+}
+
+function uniquePrimitiveStrings(values: string[]): string[] {
+    return Array.from(new Set(values));
+}
+
+function minFiniteNumber(a: unknown, b: unknown): number | undefined {
+    const values = [a, b].filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+    return values.length ? Math.min(...values) : undefined;
+}
+
+function maxFiniteNumber(a: unknown, b: unknown): number | undefined {
+    const values = [a, b].filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+    return values.length ? Math.max(...values) : undefined;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 export async function clearManagedStoredValues(): Promise<number> {
@@ -511,11 +591,31 @@ function isManagedServiceWorkerRegistration(registration: ServiceWorkerRegistrat
         registration.active?.scriptURL,
         registration.installing?.scriptURL,
         registration.waiting?.scriptURL,
-    ].some(hasManagedNewTabServiceWorkerPath);
+    ].some(hasManagedYomuServiceWorkerPath);
 }
 
-function hasManagedNewTabServiceWorkerPath(value: string | undefined): boolean {
-    return typeof value === 'string' && value.includes('/newtab/');
+function hasManagedYomuServiceWorkerPath(value: string | undefined): boolean {
+    if (typeof value !== 'string') return false;
+    try {
+        const url = new URL(value, location.href);
+        if (!isManagedServiceWorkerOrigin(url)) return false;
+        return url.pathname === '/sw.js'
+            || url.pathname.endsWith('/sw.js')
+            || url.pathname.includes('/newtab/')
+            || url.pathname.includes('/pdf-reader/')
+            || url.pathname.includes('/video-player/');
+    } catch {
+        return value.includes('/newtab/')
+            || value.includes('/pdf-reader/')
+            || value.includes('/video-player/')
+            || value.endsWith('/sw.js');
+    }
+}
+
+function isManagedServiceWorkerOrigin(url: URL): boolean {
+    return url.origin === DOCS_ORIGIN
+        || url.hostname === 'hrussellzfac023.github.io'
+        || /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname);
 }
 
 function deleteIndexedDbDatabase(name: string): Promise<void> {

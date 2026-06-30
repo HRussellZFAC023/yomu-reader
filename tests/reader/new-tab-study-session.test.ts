@@ -60,6 +60,33 @@ describe('new-tab study session model', () => {
         expect(session.gradeStep.kind).toBe('final-reveal');
     });
 
+    it('does not force live kanji cards back to the kanji step after the learner selects word', () => {
+        const session = createNewTabStudySession(sessionCard(), {
+            mode: 'word',
+            listenSubMode: 'perceive',
+            revealAnswer: false,
+            renderAsKanji: true,
+            hasPitchStep: true,
+            hasRecallCloze: true,
+            activeStepKind: 'word',
+        });
+
+        expect(session.steps.map(step => step.kind)).toContain('kanji-doodle');
+        expect(session.activeStep.kind).toBe('word');
+    });
+
+    it('uses the kanji step when a live kanji card is actually in kanji mode', () => {
+        const session = createNewTabStudySession(sessionCard(), {
+            mode: 'kanji',
+            revealAnswer: false,
+            renderAsKanji: true,
+            hasPitchStep: true,
+            hasRecallCloze: true,
+        });
+
+        expect(session.activeStep.kind).toBe('kanji-doodle');
+    });
+
     it('uses configured order and disabled steps while keeping reveal last', () => {
         const session = createNewTabStudySession(sessionCard(), {
             mode: 'word',
@@ -78,6 +105,21 @@ describe('new-tab study session model', () => {
             'kanji-doodle',
             'final-reveal',
         ]);
+        expect(session.gradeStep.kind).toBe('final-reveal');
+    });
+
+    it('honors a disabled word step instead of forcing it back into the flow', () => {
+        const session = createNewTabStudySession(sessionCard({ spelling: 'よむ', pitchAccent: [] }), {
+            mode: 'word',
+            revealAnswer: false,
+            renderAsKanji: false,
+            hasPitchStep: false,
+            hasRecallCloze: false,
+            disabledSteps: ['word'],
+        });
+
+        expect(session.steps.map(step => step.kind)).toEqual(['final-reveal']);
+        expect(session.activeStep.kind).toBe('final-reveal');
         expect(session.gradeStep.kind).toBe('final-reveal');
     });
 });

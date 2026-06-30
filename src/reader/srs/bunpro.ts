@@ -1,5 +1,5 @@
 import type { CardState, JPDBMeaning } from '../app/types';
-import { BunproClient, type BunproReviewActionRequest } from '../bunpro/bunpro';
+import { BunproApiError, BunproClient, type BunproReviewActionRequest } from '../bunpro/bunpro';
 import type {
     YomuSrsAdapter,
     YomuSrsMiningRequest,
@@ -30,7 +30,7 @@ export function createBunproSrsAdapter(client: BunproClient): YomuSrsAdapter {
 
 export function normalizeBunproQueueResponse(raw: unknown, limit = 50): YomuSrsQueueSnapshot {
     const cards = collectBunproReviewables(raw)
-        .map(normalizeBunproReviewable)
+        .map(card => normalizeBunproReviewable(card))
         .filter((card): card is YomuSrsReviewable => card !== null)
         .slice(0, Math.max(0, Math.floor(limit)));
     return {
@@ -56,7 +56,7 @@ export function normalizeBunproStatsResponse(raw: unknown): YomuSrsStatsSnapshot
     };
 }
 
-export function normalizeBunproReviewable(raw: unknown): YomuSrsReviewable | null {
+export function normalizeBunproReviewable(raw: unknown, fallbackKind: YomuSrsReviewableKind = 'grammar'): YomuSrsReviewable | null {
     const record = reviewableRecord(raw);
     if (!record) return null;
     const id = readString(record, ['id', 'review_id', 'reviewId', 'card_id', 'cardId'])
@@ -66,7 +66,10 @@ export function normalizeBunproReviewable(raw: unknown): YomuSrsReviewable | nul
     const expression = readString(record, ['grammar_point', 'grammarPoint', 'japanese', 'word', 'expression', 'slug', 'title'])
         || readString(raw, ['slug', 'title']);
     if (!id || !expression) return null;
-    const kind = normalizeBunproKind(readString(record, ['reviewable_type', 'reviewableType', 'type', 'kind']));
+    const kind = normalizeBunproKind(
+        readString(record, ['reviewable_type', 'reviewableType', 'type', 'kind']),
+        inferBunproKind(record, fallbackKind),
+    );
     const slug = readString(record, ['slug', 'grammar_point_slug', 'grammarPointSlug']);
     return {
         providerId: 'bunpro',
@@ -98,14 +101,23 @@ async function reviewBunproCard(client: BunproClient, request: YomuSrsReviewRequ
 
 async function mineBunproCard(client: BunproClient, request: YomuSrsMiningRequest): Promise<YomuSrsMiningResult> {
     const rawSearch = await client.search(request.expression, { grammar: request.kind !== 'vocabulary', vocab: request.kind !== 'grammar', limit: 1 });
-    const reviewable = normalizeBunproReviewable(firstBunproSearchHit(rawSearch));
-    if (!reviewable?.providerReviewableId) return { card: reviewable ?? undefined, raw: rawSearch };
+    const requestedKind = request.kind === 'grammar' ? 'grammar' : 'vocabulary';
+    const reviewable = normalizeBunproReviewable(firstBunproSearchHit(rawSearch, requestedKind), requestedKind);
+    if (!reviewable) throw new BunproApiError(`No Bunpro item found for "${request.expression}".`);
+    if (reviewable.kind !== 'vocabulary' && reviewable.kind !== 'grammar') {
+        throw new BunproApiError(`Bunpro can only add vocabulary and grammar points from Yomu (${reviewable.kind} was returned).`);
+    }
+    const providerReviewableId = reviewable.providerReviewableId || reviewable.providerCardId;
+    const providerReviewableIdNumber = Number(providerReviewableId);
+    if (!Number.isFinite(providerReviewableIdNumber) || providerReviewableIdNumber <= 0) {
+        throw new BunproApiError(`Bunpro returned no addable reviewable id for "${request.expression}".`);
+    }
     const type: BunproReviewActionRequest['reviewables'][number]['type'] = reviewable.kind === 'vocabulary' ? 'Vocab' : 'GrammarPoint';
     const raw = await client.updateReviewsViaActionType({
         actionType: 'add',
-        reviewables: [{ type, id: Number(reviewable.providerReviewableId) }],
+        reviewables: [{ type, id: providerReviewableIdNumber }],
     });
-    return { card: reviewable, raw };
+    return { card: { ...reviewable, providerReviewableId }, raw };
 }
 
 function bunproRatingForGrade(grade: YomuSrsReviewRequest['grade']): number {
@@ -127,10 +139,13 @@ function collectBunproReviewables(raw: unknown): unknown[] {
     return arrays.find(items => items.length) ?? (Array.isArray(raw) ? raw : []);
 }
 
-function firstBunproSearchHit(raw: unknown): unknown {
+function firstBunproSearchHit(raw: unknown, preferredKind: Extract<YomuSrsReviewableKind, 'grammar' | 'vocabulary'> = 'grammar'): unknown {
     const record = isRecord(raw) ? raw : {};
-    return readArray(record.grammar_points, ['data'])[0]
-        ?? readArray(record.vocabs, ['data'])[0]
+    const grammarHit = readArray(record.grammar_points, ['data'])[0];
+    const vocabHit = readArray(record.vocabs, ['data'])[0];
+    return preferredKind === 'vocabulary'
+        ? vocabHit ?? grammarHit
+        : grammarHit ?? vocabHit
         ?? readArray(raw, ['data', 'reviewables'])[0]
         ?? raw;
 }
@@ -153,13 +168,19 @@ function unwrapBunproData(value: unknown): unknown {
     return value;
 }
 
-function normalizeBunproKind(value: string): YomuSrsReviewableKind {
+function normalizeBunproKind(value: string, fallback: YomuSrsReviewableKind): YomuSrsReviewableKind {
     const normalized = value.toLowerCase();
     if (normalized.includes('vocab')) return 'vocabulary';
     if (normalized.includes('grammar')) return 'grammar';
     if (normalized.includes('kanji')) return 'kanji';
     if (normalized.includes('sentence') || normalized.includes('question')) return 'sentence';
-    return 'grammar';
+    return fallback;
+}
+
+function inferBunproKind(record: Record<string, unknown>, fallback: YomuSrsReviewableKind): YomuSrsReviewableKind {
+    if (readString(record, ['vocab_id', 'vocabId', 'vocabulary_id', 'vocabularyId', 'word'])) return 'vocabulary';
+    if (readString(record, ['grammar_id', 'grammarId', 'grammar_point', 'grammarPoint'])) return 'grammar';
+    return fallback;
 }
 
 function normalizeBunproCardState(value: string): CardState[] {

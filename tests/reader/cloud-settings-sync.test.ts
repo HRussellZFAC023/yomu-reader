@@ -10,6 +10,7 @@ describe('Google Drive settings sync client', () => {
     afterEach(() => {
         vi.unstubAllGlobals();
         vi.resetModules();
+        localStorage.clear();
     });
 
     it('is disabled outside extension builds', async () => {
@@ -23,6 +24,7 @@ describe('Google Drive settings sync client', () => {
     it('uploads settings through the extension Google Drive bridge', async () => {
         const messages: unknown[] = [];
         vi.stubGlobal('__YOMU_EXTENSION_BUILD__', true);
+        localStorage.setItem('yomu:srs-local:v1', JSON.stringify({ version: 1, cards: { local: { expression: '読む' } } }));
         vi.stubGlobal('chrome', {
             runtime: {
                 id: 'extension-id',
@@ -57,6 +59,7 @@ describe('Google Drive settings sync client', () => {
                 formatName: 'yomu-google-drive-settings-sync',
                 formatVersion: 1,
                 settings: { apiKey: 'drive-api-key' },
+                storage: { 'yomu:srs-local:v1': { version: 1, cards: { local: { expression: '読む' } } } },
             },
         });
     });

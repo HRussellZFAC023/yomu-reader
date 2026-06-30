@@ -42,12 +42,19 @@ export function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSet
     if (!settings.audioEnableDefaultSources) return sources;
 
     const configuredTypes = new Set(settings.audioSources.map(source => source.type));
+    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? REQUIRED_JA_AUDIO_SOURCES[0]!;
     return [
-        ...sources,
+        ...(hosted.enabled ? [{ ...hosted }] : []),
+        ...sources.filter(source => !isYomuHostedAudioSource(source)),
         ...REQUIRED_JA_AUDIO_SOURCES
-            .filter(source => !configuredTypes.has(source.type))
+            .filter(source => !isYomuHostedAudioSource(source) && !configuredTypes.has(source.type))
             .map(source => ({ ...source })),
     ];
+}
+
+function isYomuHostedAudioSource(source: AudioSourceSetting): boolean {
+    return source.type === 'custom-json'
+        && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
 }
 
 export function preloadableAudioSources(sources: AudioSourceSetting[], settings: ReaderSettings): AudioSourceSetting[] {

@@ -109,8 +109,11 @@ try {
     await word.hover();
     await waitForPopoverHeading(page, LOOKUP_WORD);
     await page.locator('.jpdb-reader-popover .jpdb-reader-copy-pill').first().click();
-    await page.waitForSelector('.jpdb-reader-toast', { state: 'visible', timeout: 5_000 });
-    const toastText = (await page.locator('.jpdb-reader-toast').last().innerText()).trim();
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('.jpdb-reader-toast'))
+        .some(toast => /Copied word/i.test(toast.textContent ?? '')), null, { timeout: 5_000 });
+    const toastText = await page.evaluate(() => Array.from(document.querySelectorAll('.jpdb-reader-toast'))
+        .map(toast => toast.textContent?.trim() ?? '')
+        .find(text => /Copied word/i.test(text)) ?? '');
     assert(/Copied word/i.test(toastText), 'Copy pill did not show visible feedback', { toastText });
 
     const report = { ok: true, word: LOOKUP_WORD, opened, toastText, requests };

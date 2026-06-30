@@ -931,7 +931,7 @@ function renderCloudSettingsSyncSection(settings: ReaderSettings): string {
     return `
                 <div class="jpdb-reader-settings-subsection" data-cloud-settings-sync>
                     <div class="jpdb-reader-local-title" data-cloud-settings-sync-title>Google Drive settings sync</div>
-                    <div class="jpdb-reader-help" data-help-key="cloudSettingsSyncHelp">Stores your Yomu settings in Google Drive app data. Dictionaries stay local.</div>
+                    <div class="jpdb-reader-help" data-help-key="cloudSettingsSyncHelp">Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.</div>
                     <div class="jpdb-reader-settings-actions jpdb-reader-settings-actions-single">
                         <button class="jpdb-reader-btn" type="button" data-action="sync-cloud-settings">${uploadLabel}</button>
                         <button class="jpdb-reader-btn" type="button" data-action="restore-cloud-settings">${restoreLabel}</button>

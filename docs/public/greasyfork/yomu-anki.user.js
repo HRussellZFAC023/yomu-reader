@@ -1744,7 +1744,7 @@
       dictionarySourcesInitiallyExpanded: "Open sources by default",
       localDictionaryMaxResults: "Dictionary result limit",
       cloudSettingsSync: "Google Drive settings sync",
-      cloudSettingsSyncHelp: "Stores your Yomu settings in Google Drive app data. Dictionaries stay local.",
+      cloudSettingsSyncHelp: "Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.",
       importSettings: "Import settings JSON",
       exportSettings: "Export settings JSON",
       importDictionaries: "Import dictionaries",
@@ -8389,10 +8389,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const sources = settings.audioSources.filter((source) => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
     const configuredTypes = new Set(settings.audioSources.map((source) => source.type));
+    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? REQUIRED_JA_AUDIO_SOURCES[0];
     return [
-      ...sources,
-      ...REQUIRED_JA_AUDIO_SOURCES.filter((source) => !configuredTypes.has(source.type)).map((source) => ({ ...source }))
+      ...hosted.enabled ? [{ ...hosted }] : [],
+      ...sources.filter((source) => !isYomuHostedAudioSource(source)),
+      ...REQUIRED_JA_AUDIO_SOURCES.filter((source) => !isYomuHostedAudioSource(source) && !configuredTypes.has(source.type)).map((source) => ({ ...source }))
     ];
+  }
+  function isYomuHostedAudioSource(source) {
+    return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
   }
   function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
     return orderAudioDeckEntries(candidates.map((candidate, index) => ({
