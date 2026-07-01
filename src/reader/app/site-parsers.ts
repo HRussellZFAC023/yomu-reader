@@ -594,6 +594,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         minLength: 1,
         disableGenericDomScan: true,
         includePassiveInteractionRoots: false,
+        providesTextLayer: true,
         matches: url => isBookWalkerStorefrontUrl(url),
     },
     {

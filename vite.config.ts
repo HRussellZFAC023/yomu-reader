@@ -22,8 +22,13 @@ const broadUserscriptMatch = ['*://*/*', 'file:///*'];
 // reader sources explicit before the wildcard so Tampermonkey can avoid
 // prompting for every signed BookWalker page image in Firefox.
 const userscriptConnect = [
+    'api.jiten.moe',
+    'jpdb.io',
+    'lens.google.com',
+    'lensfrontend-pa.googleapis.com',
     'bookwalker.jp',
     'viewer.bookwalker.jp',
+    'c.bookwalker.jp',
     'bw-bv-epubs.bookwalker.jp',
     '*',
 ];

@@ -916,6 +916,7 @@ export class ReaderApp {
             parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
             onToast: message => this.toast(message),
             shouldAutoScan: () => shouldAutoScanImageOcr(this.pageHasJapaneseText),
+            shouldScanInlineImages: () => !isBookWalkerStorefrontPage(),
             enrichTokensBeforeRender: tokens => this.enrichOcrTokensBeforeRender(tokens),
             enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
             fallbackCardFromText: text => this.parser.fallbackCardFromText(text),

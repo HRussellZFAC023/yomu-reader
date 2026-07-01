@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 // Regression proof for BookWalker cty=2 OCR (symptoms S1/S2/S3) in the REAL
-// userscript: single-viewport vertical viewer (shouldUseBookwalkerScrollSignature
-// =true) + ?cty=2 (shouldTrustStableBookwalkerPageCounter=false) + a tainted DRM
-// canvas (mirror path). Before the fix, a within-page scroll flipped the page
-// signature (scroll offset was part of page IDENTITY) → releaseAllCanvasFrames →
-// overlay teardown + aborted render → "scanning never settles, hover dead, state
-// lost on scroll". Asserts:
+// userscript: a single repainting BookWalker viewport + ?cty=2 + a tainted DRM
+// canvas (mirror path) + a tapped partial-page retry region. Before the fix,
+// within-page scroll changed either page identity or the region frame rect, so Yomu
+// removed the frame and re-OCRed the same image repeatedly ("scanning never settles,
+// hover dead, state lost on scroll"). Asserts:
 //   A) page-1 OCRs (overlay lines appear)
 //   B) within-page SCROLL keeps the overlay alive (no teardown, no re-OCR)  [S1/S3]
 //   C) OCR line exposes hover-eligible words (data-vid/data-sid)            [S2]
@@ -122,7 +121,7 @@ async function run(engineName) {
   // real page turn — must re-OCR the new page  [guard]
   const hitsBeforeTurn = ocrHits;
   await page.evaluate(()=>{ const c=document.querySelector('#pageSliderCounter'); if(c) c.textContent='6 / 200'; });
-  await page.evaluate(()=>window.scrollBy(0,1100));
+  await page.evaluate(()=>window.scrollTo(0,0));
   await page.evaluate(()=>window.__draw(2));
   await page.waitForTimeout(300);
   await tapCenter();

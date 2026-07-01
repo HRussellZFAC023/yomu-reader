@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.5.7] - 2026-07-01
+
+### Fixed
+
+- Stopped BookWalker storefront/product pages from auto-OCRing cover art and carousel images when native page text is already available, preventing Yomu from stretching card grids, sidebars, and login/product panels.
+- Kept OCR text overlays hidden until the user hovers or focuses OCR hit targets, including automatic reader-raster OCR, so recognized text no longer remains visibly painted over pages.
+- Stabilized BookWalker Firefox canvas OCR across DOM swaps and same-page scrolling by reusing completed OCR frames for equivalent canvases, dropping stale status pills when the painted page changes, and keeping capped empty/failed pages terminal until the user retries.
+- Reduced BookWalker continuous/vertical scroll lag by scanning the dominant visible page surface instead of repeatedly OCRing previous-page slivers during scroll.
+- Kept tapped partial-page OCR retry regions aligned through BookWalker scroll and zoom changes instead of discarding and rescanning them.
+- Declared the Jiten, JPDB, Google Lens, and BookWalker image hosts explicitly in userscript metadata so Firefox/Tampermonkey upgrades do not pause OCR behind repeated cross-origin prompts.
+
 ## [1.5.6] - 2026-07-01
 
 ### Fixed

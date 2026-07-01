@@ -9,6 +9,7 @@ import { waitForExpect } from './test-utils';
 
 const originalCanvasGetContext = HTMLCanvasElement.prototype.getContext;
 const originalCanvasToBlob = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'toBlob');
+const originalCanvasToDataURL = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'toDataURL');
 
 afterEach(() => {
     document.body.replaceChildren();
@@ -16,6 +17,7 @@ afterEach(() => {
     document.documentElement.removeAttribute('data-yomu-mirror-recorder');
     HTMLCanvasElement.prototype.getContext = originalCanvasGetContext;
     restoreCanvasToBlob();
+    restoreCanvasToDataURL();
     vi.unstubAllGlobals();
 });
 
@@ -108,6 +110,21 @@ function restoreCanvasToBlob(): void {
     delete (HTMLCanvasElement.prototype as { toBlob?: unknown }).toBlob;
 }
 
+function stubCanvasDataUrl(dataUrl = 'data:image/jpeg;base64,CROP'): void {
+    Object.defineProperty(HTMLCanvasElement.prototype, 'toDataURL', {
+        configurable: true,
+        value: () => dataUrl,
+    });
+}
+
+function restoreCanvasToDataURL(): void {
+    if (originalCanvasToDataURL) {
+        Object.defineProperty(HTMLCanvasElement.prototype, 'toDataURL', originalCanvasToDataURL);
+        return;
+    }
+    delete (HTMLCanvasElement.prototype as { toDataURL?: unknown }).toDataURL;
+}
+
 function pageCanvas(left: number, top: number, width = 420, height = 560): HTMLCanvasElement {
     const canvas = document.createElement('canvas');
     canvas.width = 1200;
@@ -193,6 +210,101 @@ describe('reader raster OCR surfaces', () => {
             });
         } finally {
             window.clearInterval(swapper);
+            controller.destroy();
+        }
+    });
+
+    it('reuses a completed BookWalker OCR frame when Firefox swaps the same page onto a new canvas', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        pageCounter('5/13');
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        const firstCanvas = pageCanvas(24, 20);
+        viewport.append(firstCanvas);
+        document.body.append(viewport);
+
+        const controller = createController();
+        try {
+            let frame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+            });
+            Object.defineProperty(frame!, 'complete', { value: true, configurable: true });
+            const firstKey = frame!.dataset.ocrContentKey;
+            const replacementCanvas = pageCanvas(24, 20);
+            viewport.replaceChildren(replacementCanvas);
+
+            controller.refresh();
+
+            await waitForExpect(() => {
+                expect(document.querySelectorAll('.jpdb-ocr-canvas-frame')).toHaveLength(1);
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).toBe(frame);
+                expect(frame!.dataset.ocrContentKey).toBe(firstKey);
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('auto-scans only the dominant BookWalker vertical-scroll surface at a time', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        pageCounter('8/195');
+        const root = Object.assign(document.createElement('div'), { id: 'viewportW' });
+        const topSurface = Object.assign(document.createElement('div'), { id: 'wideScreen8' });
+        topSurface.className = 'canvasRoot verticalAxis';
+        const dominantSurface = Object.assign(document.createElement('div'), { id: 'wideScreen9' });
+        dominantSurface.className = 'canvasRoot verticalAxis';
+        const topCanvas = pageCanvas(24, -200);
+        const dominantCanvas = pageCanvas(24, 120);
+        topCanvas.toDataURL = TAINTED_CANVAS;
+        dominantCanvas.toDataURL = TAINTED_CANVAS;
+        topSurface.append(topCanvas);
+        dominantSurface.append(dominantCanvas);
+        root.append(topSurface, dominantSurface);
+        document.body.append(root);
+
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('VISIBLE'));
+        const controller = createController({}, undefined, captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+                expect(captureCanvasMirror).toHaveBeenCalledWith(dominantCanvas, expect.any(Function));
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('auto-scans one canvas from a multi-canvas BookWalker vertical page surface', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        pageCounter('3/180');
+        const root = Object.assign(document.createElement('div'), { id: 'viewportW' });
+        const page = Object.assign(document.createElement('div'), { id: 'wideScreen3' });
+        page.className = 'canvasRoot verticalAxis';
+        const canvases = [
+            pageCanvas(24, 20, 420, 560),
+            pageCanvas(24, 20, 420, 560),
+            pageCanvas(24, 20, 420, 560),
+        ];
+        for (const canvas of canvases) {
+            canvas.toDataURL = TAINTED_CANVAS;
+            page.append(canvas);
+        }
+        root.append(page);
+        document.body.append(root);
+
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('ONE_SURFACE'));
+        const controller = createController({}, undefined, captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+                expect(captureCanvasMirror).toHaveBeenCalledWith(canvases[0], expect.any(Function));
+            });
+        } finally {
             controller.destroy();
         }
     });
@@ -707,6 +819,40 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('removes failed sibling status once the same BookWalker page surface has text', () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        const surface = Object.assign(document.createElement('div'), { id: 'wideScreen3' });
+        const failedCanvas = pageCanvas(0, 0, 760, 900);
+        const readyCanvas = pageCanvas(0, 720, 760, 900);
+        surface.append(failedCanvas, readyCanvas);
+        document.body.append(surface);
+
+        const controller = createController({ ocrAutoScanImages: false });
+        const failedFrame = document.createElement('img');
+        const readyFrame = document.createElement('img');
+        const internals = controller as unknown as {
+            canvasFrames: Map<HTMLCanvasElement, HTMLImageElement>;
+            canvasFrameSources: Map<HTMLImageElement, HTMLCanvasElement>;
+            updateOcrStatus: (image: HTMLImageElement, status: 'ready' | 'failed') => void;
+        };
+        internals.canvasFrames.set(failedCanvas, failedFrame);
+        internals.canvasFrameSources.set(failedFrame, failedCanvas);
+        internals.canvasFrames.set(readyCanvas, readyFrame);
+        internals.canvasFrameSources.set(readyFrame, readyCanvas);
+
+        try {
+            internals.updateOcrStatus(failedFrame, 'failed');
+            expect(document.querySelectorAll<HTMLElement>('.jpdb-ocr-video-frame-status[data-status="failed"]')).toHaveLength(1);
+
+            internals.updateOcrStatus(readyFrame, 'ready');
+            expect(document.querySelectorAll<HTMLElement>('.jpdb-ocr-video-frame-status[data-status="failed"]')).toHaveLength(0);
+            expect(document.querySelectorAll<HTMLElement>('.jpdb-ocr-video-frame-status[data-status="ready"]')).toHaveLength(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('stops auto-retrying an empty BookWalker page after the capped retries until manual retry', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
@@ -886,10 +1032,13 @@ describe('reader raster OCR surfaces', () => {
     it('retries the current BookWalker page when the reader status pill is clicked', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubReadableCanvas();
+        stubCanvasDataUrl('data:image/jpeg;base64,VISIBLE_CROP');
+        vi.stubGlobal('innerHeight', 768);
+        vi.stubGlobal('innerWidth', 1024);
         pageCounter('7 / 195');
         const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
         viewport.classList.add('currentScreen');
-        const canvas = pageCanvas(24, 20);
+        const canvas = pageCanvas(24, -260, 420, 560);
         viewport.append(canvas);
         document.body.append(viewport);
 
@@ -931,6 +1080,10 @@ describe('reader raster OCR surfaces', () => {
                 secondFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
                 expect(secondFrame).not.toBeNull();
                 expect(secondFrame).not.toBe(firstFrame);
+                expect(secondFrame!.getAttribute('src')).toBe('data:image/jpeg;base64,VISIBLE_CROP');
+                expect(secondFrame!.style.top).toBe('0px');
+                expect(secondFrame!.style.height).toBe('300px');
+                expect(secondFrame!.dataset.ocrContentKey).toContain(':region:0,260,420,300');
             });
             Object.defineProperty(secondFrame!, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(secondFrame!, 'naturalHeight', { value: 1600, configurable: true });

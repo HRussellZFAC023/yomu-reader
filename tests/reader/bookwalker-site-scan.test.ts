@@ -414,6 +414,7 @@ describe('BookWalker site scan boundaries', () => {
 
         expect(isBookWalkerStorefrontPage()).toBe(true);
         expect(shouldAutoScanImageOcr(false)).toBe(false);
+        expect(shouldAutoScanImageOcr(true)).toBe(false);
 
         stubLocation('https://viewer.bookwalker.jp/03/1/viewer.html?cty=2');
         document.body.innerHTML = `

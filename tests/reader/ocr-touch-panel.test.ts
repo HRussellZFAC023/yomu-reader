@@ -34,6 +34,7 @@ function createOcrImageControllerFixture(options: {
     parseJapanese?: ImageOcrControllerOptions['parseJapanese'];
     parseJapaneseBatch?: ImageOcrControllerOptions['parseJapaneseBatch'];
     shouldAutoScan?: ImageOcrControllerOptions['shouldAutoScan'];
+    shouldScanInlineImages?: ImageOcrControllerOptions['shouldScanInlineImages'];
 } = {}): {
     sentence: string;
     image: HTMLImageElement;
@@ -67,6 +68,7 @@ function createOcrImageControllerFixture(options: {
         ...(options.parseJapaneseBatch ? { parseJapaneseBatch: options.parseJapaneseBatch } : {}),
         onToast: vi.fn(),
         shouldAutoScan: options.shouldAutoScan ?? (() => true),
+        ...(options.shouldScanInlineImages ? { shouldScanInlineImages: options.shouldScanInlineImages } : {}),
     });
 
     return { sentence, image, controller, parseJapanese };
@@ -234,6 +236,7 @@ describe('OCR sentence focus', () => {
             const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
             expect(line.getAttribute('role')).toBe('button');
             expect(line.getAttribute('aria-pressed')).toBe('false');
+            dispatchPointerEvent(line, 'pointerdown', { pointerType: 'touch', pointerId: 3, clientX: 120, clientY: 120 });
             line.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
 
             expect(document.querySelector('.jpdb-ocr-touch-panel')).toBeNull();
@@ -282,6 +285,79 @@ describe('OCR sentence focus', () => {
         }
     });
 
+    it('keeps OCR text areas hidden until hover even when overlay display is enabled', async () => {
+        stubInstantIntersectionObserver();
+        const { controller, image, sentence } = createOcrImageControllerFixture({
+            settings: { ocrShowTextOverlay: true },
+        });
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line')?.getAttribute('aria-label')).toBe(sentence);
+            });
+            expect(document.querySelector('.jpdb-ocr-line-visible')).toBeNull();
+
+            dispatchPointerEvent(image, 'pointerover');
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line')?.getAttribute('aria-label')).toBe(sentence);
+            });
+            expect(document.querySelector('.jpdb-ocr-line-visible')).toBeNull();
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not create inline OCR layers when the host disables inline image scanning', async () => {
+        stubInstantIntersectionObserver();
+        const { controller, image, parseJapanese } = createOcrImageControllerFixture({
+            shouldScanInlineImages: () => false,
+        });
+
+        try {
+            controller.init();
+            await controller.scanVisible();
+            dispatchPointerEvent(image, 'pointerdown', { pointerType: 'mouse', clientX: 120, clientY: 120 });
+
+            expect(document.querySelector('.jpdb-ocr-layer')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
+            expect(parseJapanese).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not pin an OCR sentence from a desktop mouse click', async () => {
+        stubInstantIntersectionObserver();
+        const { controller } = createOcrImageControllerFixture();
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line .jpdb-reader-word')).not.toBeNull();
+            });
+
+            const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            dispatchPointerEvent(word, 'pointerdown', { pointerType: 'mouse', clientX: 120, clientY: 120 });
+            word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
+
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
+            expect(line.dataset.pinned).not.toBe('true');
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
     it('pins an OCR sentence when tapping a nested OCR word', async () => {
         stubInstantIntersectionObserver();
         const { controller } = createOcrImageControllerFixture();
@@ -295,6 +371,7 @@ describe('OCR sentence focus', () => {
 
             const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
             const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            dispatchPointerEvent(word, 'pointerdown', { pointerType: 'touch', pointerId: 7, clientX: 120, clientY: 120 });
             word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
 
             expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
@@ -388,6 +465,7 @@ describe('OCR sentence focus', () => {
             expect(document.querySelectorAll('.jpdb-ocr-furi')).toHaveLength(2);
             expect(document.querySelectorAll('.jpdb-pitch-heiban')).toHaveLength(2);
 
+            dispatchPointerEvent(lines[0]!, 'pointerdown', { pointerType: 'touch', pointerId: 11, clientX: 120, clientY: 120 });
             lines[0]!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
             expect(lines[0]!.classList.contains('jpdb-ocr-line-active')).toBe(true);
             expect(lines[0]!.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
@@ -395,6 +473,7 @@ describe('OCR sentence focus', () => {
             expect(lines[1]!.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
             expect(lines[1]!.querySelector('.jpdb-pitch-heiban')).not.toBeNull();
 
+            dispatchPointerEvent(lines[1]!, 'pointerdown', { pointerType: 'touch', pointerId: 12, clientX: 120, clientY: 220 });
             lines[1]!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 220 }));
             expect(lines[0]!.classList.contains('jpdb-ocr-line-active')).toBe(false);
             expect(lines[0]!.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');

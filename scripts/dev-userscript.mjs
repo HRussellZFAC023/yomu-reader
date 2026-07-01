@@ -30,7 +30,14 @@ const matches = process.env.YOMU_DEV_MATCH
     ? process.env.YOMU_DEV_MATCH.split(',').map(match => match.trim()).filter(Boolean)
     : ['*://*/*', 'file:///*'];
 const connects = [
+    'api.jiten.moe',
     'jpdb.io',
+    'lens.google.com',
+    'lensfrontend-pa.googleapis.com',
+    'bookwalker.jp',
+    'viewer.bookwalker.jp',
+    'c.bookwalker.jp',
+    'bw-bv-epubs.bookwalker.jp',
     'apiv2express.immersionkit.com',
     'apiv2.immersionkit.com',
     'api.nadeshiko.co',

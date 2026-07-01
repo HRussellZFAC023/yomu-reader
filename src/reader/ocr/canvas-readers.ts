@@ -383,17 +383,16 @@ export function canvasReaderPageCounter(): string {
 export function canvasReaderPageSignature(): string {
     const canvases = pageCanvases();
     const counter = canvasReaderSignatureCounter(canvases);
-    const rawCanvases = isBookwalkerViewerHost() ? pageCanvases(location.hostname, { preferBookwalkerCurrent: false }) : canvases;
-    const scroll = isBookwalkerViewerHost() && shouldUseBookwalkerScrollSignature(rawCanvases)
-        ? Math.round((window.scrollY || 0) / 40)
-        : 0;
     const tokens = canvasReaderContentTokens(canvases);
     const surfaces = tokens.length;
     const content = tokens.join(',');
     const backgrounds = backgroundImagePages()
         .map(element => `${element.getAttribute('data-page-index') ?? ''}:${backgroundImageReaderUrl(element) ?? ''}`)
         .join('|');
-    return `${counter}|${scroll}|${surfaces}|${content}|${backgrounds}`;
+    // Keep the historical five-field shape but leave the scroll slot empty.
+    // Scroll is not page identity; callers still parse counter/surfaces/content
+    // from stable positions.
+    return `${counter}||${surfaces}|${content}|${backgrounds}`;
 }
 
 function canvasReaderSignatureCounter(canvases: HTMLCanvasElement[]): string {
@@ -404,14 +403,11 @@ function canvasReaderSignatureCounter(canvases: HTMLCanvasElement[]): string {
 
 function shouldIgnoreBookwalkerCounterForCanvasSignature(canvases: HTMLCanvasElement[]): boolean {
     try {
-        if (new URL(location.href).searchParams.get('cty') === '2') return true;
+        if (new URL(location.href).searchParams.get('cty') === '2') {
+            return hasVerticallyStackedDocumentPageRun(canvases);
+        }
     } catch { /* fall through to layout detection */ }
     return hasVerticallyStackedDocumentPageRun(canvases);
-}
-
-function shouldUseBookwalkerScrollSignature(canvases: HTMLCanvasElement[]): boolean {
-    return !hasDistinctVisiblePageLayout(visibleViewportCanvases(canvases))
-        && !hasVerticallyStackedDocumentPageRun(canvases);
 }
 
 export function canvasPageContentToken(canvas: HTMLCanvasElement): string {
@@ -473,6 +469,35 @@ export function captureCanvasDataUrl(canvas: HTMLCanvasElement, maxPixels: numbe
         return scaled.toDataURL('image/jpeg', 0.86);
     } catch {
         // Tainted canvas (cross-origin DRM drawn without CORS) — skip silently.
+        return undefined;
+    }
+}
+
+export function captureCanvasRegionDataUrl(
+    canvas: HTMLCanvasElement,
+    surfaceRect: DOMRect,
+    regionRect: DOMRect,
+    maxPixels: number,
+): string | undefined {
+    try {
+        if (!canvas.width || !canvas.height || !surfaceRect.width || !surfaceRect.height) return undefined;
+        const scaleX = canvas.width / surfaceRect.width;
+        const scaleY = canvas.height / surfaceRect.height;
+        const sx = Math.max(0, Math.round((regionRect.left - surfaceRect.left) * scaleX));
+        const sy = Math.max(0, Math.round((regionRect.top - surfaceRect.top) * scaleY));
+        const sw = Math.min(canvas.width - sx, Math.max(1, Math.round(regionRect.width * scaleX)));
+        const sh = Math.min(canvas.height - sy, Math.max(1, Math.round(regionRect.height * scaleY)));
+        if (sw <= 0 || sh <= 0) return undefined;
+        const pixels = sw * sh;
+        const scale = maxPixels > 0 && pixels > maxPixels ? Math.sqrt(maxPixels / pixels) : 1;
+        const out = document.createElement('canvas');
+        out.width = Math.max(1, Math.round(sw * scale));
+        out.height = Math.max(1, Math.round(sh * scale));
+        const context = markCanvasMirrorSkip(out.getContext('2d'));
+        if (!context) return undefined;
+        context.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
+        return out.toDataURL('image/jpeg', 0.86);
+    } catch {
         return undefined;
     }
 }

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ImageOcrController } from '../../src/reader/ocr/controller';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import { createPointerEvent } from './helpers/browser-fixtures';
 import { waitForExpect } from './test-utils';
 
 afterEach(() => {
@@ -257,7 +258,13 @@ describe('paused-video OCR frames', () => {
             });
 
             const line = host.querySelector<HTMLElement>('.jpdb-ocr-line')!;
-            line.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 180, clientY: 120 }));
+            line.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'mouse', button: 0, clientX: 180, clientY: 120 }));
+            line.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 180, clientY: 120 }));
+
+            expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
+            expect(line.dataset.pinned).not.toBe('true');
+
+            line.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 7, button: 0, clientX: 180, clientY: 120 }));
             line.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 180, clientY: 120 }));
 
             expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
@@ -507,6 +514,7 @@ describe('paused-video OCR frames', () => {
         expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
         expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
 
+        line.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 9, button: 0, clientX: 120, clientY: 120 }));
         line.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
 
         expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);

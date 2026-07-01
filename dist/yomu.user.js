@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.5.6
+// @version 1.5.7
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,13 +9,18 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.6
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.6
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.6
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.6
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.7
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.7
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.7
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.7
 // @resource yomuCss  https://yomureader.com/yomu.css
+// @connect api.jiten.moe
+// @connect jpdb.io
+// @connect lens.google.com
+// @connect lensfrontend-pa.googleapis.com
 // @connect bookwalker.jp
 // @connect viewer.bookwalker.jp
+// @connect c.bookwalker.jp
 // @connect bw-bv-epubs.bookwalker.jp
 // @connect *
 // @grant GM.deleteValue
@@ -31708,6 +31713,7 @@ const SITE_PARSER_PROFILES = [
   minLength: 1,
   disableGenericDomScan: true,
   includePassiveInteractionRoots: false,
+  providesTextLayer: true,
   matches: (url) => isBookWalkerStorefrontUrl(url)
   },
   {
@@ -38033,7 +38039,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.6"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.7"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -39401,6 +39407,7 @@ class ReaderApp {
     parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
     onToast: (message) => this.toast(message),
     shouldAutoScan: () => shouldAutoScanImageOcr(this.pageHasJapaneseText),
+    shouldScanInlineImages: () => !isBookWalkerStorefrontPage(),
     enrichTokensBeforeRender: (tokens) => this.enrichOcrTokensBeforeRender(tokens),
     enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
     fallbackCardFromText: (text2) => this.parser.fallbackCardFromText(text2)

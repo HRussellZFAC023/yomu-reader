@@ -6,6 +6,7 @@ import {
     looksLikeRenderedCanvasImage,
     canvasReaderPageSignature,
     captureCanvasDataUrl,
+    captureCanvasRegionDataUrl,
     collectBackgroundImageReaderSurfaces,
     collectCanvasReaderSurfaces,
     isBackgroundImageReaderPage,
@@ -78,9 +79,11 @@ afterEach(() => {
 
 describe('canvas readers (BookWalker)', () => {
     const originalGetContext = HTMLCanvasElement.prototype.getContext;
+    const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
 
     afterEach(() => {
         HTMLCanvasElement.prototype.getContext = originalGetContext;
+        HTMLCanvasElement.prototype.toDataURL = originalToDataURL;
     });
 
     function stubBookWalkerCanvasContent(): void {
@@ -267,7 +270,7 @@ describe('canvas readers (BookWalker)', () => {
         expect(canvasReaderPageSignature()).toBe(before);
     });
 
-    it('keeps scroll in the BookWalker signature for a single repainting viewport canvas', () => {
+    it('ignores scroll in the BookWalker signature for a single repainting viewport canvas', () => {
         stubLocation('viewer.bookwalker.jp');
         document.body.innerHTML = `
             <div id="renderer">
@@ -280,7 +283,7 @@ describe('canvas readers (BookWalker)', () => {
         const before = canvasReaderPageSignature();
 
         vi.stubGlobal('scrollY', 280);
-        expect(canvasReaderPageSignature()).not.toBe(before);
+        expect(canvasReaderPageSignature()).toBe(before);
     });
 
     it('collects explicit scanned PDF canvas OCR opt-in surfaces on generic hosts', () => {
@@ -376,6 +379,26 @@ describe('canvas readers (BookWalker)', () => {
         tainted.width = 100; tainted.height = 100;
         tainted.toDataURL = () => { throw new Error('tainted'); };
         expect(captureCanvasDataUrl(tainted, 1_200_000)).toBeUndefined();
+    });
+
+    it('captures only the requested visible canvas region', () => {
+        const drawImage = vi.fn();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = () => ({ drawImage });
+        HTMLCanvasElement.prototype.toDataURL = () => 'data:image/jpeg;base64,CROP';
+        const canvas = document.createElement('canvas');
+        canvas.width = 1200;
+        canvas.height = 1600;
+
+        const dataUrl = captureCanvasRegionDataUrl(
+            canvas,
+            new DOMRect(100, -400, 600, 800),
+            new DOMRect(100, 0, 600, 400),
+            240_000,
+        );
+
+        expect(dataUrl).toBe('data:image/jpeg;base64,CROP');
+        expect(drawImage).toHaveBeenCalledWith(canvas, 0, 800, 1200, 800, 0, 0, 600, 400);
     });
 });
 
