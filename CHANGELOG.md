@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.5.13] - 2026-07-01
+
+### Fixed
+
+- Keeps OCR image hit targets visually passive during pointer focus and text selection, so recognized manga text only appears on hover, keyboard focus, or explicit tap pinning instead of staying painted over BookWalker pages.
+
+## [1.5.12] - 2026-07-01
+
+### Fixed
+
+- Keeps automatic BookWalker Firefox OCR aligned to the full page canvas while scrolling, instead of shrinking full-page OCR coordinates into the visible crop and re-scanning the same page on every half-screen movement.
+- Keeps settled BookWalker OCR frames mounted through same-page scroll and size drift, so vertical readers do not replace a ready page with a fresh failed scan while the user moves around the page.
+- Adds the Google Search and hosted Yomu data hosts used by OCR/study fallbacks to userscript connection metadata, preventing Firefox/Tampermonkey from pausing BookWalker OCR behind cross-origin permission prompts.
+
 ## [1.5.8] - 2026-07-01
 
 ### Fixed

@@ -1142,13 +1142,12 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
-    it('re-snapshots a tall BookWalker canvas only after the visible crop changes buckets', async () => {
+    it('keeps a tall BookWalker canvas aligned while scrolling the same page', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubTaintedCanvas();
-        stubCanvasDataUrl('data:image/jpeg;base64,VISIBLE_SLICE');
         vi.stubGlobal('innerWidth', 1000);
         vi.stubGlobal('innerHeight', 800);
-        pageCounter('3 / 180');
+        const counter = pageCounter('3 / 180');
         let rect = new DOMRect(100, -180, 760, 1200);
         const canvas = pageCanvas(100, -180, 760, 1200);
         canvas.getBoundingClientRect = () => rect;
@@ -1166,30 +1165,48 @@ describe('reader raster OCR surfaces', () => {
             await waitForExpect(() => {
                 firstFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
                 expect(firstFrame).not.toBeNull();
-                expect(firstFrame!.style.top).toBe('0px');
-                expect(firstFrame!.style.height).toBe('800px');
-                expect(firstFrame!.dataset.ocrContentKey).toContain(':auto-region:0,0,768,768');
+                expect(firstFrame!.style.top).toBe('-180px');
+                expect(firstFrame!.style.height).toBe('1200px');
+                expect(firstFrame!.dataset.ocrContentKey).not.toContain(':auto-region:');
             });
             Object.defineProperty(firstFrame!, 'complete', { value: true, configurable: true });
             expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+            const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
+            expect(status).not.toBeNull();
+            status!.dataset.status = 'ready';
 
             rect = new DOMRect(100, -320, 760, 1200);
             controller.refresh();
-            await new Promise(resolve => setTimeout(resolve, 80));
-            expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).toBe(firstFrame);
+            await waitForExpect(() => {
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).toBe(firstFrame);
+                expect(frame!.style.top).toBe('-320px');
+                expect(frame!.style.height).toBe('1200px');
+            });
             expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
 
-            rect = new DOMRect(100, -400, 760, 1200);
+            rect = new DOMRect(100, -400, 790, 1247);
             controller.refresh();
+            await waitForExpect(() => {
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).toBe(firstFrame);
+                expect(frame!.style.top).toBe('-400px');
+                expect(frame!.style.width).toBe('790px');
+                expect(frame!.style.height).toBe('1247px');
+            });
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
 
+            counter.textContent = '4 / 180';
+            controller.refresh();
             await waitForExpect(() => {
                 expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
                 const secondFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
                 expect(secondFrame).not.toBeNull();
                 expect(secondFrame).not.toBe(firstFrame);
-                expect(secondFrame!.style.top).toBe('0px');
-                expect(secondFrame!.style.height).toBe('800px');
-                expect(secondFrame!.dataset.ocrContentKey).toContain(':auto-region:0,1,768,768');
+                expect(secondFrame!.style.top).toBe('-400px');
+                expect(secondFrame!.style.width).toBe('790px');
+                expect(secondFrame!.style.height).toBe('1247px');
+                expect(secondFrame!.dataset.ocrContentKey).not.toContain(':auto-region:');
             });
         } finally {
             controller.destroy();

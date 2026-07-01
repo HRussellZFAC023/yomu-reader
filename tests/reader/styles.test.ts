@@ -152,8 +152,8 @@ describe('reader stylesheet loading', () => {
     it('keeps dark OCR auto overlays readable without an opaque accent block', () => {
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
         const darkAutoVisibleRule = css.match(/\.jpdb-ocr-layer\[data-ocr-overlay-theme="dark"\]\[data-ocr-overlay-variant="auto"\]\s*\.jpdb-ocr-line-visible\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
-        const darkAutoRule = css.match(/\.jpdb-ocr-layer\[data-ocr-overlay-theme="dark"\]\[data-ocr-overlay-variant="auto"\]\s*\.jpdb-ocr-line:is\(:hover, :focus, \.jpdb-ocr-line-active\)\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
-        const darkAutoWordRule = css.match(/\.jpdb-ocr-layer\[data-ocr-overlay-theme="dark"\]\[data-ocr-overlay-variant="auto"\]\s*\.jpdb-ocr-line:is\(:hover, :focus, \.jpdb-ocr-line-active\)\s*\.jpdb-reader-word\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
+        const darkAutoRule = css.match(/\.jpdb-ocr-layer\[data-ocr-overlay-theme="dark"\]\[data-ocr-overlay-variant="auto"\]\s*\.jpdb-ocr-line:is\(:hover, :focus-visible, \.jpdb-ocr-line-active\)\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
+        const darkAutoWordRule = css.match(/\.jpdb-ocr-layer\[data-ocr-overlay-theme="dark"\]\[data-ocr-overlay-variant="auto"\]\s*\.jpdb-ocr-line:is\(:hover, :focus-visible, \.jpdb-ocr-line-active\)\s*\.jpdb-reader-word\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
 
         expect(css).toContain('--jpdb-ocr-auto-dark-surface');
         expect(css).toContain('--jpdb-ocr-auto-dark-visible');
@@ -167,5 +167,12 @@ describe('reader stylesheet loading', () => {
         expect(darkAutoWordRule).toContain('--jpdb-reader-subtitle-fallback: var(--jpdb-reader-video-text, #ffffff)');
         expect(darkAutoWordRule).toContain('var(--jpdb-reader-video-text, #ffffff)');
         expect(darkAutoWordRule).toContain('text-shadow: inherit');
+    });
+
+    it('keeps pointer-focused OCR text passive until hover or explicit activation', () => {
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+
+        expect(css).toContain('.jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active)');
+        expect(css).not.toMatch(/jpdb-ocr-line[^{}]*:focus(?!-visible)/u);
     });
 });

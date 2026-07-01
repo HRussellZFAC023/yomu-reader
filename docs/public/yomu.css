@@ -1636,7 +1636,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   box-shadow: 0 3px 10px
     color-mix(in srgb, var(--jpdb-reader-shadow, rgba(0, 0, 0, 0.28)) 30%, transparent);
 }
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
+.jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) {
   color: var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text));
   text-shadow:
     0 2px 2px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
@@ -1664,9 +1664,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 
 :is(.jpdb-reader-theme-light, .yomu-page-theme-light)
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active),
+  .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active),
 .jpdb-ocr-layer[data-ocr-overlay-theme="light"]
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
+  .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) {
   color: var(--jpdb-reader-text);
   text-shadow: none;
   background: color-mix(
@@ -1689,10 +1689,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 
 :is(.jpdb-reader-theme-light, .yomu-page-theme-light)
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active)
   .jpdb-reader-word,
 .jpdb-ocr-layer[data-ocr-overlay-theme="light"]
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active)
   .jpdb-reader-word {
   --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);
   color: var(
@@ -1702,7 +1702,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   text-shadow: none;
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"]
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
+  .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) {
   color: var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text));
   text-shadow:
     0 2px 2px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
@@ -1726,7 +1726,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
+  .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) {
   color: var(--jpdb-reader-video-text, #ffffff);
   text-shadow:
     0 2px 2px var(--jpdb-reader-video-outline, rgba(0, 0, 0, 0.88)),
@@ -1742,7 +1742,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   outline-offset: 2px;
 }
 .jpdb-ocr-layer[data-ocr-overlay-theme="dark"][data-ocr-overlay-variant="auto"]
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active)
   .jpdb-reader-word {
   --jpdb-reader-subtitle-fallback: var(--jpdb-reader-video-text, #ffffff);
   color: var(
@@ -1770,19 +1770,19 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   line-height: 1 !important;
 }
 .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active)
   .jpdb-reader-word,
 .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active)
   .jpdb-ocr-line-text,
 .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active)
   .jpdb-ocr-plain,
 .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active)
   .jpdb-ocr-ruby-base,
 .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active)
   .jpdb-ocr-ruby-base-text {
   --jpdb-reader-word-accessible-color: transparent;
   --jpdb-reader-word-accessible-highlight: transparent;
@@ -1801,7 +1801,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   text-shadow: none !important;
 }
 .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active)
   .jpdb-reader-word::after {
   border-block-end-color: transparent !important;
   opacity: 0 !important;
@@ -1835,7 +1835,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   line-height: 1;
   white-space: pre;
 }
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word {
+.jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) .jpdb-reader-word {
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
   background-color: transparent !important;
   background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important;
@@ -1847,7 +1847,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important;
   -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text))));
 }
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word:is(
+.jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) .jpdb-reader-word:is(
   .jpdb-pitch-heiban,
   .jpdb-pitch-atamadaka,
   .jpdb-pitch-nakadaka,
@@ -1856,11 +1856,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 ) {
   --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);
 }
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi {
+.jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi {
   background: transparent !important;
   box-shadow: none !important;
 }
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base {
+.jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base {
   background-color: transparent !important;
   background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important;
   background-position: center !important;
@@ -1903,11 +1903,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   transform: translateX(-50%);
   white-space: nowrap;
 }
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-ocr-furi {
+.jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) .jpdb-ocr-furi {
   opacity: 0.9;
 }
 .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active)
   .jpdb-ocr-furi {
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
@@ -1918,7 +1918,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .yomu-pdf-reader-page .jpdb-ocr-layer .jpdb-ocr-line,
 .yomu-pdf-reader-page
   .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active) {
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active) {
   color: var(--jpdb-reader-text, #171a1f) !important;
   -webkit-text-fill-color: var(--jpdb-reader-text, #171a1f) !important;
   text-shadow: none !important;
@@ -1941,7 +1941,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 .yomu-pdf-reader-page
   .jpdb-ocr-layer
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
+  .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) {
   background: color-mix(
     in srgb,
     var(--jpdb-reader-surface, #ffffff) 96%,
@@ -1960,27 +1960,27 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .yomu-pdf-reader-page .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word,
 .yomu-pdf-reader-page
   .jpdb-ocr-layer
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active)
   .jpdb-reader-word,
 .yomu-pdf-reader-page
   .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active)
   .jpdb-reader-word,
 .yomu-pdf-reader-page
   .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active)
   .jpdb-ocr-line-text,
 .yomu-pdf-reader-page
   .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active)
   .jpdb-ocr-plain,
 .yomu-pdf-reader-page
   .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active)
   .jpdb-ocr-ruby-base,
 .yomu-pdf-reader-page
   .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active)
   .jpdb-ocr-ruby-base-text {
   --jpdb-reader-word-accessible-color: currentColor;
   --jpdb-reader-word-accessible-highlight: transparent;
@@ -2001,10 +2001,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 .yomu-pdf-reader-page
   .jpdb-ocr-layer
-  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus):not(.jpdb-ocr-line-active)
+  .jpdb-ocr-line:not(.jpdb-ocr-line-visible):not(:hover):not(:focus-visible):not(.jpdb-ocr-line-active)
   .jpdb-reader-word::after,
 .yomu-pdf-reader-page
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active)
   .jpdb-reader-word::after {
   border-block-end-color: transparent !important;
   opacity: 0 !important;

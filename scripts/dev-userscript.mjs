@@ -34,6 +34,8 @@ const connects = [
     'jpdb.io',
     'lens.google.com',
     'lensfrontend-pa.googleapis.com',
+    'www.google.com',
+    'yomureader.com',
     'bookwalker.jp',
     'viewer.bookwalker.jp',
     'c.bookwalker.jp',

@@ -128,7 +128,6 @@ const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
 const READER_RASTER_FRAME_SIZE_CHANGE_PX = 2;
 const READER_RASTER_REGION_MIN_SIZE_PX = 96;
 const READER_RASTER_REGION_FULL_PAGE_FRACTION = 0.88;
-const READER_RASTER_AUTO_REGION_BUCKET_FRACTION = 0.5;
 const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
 const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8000;
 const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
@@ -1892,13 +1891,10 @@ export class ImageOcrController {
             // cache instead of calling Lens again.
             let contentKey: string | undefined;
             const visibleRetryRect = userRequested ? bookwalkerVisibleCanvasRegion(rect) : undefined;
-            const visibleAutoRect = !userRequested ? bookwalkerVisibleCanvasRegion(rect) : undefined;
-            const captureRect = visibleRetryRect ?? visibleAutoRect ?? rect;
+            const captureRect = visibleRetryRect ?? rect;
             const regionKey = visibleRetryRect
                 ? canvasRegionContentKey(rect, visibleRetryRect)
-                : visibleAutoRect
-                    ? canvasAutoRegionContentKey(rect, visibleAutoRect)
-                    : '';
+                : '';
             if (isCanvasReadable(canvas)) {
                 const contentSignature = canvasRenderedContentSignature(canvas);
                 if (!contentSignature) { this.handleCanvasCaptureNotReady(canvas, rect, userRequested); return; }
@@ -2271,8 +2267,7 @@ export class ImageOcrController {
                 continue;
             }
             const key = this.canvasFrameKeys.get(canvas);
-            const currentKey = canvasSurfaceSnapshotKey(canvas);
-            if (key && canvasSnapshotKeyChangedRequiresResnapshot(key, currentKey)) {
+            if (key && key !== canvasSurfaceSnapshotKey(canvas)) {
                 this.releaseCanvasFrame(canvas);
                 this.scheduleReaderRasterRefresh(40);
                 continue;
@@ -2284,7 +2279,7 @@ export class ImageOcrController {
                 continue;
             }
             if (this.canvasFrameSizeChanged(frame, rect)) {
-                if (this.shouldKeepTerminalReaderRasterFrame(frame)) {
+                if (this.shouldKeepSettledReaderRasterFrame(frame)) {
                     positionCanvasFrameImage(frame, rect);
                     continue;
                 }
@@ -2300,18 +2295,18 @@ export class ImageOcrController {
         const frame = this.canvasFrames.get(canvas);
         if (!frame || frame.complete === false) return false;
         const key = this.canvasFrameKeys.get(canvas);
-        if (key && canvasSnapshotKeyChangedRequiresResnapshot(key, canvasSurfaceSnapshotKey(canvas))) return true;
-        if (this.shouldKeepTerminalReaderRasterFrame(frame)) return false;
+        if (key && key !== canvasSurfaceSnapshotKey(canvas)) return true;
+        if (this.shouldKeepSettledReaderRasterFrame(frame)) return false;
         const staticRect = this.canvasFrameStaticRects.get(frame);
         if (staticRect) return false;
         const rect = canvas.getBoundingClientRect();
         return this.canvasFrameSizeChanged(frame, rect);
     }
 
-    private shouldKeepTerminalReaderRasterFrame(frame: HTMLImageElement): boolean {
+    private shouldKeepSettledReaderRasterFrame(frame: HTMLImageElement): boolean {
         if (!this.isReaderRasterFrame(frame)) return false;
         const status = this.imageStatuses.get(frame)?.dataset.status;
-        return status === 'empty' || status === 'failed';
+        return status === 'ready' || status === 'empty' || status === 'failed';
     }
 
     private canvasFrameSizeChanged(frame: HTMLImageElement, rect: DOMRect): boolean {
@@ -4136,22 +4131,6 @@ function canvasRegionContentKey(surfaceRect: DOMRect, regionRect: DOMRect): stri
     return `:region:${parts.join(',')}`;
 }
 
-function canvasAutoRegionContentKey(surfaceRect: DOMRect, regionRect: DOMRect): string {
-    const stepX = Math.max(
-        READER_RASTER_REGION_MIN_SIZE_PX,
-        Math.round(regionRect.width * READER_RASTER_AUTO_REGION_BUCKET_FRACTION),
-    );
-    const stepY = Math.max(
-        READER_RASTER_REGION_MIN_SIZE_PX,
-        Math.round(regionRect.height * READER_RASTER_AUTO_REGION_BUCKET_FRACTION),
-    );
-    const bucketX = Math.floor((regionRect.left - surfaceRect.left) / stepX);
-    const bucketY = Math.floor((regionRect.top - surfaceRect.top) / stepY);
-    const width = Math.round(regionRect.width / READER_RASTER_REGION_MIN_SIZE_PX) * READER_RASTER_REGION_MIN_SIZE_PX;
-    const height = Math.round(regionRect.height / READER_RASTER_REGION_MIN_SIZE_PX) * READER_RASTER_REGION_MIN_SIZE_PX;
-    return `:auto-region:${bucketX},${bucketY},${width},${height}`;
-}
-
 function activeBookwalkerReaderRasterSurfaces<T extends Element>(surfaces: T[], settings: ReaderSettings): T[] {
     const visible = surfaces.filter(surface => visibleElementViewportArea(surface) > 1);
     if (visible.length <= 1) return visible;
@@ -4569,7 +4548,6 @@ function canvasSurfaceSnapshotKey(canvas: HTMLCanvasElement): string {
             surfaceId,
             canvas.width,
             canvas.height,
-            canvasSurfaceAutoRegionKey(canvas),
         ].join('|');
     }
     return [
@@ -4579,29 +4557,6 @@ function canvasSurfaceSnapshotKey(canvas: HTMLCanvasElement): string {
         canvas.height,
         canvasPageContentToken(canvas),
     ].join('|');
-}
-
-function canvasSnapshotKeyChangedRequiresResnapshot(previousKey: string, currentKey: string): boolean {
-    if (previousKey === currentKey) return false;
-    const previousParts = previousKey.split('|');
-    const currentParts = currentKey.split('|');
-    const previousRegion = previousParts.at(-1) ?? '';
-    const currentRegion = currentParts.at(-1) ?? '';
-    const previousBase = previousParts.slice(0, -1).join('|');
-    const currentBase = currentParts.slice(0, -1).join('|');
-    if (previousBase !== currentBase) return true;
-    const autoRegionChange = previousRegion.startsWith(':auto-region:') || currentRegion.startsWith(':auto-region:');
-    if (!autoRegionChange) return true;
-    // If the same BookWalker page surface is temporarily offscreen or only a tiny
-    // sliver is visible, keep the existing frame. A non-empty new bucket means the
-    // user has scrolled to a different readable slice of the same tall canvas.
-    return Boolean(previousRegion || currentRegion) && Boolean(currentRegion);
-}
-
-function canvasSurfaceAutoRegionKey(canvas: HTMLCanvasElement): string {
-    const rect = canvas.getBoundingClientRect();
-    const region = bookwalkerVisibleCanvasRegion(rect);
-    return region ? canvasAutoRegionContentKey(rect, region) : '';
 }
 
 function canvasContentReadinessKey(canvas: HTMLCanvasElement): string {
