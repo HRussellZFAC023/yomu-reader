@@ -87,6 +87,7 @@ async function verifyStudyCard(browser, origin, studyCard) {
         const url = `${origin}/newtab/index.html?smoke=newtab-study-underline&term=${encodeURIComponent(studyCard.spelling)}`;
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
         await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab[data-newtab-bound="true"]', { timeout: 15_000 });
+        await openWordStep(page);
         await page.waitForFunction(expected => {
             const word = document.querySelector('.jpdb-reader-newtab-term .jpdb-reader-word');
             return word?.getAttribute('data-expression') === expected || word?.textContent?.trim() === expected;
@@ -119,6 +120,14 @@ async function verifyStudyCard(browser, origin, studyCard) {
     } finally {
         await context.close().catch(() => undefined);
     }
+}
+
+async function openWordStep(page) {
+    const wordStep = page.locator('[data-newtab-action="study-step"][data-study-step-kind="word"]').first();
+    if (!await wordStep.count()) return;
+    if (await wordStep.getAttribute('aria-current') === 'step') return;
+    await wordStep.click();
+    await page.waitForSelector('[data-study-step-kind="word"][aria-current="step"]', { timeout: 10_000 });
 }
 
 async function captureShadowRegressionBefore(page, slug) {

@@ -154,6 +154,12 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
         const snapshot = await settingsLayoutSnapshot(page, scenario.panel);
         const screenshotPath = path.join(ARTIFACT_DIR, `settings-layout-${scenario.name}.png`);
         await page.screenshot({ path: screenshotPath, fullPage: false });
+        let middleScreenshotPath = null;
+        if (scenario.panel === 'newTab') {
+            await scrollSettingsToStudySteps(page);
+            middleScreenshotPath = path.join(ARTIFACT_DIR, `settings-layout-${scenario.name}-steps.png`);
+            await page.screenshot({ path: middleScreenshotPath, fullPage: false });
+        }
         await scrollSettingsToBottom(page);
         const bottomScreenshotPath = path.join(ARTIFACT_DIR, `settings-layout-${scenario.name}-bottom.png`);
         await page.screenshot({ path: bottomScreenshotPath, fullPage: false });
@@ -200,6 +206,7 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
             },
             requestCount: requests.length,
             screenshotPath,
+            ...(middleScreenshotPath ? { middleScreenshotPath } : {}),
             bottomScreenshotPath,
         };
     } finally {
@@ -356,6 +363,18 @@ async function scrollSettingsToBottom(page) {
     await page.evaluate(() => {
         const scroll = document.querySelector('.jpdb-reader-settings-scroll');
         if (scroll instanceof HTMLElement) scroll.scrollTop = scroll.scrollHeight;
+    });
+    await page.waitForTimeout(80);
+}
+
+async function scrollSettingsToStudySteps(page) {
+    await page.evaluate(() => {
+        const scroll = document.querySelector('.jpdb-reader-settings-scroll');
+        const steps = document.querySelector('.jpdb-reader-settings [data-settings-panel="newTab"]:not([hidden]) .jpdb-reader-settings-study-steps');
+        if (!(scroll instanceof HTMLElement) || !(steps instanceof HTMLElement)) return;
+        const scrollRect = scroll.getBoundingClientRect();
+        const stepsRect = steps.getBoundingClientRect();
+        scroll.scrollTop += stepsRect.top - scrollRect.top - 16;
     });
     await page.waitForTimeout(80);
 }

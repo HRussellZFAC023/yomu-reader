@@ -1218,8 +1218,10 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview-line .jpdb-reader-word { display: inline-block !important; width: auto !important; max-width: none !important; vertical-align: baseline; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview .jpdb-reader-word.jpdb-reader-has-furi { line-height: 1.28; }');
         expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-icon-mini { grid-column: 2; grid-row: 1; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings select + .jpdb-reader-control-text-mirror { display: block; max-width: 100%; margin-inline-start: 0;');
+        expect(normalizedCss).toContain('.jpdb-reader-settings select + .jpdb-reader-control-text-mirror { display: none !important; max-width: 100%; margin-inline-start: 0;');
         expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice > .jpdb-reader-control-text-mirror { grid-column: 1 / -1; }');
+        expect(normalizedCss).toContain('.jpdb-reader-study-step-head, .jpdb-reader-study-step-row { grid-template-columns: 56px minmax(150px, 0.75fr) minmax(260px, 1.25fr) var(--jpdb-reader-order-tools-width); }');
+        expect(normalizedCss).toContain('.jpdb-reader-study-step-row > .jpdb-reader-dictionary-row-help { grid-column: 3; }');
     });
 
     it('groups media settings into compact toggle and control grids', () => {

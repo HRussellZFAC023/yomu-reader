@@ -112,22 +112,27 @@ export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): N
         .sort((left, right) => settingsParseRootPriority(left) - settingsParseRootPriority(right))
         .filter(parseRoot => !isExcludedSettingsParseRoot(parseRoot))
         .filter(parseRoot => !parseRoot.closest('[aria-hidden="true"]'))
-        .flatMap(parseRoot => nestedParseTargetsIn(
-            parseRoot,
-            limit,
-            false,
-            settingsParseExcludeSelector(parseRoot),
-            {
-                includeReaderRoot: true,
-                includeFormChrome: true,
-                allowUiText: true,
-                heading: true,
-                minLength: 2,
-                readerRootPassiveInteractions: true,
-                formControlExcludeSelector: settingsFormControlExcludeSelector(),
-                formControlSelectTextMode: 'selected',
-            },
-        ))
+        .flatMap(parseRoot => {
+            const settingsChrome = isSettingsChromeParseRoot(parseRoot);
+            return nestedParseTargetsIn(
+                parseRoot,
+                limit,
+                false,
+                settingsParseExcludeSelector(parseRoot),
+                {
+                    includeReaderRoot: true,
+                    includeFormChrome: true,
+                    allowUiText: true,
+                    heading: true,
+                    minLength: 2,
+                    readerRootPassiveInteractions: true,
+                    forceInlineRender: settingsChrome,
+                    suppressRepaintLoopMirror: settingsChrome,
+                    formControlExcludeSelector: settingsFormControlExcludeSelector(),
+                    formControlSelectTextMode: 'selected',
+                },
+            );
+        })
         .slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
 }

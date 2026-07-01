@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.5.5
+// @version 1.5.6
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.5
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.5
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.5
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.5
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.6
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.6
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.6
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.6
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect bookwalker.jp
 // @connect viewer.bookwalker.jp
@@ -4408,7 +4408,9 @@ function fragmentTextTargetFrom(fragments, options) {
   suppressRuby,
   proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
   layoutSensitive: trimmedFragments.some((fragment) => fragment.layoutSensitive),
-  passiveInteraction
+  passiveInteraction,
+  forceInlineRender: options.forceInlineRender,
+  suppressRepaintLoopMirror: options.suppressRepaintLoopMirror
   };
 }
 function fragmentTargetSuppressesCompactScanRuby(parent, fragments) {
@@ -8003,6 +8005,19 @@ const COPY = {
   newTabOfflineHelp: "Caches due cards and queued grades.",
   newTabAddressHelp: "Use as a start page or iPad shortcut.",
   newTabJpdbDeck: "Study JPDB deck",
+  newTabStudySteps: "Study steps",
+  newTabStudyStepsHelp: "Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.",
+  newTabStudyStepHeader: "Step",
+  newTabStudyStepKanji: "Kanji drawing",
+  newTabStudyStepWord: "Word meaning",
+  newTabStudyStepRecall: "Write in sentence",
+  newTabStudyStepListen: "Pitch listening",
+  newTabStudyStepSpeaking: "Speaking",
+  newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown.",
+  newTabStudyStepWordHelp: "Japanese front, meaning and reading on reveal.",
+  newTabStudyStepRecallHelp: "Type the missing word in the example sentence.",
+  newTabStudyStepListenHelp: "Hear the word and choose the pitch pattern.",
+  newTabStudyStepSpeakingHelp: "Repeat the word aloud when microphone feedback is available.",
   openNewTabPage: "Open Study",
   copyAddress: "Copy address",
   wordColors: "Word colors",
@@ -8883,6 +8898,7 @@ const COPY = {
   noDefinitions: "No enabled definition source returned results.",
   enabledHeader: "On",
   labelHeader: "Label",
+  detailsHeader: "Details",
   displayName: "Display name",
   orderHeader: "Order",
   removeHeader: "Remove",
@@ -9694,6 +9710,19 @@ newTabUrl	学習ページのアドレス
 newTabOfflineHelp	カードと未送信採点を保存。
 newTabAddressHelp	新規タブやiPadホーム画面用。
 newTabJpdbDeck	学習のJPDBデッキ
+newTabStudySteps	学習ステップ
+newTabStudyStepsHelp	ドラッグで並べ替え。速く復習したいステップはオフにできます。表示と採点は常に最後です。
+newTabStudyStepHeader	ステップ
+newTabStudyStepKanji	漢字書き取り
+newTabStudyStepWord	単語の意味
+newTabStudyStepRecall	文で書く
+newTabStudyStepListen	ピッチ聞き取り
+newTabStudyStepSpeaking	発音
+newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。
+newTabStudyStepWordHelp	表は日本語、表示後に意味と読み。
+newTabStudyStepRecallHelp	例文の空欄に単語を入力します。
+newTabStudyStepListenHelp	音声を聞き、ピッチ型を選びます。
+newTabStudyStepSpeakingHelp	マイク採点が使える時に声に出して繰り返します。
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色
@@ -10150,6 +10179,7 @@ addToMining	デッキに追加
 addToMiningHint	選択中のAPI SRSデッキに追加します。
 enabledHeader	有効
 labelHeader	ラベル
+detailsHeader	詳細
 displayName	表示名
 orderHeader	順序
 removeHeader	削除
@@ -34342,22 +34372,27 @@ function nestedTextParsePlan(root, limit) {
 }
 function nestedSettingsTextParsePlan(root, limit) {
   const parseRoots = root.matches(SETTINGS_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(SETTINGS_PARSE_ROOT_SELECTOR));
-  const targets = parseRoots.sort((left, right) => settingsParseRootPriority(left) - settingsParseRootPriority(right)).filter((parseRoot) => !isExcludedSettingsParseRoot(parseRoot)).filter((parseRoot) => !parseRoot.closest('[aria-hidden="true"]')).flatMap((parseRoot) => nestedParseTargetsIn(
-  parseRoot,
-  limit,
-  false,
-  settingsParseExcludeSelector(parseRoot),
-  {
-    includeReaderRoot: true,
-    includeFormChrome: true,
-    allowUiText: true,
-    heading: true,
-    minLength: 2,
-    readerRootPassiveInteractions: true,
-    formControlExcludeSelector: settingsFormControlExcludeSelector(),
-    formControlSelectTextMode: "selected"
-  }
-  )).slice(0, limit);
+  const targets = parseRoots.sort((left, right) => settingsParseRootPriority(left) - settingsParseRootPriority(right)).filter((parseRoot) => !isExcludedSettingsParseRoot(parseRoot)).filter((parseRoot) => !parseRoot.closest('[aria-hidden="true"]')).flatMap((parseRoot) => {
+  const settingsChrome = isSettingsChromeParseRoot(parseRoot);
+  return nestedParseTargetsIn(
+    parseRoot,
+    limit,
+    false,
+    settingsParseExcludeSelector(parseRoot),
+    {
+      includeReaderRoot: true,
+      includeFormChrome: true,
+      allowUiText: true,
+      heading: true,
+      minLength: 2,
+      readerRootPassiveInteractions: true,
+      forceInlineRender: settingsChrome,
+      suppressRepaintLoopMirror: settingsChrome,
+      formControlExcludeSelector: settingsFormControlExcludeSelector(),
+      formControlSelectTextMode: "selected"
+    }
+  );
+  }).slice(0, limit);
   return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
 }
 function nestedSettingsParseAlreadyRendered(root) {
@@ -37998,7 +38033,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.5"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.6"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

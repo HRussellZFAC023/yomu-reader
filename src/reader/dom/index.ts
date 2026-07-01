@@ -229,6 +229,8 @@ interface FragmentTextTargetCollectionOptions {
     includeUiChrome?: boolean;
     includeFormChrome?: boolean;
     includeTabChrome?: boolean;
+    forceInlineRender?: boolean;
+    suppressRepaintLoopMirror?: boolean;
     // ISS-11: when set, the resolved skip selector omits PLAYER_CHROME_SKIP_ENTRIES
     // so YouTube player/control/toggle wrappers are parsed. All other guards stay.
     includePlayerChrome?: boolean;
@@ -738,6 +740,8 @@ function fragmentTextTargetFrom(
         proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
         layoutSensitive: trimmedFragments.some(fragment => fragment.layoutSensitive),
         passiveInteraction,
+        forceInlineRender: options.forceInlineRender,
+        suppressRepaintLoopMirror: options.suppressRepaintLoopMirror,
     };
 }
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.6] - 2026-07-01
+
+### Fixed
+
+- Reworked Study settings spacing so review source controls, toggles, and the reorderable study-step list align with the rest of the settings panels on desktop and mobile.
+- Kept parsed settings tabs and action buttons visible and clickable while preserving Japanese ruby/pitch enhancement.
+
 ## [1.5.5] - 2026-07-01
 
 ### Fixed

@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "private": true,
   "type": "module",
   "description": "よむ: a small Jiten/JPDB/Yomitan popup dictionary and subtitle miner userscript.",
@@ -75,6 +75,7 @@
     "smoke:audio-csp-fallback": "node scripts/audio-csp-fallback-smoke.mjs",
     "smoke:audio-real-page": "node scripts/audio-real-page-smoke.mjs",
     "smoke:bookwalker-carousel": "node scripts/bookwalker-carousel-overflow-smoke.mjs",
+    "smoke:bunpro-live": "node scripts/bunpro-live-smoke.mjs",
     "smoke:audio-newtab": "node scripts/audio-newtab-smoke.mjs",
     "smoke:audio-popover": "node scripts/audio-popover-smoke.mjs",
     "smoke:compact-chrome": "node scripts/compact-interactive-chrome-smoke.mjs",

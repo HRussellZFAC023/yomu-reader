@@ -186,6 +186,19 @@ const COPY = {
         newTabOfflineHelp: 'Caches due cards and queued grades.',
         newTabAddressHelp: 'Use as a start page or iPad shortcut.',
         newTabJpdbDeck: 'Study JPDB deck',
+        newTabStudySteps: 'Study steps',
+        newTabStudyStepsHelp: 'Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.',
+        newTabStudyStepHeader: 'Step',
+        newTabStudyStepKanji: 'Kanji drawing',
+        newTabStudyStepWord: 'Word meaning',
+        newTabStudyStepRecall: 'Write in sentence',
+        newTabStudyStepListen: 'Pitch listening',
+        newTabStudyStepSpeaking: 'Speaking',
+        newTabStudyStepKanjiHelp: 'Draw each kanji before the word answer is shown.',
+        newTabStudyStepWordHelp: 'Japanese front, meaning and reading on reveal.',
+        newTabStudyStepRecallHelp: 'Type the missing word in the example sentence.',
+        newTabStudyStepListenHelp: 'Hear the word and choose the pitch pattern.',
+        newTabStudyStepSpeakingHelp: 'Repeat the word aloud when microphone feedback is available.',
         openNewTabPage: 'Open Study',
         copyAddress: 'Copy address',
         wordColors: 'Word colors',
@@ -1066,6 +1079,7 @@ const COPY = {
         noDefinitions: 'No enabled definition source returned results.',
         enabledHeader: 'On',
         labelHeader: 'Label',
+        detailsHeader: 'Details',
         displayName: 'Display name',
         orderHeader: 'Order',
         removeHeader: 'Remove',
@@ -1883,6 +1897,19 @@ newTabUrl	学習ページのアドレス
 newTabOfflineHelp	カードと未送信採点を保存。
 newTabAddressHelp	新規タブやiPadホーム画面用。
 newTabJpdbDeck	学習のJPDBデッキ
+newTabStudySteps	学習ステップ
+newTabStudyStepsHelp	ドラッグで並べ替え。速く復習したいステップはオフにできます。表示と採点は常に最後です。
+newTabStudyStepHeader	ステップ
+newTabStudyStepKanji	漢字書き取り
+newTabStudyStepWord	単語の意味
+newTabStudyStepRecall	文で書く
+newTabStudyStepListen	ピッチ聞き取り
+newTabStudyStepSpeaking	発音
+newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。
+newTabStudyStepWordHelp	表は日本語、表示後に意味と読み。
+newTabStudyStepRecallHelp	例文の空欄に単語を入力します。
+newTabStudyStepListenHelp	音声を聞き、ピッチ型を選びます。
+newTabStudyStepSpeakingHelp	マイク採点が使える時に声に出して繰り返します。
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色
@@ -2339,6 +2366,7 @@ addToMining	デッキに追加
 addToMiningHint	選択中のAPI SRSデッキに追加します。
 enabledHeader	有効
 labelHeader	ラベル
+detailsHeader	詳細
 displayName	表示名
 orderHeader	順序
 removeHeader	削除

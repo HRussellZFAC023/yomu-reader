@@ -4052,6 +4052,19 @@
       newTabOfflineHelp: "Caches due cards and queued grades.",
       newTabAddressHelp: "Use as a start page or iPad shortcut.",
       newTabJpdbDeck: "Study JPDB deck",
+      newTabStudySteps: "Study steps",
+      newTabStudyStepsHelp: "Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.",
+      newTabStudyStepHeader: "Step",
+      newTabStudyStepKanji: "Kanji drawing",
+      newTabStudyStepWord: "Word meaning",
+      newTabStudyStepRecall: "Write in sentence",
+      newTabStudyStepListen: "Pitch listening",
+      newTabStudyStepSpeaking: "Speaking",
+      newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown.",
+      newTabStudyStepWordHelp: "Japanese front, meaning and reading on reveal.",
+      newTabStudyStepRecallHelp: "Type the missing word in the example sentence.",
+      newTabStudyStepListenHelp: "Hear the word and choose the pitch pattern.",
+      newTabStudyStepSpeakingHelp: "Repeat the word aloud when microphone feedback is available.",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
       wordColors: "Word colors",
@@ -4932,6 +4945,7 @@
       noDefinitions: "No enabled definition source returned results.",
       enabledHeader: "On",
       labelHeader: "Label",
+      detailsHeader: "Details",
       displayName: "Display name",
       orderHeader: "Order",
       removeHeader: "Remove",
@@ -5724,6 +5738,19 @@ newTabUrl	学習ページのアドレス
 newTabOfflineHelp	カードと未送信採点を保存。
 newTabAddressHelp	新規タブやiPadホーム画面用。
 newTabJpdbDeck	学習のJPDBデッキ
+newTabStudySteps	学習ステップ
+newTabStudyStepsHelp	ドラッグで並べ替え。速く復習したいステップはオフにできます。表示と採点は常に最後です。
+newTabStudyStepHeader	ステップ
+newTabStudyStepKanji	漢字書き取り
+newTabStudyStepWord	単語の意味
+newTabStudyStepRecall	文で書く
+newTabStudyStepListen	ピッチ聞き取り
+newTabStudyStepSpeaking	発音
+newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。
+newTabStudyStepWordHelp	表は日本語、表示後に意味と読み。
+newTabStudyStepRecallHelp	例文の空欄に単語を入力します。
+newTabStudyStepListenHelp	音声を聞き、ピッチ型を選びます。
+newTabStudyStepSpeakingHelp	マイク採点が使える時に声に出して繰り返します。
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色
@@ -6180,6 +6207,7 @@ addToMining	デッキに追加
 addToMiningHint	選択中のAPI SRSデッキに追加します。
 enabledHeader	有効
 labelHeader	ラベル
+detailsHeader	詳細
 displayName	表示名
 orderHeader	順序
 removeHeader	削除
@@ -8895,6 +8923,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "listen-pitch": "Hear the word and choose the pitch pattern.",
     speaking: "Repeat the word aloud when microphone feedback is available."
   };
+  const NEW_TAB_STUDY_STEP_LABEL_KEYS = {
+    "kanji-doodle": "newTabStudyStepKanji",
+    word: "newTabStudyStepWord",
+    "recall-cloze": "newTabStudyStepRecall",
+    "listen-pitch": "newTabStudyStepListen",
+    speaking: "newTabStudyStepSpeaking"
+  };
+  const NEW_TAB_STUDY_STEP_HELP_KEYS = {
+    "kanji-doodle": "newTabStudyStepKanjiHelp",
+    word: "newTabStudyStepWordHelp",
+    "recall-cloze": "newTabStudyStepRecallHelp",
+    "listen-pitch": "newTabStudyStepListenHelp",
+    speaking: "newTabStudyStepSpeakingHelp"
+  };
   const DEFAULT_SETTINGS_PANEL = "appearance";
   const SETTINGS_TABS = [
     { panel: "appearance", label: "Appearance", active: true },
@@ -9138,7 +9180,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return `
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Study</div>
-                    <div class="grid">
+                    <div class="grid jpdb-reader-settings-cgrid">
                         ${runningAsBrowserExtension() ? checkbox("newTabEnabled", "Set Study as the new tab", settings.newTabEnabled) : ""}
                         ${checkbox("newTabAnkiEnabled", "Use Anki cards in Study", settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
@@ -9149,7 +9191,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
                             ${select("twoButtonReviews", "Review rating scale", settings.twoButtonReviews ? "true" : "false", [["false", "Five point: NOTHING to EASY"], ["true", "Two point: FAIL / PASS"]])}
                         </div>
                         ${select("newTabKanjiKeywordSource", "Kanji keyword source", settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings))}
-                        ${renderNewTabStudyStepOrderEditor(settings)}
+                    </div>
+                    ${renderNewTabStudyStepOrderEditor(settings)}
+                    <div class="grid jpdb-reader-settings-tgrid jpdb-reader-settings-study-options">
                         ${checkbox("newTabParsingEnabled", "Parse sentences on Study", settings.newTabParsingEnabled)}
                         ${checkbox("newTabKanjiUnlockEnabled", "Study kanji before unlocking words", settings.newTabKanjiUnlockEnabled)}
                         ${checkbox("newTabStopAtBatchEnd", "Stop at the end of each batch", settings.newTabStopAtBatchEnd)}
@@ -9159,6 +9203,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
                         ${checkbox("newTabKanjiAutogradeEnabled", "Autograde kanji drawing", settings.newTabKanjiAutogradeEnabled)}
                         ${checkbox("newTabKanjiAutoSubmit", "Submit kanji grade after autograde", settings.newTabKanjiAutoSubmit)}
                         ${checkbox("newTabOfflineEnabled", "Cache Study for offline use", settings.newTabOfflineEnabled)}
+                    </div>
+                    <div class="grid jpdb-reader-settings-cgrid jpdb-reader-settings-study-options">
                         ${input("newTabOfflineLimit", "Offline review cache limit", String(settings.newTabOfflineLimit), "number", { min: 0, max: 500, step: 10 })}
                         ${input("newTabDailyGoalMinutes", "Daily study goal (minutes, 0 = off)", String(settings.newTabDailyGoalMinutes), "number", { min: 0, max: 1440, step: 5 })}
                         <label>Study address<input name="newTabUrl" type="text" value="${escapeHtml(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
@@ -9175,13 +9221,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function renderNewTabStudyStepOrderEditor(settings) {
     const disabled = new Set(settings.newTabStudyDisabledSteps);
     return `
-                        <div class="jpdb-reader-settings-field-wide jpdb-reader-settings-study-steps" data-source-editor data-study-step-editor>
-                            <div class="jpdb-reader-settings-label-text">Study steps</div>
-                            <div class="jpdb-reader-help">Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.</div>
-                            <div class="jpdb-reader-dictionary-head jpdb-reader-order-head compact no-remove">
-                                <span>On</span>
-                                <span>Step</span>
-                                <span>Order</span>
+                        <div class="jpdb-reader-settings-study-steps" data-source-editor data-study-step-editor>
+                            <div class="jpdb-reader-settings-label-text" data-study-step-editor-title>Study steps</div>
+                            <div class="jpdb-reader-help" data-study-step-editor-help>Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.</div>
+                            <div class="jpdb-reader-order-head jpdb-reader-study-step-head">
+                                <span data-study-step-head="enabled">On</span>
+                                <span data-study-step-head="step">Step</span>
+                                <span data-study-step-head="details">Details</span>
+                                <span data-study-step-head="order">Order</span>
                             </div>
                             ${settings.newTabStudyStepOrder.map((step, index) => renderNewTabStudyStepRow(step, index, !disabled.has(step))).join("")}
                             <input name="newTabStudyTourSeen" type="hidden" value="${settings.newTabStudyTourSeen ? "true" : "false"}">
@@ -9190,19 +9237,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function renderNewTabStudyStepRow(step, index, enabled) {
     return `
-                            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row compact no-remove" data-source-row data-study-step-row data-source-id="study-step-${escapeHtml(step)}">
+                            <div class="jpdb-reader-order-row jpdb-reader-study-step-row" data-source-row data-study-step-row data-source-id="study-step-${escapeHtml(step)}">
                                 <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
                                     <input name="newTabStudyEnabledStep" type="checkbox" value="${escapeHtml(step)}" ${enabled ? "checked" : ""}>
                                     <span>${index + 1}</span>
                                 </label>
-                                <span class="jpdb-reader-field-display">${escapeHtml(NEW_TAB_STUDY_STEP_LABELS[step])}</span>
+                                <span class="jpdb-reader-field-display" data-study-step-label-key="${escapeHtml(NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}">${escapeHtml(NEW_TAB_STUDY_STEP_LABELS[step])}</span>
+                                <div class="jpdb-reader-dictionary-row-help" data-study-step-help-key="${escapeHtml(NEW_TAB_STUDY_STEP_HELP_KEYS[step])}">${escapeHtml(NEW_TAB_STUDY_STEP_HELP[step])}</div>
                                 ${renderRowOrderTools({
       upAction: "dictionary-source-up",
       downAction: "dictionary-source-down",
       labels: { drag: "Drag to reorder", up: "Move up", down: "Move down" },
       leading: `<input name="newTabStudyStepOrder" type="hidden" value="${escapeHtml(step)}">`
     })}
-                                <div class="jpdb-reader-dictionary-row-help">${escapeHtml(NEW_TAB_STUDY_STEP_HELP[step])}</div>
                             </div>
     `;
   }
@@ -10268,6 +10315,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     localizeBunproStatus(form, statusLanguage2);
     localizeInitialAnkiStatus(form, statusLanguage2);
     localizeSourceRows(form, text);
+    localizeStudyStepEditor(form, text);
     localizeRecommendedDictionaryGroups(form, text);
     localizeRecommendedDictionaryDescriptions(form, text);
     localizeAnkiTemplatePreview(form, text);
@@ -10362,6 +10410,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const row = input2.closest("[data-dictionary-source-row]");
       const name = row?.querySelector('input[name$=".alias"]')?.value.trim() || row?.querySelector(".jpdb-reader-field-display")?.textContent?.trim() || input2.closest("label")?.textContent?.trim() || "";
       input2.setAttribute("aria-label", text("enableSourceName").replace("{name}", name));
+    });
+  }
+  function localizeStudyStepEditor(form, text) {
+    form.querySelector("[data-study-step-editor-title]")?.replaceChildren(text("newTabStudySteps"));
+    form.querySelector("[data-study-step-editor-help]")?.replaceChildren(text("newTabStudyStepsHelp"));
+    form.querySelector('[data-study-step-head="enabled"]')?.replaceChildren(text("enabledHeader"));
+    form.querySelector('[data-study-step-head="step"]')?.replaceChildren(text("newTabStudyStepHeader"));
+    form.querySelector('[data-study-step-head="details"]')?.replaceChildren(text("detailsHeader"));
+    form.querySelector('[data-study-step-head="order"]')?.replaceChildren(text("orderHeader"));
+    form.querySelectorAll("[data-study-step-label-key]").forEach((element) => {
+      const key = element.dataset.studyStepLabelKey;
+      if (isSettingsTextKey(key)) element.replaceChildren(text(key));
+    });
+    form.querySelectorAll("[data-study-step-help-key]").forEach((element) => {
+      const key = element.dataset.studyStepHelpKey;
+      if (isSettingsTextKey(key)) element.replaceChildren(text(key));
     });
   }
   function localizeSourceHead(head, text) {

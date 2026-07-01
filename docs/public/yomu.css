@@ -7831,7 +7831,7 @@ html.jpdb-reader-doodle-active * {
   line-height: 1;
 }
 .jpdb-reader-settings select + .jpdb-reader-control-text-mirror {
-  display: block;
+  display: none !important;
   max-width: 100%;
   margin-inline-start: 0;
   color: var(--jpdb-reader-muted);
@@ -9057,6 +9057,51 @@ html.jpdb-reader-doodle-active * {
   font-size: 11px;
   line-height: 1.35;
 }
+.jpdb-reader-settings-study-steps {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  min-width: 0;
+}
+.jpdb-reader-settings-study-steps > .jpdb-reader-settings-label-text {
+  color: var(--jpdb-reader-text);
+  font-size: 14px;
+  font-weight: 850;
+}
+.jpdb-reader-settings-study-steps > .jpdb-reader-help {
+  max-width: 62ch;
+  margin: 0 0 2px;
+}
+.jpdb-reader-study-step-head,
+.jpdb-reader-study-step-row {
+  grid-template-columns:
+    56px minmax(150px, 0.75fr) minmax(260px, 1.25fr)
+    var(--jpdb-reader-order-tools-width);
+}
+.jpdb-reader-study-step-row {
+  align-items: center;
+}
+.jpdb-reader-study-step-row > .jpdb-reader-order-toggle {
+  grid-column: 1;
+}
+.jpdb-reader-study-step-row > .jpdb-reader-field-display {
+  grid-column: 2;
+  height: auto;
+  min-height: 38px;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+.jpdb-reader-study-step-row > .jpdb-reader-dictionary-row-help {
+  grid-column: 3;
+}
+.jpdb-reader-study-step-row > .jpdb-reader-row-order-tools {
+  grid-column: 4;
+  justify-self: end;
+}
+.jpdb-reader-settings-study-options {
+  margin-top: 14px;
+}
 .jpdb-reader-settings .jpdb-reader-dictionary-toggle {
   margin: 0;
   justify-content: center;
@@ -9378,6 +9423,43 @@ html.jpdb-reader-doodle-active * {
 
   .jpdb-reader-dictionary-row-help {
     grid-column: 1 / -1;
+  }
+
+  .jpdb-reader-study-step-head {
+    display: none;
+  }
+
+  .jpdb-reader-study-step-row {
+    grid-template-columns: 44px minmax(0, 1fr) 73px;
+    align-items: start;
+    gap: 6px;
+  }
+
+  .jpdb-reader-study-step-row > .jpdb-reader-order-toggle {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .jpdb-reader-study-step-row > .jpdb-reader-field-display {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .jpdb-reader-study-step-row > .jpdb-reader-dictionary-row-help {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .jpdb-reader-study-step-row > .jpdb-reader-row-order-tools {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: start;
+    align-content: flex-start;
+    justify-content: flex-end;
+    width: 73px;
+    min-width: 73px;
+    max-width: 73px;
   }
 }
 
@@ -9848,6 +9930,43 @@ html.jpdb-reader-doodle-active * {
   .jpdb-reader-dictionary-row > input[name$=".alias"] {
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+
+  .jpdb-reader-study-step-head {
+    display: none;
+  }
+
+  .jpdb-reader-study-step-row {
+    grid-template-columns: 44px minmax(0, 1fr) 73px;
+    align-items: start;
+    gap: 6px;
+  }
+
+  .jpdb-reader-study-step-row > .jpdb-reader-order-toggle {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .jpdb-reader-study-step-row > .jpdb-reader-field-display {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .jpdb-reader-study-step-row > .jpdb-reader-dictionary-row-help {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .jpdb-reader-study-step-row > .jpdb-reader-row-order-tools {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: start;
+    align-content: flex-start;
+    justify-content: flex-end;
+    width: 73px;
+    min-width: 73px;
+    max-width: 73px;
   }
 
   .jpdb-reader-audio-source-fields select,

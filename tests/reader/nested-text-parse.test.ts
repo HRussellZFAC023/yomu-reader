@@ -461,6 +461,9 @@ describe('nested text parse plans', () => {
 
         const plan = nestedSettingsTextParsePlan(root, 24)!;
         expect(plan.targets.map(target => target.text)).toEqual(['テーマ', '外観', '学習']);
+        const tabTarget = plan.targets.find(target => target.text === '外観')!;
+        expect('forceInlineRender' in tabTarget ? tabTarget.forceInlineRender : false).toBe(true);
+        expect('suppressRepaintLoopMirror' in tabTarget ? tabTarget.suppressRepaintLoopMirror : false).toBe(true);
 
         applyNestedParsePlan(plan, plan.targets.map(target => {
             if (target.text === 'テーマ') return [token('テーマ', 0)];
@@ -469,10 +472,13 @@ describe('nested text parse plans', () => {
         }), { ...DEFAULT_SETTINGS, furiganaMode: 'all', ankiEnabled: false });
 
         const themeWord = document.querySelector<HTMLElement>('.jpdb-reader-theme-title .jpdb-reader-word')!;
-        const tabWord = document.querySelector<HTMLElement>('.jpdb-reader-settings-tab .jpdb-reader-word')!;
+        const tab = document.querySelector<HTMLElement>('.jpdb-reader-settings-tab')!;
+        const tabWord = tab.querySelector<HTMLElement>('.jpdb-reader-word')!;
         expect(themeWord.classList.contains('jpdb-not-in-deck')).toBe(true);
         expect(tabWord.dataset.jpdbReaderPassive).toBe('true');
         expect(tabWord.querySelector('rt')?.textContent).toBe('がいかん');
+        expect(tab.style.getPropertyValue('visibility')).toBe('');
+        expect(tab.querySelector('.jpdb-reader-text-mirror')).toBeNull();
         expect(document.querySelector('button[type="button"]:not(.jpdb-reader-settings-tab) .jpdb-reader-word')).toBeNull();
     });
 

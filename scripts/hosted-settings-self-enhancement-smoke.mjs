@@ -213,7 +213,7 @@ try {
     await settingsSearch.pressSequentially('外観');
     await page.waitForFunction(() => document.querySelector('.jpdb-reader-settings')?.getAttribute('data-settings-searching') === 'true');
     if (!INJECT_USERSCRIPT) {
-        await page.waitForSelector('[data-settings-panel="appearance"]:not([hidden]) .jpdb-reader-word[data-expression="外観"]', { timeout: 20_000 });
+        await page.waitForSelector('.jpdb-reader-settings-tabs [data-panel="appearance"] .jpdb-reader-word[data-expression="外観"]', { timeout: 20_000 });
     }
     await page.waitForTimeout(800);
 
@@ -222,7 +222,7 @@ try {
     assert(afterSearch.searchValue === '外観', 'Settings search field did not keep native input value', afterSearch);
     assert(afterSearch.visiblePanels >= 1, 'Settings search hid all matching panels', afterSearch);
     if (!INJECT_USERSCRIPT) {
-        assert(afterSearch.exact.appearancePanel.hasRuby && afterSearch.exact.appearancePanel.pitch, 'Settings search results did not keep matching Japanese panel text enhanced', { afterSearch, requests });
+        assert(afterSearch.exact.appearanceTab.hasRuby && afterSearch.exact.appearanceTab.pitch, 'Settings search did not keep the matching Japanese tab text enhanced', { afterSearch, requests });
     }
     assert(afterSearch.wordCount >= 8, 'Settings search dropped enhanced settings labels', { initial, afterSearch });
 
@@ -393,7 +393,9 @@ async function waitForSettingsSelector(page, requests, selector) {
 async function clickSettingsTab(page, panel, label) {
     const selector = `[data-action="settings-panel"][data-panel="${panel}"]`;
     const tab = page.locator(selector);
-    await tab.waitFor({ state: 'visible', timeout: 20_000 });
+    await tab.waitFor({ state: 'visible', timeout: 20_000 }).catch(async error => {
+        throw new Error(`Settings ${label} tab was not visible before click.\n${JSON.stringify(await settingsSnapshot(page), null, 2)}\n${error.message}`);
+    });
     await tab.click();
     await page.waitForFunction(
         expectedPanel => document.querySelector(`[data-action="settings-panel"][data-panel="${expectedPanel}"]`)?.getAttribute('aria-selected') === 'true',
@@ -443,6 +445,28 @@ async function settingsSnapshot(page) {
         const form = document.querySelector('.jpdb-reader-settings');
         const words = [...document.querySelectorAll('.jpdb-reader-settings .jpdb-reader-word')].filter(word => word instanceof HTMLElement);
         const selectedTab = document.querySelector('.jpdb-reader-settings [data-action="settings-panel"][aria-selected="true"]');
+        const tabs = [...document.querySelectorAll('.jpdb-reader-settings [data-action="settings-panel"]')]
+            .filter(tab => tab instanceof HTMLElement)
+            .map(tab => {
+                const rect = tab.getBoundingClientRect();
+                const style = getComputedStyle(tab);
+                return {
+                    panel: tab.dataset.panel ?? '',
+                    text: tab.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+                    hidden: tab.hidden,
+                    ariaSelected: tab.getAttribute('aria-selected'),
+                    display: style.display,
+                    visibility: style.visibility,
+                    opacity: style.opacity,
+                    rect: {
+                        left: Math.round(rect.left),
+                        top: Math.round(rect.top),
+                        width: Math.round(rect.width),
+                        height: Math.round(rect.height),
+                    },
+                    offsetParent: Boolean(tab.offsetParent),
+                };
+            });
         const visiblePanels = [...document.querySelectorAll('.jpdb-reader-settings [data-settings-panel]')].filter(panel => panel instanceof HTMLElement && !panel.hidden);
         const storedSettings = (() => {
             try {
@@ -484,6 +508,7 @@ async function settingsSnapshot(page) {
             cancelNative: document.querySelector('.jpdb-reader-settings [data-action="cancel"]') instanceof HTMLButtonElement,
             saveNative: document.querySelector('.jpdb-reader-settings button[type="submit"]') instanceof HTMLButtonElement,
             activePanel: selectedTab instanceof HTMLElement ? selectedTab.dataset.panel : '',
+            tabs,
             visiblePanels: visiblePanels.length,
             searchValue: document.querySelector('[data-settings-search]') instanceof HTMLInputElement
                 ? document.querySelector('[data-settings-search]').value
