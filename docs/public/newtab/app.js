@@ -29209,7 +29209,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.5.7".trim() ? "1.5.7".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.5.8".trim() ? "1.5.8".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -40163,6 +40163,9 @@ ${spelling}`);
   const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
   const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
   const READER_RASTER_FRAME_SIZE_CHANGE_PX = 2;
+  const READER_RASTER_REGION_MIN_SIZE_PX = 96;
+  const READER_RASTER_REGION_FULL_PAGE_FRACTION = 0.88;
+  const READER_RASTER_AUTO_REGION_BUCKET_FRACTION = 0.5;
   const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
   const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8e3;
   const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
@@ -41606,9 +41609,10 @@ ${spelling}`);
         let frameSrc;
         let frameRect = rect;
         let contentKey;
-        const visibleRetryRect = userRequested ? manualRetryCanvasRegion(rect) : void 0;
-        const captureRect = visibleRetryRect ?? rect;
-        const regionKey = visibleRetryRect ? canvasRegionContentKey(rect, visibleRetryRect) : "";
+        const visibleRetryRect = userRequested ? bookwalkerVisibleCanvasRegion(rect) : void 0;
+        const visibleAutoRect = !userRequested ? bookwalkerVisibleCanvasRegion(rect) : void 0;
+        const captureRect = visibleRetryRect ?? visibleAutoRect ?? rect;
+        const regionKey = visibleRetryRect ? canvasRegionContentKey(rect, visibleRetryRect) : visibleAutoRect ? canvasAutoRegionContentKey(rect, visibleAutoRect) : "";
         if (isCanvasReadable(canvas)) {
           const contentSignature = canvasRenderedContentSignature(canvas);
           if (!contentSignature) {
@@ -41927,6 +41931,13 @@ ${spelling}`);
           this.releaseCanvasFrame(canvas);
           continue;
         }
+        const key = this.canvasFrameKeys.get(canvas);
+        const currentKey = canvasSurfaceSnapshotKey(canvas);
+        if (key && canvasSnapshotKeyChangedRequiresResnapshot(key, currentKey)) {
+          this.releaseCanvasFrame(canvas);
+          this.scheduleReaderRasterRefresh(40);
+          continue;
+        }
         const staticRect = this.canvasFrameStaticRects.get(frame);
         if (staticRect) {
           const currentRegionRect = this.canvasFrameRegionRect(frame, rect) ?? staticRect;
@@ -41948,6 +41959,8 @@ ${spelling}`);
     canvasFrameNeedsResnapshot(canvas) {
       const frame = this.canvasFrames.get(canvas);
       if (!frame || frame.complete === false) return false;
+      const key = this.canvasFrameKeys.get(canvas);
+      if (key && canvasSnapshotKeyChangedRequiresResnapshot(key, canvasSurfaceSnapshotKey(canvas))) return true;
       if (this.shouldKeepTerminalReaderRasterFrame(frame)) return false;
       const staticRect = this.canvasFrameStaticRects.get(frame);
       if (staticRect) return false;
@@ -43408,7 +43421,7 @@ ${spelling}`);
     const bottom = Math.min(viewportHeight, rect.bottom);
     return Math.max(0, right - left) * Math.max(0, bottom - top);
   }
-  function manualRetryCanvasRegion(rect) {
+  function bookwalkerVisibleCanvasRegion(rect) {
     if (!isBookwalkerViewerHost()) return void 0;
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
@@ -43419,10 +43432,10 @@ ${spelling}`);
     const bottom = Math.min(viewportHeight, rect.bottom);
     const width = right - left;
     const height = bottom - top;
-    if (width < 96 || height < 96) return void 0;
+    if (width < READER_RASTER_REGION_MIN_SIZE_PX || height < READER_RASTER_REGION_MIN_SIZE_PX) return void 0;
     const area = width * height;
     const fullArea = rect.width * rect.height;
-    if (area >= fullArea * 0.88) return void 0;
+    if (area >= fullArea * READER_RASTER_REGION_FULL_PAGE_FRACTION) return void 0;
     return new DOMRect(left, top, width, height);
   }
   function canvasRegionContentKey(surfaceRect, regionRect) {
@@ -43433,6 +43446,21 @@ ${spelling}`);
       regionRect.height
     ].map((value) => Math.round(value));
     return `:region:${parts.join(",")}`;
+  }
+  function canvasAutoRegionContentKey(surfaceRect, regionRect) {
+    const stepX = Math.max(
+      READER_RASTER_REGION_MIN_SIZE_PX,
+      Math.round(regionRect.width * READER_RASTER_AUTO_REGION_BUCKET_FRACTION)
+    );
+    const stepY = Math.max(
+      READER_RASTER_REGION_MIN_SIZE_PX,
+      Math.round(regionRect.height * READER_RASTER_AUTO_REGION_BUCKET_FRACTION)
+    );
+    const bucketX = Math.floor((regionRect.left - surfaceRect.left) / stepX);
+    const bucketY = Math.floor((regionRect.top - surfaceRect.top) / stepY);
+    const width = Math.round(regionRect.width / READER_RASTER_REGION_MIN_SIZE_PX) * READER_RASTER_REGION_MIN_SIZE_PX;
+    const height = Math.round(regionRect.height / READER_RASTER_REGION_MIN_SIZE_PX) * READER_RASTER_REGION_MIN_SIZE_PX;
+    return `:auto-region:${bucketX},${bucketY},${width},${height}`;
   }
   function activeBookwalkerReaderRasterSurfaces(surfaces, settings) {
     const visible = surfaces.filter((surface) => visibleElementViewportArea(surface) > 1);
@@ -43752,7 +43780,8 @@ ${spelling}`);
         canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
         surfaceId,
         canvas.width,
-        canvas.height
+        canvas.height,
+        canvasSurfaceAutoRegionKey(canvas)
       ].join("|");
     }
     return [
@@ -43762,6 +43791,24 @@ ${spelling}`);
       canvas.height,
       canvasPageContentToken(canvas)
     ].join("|");
+  }
+  function canvasSnapshotKeyChangedRequiresResnapshot(previousKey, currentKey) {
+    if (previousKey === currentKey) return false;
+    const previousParts = previousKey.split("|");
+    const currentParts = currentKey.split("|");
+    const previousRegion = previousParts.at(-1) ?? "";
+    const currentRegion = currentParts.at(-1) ?? "";
+    const previousBase = previousParts.slice(0, -1).join("|");
+    const currentBase = currentParts.slice(0, -1).join("|");
+    if (previousBase !== currentBase) return true;
+    const autoRegionChange = previousRegion.startsWith(":auto-region:") || currentRegion.startsWith(":auto-region:");
+    if (!autoRegionChange) return true;
+    return Boolean(previousRegion || currentRegion) && Boolean(currentRegion);
+  }
+  function canvasSurfaceAutoRegionKey(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const region = bookwalkerVisibleCanvasRegion(rect);
+    return region ? canvasAutoRegionContentKey(rect, region) : "";
   }
   function canvasContentReadinessKey(canvas) {
     const surfaceId = canvasReaderSurfaceId(canvas);

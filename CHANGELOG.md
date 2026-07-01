@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.8] - 2026-07-01
+
+### Fixed
+
+- Re-scans tall/zoomed BookWalker canvases when the visible crop moves to a new half-screen bucket, so continuous scroll pages no longer keep stale OCR text from the previous visible slice while still avoiding per-pixel rescans.
+
 ## [1.5.7] - 2026-07-01
 
 ### Fixed

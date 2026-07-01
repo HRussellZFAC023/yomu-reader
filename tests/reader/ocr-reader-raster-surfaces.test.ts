@@ -1142,6 +1142,60 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('re-snapshots a tall BookWalker canvas only after the visible crop changes buckets', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        stubCanvasDataUrl('data:image/jpeg;base64,VISIBLE_SLICE');
+        vi.stubGlobal('innerWidth', 1000);
+        vi.stubGlobal('innerHeight', 800);
+        pageCounter('3 / 180');
+        let rect = new DOMRect(100, -180, 760, 1200);
+        const canvas = pageCanvas(100, -180, 760, 1200);
+        canvas.getBoundingClientRect = () => rect;
+        canvas.toDataURL = TAINTED_CANVAS;
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        viewport.append(canvas);
+        document.body.append(viewport);
+
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('SCROLL_SLICE'));
+        const controller = createController({}, undefined, captureCanvasMirror);
+
+        try {
+            let firstFrame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                firstFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(firstFrame).not.toBeNull();
+                expect(firstFrame!.style.top).toBe('0px');
+                expect(firstFrame!.style.height).toBe('800px');
+                expect(firstFrame!.dataset.ocrContentKey).toContain(':auto-region:0,0,768,768');
+            });
+            Object.defineProperty(firstFrame!, 'complete', { value: true, configurable: true });
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+
+            rect = new DOMRect(100, -320, 760, 1200);
+            controller.refresh();
+            await new Promise(resolve => setTimeout(resolve, 80));
+            expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).toBe(firstFrame);
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+
+            rect = new DOMRect(100, -400, 760, 1200);
+            controller.refresh();
+
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+                const secondFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(secondFrame).not.toBeNull();
+                expect(secondFrame).not.toBe(firstFrame);
+                expect(secondFrame!.style.top).toBe('0px');
+                expect(secondFrame!.style.height).toBe('800px');
+                expect(secondFrame!.dataset.ocrContentKey).toContain(':auto-region:0,1,768,768');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('respects native text PDF pages opting canvas OCR off while allowing scanned pages to opt in', () => {
         stubLocation('hrussellzfac023.github.io');
         stubReadableCanvas();
