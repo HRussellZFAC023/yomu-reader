@@ -8994,7 +8994,10 @@ ${candidate.depth}`;
       const hasFastText = Boolean(readFallbackOcrResult(image, false));
       const isReaderRasterFrame = this.isReaderRasterFrame(image);
       const delay = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
-      void waitForIdle(delay, delay).then(() => this.scanImage(image)).finally(() => {
+      void waitForIdle(delay, delay).then(() => this.scanImage(image)).catch((error) => {
+        if (isStaleOcrState(error)) return;
+        log$2.warn("OCR scan task failed unexpectedly", {}, error);
+      }).finally(() => {
         this.activeScans = Math.max(0, this.activeScans - 1);
         this.inFlightKeys.delete(key);
         if (!this.destroyed) this.drainQueue();
@@ -9251,7 +9254,10 @@ ${candidate.depth}`;
         this.canvasReaderSamePageSignatureSkips = 0;
       }
       this.updateOcrStatus(state2.image, "ready");
-      void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).finally(() => this.schedulePosition());
+      void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).catch((error) => {
+        if (isStaleOcrState(error)) return;
+        log$2.warn("OCR rendered token enrichment failed", {}, error);
+      }).finally(() => this.schedulePosition());
     }
     shouldShowOcrTextOverlay(state2, settings, forceOverlay) {
       if (this.isScannedPdfCanvasFrame(state2.image)) return false;
@@ -10061,10 +10067,15 @@ ${candidate.depth}`;
     }
     removeCanvasPendingStatus(canvas) {
       const card = this.canvasPendingStatuses.get(canvas);
+      this.pendingCanvasSnapshots.delete(canvas);
       if (!card) return;
       removeOcrArtifact(card);
       this.canvasPendingStatuses.delete(canvas);
       this.canvasPendingStatusKeys.delete(canvas);
+    }
+    isTerminalCanvasPendingStatus(card) {
+      const status = card.dataset.status;
+      return status === "empty" || status === "failed";
     }
     configureCanvasPendingStatusRetry(card) {
       card.dataset.yomuOcrRetry = "true";
@@ -10132,7 +10143,8 @@ ${candidate.depth}`;
         }
         const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
         if (!rect) {
-          status.hidden = true;
+          if (this.isTerminalCanvasPendingStatus(status)) this.removeCanvasPendingStatus(canvas);
+          else status.hidden = true;
           continue;
         }
         status.hidden = false;
@@ -10161,7 +10173,7 @@ ${candidate.depth}`;
           continue;
         }
         if (this.canvasFrameSizeChanged(frame, rect)) {
-          if (this.shouldKeepSettledReaderRasterFrame(frame)) {
+          if (!this.shouldRecaptureReaderRasterFrameForSizeChange(frame)) {
             positionCanvasFrameImage(frame, rect);
             continue;
           }
@@ -10177,16 +10189,15 @@ ${candidate.depth}`;
       if (!frame || frame.complete === false) return false;
       const key = this.canvasFrameKeys.get(canvas);
       if (key && key !== canvasSurfaceSnapshotKey(canvas)) return true;
-      if (this.shouldKeepSettledReaderRasterFrame(frame)) return false;
       const staticRect = this.canvasFrameStaticRects.get(frame);
       if (staticRect) return false;
       const rect = canvas.getBoundingClientRect();
-      return this.canvasFrameSizeChanged(frame, rect);
+      return this.canvasFrameSizeChanged(frame, rect) && this.shouldRecaptureReaderRasterFrameForSizeChange(frame);
     }
-    shouldKeepSettledReaderRasterFrame(frame) {
+    shouldRecaptureReaderRasterFrameForSizeChange(frame) {
       if (!this.isReaderRasterFrame(frame)) return false;
       const status = this.imageStatuses.get(frame)?.dataset.status;
-      return status === "ready" || status === "empty" || status === "failed";
+      return status === "ready" || Boolean(this.states.get(frame)?.result?.lines.length);
     }
     canvasFrameSizeChanged(frame, rect) {
       const captured = this.canvasFrameCaptureRects.get(frame);

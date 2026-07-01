@@ -844,6 +844,10 @@ export class ImageOcrController {
         const delay = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
         void waitForIdle(delay, delay)
             .then(() => this.scanImage(image))
+            .catch(error => {
+                if (isStaleOcrState(error)) return;
+                log.warn('OCR scan task failed unexpectedly', {}, error);
+            })
             .finally(() => {
                 this.activeScans = Math.max(0, this.activeScans - 1);
                 this.inFlightKeys.delete(key);
@@ -1174,7 +1178,12 @@ export class ImageOcrController {
             this.canvasReaderSamePageSignatureSkips = 0;
         }
         this.updateOcrStatus(state.image, 'ready');
-        void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => this.schedulePosition());
+        void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay))
+            .catch(error => {
+                if (isStaleOcrState(error)) return;
+                log.warn('OCR rendered token enrichment failed', {}, error);
+            })
+            .finally(() => this.schedulePosition());
     }
 
     private shouldShowOcrTextOverlay(state: ImageState, settings: ReaderSettings, forceOverlay: boolean): boolean {
@@ -2170,10 +2179,16 @@ export class ImageOcrController {
 
     private removeCanvasPendingStatus(canvas: HTMLCanvasElement): void {
         const card = this.canvasPendingStatuses.get(canvas);
+        this.pendingCanvasSnapshots.delete(canvas);
         if (!card) return;
         removeOcrArtifact(card);
         this.canvasPendingStatuses.delete(canvas);
         this.canvasPendingStatusKeys.delete(canvas);
+    }
+
+    private isTerminalCanvasPendingStatus(card: HTMLElement): boolean {
+        const status = card.dataset.status;
+        return status === 'empty' || status === 'failed';
     }
 
     private configureCanvasPendingStatusRetry(card: HTMLElement): void {
@@ -2252,7 +2267,11 @@ export class ImageOcrController {
                 continue;
             }
             const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
-            if (!rect) { status.hidden = true; continue; }
+            if (!rect) {
+                if (this.isTerminalCanvasPendingStatus(status)) this.removeCanvasPendingStatus(canvas);
+                else status.hidden = true;
+                continue;
+            }
             status.hidden = false;
             positionOcrImageStatus(status, rect);
         }
@@ -2279,7 +2298,7 @@ export class ImageOcrController {
                 continue;
             }
             if (this.canvasFrameSizeChanged(frame, rect)) {
-                if (this.shouldKeepSettledReaderRasterFrame(frame)) {
+                if (!this.shouldRecaptureReaderRasterFrameForSizeChange(frame)) {
                     positionCanvasFrameImage(frame, rect);
                     continue;
                 }
@@ -2296,17 +2315,24 @@ export class ImageOcrController {
         if (!frame || frame.complete === false) return false;
         const key = this.canvasFrameKeys.get(canvas);
         if (key && key !== canvasSurfaceSnapshotKey(canvas)) return true;
-        if (this.shouldKeepSettledReaderRasterFrame(frame)) return false;
         const staticRect = this.canvasFrameStaticRects.get(frame);
         if (staticRect) return false;
         const rect = canvas.getBoundingClientRect();
-        return this.canvasFrameSizeChanged(frame, rect);
+        return this.canvasFrameSizeChanged(frame, rect)
+            && this.shouldRecaptureReaderRasterFrameForSizeChange(frame);
     }
 
-    private shouldKeepSettledReaderRasterFrame(frame: HTMLImageElement): boolean {
+    private shouldRecaptureReaderRasterFrameForSizeChange(frame: HTMLImageElement): boolean {
         if (!this.isReaderRasterFrame(frame)) return false;
         const status = this.imageStatuses.get(frame)?.dataset.status;
-        return status === 'ready' || status === 'empty' || status === 'failed';
+        // Reusing a ready BookWalker OCR map after the viewer zooms/reflows the
+        // canvas stretches the old coordinate space over a new rendered page, which
+        // shows up as vertical hover drift. Terminal/no-text frames and in-flight
+        // captures are kept to avoid retry loops from harmless layout jitter. Use
+        // the parsed result as the durable signal: the status pill can be removed
+        // or replaced independently from the OCR layer, but a frame with lines is
+        // still a ready coordinate map that must not be stretched after reflow.
+        return status === 'ready' || Boolean(this.states.get(frame)?.result?.lines.length);
     }
 
     private canvasFrameSizeChanged(frame: HTMLImageElement, rect: DOMRect): boolean {

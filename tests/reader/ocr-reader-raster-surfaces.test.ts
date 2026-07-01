@@ -1125,6 +1125,69 @@ describe('reader raster OCR surfaces', () => {
                 expect(firstFrame!.style.height).toBe('520px');
             });
             Object.defineProperty(firstFrame!, 'complete', { value: true, configurable: true });
+            const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
+            expect(status).not.toBeNull();
+            status!.dataset.status = 'ready';
+
+            rect = new DOMRect(32, 40, 520, 676);
+            controller.refresh();
+
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+                const secondFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(secondFrame).not.toBeNull();
+                expect(secondFrame).not.toBe(firstFrame);
+                expect(secondFrame!.style.width).toBe('520px');
+                expect(secondFrame!.style.height).toBe('676px');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('re-snapshots a parsed BookWalker canvas after zoom even if the ready pill is gone', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        pageCounter('8 / 195');
+        let rect = new DOMRect(32, 40, 400, 520);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.getBoundingClientRect = () => rect;
+        canvas.toDataURL = TAINTED_CANVAS;
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        viewport.append(canvas);
+        document.body.append(viewport);
+
+        let captureIndex = 0;
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas(`ZOOM_RESULT_${++captureIndex}`));
+        const controller = createController({}, undefined, captureCanvasMirror);
+        const recognizeImage = vi.fn(async () => ({
+            width: 1200,
+            height: 1600,
+            lines: [
+                { text: '再配置', box: { left: 180, top: 420, width: 180, height: 80 }, vertical: false },
+            ],
+        } satisfies OcrResult));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+
+        try {
+            let firstFrame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                firstFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(firstFrame).not.toBeNull();
+            });
+            Object.defineProperty(firstFrame!, 'complete', { value: true, configurable: true });
+            Object.defineProperty(firstFrame!, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(firstFrame!, 'naturalHeight', { value: 1600, configurable: true });
+            await (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage(firstFrame!);
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
+            });
+
+            const internals = controller as unknown as { imageStatuses: Map<HTMLImageElement, HTMLElement> };
+            internals.imageStatuses.get(firstFrame!)?.remove();
+            internals.imageStatuses.delete(firstFrame!);
+            expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
 
             rect = new DOMRect(32, 40, 520, 676);
             controller.refresh();
@@ -1185,14 +1248,14 @@ describe('reader raster OCR surfaces', () => {
             });
             expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
 
-            rect = new DOMRect(100, -400, 790, 1247);
+            rect = new DOMRect(100, -400, 761, 1201);
             controller.refresh();
             await waitForExpect(() => {
                 const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
                 expect(frame).toBe(firstFrame);
                 expect(frame!.style.top).toBe('-400px');
-                expect(frame!.style.width).toBe('790px');
-                expect(frame!.style.height).toBe('1247px');
+                expect(frame!.style.width).toBe('761px');
+                expect(frame!.style.height).toBe('1201px');
             });
             expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
 
@@ -1204,8 +1267,8 @@ describe('reader raster OCR surfaces', () => {
                 expect(secondFrame).not.toBeNull();
                 expect(secondFrame).not.toBe(firstFrame);
                 expect(secondFrame!.style.top).toBe('-400px');
-                expect(secondFrame!.style.width).toBe('790px');
-                expect(secondFrame!.style.height).toBe('1247px');
+                expect(secondFrame!.style.width).toBe('761px');
+                expect(secondFrame!.style.height).toBe('1201px');
                 expect(secondFrame!.dataset.ocrContentKey).not.toContain(':auto-region:');
             });
         } finally {
@@ -1823,6 +1886,39 @@ describe('reader raster OCR surfaces', () => {
         } finally {
             controller.destroy();
             dateNow.mockRestore();
+        }
+    });
+
+    it('removes offscreen failed BookWalker pending status and clears the blocked pending capture', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        let rect = new DOMRect(32, 40, 400, 520);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.getBoundingClientRect = () => rect;
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        const controller = createController({}, async () => undefined, async () => undefined);
+
+        try {
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-canvas-status')).not.toBeNull();
+            });
+            const internals = controller as unknown as {
+                pendingCanvasSnapshots: WeakMap<HTMLCanvasElement, { key: string; startedAt: number }>;
+                updateCanvasPendingStatus(canvas: HTMLCanvasElement, rect: DOMRect, status: 'failed'): void;
+                positionCanvasFrames(): void;
+            };
+            internals.pendingCanvasSnapshots.set(canvas, { key: 'blocked', startedAt: Date.now() });
+            internals.updateCanvasPendingStatus(canvas, rect, 'failed');
+
+            rect = new DOMRect(32, 900, 400, 520);
+            internals.positionCanvasFrames();
+
+            expect(document.querySelector('.jpdb-ocr-canvas-status')).toBeNull();
+            expect(internals.pendingCanvasSnapshots.has(canvas)).toBe(false);
+        } finally {
+            controller.destroy();
         }
     });
 

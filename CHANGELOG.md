@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.14] - 2026-07-01
+
+### Fixed
+
+- Re-captures ready BookWalker OCR frames after viewer zoom/reflow so hover hit targets do not keep a stale vertical coordinate map while the page is resized.
+- Treats parsed BookWalker OCR frames as ready for reflow recapture even if the status pill was replaced, fixing Y-axis hover drift after zoom or viewer rerender.
+- Clears offscreen failed BookWalker scan pills together with their pending capture state, preventing repeated Scanning/Could not read text churn from blocking a clean retry.
+
 ## [1.5.13] - 2026-07-01
 
 ### Fixed

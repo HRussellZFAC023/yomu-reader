@@ -29209,7 +29209,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.5.13".trim() ? "1.5.13".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.5.14".trim() ? "1.5.14".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -40775,7 +40775,10 @@ ${spelling}`);
       const hasFastText = Boolean(readFallbackOcrResult(image, false));
       const isReaderRasterFrame = this.isReaderRasterFrame(image);
       const delay2 = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
-      void waitForIdle(delay2, delay2).then(() => this.scanImage(image)).finally(() => {
+      void waitForIdle(delay2, delay2).then(() => this.scanImage(image)).catch((error) => {
+        if (isStaleOcrState(error)) return;
+        log$k.warn("OCR scan task failed unexpectedly", {}, error);
+      }).finally(() => {
         this.activeScans = Math.max(0, this.activeScans - 1);
         this.inFlightKeys.delete(key);
         if (!this.destroyed) this.drainQueue();
@@ -41032,7 +41035,10 @@ ${spelling}`);
         this.canvasReaderSamePageSignatureSkips = 0;
       }
       this.updateOcrStatus(state2.image, "ready");
-      void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).finally(() => this.schedulePosition());
+      void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).catch((error) => {
+        if (isStaleOcrState(error)) return;
+        log$k.warn("OCR rendered token enrichment failed", {}, error);
+      }).finally(() => this.schedulePosition());
     }
     shouldShowOcrTextOverlay(state2, settings, forceOverlay) {
       if (this.isScannedPdfCanvasFrame(state2.image)) return false;
@@ -41842,10 +41848,15 @@ ${spelling}`);
     }
     removeCanvasPendingStatus(canvas) {
       const card = this.canvasPendingStatuses.get(canvas);
+      this.pendingCanvasSnapshots.delete(canvas);
       if (!card) return;
       removeOcrArtifact(card);
       this.canvasPendingStatuses.delete(canvas);
       this.canvasPendingStatusKeys.delete(canvas);
+    }
+    isTerminalCanvasPendingStatus(card) {
+      const status = card.dataset.status;
+      return status === "empty" || status === "failed";
     }
     configureCanvasPendingStatusRetry(card) {
       card.dataset.yomuOcrRetry = "true";
@@ -41913,7 +41924,8 @@ ${spelling}`);
         }
         const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
         if (!rect) {
-          status.hidden = true;
+          if (this.isTerminalCanvasPendingStatus(status)) this.removeCanvasPendingStatus(canvas);
+          else status.hidden = true;
           continue;
         }
         status.hidden = false;
@@ -41942,7 +41954,7 @@ ${spelling}`);
           continue;
         }
         if (this.canvasFrameSizeChanged(frame, rect)) {
-          if (this.shouldKeepSettledReaderRasterFrame(frame)) {
+          if (!this.shouldRecaptureReaderRasterFrameForSizeChange(frame)) {
             positionCanvasFrameImage(frame, rect);
             continue;
           }
@@ -41958,16 +41970,15 @@ ${spelling}`);
       if (!frame || frame.complete === false) return false;
       const key = this.canvasFrameKeys.get(canvas);
       if (key && key !== canvasSurfaceSnapshotKey(canvas)) return true;
-      if (this.shouldKeepSettledReaderRasterFrame(frame)) return false;
       const staticRect = this.canvasFrameStaticRects.get(frame);
       if (staticRect) return false;
       const rect = canvas.getBoundingClientRect();
-      return this.canvasFrameSizeChanged(frame, rect);
+      return this.canvasFrameSizeChanged(frame, rect) && this.shouldRecaptureReaderRasterFrameForSizeChange(frame);
     }
-    shouldKeepSettledReaderRasterFrame(frame) {
+    shouldRecaptureReaderRasterFrameForSizeChange(frame) {
       if (!this.isReaderRasterFrame(frame)) return false;
       const status = this.imageStatuses.get(frame)?.dataset.status;
-      return status === "ready" || status === "empty" || status === "failed";
+      return status === "ready" || Boolean(this.states.get(frame)?.result?.lines.length);
     }
     canvasFrameSizeChanged(frame, rect) {
       const captured = this.canvasFrameCaptureRects.get(frame);
