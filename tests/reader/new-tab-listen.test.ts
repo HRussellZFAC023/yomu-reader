@@ -69,6 +69,7 @@ function listenController(cards: JPDBCard[], subMode: 'perceive' | 'recall' | 's
         enableReviews: true,
         jpdbMiningEnabled: true,
         apiKey: 'jpdb-key',
+        newTabStudyDisabledSteps: ['kanji-doodle', 'word', 'recall-cloze'],
         ...settings,
     };
     const controller = new NewTabController({
@@ -174,7 +175,7 @@ describe('new-tab Listen mode', () => {
         }
     });
 
-    it('shows a correct Perceive outcome without grading the pitch SRS before final review', () => {
+    it('saves a Perceive choice without grading or revealing the answer before final review', () => {
         const { controller, internals } = listenController([pitchCard()], 'perceive');
         const root = listenRoot();
         try {
@@ -183,14 +184,15 @@ describe('new-tab Listen mode', () => {
             const item = internals.pitchSrs.item(pitchItemKey('はし', 1));
             expect(item?.reps).toBe(0);
             expect(item?.lapses).toBe(0);
-            expect(root.querySelector('.jpdb-reader-newtab-listen-verdict-correct')).not.toBeNull();
-            expect(root.querySelector('[data-newtab-action="listen-next"]')?.textContent).toBe('Continue');
+            expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')?.textContent).toBe('Choice saved');
+            expect(root.querySelector('.jpdb-reader-newtab-listen-pos-correct')).toBeNull();
+            expect(root.querySelector('[data-newtab-action="listen-next"]')).toBeNull();
         } finally {
             controller.destroy();
         }
     });
 
-    it('surfaces the contrast block on a wrong Perceive pick without a separate pitch grade', () => {
+    it('keeps a wrong Perceive pick private until the final reveal', () => {
         // Two same-reading cards with different downstep form a strict minimal pair.
         const hashiAtamadaka = pitchCard();
         const hashiOdaka = pitchCard({ vid: 11, spelling: '橋', pitchAccent: [pitchPatternFromPosition('はし', 2)] });
@@ -203,8 +205,9 @@ describe('new-tab Listen mode', () => {
             const item = internals.pitchSrs.item(pitchItemKey('はし', 1));
             expect(item?.lapses).toBe(0);
             expect(item?.reps).toBe(0);
-            expect(root.querySelector('.jpdb-reader-newtab-listen-verdict-wrong')).not.toBeNull();
-            expect(root.querySelector('.jpdb-reader-newtab-listen-contrast')).not.toBeNull();
+            expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')?.textContent).toBe('Choice saved');
+            expect(root.querySelector('.jpdb-reader-newtab-listen-pos-correct')).toBeNull();
+            expect(root.querySelector('.jpdb-reader-newtab-listen-contrast')).toBeNull();
         } finally {
             controller.destroy();
         }
@@ -219,7 +222,7 @@ describe('new-tab Listen mode', () => {
             // No picker grading yet — Recall reveals then offers self-grade buttons.
             internals.pickListenPosition(1);
             expect(internals.pitchSrs.item(pitchItemKey('はし', 1))?.reps).toBe(0); // not graded on pick
-            expect(root.querySelector('[data-newtab-action="listen-next"]')).not.toBeNull();
+            expect(root.querySelector('[data-newtab-action="listen-next"]')).toBeNull();
             expect(root.querySelector('[data-newtab-action="listen-grade"]')).toBeNull();
         } finally {
             controller.destroy();
@@ -265,7 +268,9 @@ describe('new-tab Listen mode', () => {
     });
 
     it('auto-seeds the pitch deck from a passing vocab review', async () => {
-        const { controller, internals } = listenController([pitchCard()], 'perceive');
+        const { controller, internals } = listenController([pitchCard()], 'perceive', {
+            newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],
+        });
         internals.state.mode = 'word'; // grade as a normal vocab review
         const root = listenRoot();
         try {
@@ -320,8 +325,8 @@ describe('new-tab Listen mode', () => {
         root.innerHTML = renderListenCard(view, key => newTabText('en', key));
         expect(root.querySelector('.jpdb-reader-newtab-listen-score[data-speaking-score-state="good"]')?.textContent).toBe('Good 88%');
         expect(root.querySelector('.jpdb-reader-newtab-listen-score-tip')?.textContent).toBe('Contour matched');
-        expect(root.querySelector('.jpdb-reader-newtab-listen-note')?.textContent).toContain('Scored on this device');
-        expect(root.querySelector('[data-newtab-action="listen-next"]')?.textContent).toBe('Continue');
+        expect(root.querySelector('.jpdb-reader-newtab-listen-note')).toBeNull();
+        expect(root.querySelector('[data-newtab-action="listen-next"]')).toBeNull();
     });
 
     it('turns a speaking mismatch into a short coaching cue and visual contour comparison', () => {

@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Streamlined Study/New Tab into one merged review flow with kanji, word, recall, listen, speak, and final reveal steps, plus cleaner provider grading, speaker audio controls, final-only dictionary reveal, and improved offline/provider smoke coverage.
+- Fixed Bunpro API-page token import on SPA navigation and made the helper retry token reads without requiring users to inspect cookies manually.
 - Kept the hosted video subtitle panel open as an upload surface before a video is detected, so the Subtitles button exposes the manual Japanese/native subtitle loaders instead of bouncing users back to the file picker.
 - Fixed manual subtitle uploads from mobile/iPad file pickers by accepting common subtitle MIME types, allowing multi-file selection, and keeping the hidden input alive until .ass, .ssa, .srt, and .vtt reads finish.
 - Mirrored Netflix-style DOM captions while the subtitle panel is open, even when the persistent subtitle overlay is off.

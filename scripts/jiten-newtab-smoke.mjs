@@ -619,11 +619,12 @@ async function runJitenOnlySmoke(browser, fixture) {
         assertRequestCount(requests, 'jiten-study-batch', 1);
         assertAllRequests(requests, 'jiten-study-batch', request => request.limit === '180', 'Jiten-only smoke used an unexpected study-batch limit');
         assertNoRequests(requests, request => String(request.kind).startsWith('jpdb-'), 'Jiten-only smoke unexpectedly called JPDB');
-        await page.click('[data-newtab-action="reveal"]');
+        await openFinalReveal(page);
         await expectText(page, '[data-newtab-grade-target-text]', 'Grades Jiten');
         await page.waitForSelector('[data-newtab-study-tools]', { timeout: 12_000 });
         await expectText(page, '[data-newtab-prompt] .jpdb-reader-newtab-term', 'たっぷり');
-        await expectText(page, '[data-newtab-study-tools]', '#1800');
+        const toolText = await textContent(page, '[data-newtab-study-tools]');
+        assert(!toolText.includes('#1800'), 'Jiten frequency should not render in the front-side study tools row', { toolText });
         // Source pills (Jiten/JPDB/Jisho/…) are intentionally hidden on the card
         // front now; they stay in the lookup/detail view.
         const frontPills = await page.locator('[data-newtab-prompt] .jpdb-reader-word-pills, [data-newtab-prompt] .jpdb-reader-pill').count();
@@ -637,7 +638,7 @@ async function runJitenOnlySmoke(browser, fixture) {
         const promptSentences = await page.locator('[data-newtab-prompt] .jpdb-reader-newtab-sentence').count();
         assert(promptSentences === 0, 'Study reveal repeated the prompt sentence above Immersion Kit', { promptSentences });
         const studySourceCards = await page.locator('[data-newtab-answer] .jpdb-reader-source-card').count();
-        assert(studySourceCards === 0, 'Study answer rendered the retired duplicate source card', { studySourceCards });
+        assert(studySourceCards >= 1, 'Final reveal should include dictionary/source entries for the reviewed word', { studySourceCards });
         const oldStudyDetails = await page.locator('[data-newtab-study-details]').count();
         assert(oldStudyDetails === 0, 'Jiten answer rendered the old giant study-details card', { oldStudyDetails });
         await page.waitForSelector('.jpdb-reader-newtab-immersion .jpdb-reader-example-card', { timeout: 12_000 });
@@ -659,7 +660,7 @@ async function runJitenOnlySmoke(browser, fixture) {
         await page.waitForSelector('[data-newtab-action="previous"]', { timeout: 8_000 });
         const separateUndoButtons = await page.locator('[data-newtab-action="undo-review"]').count();
         assert(separateUndoButtons === 0, 'Study rendered the retired separate undo button', { separateUndoButtons });
-        await page.click('[data-newtab-action="reveal"]');
+        await openFinalReveal(page);
         await page.click('[data-newtab-action="grade"][data-grade="okay"]');
         const review = await waitForRequest(requests, item => item.kind === 'jiten-review' && item.body.rating === 3, 8_000);
         assert(review, 'Passing Jiten review request was not submitted', { requests });
@@ -679,6 +680,7 @@ async function runJpdbOnlySmoke(browser, fixture) {
     const settings = createSettings({ apiKey: MOCK_JPDB_API_KEY, jitenApiKey: '', newTabStopAtBatchEnd: true });
     const { context, page } = await installNewTabPage(browser, fixture, settings, requests);
     try {
+        await openWordStep(page);
         await expectText(page, '[data-newtab-prompt]', '復習');
         await expectText(page, '[data-newtab-status]', 'JPDB');
         await expectText(page, '[data-newtab-count]', 'Left 1');
@@ -687,7 +689,7 @@ async function runJpdbOnlySmoke(browser, fixture) {
         assertRequestCountAtLeast(requests, 'jpdb-list-vocabulary', 1);
         assertRequestCountAtLeast(requests, 'jpdb-lookup-vocabulary', 1);
         assertNoRequests(requests, request => String(request.kind).startsWith('jiten-'), 'JPDB-only smoke unexpectedly called Jiten');
-        await page.click('[data-newtab-action="reveal"]');
+        await openFinalReveal(page);
         await expectText(page, '[data-newtab-grade-target-text]', 'Grades JPDB');
         await page.click('[data-newtab-action="grade"][data-grade="easy"]');
         const review = await waitForRequest(requests, item => item.kind === 'jpdb-review', 8_000);
@@ -719,7 +721,7 @@ async function runDualCredentialSmoke(browser, fixture) {
         assertRequestCountAtLeast(requests, 'jpdb-list-user-decks', 1);
         assertRequestCountAtLeast(requests, 'jpdb-lookup-vocabulary', 1);
         const gradeCurrent = async () => {
-            await page.click('[data-newtab-action="reveal"]');
+            await openFinalReveal(page);
             await page.waitForTimeout(250);
             await page.click('[data-newtab-action="grade"][data-grade="okay"]');
             await page.waitForTimeout(900);
@@ -852,6 +854,23 @@ function assertNoRequests(requests, predicate, message) {
 async function assertStatusLight(page, source) {
     const actual = await page.locator('[data-newtab-status] .jpdb-reader-newtab-status-light').first().getAttribute('data-source');
     assert(actual === source, `Expected ${source} status light`, { actual });
+}
+
+async function openFinalReveal(page) {
+    const revealStep = page.locator('[data-study-step-kind="final-reveal"]').first();
+    await revealStep.waitFor({ state: 'visible', timeout: 12_000 });
+    await revealStep.click();
+    await page.waitForSelector('[data-study-step-kind="final-reveal"][aria-current="step"]', { timeout: 12_000 });
+    await page.waitForSelector('[data-newtab-grade-target-text]', { timeout: 12_000 });
+}
+
+async function openWordStep(page) {
+    const wordStep = page.locator('[data-study-step-kind="word"]').first();
+    await wordStep.waitFor({ state: 'visible', timeout: 12_000 });
+    if (await wordStep.getAttribute('aria-current') !== 'step') {
+        await wordStep.click();
+        await page.waitForSelector('[data-study-step-kind="word"][aria-current="step"]', { timeout: 12_000 });
+    }
 }
 
 function textContent(page, selector) {

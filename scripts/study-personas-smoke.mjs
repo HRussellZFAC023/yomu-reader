@@ -112,8 +112,8 @@ async function runQueryStudyMode(browser, baseUrl, query, mode) {
     });
     const startedAt = Date.now();
     await page.goto(`${baseUrl}/newtab/index.html?q=${encodeURIComponent(query)}&query-study=${mode}`, { waitUntil: 'domcontentloaded' });
-    const label = mode === 'kanji' ? 'Kanji' : 'Word';
-    await page.getByRole('button', { name: label, exact: true }).click();
+    await page.locator('[data-newtab-action="mode"][data-mode="word"]').click();
+    await selectStudyStep(page, mode === 'kanji' ? 'kanji-doodle' : 'word');
     try {
         await page.waitForFunction(() => {
             const study = document.querySelector('[data-newtab-study]');
@@ -136,6 +136,24 @@ async function runQueryStudyMode(browser, baseUrl, query, mode) {
         await context.close();
     }
     return { query, mode, timeToCardMs: Date.now() - startedAt, consoleErrors: consoleErrors.slice(0, 5) };
+}
+
+async function selectStudyStep(page, kind) {
+    const step = page.locator(`[data-study-step-kind="${kind}"]`).first();
+    if (await step.count()) await step.click();
+}
+
+async function revealVisibleCard(page) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+        if (await page.locator('[data-newtab-action="grade"]').count()) return;
+        const finalRevealStep = page.locator('[data-study-step-kind="final-reveal"]').first();
+        if (await finalRevealStep.count()) {
+            await finalRevealStep.click().catch(() => {});
+        } else {
+            await page.click('[data-newtab-action="reveal"]').catch(() => {});
+        }
+        await page.waitForTimeout(650);
+    }
 }
 
 async function runMobilePassFailLayout(browser, baseUrl) {
@@ -173,7 +191,7 @@ async function runMobilePassFailLayout(browser, baseUrl) {
             jpdbMiningEnabled: true,
             enableReviews: true,
             twoButtonReviews: true,
-            newTabSource: 'dictionary',
+            newTabSource: 'jpdb',
             jpdbDefinitionsEnabled: false,
             showPitchAccent: true,
         }),
@@ -185,13 +203,30 @@ async function runMobilePassFailLayout(browser, baseUrl) {
         cacheKey: NEW_TAB_CACHE_KEY,
         uiKey: NEW_TAB_UI_KEY,
         cache: { at: Date.now(), sourceLabel: 'JPDB', cards: [card] },
-        uiState: { mode: 'word', sort: 'frequency', filter: 'study', source: 'dictionary', revealAnswer: false },
+        uiState: { mode: 'word', sort: 'frequency', filter: 'study', source: 'jpdb', revealAnswer: false },
     });
     try {
         await page.goto(`${baseUrl}/newtab/index.html?persona=mobile-pass-fail-layout`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('[data-newtab-prompt]', { timeout: 15_000 });
-        await page.click('[data-newtab-action="reveal"]');
-        await page.waitForSelector('[data-newtab-controls][data-newtab-grade-scale="pass-fail"]', { timeout: 8_000 });
+        await revealVisibleCard(page);
+        try {
+            await page.waitForSelector('[data-newtab-controls][data-newtab-grade-scale="pass-fail"]', { timeout: 8_000 });
+        } catch (error) {
+            const snapshot = await page.evaluate(() => ({
+                prompt: document.querySelector('[data-newtab-prompt]')?.textContent?.trim() ?? '',
+                answer: document.querySelector('[data-newtab-answer]')?.textContent?.trim() ?? '',
+                controls: document.querySelector('[data-newtab-controls]')?.outerHTML ?? '',
+                studyStep: document.querySelector('[data-newtab-study]')?.getAttribute('data-newtab-study-step') ?? '',
+                source: document.querySelector('[data-newtab-status]')?.textContent?.trim() ?? '',
+                rootClass: document.querySelector('[data-jpdb-reader-root]')?.className ?? '',
+                steps: Array.from(document.querySelectorAll('[data-study-step-kind]')).map(step => ({
+                    kind: step.getAttribute('data-study-step-kind'),
+                    active: step.getAttribute('data-active'),
+                    text: step.textContent?.trim(),
+                })),
+            }));
+            throw new Error(`Mobile pass/fail did not reach grade controls: ${JSON.stringify(snapshot)}`);
+        }
         const layout = await page.evaluate(() => {
             const controls = document.querySelector('[data-newtab-controls]');
             const buttons = Array.from(document.querySelectorAll('[data-newtab-action="grade"]'));

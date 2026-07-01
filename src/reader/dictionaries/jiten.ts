@@ -103,6 +103,7 @@ interface JitenRawVocabulary {
     ratingIntervals?: unknown;
     deckNames?: unknown;
     decks?: unknown;
+    sentence?: string;
     studyDecks?: unknown;
     userStudyDecks?: unknown;
     readerStudyDecks?: unknown;
@@ -813,6 +814,7 @@ function jitenCardFromVocabulary(vocabulary: JitenRawVocabulary): JPDBCard {
         pitchAccent,
         wordWithReading,
         source: 'jiten',
+        sentence: typeof vocabulary.sentence === 'string' && vocabulary.sentence.trim() ? vocabulary.sentence : undefined,
         reviewSource: 'jiten-api',
         jitenWordId: vocabulary.wordId,
         jitenReadingIndex: vocabulary.readingIndex,

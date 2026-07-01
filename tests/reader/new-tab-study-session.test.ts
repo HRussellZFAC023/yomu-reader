@@ -43,7 +43,8 @@ describe('new-tab study session model', () => {
             'final-reveal',
         ]);
         expect(session.steps.filter(step => step.gradeable).map(step => step.kind)).toEqual(['final-reveal']);
-        expect(session.activeStep.kind).toBe('word');
+        expect(session.activeStep.kind).toBe('kanji-doodle');
+        expect(session.activeStep.kanji).toBe('読');
     });
 
     it('collapses gracefully for kana-only cards without pitch or sentence cloze', () => {
@@ -68,7 +69,7 @@ describe('new-tab study session model', () => {
             renderAsKanji: true,
             hasPitchStep: true,
             hasRecallCloze: true,
-            activeStepKind: 'word',
+            activeStepId: 'word',
         });
 
         expect(session.steps.map(step => step.kind)).toContain('kanji-doodle');
@@ -85,6 +86,21 @@ describe('new-tab study session model', () => {
         });
 
         expect(session.activeStep.kind).toBe('kanji-doodle');
+    });
+
+    it('creates one kanji drawing step for each kanji in a word', () => {
+        const session = createNewTabStudySession(sessionCard({ spelling: '図鑑', reading: 'ずかん', sentence: '図鑑を見る。' }), {
+            mode: 'word',
+            revealAnswer: false,
+            renderAsKanji: false,
+            hasPitchStep: false,
+            hasRecallCloze: true,
+        });
+
+        const kanjiSteps = session.steps.filter(step => step.kind === 'kanji-doodle');
+        expect(kanjiSteps.map(step => step.kanji)).toEqual(['図', '鑑']);
+        expect(kanjiSteps.map(step => step.id)).toEqual(['kanji-doodle:0:図', 'kanji-doodle:1:鑑']);
+        expect(session.activeStep).toMatchObject({ kind: 'kanji-doodle', kanji: '図' });
     });
 
     it('uses configured order and disabled steps while keeping reveal last', () => {

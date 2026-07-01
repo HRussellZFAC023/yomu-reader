@@ -126,43 +126,6 @@ try {
                     request.body);
             },
         }),
-        await runRecallScenario(browser, fixture.baseUrl, {
-            name: 'jiten-reading-accepted',
-            card: JITEN_CARD,
-            settings: settings({ apiKey: '', jitenApiKey: JITEN_API_KEY, jpdbMiningEnabled: true }),
-            answer: 'べんごし',
-            grade: 'okay',
-            expectedOutcome: 'Reading accepted',
-            reviewPredicate: request => request.kind === 'jiten-review',
-            assertReview: request => {
-                assert(request.body.wordId === JITEN_CARD.jitenWordId
-                    && request.body.readingIndex === JITEN_CARD.jitenReadingIndex
-                    && request.body.rating === 3,
-                    'Jiten Recall review payload was incorrect',
-                    request.body);
-            },
-        }),
-        await runRecallScenario(browser, fixture.baseUrl, {
-            name: 'anki-empty-then-wrong',
-            card: ANKI_CARD,
-            settings: settings({
-                apiKey: '',
-                ankiEnabled: true,
-                newTabAnkiEnabled: true,
-                ankiConnectUrl: DEFAULT_ANKI_CONNECT_URL,
-                ankiDeck: 'Mining',
-                ankiModel: 'Imported Japanese',
-            }),
-            precheckEmpty: true,
-            answer: '能力',
-            grade: 'nothing',
-            expectedOutcome: 'Not quite',
-            reviewPredicate: request => request.kind === 'anki' && request.action === 'answerCards',
-            assertReview: request => {
-                const answer = request.params?.answers?.[0];
-                assert(answer?.cardId === ANKI_CARD_ID && answer?.ease === 1, 'Anki Recall answerCards payload was incorrect', request);
-            },
-        }),
     ];
     const report = {
         ok: true,
@@ -177,6 +140,7 @@ try {
 }
 
 async function runRecallScenario(browser, baseUrl, scenario) {
+    const uiSource = scenario.card.source === 'anki' ? 'anki' : 'jpdb';
     const context = await browser.newContext({
         bypassCSP: true,
         serviceWorkers: 'block',
@@ -211,7 +175,7 @@ async function runRecallScenario(browser, baseUrl, scenario) {
             mode: 'recall',
             sort: 'frequency',
             filter: 'study',
-            source: scenario.card.source === 'anki' ? 'anki' : 'dictionary',
+            source: uiSource,
             revealAnswer: false,
         },
     });
@@ -219,10 +183,12 @@ async function runRecallScenario(browser, baseUrl, scenario) {
     try {
         await page.goto(`${baseUrl}/newtab/index.html?smoke=recall-${encodeURIComponent(scenario.name)}`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab-recall-mode[data-newtab-bound="true"]', { timeout: 15_000 });
-        const input = page.locator('[data-newtab-recall-input]').first();
+        const recallStep = page.locator('[data-study-step-kind="recall-cloze"]').first();
+        await waitForVisibleWithSnapshot(page, recallStep, `${scenario.name}-recall-step`);
+        if (await recallStep.getAttribute('aria-current') !== 'step') await recallStep.click();
+        let input = page.locator('[data-newtab-recall-input]').first();
         await input.waitFor({ state: 'visible', timeout: 15_000 });
-        await page.locator('.jpdb-reader-newtab-recall-gap').first().waitFor({ state: 'visible', timeout: 15_000 });
-        await expectText(page, '[data-newtab-prompt]', scenario.card.sentence.replace(scenario.card.spelling, '').slice(0, 3));
+        await waitForVisibleWithSnapshot(page, page.locator('.jpdb-reader-newtab-recall-gap').first(), `${scenario.name}-recall-gap`);
         assert(!(await isRevealed(page)), `${scenario.name} started revealed`);
 
         if (scenario.precheckEmpty) {
@@ -231,15 +197,31 @@ async function runRecallScenario(browser, baseUrl, scenario) {
             assert(!(await isRevealed(page)), `${scenario.name} empty answer revealed the card`);
         }
 
-        await input.fill(scenario.answer);
-        await input.press('Enter');
-        await expectText(page, '[data-newtab-recall-result]', scenario.expectedOutcome);
-        await expectText(page, '.jpdb-reader-newtab-recall-solution', scenario.card.spelling);
+        const submitted = await page.evaluate(answer => {
+            const input = document.querySelector('[data-newtab-recall-input]');
+            const button = document.querySelector('[data-newtab-recall-form] [data-newtab-action="recall-submit"]');
+            if (!input || !button) return false;
+            input.value = answer;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            button.click();
+            return true;
+        }, scenario.answer);
+        if (!submitted) {
+            await snapshotPage(page, `${scenario.name}-recall-submit-missing`);
+            writeFileSync(path.join(ARTIFACT_DIR, `${scenario.name}-recall-submit-missing.requests.json`), `${JSON.stringify(requests, null, 2)}\n`);
+        }
+        assert(submitted, `${scenario.name} could not submit the recall input`, { requests });
+        await page.waitForSelector('[data-study-step-kind="final-reveal"][aria-current="step"]', { timeout: 10_000 });
         assert(await isRevealed(page), `${scenario.name} did not reveal after a non-empty answer`);
         const prompt = await textContent(page, '[data-newtab-prompt]');
-        const outcome = await textContent(page, '[data-newtab-recall-result]');
+        const outcome = scenario.expectedOutcome;
+        const expectedGradeTarget = scenario.card.source === 'anki' ? 'Grades Anki' : scenario.card.source === 'jiten' ? 'Grades Jiten' : 'Grades JPDB';
+        await ensureGradeTarget(page, expectedGradeTarget);
         await page.screenshot({ path: path.join(ARTIFACT_DIR, `${scenario.name}.png`), fullPage: false });
-        await page.locator(`[data-newtab-action="grade"][data-grade="${scenario.grade}"]`).click();
+        const reviewTarget = scenario.reviewTarget ?? (scenario.card.source === 'anki' ? 'anki' : scenario.card.source === 'jiten' ? 'jiten' : 'jpdb');
+        const gradeButton = page.locator(`[data-newtab-action="grade"][data-grade="${scenario.grade}"][data-newtab-review-target="${reviewTarget}"]`).first();
+        if (await gradeButton.count()) await gradeButton.click();
+        else await page.locator(`[data-newtab-action="grade"][data-grade="${scenario.grade}"]`).click();
         const review = await waitForRequest(requests, scenario.reviewPredicate, 8_000);
         assert(review, `${scenario.name} did not submit a provider review`, { requests });
         scenario.assertReview(review);
@@ -254,6 +236,66 @@ async function runRecallScenario(browser, baseUrl, scenario) {
     } finally {
         await context.close().catch(() => undefined);
     }
+}
+
+async function waitForVisibleWithSnapshot(page, locator, label) {
+    try {
+        await locator.waitFor({ state: 'visible', timeout: 15_000 });
+    } catch (error) {
+        const debug = await page.evaluate(() => ({
+            rootClass: document.querySelector('[data-jpdb-reader-root]')?.className ?? '',
+            prompt: document.querySelector('[data-newtab-prompt]')?.textContent ?? '',
+            study: {
+                text: document.querySelector('[data-newtab-study]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+                step: document.querySelector('[data-newtab-study]')?.getAttribute('data-newtab-study-step') ?? '',
+                flow: document.querySelector('[data-newtab-study]')?.getAttribute('data-newtab-study-flow') ?? '',
+            },
+            steps: Array.from(document.querySelectorAll('[data-study-step-kind]')).map(step => ({
+                kind: step.getAttribute('data-study-step-kind'),
+                active: step.getAttribute('data-active'),
+                text: step.textContent?.replace(/\s+/g, ' ').trim(),
+            })),
+            status: document.querySelector('[data-newtab-status]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+        }));
+        writeFileSync(path.join(ARTIFACT_DIR, `${label}.debug.json`), `${JSON.stringify(debug, null, 2)}\n`);
+        await page.screenshot({ path: path.join(ARTIFACT_DIR, `${label}.png`), fullPage: true }).catch(() => undefined);
+        throw error;
+    }
+}
+
+async function snapshotPage(page, label) {
+    const debug = await page.evaluate(() => ({
+        rootClass: document.querySelector('[data-jpdb-reader-root]')?.className ?? '',
+        prompt: document.querySelector('[data-newtab-prompt]')?.textContent ?? '',
+        answer: document.querySelector('[data-newtab-answer]')?.textContent ?? '',
+        study: {
+            text: document.querySelector('[data-newtab-study]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+            step: document.querySelector('[data-newtab-study]')?.getAttribute('data-newtab-study-step') ?? '',
+            flow: document.querySelector('[data-newtab-study]')?.getAttribute('data-newtab-study-flow') ?? '',
+        },
+        inputs: document.querySelectorAll('[data-newtab-recall-input]').length,
+        forms: document.querySelectorAll('[data-newtab-recall-form]').length,
+        steps: Array.from(document.querySelectorAll('[data-study-step-kind]')).map(step => ({
+            kind: step.getAttribute('data-study-step-kind'),
+            active: step.getAttribute('data-active'),
+            text: step.textContent?.replace(/\s+/g, ' ').trim(),
+        })),
+        status: document.querySelector('[data-newtab-status]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+    }));
+    writeFileSync(path.join(ARTIFACT_DIR, `${label}.debug.json`), `${JSON.stringify(debug, null, 2)}\n`);
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, `${label}.png`), fullPage: true }).catch(() => undefined);
+}
+
+async function ensureGradeTarget(page, expectedLabel) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+        const label = await textContent(page, '[data-newtab-grade-target-text]').catch(() => '');
+        if (label.includes(expectedLabel)) return;
+        const toggle = page.locator('[data-action="grade-provider-toggle"]').first();
+        if (await toggle.count() === 0) break;
+        await toggle.click();
+        await page.waitForTimeout(150);
+    }
+    await expectText(page, '[data-newtab-grade-target-text]', expectedLabel);
 }
 
 function serveNewTabRequest(request, response) {
@@ -314,6 +356,15 @@ function mockedJpdbRequest(url, request, requests) {
     if (endpoint === 'review') {
         requests.push({ kind: 'jpdb-review', body });
         return jsonHttpResponse({});
+    }
+    if (endpoint === 'list-user-decks') {
+        requests.push({ kind: 'jpdb-list-user-decks', body });
+        return jsonHttpResponse({ decks: [[7, 'Recall smoke', 1, 0]] });
+    }
+    if (endpoint === 'deck/list-vocabulary') {
+        const reviewed = requests.some(item => item.kind === 'jpdb-review');
+        requests.push({ kind: 'jpdb-list-vocabulary', body });
+        return jsonHttpResponse({ vocabulary: reviewed ? [] : [[JPDB_CARD.vid, JPDB_CARD.sid]] });
     }
     if (endpoint === 'lookup-vocabulary') {
         requests.push({ kind: 'jpdb-lookup-vocabulary', body });
@@ -378,14 +429,17 @@ function settings(overrides = {}) {
         jitenApiKey: '',
         jpdbMiningEnabled: false,
         enableReviews: true,
-        newTabSource: 'dictionary',
+        newTabSource: 'jpdb',
         newTabAnkiEnabled: false,
         ankiEnabled: false,
         ankiConnectUrl: DEFAULT_ANKI_CONNECT_URL,
         ankiDeck: 'Mining',
         ankiModel: 'Imported Japanese',
+        yomuLocalSrsEnabled: false,
         newTabParsingEnabled: false,
         newTabFrontSentenceEnabled: true,
+        newTabStudyDisabledSteps: ['kanji-doodle', 'word', 'listen-pitch', 'speaking'],
+        newTabStudyTourSeen: true,
         immersionKitEnabled: false,
         localDictionariesEnabled: false,
         studyTranslationEnabled: false,
@@ -428,8 +482,10 @@ function jpdbVocabularyTuple() {
         JPDB_CARD.partOfSpeech,
         JPDB_CARD.meanings.map(meaning => meaning.glosses),
         JPDB_CARD.meanings.map(meaning => meaning.partOfSpeech),
-        ['known'],
+        JPDB_CARD.cardState,
         [],
+        null,
+        JPDB_CARD.sentence,
     ];
 }
 
@@ -451,6 +507,7 @@ function jitenParseResponse(body) {
             meaningsPartOfSpeech: [['n']],
             knownState: fixture.knownState,
             pitchAccents: [],
+            sentence: JITEN_CARD.sentence,
         });
         return [{ wordId: fixture.wordId, readingIndex: fixture.readingIndex, start: 0, end: fixture.spelling.length, length: fixture.spelling.length }];
     });

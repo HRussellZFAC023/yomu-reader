@@ -1082,8 +1082,8 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
 
 .jpdb-reader-bunpro-token-importer {
   position: fixed;
-  z-index: 2147483646;
-  inset: auto 18px 18px auto;
+  z-index: 2147483647;
+  inset: 86px 18px auto auto;
   width: min(360px, calc(100vw - 28px));
   color: var(--jpdb-reader-text);
   font: 14px/1.45 var(--jpdb-reader-popup-font-family, var(--jpdb-reader-font-family, system-ui, sans-serif));
@@ -1132,13 +1132,8 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 68%, var(--jpdb-reader-border));
   border-radius: 999px;
   background: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent-contrast, #ffffff);
+  color: #ffffff;
   font-weight: 700;
-}
-
-.jpdb-reader-bunpro-token-importer-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
 }
 
 .jpdb-reader-bunpro-token-importer [data-bunpro-import-status] {
@@ -1151,7 +1146,7 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
 
 @media (max-width: 520px) {
   .jpdb-reader-bunpro-token-importer {
-    inset: auto 12px 12px 12px;
+    inset: 76px 12px auto 12px;
     width: auto;
   }
 }

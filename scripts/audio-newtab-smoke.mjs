@@ -137,7 +137,7 @@ function hostedStudyAnswerAudioScenario(origin) {
         },
         action: async page => {
             await page.waitForSelector('[data-newtab-prompt]', { timeout: 15_000 });
-            await page.locator('[data-newtab-action="reveal"]').click();
+            await openStudyFinalReveal(page);
             await page.waitForSelector('[data-newtab-prompt] .jpdb-reader-newtab-term ruby', { timeout: 10_000 });
             await page.waitForSelector('.jpdb-reader-newtab-term-row [data-action="study-word-audio"]:not([disabled])', { timeout: 10_000 });
             await page.locator('.jpdb-reader-newtab-term-row [data-action="study-word-audio"]').click();
@@ -177,7 +177,7 @@ function hostedStudyLocalAudioCorsScenario(origin) {
         },
         action: async page => {
             await page.waitForSelector('[data-newtab-prompt]', { timeout: 15_000 });
-            await page.locator('[data-newtab-action="reveal"]').click();
+            await openStudyFinalReveal(page);
             await page.waitForSelector('[data-newtab-prompt] .jpdb-reader-newtab-term .jpdb-reader-word ruby', { timeout: 10_000 });
             const speaker = page.locator('[data-action="study-word-audio"]');
             await speaker.waitFor({ timeout: 10_000 });
@@ -418,7 +418,11 @@ async function installAudioInstrumentation(page) {
                 sourceUrl: window.__yomuNewtabAudio.sourceByBlob[src] || '',
                 loop: Boolean(element.loop),
                 time: Date.now(),
-                detail: document.querySelector('[data-newtab-search-detail]:not([hidden])')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 180) ?? '',
+                detail: (
+                    document.querySelector('[data-newtab-prompt]')?.textContent
+                    || document.querySelector('[data-newtab-search-detail]:not([hidden])')?.textContent
+                    || ''
+                ).replace(/\s+/g, ' ').trim().slice(0, 180),
             };
         }
     });
@@ -566,6 +570,21 @@ async function waitForPlaybackSignalCount(page, count, message) {
     }, count, { timeout: 10_000 }).catch(error => {
         throw new Error(`${message}: ${error.message}`);
     });
+}
+
+async function openStudyFinalReveal(page) {
+    const finalStep = page.locator('[data-newtab-action="study-step"][data-study-step-kind="final-reveal"]');
+    if (await finalStep.count()) {
+        await finalStep.first().click();
+    } else {
+        await page.locator('[data-newtab-action="reveal"]').click();
+    }
+    await page.waitForFunction(() => {
+        const root = document.querySelector('[data-jpdb-reader-root].jpdb-reader-newtab');
+        const study = document.querySelector('[data-newtab-study]');
+        return root?.classList.contains('jpdb-reader-newtab-revealed')
+            && study?.dataset.newtabStudyStep === 'final-reveal';
+    }, null, { timeout: 10_000 });
 }
 
 async function scenarioSnapshot(page, name, requests, browserErrors, yomuLogs = []) {

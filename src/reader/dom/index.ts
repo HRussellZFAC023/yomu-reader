@@ -3281,7 +3281,7 @@ function renderToken(
     settings: ReaderSettings,
     options: TokenRenderOptions = {},
 ): HTMLElement {
-    const span = createReaderWordSpan(token, options);
+    const span = createReaderWordSpan(token, { ...options, showPitchAccent: settings.showPitchAccent });
     span.dataset.surface = surface;
     if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = -1;
 
@@ -3316,6 +3316,7 @@ interface TokenRenderOptions {
     // re-centering furigana onto bare kanji, which is reserved for the popup token renderers.
     preserveTokenRubies?: boolean;
     miningInsightKeys?: ReadonlySet<string>;
+    showPitchAccent?: boolean;
 }
 
 function renderTokenShell(token: JPDBToken, options: TokenRenderOptions = {}): HTMLElement {
@@ -3329,21 +3330,22 @@ function renderTokenShell(token: JPDBToken, options: TokenRenderOptions = {}): H
 function createReaderWordSpan(token: JPDBToken, options: TokenRenderOptions): HTMLElement {
     const span = document.createElement('span');
     const state = primaryCardState(token.card.cardState);
-    span.className = readerWordClassName(state, token);
+    const showPitchAccent = options.showPitchAccent !== false;
+    span.className = readerWordClassName(state, token, { showPitchAccent });
     span.dataset.vid = String(token.card.vid);
     span.dataset.sid = String(token.card.sid);
     span.dataset.cardSource = readerCardSource(token.card);
     span.dataset.cardId = String(readerCardId(token.card));
     span.dataset.readingIndex = String(readerReadingIndex(token.card));
     span.dataset.cardState = state;
-    span.dataset.pitchClass = safePitchClass(token.pitchClass);
+    if (showPitchAccent) span.dataset.pitchClass = safePitchClass(token.pitchClass);
     span.dataset.tokenStart = String(token.start);
     span.dataset.tokenEnd = String(token.end);
     span.dataset.sentence = token.sentence ?? '';
     if (token.card.spelling) span.dataset.expression = token.card.spelling;
     if (token.card.reading) span.dataset.reading = token.card.reading;
     const pitchAccent = token.card.pitchAccent.join('|');
-    if (pitchAccent) span.dataset.pitchAccent = pitchAccent;
+    if (showPitchAccent && pitchAccent) span.dataset.pitchAccent = pitchAccent;
     applyDeckMembershipDataset(span, token.card);
     applyTokenRenderOptions(span, token, options);
     return span;
@@ -3381,8 +3383,9 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const hasRuby = shouldRenderRuby(surface, token, settings);
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
+    const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : '';
     const classes = [
-        readerWordClassName(state, token),
+        readerWordClassName(state, token, settings),
         hasRuby ? 'jpdb-reader-has-furi' : '',
         hasMiningInsight ? 'jpdb-reader-i-plus-one' : '',
     ].filter(Boolean).join(' ');
@@ -3396,9 +3399,10 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : '';
     const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : '';
     const pitchAccent = token.card.pitchAccent.join('|');
-    const lookupMetadata = pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : '';
+    const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : '';
+    const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : '';
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
 }
 
 function renderDeckMembershipAttributes(card: JPDBCard): string {
@@ -3429,7 +3433,7 @@ function hasDifficultKanji(surface: string): boolean {
     return false;
 }
 
-function readerWordClassName(state: string, token: JPDBToken): string {
+function readerWordClassName(state: string, token: JPDBToken, settings: Pick<ReaderSettings, 'showPitchAccent'>): string {
     const classes = ['jpdb-reader-word'];
     if (isParticleCard(token.card)) {
         classes.push('jpdb-reader-particle');
@@ -3440,7 +3444,7 @@ function readerWordClassName(state: string, token: JPDBToken): string {
         if (source !== 'jpdb') classes.push(`${source}-${state}`);
     }
     classes.push(...cardDeckMembershipClassNames(token.card));
-    classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
+    if (settings.showPitchAccent) classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
     return classes.join(' ');
 }
 

@@ -222,6 +222,7 @@ export type JPDBRawVocabulary = [
     string[] | null,
     string[] | null,
     (number | null)?,
+    string?,
 ];
 
 export type JPDBRawToken = [

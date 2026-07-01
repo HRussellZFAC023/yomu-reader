@@ -149,8 +149,9 @@ describe('new-tab Recall mode', () => {
             internals.submitRecallAnswer(root);
 
             expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(true);
-            expect(root.querySelector('[data-newtab-recall-result]')?.textContent).toContain('Correct');
-            expect(root.querySelector('[data-newtab-answer]')?.textContent).toContain('弁護士');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('final-reveal');
+            expect(root.querySelector('[data-newtab-recall-result]')).toBeNull();
+            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('弁護士');
 
             await internals.gradeCurrentCard('okay');
             expect(jpdb.reviewCard).toHaveBeenCalledWith(card, 'okay');

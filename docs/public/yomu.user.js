@@ -6304,7 +6304,7 @@ function readerReadingIndex(card) {
   return readerCardSource(card) === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
 }
 function renderToken(surface, token, settings, options = {}) {
-  const span = createReaderWordSpan(token, options);
+  const span = createReaderWordSpan(token, { ...options, showPitchAccent: settings.showPitchAccent });
   span.dataset.surface = surface;
   if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = -1;
   const allowRuby = options.allowRuby !== false && !shouldSuppressLongProseRuby(surface, token, options);
@@ -6333,21 +6333,22 @@ function renderTokenShell(token, options = {}) {
 function createReaderWordSpan(token, options) {
   const span = document.createElement("span");
   const state = primaryCardState(token.card.cardState);
-  span.className = readerWordClassName(state, token);
+  const showPitchAccent = options.showPitchAccent !== false;
+  span.className = readerWordClassName(state, token, { showPitchAccent });
   span.dataset.vid = String(token.card.vid);
   span.dataset.sid = String(token.card.sid);
   span.dataset.cardSource = readerCardSource(token.card);
   span.dataset.cardId = String(readerCardId(token.card));
   span.dataset.readingIndex = String(readerReadingIndex(token.card));
   span.dataset.cardState = state;
-  span.dataset.pitchClass = safePitchClass(token.pitchClass);
+  if (showPitchAccent) span.dataset.pitchClass = safePitchClass(token.pitchClass);
   span.dataset.tokenStart = String(token.start);
   span.dataset.tokenEnd = String(token.end);
   span.dataset.sentence = token.sentence ?? "";
   if (token.card.spelling) span.dataset.expression = token.card.spelling;
   if (token.card.reading) span.dataset.reading = token.card.reading;
   const pitchAccent = token.card.pitchAccent.join("|");
-  if (pitchAccent) span.dataset.pitchAccent = pitchAccent;
+  if (showPitchAccent && pitchAccent) span.dataset.pitchAccent = pitchAccent;
   applyDeckMembershipDataset(span, token.card);
   applyTokenRenderOptions(span, token, options);
   return span;
@@ -6382,8 +6383,9 @@ function renderTokenHtml(surface, token, settings, miningInsightKeys) {
   const hasRuby = shouldRenderRuby(surface, token, settings);
   const content = hasRuby ? renderRuby(surface, token) : escapeHtml$1(surface);
   const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
+  const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : "";
   const classes = [
-  readerWordClassName(state, token),
+  readerWordClassName(state, token, settings),
   hasRuby ? "jpdb-reader-has-furi" : "",
   hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
   ].filter(Boolean).join(" ");
@@ -6397,9 +6399,10 @@ function renderTokenHtml(surface, token, settings, miningInsightKeys) {
   const expression = token.card.spelling ? ` data-expression="${escapeHtml$1(token.card.spelling)}"` : "";
   const reading = token.card.reading ? ` data-reading="${escapeHtml$1(token.card.reading)}"` : "";
   const pitchAccent = token.card.pitchAccent.join("|");
-  const lookupMetadata = pitchAccent ? ` data-pitch-accent="${escapeHtml$1(pitchAccent)}"` : "";
+  const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
+  const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml$1(pitchAccent)}"` : "";
   const deck = renderDeckMembershipAttributes(token.card);
-  return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+  return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
 }
 function renderDeckMembershipAttributes(card) {
   const membership = cardDeckMembership(card);
@@ -6424,7 +6427,7 @@ function hasDifficultKanji(surface) {
   }
   return false;
 }
-function readerWordClassName(state, token) {
+function readerWordClassName(state, token, settings) {
   const classes = ["jpdb-reader-word"];
   if (isParticleCard(token.card)) {
   classes.push("jpdb-reader-particle");
@@ -6435,7 +6438,7 @@ function readerWordClassName(state, token) {
   if (source !== "jpdb") classes.push(`${source}-${state}`);
   }
   classes.push(...cardDeckMembershipClassNames(token.card));
-  classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
+  if (settings.showPitchAccent) classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
   return classes.join(" ");
 }
 function hasKnownCardState(card) {
@@ -24346,7 +24349,8 @@ ${glossaryKey}`;
         meaningsPartOfSpeech,
         cardState,
         pitchAccent,
-        dueAt
+        dueAt,
+        sentence
       ] = item;
       cards.push({
         vid,
@@ -24364,6 +24368,7 @@ ${glossaryKey}`;
         pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
         dueAt: typeof dueAt === "number" && Number.isFinite(dueAt) ? dueAt : null,
         wordWithReading: null,
+        sentence: typeof sentence === "string" && sentence.trim() ? sentence : void 0,
         source: "jpdb"
       });
     }
@@ -27008,6 +27013,7 @@ ${spelling}`);
       pitchAccent,
       wordWithReading,
       source: "jiten",
+      sentence: typeof vocabulary.sentence === "string" && vocabulary.sentence.trim() ? vocabulary.sentence : void 0,
       reviewSource: "jiten-api",
       jitenWordId: vocabulary.wordId,
       jitenReadingIndex: vocabulary.readingIndex,
@@ -36892,11 +36898,11 @@ function trimBunproSearchSection(section, limit) {
 const BUNPRO_FRONTEND_API_TOKEN_COOKIE = "frontend_api_token";
 const IMPORTER_ID = "jpdb-reader-bunpro-token-importer";
 const BUNPRO_SETTINGS_PATH = "/settings/api";
+const INSTALL_FLAG = "__yomuBunproFrontendTokenImporterInstalled";
 function isBunproApiSettingsPage(href = safeHref()) {
   try {
   const url = new URL(href, safeHref());
-  const host = url.hostname.toLowerCase();
-  return (host === "bunpro.jp" || host.endsWith(".bunpro.jp")) && normalizePathname(url.pathname) === BUNPRO_SETTINGS_PATH;
+  return isBunproHost(url.hostname) && normalizePathname(url.pathname) === BUNPRO_SETTINGS_PATH;
   } catch {
   return false;
   }
@@ -36912,9 +36918,23 @@ function readBunproFrontendTokenFromCookieHeader(cookieHeader) {
 }
 async function installBunproFrontendTokenImporter(options) {
   if (typeof document === "undefined") return;
-  if (!isBunproApiSettingsPage(options.href)) return;
+  if (!isBunproHostFromHref(importerHref(options))) return;
   await waitForBody();
-  if (!document.body || document.getElementById(IMPORTER_ID)) return;
+  if (!document.body) return;
+  installRouteWatcher(options);
+  await renderImporterForCurrentRoute(options);
+}
+async function renderImporterForCurrentRoute(options) {
+  if (!document.body) return;
+  if (!isBunproApiSettingsPage(importerHref(options))) {
+  document.getElementById(IMPORTER_ID)?.remove();
+  return;
+  }
+  const existing = document.getElementById(IMPORTER_ID);
+  if (existing) {
+  document.body.append(existing);
+  return;
+  }
   const language = resolveUiLanguage(options.language?.() ?? options.getSettings().interfaceLanguage);
   const token = await readBunproFrontendToken(options);
   const root = document.createElement("section");
@@ -36927,13 +36947,14 @@ async function installBunproFrontendTokenImporter(options) {
   document.body.append(root);
   const button2 = root.querySelector('[data-action="import-bunpro-token"]');
   button2?.addEventListener("click", () => {
-  void importBunproToken(token, options, root, language);
+  void importBunproToken(options, root, language);
   });
 }
-async function importBunproToken(token, options, root, language) {
-  const latestToken = token ?? await readBunproFrontendToken(options);
+async function importBunproToken(options, root, language) {
   const ui = copy(language);
   const status = root.querySelector("[data-bunpro-import-status]");
+  if (status) status.textContent = ui.reading;
+  const latestToken = await readBunproFrontendToken(options);
   if (!latestToken) {
   if (status) status.textContent = ui.missing;
   return;
@@ -36973,7 +36994,6 @@ function renderBunproImporterContent(token, language) {
   button2.type = "button";
   button2.className = "jpdb-reader-bunpro-token-importer-button";
   button2.dataset.action = "import-bunpro-token";
-  button2.disabled = !token;
   button2.textContent = ui.action;
   const status = document.createElement("span");
   status.dataset.bunproImportStatus = "true";
@@ -37030,6 +37050,44 @@ function finiteDateIso(date) {
 function normalizePathname(pathname) {
   return pathname.replace(/\/+$/u, "") || "/";
 }
+function isBunproHost(hostname) {
+  const host = hostname.toLowerCase();
+  return host === "bunpro.jp" || host.endsWith(".bunpro.jp");
+}
+function isBunproHostFromHref(href = safeHref()) {
+  try {
+  return isBunproHost(new URL(href, safeHref()).hostname);
+  } catch {
+  return false;
+  }
+}
+function importerHref(options) {
+  return typeof options.href === "function" ? options.href() : options.href;
+}
+function installRouteWatcher(options) {
+  const global = globalThis;
+  if (global[INSTALL_FLAG]) return;
+  global[INSTALL_FLAG] = true;
+  const rerender = () => {
+  void renderImporterForCurrentRoute(options);
+  };
+  window.addEventListener("popstate", rerender);
+  wrapHistoryMethod("pushState", rerender);
+  wrapHistoryMethod("replaceState", rerender);
+  const observer = new MutationObserver(() => {
+  const root = document.getElementById(IMPORTER_ID);
+  if (root && document.body?.lastElementChild !== root) document.body.append(root);
+  });
+  if (document.body) observer.observe(document.body, { childList: true });
+}
+function wrapHistoryMethod(method, after) {
+  const original = history[method];
+  if (typeof original !== "function") return;
+  history[method] = function yomuBunproHistoryWrapper(...args) {
+  original.apply(this, args);
+  window.setTimeout(after, 0);
+  };
+}
 function globalCookieStore() {
   return globalThis.cookieStore;
 }
@@ -37058,10 +37116,11 @@ function copy(language) {
   return {
     title: "Yomu Bunpro連携",
     ready: "Bunproのログイン用トークンを見つけました。Yomuに保存してBunpro復習を有効にできます。",
-    missing: "Bunproにログインしてから、このページを再読み込みしてください。",
+    missing: "トークンを読めませんでした。ログイン中ならFirefoxのCookie制限で隠れている可能性があります。",
     expiryUnknown: "有効期限はブラウザから読めませんでした。",
     expires: (iso) => `期限: ${new Date(iso).toLocaleDateString("ja-JP")}`,
     action: "Yomuで使う",
+    reading: "確認中...",
     saving: "保存中...",
     saved: "BunproトークンをYomuに保存しました。",
     failed: "保存できませんでした。Yomuの権限を確認してください。"
@@ -37070,10 +37129,11 @@ function copy(language) {
   return {
   title: "Yomu Bunpro setup",
   ready: "Yomu found your Bunpro session token. Save it to enable Bunpro reviews and mining.",
-  missing: "Log in to Bunpro, then refresh this page.",
+  missing: "Yomu could not read the token. If you are signed in, Firefox may be hiding this cookie.",
   expiryUnknown: "Expiry is not visible in this browser.",
   expires: (iso) => `Expires ${new Date(iso).toLocaleDateString("en-GB")}`,
   action: "Use in Yomu",
+  reading: "Checking...",
   saving: "Saving...",
   saved: "Bunpro token saved to Yomu.",
   failed: "Could not save. Check your Yomu userscript permissions."

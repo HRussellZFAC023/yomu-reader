@@ -2667,8 +2667,9 @@
     const hasRuby = shouldRenderRuby(surface, token, settings);
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
+    const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : "";
     const classes = [
-      readerWordClassName(state2, token),
+      readerWordClassName(state2, token, settings),
       hasRuby ? "jpdb-reader-has-furi" : "",
       hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
     ].filter(Boolean).join(" ");
@@ -2682,9 +2683,10 @@
     const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : "";
     const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : "";
     const pitchAccent = token.card.pitchAccent.join("|");
-    const lookupMetadata = pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
+    const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
+    const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -2709,7 +2711,7 @@
     }
     return false;
   }
-  function readerWordClassName(state2, token) {
+  function readerWordClassName(state2, token, settings) {
     const classes = ["jpdb-reader-word"];
     if (isParticleCard(token.card)) {
       classes.push("jpdb-reader-particle");
@@ -2720,7 +2722,7 @@
       if (source !== "jpdb") classes.push(`${source}-${state2}`);
     }
     classes.push(...cardDeckMembershipClassNames(token.card));
-    classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
+    if (settings.showPitchAccent) classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
     return classes.join(" ");
   }
   function hasKnownCardState(card) {

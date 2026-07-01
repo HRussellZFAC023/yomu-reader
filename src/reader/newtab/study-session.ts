@@ -6,11 +6,15 @@ export type NewTabStudyStepKind =
     | NewTabStudyChallengeStep
     | 'final-reveal';
 
+export type NewTabStudyStepId = string;
+
 export interface NewTabStudyStep {
+    id: NewTabStudyStepId;
     kind: NewTabStudyStepKind;
     mode: NewTabMode;
     label: string;
     gradeable: boolean;
+    kanji?: string;
 }
 
 export interface NewTabStudySession {
@@ -28,7 +32,7 @@ export interface NewTabStudySessionOptions {
     hasRecallCloze: boolean;
     stepOrder?: NewTabStudyChallengeStep[];
     disabledSteps?: NewTabStudyChallengeStep[];
-    activeStepKind?: NewTabStudyStepKind | null;
+    activeStepId?: NewTabStudyStepId | null;
 }
 
 const KANJI_RE = /[\u3400-\u9fff々〆]/u;
@@ -44,8 +48,7 @@ const STUDY_STEP_LABELS: Record<NewTabStudyStepKind, string> = {
 
 export function createNewTabStudySession(card: JPDBCard, options: NewTabStudySessionOptions): NewTabStudySession {
     const steps = mergedStudyStepsForCard(card, options);
-    const activeKind = activeStudyStepKind(options);
-    const activeStep = steps.find(step => step.kind === activeKind) ?? steps[0] ?? studyStep('word', 'word');
+    const activeStep = activeStudyStep(steps, options) ?? steps[0] ?? studyStep('word', 'word');
     const gradeStep = steps.find(step => step.kind === 'final-reveal') ?? activeStep;
     return { steps, activeStep, gradeStep };
 }
@@ -61,24 +64,44 @@ function mergedStudyStepsForCard(card: JPDBCard, options: NewTabStudySessionOpti
     }
     const disabled = new Set(options.disabledSteps ?? []);
     const ordered = normalizedChallengeStepOrder(options.stepOrder);
-    const steps = ordered
-        .filter(kind => available.has(kind) && !disabled.has(kind))
-        .map(kind => studyStep(kind, studyModeForStep(kind)));
+    const kanji = kanjiCharacters(card.spelling);
+    const steps = ordered.flatMap(kind => {
+        if (!available.has(kind) || disabled.has(kind)) return [];
+        if (kind === 'kanji-doodle') {
+            const characters = kanji.length ? kanji : [card.spelling[0] ?? '字'];
+            return characters.map((character, index) => studyStep(kind, studyModeForStep(kind), false, character, index));
+        }
+        return [studyStep(kind, studyModeForStep(kind))];
+    });
     steps.push(studyStep('final-reveal', options.renderAsKanji ? 'kanji' : 'word', true));
     return dedupeStudySteps(steps);
 }
 
-function activeStudyStepKind(options: NewTabStudySessionOptions): NewTabStudyStepKind {
-    if (options.revealAnswer && options.mode !== 'listen') return 'final-reveal';
-    if (options.activeStepKind) return options.activeStepKind;
-    if (options.renderAsKanji) return 'kanji-doodle';
-    if (options.mode === 'recall') return 'recall-cloze';
-    if (options.mode === 'listen') return options.listenSubMode === 'shadow' ? 'speaking' : 'listen-pitch';
-    return 'word';
+function activeStudyStep(steps: NewTabStudyStep[], options: NewTabStudySessionOptions): NewTabStudyStep | null {
+    if (options.revealAnswer && options.mode !== 'listen') return steps.find(step => step.kind === 'final-reveal') ?? null;
+    if (options.activeStepId) {
+        const active = steps.find(step => step.id === options.activeStepId || step.kind === options.activeStepId);
+        if (active) return active;
+    }
+    const modeStep = activeStudyStepForMode(steps, options);
+    if (modeStep) return modeStep;
+    return null;
 }
 
-function studyStep(kind: NewTabStudyStepKind, mode: NewTabMode, gradeable = false): NewTabStudyStep {
-    return { kind, mode, gradeable, label: STUDY_STEP_LABELS[kind] };
+function activeStudyStepForMode(steps: NewTabStudyStep[], options: NewTabStudySessionOptions): NewTabStudyStep | null {
+    if (options.renderAsKanji) return steps.find(step => step.kind === 'kanji-doodle') ?? null;
+    if (options.mode === 'kanji') return steps.find(step => step.kind === 'kanji-doodle') ?? null;
+    if (options.mode === 'recall') return steps.find(step => step.kind === 'recall-cloze') ?? null;
+    if (options.mode === 'listen') {
+        const kind: NewTabStudyStepKind = options.listenSubMode === 'shadow' ? 'speaking' : 'listen-pitch';
+        return steps.find(step => step.kind === kind) ?? null;
+    }
+    return null;
+}
+
+function studyStep(kind: NewTabStudyStepKind, mode: NewTabMode, gradeable = false, kanji?: string, index = 0): NewTabStudyStep {
+    const id = kanji ? `${kind}:${index}:${kanji}` : kind;
+    return { id, kind, mode, gradeable, kanji, label: STUDY_STEP_LABELS[kind] };
 }
 
 function normalizedChallengeStepOrder(order: NewTabStudySessionOptions['stepOrder']): NewTabStudyChallengeStep[] {
@@ -110,14 +133,18 @@ function studyModeForStep(kind: NewTabStudyChallengeStep): NewTabMode {
 }
 
 function dedupeStudySteps(steps: NewTabStudyStep[]): NewTabStudyStep[] {
-    const seen = new Set<NewTabStudyStepKind>();
+    const seen = new Set<NewTabStudyStepId>();
     return steps.filter(step => {
-        if (seen.has(step.kind)) return false;
-        seen.add(step.kind);
+        if (seen.has(step.id)) return false;
+        seen.add(step.id);
         return true;
     });
 }
 
 function containsKanji(value: string): boolean {
     return Array.from(value).some(character => KANJI_RE.test(character));
+}
+
+function kanjiCharacters(value: string): string[] {
+    return [...new Set(Array.from(value).filter(character => KANJI_RE.test(character)))];
 }

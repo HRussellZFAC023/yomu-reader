@@ -11,10 +11,19 @@ import { bootStudySession, createStudyServer, createStudySettings } from './lib/
 const GRADES = ['okay', 'easy', 'hard', 'something', 'nothing'];
 
 async function gradeVisibleCard(page, grade) {
-    await page.click('[data-newtab-action="reveal"]').catch(() => {});
+    await revealVisibleCard(page);
     await page.waitForSelector('[data-newtab-action="grade"]', { timeout: 8_000 });
     await page.click(`[data-newtab-action="grade"][data-grade="${grade}"]`);
     await page.waitForTimeout(500);
+}
+
+async function revealVisibleCard(page) {
+    const finalRevealStep = page.locator('[data-study-step-kind="final-reveal"]').first();
+    if (await finalRevealStep.count()) {
+        await finalRevealStep.click();
+        return;
+    }
+    await page.click('[data-newtab-action="reveal"]').catch(() => {});
 }
 
 async function run() {
@@ -31,7 +40,7 @@ async function run() {
         });
 
         // --- Warm phase (online): reveal the first card so per-card enrichment caches. ---
-        await page.click('[data-newtab-action="reveal"]').catch(() => {});
+        await revealVisibleCard(page);
         await page.waitForSelector('[data-newtab-action="grade"]', { timeout: 10_000 });
         await page.waitForTimeout(2_500); // pitch + immersion + audio + offline warm settle
         const dueAtStart = await readDue(page);

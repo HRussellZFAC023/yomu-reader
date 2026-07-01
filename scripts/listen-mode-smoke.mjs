@@ -1,10 +1,8 @@
 #!/usr/bin/env node
-// Listen-mode smoke: boots the built /newtab study PWA, switches into the Listen
-// pitch-accent mode, and drives the audio-first drill end to end. Asserts (1) the
-// downstep position picker renders N+1 options for the reading, (2) a pick grades
-// and persists a local pitch SRS item to GM storage, (3) the Perceive verdict +
-// model audio fire, and (4) the Perceive/Recall/Shadow sub-mode switcher works,
-// including the lean Shadow self-recording + continue controls.
+// Listen-mode smoke: boots the built /newtab study PWA, opens the merged Listen
+// pitch-accent step, and drives the audio-first drill inside the single Study
+// flow. This guards against the old separate Listen/Perceive/Recall/Shadow tabs
+// creeping back into the learner-facing UI.
 import { chromium } from 'playwright';
 import { assert, launchSmokeBrowser } from './lib/smoke-harness.mjs';
 import { bootStudySession, createStudyServer, createStudySettings } from './lib/study-fixture.mjs';
@@ -18,51 +16,49 @@ async function run() {
         const { context, page } = await bootStudySession(browser, {
             server, settings: createStudySettings(), requests, state, offline: () => false, serviceWorkers: 'allow',
         });
-        await page.waitForSelector('[data-newtab-action="mode"][data-mode="listen"]', { timeout: 10_000 });
+        await page.waitForSelector('[data-newtab-action="mode"][data-mode="word"]', { timeout: 10_000 });
+        const legacyListenTabCount = await page.locator('[data-newtab-action="mode"][data-mode="listen"]').count();
+        assert(legacyListenTabCount === 0, 'Legacy Listen mode tab should not be rendered in merged Study');
 
-        // --- Enter Listen mode ---
-        await page.click('[data-newtab-action="mode"][data-mode="listen"]');
+        // --- Enter the merged Listen step ---
+        await page.click('[data-study-step-kind="listen-pitch"]');
         await page.waitForSelector('.jpdb-reader-newtab-listen-picker', { timeout: 10_000 });
 
-        // The sub-mode switcher should now be visible (hidden in every other mode).
-        const switcherVisible = await page.isVisible('[data-newtab-listen-submodes]');
-        assert(switcherVisible, 'Listen sub-mode switcher not shown in Listen mode');
+        const switcherVisible = await page.locator('[data-newtab-listen-submodes]:visible').count();
+        assert(switcherVisible === 0, 'Old Listen sub-mode switcher should stay hidden in merged Study');
 
-        // --- Perceive: picker renders N+1 options; auto-play fires ---
+        // --- Listen: picker renders N+1 options; auto-play fires ---
         const reading = await page.evaluate(() => document.querySelector('.jpdb-reader-newtab-listen-card')?.querySelectorAll('[data-listen-pos]').length || 0);
         assert(reading >= 2, 'Position picker did not render multiple downstep options', { options: reading });
+        const hasSpeakerIcon = await page.evaluate(() => Boolean(document.querySelector('[data-newtab-action="listen-play"].jpdb-reader-newtab-listen-icon-btn svg')));
+        assert(hasSpeakerIcon, 'Listen step should use the shared speaker icon button');
 
-        // Pick downstep 0 (the fixture cards are heiban) -> correct verdict + grade.
+        // Pick downstep 0 (the fixture cards are heiban) -> saved choice, no per-step reveal.
         await page.click('[data-listen-pos="0"]');
         await page.waitForSelector('.jpdb-reader-newtab-listen-verdict', { timeout: 5_000 });
-        const verdictCorrect = await page.evaluate(() => Boolean(document.querySelector('.jpdb-reader-newtab-listen-verdict-correct')));
-        assert(verdictCorrect, 'Correct downstep pick did not show the correct verdict');
+        const verdictText = await page.locator('.jpdb-reader-newtab-listen-verdict').textContent();
+        assert(/choice saved/i.test(verdictText || ''), 'Listen pick should save the choice without revealing a separate answer', { verdictText });
 
-        // The graded item must persist to the local pitch SRS store (yomu- managed key).
-        await page.waitForTimeout(700); // debounced write-behind
-        const items = await page.evaluate(() => {
-            const raw = localStorage.getItem('yomu-pitch-items:v1') || globalThis.__yomuGmStore?.['yomu-pitch-items:v1'];
-            try { const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw; return parsed && typeof parsed === 'object' ? Object.keys(parsed).length : 0; } catch { return 0; }
-        });
-        assert(items >= 1, 'Graded pitch item was not persisted to yomu-pitch-items:v1', { items });
-
-        // --- Recall sub-mode: word + meaning fronted ---
-        await page.click('[data-newtab-action="listen-submode"][data-listen-submode="recall"]');
-        await page.waitForSelector('.jpdb-reader-newtab-listen-cue', { timeout: 5_000 });
-        const recallHasMeaning = await page.evaluate(() => (document.querySelector('.jpdb-reader-newtab-listen-cue')?.textContent || '').trim().length > 0);
-        assert(recallHasMeaning, 'Recall sub-mode did not front the word + meaning');
-
-        // --- Shadow sub-mode: contour + recording + continue control ---
-        await page.click('[data-newtab-action="listen-submode"][data-listen-submode="shadow"]');
+        // Continue into speaking without showing the final answer yet.
+        await page.click('[data-newtab-controls] [data-newtab-action="next"]');
+        await page.waitForSelector('[data-study-step-kind="speaking"][data-active="true"]', { timeout: 5_000 });
         await page.waitForSelector('[data-listen-submode="shadow"]', { timeout: 5_000 });
-        const hasRecord = await page.evaluate(() => Boolean(document.querySelector('[data-newtab-action="listen-record"]')));
-        const hasContinue = await page.evaluate(() => Boolean(document.querySelector('[data-newtab-action="listen-next"]')));
-        const hasShadowGrade = await page.evaluate(() => Boolean(document.querySelector('[data-newtab-action="listen-grade"]')));
-        assert(hasRecord, 'Shadow sub-mode missing the self-recording control');
-        assert(hasContinue, 'Shadow sub-mode missing the continue control');
-        assert(!hasShadowGrade, 'Shadow sub-mode should not show old self-grade buttons');
+        const revealedBeforeFinal = await page.evaluate(() => document.querySelector('[data-jpdb-reader-root]')?.classList.contains('jpdb-reader-newtab-revealed'));
+        assert(!revealedBeforeFinal, 'Continuing from Listen should not reveal the card before final reveal');
 
-        const result = { options: reading, items, switcherVisible, verdictCorrect, recallHasMeaning, hasRecord, hasContinue };
+        // --- Speak step: recording + global Continue control ---
+        const hasRecord = await page.evaluate(() => Boolean(document.querySelector('[data-newtab-action="listen-record"]')));
+        const hasContinue = await page.evaluate(() => Boolean(document.querySelector('[data-newtab-action="next"]')));
+        const hasShadowGrade = await page.evaluate(() => Boolean(document.querySelector('[data-newtab-action="listen-grade"]')));
+        assert(hasRecord, 'Speak step missing the self-recording control');
+        assert(hasContinue, 'Speak step missing the global Continue control');
+        assert(!hasShadowGrade, 'Speak step should not show old self-grade buttons');
+
+        await page.waitForTimeout(650);
+        await page.click('[data-newtab-controls] [data-newtab-action="next"]');
+        await page.waitForFunction(() => document.querySelector('[data-jpdb-reader-root]')?.classList.contains('jpdb-reader-newtab-revealed'), null, { timeout: 5_000 });
+
+        const result = { options: reading, switcherVisible, hasSpeakerIcon, hasRecord, hasContinue };
         console.log(JSON.stringify(result, null, 2));
         console.log('listen-mode smoke passed');
         await context.close();

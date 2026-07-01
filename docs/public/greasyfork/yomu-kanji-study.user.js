@@ -8398,7 +8398,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         pressure: Math.max(0.12, Math.min(1, event.pressure || 0.55))
       };
     };
-    const strokeWidth = (point) => Math.max(3.2, Math.min(9.5, canvas.width * 0.014)) * dpr * (0.78 + (point?.pressure ?? 0.55) * 0.42);
+    const strokeWidth = (point) => Math.max(1.8, Math.min(5.2, canvas.width * 66e-4)) * (0.74 + (point?.pressure ?? 0.55) * 0.28);
     const setupStroke = (point) => {
       context.strokeStyle = resolvedDoodleInk(stage);
       context.lineCap = "round";

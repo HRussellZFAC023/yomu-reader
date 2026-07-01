@@ -24,7 +24,7 @@ export function newTabSourceLoadPlan(source: ReaderSettings['newTabSource'], fal
     return {
         kind: 'explicit-source',
         primarySources: [source],
-        studyFallback: source === 'jpdb' || source === 'bunpro' || source === 'yomu-local'
+        studyFallback: source === 'jpdb' || source === 'bunpro' || source === 'yomu-local' || source === 'dictionary'
             ? { kind: 'study-supplement', minCards: fallbackSupplementMin }
             : { kind: 'none' },
     };

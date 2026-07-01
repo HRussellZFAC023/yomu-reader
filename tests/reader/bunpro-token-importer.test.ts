@@ -13,6 +13,7 @@ describe('Bunpro frontend token importer', () => {
         document.body.innerHTML = '';
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
+        delete (globalThis as Record<string, unknown>).__yomuBunproFrontendTokenImporterInstalled;
     });
 
     it('only mounts on the Bunpro API settings page', () => {
@@ -78,7 +79,7 @@ describe('Bunpro frontend token importer', () => {
         await vi.waitFor(() => expect(root?.textContent).toContain('Bunpro token saved to Yomu.'));
     });
 
-    it('shows a signed-out prompt when no frontend token is visible', async () => {
+    it('keeps the import button retryable when no frontend token is visible', async () => {
         const saveSettings = vi.fn(async () => undefined);
 
         await installBunproFrontendTokenImporter({
@@ -91,8 +92,35 @@ describe('Bunpro frontend token importer', () => {
 
         const root = document.querySelector<HTMLElement>('#jpdb-reader-bunpro-token-importer');
         const button = root?.querySelector<HTMLButtonElement>('[data-action="import-bunpro-token"]');
-        expect(root?.textContent).toContain('Log in to Bunpro');
-        expect(button?.disabled).toBe(true);
+        expect(root?.textContent).toContain('Yomu could not read the token');
+        expect(button?.disabled).toBe(false);
+        button?.click();
+        await vi.waitFor(() => expect(root?.textContent).toContain('Yomu could not read the token'));
         expect(saveSettings).not.toHaveBeenCalled();
+    });
+
+    it('mounts after Bunpro navigates to the API settings route', async () => {
+        vi.useFakeTimers();
+        const saveSettings = vi.fn(async () => undefined);
+        let href = 'https://bunpro.jp/dashboard';
+        window.history.replaceState({}, '', '/dashboard');
+
+        await installBunproFrontendTokenImporter({
+            getSettings: () => DEFAULT_SETTINGS,
+            setSettings: vi.fn(),
+            saveSettings,
+            href: () => href,
+            cookieHeader: () => 'frontend_api_token=route-token',
+        });
+
+        expect(document.querySelector('#jpdb-reader-bunpro-token-importer')).toBeNull();
+
+        href = 'https://bunpro.jp/settings/api';
+        window.history.pushState({}, '', '/settings/api');
+        await vi.runAllTimersAsync();
+
+        const root = document.querySelector<HTMLElement>('#jpdb-reader-bunpro-token-importer');
+        expect(root?.textContent).toContain('Yomu found your Bunpro session token');
+        vi.useRealTimers();
     });
 });

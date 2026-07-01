@@ -113,7 +113,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     };
 
     const strokeWidth = (point?: DoodlePoint): number => (
-        Math.max(3.2, Math.min(9.5, canvas.width * 0.014)) * dpr * (0.78 + (point?.pressure ?? 0.55) * 0.42)
+        Math.max(1.8, Math.min(5.2, canvas.width * 0.0066)) * (0.74 + (point?.pressure ?? 0.55) * 0.28)
     );
 
     const setupStroke = (point?: DoodlePoint) => {

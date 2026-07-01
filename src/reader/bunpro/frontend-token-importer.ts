@@ -4,6 +4,7 @@ import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 const BUNPRO_FRONTEND_API_TOKEN_COOKIE = 'frontend_api_token';
 const IMPORTER_ID = 'jpdb-reader-bunpro-token-importer';
 const BUNPRO_SETTINGS_PATH = '/settings/api';
+const INSTALL_FLAG = '__yomuBunproFrontendTokenImporterInstalled';
 
 type BunproCookieStore = {
     get: (name: string) => Promise<BunproCookieStoreItem | null | undefined>;
@@ -25,7 +26,7 @@ export interface BunproFrontendTokenImporterOptions {
     saveSettings: (settings: ReaderSettings) => Promise<void>;
     toast?: (message: string) => void;
     language?: () => InterfaceLanguage;
-    href?: string;
+    href?: string | (() => string);
     cookieHeader?: () => string;
     cookieStore?: BunproCookieStore;
 }
@@ -33,9 +34,7 @@ export interface BunproFrontendTokenImporterOptions {
 export function isBunproApiSettingsPage(href = safeHref()): boolean {
     try {
         const url = new URL(href, safeHref());
-        const host = url.hostname.toLowerCase();
-        return (host === 'bunpro.jp' || host.endsWith('.bunpro.jp'))
-            && normalizePathname(url.pathname) === BUNPRO_SETTINGS_PATH;
+        return isBunproHost(url.hostname) && normalizePathname(url.pathname) === BUNPRO_SETTINGS_PATH;
     } catch {
         return false;
     }
@@ -54,9 +53,24 @@ export function readBunproFrontendTokenFromCookieHeader(cookieHeader: string): B
 
 export async function installBunproFrontendTokenImporter(options: BunproFrontendTokenImporterOptions): Promise<void> {
     if (typeof document === 'undefined') return;
-    if (!isBunproApiSettingsPage(options.href)) return;
+    if (!isBunproHostFromHref(importerHref(options))) return;
     await waitForBody();
-    if (!document.body || document.getElementById(IMPORTER_ID)) return;
+    if (!document.body) return;
+    installRouteWatcher(options);
+    await renderImporterForCurrentRoute(options);
+}
+
+async function renderImporterForCurrentRoute(options: BunproFrontendTokenImporterOptions): Promise<void> {
+    if (!document.body) return;
+    if (!isBunproApiSettingsPage(importerHref(options))) {
+        document.getElementById(IMPORTER_ID)?.remove();
+        return;
+    }
+    const existing = document.getElementById(IMPORTER_ID);
+    if (existing) {
+        document.body.append(existing);
+        return;
+    }
 
     const language = resolveUiLanguage(options.language?.() ?? options.getSettings().interfaceLanguage);
     const token = await readBunproFrontendToken(options);
@@ -71,19 +85,19 @@ export async function installBunproFrontendTokenImporter(options: BunproFrontend
 
     const button = root.querySelector<HTMLButtonElement>('[data-action="import-bunpro-token"]');
     button?.addEventListener('click', () => {
-        void importBunproToken(token, options, root, language);
+        void importBunproToken(options, root, language);
     });
 }
 
 async function importBunproToken(
-    token: BunproFrontendToken | null,
     options: BunproFrontendTokenImporterOptions,
     root: HTMLElement,
     language: 'en' | 'ja',
 ): Promise<void> {
-    const latestToken = token ?? await readBunproFrontendToken(options);
     const ui = copy(language);
     const status = root.querySelector<HTMLElement>('[data-bunpro-import-status]');
+    if (status) status.textContent = ui.reading;
+    const latestToken = await readBunproFrontendToken(options);
     if (!latestToken) {
         if (status) status.textContent = ui.missing;
         return;
@@ -128,7 +142,6 @@ function renderBunproImporterContent(token: BunproFrontendToken | null, language
     button.type = 'button';
     button.className = 'jpdb-reader-bunpro-token-importer-button';
     button.dataset.action = 'import-bunpro-token';
-    button.disabled = !token;
     button.textContent = ui.action;
     const status = document.createElement('span');
     status.dataset.bunproImportStatus = 'true';
@@ -193,6 +206,48 @@ function normalizePathname(pathname: string): string {
     return pathname.replace(/\/+$/u, '') || '/';
 }
 
+function isBunproHost(hostname: string): boolean {
+    const host = hostname.toLowerCase();
+    return host === 'bunpro.jp' || host.endsWith('.bunpro.jp');
+}
+
+function isBunproHostFromHref(href = safeHref()): boolean {
+    try {
+        return isBunproHost(new URL(href, safeHref()).hostname);
+    } catch {
+        return false;
+    }
+}
+
+function importerHref(options: Pick<BunproFrontendTokenImporterOptions, 'href'>): string | undefined {
+    return typeof options.href === 'function' ? options.href() : options.href;
+}
+
+function installRouteWatcher(options: BunproFrontendTokenImporterOptions): void {
+    const global = globalThis as Record<string, unknown>;
+    if (global[INSTALL_FLAG]) return;
+    global[INSTALL_FLAG] = true;
+
+    const rerender = () => { void renderImporterForCurrentRoute(options); };
+    window.addEventListener('popstate', rerender);
+    wrapHistoryMethod('pushState', rerender);
+    wrapHistoryMethod('replaceState', rerender);
+    const observer = new MutationObserver(() => {
+        const root = document.getElementById(IMPORTER_ID);
+        if (root && document.body?.lastElementChild !== root) document.body.append(root);
+    });
+    if (document.body) observer.observe(document.body, { childList: true });
+}
+
+function wrapHistoryMethod(method: 'pushState' | 'replaceState', after: () => void): void {
+    const original = history[method];
+    if (typeof original !== 'function') return;
+    history[method] = function yomuBunproHistoryWrapper(this: History, ...args: Parameters<History[typeof method]>): void {
+        original.apply(this, args);
+        window.setTimeout(after, 0);
+    } as History[typeof method];
+}
+
 function globalCookieStore(): BunproCookieStore | undefined {
     return (globalThis as { cookieStore?: BunproCookieStore }).cookieStore;
 }
@@ -230,15 +285,17 @@ function copy(language: 'en' | 'ja'): {
     saving: string;
     saved: string;
     failed: string;
+    reading: string;
 } {
     if (language === 'ja') {
         return {
             title: 'Yomu Bunpro連携',
             ready: 'Bunproのログイン用トークンを見つけました。Yomuに保存してBunpro復習を有効にできます。',
-            missing: 'Bunproにログインしてから、このページを再読み込みしてください。',
+            missing: 'トークンを読めませんでした。ログイン中ならFirefoxのCookie制限で隠れている可能性があります。',
             expiryUnknown: '有効期限はブラウザから読めませんでした。',
             expires: iso => `期限: ${new Date(iso).toLocaleDateString('ja-JP')}`,
             action: 'Yomuで使う',
+            reading: '確認中...',
             saving: '保存中...',
             saved: 'BunproトークンをYomuに保存しました。',
             failed: '保存できませんでした。Yomuの権限を確認してください。',
@@ -247,10 +304,11 @@ function copy(language: 'en' | 'ja'): {
     return {
         title: 'Yomu Bunpro setup',
         ready: 'Yomu found your Bunpro session token. Save it to enable Bunpro reviews and mining.',
-        missing: 'Log in to Bunpro, then refresh this page.',
+        missing: 'Yomu could not read the token. If you are signed in, Firefox may be hiding this cookie.',
         expiryUnknown: 'Expiry is not visible in this browser.',
         expires: iso => `Expires ${new Date(iso).toLocaleDateString('en-GB')}`,
         action: 'Use in Yomu',
+        reading: 'Checking...',
         saving: 'Saving...',
         saved: 'Bunpro token saved to Yomu.',
         failed: 'Could not save. Check your Yomu userscript permissions.',
