@@ -832,6 +832,7 @@ function renderVideoSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('subtitleKaraokeMode', 'Karaoke word timing', settings.subtitleKaraokeMode)}
                     ${checkbox('subtitleTranscriptVisible', 'Open transcript panel by default', settings.subtitleTranscriptVisible)}
                     ${checkbox('subtitlePausePanel', 'Open side panel when paused', settings.subtitlePausePanel)}
+                    ${checkbox('subtitleShadowAutoPause', 'Auto-pause after each shadow line', settings.subtitleShadowAutoPause)}
                     ${checkbox('subtitleTranscriptAutoScroll', 'Scroll transcript with playback', settings.subtitleTranscriptAutoScroll)}
                     ${checkbox('subtitleAutoCopyLine', 'Auto-copy each subtitle line as it plays', settings.subtitleAutoCopyLine)}
                     ${checkbox('subtitleCopyIncludeTranslation', 'Include the translation when copying a line', settings.subtitleCopyIncludeTranslation)}
@@ -1831,7 +1832,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundColor', 'ocrBackgroundOpacity',
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
     'subtitleOverlayVisible', 'subtitleSecondaryVisible', 'subtitleNativeBlurred', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',
-    'subtitlePausePanel', 'subtitleTranscriptPlacement', 'subtitleTranscriptAutoScroll', 'subtitleTranscriptAutoScrollResumeSeconds', 'subtitleAutoCopyLine', 'subtitleCopyIncludeTranslation', 'subtitleMiningPause',
+    'subtitlePausePanel', 'subtitleShadowAutoPause', 'subtitleTranscriptPlacement', 'subtitleTranscriptAutoScroll', 'subtitleTranscriptAutoScrollResumeSeconds', 'subtitleAutoCopyLine', 'subtitleCopyIncludeTranslation', 'subtitleMiningPause',
     'subtitleHoverPause', 'subtitleControlsMode', 'subtitleFontSize', 'subtitleBottomOffset', 'subtitleTextColor', 'subtitleOutlineColor',
     'subtitleBackgroundColor', 'subtitleBackgroundOpacity', 'subtitleFontFamily', 'subtitleFontWeight', 'subtitleSeekPadding',
     'ankiEnabled', 'ankiMineWithJpdb', 'ankiCaptureScreenshot', 'ankiConnectUrl', 'ankiDeck',

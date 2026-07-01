@@ -2385,6 +2385,7 @@
     subtitleKaraokeMode: true,
     subtitleTranscriptVisible: false,
     subtitlePausePanel: false,
+    subtitleShadowAutoPause: false,
     subtitleTranscriptPlacement: "right",
     subtitleTranscriptAutoScroll: true,
     subtitleTranscriptAutoScrollResumeSeconds: 30,
@@ -4750,6 +4751,7 @@
       subtitleKaraokeMode: "Karaoke word timing",
       subtitleTranscriptVisible: "Open transcript panel by default",
       subtitlePausePanel: "Open side panel when paused",
+      subtitleShadowAutoPause: "Auto-pause after each shadow line",
       subtitleTranscriptPlacement: "Transcript panel position",
       subtitleTranscriptAutoScroll: "Scroll transcript with playback",
       subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
@@ -6415,6 +6417,7 @@ subtitleNativeBlurred	ホバーするまでネイティブ字幕をぼかす
 subtitleKaraokeMode	カラオケ風の単語タイミング
 subtitleTranscriptVisible	文字起こしパネルを標準で開く
 subtitlePausePanel	一時停止時にサイドパネルを開く
+subtitleShadowAutoPause	シャドー中は各行の後で一時停止
 subtitleTranscriptPlacement	文字起こしパネル位置
 subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
 subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
@@ -17375,6 +17378,11 @@ ${spelling}`);
     // play it back against the model. Never uploaded; the blob URL is local-only.
     shadowRecorder;
     shadowRecordingUrl;
+    shadowRecordingCueSignature = "";
+    shadowRecordingStopTimer;
+    shadowRecordingDiscard = false;
+    shadowPlaybackAudio;
+    shadowAutoPausedCueSignature = "";
     shadowRecordingUnavailable = false;
     batchMiningStatus = "idle";
     batchMiningCandidates = [];
@@ -17460,6 +17468,7 @@ ${spelling}`);
       "bm-clear": () => this.clearBatchMiningSelection(),
       "shadow-replay": () => this.replayShadowCue(),
       "shadow-loop": () => this.toggleShadowLoop(),
+      "shadow-auto-pause": () => this.toggleShadowAutoPause(),
       "shadow-toggle-text": () => this.toggleShadowText(),
       "shadow-goto": (target) => this.gotoShadowNeighbor(target),
       "shadow-record": () => {
@@ -17480,7 +17489,7 @@ ${spelling}`);
       "offset-previous": (target) => this.alignTrackTimingOffset(this.trackIdFromTarget(target), false),
       "offset-next": (target) => this.alignTrackTimingOffset(this.trackIdFromTarget(target), true),
       "offset-reset": (target) => this.setTrackTimingOffset(this.trackIdFromTarget(target), 0),
-      "toggle-native-blur": (target) => this.toggleNativeSubtitleBlur(target.closest(".jpdb-subtitle-secondary"))
+      "toggle-native-blur": (target) => this.toggleNativeSubtitleBlur(target.closest(".jpdb-subtitle-secondary, .jpdb-subtitle-shadow-secondary"))
     };
     init() {
       this.destroy();
@@ -17814,6 +17823,7 @@ ${spelling}`);
       this.renderSerial += 1;
       this.parseWarmupSerial += 1;
       this.lastParseWarmupAnchor = -1;
+      this.resetShadowPracticeState();
       this.restoreSubtitleDragOffset();
     }
     removeStaleNativeTracks(video) {
@@ -18141,6 +18151,7 @@ ${spelling}`);
       const settings = this.options.getSettings();
       if (!settings.subtitlePlayerEnabled) return;
       this.updateFromLoadedCues();
+      this.syncShadowAutoPause();
       this.syncShadowLoop();
       this.syncPlayingVideoGeometry();
       if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) {
@@ -18167,6 +18178,7 @@ ${spelling}`);
       this.setNativeTrackModes();
       this.syncShortsReelNavigation();
       this.updateFromLoadedCues();
+      this.syncShadowAutoPause();
       this.syncShadowLoop();
       this.realignIfVideoMoved();
       this.syncPlayerChromeIdleState();
@@ -18369,10 +18381,14 @@ ${spelling}`);
       return Boolean(activeSecondary && findAlignedCue(this.secondaryCues, this.currentCue) === activeSecondary);
     }
     replaceLoadedPrimaryCue(cue) {
+      this.clearShadowRecordingIfCueChanged(cue);
+      if (this.shadowAutoPausedCueSignature !== subtitleCueSignature(cue)) this.shadowAutoPausedCueSignature = "";
       this.currentCue = cue;
       return true;
     }
     clearLoadedPrimaryCue() {
+      this.clearShadowRecordingIfCueChanged(void 0);
+      this.shadowAutoPausedCueSignature = "";
       this.currentCue = void 0;
       this.lastDomCaption = "";
       this.lastDomCaptionSeenAt = 0;
@@ -19870,6 +19886,8 @@ ${spelling}`);
     }
     seekToCueObject(cue, options = {}) {
       const padding = options.exact ? 0 : this.options.getSettings().subtitleSeekPadding;
+      this.clearShadowRecordingIfCueChanged(cue);
+      if (this.shadowAutoPausedCueSignature !== subtitleCueSignature(cue)) this.shadowAutoPausedCueSignature = "";
       this.seekVideoTo(Math.max(0, cue.start + padding));
       this.clearTranscriptManualScrollPause();
       this.currentCue = cue;
@@ -20621,16 +20639,33 @@ ${spelling}`);
     replayShadowCue() {
       const cue = this.currentCue;
       if (!cue || !this.video) return;
+      this.shadowAutoPausedCueSignature = "";
       this.seekVideoTo(Math.max(0, cue.start));
       this.currentCue = cue;
       if (this.shadowLoopEnabled) this.shadowLoopCue = cue;
+      this.playShadowModelLine();
       this.renderShadowPanel(true);
+    }
+    playShadowModelLine() {
+      if (!this.video) return;
+      try {
+        const result = this.video.play();
+        if (result && typeof result.catch === "function") void result.catch(() => void 0);
+      } catch {
+      }
     }
     toggleShadowLoop() {
       this.shadowLoopEnabled = !this.shadowLoopEnabled;
       this.shadowLoopCue = this.shadowLoopEnabled ? this.currentCue : void 0;
       if (this.shadowLoopEnabled) this.replayShadowCue();
       else this.renderShadowPanel(true);
+    }
+    toggleShadowAutoPause() {
+      const settings = this.options.getSettings();
+      settings.subtitleShadowAutoPause = !settings.subtitleShadowAutoPause;
+      this.shadowAutoPausedCueSignature = "";
+      this.options.onSettingsChange();
+      this.renderShadowPanel(true);
     }
     toggleShadowText() {
       this.shadowTextVisible = !this.shadowTextVisible;
@@ -20644,6 +20679,7 @@ ${spelling}`);
       if (!this.shadowLoopEnabled || !this.video) return;
       const cue = this.shadowLoopCue ?? this.currentCue;
       if (!cue) return;
+      if (this.video.paused && this.options.getSettings().subtitleShadowAutoPause && this.shadowAutoPausedCueSignature === subtitleCueSignature(cue)) return;
       const time = this.video.currentTime;
       if (time >= cue.end - 0.05 || time < cue.start - 0.3) {
         this.seekVideoTo(Math.max(0, cue.start));
@@ -20652,6 +20688,20 @@ ${spelling}`);
           this.renderShadowPanel(true);
         }
       }
+    }
+    syncShadowAutoPause() {
+      const settings = this.options.getSettings();
+      if (!settings.subtitleShadowAutoPause || this.panelMode !== "shadow" || !this.video || this.video.paused || !this.currentCue) return;
+      const cue = this.currentCue;
+      const signature = subtitleCueSignature(cue);
+      if (this.shadowAutoPausedCueSignature === signature) return;
+      const time = this.video.currentTime;
+      if (time < cue.start - 0.05 || time < cue.end - 0.05) return;
+      this.shadowAutoPausedCueSignature = signature;
+      this.video.pause();
+      this.clearShadowRecordingIfCueChanged(cue);
+      this.renderShadowPanel(true);
+      this.syncControls();
     }
     // Neighbours of a cue in the primary cue list (by identity, falling back to
     // matching start/end so a cloned currentCue still resolves its siblings).
@@ -20672,9 +20722,10 @@ ${spelling}`);
     }
     async toggleShadowRecording() {
       if (this.shadowRecorder && this.shadowRecorder.state !== "inactive") {
-        this.shadowRecorder.stop();
+        this.stopShadowRecording();
         return;
       }
+      const cue = this.currentCue;
       const mediaDevices = navigator.mediaDevices;
       if (!mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
         this.shadowRecordingUnavailable = true;
@@ -20682,6 +20733,8 @@ ${spelling}`);
         return;
       }
       try {
+        this.clearShadowRecording();
+        if (this.video && !this.video.paused) this.video.pause();
         const stream = await mediaDevices.getUserMedia({ audio: true });
         const recorder = new MediaRecorder(stream);
         const chunks = [];
@@ -20689,17 +20742,26 @@ ${spelling}`);
           if (event.data && event.data.size) chunks.push(event.data);
         });
         recorder.addEventListener("stop", () => {
+          const recordingSignature = this.shadowRecordingCueSignature;
+          this.shadowRecordingStopTimer = clearWindowTimeout(this.shadowRecordingStopTimer);
           stream.getTracks().forEach((track) => track.stop());
-          this.clearShadowRecording();
-          if (chunks.length) {
+          if (!this.shadowRecordingDiscard && chunks.length) {
+            this.clearShadowRecording();
             this.shadowRecordingUrl = URL.createObjectURL(new Blob(chunks, { type: recorder.mimeType || "audio/webm" }));
+            this.shadowRecordingCueSignature = recordingSignature;
           }
+          if (!this.shadowRecordingDiscard && !chunks.length) this.clearShadowRecording();
+          if (this.shadowRecordingDiscard) this.clearShadowRecording();
+          this.shadowRecordingDiscard = false;
           this.shadowRecorder = void 0;
           this.renderShadowPanel(true);
         });
         this.shadowRecordingUnavailable = false;
         this.shadowRecorder = recorder;
+        this.shadowRecordingCueSignature = cue ? subtitleCueSignature(cue) : "";
+        this.shadowRecordingDiscard = false;
         recorder.start();
+        this.scheduleShadowRecordingStop(cue);
         this.renderShadowPanel(true);
       } catch (error) {
         log.warn("Shadow self-recording unavailable", error);
@@ -20711,26 +20773,54 @@ ${spelling}`);
     playShadowRecording() {
       if (!this.shadowRecordingUrl) return;
       try {
-        void new Audio(this.shadowRecordingUrl).play().catch(() => void 0);
+        if (this.video && !this.video.paused) this.video.pause();
+        this.shadowPlaybackAudio?.pause();
+        const audio = new Audio(this.shadowRecordingUrl);
+        this.shadowPlaybackAudio = audio;
+        audio.addEventListener("ended", () => {
+          if (this.shadowPlaybackAudio === audio) this.shadowPlaybackAudio = void 0;
+        }, { once: true });
+        void audio.play().catch(() => void 0);
       } catch {
       }
     }
+    stopShadowRecording(options = {}) {
+      if (!this.shadowRecorder || this.shadowRecorder.state === "inactive") return;
+      this.shadowRecordingDiscard = this.shadowRecordingDiscard || options.discard === true;
+      this.shadowRecordingStopTimer = clearWindowTimeout(this.shadowRecordingStopTimer);
+      try {
+        this.shadowRecorder.stop();
+      } catch {
+        this.shadowRecorder = void 0;
+      }
+    }
+    scheduleShadowRecordingStop(cue) {
+      this.shadowRecordingStopTimer = clearWindowTimeout(this.shadowRecordingStopTimer);
+      if (!cue) return;
+      const durationMs = Math.max(1200, Math.min(15e3, Math.round((cue.end - cue.start) * 1e3) + 800));
+      this.shadowRecordingStopTimer = window.setTimeout(() => this.stopShadowRecording(), durationMs);
+    }
     clearShadowRecording() {
+      this.shadowRecordingStopTimer = clearWindowTimeout(this.shadowRecordingStopTimer);
+      if (this.shadowRecorder && this.shadowRecorder.state !== "inactive") this.stopShadowRecording({ discard: true });
+      this.shadowPlaybackAudio?.pause();
+      this.shadowPlaybackAudio = void 0;
       if (this.shadowRecordingUrl) {
         URL.revokeObjectURL(this.shadowRecordingUrl);
         this.shadowRecordingUrl = void 0;
       }
+      this.shadowRecordingCueSignature = "";
     }
     resetShadowPracticeState() {
       this.shadowLoopEnabled = false;
       this.shadowLoopCue = void 0;
-      if (this.shadowRecorder && this.shadowRecorder.state !== "inactive") {
-        try {
-          this.shadowRecorder.stop();
-        } catch {
-        }
-      }
-      this.shadowRecorder = void 0;
+      this.shadowAutoPausedCueSignature = "";
+      this.clearShadowRecording();
+    }
+    clearShadowRecordingIfCueChanged(cue) {
+      if (!this.shadowRecordingCueSignature) return;
+      const nextSignature = cue ? subtitleCueSignature(cue) : "";
+      if (nextSignature === this.shadowRecordingCueSignature) return;
       this.clearShadowRecording();
     }
     syncPreviewOpenControls() {
@@ -20967,6 +21057,9 @@ ${spelling}`);
         secondary ? subtitleCueSignature(secondary) : "",
         parseKey,
         this.shadowLoopEnabled,
+        this.options.getSettings().subtitleShadowAutoPause,
+        this.options.getSettings().subtitleNativeBlurred,
+        this.options.getSettings().subtitleSecondaryVisible,
         this.shadowTextVisible,
         this.shadowRecorder && this.shadowRecorder.state !== "inactive" ? "rec" : "",
         this.shadowRecordingUrl ? "has-rec" : "",
@@ -21054,7 +21147,10 @@ ${spelling}`);
     renderShadowSecondaryLine(state2) {
       if (!state2.settings.subtitleSecondaryVisible) return "";
       const text = state2.secondary?.text.trim();
-      return text ? `<div class="jpdb-subtitle-shadow-secondary">${escapeWithBreaks(text)}</div>` : "";
+      if (!text) return "";
+      const blurClass = state2.settings.subtitleNativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
+      const label = uiText(state2.settings.interfaceLanguage, "toggleNativeSubtitleBlur");
+      return `<button class="jpdb-subtitle-shadow-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${escapeWithBreaks(text)}</button>`;
     }
     renderShadowActions(language) {
       const recording = Boolean(this.shadowRecorder && this.shadowRecorder.state !== "inactive");
@@ -21064,6 +21160,7 @@ ${spelling}`);
       return `
             ${this.renderShadowAction("shadow-replay", this.shadowActionLabel(language, "replay"), "repeat", false)}
             ${this.renderShadowAction("shadow-loop", this.shadowActionLabel(language, loopAction), "repeat", this.shadowLoopEnabled)}
+            ${this.renderShadowAction("shadow-auto-pause", this.shadowActionLabel(language, "auto-pause"), "pause", this.options.getSettings().subtitleShadowAutoPause)}
             ${this.renderShadowAction("shadow-toggle-text", uiText(language, this.shadowTextVisible ? "hide" : "show"), toggleIcon, !this.shadowTextVisible)}
             ${this.renderShadowAction("shadow-record", recordLabel, recording ? "stop" : "mic", recording)}
             ${this.shadowRecordingUrl ? this.renderShadowAction("shadow-play-recording", this.shadowActionLabel(language, "play-recording"), "play", false) : ""}
@@ -21082,6 +21179,8 @@ ${spelling}`);
           return japanese ? "ループ" : "Loop";
         case "stop":
           return japanese ? "停止" : "Stop";
+        case "auto-pause":
+          return japanese ? "自動停止" : "Auto pause";
         case "record":
           return japanese ? "録音" : "Record";
         case "stop-record":

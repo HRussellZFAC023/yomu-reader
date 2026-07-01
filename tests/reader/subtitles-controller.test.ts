@@ -8,6 +8,7 @@ import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/sett
 const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
 import { readPageCaptionText } from '../../src/reader/subtitles/subtitle-dom-captions';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles/controller';
+import { subtitleCueSignature } from '../../src/reader/subtitles/subtitle-cues';
 import { SUBTITLE_DRAG_OFFSET_KEY } from '../../src/reader/subtitles/subtitle-layout';
 import { createSubtitleVideoInsetAdapter, subtitleVideoLayoutTarget } from '../../src/reader/subtitles/subtitle-video-inset';
 
@@ -2765,7 +2766,7 @@ Watch the cat
 
     it('opens a shadowing drawer tab for active-line replay practice', async () => {
         const parseJapanese = vi.fn(async () => [makeSubtitleToken('今日は', { reading: 'きょうは' })]);
-        const { controller } = createInstalledSubtitleController({ subtitleSecondaryVisible: true }, { parseJapanese });
+        const { settings, controller } = createInstalledSubtitleController({ subtitleSecondaryVisible: true }, { parseJapanese });
         const cue = { start: 3, end: 5, text: '今日は読む。', transcriptEligible: true };
         const secondaryCue = { start: 3, end: 5, text: 'I will read today.', transcriptEligible: false };
         const internals = controllerInternals<{
@@ -2790,10 +2791,16 @@ Watch the cat
             expect(panel.querySelector<HTMLButtonElement>('[data-action="panel-shadow"]')?.getAttribute('aria-pressed')).toBe('true');
             expect(panel.textContent).toContain('Shadow');
             expect(panel.textContent).toContain('I will read today.');
+            expect(panel.querySelector<HTMLElement>('.jpdb-subtitle-shadow-secondary')?.classList.contains('jpdb-subtitle-secondary-blurred')).toBe(true);
 
             await vi.waitFor(() => {
                 expect(panel.querySelector<HTMLElement>('.jpdb-subtitle-shadow-line .jpdb-reader-word[data-expression="今日は"]')).not.toBeNull();
             });
+
+            panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-shadow-secondary')!.click();
+
+            expect(settings.subtitleNativeBlurred).toBe(false);
+            expect(panel.querySelector<HTMLElement>('.jpdb-subtitle-shadow-secondary')?.classList.contains('jpdb-subtitle-secondary-clear')).toBe(true);
 
             panel.querySelector<HTMLButtonElement>('[data-action="shadow-toggle-text"]')!.click();
 
@@ -2803,6 +2810,56 @@ Watch the cat
             panel.querySelector<HTMLButtonElement>('[data-action="shadow-toggle-text"]')!.click();
 
             expect(panel.querySelector<HTMLElement>('.jpdb-subtitle-shadow-line')?.classList.contains('jpdb-subtitle-shadow-line-hidden')).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('toggles shadow auto-pause from the drawer and pauses near the cue end', () => {
+        const onSettingsChange = vi.fn();
+        const { settings, controller } = createInstalledSubtitleController({ subtitleShadowAutoPause: false }, { onSettingsChange });
+        const cue = { start: 3, end: 5, text: '一文ずつ止める。', transcriptEligible: true };
+        const internals = controllerInternals<{
+            cues: Array<typeof cue>;
+            currentCue: typeof cue;
+            panelMode: 'lines' | 'shadow' | 'tracks';
+            syncShadowAutoPause: () => void;
+            shadowAutoPausedCueSignature: string;
+        }>(controller);
+
+        try {
+            const video = attachVideo(controller, { currentTime: 4.97 });
+            let paused = false;
+            const pause = vi.fn(() => { paused = true; });
+            Object.defineProperties(video, {
+                paused: { configurable: true, get: () => paused },
+                pause: { configurable: true, value: pause },
+            });
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!.click();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-list [data-action="panel-shadow"]')!.click();
+
+            let panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            panel.querySelector<HTMLButtonElement>('[data-action="shadow-auto-pause"]')!.click();
+
+            expect(settings.subtitleShadowAutoPause).toBe(true);
+            expect(onSettingsChange).toHaveBeenCalled();
+            panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.querySelector<HTMLButtonElement>('[data-action="shadow-auto-pause"]')?.getAttribute('aria-pressed')).toBe('true');
+
+            internals.panelMode = 'shadow';
+            internals.syncShadowAutoPause();
+
+            expect(pause).toHaveBeenCalledTimes(1);
+            expect(paused).toBe(true);
+
+            paused = false;
+            internals.syncShadowAutoPause();
+
+            expect(pause).toHaveBeenCalledTimes(1);
+            expect(internals.shadowAutoPausedCueSignature).toBe(subtitleCueSignature(cue));
         } finally {
             controller.destroy();
         }
@@ -2901,6 +2958,40 @@ Watch the cat
             panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-shadow-context-next')!.click();
             expect(internals.currentCue).toBe(cue3);
         } finally {
+            controller.destroy();
+        }
+    });
+
+    it('clears the saved shadow recording when the learner moves to another line', () => {
+        const { controller } = createInstalledSubtitleController();
+        const cue1 = { start: 3, end: 5, text: '録音した行。', transcriptEligible: true };
+        const cue2 = { start: 5, end: 7, text: '次の行。', transcriptEligible: true };
+        const internals = controllerInternals<{
+            cues: Array<typeof cue1>;
+            currentCue: typeof cue1;
+            shadowRecordingUrl?: string;
+            shadowRecordingCueSignature: string;
+            seekToCueObject: (cue: typeof cue1, options?: { exact?: boolean }) => void;
+        }>(controller);
+        const previousRevokeObjectUrl = URL.revokeObjectURL;
+        const revokeObjectUrl = vi.fn();
+
+        try {
+            Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectUrl });
+            attachVideo(controller, { currentTime: 3.5 });
+            internals.cues = [cue1, cue2];
+            internals.currentCue = cue1;
+            internals.shadowRecordingUrl = 'blob:yomu-shadow-line';
+            internals.shadowRecordingCueSignature = subtitleCueSignature(cue1);
+
+            internals.seekToCueObject(cue2, { exact: true });
+
+            expect(internals.shadowRecordingUrl).toBeUndefined();
+            expect(internals.shadowRecordingCueSignature).toBe('');
+            expect(revokeObjectUrl).toHaveBeenCalledWith('blob:yomu-shadow-line');
+            expect(internals.currentCue).toBe(cue2);
+        } finally {
+            if (previousRevokeObjectUrl) Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: previousRevokeObjectUrl });
             controller.destroy();
         }
     });
@@ -4130,7 +4221,8 @@ Watch the cat
         expect(normalizedCss).toContain('.jpdb-subtitle-rail button::after { content: ""; position: absolute; inset: -5px; border-radius: 9px; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail button { padding: 0; font-size: 11px; touch-action: manipulation; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail::-webkit-scrollbar { display: none; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-drawer-actions { justify-content: flex-start; flex-wrap: nowrap; gap: 6px; max-width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-rail { top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); bottom: auto; gap: 3px; max-width: calc(100% - 16px); flex-wrap: wrap; overflow: visible;');
+        expect(normalizedCss).toContain('.jpdb-subtitle-drawer-actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; max-width: 100%; min-width: 0; overflow: visible; scrollbar-width: none; -webkit-overflow-scrolling: touch; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-panel-mode button { min-width: 44px; padding-inline: 4px; font-size: 10px; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-drawer-auto { width: 44px; min-width: 44px; padding-inline: 0 !important; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-drawer-auto span { display: none; }');

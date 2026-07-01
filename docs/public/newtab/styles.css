@@ -16418,7 +16418,9 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   top: 10px;
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
+  justify-content: flex-end;
+  align-content: flex-start;
+  flex-wrap: wrap;
   gap: 4px;
   max-width: calc(100% - 20px);
   padding: 4px;
@@ -16937,9 +16939,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 }
 .jpdb-subtitle-drawer-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 12px;
+  gap: 10px;
   padding: 14px 14px 12px;
   border-bottom: 1px solid var(--jpdb-reader-border);
   background: color-mix(in srgb, var(--jpdb-reader-surface) 76%, transparent);
@@ -16972,35 +16974,20 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-drawer-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: center;
-  gap: 8px;
   min-width: 0;
+  max-width: 100%;
+  gap: 8px;
 }
-@container (max-width: 600px) {
+@container (min-width: 760px) {
   .jpdb-subtitle-drawer-head {
-    grid-template-columns: 1fr;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, max-content);
+    gap: 12px;
   }
   .jpdb-subtitle-drawer-actions {
-    justify-content: flex-start;
-    flex-wrap: nowrap;
-    max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
+    justify-content: flex-end;
   }
-  .jpdb-subtitle-drawer-actions::-webkit-scrollbar { display: none; }
-  .jpdb-subtitle-drawer-actions > * { flex: 0 0 auto; }
-  .jpdb-subtitle-batch-toolbar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .jpdb-subtitle-batch-toolbar::-webkit-scrollbar { display: none; }
 }
 .jpdb-subtitle-drawer-auto {
   display: inline-flex;
@@ -17038,6 +17025,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-panel-placement {
   justify-self: start;
   width: max-content;
+  max-width: 100%;
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -17374,10 +17362,18 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   font-size: 11px;
 }
 .jpdb-subtitle-shadow-secondary {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
   color: var(--jpdb-reader-muted);
+  box-shadow: none !important;
   font-size: 14px;
   font-weight: 650;
   line-height: 1.45;
+  text-align: start;
   overflow-wrap: anywhere;
 }
 .jpdb-subtitle-shadow-actions {
@@ -17388,8 +17384,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-shadow-action {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  min-width: 0;
+  flex: 1 1 min(132px, 100%);
+  min-width: min(118px, 100%);
   min-height: 34px;
   padding: 0 10px;
   border: 1px solid var(--jpdb-reader-border);
@@ -17397,7 +17395,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   background: transparent;
   color: var(--jpdb-reader-text);
   font: 750 11px/1.2 var(--jpdb-reader-font);
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .jpdb-subtitle-shadow-action[aria-pressed="true"] {
   border-color: var(--jpdb-reader-accent);
@@ -17721,8 +17720,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     bottom: auto;
     gap: 3px;
     max-width: calc(100% - 16px);
-    overflow-x: auto;
-    overflow-y: visible;
+    flex-wrap: wrap;
+    overflow: visible;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
   }
@@ -17763,12 +17762,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   .jpdb-subtitle-drawer-actions {
     justify-content: flex-start;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 6px;
     max-width: 100%;
     min-width: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: visible;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
   }

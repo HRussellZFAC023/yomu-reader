@@ -2084,6 +2084,7 @@
     "subtitleNativeBlurred",
     "subtitleKaraokeMode",
     "subtitlePausePanel",
+    "subtitleShadowAutoPause",
     "subtitleAutoCopyLine",
     "subtitleCopyIncludeTranslation",
     "subtitleMiningPause",
@@ -2333,6 +2334,7 @@
     subtitleKaraokeMode: true,
     subtitleTranscriptVisible: false,
     subtitlePausePanel: false,
+    subtitleShadowAutoPause: false,
     subtitleTranscriptPlacement: "right",
     subtitleTranscriptAutoScroll: true,
     subtitleTranscriptAutoScrollResumeSeconds: 30,
@@ -4297,6 +4299,7 @@
       subtitleKaraokeMode: "Karaoke word timing",
       subtitleTranscriptVisible: "Open transcript panel by default",
       subtitlePausePanel: "Open side panel when paused",
+      subtitleShadowAutoPause: "Auto-pause after each shadow line",
       subtitleTranscriptPlacement: "Transcript panel position",
       subtitleTranscriptAutoScroll: "Scroll transcript with playback",
       subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
@@ -5943,6 +5946,7 @@ subtitleNativeBlurred	ホバーするまでネイティブ字幕をぼかす
 subtitleKaraokeMode	カラオケ風の単語タイミング
 subtitleTranscriptVisible	文字起こしパネルを標準で開く
 subtitlePausePanel	一時停止時にサイドパネルを開く
+subtitleShadowAutoPause	シャドー中は各行の後で一時停止
 subtitleTranscriptPlacement	文字起こしパネル位置
 subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
 subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
@@ -7338,6 +7342,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       subtitleKaraokeMode: has("subtitleKaraokeMode"),
       subtitleTranscriptVisible: has("subtitleTranscriptVisible"),
       subtitlePausePanel: has("subtitlePausePanel"),
+      subtitleShadowAutoPause: has("subtitleShadowAutoPause"),
       subtitleTranscriptPlacement: readOption(get("subtitleTranscriptPlacement"), ["right", "left", "bottom"], current.subtitleTranscriptPlacement),
       subtitleTranscriptAutoScroll: has("subtitleTranscriptAutoScroll"),
       subtitleTranscriptAutoScrollResumeSeconds: clamped("subtitleTranscriptAutoScrollResumeSeconds", 1, 30, current.subtitleTranscriptAutoScrollResumeSeconds),
@@ -9577,6 +9582,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                     ${checkbox("subtitleKaraokeMode", "Karaoke word timing", settings.subtitleKaraokeMode)}
                     ${checkbox("subtitleTranscriptVisible", "Open transcript panel by default", settings.subtitleTranscriptVisible)}
                     ${checkbox("subtitlePausePanel", "Open side panel when paused", settings.subtitlePausePanel)}
+                    ${checkbox("subtitleShadowAutoPause", "Auto-pause after each shadow line", settings.subtitleShadowAutoPause)}
                     ${checkbox("subtitleTranscriptAutoScroll", "Scroll transcript with playback", settings.subtitleTranscriptAutoScroll)}
                     ${checkbox("subtitleAutoCopyLine", "Auto-copy each subtitle line as it plays", settings.subtitleAutoCopyLine)}
                     ${checkbox("subtitleCopyIncludeTranslation", "Include the translation when copying a line", settings.subtitleCopyIncludeTranslation)}
@@ -10587,6 +10593,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "subtitleKaraokeMode",
     "subtitleTranscriptVisible",
     "subtitlePausePanel",
+    "subtitleShadowAutoPause",
     "subtitleTranscriptPlacement",
     "subtitleTranscriptAutoScroll",
     "subtitleTranscriptAutoScrollResumeSeconds",

@@ -1100,6 +1100,11 @@ export class SubtitlePlayerController {
     // play it back against the model. Never uploaded; the blob URL is local-only.
     private shadowRecorder: MediaRecorder | undefined;
     private shadowRecordingUrl: string | undefined;
+    private shadowRecordingCueSignature = '';
+    private shadowRecordingStopTimer?: number;
+    private shadowRecordingDiscard = false;
+    private shadowPlaybackAudio: HTMLAudioElement | undefined;
+    private shadowAutoPausedCueSignature = '';
     private shadowRecordingUnavailable = false;
     private batchMiningStatus: SubtitleBatchMiningStatus = 'idle';
     private batchMiningCandidates: SubtitleBatchMiningCandidate[] = [];
@@ -1176,6 +1181,7 @@ export class SubtitlePlayerController {
         'bm-clear': () => this.clearBatchMiningSelection(),
         'shadow-replay': () => this.replayShadowCue(),
         'shadow-loop': () => this.toggleShadowLoop(),
+        'shadow-auto-pause': () => this.toggleShadowAutoPause(),
         'shadow-toggle-text': () => this.toggleShadowText(),
         'shadow-goto': target => this.gotoShadowNeighbor(target),
         'shadow-record': () => { void this.toggleShadowRecording(); },
@@ -1190,7 +1196,7 @@ export class SubtitlePlayerController {
         'offset-previous': target => this.alignTrackTimingOffset(this.trackIdFromTarget(target), false),
         'offset-next': target => this.alignTrackTimingOffset(this.trackIdFromTarget(target), true),
         'offset-reset': target => this.setTrackTimingOffset(this.trackIdFromTarget(target), 0),
-        'toggle-native-blur': target => this.toggleNativeSubtitleBlur(target.closest<HTMLElement>('.jpdb-subtitle-secondary')),
+        'toggle-native-blur': target => this.toggleNativeSubtitleBlur(target.closest<HTMLElement>('.jpdb-subtitle-secondary, .jpdb-subtitle-shadow-secondary')),
     };
 
     init(): void {
@@ -1554,6 +1560,7 @@ export class SubtitlePlayerController {
         this.renderSerial += 1;
         this.parseWarmupSerial += 1;
         this.lastParseWarmupAnchor = -1;
+        this.resetShadowPracticeState();
         this.restoreSubtitleDragOffset();
     }
 
@@ -1938,6 +1945,7 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         if (!settings.subtitlePlayerEnabled) return;
         this.updateFromLoadedCues();
+        this.syncShadowAutoPause();
         this.syncShadowLoop();
         this.syncPlayingVideoGeometry();
         if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) {
@@ -1967,6 +1975,7 @@ export class SubtitlePlayerController {
         this.setNativeTrackModes();
         this.syncShortsReelNavigation();
         this.updateFromLoadedCues();
+        this.syncShadowAutoPause();
         this.syncShadowLoop();
         this.realignIfVideoMoved();
         this.syncPlayerChromeIdleState();
@@ -2214,11 +2223,15 @@ export class SubtitlePlayerController {
     }
 
     private replaceLoadedPrimaryCue(cue: SubtitleCue): boolean {
+        this.clearShadowRecordingIfCueChanged(cue);
+        if (this.shadowAutoPausedCueSignature !== subtitleCueSignature(cue)) this.shadowAutoPausedCueSignature = '';
         this.currentCue = cue;
         return true;
     }
 
     private clearLoadedPrimaryCue(): boolean {
+        this.clearShadowRecordingIfCueChanged(undefined);
+        this.shadowAutoPausedCueSignature = '';
         this.currentCue = undefined;
         // A cleared DOM-caption cue (seek, expiry) must be re-appliable even
         // when the page still shows the identical text; the stability clock
@@ -4008,6 +4021,8 @@ export class SubtitlePlayerController {
 
     private seekToCueObject(cue: SubtitleCue, options: { exact?: boolean } = {}): void {
         const padding = options.exact ? 0 : this.options.getSettings().subtitleSeekPadding;
+        this.clearShadowRecordingIfCueChanged(cue);
+        if (this.shadowAutoPausedCueSignature !== subtitleCueSignature(cue)) this.shadowAutoPausedCueSignature = '';
         this.seekVideoTo(Math.max(0, cue.start + padding));
         // Deliberate navigation (line click, Previous/Next) re-engages
         // auto-follow even if the viewer had manually scrolled moments ago.
@@ -4876,11 +4891,23 @@ export class SubtitlePlayerController {
     private replayShadowCue(): void {
         const cue = this.currentCue;
         if (!cue || !this.video) return;
+        this.shadowAutoPausedCueSignature = '';
         this.seekVideoTo(Math.max(0, cue.start));
         this.currentCue = cue;
         // Replaying while looping re-pins the loop to the line you just replayed.
         if (this.shadowLoopEnabled) this.shadowLoopCue = cue;
+        this.playShadowModelLine();
         this.renderShadowPanel(true);
+    }
+
+    private playShadowModelLine(): void {
+        if (!this.video) return;
+        try {
+            const result = this.video.play();
+            if (result && typeof result.catch === 'function') void result.catch(() => undefined);
+        } catch {
+            // Some pages or test environments block programmatic playback.
+        }
     }
 
     private toggleShadowLoop(): void {
@@ -4888,6 +4915,14 @@ export class SubtitlePlayerController {
         this.shadowLoopCue = this.shadowLoopEnabled ? this.currentCue : undefined;
         if (this.shadowLoopEnabled) this.replayShadowCue();
         else this.renderShadowPanel(true);
+    }
+
+    private toggleShadowAutoPause(): void {
+        const settings = this.options.getSettings();
+        settings.subtitleShadowAutoPause = !settings.subtitleShadowAutoPause;
+        this.shadowAutoPausedCueSignature = '';
+        this.options.onSettingsChange();
+        this.renderShadowPanel(true);
     }
 
     private toggleShadowText(): void {
@@ -4903,6 +4938,9 @@ export class SubtitlePlayerController {
         if (!this.shadowLoopEnabled || !this.video) return;
         const cue = this.shadowLoopCue ?? this.currentCue;
         if (!cue) return;
+        if (this.video.paused
+            && this.options.getSettings().subtitleShadowAutoPause
+            && this.shadowAutoPausedCueSignature === subtitleCueSignature(cue)) return;
         const time = this.video.currentTime;
         if (time >= cue.end - 0.05 || time < cue.start - 0.3) {
             this.seekVideoTo(Math.max(0, cue.start));
@@ -4912,6 +4950,21 @@ export class SubtitlePlayerController {
                 this.renderShadowPanel(true);
             }
         }
+    }
+
+    private syncShadowAutoPause(): void {
+        const settings = this.options.getSettings();
+        if (!settings.subtitleShadowAutoPause || this.panelMode !== 'shadow' || !this.video || this.video.paused || !this.currentCue) return;
+        const cue = this.currentCue;
+        const signature = subtitleCueSignature(cue);
+        if (this.shadowAutoPausedCueSignature === signature) return;
+        const time = this.video.currentTime;
+        if (time < cue.start - 0.05 || time < cue.end - 0.05) return;
+        this.shadowAutoPausedCueSignature = signature;
+        this.video.pause();
+        this.clearShadowRecordingIfCueChanged(cue);
+        this.renderShadowPanel(true);
+        this.syncControls();
     }
 
     // Neighbours of a cue in the primary cue list (by identity, falling back to
@@ -4935,9 +4988,10 @@ export class SubtitlePlayerController {
 
     private async toggleShadowRecording(): Promise<void> {
         if (this.shadowRecorder && this.shadowRecorder.state !== 'inactive') {
-            this.shadowRecorder.stop();
+            this.stopShadowRecording();
             return;
         }
+        const cue = this.currentCue;
         const mediaDevices = navigator.mediaDevices;
         if (!mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
             this.shadowRecordingUnavailable = true;
@@ -4945,6 +4999,8 @@ export class SubtitlePlayerController {
             return;
         }
         try {
+            this.clearShadowRecording();
+            if (this.video && !this.video.paused) this.video.pause();
             const stream = await mediaDevices.getUserMedia({ audio: true });
             const recorder = new MediaRecorder(stream);
             const chunks: Blob[] = [];
@@ -4952,17 +5008,26 @@ export class SubtitlePlayerController {
                 if (event.data && event.data.size) chunks.push(event.data);
             });
             recorder.addEventListener('stop', () => {
+                const recordingSignature = this.shadowRecordingCueSignature;
+                this.shadowRecordingStopTimer = clearWindowTimeout(this.shadowRecordingStopTimer);
                 stream.getTracks().forEach(track => track.stop());
-                this.clearShadowRecording();
-                if (chunks.length) {
+                if (!this.shadowRecordingDiscard && chunks.length) {
+                    this.clearShadowRecording();
                     this.shadowRecordingUrl = URL.createObjectURL(new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
+                    this.shadowRecordingCueSignature = recordingSignature;
                 }
+                if (!this.shadowRecordingDiscard && !chunks.length) this.clearShadowRecording();
+                if (this.shadowRecordingDiscard) this.clearShadowRecording();
+                this.shadowRecordingDiscard = false;
                 this.shadowRecorder = undefined;
                 this.renderShadowPanel(true);
             });
             this.shadowRecordingUnavailable = false;
             this.shadowRecorder = recorder;
+            this.shadowRecordingCueSignature = cue ? subtitleCueSignature(cue) : '';
+            this.shadowRecordingDiscard = false;
             recorder.start();
+            this.scheduleShadowRecordingStop(cue);
             this.renderShadowPanel(true);
         } catch (error) {
             log.warn('Shadow self-recording unavailable', error);
@@ -4975,26 +5040,60 @@ export class SubtitlePlayerController {
     private playShadowRecording(): void {
         if (!this.shadowRecordingUrl) return;
         try {
-            void new Audio(this.shadowRecordingUrl).play().catch(() => undefined);
+            if (this.video && !this.video.paused) this.video.pause();
+            this.shadowPlaybackAudio?.pause();
+            const audio = new Audio(this.shadowRecordingUrl);
+            this.shadowPlaybackAudio = audio;
+            audio.addEventListener('ended', () => {
+                if (this.shadowPlaybackAudio === audio) this.shadowPlaybackAudio = undefined;
+            }, { once: true });
+            void audio.play().catch(() => undefined);
         } catch {
             // Playback can throw in hardened contexts; ignore so the panel stays usable.
         }
     }
 
+    private stopShadowRecording(options: { discard?: boolean } = {}): void {
+        if (!this.shadowRecorder || this.shadowRecorder.state === 'inactive') return;
+        this.shadowRecordingDiscard = this.shadowRecordingDiscard || options.discard === true;
+        this.shadowRecordingStopTimer = clearWindowTimeout(this.shadowRecordingStopTimer);
+        try {
+            this.shadowRecorder.stop();
+        } catch {
+            this.shadowRecorder = undefined;
+        }
+    }
+
+    private scheduleShadowRecordingStop(cue: SubtitleCue | undefined): void {
+        this.shadowRecordingStopTimer = clearWindowTimeout(this.shadowRecordingStopTimer);
+        if (!cue) return;
+        const durationMs = Math.max(1200, Math.min(15000, Math.round((cue.end - cue.start) * 1000) + 800));
+        this.shadowRecordingStopTimer = window.setTimeout(() => this.stopShadowRecording(), durationMs);
+    }
+
     private clearShadowRecording(): void {
+        this.shadowRecordingStopTimer = clearWindowTimeout(this.shadowRecordingStopTimer);
+        if (this.shadowRecorder && this.shadowRecorder.state !== 'inactive') this.stopShadowRecording({ discard: true });
+        this.shadowPlaybackAudio?.pause();
+        this.shadowPlaybackAudio = undefined;
         if (this.shadowRecordingUrl) {
             URL.revokeObjectURL(this.shadowRecordingUrl);
             this.shadowRecordingUrl = undefined;
         }
+        this.shadowRecordingCueSignature = '';
     }
 
     private resetShadowPracticeState(): void {
         this.shadowLoopEnabled = false;
         this.shadowLoopCue = undefined;
-        if (this.shadowRecorder && this.shadowRecorder.state !== 'inactive') {
-            try { this.shadowRecorder.stop(); } catch { /* already stopping */ }
-        }
-        this.shadowRecorder = undefined;
+        this.shadowAutoPausedCueSignature = '';
+        this.clearShadowRecording();
+    }
+
+    private clearShadowRecordingIfCueChanged(cue: SubtitleCue | undefined): void {
+        if (!this.shadowRecordingCueSignature) return;
+        const nextSignature = cue ? subtitleCueSignature(cue) : '';
+        if (nextSignature === this.shadowRecordingCueSignature) return;
         this.clearShadowRecording();
     }
 
@@ -5270,6 +5369,9 @@ export class SubtitlePlayerController {
             secondary ? subtitleCueSignature(secondary) : '',
             parseKey,
             this.shadowLoopEnabled,
+            this.options.getSettings().subtitleShadowAutoPause,
+            this.options.getSettings().subtitleNativeBlurred,
+            this.options.getSettings().subtitleSecondaryVisible,
             this.shadowTextVisible,
             this.shadowRecorder && this.shadowRecorder.state !== 'inactive' ? 'rec' : '',
             this.shadowRecordingUrl ? 'has-rec' : '',
@@ -5364,7 +5466,10 @@ export class SubtitlePlayerController {
     private renderShadowSecondaryLine(state: ShadowPanelRenderState): string {
         if (!state.settings.subtitleSecondaryVisible) return '';
         const text = state.secondary?.text.trim();
-        return text ? `<div class="jpdb-subtitle-shadow-secondary">${escapeWithBreaks(text)}</div>` : '';
+        if (!text) return '';
+        const blurClass = state.settings.subtitleNativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
+        const label = uiText(state.settings.interfaceLanguage, 'toggleNativeSubtitleBlur');
+        return `<button class="jpdb-subtitle-shadow-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${escapeWithBreaks(text)}</button>`;
     }
 
     private renderShadowActions(language: ReaderSettings['interfaceLanguage']): string {
@@ -5375,6 +5480,7 @@ export class SubtitlePlayerController {
         return `
             ${this.renderShadowAction('shadow-replay', this.shadowActionLabel(language, 'replay'), 'repeat', false)}
             ${this.renderShadowAction('shadow-loop', this.shadowActionLabel(language, loopAction), 'repeat', this.shadowLoopEnabled)}
+            ${this.renderShadowAction('shadow-auto-pause', this.shadowActionLabel(language, 'auto-pause'), 'pause', this.options.getSettings().subtitleShadowAutoPause)}
             ${this.renderShadowAction('shadow-toggle-text', uiText(language, this.shadowTextVisible ? 'hide' : 'show'), toggleIcon, !this.shadowTextVisible)}
             ${this.renderShadowAction('shadow-record', recordLabel, recording ? 'stop' : 'mic', recording)}
             ${this.shadowRecordingUrl ? this.renderShadowAction('shadow-play-recording', this.shadowActionLabel(language, 'play-recording'), 'play', false) : ''}
@@ -5386,12 +5492,13 @@ export class SubtitlePlayerController {
         return `<button class="jpdb-subtitle-shadow-action" type="button" data-action="${action}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${pressed}">${subtitleIcon(icon)}<span>${escapeHtml(label)}</span></button>`;
     }
 
-    private shadowActionLabel(language: ReaderSettings['interfaceLanguage'], action: 'replay' | 'loop' | 'stop' | 'record' | 'stop-record' | 'play-recording' | 'record-unavailable'): string {
+    private shadowActionLabel(language: ReaderSettings['interfaceLanguage'], action: 'replay' | 'loop' | 'stop' | 'auto-pause' | 'record' | 'stop-record' | 'play-recording' | 'record-unavailable'): string {
         const japanese = resolveUiLanguage(language) === 'ja';
         switch (action) {
             case 'replay': return japanese ? '再生' : 'Replay';
             case 'loop': return japanese ? 'ループ' : 'Loop';
             case 'stop': return japanese ? '停止' : 'Stop';
+            case 'auto-pause': return japanese ? '自動停止' : 'Auto pause';
             case 'record': return japanese ? '録音' : 'Record';
             case 'stop-record': return japanese ? '録音停止' : 'Stop';
             case 'play-recording': return japanese ? '録音を再生' : 'Play yours';

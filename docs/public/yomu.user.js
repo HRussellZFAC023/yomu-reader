@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.5.4
+// @version 1.5.5
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.4
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.4
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.4
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.4
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.5
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.5
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.5
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.5
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect bookwalker.jp
 // @connect viewer.bookwalker.jp
@@ -2709,6 +2709,7 @@ const SUBTITLE_BOOLEAN_SETTING_KEYS = [
   "subtitleNativeBlurred",
   "subtitleKaraokeMode",
   "subtitlePausePanel",
+  "subtitleShadowAutoPause",
   "subtitleAutoCopyLine",
   "subtitleCopyIncludeTranslation",
   "subtitleMiningPause",
@@ -2958,6 +2959,7 @@ const DEFAULT_SETTINGS = {
   subtitleKaraokeMode: true,
   subtitleTranscriptVisible: false,
   subtitlePausePanel: false,
+  subtitleShadowAutoPause: false,
   subtitleTranscriptPlacement: "right",
   subtitleTranscriptAutoScroll: true,
   subtitleTranscriptAutoScrollResumeSeconds: 30,
@@ -8248,6 +8250,7 @@ const COPY = {
   subtitleKaraokeMode: "Karaoke word timing",
   subtitleTranscriptVisible: "Open transcript panel by default",
   subtitlePausePanel: "Open side panel when paused",
+  subtitleShadowAutoPause: "Auto-pause after each shadow line",
   subtitleTranscriptPlacement: "Transcript panel position",
   subtitleTranscriptAutoScroll: "Scroll transcript with playback",
   subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
@@ -9913,6 +9916,7 @@ subtitleNativeBlurred	ホバーするまでネイティブ字幕をぼかす
 subtitleKaraokeMode	カラオケ風の単語タイミング
 subtitleTranscriptVisible	文字起こしパネルを標準で開く
 subtitlePausePanel	一時停止時にサイドパネルを開く
+subtitleShadowAutoPause	シャドー中は各行の後で一時停止
 subtitleTranscriptPlacement	文字起こしパネル位置
 subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
 subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
@@ -37994,7 +37998,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.4"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.5"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

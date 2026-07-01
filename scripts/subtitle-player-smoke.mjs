@@ -364,6 +364,52 @@ async function grantMicrophonePermission(page, targetUrl) {
     }
 }
 
+async function installSmokeMediaRecorder(page) {
+    await page.addInitScript(() => {
+        const fakeStream = {
+            getTracks: () => [{ stop: () => undefined }],
+        };
+        const existingMediaDevices = navigator.mediaDevices ?? {};
+        Object.defineProperty(navigator, 'mediaDevices', {
+            configurable: true,
+            value: {
+                ...existingMediaDevices,
+                getUserMedia: async () => fakeStream,
+            },
+        });
+        window.MediaRecorder = class SmokeMediaRecorder extends EventTarget {
+            static isTypeSupported() {
+                return true;
+            }
+
+            constructor(stream) {
+                super();
+                this.stream = stream;
+                this.mimeType = 'audio/webm';
+                this.state = 'inactive';
+            }
+
+            start() {
+                this.state = 'recording';
+            }
+
+            stop() {
+                if (this.state === 'inactive') return;
+                this.state = 'inactive';
+                window.setTimeout(() => {
+                    const event = new Event('dataavailable');
+                    Object.defineProperty(event, 'data', {
+                        configurable: true,
+                        value: new Blob(['yomu smoke audio'], { type: this.mimeType }),
+                    });
+                    this.dispatchEvent(event);
+                    this.dispatchEvent(new Event('stop'));
+                }, 0);
+            }
+        };
+    });
+}
+
 async function ensureUserscript(page) {
     const hasRoot = await page.locator('.jpdb-subtitle-player').count();
     if (!hasRoot) {
@@ -457,6 +503,7 @@ async function installUserscriptBridge(page, css) {
 
 async function runLocalSmoke(browser) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+    await installSmokeMediaRecorder(page);
     await grantMicrophonePermission(page, localUrl);
     page.on('pageerror', error => {
         console.error('PAGE ERROR:', error);

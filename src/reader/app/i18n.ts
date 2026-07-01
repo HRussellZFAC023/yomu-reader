@@ -433,6 +433,7 @@ const COPY = {
         subtitleKaraokeMode: 'Karaoke word timing',
         subtitleTranscriptVisible: 'Open transcript panel by default',
         subtitlePausePanel: 'Open side panel when paused',
+        subtitleShadowAutoPause: 'Auto-pause after each shadow line',
         subtitleTranscriptPlacement: 'Transcript panel position',
         subtitleTranscriptAutoScroll: 'Scroll transcript with playback',
         subtitleTranscriptAutoScrollResumeSeconds: 'Resume auto-scroll delay (s)',
@@ -2104,6 +2105,7 @@ subtitleNativeBlurred	ホバーするまでネイティブ字幕をぼかす
 subtitleKaraokeMode	カラオケ風の単語タイミング
 subtitleTranscriptVisible	文字起こしパネルを標準で開く
 subtitlePausePanel	一時停止時にサイドパネルを開く
+subtitleShadowAutoPause	シャドー中は各行の後で一時停止
 subtitleTranscriptPlacement	文字起こしパネル位置
 subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
 subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)

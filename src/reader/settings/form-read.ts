@@ -545,6 +545,7 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
         subtitleKaraokeMode: has('subtitleKaraokeMode'),
         subtitleTranscriptVisible: has('subtitleTranscriptVisible'),
         subtitlePausePanel: has('subtitlePausePanel'),
+        subtitleShadowAutoPause: has('subtitleShadowAutoPause'),
         subtitleTranscriptPlacement: readOption(get('subtitleTranscriptPlacement'), ['right', 'left', 'bottom'] as const, current.subtitleTranscriptPlacement),
         subtitleTranscriptAutoScroll: has('subtitleTranscriptAutoScroll'),
         subtitleTranscriptAutoScrollResumeSeconds: clamped('subtitleTranscriptAutoScrollResumeSeconds', 1, 30, current.subtitleTranscriptAutoScrollResumeSeconds),

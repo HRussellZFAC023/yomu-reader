@@ -17869,6 +17869,7 @@ describe('reader helpers', () => {
         expect(DEFAULT_SETTINGS.subtitleSecondaryVisible).toBe(false);
         expect(DEFAULT_SETTINGS.subtitleNativeBlurred).toBe(true);
         expect(DEFAULT_SETTINGS.subtitleKaraokeMode).toBe(true);
+        expect(DEFAULT_SETTINGS.subtitleShadowAutoPause).toBe(false);
         expect(DEFAULT_SETTINGS.subtitleBackgroundOpacity).toBe(0);
     });
 

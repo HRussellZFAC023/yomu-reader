@@ -1576,6 +1576,7 @@ describe('settings form localization', () => {
         const customSubtitleFontFamily = form.querySelector<HTMLInputElement>('input[name="subtitleFontFamilyCustom"]')!;
         const fontWeight = form.querySelector<HTMLInputElement>('input[name="popupFontWeight"]')!;
         const pausePanel = form.querySelector<HTMLInputElement>('input[name="subtitlePausePanel"]')!;
+        const shadowAutoPause = form.querySelector<HTMLInputElement>('input[name="subtitleShadowAutoPause"]')!;
         const previousWord = form.querySelector<HTMLInputElement>('input[name="shortcuts.previousLookupWord"]')!;
         const nextWord = form.querySelector<HTMLInputElement>('input[name="shortcuts.nextLookupWord"]')!;
         const previousSubtitle = form.querySelector<HTMLInputElement>('input[name="shortcuts.previousSubtitle"]')!;
@@ -1608,6 +1609,7 @@ describe('settings form localization', () => {
         expect(subtitleFontFamily.value).toBe(DEFAULT_SETTINGS.subtitleFontFamily);
         expect(fontWeight.value).toBe('400');
         expect(pausePanel.checked).toBe(false);
+        expect(shadowAutoPause.checked).toBe(false);
         expect(form.querySelector('select[name="subtitleTranscriptPlacement"]')).toBeNull();
         expect(previousWord.value).toBe('Shift+ArrowLeft');
         expect(nextWord.value).toBe('Shift+ArrowRight');
@@ -1624,6 +1626,7 @@ describe('settings form localization', () => {
         customSubtitleFontFamily.value = '"Yu Mincho", serif';
         fontWeight.value = '420';
         pausePanel.checked = true;
+        shadowAutoPause.checked = true;
         previousWord.value = 'Alt+H';
         nextWord.value = 'Alt+L';
         previousSubtitle.value = 'Shift+A';
@@ -1637,6 +1640,7 @@ describe('settings form localization', () => {
         expect(saved.subtitleFontFamily).toBe('"Yu Mincho", serif');
         expect(saved.popupFontWeight).toBe(420);
         expect(saved.subtitlePausePanel).toBe(true);
+        expect(saved.subtitleShadowAutoPause).toBe(true);
         expect(saved.subtitleTranscriptPlacement).toBe('bottom');
         expect(saved.shortcuts.previousLookupWord).toBe('Alt+H');
         expect(saved.shortcuts.nextLookupWord).toBe('Alt+L');
@@ -2026,6 +2030,7 @@ describe('settings form localization', () => {
         expect(labelForControl(form, 'popupFontFamily')).toContain('ポップアップの日本語フォント');
         expect(labelForControl(form, 'subtitleFontFamily')).toContain('字幕フォントファミリー');
         expect(labelForControl(form, 'subtitlePausePanel')).toContain('一時停止時にサイドパネルを開く');
+        expect(labelForControl(form, 'subtitleShadowAutoPause')).toContain('シャドー中は各行の後で一時停止');
         expect(labelForControl(form, 'shortcuts.nextLookupWord')).toContain('次の単語');
         expect(labelForControl(form, 'shortcuts.studyReveal')).toContain('学習: カードを表示');
         expect(labelForControl(form, 'shortcuts.studyNext')).toContain('学習: 次のカード');

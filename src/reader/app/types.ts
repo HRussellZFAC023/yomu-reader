@@ -427,6 +427,7 @@ export interface ReaderSettings {
     subtitleKaraokeMode: boolean;
     subtitleTranscriptVisible: boolean;
     subtitlePausePanel: boolean;
+    subtitleShadowAutoPause: boolean;
     subtitleTranscriptPlacement: SubtitleTranscriptPlacement;
     subtitleTranscriptAutoScroll: boolean;
     // Seconds a manual transcript scroll pauses auto-follow before it resumes.

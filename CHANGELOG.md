@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.5] - 2026-07-01
+
+### Fixed
+
+- Kept video subtitle panel controls visible after transcript scans by letting rail and drawer actions wrap instead of clipping inside narrow panels.
+- Blurred the Shadow mode native/English translation until learners reveal it, matching the overlay translation reveal behavior.
+- Made Shadow Record and Play yours line-aware: recording pauses the source video, auto-stops near the subtitle duration, restarts playback cleanly, and clears the take when moving to another line.
+- Added a Shadow auto-pause toggle so sentence-by-sentence practice can pause automatically after each subtitle cue.
+
 ## [1.5.4] - 2026-07-01
 
 ### Fixed
