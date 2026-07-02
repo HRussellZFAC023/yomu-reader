@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.2
+// @version 1.6.3
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.2
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.2
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.2
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.2
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.3
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.3
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.3
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.3
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -2621,7 +2621,7 @@ const SETTINGS_STORAGE_KEYS = [
   SETTINGS_STORAGE_KEY,
   ...LEGACY_SETTINGS_STORAGE_KEYS
 ];
-const log$m = Logger.scope("Settings");
+const log$l = Logger.scope("Settings");
 let settingsResetInProgress = false;
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
 const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
@@ -3046,7 +3046,7 @@ const DEFAULT_SETTINGS = {
   popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
   popupFontWeight: 400,
   jpdbMiningEnabled: true,
-  bunproMiningEnabled: false,
+  bunproMiningEnabled: true,
   yomuLocalSrsEnabled: true,
   apiGradingProvider: "jiten",
   miningDeck: "forq",
@@ -3807,7 +3807,7 @@ function applyUrlBootstrapSettings(settings, search = location.search) {
   const params = new URLSearchParams(search);
   const bootstrap = urlBootstrapSettings(params);
   if (!hasUrlBootstrapSettings(bootstrap)) return settings;
-  log$m.info("Applying URL bootstrap settings", {
+  log$l.info("Applying URL bootstrap settings", {
   hasApiKey: Boolean(bootstrap.apiKey),
   hasAudio: Boolean(bootstrap.audio),
   hasOcr: Boolean(bootstrap.ocr)
@@ -3879,7 +3879,7 @@ async function loadSettings() {
   if (recoveredLegacySettings) await persistSettings(settings);
   return settings;
   } catch (error) {
-  log$m.warn("Settings load failed", { error });
+  log$l.warn("Settings load failed", { error });
   return mergeSettings(null);
   }
 }
@@ -3905,13 +3905,13 @@ function subscribeToSettingsStorageChanges(onSettings) {
 }
 async function saveSettings(settings) {
   if (settingsResetInProgress) {
-  log$m.warn("Skipped save during reset");
+  log$l.warn("Skipped save during reset");
   return;
   }
   try {
   await persistSettings(settings);
   } catch (error) {
-  log$m.warn("Settings save failed", { error });
+  log$l.warn("Settings save failed", { error });
   throw error;
   }
 }
@@ -8718,6 +8718,8 @@ const COPY = {
   hideMiningActions: "Hide mining actions",
   switchReviewTarget: "Switch review target",
   switchGradingProvider: "Switch grading provider",
+  apiGradingProvider: "Preferred grading service",
+  apiGradingProviderHelp: "Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.",
   jpdbKanjiUpdated: "JPDB kanji updated.",
   jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
   apiSrsActionsDisabled: "API mining actions are disabled in settings.",
@@ -9152,6 +9154,8 @@ showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
 switchReviewTarget	採点先を切り替える
 switchGradingProvider	採点サービスを切り替える
+apiGradingProvider	優先採点サービス
+apiGradingProviderHelp	JitenとJPDBの両方にある単語をどちらで採点するかの設定です。BunproのカードはBunproで採点されます。採点ボタン横の⇄で単語ごとに切り替えできます。
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -11740,7 +11744,7 @@ const SOFT_CHIME_NOTES = [
   { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
 ];
 const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-const log$l = Logger.scope("Audio");
+const log$k = Logger.scope("Audio");
 class AudioPlaybackAttemptError extends Error {
   constructor(error) {
   super(error instanceof Error ? error.message : String(error));
@@ -11778,7 +11782,7 @@ class AudioPlayer {
   const reservedAudio = this.takeGestureAudioElement(request) ?? this.reserveGestureAudioElement(request);
   this.stopCurrent(reservedAudio);
   if (!request.sources.length) return await this.playNoAudioSources(card, request);
-  const done = log$l.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+  const done = log$k.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
   const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, request.userGesture, reservedAudio);
   done();
   return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, request.userGesture, result);
@@ -11833,14 +11837,14 @@ class AudioPlayer {
   if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
   }
   async playNoAudioSources(card, request) {
-  log$l.warn("No audio sources configured", { term: card.spelling });
+  log$k.warn("No audio sources configured", { term: card.spelling });
   return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent, request.userGesture);
   }
   async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result) {
   if (result.state === "played") return true;
   if (result.state === "playback-error") return false;
   if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-  log$l.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+  log$k.warn("No playable audio found", { term: card.spelling, errors: result.errors });
   return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture);
   }
   async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio) {
@@ -12006,7 +12010,7 @@ class AudioPlayer {
     void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, userGesture).catch((error) => {
       const audioId = audioIds[index];
       if (audioId) this.markJpdbAudioUnavailable(audioId);
-      log$l.warn("JPDB grouped audio segment failed", { audioId }, error);
+      log$k.warn("JPDB grouped audio segment failed", { audioId }, error);
     });
   }, { once: true });
   }
@@ -12085,7 +12089,7 @@ class AudioPlayer {
     const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate, sourceType, reservedAudio).catch(() => void 0);
     if (fallbackAudio) {
       audio = fallbackAudio;
-      log$l.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
+      log$k.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
     } else {
       errors.push(audioErrorMessage(error));
       if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
@@ -13112,7 +13116,7 @@ function isDisabledControl(control) {
   if (control.closest('[aria-disabled="true"]')) return true;
   return control.matches(":disabled, fieldset[disabled] *");
 }
-const log$k = Logger.scope("CardStateSignal");
+const log$j = Logger.scope("CardStateSignal");
 const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
 const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
 const SEEN_SIGNAL_LIMIT = 32;
@@ -13150,7 +13154,7 @@ function publishCardStateSignal(card) {
   try {
   gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
   } catch (error) {
-  log$k.debug("GM card-state publish failed", error);
+  log$j.debug("GM card-state publish failed", error);
   }
   publishBroadcastCardStateSignal(signal);
 }
@@ -13161,7 +13165,7 @@ function publishBroadcastCardStateSignal(signal) {
   channel.postMessage(signal);
   channel.close();
   } catch (error) {
-  log$k.debug("Broadcast card-state publish failed", error);
+  log$j.debug("Broadcast card-state publish failed", error);
   }
 }
 function subscribeToCardStateSignals(onCard) {
@@ -13185,7 +13189,7 @@ function subscribeToCardStateSignals(onCard) {
       if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
     });
   } catch (error) {
-    log$k.debug("GM card-state listener failed", error);
+    log$j.debug("GM card-state listener failed", error);
   }
   }
   if (typeof BroadcastChannel === "function") {
@@ -13194,7 +13198,7 @@ function subscribeToCardStateSignals(onCard) {
     channel.onmessage = (event) => handle(event.data);
     cleanups.push(() => channel.close());
   } catch (error) {
-    log$k.debug("Broadcast card-state listener failed", error);
+    log$j.debug("Broadcast card-state listener failed", error);
   }
   }
   return () => cleanups.forEach((cleanup) => cleanup());
@@ -13224,818 +13228,11 @@ function parseCardStateSignal(value) {
   }
   };
 }
-function createHandleDragController(options) {
-  let state = initialDragState();
-  let pointerId = 0;
-  let touchId = 0;
-  let dragging = false;
-  let moved = false;
-  let activeInput = null;
-  let activeHandle = null;
-  let activeCaptureTarget = null;
-  const movementDistance = options.movementDistance ?? ((dragState) => Math.hypot(dragState.deltaX, dragState.deltaY));
-  const setLastPoint = (point) => {
-  state = {
-    ...state,
-    lastX: point.x,
-    lastY: point.y,
-    deltaX: point.x - state.startX,
-    deltaY: point.y - state.startY
-  };
-  };
-  const updateDrag = (point) => {
-  if (!activeHandle) return;
-  setLastPoint(point);
-  if (movementDistance(state) > options.tapMovementPx) moved = true;
-  options.onUpdate?.(state, activeHandle);
-  };
-  const beginDrag = (handle, point, input) => {
-  if (dragging || activeInput) return false;
-  state = {
-    startX: point.x,
-    startY: point.y,
-    lastX: point.x,
-    lastY: point.y,
-    deltaX: 0,
-    deltaY: 0
-  };
-  dragging = true;
-  moved = false;
-  activeInput = input;
-  activeHandle = handle;
-  options.onBegin?.(handle, state, input);
-  return true;
-  };
-  const finishDrag = () => {
-  if (!dragging) return;
-  const wasMoved = moved;
-  const handle = activeHandle;
-  const captureTarget = activeCaptureTarget;
-  dragging = false;
-  moved = false;
-  activeInput = null;
-  activeHandle = null;
-  activeCaptureTarget = null;
-  cleanupListeners();
-  releasePointerCapture(captureTarget, pointerId);
-  options.onFinish(state, wasMoved, handle);
-  };
-  function cleanupListeners() {
-  if (typeof document === "undefined") return;
-  document.removeEventListener("pointermove", handlePointerMove, true);
-  document.removeEventListener("pointerup", handlePointerUp, true);
-  document.removeEventListener("pointercancel", handlePointerCancel, true);
-  document.removeEventListener("touchmove", handleTouchMove, true);
-  document.removeEventListener("touchend", handleTouchEnd, true);
-  document.removeEventListener("touchcancel", handleTouchCancel, true);
-  }
-  function cancel() {
-  if (!dragging) return;
-  const handle = activeHandle;
-  const captureTarget = activeCaptureTarget;
-  dragging = false;
-  moved = false;
-  activeInput = null;
-  activeHandle = null;
-  activeCaptureTarget = null;
-  cleanupListeners();
-  releasePointerCapture(captureTarget, pointerId);
-  options.onCancel?.(state, handle);
-  }
-  function handlePointerMove(event) {
-  if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
-  consumeDragEvent(event);
-  updateDrag({ x: event.clientX, y: event.clientY });
-  }
-  function handlePointerUp(event) {
-  if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
-  consumeDragEvent(event);
-  if (options.updateOnEnd) updateDrag({ x: event.clientX, y: event.clientY });
-  else setLastPoint({ x: event.clientX, y: event.clientY });
-  finishDrag();
-  }
-  function handlePointerCancel(event) {
-  if (activeInput !== "pointer" || event.pointerId !== pointerId) return;
-  cancel();
-  }
-  function handleTouchMove(event) {
-  if (!dragging || activeInput !== "touch") return;
-  const touch = changedTouch(event, touchId);
-  if (!touch) return;
-  consumeDragEvent(event);
-  updateDrag({ x: touch.clientX, y: touch.clientY });
-  }
-  function handleTouchEnd(event) {
-  if (!dragging || activeInput !== "touch") return;
-  const touch = changedTouch(event, touchId);
-  if (!touch) return;
-  consumeDragEvent(event);
-  if (options.updateOnEnd) updateDrag({ x: touch.clientX, y: touch.clientY });
-  else setLastPoint({ x: touch.clientX, y: touch.clientY });
-  finishDrag();
-  }
-  function handleTouchCancel(event) {
-  if (activeInput !== "touch" || !changedTouch(event, touchId)) return;
-  cancel();
-  }
-  return {
-  isDragging: () => dragging,
-  pointerDown(handle, event) {
-    if (activeInput) return;
-    if (event.button !== void 0 && event.button !== 0) return;
-    consumeDragEvent(event);
-    if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, "pointer")) return;
-    pointerId = event.pointerId;
-    activeCaptureTarget = event.target instanceof Element ? event.target : handle;
-    setPointerCapture(activeCaptureTarget, event.pointerId);
-    document.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
-    document.addEventListener("pointerup", handlePointerUp, true);
-    document.addEventListener("pointercancel", handlePointerCancel, true);
-  },
-  touchStart(handle, event) {
-    if (activeInput) return;
-    const touch = firstChangedTouch(event);
-    if (!touch) return;
-    consumeDragEvent(event);
-    if (!beginDrag(handle, { x: touch.clientX, y: touch.clientY }, "touch")) return;
-    touchId = touch.identifier;
-    document.addEventListener("touchmove", handleTouchMove, { capture: true, passive: false });
-    document.addEventListener("touchend", handleTouchEnd, true);
-    document.addEventListener("touchcancel", handleTouchCancel, true);
-  },
-  cancel,
-  cleanupListeners
-  };
-}
-function initialDragState() {
-  return {
-  startX: 0,
-  startY: 0,
-  lastX: 0,
-  lastY: 0,
-  deltaX: 0,
-  deltaY: 0
-  };
-}
-function getContainedClosest(target, root, selector, onFound) {
-  if (!(target instanceof Element)) return null;
-  const element2 = target.closest(selector);
-  if (!element2 || !root.contains(element2)) return null;
-  onFound?.(element2);
-  return element2;
-}
-function consumeDragEvent(event) {
-  event.preventDefault();
-  event.stopPropagation();
-}
-function changedTouch(event, touchId) {
-  for (const touch of Array.from(event.changedTouches)) {
-  if (touch.identifier === touchId) return touch;
-  }
-  return null;
-}
-function firstChangedTouch(event) {
-  return event.changedTouches.item(0);
-}
-function releasePointerCapture(handle, id) {
-  try {
-  handle?.releasePointerCapture?.(id);
-  } catch {
-  }
-}
-function setPointerCapture(handle, id) {
-  try {
-  handle.setPointerCapture?.(id);
-  } catch {
-  }
-}
-function addViewportChangeListeners(listener, signal) {
-  const options = { passive: true, signal };
-  window.addEventListener("resize", listener, options);
-  window.addEventListener("orientationchange", listener, options);
-  window.visualViewport?.addEventListener?.("resize", listener, options);
-  window.visualViewport?.addEventListener?.("scroll", listener, options);
-}
-const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
-const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
-const MIN_SHEET_HEIGHT_PX = 180;
-const SHEET_DISMISS_OVERSHOOT_PX = 72;
-const SHEET_DISMISS_CLICK_SUPPRESSION_MS = 700;
-const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
-const SHEET_TAP_MOVEMENT_PX = 8;
-const SHEET_KEYBOARD_STEP_PX = 48;
-const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
-const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
-const AUTO_SHEET_COMPACT_WIDTH_PX = 768;
-const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
-const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
-const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
-const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
-const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
-const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
-const POPOVER_BODY_ACTION_SELECTOR = [
-  "button",
-  '[role="button"]',
-  "input",
-  "select",
-  "textarea",
-  "[data-action]",
-  "[data-immersion-action]",
-  "[data-yomu-immersion-action]",
-  "[data-uchisen-action]"
-].join(",");
-function popoverScrollBody$1(popover) {
-  return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
-}
-function capturePopoverScrollFrame(target) {
-  const popover = target.closest(".jpdb-reader-popover") ?? target;
-  const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody$1(popover);
-  return { scrollBody, scrollTop: scrollBody.scrollTop };
-}
-function restorePopoverScrollFrame(frame) {
-  if (!frame.scrollBody.isConnected) return;
-  if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
-}
-function restorePopoverScrollFrameSoon(frame) {
-  restorePopoverScrollFrame(frame);
-  requestAnimationFrame(() => restorePopoverScrollFrame(frame));
-}
-function popoverBodyActionElement(target, scrollBody) {
-  const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
-  return action && scrollBody.contains(action) ? action : null;
-}
-function createReaderPopover(appName, settings) {
-  const popover = document.createElement("div");
-  popover.className = "jpdb-reader-popover";
-  popover.dataset.jpdbReaderRoot = "true";
-  popover.setAttribute("role", "dialog");
-  popover.setAttribute("aria-label", uiText(settings.interfaceLanguage, "lookupDialog") || `${appName} lookup`);
-  popover.setAttribute("aria-modal", "true");
-  popover.tabIndex = -1;
-  if (shouldUseSheet(settings)) popover.classList.add("jpdb-reader-sheet");
-  else popover.style.width = `${settings.popoverWidth}px`;
-  return popover;
-}
-function forceReaderPopoverSurface(popover, settings) {
-  popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] = "true";
-  refreshForcedReaderPopoverSurface(popover, settings);
-}
-function refreshForcedReaderPopoverSurface(popover, settings) {
-  if (popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] !== "true") return;
-  popover.classList.remove("jpdb-reader-sheet", "jpdb-reader-sheet-sticky", "jpdb-reader-sheet-expanded", "jpdb-reader-sheet-resizing");
-  popover.style.width = `${settings.popoverWidth}px`;
-  popover.style.height = "";
-  popover.style.minHeight = "";
-  popover.querySelectorAll(".jpdb-reader-sheet-handle, .jpdb-reader-sheet-close").forEach((element2) => element2.remove());
-}
-function createReaderBackdrop(onDismiss) {
-  const backdrop = document.createElement("div");
-  backdrop.className = "jpdb-reader-backdrop";
-  backdrop.dataset.jpdbReaderRoot = "true";
-  backdrop.addEventListener("mousedown", (event) => event.preventDefault());
-  backdrop.addEventListener("click", onDismiss);
-  return backdrop;
-}
-function popoverMaxHeightSetting(settings) {
-  return settings.popoverHeightMode === "fixed" ? settings.popoverHeight : void 0;
-}
-function suppressTrailingClickAfterSheetGestureDismiss() {
-  if (typeof window === "undefined") return;
-  let timer = 0;
-  const cleanup = () => {
-  if (timer) window.clearTimeout(timer);
-  window.removeEventListener("click", consume, true);
-  };
-  const consume = (event) => {
-  cleanup();
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  };
-  window.addEventListener("click", consume, { capture: true });
-  timer = window.setTimeout(cleanup, SHEET_DISMISS_CLICK_SUPPRESSION_MS);
-}
-function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup sheet, or tap to close") {
-  if (popover.dataset.jpdbReaderSheetHandleInstalled === "true") return;
-  popover.dataset.jpdbReaderSheetHandleInstalled = "true";
-  let viewportHeight = 0;
-  let sheetHeight = 0;
-  let startHeight = 0;
-  let rawDragHeight = 0;
-  const isFullHeight = () => viewportHeight > 0 && sheetHeight >= viewportHeight - SHEET_FULL_HEIGHT_THRESHOLD_PX;
-  const syncHandle = (handle) => {
-  handle.setAttribute("role", "button");
-  handle.setAttribute("tabindex", "0");
-  handle.setAttribute("aria-label", label);
-  handle.setAttribute("aria-expanded", String(isFullHeight()));
-  handle.setAttribute("aria-valuemin", String(sheetMinHeight(viewportHeight)));
-  handle.setAttribute("aria-valuemax", String(viewportHeight));
-  handle.setAttribute("aria-valuenow", String(Math.round(sheetHeight)));
-  };
-  const syncHandleState = () => {
-  popover.querySelectorAll(".jpdb-reader-sheet-handle").forEach(syncHandle);
-  };
-  const applySheetHeight = (height, persist = false) => {
-  const nextHeight = clampSheetHeight(height, viewportHeight);
-  sheetHeight = nextHeight;
-  popover.style.setProperty("--jpdb-reader-sheet-height", `${Math.round(nextHeight)}px`);
-  popover.classList.toggle("jpdb-reader-sheet-expanded", isFullHeight());
-  syncHandleState();
-  if (persist) storeSheetHeightRatio(nextHeight, viewportHeight);
-  };
-  const applyViewportSize = () => {
-  const previousViewportHeight = viewportHeight;
-  viewportHeight = Math.max(0, Math.round(window.visualViewport?.height ?? window.innerHeight));
-  popover.style.setProperty("--jpdb-reader-sheet-viewport-height", `${viewportHeight}px`);
-  popover.style.setProperty("--jpdb-reader-sheet-collapsed-height", `${Math.round(viewportHeight * DEFAULT_SHEET_HEIGHT_RATIO)}px`);
-  popover.style.setProperty("--jpdb-reader-sheet-min-height", `${sheetMinHeight(viewportHeight)}px`);
-  const ratio = previousViewportHeight > 0 && sheetHeight > 0 ? sheetHeight / previousViewportHeight : readSheetHeightRatio();
-  applySheetHeight(viewportHeight * ratio);
-  };
-  const clearSheetPositionStyles = () => {
-  popover.style.removeProperty("left");
-  popover.style.removeProperty("right");
-  popover.style.removeProperty("top");
-  popover.style.removeProperty("bottom");
-  popover.style.removeProperty("width");
-  popover.style.removeProperty("height");
-  popover.style.removeProperty("max-width");
-  popover.style.removeProperty("max-height");
-  };
-  const clearDragStyles = () => {
-  popover.style.transform = "";
-  popover.style.removeProperty("--jpdb-reader-sheet-drag-up");
-  popover.classList.remove("jpdb-reader-sheet-resizing");
-  };
-  const resetSheetLayout = () => {
-  clearSheetPositionStyles();
-  applyViewportSize();
-  clearDragStyles();
-  };
-  resetSheetLayout();
-  syncHandleState();
-  let handleObserver;
-  if (typeof MutationObserver !== "undefined") {
-  handleObserver = new MutationObserver(syncHandleState);
-  handleObserver.observe(popover, { childList: true, subtree: true });
-  }
-  let suppressNextHandleClick = false;
-  const getHandleFromEvent = (event) => getContainedClosest(event, popover, ".jpdb-reader-sheet-handle", syncHandle);
-  const reset = () => {
-  popover.style.transition = "height .16s ease, max-height .16s ease, border-radius .16s ease, transform .16s ease";
-  clearDragStyles();
-  window.setTimeout(() => {
-    popover.style.transition = "";
-  }, 180);
-  };
-  const dismissFromGesture = () => {
-  suppressTrailingClickAfterSheetGestureDismiss();
-  onDismiss();
-  };
-  const sheetDrag = createHandleDragController({
-  tapMovementPx: SHEET_TAP_MOVEMENT_PX,
-  movementDistance: (state) => Math.abs(state.deltaY),
-  onBegin: () => {
-    startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
-    rawDragHeight = startHeight;
-    popover.style.transition = "";
-    popover.classList.add("jpdb-reader-sheet-resizing");
-  },
-  onUpdate: (state) => {
-    rawDragHeight = startHeight - state.deltaY;
-    applySheetHeight(rawDragHeight);
-  },
-  onFinish: (_state, wasMoved) => {
-    const finishHeight = rawDragHeight;
-    popover.classList.remove("jpdb-reader-sheet-resizing");
-    if (!wasMoved) {
-      suppressNextHandleClick = true;
-      dismissFromGesture();
-      return;
-    }
-    suppressNextHandleClick = true;
-    if (finishHeight < sheetMinHeight(viewportHeight) - SHEET_DISMISS_OVERSHOOT_PX) {
-      dismissFromGesture();
-      return;
-    }
-    applySheetHeight(finishHeight, true);
-    reset();
-  },
-  onCancel: reset
-  });
-  const handleViewportChange = () => {
-  if (sheetDrag.isDragging()) sheetDrag.cancel();
-  popover.style.transition = "";
-  resetSheetLayout();
-  syncHandleState();
-  };
-  const viewportController = new AbortController();
-  let disposed = false;
-  let disposeObserver;
-  const dispose = () => {
-  if (disposed) return;
-  disposed = true;
-  sheetDrag.cleanupListeners();
-  viewportController.abort();
-  handleObserver?.disconnect();
-  disposeObserver?.disconnect();
-  };
-  disposeObserver = new MutationObserver(() => {
-  if (!popover.isConnected) dispose();
-  });
-  if (document.documentElement) {
-  disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
-  }
-  popover.addEventListener("click", (event) => {
-  const handle = getHandleFromEvent(event.target);
-  if (!handle) return;
-  event.preventDefault();
-  event.stopPropagation();
-  if (suppressNextHandleClick) {
-    suppressNextHandleClick = false;
-    return;
-  }
-  onDismiss();
-  });
-  popover.addEventListener("pointerdown", (event) => {
-  const handle = getHandleFromEvent(event.target);
-  if (!handle) return;
-  sheetDrag.pointerDown(handle, event);
-  });
-  popover.addEventListener("touchstart", (event) => {
-  const handle = getHandleFromEvent(event.target);
-  if (!handle) return;
-  sheetDrag.touchStart(handle, event);
-  }, { capture: true, passive: false });
-  popover.addEventListener("keydown", (event) => {
-  const handle = getHandleFromEvent(event.target);
-  if (!handle) return;
-  if (event.key === "Enter" || event.key === " ") {
-    event.preventDefault();
-    event.stopPropagation();
-    onDismiss();
-  }
-  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-    event.preventDefault();
-    event.stopPropagation();
-    applySheetHeight(sheetHeight + (event.key === "ArrowUp" ? SHEET_KEYBOARD_STEP_PX : -SHEET_KEYBOARD_STEP_PX), true);
-    reset();
-  }
-  if (event.key === "Escape") onDismiss();
-  });
-  addViewportChangeListeners(handleViewportChange, viewportController.signal);
-}
-function installSheetCloseButton(popover, onDismiss, label = "Close drawer") {
-  if (popover.dataset.jpdbReaderSheetCloseInstalled === "true") return;
-  popover.dataset.jpdbReaderSheetCloseInstalled = "true";
-  const close = (event) => {
-  event.preventDefault();
-  event.stopPropagation();
-  onDismiss();
-  };
-  const createButton = () => {
-  const button2 = document.createElement("button");
-  button2.type = "button";
-  button2.className = "jpdb-reader-sheet-close";
-  button2.dataset.jpdbReaderSheetClose = "true";
-  button2.setAttribute("aria-label", label);
-  button2.title = label;
-  setInnerHtml(button2, '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"></path></svg>');
-  button2.addEventListener("click", close);
-  return button2;
-  };
-  const ensureButton = () => {
-  if (!popover.isConnected) return;
-  if (popover.querySelector('[data-jpdb-reader-sheet-close="true"]')) return;
-  popover.append(createButton());
-  };
-  ensureButton();
-  let disposed = false;
-  let contentObserver;
-  let disposeObserver;
-  const dispose = () => {
-  if (disposed) return;
-  disposed = true;
-  contentObserver?.disconnect();
-  disposeObserver?.disconnect();
-  };
-  contentObserver = new MutationObserver(ensureButton);
-  contentObserver.observe(popover, { childList: true });
-  disposeObserver = new MutationObserver(() => {
-  if (!popover.isConnected) dispose();
-  });
-  if (document.documentElement) {
-  disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
-  }
-}
-function installMiningDrawerHandle(root, setExpanded) {
-  if (root.dataset.jpdbReaderMiningDrawerHandleInstalled === "true") return;
-  root.dataset.jpdbReaderMiningDrawerHandleInstalled = "true";
-  let suppressNextHandleClick = false;
-  let cleanedUp = false;
-  const getHandleFromElement = (event) => {
-  const target = event.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
-  if (!target || !root.contains(target)) return null;
-  const handle = target.matches(MINING_DRAWER_HANDLE_SELECTOR) ? target : target.querySelector(MINING_DRAWER_HANDLE_SELECTOR);
-  if (!handle) return null;
-  return handle;
-  };
-  const getHandleFromEventTarget = (event) => {
-  return event instanceof Element ? getHandleFromElement(event) : null;
-  };
-  const getHandleFromPoint = (x, y) => {
-  if (typeof document.elementsFromPoint !== "function") return null;
-  for (const element2 of document.elementsFromPoint(x, y)) {
-    const handle = getHandleFromElement(element2);
-    if (handle) return handle;
-  }
-  return null;
-  };
-  const getHandleFromPointerEvent = (event) => {
-  return getHandleFromEventTarget(event.target) ?? (eventHasPointTarget(event) ? getHandleFromPoint(event.clientX, event.clientY) : null);
-  };
-  const getHandleFromTouchEvent = (event) => {
-  const direct = getHandleFromEventTarget(event.target);
-  if (direct) return direct;
-  const touch = firstChangedTouch(event);
-  return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
-  };
-  const isInteractiveGutterChild = (eventTarget) => {
-  if (!(eventTarget instanceof Element)) return false;
-  const action = eventTarget.closest(POPOVER_BODY_ACTION_SELECTOR);
-  return Boolean(
-    action && root.contains(action) && !action.matches(MINING_DRAWER_HANDLE_SELECTOR) && action.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR)
-  );
-  };
-  const miningDrag = createHandleDragController({
-  tapMovementPx: MINING_DRAWER_TAP_MOVEMENT_PX,
-  updateOnEnd: true,
-  onBegin: (handle) => {
-    handle.closest(".jpdb-reader-actions")?.classList.add("jpdb-reader-mining-drawer-dragging");
-  },
-  onFinish: (state, wasMoved, handle) => {
-    handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
-    if (!wasMoved || !handle) return;
-    suppressNextHandleClick = true;
-    const expanded = miningDrawerDragExpandedState(handle, state.deltaX, state.deltaY);
-    if (expanded !== void 0) setExpanded(handle, expanded);
-  },
-  onCancel: (_state, handle) => {
-    handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
-  }
-  });
-  const cleanup = () => {
-  if (cleanedUp) return;
-  cleanedUp = true;
-  document.removeEventListener("click", handleClick, true);
-  document.removeEventListener("pointerdown", handlePointerDown, true);
-  document.removeEventListener("touchstart", handleTouchStart, true);
-  miningDrag.cleanupListeners();
-  };
-  const rootIsConnected = () => {
-  if (root.isConnected) return true;
-  cleanup();
-  return false;
-  };
-  const toggleHandle = (handle) => {
-  setExpanded(handle, handle.getAttribute("aria-expanded") !== "true");
-  };
-  function handleClick(event) {
-  if (!rootIsConnected()) return;
-  if (isInteractiveGutterChild(event.target)) return;
-  const handle = getHandleFromPointerEvent(event);
-  if (!handle) return;
-  event.preventDefault();
-  event.stopPropagation();
-  if (suppressNextHandleClick) {
-    suppressNextHandleClick = false;
-    return;
-  }
-  toggleHandle(handle);
-  }
-  function handlePointerDown(event) {
-  if (!rootIsConnected()) return;
-  if (isInteractiveGutterChild(event.target)) return;
-  const handle = getHandleFromPointerEvent(event);
-  if (!handle) return;
-  miningDrag.pointerDown(handle, event);
-  }
-  function handleTouchStart(event) {
-  if (!rootIsConnected()) return;
-  if (isInteractiveGutterChild(event.target)) return;
-  const handle = getHandleFromTouchEvent(event);
-  if (!handle) return;
-  miningDrag.touchStart(handle, event);
-  }
-  document.addEventListener("click", handleClick, true);
-  document.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: false });
-  document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: false });
-}
-function eventHasPointTarget(event) {
-  return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
-}
-function shouldUseSheet(settings) {
-  if (settings.popupMode === "sheet") return true;
-  if (settings.popupMode === "popover") return false;
-  const { width, height } = lookupViewportSize();
-  const popoverWidth = Math.max(0, settings.popoverWidth || 0);
-  const requiredPopoverWidth = popoverWidth + AUTO_POPOVER_VIEWPORT_MARGIN_PX;
-  if (width <= AUTO_SHEET_COMPACT_WIDTH_PX || width < requiredPopoverWidth) return true;
-  if (height > 0 && height < AUTO_POPOVER_MIN_HEIGHT_PX) return true;
-  return height > width && width <= AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX;
-}
-function lookupViewportSize() {
-  const visual = window.visualViewport;
-  const width = Math.round(visual?.width ?? window.innerWidth ?? document.documentElement.clientWidth ?? 0);
-  const height = Math.round(visual?.height ?? window.innerHeight ?? document.documentElement.clientHeight ?? 0);
-  return { width: Math.max(0, width), height: Math.max(0, height) };
-}
-function sheetMinHeight(viewportHeight) {
-  if (viewportHeight <= 0) return MIN_SHEET_HEIGHT_PX;
-  return Math.min(viewportHeight, MIN_SHEET_HEIGHT_PX, Math.max(140, Math.round(viewportHeight * 0.32)));
-}
-function restoredSheetHeight(viewportHeight) {
-  return clampSheetHeight(viewportHeight * readSheetHeightRatio(), viewportHeight);
-}
-function clampSheetHeight(height, viewportHeight) {
-  return clampDrawerHeight(height, viewportHeight, sheetMinHeight(viewportHeight));
-}
-function clampDrawerHeight(height, viewportHeight, minHeight) {
-  if (viewportHeight <= 0) return Math.max(minHeight, Math.round(height));
-  return Math.max(minHeight, Math.min(viewportHeight, Math.round(height)));
-}
-function miningDrawerDragExpandedState(handle, deltaX, deltaY) {
-  const axis = miningDrawerDragAxis(handle);
-  if (axis === "horizontal") {
-  if (Math.abs(deltaX) < MINING_DRAWER_DRAG_THRESHOLD_PX) return void 0;
-  return miningDrawerHorizontalOpenDirection(handle) === "right" ? deltaX > 0 : deltaX < 0;
-  }
-  if (Math.abs(deltaY) < MINING_DRAWER_DRAG_THRESHOLD_PX) return void 0;
-  return deltaY < 0;
-}
-function miningDrawerDragAxis(handle) {
-  const rect = handle.getBoundingClientRect();
-  if (rect.height > rect.width * 1.2) return "horizontal";
-  const actions = handle.closest(".jpdb-reader-actions");
-  if (!actions) return "vertical";
-  const actionsRect = actions.getBoundingClientRect();
-  return actionsRect.height > actionsRect.width * 1.2 ? "horizontal" : "vertical";
-}
-function miningDrawerHorizontalOpenDirection(handle) {
-  const actions = handle.closest(".jpdb-reader-actions");
-  if (!actions) return "left";
-  const handleRect = handle.getBoundingClientRect();
-  const actionsRect = actions.getBoundingClientRect();
-  const handleCenter = handleRect.left + handleRect.width / 2;
-  const actionsCenter = actionsRect.left + actionsRect.width / 2;
-  return handleCenter < actionsCenter ? "right" : "left";
-}
-function readSheetHeightRatio() {
-  return readHeightRatio(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
-}
-function storeSheetHeightRatio(height, viewportHeight) {
-  storeHeightRatio(SHEET_HEIGHT_STORAGE_KEY, height, viewportHeight);
-}
-function readHeightRatio(storageKey, fallback) {
-  const value = gmStorageGetSync(storageKey, fallback);
-  return Number.isFinite(value) && value > 0 && value <= 1 ? value : fallback;
-}
-function storeHeightRatio(storageKey, height, viewportHeight) {
-  if (viewportHeight <= 0) return;
-  const ratio = Math.max(0, Math.min(1, height / viewportHeight));
-  gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
-}
-function detectGrammarHints(sentence) {
-  return yomuKanjiStudyCompanion()?.detectGrammarHints?.(sentence) ?? [];
-}
-function preloadGrammarResources(sentence, language = "en") {
-  return yomuKanjiStudyCompanion()?.preloadGrammarResources?.(sentence, language) ?? [];
-}
-function preloadJapaneseSentenceTranslation(sentence, language = "en") {
-  yomuKanjiStudyCompanion()?.preloadJapaneseSentenceTranslation?.(sentence, language);
-}
-function setGrammarRuleKnown(ruleId, known) {
-  return yomuKanjiStudyCompanion()?.setGrammarRuleKnown?.(ruleId, known) ?? { knownRuleIds: [], showKnown: false };
-}
-function setKnownGrammarVisible(showKnown) {
-  return yomuKanjiStudyCompanion()?.setKnownGrammarVisible?.(showKnown) ?? { knownRuleIds: [], showKnown };
-}
-async function translateJapaneseSentence(sentence, language = "en") {
-  return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(sentence));
-}
-async function renderGrammarHints(hints, sentence, preferences, language = "en", options = {}) {
-  return await (yomuKanjiStudyCompanion()?.renderGrammarHints?.(hints, sentence, preferences, language, options) ?? Promise.resolve(""));
-}
-function externalLinkIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M7 17 17 7"></path>
-    <path d="M9 7h8v8"></path>
-  </svg>`;
-}
-function copyIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <rect x="9" y="9" width="10" height="10" rx="2"></rect>
-    <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
-  </svg>`;
-}
-function ankiIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <rect x="5" y="4" width="14" height="16" rx="2"></rect>
-    <path d="M12 8v8"></path>
-    <path d="M8 12h8"></path>
-  </svg>`;
-}
-function speakerIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
-    <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
-    <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-  </svg>`;
-}
-function renderStudyBlock(className, content, attrs = "") {
-  return `<div class="${studyBlockClassName(className)}"${studyAttrs(attrs)}>${content}</div>`;
-}
-function renderStudySentenceBlock(sentence, language, options, attrs = "") {
-  return renderStudyBlock("jpdb-reader-study-sentence-block", `
-    <div class="jpdb-reader-study-label-row jpdb-reader-study-sentence-row">
-        <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml$1(sentence)}</div>
-        ${renderStudySentenceAudioButton(language, options)}
-    </div>`, attrs);
-}
-function renderStudyMeaningBlock(text2, language, resultAttrs = "") {
-  return renderStudyBlock("jpdb-reader-study-meaning-block", `
-    <div class="jpdb-reader-study-label">${escapeHtml$1(uiText(language, "meaning"))}</div>
-    <div class="jpdb-reader-study-translation"${studyAttrs(resultAttrs)}>${escapeHtml$1(text2)}</div>`);
-}
-function renderStudySentenceAudioButton(language, options) {
-  const readSentence = uiText(language, options.audioEnabled ? "readSentenceAloud" : "audioPlaybackDisabled");
-  const sentenceAttr = options.sentence ? ` data-study-sentence="${escapeHtml$1(options.sentence)}"` : "";
-  return `<button class="jpdb-reader-icon-mini" data-action="study-read-sentence"${sentenceAttr} type="button" title="${escapeHtml$1(readSentence)}" aria-label="${escapeHtml$1(readSentence)}"${options.audioEnabled ? "" : " disabled"}>${speakerIcon()}</button>`;
-}
-function studyBlockClassName(className) {
-  return ["jpdb-reader-study-block", className.trim()].filter(Boolean).join(" ");
-}
-function studyAttrs(attrs) {
-  const trimmed = attrs.trim();
-  return trimmed ? ` ${trimmed}` : "";
-}
-const log$j = Logger.scope("StudyRender");
 async function renderStudyToolResult(button2, action, sentence, grammarHints, language = "en", options = {}) {
-  const panel = button2.closest(".jpdb-reader-study-tools")?.querySelector("[data-study-panel]");
-  if (!panel || !sentence) return;
-  panel.hidden = false;
-  panel.textContent = studyToolPendingText(action, language);
-  const done = log$j.time("studyTool", { action, sentenceLength: sentence.length });
-  if (action === "study-translate") {
-  try {
-    const translated = await translateJapaneseSentence(sentence, language);
-    replaceStudyPanelHtml(panel, renderStudyMeaningBlock(translated, language));
-    return;
-  } finally {
-    done();
-  }
-  }
-  const hints = resolvedGrammarHints(sentence, grammarHints);
-  if (!hints.length) {
-  panel.hidden = true;
-  panel.textContent = "";
-  done();
-  return;
-  }
-  replaceStudyPanelHtml(panel, await renderGrammarHints(hints, sentence, void 0, language, { audioEnabled: options.audioEnabled }));
-  done();
-}
-function studyToolPendingText(action, language) {
-  return action === "study-translate" ? uiText(language, "translating") : uiText(language, "findingGrammar");
-}
-function resolvedGrammarHints(sentence, grammarHints) {
-  return grammarHints ?? detectGrammarHints(sentence);
+  await yomuKanjiStudyCompanion()?.renderStudyToolResult?.(button2, action, sentence, grammarHints, language, options);
 }
 function handleStudyGrammarAction(button2, sentence, language = "en", options = {}) {
-  if (!sentence) return false;
-  if (button2.dataset.action === "study-grammar-toggle-known") {
-  const ruleId = button2.dataset.grammarRuleId;
-  if (!ruleId) return false;
-  setGrammarRuleKnown(ruleId, button2.dataset.grammarKnown !== "true");
-  void rerenderGrammarPanel(button2, sentence, language, options);
-  return true;
-  }
-  if (button2.dataset.action === "study-grammar-toggle-known-visibility") {
-  setKnownGrammarVisible(button2.getAttribute("aria-pressed") !== "true");
-  void rerenderGrammarPanel(button2, sentence, language, options);
-  return true;
-  }
-  return false;
-}
-async function rerenderGrammarPanel(button2, sentence, language, options) {
-  const panel = button2.closest(".jpdb-reader-study-panel");
-  if (!panel) return;
-  const hints = detectGrammarHints(sentence);
-  replaceStudyPanelHtml(panel, await renderGrammarHints(hints, sentence, void 0, language, { audioEnabled: options.audioEnabled }));
-}
-function replaceStudyPanelHtml(panel, html) {
-  const scrollFrame = capturePopoverScrollFrame(panel);
-  setInnerHtml(panel, html);
-  restorePopoverScrollFrameSoon(scrollFrame);
+  return yomuKanjiStudyCompanion()?.handleStudyGrammarAction?.(button2, sentence, language, options) ?? false;
 }
 function renderDeckChoiceOptions(settings, jpdbDecks, ankiDecks, optionsOrIncludeJpdb = {}) {
   const renderOptions = normalizeDeckChoiceRenderOptions(optionsOrIncludeJpdb);
@@ -14095,6 +13292,17 @@ function apiGradingProviderPreference(settings) {
   if (settings.apiGradingProvider === "bunpro") return "bunpro";
   return settings.apiGradingProvider === "jiten" ? "jiten" : "jpdb";
 }
+function apiSrsSwitchableProviderIds(card, settings) {
+  const ids = [];
+  const wordLike = !card.bunproReviewableType || card.bunproReviewableType === "vocabulary";
+  if (wordLike && hasJpdbApiCredential(settings)) ids.push("jpdb");
+  if (wordLike && hasJitenApiCredential(settings)) ids.push("jiten");
+  if (isBunproUsableCard(card, settings)) ids.push("bunpro");
+  return ids;
+}
+function isBunproUsableCard(card, settings) {
+  return isBunproBackedCard(card) && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings);
+}
 function apiSrsProviderView(id, settings) {
   if (id === "yomu-local") {
   return {
@@ -14120,9 +13328,16 @@ function apiSrsProviderViewForCard(card, settings, isJpdbBackedCard) {
   const bunproBacked = isBunproBackedCard(card);
   const jpdbUsable = jpdbBacked && hasJpdbApiCredential(settings);
   const jitenUsable = jitenBacked && hasJitenApiCredential(settings);
-  const bunproUsable = bunproBacked && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings);
+  const bunproUsable = isBunproUsableCard(card, settings);
+  const override = card.apiGradingProviderOverride;
+  if (override === "jpdb" && jpdbUsable) return apiSrsProviderView("jpdb", settings);
+  if (override === "jiten" && jitenUsable) return apiSrsProviderView("jiten", settings);
+  if (override === "bunpro" && bunproUsable) return apiSrsProviderView("bunpro", settings);
   if (bunproUsable) return apiSrsProviderView("bunpro", settings);
-  if (jpdbUsable && jitenUsable) return apiSrsProviderView(apiGradingProviderPreference(settings), settings);
+  if (jpdbUsable && jitenUsable) {
+  const preferred = apiGradingProviderPreference(settings);
+  return apiSrsProviderView(preferred === "jpdb" ? "jpdb" : "jiten", settings);
+  }
   if (jpdbUsable) return apiSrsProviderView("jpdb", settings);
   if (jitenUsable) return apiSrsProviderView("jiten", settings);
   if (!bunproBacked && settings.yomuLocalSrsEnabled) return apiSrsProviderView("yomu-local", settings);
@@ -14202,15 +13417,22 @@ function createBunproSrsProviderAdapter(adapter, settings) {
     await adapter.mine(bunproMiningRequestFromCard(card, sentence, context));
   },
   reviewCard: async (card, grade, reviewOptions = {}) => {
-    await adapter.review({
+    const result = await adapter.review({
       card: bunproReviewableFromCard(card),
       grade,
       sentence: reviewOptions.sentence
     });
+    if (result.card) applyBunproReviewableToCard(card, result.card);
     return {};
   },
   setDeckState: async () => void 0
   };
+}
+function applyBunproReviewableToCard(card, reviewable) {
+  if (reviewable.state.length) card.cardState = reviewable.state;
+  if (reviewable.dueAt !== void 0) card.dueAt = reviewable.dueAt;
+  if (reviewable.lastReviewAt !== void 0) card.lastReviewAt = reviewable.lastReviewAt;
+  if (reviewable.srsLevel) card.bunproSrsLevel = reviewable.srsLevel;
 }
 function createYomuLocalSrsProviderAdapter(adapter, settings) {
   return {
@@ -14555,12 +13777,17 @@ class CardActionController {
   const settings = this.options.getSettings();
   const current = this.apiProviderForCard(card, settings);
   if (!current?.hasApiKey) return;
-  const next = current.id === "jiten" ? "jpdb" : "jiten";
+  const cycle = apiSrsSwitchableProviderIds(card, settings);
+  if (cycle.length < 2) return;
+  const next = cycle[(cycle.indexOf(current.id) + 1) % cycle.length];
+  if (!next || next === current.id || next === "yomu-local") return;
   const provider = this.apiProviders(settings).find((p) => p.id === next && p.hasApiKey);
   if (!provider) return;
   const target = provider.supportsCard(card) ? card : await this.resolveProviderCard(card, next);
   if (!target || !provider.supportsCard(target)) return;
-  this.options.setApiGradingProvider?.(next);
+  if (next === "jpdb" || next === "jiten") this.options.setApiGradingProvider?.(next);
+  if (target !== card) copyBunproIdentity(card, target);
+  target.apiGradingProviderOverride = next;
   await this.refreshProviderState(target, next);
   this.options.invalidateCardData?.();
   await this.options.showCard(target, sentence, this.options.getActivePopoverAnchor(), {
@@ -14622,11 +13849,16 @@ class CardActionController {
   apiProviderForCard(card, settings = this.options.getSettings()) {
   const supporting = this.apiProviders(settings).filter((provider) => provider.supportsCard(card));
   const keyed = supporting.filter((provider) => provider.hasApiKey);
-  if (keyed.length > 1) {
-    const preferred = keyed.find((provider) => provider.id === apiGradingProviderPreference(settings));
+  const external = keyed.filter((provider) => provider.id !== "yomu-local");
+  const overridden = card.apiGradingProviderOverride ? external.find((provider) => provider.id === card.apiGradingProviderOverride) : void 0;
+  if (overridden) return overridden;
+  const bunpro = external.find((provider) => provider.id === "bunpro");
+  if (bunpro) return bunpro;
+  if (external.length > 1) {
+    const preferred = external.find((provider) => provider.id === apiGradingProviderPreference(settings));
     if (preferred) return preferred;
   }
-  if (keyed.length === 1) return keyed[0] ?? null;
+  if (keyed.length) return external[0] ?? keyed[0] ?? null;
   return supporting.find((provider) => provider.id === apiGradingProviderPreference(settings)) ?? supporting[0] ?? null;
   }
   apiProviderForDeckSource(source, card, settings) {
@@ -14999,6 +14231,12 @@ function exactCard(source, tokens) {
   const r = source.reading.trim();
   return tokens.find(({ card }) => card.spelling.trim() === s && (!r || card.reading.trim() === r))?.card ?? tokens.find(({ card }) => card.spelling.trim() === s)?.card ?? null;
 }
+function copyBunproIdentity(source, target) {
+  if (source.bunproReviewId) target.bunproReviewId = source.bunproReviewId;
+  if (source.bunproReviewableId) target.bunproReviewableId = source.bunproReviewableId;
+  if (source.bunproReviewableType) target.bunproReviewableType = source.bunproReviewableType;
+  if (source.bunproSrsLevel) target.bunproSrsLevel = source.bunproSrsLevel;
+}
 function reviewTargetKind(value) {
   if (value === "both" || value === "anki") return value;
   if (value === "jpdb" || value === "jiten" || value === "bunpro" || value === "yomu-local") return value;
@@ -15018,13 +14256,13 @@ function ankiSourceUrl(sourceUrl) {
   return sourceUrl || location.href;
 }
 function selectedDeckChoice(button2, settings) {
-  const source = selectedDeckSource$1(button2);
+  const source = selectedDeckSource(button2);
   return {
   source,
   id: selectedDeckId(button2, settings, source)
   };
 }
-function selectedDeckSource$1(button2) {
+function selectedDeckSource(button2) {
   if (button2.dataset.deckSource === "anki") return "anki";
   if (button2.dataset.deckSource === "jiten") return "jiten";
   if (button2.dataset.deckSource === "bunpro") return "bunpro";
@@ -19834,6 +19072,32 @@ ${entry.reading || ""}`;
   function summarizeLearnerGlossary(entry) {
     return summarizeLearnerGlossaryTexts(entry.glossary.map((item) => glossaryToText(item)));
   }
+  function externalLinkIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M7 17 17 7"></path>
+    <path d="M9 7h8v8"></path>
+  </svg>`;
+  }
+  function copyIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+    <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
+  </svg>`;
+  }
+  function ankiIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <rect x="5" y="4" width="14" height="16" rx="2"></rect>
+    <path d="M12 8v8"></path>
+    <path d="M8 12h8"></path>
+  </svg>`;
+  }
+  function speakerIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+    <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+    <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+  </svg>`;
+  }
   const JPDB_RELATED_WORD_SELECTOR = '.jpdb-reader-word[data-jpdb-reader-related-word="true"]';
   const JPDB_RELATED_WORD_STATE = "not-in-deck";
   const JPDB_RELATED_WORD_PITCH_CLASS = "unknown";
@@ -20957,7 +20221,7 @@ ${entry.reading || ""}`;
       const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
       if (earlyResult !== void 0) return earlyResult;
       const targets = this.popoverReviewTargets(card, data, provider, language);
-      if (targets.length) return this.renderTargetedReviewButtons(targets, language, targets.length > 1, this.canSwitchProvider(provider), provider);
+      if (targets.length) return this.renderTargetedReviewButtons(targets, language, targets.length > 1, this.switchProviderTarget(card, provider));
       if (provider?.id === "yomu-local" && card.reviewSource === "jpdb-live") {
         return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       }
@@ -20986,9 +20250,12 @@ ${entry.reading || ""}`;
       const settings = this.settings();
       return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
     }
-    canSwitchProvider(provider) {
-      const settings = this.settings();
-      return !!(provider && provider.id !== "bunpro" && provider.id !== "yomu-local" && settings.apiKey && settings.jitenApiKey);
+    switchProviderTarget(card, provider) {
+      if (!provider || provider.id === "yomu-local" || !provider.hasApiKey) return null;
+      const cycle = apiSrsSwitchableProviderIds(card, this.settings());
+      if (cycle.length < 2) return null;
+      const next = cycle[(cycle.indexOf(provider.id) + 1) % cycle.length];
+      return next && next !== provider.id ? this.providerForReviewTarget({ id: next, kind: next, label: "", shortLabel: "" }, null) : null;
     }
     popoverReviewTargets(card, data, provider, language) {
       const ankiTargets = this.ankiReviewTargets(data, language);
@@ -21072,13 +20339,13 @@ ${entry.reading || ""}`;
         shortLabel: compactAnkiReviewTargetLabel(label, cardId)
       }));
     }
-    renderTargetedReviewButtons(targets, language, canSwitchTarget, canSwitchProvider, provider) {
+    renderTargetedReviewButtons(targets, language, canSwitchTarget, switchProviderTarget) {
       const settings = this.settings();
       const grades = reviewButtonGrades(settings);
       const selected = targets[0];
       if (!selected || !grades.length) return "";
       const selector = canSwitchTarget ? renderReviewTargetSelector(targets, language) : "";
-      const targetGutter = renderReviewTargetGutter(selected, language, canSwitchTarget, canSwitchProvider, provider);
+      const targetGutter = renderReviewTargetGutter(selected, language, canSwitchTarget, switchProviderTarget);
       const targetLabel = renderReviewTargetLabel(selected);
       const targetAttrs = reviewTargetButtonAttrs(selected);
       return `
@@ -21159,11 +20426,11 @@ ${entry.reading || ""}`;
   function reviewButtonsIncludeTargetGutter(reviewButtons) {
     return reviewButtons.includes("data-review-target-gutter");
   }
-  function renderReviewTargetGutter(target, language, canSwitchTarget, canSwitchProvider, provider) {
+  function renderReviewTargetGutter(target, language, canSwitchTarget, switchProviderTarget) {
     const label = uiText(language, "showMiningActions");
     const switchLabel = uiText(language, "switchReviewTarget");
-    const currentTarget = canSwitchProvider || canSwitchTarget ? renderReviewTargetCurrent(target) : "";
-    const targetControl = canSwitchProvider ? renderProviderToggle(provider, language, currentTarget) : currentTarget;
+    const currentTarget = switchProviderTarget || canSwitchTarget ? renderReviewTargetCurrent(target) : "";
+    const targetControl = switchProviderTarget ? renderProviderToggle(switchProviderTarget, language, currentTarget) : currentTarget;
     return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
     ${targetControl}
     ${canSwitchTarget ? `<button class="jpdb-reader-review-target-toggle" data-action="review-target-toggle" aria-label="${escapeHtml$1(switchLabel)}">⇄</button>` : ""}
@@ -21252,10 +20519,9 @@ ${entry.reading || ""}`;
   function renderMeta(metaItems) {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : "";
   }
-  function renderProviderToggle(provider, language, content = "") {
-    const target = provider?.id === "jiten" ? "JPDB" : "Jiten";
-    const label = `${uiText(language, "switchGradingProvider")} (${target})`;
-    return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="${escapeHtml$1(label)}">⇄ ${content}</button>`;
+  function renderProviderToggle(nextProvider, language, content = "") {
+    const label = `${uiText(language, "switchGradingProvider")} (${nextProvider.label})`;
+    return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="${escapeHtml$1(label)}" title="${escapeHtml$1(label)}">⇄ ${content}</button>`;
   }
   function renderMiningGutter(miningActions, language) {
     const label = uiText(language, "showMiningActions");
@@ -23841,6 +23107,686 @@ ${glossaryKey}`;
   }
   function renderImmersionActionButtonHtml(action, label, content) {
     return `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="${action}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${content}</button>`;
+  }
+  function createHandleDragController(options) {
+    let state = initialDragState();
+    let pointerId = 0;
+    let touchId = 0;
+    let dragging = false;
+    let moved = false;
+    let activeInput = null;
+    let activeHandle = null;
+    let activeCaptureTarget = null;
+    const movementDistance = options.movementDistance ?? ((dragState) => Math.hypot(dragState.deltaX, dragState.deltaY));
+    const setLastPoint = (point) => {
+      state = {
+        ...state,
+        lastX: point.x,
+        lastY: point.y,
+        deltaX: point.x - state.startX,
+        deltaY: point.y - state.startY
+      };
+    };
+    const updateDrag = (point) => {
+      if (!activeHandle) return;
+      setLastPoint(point);
+      if (movementDistance(state) > options.tapMovementPx) moved = true;
+      options.onUpdate?.(state, activeHandle);
+    };
+    const beginDrag = (handle, point, input) => {
+      if (dragging || activeInput) return false;
+      state = {
+        startX: point.x,
+        startY: point.y,
+        lastX: point.x,
+        lastY: point.y,
+        deltaX: 0,
+        deltaY: 0
+      };
+      dragging = true;
+      moved = false;
+      activeInput = input;
+      activeHandle = handle;
+      options.onBegin?.(handle, state, input);
+      return true;
+    };
+    const finishDrag = () => {
+      if (!dragging) return;
+      const wasMoved = moved;
+      const handle = activeHandle;
+      const captureTarget = activeCaptureTarget;
+      dragging = false;
+      moved = false;
+      activeInput = null;
+      activeHandle = null;
+      activeCaptureTarget = null;
+      cleanupListeners();
+      releasePointerCapture(captureTarget, pointerId);
+      options.onFinish(state, wasMoved, handle);
+    };
+    function cleanupListeners() {
+      if (typeof document === "undefined") return;
+      document.removeEventListener("pointermove", handlePointerMove, true);
+      document.removeEventListener("pointerup", handlePointerUp, true);
+      document.removeEventListener("pointercancel", handlePointerCancel, true);
+      document.removeEventListener("touchmove", handleTouchMove, true);
+      document.removeEventListener("touchend", handleTouchEnd, true);
+      document.removeEventListener("touchcancel", handleTouchCancel, true);
+    }
+    function cancel() {
+      if (!dragging) return;
+      const handle = activeHandle;
+      const captureTarget = activeCaptureTarget;
+      dragging = false;
+      moved = false;
+      activeInput = null;
+      activeHandle = null;
+      activeCaptureTarget = null;
+      cleanupListeners();
+      releasePointerCapture(captureTarget, pointerId);
+      options.onCancel?.(state, handle);
+    }
+    function handlePointerMove(event) {
+      if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
+      consumeDragEvent(event);
+      updateDrag({ x: event.clientX, y: event.clientY });
+    }
+    function handlePointerUp(event) {
+      if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
+      consumeDragEvent(event);
+      if (options.updateOnEnd) updateDrag({ x: event.clientX, y: event.clientY });
+      else setLastPoint({ x: event.clientX, y: event.clientY });
+      finishDrag();
+    }
+    function handlePointerCancel(event) {
+      if (activeInput !== "pointer" || event.pointerId !== pointerId) return;
+      cancel();
+    }
+    function handleTouchMove(event) {
+      if (!dragging || activeInput !== "touch") return;
+      const touch = changedTouch(event, touchId);
+      if (!touch) return;
+      consumeDragEvent(event);
+      updateDrag({ x: touch.clientX, y: touch.clientY });
+    }
+    function handleTouchEnd(event) {
+      if (!dragging || activeInput !== "touch") return;
+      const touch = changedTouch(event, touchId);
+      if (!touch) return;
+      consumeDragEvent(event);
+      if (options.updateOnEnd) updateDrag({ x: touch.clientX, y: touch.clientY });
+      else setLastPoint({ x: touch.clientX, y: touch.clientY });
+      finishDrag();
+    }
+    function handleTouchCancel(event) {
+      if (activeInput !== "touch" || !changedTouch(event, touchId)) return;
+      cancel();
+    }
+    return {
+      isDragging: () => dragging,
+      pointerDown(handle, event) {
+        if (activeInput) return;
+        if (event.button !== void 0 && event.button !== 0) return;
+        consumeDragEvent(event);
+        if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, "pointer")) return;
+        pointerId = event.pointerId;
+        activeCaptureTarget = event.target instanceof Element ? event.target : handle;
+        setPointerCapture(activeCaptureTarget, event.pointerId);
+        document.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
+        document.addEventListener("pointerup", handlePointerUp, true);
+        document.addEventListener("pointercancel", handlePointerCancel, true);
+      },
+      touchStart(handle, event) {
+        if (activeInput) return;
+        const touch = firstChangedTouch(event);
+        if (!touch) return;
+        consumeDragEvent(event);
+        if (!beginDrag(handle, { x: touch.clientX, y: touch.clientY }, "touch")) return;
+        touchId = touch.identifier;
+        document.addEventListener("touchmove", handleTouchMove, { capture: true, passive: false });
+        document.addEventListener("touchend", handleTouchEnd, true);
+        document.addEventListener("touchcancel", handleTouchCancel, true);
+      },
+      cancel,
+      cleanupListeners
+    };
+  }
+  function initialDragState() {
+    return {
+      startX: 0,
+      startY: 0,
+      lastX: 0,
+      lastY: 0,
+      deltaX: 0,
+      deltaY: 0
+    };
+  }
+  function getContainedClosest(target, root, selector, onFound) {
+    if (!(target instanceof Element)) return null;
+    const element2 = target.closest(selector);
+    if (!element2 || !root.contains(element2)) return null;
+    onFound?.(element2);
+    return element2;
+  }
+  function consumeDragEvent(event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  function changedTouch(event, touchId) {
+    for (const touch of Array.from(event.changedTouches)) {
+      if (touch.identifier === touchId) return touch;
+    }
+    return null;
+  }
+  function firstChangedTouch(event) {
+    return event.changedTouches.item(0);
+  }
+  function releasePointerCapture(handle, id) {
+    try {
+      handle?.releasePointerCapture?.(id);
+    } catch {
+    }
+  }
+  function setPointerCapture(handle, id) {
+    try {
+      handle.setPointerCapture?.(id);
+    } catch {
+    }
+  }
+  function addViewportChangeListeners(listener, signal) {
+    const options = { passive: true, signal };
+    window.addEventListener("resize", listener, options);
+    window.addEventListener("orientationchange", listener, options);
+    window.visualViewport?.addEventListener?.("resize", listener, options);
+    window.visualViewport?.addEventListener?.("scroll", listener, options);
+  }
+  const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
+  const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
+  const MIN_SHEET_HEIGHT_PX = 180;
+  const SHEET_DISMISS_OVERSHOOT_PX = 72;
+  const SHEET_DISMISS_CLICK_SUPPRESSION_MS = 700;
+  const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
+  const SHEET_TAP_MOVEMENT_PX = 8;
+  const SHEET_KEYBOARD_STEP_PX = 48;
+  const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
+  const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
+  const AUTO_SHEET_COMPACT_WIDTH_PX = 768;
+  const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
+  const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
+  const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
+  const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
+  const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
+  const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
+  const POPOVER_BODY_ACTION_SELECTOR = [
+    "button",
+    '[role="button"]',
+    "input",
+    "select",
+    "textarea",
+    "[data-action]",
+    "[data-immersion-action]",
+    "[data-yomu-immersion-action]",
+    "[data-uchisen-action]"
+  ].join(",");
+  function popoverScrollBody$1(popover) {
+    return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
+  }
+  function capturePopoverScrollFrame(target) {
+    const popover = target.closest(".jpdb-reader-popover") ?? target;
+    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody$1(popover);
+    return { scrollBody, scrollTop: scrollBody.scrollTop };
+  }
+  function restorePopoverScrollFrame(frame) {
+    if (!frame.scrollBody.isConnected) return;
+    if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
+  }
+  function restorePopoverScrollFrameSoon(frame) {
+    restorePopoverScrollFrame(frame);
+    requestAnimationFrame(() => restorePopoverScrollFrame(frame));
+  }
+  function popoverBodyActionElement(target, scrollBody) {
+    const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
+    return action && scrollBody.contains(action) ? action : null;
+  }
+  function createReaderPopover(appName, settings) {
+    const popover = document.createElement("div");
+    popover.className = "jpdb-reader-popover";
+    popover.dataset.jpdbReaderRoot = "true";
+    popover.setAttribute("role", "dialog");
+    popover.setAttribute("aria-label", uiText(settings.interfaceLanguage, "lookupDialog") || `${appName} lookup`);
+    popover.setAttribute("aria-modal", "true");
+    popover.tabIndex = -1;
+    if (shouldUseSheet(settings)) popover.classList.add("jpdb-reader-sheet");
+    else popover.style.width = `${settings.popoverWidth}px`;
+    return popover;
+  }
+  function forceReaderPopoverSurface(popover, settings) {
+    popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] = "true";
+    refreshForcedReaderPopoverSurface(popover, settings);
+  }
+  function refreshForcedReaderPopoverSurface(popover, settings) {
+    if (popover.dataset[FORCED_POPOVER_SURFACE_DATA_KEY] !== "true") return;
+    popover.classList.remove("jpdb-reader-sheet", "jpdb-reader-sheet-sticky", "jpdb-reader-sheet-expanded", "jpdb-reader-sheet-resizing");
+    popover.style.width = `${settings.popoverWidth}px`;
+    popover.style.height = "";
+    popover.style.minHeight = "";
+    popover.querySelectorAll(".jpdb-reader-sheet-handle, .jpdb-reader-sheet-close").forEach((element2) => element2.remove());
+  }
+  function createReaderBackdrop(onDismiss) {
+    const backdrop = document.createElement("div");
+    backdrop.className = "jpdb-reader-backdrop";
+    backdrop.dataset.jpdbReaderRoot = "true";
+    backdrop.addEventListener("mousedown", (event) => event.preventDefault());
+    backdrop.addEventListener("click", onDismiss);
+    return backdrop;
+  }
+  function popoverMaxHeightSetting(settings) {
+    return settings.popoverHeightMode === "fixed" ? settings.popoverHeight : void 0;
+  }
+  function suppressTrailingClickAfterSheetGestureDismiss() {
+    if (typeof window === "undefined") return;
+    let timer = 0;
+    const cleanup = () => {
+      if (timer) window.clearTimeout(timer);
+      window.removeEventListener("click", consume, true);
+    };
+    const consume = (event) => {
+      cleanup();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener("click", consume, { capture: true });
+    timer = window.setTimeout(cleanup, SHEET_DISMISS_CLICK_SUPPRESSION_MS);
+  }
+  function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup sheet, or tap to close") {
+    if (popover.dataset.jpdbReaderSheetHandleInstalled === "true") return;
+    popover.dataset.jpdbReaderSheetHandleInstalled = "true";
+    let viewportHeight = 0;
+    let sheetHeight = 0;
+    let startHeight = 0;
+    let rawDragHeight = 0;
+    const isFullHeight = () => viewportHeight > 0 && sheetHeight >= viewportHeight - SHEET_FULL_HEIGHT_THRESHOLD_PX;
+    const syncHandle = (handle) => {
+      handle.setAttribute("role", "button");
+      handle.setAttribute("tabindex", "0");
+      handle.setAttribute("aria-label", label);
+      handle.setAttribute("aria-expanded", String(isFullHeight()));
+      handle.setAttribute("aria-valuemin", String(sheetMinHeight(viewportHeight)));
+      handle.setAttribute("aria-valuemax", String(viewportHeight));
+      handle.setAttribute("aria-valuenow", String(Math.round(sheetHeight)));
+    };
+    const syncHandleState = () => {
+      popover.querySelectorAll(".jpdb-reader-sheet-handle").forEach(syncHandle);
+    };
+    const applySheetHeight = (height, persist = false) => {
+      const nextHeight = clampSheetHeight(height, viewportHeight);
+      sheetHeight = nextHeight;
+      popover.style.setProperty("--jpdb-reader-sheet-height", `${Math.round(nextHeight)}px`);
+      popover.classList.toggle("jpdb-reader-sheet-expanded", isFullHeight());
+      syncHandleState();
+      if (persist) storeSheetHeightRatio(nextHeight, viewportHeight);
+    };
+    const applyViewportSize = () => {
+      const previousViewportHeight = viewportHeight;
+      viewportHeight = Math.max(0, Math.round(window.visualViewport?.height ?? window.innerHeight));
+      popover.style.setProperty("--jpdb-reader-sheet-viewport-height", `${viewportHeight}px`);
+      popover.style.setProperty("--jpdb-reader-sheet-collapsed-height", `${Math.round(viewportHeight * DEFAULT_SHEET_HEIGHT_RATIO)}px`);
+      popover.style.setProperty("--jpdb-reader-sheet-min-height", `${sheetMinHeight(viewportHeight)}px`);
+      const ratio = previousViewportHeight > 0 && sheetHeight > 0 ? sheetHeight / previousViewportHeight : readSheetHeightRatio();
+      applySheetHeight(viewportHeight * ratio);
+    };
+    const clearSheetPositionStyles = () => {
+      popover.style.removeProperty("left");
+      popover.style.removeProperty("right");
+      popover.style.removeProperty("top");
+      popover.style.removeProperty("bottom");
+      popover.style.removeProperty("width");
+      popover.style.removeProperty("height");
+      popover.style.removeProperty("max-width");
+      popover.style.removeProperty("max-height");
+    };
+    const clearDragStyles = () => {
+      popover.style.transform = "";
+      popover.style.removeProperty("--jpdb-reader-sheet-drag-up");
+      popover.classList.remove("jpdb-reader-sheet-resizing");
+    };
+    const resetSheetLayout = () => {
+      clearSheetPositionStyles();
+      applyViewportSize();
+      clearDragStyles();
+    };
+    resetSheetLayout();
+    syncHandleState();
+    let handleObserver;
+    if (typeof MutationObserver !== "undefined") {
+      handleObserver = new MutationObserver(syncHandleState);
+      handleObserver.observe(popover, { childList: true, subtree: true });
+    }
+    let suppressNextHandleClick = false;
+    const getHandleFromEvent = (event) => getContainedClosest(event, popover, ".jpdb-reader-sheet-handle", syncHandle);
+    const reset = () => {
+      popover.style.transition = "height .16s ease, max-height .16s ease, border-radius .16s ease, transform .16s ease";
+      clearDragStyles();
+      window.setTimeout(() => {
+        popover.style.transition = "";
+      }, 180);
+    };
+    const dismissFromGesture = () => {
+      suppressTrailingClickAfterSheetGestureDismiss();
+      onDismiss();
+    };
+    const sheetDrag = createHandleDragController({
+      tapMovementPx: SHEET_TAP_MOVEMENT_PX,
+      movementDistance: (state) => Math.abs(state.deltaY),
+      onBegin: () => {
+        startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
+        rawDragHeight = startHeight;
+        popover.style.transition = "";
+        popover.classList.add("jpdb-reader-sheet-resizing");
+      },
+      onUpdate: (state) => {
+        rawDragHeight = startHeight - state.deltaY;
+        applySheetHeight(rawDragHeight);
+      },
+      onFinish: (_state, wasMoved) => {
+        const finishHeight = rawDragHeight;
+        popover.classList.remove("jpdb-reader-sheet-resizing");
+        if (!wasMoved) {
+          suppressNextHandleClick = true;
+          dismissFromGesture();
+          return;
+        }
+        suppressNextHandleClick = true;
+        if (finishHeight < sheetMinHeight(viewportHeight) - SHEET_DISMISS_OVERSHOOT_PX) {
+          dismissFromGesture();
+          return;
+        }
+        applySheetHeight(finishHeight, true);
+        reset();
+      },
+      onCancel: reset
+    });
+    const handleViewportChange = () => {
+      if (sheetDrag.isDragging()) sheetDrag.cancel();
+      popover.style.transition = "";
+      resetSheetLayout();
+      syncHandleState();
+    };
+    const viewportController = new AbortController();
+    let disposed = false;
+    let disposeObserver;
+    const dispose = () => {
+      if (disposed) return;
+      disposed = true;
+      sheetDrag.cleanupListeners();
+      viewportController.abort();
+      handleObserver?.disconnect();
+      disposeObserver?.disconnect();
+    };
+    disposeObserver = new MutationObserver(() => {
+      if (!popover.isConnected) dispose();
+    });
+    if (document.documentElement) {
+      disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
+    popover.addEventListener("click", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (suppressNextHandleClick) {
+        suppressNextHandleClick = false;
+        return;
+      }
+      onDismiss();
+    });
+    popover.addEventListener("pointerdown", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
+      sheetDrag.pointerDown(handle, event);
+    });
+    popover.addEventListener("touchstart", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
+      sheetDrag.touchStart(handle, event);
+    }, { capture: true, passive: false });
+    popover.addEventListener("keydown", (event) => {
+      const handle = getHandleFromEvent(event.target);
+      if (!handle) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        event.stopPropagation();
+        onDismiss();
+      }
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        event.preventDefault();
+        event.stopPropagation();
+        applySheetHeight(sheetHeight + (event.key === "ArrowUp" ? SHEET_KEYBOARD_STEP_PX : -SHEET_KEYBOARD_STEP_PX), true);
+        reset();
+      }
+      if (event.key === "Escape") onDismiss();
+    });
+    addViewportChangeListeners(handleViewportChange, viewportController.signal);
+  }
+  function installSheetCloseButton(popover, onDismiss, label = "Close drawer") {
+    if (popover.dataset.jpdbReaderSheetCloseInstalled === "true") return;
+    popover.dataset.jpdbReaderSheetCloseInstalled = "true";
+    const close = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onDismiss();
+    };
+    const createButton = () => {
+      const button2 = document.createElement("button");
+      button2.type = "button";
+      button2.className = "jpdb-reader-sheet-close";
+      button2.dataset.jpdbReaderSheetClose = "true";
+      button2.setAttribute("aria-label", label);
+      button2.title = label;
+      setInnerHtml(button2, '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"></path></svg>');
+      button2.addEventListener("click", close);
+      return button2;
+    };
+    const ensureButton = () => {
+      if (!popover.isConnected) return;
+      if (popover.querySelector('[data-jpdb-reader-sheet-close="true"]')) return;
+      popover.append(createButton());
+    };
+    ensureButton();
+    let disposed = false;
+    let contentObserver;
+    let disposeObserver;
+    const dispose = () => {
+      if (disposed) return;
+      disposed = true;
+      contentObserver?.disconnect();
+      disposeObserver?.disconnect();
+    };
+    contentObserver = new MutationObserver(ensureButton);
+    contentObserver.observe(popover, { childList: true });
+    disposeObserver = new MutationObserver(() => {
+      if (!popover.isConnected) dispose();
+    });
+    if (document.documentElement) {
+      disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
+  }
+  function installMiningDrawerHandle(root, setExpanded) {
+    if (root.dataset.jpdbReaderMiningDrawerHandleInstalled === "true") return;
+    root.dataset.jpdbReaderMiningDrawerHandleInstalled = "true";
+    let suppressNextHandleClick = false;
+    let cleanedUp = false;
+    const getHandleFromElement = (event) => {
+      const target = event.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
+      if (!target || !root.contains(target)) return null;
+      const handle = target.matches(MINING_DRAWER_HANDLE_SELECTOR) ? target : target.querySelector(MINING_DRAWER_HANDLE_SELECTOR);
+      if (!handle) return null;
+      return handle;
+    };
+    const getHandleFromEventTarget = (event) => {
+      return event instanceof Element ? getHandleFromElement(event) : null;
+    };
+    const getHandleFromPoint = (x, y) => {
+      if (typeof document.elementsFromPoint !== "function") return null;
+      for (const element2 of document.elementsFromPoint(x, y)) {
+        const handle = getHandleFromElement(element2);
+        if (handle) return handle;
+      }
+      return null;
+    };
+    const getHandleFromPointerEvent = (event) => {
+      return getHandleFromEventTarget(event.target) ?? (eventHasPointTarget(event) ? getHandleFromPoint(event.clientX, event.clientY) : null);
+    };
+    const getHandleFromTouchEvent = (event) => {
+      const direct = getHandleFromEventTarget(event.target);
+      if (direct) return direct;
+      const touch = firstChangedTouch(event);
+      return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
+    };
+    const isInteractiveGutterChild = (eventTarget) => {
+      if (!(eventTarget instanceof Element)) return false;
+      const action = eventTarget.closest(POPOVER_BODY_ACTION_SELECTOR);
+      return Boolean(
+        action && root.contains(action) && !action.matches(MINING_DRAWER_HANDLE_SELECTOR) && action.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR)
+      );
+    };
+    const miningDrag = createHandleDragController({
+      tapMovementPx: MINING_DRAWER_TAP_MOVEMENT_PX,
+      updateOnEnd: true,
+      onBegin: (handle) => {
+        handle.closest(".jpdb-reader-actions")?.classList.add("jpdb-reader-mining-drawer-dragging");
+      },
+      onFinish: (state, wasMoved, handle) => {
+        handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
+        if (!wasMoved || !handle) return;
+        suppressNextHandleClick = true;
+        const expanded = miningDrawerDragExpandedState(handle, state.deltaX, state.deltaY);
+        if (expanded !== void 0) setExpanded(handle, expanded);
+      },
+      onCancel: (_state, handle) => {
+        handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
+      }
+    });
+    const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      document.removeEventListener("click", handleClick, true);
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("touchstart", handleTouchStart, true);
+      miningDrag.cleanupListeners();
+    };
+    const rootIsConnected = () => {
+      if (root.isConnected) return true;
+      cleanup();
+      return false;
+    };
+    const toggleHandle = (handle) => {
+      setExpanded(handle, handle.getAttribute("aria-expanded") !== "true");
+    };
+    function handleClick(event) {
+      if (!rootIsConnected()) return;
+      if (isInteractiveGutterChild(event.target)) return;
+      const handle = getHandleFromPointerEvent(event);
+      if (!handle) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (suppressNextHandleClick) {
+        suppressNextHandleClick = false;
+        return;
+      }
+      toggleHandle(handle);
+    }
+    function handlePointerDown(event) {
+      if (!rootIsConnected()) return;
+      if (isInteractiveGutterChild(event.target)) return;
+      const handle = getHandleFromPointerEvent(event);
+      if (!handle) return;
+      miningDrag.pointerDown(handle, event);
+    }
+    function handleTouchStart(event) {
+      if (!rootIsConnected()) return;
+      if (isInteractiveGutterChild(event.target)) return;
+      const handle = getHandleFromTouchEvent(event);
+      if (!handle) return;
+      miningDrag.touchStart(handle, event);
+    }
+    document.addEventListener("click", handleClick, true);
+    document.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: false });
+    document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: false });
+  }
+  function eventHasPointTarget(event) {
+    return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
+  }
+  function shouldUseSheet(settings) {
+    if (settings.popupMode === "sheet") return true;
+    if (settings.popupMode === "popover") return false;
+    const { width, height } = lookupViewportSize();
+    const popoverWidth = Math.max(0, settings.popoverWidth || 0);
+    const requiredPopoverWidth = popoverWidth + AUTO_POPOVER_VIEWPORT_MARGIN_PX;
+    if (width <= AUTO_SHEET_COMPACT_WIDTH_PX || width < requiredPopoverWidth) return true;
+    if (height > 0 && height < AUTO_POPOVER_MIN_HEIGHT_PX) return true;
+    return height > width && width <= AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX;
+  }
+  function lookupViewportSize() {
+    const visual = window.visualViewport;
+    const width = Math.round(visual?.width ?? window.innerWidth ?? document.documentElement.clientWidth ?? 0);
+    const height = Math.round(visual?.height ?? window.innerHeight ?? document.documentElement.clientHeight ?? 0);
+    return { width: Math.max(0, width), height: Math.max(0, height) };
+  }
+  function sheetMinHeight(viewportHeight) {
+    if (viewportHeight <= 0) return MIN_SHEET_HEIGHT_PX;
+    return Math.min(viewportHeight, MIN_SHEET_HEIGHT_PX, Math.max(140, Math.round(viewportHeight * 0.32)));
+  }
+  function restoredSheetHeight(viewportHeight) {
+    return clampSheetHeight(viewportHeight * readSheetHeightRatio(), viewportHeight);
+  }
+  function clampSheetHeight(height, viewportHeight) {
+    return clampDrawerHeight(height, viewportHeight, sheetMinHeight(viewportHeight));
+  }
+  function clampDrawerHeight(height, viewportHeight, minHeight) {
+    if (viewportHeight <= 0) return Math.max(minHeight, Math.round(height));
+    return Math.max(minHeight, Math.min(viewportHeight, Math.round(height)));
+  }
+  function miningDrawerDragExpandedState(handle, deltaX, deltaY) {
+    const axis = miningDrawerDragAxis(handle);
+    if (axis === "horizontal") {
+      if (Math.abs(deltaX) < MINING_DRAWER_DRAG_THRESHOLD_PX) return void 0;
+      return miningDrawerHorizontalOpenDirection(handle) === "right" ? deltaX > 0 : deltaX < 0;
+    }
+    if (Math.abs(deltaY) < MINING_DRAWER_DRAG_THRESHOLD_PX) return void 0;
+    return deltaY < 0;
+  }
+  function miningDrawerDragAxis(handle) {
+    const rect = handle.getBoundingClientRect();
+    if (rect.height > rect.width * 1.2) return "horizontal";
+    const actions = handle.closest(".jpdb-reader-actions");
+    if (!actions) return "vertical";
+    const actionsRect = actions.getBoundingClientRect();
+    return actionsRect.height > actionsRect.width * 1.2 ? "horizontal" : "vertical";
+  }
+  function miningDrawerHorizontalOpenDirection(handle) {
+    const actions = handle.closest(".jpdb-reader-actions");
+    if (!actions) return "left";
+    const handleRect = handle.getBoundingClientRect();
+    const actionsRect = actions.getBoundingClientRect();
+    const handleCenter = handleRect.left + handleRect.width / 2;
+    const actionsCenter = actionsRect.left + actionsRect.width / 2;
+    return handleCenter < actionsCenter ? "right" : "left";
+  }
+  function readSheetHeightRatio() {
+    return readHeightRatio(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
+  }
+  function storeSheetHeightRatio(height, viewportHeight) {
+    storeHeightRatio(SHEET_HEIGHT_STORAGE_KEY, height, viewportHeight);
+  }
+  function readHeightRatio(storageKey, fallback) {
+    const value = gmStorageGetSync(storageKey, fallback);
+    return Number.isFinite(value) && value > 0 && value <= 1 ? value : fallback;
+  }
+  function storeHeightRatio(storageKey, height, viewportHeight) {
+    if (viewportHeight <= 0) return;
+    const ratio = Math.max(0, Math.min(1, height / viewportHeight));
+    gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
   }
   const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
   const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
@@ -30481,23 +30427,7 @@ function exampleSectionFromLabel(label) {
   return label.parentElement;
 }
 function updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpanded2) {
-  const actions = popover.querySelector("[data-kanji-actions]");
-  const miningMount = popover.querySelector("[data-kanji-mining-mount]");
-  if (!actions || !miningMount) return;
-  const hasControls = Boolean(controls);
-  const hasReview = actions.dataset.kanjiHasReview === "true";
-  actions.hidden = !hasControls && !hasReview;
-  actions.classList.toggle("jpdb-reader-actions-has-mining", hasControls);
-  actions.classList.toggle("jpdb-reader-actions-mining-collapsed", hasControls);
-  const gutter = actions.querySelector(".jpdb-reader-actions-gutter");
-  if (gutter) gutter.hidden = !hasControls;
-  const collapseButton = actions.querySelector('[data-action="mining-collapse"]');
-  if (collapseButton) {
-  if (hasControls) setMiningControlsExpanded2(collapseButton, false);
-  else collapseButton.setAttribute("aria-expanded", "true");
-  }
-  miningMount.hidden = !hasControls;
-  setInnerHtml(miningMount, controls);
+  yomuKanjiStudyCompanion()?.updateKanjiMiningControlsMount?.(popover, controls, setMiningControlsExpanded2);
 }
 const SINGLE_HIRAGANA_MORA_RE = /^[\u3040-\u309fー]$/u;
 const SUBSTANTIVE_LOCAL_EXPANSION_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
@@ -34161,97 +34091,14 @@ function installMokuroOcrToggleNote() {
   }
   }).observe(document.body ?? document.documentElement, { childList: true, subtree: true });
 }
-const MINING_ACTIONS_CLASS = "jpdb-reader-actions";
-const MINING_COLLAPSED_CLASS = "jpdb-reader-actions-mining-collapsed";
-const DECK_PICKER_OPEN_CLASS = "jpdb-reader-add-deck-select-open";
-const DECK_PICKER_WRAPPER_OPEN_CLASS = "jpdb-reader-deck-picker-open";
-const DECK_PICKER_BLUR_DELAY_MS = 180;
 function toggleMiningControls(button2, label) {
-  const actions = button2.closest(`.${MINING_ACTIONS_CLASS}`);
-  if (!actions) return;
-  setMiningControlsExpanded(button2, actions.classList.contains(MINING_COLLAPSED_CLASS), label);
+  yomuKanjiStudyCompanion()?.toggleMiningControls?.(button2, label);
 }
 function setMiningControlsExpanded(button2, expanded, label) {
-  const actions = button2.closest(`.${MINING_ACTIONS_CLASS}`);
-  if (!actions) return;
-  actions.classList.toggle(MINING_COLLAPSED_CLASS, !expanded);
-  button2.setAttribute("aria-expanded", String(expanded));
-  const text2 = label(expanded);
-  button2.setAttribute("aria-label", text2);
-  button2.title = text2;
+  yomuKanjiStudyCompanion()?.setMiningControlsExpanded?.(button2, expanded, label);
 }
 function openDeckPickerForCardAdd(button2, card, sentence, performAction) {
-  const picker = deckPickerForButton(button2);
-  if (!picker) return false;
-  const wrapper = picker.closest(".jpdb-reader-mining-details");
-  const toggle = wrapper?.querySelector(".jpdb-reader-mining-title");
-  if (picker.classList.contains(DECK_PICKER_OPEN_CLASS)) {
-  picker.hidden = false;
-  picker.focus();
-  return true;
-  }
-  const controller = new AbortController();
-  const cleanup = () => closeDeckPicker(picker, wrapper, toggle, controller);
-  picker.addEventListener("change", () => {
-  const option = picker.selectedOptions[0];
-  const deckId = option?.dataset.deckId?.trim();
-  if (!deckId) {
-    cleanup();
-    return;
-  }
-  performDeckPickerCardAction(button2, card, sentence, option, cleanup, performAction);
-  }, { signal: controller.signal });
-  picker.addEventListener("blur", () => {
-  window.setTimeout(() => {
-    if (document.activeElement !== picker) cleanup();
-  }, DECK_PICKER_BLUR_DELAY_MS);
-  }, { once: true, signal: controller.signal });
-  showDeckPicker(picker, wrapper, toggle);
-  return true;
-}
-function deckPickerForButton(button2) {
-  return button2.closest(".jpdb-reader-mining-details")?.querySelector("[data-add-deck-select]") ?? null;
-}
-function performDeckPickerCardAction(button2, card, sentence, option, cleanup, performAction) {
-  button2.dataset.deckSource = selectedDeckSource(option.dataset.deckSource);
-  button2.dataset.deckId = option.dataset.deckId?.trim() ?? "";
-  const originalAction = button2.dataset.action;
-  button2.dataset.action = "add";
-  cleanup();
-  void Promise.resolve(performAction(button2, card, sentence)).finally(() => {
-  if (originalAction) button2.dataset.action = originalAction;
-  else delete button2.dataset.action;
-  delete button2.dataset.deckSource;
-  delete button2.dataset.deckId;
-  });
-}
-function selectedDeckSource(value) {
-  if (value === "anki" || value === "jiten") return value;
-  return "jpdb";
-}
-function closeDeckPicker(picker, wrapper, toggle, controller) {
-  controller.abort();
-  picker.classList.remove(DECK_PICKER_OPEN_CLASS);
-  picker.hidden = true;
-  wrapper?.classList.remove(DECK_PICKER_WRAPPER_OPEN_CLASS);
-  toggle?.setAttribute("aria-expanded", "false");
-  picker.selectedIndex = 0;
-}
-function showDeckPicker(picker, wrapper, toggle) {
-  picker.hidden = false;
-  picker.classList.add(DECK_PICKER_OPEN_CLASS);
-  wrapper?.classList.add(DECK_PICKER_WRAPPER_OPEN_CLASS);
-  toggle?.setAttribute("aria-expanded", "true");
-  picker.focus();
-  tryShowNativePicker(picker);
-}
-function tryShowNativePicker(picker) {
-  const showPicker = picker.showPicker;
-  if (!showPicker) return;
-  try {
-  showPicker.call(picker);
-  } catch {
-  }
+  return yomuKanjiStudyCompanion()?.openDeckPickerForCardAdd?.(button2, card, sentence, performAction) ?? false;
 }
 function mutationNodes(mutation, options = {}) {
   const nodes = [
@@ -38230,7 +38077,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.2"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.3"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -38359,6 +38206,48 @@ function safeLocationHref() {
   } catch {
   return "";
   }
+}
+function renderStudyBlock(className, content, attrs = "") {
+  return `<div class="${studyBlockClassName(className)}"${studyAttrs(attrs)}>${content}</div>`;
+}
+function renderStudySentenceBlock(sentence, language, options, attrs = "") {
+  return renderStudyBlock("jpdb-reader-study-sentence-block", `
+        <div class="jpdb-reader-study-label-row jpdb-reader-study-sentence-row">
+            <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml$1(sentence)}</div>
+            ${renderStudySentenceAudioButton(language, options)}
+        </div>`, attrs);
+}
+function renderStudyMeaningBlock(text2, language, resultAttrs = "") {
+  return renderStudyBlock("jpdb-reader-study-meaning-block", `
+        <div class="jpdb-reader-study-label">${escapeHtml$1(uiText(language, "meaning"))}</div>
+        <div class="jpdb-reader-study-translation"${studyAttrs(resultAttrs)}>${escapeHtml$1(text2)}</div>`);
+}
+function renderStudySentenceAudioButton(language, options) {
+  const readSentence = uiText(language, options.audioEnabled ? "readSentenceAloud" : "audioPlaybackDisabled");
+  const sentenceAttr = options.sentence ? ` data-study-sentence="${escapeHtml$1(options.sentence)}"` : "";
+  return `<button class="jpdb-reader-icon-mini" data-action="study-read-sentence"${sentenceAttr} type="button" title="${escapeHtml$1(readSentence)}" aria-label="${escapeHtml$1(readSentence)}"${options.audioEnabled ? "" : " disabled"}>${speakerIcon()}</button>`;
+}
+function studyBlockClassName(className) {
+  return ["jpdb-reader-study-block", className.trim()].filter(Boolean).join(" ");
+}
+function studyAttrs(attrs) {
+  const trimmed = attrs.trim();
+  return trimmed ? ` ${trimmed}` : "";
+}
+function detectGrammarHints(sentence) {
+  return yomuKanjiStudyCompanion()?.detectGrammarHints?.(sentence) ?? [];
+}
+function preloadGrammarResources(sentence, language = "en") {
+  return yomuKanjiStudyCompanion()?.preloadGrammarResources?.(sentence, language) ?? [];
+}
+function preloadJapaneseSentenceTranslation(sentence, language = "en") {
+  yomuKanjiStudyCompanion()?.preloadJapaneseSentenceTranslation?.(sentence, language);
+}
+async function translateJapaneseSentence(sentence, language = "en") {
+  return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(sentence));
+}
+async function renderGrammarHints(hints, sentence, preferences, language = "en", options = {}) {
+  return await (yomuKanjiStudyCompanion()?.renderGrammarHints?.(hints, sentence, preferences, language, options) ?? Promise.resolve(""));
 }
 const log$2 = Logger.scope("StudySources");
 const STUDY_GRAMMAR_CACHE_LIMIT = 160;

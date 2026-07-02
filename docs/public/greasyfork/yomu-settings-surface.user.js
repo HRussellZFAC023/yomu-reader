@@ -2390,7 +2390,9 @@
     popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
     popupFontWeight: 400,
     jpdbMiningEnabled: true,
-    bunproMiningEnabled: false,
+    // JPDB parity: the credential is the real gate, so importing a Bunpro
+    // token makes grading work without hunting for a second checkbox.
+    bunproMiningEnabled: true,
     yomuLocalSrsEnabled: true,
     apiGradingProvider: "jiten",
     miningDeck: "forq",
@@ -4733,6 +4735,8 @@
       hideMiningActions: "Hide mining actions",
       switchReviewTarget: "Switch review target",
       switchGradingProvider: "Switch grading provider",
+      apiGradingProvider: "Preferred grading service",
+      apiGradingProviderHelp: "Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.",
       jpdbKanjiUpdated: "JPDB kanji updated.",
       jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
       apiSrsActionsDisabled: "API mining actions are disabled in settings.",
@@ -5148,6 +5152,8 @@ showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
 switchReviewTarget	採点先を切り替える
 switchGradingProvider	採点サービスを切り替える
+apiGradingProvider	優先採点サービス
+apiGradingProviderHelp	JitenとJPDBの両方にある単語をどちらで採点するかの設定です。BunproのカードはBunproで採点されます。採点ボタン横の⇄で単語ごとに切り替えできます。
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -7058,7 +7064,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ...readStudyToolFormSettings(reader, current),
       enableLogging: has("enableLogging"),
       ...readPopupFormSettings(reader, current),
-      ...readMiningFormSettings(reader),
+      ...readMiningFormSettings(reader, current),
       shortcuts: readShortcutFormSettings(reader, current)
     };
     const normalized = normalizeReaderSettings(settings);
@@ -7337,7 +7343,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (value === CUSTOM_FONT_FAMILY_VALUE) return reader.get(`${name}Custom`).trim() || fallback;
     return value || fallback;
   }
-  function readMiningFormSettings(reader) {
+  function readMiningFormSettings(reader, current) {
     const { get, has } = reader;
     return {
       jpdbMiningEnabled: has("jpdbMiningEnabled"),
@@ -7349,7 +7355,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       blacklistDeck: get("blacklistDeck").trim() || "blacklist",
       addToForq: has("addToForq"),
       enableReviews: has("enableReviews"),
-      twoButtonReviews: get("twoButtonReviews") === "true"
+      twoButtonReviews: get("twoButtonReviews") === "true",
+      apiGradingProvider: readOption(get("apiGradingProvider"), ["jiten", "jpdb"], current.apiGradingProvider === "jpdb" ? "jpdb" : "jiten")
     };
   }
   function readOcrFormSettings(reader, current) {
@@ -9145,6 +9152,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
                 ${checkbox("bunproMiningEnabled", "Allow Bunpro review/mining", settings.bunproMiningEnabled)}
                 ${checkbox("addToForq", "Also copy JPDB adds to forq", settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
                 ${checkbox("enableReviews", "Show review buttons", settings.enableReviews)}
+                ${select("apiGradingProvider", "Preferred grading service", settings.apiGradingProvider === "bunpro" ? "jiten" : settings.apiGradingProvider, [["jiten", "Jiten"], ["jpdb", "JPDB"]])}
+                <div class="jpdb-reader-help" data-grading-provider-help>Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.</div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Dictionary site enhancements</div>
                     <div class="grid">
@@ -9926,6 +9935,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["[data-diagnostics-title]", "diagnostics"],
     ["[data-anki-library-adapter-title]", "ankiLibraryAdapter"],
     ["[data-jpdb-api-key-help]", "apiAccessHelp"],
+    ["[data-grading-provider-help]", "apiGradingProviderHelp"],
     ["[data-subtitle-preview] .jpdb-subtitle-secondary", "subtitlePreview"],
     ["[data-settings-preview-title]", "preview"],
     ["[data-proxy-guide-summary]", "audioProxyGuideSummary"],
@@ -10577,6 +10587,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "yomuLocalSrsEnabled",
     "addToForq",
     "enableReviews",
+    "apiGradingProvider",
     "jpdbPageEnhancementsEnabled",
     "jpdbPageWordEnhancementsEnabled",
     "jpdbPageKanjiEnhancementsEnabled",

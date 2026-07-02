@@ -1697,7 +1697,7 @@
   }
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
   const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$5 = Logger.scope("KanjiOrigin");
+  const log$6 = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     cache = /* @__PURE__ */ new Map();
     // Called through the nullable kanji-study companion slot (app/main.ts).
@@ -1716,9 +1716,9 @@
       return promise;
     }
     async fetchInfo(kanji, settings) {
-      const done = log$5.time("Kanji origin lookup", { kanji });
+      const done = log$6.time("Kanji origin lookup", { kanji });
       const kanjiMap = settings.kanjiOriginKanjiMapEnabled ? await fetchKanjiMapInfo(kanji).catch((error) => {
-        log$5.warn("Kanji Map origin lookup failed", { kanji, error });
+        log$6.warn("Kanji Map origin lookup failed", { kanji, error });
         return void 0;
       }) : void 0;
       const result = kanjiMap ? { kanjiMap } : null;
@@ -1733,7 +1733,7 @@
     ].join(":");
   }
   async function fetchKanjiMapInfo(kanji) {
-    const done = log$5.time("Fetch Kanji Map info", { kanji });
+    const done = log$6.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
     const raw = parseJson(await requestText$4(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
@@ -2149,7 +2149,7 @@
       failureLabel: "Kanji origin request",
       timeoutLabel: "Kanji origin request timed out."
     }).catch((error) => {
-      log$5.warn("Kanji origin request failed", { host: safeHost(url), error });
+      log$6.warn("Kanji origin request failed", { host: safeHost(url), error });
       throw error;
     });
   }
@@ -3371,6 +3371,8 @@
       hideMiningActions: "Hide mining actions",
       switchReviewTarget: "Switch review target",
       switchGradingProvider: "Switch grading provider",
+      apiGradingProvider: "Preferred grading service",
+      apiGradingProviderHelp: "Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.",
       jpdbKanjiUpdated: "JPDB kanji updated.",
       jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
       apiSrsActionsDisabled: "API mining actions are disabled in settings.",
@@ -3786,6 +3788,8 @@ showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
 switchReviewTarget	採点先を切り替える
 switchGradingProvider	採点サービスを切り替える
+apiGradingProvider	優先採点サービス
+apiGradingProviderHelp	JitenとJPDBの両方にある単語をどちらで採点するかの設定です。BunproのカードはBunproで採点されます。採点ボタン横の⇄で単語ごとに切り替えできます。
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -6502,7 +6506,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Math.max(min, Math.min(max, Number(value.toFixed(2))));
   }
   const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
-  const log$4 = Logger.scope("JpdbKanji");
+  const log$5 = Logger.scope("JpdbKanji");
   class JpdbKanjiClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -6523,7 +6527,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const action = this.actions.get(actionId);
       if (!action) throw new Error("JPDB kanji action is no longer available.");
       if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
-      log$4.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
+      log$5.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
       await requestText$2(action.url, "", {
         method: action.method,
         payload: action.payload,
@@ -6536,7 +6540,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     async fetchInfo(kanji) {
       const html = await requestText$2(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
-        log$4.warn("Kanji page request failed", { kanji }, error);
+        log$5.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
       const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
@@ -7032,7 +7036,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const KANJIVG_SAFE_PATH_DATA = /^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/;
   const KANJIVG_STROKE_LABEL = /^[\d]+$/;
   const KANJIVG_TEXT_TRANSFORM = /^matrix\([0-9,.\-\s]+\)$/;
-  const log$3 = Logger.scope("KanjiVG");
+  const log$4 = Logger.scope("KanjiVG");
   const KANJIVG_AXIS_POSITIONS = {
     x: { negative: "left", positive: "right" },
     y: { negative: "top", positive: "bottom" }
@@ -7053,7 +7057,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
       const svgText = await requestText$1(url).catch((error) => {
-        log$3.warn("Stroke-order request failed", { kanji }, error);
+        log$4.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
       if (!svgText) return null;
@@ -8363,7 +8367,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         </details>
     `;
   }
-  const log$2 = Logger.scope("KanjiDoodle");
+  const log$3 = Logger.scope("KanjiDoodle");
   const PEN_MIN_DISTANCE = 8e-4;
   const POINTER_MIN_DISTANCE = 35e-4;
   const ACTIVE_DOODLE_CLASS = "jpdb-reader-doodle-active";
@@ -8382,11 +8386,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     try {
       context = canvas.getContext("2d");
     } catch (error) {
-      log$2.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
+      log$3.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
       return;
     }
     if (!context) {
-      log$2.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      log$3.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
       return;
     }
     let dpr = 1;
@@ -8874,7 +8878,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
   const KANJI_RE = /[\u3400-\u9fff]/u;
-  const log$1 = Logger.scope("RTK");
+  const log$2 = Logger.scope("RTK");
   class RtkClient {
     cache = /* @__PURE__ */ new Map();
     keywordIndex;
@@ -8891,7 +8895,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     async fetchInfo(kanji) {
       const html = await requestText(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
-        log$1.warn("RTK request failed", { kanji }, error);
+        log$2.warn("RTK request failed", { kanji }, error);
         return "";
       });
       if (!html) return null;
@@ -9108,6 +9112,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
             <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml(sentence)}</div>
             ${renderStudySentenceAudioButton(language, options)}
         </div>`, attrs);
+  }
+  function renderStudyMeaningBlock(text, language, resultAttrs = "") {
+    return renderStudyBlock("jpdb-reader-study-meaning-block", `
+        <div class="jpdb-reader-study-label">${escapeHtml(uiText(language, "meaning"))}</div>
+        <div class="jpdb-reader-study-translation"${studyAttrs(resultAttrs)}>${escapeHtml(text)}</div>`);
   }
   function renderStudyEmpty(text) {
     return `<div class="jpdb-reader-study-empty">${escapeHtml(text)}</div>`;
@@ -11589,7 +11598,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     ]
   };
-  const log = Logger.scope("StudyTools");
+  const log$1 = Logger.scope("StudyTools");
   const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
   const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
   const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
@@ -11737,7 +11746,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         showKnown: parsed.showKnown === true
       };
     } catch (error) {
-      log.warn("Grammar preference read failed", { error });
+      log$1.warn("Grammar preference read failed", { error });
       return fallback;
     }
   }
@@ -11749,7 +11758,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         showKnown: preferences.showKnown
       }));
     } catch (error) {
-      log.warn("Grammar preference write failed", { error });
+      log$1.warn("Grammar preference write failed", { error });
     }
   }
   function setGrammarRuleKnown(ruleId, known) {
@@ -11782,17 +11791,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(requestSentence)}`;
     const promise = (async () => {
-      const done = log.time("Translate sentence", { sentenceLength: trimmed.length });
+      const done = log$1.time("Translate sentence", { sentenceLength: trimmed.length });
       try {
         const json = await requestJson(url);
         const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
         if (!translated) throw new Error("No translation returned.");
         translationCache.set(cacheKey, translated);
         pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
-        log.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
+        log$1.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
         return translated;
       } catch (error) {
-        log.warn("Translation failed", { sentenceLength: trimmed.length, error });
+        log$1.warn("Translation failed", { sentenceLength: trimmed.length, error });
         throw error;
       } finally {
         done();
@@ -12149,6 +12158,192 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       timeoutLabel: options.timeoutLabel ?? "Translation timed out."
     });
   }
+  function popoverScrollBody(popover) {
+    return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
+  }
+  function capturePopoverScrollFrame(target) {
+    const popover = target.closest(".jpdb-reader-popover") ?? target;
+    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody(popover);
+    return { scrollBody, scrollTop: scrollBody.scrollTop };
+  }
+  function restorePopoverScrollFrame(frame) {
+    if (!frame.scrollBody.isConnected) return;
+    if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
+  }
+  function restorePopoverScrollFrameSoon(frame) {
+    restorePopoverScrollFrame(frame);
+    requestAnimationFrame(() => restorePopoverScrollFrame(frame));
+  }
+  const log = Logger.scope("StudyRender");
+  async function renderStudyToolResult(button, action, sentence, grammarHints, language = "en", options = {}) {
+    const panel = button.closest(".jpdb-reader-study-tools")?.querySelector("[data-study-panel]");
+    if (!panel || !sentence) return;
+    panel.hidden = false;
+    panel.textContent = studyToolPendingText(action, language);
+    const done = log.time("studyTool", { action, sentenceLength: sentence.length });
+    if (action === "study-translate") {
+      try {
+        const translated = await translateJapaneseSentence(sentence, language);
+        replaceStudyPanelHtml(panel, renderStudyMeaningBlock(translated, language));
+        return;
+      } finally {
+        done();
+      }
+    }
+    const hints = resolvedGrammarHints(sentence, grammarHints);
+    if (!hints.length) {
+      panel.hidden = true;
+      panel.textContent = "";
+      done();
+      return;
+    }
+    replaceStudyPanelHtml(panel, await renderGrammarHints(hints, sentence, void 0, language, { audioEnabled: options.audioEnabled }));
+    done();
+  }
+  function studyToolPendingText(action, language) {
+    return action === "study-translate" ? uiText(language, "translating") : uiText(language, "findingGrammar");
+  }
+  function resolvedGrammarHints(sentence, grammarHints) {
+    return grammarHints ?? detectGrammarHints(sentence);
+  }
+  function handleStudyGrammarAction(button, sentence, language = "en", options = {}) {
+    if (!sentence) return false;
+    if (button.dataset.action === "study-grammar-toggle-known") {
+      const ruleId = button.dataset.grammarRuleId;
+      if (!ruleId) return false;
+      setGrammarRuleKnown(ruleId, button.dataset.grammarKnown !== "true");
+      void rerenderGrammarPanel(button, sentence, language, options);
+      return true;
+    }
+    if (button.dataset.action === "study-grammar-toggle-known-visibility") {
+      setKnownGrammarVisible(button.getAttribute("aria-pressed") !== "true");
+      void rerenderGrammarPanel(button, sentence, language, options);
+      return true;
+    }
+    return false;
+  }
+  async function rerenderGrammarPanel(button, sentence, language, options) {
+    const panel = button.closest(".jpdb-reader-study-panel");
+    if (!panel) return;
+    const hints = detectGrammarHints(sentence);
+    replaceStudyPanelHtml(panel, await renderGrammarHints(hints, sentence, void 0, language, { audioEnabled: options.audioEnabled }));
+  }
+  function replaceStudyPanelHtml(panel, html) {
+    const scrollFrame = capturePopoverScrollFrame(panel);
+    setInnerHtml(panel, html);
+    restorePopoverScrollFrameSoon(scrollFrame);
+  }
+  const MINING_ACTIONS_CLASS = "jpdb-reader-actions";
+  const MINING_COLLAPSED_CLASS = "jpdb-reader-actions-mining-collapsed";
+  const DECK_PICKER_OPEN_CLASS = "jpdb-reader-add-deck-select-open";
+  const DECK_PICKER_WRAPPER_OPEN_CLASS = "jpdb-reader-deck-picker-open";
+  const DECK_PICKER_BLUR_DELAY_MS = 180;
+  function toggleMiningControls(button, label) {
+    const actions = button.closest(`.${MINING_ACTIONS_CLASS}`);
+    if (!actions) return;
+    setMiningControlsExpanded(button, actions.classList.contains(MINING_COLLAPSED_CLASS), label);
+  }
+  function setMiningControlsExpanded(button, expanded, label) {
+    const actions = button.closest(`.${MINING_ACTIONS_CLASS}`);
+    if (!actions) return;
+    actions.classList.toggle(MINING_COLLAPSED_CLASS, !expanded);
+    button.setAttribute("aria-expanded", String(expanded));
+    const text = label(expanded);
+    button.setAttribute("aria-label", text);
+    button.title = text;
+  }
+  function openDeckPickerForCardAdd(button, card, sentence, performAction) {
+    const picker = deckPickerForButton(button);
+    if (!picker) return false;
+    const wrapper = picker.closest(".jpdb-reader-mining-details");
+    const toggle = wrapper?.querySelector(".jpdb-reader-mining-title");
+    if (picker.classList.contains(DECK_PICKER_OPEN_CLASS)) {
+      picker.hidden = false;
+      picker.focus();
+      return true;
+    }
+    const controller = new AbortController();
+    const cleanup = () => closeDeckPicker(picker, wrapper, toggle, controller);
+    picker.addEventListener("change", () => {
+      const option = picker.selectedOptions[0];
+      const deckId = option?.dataset.deckId?.trim();
+      if (!deckId) {
+        cleanup();
+        return;
+      }
+      performDeckPickerCardAction(button, card, sentence, option, cleanup, performAction);
+    }, { signal: controller.signal });
+    picker.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        if (document.activeElement !== picker) cleanup();
+      }, DECK_PICKER_BLUR_DELAY_MS);
+    }, { once: true, signal: controller.signal });
+    showDeckPicker(picker, wrapper, toggle);
+    return true;
+  }
+  function deckPickerForButton(button) {
+    return button.closest(".jpdb-reader-mining-details")?.querySelector("[data-add-deck-select]") ?? null;
+  }
+  function performDeckPickerCardAction(button, card, sentence, option, cleanup, performAction) {
+    button.dataset.deckSource = selectedDeckSource(option.dataset.deckSource);
+    button.dataset.deckId = option.dataset.deckId?.trim() ?? "";
+    const originalAction = button.dataset.action;
+    button.dataset.action = "add";
+    cleanup();
+    void Promise.resolve(performAction(button, card, sentence)).finally(() => {
+      if (originalAction) button.dataset.action = originalAction;
+      else delete button.dataset.action;
+      delete button.dataset.deckSource;
+      delete button.dataset.deckId;
+    });
+  }
+  function selectedDeckSource(value) {
+    if (value === "anki" || value === "jiten") return value;
+    return "jpdb";
+  }
+  function closeDeckPicker(picker, wrapper, toggle, controller) {
+    controller.abort();
+    picker.classList.remove(DECK_PICKER_OPEN_CLASS);
+    picker.hidden = true;
+    wrapper?.classList.remove(DECK_PICKER_WRAPPER_OPEN_CLASS);
+    toggle?.setAttribute("aria-expanded", "false");
+    picker.selectedIndex = 0;
+  }
+  function showDeckPicker(picker, wrapper, toggle) {
+    picker.hidden = false;
+    picker.classList.add(DECK_PICKER_OPEN_CLASS);
+    wrapper?.classList.add(DECK_PICKER_WRAPPER_OPEN_CLASS);
+    toggle?.setAttribute("aria-expanded", "true");
+    picker.focus();
+    tryShowNativePicker(picker);
+  }
+  function tryShowNativePicker(picker) {
+    const showPicker = picker.showPicker;
+    if (!showPicker) return;
+    try {
+      showPicker.call(picker);
+    } catch {
+    }
+  }
+  function updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpanded2) {
+    const actions = popover.querySelector("[data-kanji-actions]");
+    const miningMount = popover.querySelector("[data-kanji-mining-mount]");
+    if (!actions || !miningMount) return;
+    const hasControls = Boolean(controls);
+    const hasReview = actions.dataset.kanjiHasReview === "true";
+    actions.hidden = !hasControls && !hasReview;
+    actions.classList.toggle("jpdb-reader-actions-has-mining", hasControls);
+    actions.classList.toggle("jpdb-reader-actions-mining-collapsed", hasControls);
+    const gutter = actions.querySelector(".jpdb-reader-actions-gutter");
+    if (gutter) gutter.hidden = !hasControls;
+    const collapseButton = actions.querySelector('[data-action="mining-collapse"]');
+    if (collapseButton) {
+      if (hasControls) setMiningControlsExpanded2(collapseButton, false);
+      else collapseButton.setAttribute("aria-expanded", "true");
+    }
+    miningMount.hidden = !hasControls;
+    setInnerHtml(miningMount, controls);
+  }
   registerYomuCompanion("kanjiStudy", {
     KanjiOriginClient,
     KanjiVGClient,
@@ -12177,6 +12372,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     setGrammarRuleKnown,
     setKnownGrammarVisible,
     translateJapaneseSentence,
-    renderGrammarHints
+    renderGrammarHints,
+    renderStudyToolResult,
+    handleStudyGrammarAction,
+    toggleMiningControls,
+    setMiningControlsExpanded,
+    openDeckPickerForCardAdd,
+    updateKanjiMiningControlsMount
   });
 })();
