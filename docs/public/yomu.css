@@ -423,7 +423,12 @@
 .VwiC3b .jpdb-reader-word.jpdb-reader-scan-word {
   white-space: normal;
   word-break: normal;
-  overflow-wrap: anywhere !important;
+  /* break-word (not anywhere): identical emergency wrapping in a constrained
+     box, but it does NOT shrink the word's min-content width — with anywhere,
+     flex/grid/table cells sized by min-content collapsed annotated text into
+     one-character-per-line stacks (the layout breakage reported on some
+     sites). */
+  overflow-wrap: break-word !important;
   line-break: auto;
   /* Scan words keep the absolutely-positioned ::after underline like every other
      reader word, so the pitch underline sits exactly on the highlight box's
@@ -527,7 +532,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word {
   white-space: normal;
   word-break: normal;
-  overflow-wrap: anywhere !important;
+  overflow-wrap: break-word !important;
   line-break: auto;
 }
 
@@ -539,22 +544,19 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   overflow-wrap: anywhere;
 }
 
+/* Passive words stay layout-neutral (they inherit the host's wrapping) and
+   never repaint the host's text colour, but they KEEP their pitch underline
+   and state decorations at rest — link-wrapped prose is still content. Only
+   chrome contexts (buttons/menus/nav/marked compact controls, below and in the
+   bare-until-hover rules further down) strip decoration entirely. */
 .jpdb-reader-word.jpdb-reader-passive-word {
   --jpdb-reader-word-color-source: currentColor;
-  --jpdb-reader-word-decoration-source: transparent;
-  --jpdb-reader-word-highlight-source: transparent;
-  --jpdb-reader-word-highlight-shadow-source: none;
-  --jpdb-reader-word-underline: transparent;
   display: inline !important;
   white-space: inherit;
   word-break: inherit;
   overflow-wrap: inherit !important;
   line-break: inherit;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
   cursor: inherit;
-  text-decoration-color: transparent !important;
 }
 
 [data-jpdb-reader-passive-chrome] .jpdb-reader-passive-word {
@@ -1126,7 +1128,56 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   color: var(--jpdb-reader-word-accessible-color, currentColor) !important;
   -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor);
 }
-.jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active) {
+/* Bare-until-hover applies to CHROME passive words only (buttons, tabs, menus,
+   nav links, compact controls the scanner marked) — readable content that
+   merely sits inside a link/expander keeps its pitch underline and state
+   colours at rest. 1.5.4 stripped every passive word here, which made pitch
+   underlines and colours on link-wrapped prose (news headlines, Wikipedia
+   links, forum titles) flicker in on hover and vanish on mouse-out. */
+:is(
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
+  [role="option"],
+  [role="checkbox"],
+  [role="radio"],
+  [role="switch"],
+  [role="menu"],
+  [role="menubar"],
+  [role="toolbar"],
+  [role="tablist"],
+  [role="listbox"],
+  [role="navigation"],
+  nav,
+  summary,
+  label,
+  select,
+  /* YouTube chrome roots without a button/nav ancestor — mirrors
+     YOUTUBE_PASSIVE_CHROME_SELECTOR in site-parsers.ts; listed here, not
+     marked in TS, because the stylesheet ships outside the 2 MB bundle. */
+  yt-chip-cloud-chip-view-model,
+  ytd-masthead,
+  ytm-pivot-bar-renderer,
+  ytm-pivot-bar-item-renderer,
+  ytm-mobile-topbar-renderer,
+  ytm-app-header,
+  ytm-searchbox,
+  ytm-shorts-player-controls,
+  ytm-slim-video-action-bar-renderer,
+  ytm-actions-renderer,
+  ytm-menu-renderer,
+  ytm-button-renderer,
+  ytm-toggle-button-renderer,
+  ytm-bottom-sheet-renderer,
+  ytm-engagement-panel-section-list-renderer,
+  ytm-reel-player-overlay-renderer,
+  ytm-shorts-video-title-view-model,
+  .jpdb-reader-control-text-mirror,
+  [data-jpdb-reader-passive-chrome="true"]
+) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active) {
   --jpdb-reader-word-accessible-color: currentColor;
   --jpdb-reader-word-accessible-highlight: transparent;
   --jpdb-reader-word-accessible-underline: transparent;
@@ -1143,7 +1194,47 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   text-decoration-color: transparent !important;
   text-shadow: none;
 }
-.jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active)::after {
+:is(
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
+  [role="option"],
+  [role="checkbox"],
+  [role="radio"],
+  [role="switch"],
+  [role="menu"],
+  [role="menubar"],
+  [role="toolbar"],
+  [role="tablist"],
+  [role="listbox"],
+  [role="navigation"],
+  nav,
+  summary,
+  label,
+  select,
+  yt-chip-cloud-chip-view-model,
+  ytd-masthead,
+  ytm-pivot-bar-renderer,
+  ytm-pivot-bar-item-renderer,
+  ytm-mobile-topbar-renderer,
+  ytm-app-header,
+  ytm-searchbox,
+  ytm-shorts-player-controls,
+  ytm-slim-video-action-bar-renderer,
+  ytm-actions-renderer,
+  ytm-menu-renderer,
+  ytm-button-renderer,
+  ytm-toggle-button-renderer,
+  ytm-bottom-sheet-renderer,
+  ytm-engagement-panel-section-list-renderer,
+  ytm-reel-player-overlay-renderer,
+  ytm-shorts-video-title-view-model,
+  .jpdb-reader-control-text-mirror,
+  [data-jpdb-reader-passive-chrome="true"]
+) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active)::after {
   border-block-end-color: transparent !important;
 }
 :is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)

@@ -126,7 +126,10 @@ describe('reader stylesheet loading', () => {
         const scanRule = css.match(/\.jpdb-reader-word\.jpdb-reader-scan-word:not\(\.jpdb-reader-passive-word\)[^{]*\{[^}]*\}/)?.[0] ?? '';
 
         expect(scanRule).toContain('word-break: normal');
-        expect(scanRule).toContain('overflow-wrap: anywhere !important');
+        // break-word, never anywhere: anywhere collapses min-content sizing and
+        // stacks annotated flex/grid text one character per line.
+        expect(scanRule).toContain('overflow-wrap: break-word !important');
+        expect(scanRule).not.toContain('overflow-wrap: anywhere');
         expect(scanRule).toContain('line-break: auto');
         expect(scanRule).toContain('.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word');
         expect(css).toContain('.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-has-furi');
@@ -136,6 +139,35 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('word-break: keep-all');
         expect(css).toContain('overflow-wrap: normal');
         expect(css).toContain('line-height: inherit;');
+    });
+
+    it('keeps pitch underline and state decorations on passive content words at rest', () => {
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+
+        // The base passive rule must stay layout-neutral WITHOUT stripping
+        // decoration sources: link-wrapped prose (news headlines, Wikipedia
+        // links) is passive for interaction but still content for display.
+        const baseRule = css.match(/\n\.jpdb-reader-word\.jpdb-reader-passive-word\s*\{[^}]*\}/)?.[0] ?? '';
+        expect(baseRule).toContain('--jpdb-reader-word-color-source: currentColor');
+        expect(baseRule).toContain('overflow-wrap: inherit !important');
+        expect(baseRule).not.toContain('--jpdb-reader-word-underline: transparent');
+        expect(baseRule).not.toContain('--jpdb-reader-word-decoration-source: transparent');
+        expect(baseRule).not.toContain('background-image: none');
+
+        // Bare-until-hover only applies inside chrome contexts. A bare
+        // `.jpdb-reader-word.jpdb-reader-passive-word:not(:hover)` selector
+        // (no chrome ancestor scope) regresses pitch underlines on link-heavy
+        // sites into hover-only flicker (1.5.4 regression).
+        expect(css).not.toMatch(/\n\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\)/);
+        const strippedAtRest = css.match(/:is\([^)]*\[data-jpdb-reader-passive-chrome="true"\]\s*\)\s*\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)\s*\{[^}]*\}/)?.[0] ?? '';
+        expect(strippedAtRest).toContain('--jpdb-reader-word-underline: transparent');
+        expect(strippedAtRest).toContain('nav');
+        expect(strippedAtRest).toContain('[role="navigation"]');
+        // YouTube chrome roots without a button/nav ancestor live in the CSS
+        // scope (not a scanner-side mark) because the stylesheet ships outside
+        // the 2 MB userscript bundle.
+        expect(strippedAtRest).toContain('yt-chip-cloud-chip-view-model');
+        expect(strippedAtRest).toContain('ytm-pivot-bar-renderer');
     });
 
     it('keeps hover layered over highlights while passive chrome strips highlight paint', () => {

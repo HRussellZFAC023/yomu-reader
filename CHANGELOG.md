@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.1] - 2026-07-02
+
+### Fixed
+
+- Restored pitch-accent underlines, state colours, and furigana on link-wrapped content (news headlines, Wikipedia-style prose links, forum titles) at rest. Since 1.5.4 every passive word was stripped of decoration until hovered, which made pitch underlines flicker in on hover and vanish on mouse-out across link-heavy sites; the bare-until-hover treatment now applies only to real chrome (buttons, tabs, menus, nav links, compact controls the scanner marks, and YouTube chip/renderer chrome).
+- Annotated words now wrap with overflow-wrap break-word instead of anywhere, so flex/grid/table cells sized by min-content no longer collapse annotated mixed-script text into one-character-per-line stacks, while keeping identical emergency wrapping in constrained boxes.
+- Added a passive-decoration browser smoke (npm run smoke:passive-decoration) that locks in: content links keep underline and furigana at rest and after hover-away, while nav/button chrome stays bare until hover.
+
 ## [1.6.0] - 2026-07-02
 
 ### Added
