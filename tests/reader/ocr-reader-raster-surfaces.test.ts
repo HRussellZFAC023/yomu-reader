@@ -474,14 +474,14 @@ describe('reader raster OCR surfaces', () => {
             });
             Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
-            frame!.dispatchEvent(new Event('load'));
+            const scanImage = (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage.bind(controller);
+            await scanImage(frame!);
 
             await waitForExpect(() => {
                 expect(recognizeImage).toHaveBeenCalledTimes(1);
                 expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
             });
 
-            const scanImage = (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage.bind(controller);
             await scanImage(frame!);
             expect(recognizeImage).toHaveBeenCalledTimes(1);
             expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
