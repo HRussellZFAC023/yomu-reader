@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.2] - 2026-07-02
+
+### Fixed
+
+- Kept word highlights hover-only on passive link text so busy pages such as search results are not repainted wall-to-wall, while the pitch underlines and text colours restored in 1.6.1 stay visible at rest.
+
 ## [1.6.1] - 2026-07-02
 
 ### Fixed

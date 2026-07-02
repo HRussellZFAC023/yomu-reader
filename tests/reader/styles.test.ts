@@ -154,11 +154,16 @@ describe('reader stylesheet loading', () => {
         expect(baseRule).not.toContain('--jpdb-reader-word-decoration-source: transparent');
         expect(baseRule).not.toContain('background-image: none');
 
-        // Bare-until-hover only applies inside chrome contexts. A bare
-        // `.jpdb-reader-word.jpdb-reader-passive-word:not(:hover)` selector
-        // (no chrome ancestor scope) regresses pitch underlines on link-heavy
-        // sites into hover-only flicker (1.5.4 regression).
-        expect(css).not.toMatch(/\n\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\)/);
+        // Only the highlight (background) channel may go bare-until-hover on
+        // ALL passive words; the underline/text channels must stay visible at
+        // rest — stripping them globally regresses pitch underlines on
+        // link-heavy sites into hover-only flicker (1.5.4 regression).
+        const bareRestRule = css.match(/\n\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)\s*\{[^}]*\}/)?.[0] ?? '';
+        expect(bareRestRule).toContain('--jpdb-reader-word-highlight-source: transparent');
+        expect(bareRestRule).not.toContain('--jpdb-reader-word-underline');
+        expect(bareRestRule).not.toContain('--jpdb-reader-word-decoration-source');
+        expect(bareRestRule).not.toContain('text-decoration-color');
+        expect(css).not.toMatch(/\n\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)::after/);
         const strippedAtRest = css.match(/:is\([^)]*\[data-jpdb-reader-passive-chrome="true"\]\s*\)\s*\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)\s*\{[^}]*\}/)?.[0] ?? '';
         expect(strippedAtRest).toContain('--jpdb-reader-word-underline: transparent');
         expect(strippedAtRest).toContain('nav');
