@@ -246,6 +246,7 @@ import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { batchJitenFallbackCards, normalizedJitenLookupKey, publicLookupFallbackCards } from '../lookup/public-fallback-cards';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
 import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
@@ -4287,44 +4288,23 @@ export class ReaderApp {
         cards: readonly JPDBCard[],
         options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup'> = {},
     ): Promise<Map<string, JPDBCard>> {
-        const result = new Map<string, JPDBCard>();
-        if (!canSearchPublicLookupCard(this.settings, {})) return result;
-        const entries = uniqueFallbackLookupEntries(cards, options.publicLookupTermLimit);
-        if (!entries.length) return result;
-
+        if (!canSearchPublicLookupCard(this.settings, {})) return new Map<string, JPDBCard>();
         // Keyed users resolve EVERY fallback term through one batched
         // reader/parse (full vocabulary in a single request, metered per-user) —
         // this replaces the per-word /info fan-out that hammered the server.
         // Keyless keeps the public lookup (capped + cached) so it can no longer
-        // fan out into the hundreds-of-requests storm. Mirrors the hosted
-        // newtab runtime, which already routes keyed fallbacks this way.
-        const jitenTerms = [...new Set(entries.flatMap(entry => entry.terms))];
-        const jitenCards = this.isJitenApiActive()
-            ? await this.batchJitenFallbackCards(jitenTerms)
-            : await this.jitenPublicVocabulary.lookupMany(jitenTerms, { detailLimit: publicJitenDetailLimit(entries.length) }).catch(error => {
-                log.warn('Jiten fallback failed', { terms: jitenTerms.length }, error);
-                return new Map<string, JPDBCard>();
-            });
-        for (const entry of entries) {
-            for (const term of entry.terms) {
-                const card = jitenCards.get(normalizedJitenLookupKey(term));
-                if (!card) continue;
-                result.set(entry.key, card);
-                break;
-            }
-        }
-
-        if (options.jpdbPublicLookup === false) return result;
-        const unresolved = entries.filter(entry => !result.has(entry.key));
-        await runLimited(unresolved, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, async entry => {
-            for (const term of entry.terms) {
-                const publicCard = await this.publicLookupSpellingCard(term);
-                if (!publicCard) continue;
-                result.set(entry.key, publicCard);
-                return;
-            }
+        // fan out into the hundreds-of-requests storm.
+        return publicLookupFallbackCards(cards, {
+            jitenApiActive: () => this.isJitenApiActive(),
+            parse: terms => this.jiten.parse(terms),
+            lookupMany: (terms, lookupOptions) => this.jitenPublicVocabulary.lookupMany(terms, lookupOptions),
+            publicSpellingCard: term => this.publicLookupSpellingCard(term),
+        }, {
+            concurrency: BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
+            termLimit: options.publicLookupTermLimit,
+            jpdbPublicLookup: options.jpdbPublicLookup,
+            detailLimit: publicJitenDetailLimit,
         });
-        return result;
     }
 
     private async publicLookupHydratableJitenCards(cards: readonly JPDBCard[]): Promise<Map<string, JPDBCard>> {
@@ -4333,28 +4313,6 @@ export class ReaderApp {
             log.warn('Jiten parsed-card hydration failed', { cards: cards.length }, error);
             return new Map<string, JPDBCard>();
         });
-    }
-
-    // Resolve fallback terms through Jiten with ZERO per-word requests: ALL
-    // terms go through one batched reader/parse (each term as its own line),
-    // which returns full vocabulary in a single request and is metered by
-    // Jiten's per-user parse budget. Only called for keyed users; keyless never
-    // bulk-hits Jiten this way (that path was the per-word /info request storm).
-    private async batchJitenFallbackCards(terms: readonly string[]): Promise<Map<string, JPDBCard>> {
-        const cards = new Map<string, JPDBCard>();
-        const uniqueTerms = [...new Set(terms.map(term => term.trim()).filter(Boolean))];
-        if (!uniqueTerms.length) return cards;
-        const parsed = await this.jiten.parse(uniqueTerms).catch(error => {
-            log.warn('Jiten batch fallback parse failed', { terms: uniqueTerms.length }, error);
-            return [] as JPDBToken[][];
-        });
-        uniqueTerms.forEach((term, index) => {
-            const tokens = parsed[index] ?? [];
-            const card = tokens.find(token => jitenFallbackTokenMatches(term, token))?.card
-                ?? tokens.find(token => token.card.source === 'jiten')?.card;
-            if (card?.source === 'jiten') cards.set(normalizedJitenLookupKey(term), card);
-        });
-        return cards;
     }
 
     private async publicJitenLookupCandidateCards(terms: readonly string[]): Promise<Map<string, JPDBCard>> {
@@ -4389,15 +4347,10 @@ export class ReaderApp {
 
     private async jitenLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> {
         const terms = fallbackLookupTermsForCard(card);
-        const parsed = await this.jiten.parse(terms).catch(error => {
-            log.warn('Jiten fallback lookup failed', { terms: terms.length }, error);
-            return [];
-        });
-        for (const [index, term] of terms.entries()) {
-            const tokens = parsed[index] ?? [];
-            const candidate = tokens.find(token => jitenFallbackTokenMatches(term, token))?.card
-                ?? tokens.find(token => token.card.source === 'jiten')?.card;
-            if (candidate?.source === 'jiten') return candidate;
+        const cards = await batchJitenFallbackCards(terms, parseTerms => this.jiten.parse(parseTerms));
+        for (const term of terms) {
+            const candidate = cards.get(normalizedJitenLookupKey(term));
+            if (candidate) return candidate;
         }
         return undefined;
     }
@@ -8717,33 +8670,6 @@ function isHydratablePublicJitenCard(card: JPDBCard): boolean {
         && (!card.reading || !card.pitchAccent.length || !card.wordWithReading || !card.meanings.length);
 }
 
-interface FallbackLookupEntry {
-    key: string;
-    card: JPDBCard;
-    terms: string[];
-}
-
-function uniqueFallbackLookupEntries(cards: readonly JPDBCard[], termLimit?: number): FallbackLookupEntry[] {
-    const seen = new Set<string>();
-    const entries: FallbackLookupEntry[] = [];
-    for (const card of cards) {
-        const key = cardKey(card);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const allTerms = fallbackLookupTermsForCard(card);
-        const terms = typeof termLimit === 'number'
-            ? allTerms.slice(0, Math.max(1, Math.floor(termLimit)))
-            : allTerms;
-        if (!terms.length) continue;
-        entries.push({ key, card, terms });
-    }
-    return entries;
-}
-
-function normalizedJitenLookupKey(term: string): string {
-    return normalizedLookupText(term);
-}
-
 function uniquePointerTextSpans(spans: PointerTextSpanCandidate[]): PointerTextSpanCandidate[] {
     const seen = new Set<string>();
     return spans.filter(span => {
@@ -8784,10 +8710,3 @@ function mergePitchPatterns(preferred: string[], existing: string[]): string[] {
     return [...preferred, ...existing.filter(pattern => !preferred.includes(pattern))];
 }
 
-function jitenFallbackTokenMatches(term: string, token: JPDBToken): boolean {
-    const normalizedTerm = normalizedLookupText(term);
-    const tokenSurface = normalizedLookupText(token.sentence?.slice(token.start, token.end) ?? '');
-    return tokenSurface === normalizedTerm
-        || normalizedLookupText(token.card.spelling) === normalizedTerm
-        || normalizedLookupText(token.card.reading) === normalizedTerm;
-}

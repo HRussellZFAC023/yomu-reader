@@ -69,6 +69,7 @@ import {
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
+import { publicLookupFallbackCards } from '../lookup/public-fallback-cards';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../lookup/nested-text-parse';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
@@ -90,7 +91,7 @@ import {
     renderRtkInfo,
 } from '../popup/render';
 import { applyPublicVocabularyFurigana, updateRenderedPitch } from '../app/dom-helpers';
-import { ReaderParser, fallbackLookupTermsForCard, jpdbFirstParseOptions } from '../lookup/parser';
+import { ReaderParser, jpdbFirstParseOptions } from '../lookup/parser';
 import {
     DEFAULT_SETTINGS,
     loadSettings,
@@ -1750,64 +1751,22 @@ export class NewTabRuntime {
     }
 
     private async publicLookupFallbackCards(cards: readonly JPDBCard[], options: { jpdbPublicLookup?: boolean } = {}): Promise<Map<string, JPDBCard>> {
-        const result = new Map<string, JPDBCard>();
-        if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return result;
-        const entries = uniqueFallbackLookupEntries(cards);
-        if (!entries.length) return result;
-
-        const terms = [...new Set(entries.flatMap(entry => entry.terms))];
-        const jitenCards = await this.fallbackJitenCards(terms);
-        for (const entry of entries) {
-            for (const term of entry.terms) {
-                const card = jitenCards.get(normalizedJitenLookupKey(term));
-                if (!card) continue;
-                result.set(entry.key, card);
-                break;
-            }
-        }
-
-        if (options.jpdbPublicLookup === false) return result;
-        const unresolved = entries.filter(entry => !result.has(entry.key));
-        await runLimited(unresolved, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async entry => {
-            for (const term of entry.terms) {
-                const cards = await this.jpdbVocabulary.search(term, 1).catch(error => {
+        if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return new Map<string, JPDBCard>();
+        return publicLookupFallbackCards(cards, {
+            jitenApiActive: () => this.isJitenApiActive(),
+            parse: terms => this.jiten.parse(terms),
+            lookupMany: terms => this.jitenPublicVocabulary.lookupMany(terms),
+            publicSpellingCard: async term => {
+                const found = await this.jpdbVocabulary.search(term, 1).catch(error => {
                     log.warn('Public JPDB fallback search failed', { term }, error);
                     return [];
                 });
-                const publicCard = cards.find(candidate => candidate.spelling === term);
-                if (!publicCard) continue;
-                result.set(entry.key, publicCard);
-                return;
-            }
+                return found.find(candidate => candidate.spelling === term);
+            },
+        }, {
+            concurrency: NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY,
+            jpdbPublicLookup: options.jpdbPublicLookup,
         });
-        return result;
-    }
-
-    private async fallbackJitenCards(terms: readonly string[]): Promise<Map<string, JPDBCard>> {
-        if (this.isJitenApiActive()) return this.batchJitenFallbackCards(terms);
-        return await this.jitenPublicVocabulary.lookupMany(terms).catch(error => {
-            log.warn('Public Jiten batch fallback search failed', { terms: terms.length }, error);
-            return new Map<string, JPDBCard>();
-        });
-    }
-
-    // Keyed bulk fallback terms use reader parse instead of per-word public
-    // detail lookups.
-    private async batchJitenFallbackCards(terms: readonly string[]): Promise<Map<string, JPDBCard>> {
-        const cards = new Map<string, JPDBCard>();
-        const uniqueTerms = [...new Set(terms.map(term => term.trim()).filter(Boolean))];
-        if (!uniqueTerms.length) return cards;
-        const parsed = await this.jiten.parse(uniqueTerms).catch(error => {
-            log.warn('Jiten batch fallback parse failed', { terms: uniqueTerms.length }, error);
-            return [] as JPDBToken[][];
-        });
-        uniqueTerms.forEach((term, index) => {
-            const tokens = parsed[index] ?? [];
-            const card = tokens.find(token => jitenFallbackTokenMatches(term, token))?.card
-                ?? tokens.find(token => token.card.source === 'jiten')?.card;
-            if (card?.source === 'jiten') cards.set(normalizedJitenLookupKey(term), card);
-        });
-        return cards;
     }
 
     private async localLookupEntry(term: string, reading: string): Promise<YomitanTermEntry | undefined> {
@@ -2352,36 +2311,6 @@ export class NewTabRuntime {
 
 function markNewTabRuntime(): void {
     (window as YomuNewTabWindow).__YOMU_READER_RUNTIME__ = 'newtab';
-}
-
-interface FallbackLookupEntry {
-    key: string;
-    terms: string[];
-}
-
-function uniqueFallbackLookupEntries(cards: readonly JPDBCard[]): FallbackLookupEntry[] {
-    const seen = new Set<string>();
-    const entries: FallbackLookupEntry[] = [];
-    for (const card of cards) {
-        const key = cardKey(card);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const terms = fallbackLookupTermsForCard(card);
-        if (terms.length) entries.push({ key, terms });
-    }
-    return entries;
-}
-
-function normalizedJitenLookupKey(term: string): string {
-    return term.replace(/\s+/g, '').trim();
-}
-
-function jitenFallbackTokenMatches(term: string, token: JPDBToken): boolean {
-    const normalizedTerm = normalizedJitenLookupKey(term);
-    const tokenSurface = normalizedJitenLookupKey(token.sentence?.slice(token.start, token.end) ?? '');
-    return tokenSurface === normalizedTerm
-        || normalizedJitenLookupKey(token.card.spelling) === normalizedTerm
-        || normalizedJitenLookupKey(token.card.reading) === normalizedTerm;
 }
 
 function refreshableNoop(): { refresh: () => void } {
