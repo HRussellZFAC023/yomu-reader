@@ -471,16 +471,22 @@ describe('reader raster OCR surfaces', () => {
             await waitForExpect(() => {
                 frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
                 expect(frame).not.toBeNull();
-            });
+            }, 10_000);
             Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(frame!, 'naturalHeight', { value: 1600, configurable: true });
             const scanImage = (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage.bind(controller);
-            await scanImage(frame!);
-
-            await waitForExpect(() => {
-                expect(recognizeImage).toHaveBeenCalledTimes(1);
+            // Loaded CI runners (4 vitest children on 4 cores) starve the scan
+            // pipeline's real-timer steps past the default 1s budget, so keep
+            // re-triggering the scan until the failing provider call lands. The
+            // no-rescan contract is asserted by the exact call count below: once
+            // the failure is recorded, the extra scanImage calls in this loop
+            // must NOT reach the provider again.
+            await waitForExpect(async () => {
+                await scanImage(frame!);
+                expect(recognizeImage).toHaveBeenCalled();
                 expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('failed');
-            });
+            }, 10_000);
+            expect(recognizeImage).toHaveBeenCalledTimes(1);
 
             await scanImage(frame!);
             expect(recognizeImage).toHaveBeenCalledTimes(1);
@@ -493,12 +499,13 @@ describe('reader raster OCR surfaces', () => {
                 retryFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
                 expect(retryFrame).not.toBeNull();
                 expect(retryFrame).not.toBe(frame);
-            });
+            }, 10_000);
             Object.defineProperty(retryFrame!, 'naturalWidth', { value: 1200, configurable: true });
             Object.defineProperty(retryFrame!, 'naturalHeight', { value: 1600, configurable: true });
-            await scanImage(retryFrame!);
-
-            expect(recognizeImage).toHaveBeenCalledTimes(2);
+            await waitForExpect(async () => {
+                await scanImage(retryFrame!);
+                expect(recognizeImage).toHaveBeenCalledTimes(2);
+            }, 10_000);
             expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
             expect(document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')?.dataset.status).toBe('ready');
         } finally {

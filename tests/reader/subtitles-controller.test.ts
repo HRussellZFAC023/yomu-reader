@@ -989,6 +989,8 @@ Watch the cat
 
             expect(document.querySelector('input[type="file"]')).toBe(picker);
 
+            // Loaded CI runners can stretch the parse/upload path past the 1s
+            // default; only patience changes here, not the contract.
             await vi.waitFor(() => {
                 expect(document.querySelector('input[type="file"]')).toBeNull();
                 const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list');
@@ -996,7 +998,7 @@ Watch the cat
                 expect(panel?.textContent).toContain('episode.en');
                 expect(panel?.querySelector('[data-action="panel-shadow"]')).not.toBeNull();
                 expect(panel?.querySelector('[data-action="panel-mine"]')).not.toBeNull();
-            });
+            }, { timeout: 10_000 });
 
             const internals = controllerInternals<{
                 selectedTrackId: string;
