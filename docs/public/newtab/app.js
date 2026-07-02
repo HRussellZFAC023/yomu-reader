@@ -29214,7 +29214,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.5.20".trim() ? "1.5.20".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.5.21".trim() ? "1.5.21".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

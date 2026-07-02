@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.5.20
+// @version 1.5.21
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.20
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.20
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.20
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.20
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.21
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.21
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.21
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.21
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -38058,7 +38058,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.20"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.21"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -38081,7 +38081,7 @@ const CRITICAL_READER_CSS = `
 :is(.jpdb-reader-popover,.jpdb-reader-settings) .jpdb-reader-icon-btn svg{display:block;width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .jpdb-reader-actions .jpdb-reader-mining-collapse{position:relative;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:72px;height:30px;min-width:72px;min-height:30px;flex:none;border:0;border-radius:999px;background:#0000;color:var(--jpdb-reader-muted,#4f5968);cursor:pointer;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:#0000}
 .jpdb-reader-actions .jpdb-reader-mining-collapse::before{content:"";position:relative;z-index:1;display:block;width:42px;height:5px;border-radius:999px;background:var(--jpdb-reader-faint,#687384)}
-.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}.jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor}:is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror,[data-jpdb-reader-passive-chrome=true]) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}
+a[href] .jpdb-reader-word{-webkit-touch-callout:none}.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}.jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor}:is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror,[data-jpdb-reader-passive-chrome=true]) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}
 .jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,#0000);pointer-events:none}
 ${criticalWordCss()}
 `.trim();
@@ -38972,6 +38972,7 @@ function manualScrollReaderBody(body, deltaY) {
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
 const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
+const LINK_PRESS_LOOKUP_MS = 450;
 const SUBTITLE_HOVER_MINING_RESUME_GRACE_MS = 520;
 const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
   ".textBox",
@@ -39375,6 +39376,8 @@ class ReaderApp {
   embeddedFrame = false;
   pressLookup;
   tapLookup;
+  linkPressLookup;
+  suppressLinkContextMenuUntil = 0;
   suppressMiddleAuxClickUntil = 0;
   constructor() {
   configureLogger({ settingsProvider: () => this.settings });
@@ -40461,21 +40464,30 @@ class ReaderApp {
     this.suppressHoverAfterPenContact(event);
     if (this.handleOcrReaderWordPointerDown(event)) return;
     this.beginTapLookup(event);
+    this.beginLinkPressLookup(event);
     this.dismissModalPopoverForOutsidePointer(event);
     this.dismissHoverPopoverForOutsidePointer(event);
     this.beginPressLookup(event);
   }, { capture: true, passive: false });
   document.addEventListener("pointermove", (event) => {
     this.updateTapLookup(event);
+    this.updateLinkPressLookup(event);
     this.updatePressLookup(event);
   }, { capture: true, passive: false });
   document.addEventListener("pointerup", (event) => {
     this.finishTapLookup(event);
+    this.cancelLinkPressLookup(event);
     this.endPressLookup(event);
   }, { capture: true });
   document.addEventListener("pointercancel", (event) => {
     this.cancelTapLookup(event);
+    this.cancelLinkPressLookup(event);
     this.endPressLookup(event);
+  }, { capture: true });
+  document.addEventListener("contextmenu", (event) => {
+    if (!this.linkPressLookup && Date.now() >= this.suppressLinkContextMenuUntil) return;
+    event.preventDefault();
+    event.stopPropagation();
   }, { capture: true });
   document.addEventListener("pointerover", (event) => {
     this.handleHoverPointer(event);
@@ -40586,6 +40598,51 @@ class ReaderApp {
   const tap = this.tapLookup;
   if (tap && tap.id === event.pointerId) this.tapLookup = void 0;
   }
+  beginLinkPressLookup(event) {
+  this.clearLinkPressLookup();
+  if (this.isDestroyed || event.button !== 0 || event.isPrimary === false || event.pointerType !== "touch" && event.pointerType !== "pen" || this.settings.popupActivationMode === "off" || this.isInsideActivePopover(event.target)) return;
+  const word = this.linkPressLookupWord(event);
+  if (!word) return;
+  const timer = window.setTimeout(() => this.fireLinkPressLookup(), LINK_PRESS_LOOKUP_MS);
+  this.linkPressLookup = { id: event.pointerId, x: event.clientX, y: event.clientY, word, timer };
+  this.primeLookupAudioFromGesture();
+  }
+  linkPressLookupWord(event) {
+  const word = this.readerWordForPointerEvent(event, { clickLookup: true });
+  if (!word || this.isNativeWord(word)) return null;
+  if (word.dataset.jpdbReaderPassive === "true" && !canClickLookupPassiveReaderWordElement(word)) return null;
+  if (word.closest(".jpdb-reader-popover") || word.closest(SUBTITLE_SURFACE_SELECTOR)) return null;
+  return nativeClickableAncestor(word) instanceof HTMLAnchorElement ? word : null;
+  }
+  updateLinkPressLookup(event) {
+  const press = this.linkPressLookup;
+  if (!press || press.id !== event.pointerId) return;
+  if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > 12) this.clearLinkPressLookup();
+  }
+  cancelLinkPressLookup(event) {
+  if (this.linkPressLookup?.id === event.pointerId) this.clearLinkPressLookup();
+  }
+  clearLinkPressLookup() {
+  const press = this.linkPressLookup;
+  if (!press) return;
+  window.clearTimeout(press.timer);
+  this.linkPressLookup = void 0;
+  }
+  fireLinkPressLookup() {
+  const press = this.linkPressLookup;
+  this.linkPressLookup = void 0;
+  if (!press || this.isDestroyed || !press.word.isConnected) return;
+  const now = Date.now();
+  this.suppressWordClickUntil = now + 1200;
+  this.suppressLinkContextMenuUntil = now + 1200;
+  this.suppressSelectionLookupUntil = now + 700;
+  this.lastPointerPosition = { x: press.x, y: press.y };
+  this.cancelPendingHoverLookup();
+  this.cancelHoverClose();
+  this.ocr.pinLineForElement(press.word);
+  if (this.shouldPauseForLookupAnchor(press.word)) this.pauseVideoForSubtitleMining();
+  void this.showWord(press.word, { trigger: "click", userGesture: true, fastInitialRender: true });
+  }
   openReaderWordFromPointer(event, word, surfaces) {
   if (!surfaces.n) {
     event.preventDefault();
@@ -40628,7 +40685,7 @@ class ReaderApp {
   if (this.settings.popupActivationMode === "off" && !r) return null;
   const l = nativeClickableAncestor(word);
   const n = this.isNativeWord(word) && !r && !s && !this.clickForcesReaderWordLookup(event);
-  if (!r && !s && l && !this.clickForcesReaderWordLookup(event) && !this.passiveTextMirrorClickOverridesNativeLink(word, l) && !n) {
+  if (!r && !s && l && !this.clickForcesReaderWordLookup(event) && !n) {
     return null;
   }
   if (!this.settings.lookupOnClick && !r && !s) return null;
@@ -40636,9 +40693,6 @@ class ReaderApp {
   }
   isNativeWord(word) {
   return Boolean(word.closest(".jpdb-reader-native-canvas"));
-  }
-  passiveTextMirrorClickOverridesNativeLink(word, nativeClickable) {
-  return canClickLookupPassiveReaderWordElement(word) && Boolean(word.closest(".jpdb-reader-text-mirror")) && nativeClickable instanceof HTMLAnchorElement;
   }
   consumeSuppressedReaderWordClick(event, word) {
   const pointerType = event.pointerType;

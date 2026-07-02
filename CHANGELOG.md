@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.21] - 2026-07-02
+
+### Changed
+
+- Treats words inside real links as passive lookup targets: clicking or tapping a link now navigates it, with the dictionary popover available on hover (or modifier+click) on desktop.
+- Adds a stationary long-press (~450ms) lookup for link words on touch devices, which opens the popover and suppresses the link navigation and native context menu for that gesture, so mobile lookup stays available without hijacking taps.
+
 ## [1.5.20] - 2026-07-02
 
 ### Added

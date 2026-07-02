@@ -427,6 +427,9 @@ const HOST_THEME_ENFORCE_STEP_MS = 200;
 // re-play (YouTube player, another extension) lands within a few hundred ms; a
 // deliberate user resume seconds later is left alone.
 const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
+// Below Android's ~500ms native long-press threshold so the lookup wins the
+// gesture before the link context menu (which we also suppress) fires.
+const LINK_PRESS_LOOKUP_MS = 450;
 const SUBTITLE_HOVER_MINING_RESUME_GRACE_MS = 520;
 const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
     '.textBox',
@@ -860,6 +863,8 @@ export class ReaderApp {
     private embeddedFrame = false;
     private pressLookup?: PressLookupState;
     private tapLookup?: { id: number; x: number; y: number; word?: HTMLElement };
+    private linkPressLookup?: { id: number; x: number; y: number; word: HTMLElement; timer: number };
+    private suppressLinkContextMenuUntil = 0;
     private suppressMiddleAuxClickUntil = 0;
 
     constructor() {
@@ -2147,6 +2152,7 @@ export class ReaderApp {
             this.suppressHoverAfterPenContact(event);
             if (this.handleOcrReaderWordPointerDown(event)) return;
             this.beginTapLookup(event);
+            this.beginLinkPressLookup(event);
             this.dismissModalPopoverForOutsidePointer(event);
             this.dismissHoverPopoverForOutsidePointer(event);
             this.beginPressLookup(event);
@@ -2154,17 +2160,29 @@ export class ReaderApp {
 
         document.addEventListener('pointermove', event => {
             this.updateTapLookup(event);
+            this.updateLinkPressLookup(event);
             this.updatePressLookup(event);
         }, { capture: true, passive: false });
 
         document.addEventListener('pointerup', event => {
             this.finishTapLookup(event);
+            this.cancelLinkPressLookup(event);
             this.endPressLookup(event);
         }, { capture: true });
 
         document.addEventListener('pointercancel', event => {
             this.cancelTapLookup(event);
+            this.cancelLinkPressLookup(event);
             this.endPressLookup(event);
+        }, { capture: true });
+
+        // Android fires contextmenu at its own long-press threshold; when the
+        // link-word long-press lookup is pending or just opened, the popover
+        // owns the gesture instead of the native link menu.
+        document.addEventListener('contextmenu', event => {
+            if (!this.linkPressLookup && Date.now() >= this.suppressLinkContextMenuUntil) return;
+            event.preventDefault();
+            event.stopPropagation();
         }, { capture: true });
 
         document.addEventListener('pointerover', event => {
@@ -2321,6 +2339,66 @@ export class ReaderApp {
         if (tap && tap.id === event.pointerId) this.tapLookup = undefined;
     }
 
+    // Words inside real links are passive: a click/tap must navigate, so the
+    // popover has no click path there. Hover covers desktop; on touch (no
+    // hover) a stationary long-press opens the lookup instead, and suppresses
+    // the trailing click so the link does not also navigate.
+    private beginLinkPressLookup(event: PointerEvent): void {
+        this.clearLinkPressLookup();
+        if (this.isDestroyed
+            || event.button !== 0
+            || event.isPrimary === false
+            || (event.pointerType !== 'touch' && event.pointerType !== 'pen')
+            || this.settings.popupActivationMode === 'off'
+            || this.isInsideActivePopover(event.target as Node | null)) return;
+        const word = this.linkPressLookupWord(event);
+        if (!word) return;
+        const timer = window.setTimeout(() => this.fireLinkPressLookup(), LINK_PRESS_LOOKUP_MS);
+        this.linkPressLookup = { id: event.pointerId, x: event.clientX, y: event.clientY, word, timer };
+        this.primeLookupAudioFromGesture();
+    }
+
+    private linkPressLookupWord(event: PointerEvent): HTMLElement | null {
+        const word = this.readerWordForPointerEvent(event, { clickLookup: true });
+        if (!word || this.isNativeWord(word)) return null;
+        if (word.dataset.jpdbReaderPassive === 'true' && !canClickLookupPassiveReaderWordElement(word)) return null;
+        if (word.closest('.jpdb-reader-popover') || word.closest(SUBTITLE_SURFACE_SELECTOR)) return null;
+        return nativeClickableAncestor(word) instanceof HTMLAnchorElement ? word : null;
+    }
+
+    private updateLinkPressLookup(event: PointerEvent): void {
+        const press = this.linkPressLookup;
+        if (!press || press.id !== event.pointerId) return;
+        if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > 12) this.clearLinkPressLookup();
+    }
+
+    private cancelLinkPressLookup(event: PointerEvent): void {
+        if (this.linkPressLookup?.id === event.pointerId) this.clearLinkPressLookup();
+    }
+
+    private clearLinkPressLookup(): void {
+        const press = this.linkPressLookup;
+        if (!press) return;
+        window.clearTimeout(press.timer);
+        this.linkPressLookup = undefined;
+    }
+
+    private fireLinkPressLookup(): void {
+        const press = this.linkPressLookup;
+        this.linkPressLookup = undefined;
+        if (!press || this.isDestroyed || !press.word.isConnected) return;
+        const now = Date.now();
+        this.suppressWordClickUntil = now + 1200;
+        this.suppressLinkContextMenuUntil = now + 1200;
+        this.suppressSelectionLookupUntil = now + 700;
+        this.lastPointerPosition = { x: press.x, y: press.y };
+        this.cancelPendingHoverLookup();
+        this.cancelHoverClose();
+        this.ocr.pinLineForElement(press.word);
+        if (this.shouldPauseForLookupAnchor(press.word)) this.pauseVideoForSubtitleMining();
+        void this.showWord(press.word, { trigger: 'click', userGesture: true, fastInitialRender: true });
+    }
+
     private openReaderWordFromPointer(
         event: MouseEvent,
         word: HTMLElement,
@@ -2388,7 +2466,6 @@ export class ReaderApp {
         if (!r && !s
             && l
             && !this.clickForcesReaderWordLookup(event)
-            && !this.passiveTextMirrorClickOverridesNativeLink(word, l)
             && !n) {
             return null;
         }
@@ -2398,12 +2475,6 @@ export class ReaderApp {
 
     private isNativeWord(word: HTMLElement): boolean {
         return Boolean(word.closest('.jpdb-reader-native-canvas'));
-    }
-
-    private passiveTextMirrorClickOverridesNativeLink(word: HTMLElement, nativeClickable: HTMLElement): boolean {
-        return canClickLookupPassiveReaderWordElement(word)
-            && Boolean(word.closest('.jpdb-reader-text-mirror'))
-            && nativeClickable instanceof HTMLAnchorElement;
     }
 
     private consumeSuppressedReaderWordClick(event: MouseEvent, word: HTMLElement): boolean {

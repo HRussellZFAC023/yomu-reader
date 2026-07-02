@@ -149,6 +149,18 @@ function hoverPointerEvent(
     return event;
 }
 
+function linkTitleMirrorFixture(): string {
+    return `
+        <a class="video-title" href="/watch?v=abc123">
+            <span class="title-host">
+                <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true" data-source-text="【初見】">
+                    【<span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-passive-word" data-vid="1798820" data-sid="0" data-card-source="jiten" data-card-id="1798820" data-reading-index="0" data-token-start="1" data-token-end="3" data-sentence="【初見】" data-expression="初見" data-jpdb-reader-passive="true">初見</span>】
+                </span>
+            </span>
+        </a>
+    `;
+}
+
 function cleanupReaderApp(app: ReaderApp): void {
     app.destroy();
     document.body.replaceChildren();
@@ -1505,21 +1517,13 @@ describe('hover lookup', () => {
         }
     });
 
-    it('opens passive text-mirror words inside title links on click lookup', () => {
+    it('keeps passive text-mirror words inside title links click-through (link is passive; hover owns the popover)', () => {
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
             origin: 'https://www.youtube.com',
             hostname: 'www.youtube.com',
         });
-        document.body.innerHTML = `
-            <a class="video-title" href="/watch?v=abc123">
-                <span class="title-host">
-                    <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true" data-source-text="【初見】">
-                        【<span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-passive-word" data-vid="1798820" data-sid="0" data-card-source="jiten" data-card-id="1798820" data-reading-index="0" data-token-start="1" data-token-end="3" data-sentence="【初見】" data-expression="初見" data-jpdb-reader-passive="true">初見</span>】
-                    </span>
-                </span>
-            </a>
-        `;
+        document.body.innerHTML = linkTitleMirrorFixture();
         const app = new ReaderApp();
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
         const linkClick = vi.fn();
@@ -1537,13 +1541,92 @@ describe('hover lookup', () => {
             const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 24 });
             word.dispatchEvent(click);
 
-            expect(click.defaultPrevented).toBe(true);
-            expect(linkClick).not.toHaveBeenCalled();
+            expect(click.defaultPrevented).toBe(false);
+            expect(linkClick).toHaveBeenCalledTimes(1);
+            expect(showWord).not.toHaveBeenCalled();
+        } finally {
+            cleanupReaderApp(app);
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('opens link words from a stationary touch long-press and suppresses the navigation click', () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        document.body.innerHTML = linkTitleMirrorFixture();
+        const app = new ReaderApp();
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const linkClick = vi.fn();
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnClick: true,
+        };
+        internals.showWord = showWord;
+        internals.bindEvents();
+        document.querySelector<HTMLAnchorElement>('a.video-title')?.addEventListener('click', linkClick);
+
+        try {
+            word.dispatchEvent(hoverPointerEvent(word, 'touch', 'pointerdown'));
+            vi.advanceTimersByTime(460);
+
             expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
                 trigger: 'click',
                 userGesture: true,
             }));
+
+            word.dispatchEvent(hoverPointerEvent(word, 'touch', 'pointerup'));
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 24 });
+            word.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(linkClick).not.toHaveBeenCalled();
         } finally {
+            vi.useRealTimers();
+            cleanupReaderApp(app);
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('lets a quick tap on a link word navigate without opening the popover', () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        document.body.innerHTML = linkTitleMirrorFixture();
+        const app = new ReaderApp();
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const linkClick = vi.fn();
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnClick: true,
+        };
+        internals.showWord = showWord;
+        internals.bindEvents();
+        document.querySelector<HTMLAnchorElement>('a.video-title')?.addEventListener('click', linkClick);
+
+        try {
+            word.dispatchEvent(hoverPointerEvent(word, 'touch', 'pointerdown'));
+            vi.advanceTimersByTime(120);
+            word.dispatchEvent(hoverPointerEvent(word, 'touch', 'pointerup'));
+            vi.advanceTimersByTime(600);
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 24 });
+            word.dispatchEvent(click);
+
+            expect(showWord).not.toHaveBeenCalled();
+            expect(click.defaultPrevented).toBe(false);
+            expect(linkClick).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.useRealTimers();
             cleanupReaderApp(app);
             vi.unstubAllGlobals();
         }
