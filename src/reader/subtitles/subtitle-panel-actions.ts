@@ -104,11 +104,11 @@ export function syncTranscriptPlacementButtons(
         const pressed = buttonPlacement === placement;
         button.setAttribute('aria-pressed', String(pressed));
         if (buttonPlacement === 'left' || buttonPlacement === 'right' || buttonPlacement === 'bottom') {
-            const label = `${groupLabel}: ${uiText(language, buttonPlacement)}`;
-            button.title = label;
-            button.setAttribute('aria-label', label);
+            button.title = `${groupLabel}: ${uiText(language, buttonPlacement)}`;
         }
     }
+    const optionsToggle = panel.querySelector<HTMLButtonElement>('[data-action="panel-options"]');
+    if (optionsToggle) setInnerHtml(optionsToggle, subtitleIcon(transcriptPlacementIcon(placement)));
 }
 
 function isAutoDetectedSubtitleTrack(track: SubtitleTrackOption): boolean {

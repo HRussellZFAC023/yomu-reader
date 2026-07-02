@@ -380,7 +380,7 @@ describe('SubtitlePlayerController', () => {
         expect(commentEvent.defaultPrevented).toBe(false);
     });
 
-    it('renders subtitle navigation, playback, panel, tracks, and style controls in the rail', () => {
+    it('renders subtitle navigation, playback, panel, and style controls in the rail', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -398,12 +398,14 @@ describe('SubtitlePlayerController', () => {
             .filter((element): element is HTMLButtonElement => element instanceof HTMLButtonElement)
             .map(button => button.dataset.action);
 
-        expect(actions).toEqual(['previous', 'next', 'playback', 'fullscreen', 'panel', 'panel-tracks', 'style']);
+        expect(actions).toEqual(['previous', 'next', 'playback', 'fullscreen', 'panel', 'style']);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="playback"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="fullscreen"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="panel"]')).toHaveLength(1);
-        expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="panel-tracks"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="style"]')).toHaveLength(1);
+        // The tracks shortcut duplicated the panel toggle (both opened the same
+        // drawer), so the rail must stay a single-drawer-button surface.
+        expect(document.querySelector('.jpdb-subtitle-rail [data-action="panel-tracks"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="toggle"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="list"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
@@ -787,7 +789,7 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('keeps the playback toggle visible when the docked side panel is open during playback', () => {
+    it('keeps rail navigation and playback visible when the docked side panel is open during playback', () => {
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
         const { controller } = createInstalledSubtitleController();
         const video = attachVideo(controller, { currentTime: 0.5 });
@@ -810,8 +812,10 @@ describe('SubtitlePlayerController', () => {
             const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
 
             expect(panel.hidden).toBe(false);
-            expect(previous.hidden).toBe(true);
-            expect(next.hidden).toBe(true);
+            // The drawer head no longer carries its own prev/next pair, so the
+            // rail stays the only line-navigation surface while the panel is open.
+            expect(previous.hidden).toBe(false);
+            expect(next.hidden).toBe(false);
             expect(playback.hidden).toBe(false);
             expect(playback.getAttribute('aria-label')).toBe('Pause video');
             expect(playback.getAttribute('aria-pressed')).toBe('true');
@@ -820,7 +824,7 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('hides the rail tracks shortcut while the docked side panel already has a Tracks tab', () => {
+    it('reaches the Tracks tab through the drawer instead of a duplicate rail shortcut', () => {
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
         const { controller } = createInstalledSubtitleController();
 
@@ -836,21 +840,19 @@ describe('SubtitlePlayerController', () => {
             controller.refresh();
 
             const panelButton = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!;
-            const tracksButton = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel-tracks"]')!;
             expect(panelButton.hidden).toBe(false);
-            expect(tracksButton.hidden).toBe(false);
+            expect(document.querySelector('.jpdb-subtitle-rail [data-action="panel-tracks"]')).toBeNull();
 
             panelButton.click();
 
             const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
             expect(panel.hidden).toBe(false);
-            expect(panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-panel-mode [data-action="panel-tracks"]')).not.toBeNull();
-            expect(panelButton.hidden).toBe(false);
-            expect(tracksButton.hidden).toBe(true);
+            const tracksTab = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-panel-mode [data-action="panel-tracks"]')!;
+            expect(tracksTab).not.toBeNull();
 
-            panelButton.click();
+            tracksTab.click();
 
-            expect(tracksButton.hidden).toBe(false);
+            expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
         } finally {
             controller.destroy();
         }
@@ -892,8 +894,10 @@ describe('SubtitlePlayerController', () => {
             expect(panel.querySelector('[data-action="panel-lines"]')).toBeNull();
             expect(panel.querySelector('[data-action="panel-shadow"]')).toBeNull();
             expect(panel.querySelector('[data-action="panel-mine"]')).toBeNull();
-            expect(panel.querySelector('[data-action="transcript-placement"]')).toBeNull();
-            expect(panel.querySelector('[data-action="toggle-pause-panel"]')).toBeNull();
+            // Placement and close still live in the panel-options menu even
+            // before a transcript exists — only the mode tabs need a surface.
+            expect(panel.querySelector('[data-panel-options]')).not.toBeNull();
+            expect(panel.querySelector('[data-action="close-panel"]')).not.toBeNull();
         } finally {
             controller.destroy();
         }
@@ -920,6 +924,35 @@ describe('SubtitlePlayerController', () => {
         } finally {
             controller.destroy();
         }
+    });
+
+    it('advertises the forced bottom drawer on the closed rail toggle at compact widths', () => {
+        withViewport(390, 844, () => {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: false,
+                subtitleTranscriptPlacement: 'left' as const,
+            };
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                onSettingsChange: () => undefined,
+            });
+
+            try {
+                (controller as unknown as { install: () => void }).install();
+                const button = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!;
+                expect(button.getAttribute('aria-pressed')).toBe('false');
+                // Compact viewports always open the drawer as a bottom sheet, so
+                // the closed toggle must show the panel-bottom icon, not the
+                // stored side preference.
+                expect(button.innerHTML).toContain('M4 14h16');
+                expect(button.innerHTML).not.toContain('M10 5v14');
+            } finally {
+                controller.destroy();
+            }
+        });
     });
 
     it('does not mount native subtitle file inputs inside the floating player', () => {
@@ -2700,7 +2733,7 @@ Watch the cat
         }
     });
 
-    it('changes transcript docking from the drawer controls while the rail remains the close control', () => {
+    it('changes transcript docking from the drawer panel-options menu', () => {
         withViewport(1600, 900, () => {
             const onSettingsChange = vi.fn();
             const settings = {
@@ -2737,8 +2770,13 @@ Watch the cat
                 internals.openLinesPanel();
 
                 let panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
-                expect(panel.querySelector('[data-action="close-panel"]')).toBeNull();
+                const menu = panel.querySelector<HTMLElement>('.jpdb-subtitle-panel-options-menu')!;
+                expect(menu.hidden).toBe(true);
                 expect(panel.querySelectorAll('[data-action="transcript-placement"][data-placement]')).toHaveLength(3);
+                expect(panel.querySelector('[data-action="close-panel"]')).not.toBeNull();
+
+                panel.querySelector<HTMLButtonElement>('[data-action="panel-options"]')!.click();
+                expect(panel.querySelector<HTMLElement>('.jpdb-subtitle-panel-options-menu')!.hidden).toBe(false);
 
                 panel.querySelector<HTMLButtonElement>('[data-action="transcript-placement"][data-placement="bottom"]')!.click();
 
@@ -2746,7 +2784,10 @@ Watch the cat
                 expect(settings.subtitleTranscriptPlacement).toBe('bottom');
                 expect(panel.dataset.transcriptPlacement).toBe('bottom');
                 expect(panel.querySelector<HTMLButtonElement>('[data-placement="bottom"]')?.getAttribute('aria-pressed')).toBe('true');
+                // Choosing a placement dismisses the menu.
+                expect(panel.querySelector<HTMLElement>('.jpdb-subtitle-panel-options-menu')!.hidden).toBe(true);
 
+                panel.querySelector<HTMLButtonElement>('[data-action="panel-options"]')!.click();
                 panel.querySelector<HTMLButtonElement>('[data-action="transcript-placement"][data-placement="right"]')!.click();
 
                 panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
@@ -2757,7 +2798,7 @@ Watch the cat
                 internals.openTracksPanel();
                 panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
                 expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
-                expect(panel.querySelector('[data-action="close-panel"]')).toBeNull();
+                expect(panel.querySelector('[data-action="close-panel"]')).not.toBeNull();
                 expect(panel.querySelectorAll('[data-action="transcript-placement"][data-placement]')).toHaveLength(3);
                 expect(onSettingsChange).toHaveBeenCalled();
             } finally {
@@ -3350,8 +3391,8 @@ Watch the cat
             expect(autoButton).toBeTruthy();
             expect(autoButton.textContent).toContain('Auto');
             expect(autoButton.getAttribute('aria-pressed')).toBe('false');
-            expect(autoButton.getAttribute('aria-label')).toBe('Auto-hide panel while playing');
-            expect(panel.querySelector('[data-action="close-panel"]')).toBeNull();
+            expect(autoButton.title).toBe('Auto-hide panel while playing');
+            expect(panel.querySelector('[data-action="close-panel"]')).not.toBeNull();
             expect(panel.querySelectorAll('[data-action="transcript-placement"][data-placement]')).toHaveLength(3);
 
             autoButton.click();
@@ -3372,7 +3413,7 @@ Watch the cat
             expect(panel.classList.contains('jpdb-subtitle-lines-panel')).toBe(true);
             expect(panel.textContent).toContain('自動で隠す');
             expect(reopenedButton.getAttribute('aria-pressed')).toBe('true');
-            expect(reopenedButton.getAttribute('aria-label')).toBe('Keep panel open while playing');
+            expect(reopenedButton.title).toBe('Keep panel open while playing');
 
             Object.defineProperty(video, 'paused', { configurable: true, value: false });
             video.dispatchEvent(new Event('playing'));
@@ -4220,14 +4261,15 @@ Watch the cat
         // any-pointer:coarse (not the primary pointer) so an iPad-with-Pencil
         // (pointer:fine, width > 768px) still gets the 44px touch targets.
         expect(normalizedCss).toContain('@media (max-width: 768px), (any-pointer: coarse) {');
-        expect(normalizedCss).toContain('.jpdb-subtitle-rail button::after { content: ""; position: absolute; inset: -5px; border-radius: 9px; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-rail button::after { content: ""; position: absolute; inset: -6px; border-radius: 9px; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail button { padding: 0; font-size: 11px; touch-action: manipulation; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail::-webkit-scrollbar { display: none; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail { top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); bottom: auto; gap: 3px; max-width: calc(100% - 16px); flex-wrap: wrap; overflow: visible;');
         expect(normalizedCss).toContain('.jpdb-subtitle-drawer-actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; max-width: 100%; min-width: 0; overflow: visible; scrollbar-width: none; -webkit-overflow-scrolling: touch; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-panel-mode button { min-width: 44px; padding-inline: 4px; font-size: 10px; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-drawer-auto { width: 44px; min-width: 44px; padding-inline: 0 !important; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-drawer-auto span { display: none; }');
+        // The merged panel-options control keeps 44px touch targets on coarse pointers.
+        expect(normalizedCss).toContain('.jpdb-subtitle-list .jpdb-subtitle-panel-options-toggle { min-width: 44px; width: 44px; min-height: 44px; height: 44px; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-list .jpdb-subtitle-panel-options-item { min-height: 44px; }');
         // The old coarse-pointer/compact "always discoverable" overrides kept
         // the rail visible during playback even while the player chrome was
         // hidden; the rail now follows the player chrome (lockstep tick) and

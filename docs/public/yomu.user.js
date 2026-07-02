@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.3
+// @version 1.6.4
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.3
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.3
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.3
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.3
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.4
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.4
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.4
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.4
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -8562,7 +8562,7 @@ const COPY = {
   closeSubtitleDrawer: "Close subtitle drawer",
   enableSubtitleAutoHide: "Auto-hide panel while playing",
   disableSubtitleAutoHide: "Keep panel open while playing",
-  subtitleAutoHideShort: "Auto",
+  subtitlePanelOptions: "Panel options",
   loadJapaneseSubtitles: "Load Japanese subtitles",
   loadPrimarySubtitles: "Load primary subtitles",
   loadNativeSubtitles: "Load native subtitles",
@@ -8573,7 +8573,6 @@ const COPY = {
   noSubtitleTracksDetected: "No subtitle tracks detected yet.",
   resizeTranscriptPanel: "Resize transcript panel",
   resizeSubtitleTracksPanel: "Resize subtitle tracks panel",
-  subtitleNavigation: "Subtitle nav",
   subtitlePanelMode: "Mode",
   subtitleLines: "Lines",
   shadow: "Shadow",
@@ -9373,7 +9372,7 @@ subtitleResetDefaults	標準に戻す
 closeSubtitleDrawer	字幕ドロワーを閉じる
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
-subtitleAutoHideShort	自動
+subtitlePanelOptions	パネル設定
 loadJapaneseSubtitles	日本語字幕を読み込む
 loadPrimarySubtitles	主字幕を読み込む
 loadNativeSubtitles	母語字幕を読み込む
@@ -9384,7 +9383,6 @@ subtitleTracksDetected	件の字幕トラックを検出
 noSubtitleTracksDetected	字幕トラックは未検出です。
 resizeTranscriptPanel	文字起こしパネルのサイズ変更
 resizeSubtitleTracksPanel	字幕トラックパネルのサイズ変更
-subtitleNavigation	字幕ナビ
 subtitlePanelMode	表示
 subtitleLines	行
 shadow	シャドー
@@ -38077,7 +38075,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.3"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.4"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

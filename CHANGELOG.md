@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.4] - 2026-07-02
+
+### Changed
+
+- Merged the subtitle drawer dock position controls, the auto open-on-pause toggle, and the close action into one panel-options menu in the drawer header, so phone screens keep a single tidy row of controls instead of a wrapped strip.
+- Removed the duplicate previous/next subtitle buttons from the drawer header; the player rail now keeps line navigation and playback visible while the panel is open.
+- Removed the redundant subtitle rail tracks shortcut, which opened the same drawer as the panel toggle; the Tracks tab inside the drawer remains the way to manage tracks.
+
+### Fixed
+
+- The closed subtitle panel toggle now shows the bottom-sheet icon on phone-width screens where the drawer always opens below the video, instead of the remembered side-dock icon.
+- Drawer header controls keep 44px touch targets on touch devices, and the merged panel-options menu closes on Escape, on outside taps, and after choosing a dock position.
+
 ## [1.6.3] - 2026-07-02
 
 ### Added

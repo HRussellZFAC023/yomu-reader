@@ -154,9 +154,7 @@ import {
     isSubtitleOverlayVideoVisible,
     isSubtitleVideoElementRenderable,
     renderPanelModeControls,
-    renderPanelNavigationControls,
-    renderPanelPlacementControls,
-    renderPausePanelToggle,
+    renderPanelOptionsControls,
     renderSubtitleStyleControls,
     setStylePropertyIfChanged,
     subtitleIcon,
@@ -199,7 +197,7 @@ function subtitleSessionParseHash(key: string): string {
     }
     return `${h1.toString(36)}${h2.toString(36)}`;
 }
-import type { JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
+import type { InterfaceLanguage, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 
 export { requestSubtitleText } from './subtitle-request';
 
@@ -1146,6 +1144,10 @@ export class SubtitlePlayerController {
     private pausePanelSyncScheduled = false;
     private subtitleDragOffsetYPx = 0;
     private subtitleStylePanelOpen = false;
+    // Drawer-head panel-options popover (placement / pause auto-open / close).
+    // Kept as state, not DOM, so it survives the full panel re-renders that
+    // toggling an option inside it triggers.
+    private panelOptionsMenuOpen = false;
     // Remembered manual vertical position, as a fraction of viewport height, so a
     // nudge survives video changes and reloads instead of snapping back to the
     // configured bottom offset. Persisted via gmStorage; see subtitle-layout.
@@ -1172,6 +1174,7 @@ export class SubtitlePlayerController {
         load: () => this.openSubtitleFilePicker('primary'),
         'load-secondary': () => this.openSubtitleFilePicker('secondary'),
         panel: () => this.toggleTranscriptDrawer(),
+        'panel-options': () => this.togglePanelOptionsMenu(),
         style: () => this.toggleSubtitleStylePanel(),
         'style-reset': () => this.resetSubtitleStyleDefaults(),
         'panel-lines': () => this.openLinesPanel({ deferRender: true }),
@@ -1400,7 +1403,6 @@ export class SubtitlePlayerController {
         const playLabel = uiText(settings.interfaceLanguage, 'playVideo');
         const fullscreenLabel = uiText(settings.interfaceLanguage, 'enterFullscreen');
         const panelLabel = uiText(settings.interfaceLanguage, 'openSubtitlePanel');
-        const tracksLabel = uiText(settings.interfaceLanguage, 'subtitleTracks');
         const moveLabel = uiText(settings.interfaceLanguage, 'moveSubtitles');
         setInnerHtml(root, `
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveLabel)}"><span aria-hidden="true"></span></button></div>
@@ -1411,7 +1413,6 @@ export class SubtitlePlayerController {
                 <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon('play')}</button>
                 <button class="jpdb-subtitle-fullscreen-toggle" type="button" data-action="fullscreen" title="${escapeHtml(fullscreenLabel)}" aria-label="${escapeHtml(fullscreenLabel)}">${subtitleIcon('fullscreen')}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
-                <button class="jpdb-subtitle-tracks-toggle" type="button" data-action="panel-tracks" title="${escapeHtml(tracksLabel)}" aria-label="${escapeHtml(tracksLabel)}">${subtitleIcon('tracks')}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
@@ -3223,6 +3224,7 @@ export class SubtitlePlayerController {
     private handleClick(event: MouseEvent): void {
         const eventTarget = event.target as HTMLElement;
         if (eventTarget.closest?.('.jpdb-reader-word')) return;
+        if (this.panelOptionsMenuOpen && !eventTarget.closest?.('[data-panel-options]')) this.closePanelOptionsMenu();
         const insideStylePopover = Boolean(eventTarget.closest?.('[data-subtitle-style-popover]'));
         const target = eventTarget.closest<HTMLElement>('[data-action]');
         const action = target?.dataset.action;
@@ -3273,6 +3275,13 @@ export class SubtitlePlayerController {
     }
 
     private handleTranscriptPanelKeydown(event: KeyboardEvent): void {
+        if (event.key === 'Escape' && this.panelOptionsMenuOpen) {
+            event.preventDefault();
+            event.stopPropagation();
+            this.closePanelOptionsMenu();
+            this.transcriptPanel?.querySelector<HTMLButtonElement>('[data-action="panel-options"]')?.focus();
+            return;
+        }
         if (event.key !== 'Enter' && event.key !== ' ') return;
         const target = event.target as HTMLElement;
         if (target.closest('button, input, [data-resize-transcript], .jpdb-reader-word')) return;
@@ -3392,14 +3401,9 @@ export class SubtitlePlayerController {
     private changeTranscriptPlacement(target: HTMLElement): void {
         const placement = this.transcriptPlacementFromTarget(target);
         if (!placement) return;
+        this.closePanelOptionsMenu();
         const settings = this.options.getSettings();
-        const compact = shouldUseCompactSubtitleDrawer(this.transcriptViewportWidth());
-        const effectivePlacement = compact ? 'bottom' : settings.subtitleTranscriptPlacement;
-        if (placement === effectivePlacement) {
-            // Re-pressing the active placement toggles the panel closed.
-            this.closeTranscriptPanel();
-            return;
-        }
+        if (placement === this.plannedTranscriptPlacement()) return;
         settings.subtitleTranscriptPlacement = placement;
         if (placement !== 'bottom') this.clampStoredSideWidthForCurrentVideo(placement);
         this.options.onSettingsChange();
@@ -3476,6 +3480,10 @@ export class SubtitlePlayerController {
             });
             return;
         }
+        // Pointerdowns inside the transcript panel never bubble to the document
+        // (the panel owns its pointer events), so reaching here means the press
+        // landed outside it — dismiss the panel-options popover.
+        this.closePanelOptionsMenu();
         this.syncPointerActivity(event.clientX, event.clientY);
     }
 
@@ -4642,7 +4650,6 @@ export class SubtitlePlayerController {
         this.syncTranscriptPlacementClass();
         this.syncLineNavigationButtons(hasLines);
         this.syncDrawerButtons(hasLines);
-        this.syncRailTracksButton();
         this.syncSubtitleStyleControls();
         this.syncFullscreenRailButton();
         this.syncTranscriptAutoScrollPausedClass();
@@ -4678,14 +4685,14 @@ export class SubtitlePlayerController {
     }
 
     private syncLineNavigationButtons(hasLines: boolean): void {
-        const panelOpen = this.isTranscriptPanelDockedOpen();
         const settings = this.options.getSettings();
-        const hideRailNavigation = panelOpen || settings.subtitleControlsMode === 'hidden';
+        // The rail is the only prev/next surface (the drawer head lost its copy),
+        // so it stays visible while the panel is open.
+        const hideRailNavigation = settings.subtitleControlsMode === 'hidden';
         const language = settings.interfaceLanguage;
         for (const action of ['previous', 'next'] as const) {
             const railButton = this.root?.querySelector<HTMLButtonElement>(`.jpdb-subtitle-rail [data-action="${action}"]`);
             if (railButton) syncSubtitleLineNavigationButton(railButton, action, hasLines, Boolean(this.video), hideRailNavigation, language);
-            for (const button of this.panelLineNavigationButtons(action)) syncSubtitleLineNavigationButton(button, action, hasLines, Boolean(this.video), false, language);
         }
         const playbackButton = this.root?.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="playback"]');
         if (playbackButton) {
@@ -4696,14 +4703,6 @@ export class SubtitlePlayerController {
                 language,
             });
         }
-    }
-
-    private isTranscriptPanelDockedOpen(): boolean {
-        return Boolean(this.isTranscriptPanelOpen() && !this.fullscreen);
-    }
-
-    private panelLineNavigationButtons(action: 'previous' | 'next'): HTMLButtonElement[] {
-        return Array.from(this.transcriptPanel?.querySelectorAll<HTMLButtonElement>(`.jpdb-subtitle-panel-nav [data-action="${action}"]`) ?? []);
     }
 
     private syncDrawerButtons(hasLines: boolean): void {
@@ -4719,9 +4718,47 @@ export class SubtitlePlayerController {
         syncSubtitleDrawerButton(panelButton, {
             disabled: state.disabled,
             pressed: state.panelOpen,
-            placement: state.panelOpen ? this.effectiveTranscriptPlacement : this.options.getSettings().subtitleTranscriptPlacement,
+            // Compact viewports force the bottom drawer, so while closed the
+            // toggle must advertise where the panel will actually open, not the
+            // stored side preference.
+            placement: state.panelOpen ? this.effectiveTranscriptPlacement : this.plannedTranscriptPlacement(),
             language: this.options.getSettings().interfaceLanguage,
         });
+    }
+
+    private plannedTranscriptPlacement(): ReaderSettings['subtitleTranscriptPlacement'] {
+        return shouldUseCompactSubtitleDrawer(this.transcriptViewportWidth())
+            ? 'bottom'
+            : this.options.getSettings().subtitleTranscriptPlacement;
+    }
+
+    private renderPanelOptionsMenu(pausePanelEnabled: boolean, language: InterfaceLanguage): string {
+        return renderPanelOptionsControls({
+            placement: this.effectiveTranscriptPlacement,
+            pausePanelEnabled,
+            menuOpen: this.panelOptionsMenuOpen,
+            language,
+        });
+    }
+
+    private togglePanelOptionsMenu(): void {
+        this.panelOptionsMenuOpen = !this.panelOptionsMenuOpen;
+        this.syncPanelOptionsMenu();
+    }
+
+    private closePanelOptionsMenu(): void {
+        if (!this.panelOptionsMenuOpen) return;
+        this.panelOptionsMenuOpen = false;
+        this.syncPanelOptionsMenu();
+    }
+
+    private syncPanelOptionsMenu(): void {
+        const container = this.transcriptPanel?.querySelector<HTMLElement>('[data-panel-options]');
+        if (!container) return;
+        const open = this.panelOptionsMenuOpen;
+        container.querySelector<HTMLButtonElement>('[data-action="panel-options"]')?.setAttribute('aria-expanded', String(open));
+        const menu = container.querySelector<HTMLElement>('.jpdb-subtitle-panel-options-menu');
+        if (menu) menu.hidden = !open;
     }
 
     private syncPanelState(): void {
@@ -4734,19 +4771,6 @@ export class SubtitlePlayerController {
             panel.classList.toggle('jpdb-subtitle-tracks-panel', this.panelMode === 'tracks');
         }
         this.syncLineNavigationButtons(hasLines);
-        this.syncRailTracksButton();
-    }
-
-    private syncRailTracksButton(): void {
-        const button = this.root?.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel-tracks"]');
-        if (!button) return;
-        const language = this.options.getSettings().interfaceLanguage;
-        const label = uiText(language, 'subtitleTracks');
-        button.hidden = this.isTranscriptPanelDockedOpen();
-        button.disabled = !this.video && !this.tracks.length;
-        button.title = label;
-        button.setAttribute('aria-label', label);
-        button.setAttribute('aria-pressed', String(this.isTranscriptPanelOpen() && this.panelMode === 'tracks'));
     }
 
     private syncTranscriptPlacementClass(): void {
@@ -5216,6 +5240,7 @@ export class SubtitlePlayerController {
     private closeTranscriptPanel(options: TranscriptPanelOptions = {}): void {
         if (!this.transcriptPanel) return;
         const persist = options.persist ?? true;
+        this.panelOptionsMenuOpen = false;
         this.clearDeferredTranscriptPanelRender();
         this.clearTranscriptVirtualRender();
         this.transcriptAutoScrollResumeTimer = clearWindowTimeout(this.transcriptAutoScrollResumeTimer);
@@ -5417,9 +5442,7 @@ export class SubtitlePlayerController {
                 </div>
                 <div class="jpdb-subtitle-drawer-actions">
                     ${renderPanelModeControls('shadow', this.hasTranscriptSurface(), language)}
-                    ${renderPanelNavigationControls(Boolean(this.video && this.cues.length), language)}
-                    ${renderPanelPlacementControls(this.effectiveTranscriptPlacement, language)}
-                    ${renderPausePanelToggle(state.settings.subtitlePausePanel, language)}
+                    ${this.renderPanelOptionsMenu(state.settings.subtitlePausePanel, language)}
                 </div>
             </div>
         `;
@@ -5553,9 +5576,9 @@ export class SubtitlePlayerController {
             reviewGrades: this.batchMiningReviewGrades(settings),
             errorMessage: this.batchMiningError,
             hasTranscriptSurface: this.hasTranscriptSurface(),
-            hasNavigableLines: Boolean(this.video && this.cues.length),
             pausePanelEnabled: settings.subtitlePausePanel,
             placement: this.effectiveTranscriptPlacement,
+            optionsMenuOpen: this.panelOptionsMenuOpen,
             language: settings.interfaceLanguage,
         };
     }
@@ -5908,10 +5931,8 @@ export class SubtitlePlayerController {
                 </div>
                 <div class="jpdb-subtitle-drawer-actions">
                     ${renderPanelModeControls('lines', this.hasTranscriptSurface(), language)}
-                    ${renderPanelNavigationControls(Boolean(this.video && rowCount), language)}
                     <button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}" aria-label="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}">${subtitleIcon('locate')}</button>
-                    ${renderPanelPlacementControls(this.effectiveTranscriptPlacement, language)}
-                    ${renderPausePanelToggle(settings.subtitlePausePanel, language)}
+                    ${this.renderPanelOptionsMenu(settings.subtitlePausePanel, language)}
                 </div>
             </div>
             <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state.virtual ? ' data-virtualized="true"' : ''}>
@@ -6644,9 +6665,9 @@ export class SubtitlePlayerController {
             selectedTrackId: this.selectedTrackId,
             secondaryTrackId: this.secondaryTrackId,
             hasTranscriptSurface: this.hasTranscriptSurface(),
-            hasNavigableLines: Boolean(this.video && this.cues.length),
             pausePanelEnabled: settings.subtitlePausePanel,
             placement: this.effectiveTranscriptPlacement,
+            optionsMenuOpen: this.panelOptionsMenuOpen,
             language: settings.interfaceLanguage,
             animeSearchQuery: subtitleAnimeSearchQuery(this.video),
             virtual,

@@ -734,10 +734,12 @@ async function assertDrawerModeControls(page) {
 }
 
 async function assertDrawerHeaderControls(page) {
+    const optionsToggles = await page.locator('.jpdb-subtitle-list [data-action="panel-options"]').count();
+    assert(optionsToggles === 1, 'drawer header should expose a single panel-options menu toggle', { optionsToggles });
     const closeButtons = await page.locator('.jpdb-subtitle-list [data-action="close-panel"]').count();
-    assert(closeButtons === 0, 'drawer header should not render its own close button', { closeButtons });
+    assert(closeButtons === 1, 'panel-options menu should carry the close action', { closeButtons });
     const placementButtons = await page.locator('.jpdb-subtitle-list [data-action="transcript-placement"][data-placement]').count();
-    assert(placementButtons === 3, 'drawer header should expose left, below, and right dock controls', { placementButtons });
+    assert(placementButtons === 3, 'panel-options menu should expose left, below, and right dock controls', { placementButtons });
 }
 
 async function waitForDrawerMode(page, mode) {
@@ -1397,6 +1399,13 @@ async function assertDrawerDockingControls(page, site) {
 }
 
 async function chooseDrawerPlacement(page, placement) {
+    // Placement items live inside the collapsed panel-options popover; open it
+    // the way a user would before clicking the target dock.
+    await page.locator('.jpdb-subtitle-list [data-action="panel-options"]').first().click();
+    await page.waitForFunction(() => {
+        const menu = document.querySelector('.jpdb-subtitle-list .jpdb-subtitle-panel-options-menu');
+        return menu instanceof HTMLElement && !menu.hidden;
+    }, null, { timeout: 3000 });
     await page.locator(`.jpdb-subtitle-list [data-action="transcript-placement"][data-placement="${placement}"]`).first().click();
     await page.waitForFunction(expected => {
         const player = document.querySelector('.jpdb-subtitle-player');

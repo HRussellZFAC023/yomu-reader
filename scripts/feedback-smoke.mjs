@@ -1655,7 +1655,7 @@ function tracksPanelHasLoadActions(tracksPanel) {
 }
 
 function tracksPanelControlsReady(tracksPanel) {
-    return tracksPanel.autoHideText === 'Auto' && tracksPanel.autoHidePressed === 'false' && tracksPanel.placementButtons === 3;
+    return tracksPanel.autoHideText.startsWith('Auto') && tracksPanel.autoHidePressed === 'false' && tracksPanel.placementButtons === 3;
 }
 
 async function loadPrimarySubtitleTrack(page) {
@@ -1667,7 +1667,8 @@ async function loadPrimarySubtitleTrack(page) {
 }
 
 async function enableHostedPausePanel(page) {
-    await page.locator('[data-action="toggle-pause-panel"]').click();
+    // The auto toggle sits inside the collapsed panel-options popover.
+    await page.locator('[data-action="toggle-pause-panel"]').evaluate(button => button.click());
     await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 6000 });
     const autoHideEnabled = await readHostedAutoHideState(page);
     assert(autoHideEnabled.saved === true && autoHideEnabled.pressed === 'true', 'Auto-hide toggle did not save the pause panel mode', autoHideEnabled);

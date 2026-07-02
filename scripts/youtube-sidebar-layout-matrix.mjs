@@ -197,7 +197,9 @@ async function runAutoSequence(page) {
         Object.defineProperty(video, 'ended', { configurable: true, value: false });
     });
     const enableTiming = await timePageAction(page, async () => {
-        await page.locator('[data-action="toggle-pause-panel"]').first().click();
+        // The auto toggle lives inside the collapsed panel-options popover, so
+        // click it directly instead of relying on pointer visibility.
+        await page.locator('[data-action="toggle-pause-panel"]').first().evaluate(button => button.click());
         await page.waitForFunction(() => {
             const panel = document.querySelector('.jpdb-subtitle-list');
             const button = document.querySelector('[data-action="toggle-pause-panel"]');
@@ -248,7 +250,7 @@ async function runSwitchSequence(page) {
     for (const placement of ['left', 'bottom', 'right']) {
         await resetFixtureInstrumentation(page);
         const timing = await timePageAction(page, async () => {
-            await page.locator(`.jpdb-subtitle-panel-placement [data-placement="${placement}"]`).evaluate(button => button.click());
+            await page.locator(`.jpdb-subtitle-panel-options [data-action="transcript-placement"][data-placement="${placement}"]`).evaluate(button => button.click());
             await page.waitForFunction(expected => {
                 return document.querySelector('.jpdb-subtitle-player')?.getAttribute('data-transcript-placement') === expected
                     || document.querySelector('.jpdb-subtitle-list')?.getAttribute('data-transcript-placement') === expected;
@@ -661,17 +663,18 @@ function assertRailControlParity(state, label, phase) {
     const visibleActions = new Set((state.railActions ?? [])
         .filter(action => !action.hidden)
         .map(action => action.action));
-    for (const action of ['playback', 'fullscreen', 'panel', 'panel-tracks', 'style']) {
+    for (const action of ['playback', 'fullscreen', 'panel', 'style']) {
         assert(visibleActions.has(action), `rail is missing ${action} in ${label}/${phase}`, compactSnapshot(state));
     }
+    assert(!visibleActions.has('panel-tracks'), `rail still renders the removed tracks shortcut in ${label}/${phase}`, compactSnapshot(state));
     if (state.videoPaused === false) {
         const playback = (state.railActions ?? []).find(action => action.action === 'playback');
         assert(playback?.pressed === 'true', `rail playback is not showing pause state in ${label}/${phase}`, compactSnapshot(state));
     }
-    if (phase === 'before-open') {
-        for (const action of ['previous', 'next']) {
-            assert(visibleActions.has(action), `closed rail is missing ${action} in ${label}`, compactSnapshot(state));
-        }
+    // The drawer head no longer duplicates prev/next, so the rail keeps them
+    // visible in every phase, including while the panel is open.
+    for (const action of ['previous', 'next']) {
+        assert(visibleActions.has(action), `rail is missing ${action} in ${label}/${phase}`, compactSnapshot(state));
     }
 }
 
@@ -679,11 +682,14 @@ function assertDrawerControlParity(state, label) {
     const actions = state.drawerActions ?? [];
     const allActions = new Set(actions.map(action => action.action));
     const visibleActions = new Set(actions.filter(action => !action.hidden).map(action => action.action));
-    for (const action of ['panel-lines', 'panel-shadow', 'panel-tracks', 'previous', 'next', 'jump-current', 'transcript-placement', 'toggle-pause-panel']) {
+    for (const action of ['panel-lines', 'panel-shadow', 'panel-tracks', 'jump-current', 'panel-options', 'transcript-placement', 'toggle-pause-panel', 'close-panel']) {
         assert(allActions.has(action), `drawer is missing ${action} in ${label}`, compactSnapshot(state));
     }
-    for (const action of ['panel-lines', 'panel-shadow', 'panel-tracks', 'previous', 'next', 'transcript-placement', 'toggle-pause-panel']) {
+    for (const action of ['panel-lines', 'panel-shadow', 'panel-tracks', 'panel-options']) {
         assert(visibleActions.has(action), `drawer ${action} is not visible in ${label}`, compactSnapshot(state));
+    }
+    for (const action of ['previous', 'next']) {
+        assert(!allActions.has(action), `drawer still duplicates the rail ${action} control in ${label}`, compactSnapshot(state));
     }
     if (state.viewport.width >= 700) return;
     assert(state.drawerActionStrip?.flexWrap === 'nowrap', `mobile drawer actions can wrap in ${label}`, compactSnapshot(state));

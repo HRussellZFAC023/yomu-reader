@@ -22,17 +22,6 @@ export interface SubtitleElementLayout {
 
 export type SubtitlePanelMode = 'lines' | 'shadow' | 'tracks' | 'mine';
 
-export function renderPanelNavigationControls(enabled: boolean, language: InterfaceLanguage): string {
-    const previous = uiText(language, 'previousSubtitle');
-    const next = uiText(language, 'nextSubtitle');
-    return `
-        <div class="jpdb-subtitle-panel-nav" role="group" aria-label="${escapeHtml(uiText(language, 'subtitleNavigation'))}">
-            <button type="button" data-action="previous" title="${escapeHtml(previous)}" aria-label="${escapeHtml(previous)}" ${enabled ? '' : 'disabled'}>‹</button>
-            <button type="button" data-action="next" title="${escapeHtml(next)}" aria-label="${escapeHtml(next)}" ${enabled ? '' : 'disabled'}>›</button>
-        </div>
-    `;
-}
-
 export function renderPanelModeControls(mode: SubtitlePanelMode, canShowLines: boolean, language: InterfaceLanguage): string {
     return `
         <div class="jpdb-subtitle-panel-mode" role="group" aria-label="${escapeHtml(uiText(language, 'subtitlePanelMode'))}">
@@ -44,12 +33,56 @@ export function renderPanelModeControls(mode: SubtitlePanelMode, canShowLines: b
     `;
 }
 
-export function renderPausePanelToggle(enabled: boolean, language: InterfaceLanguage): string {
-    const label = uiText(language, enabled ? 'disableSubtitleAutoHide' : 'enableSubtitleAutoHide');
+export interface PanelOptionsControlsState {
+    placement: ReaderSettings['subtitleTranscriptPlacement'];
+    pausePanelEnabled: boolean;
+    menuOpen: boolean;
+    language: InterfaceLanguage;
+}
+
+// One drawer-head button owning placement, pause auto-open and close — as
+// separate head buttons these wrapped into a second ragged row on phones.
+export function renderPanelOptionsControls(state: PanelOptionsControlsState): string {
+    const language = state.language;
+    const label = uiText(language, 'subtitlePanelOptions');
+    const closeLabel = uiText(language, 'closeSubtitlePanel');
+    // Constant visible label; aria-pressed carries the on/off state and the
+    // title spells out what the next press does.
+    const autoLabel = uiText(language, 'enableSubtitleAutoHide');
+    const autoTitle = uiText(language, state.pausePanelEnabled ? 'disableSubtitleAutoHide' : 'enableSubtitleAutoHide');
+    const placementLabel = uiText(language, 'subtitleTranscriptPlacement');
     return `
-        <button class="jpdb-subtitle-drawer-auto" type="button" data-action="toggle-pause-panel" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${enabled}">
-            ${subtitleIcon('auto-hide')}
-            <span>${escapeHtml(uiText(language, 'subtitleAutoHideShort'))}</span>
+        <div class="jpdb-subtitle-panel-options" data-panel-options>
+            <button class="jpdb-subtitle-panel-options-toggle" type="button" data-action="panel-options" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="${state.menuOpen}">${subtitleIcon(transcriptPlacementIcon(state.placement))}</button>
+            <div class="jpdb-subtitle-panel-options-menu" role="group" aria-label="${escapeHtml(label)}" ${state.menuOpen ? '' : 'hidden'}>
+                <div class="jpdb-subtitle-panel-options-placement" role="group" aria-label="${escapeHtml(placementLabel)}">
+                    ${TRANSCRIPT_PLACEMENTS.map(placement => renderPanelOptionsPlacementItem(placement, state.placement, placementLabel, language)).join('')}
+                </div>
+                <button class="jpdb-subtitle-panel-options-item jpdb-subtitle-panel-options-auto" type="button" data-action="toggle-pause-panel" title="${escapeHtml(autoTitle)}" aria-pressed="${state.pausePanelEnabled}">
+                    ${subtitleIcon('auto-hide')}
+                    <span>${escapeHtml(autoLabel)}</span>
+                </button>
+                <button class="jpdb-subtitle-panel-options-item" type="button" data-action="close-panel">
+                    ${subtitleIcon('close')}
+                    <span>${escapeHtml(closeLabel)}</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function renderPanelOptionsPlacementItem(
+    placement: ReaderSettings['subtitleTranscriptPlacement'],
+    currentPlacement: ReaderSettings['subtitleTranscriptPlacement'],
+    groupLabel: string,
+    language: InterfaceLanguage,
+): string {
+    const placementLabel = uiText(language, placement);
+    const label = `${groupLabel}: ${placementLabel}`;
+    return `
+        <button class="jpdb-subtitle-panel-options-item" type="button" data-action="transcript-placement" data-placement="${placement}" title="${escapeHtml(label)}" aria-pressed="${placement === currentPlacement}">
+            ${subtitleIcon(transcriptPlacementIcon(placement))}
+            <span>${escapeHtml(placementLabel)}</span>
         </button>
     `;
 }
@@ -112,26 +145,6 @@ function subtitleStyleDisplayValue(value: number, suffix: string): string {
     if (suffix === 'weight') return String(Math.round(value));
     if (!suffix) return `${Math.round(value * 100)}%`;
     return `${Math.round(value)}${suffix}`;
-}
-
-export function renderPanelPlacementControls(currentPlacement: ReaderSettings['subtitleTranscriptPlacement'], language: InterfaceLanguage): string {
-    const label = uiText(language, 'subtitleTranscriptPlacement');
-    return `
-        <div class="jpdb-subtitle-panel-placement" role="group" aria-label="${escapeHtml(label)}">
-            ${TRANSCRIPT_PLACEMENTS.map(placement => renderPanelPlacementButton(placement, currentPlacement, label, language)).join('')}
-        </div>
-    `;
-}
-
-function renderPanelPlacementButton(
-    placement: ReaderSettings['subtitleTranscriptPlacement'],
-    currentPlacement: ReaderSettings['subtitleTranscriptPlacement'],
-    groupLabel: string,
-    language: InterfaceLanguage,
-): string {
-    const placementLabel = uiText(language, placement);
-    const label = `${groupLabel}: ${placementLabel}`;
-    return `<button type="button" data-action="transcript-placement" data-placement="${placement}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${placement === currentPlacement}">${subtitleIcon(transcriptPlacementIcon(placement))}</button>`;
 }
 
 export function subtitleOverlayLayout(rect: DOMRect): SubtitleElementLayout {

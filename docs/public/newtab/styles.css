@@ -16713,8 +16713,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface)) !important;
 }
 .jpdb-subtitle-playback-toggle[aria-pressed="true"],
-.jpdb-subtitle-fullscreen-toggle[aria-pressed="true"],
-.jpdb-subtitle-tracks-toggle[aria-pressed="true"] {
+.jpdb-subtitle-fullscreen-toggle[aria-pressed="true"] {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 42%, var(--jpdb-reader-border));
   background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, var(--jpdb-reader-surface));
   color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
@@ -17213,40 +17212,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     justify-content: flex-end;
   }
 }
-.jpdb-subtitle-drawer-auto {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-width: 58px;
-  height: 34px;
-  min-height: 34px;
-  padding: 0 10px !important;
-  border-radius: 12px !important;
-  font-size: 11px;
-  font-weight: 800;
-}
-.jpdb-subtitle-drawer-auto[aria-pressed="true"] {
-  border-color: var(--jpdb-reader-accent);
-  background: var(--jpdb-reader-accent-soft);
-  color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
-}
-.jpdb-subtitle-drawer-auto svg {
-  display: inline-grid;
-  place-items: center;
-}
-.jpdb-subtitle-drawer-auto svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.jpdb-subtitle-panel-mode,
-.jpdb-subtitle-panel-nav,
-.jpdb-subtitle-panel-placement {
+.jpdb-subtitle-panel-mode {
   justify-self: start;
   width: max-content;
   max-width: 100%;
@@ -17277,9 +17243,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-panel-mode button:disabled {
   opacity: .42;
 }
-.jpdb-subtitle-panel-nav button,
-.jpdb-subtitle-jump-current,
-.jpdb-subtitle-panel-placement button {
+.jpdb-subtitle-jump-current {
   display: inline-grid;
   place-items: center;
   min-width: 32px;
@@ -17294,6 +17258,88 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   box-shadow: none;
   font-size: 19px;
   line-height: 0;
+}
+/* Panel-options selectors stay scoped under .jpdb-subtitle-list: the reader
+   root reset ([data-jpdb-reader-root] :where(button)) ties with bare class
+   selectors and can land in a later stylesheet (core vs companion injection,
+   cached hosted CSS), so drawer controls need the extra class of specificity. */
+.jpdb-subtitle-list .jpdb-subtitle-panel-options {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  /* Keep the toggle on the row's right edge so the right-anchored menu always
+     drops inside the panel (a left-edge toggle would clip it at the border). */
+  margin-left: auto;
+}
+.jpdb-subtitle-list .jpdb-subtitle-panel-options-toggle {
+  display: inline-grid;
+  place-items: center;
+  min-width: 36px;
+  width: 36px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 12px;
+  line-height: 0;
+}
+.jpdb-subtitle-list .jpdb-subtitle-panel-options-toggle[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
+}
+.jpdb-subtitle-list .jpdb-subtitle-panel-options-toggle svg,
+.jpdb-subtitle-list .jpdb-subtitle-panel-options-item svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* Anchored under the head row; the drawer clips overflow, so the menu drops
+   down over the list body which always has room below the head. */
+.jpdb-subtitle-list .jpdb-subtitle-panel-options-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 6;
+  display: grid;
+  gap: 2px;
+  min-width: 208px;
+  padding: 6px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 14px;
+  background: var(--jpdb-reader-bg);
+  box-shadow: 0 18px 42px var(--jpdb-reader-shadow);
+}
+.jpdb-subtitle-list .jpdb-subtitle-panel-options-menu[hidden] {
+  display: none;
+}
+.jpdb-subtitle-list .jpdb-subtitle-panel-options-placement {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--jpdb-reader-border);
+}
+.jpdb-subtitle-list .jpdb-subtitle-panel-options-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 700;
+}
+.jpdb-subtitle-list .jpdb-subtitle-panel-options-item[aria-pressed="true"] {
+  color: var(--jpdb-reader-text);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
 }
 .jpdb-subtitle-jump-current {
   opacity: 0;
@@ -17314,30 +17360,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   border: 0;
   overflow: hidden;
 }
-.jpdb-subtitle-panel-placement button[aria-pressed="true"] {
-  color: var(--jpdb-reader-text);
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
-}
 /* Compact viewports force the bottom drawer layout, so side placements are
-   inert there — hide their buttons instead of showing dead controls. Keep in
-   sync with shouldUseCompactSubtitleDrawer (700px). */
+   inert there — hide the whole placement group instead of showing dead
+   controls. Keep in sync with shouldUseCompactSubtitleDrawer (700px). */
 @media (max-width: 699px) {
-  .jpdb-subtitle-panel-placement button[data-placement="left"],
-  .jpdb-subtitle-panel-placement button[data-placement="right"] {
+  .jpdb-subtitle-list .jpdb-subtitle-panel-options-placement {
     display: none;
   }
-}
-.jpdb-subtitle-panel-placement svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.jpdb-subtitle-panel-nav button:disabled {
-  opacity: .38;
 }
 .jpdb-subtitle-list-scroll {
   min-height: 0;
@@ -18006,29 +18035,35 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     font-size: 11px;
     touch-action: manipulation;
   }
+  /* Hit-slop: compact rail buttons render 32px; -6px pads the touch target to
+     the 44px minimum without growing the visible chrome. */
   .jpdb-subtitle-rail button::after {
     content: "";
     position: absolute;
-    inset: -5px;
+    inset: -6px;
     border-radius: 9px;
   }
-  .jpdb-subtitle-drawer-auto,
   .jpdb-subtitle-track-row button,
   .jpdb-subtitle-track-tools button,
   .jpdb-subtitle-track-tools a,
   .jpdb-subtitle-batch-toolbar button,
   .jpdb-subtitle-batch-check,
-  .jpdb-subtitle-batch-grade-button {
+  .jpdb-subtitle-batch-grade-button,
+  .jpdb-subtitle-list .jpdb-subtitle-panel-options-item {
     min-height: 44px;
   }
   .jpdb-subtitle-batch-check,
   .jpdb-subtitle-batch-grade-button {
     min-width: 44px;
   }
-  .jpdb-subtitle-panel-nav button,
-  .jpdb-subtitle-panel-placement button,
   .jpdb-subtitle-jump-current,
   .jpdb-subtitle-row-copy {
+    min-width: 44px;
+    width: 44px;
+    min-height: 44px;
+    height: 44px;
+  }
+  .jpdb-subtitle-list .jpdb-subtitle-panel-options-toggle {
     min-width: 44px;
     width: 44px;
     min-height: 44px;
@@ -18063,14 +18098,6 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     min-width: 44px;
     padding-inline: 4px;
     font-size: 10px;
-  }
-  .jpdb-subtitle-drawer-auto {
-    width: 44px;
-    min-width: 44px;
-    padding-inline: 0 !important;
-  }
-  .jpdb-subtitle-drawer-auto span {
-    display: none;
   }
   .jpdb-subtitle-row-text,
   .jpdb-subtitle-shadow-line,

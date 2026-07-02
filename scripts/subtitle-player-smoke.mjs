@@ -252,12 +252,12 @@ async function assertBatchMineTranscript(page) {
         toolbarRole: document.querySelector('.jpdb-subtitle-batch-toolbar')?.getAttribute('role') ?? '',
         toolbarActions: [...document.querySelectorAll('.jpdb-subtitle-batch-toolbar button')].map(button => button.dataset.action),
         railPanelHidden: document.querySelector('.jpdb-subtitle-rail [data-action="panel"]')?.hidden ?? true,
-        railTracksHidden: document.querySelector('.jpdb-subtitle-rail [data-action="panel-tracks"]')?.hidden ?? false,
+        railTracksButton: Boolean(document.querySelector('.jpdb-subtitle-rail [data-action="panel-tracks"]')),
         panelTracksTab: Boolean(document.querySelector('.jpdb-subtitle-panel-mode [data-action="panel-tracks"]')),
     }));
     assert(initialState.toolbarRole === 'toolbar', 'Batch Mine toolbar did not expose toolbar semantics', initialState);
     assert(initialState.toolbarActions.join(',') === 'bm-scan', 'Batch Mine idle toolbar should only show Scan', initialState);
-    assert(!initialState.railPanelHidden && initialState.railTracksHidden && initialState.panelTracksTab, 'Open side panel should keep panel toggle but hide redundant rail tracks shortcut', initialState);
+    assert(!initialState.railPanelHidden && !initialState.railTracksButton && initialState.panelTracksTab, 'Rail should keep the panel toggle and never render the removed tracks shortcut', initialState);
     await page.locator('.jpdb-subtitle-batch-toolbar [data-action="bm-scan"]').click({ force: true });
     await page.waitForFunction(() => {
         const panelText = document.querySelector('.jpdb-subtitle-list')?.textContent ?? '';
@@ -692,7 +692,7 @@ async function runLocalMobileWrapSmoke(browser) {
         return video && !video.paused && playback?.getAttribute('aria-label') === 'Pause video';
     }, null, { timeout: 3000 });
     const controls = await readMobileSubtitleControlsState(page);
-    assert(controls.actions.join(',') === 'previous,next,playback,fullscreen,panel,panel-tracks,style', 'Mobile rail did not keep playback beside subtitle navigation', controls);
+    assert(controls.actions.join(',') === 'previous,next,playback,fullscreen,panel,style', 'Mobile rail did not keep playback beside subtitle navigation', controls);
     assert(!controls.previousHidden && !controls.nextHidden && !controls.playbackHidden, 'Mobile previous/next/playback controls were not shown together', controls);
     assert(controls.playbackLabel === 'Pause video' && controls.playbackPressed === 'true', 'Mobile playback control did not expose pause while playing', controls);
     assert(controls.handle && controls.rail && controls.subtitle, 'Mobile subtitle controls did not expose measurable rail, subtitle, and handle boxes', controls);

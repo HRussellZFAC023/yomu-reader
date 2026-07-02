@@ -705,7 +705,7 @@ const COPY = {
         closeSubtitleDrawer: 'Close subtitle drawer',
         enableSubtitleAutoHide: 'Auto-hide panel while playing',
         disableSubtitleAutoHide: 'Keep panel open while playing',
-        subtitleAutoHideShort: 'Auto',
+        subtitlePanelOptions: 'Panel options',
         loadJapaneseSubtitles: 'Load Japanese subtitles',
         loadPrimarySubtitles: 'Load primary subtitles',
         loadNativeSubtitles: 'Load native subtitles',
@@ -716,7 +716,6 @@ const COPY = {
         noSubtitleTracksDetected: 'No subtitle tracks detected yet.',
         resizeTranscriptPanel: 'Resize transcript panel',
         resizeSubtitleTracksPanel: 'Resize subtitle tracks panel',
-        subtitleNavigation: 'Subtitle nav',
         subtitlePanelMode: 'Mode',
         subtitleLines: 'Lines',
         shadow: 'Shadow',
@@ -1521,7 +1520,7 @@ subtitleResetDefaults	標準に戻す
 closeSubtitleDrawer	字幕ドロワーを閉じる
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
-subtitleAutoHideShort	自動
+subtitlePanelOptions	パネル設定
 loadJapaneseSubtitles	日本語字幕を読み込む
 loadPrimarySubtitles	主字幕を読み込む
 loadNativeSubtitles	母語字幕を読み込む
@@ -1532,7 +1531,6 @@ subtitleTracksDetected	件の字幕トラックを検出
 noSubtitleTracksDetected	字幕トラックは未検出です。
 resizeTranscriptPanel	文字起こしパネルのサイズ変更
 resizeSubtitleTracksPanel	字幕トラックパネルのサイズ変更
-subtitleNavigation	字幕ナビ
 subtitlePanelMode	表示
 subtitleLines	行
 shadow	シャドー

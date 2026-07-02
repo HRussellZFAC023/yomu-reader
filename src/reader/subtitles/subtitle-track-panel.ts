@@ -3,9 +3,7 @@ import { uiText } from '../app/i18n';
 import { formatTrackKind, trackStatusText, type SubtitleTrackKind, type SubtitleTrackLoadingState } from './subtitle-track-metadata';
 import {
     renderPanelModeControls,
-    renderPanelNavigationControls,
-    renderPanelPlacementControls,
-    renderPausePanelToggle,
+    renderPanelOptionsControls,
 } from './subtitle-surface';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
@@ -31,9 +29,9 @@ export interface SubtitleTrackPanelRenderState {
     selectedTrackId: string;
     secondaryTrackId: string;
     hasTranscriptSurface: boolean;
-    hasNavigableLines: boolean;
     pausePanelEnabled: boolean;
     placement: ReaderSettings['subtitleTranscriptPlacement'];
+    optionsMenuOpen: boolean;
     language: InterfaceLanguage;
     animeSearchQuery?: string;
     // Windowed render for videos with many (auto-translated) caption tracks: only
@@ -47,9 +45,12 @@ export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): 
     const language = state.language;
     const drawerActions = [
         state.hasTranscriptSurface ? renderPanelModeControls('tracks', true, language) : '',
-        state.hasNavigableLines ? renderPanelNavigationControls(true, language) : '',
-        state.hasTranscriptSurface ? renderPanelPlacementControls(state.placement, language) : '',
-        state.hasTranscriptSurface ? renderPausePanelToggle(state.pausePanelEnabled, language) : '',
+        renderPanelOptionsControls({
+            placement: state.placement,
+            pausePanelEnabled: state.pausePanelEnabled,
+            menuOpen: state.optionsMenuOpen,
+            language,
+        }),
     ].filter(Boolean).join('');
     return `
         <div class="jpdb-subtitle-drawer-head">

@@ -16,7 +16,8 @@ describe('subtitle batch mining panel', () => {
         expect(host.querySelector('.jpdb-subtitle-batch-sticky > .jpdb-subtitle-drawer-head')).not.toBeNull();
         expect(host.querySelector('.jpdb-subtitle-batch-sticky > .jpdb-subtitle-batch-toolbar')).not.toBeNull();
         expect(host.querySelector('.jpdb-subtitle-panel-mode')?.getAttribute('role')).toBe('group');
-        expect(host.querySelector('.jpdb-subtitle-panel-nav')?.getAttribute('role')).toBe('group');
+        expect(host.querySelector('.jpdb-subtitle-panel-options-menu')?.getAttribute('role')).toBe('group');
+        expect(host.querySelector('[data-action="panel-options"]')?.getAttribute('aria-haspopup')).toBe('true');
     });
 
     it('shows review actions only after scan candidates exist', () => {
@@ -120,9 +121,9 @@ function baseState(overrides: Partial<SubtitleBatchMiningPanelRenderState> = {})
             selected: 0,
         },
         hasTranscriptSurface: true,
-        hasNavigableLines: true,
         pausePanelEnabled: false,
         placement: 'right',
+        optionsMenuOpen: false,
         language: 'en',
         ...overrides,
     };
