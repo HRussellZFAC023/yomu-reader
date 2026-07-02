@@ -202,6 +202,7 @@ export class PitchSrsStore {
         return this.items.size;
     }
 
+    // fallow-ignore-next-line unused-class-member
     item(key: string): PitchSrsItem | undefined {
         return this.items.get(key);
     }

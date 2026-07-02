@@ -1351,6 +1351,10 @@
       async function openSubtitleTracks() {
         overflowMenu?.removeAttribute('open');
         const text = copy[effectiveInterfaceLanguage()];
+        if (!currentVideoName) {
+          setStatus(text.chooseVideoBeforeSubtitles);
+          return;
+        }
         if (dispatchSubtitleTracksOpen()) return;
         await ensureYomuRuntime({ message: text.loadingSubtitles });
         retryYomuAction(dispatchSubtitleTracksOpen, text.runtimeMissing);

@@ -71907,6 +71907,7 @@ ${newTabCardReading(card)}`;
     size() {
       return this.items.size;
     }
+    // fallow-ignore-next-line unused-class-member
     item(key) {
       return this.items.get(key);
     }

@@ -613,6 +613,7 @@ async function verifyHostedSubtitleFlow(page, baseUrl) {
     await loadHostedVideoAndOpenTracks(page);
     await assertHostedTracksPanel(page);
     await loadPrimarySubtitleTrack(page);
+    await assertHostedTracksPanelControls(page);
     await enableHostedPausePanel(page);
     await assertHostedPausePanelOnPause(page);
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-pause-panel.png'), fullPage: false });
@@ -1606,6 +1607,10 @@ async function assertHostedTracksPanel(page) {
     assert(tracksPanel.jimakuAnimeTarget === '_blank' && tracksPanel.jimakuAnimeRel.includes('noopener'), 'Jimaku anime search link should open safely in a new tab', tracksPanel);
     assert(tracksPanel.title === 'Subtitles', 'Subtitles button did not open the Yomu tracks panel', tracksPanel);
     assert(tracksPanelHasLoadActions(tracksPanel), 'Track loading actions were not intuitive after clicking Subtitles', tracksPanel);
+}
+
+async function assertHostedTracksPanelControls(page) {
+    const tracksPanel = await readHostedTracksPanelState(page);
     assert(tracksPanelControlsReady(tracksPanel), 'Subtitle drawer controls did not expose auto-hide and docking actions', tracksPanel);
 }
 

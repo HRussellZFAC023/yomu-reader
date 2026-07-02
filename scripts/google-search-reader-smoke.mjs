@@ -286,6 +286,7 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser) {
                 const chip = document.querySelector('#chip');
                 return chip
                     && chip.querySelector('.jpdb-reader-word .jpdb-reader-ruby-base')
+                    && document.querySelector('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word[data-expression="使用"]')
                     && document.querySelectorAll('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word').length >= 4;
             }, null, { timeout: 20_000 });
         } catch (error) {
@@ -307,13 +308,13 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser) {
         }
 
         const beforeHover = await page.evaluate(snapshotGoogleSearchFixture);
-        assertGoogleSearchSnapshot(beforeHover, 'before hover');
+        assertGoogleSearchSnapshot(beforeHover, 'before hover', { expectStatusHighlight: false });
 
-        const snippetWord = page.locator('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word').first();
+        const snippetWord = page.locator('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word[data-expression="使用"]').first();
         await snippetWord.hover();
         await page.waitForTimeout(150);
         const afterHover = await page.evaluate(snapshotGoogleSearchFixture);
-        assertGoogleSearchSnapshot(afterHover, 'after hover');
+        assertGoogleSearchSnapshot(afterHover, 'after hover', { expectStatusHighlight: true });
         assert(afterHover.snippetFirstWord.backgroundImage.includes('linear-gradient'), 'Passive Google snippet word lost its highlight backing on hover', afterHover.snippetFirstWord);
 
         await page.screenshot({ path: path.join(ARTIFACTS, `google-search-reader-smoke-${engineName}.png`), fullPage: true });
@@ -380,7 +381,8 @@ function snapshotGoogleSearchFixture() {
     const label = document.querySelector('#chip-label');
     const chipBase = chip?.querySelector('.jpdb-reader-ruby-base');
     const chipRt = chip?.querySelector('rt');
-    const snippetFirstWord = document.querySelector('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word');
+    const snippetFirstWord = document.querySelector('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word[data-expression="使用"]')
+        ?? document.querySelector('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word');
     const snippetStyle = snippetFirstWord ? getComputedStyle(snippetFirstWord) : null;
     const baseRect = chipBase?.getBoundingClientRect();
     const chipRect = chip?.getBoundingClientRect();
@@ -420,7 +422,7 @@ function snapshotGoogleSearchFixture() {
     };
 }
 
-function assertGoogleSearchSnapshot(snapshot, label) {
+function assertGoogleSearchSnapshot(snapshot, label, options = { expectStatusHighlight: false }) {
     assert(snapshot.url.startsWith('https://www.google.com/search'), `${label}: smoke did not run on Google Search URL`, snapshot);
     assert(snapshot.wordCount >= 8, `${label}: Google fixture did not parse enough reader words`, snapshot);
     assert(snapshot.passiveWordCount >= 8, `${label}: Google fixture words were not passive`, snapshot);
@@ -431,10 +433,18 @@ function assertGoogleSearchSnapshot(snapshot, label) {
     assert(snapshot.chip.labelHeight > 18, `${label}: Google chip label kept its plain-text height`, snapshot.chip);
     assert(snapshot.layout.scrollWidth <= snapshot.layout.viewportWidth + 2, `${label}: Google result annotations caused horizontal overflow`, snapshot.layout);
     assert(snapshot.snippetFirstWord, `${label}: no passive snippet word found`, snapshot);
-    assert(!isTransparentCssColor(snapshot.snippetFirstWord.highlightSource), `${label}: passive snippet word lost its status highlight source`, snapshot.snippetFirstWord);
-    assert(snapshot.snippetFirstWord.accessibleHighlight === '', `${label}: passive snippet word still has accessible highlight paint`, snapshot.snippetFirstWord);
+    if (options.expectStatusHighlight) {
+        assert(!isTransparentCssColor(snapshot.snippetFirstWord.highlightSource), `${label}: passive snippet word lost its status highlight source`, snapshot.snippetFirstWord);
+    } else {
+        assert(isTransparentCssColor(snapshot.snippetFirstWord.highlightSource), `${label}: passive snippet word should keep idle status highlight transparent`, snapshot.snippetFirstWord);
+    }
+    assert(isTransparentCssColor(snapshot.snippetFirstWord.accessibleHighlight), `${label}: passive snippet word still has accessible highlight paint`, snapshot.snippetFirstWord);
     assert(snapshot.snippetFirstWord.backgroundColor === 'rgba(0, 0, 0, 0)', `${label}: passive snippet word has a filled background color`, snapshot.snippetFirstWord);
-    assert(snapshot.snippetFirstWord.backgroundImage.includes('linear-gradient'), `${label}: passive snippet word lost its gradient highlight backing`, snapshot.snippetFirstWord);
+    if (options.expectStatusHighlight) {
+        assert(snapshot.snippetFirstWord.backgroundImage.includes('linear-gradient'), `${label}: passive snippet word lost its gradient highlight backing`, snapshot.snippetFirstWord);
+    } else {
+        assert(snapshot.snippetFirstWord.backgroundImage === 'none', `${label}: passive snippet word painted a gradient while idle`, snapshot.snippetFirstWord);
+    }
 }
 
 function isTransparentCssColor(value) {
