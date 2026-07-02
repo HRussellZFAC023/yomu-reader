@@ -30256,7 +30256,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.5".trim() ? "1.6.5".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.6".trim() ? "1.6.6".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -74776,8 +74776,8 @@ ${entry.url}`),
       if (card) this.renderWord(root, card);
     }
     navigateFromPointer(direction, event) {
-      if (!this.acceptPointerNavigation(direction, event)) return;
       if (this.navigateStudyStep(direction)) return;
+      if (!this.acceptPointerNavigation(direction, event)) return;
       this.showWordInDirection(direction);
     }
     showWordInDirection(direction) {
@@ -75918,7 +75918,10 @@ ${entry.url}`),
       if (!this.shouldLoadFallbackStudyWords(plan, accumulator)) return;
       if (!accumulator.cards.length && this.hasConfiguredReviewSources()) accumulator.fallbackNotice = true;
       const jitenOnlyApiFallback = this.shouldUseJitenOnlyApiStudyFallback(plan, accumulator);
-      const fallback = jitenOnlyApiFallback ? await this.loadJitenApiFreshStudyWords(onProgress) : await this.loadFreshStudyWords(onProgress, { allowPublicJpdbFallback: this.shouldAllowPublicJpdbStudyFallbackForPlan(plan) });
+      const fallback = jitenOnlyApiFallback ? await this.loadJitenApiFreshStudyWords(onProgress) : await this.loadFreshStudyWords(onProgress, {
+        allowPublicJpdbFallback: this.shouldAllowPublicJpdbStudyFallbackForPlan(plan),
+        skipDictionaryLoad: plan.kind === "explicit-source" && plan.primarySources.includes("dictionary")
+      });
       if (fallback.cards.length && !this.currentModeStudyCardCount(accumulator.cards)) {
         accumulator.labels = jitenOnlyApiFallback ? ["Jiten"] : [];
         accumulator.reviewCountMode = false;
@@ -76246,7 +76249,7 @@ ${entry.url}`),
         return options.allowPublicJpdbFallback ? this.loadPublicFreshStudyWords(dictionaryResult2) : this.loadBuiltInFreshStudyWords();
       }
       const publicJpdbPromise = options.allowPublicJpdbFallback ? this.loadPublicJpdbWords() : Promise.resolve(emptyNewTabLoadResult("JPDB"));
-      const dictionaryResult = await this.loadDictionaryWords(onProgress);
+      const dictionaryResult = options.skipDictionaryLoad ? emptyNewTabLoadResult(this.text("dictionary")) : await this.loadDictionaryWords(onProgress);
       return options.allowPublicJpdbFallback ? this.loadPublicFreshStudyWords(dictionaryResult, publicJpdbPromise) : dictionaryResult.cards.length ? dictionaryResult : this.loadBuiltInFreshStudyWords();
     }
     async loadPublicFreshStudyWords(dictionaryResult, publicJpdbPromise = this.loadPublicJpdbWords()) {

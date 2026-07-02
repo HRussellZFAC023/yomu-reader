@@ -15130,7 +15130,7 @@ describe('new tab review helpers', () => {
         await controller.renderPage();
         await controller.renderPage();
 
-        expect(summary).toHaveBeenCalledTimes(3);
+        expect(summary).toHaveBeenCalledTimes(1);
         expect(newTabPromptText()).toBe(APP_NAME);
         expect(document.querySelector('[data-newtab-answer]')?.textContent).toBe('No cards.');
         expect(document.querySelector('[data-newtab-action="empty-fallback"]')?.textContent).toBe('Starter words');
@@ -15204,7 +15204,7 @@ describe('new tab review helpers', () => {
         settings.dictionaryPreferences = [{ name: 'Local', alias: 'Tiny Alias', enabled: true, priority: 0, type: 'terms' }];
         await controller.renderPage();
 
-        expect(summary).toHaveBeenCalledTimes(3);
+        expect(summary).toHaveBeenCalledTimes(2);
         expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, settings.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
         expect(newTabPromptText()).toBe('書く');
         expect(document.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
@@ -15226,9 +15226,6 @@ describe('new tab review helpers', () => {
                 ...newTabEmptyDictionarySummary(),
             })
             .mockResolvedValueOnce({
-                ...newTabEmptyDictionarySummary(),
-            })
-            .mockResolvedValueOnce({
                 ...newTabTermDictionarySummary(),
             });
         const invalidateCaches = vi.fn();
@@ -15240,7 +15237,7 @@ describe('new tab review helpers', () => {
 
         await controller.refreshExternalData();
 
-        expect(summary).toHaveBeenCalledTimes(3);
+        expect(summary).toHaveBeenCalledTimes(2);
         expect(invalidateCaches).toHaveBeenCalledTimes(1);
         expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, settings.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
         expect(newTabPromptText()).toBe('書く');

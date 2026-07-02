@@ -66,14 +66,6 @@ export function preloadJapaneseSentenceTranslation(sentence: string, language: I
     yomuKanjiStudyCompanion()?.preloadJapaneseSentenceTranslation?.(sentence, language);
 }
 
-export function setGrammarRuleKnown(ruleId: string, known: boolean): GrammarPreferences {
-    return yomuKanjiStudyCompanion()?.setGrammarRuleKnown?.(ruleId, known) ?? { knownRuleIds: [], showKnown: false };
-}
-
-export function setKnownGrammarVisible(showKnown: boolean): GrammarPreferences {
-    return yomuKanjiStudyCompanion()?.setKnownGrammarVisible?.(showKnown) ?? { knownRuleIds: [], showKnown };
-}
-
 export async function translateJapaneseSentence(sentence: string, language: InterfaceLanguage = 'en'): Promise<string> {
     return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(sentence));
 }

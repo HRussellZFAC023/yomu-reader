@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.6] - 2026-07-02
+
+### Fixed
+
+- Advances new-tab study steps immediately on every Continue studying click, instead of letting the rapid-click guard meant for word navigation swallow quick step advances through kanji doodle, recall, and listen stages.
+- Stops the new-tab study fallback from re-querying a local dictionary that the primary source load already found empty, removing repeated dictionary probes on every new-tab render.
+- Cleared the dead-code gate by removing two unused kanji-study facade wrappers left behind by the companion import-severing.
+
 ## [1.6.5] - 2026-07-02
 
 ### Fixed

@@ -1891,8 +1891,8 @@ export class NewTabController {
     }
 
     private navigateFromPointer(direction: PointerNavigationDirection, event: MouseEvent): void {
-        if (!this.acceptPointerNavigation(direction, event)) return;
         if (this.navigateStudyStep(direction)) return;
+        if (!this.acceptPointerNavigation(direction, event)) return;
         this.showWordInDirection(direction);
     }
 
@@ -3251,7 +3251,10 @@ export class NewTabController {
         const jitenOnlyApiFallback = this.shouldUseJitenOnlyApiStudyFallback(plan, accumulator);
         const fallback = jitenOnlyApiFallback
             ? await this.loadJitenApiFreshStudyWords(onProgress)
-            : await this.loadFreshStudyWords(onProgress, { allowPublicJpdbFallback: this.shouldAllowPublicJpdbStudyFallbackForPlan(plan) });
+            : await this.loadFreshStudyWords(onProgress, {
+                allowPublicJpdbFallback: this.shouldAllowPublicJpdbStudyFallbackForPlan(plan),
+                skipDictionaryLoad: plan.kind === 'explicit-source' && plan.primarySources.includes('dictionary'),
+            });
         if (fallback.cards.length && !this.currentModeStudyCardCount(accumulator.cards)) {
             accumulator.labels = jitenOnlyApiFallback ? ['Jiten'] : [];
             accumulator.reviewCountMode = false;
@@ -3641,7 +3644,7 @@ export class NewTabController {
 
     private async loadFreshStudyWords(
         onProgress?: (message: string) => void,
-        options: { requireDictionaryBeforePublicFallback?: boolean; allowPublicJpdbFallback?: boolean } = {},
+        options: { requireDictionaryBeforePublicFallback?: boolean; allowPublicJpdbFallback?: boolean; skipDictionaryLoad?: boolean } = {},
     ): Promise<NewTabLoadResult> {
         if (options.requireDictionaryBeforePublicFallback) {
             const dictionaryResult = await this.loadDictionaryWords(onProgress);
@@ -3649,7 +3652,9 @@ export class NewTabController {
             return options.allowPublicJpdbFallback ? this.loadPublicFreshStudyWords(dictionaryResult) : this.loadBuiltInFreshStudyWords();
         }
         const publicJpdbPromise = options.allowPublicJpdbFallback ? this.loadPublicJpdbWords() : Promise.resolve(emptyNewTabLoadResult('JPDB'));
-        const dictionaryResult = await this.loadDictionaryWords(onProgress);
+        const dictionaryResult = options.skipDictionaryLoad
+            ? emptyNewTabLoadResult(this.text('dictionary'))
+            : await this.loadDictionaryWords(onProgress);
         return options.allowPublicJpdbFallback
             ? this.loadPublicFreshStudyWords(dictionaryResult, publicJpdbPromise)
             : dictionaryResult.cards.length ? dictionaryResult : this.loadBuiltInFreshStudyWords();
