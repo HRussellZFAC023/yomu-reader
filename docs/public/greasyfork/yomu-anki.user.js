@@ -9410,6 +9410,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function isLikelyAudioUrl(value) {
     if (value.startsWith("data:audio/")) return true;
+    if (isJapanesePod101Url(value)) return true;
     try {
       const url = new URL(value, location.href);
       const pathname = url.pathname.toLowerCase();

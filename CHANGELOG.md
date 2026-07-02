@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.19] - 2026-07-02
+
+### Fixed
+
+- Recognises JapanesePod101 `audiomp3.php` URLs as playable audio when parsing hosted/custom JSON audio sources. Without this the 1.5.18 hosted fallback URL was silently discarded by the client's likely-audio-URL filter, so hosted-source playback still produced no candidates.
+
 ## [1.5.18] - 2026-07-02
 
 ### Fixed

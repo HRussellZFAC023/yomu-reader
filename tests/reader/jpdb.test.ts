@@ -8978,6 +8978,15 @@ describe('reader helpers', () => {
         })).toEqual(['https://audiov2.animecards.site/audio/tts?term=%E7%8C%AB&apiKey=redacted']);
     });
 
+    it('recognises JapanesePod101 URLs from the hosted audio fallback', () => {
+        expect(findAudioUrls({
+            type: 'audioSourceList',
+            audioSources: [
+                { name: 'jpod', url: 'https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=%E4%BF%9D%E6%9C%89&kana=%E3%81%BB%E3%82%86%E3%81%86' },
+            ],
+        })).toEqual(['https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=%E4%BF%9D%E6%9C%89&kana=%E3%81%BB%E3%82%86%E3%81%86']);
+    });
+
     it('extracts audio URLs embedded in fetched text responses', () => {
         expect(findAudioUrls('Audio: https://d1vjc5dkcd3yh2.cloudfront.net/audio/neko.mp3'))
             .toEqual(['https://d1vjc5dkcd3yh2.cloudfront.net/audio/neko.mp3']);

@@ -18609,6 +18609,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function isLikelyAudioUrl(value) {
     if (value.startsWith("data:audio/")) return true;
+    if (isJapanesePod101Url(value)) return true;
     try {
       const url = new URL(value, location.href);
       const pathname = url.pathname.toLowerCase();
@@ -29213,7 +29214,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.5.18".trim() ? "1.5.18".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.5.19".trim() ? "1.5.19".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

@@ -931,6 +931,7 @@ function audioRecordHasPlayableSignal(record: Record<string, unknown>): boolean 
 
 function isLikelyAudioUrl(value: string): boolean {
     if (value.startsWith('data:audio/')) return true;
+    if (isJapanesePod101Url(value)) return true;
     try {
         const url = new URL(value, location.href);
         const pathname = url.pathname.toLowerCase();
