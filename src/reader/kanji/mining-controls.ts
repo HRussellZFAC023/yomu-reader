@@ -1,25 +1,11 @@
-import { setInnerHtml } from '../dom/index';
+// ADR-0003 core import-severing: the kanji mining-mount DOM helper ships in the
+// Yomu Kanji/Study companion; this facade keeps core call sites stable.
+import { yomuKanjiStudyCompanion } from '../companions/registry';
 
 export function updateKanjiMiningControlsMount(
     popover: HTMLElement,
     controls: string,
     setMiningControlsExpanded: (button: HTMLButtonElement, expanded: boolean) => void,
 ): void {
-    const actions = popover.querySelector<HTMLElement>('[data-kanji-actions]');
-    const miningMount = popover.querySelector<HTMLElement>('[data-kanji-mining-mount]');
-    if (!actions || !miningMount) return;
-    const hasControls = Boolean(controls);
-    const hasReview = actions.dataset.kanjiHasReview === 'true';
-    actions.hidden = !hasControls && !hasReview;
-    actions.classList.toggle('jpdb-reader-actions-has-mining', hasControls);
-    actions.classList.toggle('jpdb-reader-actions-mining-collapsed', hasControls);
-    const gutter = actions.querySelector<HTMLElement>('.jpdb-reader-actions-gutter');
-    if (gutter) gutter.hidden = !hasControls;
-    const collapseButton = actions.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]');
-    if (collapseButton) {
-        if (hasControls) setMiningControlsExpanded(collapseButton, false);
-        else collapseButton.setAttribute('aria-expanded', 'true');
-    }
-    miningMount.hidden = !hasControls;
-    setInnerHtml(miningMount, controls);
+    yomuKanjiStudyCompanion()?.updateKanjiMiningControlsMount?.(popover, controls, setMiningControlsExpanded);
 }

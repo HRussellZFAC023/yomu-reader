@@ -108,6 +108,12 @@ interface YomuCompanionRegistry {
         setKnownGrammarVisible?: SetKnownGrammarVisibleFn;
         translateJapaneseSentence?: TranslateJapaneseSentenceFn;
         renderGrammarHints?: RenderGrammarHintsFn;
+        renderStudyToolResult?: typeof import('../study/render-impl').renderStudyToolResult;
+        handleStudyGrammarAction?: typeof import('../study/render-impl').handleStudyGrammarAction;
+        toggleMiningControls?: typeof import('../study/mining-controls-impl').toggleMiningControls;
+        setMiningControlsExpanded?: typeof import('../study/mining-controls-impl').setMiningControlsExpanded;
+        openDeckPickerForCardAdd?: typeof import('../study/mining-controls-impl').openDeckPickerForCardAdd;
+        updateKanjiMiningControlsMount?: typeof import('../kanji/mining-controls-impl').updateKanjiMiningControlsMount;
     };
 }
 

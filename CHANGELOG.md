@@ -17,6 +17,10 @@
 - A stored Bunpro grading preference can no longer route words without a Bunpro identity to the Bunpro API (that path previously produced doomed review calls with synthetic ids).
 - "Allow Bunpro review/mining" now defaults on, matching the JPDB setting — the imported token remains the real gate.
 
+### Changed
+
+- Moved the study-tool result rendering and mining drawer/deck-picker DOM helpers into the Yomu Kanji/Study companion (ADR-0003 core import-severing), keeping the core userscript under the Greasy Fork 2 MB limit. Behavior is unchanged: the companion is always required by the userscript and bundled into hosted builds.
+
 ## [1.6.2] - 2026-07-02
 
 ### Fixed

@@ -23,6 +23,9 @@ import {
     setKnownGrammarVisible,
     translateJapaneseSentence,
 } from '../study/tools-impl';
+import { handleStudyGrammarAction, renderStudyToolResult } from '../study/render-impl';
+import { openDeckPickerForCardAdd, setMiningControlsExpanded, toggleMiningControls } from '../study/mining-controls-impl';
+import { updateKanjiMiningControlsMount } from '../kanji/mining-controls-impl';
 
 registerYomuCompanion('kanjiStudy', {
     KanjiOriginClient,
@@ -53,4 +56,10 @@ registerYomuCompanion('kanjiStudy', {
     setKnownGrammarVisible,
     translateJapaneseSentence,
     renderGrammarHints,
+    renderStudyToolResult,
+    handleStudyGrammarAction,
+    toggleMiningControls,
+    setMiningControlsExpanded,
+    openDeckPickerForCardAdd,
+    updateKanjiMiningControlsMount,
 });
