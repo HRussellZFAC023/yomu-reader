@@ -76,8 +76,10 @@ To update later, open the same link again and let Tampermonkey replace the old v
 
 The first time よむ runs, it shows a short **welcome screen** with two buttons:
 
-- **Use without API key** — start reading right now. よむ looks words up using free public data, with no account needed. **Pick this one to begin.**
+- **Use without API key** — start reading right now, no account needed. **Pick this one to begin.**
 - **Add API key** — connect Jiten or JPDB for word tracking and mining. Optional, and you can do it later ([Add an API source](#add-an-api-source-optional)).
+
+The welcome screen also offers **Offline setup** (checked by default): よむ downloads the Jitendex dictionary and Kanjium pitch accents in the background, so parsing, lookup, furigana, and pitch colors all run locally in your browser — fast, private, and available offline. Leave it on unless you prefer to import your own dictionaries later in Settings → Sources.
 
 Choose **Use without API key**, then try a lookup:
 

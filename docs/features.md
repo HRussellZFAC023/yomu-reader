@@ -32,6 +32,8 @@ The popup also has optional study helpers for the current sentence. The translat
 
 This gives you native-language dictionaries, monolingual Japanese definitions, frequency, kanji, or pitch dictionaries without depending on a remote service for every lookup.
 
+Parsing itself is local-first: with term dictionaries imported, よむ segments and annotates Japanese against your local dictionaries — deinflection, furigana, and pitch included — without contacting Jiten or JPDB. New installs get this by default (onboarding offers to download Jitendex and Kanjium pitch accents), and **Settings → Sources → Parsing** switches between **Local dictionaries (offline)** and the Jiten/JPDB APIs. Installs from before this option keep API-first parsing until you switch.
+
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-dictionaries.png'" alt="The よむ Dictionaries settings panel showing imported dictionary controls and definition source ordering.">
   <figcaption>Dictionary import and source ordering controls.</figcaption>

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0] - 2026-07-02
+
+### Added
+
+- Made fully local parsing the default parsing source for new installs: with term dictionaries imported, text parsing (segmentation, deinflection, furigana, pitch) runs against local Yomitan dictionaries without contacting Jiten or JPDB, working offline and skipping remote parse latency. A new Settings → Sources → Parsing control switches between Local dictionaries (offline) and the Jiten/JPDB APIs. Existing installs keep API-first parsing until they opt in, so provider-backed word colors and known states do not change underneath them.
+- Added an Offline setup step to the onboarding welcome screen (checked by default) that downloads Jitendex and Kanjium pitch accents in the background, so local parsing, definitions, furigana, and pitch colors work out of the box without an API key. Already-imported dictionaries are detected and skipped, and failures leave a toast pointing at Settings → Sources for retry.
+
 ## [1.5.22] - 2026-07-02
 
 ### Fixed
@@ -36,7 +43,6 @@
 
 - Restored word audio when the Yomu-hosted ("Ultimate") source is the only enabled audio source. The 1.5 default flip to hosted-only audio shipped while the hosted bucket held just 11 seeded words, so nearly every popover play ended in `No playable audio found` with an empty error list (the settings demo kept working because its preview word, 読む, was one of the 11). The hosted audio Worker now falls back to the matching JapanesePod101 clip URL for any word missing from the R2 manifest — the Worker cannot vet the clip itself because JapanesePod101's CDN rejects Cloudflare Worker requests, so the client filters that endpoint's fixed "not available" placeholder clip instead, now on every source type by forcing JapanesePod101 URLs through the blob playback path.
 - Audio sources that produce zero candidates now record a per-source diagnostic, so `No playable audio found` reports which sources came up empty instead of an empty `errors` list.
-
 ## [1.5.17] - 2026-07-02
 
 ### Fixed

@@ -409,6 +409,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ocrBackgroundOpacity: DEFAULT_OCR_BACKGROUND_OPACITY,
     ocrFontScale: 1,
     localDictionariesEnabled: true,
+    parserProvider: 'local',
     localDictionaryMaxResults: 12,
     localDictionaryShowKanji: true,
     kanjiDictionariesAlias: '',
@@ -562,8 +563,17 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
         ...normalizeRemovedDictionarySettings(settingsValue),
         dictionaryPreferences: normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences),
         dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
+        parserProvider: normalizeParserProvider(settingsValue),
         shortcuts: normalizeShortcutSettings(settingsValue),
     };
+}
+
+// New installs parse with local dictionaries by default. Saved payloads that
+// predate the setting keep API-first parsing so provider-backed word colors
+// and known states do not change under existing users.
+function normalizeParserProvider(value: LegacyReaderSettings | null): ReaderSettings['parserProvider'] {
+    if (value?.parserProvider === 'local' || value?.parserProvider === 'auto') return value.parserProvider;
+    return value ? 'auto' : DEFAULT_SETTINGS.parserProvider;
 }
 
 export function normalizeReaderSettings(value: Partial<ReaderSettings> | null | undefined): ReaderSettings {

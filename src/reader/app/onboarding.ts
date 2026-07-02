@@ -23,6 +23,9 @@ interface OnboardingOptions {
     // same nested-parse path that handles popovers/settings chrome.
     parseJapanese: (panel: HTMLElement) => void;
     lookupText?: (text: string, sentence: string, anchor: HTMLElement) => void;
+    // Fire-and-forget background download of the default offline parsing
+    // dictionaries (terms + pitch); progress and errors surface via toasts.
+    installOfflineDictionaries?: () => void;
 }
 
 function selectedOnboardingLanguage(value: string | undefined, fallback: InterfaceLanguage): InterfaceLanguage {
@@ -40,6 +43,7 @@ export class OnboardingController {
     private youtubeImmersionInput?: HTMLInputElement;
     private preferJapaneseSiteLanguageInput?: HTMLInputElement;
     private manualScanInput?: HTMLInputElement;
+    private offlineDictionariesInput?: HTMLInputElement;
 
     constructor(private readonly options: OnboardingOptions) {}
 
@@ -165,6 +169,16 @@ export class OnboardingController {
             checkboxLabel(this.manualScanInput, uiText(this.options.getSettings().interfaceLanguage, 'manualScanEnabled')),
         );
 
+        const offlineSetup = document.createElement('fieldset');
+        offlineSetup.className = 'jpdb-reader-onboarding-options jpdb-reader-onboarding-offline';
+        const offlineLegend = document.createElement('legend');
+        offlineLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, 'onboardingOfflineSetup');
+        this.offlineDictionariesInput = checkboxInput('onboardingInstallOfflineDictionaries', true);
+        offlineSetup.append(
+            offlineLegend,
+            checkboxLabel(this.offlineDictionariesInput, uiText(this.options.getSettings().interfaceLanguage, 'onboardingInstallOfflineDictionaries')),
+        );
+
         const actions = document.createElement('div');
         actions.className = 'jpdb-reader-onboarding-actions';
         const setup = button(uiText(this.options.getSettings().interfaceLanguage, 'onboardingAddApiKey'));
@@ -191,7 +205,7 @@ export class OnboardingController {
             if (this.handleWordLookup(event)) event.preventDefault();
         });
 
-        this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, actions, featureList);
+        this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, offlineSetup, actions, featureList);
         this.syncThemeSwitch();
         this.syncAccentPicker(this.accentColorInput.value);
         document.body.append(this.backdrop, this.panel);
@@ -232,6 +246,8 @@ export class OnboardingController {
         panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, 'youtubeImmersionEnabled'));
         panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, 'preferJapaneseSiteLanguage'));
         panel.querySelector('[data-onboarding-copy="manualScanEnabled"]')?.replaceChildren(uiText(language, 'manualScanEnabled'));
+        panel.querySelector('.jpdb-reader-onboarding-offline legend')?.replaceChildren(uiText(language, 'onboardingOfflineSetup'));
+        panel.querySelector('[data-onboarding-copy="onboardingInstallOfflineDictionaries"]')?.replaceChildren(uiText(language, 'onboardingInstallOfflineDictionaries'));
         panel.querySelector('.jpdb-reader-onboarding-accent legend')?.replaceChildren(uiText(language, 'onboardingAccentColor'));
         panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(uiText(language, 'customAccentColor'));
         this.accentColorInput?.setAttribute('aria-label', uiText(language, 'onboardingAccentColor'));
@@ -269,13 +285,15 @@ export class OnboardingController {
 
     private async complete(openSettings: boolean | 'dictionaries'): Promise<void> {
         const done = log.time('Onboarding complete', { openSettings });
-        const settings = this.completedOnboardingSettings(openSettings);
+        const installOfflineDictionaries = this.offlineDictionariesInput?.checked === true;
+        const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries);
         try {
             this.options.setSettings(settings);
             await saveSettings(settings);
             this.close();
+            if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
             this.openPostOnboardingSettings(openSettings);
-            log.info('Onboarding completed', { openSettings, language: settings.interfaceLanguage });
+            log.info('Onboarding completed', { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });
         } catch (error) {
             log.warn('Onboarding completion failed', { openSettings, error });
             throw error;
@@ -284,13 +302,13 @@ export class OnboardingController {
         }
     }
 
-    private completedOnboardingSettings(openSettings: boolean | 'dictionaries'): ReaderSettings {
+    private completedOnboardingSettings(openSettings: boolean | 'dictionaries', installOfflineDictionaries: boolean): ReaderSettings {
         const current = this.options.getSettings();
         return {
             ...current,
             onboardingSeen: true,
             jpdbDefinitionsEnabled: true,
-            localDictionariesEnabled: openSettings !== true,
+            localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
             youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
             preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
             manualScanEnabled: this.manualScanInput?.checked ?? current.manualScanEnabled,
@@ -317,6 +335,7 @@ export class OnboardingController {
         this.youtubeImmersionInput = undefined;
         this.preferJapaneseSiteLanguageInput = undefined;
         this.manualScanInput = undefined;
+        this.offlineDictionariesInput = undefined;
     }
 
     private createThemeToggle(): HTMLElement {
@@ -426,7 +445,7 @@ function button(text: string): HTMLButtonElement {
     return node;
 }
 
-function checkboxInput(name: keyof Pick<ReaderSettings, 'preferJapaneseSiteLanguage' | 'youtubeImmersionEnabled' | 'manualScanEnabled'>, checked: boolean): HTMLInputElement {
+function checkboxInput(name: keyof Pick<ReaderSettings, 'preferJapaneseSiteLanguage' | 'youtubeImmersionEnabled' | 'manualScanEnabled'> | 'onboardingInstallOfflineDictionaries', checked: boolean): HTMLInputElement {
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.name = name;

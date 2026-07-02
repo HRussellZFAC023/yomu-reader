@@ -14,6 +14,8 @@ const COPY = {
         onboardingAccentColor: 'Accent color',
         customAccentColor: 'Custom color',
         onboardingImmersionOptions: 'Immersion defaults',
+        onboardingOfflineSetup: 'Offline setup',
+        onboardingInstallOfflineDictionaries: 'Download offline dictionaries for local parsing (Jitendex + pitch accents)',
         onboardingHoverShortcut: 'Lookup hover modifier',
         manualPageScanShortcut: 'Manual page scan shortcut',
         onboardingAddApiKey: 'Add API key',
@@ -567,6 +569,14 @@ const COPY = {
         dictionaryImportHelp: 'Import a Yomitan ZIP, settings export, or backup. Term, pitch, and frequency dictionaries add definitions, accents, and badges.',
         lookupPills: 'Lookup pills',
         lookupPillsHelp: 'External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.',
+        parsing: 'Parsing',
+        parserProvider: 'Parsing source',
+        parserProviderLocal: 'Local dictionaries (offline)',
+        parserProviderAuto: 'Jiten/JPDB APIs when available',
+        parserProviderHelp: 'Local parses with imported dictionaries and works offline. Automatic prefers the Jiten/JPDB APIs when keys are set.',
+        offlineDictionarySetupStarted: 'Downloading offline dictionaries...',
+        offlineDictionarySetupComplete: 'Offline dictionaries installed. Local parsing is ready.',
+        offlineDictionarySetupFailed: 'Offline dictionary setup failed. Retry from Settings → Sources.',
         copiesCurrentWord: 'Copies the current word',
         lookupPillLabel: 'Lookup pill label',
         lookupPillLabelNumber: 'Lookup pill {number} label',
@@ -1239,6 +1249,11 @@ onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
+onboardingOfflineSetup	オフラインセットアップ
+onboardingInstallOfflineDictionaries	ローカル解析用のオフライン辞書をダウンロード（Jitendex＋ピッチアクセント）
+offlineDictionarySetupStarted	オフライン辞書をダウンロード中...
+offlineDictionarySetupComplete	オフライン辞書をインストールしました。ローカル解析が利用できます。
+offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。
 onboardingHoverShortcut	ホバー検索の修飾キー
 onboardingAddApiKey	APIキーを追加
 onboardingAddLocalDictionaries	ローカル辞書を追加
@@ -2252,6 +2267,11 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/ピッチ/頻度辞書で定義、アクセント、バッジを追加します。
 lookupPills	検索ピル
+parsing	解析
+parserProvider	解析ソース
+parserProviderLocal	ローカル辞書（オフライン）
+parserProviderAuto	利用可能ならJiten/JPDB API
+parserProviderHelp	ローカルはインポートした辞書で解析し、オフラインでも動作します。自動はキー設定時にJiten/JPDB APIを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル

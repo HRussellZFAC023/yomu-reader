@@ -42,6 +42,7 @@
 ## Why よむ
 
 - **Lookup anywhere:** choose Japanese text on normal pages, OCR results, subtitles, and PDFs.
+- **Local-first parsing:** with imported dictionaries (offered during onboarding), text parsing runs entirely in your browser — no Jiten/JPDB calls, works offline. Switchable in Settings → Sources → Parsing.
 - **Mine while reading:** create Anki cards, add/review words in Jiten or JPDB, and keep the source sentence/context.
 - **Bring your dictionaries:** import Yomitan ZIPs, JMdict, kanji dictionaries, pitch dictionaries, and frequency dictionaries.
 - **Read media, not only text:** manga/image OCR, PC game capture through Yomu Gaming, YouTube subtitle mining, a local video reader, and a PDF reader.

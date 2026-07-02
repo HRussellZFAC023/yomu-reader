@@ -89,6 +89,10 @@ export type NewTabStudyChallengeStep =
 
 export type ReaderColorSource = 'auto' | 'status' | 'jpdb' | 'anki' | 'pitch' | 'off';
 
+// 'local' parses with imported dictionaries only (no parse network traffic
+// while term dictionaries are installed); 'auto' prefers Jiten/JPDB APIs.
+export type ParserProvider = 'local' | 'auto';
+
 export type FuriganaMode = 'auto' | 'all' | 'difficult-kanji' | 'known-status' | 'hover' | 'off';
 
 export type FuriganaStateGroup = 'new' | 'learning' | 'known' | 'due' | 'failed';
@@ -411,6 +415,7 @@ export interface ReaderSettings {
     ocrBackgroundOpacity: number;
     ocrFontScale: number;
     localDictionariesEnabled: boolean;
+    parserProvider: ParserProvider;
     localDictionaryMaxResults: number;
     localDictionaryShowKanji: boolean;
     kanjiDictionariesAlias: string;

@@ -73,7 +73,7 @@ export class ReaderParser {
     private localCardCache = new Map<string, JPDBCard>();
     private localParseCache = new Map<string, Promise<JPDBToken[]>>();
     private localPitchCache = new Map<string, Promise<string>>();
-    private localTermDictionaryAvailability?: Promise<boolean>;
+    private localTermDictionaryAvailability?: Promise<boolean | undefined>;
     private readonly enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
     private kanjiReadingCache = new Map<string, Promise<string[]>>();
 
@@ -98,6 +98,13 @@ export class ReaderParser {
     }
 
     private async parseWithPreferredSource(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): Promise<JPDBToken[][]> {
+        // Local-first parsing: with term dictionaries installed the parse
+        // never touches Jiten/JPDB, including requireApi/requireJpdb flows —
+        // those flags describe remote error handling, not a data dependency.
+        // Without term dictionaries the API-first order below still applies.
+        if (settings.parserProvider === 'local' && await this.hasConfirmedLocalTermDictionaries()) {
+            return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
+        }
         if (shouldPreferJitenParser(settings, options, this.dependencies.jiten)) {
             const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
             if (jitenResult) return jitenResult;
@@ -329,16 +336,29 @@ export class ReaderParser {
         });
     }
 
+    // Optimistic: a store that cannot report availability still gets a chance
+    // in the fallback path, which tolerates empty or failing local lookups.
     private async hasLocalTermDictionaries(): Promise<boolean> {
         if (!this.canUseLocalDictionaryFallback()) return false;
+        return await this.reportedTermDictionaryAvailability() ?? true;
+    }
+
+    // Strict: local-first replaces remote parsing entirely, so it only engages
+    // when the store affirmatively reports imported term dictionaries.
+    private async hasConfirmedLocalTermDictionaries(): Promise<boolean> {
+        if (!this.canUseLocalDictionaryFallback()) return false;
+        return await this.reportedTermDictionaryAvailability() === true;
+    }
+
+    private reportedTermDictionaryAvailability(): Promise<boolean | undefined> {
         const store = this.dependencies.dictionaries as YomitanDictionaryStore & {
             hasTermDictionaries?: () => Promise<boolean>;
         };
-        if (typeof store.hasTermDictionaries !== 'function') return true;
+        if (typeof store.hasTermDictionaries !== 'function') return Promise.resolve(undefined);
         this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch(error => {
             this.localTermDictionaryAvailability = undefined;
             log.warn('Local term dictionary availability check failed', { error });
-            return true;
+            return undefined;
         });
         return this.localTermDictionaryAvailability;
     }

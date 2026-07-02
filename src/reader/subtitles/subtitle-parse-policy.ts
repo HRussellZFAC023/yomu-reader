@@ -39,6 +39,7 @@ export function subtitleParseSourceSignature(settings: ReaderSettings): string {
     const jpdbApiKey = effectiveJpdbApiKey(settings);
     const jitenApiKey = effectiveJitenApiKey(settings);
     return [
+        `parser:${settings.parserProvider}`,
         jpdbApiKey ? `jpdb-api:${stableSubtitleHash(jpdbApiKey)}` : 'jpdb-api:off',
         jitenApiKey ? `jiten-api:${stableSubtitleHash(jitenApiKey)}` : 'jiten-api:off',
         settings.localDictionariesEnabled ? 'local:on' : 'local:off',

@@ -916,6 +916,14 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>Sources</legend>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">Checking imported dictionaries...</div>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title">Parsing</div>
+                    <div class="jpdb-reader-help" data-help-key="parserProviderHelp">Local parses with imported dictionaries and works offline. Automatic prefers the Jiten/JPDB APIs when keys are set.</div>
+                    ${select('parserProvider', 'Parsing source', settings.parserProvider, [
+                        ['local', 'Local dictionaries (offline)'],
+                        ['auto', 'Jiten/JPDB APIs when available'],
+                    ])}
+                </div>
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
@@ -1134,6 +1142,7 @@ const LOCAL_TITLE_TEXT_KEYS = [
     [/Study|学習|New tab|新規タブ/, 'newTab'],
     [/Dictionary site enhancements|辞書サイト拡張|JPDB page enhancements|JPDBページ拡張/, 'jpdbPageEnhancements'],
     [/Lookup pills|検索ピル/, 'lookupPills'],
+    [/^Parsing$|^解析$/, 'parsing'],
 ] as const satisfies readonly (readonly [RegExp, SettingsTextKey])[];
 const SELECTOR_TEXT_KEYS = [
     ['[data-popup-lookup-title]', 'popupLookup'],
@@ -1328,6 +1337,10 @@ function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText)
     ]);
     setSelectOptionLabels(form, 'readerFontFamily', fontFamilyOptions(text));
     setSelectOptionLabels(form, 'popupFontFamily', fontFamilyOptions(text));
+    setSelectOptionLabels(form, 'parserProvider', [
+        ['local', text('parserProviderLocal')],
+        ['auto', text('parserProviderAuto')],
+    ]);
     setSelectOptionLabels(form, 'newTabSource', [
         ['auto', text('newTabAuto')],
         ['jpdb', text('newTabApiSrs')],
@@ -1856,7 +1869,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'newTabJpdbReviewMode', 'corsProxyUrl', 'newTabKanjiKeywordSource', 'newTabParsingEnabled', 'newTabFrontSentenceEnabled',
     'newTabKanjiAutogradeEnabled', 'newTabKanjiAutoSubmit', 'newTabOfflineEnabled', 'newTabOfflineLimit', 'newTabDailyGoalMinutes', 'newTabKanjiUnlockEnabled', 'newTabStopAtBatchEnd', 'newTabSwipeReviews', 'newTabShortcutHintsEnabled', 'newTabUrl',
     'wordColorNew', 'wordColorLearning', 'wordColorKnown', 'wordColorDue', 'wordColorFailed',
-    'wordColorIgnored', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
+    'wordColorIgnored', 'parserProvider', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorKifuku', 'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'parseSelection', 'lookupOnClick',
     'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'pageScanMode', 'furiganaMode', 'wordColorStates', 'showPitchAccent', 'showLookupPillFrequency', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',

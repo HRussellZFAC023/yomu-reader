@@ -91,6 +91,58 @@ describe('OnboardingController', () => {
             accentColor: '#336699',
         });
     });
+
+    it('offers a default-on offline dictionary download and starts it on completion', async () => {
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en' };
+        const installOfflineDictionaries = vi.fn();
+        const controller = new OnboardingController({
+            getSettings: () => settings,
+            setSettings: nextSettings => {
+                settings = nextSettings;
+            },
+            showSettings: vi.fn(),
+            parseJapanese: vi.fn(),
+            installOfflineDictionaries,
+        });
+
+        await expect(controller.showIfNeeded()).resolves.toBe(true);
+
+        const offlineDownload = document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]');
+        expect(offlineDownload?.checked).toBe(true);
+        expect(document.body.textContent).toContain('Download offline dictionaries for local parsing');
+
+        document.querySelector<HTMLButtonElement>('[data-onboarding-action="api-key"]')?.click();
+        await settleAsyncHandlers();
+
+        expect(installOfflineDictionaries).toHaveBeenCalledTimes(1);
+        // The API-key path must not switch local dictionaries off while the
+        // offline download it just requested is installing them.
+        expect(settings.localDictionariesEnabled).toBe(true);
+    });
+
+    it('skips the offline download when the user unchecks it', async () => {
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en' };
+        const installOfflineDictionaries = vi.fn();
+        const controller = new OnboardingController({
+            getSettings: () => settings,
+            setSettings: nextSettings => {
+                settings = nextSettings;
+            },
+            showSettings: vi.fn(),
+            parseJapanese: vi.fn(),
+            installOfflineDictionaries,
+        });
+
+        await expect(controller.showIfNeeded()).resolves.toBe(true);
+
+        const offlineDownload = document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]');
+        offlineDownload!.checked = false;
+        document.querySelector<HTMLButtonElement>('[data-onboarding-action="api-key"]')?.click();
+        await settleAsyncHandlers();
+
+        expect(installOfflineDictionaries).not.toHaveBeenCalled();
+        expect(settings.localDictionariesEnabled).toBe(false);
+    });
 });
 
 function settleAsyncHandlers(): Promise<void> {

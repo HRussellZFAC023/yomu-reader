@@ -55,6 +55,7 @@ import { ImmersionPopoverController, type ImmersionSearchOptions } from '../imme
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import { FloatingButtonController } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
+import { installOfflineParsingDictionaries } from '../dictionaries/offline-setup';
 import { JitenPublicVocabularyClient } from '../dictionaries/jiten-public-vocabulary';
 import type { UchisenData } from '../dictionaries/uchisen';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
@@ -733,6 +734,7 @@ export class ReaderApp {
         showSettings: panel => this.showSettings(panel),
         parseJapanese: panel => void this.parseOnboardingJapanese(panel),
         lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
+        installOfflineDictionaries: () => void this.installOfflineParsingDictionaries(),
     });
     private subtitles = this.createSubtitlePlayer();
     private ocr: ImageOcrController = this.createImageOcrController();
@@ -1353,6 +1355,35 @@ export class ReaderApp {
 
     private async refreshDictionaryStyles(): Promise<void> {
         await this.dictionaryStyles.refresh();
+    }
+
+    private offlineDictionarySetupInFlight = false;
+
+    // Onboarding "offline setup": download the default parsing dictionaries in
+    // the background. Progress stays in the log; toasts carry the milestones.
+    private async installOfflineParsingDictionaries(): Promise<void> {
+        if (this.offlineDictionarySetupInFlight) return;
+        this.offlineDictionarySetupInFlight = true;
+        this.toast(uiText(this.settings.interfaceLanguage, 'offlineDictionarySetupStarted'));
+        try {
+            const result = await installOfflineParsingDictionaries({
+                dictionaries: this.dictionaries,
+                getSettings: () => this.settings,
+                applySettings: async settings => {
+                    this.settings = settings;
+                    await saveSettings(settings);
+                },
+                onProgress: message => log.info('Offline dictionary setup', { message }),
+            });
+            if (result.installed.length) {
+                await this.refreshDictionaryStyles();
+                this.scheduleDictionaryRescan();
+            }
+            if (result.failed.length) this.toast(uiText(this.settings.interfaceLanguage, 'offlineDictionarySetupFailed'));
+            else if (result.installed.length) this.toast(uiText(this.settings.interfaceLanguage, 'offlineDictionarySetupComplete'));
+        } finally {
+            this.offlineDictionarySetupInFlight = false;
+        }
     }
 
     private clearBridgeBackedCaches(): void {
