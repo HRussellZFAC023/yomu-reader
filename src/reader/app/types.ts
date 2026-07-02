@@ -181,6 +181,10 @@ export interface JPDBCard {
     bunproReviewableId?: number;
     bunproReviewableType?: 'grammar' | 'vocabulary' | 'sentence' | 'unknown';
     bunproSrsLevel?: string;
+    // Transient popover choice: which SRS this card's grade/deck buttons act
+    // on, set by the ⇄ provider toggle. Wins over the global apiGradingProvider
+    // while the card object lives (not persisted).
+    apiGradingProviderOverride?: 'jpdb' | 'jiten' | 'bunpro';
     kanjiKeyword?: string;
     sourceCardKey?: string;
     fallbackLookupTerms?: string[];

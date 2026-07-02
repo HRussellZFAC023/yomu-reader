@@ -73,6 +73,27 @@ export function apiGradingProviderPreference(settings: ReaderSettings): ApiSrsPr
     return settings.apiGradingProvider === 'jiten' ? 'jiten' : 'jpdb';
 }
 
+// The providers the popover ⇄ toggle can cycle through for this card. jpdb and
+// jiten are switchable on a key alone (the toggle re-parses the word to resolve
+// the other service's identity), but Bunpro grades only its own reviews, so it
+// joins the cycle only when the card already carries a Bunpro identity. Bunpro
+// grammar/sentence cards are not words — re-parsing them into a jpdb/jiten
+// vocab card cannot work, so they stay Bunpro-only.
+export function apiSrsSwitchableProviderIds(card: JPDBCard, settings: ReaderSettings): ApiSrsProviderId[] {
+    const ids: ApiSrsProviderId[] = [];
+    const wordLike = !card.bunproReviewableType || card.bunproReviewableType === 'vocabulary';
+    if (wordLike && hasJpdbApiCredential(settings)) ids.push('jpdb');
+    if (wordLike && hasJitenApiCredential(settings)) ids.push('jiten');
+    if (isBunproUsableCard(card, settings)) ids.push('bunpro');
+    return ids;
+}
+
+function isBunproUsableCard(card: JPDBCard, settings: ReaderSettings): boolean {
+    return isBunproBackedCard(card)
+        && hasBunproFrontendCredential(settings)
+        && !isBunproFrontendCredentialExpired(settings);
+}
+
 // Which providers can actually grade this card: a configured key AND the card
 // carrying that provider's identity (jpdb vid / jiten word id). Page words are
 // enriched with the jiten identity during lookup so a word present in both
@@ -120,13 +141,24 @@ export function apiSrsProviderViewForCard(
     const bunproBacked = isBunproBackedCard(card);
     const jpdbUsable = jpdbBacked && hasJpdbApiCredential(settings);
     const jitenUsable = jitenBacked && hasJitenApiCredential(settings);
-    const bunproUsable = bunproBacked && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings);
+    const bunproUsable = isBunproUsableCard(card, settings);
+    // The popover ⇄ toggle stores its choice on the card so a Bunpro-backed
+    // card can grade to another usable service (and back) without flipping the
+    // global preference for every other word.
+    const override = card.apiGradingProviderOverride;
+    if (override === 'jpdb' && jpdbUsable) return apiSrsProviderView('jpdb', settings);
+    if (override === 'jiten' && jitenUsable) return apiSrsProviderView('jiten', settings);
+    if (override === 'bunpro' && bunproUsable) return apiSrsProviderView('bunpro', settings);
     if (bunproUsable) return apiSrsProviderView('bunpro', settings);
     // Both services can grade this word and both keys are set -> follow the
     // toggle. Otherwise prefer whichever service has a usable key. A word may be
     // jiten-backed via keyless enrichment, so the fallback must be gated on the
-    // key actually being set.
-    if (jpdbUsable && jitenUsable) return apiSrsProviderView(apiGradingProviderPreference(settings), settings);
+    // key actually being set. A stored 'bunpro' preference can never grade a
+    // card without a Bunpro identity, so it falls back to the jiten default.
+    if (jpdbUsable && jitenUsable) {
+        const preferred = apiGradingProviderPreference(settings);
+        return apiSrsProviderView(preferred === 'jpdb' ? 'jpdb' : 'jiten', settings);
+    }
     if (jpdbUsable) return apiSrsProviderView('jpdb', settings);
     if (jitenUsable) return apiSrsProviderView('jiten', settings);
     // Local-first fallback: when no external SRS can act on this word, Yomu
@@ -224,15 +256,26 @@ function createBunproSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Reade
             await adapter.mine(bunproMiningRequestFromCard(card, sentence, context));
         },
         reviewCard: async (card, grade, reviewOptions = {}) => {
-            await adapter.review({
+            const result = await adapter.review({
                 card: bunproReviewableFromCard(card),
                 grade,
                 sentence: reviewOptions.sentence,
             });
+            if (result.card) applyBunproReviewableToCard(card, result.card);
             return {};
         },
         setDeckState: async () => undefined,
     };
+}
+
+// JPDB/Jiten refresh the card state after a review so the popover status dot
+// recolors; mirror that for Bunpro from the review response itself (Bunpro has
+// no cheap per-word state lookup to re-query).
+function applyBunproReviewableToCard(card: JPDBCard, reviewable: YomuSrsReviewable): void {
+    if (reviewable.state.length) card.cardState = reviewable.state;
+    if (reviewable.dueAt !== undefined) card.dueAt = reviewable.dueAt;
+    if (reviewable.lastReviewAt !== undefined) card.lastReviewAt = reviewable.lastReviewAt;
+    if (reviewable.srsLevel) card.bunproSrsLevel = reviewable.srsLevel;
 }
 
 function createYomuLocalSrsProviderAdapter(adapter: YomuSrsAdapter, settings: ReaderSettings): ApiSrsProviderAdapter {

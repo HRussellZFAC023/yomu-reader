@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.6.3] - 2026-07-02
+
+### Added
+
+- Bunpro grading parity across the popover and study page. The popover's ⇄ provider toggle now cycles through every service that can grade the word — JPDB, Jiten, and Bunpro when the card carries a Bunpro identity — instead of being hardcoded to the jpdb/jiten pair, and the switch shows which service comes next. Bunpro-backed cards can be switched to another connected service per word without flipping the global preference.
+- A "Preferred grading service" select in Settings → API, so the Jiten/JPDB grading choice is discoverable outside the popover toggle.
+- The study-page lookup popover now shows the same provider status indicator as the main popover ("Jiten/JPDB/Bunpro + state" with the state dot) instead of a JPDB-only label, so it is always clear which SRS a grade goes to.
+
+### Fixed
+
+- The study page's review-source dropdown no longer disappears when the current queue is empty — finishing your Bunpro (or any) reviews keeps one-tap switching to the other connected SRS sources.
+- Auto study-source selection now treats a Bunpro token as a configured review source instead of forcing Bunpro-only users onto Anki.
+- Bunpro card state now refreshes from the review response after grading, so the popover status dot recolors like JPDB/Jiten instead of staying stale.
+- Selecting the Bunpro study source without a usable token now explains what is missing ("No Bunpro token…" / "Bunpro token expired…") instead of the generic "Could not load words."
+- A stored Bunpro grading preference can no longer route words without a Bunpro identity to the Bunpro API (that path previously produced doomed review calls with synthetic ids).
+- "Allow Bunpro review/mining" now defaults on, matching the JPDB setting — the imported token remains the real gate.
+
 ## [1.6.2] - 2026-07-02
 
 ### Fixed

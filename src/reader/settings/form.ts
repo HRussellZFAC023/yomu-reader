@@ -284,6 +284,8 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                 ${checkbox('bunproMiningEnabled', 'Allow Bunpro review/mining', settings.bunproMiningEnabled)}
                 ${checkbox('addToForq', 'Also copy JPDB adds to forq', settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
                 ${checkbox('enableReviews', 'Show review buttons', settings.enableReviews)}
+                ${select('apiGradingProvider', 'Preferred grading service', settings.apiGradingProvider === 'bunpro' ? 'jiten' : settings.apiGradingProvider, [['jiten', 'Jiten'], ['jpdb', 'JPDB']])}
+                <div class="jpdb-reader-help" data-grading-provider-help>Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.</div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Dictionary site enhancements</div>
                     <div class="grid">
@@ -1148,6 +1150,7 @@ const SELECTOR_TEXT_KEYS = [
     ['[data-diagnostics-title]', 'diagnostics'],
     ['[data-anki-library-adapter-title]', 'ankiLibraryAdapter'],
     ['[data-jpdb-api-key-help]', 'apiAccessHelp'],
+    ['[data-grading-provider-help]', 'apiGradingProviderHelp'],
     ['[data-subtitle-preview] .jpdb-subtitle-secondary', 'subtitlePreview'],
     ['[data-settings-preview-title]', 'preview'],
     ['[data-proxy-guide-summary]', 'audioProxyGuideSummary'],
@@ -1860,7 +1863,7 @@ function localizeDictionaryStatus(form: HTMLFormElement, text: SettingsText): vo
 
 const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'apiCredential', 'apiCredentialJpdb', 'apiCredentialJiten', 'apiCredentialBunproLegacy', 'apiCredentialBunpro', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
-    'jpdbMiningEnabled', 'bunproMiningEnabled', 'yomuLocalSrsEnabled', 'addToForq', 'enableReviews', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
+    'jpdbMiningEnabled', 'bunproMiningEnabled', 'yomuLocalSrsEnabled', 'addToForq', 'enableReviews', 'apiGradingProvider', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
     'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'stickyBottomSheet', 'popoverBackdropEnabled', 'popoverWidth',
     'popoverHeight', 'popoverHeightMode', 'selectionPopoverShowTranslation', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
     'enableLogging', 'accentColor', 'newTabAnkiEnabled', 'newTabSource',

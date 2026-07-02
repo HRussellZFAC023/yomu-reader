@@ -2,15 +2,15 @@ import type { AnkiLookupResult } from '../anki/index';
 import { escapeHtml, HAS_JAPANESE } from '../dom/index';
 import { cardStateLabel } from '../app/i18n';
 import { updateKanjiMiningControlsMount } from '../kanji/mining-controls';
-import { hasJpdbApiCredential } from '../settings/api-credential';
+import type { ApiSrsProviderView } from '../cards/srs-providers';
 import type { NewTabLookupReviewTarget, NewTabLookupReviewTargetSelection } from './controller';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 
 interface NewTabLookupMetaItemsOptions {
     card: JPDBCard;
     ankiLookup: AnkiLookupResult;
-    jpdbState: string;
-    isJpdbBacked: boolean;
+    provider: ApiSrsProviderView | null;
+    providerState: string;
     settings: ReaderSettings;
 }
 
@@ -49,8 +49,8 @@ export function newTabLookupReviewTargetSelection(button: HTMLButtonElement): Ne
 export function newTabLookupMetaItems(options: NewTabLookupMetaItemsOptions): HTMLElement[] {
     const items: HTMLElement[] = [];
     if (options.card.frequencyRank) items.push(newLookupMetaLabel(`#${options.card.frequencyRank}`));
-    const jpdbLabel = newTabLookupJpdbStatusLabel(options.isJpdbBacked, options.settings, options.jpdbState);
-    if (jpdbLabel) items.push(newLookupMetaLabel(jpdbLabel, `jpdb-${options.jpdbState}`));
+    const providerLabel = newTabLookupProviderStatusLabel(options.provider, options.settings, options.providerState);
+    if (providerLabel) items.push(newLookupMetaLabel(providerLabel, `jpdb-${options.providerState}`));
     const ankiLabel = newTabLookupAnkiStatusLabel(options.ankiLookup, options.settings);
     if (ankiLabel) items.push(newLookupMetaLabel(ankiLabel, `anki-${options.ankiLookup.state}`));
     return items;
@@ -140,10 +140,11 @@ function newLookupMetaLabel(label: string, stateClass = ''): HTMLElement {
     return item;
 }
 
-function newTabLookupJpdbStatusLabel(isJpdbBacked: boolean, settings: ReaderSettings, jpdbState: string): string {
-    if (!isJpdbBacked) return '';
-    if (!hasJpdbApiCredential(settings)) return '';
-    return `JPDB ${lookupStateLabel(jpdbState, settings.interfaceLanguage)}`;
+// Main-popover parity: name the SRS the grade buttons act on (JPDB, Jiten or
+// Bunpro — whatever apiSrsProviderViewForCard resolved), not hardcoded JPDB.
+function newTabLookupProviderStatusLabel(provider: ApiSrsProviderView | null, settings: ReaderSettings, state: string): string {
+    if (!provider?.hasApiKey || provider.id === 'yomu-local') return '';
+    return `${provider.label} ${lookupStateLabel(state, settings.interfaceLanguage)}`;
 }
 
 function newTabLookupAnkiStatusLabel(ankiLookup: AnkiLookupResult, settings: ReaderSettings): string {

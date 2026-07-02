@@ -162,7 +162,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ...readStudyToolFormSettings(reader, current),
         enableLogging: has('enableLogging'),
         ...readPopupFormSettings(reader, current),
-        ...readMiningFormSettings(reader),
+        ...readMiningFormSettings(reader, current),
         shortcuts: readShortcutFormSettings(reader, current),
     };
     const normalized = normalizeReaderSettings(settings);
@@ -490,7 +490,7 @@ function readFontFamilySetting(reader: SettingsFormReader, name: FontFamilySetti
     return value || fallback;
 }
 
-function readMiningFormSettings(reader: SettingsFormReader): Partial<ReaderSettings> {
+function readMiningFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has } = reader;
     return {
         jpdbMiningEnabled: has('jpdbMiningEnabled'),
@@ -503,6 +503,7 @@ function readMiningFormSettings(reader: SettingsFormReader): Partial<ReaderSetti
         addToForq: has('addToForq'),
         enableReviews: has('enableReviews'),
         twoButtonReviews: get('twoButtonReviews') === 'true',
+        apiGradingProvider: readOption(get('apiGradingProvider'), ['jiten', 'jpdb'] as const, current.apiGradingProvider === 'jpdb' ? 'jpdb' : 'jiten'),
     };
 }
 

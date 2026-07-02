@@ -11,6 +11,7 @@ import type { MiningContext } from '../study/mining-context';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import {
     apiGradingProviderPreference,
+    apiSrsSwitchableProviderIds,
     createApiSrsProviderAdapters,
     cardStateForApiState,
     isApiMiningEnabled,
@@ -284,20 +285,30 @@ export class CardActionController {
         return handlers[action];
     }
 
-    // Flip the popover between Jiten and JPDB grading and re-render so the deck
-    // and grade buttons act on the chosen service.
+    // Cycle the popover through the SRS services that can grade this word
+    // (JPDB / Jiten, plus Bunpro when the card carries a Bunpro identity) and
+    // re-render so the deck and grade buttons act on the chosen service.
     private async toggleGradingProvider(card: JPDBCard, sentence: string | undefined): Promise<void> {
         const settings = this.options.getSettings();
         const current = this.apiProviderForCard(card, settings);
         if (!current?.hasApiKey) return;
-        const next: ReaderSettings['apiGradingProvider'] = current.id === 'jiten' ? 'jpdb' : 'jiten';
+        const cycle = apiSrsSwitchableProviderIds(card, settings);
+        if (cycle.length < 2) return;
+        const next = cycle[(cycle.indexOf(current.id) + 1) % cycle.length];
+        if (!next || next === current.id || next === 'yomu-local') return;
         const provider = this.apiProviders(settings).find(p => p.id === next && p.hasApiKey);
         if (!provider) return;
         const target = provider.supportsCard(card)
             ? card
             : await this.resolveProviderCard(card, next);
         if (!target || !provider.supportsCard(target)) return;
-        this.options.setApiGradingProvider?.(next);
+        // The jpdb/jiten choice stays the global preference for every word;
+        // Bunpro only ever applies per card, via the override below.
+        if (next === 'jpdb' || next === 'jiten') this.options.setApiGradingProvider?.(next);
+        // Resolving the other service re-parses the word into a fresh card; keep
+        // the Bunpro identity on it so the cycle can come back to Bunpro.
+        if (target !== card) copyBunproIdentity(card, target);
+        target.apiGradingProviderOverride = next;
         // The card's SRS state is a single shared field; refresh the newly chosen
         // service so the status dot and the Never forget / Blacklist pressed-state
         // (and their add-vs-remove decisions) reflect that service, not the old one.
@@ -371,16 +382,24 @@ export class CardActionController {
 
     private apiProviderForCard(card: JPDBCard, settings: ReaderSettings = this.options.getSettings()): ApiSrsProviderAdapter | null {
         const supporting = this.apiProviders(settings).filter(provider => provider.supportsCard(card));
-        // When the word can be graded by both keyed services, follow the user's
-        // chosen grading provider (set by the popover toggle); otherwise use the
-        // keyed provider that can actually act. If no key is present, surface the
-        // preferred backing provider so the error/status copy matches the toggle.
+        // Mirror apiSrsProviderViewForCard so the dispatched grade always matches
+        // the provider the popover displays: per-card override first, then the
+        // card's own Bunpro backing, then the user's jpdb/jiten preference. If no
+        // key is present, surface the preferred backing provider so the
+        // error/status copy matches the toggle.
         const keyed = supporting.filter(provider => provider.hasApiKey);
-        if (keyed.length > 1) {
-            const preferred = keyed.find(provider => provider.id === apiGradingProviderPreference(settings));
+        const external = keyed.filter(provider => provider.id !== 'yomu-local');
+        const overridden = card.apiGradingProviderOverride
+            ? external.find(provider => provider.id === card.apiGradingProviderOverride)
+            : undefined;
+        if (overridden) return overridden;
+        const bunpro = external.find(provider => provider.id === 'bunpro');
+        if (bunpro) return bunpro;
+        if (external.length > 1) {
+            const preferred = external.find(provider => provider.id === apiGradingProviderPreference(settings));
             if (preferred) return preferred;
         }
-        if (keyed.length === 1) return keyed[0] ?? null;
+        if (keyed.length) return external[0] ?? keyed[0] ?? null;
         return supporting.find(provider => provider.id === apiGradingProviderPreference(settings)) ?? supporting[0] ?? null;
     }
 
@@ -850,6 +869,13 @@ function exactCard(source: JPDBCard, tokens: JPDBToken[]): JPDBCard | null {
     return tokens.find(({ card }) => card.spelling.trim() === s && (!r || card.reading.trim() === r))?.card
         ?? tokens.find(({ card }) => card.spelling.trim() === s)?.card
         ?? null;
+}
+
+function copyBunproIdentity(source: JPDBCard, target: JPDBCard): void {
+    if (source.bunproReviewId) target.bunproReviewId = source.bunproReviewId;
+    if (source.bunproReviewableId) target.bunproReviewableId = source.bunproReviewableId;
+    if (source.bunproReviewableType) target.bunproReviewableType = source.bunproReviewableType;
+    if (source.bunproSrsLevel) target.bunproSrsLevel = source.bunproSrsLevel;
 }
 
 function reviewTargetKind(value: string | undefined): PopoverReviewTargetKind | undefined {

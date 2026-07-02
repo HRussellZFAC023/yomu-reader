@@ -9,6 +9,7 @@ import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverR
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
 import { isPlainReadingDuplicatedByVisibleRuby } from '../cards/reading-display';
+import { apiSrsProviderViewForCard } from '../cards/srs-providers';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
 import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
@@ -874,8 +875,8 @@ export class NewTabRuntime {
         const items = newTabLookupMetaItems({
             card,
             ankiLookup: data.ankiLookup,
-            jpdbState: this.newTabLookupJpdbState(card),
-            isJpdbBacked: this.parser.isJpdbBackedCard(card),
+            provider: apiSrsProviderViewForCard(card, this.settings, target => this.parser.isJpdbBackedCard(target)),
+            providerState: this.newTabLookupJpdbState(card),
             settings: this.settings,
         });
         const existingMeta = titleRow.querySelector<HTMLElement>('.jpdb-reader-meta');

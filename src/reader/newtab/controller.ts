@@ -326,7 +326,7 @@ import {
     orderedKanjiSourceIds,
 } from '../sources/sections';
 import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigation';
-import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
+import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import { installUchisenCarousel, loadUchisenData, type UchisenData } from '../dictionaries/uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 
@@ -3508,7 +3508,17 @@ export class NewTabController {
                 cards: [],
                 sourceLabel,
                 reviewCountMode: true,
-                emptyMessageKey: 'couldNotLoadWords',
+                // Say what is actually missing: for Bunpro that is the token
+                // import, not a generic load failure.
+                emptyMessageKey: source === 'bunpro' ? 'bunproTokenMissing' : 'couldNotLoadWords',
+            };
+        }
+        if (source === 'bunpro' && isBunproFrontendCredentialExpired(settings)) {
+            return {
+                cards: [],
+                sourceLabel,
+                reviewCountMode: true,
+                emptyMessageKey: 'bunproTokenExpired',
             };
         }
         const cardLimit = Math.max(1, Math.floor(limit));
@@ -4163,7 +4173,10 @@ export class NewTabController {
     }
 
     private hasConfiguredApiReviewSource(settings: ReaderSettings): boolean {
-        return this.hasAvailableJpdbReviewSource(settings);
+        // Bunpro counts as a configured API review source too — a Bunpro-only
+        // setup must not be forced onto the Anki source in auto mode.
+        return this.hasAvailableJpdbReviewSource(settings)
+            || (this.canUseBunproSource() && !isBunproFrontendCredentialExpired(settings));
     }
 
     private async applyExternalState(state: NewTabUiState): Promise<void> {
@@ -5320,14 +5333,17 @@ export class NewTabController {
     }
 
     private renderSourceSelector(statusSlot: HTMLElement | null, card: JPDBCard): void {
+        const sources = this.sourceToggleSources(card);
+        this.renderSourceSelectorOptions(statusSlot, sources, this.sourceToggleCurrentSource(card, sources));
+    }
+
+    private renderSourceSelectorOptions(statusSlot: HTMLElement | null, sources: ConcreteNewTabWordSource[], current: ConcreteNewTabWordSource): void {
         const select = this.sourceSelectForStatus(statusSlot);
         if (!select) return;
-        const sources = this.sourceToggleSources(card);
         if (sources.length < 2) {
             this.hideSourceSelector(select);
             return;
         }
-        const current = this.sourceToggleCurrentSource(card, sources);
         replaceChildrenWith(select, ...sources.map(source => {
             const option = el('option', { value: source }, this.sourceToggleLabel(source));
             if (source === current) option.selected = true;
@@ -5408,7 +5424,6 @@ export class NewTabController {
 
     private renderEmptySourceStatus(statusSlot: HTMLElement | null): void {
         if (!statusSlot) return;
-        this.clearSourceSelector(statusSlot);
         if (this.dependencies.getSettings().newTabSource === 'auto') {
             this.renderPlainStatus(statusSlot, '');
             return;
@@ -5423,6 +5438,10 @@ export class NewTabController {
             this.renderPlainStatus(statusSlot, '');
             return;
         }
+        // An empty queue must not hide provider switching: finishing your
+        // Bunpro reviews still leaves the dropdown to jump to JPDB/Jiten,
+        // Yomu or Anki (renderPlainStatus above clears it for other states).
+        this.renderSourceSelectorOptions(statusSlot, this.emptyStateSelectorSources(source), source);
         const target = this.emptySourceToggleTarget(source);
         const lightSource = source === 'jpdb' && this.sourceLabel.startsWith('Jiten') && !this.sourceLabel.includes(' + ')
             ? 'jiten'
@@ -5448,6 +5467,16 @@ export class NewTabController {
         statusSlot.removeAttribute('title');
         statusSlot.removeAttribute('aria-label');
         if (statusSlot instanceof HTMLButtonElement) statusSlot.disabled = true;
+    }
+
+    private emptyStateSelectorSources(current: ConcreteNewTabWordSource): ConcreteNewTabWordSource[] {
+        const sources: ConcreteNewTabWordSource[] = [];
+        if (this.canUseYomuLocalSource()) sources.push('yomu-local');
+        if (this.canUseJpdbSource()) sources.push('jpdb');
+        if (this.canUseBunproSource()) sources.push('bunpro');
+        if (this.canOfferAnkiSource()) sources.push('anki');
+        if (!sources.includes(current)) sources.push(current);
+        return sources;
     }
 
     private emptySourceToggleTarget(source: 'jpdb' | 'bunpro' | 'yomu-local' | 'anki'): ConcreteNewTabWordSource | null {

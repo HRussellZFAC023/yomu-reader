@@ -4,6 +4,7 @@ import {
     apiGradingProviderPreference,
     apiSrsProviderAvailability,
     apiSrsProviderViewForCard,
+    apiSrsSwitchableProviderIds,
 } from '../../src/reader/cards/srs-providers';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 
@@ -52,6 +53,35 @@ describe('apiSrsProviderAvailability', () => {
     });
 });
 
+describe('apiSrsSwitchableProviderIds', () => {
+    it('cycles jpdb/jiten on keys alone and adds Bunpro only for usable Bunpro-backed cards', () => {
+        const bothKeys = settings({ apiKey: 'jpdb-key', jitenApiKey: 'jiten-key' });
+        expect(apiSrsSwitchableProviderIds(baseCard, bothKeys)).toEqual(['jpdb', 'jiten']);
+        const withBunpro = settings({
+            ...bothKeys,
+            bunproFrontendApiToken: 'bunpro-token',
+            bunproFrontendApiTokenExpiresAt: '2999-01-01T00:00:00.000Z',
+        });
+        expect(apiSrsSwitchableProviderIds(bunproCard, withBunpro)).toEqual(['jpdb', 'jiten', 'bunpro']);
+        // Words without a Bunpro identity cannot be switched to Bunpro …
+        expect(apiSrsSwitchableProviderIds(baseCard, withBunpro)).toEqual(['jpdb', 'jiten']);
+        // … and an expired token drops Bunpro from the cycle.
+        const expired = settings({ ...withBunpro, bunproFrontendApiTokenExpiresAt: '2000-01-01T00:00:00.000Z' });
+        expect(apiSrsSwitchableProviderIds(bunproCard, expired)).toEqual(['jpdb', 'jiten']);
+        // A Bunpro-only setup has a single grading service: nothing to cycle.
+        const bunproOnly = settings({
+            apiKey: '',
+            jitenApiKey: '',
+            bunproFrontendApiToken: 'bunpro-token',
+            bunproFrontendApiTokenExpiresAt: '2999-01-01T00:00:00.000Z',
+        });
+        expect(apiSrsSwitchableProviderIds(bunproCard, bunproOnly)).toEqual(['bunpro']);
+        // Grammar points are not words — no jpdb/jiten leg to switch to.
+        const grammarCard: JPDBCard = { ...bunproCard, bunproReviewableType: 'grammar' };
+        expect(apiSrsSwitchableProviderIds(grammarCard, withBunpro)).toEqual(['bunpro']);
+    });
+});
+
 describe('apiSrsProviderViewForCard', () => {
     it('follows the toggled grading provider when both keys are set and the card is gradable by both', () => {
         const bothKeys = settings({ apiKey: 'jpdb-key', jitenApiKey: 'jiten-key' });
@@ -90,6 +120,27 @@ describe('apiSrsProviderViewForCard', () => {
             id: 'jpdb',
             hasApiKey: false,
         });
+    });
+
+    it('honors the per-card override set by the popover toggle', () => {
+        const bothKeys = settings({ apiKey: 'jpdb-key', jitenApiKey: 'jiten-key' });
+        expect(apiSrsProviderViewForCard({ ...dualCard, apiGradingProviderOverride: 'jpdb' }, bothKeys, isJpdbBackedCard)?.id).toBe('jpdb');
+        // A Bunpro-backed card switched to another usable service stays switched…
+        const withBunpro = settings({
+            ...bothKeys,
+            bunproFrontendApiToken: 'bunpro-token',
+            bunproFrontendApiTokenExpiresAt: '2999-01-01T00:00:00.000Z',
+        });
+        const dualBunproCard: JPDBCard = { ...dualCard, bunproReviewId: '123' };
+        expect(apiSrsProviderViewForCard(dualBunproCard, withBunpro, isJpdbBackedCard)?.id).toBe('bunpro');
+        expect(apiSrsProviderViewForCard({ ...dualBunproCard, apiGradingProviderOverride: 'jiten' }, withBunpro, isJpdbBackedCard)?.id).toBe('jiten');
+        // …but an override the card cannot use falls back to normal resolution.
+        expect(apiSrsProviderViewForCard({ ...dualCard, apiGradingProviderOverride: 'bunpro' }, bothKeys, isJpdbBackedCard)?.id).toBe('jiten');
+    });
+
+    it('never grades a non-Bunpro card to Bunpro from the stored preference', () => {
+        const prefBunpro = settings({ apiKey: 'jpdb-key', jitenApiKey: 'jiten-key', apiGradingProvider: 'bunpro' });
+        expect(apiSrsProviderViewForCard(dualCard, prefBunpro, isJpdbBackedCard)?.id).toBe('jiten');
     });
 
     it('uses Bunpro for Bunpro-backed cards and respects frontend token expiry', () => {

@@ -480,7 +480,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
     popupFontWeight: 400,
     jpdbMiningEnabled: true,
-    bunproMiningEnabled: false,
+    // JPDB parity: the credential is the real gate, so importing a Bunpro
+    // token makes grading work without hunting for a second checkbox.
+    bunproMiningEnabled: true,
     yomuLocalSrsEnabled: true,
     apiGradingProvider: 'jiten',
     miningDeck: 'forq',
