@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.6.4",
+  "version": "1.6.5",
   "private": true,
   "type": "module",
   "description": "よむ: a small Jiten/JPDB/Yomitan popup dictionary and subtitle miner userscript.",
@@ -38,7 +38,7 @@
     "build:gaming": "npm run build:gaming:renderer && npm run build:gaming:main",
     "build:gaming:main": "node scripts/build-gaming-electron.mjs",
     "build:gaming:renderer": "vite build --config config/vite/gaming.config.ts",
-    "build:userscript": "vite build && node scripts/build-reader-css.mjs && vite build --config config/vite/newtab.config.ts && node scripts/build-greasyfork-libraries.mjs && node scripts/format-userscript-css.cjs && node scripts/annotate-greasyfork-requires.cjs && node scripts/annotate-userscript-compliance.cjs && node scripts/trim-userscript-indent.cjs",
+    "build:userscript": "vite build && node scripts/build-reader-css.mjs && vite build --config config/vite/newtab.config.ts && node scripts/build-greasyfork-libraries.mjs && node scripts/format-userscript-css.cjs && node scripts/annotate-userscript-compliance.cjs && node scripts/trim-userscript-indent.cjs && node scripts/annotate-greasyfork-requires.cjs",
     "build:userscript:self-contained": "YOMU_USERSCRIPT_BUNDLE_MODE=self-contained vite build && node scripts/build-reader-css.mjs && vite build --config config/vite/newtab.config.ts && node scripts/format-userscript-css.cjs && node scripts/annotate-userscript-compliance.cjs",
     "check": "npm run typecheck && npm run test:ci && npm run build && node scripts/sync-docs-userscript.cjs && npm run docs:build && npm run verify",
     "dev": "node scripts/dev-userscript.mjs",

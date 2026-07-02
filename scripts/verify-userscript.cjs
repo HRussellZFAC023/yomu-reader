@@ -46,6 +46,7 @@ if (!hasMetadataValue('inject-into', 'content')) fail('Violentmonkey content-wor
 
 assertNoRemoteExecutableMetadata(code);
 assertNoRemoteExecutableLoaders(code);
+assertCompanionRequireSriHashes();
 assertKanjiStudySplitBoundary();
 assertAnkiRenderSplitBoundary();
 assertZipReaderBundled();
@@ -89,6 +90,23 @@ function hasMetadataValue(key, expectedValue) {
 
 function hasMetadataPattern(key, pattern) {
   return userscriptMetadataValues(code, key).some(value => pattern.test(value));
+}
+
+function assertCompanionRequireSriHashes() {
+  // Greasy Fork rejects every listing sync as "unapproved external script"
+  // unless each companion @require URL carries a matching #sha256= fragment.
+  const requireUrls = userscriptMetadataValues(code, 'require');
+  for (const library of GREASY_FORK_LIBRARIES) {
+    const libraryPath = greasyForkLibraryPath(library.fileName);
+    const expectedHash = createHash('sha256')
+      .update(readText(join(ROOT, 'dist', libraryPath)))
+      .digest('base64');
+    const requireUrl = requireUrls.find(url => url.includes(`/${library.fileName}`));
+    if (!requireUrl) fail(`userscript is missing the @require for ${libraryPath}.`);
+    if (!requireUrl.endsWith(`#sha256=${expectedHash}`)) {
+      fail(`@require for ${libraryPath} must end with #sha256=${expectedHash} so Greasy Fork accepts the listing sync; found: ${requireUrl}`);
+    }
+  }
 }
 
 function assertZipReaderBundled() {

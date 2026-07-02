@@ -47,6 +47,14 @@ Click the link above. Tampermonkey opens an install screen for よむ. Click **I
 
 To update later, open the same link again and let Tampermonkey replace the old version.
 
+<div class="yomu-callout">
+  <strong>Seeing "Apps, extensions, and user scripts cannot be added from this website"?</strong> That popup comes from Chrome or Edge, not よむ — the browser is blocking Tampermonkey from installing any userscript. Open your browser's extensions page (<code>chrome://extensions</code> or <code>edge://extensions</code>), open Tampermonkey's details, and turn on <strong>Allow User Scripts</strong> (on older browsers, turn on <strong>Developer mode</strong> at the top of the extensions page instead). Then open the install link again.
+</div>
+
+<div class="yomu-callout">
+  <strong>Clicking the link downloads a <code>.js</code> file instead of opening an install screen?</strong> Your userscript manager didn't intercept the download — some managers (for example ScriptCat) miss it. Open the manager's dashboard and use its <strong>Install from URL</strong> / import option with <code>https://yomureader.com/yomu.user.js</code>. You can delete the downloaded file.
+</div>
+
 ### On iPhone or iPad
 
 1. Open the install link in Safari. You will see the よむ userscript source code — lines like the ones below. Leave that tab open; Userscripts reads it to install よむ.

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.5] - 2026-07-02
+
+### Fixed
+
+- Restored the Greasy Fork listing sync. Since 1.4.82 the build stripped the subresource-integrity hashes from the companion `@require` URLs, so Greasy Fork rejected every new version as "unapproved external script" and the listing stayed pinned to 1.4.78 (whose hashes had since drifted). Companion `@require` URLs are now hashed as the final build step — after the indent-trimming pass that was silently rewriting the companion files post-hashing — and `npm run verify` fails if a build ever drops or mismatches those hashes.
+- Added install troubleshooting for the Chrome/Edge "Apps, extensions, and user scripts cannot be added from this website" popup and for userscript managers that download the `.js` file instead of opening an install screen.
+
 ## [1.6.4] - 2026-07-02
 
 ### Changed

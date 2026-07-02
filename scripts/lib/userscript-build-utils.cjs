@@ -78,7 +78,9 @@ function urlWithoutHash(url) {
 }
 
 function hasTampermonkeySriHash(url) {
-  return /#sha(?:256|384|512)-[A-Za-z0-9+/=]+(?:[?#].*)?$/.test(url);
+  // Tampermonkey accepts SRI-style `sha256-<hash>`; Greasy Fork's checker
+  // expects `sha256=<hash>`. Allow both separators.
+  return /#sha(?:256|384|512)[-=][A-Za-z0-9+/=]+(?:[?#].*)?$/.test(url);
 }
 
 function assertNoRemoteExecutableLoaders(code) {
