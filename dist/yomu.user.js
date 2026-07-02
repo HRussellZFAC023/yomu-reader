@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.6
+// @version 1.6.7
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.6#sha256=La5os09pjPmuUT51YozkrB+dz1HOBRqhPgehCQslqAs=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.6#sha256=eEf0Ki52ovCNxyBR7V1CamT80AqbQiByEyTwc7E7bl4=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.6#sha256=SV41tHmU7HGhsnYBii81lnejif0Z3Z+eu8fjFBTxYAk=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.6#sha256=7vxBI5Z3FYaJpCXx0HHj+Wc6lXgxu1tvWugLuHYoR4o=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.7#sha256=La5os09pjPmuUT51YozkrB+dz1HOBRqhPgehCQslqAs=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.7#sha256=eEf0Ki52ovCNxyBR7V1CamT80AqbQiByEyTwc7E7bl4=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.7#sha256=SV41tHmU7HGhsnYBii81lnejif0Z3Z+eu8fjFBTxYAk=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.7#sha256=F38xAL2r/kdUY0RSvdblYs9vYbgOEwxOOo6lyHzNIx0=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -26370,6 +26370,18 @@ ${spelling}`);
           run: () => actions.openStudyPage()
         }
       ];
+      if (actions.hasSubtitleVideo()) {
+        const subtitlesOn = actions.isAutoSubtitlesEnabled();
+        items.push({
+          id: "subtitles",
+          label: uiText(language, "subtitleAutoDetect"),
+          icon: "字",
+          glyph: true,
+          tone: subtitlesOn ? "on" : "off",
+          keepOpen: true,
+          run: () => actions.toggleAutoSubtitles()
+        });
+      }
       if (actions.isYouTube()) {
         const enabled = actions.isYoutubeFilterEnabled();
         items.push({
@@ -38075,7 +38087,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.6"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.7"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -40202,9 +40214,18 @@ class ReaderApp {
       toggleJapaneseSiteLanguage: () => void this.togglePreferredJapaneseSiteLanguage(),
       isYouTube: () => isYouTubeHostname(),
       toggleYoutubeFilter: () => void this.toggleYoutubeImmersion(),
-      isYoutubeFilterEnabled: () => this.settings.youtubeImmersionEnabled
+      isYoutubeFilterEnabled: () => this.settings.youtubeImmersionEnabled,
+      toggleAutoSubtitles: () => void this.toggleAutoSubtitles(),
+      isAutoSubtitlesEnabled: () => this.settings.subtitleAutoDetect,
+      hasSubtitleVideo: () => this.settings.subtitlePlayerEnabled && (isYouTubeHostname() || Boolean(document.querySelector("video")))
     }
   );
+  }
+  async toggleAutoSubtitles() {
+  this.settings.subtitleAutoDetect = !this.settings.subtitleAutoDetect;
+  await saveSettings(this.settings);
+  this.subtitles.destroy();
+  this.subtitles.init();
   }
   async toggleAnnotationsPaused() {
   await this.setAnnotationsPaused(!this.settings.annotationsPaused);

@@ -31,6 +31,9 @@ export interface FloatingButtonActions {
     isYouTube(): boolean;
     toggleYoutubeFilter(): void;
     isYoutubeFilterEnabled(): boolean;
+    toggleAutoSubtitles(): void;
+    isAutoSubtitlesEnabled(): boolean;
+    hasSubtitleVideo(): boolean;
 }
 
 interface PuckBox {
@@ -193,6 +196,18 @@ export class FloatingButtonController {
                 run: () => actions.openStudyPage(),
             },
         ];
+        if (actions.hasSubtitleVideo()) {
+            const subtitlesOn = actions.isAutoSubtitlesEnabled();
+            items.push({
+                id: 'subtitles',
+                label: uiText(language, 'subtitleAutoDetect'),
+                icon: '字',
+                glyph: true,
+                tone: subtitlesOn ? 'on' : 'off',
+                keepOpen: true,
+                run: () => actions.toggleAutoSubtitles(),
+            });
+        }
         if (actions.isYouTube()) {
             const enabled = actions.isYoutubeFilterEnabled();
             items.push({

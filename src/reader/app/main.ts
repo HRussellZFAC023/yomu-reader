@@ -1759,8 +1759,20 @@ export class ReaderApp {
                 isYouTube: () => isYouTubeHostname(),
                 toggleYoutubeFilter: () => void this.toggleYoutubeImmersion(),
                 isYoutubeFilterEnabled: () => this.settings.youtubeImmersionEnabled,
+                toggleAutoSubtitles: () => void this.toggleAutoSubtitles(),
+                isAutoSubtitlesEnabled: () => this.settings.subtitleAutoDetect,
+                hasSubtitleVideo: () => this.settings.subtitlePlayerEnabled
+                    && (isYouTubeHostname() || Boolean(document.querySelector('video'))),
             },
         );
+    }
+
+    // Re-init so disabling detaches an already-bound video.
+    private async toggleAutoSubtitles(): Promise<void> {
+        this.settings.subtitleAutoDetect = !this.settings.subtitleAutoDetect;
+        await saveSettings(this.settings);
+        this.subtitles.destroy();
+        this.subtitles.init();
     }
 
     private async toggleAnnotationsPaused(): Promise<void> {

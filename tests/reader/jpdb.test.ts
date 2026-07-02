@@ -2646,6 +2646,9 @@ function stubFloatingButtonActions(overrides: Partial<FloatingButtonActions> = {
         isYouTube: () => false,
         toggleYoutubeFilter: vi.fn(),
         isYoutubeFilterEnabled: () => false,
+        toggleAutoSubtitles: vi.fn(),
+        isAutoSubtitlesEnabled: () => true,
+        hasSubtitleVideo: () => false,
         ...overrides,
     };
 }
@@ -10510,6 +10513,67 @@ describe('reader helpers', () => {
             expect(siteButton()?.getAttribute('aria-label')).toBe('Prefer Japanese site language and location');
             expect(siteButton()?.classList.contains('is-off')).toBe(true);
             expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
+        } finally {
+            controller.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('toggles automatic subtitles from the puck on video pages without closing the menu', () => {
+        const controller = new FloatingButtonController();
+        const restoreRects = mockFloatingButtonRects(760, 520);
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            showFloatingButton: true,
+        };
+        let autoSubtitles = true;
+        const toggleAutoSubtitles = vi.fn(() => {
+            autoSubtitles = !autoSubtitles;
+        });
+
+        try {
+            withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
+                controller.install(settings, vi.fn(), stubFloatingButtonActions({
+                    hasSubtitleVideo: () => true,
+                    isAutoSubtitlesEnabled: () => autoSubtitles,
+                    toggleAutoSubtitles,
+                }));
+                document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
+            }));
+
+            const subtitlesButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="subtitles"]');
+            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect page subtitles');
+            expect(subtitlesButton()?.classList.contains('is-on')).toBe(true);
+
+            subtitlesButton()?.click();
+
+            expect(toggleAutoSubtitles).toHaveBeenCalledTimes(1);
+            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect page subtitles');
+            expect(subtitlesButton()?.classList.contains('is-off')).toBe(true);
+            expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
+        } finally {
+            controller.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('hides the automatic subtitles puck action on pages without a video', () => {
+        const controller = new FloatingButtonController();
+        const restoreRects = mockFloatingButtonRects(760, 520);
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            showFloatingButton: true,
+        };
+
+        try {
+            withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
+                controller.install(settings, vi.fn(), stubFloatingButtonActions());
+                document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
+            }));
+
+            expect(document.querySelector('.jpdb-reader-fab-radial-item[data-radial-id="subtitles"]')).toBeNull();
         } finally {
             controller.destroy();
             restoreRects();

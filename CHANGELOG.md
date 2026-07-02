@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.7] - 2026-07-02
+
+### Added
+
+- The puck's radial menu now offers an "auto subtitles" toggle on video pages, so automatic subtitle injection can be switched on or off without opening settings.
+- The subtitle rail gained a show/hide (eye) button to hide the subtitle overlay for the video being watched and bring it back mid-playback.
+
 ## [1.6.6] - 2026-07-02
 
 ### Fixed

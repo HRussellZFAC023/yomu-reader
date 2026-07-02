@@ -398,8 +398,9 @@ describe('SubtitlePlayerController', () => {
             .filter((element): element is HTMLButtonElement => element instanceof HTMLButtonElement)
             .map(button => button.dataset.action);
 
-        expect(actions).toEqual(['previous', 'next', 'playback', 'fullscreen', 'panel', 'style']);
+        expect(actions).toEqual(['previous', 'next', 'playback', 'visibility', 'fullscreen', 'panel', 'style']);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="playback"]')).toHaveLength(1);
+        expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="visibility"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="fullscreen"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="panel"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="style"]')).toHaveLength(1);
@@ -784,6 +785,45 @@ describe('SubtitlePlayerController', () => {
             expect(play).toHaveBeenCalledTimes(1);
             expect(playback.getAttribute('aria-label')).toBe('Pause video');
             expect(playback.getAttribute('aria-pressed')).toBe('true');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('toggles subtitle visibility for the current video from the rail eye button', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const onSettingsChange = vi.fn();
+        const { controller, settings } = createInstalledSubtitleController({ subtitleOverlayVisible: true }, { onSettingsChange });
+
+        try {
+            attachVideo(controller, { currentTime: 0.5 });
+            const internals = controllerInternals<{
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+            }>(controller);
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const visibility = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="visibility"]')!;
+
+            expect(root.classList.contains('jpdb-subtitle-hidden')).toBe(false);
+            expect(visibility.getAttribute('aria-pressed')).toBe('true');
+            expect(visibility.getAttribute('aria-label')).toBe('Show subtitle overlay');
+
+            visibility.click();
+
+            expect(settings.subtitleOverlayVisible).toBe(false);
+            expect(onSettingsChange).toHaveBeenCalledTimes(1);
+            expect(root.classList.contains('jpdb-subtitle-hidden')).toBe(true);
+            expect(visibility.getAttribute('aria-pressed')).toBe('false');
+            expect(visibility.getAttribute('aria-label')).toBe('Show subtitle overlay');
+
+            visibility.click();
+
+            expect(settings.subtitleOverlayVisible).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-hidden')).toBe(false);
         } finally {
             controller.destroy();
         }

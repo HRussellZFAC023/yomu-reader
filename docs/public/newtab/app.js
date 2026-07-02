@@ -30256,7 +30256,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.6".trim() ? "1.6.6".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.7".trim() ? "1.6.7".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -50259,6 +50259,7 @@ ${spelling}`);
       previous: () => this.seekSubtitle(-1),
       next: () => this.seekSubtitle(1),
       playback: () => this.toggleVideoPlayback(),
+      visibility: () => this.toggleOverlayVisibility(),
       fullscreen: () => this.togglePlayerFullscreen(),
       copy: (target) => {
         void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target));
@@ -50504,6 +50505,7 @@ ${spelling}`);
       const nextLabel = uiText(settings.interfaceLanguage, "nextSubtitle");
       const playLabel = uiText(settings.interfaceLanguage, "playVideo");
       const fullscreenLabel = uiText(settings.interfaceLanguage, "enterFullscreen");
+      const visibilityLabel = uiText(settings.interfaceLanguage, "subtitleOverlayVisible");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
       setInnerHtml(root, `
@@ -50513,6 +50515,7 @@ ${spelling}`);
                 <button type="button" data-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">›</button>
                 <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml$1(playLabel)}" aria-label="${escapeHtml$1(playLabel)}">${subtitleIcon("play")}</button>
+                <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml$1(visibilityLabel)}" aria-label="${escapeHtml$1(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? "eye" : "eye-off")}</button>
                 <button class="jpdb-subtitle-fullscreen-toggle" type="button" data-action="fullscreen" title="${escapeHtml$1(fullscreenLabel)}" aria-label="${escapeHtml$1(fullscreenLabel)}">${subtitleIcon("fullscreen")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml$1(panelLabel)}" aria-label="${escapeHtml$1(panelLabel)}">${subtitleIcon("panel-right")}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
@@ -53249,6 +53252,7 @@ ${spelling}`);
       this.syncDrawerButtons(hasLines);
       this.syncSubtitleStyleControls();
       this.syncFullscreenRailButton();
+      this.syncVisibilityRailButton();
       this.syncTranscriptAutoScrollPausedClass();
       this.syncStatus();
       this.setNativeTrackModes();
@@ -53260,6 +53264,25 @@ ${spelling}`);
       const status = this.root?.querySelector(".jpdb-subtitle-status");
       if (!status) return;
       syncSubtitleTrackStatus(status, this.tracks.length, this.options.getSettings().interfaceLanguage);
+    }
+    // Rail eye toggle: hides the subtitle text for the video being watched
+    // while the rail itself stays reachable to bring it back.
+    toggleOverlayVisibility() {
+      const settings = this.options.getSettings();
+      settings.subtitleOverlayVisible = !settings.subtitleOverlayVisible;
+      this.options.onSettingsChange();
+      this.refresh();
+    }
+    syncVisibilityRailButton() {
+      const button = this.root?.querySelector('.jpdb-subtitle-rail [data-action="visibility"]');
+      if (!button) return;
+      const settings = this.options.getSettings();
+      const visible = settings.subtitleOverlayVisible;
+      const label = uiText(settings.interfaceLanguage, "subtitleOverlayVisible");
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      button.setAttribute("aria-pressed", String(visible));
+      setInnerHtml(button, subtitleIcon(visible ? "eye" : "eye-off"));
     }
     syncFullscreenRailButton() {
       const button = this.root?.querySelector('[data-action="fullscreen"]');
