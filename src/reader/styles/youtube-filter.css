@@ -64,7 +64,12 @@ html.jpdb-youtube-filter-active ytd-rich-grid-renderer ytd-continuation-item-ren
     display: flex;
     align-items: center;
     gap: 10px;
+    box-sizing: border-box;
     max-width: min(560px, calc(100vw - 24px));
+    /* Mobile browsers inflate small text inside wide fixed elements, which
+       pushed the action buttons outside the pill. Pin the declared size. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     padding: 8px 10px 8px 12px;
     border: 1px solid var(--jpdb-reader-border);
     border-radius: 999px;
@@ -84,14 +89,19 @@ html.jpdb-youtube-filter-active ytd-rich-grid-renderer ytd-continuation-item-ren
 
 .jpdb-youtube-filter-actions {
     display: flex;
-    flex: 0 0 auto;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: center;
+    min-width: 0;
     align-items: center;
     gap: 6px;
 }
 
 .jpdb-youtube-filter-bar button {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: 0;
     min-height: 30px;
+    white-space: nowrap;
     padding: 0 12px;
     border: 1px solid var(--jpdb-reader-accent);
     border-radius: 999px;
@@ -377,7 +387,12 @@ html[dark] .jpdb-youtube-channel-shelf,
 @media (max-width: 768px), (pointer: coarse) {
     .jpdb-youtube-filter-bar {
         bottom: max(76px, calc(60px + env(safe-area-inset-bottom)));
-        border-radius: 12px;
+        border-radius: 16px;
+        width: max-content;
+    }
+
+    .jpdb-youtube-filter-bar button {
+        min-height: 38px;
     }
 
     .jpdb-youtube-channel-shelf {

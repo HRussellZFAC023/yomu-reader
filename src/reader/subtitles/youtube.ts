@@ -158,6 +158,7 @@ const YOUTUBE_FILTER_COLLAPSE_DELAY_MS = 80;
 const YOUTUBE_FILTER_SCROLL_COLLAPSE_DELAY_MS = 650;
 const YOUTUBE_FILTER_SCROLL_SETTLE_MS = 280;
 const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
+const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 10_000;
 const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
 const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
 const YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS = 800;
@@ -283,6 +284,8 @@ export class YoutubeImmersionFilter {
     private timer?: number;
     private metadataRescanTimer?: number;
     private bar?: HTMLElement;
+    private noticeAutoHideTimer?: number;
+    private noticeAutoHideScope = '';
     private channelShelf?: HTMLElement;
     private revealed = false;
     private dismissedNoticeScope = '';
@@ -824,6 +827,20 @@ export class YoutubeImmersionFilter {
         const notice = this.ensureNoticeBar();
         this.updateNoticeSummary(notice.summary, filteredCount, shownCount, settings);
         this.updateNoticeActions(notice, settings);
+        this.armNoticeAutoHide(noticeScope);
+    }
+
+    // The notice must not squat over the feed forever: after a grace period it
+    // dismisses itself for the current scope, and comes back on the next route.
+    private armNoticeAutoHide(scope: string): void {
+        if (this.noticeAutoHideTimer !== undefined && this.noticeAutoHideScope === scope) return;
+        window.clearTimeout(this.noticeAutoHideTimer);
+        this.noticeAutoHideScope = scope;
+        this.noticeAutoHideTimer = window.setTimeout(() => {
+            this.noticeAutoHideTimer = undefined;
+            this.dismissedNoticeScope = scope;
+            this.removeNotice();
+        }, YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS);
     }
 
     private ensureNoticeBar(): YouTubeFilterNoticeElements {
@@ -1594,6 +1611,9 @@ export class YoutubeImmersionFilter {
     }
 
     private removeNotice(): void {
+        window.clearTimeout(this.noticeAutoHideTimer);
+        this.noticeAutoHideTimer = undefined;
+        this.noticeAutoHideScope = '';
         this.bar?.remove();
         this.bar = undefined;
     }

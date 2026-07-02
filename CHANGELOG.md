@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.22] - 2026-07-02
+
+### Fixed
+
+- The YouTube hidden-video notice now dismisses itself after 10 seconds instead of sitting over the feed until "Hide notice" is tapped; it still reappears on the next route so the filter stays discoverable.
+- Hardened the notice pill's mobile layout: pinned text size against mobile font inflation (which pushed the "Hide notice" button outside the pill), let the action buttons wrap inside the container, and gave them comfortable touch heights.
+
 ## [1.5.21] - 2026-07-02
 
 ### Changed

@@ -23674,6 +23674,7 @@ ${spelling}`);
   const YOUTUBE_FILTER_SCROLL_COLLAPSE_DELAY_MS = 650;
   const YOUTUBE_FILTER_SCROLL_SETTLE_MS = 280;
   const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
+  const YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS = 1e4;
   const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
   const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
   const YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS = 800;
@@ -23736,6 +23737,8 @@ ${spelling}`);
     timer;
     metadataRescanTimer;
     bar;
+    noticeAutoHideTimer;
+    noticeAutoHideScope = "";
     channelShelf;
     revealed = false;
     dismissedNoticeScope = "";
@@ -24176,6 +24179,19 @@ ${spelling}`);
       const notice = this.ensureNoticeBar();
       this.updateNoticeSummary(notice.summary, filteredCount, shownCount, settings);
       this.updateNoticeActions(notice, settings);
+      this.armNoticeAutoHide(noticeScope);
+    }
+    // The notice must not squat over the feed forever: after a grace period it
+    // dismisses itself for the current scope, and comes back on the next route.
+    armNoticeAutoHide(scope) {
+      if (this.noticeAutoHideTimer !== void 0 && this.noticeAutoHideScope === scope) return;
+      window.clearTimeout(this.noticeAutoHideTimer);
+      this.noticeAutoHideScope = scope;
+      this.noticeAutoHideTimer = window.setTimeout(() => {
+        this.noticeAutoHideTimer = void 0;
+        this.dismissedNoticeScope = scope;
+        this.removeNotice();
+      }, YOUTUBE_FILTER_NOTICE_AUTO_HIDE_MS);
     }
     ensureNoticeBar() {
       if (!this.bar) {
@@ -24822,6 +24838,9 @@ ${spelling}`);
       }, OEMBED_BATCH_RESCAN_DELAY_MS);
     }
     removeNotice() {
+      window.clearTimeout(this.noticeAutoHideTimer);
+      this.noticeAutoHideTimer = void 0;
+      this.noticeAutoHideScope = "";
       this.bar?.remove();
       this.bar = void 0;
     }

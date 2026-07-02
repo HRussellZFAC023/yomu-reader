@@ -1576,7 +1576,35 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
-    it('keeps the hidden-video notice visible until it is dismissed', async () => {
+    it('auto-hides the hidden-video notice after a grace period', async () => {
+        renderYouTubeCards();
+        const { filter } = await startYoutubeFilter({
+            oEmbedTitles: {
+                jp: '日本語で花の名前を覚える',
+                en: '10 habits for studying',
+                channel: 'study with me',
+                translated: '37,000 Lines of Slop',
+                modern: '東京カフェで朝ごはん',
+            },
+        });
+
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).not.toBeNull();
+
+        await vi.advanceTimersByTimeAsync(10_500);
+
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
+        expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
+
+        // Auto-hide is per route scope: further filtering on the same route
+        // must not resurrect the bar.
+        filter.refresh();
+        await flushPendingFilterWork();
+        expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
+
+        filter.destroy();
+    });
+
+    it('keeps the hidden-video notice visible through the grace period', async () => {
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({
             oEmbedTitles: {
