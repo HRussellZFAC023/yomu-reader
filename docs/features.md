@@ -82,7 +82,7 @@ For PC games, use the first-party [Yomu Gaming](/tools/yomu-gaming) app and down
 
 The transcript works like the overlay: visible Japanese lines are parsed for lookup, so you can skim, jump to a line, and open the popup from the transcript. The Shadow tab focuses on the current subtitle line with replay, loop, and hide/reveal controls for speaking practice while keeping parsed Japanese and the optional secondary line available.
 
-The Batch Mine tab scans the loaded transcript against your current study states, ranks i+1 lines first, deduplicates repeated words, and preselects useful not-in-deck candidates. Review the list at the end of the episode, add the selected words to Jiten, JPDB, or Anki, or copy the batch as TSV if you want to curate it elsewhere.
+The Batch Mine tab scans the loaded transcript against your current study states, ranks i+1 lines first, deduplicates repeated words, and preselects useful not-in-deck candidates. Review the list at the end of the episode, add the selected words to Jiten, JPDB, or Anki, grade words directly in the sidebar, batch-assign a review grade to the current selection, or copy the batch as TSV if you want to curate it elsewhere.
 
 For local files, open the [Yomu video player](/video-player/index.html), drop in a browser-supported video, and use the Subtitles button to add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
 

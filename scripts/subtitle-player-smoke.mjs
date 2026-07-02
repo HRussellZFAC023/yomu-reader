@@ -266,11 +266,22 @@ async function assertBatchMineTranscript(page) {
     }, null, { timeout: 20000 });
     const state = await page.evaluate(() => {
         const panel = document.querySelector('.jpdb-subtitle-list');
+        const sticky = document.querySelector('.jpdb-subtitle-batch-sticky');
+        const scroll = document.querySelector('.jpdb-subtitle-batch-scroll');
+        const firstRow = document.querySelector('.jpdb-subtitle-batch-row');
+        const stickyRect = sticky?.getBoundingClientRect();
+        const scrollRect = scroll?.getBoundingClientRect();
+        const firstRowRect = firstRow?.getBoundingClientRect();
         return {
             modePressed: document.querySelector('.jpdb-subtitle-panel-mode [data-action="panel-mine"]')?.getAttribute('aria-pressed') ?? '',
             scanButton: Boolean(document.querySelector('.jpdb-subtitle-batch-toolbar [data-action="bm-scan"]')),
             toolbarActions: [...document.querySelectorAll('.jpdb-subtitle-batch-toolbar button')].map(button => button.dataset.action),
             addDisabled: document.querySelector('.jpdb-subtitle-batch-toolbar [data-action="bm-add"]')?.hasAttribute('disabled') ?? true,
+            stickyTopBand: Boolean(sticky && sticky.contains(document.querySelector('.jpdb-subtitle-drawer-head')) && sticky.contains(document.querySelector('.jpdb-subtitle-batch-toolbar'))),
+            stickyClearsScroll: Boolean(stickyRect && scrollRect && stickyRect.bottom <= scrollRect.top + 1),
+            stickyClearsFirstRow: Boolean(stickyRect && firstRowRect && stickyRect.bottom <= firstRowRect.top + 1),
+            selectedGradeButtons: document.querySelectorAll('.jpdb-subtitle-batch-grade-selected [data-action="bm-grade-selected"][data-grade]').length,
+            rowGradeButtons: document.querySelectorAll('.jpdb-subtitle-batch-row [data-action="bm-grade"][data-grade]').length,
             candidates: document.querySelectorAll('.jpdb-subtitle-batch-row').length,
             selected: document.querySelectorAll('.jpdb-subtitle-batch-row[data-selected="true"]').length,
             iPlusOne: document.querySelectorAll('.jpdb-subtitle-batch-badge').length,
@@ -281,6 +292,8 @@ async function assertBatchMineTranscript(page) {
     assert(state.scanButton, 'Batch Mine scan button was not rendered', state);
     assert(state.candidates > 0, 'Batch Mine did not render candidates for parsed transcript rows', state);
     assert(state.toolbarActions.includes('bm-add') && state.toolbarActions.includes('bm-copy'), 'Batch Mine scan results did not reveal review actions', state);
+    assert(state.stickyTopBand && state.stickyClearsScroll && state.stickyClearsFirstRow, 'Batch Mine controls overlapped the candidate scroller', state);
+    assert(state.selectedGradeButtons > 0 && state.rowGradeButtons >= state.candidates, 'Batch Mine grade controls were not available in the sidebar', state);
     return state;
 }
 

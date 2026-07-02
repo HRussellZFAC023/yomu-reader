@@ -109,6 +109,18 @@ export class CardActionController {
         return added;
     }
 
+    async reviewBatchMiningCards(candidates: BatchMiningCardCandidate[], grade: JPDBGrade): Promise<number> {
+        let reviewed = 0;
+        for (const candidate of candidates) {
+            await this.reviewGrade(grade, candidate.card, candidate.sentence, {
+                deckId: defaultJpdbDeckId(this.options.getSettings()),
+                suppressToast: true,
+            });
+            reviewed += 1;
+        }
+        return reviewed;
+    }
+
     async perform(action: string | undefined, button: HTMLButtonElement, card: JPDBCard, sentence?: string, context: CardActionContext = {}): Promise<boolean> {
         const studyAction = this.performStudyAction(action, button, sentence);
         if (studyAction !== undefined) return await studyAction;
@@ -517,7 +529,7 @@ export class CardActionController {
         });
     }
 
-    async reviewGrade(grade: JPDBGrade, card: JPDBCard, sentence?: string, options: { target?: PopoverReviewTargetKind; ankiCardId?: number; deckId?: string } = {}): Promise<void> {
+    async reviewGrade(grade: JPDBGrade, card: JPDBCard, sentence?: string, options: { target?: PopoverReviewTargetKind; ankiCardId?: number; deckId?: string; suppressToast?: boolean } = {}): Promise<void> {
         const settings = this.options.getSettings();
         if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, 'reviewActionsDisabled'));
         if (options.target === 'both') {
@@ -545,7 +557,7 @@ export class CardActionController {
         throw new Error(uiText(this.options.getSettings().interfaceLanguage, 'missingAnkiCardId'));
     }
 
-    private async reviewApiCard(grade: JPDBGrade, card: JPDBCard, sentence: string | undefined, options: { deckId?: string; providerId?: ApiSrsProviderId }): Promise<void> {
+    private async reviewApiCard(grade: JPDBGrade, card: JPDBCard, sentence: string | undefined, options: { deckId?: string; providerId?: ApiSrsProviderId; suppressToast?: boolean }): Promise<void> {
         const settings = this.options.getSettings();
         const provider = options.providerId
             ? this.apiProviders(settings).find(candidate => candidate.id === options.providerId && candidate.supportsCard(card)) ?? null
@@ -554,20 +566,21 @@ export class CardActionController {
         const states = normalizeCardStates(card.cardState);
         assertReviewableApiCardState(states, settings);
         const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
-        if (result.addedBeforeReview) this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
-        else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings);
+        if (result.addedBeforeReview) {
+            if (!options.suppressToast) this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
+        } else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings, options.suppressToast === true);
         this.notifyApiCardStateChanged(card);
     }
 
     // Jiten Reader parity: optionally add every reviewed word to the mining
     // deck so reviewing doubles as collecting (off by default).
-    private async autoMineReviewedCard(provider: ApiSrsProviderAdapter, card: JPDBCard, sentence: string | undefined, states: string[], settings: ReaderSettings): Promise<void> {
+    private async autoMineReviewedCard(provider: ApiSrsProviderAdapter, card: JPDBCard, sentence: string | undefined, states: string[], settings: ReaderSettings, suppressToast = false): Promise<void> {
         if (!states.includes('not-in-deck')) return;
         try {
             const deckId = provider.selectedDeckId(this.reviewDeckId({}), settings);
             if (!deckId) return;
             await provider.addToDeck(deckId, card, sentence, { sourceTitle: document.title });
-            this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
+            if (!suppressToast) this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
         } catch {
             // Auto-mining is a convenience; the review itself already succeeded.
         }

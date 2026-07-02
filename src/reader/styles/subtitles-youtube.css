@@ -1639,6 +1639,14 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   border-color: var(--jpdb-reader-accent);
   color: var(--jpdb-reader-accent);
 }
+.jpdb-subtitle-batch-sticky {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  background: color-mix(in srgb, var(--jpdb-reader-bg) 94%, transparent);
+}
 .jpdb-subtitle-batch-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -1664,6 +1672,39 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   width: 14px;
   height: 14px;
 }
+.jpdb-subtitle-batch-grade-group {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  gap: 5px 7px;
+  padding-top: 2px;
+}
+.jpdb-subtitle-batch-grade-label {
+  flex: 0 0 auto;
+  color: var(--jpdb-reader-muted);
+  font: 800 10px/1.2 var(--jpdb-reader-font);
+}
+.jpdb-subtitle-batch-grade-buttons {
+  display: flex;
+  flex: 1 1 160px;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: 4px;
+}
+.jpdb-subtitle-batch-toolbar .jpdb-subtitle-batch-grade-button,
+.jpdb-subtitle-batch-row-grades .jpdb-subtitle-batch-grade-button {
+  min-height: 30px;
+  padding: 0 8px;
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 30%, var(--jpdb-reader-border));
+  color: var(--jpdb-reader-text);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 10%, var(--jpdb-reader-surface));
+  font: 800 10px/1.15 var(--jpdb-reader-font);
+}
+.jpdb-subtitle-batch-toolbar .jpdb-subtitle-batch-grade-button:disabled {
+  opacity: .48;
+}
 .jpdb-subtitle-batch-scroll {
   gap: 0;
   padding: 0;
@@ -1676,7 +1717,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   grid-template-columns: 32px minmax(104px, max-content) minmax(0, 1fr);
   grid-template-areas:
     "check word meta"
-    "check sentence sentence";
+    "check sentence sentence"
+    "check grades grades";
   gap: 6px 10px;
   align-items: start;
   min-height: 76px;
@@ -1757,13 +1799,22 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   font: 700 13px/1.5 var(--jpdb-reader-font);
   overflow-wrap: anywhere;
 }
+.jpdb-subtitle-batch-row-grades {
+  grid-area: grades;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  min-width: 0;
+  gap: 4px;
+}
 @container (max-width: 420px) {
   .jpdb-subtitle-batch-row {
     grid-template-columns: 32px minmax(0, 1fr);
     grid-template-areas:
       "check word"
       "check meta"
-      "sentence sentence";
+      "sentence sentence"
+      "grades grades";
   }
   .jpdb-subtitle-batch-meta {
     justify-content: flex-start;
@@ -1977,8 +2028,15 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   .jpdb-subtitle-drawer-auto,
   .jpdb-subtitle-track-row button,
   .jpdb-subtitle-track-tools button,
-  .jpdb-subtitle-track-tools a {
+  .jpdb-subtitle-track-tools a,
+  .jpdb-subtitle-batch-toolbar button,
+  .jpdb-subtitle-batch-check,
+  .jpdb-subtitle-batch-grade-button {
     min-height: 44px;
+  }
+  .jpdb-subtitle-batch-check,
+  .jpdb-subtitle-batch-grade-button {
+    min-width: 44px;
   }
   .jpdb-subtitle-panel-nav button,
   .jpdb-subtitle-panel-placement button,

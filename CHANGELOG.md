@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.5.20] - 2026-07-02
+
+### Added
+
+- Batch Mine candidates in the subtitle sidebar can now be graded immediately from each row or batch-graded with the active review scale, including two-button Pass/Fail review setups.
+
+### Fixed
+
+- Keeps the Batch Mine header and controls in the sticky top area of the mobile subtitle drawer, so the scan/add/copy/review controls no longer overlap the first mined words on YouTube.
+
 ## [1.5.19] - 2026-07-02
 
 ### Fixed

@@ -13,6 +13,8 @@ describe('subtitle batch mining panel', () => {
         expect(toolbarActions(host)).toEqual(['bm-scan']);
         expect(host.querySelector('.jpdb-subtitle-batch-toolbar')?.getAttribute('role')).toBe('toolbar');
         expect(host.querySelector('.jpdb-subtitle-batch-toolbar')?.getAttribute('aria-label')).toBe('Batch mining actions');
+        expect(host.querySelector('.jpdb-subtitle-batch-sticky > .jpdb-subtitle-drawer-head')).not.toBeNull();
+        expect(host.querySelector('.jpdb-subtitle-batch-sticky > .jpdb-subtitle-batch-toolbar')).not.toBeNull();
         expect(host.querySelector('.jpdb-subtitle-panel-mode')?.getAttribute('role')).toBe('group');
         expect(host.querySelector('.jpdb-subtitle-panel-nav')?.getAttribute('role')).toBe('group');
     });
@@ -60,6 +62,32 @@ describe('subtitle batch mining panel', () => {
         expect(host.querySelector<HTMLButtonElement>('[data-action="bm-all"]')?.disabled).toBe(false);
         expect(host.querySelector('[data-action="bm-clear"]')).toBeNull();
     });
+
+    it('renders immediate and selected-batch grade controls from the active review scale', () => {
+        const candidate = batchCandidate('去年', 'きょねん');
+        const host = renderPanel(baseState({
+            status: 'ready',
+            candidates: [candidate],
+            selectedKeys: new Set([candidate.key]),
+            reviewGrades: [
+                { grade: 'fail', label: 'Fail' },
+                { grade: 'pass', label: 'Pass' },
+            ],
+            summary: {
+                rows: 3,
+                parsedRows: 3,
+                candidates: 1,
+                iPlusOne: 1,
+                selected: 1,
+            },
+        }));
+
+        expect(host.querySelector('.jpdb-subtitle-batch-grade-selected')?.getAttribute('aria-label')).toBe('Grade selected');
+        expect(toolbarGradeActions(host)).toEqual(['fail', 'pass']);
+        expect(host.querySelector<HTMLButtonElement>('.jpdb-subtitle-batch-grade-selected [data-grade="pass"]')?.disabled).toBe(false);
+        expect(host.querySelector('[role="listitem"] .jpdb-subtitle-batch-row-grades')?.getAttribute('aria-label')).toBe('Grade word: 去年');
+        expect(host.querySelector<HTMLButtonElement>('[role="listitem"] [data-action="bm-grade"][data-grade="pass"]')?.getAttribute('aria-label')).toBe('Pass: Grade word: 去年');
+    });
 });
 
 function renderPanel(state: SubtitleBatchMiningPanelRenderState): HTMLElement {
@@ -73,11 +101,17 @@ function toolbarActions(host: ParentNode): string[] {
         .map(button => button.dataset.action ?? '');
 }
 
+function toolbarGradeActions(host: ParentNode): string[] {
+    return Array.from(host.querySelectorAll<HTMLButtonElement>('.jpdb-subtitle-batch-grade-selected button'))
+        .map(button => button.dataset.grade ?? '');
+}
+
 function baseState(overrides: Partial<SubtitleBatchMiningPanelRenderState> = {}): SubtitleBatchMiningPanelRenderState {
     return {
         status: 'idle',
         candidates: [],
         selectedKeys: new Set(),
+        reviewGrades: [],
         summary: {
             rows: 136,
             parsedRows: 0,

@@ -8,7 +8,7 @@ head:
   - - script
     - type: application/ld+json
     - |-
-      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I look up words in Japanese video subtitles?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ parses Japanese subtitles into lookup-ready words. Choose a word in the overlay or transcript to open the dictionary, and mine the sentence to Jiten, JPDB, or Anki."}},{"@type":"Question","name":"Does it work on YouTube and my own video files?","acceptedAnswer":{"@type":"Answer","text":"Yes. The subtitle overlay works on video pages like YouTube, and the free Yomu video player opens local browser-supported video and subtitle files so the same tools work without a desktop app."}},{"@type":"Question","name":"Can I batch mine a whole video transcript?","acceptedAnswer":{"@type":"Answer","text":"Yes. The Batch Mine tab scans the loaded transcript, compares words with your current study states, ranks i+1 candidates first, and lets you add or copy the selected batch after watching."}},{"@type":"Question","name":"Can I mine sentences to Anki?","acceptedAnswer":{"@type":"Answer","text":"Yes. With AnkiConnect reachable, よむ can create a card from a subtitle line with the word, reading, meaning, the source sentence, audio, and an optional screenshot."}}]}
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I look up words in Japanese video subtitles?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ parses Japanese subtitles into lookup-ready words. Choose a word in the overlay or transcript to open the dictionary, and mine the sentence to Jiten, JPDB, or Anki."}},{"@type":"Question","name":"Does it work on YouTube and my own video files?","acceptedAnswer":{"@type":"Answer","text":"Yes. The subtitle overlay works on video pages like YouTube, and the free Yomu video player opens local browser-supported video and subtitle files so the same tools work without a desktop app."}},{"@type":"Question","name":"Can I batch mine a whole video transcript?","acceptedAnswer":{"@type":"Answer","text":"Yes. The Batch Mine tab scans the loaded transcript, compares words with your current study states, ranks i+1 candidates first, and lets you add, grade, or copy the selected batch after watching."}},{"@type":"Question","name":"Can I mine sentences to Anki?","acceptedAnswer":{"@type":"Answer","text":"Yes. With AnkiConnect reachable, よむ can create a card from a subtitle line with the word, reading, meaning, the source sentence, audio, and an optional screenshot."}}]}
 ---
 
 # Japanese Subtitle Miner & Video Reader
@@ -26,7 +26,7 @@ Video is some of the best Japanese input you can get — if you can actually rea
 - **Lookup-ready Japanese lines** — every subtitle word can open the popup dictionary.
 - **A second language track** — show a native-language subtitle line underneath for support.
 - **A transcript and shadowing drawer** — dock it left, right, or below the video. The transcript highlights the active line and hydrates visible lines into lookup words; the Shadow tab focuses the current line with replay, loop, hide/reveal text, parsed Japanese, and the optional second-language line.
-- **A Batch Mine tab** — scan the loaded transcript, compare it with your known vocabulary, rank i+1 candidates first, and add or copy the selected words after the episode.
+- **A Batch Mine tab** — scan the loaded transcript, compare it with your known vocabulary, rank i+1 candidates first, and add, grade, or copy the selected words after the episode.
 - **Shortcuts** — previous subtitle, next subtitle, copy subtitle, and mine. The panel can be set to open only while the video is paused, and becomes a bottom sheet on phones so the video stays usable.
 
 <figure class="yomu-feature-shot">
@@ -58,7 +58,7 @@ It gives you the sentence-mining flow people like in asbplayer, but in the same 
 
 **Does it need a desktop helper like asbplayer?** No — after よむ is installed, the overlay runs on YouTube, and the in-browser [video player](/video-player/index.html) handles your own files without a desktop bridge.
 
-**Can I batch mine a whole video transcript?** Yes — open Batch Mine in the subtitle panel, scan the loaded transcript, review the i+1 candidates, and add or copy the selected words.
+**Can I batch mine a whole video transcript?** Yes — open Batch Mine in the subtitle panel, scan the loaded transcript, review the i+1 candidates, and add, grade, or copy the selected words.
 
 **Can I mine sentences to Anki?** Yes — with AnkiConnect reachable, a subtitle line becomes a card with sentence, audio, and image.
 

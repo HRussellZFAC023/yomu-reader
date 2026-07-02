@@ -13367,6 +13367,8 @@ ${spelling}`);
       bmRescan: "Rescan",
       bmAdd: "Add selected",
       bmCopy: "Copy list",
+      bmGradeSelected: "Grade selected",
+      bmGradeWord: "Grade word",
       bmReady: "Scan the loaded transcript to collect candidate words.",
       bmRowsReady: "{count} lines ready",
       bmScanning: "Scanning {count}/{total} lines",
@@ -13377,6 +13379,8 @@ ${spelling}`);
       bmAdded: "Added {count} words.",
       bmAddFailed: "Could not add selected words.",
       bmCopied: "Copied {count} words.",
+      bmGraded: "Graded {count} words.",
+      bmGradeFailed: "Could not grade selected words.",
       bmFailed: "Batch scan failed.",
       bmIPlusOne: "i+1",
       bmOccurrences: "{count}x",
@@ -13405,6 +13409,8 @@ ${spelling}`);
       bmRescan: "再スキャン",
       bmAdd: "選択を追加",
       bmCopy: "リストをコピー",
+      bmGradeSelected: "選択を評価",
+      bmGradeWord: "単語を評価",
       bmReady: "読み込んだ字幕をスキャンして候補語を集めます。",
       bmRowsReady: "{count}行準備完了",
       bmScanning: "{count}/{total}行をスキャン中",
@@ -13415,6 +13421,8 @@ ${spelling}`);
       bmAdded: "{count}語を追加しました。",
       bmAddFailed: "選択語を追加できませんでした。",
       bmCopied: "{count}語をコピーしました。",
+      bmGraded: "{count}語を評価しました。",
+      bmGradeFailed: "選択語を評価できませんでした。",
       bmFailed: "一括スキャンに失敗しました。",
       bmIPlusOne: "i+1",
       bmOccurrences: "{count}回",
@@ -17054,7 +17062,7 @@ ${spelling}`);
   }
   function renderSubtitleBatchMiningPanel(state2) {
     const language = state2.language;
-    return `<div class="jpdb-subtitle-drawer-head"><div class="jpdb-subtitle-drawer-brand"><strong class="jpdb-subtitle-drawer-title">${escapeHtml(subtitleText(language, "bmTitle"))}</strong><span class="jpdb-subtitle-drawer-meta">${escapeHtml(batchMiningMetaText(state2))}</span></div><div class="jpdb-subtitle-drawer-actions">${renderPanelModeControls("mine", state2.hasTranscriptSurface, language)}${renderPanelNavigationControls(state2.hasNavigableLines, language)}${renderPanelPlacementControls(state2.placement, language)}${renderPausePanelToggle(state2.pausePanelEnabled, language)}</div></div>${renderBatchMiningToolbar(state2)}<div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state2)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeTranscriptPanel"))}"></div>`;
+    return `<div class="jpdb-subtitle-batch-sticky"><div class="jpdb-subtitle-drawer-head"><div class="jpdb-subtitle-drawer-brand"><strong class="jpdb-subtitle-drawer-title">${escapeHtml(subtitleText(language, "bmTitle"))}</strong><span class="jpdb-subtitle-drawer-meta">${escapeHtml(batchMiningMetaText(state2))}</span></div><div class="jpdb-subtitle-drawer-actions">${renderPanelModeControls("mine", state2.hasTranscriptSurface, language)}${renderPanelNavigationControls(state2.hasNavigableLines, language)}${renderPanelPlacementControls(state2.placement, language)}${renderPausePanelToggle(state2.pausePanelEnabled, language)}</div></div>${renderBatchMiningToolbar(state2)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state2)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeTranscriptPanel"))}"></div>`;
   }
   function renderBatchMiningToolbar(state2) {
     const language = state2.language;
@@ -17068,6 +17076,13 @@ ${spelling}`);
       buttons.push(
         `<button type="button" data-action="bm-add" ${selectedCount ? "" : "disabled"}>${subtitleIcon("check")}<span>${escapeHtml(subtitleText(language, "bmAdd"))}</span></button>`,
         `<button type="button" data-action="bm-copy" ${selectedCount ? "" : "disabled"}>${subtitleIcon("copy")}<span>${escapeHtml(subtitleText(language, "bmCopy"))}</span></button>`,
+        renderBatchMiningGradeGroup({
+          action: "bm-grade-selected",
+          label: subtitleText(language, "bmGradeSelected"),
+          grades: state2.reviewGrades,
+          disabled: selectedCount === 0,
+          className: "jpdb-subtitle-batch-grade-selected"
+        }),
         `<button type="button" data-action="bm-all" ${selectedCount === candidateCount ? "disabled" : ""}>${escapeHtml(subtitleText(language, "selectAll"))}</button>`
       );
       if (selectedCount) buttons.push(`<button type="button" data-action="bm-clear">${escapeHtml(subtitleText(language, "clearSelection"))}</button>`);
@@ -17097,7 +17112,26 @@ ${spelling}`);
     const selected = state2.selectedKeys.has(candidate.key);
     const selectLabel = subtitleText(language, selected ? "bmDeselect" : "bmSelect");
     const wordLabel = `${selectLabel}: ${candidate.card.spelling}`;
-    return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml(wordLabel)}">${selected ? subtitleIcon("check") : ""}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" lang="ja">${escapeHtml(candidate.card.spelling)}</span>${candidate.card.reading && candidate.card.reading !== candidate.card.spelling ? `<span class="jpdb-subtitle-batch-reading" lang="ja">${escapeHtml(candidate.card.reading)}</span>` : ""}</button><div class="jpdb-subtitle-batch-meta">${candidate.iPlusOne ? `<span class="jpdb-subtitle-batch-badge">${escapeHtml(subtitleText(language, "bmIPlusOne"))}</span>` : ""}<span>${escapeHtml(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml(formatSubtitleText(language, "bmOccurrences", { count: candidate.occurrences }))}</span><span>${escapeHtml(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" lang="ja">${escapeHtml(candidate.sentence)}</div></div>`;
+    return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml(wordLabel)}">${selected ? subtitleIcon("check") : ""}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" lang="ja">${escapeHtml(candidate.card.spelling)}</span>${candidate.card.reading && candidate.card.reading !== candidate.card.spelling ? `<span class="jpdb-subtitle-batch-reading" lang="ja">${escapeHtml(candidate.card.reading)}</span>` : ""}</button><div class="jpdb-subtitle-batch-meta">${candidate.iPlusOne ? `<span class="jpdb-subtitle-batch-badge">${escapeHtml(subtitleText(language, "bmIPlusOne"))}</span>` : ""}<span>${escapeHtml(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml(formatSubtitleText(language, "bmOccurrences", { count: candidate.occurrences }))}</span><span>${escapeHtml(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" lang="ja">${escapeHtml(candidate.sentence)}</div>${renderBatchMiningCandidateGrades(candidate, state2)}</div>`;
+  }
+  function renderBatchMiningCandidateGrades(candidate, state2) {
+    if (!state2.reviewGrades.length) return "";
+    const label = `${subtitleText(state2.language, "bmGradeWord")}: ${candidate.card.spelling}`;
+    return `<div class="jpdb-subtitle-batch-row-grades" role="group" aria-label="${escapeHtml(label)}">${renderBatchMiningGradeButtons({
+      action: "bm-grade",
+      grades: state2.reviewGrades,
+      ariaContext: label
+    })}</div>`;
+  }
+  function renderBatchMiningGradeGroup(options) {
+    if (!options.grades.length) return "";
+    return `<div class="jpdb-subtitle-batch-grade-group ${escapeHtml(options.className ?? "")}" role="group" aria-label="${escapeHtml(options.label)}"><span class="jpdb-subtitle-batch-grade-label">${escapeHtml(options.label)}</span><div class="jpdb-subtitle-batch-grade-buttons">${renderBatchMiningGradeButtons(options)}</div></div>`;
+  }
+  function renderBatchMiningGradeButtons(options) {
+    return options.grades.map(({ grade, label }) => {
+      const ariaLabel = options.ariaContext ? `${label}: ${options.ariaContext}` : label;
+      return `<button class="jpdb-subtitle-batch-grade-button" type="button" data-action="${escapeHtml(options.action)}" data-grade="${escapeHtml(grade)}" ${options.disabled ? "disabled" : ""} aria-label="${escapeHtml(ariaLabel)}">${escapeHtml(label)}</button>`;
+    }).join("");
   }
   function batchMiningMetaText(state2) {
     if (state2.status === "scanning") {
@@ -17913,6 +17947,12 @@ ${spelling}`);
       },
       "bm-copy": () => {
         void this.copySelectedBatchMiningCandidates();
+      },
+      "bm-grade": (target) => {
+        void this.gradeBatchMiningCandidate(target);
+      },
+      "bm-grade-selected": (target) => {
+        void this.gradeSelectedBatchMiningCandidates(target);
       },
       "bm-all": () => this.selectAllBatchMiningCandidates(),
       "bm-clear": () => this.clearBatchMiningSelection(),
@@ -21673,6 +21713,7 @@ ${spelling}`);
         candidates,
         selectedKeys: this.batchMiningSelectedKeys,
         summary: subtitleBatchMiningSummary(rows, candidates),
+        reviewGrades: this.batchMiningReviewGrades(settings),
         errorMessage: this.batchMiningError,
         hasTranscriptSurface: this.hasTranscriptSurface(),
         hasNavigableLines: Boolean(this.video && this.cues.length),
@@ -21680,6 +21721,22 @@ ${spelling}`);
         placement: this.effectiveTranscriptPlacement,
         language: settings.interfaceLanguage
       };
+    }
+    batchMiningReviewGrades(settings) {
+      if (!this.canReviewBatchMiningCandidates(settings)) return [];
+      return settings.twoButtonReviews ? [
+        { grade: "fail", label: uiText(settings.interfaceLanguage, "gradeFailLabel") },
+        { grade: "pass", label: uiText(settings.interfaceLanguage, "gradePassLabel") }
+      ] : [
+        { grade: "nothing", label: uiText(settings.interfaceLanguage, "gradeNothingLabel") },
+        { grade: "something", label: uiText(settings.interfaceLanguage, "gradeSomethingLabel") },
+        { grade: "hard", label: uiText(settings.interfaceLanguage, "gradeHardLabel") },
+        { grade: "okay", label: uiText(settings.interfaceLanguage, "gradeOkayLabel") },
+        { grade: "easy", label: uiText(settings.interfaceLanguage, "gradeEasyLabel") }
+      ];
+    }
+    canReviewBatchMiningCandidates(settings) {
+      return settings.enableReviews && (settings.yomuLocalSrsEnabled || settings.bunproMiningEnabled || settings.jpdbMiningEnabled && this.hasAuthoritativeParseTier(settings));
     }
     currentBatchMiningRows() {
       const settings = this.options.getSettings();
@@ -21788,6 +21845,35 @@ ${spelling}`);
       }
       await copyText(subtitleBatchMiningTsv(candidates));
       this.options.toast?.(formatSubtitleText(language, "bmCopied", { count: candidates.length }));
+    }
+    async gradeBatchMiningCandidate(target) {
+      const grade = target.closest("[data-grade]")?.dataset.grade;
+      const candidate = this.batchMiningCandidateForTarget(target);
+      if (!grade || !candidate) return;
+      await this.gradeBatchMiningCandidates([candidate], grade);
+    }
+    async gradeSelectedBatchMiningCandidates(target) {
+      const grade = target.closest("[data-grade]")?.dataset.grade;
+      if (!grade) return;
+      await this.gradeBatchMiningCandidates(this.selectedBatchMiningCandidates(), grade);
+    }
+    async gradeBatchMiningCandidates(candidates, grade) {
+      const language = this.options.getSettings().interfaceLanguage;
+      if (!candidates.length || !this.options.gradeBatchMiningCandidates) {
+        this.options.toast?.(candidates.length ? uiText(language, "batchMiningNoDestination") : subtitleText(language, "bmNoSelection"));
+        return;
+      }
+      try {
+        const count = await this.options.gradeBatchMiningCandidates(candidates, grade);
+        for (const candidate of candidates) {
+          candidate.state = primaryCardState(candidate.card.cardState);
+          this.batchMiningSelectedKeys.delete(candidate.key);
+        }
+        this.options.toast?.(formatSubtitleText(language, "bmGraded", { count }));
+        this.renderBatchMiningPanel();
+      } catch (error) {
+        this.options.toast?.(error instanceof Error ? error.message : subtitleText(language, "bmGradeFailed"));
+      }
     }
     selectAllBatchMiningCandidates() {
       this.batchMiningSelectedKeys = new Set(this.batchMiningCandidates.map((candidate) => candidate.key));

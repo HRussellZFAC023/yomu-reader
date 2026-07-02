@@ -137,7 +137,7 @@ https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.use
 - OCR reads likely images near the viewport, caches results, and makes recognized text lookup-ready without covering the image.
 - YouTube subtitle detection uses caption metadata when available and visible DOM captions as a fallback.
 - Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can be loaded manually.
-- The subtitle side panel includes Lines, Tracks, Shadow, and Batch Mine modes; Batch Mine scans the loaded transcript and queues i+1 vocabulary so you can add cards after watching.
+- The subtitle side panel includes Lines, Tracks, Shadow, and Batch Mine modes; Batch Mine scans the loaded transcript and queues i+1 vocabulary so you can add cards, grade individual words, or batch-assign a review grade after watching.
 - On iPhone/iPad, desktop helpers such as AnkiConnect, self-hosted audio, and local OCR servers must be reachable over the network.
 - Support links, Factory Reset, API keys, imports, and appearance settings live in the settings panel.
 

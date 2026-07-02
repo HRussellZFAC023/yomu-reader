@@ -6579,6 +6579,35 @@ describe('reader helpers', () => {
         expect(onAnkiStatusChanged).toHaveBeenCalledWith(card);
     });
 
+    it('batch grades mining candidates through the shared review path', async () => {
+        const addToDeck = vi.fn(async () => undefined);
+        const reviewCard = vi.fn(async () => undefined);
+        const toast = vi.fn();
+        const controller = testCardActionController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                jpdbMiningEnabled: true,
+                enableReviews: true,
+            }),
+            jpdb: { addToDeck, reviewCard } as unknown as JpdbClient,
+            toast,
+        });
+        const notInDeckCard: JPDBCard = { ...card, spelling: '読む', reading: 'よむ', cardState: ['not-in-deck'] };
+        const newCard: JPDBCard = { ...card, vid: 2, spelling: '書く', reading: 'かく', cardState: ['new'] };
+
+        await expect(controller.reviewBatchMiningCards([
+            { card: notInDeckCard, sentence: '本を読む。' },
+            { card: newCard, sentence: '字を書く。' },
+        ], 'pass')).resolves.toBe(2);
+
+        expect(addToDeck).toHaveBeenCalledTimes(1);
+        expect(addToDeck).toHaveBeenCalledWith(DEFAULT_SETTINGS.miningDeck, notInDeckCard, '本を読む。');
+        expect(reviewCard).toHaveBeenCalledWith(notInDeckCard, 'pass');
+        expect(reviewCard).toHaveBeenCalledWith(newCard, 'pass');
+        expect(toast).not.toHaveBeenCalled();
+    });
+
     it('allows locked JPDB cards to be added to the mining deck', async () => {
         const addToDeck = vi.fn(async () => undefined);
         const toast = vi.fn();

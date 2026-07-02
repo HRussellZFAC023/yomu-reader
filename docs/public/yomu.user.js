@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.5.19
+// @version 1.5.20
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.19
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.19
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.19
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.19
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.20
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.20
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.20
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.20
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -14358,6 +14358,17 @@ class CardActionController {
   }
   return added;
   }
+  async reviewBatchMiningCards(candidates, grade) {
+  let reviewed = 0;
+  for (const candidate of candidates) {
+    await this.reviewGrade(grade, candidate.card, candidate.sentence, {
+      deckId: defaultJpdbDeckId(this.options.getSettings()),
+      suppressToast: true
+    });
+    reviewed += 1;
+  }
+  return reviewed;
+  }
   async perform(action, button2, card, sentence, context = {}) {
   const studyAction = this.performStudyAction(action, button2, sentence);
   if (studyAction !== void 0) return await studyAction;
@@ -14718,17 +14729,18 @@ class CardActionController {
   const states = normalizeCardStates(card.cardState);
   assertReviewableApiCardState(states, settings);
   const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
-  if (result.addedBeforeReview) this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
-  else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings);
+  if (result.addedBeforeReview) {
+    if (!options.suppressToast) this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
+  } else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings, options.suppressToast === true);
   this.notifyApiCardStateChanged(card);
   }
-  async autoMineReviewedCard(provider, card, sentence, states, settings) {
+  async autoMineReviewedCard(provider, card, sentence, states, settings, suppressToast = false) {
   if (!states.includes("not-in-deck")) return;
   try {
     const deckId = provider.selectedDeckId(this.reviewDeckId({}), settings);
     if (!deckId) return;
     await provider.addToDeck(deckId, card, sentence, { sourceTitle: document.title });
-    this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
+    if (!suppressToast) this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
   } catch {
   }
   }
@@ -38046,7 +38058,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.19"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.20"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -39382,6 +39394,7 @@ class ReaderApp {
       navigation: "push-current"
     }),
     mineBatchMiningCandidates: (candidates) => this.cardActions.addBatchMiningCards(candidates),
+    gradeBatchMiningCandidates: (candidates, grade) => this.cardActions.reviewBatchMiningCards(candidates, grade),
     toast: (message) => this.toast(message),
     onSettingsChange: () => void saveSettings(this.settings)
   });

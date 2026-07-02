@@ -881,6 +881,7 @@ export class ReaderApp {
                 navigation: 'push-current',
             }),
             mineBatchMiningCandidates: candidates => this.cardActions.addBatchMiningCards(candidates),
+            gradeBatchMiningCandidates: (candidates, grade) => this.cardActions.reviewBatchMiningCards(candidates, grade),
             toast: message => this.toast(message),
             onSettingsChange: () => void saveSettings(this.settings),
         });
