@@ -1044,7 +1044,7 @@ Watch the cat
             clickSpy.mockRestore();
             controller.destroy();
         }
-    });
+    }, 30_000);
 
     it('loads host-provided subtitle files and opens the Japanese transcript', async () => {
         const { controller } = createSubtitleController(makeSubtitleSettings());

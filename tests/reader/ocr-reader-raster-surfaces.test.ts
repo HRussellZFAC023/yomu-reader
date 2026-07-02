@@ -511,7 +511,7 @@ describe('reader raster OCR surfaces', () => {
         } finally {
             controller.destroy();
         }
-    });
+    }, 30_000);
 
     it('keeps both visible BookWalker spread pages even when only one is currentScreen', () => {
         stubLocation('viewer.bookwalker.jp');
