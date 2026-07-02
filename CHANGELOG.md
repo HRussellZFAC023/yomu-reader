@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.16] - 2026-07-01
+
+### Fixed
+
+- Recomputes BookWalker OCR hit-target placement immediately after hover/focus expands ruby or pitch markup, fixing the case where the X hit column was correct but the active text strip appeared at the wrong Y position.
+- Clips BookWalker manual/visible-region OCR captures to the actual reader viewport instead of the full browser window, fixing Y-only overlay drift when the viewer toolbar covers the top of the canvas.
+- Keeps manually cropped BookWalker OCR frames aligned during ordinary scroll without rescanning, while re-capturing them when the underlying canvas scale changes so old crop coordinates are not stretched over a reflowed page.
+- Drops stale BookWalker vertical-scroll OCR frames when the painted page content changes inside a reused stable canvas surface, preventing previous-page OCR from surviving after BookWalker repaints.
+
 ## [1.5.14] - 2026-07-01
 
 ### Fixed

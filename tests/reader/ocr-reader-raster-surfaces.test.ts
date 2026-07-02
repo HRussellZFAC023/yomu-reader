@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController } from '../../src/reader/ocr/controller';
 import { collectCanvasReaderSurfaces, isBookwalkerViewerHost } from '../../src/reader/ocr/canvas-readers';
+import type { MirrorGlobalState, MirrorRecord } from '../../src/reader/ocr/canvas-mirror';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import type { OcrResult } from '../../src/reader/ocr/response-shared';
@@ -18,6 +19,7 @@ afterEach(() => {
     HTMLCanvasElement.prototype.getContext = originalCanvasGetContext;
     restoreCanvasToBlob();
     restoreCanvasToDataURL();
+    delete (globalThis as { __yomuCanvasMirror?: MirrorGlobalState }).__yomuCanvasMirror;
     vi.unstubAllGlobals();
 });
 
@@ -37,6 +39,16 @@ function pageCounter(text: string): HTMLElement {
     const counter = Object.assign(document.createElement('span'), { id: 'pageSliderCounter', textContent: text });
     document.body.append(counter);
     return counter;
+}
+
+function seedCanvasMirror(records: Record<string, MirrorRecord>): MirrorGlobalState {
+    const mirror: MirrorGlobalState = { seq: 1000, nextId: 100, installed: true, epoch: 1, records };
+    (globalThis as { __yomuCanvasMirror?: MirrorGlobalState }).__yomuCanvasMirror = mirror;
+    return mirror;
+}
+
+function mirrorImageOp(url: string, seq = 1) {
+    return { seq, srcId: null, url, sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false };
 }
 
 function createController(
@@ -1099,6 +1111,178 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('clips a BookWalker manual frame to the reader viewport so OCR Y stays aligned', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        stubCanvasDataUrl('data:image/jpeg;base64,VISIBLE_CROP');
+        vi.stubGlobal('innerWidth', 1000);
+        vi.stubGlobal('innerHeight', 500);
+        pageCounter('7 / 195');
+        const clip = Object.assign(document.createElement('div'), { id: 'readerClip' });
+        clip.style.overflow = 'hidden';
+        clip.getBoundingClientRect = () => new DOMRect(0, 72, 1000, 300);
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        const canvas = pageCanvas(24, -200, 420, 600);
+        canvas.toDataURL = TAINTED_CANVAS;
+        viewport.append(canvas);
+        clip.append(viewport);
+        document.body.append(clip);
+
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('VISIBLE_CROP'));
+        const controller = createController({ ocrAutoScanImages: false }, undefined, captureCanvasMirror);
+        const recognizeImage = vi.fn(async () => ({
+            width: 1200,
+            height: 800,
+            lines: [
+                { text: '縦位置', box: { left: 600, top: 160, width: 90, height: 100 }, vertical: true },
+            ],
+        } satisfies OcrResult));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+
+        try {
+            dispatchCanvasPointer(canvas, 'pointerdown');
+            let frame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+                expect(frame!.style.top).toBe('72px');
+                expect(frame!.style.height).toBe('300px');
+            });
+            Object.defineProperty(frame!, 'complete', { value: true, configurable: true });
+            Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(frame!, 'naturalHeight', { value: 800, configurable: true });
+            await (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage(frame!);
+
+            await waitForExpect(() => {
+                const layer = document.querySelector<HTMLElement>('.jpdb-ocr-layer');
+                const line = document.querySelector<HTMLElement>('.jpdb-ocr-line');
+                expect(layer).not.toBeNull();
+                expect(line).not.toBeNull();
+                expect(layer!.style.top).toBe('72px');
+                expect(layer!.style.height).toBe('300px');
+                expect(Math.round(Number.parseFloat(line!.style.top))).toBe(60);
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('moves a cropped BookWalker manual frame with scroll without rescanning', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        stubCanvasDataUrl('data:image/jpeg;base64,VISIBLE_CROP');
+        vi.stubGlobal('innerWidth', 1000);
+        vi.stubGlobal('innerHeight', 300);
+        pageCounter('7 / 195');
+        let rect = new DOMRect(24, -260, 420, 560);
+        const canvas = pageCanvas(24, -260, 420, 560);
+        canvas.getBoundingClientRect = () => rect;
+        canvas.toDataURL = TAINTED_CANVAS;
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        viewport.append(canvas);
+        document.body.append(viewport);
+
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('VISIBLE_CROP'));
+        const controller = createController({ ocrAutoScanImages: false }, undefined, captureCanvasMirror);
+        const recognizeImage = vi.fn(async () => ({
+            width: 1200,
+            height: 857,
+            lines: [
+                { text: '移動する', box: { left: 120, top: 180, width: 180, height: 120 }, vertical: true },
+            ],
+        } satisfies OcrResult));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+
+        try {
+            dispatchCanvasPointer(canvas, 'pointerdown');
+            let frame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+                expect(frame!.style.top).toBe('0px');
+                expect(frame!.style.height).toBe('300px');
+            });
+            Object.defineProperty(frame!, 'complete', { value: true, configurable: true });
+            Object.defineProperty(frame!, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(frame!, 'naturalHeight', { value: 857, configurable: true });
+            await (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage(frame!);
+
+            rect = new DOMRect(24, -300, 420, 560);
+            controller.refresh();
+
+            await waitForExpect(() => {
+                const currentFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(currentFrame).toBe(frame);
+                expect(currentFrame!.style.top).toBe('-40px');
+                expect(currentFrame!.style.height).toBe('300px');
+            });
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+            expect(recognizeImage).toHaveBeenCalledTimes(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('re-snapshots a cropped BookWalker manual frame when the source scale changes', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        stubCanvasDataUrl('data:image/jpeg;base64,VISIBLE_CROP');
+        vi.stubGlobal('innerWidth', 1000);
+        vi.stubGlobal('innerHeight', 300);
+        pageCounter('7 / 195');
+        let rect = new DOMRect(24, -260, 420, 560);
+        const canvas = pageCanvas(24, -260, 420, 560);
+        canvas.getBoundingClientRect = () => rect;
+        canvas.toDataURL = TAINTED_CANVAS;
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        viewport.append(canvas);
+        document.body.append(viewport);
+
+        let captureIndex = 0;
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas(`VISIBLE_CROP_${++captureIndex}`));
+        const controller = createController({ ocrAutoScanImages: false }, undefined, captureCanvasMirror);
+        const recognizeImage = vi.fn(async () => ({
+            width: 1200,
+            height: 857,
+            lines: [
+                { text: '再読込する', box: { left: 120, top: 180, width: 180, height: 120 }, vertical: true },
+            ],
+        } satisfies OcrResult));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+
+        try {
+            dispatchCanvasPointer(canvas, 'pointerdown');
+            let firstFrame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                firstFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(firstFrame).not.toBeNull();
+                expect(firstFrame!.getAttribute('src')).toBe('data:image/jpeg;base64,VISIBLE_CROP');
+            });
+            Object.defineProperty(firstFrame!, 'complete', { value: true, configurable: true });
+            Object.defineProperty(firstFrame!, 'naturalWidth', { value: 1200, configurable: true });
+            Object.defineProperty(firstFrame!, 'naturalHeight', { value: 857, configurable: true });
+            await (controller as unknown as { scanImage: (image: HTMLImageElement) => Promise<void> }).scanImage(firstFrame!);
+
+            rect = new DOMRect(24, -260, 420, 700);
+            controller.refresh();
+
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+                const secondFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(secondFrame).not.toBeNull();
+                expect(secondFrame).not.toBe(firstFrame);
+                expect(secondFrame!.getAttribute('src')).toBe('data:image/jpeg;base64,VISIBLE_CROP');
+                expect(secondFrame!.style.top).toBe('0px');
+                expect(secondFrame!.style.height).toBe('300px');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('re-snapshots a BookWalker canvas when the displayed size changes after zoom', async () => {
         stubLocation('viewer.bookwalker.jp');
         stubTaintedCanvas();
@@ -1270,6 +1454,63 @@ describe('reader raster OCR surfaces', () => {
                 expect(secondFrame!.style.width).toBe('761px');
                 expect(secondFrame!.style.height).toBe('1201px');
                 expect(secondFrame!.dataset.ocrContentKey).not.toContain(':auto-region:');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('re-OCRs a stable BookWalker vertical surface when its painted page content changes', async () => {
+        vi.stubGlobal('location', {
+            hostname: 'viewer.bookwalker.jp',
+            href: 'https://viewer.bookwalker.jp/03/30/viewer.html?cid=abc&cty=2',
+            origin: 'https://viewer.bookwalker.jp',
+            protocol: 'https:',
+        });
+        stubTaintedCanvas();
+        vi.stubGlobal('innerWidth', 1000);
+        vi.stubGlobal('innerHeight', 800);
+        pageCounter('12 / 180');
+        const mirror = seedCanvasMirror({
+            m12: { w: 2202, h: 3132, ops: [mirrorImageOp('https://cdn.example.test/page-a.jpg', 1)] },
+        });
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewportW' });
+        viewport.className = 'overScroll';
+        const surface = Object.assign(document.createElement('div'), { id: 'wideScreen12' });
+        surface.className = 'canvasRoot verticalAxis';
+        const canvas = pageCanvas(100, -80, 760, 1200);
+        canvas.setAttribute('data-yomu-mid', 'm12');
+        canvas.toDataURL = TAINTED_CANVAS;
+        surface.append(canvas);
+        viewport.append(surface);
+        document.body.append(viewport);
+
+        let captureLabel = 'PAGE_A';
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas(captureLabel));
+        const controller = createController({}, undefined, captureCanvasMirror);
+
+        try {
+            let firstFrame: HTMLImageElement | null = null;
+            await waitForExpect(() => {
+                firstFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(firstFrame).not.toBeNull();
+                expect(firstFrame!.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE_A');
+            });
+            Object.defineProperty(firstFrame!, 'complete', { value: true, configurable: true });
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+
+            mirror.records.m12 = { w: 2202, h: 3132, ops: [mirrorImageOp('https://cdn.example.test/page-b.jpg', 2)] };
+            captureLabel = 'PAGE_B';
+            controller.refresh();
+
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+                const secondFrame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(secondFrame).not.toBeNull();
+                expect(secondFrame).not.toBe(firstFrame);
+                expect(secondFrame!.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE_B');
+                expect(secondFrame!.style.left).toBe('100px');
+                expect(secondFrame!.style.top).toBe('-80px');
             });
         } finally {
             controller.destroy();

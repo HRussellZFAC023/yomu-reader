@@ -8558,8 +8558,10 @@ ${candidate.depth}`;
     canvasFrameStaticRects = /* @__PURE__ */ new Map();
     canvasFrameRegionFractions = /* @__PURE__ */ new Map();
     canvasFrameKeys = /* @__PURE__ */ new Map();
+    canvasFrameContentTokens = /* @__PURE__ */ new Map();
     canvasPendingStatuses = /* @__PURE__ */ new Map();
     canvasPendingStatusKeys = /* @__PURE__ */ new Map();
+    canvasPendingStatusContentTokens = /* @__PURE__ */ new Map();
     // Canvases whose frame the user explicitly tapped to create. A native-text-layer
     // page (shouldAutoScan=false) strips AUTO frames on the poll, but a frame the user
     // tapped to make must survive that poll — only a real page turn drops it.
@@ -9281,24 +9283,24 @@ ${candidate.depth}`;
     renderOcrLineElement(state2, result, line, tokens, sentence, showText, settings) {
       const element = createOcrLineElement(result, line, tokens, sentence, showText, settings);
       this.rememberOcrWordRenderStates(element, tokens);
-      element.addEventListener("pointerenter", () => this.activateOcrMarkup(element));
-      element.addEventListener("focusin", () => this.activateOcrMarkup(element));
+      element.addEventListener("pointerenter", () => this.activateOcrLineMarkup(state2, element));
+      element.addEventListener("focusin", () => this.activateOcrLineMarkup(state2, element));
       element.addEventListener("pointerdown", (event) => this.activateOcrLineFromPointer(state2, element, event), true);
       element.addEventListener("keydown", (event) => this.toggleOcrLinePinnedFromKeyboard(state2, element, event));
-      element.addEventListener("click", (event) => this.toggleOcrLinePinned(element, event));
+      element.addEventListener("click", (event) => this.toggleOcrLinePinned(state2, element, event));
       return element;
     }
     activateOcrLineFromPointer(state2, element, event) {
       if (event.button !== 0) return;
       if (element.dataset.pinned === "true") {
-        this.activateOcrMarkup(element);
+        this.activateOcrLineMarkup(state2, element);
         return;
       }
       if (shouldPinOcrLineFromPointer(event)) {
         element.focus({ preventScroll: true });
         this.pinLine(state2, element);
       } else {
-        this.activateOcrMarkup(element);
+        this.activateOcrLineMarkup(state2, element);
       }
       this.pointerActivatedOcrLines.set(element, Date.now());
     }
@@ -9312,13 +9314,13 @@ ${candidate.depth}`;
       event.preventDefault();
       event.stopPropagation();
     }
-    toggleOcrLinePinned(element, event) {
+    toggleOcrLinePinned(state2, element, event) {
       if (this.wasRecentlyPointerActivated(element)) {
-        this.activateOcrMarkup(element);
+        this.activateOcrLineMarkup(state2, element);
       } else if (element.dataset.pinned === "true") {
         this.unpinLine(element);
       } else {
-        this.activateOcrMarkup(element);
+        this.activateOcrLineMarkup(state2, element);
       }
       event.preventDefault();
       event.stopPropagation();
@@ -9334,7 +9336,7 @@ ${candidate.depth}`;
       state2.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => {
         if (line !== element) this.unpinLine(line);
       });
-      this.activateOcrMarkup(element);
+      this.activateOcrLineMarkup(state2, element);
       element.classList.add("jpdb-ocr-line-active");
       element.dataset.pinned = "true";
       element.setAttribute("aria-pressed", "true");
@@ -9803,7 +9805,7 @@ ${candidate.depth}`;
       }
       for (const canvas of canvases) {
         if (!this.canvasFrameNeedsResnapshot(canvas)) continue;
-        this.releaseCanvasFrame(canvas);
+        this.releaseCanvasFrameForResnapshot(canvas);
       }
       for (const canvas of canvases) {
         if (this.canvasFrames.has(canvas)) continue;
@@ -9813,6 +9815,7 @@ ${candidate.depth}`;
     }
     async snapshotCanvasSurface(canvas, settings, userRequested = false) {
       const key = canvasSurfaceSnapshotKey(canvas);
+      const startContentToken = canvasStablePageContentToken(canvas);
       if (this.canvasFrames.has(canvas)) {
         if (!userRequested || this.canvasFrameKeys.get(canvas) === key) return;
         this.releaseCanvasFrame(canvas);
@@ -9833,7 +9836,7 @@ ${candidate.depth}`;
         let frameSrc;
         let frameRect = rect;
         let contentKey;
-        const visibleRetryRect = userRequested ? bookwalkerVisibleCanvasRegion(rect) : void 0;
+        const visibleRetryRect = userRequested ? bookwalkerVisibleCanvasRegion(canvas, rect) : void 0;
         const captureRect = visibleRetryRect ?? rect;
         const regionKey = visibleRetryRect ? canvasRegionContentKey(rect, visibleRetryRect) : "";
         if (isCanvasReadable(canvas)) {
@@ -9872,6 +9875,11 @@ ${candidate.depth}`;
         contentKey ??= `surface:${key}`;
         if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
         if (this.pendingCanvasSnapshots.get(canvas) !== pendingSnapshot) return;
+        const finishContentToken = canvasStablePageContentToken(canvas);
+        if (startContentToken && finishContentToken && finishContentToken !== startContentToken) {
+          this.scheduleReaderRasterRefresh(40);
+          return;
+        }
         if (canvasSurfaceSnapshotKey(canvas) !== key) {
           this.scheduleReaderRasterRefresh(40);
           return;
@@ -9893,6 +9901,9 @@ ${candidate.depth}`;
         this.canvasFrameSources.set(frame, canvas);
         this.canvasFrameCaptureRects.set(frame, frameRect);
         this.canvasFrameKeys.set(canvas, key);
+        const capturedContentToken = finishContentToken || startContentToken;
+        if (capturedContentToken) this.canvasFrameContentTokens.set(canvas, capturedContentToken);
+        else this.canvasFrameContentTokens.delete(canvas);
         if (frameRect !== rect) {
           this.canvasFrameStaticRects.set(frame, frameRect);
           this.canvasFrameRegionFractions.set(frame, new DOMRect(
@@ -9948,6 +9959,10 @@ ${candidate.depth}`;
       this.canvasFrameSources.set(frame, canvas);
       this.canvasFrameKeys.delete(previousCanvas);
       this.canvasFrameKeys.set(canvas, key);
+      const contentToken = this.canvasFrameContentTokens.get(previousCanvas) || canvasStablePageContentToken(canvas);
+      this.canvasFrameContentTokens.delete(previousCanvas);
+      if (contentToken) this.canvasFrameContentTokens.set(canvas, contentToken);
+      else this.canvasFrameContentTokens.delete(canvas);
       this.canvasFrameCaptureRects.set(frame, rect);
       this.canvasContentReadiness.delete(canvasContentReadinessKey(previousCanvas));
       this.canvasContentReadiness.set(canvasContentReadinessKey(canvas), canvasPageContentToken(canvas));
@@ -9965,6 +9980,7 @@ ${candidate.depth}`;
         if (canvas === excludeCanvas) continue;
         if (this.canvasFrameKeys.get(canvas) !== key) continue;
         if (frame.complete === false) continue;
+        if (this.canvasContentTokenChanged(excludeCanvas, this.canvasFrameContentTokens.get(canvas))) continue;
         return { canvas, frame };
       }
       return void 0;
@@ -10054,6 +10070,9 @@ ${candidate.depth}`;
       card.classList.add("jpdb-ocr-canvas-status");
       this.configureCanvasPendingStatusRetry(card);
       this.updateReaderRasterRetryLabel(card, status);
+      const contentToken = canvasStablePageContentToken(canvas);
+      if (contentToken) this.canvasPendingStatusContentTokens.set(canvas, contentToken);
+      else this.canvasPendingStatusContentTokens.delete(canvas);
       const labelNode = card.querySelector(".jpdb-ocr-video-frame-status-label");
       if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
       card.hidden = false;
@@ -10072,6 +10091,7 @@ ${candidate.depth}`;
       removeOcrArtifact(card);
       this.canvasPendingStatuses.delete(canvas);
       this.canvasPendingStatusKeys.delete(canvas);
+      this.canvasPendingStatusContentTokens.delete(canvas);
     }
     isTerminalCanvasPendingStatus(card) {
       const status = card.dataset.status;
@@ -10116,6 +10136,7 @@ ${candidate.depth}`;
       this.canvasFrameStaticRects.delete(frame);
       this.canvasFrameRegionFractions.delete(frame);
       this.canvasFrameKeys.delete(canvas);
+      this.canvasFrameContentTokens.delete(canvas);
       this.canvasContentReadiness.delete(canvasContentReadinessKey(canvas));
       this.canvasCaptureAttempts.delete(canvas);
       this.canvasTapRecapture.delete(canvas);
@@ -10139,6 +10160,11 @@ ${candidate.depth}`;
         const key = this.canvasPendingStatusKeys.get(canvas);
         if (key && canvasSurfaceSnapshotKey(canvas) !== key) {
           this.removeCanvasPendingStatus(canvas);
+          continue;
+        }
+        if (this.canvasContentTokenChanged(canvas, this.canvasPendingStatusContentTokens.get(canvas))) {
+          this.removeCanvasPendingStatus(canvas);
+          this.scheduleReaderRasterRefresh(40);
           continue;
         }
         const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
@@ -10166,10 +10192,22 @@ ${candidate.depth}`;
           this.scheduleReaderRasterRefresh(40);
           continue;
         }
+        if (this.canvasContentTokenChanged(canvas, this.canvasFrameContentTokens.get(canvas))) {
+          this.releaseCanvasFrame(canvas);
+          this.scheduleReaderRasterRefresh(40);
+          continue;
+        }
         const staticRect = this.canvasFrameStaticRects.get(frame);
         if (staticRect) {
-          const currentRegionRect = this.canvasFrameRegionRect(frame, rect) ?? staticRect;
-          positionCanvasFrameImage(frame, currentRegionRect);
+          const currentRegionRect = this.canvasFrameRegionRect(frame, rect);
+          if (this.canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, rect)) {
+            if (this.shouldRecaptureReaderRasterFrameForSizeChange(frame)) {
+              this.releaseCanvasFrameForResnapshot(canvas);
+              this.scheduleReaderRasterRefresh(40);
+              continue;
+            }
+          }
+          positionCanvasFrameImage(frame, currentRegionRect ?? staticRect);
           continue;
         }
         if (this.canvasFrameSizeChanged(frame, rect)) {
@@ -10177,20 +10215,30 @@ ${candidate.depth}`;
             positionCanvasFrameImage(frame, rect);
             continue;
           }
-          this.releaseCanvasFrame(canvas);
+          this.releaseCanvasFrameForResnapshot(canvas);
           this.scheduleReaderRasterRefresh(40);
           continue;
         }
         positionCanvasFrameImage(frame, rect);
       }
     }
+    releaseCanvasFrameForResnapshot(canvas) {
+      const preserveUserRequested = this.canvasFrameUserRequested.has(canvas);
+      this.releaseCanvasFrame(canvas);
+      if (preserveUserRequested) this.canvasTapRecapture.set(canvas, READER_RASTER_MAX_CAPTURE_ATTEMPTS);
+    }
     canvasFrameNeedsResnapshot(canvas) {
       const frame = this.canvasFrames.get(canvas);
       if (!frame || frame.complete === false) return false;
       const key = this.canvasFrameKeys.get(canvas);
       if (key && key !== canvasSurfaceSnapshotKey(canvas)) return true;
+      if (this.canvasContentTokenChanged(canvas, this.canvasFrameContentTokens.get(canvas))) return true;
       const staticRect = this.canvasFrameStaticRects.get(frame);
-      if (staticRect) return false;
+      if (staticRect) {
+        const canvasRect = canvas.getBoundingClientRect();
+        const currentRegionRect = this.canvasFrameRegionRect(frame, canvasRect);
+        return Boolean(this.canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, canvasRect) && this.shouldRecaptureReaderRasterFrameForSizeChange(frame));
+      }
       const rect = canvas.getBoundingClientRect();
       return this.canvasFrameSizeChanged(frame, rect) && this.shouldRecaptureReaderRasterFrameForSizeChange(frame);
     }
@@ -10201,8 +10249,25 @@ ${candidate.depth}`;
     }
     canvasFrameSizeChanged(frame, rect) {
       const captured = this.canvasFrameCaptureRects.get(frame);
-      if (!captured) return false;
-      return Math.abs(captured.width - rect.width) > READER_RASTER_FRAME_SIZE_CHANGE_PX || Math.abs(captured.height - rect.height) > READER_RASTER_FRAME_SIZE_CHANGE_PX;
+      return Boolean(captured && this.canvasFrameRectSizeChanged(captured, rect));
+    }
+    canvasFrameRectSizeChanged(captured, current) {
+      return Math.abs(captured.width - current.width) > READER_RASTER_FRAME_SIZE_CHANGE_PX || Math.abs(captured.height - current.height) > READER_RASTER_FRAME_SIZE_CHANGE_PX;
+    }
+    canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, canvasRect) {
+      return Boolean(currentRegionRect && (this.canvasFrameRectSizeChanged(staticRect, currentRegionRect) || this.canvasFrameSourceSizeChanged(frame, staticRect, canvasRect)));
+    }
+    canvasFrameSourceSizeChanged(frame, staticRect, canvasRect) {
+      const fractions = this.canvasFrameRegionFractions.get(frame);
+      if (!fractions?.width || !fractions.height) return false;
+      const sourceWidth = staticRect.width / fractions.width;
+      const sourceHeight = staticRect.height / fractions.height;
+      return Math.abs(sourceWidth - canvasRect.width) > READER_RASTER_FRAME_SIZE_CHANGE_PX || Math.abs(sourceHeight - canvasRect.height) > READER_RASTER_FRAME_SIZE_CHANGE_PX;
+    }
+    canvasContentTokenChanged(canvas, previous) {
+      if (!previous) return false;
+      const current = canvasStablePageContentToken(canvas);
+      return Boolean(current && current !== previous);
     }
     canvasFrameRegionRect(frame, canvasRect) {
       const fractions = this.canvasFrameRegionFractions.get(frame);
@@ -10375,7 +10440,7 @@ ${candidate.depth}`;
       return surface?.getBoundingClientRect();
     }
     renderedOcrImageFrameForState(image, rect, result) {
-      const frame = renderedOcrImageFrame(image, rect, result);
+      const frame = this.canvasFrameSources.has(image) ? renderedCanvasReaderFrame(rect) : renderedOcrImageFrame(image, rect, result);
       let reserve = 0;
       if (image.dataset.yomuVideoFrame === "true" && isYouTubePageForOcr()) {
         reserve = Math.max(reserve, YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX);
@@ -10492,7 +10557,12 @@ ${candidate.depth}`;
         });
       });
     }
+    activateOcrLineMarkup(state2, line) {
+      if (this.activateOcrMarkup(line)) this.positionState(state2.image);
+    }
     activateOcrMarkup(line) {
+      const previousHasFurigana = line.dataset.hasFuri;
+      const wasActivated = line.dataset.ocrMarkupActivated === "true";
       let hasFurigana = false;
       const settings = this.options.getSettings();
       line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
@@ -10509,6 +10579,8 @@ ${candidate.depth}`;
         hasFurigana = true;
       });
       line.dataset.hasFuri = String(hasFurigana);
+      line.dataset.ocrMarkupActivated = "true";
+      return !wasActivated || previousHasFurigana !== line.dataset.hasFuri;
     }
     applyOcrPitchClass(word, token) {
       this.clearOcrPitchClass(word);
@@ -10851,6 +10923,14 @@ ${spelling}`);
   }
   function renderedPausedVideoFrame(image, rect) {
     if (image.dataset.yomuVideoFrame !== "true") return null;
+    return {
+      imageLeft: 0,
+      imageTop: 0,
+      imageWidth: Math.max(1, rect.width),
+      imageHeight: Math.max(1, rect.height)
+    };
+  }
+  function renderedCanvasReaderFrame(rect) {
     return {
       imageLeft: 0,
       imageTop: 0,
@@ -11648,15 +11728,14 @@ ${spelling}`);
     const bottom = Math.min(viewportHeight, rect.bottom);
     return Math.max(0, right - left) * Math.max(0, bottom - top);
   }
-  function bookwalkerVisibleCanvasRegion(rect) {
+  function bookwalkerVisibleCanvasRegion(canvas, rect) {
     if (!isBookwalkerViewerHost()) return void 0;
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    if (!viewportWidth || !viewportHeight || !rect.width || !rect.height) return void 0;
-    const left = Math.max(0, rect.left);
-    const top = Math.max(0, rect.top);
-    const right = Math.min(viewportWidth, rect.right);
-    const bottom = Math.min(viewportHeight, rect.bottom);
+    const clip = elementVisibleViewportClip(canvas);
+    if (!clip || !rect.width || !rect.height) return void 0;
+    const left = Math.max(clip.left, rect.left);
+    const top = Math.max(clip.top, rect.top);
+    const right = Math.min(clip.right, rect.right);
+    const bottom = Math.min(clip.bottom, rect.bottom);
     const width = right - left;
     const height = bottom - top;
     if (width < READER_RASTER_REGION_MIN_SIZE_PX || height < READER_RASTER_REGION_MIN_SIZE_PX) return void 0;
@@ -11664,6 +11743,37 @@ ${spelling}`);
     const fullArea = rect.width * rect.height;
     if (area >= fullArea * READER_RASTER_REGION_FULL_PAGE_FRACTION) return void 0;
     return new DOMRect(left, top, width, height);
+  }
+  function elementVisibleViewportClip(element) {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!viewportWidth || !viewportHeight) return void 0;
+    let left = 0;
+    let top = 0;
+    let right = viewportWidth;
+    let bottom = viewportHeight;
+    for (let ancestor = element.parentElement; ancestor && ancestor !== document.documentElement; ancestor = ancestor.parentElement) {
+      const style = getComputedStyle(ancestor);
+      const clipsX = cssOverflowClips(style.overflowX) || cssOverflowClips(style.overflow);
+      const clipsY = cssOverflowClips(style.overflowY) || cssOverflowClips(style.overflow);
+      if (!clipsX && !clipsY) continue;
+      const rect = ancestor.getBoundingClientRect();
+      if (!rect.width || !rect.height) continue;
+      if (clipsX) {
+        left = Math.max(left, rect.left);
+        right = Math.min(right, rect.right);
+      }
+      if (clipsY) {
+        top = Math.max(top, rect.top);
+        bottom = Math.min(bottom, rect.bottom);
+      }
+    }
+    const width = right - left;
+    const height = bottom - top;
+    return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : void 0;
+  }
+  function cssOverflowClips(value) {
+    return value === "hidden" || value === "clip" || value === "auto" || value === "scroll";
   }
   function canvasRegionContentKey(surfaceRect, regionRect) {
     const parts = [
@@ -12002,6 +12112,14 @@ ${spelling}`);
       canvas.height,
       canvasPageContentToken(canvas)
     ].join("|");
+  }
+  function canvasStablePageContentToken(canvas) {
+    if (!isBookwalkerViewerHost() || !canvasReaderHasStableSurface(canvas)) return "";
+    const token = canvasPageContentToken(canvas);
+    if (!token) return "";
+    if (token.startsWith("s:")) return "";
+    if (/^[0-9]+$/u.test(token)) return "";
+    return token;
   }
   function canvasContentReadinessKey(canvas) {
     const surfaceId = canvasReaderSurfaceId(canvas);
