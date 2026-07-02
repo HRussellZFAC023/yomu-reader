@@ -540,6 +540,10 @@ export class AudioPlayer {
         if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, context);
 
         const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
+        if (!candidates.length) {
+            context.errors.push(`${source.type}: ${uiText(settings.interfaceLanguage, 'audioSourceReturnedNoAudio')}`);
+            return false;
+        }
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         const bagKey = getAudioBagKey(source, card);
         return await this.playFromAudioCandidates(candidates, source.type, context, bagKey);

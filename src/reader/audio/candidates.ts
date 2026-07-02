@@ -96,9 +96,14 @@ export function shouldForceBlobAudioPlayback(sourceType: AudioSourceType): boole
     return sourceType === 'jpod101';
 }
 
+// JapanesePod101 URLs must go through the blob path whatever source produced
+// them (the hosted Yomu source hands them out too): only the blob fetch can
+// recognise and reject the endpoint's fixed "not available" placeholder clip.
 export function shouldForceBlobAudioCandidate(candidate: AudioCandidate): boolean {
     return isKnownCorsBlockedPublicAudioCdnUrl(candidate.url)
-        || isKnownCorsBlockedPublicAudioCdnUrl(candidate.sourceUrl);
+        || isKnownCorsBlockedPublicAudioCdnUrl(candidate.sourceUrl)
+        || isJapanesePod101Url(candidate.url)
+        || isJapanesePod101Url(candidate.sourceUrl);
 }
 
 export function shouldFetchDirectMediaAsBlob(url: string): boolean {

@@ -2,6 +2,7 @@ const READ_METHODS = new Set(["GET", "HEAD"]);
 const DEFAULT_EMPTY_AUDIO_RESPONSE: AudioSourceListResponse = { type: "audioSourceList", audioSources: [] };
 const DEFAULT_AUDIO_MANIFEST_KEY = "index/audio-index.json";
 const MANIFEST_CACHE_TTL_MS = 60_000;
+const JAPANESE_POD_101_AUDIO_URL = "https://assets.languagepod101.com/dictionary/japanese/audiomp3.php";
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -120,7 +121,7 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
   }
 
   const upstream = upstreamAudioUrl(env, term, reading);
-  if (!upstream) return jsonResponse(request, DEFAULT_EMPTY_AUDIO_RESPONSE, 200, { "x-yomu-audio-error": "unconfigured" });
+  if (!upstream) return japanesePod101Fallback(request, env, ctx, term, reading);
 
   const cached = await cacheMatch(request, upstream);
   if (cached) return withCors(request, cached);
@@ -242,6 +243,33 @@ async function r2ObjectText(object: R2ObjectBody): Promise<string> {
   return object.body ? await new Response(object.body).text() : "";
 }
 
+// The R2 manifest only covers the words that have been exported so far; without
+// this fallback every other word returns an empty list and Yomu clients whose
+// only enabled source is the hosted one go silent ("No playable audio found").
+// JapanesePod101's public dictionary endpoint carries the same jpod recordings,
+// so hand its URL to the client. The clip cannot be probed here — its
+// CloudFront origin rejects Cloudflare Worker egress with 403 — but the Yomu
+// client already recognises and rejects the endpoint's fixed "not available"
+// placeholder clip by size and hash before playing anything.
+function japanesePod101Fallback(request: Request, env: Env, ctx: ExecutionContext, term: string, reading: string): Response {
+  const fallbackUrl = japanesePod101Url(term, reading);
+  if (!fallbackUrl) return jsonResponse(request, DEFAULT_EMPTY_AUDIO_RESPONSE, 200, { "x-yomu-audio-error": "unconfigured" });
+  recordAudioAnalytics(ctx, env, request, 200, "jpod101-fallback");
+  return jsonResponse(request, {
+    type: "audioSourceList",
+    audioSources: [{ name: "jpod", url: fallbackUrl }],
+  }, 200, { "cache-control": "public, max-age=3600", "x-yomu-audio-source": "jpod101-fallback" });
+}
+
+function japanesePod101Url(term: string, reading: string): string | null {
+  const kana = reading || term;
+  if (!kana) return null;
+  const url = new URL(JAPANESE_POD_101_AUDIO_URL);
+  if (term && term !== kana) url.searchParams.set("kanji", term);
+  url.searchParams.set("kana", kana);
+  return url.href;
+}
+
 function upstreamAudioUrl(env: Env, term: string, reading: string): string | null {
   const raw = env.AUDIO_UPSTREAM_URL?.trim();
   if (!raw) return null;
@@ -292,7 +320,7 @@ function cacheKey(upstream: string): Request {
   return new Request(upstream, { method: "GET" });
 }
 
-function recordAudioAnalytics(ctx: ExecutionContext, env: Env, request: Request, status: number, source: "r2-manifest" | "upstream"): void {
+function recordAudioAnalytics(ctx: ExecutionContext, env: Env, request: Request, status: number, source: "r2-manifest" | "upstream" | "jpod101-fallback"): void {
   if (!truthyEnv(env.AUDIO_ANALYTICS_LOGS)) return;
   ctx.waitUntil(Promise.resolve().then(() => {
     console.log(JSON.stringify({

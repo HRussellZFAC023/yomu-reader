@@ -17971,7 +17971,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return sourceType === "jpod101";
   }
   function shouldForceBlobAudioCandidate(candidate) {
-    return isKnownCorsBlockedPublicAudioCdnUrl(candidate.url) || isKnownCorsBlockedPublicAudioCdnUrl(candidate.sourceUrl);
+    return isKnownCorsBlockedPublicAudioCdnUrl(candidate.url) || isKnownCorsBlockedPublicAudioCdnUrl(candidate.sourceUrl) || isJapanesePod101Url(candidate.url) || isJapanesePod101Url(candidate.sourceUrl);
   }
   function shouldFetchDirectMediaAsBlob(url) {
     return /^https?:\/\//i.test(url) && !isLoopbackAudioUrl(url);
@@ -19164,6 +19164,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const { source } = sourceEntry;
       if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, context);
       const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
+      if (!candidates.length) {
+        context.errors.push(`${source.type}: ${uiText(settings.interfaceLanguage, "audioSourceReturnedNoAudio")}`);
+        return false;
+      }
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       const bagKey = getAudioBagKey(source, card);
       return await this.playFromAudioCandidates(candidates, source.type, context, bagKey);
@@ -29209,7 +29213,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.5.17".trim() ? "1.5.17".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.5.18".trim() ? "1.5.18".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

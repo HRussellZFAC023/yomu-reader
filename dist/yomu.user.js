@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.5.17
+// @version 1.5.18
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.17
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.17
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.17
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.17
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.18
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.18
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.18
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.18
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -10804,7 +10804,7 @@ function shouldForceBlobAudioPlayback(sourceType) {
   return sourceType === "jpod101";
 }
 function shouldForceBlobAudioCandidate(candidate) {
-  return isKnownCorsBlockedPublicAudioCdnUrl(candidate.url) || isKnownCorsBlockedPublicAudioCdnUrl(candidate.sourceUrl);
+  return isKnownCorsBlockedPublicAudioCdnUrl(candidate.url) || isKnownCorsBlockedPublicAudioCdnUrl(candidate.sourceUrl) || isJapanesePod101Url(candidate.url) || isJapanesePod101Url(candidate.sourceUrl);
 }
 function shouldFetchDirectMediaAsBlob(url) {
   return /^https?:\/\//i.test(url) && !isLoopbackAudioUrl(url);
@@ -11993,6 +11993,10 @@ class AudioPlayer {
   const { source } = sourceEntry;
   if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, context);
   const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
+  if (!candidates.length) {
+    context.errors.push(`${source.type}: ${uiText(settings.interfaceLanguage, "audioSourceReturnedNoAudio")}`);
+    return false;
+  }
   if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
   const bagKey = getAudioBagKey(source, card);
   return await this.playFromAudioCandidates(candidates, source.type, context, bagKey);
@@ -38041,7 +38045,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.17"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.18"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

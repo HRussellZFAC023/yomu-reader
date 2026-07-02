@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.18] - 2026-07-02
+
+### Fixed
+
+- Restored word audio when the Yomu-hosted ("Ultimate") source is the only enabled audio source. The 1.5 default flip to hosted-only audio shipped while the hosted bucket held just 11 seeded words, so nearly every popover play ended in `No playable audio found` with an empty error list (the settings demo kept working because its preview word, 読む, was one of the 11). The hosted audio Worker now falls back to the matching JapanesePod101 clip URL for any word missing from the R2 manifest — the Worker cannot vet the clip itself because JapanesePod101's CDN rejects Cloudflare Worker requests, so the client filters that endpoint's fixed "not available" placeholder clip instead, now on every source type by forcing JapanesePod101 URLs through the blob playback path.
+- Audio sources that produce zero candidates now record a per-source diagnostic, so `No playable audio found` reports which sources came up empty instead of an empty `errors` list.
+
 ## [1.5.17] - 2026-07-02
 
 ### Fixed

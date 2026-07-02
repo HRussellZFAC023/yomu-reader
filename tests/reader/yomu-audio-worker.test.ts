@@ -16,9 +16,15 @@ describe("Yomu audio Worker", () => {
     vi.unstubAllGlobals();
   });
 
-  it("returns an empty Yomitan-compatible list when no upstream is configured", async () => {
+  it("falls back to a JapanesePod101 URL when no manifest entry or upstream is configured", async () => {
+    // The worker must NOT probe the clip itself: JapanesePod101's CloudFront
+    // origin rejects Cloudflare Worker egress, so the URL is handed to the
+    // client, which filters the "not available" placeholder clip on playback.
+    const jpodFetch = vi.fn();
+    vi.stubGlobal("fetch", jpodFetch);
+
     const response = await AudioWorker.fetch(
-      new Request("https://audio.yomureader.com/?term=%E7%8C%AB&reading=%E3%81%AD%E3%81%93", {
+      new Request("https://audio.yomureader.com/?term=%E4%BF%9D%E6%9C%89&reading=%E3%81%BB%E3%82%86%E3%81%86", {
         headers: { origin: "https://yomureader.com" },
       }),
       {},
@@ -27,8 +33,31 @@ describe("Yomu audio Worker", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("access-control-allow-origin")).toBe("https://yomureader.com");
-    expect(await response.json()).toEqual({ type: "audioSourceList", audioSources: [] });
-    expect(response.headers.get("x-yomu-audio-error")).toBe("unconfigured");
+    expect(await response.json()).toEqual({
+      type: "audioSourceList",
+      audioSources: [{
+        name: "jpod",
+        url: "https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=%E4%BF%9D%E6%9C%89&kana=%E3%81%BB%E3%82%86%E3%81%86",
+      }],
+    });
+    expect(response.headers.get("x-yomu-audio-source")).toBe("jpod101-fallback");
+    expect(jpodFetch).not.toHaveBeenCalled();
+  });
+
+  it("omits the kanji parameter for kana-only fallback lookups", async () => {
+    const response = await AudioWorker.fetch(
+      new Request("https://audio.yomureader.com/?term=%E3%81%AD%E3%81%93&reading=%E3%81%AD%E3%81%93"),
+      {},
+      { waitUntil: vi.fn() },
+    );
+
+    expect(await response.json()).toEqual({
+      type: "audioSourceList",
+      audioSources: [{
+        name: "jpod",
+        url: "https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kana=%E3%81%AD%E3%81%93",
+      }],
+    });
   });
 
   it("proxies configured upstream audio JSON and caches the response", async () => {
