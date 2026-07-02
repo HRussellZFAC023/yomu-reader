@@ -29209,7 +29209,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.5.16".trim() ? "1.5.16".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.5.17".trim() ? "1.5.17".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -40167,6 +40167,7 @@ ${spelling}`);
   const READER_RASTER_REGION_FULL_PAGE_FRACTION = 0.88;
   const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
   const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8e3;
+  const MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS = 48;
   const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
@@ -40557,7 +40558,14 @@ ${spelling}`);
     handleOcrViewportShift(refreshDelay) {
       if (!this.options.getSettings().ocrEnabled) return;
       this.schedulePosition();
+      if (this.hasReaderRasterSurfaces()) {
+        this.scheduleReaderRasterRefresh(refreshDelay);
+        return;
+      }
       this.scheduleRefresh(refreshDelay);
+    }
+    hasReaderRasterSurfaces() {
+      return this.canvasFrames.size > 0 || this.canvasPendingStatuses.size > 0 || this.backgroundFrames.size > 0 || collectCanvasReaderSurfaces().length > 0 || collectBackgroundImageReaderSurfaces().length > 0;
     }
     hasVisibleInlineOcrFallback(settings) {
       if (!this.canScanInlineImages(false)) return false;
@@ -42268,7 +42276,7 @@ ${spelling}`);
       const furiGutter = vertical && hasFurigana ? Math.round(fontSize * 0.55) : 0;
       const underlineGutter = vertical ? underlineBleed : 0;
       const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + underlineGutter * 2));
-      const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
+      const frameHeight = vertical ? Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize)) : Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
       const minLeft = frame.imageLeft;
       const minTop = frame.imageTop;
       const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth - furiGutter);
@@ -44203,14 +44211,41 @@ ${spelling}`);
       image.src = url;
     });
   }
+  const cleanMirrorImageCache = /* @__PURE__ */ new Map();
   async function loadCleanMirrorImage(url) {
     if (!url || url.startsWith("data:") || url.startsWith("blob:")) return void 0;
+    const cacheKey = canonicalBookwalkerAssetUrl(url);
+    const cached = cleanMirrorImageCache.get(cacheKey);
+    if (cached) return cached;
+    const pending = fetchCleanMirrorImage(url).then((image) => {
+      if (!image) {
+        cleanMirrorImageCache.delete(cacheKey);
+        return void 0;
+      }
+      cleanMirrorImageCache.set(cacheKey, image);
+      trimCleanMirrorImageCache();
+      return image;
+    }).catch((error) => {
+      cleanMirrorImageCache.delete(cacheKey);
+      throw error;
+    });
+    cleanMirrorImageCache.set(cacheKey, pending);
+    return pending;
+  }
+  async function fetchCleanMirrorImage(url) {
     const blob = await requestBlob$1(url, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
     const objectUrl = URL.createObjectURL(blob);
     try {
       return await loadImage(objectUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
     } finally {
       URL.revokeObjectURL(objectUrl);
+    }
+  }
+  function trimCleanMirrorImageCache() {
+    while (cleanMirrorImageCache.size > MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS) {
+      const oldest = cleanMirrorImageCache.keys().next().value;
+      if (!oldest) return;
+      cleanMirrorImageCache.delete(oldest);
     }
   }
   function canvasToBlob(canvas, type, quality) {

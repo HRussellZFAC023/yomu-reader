@@ -538,7 +538,7 @@ function operationContentFingerprint(id: string, record: MirrorRecord): string {
     ].join('|');
 }
 
-function canonicalBookwalkerAssetUrl(rawUrl: string): string {
+export function canonicalBookwalkerAssetUrl(rawUrl: string): string {
     if (!rawUrl) return '';
     try {
         const url = new URL(rawUrl, location.href);

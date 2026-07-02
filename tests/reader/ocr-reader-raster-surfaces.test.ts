@@ -1139,6 +1139,13 @@ describe('reader raster OCR surfaces', () => {
             ],
         } satisfies OcrResult));
         (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+        const originalElementRect = HTMLElement.prototype.getBoundingClientRect;
+        const elementRectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+            if (this instanceof HTMLElement && this.classList.contains('jpdb-ocr-line-text')) {
+                return new DOMRect(0, 0, 48, 190);
+            }
+            return originalElementRect.call(this);
+        });
 
         try {
             dispatchCanvasPointer(canvas, 'pointerdown');
@@ -1164,6 +1171,7 @@ describe('reader raster OCR surfaces', () => {
                 expect(Math.round(Number.parseFloat(line!.style.top))).toBe(60);
             });
         } finally {
+            elementRectSpy.mockRestore();
             controller.destroy();
         }
     });
@@ -1455,6 +1463,56 @@ describe('reader raster OCR surfaces', () => {
                 expect(secondFrame!.style.height).toBe('1201px');
                 expect(secondFrame!.dataset.ocrContentKey).not.toContain(':auto-region:');
             });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('does not scan incidental page images while repositioning BookWalker reader OCR on scroll', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubTaintedCanvas();
+        vi.stubGlobal('innerWidth', 1000);
+        vi.stubGlobal('innerHeight', 800);
+        pageCounter('3 / 180');
+        const canvas = pageCanvas(100, -180, 760, 1200);
+        canvas.toDataURL = TAINTED_CANVAS;
+        const viewport = Object.assign(document.createElement('div'), { id: 'viewport0' });
+        viewport.classList.add('currentScreen');
+        viewport.append(canvas);
+
+        let imageComplete = false;
+        const incidental = document.createElement('img');
+        incidental.src = 'https://viewer.bookwalker.jp/banner.jpg';
+        incidental.getBoundingClientRect = () => new DOMRect(12, 12, 320, 240);
+        Object.defineProperty(incidental, 'complete', { get: () => imageComplete, configurable: true });
+        Object.defineProperty(incidental, 'naturalWidth', { get: () => 640, configurable: true });
+        Object.defineProperty(incidental, 'naturalHeight', { get: () => 480, configurable: true });
+
+        document.body.append(viewport, incidental);
+
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('SCROLL_ONLY'));
+        const controller = createController({}, undefined, captureCanvasMirror);
+        const recognizeImage = vi.fn(async () => ({
+            width: 640,
+            height: 480,
+            lines: [
+                { text: '余計な画像', box: { left: 120, top: 120, width: 180, height: 80 }, vertical: false },
+            ],
+        } satisfies OcrResult));
+        (controller as unknown as { recognizeImage: typeof recognizeImage }).recognizeImage = recognizeImage;
+
+        try {
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
+            });
+            const callsBeforeScroll = recognizeImage.mock.calls.length;
+
+            imageComplete = true;
+            document.dispatchEvent(new Event('scroll'));
+            await new Promise(resolve => setTimeout(resolve, 420));
+
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+            expect(recognizeImage).toHaveBeenCalledTimes(callsBeforeScroll);
         } finally {
             controller.destroy();
         }

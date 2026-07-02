@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.17] - 2026-07-02
+
+### Fixed
+
+- Keeps vertical BookWalker OCR hover targets anchored to the OCR box instead of expanding their Y position from rendered ruby/pitch markup, fixing the case where X alignment was correct but the active text strip appeared too high or low.
+- Repositions existing BookWalker reader OCR on scroll without kicking the broad page-image scanner, reducing repeated scanning and layout churn while moving through a page.
+- Caches BookWalker clean mirror source bitmaps by canonical asset URL so retrying or repositioning a page can reuse the already-fetched image instead of re-requesting expired signed URLs and falling into intermittent `Could not read text` failures.
+
 ## [1.5.16] - 2026-07-01
 
 ### Fixed
