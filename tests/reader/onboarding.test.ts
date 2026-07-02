@@ -109,7 +109,7 @@ describe('OnboardingController', () => {
 
         const offlineDownload = document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]');
         expect(offlineDownload?.checked).toBe(true);
-        expect(document.body.textContent).toContain('Download offline dictionaries for local parsing');
+        expect(document.body.textContent).toContain('Download offline dictionaries (Jitendex + pitch accents)');
 
         document.querySelector<HTMLButtonElement>('[data-onboarding-action="api-key"]')?.click();
         await settleAsyncHandlers();

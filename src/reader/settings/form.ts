@@ -917,11 +917,10 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                 <legend>Sources</legend>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">Checking imported dictionaries...</div>
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">Parsing</div>
-                    <div class="jpdb-reader-help" data-help-key="parserProviderHelp">Local parses with imported dictionaries and works offline. Automatic prefers the Jiten/JPDB APIs when keys are set.</div>
+                    <div class="jpdb-reader-help" data-help-key="parserProviderHelp">Local parses with imported dictionaries, offline. Automatic prefers Jiten/JPDB when keys are set.</div>
                     ${select('parserProvider', 'Parsing source', settings.parserProvider, [
                         ['local', 'Local dictionaries (offline)'],
-                        ['auto', 'Jiten/JPDB APIs when available'],
+                        ['auto', 'Jiten/JPDB APIs'],
                     ])}
                 </div>
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
@@ -1142,7 +1141,6 @@ const LOCAL_TITLE_TEXT_KEYS = [
     [/Study|学習|New tab|新規タブ/, 'newTab'],
     [/Dictionary site enhancements|辞書サイト拡張|JPDB page enhancements|JPDBページ拡張/, 'jpdbPageEnhancements'],
     [/Lookup pills|検索ピル/, 'lookupPills'],
-    [/^Parsing$|^解析$/, 'parsing'],
 ] as const satisfies readonly (readonly [RegExp, SettingsTextKey])[];
 const SELECTOR_TEXT_KEYS = [
     ['[data-popup-lookup-title]', 'popupLookup'],

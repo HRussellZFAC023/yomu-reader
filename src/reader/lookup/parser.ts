@@ -98,11 +98,9 @@ export class ReaderParser {
     }
 
     private async parseWithPreferredSource(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): Promise<JPDBToken[][]> {
-        // Local-first parsing: with term dictionaries installed the parse
-        // never touches Jiten/JPDB, including requireApi/requireJpdb flows —
-        // those flags describe remote error handling, not a data dependency.
-        // Without term dictionaries the API-first order below still applies.
-        if (settings.parserProvider === 'local' && await this.hasConfirmedLocalTermDictionaries()) {
+        // Local-first never touches Jiten/JPDB, even for requireApi/requireJpdb
+        // flows ("propagate remote errors", not a data dependency).
+        if (settings.parserProvider === 'local' && await this.hasLocalTermDictionaries(true)) {
             return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
         }
         if (shouldPreferJitenParser(settings, options, this.dependencies.jiten)) {
@@ -336,18 +334,12 @@ export class ReaderParser {
         });
     }
 
-    // Optimistic: a store that cannot report availability still gets a chance
-    // in the fallback path, which tolerates empty or failing local lookups.
-    private async hasLocalTermDictionaries(): Promise<boolean> {
+    // A store that cannot report availability still gets a chance in the
+    // fallback path (it tolerates empty lookups), but local-first replaces
+    // remote parsing outright, so `confirmed` demands a positive report.
+    private async hasLocalTermDictionaries(confirmed = false): Promise<boolean> {
         if (!this.canUseLocalDictionaryFallback()) return false;
-        return await this.reportedTermDictionaryAvailability() ?? true;
-    }
-
-    // Strict: local-first replaces remote parsing entirely, so it only engages
-    // when the store affirmatively reports imported term dictionaries.
-    private async hasConfirmedLocalTermDictionaries(): Promise<boolean> {
-        if (!this.canUseLocalDictionaryFallback()) return false;
-        return await this.reportedTermDictionaryAvailability() === true;
+        return await this.reportedTermDictionaryAvailability() ?? !confirmed;
     }
 
     private reportedTermDictionaryAvailability(): Promise<boolean | undefined> {

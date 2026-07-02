@@ -1316,6 +1316,7 @@
       onboardingAccentColor: "Accent color",
       customAccentColor: "Custom color",
       onboardingImmersionOptions: "Immersion defaults",
+      onboardingInstallOfflineDictionaries: "Download offline dictionaries (Jitendex + pitch accents)",
       onboardingHoverShortcut: "Lookup hover modifier",
       manualPageScanShortcut: "Manual page scan shortcut",
       onboardingAddApiKey: "Add API key",
@@ -1869,6 +1870,12 @@
       dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pitch, and frequency dictionaries add definitions, accents, and badges.",
       lookupPills: "Lookup pills",
       lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
+      parserProvider: "Parsing source",
+      parserProviderLocal: "Local dictionaries (offline)",
+      parserProviderAuto: "Jiten/JPDB APIs",
+      parserProviderHelp: "Local parses with imported dictionaries, offline. Automatic prefers Jiten/JPDB when keys are set.",
+      offlineDictionarySetupComplete: "Offline dictionaries installed.",
+      offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -2536,6 +2543,9 @@ onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
+onboardingInstallOfflineDictionaries	オフライン辞書をダウンロード（Jitendex＋ピッチアクセント）
+offlineDictionarySetupComplete	オフライン辞書をインストールしました。
+offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。
 onboardingHoverShortcut	ホバー検索の修飾キー
 onboardingAddApiKey	APIキーを追加
 onboardingAddLocalDictionaries	ローカル辞書を追加
@@ -3548,6 +3558,10 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/ピッチ/頻度辞書で定義、アクセント、バッジを追加します。
 lookupPills	検索ピル
+parserProvider	解析ソース
+parserProviderLocal	ローカル辞書（オフライン）
+parserProviderAuto	Jiten/JPDB API
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。自動はキー設定時にJiten/JPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
@@ -6788,6 +6802,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ocrBackgroundOpacity: DEFAULT_OCR_BACKGROUND_OPACITY,
     ocrFontScale: 1,
     localDictionariesEnabled: true,
+    parserProvider: "local",
     localDictionaryMaxResults: 12,
     localDictionaryShowKanji: true,
     kanjiDictionariesAlias: "",
@@ -6939,8 +6954,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ...normalizeRemovedDictionarySettings(settingsValue),
       dictionaryPreferences: normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences),
       dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
+      parserProvider: normalizeParserProvider(settingsValue),
       shortcuts: normalizeShortcutSettings(settingsValue)
     };
+  }
+  function normalizeParserProvider(value) {
+    if (value?.parserProvider === "local" || value?.parserProvider === "auto") return value.parserProvider;
+    return value ? "auto" : DEFAULT_SETTINGS.parserProvider;
   }
   function normalizeReaderSettings(value) {
     return mergeSettings(value);
@@ -29214,7 +29234,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.5.22".trim() ? "1.5.22".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.0".trim() ? "1.6.0".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -30700,9 +30720,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function readLocalDictionaryFormSettings(reader, current, kanjiPreferences) {
-    const { has, clamped } = reader;
+    const { get, has, clamped } = reader;
     return {
       localDictionariesEnabled: true,
+      parserProvider: readOption(get("parserProvider"), ["local", "auto"], current.parserProvider),
       localDictionaryShowKanji: has("kanjiDictionaries.enabled") || kanjiPreferences.some((preference) => preference.enabled),
       kanjiDictionariesAlias: readSourceAlias(reader, "kanjiDictionaries", current.kanjiDictionariesAlias),
       kanjiDictionariesPriority: clamped("kanjiDictionaries.priority", 0, 999, current.kanjiDictionariesPriority),
@@ -32967,6 +32988,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>Sources</legend>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">Checking imported dictionaries...</div>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-help" data-help-key="parserProviderHelp">Local parses with imported dictionaries, offline. Automatic prefers Jiten/JPDB when keys are set.</div>
+                    ${select("parserProvider", "Parsing source", settings.parserProvider, [
+      ["local", "Local dictionaries (offline)"],
+      ["auto", "Jiten/JPDB APIs"]
+    ])}
+                </div>
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
@@ -33347,6 +33375,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     ]);
     setSelectOptionLabels(form, "readerFontFamily", fontFamilyOptions(text2));
     setSelectOptionLabels(form, "popupFontFamily", fontFamilyOptions(text2));
+    setSelectOptionLabels(form, "parserProvider", [
+      ["local", text2("parserProviderLocal")],
+      ["auto", text2("parserProviderAuto")]
+    ]);
     setSelectOptionLabels(form, "newTabSource", [
       ["auto", text2("newTabAuto")],
       ["jpdb", text2("newTabApiSrs")],
@@ -33860,6 +33892,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "wordColorDue",
     "wordColorFailed",
     "wordColorIgnored",
+    "parserProvider",
     "pitchColorHeiban",
     "pitchColorAtamadaka",
     "pitchColorNakadaka",
@@ -39617,6 +39650,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     }
     async parseWithPreferredSource(paragraphs, options, settings) {
+      if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
+        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+      }
       if (shouldPreferJitenParser(settings, options, this.dependencies.jiten)) {
         const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
         if (jitenResult2) return jitenResult2;
@@ -39818,14 +39854,20 @@ ${spelling}`);
         };
       });
     }
-    async hasLocalTermDictionaries() {
+    // A store that cannot report availability still gets a chance in the
+    // fallback path (it tolerates empty lookups), but local-first replaces
+    // remote parsing outright, so `confirmed` demands a positive report.
+    async hasLocalTermDictionaries(confirmed = false) {
       if (!this.canUseLocalDictionaryFallback()) return false;
+      return await this.reportedTermDictionaryAvailability() ?? !confirmed;
+    }
+    reportedTermDictionaryAvailability() {
       const store = this.dependencies.dictionaries;
-      if (typeof store.hasTermDictionaries !== "function") return true;
+      if (typeof store.hasTermDictionaries !== "function") return Promise.resolve(void 0);
       this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
         this.localTermDictionaryAvailability = void 0;
         log$l.warn("Local term dictionary availability check failed", { error });
-        return true;
+        return void 0;
       });
       return this.localTermDictionaryAvailability;
     }
@@ -48829,6 +48871,7 @@ ${spelling}`);
     const jpdbApiKey = effectiveJpdbApiKey(settings);
     const jitenApiKey = effectiveJitenApiKey(settings);
     return [
+      `parser:${settings.parserProvider}`,
       jpdbApiKey ? `jpdb-api:${stableSubtitleHash(jpdbApiKey)}` : "jpdb-api:off",
       jitenApiKey ? `jiten-api:${stableSubtitleHash(jitenApiKey)}` : "jiten-api:off",
       settings.localDictionariesEnabled ? "local:on" : "local:off",

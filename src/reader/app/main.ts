@@ -1359,12 +1359,10 @@ export class ReaderApp {
 
     private offlineDictionarySetupInFlight = false;
 
-    // Onboarding "offline setup": download the default parsing dictionaries in
-    // the background. Progress stays in the log; toasts carry the milestones.
+    // Onboarding offline setup; progress stays in the log, toasts carry milestones.
     private async installOfflineParsingDictionaries(): Promise<void> {
         if (this.offlineDictionarySetupInFlight) return;
         this.offlineDictionarySetupInFlight = true;
-        this.toast(uiText(this.settings.interfaceLanguage, 'offlineDictionarySetupStarted'));
         try {
             const result = await installOfflineParsingDictionaries({
                 dictionaries: this.dictionaries,
@@ -1373,7 +1371,6 @@ export class ReaderApp {
                     this.settings = settings;
                     await saveSettings(settings);
                 },
-                onProgress: message => log.info('Offline dictionary setup', { message }),
             });
             if (result.installed.length) {
                 await this.refreshDictionaryStyles();

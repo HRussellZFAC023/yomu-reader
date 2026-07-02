@@ -23,8 +23,7 @@ interface OnboardingOptions {
     // same nested-parse path that handles popovers/settings chrome.
     parseJapanese: (panel: HTMLElement) => void;
     lookupText?: (text: string, sentence: string, anchor: HTMLElement) => void;
-    // Fire-and-forget background download of the default offline parsing
-    // dictionaries (terms + pitch); progress and errors surface via toasts.
+    // Background download of the default offline parsing dictionaries.
     installOfflineDictionaries?: () => void;
 }
 
@@ -162,20 +161,12 @@ export class OnboardingController {
         this.youtubeImmersionInput = checkboxInput('youtubeImmersionEnabled', this.options.getSettings().youtubeImmersionEnabled);
         this.preferJapaneseSiteLanguageInput = checkboxInput('preferJapaneseSiteLanguage', this.options.getSettings().preferJapaneseSiteLanguage);
         this.manualScanInput = checkboxInput('manualScanEnabled', this.options.getSettings().manualScanEnabled);
+        this.offlineDictionariesInput = checkboxInput('onboardingInstallOfflineDictionaries', true);
         immersionOptions.append(
             immersionLegend,
             checkboxLabel(this.youtubeImmersionInput, uiText(this.options.getSettings().interfaceLanguage, 'youtubeImmersionEnabled')),
             checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, 'preferJapaneseSiteLanguage')),
             checkboxLabel(this.manualScanInput, uiText(this.options.getSettings().interfaceLanguage, 'manualScanEnabled')),
-        );
-
-        const offlineSetup = document.createElement('fieldset');
-        offlineSetup.className = 'jpdb-reader-onboarding-options jpdb-reader-onboarding-offline';
-        const offlineLegend = document.createElement('legend');
-        offlineLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, 'onboardingOfflineSetup');
-        this.offlineDictionariesInput = checkboxInput('onboardingInstallOfflineDictionaries', true);
-        offlineSetup.append(
-            offlineLegend,
             checkboxLabel(this.offlineDictionariesInput, uiText(this.options.getSettings().interfaceLanguage, 'onboardingInstallOfflineDictionaries')),
         );
 
@@ -205,7 +196,7 @@ export class OnboardingController {
             if (this.handleWordLookup(event)) event.preventDefault();
         });
 
-        this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, offlineSetup, actions, featureList);
+        this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, actions, featureList);
         this.syncThemeSwitch();
         this.syncAccentPicker(this.accentColorInput.value);
         document.body.append(this.backdrop, this.panel);
@@ -246,7 +237,6 @@ export class OnboardingController {
         panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, 'youtubeImmersionEnabled'));
         panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, 'preferJapaneseSiteLanguage'));
         panel.querySelector('[data-onboarding-copy="manualScanEnabled"]')?.replaceChildren(uiText(language, 'manualScanEnabled'));
-        panel.querySelector('.jpdb-reader-onboarding-offline legend')?.replaceChildren(uiText(language, 'onboardingOfflineSetup'));
         panel.querySelector('[data-onboarding-copy="onboardingInstallOfflineDictionaries"]')?.replaceChildren(uiText(language, 'onboardingInstallOfflineDictionaries'));
         panel.querySelector('.jpdb-reader-onboarding-accent legend')?.replaceChildren(uiText(language, 'onboardingAccentColor'));
         panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(uiText(language, 'customAccentColor'));

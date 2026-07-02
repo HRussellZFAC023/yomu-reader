@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.5.22
+// @version 1.6.0
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.5.22
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.5.22
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.5.22
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.5.22
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.0
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.0
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.0
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.0
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -2484,6 +2484,31 @@ function isSafeLookupUrlTemplate(value) {
   return false;
   }
 }
+function mergeDictionaryPreferences(current, names, types = {}) {
+  const merged = new Map(current.map((item) => [item.name, item]));
+  for (const name of names) {
+  mergeDictionaryPreference(merged, name, types[name] ?? inferDictionaryTypeFromName(name));
+  }
+  return normalizeDictionaryPreferences([...merged.values()]);
+}
+function mergeDictionaryPreference(merged, name, type) {
+  const existing = merged.get(name);
+  if (!existing) {
+  merged.set(name, defaultDictionaryPreference(name, type, merged.size));
+  return;
+  }
+  if (!existing.type) merged.set(name, { ...existing, type });
+}
+function defaultDictionaryPreference(name, type, priority2) {
+  return {
+  name,
+  alias: name,
+  enabled: true,
+  priority: priority2,
+  allowSecondarySearches: false,
+  type
+  };
+}
 function normalizeDictionaryType(value, name = "") {
   if (value === "terms" || value === "kanji" || value === "frequency" || value === "metadata") return value;
   return inferDictionaryTypeFromName(name);
@@ -2596,7 +2621,7 @@ const SETTINGS_STORAGE_KEYS = [
   SETTINGS_STORAGE_KEY,
   ...LEGACY_SETTINGS_STORAGE_KEYS
 ];
-const log$l = Logger.scope("Settings");
+const log$m = Logger.scope("Settings");
 let settingsResetInProgress = false;
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
 const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
@@ -2951,6 +2976,7 @@ const DEFAULT_SETTINGS = {
   ocrBackgroundOpacity: DEFAULT_OCR_BACKGROUND_OPACITY,
   ocrFontScale: 1,
   localDictionariesEnabled: true,
+  parserProvider: "local",
   localDictionaryMaxResults: 12,
   localDictionaryShowKanji: true,
   kanjiDictionariesAlias: "",
@@ -3101,8 +3127,13 @@ function mergeSettings(value) {
   ...normalizeRemovedDictionarySettings(settingsValue),
   dictionaryPreferences: normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences),
   dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
+  parserProvider: normalizeParserProvider(settingsValue),
   shortcuts: normalizeShortcutSettings(settingsValue)
   };
+}
+function normalizeParserProvider(value) {
+  if (value?.parserProvider === "local" || value?.parserProvider === "auto") return value.parserProvider;
+  return value ? "auto" : DEFAULT_SETTINGS.parserProvider;
 }
 function normalizeApiCredentialSettings(value) {
   const apiKey = trimmedStringSetting(value, "apiKey", DEFAULT_SETTINGS.apiKey);
@@ -3776,7 +3807,7 @@ function applyUrlBootstrapSettings(settings, search = location.search) {
   const params = new URLSearchParams(search);
   const bootstrap = urlBootstrapSettings(params);
   if (!hasUrlBootstrapSettings(bootstrap)) return settings;
-  log$l.info("Applying URL bootstrap settings", {
+  log$m.info("Applying URL bootstrap settings", {
   hasApiKey: Boolean(bootstrap.apiKey),
   hasAudio: Boolean(bootstrap.audio),
   hasOcr: Boolean(bootstrap.ocr)
@@ -3848,7 +3879,7 @@ async function loadSettings() {
   if (recoveredLegacySettings) await persistSettings(settings);
   return settings;
   } catch (error) {
-  log$l.warn("Settings load failed", { error });
+  log$m.warn("Settings load failed", { error });
   return mergeSettings(null);
   }
 }
@@ -3874,13 +3905,13 @@ function subscribeToSettingsStorageChanges(onSettings) {
 }
 async function saveSettings(settings) {
   if (settingsResetInProgress) {
-  log$l.warn("Skipped save during reset");
+  log$m.warn("Skipped save during reset");
   return;
   }
   try {
   await persistSettings(settings);
   } catch (error) {
-  log$l.warn("Settings save failed", { error });
+  log$m.warn("Settings save failed", { error });
   throw error;
   }
 }
@@ -7840,6 +7871,7 @@ const COPY = {
   onboardingAccentColor: "Accent color",
   customAccentColor: "Custom color",
   onboardingImmersionOptions: "Immersion defaults",
+  onboardingInstallOfflineDictionaries: "Download offline dictionaries (Jitendex + pitch accents)",
   onboardingHoverShortcut: "Lookup hover modifier",
   manualPageScanShortcut: "Manual page scan shortcut",
   onboardingAddApiKey: "Add API key",
@@ -8393,6 +8425,12 @@ const COPY = {
   dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pitch, and frequency dictionaries add definitions, accents, and badges.",
   lookupPills: "Lookup pills",
   lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
+  parserProvider: "Parsing source",
+  parserProviderLocal: "Local dictionaries (offline)",
+  parserProviderAuto: "Jiten/JPDB APIs",
+  parserProviderHelp: "Local parses with imported dictionaries, offline. Automatic prefers Jiten/JPDB when keys are set.",
+  offlineDictionarySetupComplete: "Offline dictionaries installed.",
+  offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
   copiesCurrentWord: "Copies the current word",
   lookupPillLabel: "Lookup pill label",
   lookupPillLabelNumber: "Lookup pill {number} label",
@@ -9060,6 +9098,9 @@ onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
+onboardingInstallOfflineDictionaries	オフライン辞書をダウンロード（Jitendex＋ピッチアクセント）
+offlineDictionarySetupComplete	オフライン辞書をインストールしました。
+offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。
 onboardingHoverShortcut	ホバー検索の修飾キー
 onboardingAddApiKey	APIキーを追加
 onboardingAddLocalDictionaries	ローカル辞書を追加
@@ -10072,6 +10113,10 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/ピッチ/頻度辞書で定義、アクセント、バッジを追加します。
 lookupPills	検索ピル
+parserProvider	解析ソース
+parserProviderLocal	ローカル辞書（オフライン）
+parserProviderAuto	Jiten/JPDB API
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。自動はキー設定時にJiten/JPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
@@ -11695,7 +11740,7 @@ const SOFT_CHIME_NOTES = [
   { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
 ];
 const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-const log$k = Logger.scope("Audio");
+const log$l = Logger.scope("Audio");
 class AudioPlaybackAttemptError extends Error {
   constructor(error) {
   super(error instanceof Error ? error.message : String(error));
@@ -11733,7 +11778,7 @@ class AudioPlayer {
   const reservedAudio = this.takeGestureAudioElement(request) ?? this.reserveGestureAudioElement(request);
   this.stopCurrent(reservedAudio);
   if (!request.sources.length) return await this.playNoAudioSources(card, request);
-  const done = log$k.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+  const done = log$l.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
   const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, request.userGesture, reservedAudio);
   done();
   return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, request.userGesture, result);
@@ -11788,14 +11833,14 @@ class AudioPlayer {
   if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
   }
   async playNoAudioSources(card, request) {
-  log$k.warn("No audio sources configured", { term: card.spelling });
+  log$l.warn("No audio sources configured", { term: card.spelling });
   return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent, request.userGesture);
   }
   async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result) {
   if (result.state === "played") return true;
   if (result.state === "playback-error") return false;
   if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-  log$k.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+  log$l.warn("No playable audio found", { term: card.spelling, errors: result.errors });
   return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture);
   }
   async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio) {
@@ -11961,7 +12006,7 @@ class AudioPlayer {
     void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, userGesture).catch((error) => {
       const audioId = audioIds[index];
       if (audioId) this.markJpdbAudioUnavailable(audioId);
-      log$k.warn("JPDB grouped audio segment failed", { audioId }, error);
+      log$l.warn("JPDB grouped audio segment failed", { audioId }, error);
     });
   }, { once: true });
   }
@@ -12040,7 +12085,7 @@ class AudioPlayer {
     const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate, sourceType, reservedAudio).catch(() => void 0);
     if (fallbackAudio) {
       audio = fallbackAudio;
-      log$k.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
+      log$l.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
     } else {
       errors.push(audioErrorMessage(error));
       if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
@@ -13067,7 +13112,7 @@ function isDisabledControl(control) {
   if (control.closest('[aria-disabled="true"]')) return true;
   return control.matches(":disabled, fieldset[disabled] *");
 }
-const log$j = Logger.scope("CardStateSignal");
+const log$k = Logger.scope("CardStateSignal");
 const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
 const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
 const SEEN_SIGNAL_LIMIT = 32;
@@ -13105,7 +13150,7 @@ function publishCardStateSignal(card) {
   try {
   gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
   } catch (error) {
-  log$j.debug("GM card-state publish failed", error);
+  log$k.debug("GM card-state publish failed", error);
   }
   publishBroadcastCardStateSignal(signal);
 }
@@ -13116,7 +13161,7 @@ function publishBroadcastCardStateSignal(signal) {
   channel.postMessage(signal);
   channel.close();
   } catch (error) {
-  log$j.debug("Broadcast card-state publish failed", error);
+  log$k.debug("Broadcast card-state publish failed", error);
   }
 }
 function subscribeToCardStateSignals(onCard) {
@@ -13140,7 +13185,7 @@ function subscribeToCardStateSignals(onCard) {
       if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
     });
   } catch (error) {
-    log$j.debug("GM card-state listener failed", error);
+    log$k.debug("GM card-state listener failed", error);
   }
   }
   if (typeof BroadcastChannel === "function") {
@@ -13149,7 +13194,7 @@ function subscribeToCardStateSignals(onCard) {
     channel.onmessage = (event) => handle(event.data);
     cleanups.push(() => channel.close());
   } catch (error) {
-    log$j.debug("Broadcast card-state listener failed", error);
+    log$k.debug("Broadcast card-state listener failed", error);
   }
   }
   return () => cleanups.forEach((cleanup) => cleanup());
@@ -13933,13 +13978,13 @@ function studyAttrs(attrs) {
   const trimmed = attrs.trim();
   return trimmed ? ` ${trimmed}` : "";
 }
-const log$i = Logger.scope("StudyRender");
+const log$j = Logger.scope("StudyRender");
 async function renderStudyToolResult(button2, action, sentence, grammarHints, language = "en", options = {}) {
   const panel = button2.closest(".jpdb-reader-study-tools")?.querySelector("[data-study-panel]");
   if (!panel || !sentence) return;
   panel.hidden = false;
   panel.textContent = studyToolPendingText(action, language);
-  const done = log$i.time("studyTool", { action, sentenceLength: sentence.length });
+  const done = log$j.time("studyTool", { action, sentenceLength: sentence.length });
   if (action === "study-translate") {
   try {
     const translated = await translateJapaneseSentence(sentence, language);
@@ -16404,7 +16449,7 @@ function findJsonStringEnd(value, quoteIndex) {
   }
   return -1;
 }
-const log$h = Logger.scope("Yomitan");
+const log$i = Logger.scope("Yomitan");
 function filenameFromUrl(url) {
   try {
   const parsed = new URL(url);
@@ -16452,7 +16497,7 @@ function formatBytes(value) {
   return `${size.toFixed(precision)} ${units[unit]}`;
 }
 async function requestBlob$1(url, proxyUrl, onProgress, language = "en") {
-  const done = log$h.time("Dictionary download", { host: safeHost(url) });
+  const done = log$i.time("Dictionary download", { host: safeHost(url) });
   const userscriptRequest = getUserscriptHttpRequest();
   if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
   return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
@@ -16461,18 +16506,18 @@ function requestBlobViaUserscript(url, userscriptRequest, done, onProgress, lang
   return new Promise((resolve, reject) => {
   const handleLoad = (response) => {
     if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-      log$h.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
+      log$i.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
       done();
       resolve(response.response);
       return;
     }
     if (response.status < 200 || response.status >= 300) {
-      log$h.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
+      log$i.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
       done();
       reject(new Error(formatDictionaryDownloadFailed(language, response.status)));
       return;
     }
-    log$h.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
+    log$i.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
     done();
     reject(new Error(uiText(language, "dictionaryDownloadNotZip")));
   };
@@ -16489,19 +16534,19 @@ function requestBlobViaUserscript(url, userscriptRequest, done, onProgress, lang
     },
     onload: handleLoad,
     onerror: () => {
-      log$h.warn("Dictionary download failed", { host: safeHost(url) });
+      log$i.warn("Dictionary download failed", { host: safeHost(url) });
       done();
       reject(new Error(uiText(language, "dictionaryDownloadFailed")));
     },
     ontimeout: () => {
-      log$h.warn("Dictionary download timed out", { host: safeHost(url) });
+      log$i.warn("Dictionary download timed out", { host: safeHost(url) });
       done();
       reject(new Error(uiText(language, "dictionaryDownloadTimedOut")));
     }
   });
   if (result && typeof result.then === "function") {
     result.then(handleLoad, () => {
-      log$h.warn("Dictionary download failed", { host: safeHost(url) });
+      log$i.warn("Dictionary download failed", { host: safeHost(url) });
       done();
       reject(new Error(uiText(language, "dictionaryDownloadFailed")));
     });
@@ -16525,7 +16570,7 @@ async function fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress,
   const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
   if (!response.ok) throwDictionaryHttpError(url, response.status, language);
   const blob = await responseBlobWithProgress(response, onProgress, language);
-  log$h.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });
+  log$i.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });
   done();
   return blob;
 }
@@ -16557,17 +16602,17 @@ function formatDictionaryDownloadProgress(language, loaded, total) {
   return `${label} ${formatBytes(loaded)}...`;
 }
 function throwDictionaryHttpError(url, status, language) {
-  log$h.warn("Dictionary download HTTP error", { host: safeHost(url), status });
+  log$i.warn("Dictionary download HTTP error", { host: safeHost(url), status });
   throw new Error(formatDictionaryDownloadFailed(language, status));
 }
 function handleDictionaryFetchError(url, downloadUrl, error, done, language) {
   const host = safeHost(url);
   if (isDictionaryCorsError(error)) {
-  log$h.warn("Dictionary download CORS failed", { host, downloadUrl });
+  log$i.warn("Dictionary download CORS failed", { host, downloadUrl });
   done();
   throw new Error(uiText(language, "dictionaryDownloadBlocked"));
   }
-  log$h.warn("Dictionary download fetch failed", { host, error });
+  log$i.warn("Dictionary download fetch failed", { host, error });
   done();
   throw language === "ja" ? new Error(uiText(language, "dictionaryDownloadFailed")) : error;
 }
@@ -18077,14 +18122,14 @@ ${entry.reading}`;
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
   const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
   const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
-  const log$g = Logger.scope("Yomitan");
+  const log$h = Logger.scope("Yomitan");
   let persistentStorageRequested = false;
   function requestPersistentDictionaryStorage() {
     if (persistentStorageRequested) return;
     persistentStorageRequested = true;
     try {
       void navigator.storage?.persist?.().then((granted) => {
-        log$g.info("Persistent storage request", { granted });
+        log$h.info("Persistent storage request", { granted });
       }).catch(() => void 0);
     } catch {
     }
@@ -18109,7 +18154,7 @@ ${entry.reading}`;
     prepareTermSearchIndex() {
       if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
       const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
-        log$g.warn("Term search index preparation failed", { error });
+        log$h.warn("Term search index preparation failed", { error });
       }).finally(() => {
         if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
       });
@@ -18143,7 +18188,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookup", [expression, reading, limit], preferences),
         async () => {
-          const done = log$g.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+          const done = log$h.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const entries = await this.getTermLookupEntries(
@@ -18168,7 +18213,7 @@ ${entry.reading}`;
             }).slice(0, limit);
             return results;
           } catch (error) {
-            log$g.warn("Term lookup failed", { expression, reading, error });
+            log$h.warn("Term lookup failed", { expression, reading, error });
             throw error;
           } finally {
             done();
@@ -18178,7 +18223,7 @@ ${entry.reading}`;
     }
     async searchTerms(query, limit, preferences = [], options = {}) {
       const normalizedQuery = normalizeTermSearchQuery(query);
-      const done = log$g.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
+      const done = log$h.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
       if (!normalizedQuery) {
         done();
         return [];
@@ -18197,7 +18242,7 @@ ${entry.reading}`;
         ];
         return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
       } catch (error) {
-        log$g.warn("Term search failed", { query: normalizedQuery, error });
+        log$h.warn("Term search failed", { query: normalizedQuery, error });
         throw error;
       } finally {
         done();
@@ -18207,7 +18252,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
         async () => {
-          const done = log$g.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+          const done = log$h.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -18216,7 +18261,7 @@ ${entry.reading}`;
             const results = rankedDictionaryEntries(entries, rank, limit);
             return results;
           } catch (error) {
-            log$g.warn("Kanji lookup failed", { length: text2.length, error });
+            log$h.warn("Kanji lookup failed", { length: text2.length, error });
             throw error;
           } finally {
             done();
@@ -18225,14 +18270,14 @@ ${entry.reading}`;
       );
     }
     async listKanjiCharacters(limit, preferences = []) {
-      const done = log$g.time("Kanji character list", { limit, dictionaries: preferences.length });
+      const done = log$h.time("Kanji character list", { limit, dictionaries: preferences.length });
       try {
         if (limit <= 0) return [];
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.getKanjiCharacters(db, limit, rank);
       } catch (error) {
-        log$g.warn("Kanji character list failed", { error });
+        log$h.warn("Kanji character list failed", { error });
         throw error;
       } finally {
         done();
@@ -18242,7 +18287,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupTermMeta", [expression, limit], preferences),
         async () => {
-          const done = log$g.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+          const done = log$h.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -18250,7 +18295,7 @@ ${entry.reading}`;
             const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
             return results;
           } catch (error) {
-            log$g.warn("Term metadata lookup failed", { expression, error });
+            log$h.warn("Term metadata lookup failed", { expression, error });
             throw error;
           } finally {
             done();
@@ -18262,7 +18307,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
         async () => {
-          const done = log$g.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+          const done = log$h.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -18272,7 +18317,7 @@ ${entry.reading}`;
             ).slice(0, limit);
             return results;
           } catch (error) {
-            log$g.warn("Similar terms by kanji lookup failed", { character, error });
+            log$h.warn("Similar terms by kanji lookup failed", { character, error });
             throw error;
           } finally {
             done();
@@ -18281,7 +18326,7 @@ ${entry.reading}`;
       );
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
-      const done = log$g.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$h.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = text2.slice(0, 240);
       if (!source.trim()) {
         done();
@@ -18297,7 +18342,7 @@ ${entry.reading}`;
         const results = nonOverlappingMatches(matches, limit);
         return results;
       } catch (error) {
-        log$g.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
+        log$h.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
         throw error;
       } finally {
         done();
@@ -18352,7 +18397,7 @@ ${entry.reading}`;
       });
     }
     async summary() {
-      const done = log$g.time("Dictionary summary");
+      const done = log$h.time("Dictionary summary");
       try {
         if (this.summaryPromise) {
           const summary2 = await this.summaryPromise;
@@ -18372,7 +18417,7 @@ ${entry.reading}`;
         const summary = await this.summaryPromise;
         return summary;
       } catch (error) {
-        log$g.warn("Dictionary summary failed", { error });
+        log$h.warn("Dictionary summary failed", { error });
         throw error;
       } finally {
         done();
@@ -18383,44 +18428,44 @@ ${entry.reading}`;
       return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
     }
     async hasDictionaries() {
-      const done = log$g.time("Dictionary presence check");
+      const done = log$h.time("Dictionary presence check");
       try {
         const db = await this.db();
         return (await this.getAllDictionaryInfo(db)).length > 0;
       } catch (error) {
-        log$g.warn("Dictionary presence check failed", { error });
+        log$h.warn("Dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async hasTermDictionaries() {
-      const done = log$g.time("Term dictionary presence check");
+      const done = log$h.time("Term dictionary presence check");
       try {
         const db = await this.db();
         return (await this.getAllDictionaryInfo(db)).some(hasTermDictionaryRows);
       } catch (error) {
-        log$g.warn("Term dictionary presence check failed", { error });
+        log$h.warn("Term dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async listRandomTerms(limit, preferences = [], options = {}) {
-      const done = log$g.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$h.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
       } catch (error) {
-        log$g.warn("Random term listing failed", { limit, error });
+        log$h.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
-      const done = log$g.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$h.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -18437,7 +18482,7 @@ ${entry.reading}`;
         }
         return results;
       } catch (error) {
-        log$g.warn("Random top term listing failed", { limit, error });
+        log$h.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -18519,27 +18564,27 @@ ${entry.reading}`;
       return reservoir;
     }
     async importFile(file, onProgress, sourceUrl = "") {
-      const done = log$g.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$h.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$g.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$h.info("Dictionary file import started", fileSummary(file, sourceUrl));
         requestPersistentDictionaryStorage();
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
-        log$g.info("Dictionary file import completed", summary);
+        log$h.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$g.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$h.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
       }
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
-      log$g.info("Dictionary URL import started", { filename, host: safeHost(url) });
+      log$h.info("Dictionary URL import started", { filename, host: safeHost(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
       const blob = await requestBlob$1(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
       const summary = await this.importFile(file, onProgress, url);
-      log$g.info("Dictionary URL import completed", { filename, host: safeHost(url), ...summary });
+      log$h.info("Dictionary URL import completed", { filename, host: safeHost(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "") {
@@ -18624,7 +18669,7 @@ ${entry.reading}`;
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
       await this.putDictionaryInfo(info);
-      log$g.info("ZIP dictionary import parsed", summary);
+      log$h.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
@@ -18652,7 +18697,7 @@ ${entry.reading}`;
         this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
       ]);
       const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
-      log$g.info("JSON dictionary import parsed", summary);
+      log$h.info("JSON dictionary import parsed", summary);
       return summary;
     }
     async importDexieJson(file, onProgress) {
@@ -18751,11 +18796,11 @@ ${entry.reading}`;
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$g.info("Dexie dictionary import parsed", summary);
+      log$h.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     async exportJson() {
-      const done = log$g.time("Dictionary export");
+      const done = log$h.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -18765,7 +18810,7 @@ ${entry.reading}`;
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$g.info("Dictionary export prepared", {
+        log$h.info("Dictionary export prepared", {
           dictionaries: dictionaries.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -18783,7 +18828,7 @@ ${entry.reading}`;
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$g.warn("Dictionary export failed", { error });
+        log$h.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -18802,26 +18847,26 @@ ${entry.reading}`;
         this.dictionaryStyleCssCache.set(cacheKey, css);
         return css;
       } catch (error) {
-        log$g.warn("Dictionary stylesheet render failed", { error });
+        log$h.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$g.time("Dictionary store clear");
+      const done = log$h.time("Dictionary store clear");
       try {
         const db = await this.db();
         await this.clearDictionaryStores(db);
         this.invalidateCaches();
-        log$g.info("Dictionary store cleared");
+        log$h.info("Dictionary store cleared");
       } catch (error) {
-        log$g.warn("Dictionary store clear failed", { error });
+        log$h.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async resetDatabase(options = {}) {
-      const done = log$g.time("Dictionary database factory reset");
+      const done = log$h.time("Dictionary database factory reset");
       let cleared = false;
       try {
         await this.clear();
@@ -18830,10 +18875,10 @@ ${entry.reading}`;
         return { cleared, deleted: true };
       } catch (error) {
         if (!cleared) {
-          log$g.warn("Dictionary reset pre-clear failed", { error });
+          log$h.warn("Dictionary reset pre-clear failed", { error });
           throw error;
         }
-        log$g.warn("Dictionary delete incomplete after clear", { error });
+        log$h.warn("Dictionary delete incomplete after clear", { error });
         return { cleared, deleted: false };
       } finally {
         done();
@@ -18847,12 +18892,12 @@ ${entry.reading}`;
       try {
         const db = await dbPromise;
         db.close();
-        log$g.info("Dictionary DB closed for reset", { name: DB_NAME });
+        log$h.info("Dictionary DB closed for reset", { name: DB_NAME });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
-      const done = log$g.time("Dictionary database delete");
+      const done = log$h.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
@@ -18878,30 +18923,30 @@ ${entry.reading}`;
           request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
           request.onblocked = () => {
             blocked = true;
-            log$g.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+            log$h.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
           };
         });
-        log$g.info("Dictionary database deleted", { name: DB_NAME });
+        log$h.info("Dictionary database deleted", { name: DB_NAME });
       } catch (error) {
-        log$g.warn("Dictionary database delete failed", { error });
+        log$h.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async deleteDictionary(dictionary) {
-      const done = log$g.time("Dictionary delete", { dictionary });
+      const done = log$h.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const dictionaries = await this.getAllDictionaryInfo(db);
         if (!dictionaries.some((item) => item.title === dictionary)) {
-          log$g.info("Dictionary delete skipped; not installed", { dictionary });
+          log$h.info("Dictionary delete skipped; not installed", { dictionary });
           return;
         }
         if (dictionaries.length === 1) {
           await this.clearDictionaryStores(db);
           this.invalidateCaches();
-          log$g.info("Only installed dictionary cleared", { dictionary });
+          log$h.info("Only installed dictionary cleared", { dictionary });
           return;
         }
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
@@ -18917,9 +18962,9 @@ ${entry.reading}`;
         });
         await this.clearDerivedTermIndexes(db);
         this.invalidateCaches();
-        log$g.info("Dictionary deleted", { dictionary });
+        log$h.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$g.warn("Dictionary delete failed", { dictionary, error });
+        log$h.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -19246,7 +19291,7 @@ ${entry.reading}`;
       await this.termKanjiIndexPromise;
     }
     async rebuildTermSearchIndex(db) {
-      const done = log$g.time("Term search index rebuild");
+      const done = log$h.time("Term search index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermSearchIndex(db);
@@ -19263,13 +19308,13 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$g.info("Term search index rebuilt", { terms: indexedTerms });
+        log$h.info("Term search index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
     }
     async rebuildTermKanjiIndex(db) {
-      const done = log$g.time("Term kanji index rebuild");
+      const done = log$h.time("Term kanji index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermKanjiIndex(db);
@@ -19286,7 +19331,7 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$g.info("Term kanji index rebuilt", { terms: indexedTerms });
+        log$h.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
@@ -19373,7 +19418,7 @@ ${entry.reading}`;
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
-          log$g.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$h.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -19403,7 +19448,7 @@ ${entry.reading}`;
           resolve(db);
         };
         request.onerror = () => {
-          log$g.warn("Dictionary database open failed", { error: request.error });
+          log$h.warn("Dictionary database open failed", { error: request.error });
           reject(request.error);
         };
       });
@@ -19411,7 +19456,7 @@ ${entry.reading}`;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
-        log$g.info("Dictionary DB version change; closing", {
+        log$h.info("Dictionary DB version change; closing", {
           name: DB_NAME,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
@@ -20157,7 +20202,7 @@ ${entry.reading || ""}`;
   const CONTEXT_PREFIX = "yomu-mining-context:";
   const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
   const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$f = Logger.scope("MiningContext");
+  const log$g = Logger.scope("MiningContext");
   function normalizeMiningSentence(sentence) {
     return (sentence ?? "").replace(/\s+/g, " ").trim();
   }
@@ -20210,7 +20255,7 @@ ${entry.reading || ""}`;
     fetchImageDataUrl,
     fetchAudioDataUrl
   }) {
-    const done = log$f.time("Resolve mining context", {
+    const done = log$g.time("Resolve mining context", {
       term,
       hasSentence: Boolean(sentence?.trim()),
       activeKind: activeContext?.sourceKind,
@@ -20287,7 +20332,7 @@ ${entry.reading || ""}`;
     try {
       gmStorageSetSync(contextStorageKey(stored.term), stored);
     } catch (error) {
-      log$f.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+      log$g.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
     }
     return stored;
   }
@@ -20302,7 +20347,7 @@ ${entry.reading || ""}`;
       const context = parseStoredMiningContext(stored, normalized);
       return context;
     } catch (error) {
-      log$f.warn("Mining context load failed", { term: normalized, error });
+      log$g.warn("Mining context load failed", { term: normalized, error });
       return null;
     }
   }
@@ -21283,7 +21328,7 @@ ${entry.reading || ""}`;
   function cardKey(card) {
     return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
   }
-  const log$e = Logger.scope("CardRenderData");
+  const log$f = Logger.scope("CardRenderData");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
   const CARD_RENDER_DATA_CACHE_LIMIT = 120;
   const CARD_RENDER_LOCAL_TIMEOUT_MS = 2500;
@@ -21378,7 +21423,7 @@ ${entry.reading || ""}`;
       const settings = this.settings();
       if (!settings.localDictionariesEnabled) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local term dictionary", this.dependencies.dictionaries.lookup(card.spelling, card.reading, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
-        log$e.warn("Local term lookup failed", { term: card.spelling }, error);
+        log$f.warn("Local term lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -21386,7 +21431,7 @@ ${entry.reading || ""}`;
       const settings = this.settings();
       if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
-        log$e.warn("Local kanji lookup failed", { term: card.spelling }, error);
+        log$f.warn("Local kanji lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -21394,7 +21439,7 @@ ${entry.reading || ""}`;
       const settings = this.settings();
       if (!settings.localDictionariesEnabled) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local metadata dictionary", this.dependencies.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch((error) => {
-        log$e.warn("Local metadata lookup failed", { term: card.spelling }, error);
+        log$f.warn("Local metadata lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -21402,7 +21447,7 @@ ${entry.reading || ""}`;
       const settings = this.settings();
       if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
-        log$e.warn("Public pitch lookup failed", { term: card.spelling }, error);
+        log$f.warn("Public pitch lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -21414,7 +21459,7 @@ ${entry.reading || ""}`;
       const settings = this.settings();
       if (!settings.jpdbDefinitionsEnabled || !hasJpdbApiCredential(settings)) return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
-        log$e.warn("JPDB page lookup failed", { term: card.spelling }, error);
+        log$f.warn("JPDB page lookup failed", { term: card.spelling }, error);
         return null;
       }), null);
     }
@@ -21425,7 +21470,7 @@ ${entry.reading || ""}`;
         this.applyJitenVocabularyInfoPitchAccent(card, info);
         return info;
       }).catch((error) => {
-        log$e.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
+        log$f.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
         return null;
       }), null);
     }
@@ -21434,14 +21479,14 @@ ${entry.reading || ""}`;
       const fallback = sourceCardAnkiLookupOrEmpty(card);
       if (typeof this.dependencies.anki.findCachedStatusBatch !== "function") return Promise.resolve(fallback);
       return this.dependencies.anki.findCachedStatusBatch([card]).then(([lookup]) => lookup ?? fallback).catch((error) => {
-        log$e.warn("Cached Anki status failed", { term: card.spelling }, error);
+        log$f.warn("Cached Anki status failed", { term: card.spelling }, error);
         return fallback;
       });
     }
     loadDetailedAnkiLookup(card, fastLookup) {
       if (!shouldLookupAnkiStatus(this.settings())) return fastLookup;
       return fastLookup.then((fallback) => this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, "Anki existing cards", this.loadAnkiLookupWhenAvailable(card, fallback).catch((error) => {
-        log$e.warn("Anki lookup failed", { term: card.spelling }, error);
+        log$f.warn("Anki lookup failed", { term: card.spelling }, error);
         return ankiLookupWithUnavailableDetails(fallback);
       }), ankiLookupWithUnavailableDetails(fallback)));
     }
@@ -21454,14 +21499,14 @@ ${entry.reading || ""}`;
       const settings = this.settings();
       if (!settings.jpdbMiningEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "JPDB deck list", this.cachedJpdbDecks(settings).catch((error) => {
-        log$e.warn("JPDB deck list failed", { term: card.spelling }, error);
+        log$f.warn("JPDB deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
     loadAnkiDecks(card) {
       if (!this.settings().ankiEnabled) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki deck list", this.cachedAnkiDecks(this.settings()).catch((error) => {
-        log$e.warn("Anki deck list failed", { term: card.spelling }, error);
+        log$f.warn("Anki deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -21469,7 +21514,7 @@ ${entry.reading || ""}`;
       const settings = this.settings();
       if (!settings.jpdbMiningEnabled || !isJitenBackedCard(card) || !hasJitenApiCredential(settings)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Jiten deck list", this.cachedJitenDecks(settings).catch((error) => {
-        log$e.warn("Jiten deck list failed", { term: card.spelling }, error);
+        log$f.warn("Jiten deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -21478,7 +21523,7 @@ ${entry.reading || ""}`;
       if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return Promise.resolve(null);
       if (typeof this.dependencies.anki.noteFieldTargetPlan !== "function") return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki field target plan", this.dependencies.anki.noteFieldTargetPlan().catch((error) => {
-        log$e.warn("Anki field target plan failed", { term: card.spelling }, error);
+        log$f.warn("Anki field target plan failed", { term: card.spelling }, error);
         return null;
       }), null);
     }
@@ -21489,7 +21534,7 @@ ${entry.reading || ""}`;
       const isInUserDeckPool = this.dependencies.jpdb.isInUserDeckPool?.bind(this.dependencies.jpdb);
       if (typeof isInUserDeckPool !== "function") return Promise.resolve(false);
       return this.withFallback(card, CARD_RENDER_DECK_POOL_TIMEOUT_MS, "JPDB pooled deck membership", isInUserDeckPool(card).catch((error) => {
-        log$e.warn("JPDB pool lookup failed", { term: card.spelling }, error);
+        log$f.warn("JPDB pool lookup failed", { term: card.spelling }, error);
         return false;
       }), false);
     }
@@ -21651,7 +21696,7 @@ ${entry.reading || ""}`;
     return Promise.race([
       promise,
       delay$2(timeoutMs).then(() => {
-        log$e.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+        log$f.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
         return fallback;
       })
     ]);
@@ -21763,7 +21808,7 @@ ${entry.reading || ""}`;
       this.options.onRefreshed?.(css.length);
     }
   }
-  const log$d = Logger.scope("FactoryReset");
+  const log$e = Logger.scope("FactoryReset");
   const FACTORY_RESET_PREPARE_DELAY_MS = 80;
   const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
   const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
@@ -21815,12 +21860,12 @@ ${entry.reading || ""}`;
         const dictionaryReset = await this.resetDictionaryDatabaseBestEffort();
         await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id));
         await clearFactoryResetSignal();
-        log$d.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
+        log$e.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
         this.dependencies.reload();
       } catch (error) {
         this.activeResetId = "";
         endSettingsResetGuard();
-        log$d.warn("All-data reset failed", error);
+        log$e.warn("All-data reset failed", error);
         this.dependencies.toast(error instanceof Error ? error.message : this.text("factoryResetFailed"));
       }
     }
@@ -21828,7 +21873,7 @@ ${entry.reading || ""}`;
       try {
         return await this.dependencies.resetDictionaryDatabase();
       } catch (error) {
-        log$d.warn("Dictionary reset failed post-settings", error);
+        log$e.warn("Dictionary reset failed post-settings", error);
         this.dependencies.toast(this.text("factoryResetDictionaryWarning"));
         return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
       }
@@ -21839,7 +21884,7 @@ ${entry.reading || ""}`;
       if (this.handledSignals.has(handledKey)) return;
       this.handledSignals.add(handledKey);
       beginSettingsResetGuard();
-      log$d.info("Factory reset signal received", {
+      log$e.info("Factory reset signal received", {
         phase: signal.phase,
         href: signal.href,
         remote: source.remote,
@@ -21857,7 +21902,7 @@ ${entry.reading || ""}`;
     async assertSettingsStorageDeleted() {
       const settingsKeysStillPresent = await settingsStorageKeysStillPresent();
       if (!settingsKeysStillPresent.length) return;
-      log$d.warn("Settings keys remained after reset", { settingsKeysStillPresent });
+      log$e.warn("Settings keys remained after reset", { settingsKeysStillPresent });
       throw new Error(this.text("factoryResetDeleteSettingsFailed"));
     }
     text(key, values = {}) {
@@ -22986,7 +23031,7 @@ ${glossaryKey}`;
   const NADESHIKO_SEARCH_LIMIT = 25;
   const MIN_LEARNING_SENTENCE_LENGTH = 8;
   const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-  const log$c = Logger.scope("ImmersionKit");
+  const log$d = Logger.scope("ImmersionKit");
   const IMMERSION_KIT_TITLES = {
     your_lie_in_april: "Your Lie in April",
     princess_mononoke: "Princess Mononoke",
@@ -23099,7 +23144,7 @@ ${glossaryKey}`;
       const cacheInflight = !options.signal;
       const inflight = cacheInflight ? this.inflight.get(cacheKey) : void 0;
       if (inflight) return inflight;
-      const done = log$c.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+      const done = log$d.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
       const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
         const result = applySearchExampleLimit(examples, settings, options);
         if (!options.signal?.aborted) {
@@ -23144,11 +23189,11 @@ ${glossaryKey}`;
     searchSource(source, query, settings, options) {
       return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
         if (isAbortError$2(error)) throw error;
-        log$c.warn("Nadeshiko examples failed", { query }, error);
+        log$d.warn("Nadeshiko examples failed", { query }, error);
         return [];
       }) : this.searchImmersionKit(query, settings, options).catch((error) => {
         if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
-        log$c.warn("Immersion Kit examples failed", { query }, error);
+        log$d.warn("Immersion Kit examples failed", { query }, error);
         return [];
       });
     }
@@ -24452,7 +24497,7 @@ ${glossaryKey}`;
   const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
   const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
   const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
-  const log$b = Logger.scope("ReaderParser");
+  const log$c = Logger.scope("ReaderParser");
   function apiFirstParseOptions(options = {}) {
     const requireApi = options.requireApi ?? options.requireJpdb ?? true;
     return { includeLocalPitch: false, ...options, requireApi };
@@ -24475,7 +24520,7 @@ ${glossaryKey}`;
     async parse(paragraphs, options = {}) {
       const { getSettings } = this.dependencies;
       const settings = getSettings();
-      const done = log$b.time("parse", {
+      const done = log$c.time("parse", {
         paragraphs: paragraphs.length,
         hasApiKey: hasJpdbApiCredential(settings),
         hasJitenApiKey: hasJitenApiCredential(settings),
@@ -24490,6 +24535,9 @@ ${glossaryKey}`;
       }
     }
     async parseWithPreferredSource(paragraphs, options, settings) {
+      if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
+        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+      }
       if (shouldPreferJitenParser(settings, options, this.dependencies.jiten)) {
         const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
         if (jitenResult2) return jitenResult2;
@@ -24535,7 +24583,7 @@ ${glossaryKey}`;
     }
     handleRemoteParseError(source, error, options) {
       const canFallback = this.canUseParseFallback(options);
-      log$b.warn(remoteParseErrorMessage(source, options, canFallback), error);
+      log$c.warn(remoteParseErrorMessage(source, options, canFallback), error);
       if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
     }
     async parseWithFallbackSource(paragraphs, options) {
@@ -24554,7 +24602,7 @@ ${glossaryKey}`;
         if (!parsed.some((tokens) => tokens.length)) return null;
         return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
       } catch (error) {
-        log$b.warn("Jiten public parse failed; using local or segmented fallback", error);
+        log$c.warn("Jiten public parse failed; using local or segmented fallback", error);
         return null;
       }
     }
@@ -24671,7 +24719,7 @@ ${spelling}`);
       if (!await this.hasLocalTermDictionaries()) return [];
       const settings = getSettings();
       const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
-        log$b.warn("Local dictionary parse failed", { length: text2.length }, error);
+        log$c.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
       return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, async (match) => {
@@ -24691,14 +24739,17 @@ ${spelling}`);
         };
       });
     }
-    async hasLocalTermDictionaries() {
+    async hasLocalTermDictionaries(confirmed = false) {
       if (!this.canUseLocalDictionaryFallback()) return false;
+      return await this.reportedTermDictionaryAvailability() ?? !confirmed;
+    }
+    reportedTermDictionaryAvailability() {
       const store = this.dependencies.dictionaries;
-      if (typeof store.hasTermDictionaries !== "function") return true;
+      if (typeof store.hasTermDictionaries !== "function") return Promise.resolve(void 0);
       this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
         this.localTermDictionaryAvailability = void 0;
-        log$b.warn("Local term dictionary availability check failed", { error });
-        return true;
+        log$c.warn("Local term dictionary availability check failed", { error });
+        return void 0;
       });
       return this.localTermDictionaryAvailability;
     }
@@ -24834,7 +24885,7 @@ ${spelling}`);
       const promise = lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).then((metaEntries) => {
         return localPitchPatternFromMeta(card.reading, metaEntries);
       }).catch((error) => {
-        log$b.warn("Local pitch parse failed", { term: card.spelling }, error);
+        log$c.warn("Local pitch parse failed", { term: card.spelling }, error);
         return "";
       });
       this.rememberLocalPitchCacheEntry(key, promise);
@@ -25056,7 +25107,7 @@ ${spelling}`);
   const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
   const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
   const IMMERSION_PARSED_SENTENCE_CACHE_LIMIT = 160;
-  const log$a = Logger.scope("ImmersionPopover");
+  const log$b = Logger.scope("ImmersionPopover");
   class ImmersionPopoverController {
     constructor(options) {
       this.options = options;
@@ -25135,7 +25186,7 @@ ${spelling}`);
         this.renderLoadedExamples(container, card, result);
       } catch (error) {
         if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
-        log$a.warn("Immersion Kit examples failed", { term: card.spelling }, error);
+        log$b.warn("Immersion Kit examples failed", { term: card.spelling }, error);
         this.renderEmptyIfConnected(popover, container);
       } finally {
         if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
@@ -25749,7 +25800,7 @@ ${spelling}`);
     }
     handleExampleAudioError(example, quiet, requestId, error) {
       if (this.shouldClearAudioAfterExampleError(requestId)) this.clearAudio();
-      log$a.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
+      log$b.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
       if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
     }
     shouldClearAudioAfterExampleError(requestId) {
@@ -27902,6 +27953,120 @@ ${spelling}`);
   }
   function isAbortError$1(error) {
     return error instanceof DOMException && error.name === "AbortError";
+  }
+  const RECOMMENDED_JAPANESE_DICTIONARIES = [
+    {
+      id: "jitendex",
+      category: "terms",
+      name: "Jitendex",
+      descriptionKey: "recommendedJitendex",
+      downloadUrl: "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"
+    },
+    {
+      id: "jmdict",
+      category: "terms",
+      name: "JMdict",
+      descriptionKey: "recommendedJmdict",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip"
+    },
+    {
+      id: "jmnedict",
+      category: "terms",
+      name: "JMnedict",
+      descriptionKey: "recommendedJmnedict",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"
+    },
+    {
+      id: "wty-ja-ja",
+      category: "terms",
+      name: "WTY JA-JA",
+      descriptionKey: "recommendedWtyJapaneseJapanese",
+      downloadUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip"
+    },
+    {
+      id: "pixiv-light",
+      category: "terms",
+      name: "Pixiv Light",
+      descriptionKey: "recommendedPixivLight",
+      downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BMonolingual%5D%20PixivLight.zip"
+    },
+    {
+      id: "kanjidic",
+      category: "kanji",
+      name: "KANJIDIC",
+      descriptionKey: "recommendedKanjidic",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
+    },
+    {
+      id: "jpdb-kanji",
+      category: "kanji",
+      name: "JPDB Kanji",
+      descriptionKey: "recommendedJpdbKanji",
+      downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BKanji%5D%20JPDB%20Kanji.zip"
+    },
+    {
+      id: "kanjium-pitch",
+      category: "pitch",
+      name: "Kanjium pitch accents",
+      descriptionKey: "recommendedKanjiumPitch",
+      downloadUrl: "https://raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip"
+    },
+    {
+      id: "jpdbv2-kana",
+      category: "frequency",
+      name: "JPDBv2㋕",
+      descriptionKey: "recommendedJpdbv2Kana",
+      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip"
+    },
+    {
+      id: "jiten",
+      category: "frequency",
+      name: "Jiten",
+      descriptionKey: "recommendedJiten",
+      downloadUrl: "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"
+    },
+    {
+      id: "bccwj",
+      category: "frequency",
+      name: "BCCWJ",
+      descriptionKey: "recommendedBccwj",
+      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"
+    }
+  ];
+  function findRecommendedDictionary(id) {
+    return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
+  }
+  const log$a = Logger.scope("OfflineDictionarySetup");
+  const OFFLINE_PARSING_DICTIONARY_IDS = ["jitendex", "kanjium-pitch"];
+  async function installOfflineParsingDictionaries(options) {
+    const result = { installed: [], skipped: [], failed: [] };
+    for (const target of await missingOfflineSetupDictionaries(options.dictionaries, result)) {
+      try {
+        const summary = await options.dictionaries.importFromUrl(target.downloadUrl, void 0, options.onProgress);
+        const settings = options.getSettings();
+        await options.applySettings({
+          ...settings,
+          dictionaryPreferences: mergeDictionaryPreferences(settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {}),
+          localDictionariesEnabled: true
+        });
+        result.installed.push(target.name);
+      } catch (error) {
+        result.failed.push(target.name);
+        log$a.warn("Offline dictionary install failed", { dictionary: target.name }, error);
+      }
+    }
+    return result;
+  }
+  async function missingOfflineSetupDictionaries(store, result) {
+    const targets = OFFLINE_PARSING_DICTIONARY_IDS.map((id) => findRecommendedDictionary(id)).filter((dictionary) => Boolean(dictionary?.downloadUrl));
+    const installedUrls = await store.summary().then((summary) => new Set(summary.dictionaries.map((info) => info.downloadUrl ?? "").filter(Boolean))).catch(() => new Set());
+    const hasTerms = await store.hasTermDictionaries?.().catch(() => false) ?? false;
+    const missing = [];
+    for (const target of targets) {
+      if (installedUrls.has(target.downloadUrl) || target.category === "terms" && hasTerms) result.skipped.push(target.name);
+      else missing.push(target);
+    }
+    return missing;
   }
   const DEFAULT_TTL_MS = 24 * 60 * 60 * 1e3;
   const DEFAULT_LIMIT = 240;
@@ -34710,6 +34875,7 @@ class OnboardingController {
   youtubeImmersionInput;
   preferJapaneseSiteLanguageInput;
   manualScanInput;
+  offlineDictionariesInput;
   async showIfNeeded() {
   if (this.options.getSettings().onboardingSeen) {
     return false;
@@ -34814,11 +34980,13 @@ class OnboardingController {
   this.youtubeImmersionInput = checkboxInput("youtubeImmersionEnabled", this.options.getSettings().youtubeImmersionEnabled);
   this.preferJapaneseSiteLanguageInput = checkboxInput("preferJapaneseSiteLanguage", this.options.getSettings().preferJapaneseSiteLanguage);
   this.manualScanInput = checkboxInput("manualScanEnabled", this.options.getSettings().manualScanEnabled);
+  this.offlineDictionariesInput = checkboxInput("onboardingInstallOfflineDictionaries", true);
   immersionOptions.append(
     immersionLegend,
     checkboxLabel(this.youtubeImmersionInput, uiText(this.options.getSettings().interfaceLanguage, "youtubeImmersionEnabled")),
     checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, "preferJapaneseSiteLanguage")),
-    checkboxLabel(this.manualScanInput, uiText(this.options.getSettings().interfaceLanguage, "manualScanEnabled"))
+    checkboxLabel(this.manualScanInput, uiText(this.options.getSettings().interfaceLanguage, "manualScanEnabled")),
+    checkboxLabel(this.offlineDictionariesInput, uiText(this.options.getSettings().interfaceLanguage, "onboardingInstallOfflineDictionaries"))
   );
   const actions = document.createElement("div");
   actions.className = "jpdb-reader-onboarding-actions";
@@ -34879,6 +35047,7 @@ class OnboardingController {
   panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, "youtubeImmersionEnabled"));
   panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, "preferJapaneseSiteLanguage"));
   panel.querySelector('[data-onboarding-copy="manualScanEnabled"]')?.replaceChildren(uiText(language, "manualScanEnabled"));
+  panel.querySelector('[data-onboarding-copy="onboardingInstallOfflineDictionaries"]')?.replaceChildren(uiText(language, "onboardingInstallOfflineDictionaries"));
   panel.querySelector(".jpdb-reader-onboarding-accent legend")?.replaceChildren(uiText(language, "onboardingAccentColor"));
   panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(uiText(language, "customAccentColor"));
   this.accentColorInput?.setAttribute("aria-label", uiText(language, "onboardingAccentColor"));
@@ -34914,13 +35083,15 @@ class OnboardingController {
   }
   async complete(openSettings) {
   const done = log$4.time("Onboarding complete", { openSettings });
-  const settings = this.completedOnboardingSettings(openSettings);
+  const installOfflineDictionaries = this.offlineDictionariesInput?.checked === true;
+  const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries);
   try {
     this.options.setSettings(settings);
     await saveSettings(settings);
     this.close();
+    if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
     this.openPostOnboardingSettings(openSettings);
-    log$4.info("Onboarding completed", { openSettings, language: settings.interfaceLanguage });
+    log$4.info("Onboarding completed", { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });
   } catch (error) {
     log$4.warn("Onboarding completion failed", { openSettings, error });
     throw error;
@@ -34928,13 +35099,13 @@ class OnboardingController {
     done();
   }
   }
-  completedOnboardingSettings(openSettings) {
+  completedOnboardingSettings(openSettings, installOfflineDictionaries) {
   const current = this.options.getSettings();
   return {
     ...current,
     onboardingSeen: true,
     jpdbDefinitionsEnabled: true,
-    localDictionariesEnabled: openSettings !== true,
+    localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
     youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
     preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
     manualScanEnabled: this.manualScanInput?.checked ?? current.manualScanEnabled,
@@ -34959,6 +35130,7 @@ class OnboardingController {
   this.youtubeImmersionInput = void 0;
   this.preferJapaneseSiteLanguageInput = void 0;
   this.manualScanInput = void 0;
+  this.offlineDictionariesInput = void 0;
   }
   createThemeToggle() {
   const wrapper = document.createElement("div");
@@ -38058,7 +38230,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.5.22"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.0"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -39252,7 +39424,8 @@ class ReaderApp {
   },
   showSettings: (panel) => this.showSettings(panel),
   parseJapanese: (panel) => void this.parseOnboardingJapanese(panel),
-  lookupText: (text2, sentence, anchor) => this.lookupText(text2, sentence || text2, { anchor, stackOverSettings: true })
+  lookupText: (text2, sentence, anchor) => this.lookupText(text2, sentence || text2, { anchor, stackOverSettings: true }),
+  installOfflineDictionaries: () => void this.installOfflineParsingDictionaries()
   });
   subtitles = this.createSubtitlePlayer();
   ocr = this.createImageOcrController();
@@ -39804,6 +39977,29 @@ class ReaderApp {
   }
   async refreshDictionaryStyles() {
   await this.dictionaryStyles.refresh();
+  }
+  offlineDictionarySetupInFlight = false;
+  async installOfflineParsingDictionaries() {
+  if (this.offlineDictionarySetupInFlight) return;
+  this.offlineDictionarySetupInFlight = true;
+  try {
+    const result = await installOfflineParsingDictionaries({
+      dictionaries: this.dictionaries,
+      getSettings: () => this.settings,
+      applySettings: async (settings) => {
+        this.settings = settings;
+        await saveSettings(settings);
+      }
+    });
+    if (result.installed.length) {
+      await this.refreshDictionaryStyles();
+      this.scheduleDictionaryRescan();
+    }
+    if (result.failed.length) this.toast(uiText(this.settings.interfaceLanguage, "offlineDictionarySetupFailed"));
+    else if (result.installed.length) this.toast(uiText(this.settings.interfaceLanguage, "offlineDictionarySetupComplete"));
+  } finally {
+    this.offlineDictionarySetupInFlight = false;
+  }
   }
   clearBridgeBackedCaches() {
   this.audio.clearCaches();

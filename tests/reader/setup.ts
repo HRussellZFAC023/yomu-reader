@@ -1,11 +1,42 @@
 // ADR-0003: tests exercise core + companions together, like the
 // self-contained build; populate the companion registry up front.
 import '../../src/reader/companions/register-build-companions';
-import { afterEach, beforeEach, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, vi } from 'vitest';
 import { applyPreferredJapaneseSiteLanguage } from '../../src/reader/app/preferred-site-language';
 
 if (typeof document !== 'undefined' && !document.elementFromPoint) {
     document.elementFromPoint = () => null;
+}
+
+// A BroadcastChannel leaked past its test file can receive the next file's
+// postMessage from a different jsdom realm inside the same reused fork; Node's
+// dispatch then rejects the cross-realm MessageEvent (ERR_INVALID_ARG_TYPE) as
+// an unhandled error attributed to whichever file happens to be running.
+// Track every channel a file opens and force-close the leftovers at file end.
+const NativeBroadcastChannel = globalThis.BroadcastChannel;
+if (typeof NativeBroadcastChannel === 'function') {
+    const openChannels = new Set<BroadcastChannel>();
+    globalThis.BroadcastChannel = class extends NativeBroadcastChannel {
+        constructor(name: string) {
+            super(name);
+            openChannels.add(this);
+        }
+
+        close(): void {
+            openChannels.delete(this);
+            super.close();
+        }
+    } as typeof BroadcastChannel;
+    afterAll(() => {
+        for (const channel of openChannels) {
+            try {
+                channel.close();
+            } catch {
+                // Already closed by the runtime; only the leak matters here.
+            }
+        }
+        openChannels.clear();
+    });
 }
 
 

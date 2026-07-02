@@ -2524,6 +2524,7 @@
       onboardingAccentColor: "Accent color",
       customAccentColor: "Custom color",
       onboardingImmersionOptions: "Immersion defaults",
+      onboardingInstallOfflineDictionaries: "Download offline dictionaries (Jitendex + pitch accents)",
       onboardingHoverShortcut: "Lookup hover modifier",
       manualPageScanShortcut: "Manual page scan shortcut",
       onboardingAddApiKey: "Add API key",
@@ -3077,6 +3078,12 @@
       dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pitch, and frequency dictionaries add definitions, accents, and badges.",
       lookupPills: "Lookup pills",
       lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
+      parserProvider: "Parsing source",
+      parserProviderLocal: "Local dictionaries (offline)",
+      parserProviderAuto: "Jiten/JPDB APIs",
+      parserProviderHelp: "Local parses with imported dictionaries, offline. Automatic prefers Jiten/JPDB when keys are set.",
+      offlineDictionarySetupComplete: "Offline dictionaries installed.",
+      offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -3725,6 +3732,9 @@ onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
+onboardingInstallOfflineDictionaries	オフライン辞書をダウンロード（Jitendex＋ピッチアクセント）
+offlineDictionarySetupComplete	オフライン辞書をインストールしました。
+offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。
 onboardingHoverShortcut	ホバー検索の修飾キー
 onboardingAddApiKey	APIキーを追加
 onboardingAddLocalDictionaries	ローカル辞書を追加
@@ -4737,6 +4747,10 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/ピッチ/頻度辞書で定義、アクセント、バッジを追加します。
 lookupPills	検索ピル
+parserProvider	解析ソース
+parserProviderLocal	ローカル辞書（オフライン）
+parserProviderAuto	Jiten/JPDB API
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。自動はキー設定時にJiten/JPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
