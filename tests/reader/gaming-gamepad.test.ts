@@ -137,4 +137,18 @@ describe('GamepadOverlayController', () => {
         expect(events.recapture).toBe(1);
         expect(events.settings).toBe(1);
     });
+
+    it('stop cancels polling and clears the focus ring', () => {
+        const handlers = { openWord: vi.fn(), back: vi.fn(), recapture: vi.fn(), settings: vi.fn() };
+        const controller = new GamepadOverlayController(handlers as never);
+        controller.start();
+        const focused = document.createElement('span');
+        document.body.append(focused);
+        (controller as unknown as { focused: HTMLElement | null }).focused = focused;
+        focused.dataset.gamepadFocus = 'true';
+        controller.stop();
+        expect((controller as unknown as { running: boolean }).running).toBe(false);
+        expect((controller as unknown as { raf: number }).raf).toBe(0);
+        expect(document.querySelector('[data-gamepad-focus]')).toBeNull();
+    });
 });

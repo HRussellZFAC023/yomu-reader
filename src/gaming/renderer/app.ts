@@ -839,6 +839,12 @@ class OverlaySelectionController {
             void this.gamingBridge.hideOverlay();
         });
         this.gamepad.start();
+        // The overlay window is hidden and reused, not destroyed — without
+        // this the gamepad rAF poller would keep running after dismissal.
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) this.gamepad.stop();
+            else this.gamepad.start();
+        });
     }
 
     // The reader may render words either anchored in place (geometry OCR) or inside

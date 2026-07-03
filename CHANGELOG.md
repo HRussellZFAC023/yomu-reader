@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.19] - 2026-07-03
+
+### Fixed
+
+- The Yomu Gaming gamepad poller now stops when the capture overlay is dismissed and resumes when it reopens; the hidden-and-reused overlay window previously kept polling every frame, wasting battery on handhelds.
+
 ## [1.6.18] - 2026-07-03
 
 ### Added
