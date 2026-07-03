@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.9] - 2026-07-03
+
+### Fixed
+
+- Release-gate test waits now scale their polling budget on CI runners, so four-shard event-loop starvation no longer fails waits that pass in milliseconds locally. This is what blocked the 1.6.8 release build twice.
+- The furigana-local-default smoke now opens settings by re-dispatching until the settings surface has registered its listener, instead of losing a single early dispatch on slow runners.
+
 ## [1.6.8] - 2026-07-03
 
 ### Added
