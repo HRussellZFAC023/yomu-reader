@@ -6,6 +6,7 @@
 // data: frames (paused-video / canvas snapshots), which the controller already
 // excludes. Bounded by entry count and serialized byte size so it can't grow the
 // origin's storage without limit.
+import { managedStateWritesSuppressed } from '../app/managed-state-registry';
 import type { OcrResult } from './response-shared';
 
 const STORE_KEY = 'yomu-ocr-cache-v1';
@@ -104,6 +105,9 @@ function installFlushListeners(): void {
 }
 
 function writeOcrCache(cache: Map<string, OcrResult | null>, now: number): void {
+    // A factory-reset reload fires pagehide/visibilitychange; a flush here would
+    // re-create the just-cleared OCR cache key.
+    if (managedStateWritesSuppressed()) return;
     const store = storage();
     if (!store) return;
     try {

@@ -1,6 +1,12 @@
 import { MANAGED_STORAGE_KEY_PREFIXES, isManagedStorageKey } from './managed-storage-keys';
 import { DOCS_ORIGIN } from './constants';
 import { getUserscriptGmStorage } from '../userscript/storage-bridge';
+import './managed-state-manifest';
+import {
+    registeredManagedStorageKeys,
+    registeredManagedIndexedDbNames,
+    managedStateEntries,
+} from './managed-state-registry';
 
 const MISSING = { missing: true };
 const FACTORY_RESET_SIGNAL_KEY = 'yomu:factory-reset-signal';
@@ -473,7 +479,35 @@ async function allStorageKeys(): Promise<string[]> {
     collectWebStorageKeys(localStorage, keys);
     collectWebStorageKeys(sessionStorage, keys);
     await addKnownStoredKeys(keys);
+    warnUnregisteredManagedKeys(keys);
     return [...keys].sort();
+}
+
+// Safety-net invariant: every managed key the legacy prefix/GM sweep catches
+// should also be declared in the managed-state registry. A key here that the
+// registry does not know about means a store escaped registration — the
+// factory-reset-invariant test asserts this stays empty, which is the
+// enforcement that fails when a future store forgets to register.
+export function unregisteredManagedStorageKeys(keys: Iterable<string>): string[] {
+    const exactKeys = new Set(registeredManagedStorageKeys());
+    const prefixes = managedStateEntries()
+        .filter(entry => entry.kind !== 'idb' && entry.prefix)
+        .map(entry => entry.prefix as string);
+    const unregistered: string[] = [];
+    for (const key of keys) {
+        if (key === FACTORY_RESET_SIGNAL_KEY) continue;
+        if (exactKeys.has(key)) continue;
+        if (prefixes.some(prefix => key.startsWith(prefix))) continue;
+        unregistered.push(key);
+    }
+    return unregistered;
+}
+
+function warnUnregisteredManagedKeys(keys: Set<string>): void {
+    const unregistered = unregisteredManagedStorageKeys(keys);
+    if (unregistered.length) {
+        debugStorageError('Managed key not in registry (unregistered store escaping reset)', unregistered.join(','), null);
+    }
 }
 
 async function addGmStorageKeys(keys: Set<string>): Promise<void> {
@@ -487,7 +521,10 @@ async function addGmStorageKeys(keys: Set<string>): Promise<void> {
 }
 
 async function addKnownStoredKeys(keys: Set<string>): Promise<void> {
-    for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
+    // The registry is the source of truth; KNOWN_MANAGED_STORAGE_KEYS is kept as a
+    // temporary safety net (any key it lists that the registry omits is still swept).
+    const knownKeys = new Set<string>([...KNOWN_MANAGED_STORAGE_KEYS, ...registeredManagedStorageKeys()]);
+    for (const key of knownKeys) {
         if (await storedValueExists(key)) keys.add(key);
     }
 }
@@ -578,7 +615,8 @@ function isHostedYomuOrigin(): boolean {
 }
 
 async function clearManagedIndexedDatabases(): Promise<void> {
-    await Promise.all(MANAGED_INDEXED_DB_NAMES.map(deleteIndexedDbDatabase));
+    const names = new Set<string>([...MANAGED_INDEXED_DB_NAMES, ...registeredManagedIndexedDbNames()]);
+    await Promise.all([...names].map(deleteIndexedDbDatabase));
 }
 
 function isManagedBrowserCacheName(name: string): boolean {

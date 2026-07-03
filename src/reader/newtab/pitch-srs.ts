@@ -1,4 +1,5 @@
 import { gmStorageDelete, gmStorageGet, gmStorageSet, gmStorageSetSync } from '../app/storage';
+import { managedStateWritesSuppressed } from '../app/managed-state-registry';
 import type { JPDBCard, JPDBGrade } from '../app/types';
 import {
     contextPitchPattern,
@@ -285,6 +286,9 @@ export class PitchSrsStore {
     // Synchronous flush for teardown / page-close, where the 400ms debounced async
     // write would be lost. Mirrors the sync GM-storage path used by the UI state.
     flushSync(): void {
+        // A factory reset tears down the controller after clearing storage; a
+        // teardown flush here would re-create the just-cleared pitch keys.
+        if (managedStateWritesSuppressed()) return;
         try {
             if (this.items.size) {
                 const record: Record<string, PitchSrsItem> = {};
@@ -298,6 +302,7 @@ export class PitchSrsStore {
     }
 
     async flushItems(): Promise<void> {
+        if (managedStateWritesSuppressed()) return;
         if (!this.items.size) {
             await gmStorageDelete(PITCH_ITEMS_KEY).catch(() => undefined);
             return;
@@ -308,6 +313,7 @@ export class PitchSrsStore {
     }
 
     async flushHistory(): Promise<void> {
+        if (managedStateWritesSuppressed()) return;
         if (!this.history.length) {
             await gmStorageDelete(PITCH_HISTORY_KEY).catch(() => undefined);
             return;

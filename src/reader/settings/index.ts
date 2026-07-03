@@ -7,6 +7,7 @@ import { hasJitenApiCredential, hasJpdbApiCredential, isJitenApiCredential } fro
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists, subscribeToStoredValueChanges } from '../app/storage';
+import { beginManagedStateReset, endManagedStateReset } from '../app/managed-state-registry';
 import { sharedContrastRatio, sharedMixHex } from '../core/color-math';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
@@ -1603,10 +1604,15 @@ function dispatchSettingsChange(settings: Partial<ReaderSettings>): void {
 
 export function beginSettingsResetGuard(): void {
     settingsResetInProgress = true;
+    // Every debounced/deferred persister consults the shared registry flag, so the
+    // settings guard drives it too: entering the reset window suppresses all
+    // managed writes (not just settings) until the reload/end.
+    beginManagedStateReset();
 }
 
 export function endSettingsResetGuard(): void {
     settingsResetInProgress = false;
+    endManagedStateReset();
 }
 
 export async function deleteSettingsStorage(): Promise<void> {

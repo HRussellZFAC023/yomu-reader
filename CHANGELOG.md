@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.22] - 2026-07-03
+
+### Fixed
+
+- Factory reset now clears every store the reader writes, driven by a central managed-state registry: an invariant test seeds all 44 registered stores plus any future yomu-prefixed keys and fails if anything survives, and debounced writers (pitch progress, the OCR cache) are suppressed during reset so they cannot re-create keys they just cleared.
+
 ## [1.6.21] - 2026-07-03
 
 ### Added
