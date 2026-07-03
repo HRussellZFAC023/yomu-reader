@@ -1,0 +1,14 @@
+{
+  "branding": {
+    "tagline": "Read Japanese anywhere.",
+    "homepageUrl": "https://yomureader.com",
+    "homepageLabel": "Documentation",
+    "settingsEvent": "yomu-open-settings",
+    "settingsLabel": "Settings on this page",
+    "iconPath": "newtab/icons/icon128.png",
+    "pages": [
+      { "path": "newtab/index.html", "label": "Open Study" },
+      { "path": "video-player/index.html", "label": "Open video player" }
+    ]
+  }
+}

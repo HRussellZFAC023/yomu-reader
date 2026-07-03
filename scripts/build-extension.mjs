@@ -53,6 +53,7 @@ await run(process.execPath, [
     '--target', 'chrome,firefox,safari',
     '--runtime', 'content-script',
     '--newtab-dir', newtab,
+    '--config', path.join(root, 'config', 'userscript-compiler.config.json'),
 ], { cwd: root });
 
 await hardenGeneratedExtensionBackgrounds(out);
