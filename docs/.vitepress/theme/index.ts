@@ -200,6 +200,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Remediation for 1.6.28, which was tagged with two style unit tests still asserting the old bare-until-hover selector: the tests now assert the chip and engagement-panel carve-out. No product changes beyond 1.6.28.": "1.6.28の是正リリースです。1.6.28は、旧来のホバーまで非表示セレクターを検証したままの2つのスタイルユニットテストと共にタグ付けされていました。テストはチップとエンゲージメントパネルの除外を検証するようになりました。1.6.28以降の製品変更はありません。",
     "YouTube's feed filter chips and engagement panels (description, transcript, the ask-AI panel) keep their pitch underlines visible at rest instead of hiding them until hover, and the ask-AI panel's centered heading now gets furigana like the panel body.": "YouTubeのフィードのフィルターチップとエンゲージメントパネル（概要、文字起こし、AIに質問パネル）では、ピッチの下線がホバーまで隠れず常時表示されるようになりました。また、AIに質問パネルの中央揃えの見出しにも、本文と同様にふりがなが付きます。",
     "Subtitle words whose pitch has not resolved show the same neutral grey underline as the reader instead of rendering bare next to coloured neighbours.": "ピッチが未解決の字幕の単語は、色付きの隣の単語の横で裸のまま表示されず、リーダーと同じニュートラルなグレーの下線が表示されるようになりました。",
     "Local pitch lookups now match katakana surfaces against hiragana dictionary readings, retry kana-keyed rows by reading, and accept a bank's single stored reading when the parsed one disagrees — resolving pitch for words that silently dropped before.": "ローカルのピッチ検索が、カタカナ表記をひらがなの辞書読みと照合し、かなキーの行を読みで再検索し、解析された読みが一致しない場合も辞書に登録された読みが1つだけならそれを受け入れるようになりました。これまで黙って落ちていた語のピッチが解決されます。",

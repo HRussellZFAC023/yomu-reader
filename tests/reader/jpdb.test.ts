@@ -3707,6 +3707,9 @@ describe('reader helpers', () => {
         const subtitleSurfaces = ':is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom)';
         const underlineSurfaces = ':is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface)';
         const pitchClassSelector = ':is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku)';
+        // The underline channel also colours jpdb-pitch-unknown (neutral grey
+        // fallback) so unresolved words never sit bare beside coloured ones.
+        const underlinePitchClassSelector = ':is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku, .jpdb-pitch-unknown)';
 
         expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--subtitle-color); --jpdb-reader-subtitle-highlight-default: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 24%, transparent ); background-color: transparent !important; background-image: none !important;');
         expect(normalizedCss).toContain(`${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-subtitle-status-color: var(--jpdb-reader-status-color, transparent);`);
@@ -3726,9 +3729,9 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-status ${underlineSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-status-decoration); }`);
         expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-jpdb ${underlineSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }`);
         expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-anki ${underlineSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-anki-decoration); }`);
-        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-pitch ${underlineSurfaces} .jpdb-reader-word${pitchClassSelector} { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-decoration); }`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-pitch ${underlineSurfaces} .jpdb-reader-word${underlinePitchClassSelector} { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-decoration); }`);
         expect(normalizedCss).toContain('.jpdb-reader-subtitle-preview .jpdb-reader-word { --jpdb-reader-source-status-color: var(--jpdb-reader-status-readable, var(--jpdb-reader-status-color, var(--jpdb-reader-state-new))); --jpdb-reader-source-status-decoration: var(--jpdb-reader-source-status-color); --jpdb-reader-source-jpdb-color: var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-jpdb-color, var(--jpdb-reader-state-new))); --jpdb-reader-source-jpdb-decoration: var(--jpdb-reader-source-jpdb-color); --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-pitch-color, var(--jpdb-reader-pitch-unknown))); --jpdb-reader-source-pitch-decoration: transparent; }');
-        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word${pitchClassSelector} { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word${underlinePitchClassSelector} { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);`);
         expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) ${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-word-highlight-paint: var(--jpdb-reader-subtitle-highlight, transparent); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; }`);
         expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) ${subtitleSurfaces} .jpdb-reader-word.jpdb-reader-has-furi { background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; }`);
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi .jpdb-reader-ruby-base { background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;');
@@ -30579,7 +30582,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('uses the visible-page Jiten budget without JPDB pitch fan-out for keyless YouTube background enrichment', async () => {
+    it('keeps the paced page budget while allowing the public pitch lane for keyless YouTube background enrichment', async () => {
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=eWHIWDHkYW8',
             origin: 'https://www.youtube.com',
@@ -30621,8 +30624,10 @@ describe('reader helpers', () => {
 
         try {
             const options = internals.backgroundPitchEnrichmentOptions();
+            // The jpdb.io pitch lane stays ON for keyless YouTube (words the
+            // local dict misses would otherwise stay grey forever); the page
+            // budget, pacing, and per-URL deferral remain the DOS guard.
             expect(options).toEqual({
-                jpdbPublicLookup: false,
                 publicLookupLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
                 publicLookupTotalLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
                 publicLookupPageBudget: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
@@ -30632,7 +30637,8 @@ describe('reader helpers', () => {
             });
             await internals.enrichPitchWords(youtubeCards.map(lookupCard => testTokenForCard(lookupCard)), options);
 
-            expect(publicPitch).not.toHaveBeenCalled();
+            expect(publicPitch.mock.calls.length).toBeGreaterThan(0);
+            expect(publicPitch.mock.calls.length).toBeLessThanOrEqual(YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET);
         } finally {
             app.destroy();
             vi.unstubAllGlobals();

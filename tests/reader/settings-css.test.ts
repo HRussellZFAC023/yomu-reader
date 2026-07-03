@@ -103,7 +103,9 @@ describe('settings CSS', () => {
         expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; display: inline !important; white-space: inherit; word-break: inherit; overflow-wrap: inherit !important; line-break: inherit; cursor: inherit; }');
         expect(normalizedReaderWordsOcrCss).toContain('[data-jpdb-reader-passive-chrome] .jpdb-reader-passive-word { white-space: inherit; }');
         expect(normalizedReaderWordsOcrCss).toContain(':is(button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-atomic="true"]) .jpdb-reader-passive-word { white-space: nowrap; }');
-        expect(normalizedReaderWordsOcrCss).toContain('[data-jpdb-reader-passive-chrome="true"] ) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active) { --jpdb-reader-word-accessible-color: currentColor; --jpdb-reader-word-accessible-highlight: transparent; --jpdb-reader-word-accessible-underline: transparent;');
+        // The trailing :not() carves YouTube's filter chips and engagement
+        // panels out of bare-until-hover — their Japanese is reading material.
+        expect(normalizedReaderWordsOcrCss).toContain('[data-jpdb-reader-passive-chrome="true"] ) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer) .jpdb-reader-word) { --jpdb-reader-word-accessible-color: currentColor; --jpdb-reader-word-accessible-highlight: transparent; --jpdb-reader-word-accessible-underline: transparent;');
         expect(normalizedReaderWordsOcrCss).toContain('background-image: none !important; box-shadow: none !important; color: currentColor !important; -webkit-text-fill-color: currentColor; text-decoration-color: transparent !important; text-shadow: none; }');
     });
 

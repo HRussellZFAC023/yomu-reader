@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.29] - 2026-07-03
+
+### Changed
+
+- Remediation for 1.6.28, which was tagged with two style unit tests still asserting the old bare-until-hover selector: the tests now assert the chip and engagement-panel carve-out. No product changes beyond 1.6.28.
+
 ## [1.6.28] - 2026-07-03
 
 ### Fixed
