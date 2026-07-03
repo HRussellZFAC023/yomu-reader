@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.21] - 2026-07-03
+
+### Added
+
+- The kanji drawing step always fronts the word meaning with a blanked cloze ("drink - one kanji blanked"), so an ambiguous blank never leaves you guessing which word you are drawing, and a keyword that would just repeat that meaning no longer renders below it.
+- Progressive hints on the ambiguous study steps: kanji drawing and typed recall gain a Hint control that reveals one tier at a time (meaning, then a kana cue) without giving the answer away before the reveal, which notes how many hints you used.
+- The listen step pitch-accent check now shows the word and asks which pitch you heard above the contour choices, your pick is remembered while you move between steps, and the speaking step is labeled as shadowing with its scoring intact.
+- Every study step visibility condition is spelled out in its settings help, so it is clear why a step is present or absent for a given card.
+
+### Fixed
+
+- Registered the study-flow screenshot harnesses with the dead-code gate, which had been failing CI since the study enrichment landed.
+
 ## [1.6.19] - 2026-07-03
 
 ### Fixed
