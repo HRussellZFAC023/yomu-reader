@@ -775,11 +775,24 @@ async function run() {
             await waitForPageCanvas(page, 2);
             await waitForScannedPageReady(page, 2);
             const pageTurnMs = Date.now() - pageTurnStart;
+            // Page 1's overlay tears down asynchronously after navigation, so
+            // poll for it clearing instead of sampling one instant — the
+            // invariant is that stale text never SETTLES over page 2.
+            await page.waitForFunction(pageOneText => [...document.querySelectorAll('.jpdb-ocr-line')]
+                .every(line => {
+                    if (!(line.textContent || '').replace(/\s+/g, '').includes(pageOneText)) return true;
+                    const rect = line.getBoundingClientRect();
+                    const style = getComputedStyle(line);
+                    return rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0 || rect.top >= window.innerHeight
+                        || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || '1') <= 0;
+                }), OCR_PAGE_ONE_TEXT.replace(/\s+/g, ''), { timeout: 10_000 })
+                .catch(async () => {
+                    assert(false, 'page 1 OCR text should not remain visibly over page 2', { staleVisibleText: await visibleOcrText(page), staleVisibleLines: await visibleOcrLines(page), nav: await readNavState(page) });
+                });
             const staleVisibleText = await visibleOcrText(page);
             const staleVisibleLines = await visibleOcrLines(page);
             report.scannedPageTurn = { pageTurnMs, staleVisibleText, staleVisibleLines };
             assert(pageTurnMs < 8000, 'changing scanned PDF pages should stay responsive', { pageTurnMs });
-            assert(!staleVisibleText.includes(OCR_PAGE_ONE_TEXT), 'page 1 OCR text should not remain visibly over page 2', { staleVisibleText, staleVisibleLines, nav: await readNavState(page) });
             assert(staleVisibleLines.every(line => line.page === '2'), 'visible OCR after page navigation should be anchored to the newly visible PDF page', { staleVisibleLines, nav: await readNavState(page) });
 
             await waitForOcrText(page, OCR_PAGE_TWO_TEXT, 'page 2 scanned PDF OCR did not render');
