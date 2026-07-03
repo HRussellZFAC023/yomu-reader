@@ -39280,7 +39280,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.29".trim() ? "1.6.29".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.30".trim() ? "1.6.30".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -46735,6 +46735,40 @@ ${spelling}`);
     const closeLabel = uiText(language, "closeSubtitlePanel");
     return `<button class="jpdb-subtitle-panel-close" type="button" data-action="close-panel" title="${escapeHtml$1(closeLabel)}" aria-label="${escapeHtml$1(closeLabel)}">${subtitleIcon("close")}</button>`;
   }
+  function renderDrawerHead(state2) {
+    const language = state2.options.language;
+    return `
+        <div class="jpdb-subtitle-drawer-head">
+            <div class="jpdb-subtitle-drawer-top">
+                <div class="jpdb-subtitle-drawer-brand">
+                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(state2.title)}</strong>
+                    <span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(state2.meta)}</span>
+                </div>
+                <div class="jpdb-subtitle-drawer-top-actions">
+                    ${renderPanelOptionsControls(state2.options)}
+                    ${renderPanelCloseButton(language)}
+                </div>
+            </div>
+            <div class="jpdb-subtitle-drawer-actions">
+                ${state2.showModeTabs === false ? "" : renderPanelModeControls(state2.mode, state2.canShowLines, language)}
+                ${state2.extraActions ?? ""}
+                ${renderDrawerPlayback(language)}
+            </div>
+        </div>
+    `;
+  }
+  function renderDrawerPlayback(language) {
+    const previousLabel = uiText(language, "previousSubtitle");
+    const nextLabel = uiText(language, "nextSubtitle");
+    const playLabel = uiText(language, "playVideo");
+    return `
+        <div class="jpdb-subtitle-drawer-playback">
+            <button type="button" data-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">‹</button>
+            <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml$1(playLabel)}" aria-label="${escapeHtml$1(playLabel)}">${subtitleIcon("play")}</button>
+            <button type="button" data-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">›</button>
+        </div>
+    `;
+  }
   function renderPanelOptionsPlacementItem(placement, currentPlacement, groupLabel, language) {
     const placementLabel = uiText(language, placement);
     const label = `${groupLabel}: ${placementLabel}`;
@@ -49132,31 +49166,27 @@ ${spelling}`);
   }
   function renderSubtitleTrackPanel(state2) {
     const language = state2.language;
-    const drawerActions = [
-      state2.hasTranscriptSurface ? renderPanelModeControls("tracks", true, language) : "",
-      renderPanelOptionsControls({
+    return `
+        ${renderDrawerHead({
+      mode: "tracks",
+      title: uiText(language, "subtitlesTitle"),
+      meta: subtitleDrawerMetaText({
+        mode: "tracks",
+        count: state2.tracks.length,
+        tracks: state2.tracks,
+        selectedTrackId: state2.selectedTrackId,
+        secondaryTrackId: state2.secondaryTrackId,
+        language
+      }),
+      canShowLines: state2.hasTranscriptSurface,
+      showModeTabs: state2.hasTranscriptSurface,
+      options: {
         placement: state2.placement,
         pausePanelEnabled: state2.pausePanelEnabled,
         menuOpen: state2.optionsMenuOpen,
         language
-      }),
-      renderPanelCloseButton(language)
-    ].filter(Boolean).join("");
-    return `
-        <div class="jpdb-subtitle-drawer-head">
-            <div class="jpdb-subtitle-drawer-brand">
-                <strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(uiText(language, "subtitlesTitle"))}</strong>
-                <span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(subtitleDrawerMetaText({
-      mode: "tracks",
-      count: state2.tracks.length,
-      tracks: state2.tracks,
-      selectedTrackId: state2.selectedTrackId,
-      secondaryTrackId: state2.secondaryTrackId,
-      language
-    }))}</span>
-            </div>
-            ${drawerActions ? `<div class="jpdb-subtitle-drawer-actions">${drawerActions}</div>` : ""}
-        </div>
+      }
+    })}
         <div class="jpdb-subtitle-list-scroll"${state2.virtual ? ' data-virtualized="true"' : ""}>
             <div class="jpdb-subtitle-track-tools">
                 <button type="button" data-action="load">${escapeHtml$1(uiText(language, "loadJapaneseSubtitles"))}</button>
@@ -50653,7 +50683,13 @@ ${spelling}`);
   }
   function renderSubtitleBatchMiningPanel(state2) {
     const language = state2.language;
-    return `<div class="jpdb-subtitle-batch-sticky"><div class="jpdb-subtitle-drawer-head"><div class="jpdb-subtitle-drawer-brand"><strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(subtitleText(language, "bmTitle"))}</strong><span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(batchMiningMetaText(state2))}</span></div><div class="jpdb-subtitle-drawer-actions">${renderPanelModeControls("mine", state2.hasTranscriptSurface, language)}${renderPanelOptionsControls({ placement: state2.placement, pausePanelEnabled: state2.pausePanelEnabled, menuOpen: state2.optionsMenuOpen, language })}${renderPanelCloseButton(language)}</div></div>${renderBatchMiningToolbar(state2)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state2)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>`;
+    return `<div class="jpdb-subtitle-batch-sticky">${renderDrawerHead({
+      mode: "mine",
+      title: subtitleText(language, "bmTitle"),
+      meta: batchMiningMetaText(state2),
+      canShowLines: state2.hasTranscriptSurface,
+      options: { placement: state2.placement, pausePanelEnabled: state2.pausePanelEnabled, menuOpen: state2.optionsMenuOpen, language }
+    })}${renderBatchMiningToolbar(state2)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state2)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>`;
   }
   function renderBatchMiningToolbar(state2) {
     const language = state2.language;
@@ -54633,6 +54669,17 @@ ${spelling}`);
       for (const action of ["previous", "next"]) {
         const railButton = this.root?.querySelector(`.jpdb-subtitle-rail [data-action="${action}"]`);
         if (railButton) syncSubtitleLineNavigationButton(railButton, action, hasLines, Boolean(this.video), hideRailNavigation, language);
+        const drawerButton = this.transcriptPanel?.querySelector(`.jpdb-subtitle-drawer-playback [data-action="${action}"]`);
+        if (drawerButton) syncSubtitleLineNavigationButton(drawerButton, action, hasLines, Boolean(this.video), false, language);
+      }
+      const drawerPlayback = this.transcriptPanel?.querySelector('.jpdb-subtitle-drawer-playback [data-action="playback"]');
+      if (drawerPlayback) {
+        syncSubtitlePlaybackButton(drawerPlayback, {
+          video: this.video,
+          hiddenByNavigation: false,
+          hasLines,
+          language
+        });
       }
       const playbackButton = this.root?.querySelector('.jpdb-subtitle-rail [data-action="playback"]');
       if (playbackButton) {
@@ -54667,13 +54714,13 @@ ${spelling}`);
     plannedTranscriptPlacement() {
       return shouldUseCompactSubtitleDrawer(this.transcriptViewportWidth()) ? "bottom" : this.options.getSettings().subtitleTranscriptPlacement;
     }
-    renderPanelOptionsMenu(pausePanelEnabled, language) {
-      return renderPanelOptionsControls({
+    panelOptionsState(pausePanelEnabled, language) {
+      return {
         placement: this.effectiveTranscriptPlacement,
         pausePanelEnabled,
         menuOpen: this.panelOptionsMenuOpen,
         language
-      });
+      };
     }
     togglePanelOptionsMenu() {
       this.panelOptionsMenuOpen = !this.panelOptionsMenuOpen;
@@ -55275,26 +55322,20 @@ ${spelling}`);
     }
     renderShadowPanelHead(state2) {
       const language = state2.settings.interfaceLanguage;
-      return `
-            <div class="jpdb-subtitle-drawer-head">
-                <div class="jpdb-subtitle-drawer-brand">
-                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(uiText(language, "subtitlesTitle"))}</strong>
-                    <span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(subtitleDrawerMetaText({
-        mode: "lines",
-        count: state2.cue?.text.trim() ? 1 : 0,
-        tracks: this.tracks,
-        selectedTrackId: this.selectedTrackId,
-        secondaryTrackId: this.secondaryTrackId,
-        language
-      }))}</span>
-                </div>
-                <div class="jpdb-subtitle-drawer-actions">
-                    ${renderPanelModeControls("shadow", this.hasTranscriptSurface(), language)}
-                    ${this.renderPanelOptionsMenu(state2.settings.subtitlePausePanel, language)}
-                    ${renderPanelCloseButton(language)}
-                </div>
-            </div>
-        `;
+      return renderDrawerHead({
+        mode: "shadow",
+        title: uiText(language, "subtitlesTitle"),
+        meta: subtitleDrawerMetaText({
+          mode: "lines",
+          count: state2.cue?.text.trim() ? 1 : 0,
+          tracks: this.tracks,
+          selectedTrackId: this.selectedTrackId,
+          secondaryTrackId: this.secondaryTrackId,
+          language
+        }),
+        canShowLines: this.hasTranscriptSurface(),
+        options: this.panelOptionsState(state2.settings.subtitlePausePanel, language)
+      });
     }
     renderShadowPanelBody(state2) {
       const cueText = state2.cue?.text.trim();
@@ -55725,25 +55766,21 @@ ${spelling}`);
       const rowCount = state2.totalRowCount ?? state2.rows.length;
       const rowIndexOffset = state2.rowIndexOffset ?? 0;
       return `
-            <div class="jpdb-subtitle-drawer-head">
-                <div class="jpdb-subtitle-drawer-brand">
-                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(uiText(language, "subtitlesTitle"))}</strong>
-                    <span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(subtitleDrawerMetaText({
+            ${renderDrawerHead({
         mode: "lines",
-        count: rowCount,
-        tracks: this.tracks,
-        selectedTrackId: this.selectedTrackId,
-        secondaryTrackId: this.secondaryTrackId,
-        language
-      }))}</span>
-                </div>
-                <div class="jpdb-subtitle-drawer-actions">
-                    ${renderPanelModeControls("lines", this.hasTranscriptSurface(), language)}
-                    <button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}" aria-label="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}">${subtitleIcon("locate")}</button>
-                    ${this.renderPanelOptionsMenu(settings.subtitlePausePanel, language)}
-                    ${renderPanelCloseButton(language)}
-                </div>
-            </div>
+        title: uiText(language, "subtitlesTitle"),
+        meta: subtitleDrawerMetaText({
+          mode: "lines",
+          count: rowCount,
+          tracks: this.tracks,
+          selectedTrackId: this.selectedTrackId,
+          secondaryTrackId: this.secondaryTrackId,
+          language
+        }),
+        canShowLines: this.hasTranscriptSurface(),
+        options: this.panelOptionsState(settings.subtitlePausePanel, language),
+        extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}" aria-label="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}">${subtitleIcon("locate")}</button>`
+      })}
             <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state2.virtual ? ' data-virtualized="true"' : ""}>
                 ${state2.virtual ? this.renderTranscriptVirtualSpacer(state2.virtual.topSpacer) : ""}
                 ${state2.rows.length ? state2.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state2.currentRowIndex)).join("") : this.renderTranscriptWaitingState()}

@@ -4,12 +4,7 @@ import type { InterfaceLanguage, JPDBGrade, ReaderSettings } from '../app/types'
 import { formatSubtitleTime } from './subtitle-cues';
 import type { SubtitleBatchMiningCandidate, SubtitleBatchMiningSummary } from './subtitle-batch-mining';
 import { formatSubtitleText, subtitleText } from './i18n';
-import {
-    renderPanelCloseButton,
-    renderPanelModeControls,
-    renderPanelOptionsControls,
-    subtitleIcon,
-} from './subtitle-surface';
+import { renderDrawerHead, subtitleIcon } from './subtitle-surface';
 
 export type SubtitleBatchMiningStatus = 'idle' | 'scanning' | 'ready' | 'failed';
 
@@ -34,7 +29,13 @@ export interface SubtitleBatchMiningGradeOption {
 
 export function renderSubtitleBatchMiningPanel(state: SubtitleBatchMiningPanelRenderState): string {
     const language = state.language;
-    return `<div class="jpdb-subtitle-batch-sticky"><div class="jpdb-subtitle-drawer-head"><div class="jpdb-subtitle-drawer-brand"><strong class="jpdb-subtitle-drawer-title">${escapeHtml(subtitleText(language, 'bmTitle'))}</strong><span class="jpdb-subtitle-drawer-meta">${escapeHtml(batchMiningMetaText(state))}</span></div><div class="jpdb-subtitle-drawer-actions">${renderPanelModeControls('mine', state.hasTranscriptSurface, language)}${renderPanelOptionsControls({ placement: state.placement, pausePanelEnabled: state.pausePanelEnabled, menuOpen: state.optionsMenuOpen, language })}${renderPanelCloseButton(language)}</div></div>${renderBatchMiningToolbar(state)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, 'resizeTranscriptPanel'))}"></div>`;
+    return `<div class="jpdb-subtitle-batch-sticky">${renderDrawerHead({
+        mode: 'mine',
+        title: subtitleText(language, 'bmTitle'),
+        meta: batchMiningMetaText(state),
+        canShowLines: state.hasTranscriptSurface,
+        options: { placement: state.placement, pausePanelEnabled: state.pausePanelEnabled, menuOpen: state.optionsMenuOpen, language },
+    })}${renderBatchMiningToolbar(state)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, 'resizeTranscriptPanel'))}"></div>`;
 }
 
 function renderBatchMiningToolbar(state: SubtitleBatchMiningPanelRenderState): string {

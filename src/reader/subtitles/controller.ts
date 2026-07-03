@@ -154,10 +154,9 @@ import {
     compareSubtitleVideoCandidates,
     isSubtitleOverlayVideoVisible,
     isSubtitleVideoElementRenderable,
-    renderPanelCloseButton,
-    renderPanelModeControls,
-    renderPanelOptionsControls,
+    renderDrawerHead,
     renderSubtitleStyleControls,
+    type PanelOptionsControlsState,
     setStylePropertyIfChanged,
     subtitleIcon,
     subtitleOverlayLayout,
@@ -4818,13 +4817,25 @@ export class SubtitlePlayerController {
 
     private syncLineNavigationButtons(hasLines: boolean): void {
         const settings = this.options.getSettings();
-        // The rail is the only prev/next surface (the drawer head lost its copy),
-        // so it stays visible while the panel is open.
+        // Prev/next live on the on-video rail AND in the drawer head's playback
+        // cluster; only the rail copy is subject to the hidden-controls mode
+        // (the drawer is an explicitly opened surface).
         const hideRailNavigation = settings.subtitleControlsMode === 'hidden';
         const language = settings.interfaceLanguage;
         for (const action of ['previous', 'next'] as const) {
             const railButton = this.root?.querySelector<HTMLButtonElement>(`.jpdb-subtitle-rail [data-action="${action}"]`);
             if (railButton) syncSubtitleLineNavigationButton(railButton, action, hasLines, Boolean(this.video), hideRailNavigation, language);
+            const drawerButton = this.transcriptPanel?.querySelector<HTMLButtonElement>(`.jpdb-subtitle-drawer-playback [data-action="${action}"]`);
+            if (drawerButton) syncSubtitleLineNavigationButton(drawerButton, action, hasLines, Boolean(this.video), false, language);
+        }
+        const drawerPlayback = this.transcriptPanel?.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="playback"]');
+        if (drawerPlayback) {
+            syncSubtitlePlaybackButton(drawerPlayback, {
+                video: this.video,
+                hiddenByNavigation: false,
+                hasLines,
+                language,
+            });
         }
         const playbackButton = this.root?.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="playback"]');
         if (playbackButton) {
@@ -4864,13 +4875,13 @@ export class SubtitlePlayerController {
             : this.options.getSettings().subtitleTranscriptPlacement;
     }
 
-    private renderPanelOptionsMenu(pausePanelEnabled: boolean, language: InterfaceLanguage): string {
-        return renderPanelOptionsControls({
+    private panelOptionsState(pausePanelEnabled: boolean, language: InterfaceLanguage): PanelOptionsControlsState {
+        return {
             placement: this.effectiveTranscriptPlacement,
             pausePanelEnabled,
             menuOpen: this.panelOptionsMenuOpen,
             language,
-        });
+        };
     }
 
     private togglePanelOptionsMenu(): void {
@@ -5570,26 +5581,20 @@ export class SubtitlePlayerController {
 
     private renderShadowPanelHead(state: ShadowPanelRenderState): string {
         const language = state.settings.interfaceLanguage;
-        return `
-            <div class="jpdb-subtitle-drawer-head">
-                <div class="jpdb-subtitle-drawer-brand">
-                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml(uiText(language, 'subtitlesTitle'))}</strong>
-                    <span class="jpdb-subtitle-drawer-meta">${escapeHtml(subtitleDrawerMetaText({
-                        mode: 'lines',
-                        count: state.cue?.text.trim() ? 1 : 0,
-                        tracks: this.tracks,
-                        selectedTrackId: this.selectedTrackId,
-                        secondaryTrackId: this.secondaryTrackId,
-                        language,
-                    }))}</span>
-                </div>
-                <div class="jpdb-subtitle-drawer-actions">
-                    ${renderPanelModeControls('shadow', this.hasTranscriptSurface(), language)}
-                    ${this.renderPanelOptionsMenu(state.settings.subtitlePausePanel, language)}
-                    ${renderPanelCloseButton(language)}
-                </div>
-            </div>
-        `;
+        return renderDrawerHead({
+            mode: 'shadow',
+            title: uiText(language, 'subtitlesTitle'),
+            meta: subtitleDrawerMetaText({
+                mode: 'lines',
+                count: state.cue?.text.trim() ? 1 : 0,
+                tracks: this.tracks,
+                selectedTrackId: this.selectedTrackId,
+                secondaryTrackId: this.secondaryTrackId,
+                language,
+            }),
+            canShowLines: this.hasTranscriptSurface(),
+            options: this.panelOptionsState(state.settings.subtitlePausePanel, language),
+        });
     }
 
     private renderShadowPanelBody(state: ShadowPanelRenderState): string {
@@ -6061,25 +6066,21 @@ export class SubtitlePlayerController {
         const rowCount = state.totalRowCount ?? state.rows.length;
         const rowIndexOffset = state.rowIndexOffset ?? 0;
         return `
-            <div class="jpdb-subtitle-drawer-head">
-                <div class="jpdb-subtitle-drawer-brand">
-                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml(uiText(language, 'subtitlesTitle'))}</strong>
-                    <span class="jpdb-subtitle-drawer-meta">${escapeHtml(subtitleDrawerMetaText({
-                        mode: 'lines',
-                        count: rowCount,
-                        tracks: this.tracks,
-                        selectedTrackId: this.selectedTrackId,
-                        secondaryTrackId: this.secondaryTrackId,
-                        language,
-                    }))}</span>
-                </div>
-                <div class="jpdb-subtitle-drawer-actions">
-                    ${renderPanelModeControls('lines', this.hasTranscriptSurface(), language)}
-                    <button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}" aria-label="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}">${subtitleIcon('locate')}</button>
-                    ${this.renderPanelOptionsMenu(settings.subtitlePausePanel, language)}
-                    ${renderPanelCloseButton(language)}
-                </div>
-            </div>
+            ${renderDrawerHead({
+                mode: 'lines',
+                title: uiText(language, 'subtitlesTitle'),
+                meta: subtitleDrawerMetaText({
+                    mode: 'lines',
+                    count: rowCount,
+                    tracks: this.tracks,
+                    selectedTrackId: this.selectedTrackId,
+                    secondaryTrackId: this.secondaryTrackId,
+                    language,
+                }),
+                canShowLines: this.hasTranscriptSurface(),
+                options: this.panelOptionsState(settings.subtitlePausePanel, language),
+                extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}" aria-label="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}">${subtitleIcon('locate')}</button>`,
+            })}
             <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state.virtual ? ' data-virtualized="true"' : ''}>
                 ${state.virtual ? this.renderTranscriptVirtualSpacer(state.virtual.topSpacer) : ''}
                 ${state.rows.length

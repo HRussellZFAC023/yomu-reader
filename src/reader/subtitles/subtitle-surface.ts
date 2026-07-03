@@ -76,6 +76,61 @@ export function renderPanelCloseButton(language: InterfaceLanguage): string {
     return `<button class="jpdb-subtitle-panel-close" type="button" data-action="close-panel" title="${escapeHtml(closeLabel)}" aria-label="${escapeHtml(closeLabel)}">${subtitleIcon('close')}</button>`;
 }
 
+export interface DrawerHeadState {
+    mode: SubtitlePanelMode;
+    title: string;
+    meta: string;
+    canShowLines: boolean;
+    options: PanelOptionsControlsState;
+    // Mode-specific extra buttons rendered between the tabs and the playback
+    // cluster (e.g. the lines panel's jump-to-current locate button).
+    extraActions?: string;
+    // The tracks panel opens before any video/transcript exists, where the
+    // mode tabs are meaningless — it hides them instead of disabling them.
+    showModeTabs?: boolean;
+}
+
+// Two-row drawer head shared by every panel mode. The options popover and the
+// close X live on the TITLE row, which frees the actions row to bring back the
+// prev/next cluster (lost in the 1.6.4 head redesign) plus a play/pause —
+// subtitle-by-subtitle review happens in this drawer, so its transport
+// controls belong here, not only on the on-video rail.
+export function renderDrawerHead(state: DrawerHeadState): string {
+    const language = state.options.language;
+    return `
+        <div class="jpdb-subtitle-drawer-head">
+            <div class="jpdb-subtitle-drawer-top">
+                <div class="jpdb-subtitle-drawer-brand">
+                    <strong class="jpdb-subtitle-drawer-title">${escapeHtml(state.title)}</strong>
+                    <span class="jpdb-subtitle-drawer-meta">${escapeHtml(state.meta)}</span>
+                </div>
+                <div class="jpdb-subtitle-drawer-top-actions">
+                    ${renderPanelOptionsControls(state.options)}
+                    ${renderPanelCloseButton(language)}
+                </div>
+            </div>
+            <div class="jpdb-subtitle-drawer-actions">
+                ${state.showModeTabs === false ? '' : renderPanelModeControls(state.mode, state.canShowLines, language)}
+                ${state.extraActions ?? ''}
+                ${renderDrawerPlayback(language)}
+            </div>
+        </div>
+    `;
+}
+
+function renderDrawerPlayback(language: InterfaceLanguage): string {
+    const previousLabel = uiText(language, 'previousSubtitle');
+    const nextLabel = uiText(language, 'nextSubtitle');
+    const playLabel = uiText(language, 'playVideo');
+    return `
+        <div class="jpdb-subtitle-drawer-playback">
+            <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
+            <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon('play')}</button>
+            <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
+        </div>
+    `;
+}
+
 function renderPanelOptionsPlacementItem(
     placement: ReaderSettings['subtitleTranscriptPlacement'],
     currentPlacement: ReaderSettings['subtitleTranscriptPlacement'],

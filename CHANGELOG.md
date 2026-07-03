@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.30] - 2026-07-03
+
+### Changed
+
+- The subtitle drawer head is two rows: the placement options and close button sit beside the title, and the tabs row regained the previous/next cluster plus a new play/pause button — line-by-line review happens in the drawer, so its transport controls live there again.
+
 ## [1.6.29] - 2026-07-03
 
 ### Changed

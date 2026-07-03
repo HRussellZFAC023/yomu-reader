@@ -1,11 +1,7 @@
 import { escapeHtml } from '../dom/index';
 import { uiText } from '../app/i18n';
 import { formatTrackKind, trackStatusText, type SubtitleTrackKind, type SubtitleTrackLoadingState } from './subtitle-track-metadata';
-import {
-    renderPanelCloseButton,
-    renderPanelModeControls,
-    renderPanelOptionsControls,
-} from './subtitle-surface';
+import { renderDrawerHead } from './subtitle-surface';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 export interface SubtitleTrackPanelTrack {
@@ -44,31 +40,27 @@ export interface SubtitleTrackPanelRenderState {
 
 export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): string {
     const language = state.language;
-    const drawerActions = [
-        state.hasTranscriptSurface ? renderPanelModeControls('tracks', true, language) : '',
-        renderPanelOptionsControls({
-            placement: state.placement,
-            pausePanelEnabled: state.pausePanelEnabled,
-            menuOpen: state.optionsMenuOpen,
-            language,
-        }),
-        renderPanelCloseButton(language),
-    ].filter(Boolean).join('');
     return `
-        <div class="jpdb-subtitle-drawer-head">
-            <div class="jpdb-subtitle-drawer-brand">
-                <strong class="jpdb-subtitle-drawer-title">${escapeHtml(uiText(language, 'subtitlesTitle'))}</strong>
-                <span class="jpdb-subtitle-drawer-meta">${escapeHtml(subtitleDrawerMetaText({
-                    mode: 'tracks',
-                    count: state.tracks.length,
-                    tracks: state.tracks,
-                    selectedTrackId: state.selectedTrackId,
-                    secondaryTrackId: state.secondaryTrackId,
-                    language,
-                }))}</span>
-            </div>
-            ${drawerActions ? `<div class="jpdb-subtitle-drawer-actions">${drawerActions}</div>` : ''}
-        </div>
+        ${renderDrawerHead({
+            mode: 'tracks',
+            title: uiText(language, 'subtitlesTitle'),
+            meta: subtitleDrawerMetaText({
+                mode: 'tracks',
+                count: state.tracks.length,
+                tracks: state.tracks,
+                selectedTrackId: state.selectedTrackId,
+                secondaryTrackId: state.secondaryTrackId,
+                language,
+            }),
+            canShowLines: state.hasTranscriptSurface,
+            showModeTabs: state.hasTranscriptSurface,
+            options: {
+                placement: state.placement,
+                pausePanelEnabled: state.pausePanelEnabled,
+                menuOpen: state.optionsMenuOpen,
+                language,
+            },
+        })}
         <div class="jpdb-subtitle-list-scroll"${state.virtual ? ' data-virtualized="true"' : ''}>
             <div class="jpdb-subtitle-track-tools">
                 <button type="button" data-action="load">${escapeHtml(uiText(language, 'loadJapaneseSubtitles'))}</button>

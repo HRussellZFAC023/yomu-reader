@@ -200,6 +200,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "The subtitle drawer head is two rows: the placement options and close button sit beside the title, and the tabs row regained the previous/next cluster plus a new play/pause button — line-by-line review happens in the drawer, so its transport controls live there again.": "字幕ドロワーのヘッダーが2段になりました。配置オプションと閉じるボタンはタイトルの横に移動し、タブの段には「前へ・次へ」ボタンが戻り、新たに再生・一時停止ボタンが加わりました。行ごとの復習はこのドロワーで行うため、再生操作も再びここに置いています。",
     "Remediation for 1.6.28, which was tagged with two style unit tests still asserting the old bare-until-hover selector: the tests now assert the chip and engagement-panel carve-out. No product changes beyond 1.6.28.": "1.6.28の是正リリースです。1.6.28は、旧来のホバーまで非表示セレクターを検証したままの2つのスタイルユニットテストと共にタグ付けされていました。テストはチップとエンゲージメントパネルの除外を検証するようになりました。1.6.28以降の製品変更はありません。",
     "YouTube's feed filter chips and engagement panels (description, transcript, the ask-AI panel) keep their pitch underlines visible at rest instead of hiding them until hover, and the ask-AI panel's centered heading now gets furigana like the panel body.": "YouTubeのフィードのフィルターチップとエンゲージメントパネル（概要、文字起こし、AIに質問パネル）では、ピッチの下線がホバーまで隠れず常時表示されるようになりました。また、AIに質問パネルの中央揃えの見出しにも、本文と同様にふりがなが付きます。",
     "Subtitle words whose pitch has not resolved show the same neutral grey underline as the reader instead of rendering bare next to coloured neighbours.": "ピッチが未解決の字幕の単語は、色付きの隣の単語の横で裸のまま表示されず、リーダーと同じニュートラルなグレーの下線が表示されるようになりました。",

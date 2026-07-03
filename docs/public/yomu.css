@@ -11616,6 +11616,19 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-transcript-bottom .jpdb-subtitle-drawer-head {
   padding-top: 40px;
 }
+.jpdb-subtitle-drawer-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.jpdb-subtitle-drawer-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
 .jpdb-subtitle-drawer-brand {
   display: grid;
   gap: 4px;
@@ -11646,6 +11659,43 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   min-width: 0;
   max-width: 100%;
   gap: 8px;
+}
+/* ‹ ▶ › transport cluster at the trailing edge of the actions row — the
+   drawer is where line-by-line review happens, so it carries its own
+   playback controls alongside the on-video rail's copy. */
+.jpdb-subtitle-drawer-playback {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.jpdb-subtitle-drawer-playback button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 32px;
+  width: 32px;
+  min-height: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--jpdb-reader-muted);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+}
+.jpdb-subtitle-drawer-playback button:hover:not(:disabled) {
+  color: var(--jpdb-reader-text);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, var(--jpdb-reader-surface));
+}
+.jpdb-subtitle-drawer-playback button:disabled {
+  opacity: .42;
+}
+.jpdb-subtitle-drawer-playback .jpdb-subtitle-icon {
+  width: 15px;
+  height: 15px;
 }
 @container (min-width: 760px) {
   .jpdb-subtitle-drawer-head {
