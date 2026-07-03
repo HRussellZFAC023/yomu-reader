@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.10] - 2026-07-03
+
+### Changed
+
+- Moved the OCR/manga reader into a new yomu-ocr-manga companion, the interface copy into a new yomu-ui-copy companion, and the study mining context and sources into the Kanji/Study companion, so the core userscript sits about 39 KB under the Greasy Fork 2 MB limit instead of 143 bytes. Behavior is unchanged: companions are always required by the userscript and bundled into hosted builds.
+
 ## [1.6.9] - 2026-07-03
 
 ### Fixed
