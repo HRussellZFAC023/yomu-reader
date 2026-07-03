@@ -64,11 +64,11 @@ This file tracks user-reported confusion, reproducible regressions, and release 
   - Add Watch and Read links alongside Install/Setup/Study where appropriate.
   - Install userscript button should say "Install".
 
-- Settings/onboarding
-  - Split page scanning into Off / Auto / Manual.
-  - Split OCR/image scanning into Off / On click or hover / Auto.
-  - Surface scan modifier shortcut in onboarding and settings.
-  - Add capture shortcut controls only where viable; browser context should not pretend it can register global capture keys.
+- Settings/onboarding — DONE 2026-07-03 (1.6.26)
+  - ~~Split page scanning into Off / Auto / Manual.~~ Shipped: onboarding + settings three-way mode groups.
+  - ~~Split OCR/image scanning into Off / On click or hover / Auto.~~ Shipped.
+  - ~~Surface scan modifier shortcut in onboarding and settings.~~ Shipped: hover-lookup + manual-scan shortcut fields in the welcome panel.
+  - ~~Add capture shortcut controls only where viable.~~ Enforced: the onboarding smoke asserts browser onboarding exposes no capture-screen shortcut.
 
 - Audio
   - Investigate premature fallback to TTS when real audio becomes available on retry.
@@ -82,7 +82,16 @@ This file tracks user-reported confusion, reproducible regressions, and release 
 
 ## Held / Needs Separate Release
 
-- Study Recall mode is on main, but the userscript is extremely close to the 2 MB publishing ceiling; future study/newtab work needs code splitting or size reduction before adding more bundle weight.
+- ~~Userscript extremely close to the 2 MB ceiling~~ Resolved 2026-07-03: companion extractions (ui-copy, ocr-manga, yomitan-store) left ~275 KB headroom at 1.6.31; value imports cost, type imports are free.
 - App Store and extension store publishing need account, signing, and store-review input.
 - Steam Deck hardware validation needs access to real Steam Deck/gamescope or a trustworthy CI/device path.
 - Cloudflare hosted audio source needs cost/free-tier validation before making it a default.
+
+## Closed 2026-07-03 — YouTube quality batch (1.6.26–1.6.31)
+
+- Onboarding rework landed (Game card, scan/OCR mode groups, shortcut fields) and the welcome demo word is the user's first lookup; document-level click no longer swallows the panel's action buttons.
+- Pitch coverage: chips/engagement panels/watch metadata/masthead/guide keep underlines at rest; ask-AI heading gets furigana; unknown-pitch subtitle words show the neutral grey fallback; local pitch matches katakana↔hiragana and kana-keyed rows; keyless public pitch lane re-enabled within budgets. Subscribe/join stay unannotated (volatile flicker fence).
+- Player: pause pill sticks against competing play() (800ms re-assert, verified vs antagonist), pause/play/seek route through the YouTube player API (seeks 0.9–2.2 ms), subtitle shortcuts run in capture phase, control rail first paint is correct.
+- Perf: silent scans skip already-mirrored hosts + deferred ruby sweep — scroll-stress blocking 2.2–4.2 s → one 64–87 ms task (homepage profile, all providers).
+- Subtitle drawer: two-row head; options + close on the title row, ‹ ▶ › transport back in the tabs row.
+- Release pipeline: publish race fixed (asset-less create + draft-aware gaming uploads); release chains gate on exit codes inside one chained command.
