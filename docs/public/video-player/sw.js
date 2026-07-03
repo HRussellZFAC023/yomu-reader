@@ -19,6 +19,8 @@ const CACHEABLE_PATH_SUFFIXES = [
   '/greasyfork/yomu-kanji-study.user.js',
   '/greasyfork/yomu-settings-surface.user.js',
   '/greasyfork/yomu-video.user.js',
+  '/greasyfork/yomu-ocr-manga.user.js',
+  '/greasyfork/yomu-ui-copy.user.js',
   '/yomu-icon.svg',
   '/favicon-16x16.png',
   '/favicon-32x32.png',

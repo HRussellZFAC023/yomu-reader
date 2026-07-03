@@ -33,6 +33,8 @@ const SCRIPTS = [
     'greasyfork/yomu-anki.user.js',
     'greasyfork/yomu-kanji-study.user.js',
     'greasyfork/yomu-video.user.js',
+    'greasyfork/yomu-ocr-manga.user.js',
+    'greasyfork/yomu-ui-copy.user.js',
     'yomu.user.js',
 ].map(rel => ({ rel, code: readDist(rel) }));
 

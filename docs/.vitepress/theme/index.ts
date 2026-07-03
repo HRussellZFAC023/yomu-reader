@@ -26,6 +26,8 @@ const LANGUAGE_TOGGLE_ID = 'yomu-hud-language-toggle';
 const YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-runtime';
 const YOMU_HOSTED_SETTINGS_COMPANION_SCRIPT_ID = 'yomu-hosted-settings-companion';
 const YOMU_HOSTED_VIDEO_COMPANION_SCRIPT_ID = 'yomu-hosted-video-companion';
+const YOMU_HOSTED_OCR_MANGA_COMPANION_SCRIPT_ID = 'yomu-hosted-ocr-manga-companion';
+const YOMU_HOSTED_UI_COPY_COMPANION_SCRIPT_ID = 'yomu-hosted-ui-copy-companion';
 const LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
 const YOMU_SUPPORT_STATUS_URL = 'https://support.yomureader.com/status';
 const YOMU_SUPPORT_DONATE_URL = 'https://support.yomureader.com/donate';
@@ -3566,6 +3568,14 @@ function hostedRuntimeCompanionScripts(forceLocalRuntime: boolean): Array<{ id: 
         {
             id: YOMU_HOSTED_VIDEO_COMPANION_SCRIPT_ID,
             src: hostedRuntimeAssetSrc('/greasyfork/yomu-video.user.js', forceLocalRuntime),
+        },
+        {
+            id: YOMU_HOSTED_OCR_MANGA_COMPANION_SCRIPT_ID,
+            src: hostedRuntimeAssetSrc('/greasyfork/yomu-ocr-manga.user.js', forceLocalRuntime),
+        },
+        {
+            id: YOMU_HOSTED_UI_COPY_COMPANION_SCRIPT_ID,
+            src: hostedRuntimeAssetSrc('/greasyfork/yomu-ui-copy.user.js', forceLocalRuntime),
         },
     ];
 }

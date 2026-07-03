@@ -15,6 +15,8 @@ const COMPANION_SCRIPT_PATHS = [
     'yomu-kanji-study.user.js',
     'yomu-settings-surface.user.js',
     'yomu-video.user.js',
+    'yomu-ocr-manga.user.js',
+    'yomu-ui-copy.user.js',
 ].map(name => path.join(ROOT, 'dist', 'greasyfork', name));
 const PUBLIC_DIR = path.join(ROOT, 'docs', 'public');
 const VIDEO_PLAYER_PATH = path.join(ROOT, 'docs', 'public', 'video-player', 'index.html');
