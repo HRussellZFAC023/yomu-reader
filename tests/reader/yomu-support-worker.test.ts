@@ -53,13 +53,37 @@ describe("Yomu support Worker", () => {
 
   it("redirects donation requests to a Stripe Payment Link fallback when Checkout is not configured", async () => {
     const response = await SupportWorker.fetch(
-      new Request("https://support.yomureader.com/donate"),
+      new Request("https://yomu-support.example.workers.dev/donate"),
       { SUPPORT_STRIPE_PAYMENT_LINK_URL: "https://buy.stripe.com/test_yomu" },
       { waitUntil: vi.fn() },
     );
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe("https://buy.stripe.com/test_yomu");
+  });
+
+  it("does not send production donation requests to Stripe test mode", async () => {
+    const stripeFetch = vi.fn();
+    vi.stubGlobal("fetch", stripeFetch);
+
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/donate"),
+      {
+        STRIPE_SECRET_KEY: "sk_test_secret",
+        SUPPORT_STRIPE_PAYMENT_LINK_URL: "https://buy.stripe.com/test_yomu",
+      },
+      { waitUntil: vi.fn() },
+    );
+    const status = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      { STRIPE_SECRET_KEY: "sk_test_secret" },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.text()).resolves.toContain("Stripe donations are temporarily unavailable");
+    expect(stripeFetch).not.toHaveBeenCalled();
+    await expect(status.json()).resolves.toMatchObject({ status: "stripe-test-mode" });
   });
 
   it("does not loop through the support page when no Stripe donation path is available", async () => {
@@ -76,7 +100,8 @@ describe("Yomu support Worker", () => {
   it("creates Stripe Checkout sessions server-side and redirects to Stripe", async () => {
     const stripeFetch = vi.fn(async (_url: string, init: RequestInit) => {
       expect(init.method).toBe("POST");
-      expect(new Headers(init.headers).get("authorization")).toBe("Bearer sk_test_secret");
+      expect(new Headers(init.headers).get("authorization")).toBe("Bearer sk_live_secret");
+      expect(new Headers(init.headers).get("stripe-version")).toBe("2026-02-25.clover");
       const body = init.body as URLSearchParams;
       expect(body.get("mode")).toBe("payment");
       expect(body.get("submit_type")).toBe("donate");
@@ -87,12 +112,27 @@ describe("Yomu support Worker", () => {
 
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/donate?amount_gbp=7.5"),
-      { STRIPE_SECRET_KEY: "sk_test_secret" },
+      { STRIPE_SECRET_KEY: "sk_live_secret" },
       { waitUntil: vi.fn() },
     );
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("https://checkout.stripe.com/c/session");
+    expect(stripeFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects test Checkout URLs returned to the production support host", async () => {
+    const stripeFetch = vi.fn(async () => Response.json({ url: "https://checkout.stripe.com/c/pay/cs_test_123" }));
+    vi.stubGlobal("fetch", stripeFetch);
+
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/donate"),
+      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.text()).resolves.toContain("Stripe donations are temporarily unavailable");
     expect(stripeFetch).toHaveBeenCalledTimes(1);
   });
 

@@ -4,6 +4,8 @@ const DEFAULT_DONATION_GBP = 5;
 const DEFAULT_MIN_DONATION_GBP = 1;
 const DEFAULT_MAX_DONATION_GBP = 100;
 const DEFAULT_SUPPORT_URL = "https://yomureader.com/support";
+const PRODUCTION_SUPPORT_HOSTS = new Set(["support.yomureader.com"]);
+const STRIPE_API_VERSION = "2026-02-25.clover";
 const STRIPE_CHECKOUT_SESSIONS_URL = "https://api.stripe.com/v1/checkout/sessions";
 const STRIPE_WEBHOOK_TOLERANCE_SECONDS = 300;
 const SUPPORT_BANNER_DISMISS_VERSION = "ultimate-audio-v1";
@@ -52,7 +54,7 @@ interface D1Result<T = unknown> {
 
 interface SupportStatus {
   service: "yomu-support";
-  status: "ok" | "stripe-unconfigured";
+  status: "ok" | "stripe-test-mode" | "stripe-unconfigured";
   currency: "GBP";
   dailyBudgetGbp: number;
   donationGoalGbp: number;
@@ -149,7 +151,7 @@ async function supportStatus(request: Request, env: Env): Promise<SupportStatus>
   const goalLabel = `This month: ${gbp(donationsThisMonthGbp)} / ${gbp(donationGoalGbp)}`;
   return {
     service: "yomu-support",
-    status: env.STRIPE_SECRET_KEY ? "ok" : "stripe-unconfigured",
+    status: stripeStatusFor(request, env),
     currency: "GBP",
     dailyBudgetGbp,
     donationGoalGbp,
@@ -213,8 +215,14 @@ async function donationSnapshot(env: Env): Promise<DonationSnapshot> {
 }
 
 async function createDonationCheckout(request: Request, env: Env): Promise<Response> {
+  const requireLiveStripe = requiresLiveStripe(request);
+  const fallbackUrl = fallbackDonateUrl(env, { requireLiveStripe });
+  if (requireLiveStripe && stripeKeyMode(env.STRIPE_SECRET_KEY) === "test") {
+    logStripeTestModeBlocked(request, "secret_key");
+    return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
+  }
+
   if (!env.STRIPE_SECRET_KEY) {
-    const fallbackUrl = fallbackDonateUrl(env);
     return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
   }
 
@@ -235,17 +243,21 @@ async function createDonationCheckout(request: Request, env: Env): Promise<Respo
     headers: {
       authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
       "content-type": "application/x-www-form-urlencoded",
+      "stripe-version": STRIPE_API_VERSION,
     },
     body,
   });
   const payload = await response.json().catch(() => null);
   const checkoutUrl = checkoutSessionUrl(payload);
+  if (checkoutUrl && requireLiveStripe && isStripeTestCheckoutUrl(checkoutUrl)) {
+    logStripeTestModeBlocked(request, "checkout_url");
+    return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
+  }
   if (!response.ok || !checkoutUrl) {
     console.error(JSON.stringify({
       event: "yomu_support_stripe_checkout_failed",
       status: response.status,
     }));
-    const fallbackUrl = fallbackDonateUrl(env);
     return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
   }
   return Response.redirect(checkoutUrl, 303);
@@ -444,16 +456,66 @@ function donateUrlFor(request: Request): string {
   return url.href;
 }
 
-function fallbackDonateUrl(env: Env): string {
+function stripeStatusFor(request: Request, env: Env): SupportStatus["status"] {
+  if (!env.STRIPE_SECRET_KEY) return "stripe-unconfigured";
+  return requiresLiveStripe(request) && stripeKeyMode(env.STRIPE_SECRET_KEY) === "test"
+    ? "stripe-test-mode"
+    : "ok";
+}
+
+function requiresLiveStripe(request: Request): boolean {
+  try {
+    return PRODUCTION_SUPPORT_HOSTS.has(new URL(request.url).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+function stripeKeyMode(value: string | undefined): "live" | "test" | "" {
+  const trimmed = value?.trim() ?? "";
+  if (/^(?:sk|rk)_live_/u.test(trimmed)) return "live";
+  if (/^(?:sk|rk)_test_/u.test(trimmed)) return "test";
+  return "";
+}
+
+function fallbackDonateUrl(env: Env, options: { requireLiveStripe?: boolean } = {}): string {
   const fallback = env.SUPPORT_STRIPE_PAYMENT_LINK_URL?.trim() || "";
   try {
     const url = new URL(fallback);
     if (url.protocol !== "https:") return "";
     if (url.hostname === "yomureader.com" && url.pathname.replace(/\/$/u, "") === "/support") return "";
+    if (options.requireLiveStripe && isStripeTestPaymentLinkUrl(url)) return "";
     return url.href;
   } catch {
     return "";
   }
+}
+
+function isStripeTestCheckoutUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return isStripeHostedUrl(url) && /^\/c\/pay\/cs_test_/iu.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function isStripeTestPaymentLinkUrl(url: URL): boolean {
+  return isStripeHostedUrl(url)
+    && url.hostname.toLowerCase() === "buy.stripe.com"
+    && url.pathname.split("/").some(segment => /^test(?:_|$)/iu.test(segment));
+}
+
+function isStripeHostedUrl(url: URL): boolean {
+  return url.hostname.toLowerCase() === "stripe.com" || url.hostname.toLowerCase().endsWith(".stripe.com");
+}
+
+function logStripeTestModeBlocked(request: Request, reason: string): void {
+  console.error(JSON.stringify({
+    event: "yomu_support_stripe_test_mode_blocked",
+    reason,
+    host: safeHost(request),
+  }));
 }
 
 function utcMonthKey(date = new Date()): string {
@@ -548,6 +610,14 @@ function numberField(record: Record<string, unknown> | null, key: string): numbe
 function safePath(request: Request): string {
   try {
     return new URL(request.url).pathname;
+  } catch {
+    return "";
+  }
+}
+
+function safeHost(request: Request): string {
+  try {
+    return new URL(request.url).hostname;
   } catch {
     return "";
   }

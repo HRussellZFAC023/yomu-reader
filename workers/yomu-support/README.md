@@ -15,6 +15,9 @@ npx wrangler secret put STRIPE_SECRET_KEY --config workers/yomu-support/wrangler
 npx wrangler secret put STRIPE_WEBHOOK_SECRET --config workers/yomu-support/wrangler.jsonc
 ```
 
+Use a live-mode Stripe secret (`sk_live_...` or scoped `rk_live_...`) for `support.yomureader.com`.
+The Worker refuses known test-mode keys and test Payment Links on the production support host so donations do not redirect to Stripe sandbox Checkout.
+
 Optional Stripe-hosted Payment Link fallback:
 
 ```bash
