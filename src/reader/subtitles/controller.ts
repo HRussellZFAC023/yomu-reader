@@ -37,6 +37,7 @@ import {
     applyStableYouTubePlayerVideoSize,
     clearStableYouTubePlayerVideoSize,
     createSubtitleVideoInsetAdapter,
+    isYouTubeShortsLikePlayer,
     resizeYouTubePlayerForSubtitleLayout,
     subtitleVisibleViewportSize,
     subtitleVideoLayoutRect,
@@ -7014,7 +7015,13 @@ export class SubtitlePlayerController {
 
     private shouldUseStableYouTubeTranscriptLayout(): boolean {
         if (!this.video) return false;
-        return isYouTubePage();
+        if (!isYouTubePage()) return false;
+        // Shorts (and other portrait players) must keep their native player
+        // size: the stable layout sizes the player from the leftover viewport
+        // width times the video aspect ratio, which for a portrait video blows
+        // the player up far past the viewport and crops it. The plain inset
+        // path already preserves native sizing for these players.
+        return !isYouTubeShortsLikePlayer(this.video, this.videoLayoutRect());
     }
 
     private stableVideoTranscriptDrawerLayout(options: SubtitleDrawerLayoutOptions, videoRect: DOMRect): TranscriptPanelLayout {

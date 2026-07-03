@@ -753,7 +753,7 @@ function shouldPreserveYouTubeBottomPlayerSize(side: SubtitleVideoInsetSide): bo
     return side === 'bottom' && isYouTubePage();
 }
 
-function isYouTubeShortsLikePlayer(video: HTMLVideoElement | undefined, videoRect: DOMRect): boolean {
+export function isYouTubeShortsLikePlayer(video: HTMLVideoElement | undefined, videoRect: DOMRect): boolean {
     if (location.pathname.startsWith('/shorts/')) return true;
     if (video?.closest('ytd-shorts, ytd-reel-video-renderer, shorts-page, shorts-video')) return true;
     if (document.querySelector('ytd-watch-flexy[is-shorts], ytd-watch-flexy[is-short], ytd-watch-flexy[shorts]')) return true;

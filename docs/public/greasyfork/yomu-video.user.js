@@ -22997,7 +22997,8 @@ ${spelling}`);
     }
     shouldUseStableYouTubeTranscriptLayout() {
       if (!this.video) return false;
-      return isYouTubePage();
+      if (!isYouTubePage()) return false;
+      return !isYouTubeShortsLikePlayer(this.video, this.videoLayoutRect());
     }
     stableVideoTranscriptDrawerLayout(options, videoRect) {
       const placement = options.preferredPlacement === "left" ? "left" : options.preferredPlacement === "bottom" ? "bottom" : "right";

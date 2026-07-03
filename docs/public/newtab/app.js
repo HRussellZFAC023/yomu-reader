@@ -30256,7 +30256,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.7".trim() ? "1.6.7".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.8".trim() ? "1.6.8".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -55308,7 +55308,8 @@ ${spelling}`);
     }
     shouldUseStableYouTubeTranscriptLayout() {
       if (!this.video) return false;
-      return isYouTubePage();
+      if (!isYouTubePage()) return false;
+      return !isYouTubeShortsLikePlayer(this.video, this.videoLayoutRect());
     }
     stableVideoTranscriptDrawerLayout(options, videoRect) {
       const placement = options.preferredPlacement === "left" ? "left" : options.preferredPlacement === "bottom" ? "bottom" : "right";

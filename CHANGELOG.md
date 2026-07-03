@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.8] - 2026-07-03
+
+### Fixed
+
+- Keeps the YouTube Shorts player at its native size when the subtitle transcript drawer is open, instead of stretching the portrait video far past the viewport and cropping it.
+
 ## [1.6.7] - 2026-07-02
 
 ### Added

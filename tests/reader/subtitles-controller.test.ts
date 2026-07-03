@@ -1283,6 +1283,64 @@ Watch the cat
         });
     });
 
+    it('keeps the native YouTube Shorts player size when a side transcript panel opens', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/shorts/pmwJS6wU8Co') as unknown as Location,
+        });
+        try {
+            withViewport(1440, 900, () => {
+                document.body.innerHTML = `
+                    <ytd-shorts>
+                        <ytd-reel-video-renderer>
+                            <div id="movie_player" class="html5-video-player"><video class="html5-main-video" controls></video></div>
+                        </ytd-reel-video-renderer>
+                    </ytd-shorts>
+                `;
+                const { controller } = createInstalledSubtitleController({
+                    subtitleTranscriptVisible: false,
+                    subtitleTranscriptPlacement: 'left',
+                });
+                try {
+                    const movie = document.querySelector<HTMLElement>('#movie_player')!;
+                    const reel = document.querySelector<HTMLElement>('ytd-reel-video-renderer')!;
+                    const video = document.querySelector<HTMLVideoElement>('video')!;
+                    mockElementRect(movie, new DOMRect(540, 60, 440, 780));
+                    mockElementRect(reel, new DOMRect(540, 60, 440, 780));
+                    mockElementRect(video, new DOMRect(540, 60, 440, 780));
+                    attachVideo(controller, { video });
+                    const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+                    const internals = controllerInternals<{
+                        cues: Array<typeof cue>;
+                        currentCue: typeof cue;
+                        openLinesPanel: () => void;
+                    }>(controller);
+                    internals.cues = [cue];
+                    internals.currentCue = cue;
+
+                    internals.openLinesPanel();
+
+                    const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                    expect(panel.hidden).toBe(false);
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-side')).toBe(false);
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width')).toBe('');
+                    expect(movie.style.width).toBe('');
+                    expect(movie.style.height).toBe('');
+                    expect(video.style.width).toBe('');
+                    expect(video.style.height).toBe('');
+                } finally {
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('uses free YouTube side space initially while allowing the panel to resize wider', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
