@@ -1570,6 +1570,19 @@ function currentTextMirror(host: HTMLElement): HTMLElement | null {
         ?? null;
 }
 
+// A host whose mirror already renders exactly this text needs no re-collect or
+// re-parse. Non-destructive surfaces keep their raw text nodes, so every
+// silent auto-scan otherwise re-sends every already-annotated title to parse
+// (the dominant cost of scrolling the YouTube feed). Token/settings changes
+// that require a re-render arrive through explicit repaint paths, which remove
+// the mirror first.
+export function textMirrorAlreadyRenders(host: HTMLElement, text: string): boolean {
+    const mirror = currentTextMirror(host);
+    if (!mirror) return false;
+    const source = mirror.dataset.sourceText ?? '';
+    return normalizedMirrorHostText(source) === normalizedMirrorHostText(text);
+}
+
 function nonDestructiveScanSignature(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings, suppressRuby = Boolean(target.suppressRuby)): string {
     return JSON.stringify({
         ruby: !suppressRuby,

@@ -22,7 +22,7 @@ export interface SubtitleElementLayout {
 
 export type SubtitlePanelMode = 'lines' | 'shadow' | 'tracks' | 'mine';
 
-export function renderPanelModeControls(mode: SubtitlePanelMode, canShowLines: boolean, language: InterfaceLanguage): string {
+function renderPanelModeControls(mode: SubtitlePanelMode, canShowLines: boolean, language: InterfaceLanguage): string {
     return `
         <div class="jpdb-subtitle-panel-mode" role="group" aria-label="${escapeHtml(uiText(language, 'subtitlePanelMode'))}">
             <button type="button" data-action="panel-lines" aria-pressed="${mode === 'lines'}" ${canShowLines ? '' : 'disabled'}>${escapeHtml(uiText(language, 'subtitleLines'))}</button>
@@ -44,7 +44,7 @@ export interface PanelOptionsControlsState {
 // separate head buttons these wrapped into a second ragged row on phones.
 // The close (X) lives OUTSIDE this popover as its own head button so it is a
 // one-click action like every other side panel (see renderPanelCloseButton).
-export function renderPanelOptionsControls(state: PanelOptionsControlsState): string {
+function renderPanelOptionsControls(state: PanelOptionsControlsState): string {
     const language = state.language;
     const label = uiText(language, 'subtitlePanelOptions');
     // Constant visible label; aria-pressed carries the on/off state and the
@@ -71,7 +71,7 @@ export function renderPanelOptionsControls(state: PanelOptionsControlsState): st
 // Standalone drawer-head close: a plain X that dismisses the panel in one click,
 // matching how the reader's other side panels close. Rendered as the last head
 // action so it sits at the trailing edge of the drawer bar.
-export function renderPanelCloseButton(language: InterfaceLanguage): string {
+function renderPanelCloseButton(language: InterfaceLanguage): string {
     const closeLabel = uiText(language, 'closeSubtitlePanel');
     return `<button class="jpdb-subtitle-panel-close" type="button" data-action="close-panel" title="${escapeHtml(closeLabel)}" aria-label="${escapeHtml(closeLabel)}">${subtitleIcon('close')}</button>`;
 }

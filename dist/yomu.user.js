@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.30
+// @version 1.6.31
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.30#sha256=dFWDsSJiXOFW7UfIkxlLNXDyhkIkVhzGyjHdZFPvhBM=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.30#sha256=ZrlpfhoF8tw10DMPmrCKz2LIm+47VqKlzC1f3FHAA38=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.30#sha256=dE8TbpDkkXRgZjnJlYascwNvnzucJ+lCc4nM2pcdYNU=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.30#sha256=XpJrSaFctXMl+5if/YMSl58JLvWGowY813RCHHfYV4o=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.30#sha256=/xY07BzvFYoq4VAn2FGmVrw/tW9bW73X7Sw70yoNocw=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.30#sha256=/U2ear2jvkvATnndCuFBrpM8/r3ABaQy0SJ/K/xd6Qw=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.31#sha256=dFWDsSJiXOFW7UfIkxlLNXDyhkIkVhzGyjHdZFPvhBM=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.31#sha256=ZrlpfhoF8tw10DMPmrCKz2LIm+47VqKlzC1f3FHAA38=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.31#sha256=dE8TbpDkkXRgZjnJlYascwNvnzucJ+lCc4nM2pcdYNU=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.31#sha256=XpJrSaFctXMl+5if/YMSl58JLvWGowY813RCHHfYV4o=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.31#sha256=/xY07BzvFYoq4VAn2FGmVrw/tW9bW73X7Sw70yoNocw=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.31#sha256=/U2ear2jvkvATnndCuFBrpM8/r3ABaQy0SJ/K/xd6Qw=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -5097,6 +5097,12 @@ function remapTokenOffsets(token, offsets, sentence) {
 }
 function currentTextMirror(host) {
   return Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)) ?? null;
+}
+function textMirrorAlreadyRenders(host, text2) {
+  const mirror = currentTextMirror(host);
+  if (!mirror) return false;
+  const source = mirror.dataset.sourceText ?? "";
+  return normalizedMirrorHostText(source) === normalizedMirrorHostText(text2);
 }
 function nonDestructiveScanSignature(target, tokens, settings, suppressRuby = Boolean(target.suppressRuby)) {
   return JSON.stringify({
@@ -25772,7 +25778,11 @@ const YOUTUBE_CHROME_ROOTS = [
   "ytd-masthead .ytAttributedStringHost",
   "ytd-masthead yt-attributed-string",
   "ytd-masthead ~ ytd-mini-guide-renderer ytd-mini-guide-entry-renderer",
-  "ytd-masthead ~ ytd-mini-guide-renderer yt-mini-guide-entry-renderer"
+  "ytd-masthead ~ ytd-mini-guide-renderer yt-mini-guide-entry-renderer",
+  "ytd-watch-metadata #actions button",
+  "ytd-watch-metadata #actions-inner button",
+  "ytd-watch-metadata ytd-text-inline-expander #expand",
+  "ytd-watch-metadata ytd-text-inline-expander #collapse"
 ];
 const YOUTUBE_TEXT_EXCLUDE = [
   COMMON_EXCLUDE,
@@ -26470,18 +26480,19 @@ function mokuroDisplayOcrEnabled() {
   return true;
   }
 }
-function collectSiteScanTargets(limit = 40, href = window.location.href) {
+function collectSiteScanTargets(limit = 40, href = window.location.href, options = {}) {
   const profiles = getMatchingSiteParsers(href);
   if (!profiles.length) return null;
-  const context = createSiteScanContext(profiles, limit);
+  const context = createSiteScanContext(profiles, limit, options);
   for (const profile of profiles) collectProfileScanTargets(profile, context);
   return siteScanResult(profiles, context.targets);
 }
-function createSiteScanContext(profiles, limit) {
+function createSiteScanContext(profiles, limit, options = {}) {
   return {
   effectiveLimit: effectiveScanTargetLimit(profiles, limit),
   targets: [],
-  seen: new Set()
+  seen: new Set(),
+  skipMirroredHosts: Boolean(options.skipMirroredHosts)
   };
 }
 function collectProfileScanTargets(profile, context) {
@@ -26550,6 +26561,7 @@ function collectRootScanTargets(profile, root, context, excludeSelector = siteSc
   allowShortCenteredHeadings: profile.allowShortCenteredHeadings
   });
   for (const target of collected) {
+  if (context.skipMirroredHosts && profile.nonDestructive && target.parent instanceof HTMLElement && textMirrorAlreadyRenders(target.parent, target.text)) continue;
   if (!addUniqueSiteScanTarget(profile, target, context)) continue;
   if (!siteScanHasRoom(context)) break;
   }
@@ -26686,11 +26698,11 @@ function siteScanResult(profiles, targets) {
   if (targets.length) return targets;
   return profiles.some((profile) => profile.id !== "asbplayer-parser") ? [] : null;
 }
-function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href) {
+function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href, options = {}) {
   const matchingProfiles = getMatchingSiteParsers(href);
   const useNonDestructiveGenericScan = !matchingProfiles.length && isGenericManagedAppShell();
   const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
-  const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
+  const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href, options);
   const baseTargets = siteTargets ?? [];
   if (matchingProfiles.some((profile) => profile.disableGenericDomScan)) {
   if (matchingProfiles.some((profile) => profile.suppressResidualVisibleScan)) {
@@ -26809,9 +26821,9 @@ function residualVisibleJapaneseExcludeSelector(profiles) {
   }
   return entries2.join(",");
 }
-function completeSiteScanTargets(profiles, limit, href) {
+function completeSiteScanTargets(profiles, limit, href, options = {}) {
   if (!profiles.length) return null;
-  const siteTargets = collectSiteScanTargets(limit, href) ?? [];
+  const siteTargets = collectSiteScanTargets(limit, href, options) ?? [];
   if (siteTargets.length) return siteTargets;
   if (hasWholePageFallback(profiles)) {
   const broadTargets = collectWholePageScanTargets(limit);
@@ -32488,7 +32500,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.30"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.31"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -32700,18 +32712,18 @@ class VisiblePageScanner {
     this.handleVisiblePageScanError(error, silent);
   } finally {
     this.finishScan();
-    this.scheduleClampedRubySweep();
+    this.scheduleClampedRubySweep(silent);
     done();
   }
   }
-  scheduleClampedRubySweep() {
+  scheduleClampedRubySweep(silent = false) {
   if (this.destroyed || typeof document === "undefined") return;
   const sweep = () => {
     if (this.destroyed || typeof document === "undefined") return;
     const adjusted = makeRoomForRubyInCroppedRows(document);
     if (adjusted) log$1.info("Made room for ruby in cropped rows", { adjusted });
   };
-  sweep();
+  if (!silent) sweep();
   window.clearTimeout(this.clampSweepTimer);
   this.clampSweepTimer = window.setTimeout(sweep, VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS);
   }
@@ -32783,7 +32795,7 @@ class VisiblePageScanner {
   removeStaleControlTextMirrors(document);
   const settings = this.dependencies.getSettings();
   const targetCollectionLimit = visibleScanTargetCollectionLimit(settings);
-  const targets = chunkLongScanTargets(collectScanTargets(targetCollectionLimit), settings);
+  const targets = chunkLongScanTargets(collectScanTargets(targetCollectionLimit, window.location.href, { skipMirroredHosts: silent }), settings);
   if (!targets.length) {
     this.handleEmptyVisiblePageScan(silent);
     return;

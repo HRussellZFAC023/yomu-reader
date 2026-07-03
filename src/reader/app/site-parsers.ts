@@ -3,6 +3,7 @@ import {
     collectFragmentTextTargetsIn,
     collectVisibleTextTargets,
     isYouTubeHost,
+    textMirrorAlreadyRenders,
     type FragmentTextTarget,
     type ScanTextTarget,
 } from '../dom/index';
@@ -367,6 +368,15 @@ const YOUTUBE_CHROME_ROOTS = [
     'ytd-masthead yt-attributed-string',
     'ytd-masthead ~ ytd-mini-guide-renderer ytd-mini-guide-entry-renderer',
     'ytd-masthead ~ ytd-mini-guide-renderer yt-mini-guide-entry-renderer',
+    // Watch-page action row (共有/質問する/…) and the description expander
+    // (もっと見る) mount late, after the metadata scan settles — explicit roots
+    // keep them covered. The #owner subscribe/join buttons stay excluded via
+    // YOUTUBE_VOLATILE_WATCH_METADATA_SELECTOR (annotating them regressed
+    // into re-render flicker).
+    'ytd-watch-metadata #actions button',
+    'ytd-watch-metadata #actions-inner button',
+    'ytd-watch-metadata ytd-text-inline-expander #expand',
+    'ytd-watch-metadata ytd-text-inline-expander #collapse',
 ];
 const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
@@ -1141,11 +1151,17 @@ export function mokuroDisplayOcrEnabled(): boolean {
     }
 }
 
-export function collectSiteScanTargets(limit = 40, href = window.location.href): ScanTextTarget[] | null {
+export interface SiteScanOptions {
+    // Silent auto-scans set this so hosts whose text mirror already renders
+    // the same text are skipped at collection time instead of re-parsed.
+    skipMirroredHosts?: boolean;
+}
+
+export function collectSiteScanTargets(limit = 40, href = window.location.href, options: SiteScanOptions = {}): ScanTextTarget[] | null {
     const profiles = getMatchingSiteParsers(href);
     if (!profiles.length) return null;
 
-    const context = createSiteScanContext(profiles, limit);
+    const context = createSiteScanContext(profiles, limit, options);
     for (const profile of profiles) collectProfileScanTargets(profile, context);
     return siteScanResult(profiles, context.targets);
 }
@@ -1154,13 +1170,15 @@ interface SiteScanContext {
     effectiveLimit: number;
     targets: FragmentTextTarget[];
     seen: Set<Text>;
+    skipMirroredHosts: boolean;
 }
 
-function createSiteScanContext(profiles: SiteParserProfile[], limit: number): SiteScanContext {
+function createSiteScanContext(profiles: SiteParserProfile[], limit: number, options: SiteScanOptions = {}): SiteScanContext {
     return {
         effectiveLimit: effectiveScanTargetLimit(profiles, limit),
         targets: [],
         seen: new Set(),
+        skipMirroredHosts: Boolean(options.skipMirroredHosts),
     };
 }
 
@@ -1241,6 +1259,13 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
         allowShortCenteredHeadings: profile.allowShortCenteredHeadings,
     });
     for (const target of collected) {
+        // Silent auto-scans skip hosts whose mirror already renders this exact
+        // text — the non-destructive feed otherwise re-parses every annotated
+        // title on every scroll settle (the dominant YouTube scroll cost).
+        if (context.skipMirroredHosts
+            && profile.nonDestructive
+            && target.parent instanceof HTMLElement
+            && textMirrorAlreadyRenders(target.parent, target.text)) continue;
         if (!addUniqueSiteScanTarget(profile, target, context)) continue;
         if (!siteScanHasRoom(context)) break;
     }
@@ -1416,11 +1441,11 @@ function siteScanResult(profiles: SiteParserProfile[], targets: FragmentTextTarg
     return profiles.some(profile => profile.id !== 'asbplayer-parser') ? [] : null;
 }
 
-export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href): ScanTextTarget[] {
+export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href, options: SiteScanOptions = {}): ScanTextTarget[] {
     const matchingProfiles = getMatchingSiteParsers(href);
     const useNonDestructiveGenericScan = !matchingProfiles.length && isGenericManagedAppShell();
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
-    const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
+    const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href, options);
     const baseTargets = siteTargets ?? [];
     if (matchingProfiles.some(profile => profile.disableGenericDomScan)) {
         if (matchingProfiles.some(profile => profile.suppressResidualVisibleScan)) {
@@ -1565,9 +1590,9 @@ function residualVisibleJapaneseExcludeSelector(profiles: SiteParserProfile[]): 
     return entries.join(',');
 }
 
-function completeSiteScanTargets(profiles: SiteParserProfile[], limit: number, href: string): ScanTextTarget[] | null {
+function completeSiteScanTargets(profiles: SiteParserProfile[], limit: number, href: string, options: SiteScanOptions = {}): ScanTextTarget[] | null {
     if (!profiles.length) return null;
-    const siteTargets = collectSiteScanTargets(limit, href) ?? [];
+    const siteTargets = collectSiteScanTargets(limit, href, options) ?? [];
     if (siteTargets.length) return siteTargets;
     if (hasWholePageFallback(profiles)) {
         const broadTargets = collectWholePageScanTargets(limit);

@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.31] - 2026-07-03
+
+### Fixed
+
+- Scrolling the YouTube feed no longer re-parses every annotated title: silent auto-scans skip hosts whose mirror already renders the same text and defer the document-wide ruby sweep, cutting scroll-stress main-thread blocking from seconds to a single sub-100ms task.
+- The watch page's action row and description expander are scanned reliably, and pitch underlines stay visible at rest across the watch metadata, masthead, and guide — the subscribe and join buttons stay unannotated deliberately, since re-rendering them fought YouTube's own updates.
+
+### Changed
+
+- Internal: the subtitle drawer-head helpers are module-private again, clearing the dead-export findings that turned CI red on 1.6.30.
+
 ## [1.6.30] - 2026-07-03
 
 ### Changed

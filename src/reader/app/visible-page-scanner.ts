@@ -126,7 +126,7 @@ export class VisiblePageScanner {
             this.handleVisiblePageScanError(error, silent);
         } finally {
             this.finishScan();
-            this.scheduleClampedRubySweep();
+            this.scheduleClampedRubySweep(silent);
             done();
         }
     }
@@ -136,14 +136,19 @@ export class VisiblePageScanner {
     // annotated their text — the grown ruby line then gets cropped and the
     // base text disappears. Sweep right after the scan and once more after
     // hydration settles; rescans re-arm it, so late clamps are always caught.
-    private scheduleClampedRubySweep(): void {
+    private scheduleClampedRubySweep(silent = false): void {
         if (this.destroyed || typeof document === 'undefined') return;
         const sweep = (): void => {
             if (this.destroyed || typeof document === 'undefined') return;
             const adjusted = makeRoomForRubyInCroppedRows(document);
             if (adjusted) log.info('Made room for ruby in cropped rows', { adjusted });
         };
-        sweep();
+        // Silent auto-scans skip the immediate document-wide pass: apply-time
+        // per-root sweeps already covered every changed root, and the delayed
+        // sweep below still catches late-hydrating clamps. The synchronous
+        // pass burned ~530 style recalcs per 15s of feed scrolling while
+        // adjusting nothing.
+        if (!silent) sweep();
         window.clearTimeout(this.clampSweepTimer);
         this.clampSweepTimer = window.setTimeout(sweep, VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS);
     }
@@ -238,7 +243,7 @@ export class VisiblePageScanner {
         removeStaleControlTextMirrors(document);
         const settings = this.dependencies.getSettings();
         const targetCollectionLimit = visibleScanTargetCollectionLimit(settings);
-        const targets = chunkLongScanTargets(collectScanTargets(targetCollectionLimit), settings);
+        const targets = chunkLongScanTargets(collectScanTargets(targetCollectionLimit, window.location.href, { skipMirroredHosts: silent }), settings);
         if (!targets.length) {
             this.handleEmptyVisiblePageScan(silent);
             return;
