@@ -2644,6 +2644,9 @@
     if (value?.shortcuts && !hasOwn(value.shortcuts, "hoverLookup")) {
       shortcuts.hoverLookup = value.popupActivationMode === "modifier" ? shortcutFromLegacyModifier(value.scanModifierKey) : "";
     }
+    if (value?.popupActivationMode === "modifier" && !shortcuts.hoverLookup.trim()) {
+      shortcuts.hoverLookup = shortcutFromLegacyModifier(value.scanModifierKey) || "Shift";
+    }
     migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
     return shortcuts;
   }

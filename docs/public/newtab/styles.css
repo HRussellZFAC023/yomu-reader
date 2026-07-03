@@ -17420,6 +17420,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   margin-left: auto;
 }
 .jpdb-subtitle-drawer-playback button {
+  position: relative;
   display: inline-grid;
   place-items: center;
   min-width: 32px;
@@ -18318,6 +18319,15 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     position: absolute;
     inset: -6px;
     border-radius: 9px;
+  }
+  /* Hit-slop for the drawer transport cluster (32px chrome → 44px target); the
+     wider gap keeps neighbouring touch targets from overlapping. */
+  .jpdb-subtitle-drawer-playback { gap: 12px; }
+  .jpdb-subtitle-drawer-playback button::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 13px;
   }
   .jpdb-subtitle-track-row button,
   .jpdb-subtitle-track-tools button,

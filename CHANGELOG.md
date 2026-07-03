@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.32] - 2026-07-03
+
+### Fixed
+
+- The transcript drawer's play/pause and previous/next buttons meet the 44px touch floor on phones: they get the same hit-slop as the on-video rail, and the mobile smoke now measures every drawer-head control so a new control cannot ship under-sized again.
+- Modifier hover mode always has a modifier: settings payloads with popupActivationMode 'modifier' but no stored hover shortcut now backfill the legacy scan modifier (or Shift) instead of firing hover lookups with no key held.
+
+### Changed
+
+- New regression guards: legacy furigana migrations (hideKnownFurigana/showFurigana), the subtitleControlsMode sanitizer, and a foreign-script anomaly gate that fails if Hangul or Cyrillic ever leaks into localized copy.
+
 ## [1.6.31] - 2026-07-03
 
 ### Fixed

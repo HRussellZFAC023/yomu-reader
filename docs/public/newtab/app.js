@@ -7169,6 +7169,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (value?.shortcuts && !hasOwn(value.shortcuts, "hoverLookup")) {
       shortcuts.hoverLookup = value.popupActivationMode === "modifier" ? shortcutFromLegacyModifier(value.scanModifierKey) : "";
     }
+    if (value?.popupActivationMode === "modifier" && !shortcuts.hoverLookup.trim()) {
+      shortcuts.hoverLookup = shortcutFromLegacyModifier(value.scanModifierKey) || "Shift";
+    }
     migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
     return shortcuts;
   }
@@ -39280,7 +39283,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.31".trim() ? "1.6.31".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.32".trim() ? "1.6.32".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

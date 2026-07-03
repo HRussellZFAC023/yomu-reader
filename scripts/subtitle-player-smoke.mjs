@@ -699,6 +699,18 @@ async function runLocalMobileWrapSmoke(browser) {
     assert(Math.abs(controls.handleCenterX - controls.subtitleCenterX) <= 3, 'Mobile subtitle drag handle is not centered on the subtitle line', controls);
     assert(!overlaps(controls.handle, controls.rail), 'Mobile subtitle drag handle overlaps the subtitle rail', controls);
 
+    const drawerTouch = await readMobileDrawerTouchTargets(page);
+    assert(drawerTouch.buttons.length >= 5, 'Mobile transcript drawer head did not expose its controls', drawerTouch);
+    for (const button of drawerTouch.buttons) {
+        assert(
+            button.effective.width >= 43.5 && button.effective.height >= 43.5,
+            `Mobile drawer control "${button.label}" tap target is under 44px`,
+            drawerTouch,
+        );
+        assert(button.slopHit !== false, `Mobile drawer control "${button.label}" hit-slop is not tappable`, drawerTouch);
+    }
+    await page.locator('.jpdb-subtitle-panel-close').evaluate(button => button.click()).catch(() => undefined);
+
     await page.evaluate(() => {
         const shell = document.createElement('ytm-app');
         const sheet = document.createElement('bottom-sheet-container');
@@ -731,6 +743,46 @@ async function readPrimarySubtitleWrap(page) {
                 whiteSpace: style?.whiteSpace ?? '',
             },
             text: primary?.textContent ?? '',
+        };
+    });
+}
+
+async function readMobileDrawerTouchTargets(page) {
+    const drawerOpen = () => {
+        const head = document.querySelector('.jpdb-subtitle-drawer-head');
+        return Boolean(head) && head.getBoundingClientRect().height > 0;
+    };
+    if (!(await page.evaluate(drawerOpen))) {
+        await page.locator('.jpdb-subtitle-rail [data-action="panel"]').evaluate(button => button.click());
+        await page.waitForFunction(drawerOpen, null, { timeout: 5000 });
+    }
+    return page.evaluate(() => {
+        // The 44px floor counts ::after hit-slop (the rail pattern): the
+        // pseudo-element extends the tap target without growing the chrome.
+        const measure = element => {
+            const rect = element.getBoundingClientRect();
+            const after = getComputedStyle(element, '::after');
+            const hasSlop = after.content !== 'none' && after.position === 'absolute';
+            const inset = side => (hasSlop ? Number.parseFloat(after[side]) || 0 : 0);
+            let slopHit = null;
+            if (hasSlop && inset('top') < 0) {
+                const probe = document.elementFromPoint(rect.left + rect.width / 2, rect.top + inset('top') / 2);
+                slopHit = probe === element || element.contains(probe);
+            }
+            return {
+                label: element.getAttribute('aria-label') ?? element.className,
+                effective: {
+                    width: rect.width - inset('left') - inset('right'),
+                    height: rect.height - inset('top') - inset('bottom'),
+                },
+                chrome: { width: rect.width, height: rect.height },
+                slopHit,
+            };
+        };
+        return {
+            buttons: [...document.querySelectorAll('.jpdb-subtitle-drawer-head button')]
+                .filter(button => button.getBoundingClientRect().width > 0)
+                .map(measure),
         };
     });
 }

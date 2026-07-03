@@ -148,6 +148,26 @@ describe('interface language resolution', () => {
         expect(themeSource).not.toContain("Wait, let's fix");
     });
 
+    it('keeps localized copy free of foreign-script anomalies', () => {
+        // Hangul, Cyrillic, or a replacement character in these files is always
+        // a translation defect (the historical '母国語의' bug was a Korean
+        // particle pasted into a Japanese string).
+        const anomaly = /[가-힯ᄀ-ᇿ㄰-㆏Ѐ-ӿ�]/u;
+        const sources = [
+            'src/reader/app/i18n.ts',
+            'src/reader/newtab/i18n.ts',
+            'docs/.vitepress/theme/index.ts',
+        ];
+        for (const path of sources) {
+            const offending = readFileSync(path, 'utf8')
+                .split('\n')
+                .map((line, index) => `${path}:${index + 1}: ${line}`)
+                .filter(line => anomaly.test(line));
+
+            expect(offending).toEqual([]);
+        }
+    });
+
     it('keeps latest changelog entries covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
         const changelogSource = readFileSync('CHANGELOG.md', 'utf8');

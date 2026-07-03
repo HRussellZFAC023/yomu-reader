@@ -710,6 +710,11 @@ function normalizeShortcutSettings(value: Partial<ReaderSettings> | null): Reade
     if (value?.shortcuts && !hasOwn(value.shortcuts, 'hoverLookup')) {
         shortcuts.hoverLookup = value.popupActivationMode === 'modifier' ? shortcutFromLegacyModifier(value.scanModifierKey) : '';
     }
+    // A blank shortcut matches every event, which would silently turn
+    // 'modifier' mode into plain hover mode, so it must resolve to a key.
+    if (value?.popupActivationMode === 'modifier' && !shortcuts.hoverLookup.trim()) {
+        shortcuts.hoverLookup = shortcutFromLegacyModifier(value.scanModifierKey) || 'Shift';
+    }
     migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
     return shortcuts;
 }
