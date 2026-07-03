@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReaderParser } from '../../src/reader/lookup/parser';
 import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings';
 import type { ReaderSettings } from '../../src/reader/app/types';
@@ -92,6 +92,47 @@ describe('local-first parsing', () => {
 
         expect(jitenParse).toHaveBeenCalledTimes(1);
         expect(findTermMatches).not.toHaveBeenCalled();
+    });
+});
+
+describe('keyless offline first paint', () => {
+    function keylessParser({ onLine }: { onLine: boolean }) {
+        const publicParse = vi.fn(async (paragraphs: readonly string[]) => paragraphs.map(() => []));
+        const parser = new ReaderParser({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', parserProvider: 'local' }),
+            jpdb: { parse: vi.fn(async () => []) } as never,
+            jiten: { parse: vi.fn(async () => []) } as never,
+            jitenPublicVocabulary: { parse: publicParse },
+            dictionaries: {
+                hasTermDictionaries: vi.fn(async () => false),
+                findTermMatches: vi.fn(async () => []),
+                lookupTermMeta: vi.fn(async () => []),
+                lookupKanji: vi.fn(async () => []),
+            } as never,
+        });
+        vi.stubGlobal('navigator', { onLine });
+        return { parser, publicParse };
+    }
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('skips the doomed public-jiten fetch offline and still paints segmented tokens', async () => {
+        const { parser, publicParse } = keylessParser({ onLine: false });
+
+        const [tokens] = await parser.parse(['日本語を学ぶ'], { allowSegmentedFallback: true });
+
+        expect(publicParse).not.toHaveBeenCalled();
+        expect(tokens?.length).toBeGreaterThan(0);
+    });
+
+    it('still attempts public jiten online so dictionary-correct boundaries win', async () => {
+        const { parser, publicParse } = keylessParser({ onLine: true });
+
+        await parser.parse(['日本語を学ぶ'], { allowSegmentedFallback: true });
+
+        expect(publicParse).toHaveBeenCalledTimes(1);
     });
 });
 

@@ -1961,7 +1961,7 @@
       hoverOpenDelayMs: "Hover open delay (ms)",
       hoverCloseDelayMs: "Hover close delay (ms)",
       pressKeys: "Press keys",
-      blankPlainHover: "Blank means hover without a key",
+      blankPlainHover: "Blank = hover, no key",
       openSettings: "Open settings",
       resizeSettings: "Resize settings",
       playAudio: "Play audio",
@@ -34269,6 +34269,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     async tryParseWithPublicJiten(paragraphs, options) {
       if (options.allowSegmentedFallback !== true || shouldSkipApiParser(options)) return null;
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
       const parser = this.dependencies.jitenPublicVocabulary;
       if (typeof parser?.parse !== "function") return null;
       try {
@@ -39283,7 +39284,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.33".trim() ? "1.6.33".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.34".trim() ? "1.6.34".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

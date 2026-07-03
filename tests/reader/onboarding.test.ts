@@ -53,7 +53,7 @@ describe('OnboardingController', () => {
         expect(document.body.textContent).toContain(PAGE_SCAN_LEGEND);
         expect(document.querySelector('.jpdb-reader-onboarding-immersion-grid')).not.toBeNull();
         expect(hoverShortcut?.type).toBe('text');
-        expect(hoverShortcut?.placeholder).toBe('Blank means hover without a key');
+        expect(hoverShortcut?.placeholder).toBe('Blank = hover, no key');
         // Scan shortcut only matters in manual mode; it stays hidden until then.
         expect(scanShortcutLabel?.hidden).toBe(true);
         expect(document.querySelector('[name="shortcuts.captureScreen"], [data-onboarding-capture-shortcut]')).toBeNull();

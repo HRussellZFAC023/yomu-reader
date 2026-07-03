@@ -1,10 +1,14 @@
 # Yomu Backlog
 
-Last updated: 2026-06-29
+Last updated: 2026-07-03 (evening audit pass)
 
 This file tracks user-reported confusion, reproducible regressions, and release work that should not be lost across parallel Codex threads.
 
 ## P0 - Active
+
+- Production residuals (live-verified 2026-07-03, owner-only ops — do NOT block releases)
+  - Donations are live-down: support.yomureader.com/donate returns 503, /status reports stripe-test-mode. The code guard shipped; the live Stripe secret was never installed (runbook delivered to owner).
+  - Audio R2 bulk upload is PARTIAL: some words serve hosted clips, most (e.g. 保有) still fall back to JapanesePod101. The remaining ~6 GB shard/audio upload needs an owner-created R2 Object Read & Write token (wrangler OAuth cannot mint tokens). Worker source drift was fixed in 1.6.33 — repo now matches the deployed v2 worker, so a redeploy is safe AFTER 1.6.33.
 
 - Yomu Video / YouTube regression repair
   - User confusion: opening the subtitle side panel should feel instant and should not reshape YouTube into a broken page.
@@ -24,12 +28,11 @@ This file tracks user-reported confusion, reproducible regressions, and release 
   - Placeholder/help text in editable controls must not be mirrored as real scanned page text.
   - Hover should not remove highlight styling or turn text black; contrast must remain readable for text and furigana in light and dark contexts.
 
-- BookWalker
-  - User confusion: BookWalker freezes or shows stale OCR from the previous page, so users feel forced to reload.
-  - Fix normal page mode OCR becoming stale or failing after several page turns.
-  - Fix continuous-scroll mode on iPad: it currently lags badly and images do not OCR.
-  - Fix settings popover vertical mode furigana wrapping and translation covering bottom UI.
-  - Fix homepage/gallery/carousel layout breakage generically, not with site-specific hacks.
+- BookWalker — mostly CLOSED 2026-07-03 (deterministic gates green, re-verified)
+  - ~~Stale OCR after page turns / cty=2 vertical re-scan churn~~ Shipped on main (per-canvas content tokens) and re-verified 2026-07-03: all six bookwalker smokes pass on fresh dist (apex 11 combos incl. back-cache hit, modes spread+continuous x3 engines, cty2-scroll S1/S2/S3, tap-passthrough, tap-retry, carousel).
+  - REMAINING (owner): live signed-in viewer spot-check — the trial viewer is auth-walled headless, so the deterministic smokes are the ceiling of what agents can verify.
+  - Still open: settings popover vertical mode furigana wrapping and translation covering bottom UI (unverified).
+  - Optional refactor ready to land: canvas-page-identity module + 391-line invariant test (recovered from the canvas-identity worktree, green on origin/main, reapplies cleanly) — test hardening, not a bug fix.
 
 - Yomu PDF
   - User confusion: scanned PDF overlays are dense and unreadable.
@@ -72,7 +75,7 @@ This file tracks user-reported confusion, reproducible regressions, and release 
 
 - Audio
   - Investigate premature fallback to TTS when real audio becomes available on retry.
-  - Hover audio must reliably play word after word without silently stopping after a few hovers.
+  - ~~Hover audio must reliably play word after word without silently stopping after a few hovers.~~ Refuted 2026-07-03: an adversarial Opus-max repro pass (rapid hovers, erroring/hung candidates, pointerleave races) found no dead-lock in the term or carousel hover paths; treat as stale unless a live repro surfaces.
   - Apple Pencil taps should activate dictionary kanji links, show/hide trace, and other button-like controls as reliably as finger taps.
 
 - Anime site support
@@ -86,6 +89,13 @@ This file tracks user-reported confusion, reproducible regressions, and release 
 - App Store and extension store publishing need account, signing, and store-review input.
 - Steam Deck hardware validation needs access to real Steam Deck/gamescope or a trustworthy CI/device path.
 - Cloudflare hosted audio source needs cost/free-tier validation before making it a default.
+
+## Closed 2026-07-03 — Independent audit batch (1.6.32–1.6.34)
+
+- 1.6.32: subtitle drawer transport buttons meet the 44px touch floor via rail-style hit-slop, with a smoke that measures every drawer-head control at 390px (incl. real elementFromPoint hit-test through the slop); modifier hover mode always resolves a modifier key (blank shortcut matched every event = plain hover); regression guards for legacy furigana migration, subtitleControlsMode sanitizer, and a foreign-script (Hangul/Cyrillic) anomaly gate over all localized copy.
+- 1.6.33: deployed v2 sharded audio-worker source recovered from codex transcripts (one transcript-mangled regex caught in review), landed so repo == production (a697dc5a); export script --full mode + README serving-modes docs.
+- 1.6.34: offline keyless first paint skips the doomed public-Jiten round-trip (online path unchanged — Jiten boundaries win); onboarding emphasises Use-without-API-key first (matches docs); hover shortcut placeholder no longer clips.
+- Audit refutations recorded so they are never "fixed": test:ci is GREEN on origin/main (setup stub guards elementFromPoint; the red-main memory was stale); the keyless jpdb.io CORS noise is the post-paint pitch-enrichment lane (budget 3), NOT the parse path; a blanket segment-first parser reorder would permanently shatter verb boundaries for online keyless users.
 
 ## Closed 2026-07-03 — YouTube quality batch (1.6.26–1.6.31)
 

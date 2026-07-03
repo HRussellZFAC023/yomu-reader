@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.34] - 2026-07-03
+
+### Fixed
+
+- Offline keyless first paint no longer waits for a doomed public-Jiten parse round-trip: with no API keys and no local dictionaries, parsing goes straight to segmentation when the browser reports itself offline, and still prefers Jiten's dictionary-correct word boundaries when online.
+- The onboarding welcome now matches the documented recommendation: Use without API key is the emphasised first button, with Add API key beside it.
+
+### Changed
+
+- The hover shortcut placeholder is short enough for the onboarding grid column, so it no longer clips on desktop.
+
 ## [1.6.33] - 2026-07-03
 
 ### Fixed

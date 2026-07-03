@@ -12559,8 +12559,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     font-size: 11px;
     touch-action: manipulation;
   }
-  /* Hit-slop: compact rail buttons render 32px; -6px pads the touch target to
-     the 44px minimum without growing the visible chrome. */
+  /* Hit-slop: compact rail buttons render 34px; -6px pads the touch target to
+     46px without growing the visible chrome. */
   .jpdb-subtitle-rail button::after {
     content: "";
     position: absolute;

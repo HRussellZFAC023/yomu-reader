@@ -171,6 +171,9 @@ export class ReaderParser {
 
     private async tryParseWithPublicJiten(paragraphs: string[], options: ReaderParserParseOptions): Promise<JPDBToken[][] | null> {
         if (options.allowSegmentedFallback !== true || shouldSkipApiParser(options)) return null;
+        // Offline the public round-trip is doomed and would only delay the
+        // segmented first paint until the request timeout fires.
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return null;
         const parser = this.dependencies.jitenPublicVocabulary;
         if (typeof parser?.parse !== 'function') return null;
         try {

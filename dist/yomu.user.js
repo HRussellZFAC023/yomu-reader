@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.33
+// @version 1.6.34
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.33#sha256=dFWDsSJiXOFW7UfIkxlLNXDyhkIkVhzGyjHdZFPvhBM=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.33#sha256=ZrlpfhoF8tw10DMPmrCKz2LIm+47VqKlzC1f3FHAA38=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.33#sha256=dE8TbpDkkXRgZjnJlYascwNvnzucJ+lCc4nM2pcdYNU=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.33#sha256=XpJrSaFctXMl+5if/YMSl58JLvWGowY813RCHHfYV4o=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.33#sha256=pm9mSyHvL9oV4GSxy9F6uXK1wb3Mnv+ix8rPUr9tgl8=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.33#sha256=/U2ear2jvkvATnndCuFBrpM8/r3ABaQy0SJ/K/xd6Qw=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.34#sha256=Ujbm4h3u+fG2f6lga28msWrwzMa2zuaNkgspmFqauJ8=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.34#sha256=GOaWZEu1sKkJyWOrTa4sj7L6tdjATBkpg53Vpxa1szM=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.34#sha256=uwIElWNhG8gtShTyksRcu8kXHIhMC5czS//1r3Qr9QQ=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.34#sha256=fhu/0zZPPAA3R+YUhGScfmjzfMD3gycW+kmOGupiu00=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.34#sha256=2Ez7UFpU8r5m7rOaQTcW3O05g3+jE31G5N3hZzsLk0o=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.34#sha256=VjkPSQ/Mo1bFtiz7S+6JHQeRQc8svdCr3F8MSmctRpQ=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -18701,6 +18701,7 @@ class ReaderParser {
   }
   async tryParseWithPublicJiten(paragraphs, options) {
   if (options.allowSegmentedFallback !== true || shouldSkipApiParser(options)) return null;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
   const parser = this.dependencies.jitenPublicVocabulary;
   if (typeof parser?.parse !== "function") return null;
   try {
@@ -29183,14 +29184,14 @@ class OnboardingController {
   const actions = document.createElement("div");
   actions.className = "jpdb-reader-onboarding-actions";
   const setup = button(uiText(this.options.getSettings().interfaceLanguage, "onboardingAddApiKey"));
-  setup.className = "jpdb-reader-btn add";
+  setup.className = "jpdb-reader-btn";
   setup.dataset.onboardingAction = "api-key";
   setup.addEventListener("click", () => void this.complete(true));
   const dictionaries = button(uiText(this.options.getSettings().interfaceLanguage, "onboardingUseWithoutApiKey"));
-  dictionaries.className = "jpdb-reader-btn";
+  dictionaries.className = "jpdb-reader-btn add";
   dictionaries.dataset.onboardingAction = "without-api";
   dictionaries.addEventListener("click", () => void this.complete("dictionaries"));
-  actions.append(setup, dictionaries);
+  actions.append(dictionaries, setup);
   this.languageSelect.addEventListener("change", () => {
     const language2 = normalizeLanguage(this.languageSelect?.value, this.options.getSettings().interfaceLanguage);
     log$3.info("Onboarding language changed", { language: language2 });
@@ -32503,7 +32504,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.33"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.34"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

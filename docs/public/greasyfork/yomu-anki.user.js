@@ -1858,7 +1858,7 @@
       hoverOpenDelayMs: "Hover open delay (ms)",
       hoverCloseDelayMs: "Hover close delay (ms)",
       pressKeys: "Press keys",
-      blankPlainHover: "Blank means hover without a key",
+      blankPlainHover: "Blank = hover, no key",
       openSettings: "Open settings",
       resizeSettings: "Resize settings",
       playAudio: "Play audio",

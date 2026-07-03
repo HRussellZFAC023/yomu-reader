@@ -233,15 +233,17 @@ export class OnboardingController {
 
         const actions = document.createElement('div');
         actions.className = 'jpdb-reader-onboarding-actions';
+        // The keyless path is the documented recommendation for new users, so
+        // it carries the primary emphasis and comes first.
         const setup = button(uiText(this.options.getSettings().interfaceLanguage, 'onboardingAddApiKey'));
-        setup.className = 'jpdb-reader-btn add';
+        setup.className = 'jpdb-reader-btn';
         setup.dataset.onboardingAction = 'api-key';
         setup.addEventListener('click', () => void this.complete(true));
         const dictionaries = button(uiText(this.options.getSettings().interfaceLanguage, 'onboardingUseWithoutApiKey'));
-        dictionaries.className = 'jpdb-reader-btn';
+        dictionaries.className = 'jpdb-reader-btn add';
         dictionaries.dataset.onboardingAction = 'without-api';
         dictionaries.addEventListener('click', () => void this.complete('dictionaries'));
-        actions.append(setup, dictionaries);
+        actions.append(dictionaries, setup);
 
         this.languageSelect.addEventListener('change', () => {
             const language = normalizeLanguage(this.languageSelect?.value, this.options.getSettings().interfaceLanguage);
