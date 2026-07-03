@@ -115,7 +115,9 @@ function registerRuntime(bootWindow: YomuBootWindow, app: ReaderApp, runtimeKind
 function startRuntime(app: ReaderApp, ownerId: string, runtimeKind: YomuRuntimeKind, embeddedFrame: boolean): void {
     void app.init({
         embeddedFrame,
-        showWelcome: runtimeKind === 'userscript',
+        // Both real installs (userscript manager and browser extension) get the
+        // first-run welcome/onboarding. The page/dev runtimes never do.
+        showWelcome: runtimeKind === 'userscript' || runtimeKind === 'extension',
     }).catch(error => {
         releaseRuntime(ownerId);
         throw error;

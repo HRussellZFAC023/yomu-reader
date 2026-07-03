@@ -123,12 +123,12 @@ function fetchUrlCandidates(targetUrl: string, configuredProxyUrl: string, optio
             ...builtInProxyUrls(targetUrl, options),
         ].filter((url): url is string => Boolean(url))
         : [];
-    const direct = directFetchUrl(targetUrl, options, Boolean(configured));
-    const directCandidate = direct ? { url: direct, kind: 'direct' as const } : null;
     const proxyCandidates = ([
         configured ? { url: configured, kind: 'configured-proxy' as const } : null,
         ...publicProxies.map((url): FetchUrlCandidate => ({ url, kind: 'public-proxy' })),
     ] as Array<FetchUrlCandidate | null>).filter((candidate): candidate is FetchUrlCandidate => Boolean(candidate));
+    const direct = directFetchUrl(targetUrl, options, proxyCandidates.length > 0);
+    const directCandidate = direct ? { url: direct, kind: 'direct' as const } : null;
     const orderedCandidates: Array<FetchUrlCandidate | null> = shouldPreferProxyFirst(targetUrl, Boolean(directCandidate), proxySafe)
         ? [...proxyCandidates, directCandidate]
         : [directCandidate, ...proxyCandidates];
@@ -137,9 +137,15 @@ function fetchUrlCandidates(targetUrl: string, configuredProxyUrl: string, optio
     ]);
 }
 
-function directFetchUrl(targetUrl: string, options: ProxyFetchOptions, hasConfiguredProxy: boolean): string | null {
+function directFetchUrl(targetUrl: string, options: ProxyFetchOptions, hasProxyCandidate: boolean): string | null {
     if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
-    if (hasConfiguredProxy && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
+    // Known-CORS-blocked targets (jpod101 audiomp3, jisho, jpdb public audio…)
+    // must not fire a direct cross-origin request when ANY proxy candidate can
+    // serve them — a configured proxy OR a built-in public proxy on the hosted
+    // reader. Previously this only fired for configured proxies, so keyless
+    // hosted users saw the direct assets.languagepod101.com request CORS-fail
+    // in the console before the working public-proxy candidate ran.
+    if (hasProxyCandidate && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
     return targetUrl;
 }
 

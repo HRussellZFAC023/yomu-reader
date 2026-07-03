@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.17] - 2026-07-03
+
+### Fixed
+
+- The browser extension now works end to end: the reader crashed at startup because the extension GM shim returns its CSS resource as a promise where userscript managers return a string, so no page ever scanned. First-run onboarding now also shows in the extension, and the extension pages carry no inline scripts, which manifest v3 forbids.
+- The extension action popup is a real popup — open Study, open settings on the current page, and documentation — instead of the compiler's developer stub.
+- The keyless kanji drawing step now shows a word-with-blank prompt instead of the "No kanji keyword found." error heading, the step chips read Kanji 1 and Kanji 2 instead of printing the answer glyph, and the drawing grid is sized to sit under its prompt.
+- The typed recall step appears whenever a card carries an example sentence: availability was accidentally tied to the separate front-sentence display toggle, so recall almost never ran. Each study step's visibility condition is now stated in its settings help.
+- Keyless study no longer offers both Yomu and Dictionary as review sources for the same starter deck, and starter cards report Yomu as their source.
+- Keyless word audio no longer fires a doomed direct request to languagepod101 before trying the working proxy path, removing the console errors and broken playback on hosted pages.
+
 ## [1.6.16] - 2026-07-03
 
 ### Fixed

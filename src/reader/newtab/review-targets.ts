@@ -45,7 +45,12 @@ export function newTabCardSourceLabel(card: JPDBCard, language: ReaderSettings['
     if (card.source === 'anki' || card.reviewSource === 'anki') return ankiReviewSourceLabel(card, language);
     if (card.source === 'bunpro' || card.reviewSource === 'bunpro-api') return 'Bunpro';
     if (card.source === 'yomu-local' || card.reviewSource === 'yomu-local') return 'Yomu';
-    if (card.source === 'local' || card.source === 'fallback' || card.reviewSource === 'dictionary') return uiText(language, 'dictionary');
+    // Built-in starter/practice words belong to Yomu, not an imported
+    // dictionary — labeling them "Dictionary" made the keyless surface look
+    // like it was reviewing a dictionary the user never added. Genuine local
+    // dictionary content ('local' / dictionary review source) stays "Dictionary".
+    if (card.source === 'fallback') return 'Yomu';
+    if (card.source === 'local' || card.reviewSource === 'dictionary') return uiText(language, 'dictionary');
     if (isJitenSrsCard(card)) return 'Jiten';
     if (card.source === 'jpdb' || card.reviewSource === 'jpdb-api' || card.reviewSource === 'jpdb-live') return 'JPDB';
     return card.vid > 0 && card.sid > 0 ? 'JPDB' : uiText(language, 'dictionary');

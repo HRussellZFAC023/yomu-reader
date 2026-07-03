@@ -68,6 +68,7 @@ async function stageNewTabShell() {
     const index = await readFile(publicNewtabIndex, 'utf8');
     await writeFile(newtabIndex, extensionNewTabIndex(index, appHash, buildId));
     await writeFile(path.join(newtab, 'version-loader.js'), extensionNewTabVersionLoader(appHash, buildId));
+    await writeFile(path.join(newtab, 'sw-register.js'), extensionNewTabServiceWorkerRegister());
     await writeFile(path.join(newtab, 'version.json'), `${JSON.stringify({ appHash, buildId, generatedAt: new Date().toISOString() }, null, 2)}\n`);
     await stageNewTabWebManifest();
     await stageNewTabServiceWorker(appHash);
@@ -108,7 +109,7 @@ async function stageManifestIcons() {
 }
 
 function extensionNewTabIndex(index, appHash, buildId) {
-    return index
+    const externalized = index
         .replaceAll('href="../favicon-32x32.png"', 'href="./favicon-32x32.png"')
         .replaceAll('href="../favicon-16x16.png"', 'href="./favicon-16x16.png"')
         .replaceAll('href="../apple-touch-icon.png"', 'href="./apple-touch-icon.png"')
@@ -116,7 +117,32 @@ function extensionNewTabIndex(index, appHash, buildId) {
         .replaceAll('__YOMU_NEW_TAB_APP_HASH__', appHash)
         .replaceAll('__YOMU_NEW_TAB_BUILD_ID__', buildId)
         .replace(/<script>\s*\(\(\) => \{\s*const appHash = '[^']*';[\s\S]*?\}\)\(\);\s*<\/script>/, `<script src="./version-loader.js?v=${appHash}"></script>`)
+        // MV3 extension pages forbid inline <script> (no hash/nonce exceptions).
+        // Externalize the service-worker registration block into sw-register.js.
+        // The web-hosted public/newtab/index.html keeps its inline copy untouched.
+        .replace(/<script>\s*if \('serviceWorker' in navigator && location\.protocol !== 'file:'\) \{[\s\S]*?<\/script>/, `<script src="./sw-register.js?v=${appHash}"></script>`)
         .replace(/<script src="\.\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script src="./app.js?v=${appHash}"></script>`);
+    assertNoInlineScripts(externalized);
+    return externalized;
+}
+
+function assertNoInlineScripts(html) {
+    // Guard against future template changes reintroducing an inline <script> that
+    // would trip the MV3 extension-page CSP. Any <script> without a src is fatal.
+    const inline = [...html.matchAll(/<script\b([^>]*)>/gi)]
+        .filter(match => !/\bsrc\s*=/.test(match[1]));
+    if (inline.length) {
+        throw new Error(`Extension newtab/index.html contains ${inline.length} inline <script> block(s); MV3 extension pages forbid inline script. Externalize them in build-extension.mjs.`);
+    }
+}
+
+function extensionNewTabServiceWorkerRegister() {
+    return `if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => undefined);
+  }, { once: true });
+}
+`;
 }
 
 function extensionNewTabVersionLoader(appHash, buildId) {
@@ -169,6 +195,7 @@ async function verifyReleaseArtifacts() {
         'newtab/app.js',
         'newtab/manifest.webmanifest',
         'newtab/version-loader.js',
+        'newtab/sw-register.js',
         'newtab/sw.js',
         'newtab/version.json',
         'newtab/yomu-icon.svg',

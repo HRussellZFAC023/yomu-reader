@@ -405,20 +405,20 @@
       configuredPublicProxy,
       ...builtInProxyUrls(targetUrl, options)
     ].filter((url) => Boolean(url)) : [];
-    const direct = directFetchUrl(targetUrl, options, Boolean(configured));
-    const directCandidate = direct ? { url: direct, kind: "direct" } : null;
     const proxyCandidates = [
       configured ? { url: configured, kind: "configured-proxy" } : null,
       ...publicProxies.map((url) => ({ url, kind: "public-proxy" }))
     ].filter((candidate) => Boolean(candidate));
+    const direct = directFetchUrl(targetUrl, options, proxyCandidates.length > 0);
+    const directCandidate = direct ? { url: direct, kind: "direct" } : null;
     const orderedCandidates = shouldPreferProxyFirst(targetUrl, Boolean(directCandidate), proxySafe) ? [...proxyCandidates, directCandidate] : [directCandidate, ...proxyCandidates];
     return uniqueFetchCandidates([
       ...orderedCandidates
     ]);
   }
-  function directFetchUrl(targetUrl, options, hasConfiguredProxy) {
+  function directFetchUrl(targetUrl, options, hasProxyCandidate) {
     if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
-    if (hasConfiguredProxy && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
+    if (hasProxyCandidate && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
     return targetUrl;
   }
   function uniqueFetchCandidates(candidates) {
@@ -1499,9 +1499,9 @@
       newTabStudyStepSpeaking: "Speaking",
       newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown.",
       newTabStudyStepWordHelp: "Japanese front, meaning and reading on reveal.",
-      newTabStudyStepRecallHelp: "Type the missing word in the example sentence.",
-      newTabStudyStepListenHelp: "Hear the word and choose the pitch pattern.",
-      newTabStudyStepSpeakingHelp: "Repeat the word aloud when microphone feedback is available.",
+      newTabStudyStepRecallHelp: "Type the missing word in the example sentence. Shown only when a card has an example sentence.",
+      newTabStudyStepListenHelp: "Hear the word and choose the pitch pattern. Shown only when pitch-accent data is available.",
+      newTabStudyStepSpeakingHelp: "Repeat the word aloud when microphone feedback is available. Shown only when audio is available.",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
       wordColors: "Word colors",
@@ -3215,9 +3215,9 @@ newTabStudyStepListen	ピッチ聞き取り
 newTabStudyStepSpeaking	発音
 newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。
 newTabStudyStepWordHelp	表は日本語、表示後に意味と読み。
-newTabStudyStepRecallHelp	例文の空欄に単語を入力します。
-newTabStudyStepListenHelp	音声を聞き、ピッチ型を選びます。
-newTabStudyStepSpeakingHelp	マイク採点が使える時に声に出して繰り返します。
+newTabStudyStepRecallHelp	例文の空欄に単語を入力します。例文があるカードのみ表示。
+newTabStudyStepListenHelp	音声を聞き、ピッチ型を選びます。ピッチアクセント情報がある時のみ表示。
+newTabStudyStepSpeakingHelp	マイク採点が使える時に声に出して繰り返します。音声がある時のみ表示。
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色
@@ -39147,7 +39147,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.16".trim() ? "1.6.16".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.17".trim() ? "1.6.17".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -41289,9 +41289,9 @@ ${spelling}`);
   const NEW_TAB_STUDY_STEP_HELP = {
     "kanji-doodle": "Draw each kanji before the word answer is shown.",
     word: "Japanese front, meaning and reading on reveal.",
-    "recall-cloze": "Type the missing word in the example sentence.",
-    "listen-pitch": "Hear the word and choose the pitch pattern.",
-    speaking: "Repeat the word aloud when microphone feedback is available."
+    "recall-cloze": "Type the missing word in the example sentence. Shown only when a card has an example sentence.",
+    "listen-pitch": "Hear the word and choose the pitch pattern. Shown only when pitch-accent data is available.",
+    speaking: "Repeat the word aloud when microphone feedback is available. Shown only when audio is available."
   };
   const NEW_TAB_STUDY_STEP_LABEL_KEYS = {
     "kanji-doodle": "newTabStudyStepKanji",
@@ -70118,7 +70118,8 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     if (card.source === "anki" || card.reviewSource === "anki") return ankiReviewSourceLabel(card, language);
     if (card.source === "bunpro" || card.reviewSource === "bunpro-api") return "Bunpro";
     if (card.source === "yomu-local" || card.reviewSource === "yomu-local") return "Yomu";
-    if (card.source === "local" || card.source === "fallback" || card.reviewSource === "dictionary") return uiText(language, "dictionary");
+    if (card.source === "fallback") return "Yomu";
+    if (card.source === "local" || card.reviewSource === "dictionary") return uiText(language, "dictionary");
     if (isJitenSrsCard(card)) return "Jiten";
     if (card.source === "jpdb" || card.reviewSource === "jpdb-api" || card.reviewSource === "jpdb-live") return "JPDB";
     return card.vid > 0 && card.sid > 0 ? "JPDB" : uiText(language, "dictionary");
@@ -77474,7 +77475,7 @@ ${entry.url}`),
         revealAnswer: this.state.revealAnswer,
         renderAsKanji,
         hasPitchStep: pitchNumberForReading(card.pitchAccent, reading) != null,
-        hasRecallCloze: buildNewTabRecallCloze(card, this.frontSentenceFromCard(card), newTabCardReading(card)).hasCloze,
+        hasRecallCloze: buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card)).hasCloze,
         stepOrder: settings.newTabStudyStepOrder,
         disabledSteps: settings.newTabStudyDisabledSteps,
         activeStepId: this.studyStepOverrideForCard(card)
@@ -77534,8 +77535,17 @@ ${entry.url}`),
           title: step.label
         },
         el("span", { class: "jpdb-reader-newtab-study-step-index" }, String(index + 1)),
-        el("span", { class: "jpdb-reader-newtab-study-step-label" }, step.kanji ? `${step.label} ${step.kanji}` : step.label)
+        el("span", { class: "jpdb-reader-newtab-study-step-label" }, this.studyStepLabel(step, session))
       );
+    }
+    // The doodle step tests recall of the kanji, so its chip must not print the
+    // answer character before the reveal — number the kanji steps instead
+    // (Kanji 1 / Kanji 2), unveiling the glyph only once answers are shown.
+    studyStepLabel(step, session) {
+      if (!step.kanji) return step.label;
+      if (this.state.revealAnswer) return `${step.label} ${step.kanji}`;
+      const kanjiSteps = session.steps.filter((candidate) => candidate.kind === "kanji-doodle");
+      return kanjiSteps.length > 1 ? `${step.label} ${kanjiSteps.indexOf(step) + 1}` : step.label;
     }
     renderStudyTour(slot, session) {
       if (!slot) return;
@@ -78248,7 +78258,21 @@ ${entry.url}`),
         this.shouldSuppressJitenOnlyJpdbCardToggle(card) ? null : this.ankiToggleSource(context)
       ]);
       if (this.shouldIncludeDictionaryToggleSource(context, sources)) sources.push("dictionary");
-      return sources;
+      return this.unifyStarterSourceToggle(sources, card, context);
+    }
+    // Keyless, "Yomu" (yomu-local SRS) and "Dictionary" both resolve to the same
+    // built-in starter-word queue — no reviews are due and no dictionary is
+    // imported, so both flags are on-by-default yet neither carries distinct
+    // content. Offering both in the dropdown reads as a meaningless duplicate
+    // (the owner's complaint). Collapse to one entry (which hides the selector)
+    // whenever the visible queue is the starter/fallback set with no genuine
+    // yomu-local review behind it. A real SRS queue or imported dictionary keeps
+    // both options distinct.
+    unifyStarterSourceToggle(sources, card, context) {
+      const onlyStarterPair = sources.length === 2 && sources.includes("yomu-local") && sources.includes("dictionary");
+      if (!onlyStarterPair) return sources;
+      const starterQueue = card.source === "fallback" && this.isDictionaryCard(card) && !context.hasYomuLocal;
+      return starterQueue ? ["yomu-local"] : sources;
     }
     shouldSuppressJitenOnlyJpdbCardToggle(card) {
       return this.hasJitenOnlyApiCredentials() && !this.isJitenOnlySourceLabel() && this.cardReviewSource(card) === "jpdb" && !isJitenSrsCard(card) && !this.reviewTargetsForCard(card).includes("anki");
@@ -78445,7 +78469,7 @@ ${entry.url}`),
     renderKanjiPrompt(slots, card, activeKanji) {
       const kanji = activeKanji ?? this.activeStudyKanji(card) ?? kanjiCharacters$1(card.spelling)[0] ?? card.spelling[0] ?? "字";
       const keywords = this.kanjiPromptKeywords(card, kanji);
-      this.renderKanjiPromptQuestion(slots.prompt, kanji, keywords);
+      this.renderKanjiPromptQuestion(slots.prompt, kanji, keywords, card);
       this.renderKanjiPromptAnswer(slots, card, kanji);
       if (slots.meaning && !this.state.revealAnswer) slots.meaning.replaceChildren();
       void this.enrichKanjiCard(slots, card, kanji);
@@ -78454,7 +78478,7 @@ ${entry.url}`),
       const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
       return session.activeStep.kind === "kanji-doodle" ? session.activeStep.kanji ?? null : null;
     }
-    renderKanjiPromptQuestion(prompt, kanji, keywords) {
+    renderKanjiPromptQuestion(prompt, kanji, keywords, card) {
       if (!prompt) return;
       prompt.lang = this.state.revealAnswer ? "ja" : "en";
       prompt.dataset.newtabExpression = "true";
@@ -78462,7 +78486,35 @@ ${entry.url}`),
       prompt.classList.remove("jpdb-reader-newtab-prompt-anki-card", "jpdb-reader-newtab-recall-prompt");
       prompt.classList.add("jpdb-reader-newtab-kanji-prompt");
       if (this.state.revealAnswer) replaceChildrenWith(prompt, this.kanjiPopoverButton(kanji));
-      else replaceChildrenWith(prompt, this.renderKanjiPromptKeywords(keywords));
+      else replaceChildrenWith(prompt, this.renderKanjiPromptKeywords(keywords, card, kanji, true));
+    }
+    // A draw step must never front an error. When no meaning/keyword resolves
+    // (keyless, sources unavailable), fall back to the word itself with the
+    // target kanji blanked so the learner still has a concrete recall prompt.
+    kanjiDrawFallbackPrompt(card, kanji) {
+      const meaning = card ? firstCardMeaning(card) : "";
+      const cloze = card ? this.kanjiWordBlank(card.spelling, kanji) : "";
+      const detail = cloze || meaning;
+      return el(
+        "div",
+        { class: "jpdb-reader-newtab-kanji-front-keywords jpdb-reader-newtab-kanji-front-fallback" },
+        el(
+          "div",
+          { class: "jpdb-reader-newtab-kanji-front-keyword" },
+          el("small", {}, this.text("drawKanji")),
+          el("span", { lang: cloze ? "ja" : "en" }, detail || this.text("drawKanji"))
+        ),
+        cloze && meaning ? el(
+          "div",
+          { class: "jpdb-reader-newtab-kanji-front-keyword" },
+          el("small", {}, this.text("meaning")),
+          el("span", {}, meaning)
+        ) : null
+      );
+    }
+    kanjiWordBlank(spelling, kanji) {
+      if (!spelling.includes(kanji) || Array.from(spelling).length < 2) return "";
+      return Array.from(spelling).map((character) => character === kanji ? "＿" : character).join("");
     }
     kanjiPopoverButton(kanji) {
       return el("button", {
@@ -78472,8 +78524,10 @@ ${entry.url}`),
         title: `${this.text("showKanji")}: ${kanji}`
       }, kanji);
     }
-    renderKanjiPromptKeywords(keywords, emptyText = this.text("loadingKanjiDetails")) {
-      if (!keywords.length) return el("span", { class: "jpdb-reader-newtab-kanji-front-empty" }, emptyText);
+    renderKanjiPromptKeywords(keywords, card, kanji, pending = false) {
+      if (!keywords.length) {
+        return pending ? el("span", { class: "jpdb-reader-newtab-kanji-front-empty" }, this.text("loadingKanjiDetails")) : this.kanjiDrawFallbackPrompt(card, kanji ?? "");
+      }
       return el(
         "div",
         { class: "jpdb-reader-newtab-kanji-front-keywords" },
@@ -78588,7 +78642,7 @@ ${entry.url}`),
       if (this.state.revealAnswer) void this.renderImmersionExample(slots, card);
     }
     renderRecallQuestion(prompt, card) {
-      const cloze = buildNewTabRecallCloze(card, this.frontSentenceFromCard(card), newTabCardReading(card));
+      const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
       const meaning = firstCardMeaning(card) || this.text("recallPromptFallback");
       prompt.lang = cloze.hasCloze ? "ja" : "en";
       delete prompt.dataset.newtabExpression;
@@ -78654,7 +78708,7 @@ ${entry.url}`),
       if (!this.state.revealAnswer) this.focusRecallInputSoon(answer);
     }
     renderRecallSolution(card, state2) {
-      const cloze = buildNewTabRecallCloze(card, this.frontSentenceFromCard(card), newTabCardReading(card));
+      const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
       return el(
         "div",
         { class: "jpdb-reader-newtab-recall-solution", lang: "ja" },
@@ -79049,6 +79103,13 @@ ${entry.url}`),
     }
     frontSentenceFromCard(card) {
       return this.shouldShowFrontSentence() ? normalizePromptContextSentence(card.sentence, card) : "";
+    }
+    // Recall availability keys off whether a real example sentence exists, NOT
+    // the newTabFrontSentenceEnabled display toggle (that toggle only governs
+    // the Word step's context sentence). Gating recall behind it silently
+    // dropped the step for every card that carries a sentence.
+    recallSentenceFromCard(card) {
+      return normalizePromptContextSentence(card.sentence, card);
     }
     loadFrontSentence(card) {
       const key = this.frontSentenceCacheKey(card);
@@ -79648,16 +79709,10 @@ ${entry.url}`),
       if (slots.prompt && !this.state.revealAnswer) {
         replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(
           this.kanjiPromptKeywordsFromDetails(card, details),
-          this.kanjiKeywordEmptyText(details)
+          card,
+          kanji
         ));
       }
-    }
-    kanjiKeywordEmptyText(details) {
-      return this.kanjiSourcesUnavailable(details) ? this.text("kanjiSourcesUnavailable") : this.text("noKanjiKeyword");
-    }
-    kanjiSourcesUnavailable(details) {
-      const states = Object.values(details.sourceStates);
-      return states.some((state2) => state2 === "unavailable") && states.every((state2) => state2 === "disabled" || state2 === "unavailable");
     }
     async applyEnrichedUchisenKeyword(slots, card, kanji, details) {
       if (!slots.prompt || this.state.revealAnswer) return;
@@ -79665,7 +79720,7 @@ ${entry.url}`),
       if (!uchisenData?.kanjiKeyword?.keyword) return;
       if (!this.canApplyKanjiEnrichment(slots, card)) return;
       if (!slots.prompt || this.state.revealAnswer) return;
-      replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(this.kanjiPromptKeywordsFromDetails(card, details, uchisenData)));
+      replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(this.kanjiPromptKeywordsFromDetails(card, details, uchisenData), card, kanji));
     }
     applyEnrichedKanjiSvg(answer, svgMarkup) {
       if (!answer || !svgMarkup) return;

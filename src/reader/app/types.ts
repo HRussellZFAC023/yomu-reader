@@ -597,7 +597,9 @@ declare global {
         listener: (key: string, oldValue: unknown, newValue: unknown, remote: boolean) => void,
     ) => number);
     const GM_removeValueChangeListener: undefined | ((listenerId: number) => void);
-    const GM_getResourceText: undefined | ((name: string) => string);
+    // Synchronous in Tampermonkey/Violentmonkey; the browser-extension GM shim
+    // (UserScript Compiler) resolves the resource over XHR and returns a Promise.
+    const GM_getResourceText: undefined | ((name: string) => string | Promise<string>);
     const GM_registerMenuCommand: undefined | ((name: string, fn: () => void) => void);
     const GM_openInTab: undefined | ((url: string, options?: { active?: boolean; insert?: boolean; setParent?: boolean } | boolean) => unknown);
 }

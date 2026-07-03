@@ -1062,6 +1062,16 @@
   padding-bottom: clamp(64px, 9vh, 120px);
 }
 
+/* Before the reveal the doodle IS the answer: keep the draw prompt sitting
+   directly on top of the canvas instead of letting the 1fr answer row stretch
+   and float the grid far below its instruction. */
+.jpdb-reader-newtab-kanji-mode:not(.jpdb-reader-newtab-revealed)
+  .jpdb-reader-newtab-study {
+  grid-template-rows: auto auto auto 1fr;
+  gap: clamp(8px, 1.4vh, 16px);
+  padding-top: clamp(16px, 3vh, 32px);
+}
+
 .jpdb-reader-newtab-recall-mode .jpdb-reader-newtab-study {
   grid-template-rows: auto auto auto auto;
   align-content: start;
@@ -2644,9 +2654,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-doodle-stage.jpdb-reader-newtab-doodle {
   grid-column: 1 / -1;
   position: relative;
-  width: min(420px, 100%);
+  /* Right-sized square: ~60vw on wide screens, capped at 420px, but never so
+     small it is awkward to draw in (min 240px, clamped to the column width). */
+  width: min(clamp(240px, 60vw, 420px), 100%);
   max-width: calc(100dvh - 240px);
-  min-width: min(260px, 100%);
   aspect-ratio: 1;
   justify-self: center;
   margin-inline: auto;

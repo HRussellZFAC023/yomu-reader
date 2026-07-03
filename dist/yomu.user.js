@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.16
+// @version 1.6.17
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.16#sha256=La5os09pjPmuUT51YozkrB+dz1HOBRqhPgehCQslqAs=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.16#sha256=H6AIuFBmHz+R8q2Ae2RJwMxCfGa0YDzAt06PxqE/8pY=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.16#sha256=qATcm8Fi9U0zOyRBPt3dUBw2IiKtDyUQzQ7eQIGk3vI=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.16#sha256=SXUBOf6ENlZhpeZhFIfFy93WiOnkwxykGic436zYGpI=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.16#sha256=7W+0tBJc5909QOon5kGS8pQSNoH2virRYfh9KL9Lkac=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.16#sha256=UT21dg1I3vu8DnN0X60oSSyjvaKC4pB3X062xzOg288=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.17#sha256=RhLpNmq8Fm5IoGkLHJido3eojP5OpZzZLIiERWFIc40=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.17#sha256=epsNcDp1JZAy5rqYRb4ePBkfJlWrMnd+wEHsrZvUSP4=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.17#sha256=4iXsRFITnkam2TK0k7r155oT3M+JfF3BhliUMvA1ThM=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.17#sha256=yTNkPyxIgG7d9m/WGbrOFrHmF3NvQV8yEvMjYiTclvc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.17#sha256=Idq8lHwkcgwWnmAu06sPVXBs7OxBtS+VY0VTRS8kRu0=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.17#sha256=uZ5NCjaeYj+qUv3tEu2Uspy4kSJksrTSI6TwvBLCmMA=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -7692,20 +7692,20 @@ function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
   configuredPublicProxy,
   ...builtInProxyUrls(targetUrl, options)
   ].filter((url) => Boolean(url)) : [];
-  const direct = directFetchUrl(targetUrl, options, Boolean(configured));
-  const directCandidate = direct ? { url: direct, kind: "direct" } : null;
   const proxyCandidates = [
   configured ? { url: configured, kind: "configured-proxy" } : null,
   ...publicProxies.map((url) => ({ url, kind: "public-proxy" }))
   ].filter((candidate) => Boolean(candidate));
+  const direct = directFetchUrl(targetUrl, options, proxyCandidates.length > 0);
+  const directCandidate = direct ? { url: direct, kind: "direct" } : null;
   const orderedCandidates = shouldPreferProxyFirst(targetUrl, Boolean(directCandidate), proxySafe) ? [...proxyCandidates, directCandidate] : [directCandidate, ...proxyCandidates];
   return uniqueFetchCandidates([
   ...orderedCandidates
   ]);
 }
-function directFetchUrl(targetUrl, options, hasConfiguredProxy) {
+function directFetchUrl(targetUrl, options, hasProxyCandidate) {
   if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
-  if (hasConfiguredProxy && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
+  if (hasProxyCandidate && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
   return targetUrl;
 }
 function uniqueFetchCandidates(candidates) {
@@ -29334,6 +29334,7 @@ function applyPageContextJapanesePreferences(enabled) {
   } catch {
   }
   }
+  if (hasExtensionRuntime()) return;
   injectPagePreferenceScript(enabled);
 }
 function sameRealmUnsafeWindow() {
@@ -32203,7 +32204,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.16"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.17"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -32305,7 +32306,9 @@ async function cachedReaderCss() {
 }
 function resourceReaderCss() {
   try {
-  return typeof GM_getResourceText === "function" ? GM_getResourceText(READER_CSS_RESOURCE) : "";
+  if (typeof GM_getResourceText !== "function") return "";
+  const resource = GM_getResourceText(READER_CSS_RESOURCE);
+  return typeof resource === "string" ? resource : "";
   } catch {
   return "";
   }
@@ -32324,6 +32327,7 @@ function isHostedYomuPage(url) {
   return url.hostname === "yomureader.com" || url.pathname.startsWith("/yomu-reader/") && (url.hostname === "hrussellzfac023.github.io" || url.hostname === "127.0.0.1" || url.hostname === "localhost");
 }
 function isFullReaderCss(css) {
+  if (typeof css !== "string") return false;
   return css.includes(".jpdb-reader-popover") && css.includes(".jpdb-reader-settings") && css.includes(".jpdb-reader-source-card") && css.includes(".jpdb-subtitle-player") && css.includes(".jpdb-ocr-layer");
 }
 function safeLocationHref() {
@@ -39647,7 +39651,7 @@ function registerRuntime(bootWindow, app, runtimeKind, isRealRuntime) {
 function startRuntime(app, ownerId, runtimeKind, embeddedFrame) {
   void app.init({
   embeddedFrame,
-  showWelcome: runtimeKind === "userscript"
+  showWelcome: runtimeKind === "userscript" || runtimeKind === "extension"
   }).catch((error) => {
   releaseRuntime(ownerId);
   throw error;

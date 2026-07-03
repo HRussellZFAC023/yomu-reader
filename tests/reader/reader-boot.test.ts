@@ -55,7 +55,7 @@ describe('reader boot', () => {
 
         bootReaderApp();
 
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
     });
 
@@ -144,7 +144,7 @@ describe('reader boot', () => {
         bootReaderApp();
 
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: false });
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('extension');
     });
 

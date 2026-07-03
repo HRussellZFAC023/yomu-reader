@@ -4645,7 +4645,7 @@ export class NewTabController {
             revealAnswer: this.state.revealAnswer,
             renderAsKanji,
             hasPitchStep: pitchNumberForReading(card.pitchAccent, reading) != null,
-            hasRecallCloze: buildNewTabRecallCloze(card, this.frontSentenceFromCard(card), newTabCardReading(card)).hasCloze,
+            hasRecallCloze: buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card)).hasCloze,
             stepOrder: settings.newTabStudyStepOrder,
             disabledSteps: settings.newTabStudyDisabledSteps,
             activeStepId: this.studyStepOverrideForCard(card),
@@ -4711,8 +4711,18 @@ export class NewTabController {
             title: step.label,
         },
             el('span', { class: 'jpdb-reader-newtab-study-step-index' }, String(index + 1)),
-            el('span', { class: 'jpdb-reader-newtab-study-step-label' }, step.kanji ? `${step.label} ${step.kanji}` : step.label),
+            el('span', { class: 'jpdb-reader-newtab-study-step-label' }, this.studyStepLabel(step, session)),
         );
+    }
+
+    // The doodle step tests recall of the kanji, so its chip must not print the
+    // answer character before the reveal — number the kanji steps instead
+    // (Kanji 1 / Kanji 2), unveiling the glyph only once answers are shown.
+    private studyStepLabel(step: NewTabStudyStep, session: NewTabStudySession): string {
+        if (!step.kanji) return step.label;
+        if (this.state.revealAnswer) return `${step.label} ${step.kanji}`;
+        const kanjiSteps = session.steps.filter(candidate => candidate.kind === 'kanji-doodle');
+        return kanjiSteps.length > 1 ? `${step.label} ${kanjiSteps.indexOf(step) + 1}` : step.label;
     }
 
     private renderStudyTour(slot: HTMLElement | null, session: NewTabStudySession): void {
@@ -5515,7 +5525,28 @@ export class NewTabController {
             this.shouldSuppressJitenOnlyJpdbCardToggle(card) ? null : this.ankiToggleSource(context),
         ]);
         if (this.shouldIncludeDictionaryToggleSource(context, sources)) sources.push('dictionary');
-        return sources;
+        return this.unifyStarterSourceToggle(sources, card, context);
+    }
+
+    // Keyless, "Yomu" (yomu-local SRS) and "Dictionary" both resolve to the same
+    // built-in starter-word queue — no reviews are due and no dictionary is
+    // imported, so both flags are on-by-default yet neither carries distinct
+    // content. Offering both in the dropdown reads as a meaningless duplicate
+    // (the owner's complaint). Collapse to one entry (which hides the selector)
+    // whenever the visible queue is the starter/fallback set with no genuine
+    // yomu-local review behind it. A real SRS queue or imported dictionary keeps
+    // both options distinct.
+    private unifyStarterSourceToggle(
+        sources: ConcreteNewTabWordSource[],
+        card: JPDBCard,
+        context: SourceToggleContext,
+    ): ConcreteNewTabWordSource[] {
+        const onlyStarterPair = sources.length === 2
+            && sources.includes('yomu-local')
+            && sources.includes('dictionary');
+        if (!onlyStarterPair) return sources;
+        const starterQueue = card.source === 'fallback' && this.isDictionaryCard(card) && !context.hasYomuLocal;
+        return starterQueue ? ['yomu-local'] : sources;
     }
 
     private shouldSuppressJitenOnlyJpdbCardToggle(card: JPDBCard): boolean {
@@ -5778,7 +5809,7 @@ export class NewTabController {
     private renderKanjiPrompt(slots: NewTabStudySlots, card: JPDBCard, activeKanji?: string): void {
         const kanji = activeKanji ?? this.activeStudyKanji(card) ?? kanjiCharacters(card.spelling)[0] ?? card.spelling[0] ?? '字';
         const keywords = this.kanjiPromptKeywords(card, kanji);
-        this.renderKanjiPromptQuestion(slots.prompt, kanji, keywords);
+        this.renderKanjiPromptQuestion(slots.prompt, kanji, keywords, card);
         this.renderKanjiPromptAnswer(slots, card, kanji);
         if (slots.meaning && !this.state.revealAnswer) slots.meaning.replaceChildren();
         void this.enrichKanjiCard(slots, card, kanji);
@@ -5789,7 +5820,7 @@ export class NewTabController {
         return session.activeStep.kind === 'kanji-doodle' ? session.activeStep.kanji ?? null : null;
     }
 
-    private renderKanjiPromptQuestion(prompt: HTMLElement | null, kanji: string, keywords: KanjiPromptKeyword[]): void {
+    private renderKanjiPromptQuestion(prompt: HTMLElement | null, kanji: string, keywords: KanjiPromptKeyword[], card?: JPDBCard): void {
         if (!prompt) return;
         prompt.lang = this.state.revealAnswer ? 'ja' : 'en';
         prompt.dataset.newtabExpression = 'true';
@@ -5797,7 +5828,35 @@ export class NewTabController {
         prompt.classList.remove('jpdb-reader-newtab-prompt-anki-card', 'jpdb-reader-newtab-recall-prompt');
         prompt.classList.add('jpdb-reader-newtab-kanji-prompt');
         if (this.state.revealAnswer) replaceChildrenWith(prompt, this.kanjiPopoverButton(kanji));
-        else replaceChildrenWith(prompt, this.renderKanjiPromptKeywords(keywords));
+        // Initial render: a detail lookup is about to run (enrichKanjiCard), so
+        // show the loading state rather than a fallback that could leak the word
+        // meaning before the real keyword resolves. The graceful word-blank
+        // fallback is applied once enrichment completes empty.
+        else replaceChildrenWith(prompt, this.renderKanjiPromptKeywords(keywords, card, kanji, true));
+    }
+
+    // A draw step must never front an error. When no meaning/keyword resolves
+    // (keyless, sources unavailable), fall back to the word itself with the
+    // target kanji blanked so the learner still has a concrete recall prompt.
+    private kanjiDrawFallbackPrompt(card: JPDBCard | undefined, kanji: string): HTMLElement {
+        const meaning = card ? firstCardMeaning(card) : '';
+        const cloze = card ? this.kanjiWordBlank(card.spelling, kanji) : '';
+        const detail = cloze || meaning;
+        return el('div', { class: 'jpdb-reader-newtab-kanji-front-keywords jpdb-reader-newtab-kanji-front-fallback' },
+            el('div', { class: 'jpdb-reader-newtab-kanji-front-keyword' },
+                el('small', {}, this.text('drawKanji')),
+                el('span', { lang: cloze ? 'ja' : 'en' }, detail || this.text('drawKanji')),
+            ),
+            cloze && meaning ? el('div', { class: 'jpdb-reader-newtab-kanji-front-keyword' },
+                el('small', {}, this.text('meaning')),
+                el('span', {}, meaning),
+            ) : null,
+        );
+    }
+
+    private kanjiWordBlank(spelling: string, kanji: string): string {
+        if (!spelling.includes(kanji) || Array.from(spelling).length < 2) return '';
+        return Array.from(spelling).map(character => character === kanji ? '＿' : character).join('');
     }
 
     private kanjiPopoverButton(kanji: string): HTMLElement {
@@ -5809,8 +5868,12 @@ export class NewTabController {
         }, kanji);
     }
 
-    private renderKanjiPromptKeywords(keywords: KanjiPromptKeyword[], emptyText = this.text('loadingKanjiDetails')): HTMLElement | string {
-        if (!keywords.length) return el('span', { class: 'jpdb-reader-newtab-kanji-front-empty' }, emptyText);
+    private renderKanjiPromptKeywords(keywords: KanjiPromptKeyword[], card?: JPDBCard, kanji?: string, pending = false): HTMLElement | string {
+        if (!keywords.length) {
+            return pending
+                ? el('span', { class: 'jpdb-reader-newtab-kanji-front-empty' }, this.text('loadingKanjiDetails'))
+                : this.kanjiDrawFallbackPrompt(card, kanji ?? '');
+        }
         return el('div', { class: 'jpdb-reader-newtab-kanji-front-keywords' },
             keywords.map(keyword => el('div', { class: 'jpdb-reader-newtab-kanji-front-keyword' },
                 el('small', {}, keyword.source),
@@ -5915,7 +5978,7 @@ export class NewTabController {
     }
 
     private renderRecallQuestion(prompt: HTMLElement, card: JPDBCard): void {
-        const cloze = buildNewTabRecallCloze(card, this.frontSentenceFromCard(card), newTabCardReading(card));
+        const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
         const meaning = firstCardMeaning(card) || this.text('recallPromptFallback');
         prompt.lang = cloze.hasCloze ? 'ja' : 'en';
         delete prompt.dataset.newtabExpression;
@@ -5978,7 +6041,7 @@ export class NewTabController {
     }
 
     private renderRecallSolution(card: JPDBCard, state: ReturnType<typeof primaryCardState>): HTMLElement {
-        const cloze = buildNewTabRecallCloze(card, this.frontSentenceFromCard(card), newTabCardReading(card));
+        const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
         return el('div', { class: 'jpdb-reader-newtab-recall-solution', lang: 'ja' },
             el('span', { class: 'jpdb-reader-newtab-term-row' },
                 cloze.hasCloze
@@ -6450,6 +6513,14 @@ export class NewTabController {
 
     private frontSentenceFromCard(card: JPDBCard): string {
         return this.shouldShowFrontSentence() ? normalizePromptContextSentence(card.sentence, card) : '';
+    }
+
+    // Recall availability keys off whether a real example sentence exists, NOT
+    // the newTabFrontSentenceEnabled display toggle (that toggle only governs
+    // the Word step's context sentence). Gating recall behind it silently
+    // dropped the step for every card that carries a sentence.
+    private recallSentenceFromCard(card: JPDBCard): string {
+        return normalizePromptContextSentence(card.sentence, card);
     }
 
     private loadFrontSentence(card: JPDBCard): Promise<string> {
@@ -7188,19 +7259,10 @@ export class NewTabController {
         if (slots.prompt && !this.state.revealAnswer) {
             replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(
                 this.kanjiPromptKeywordsFromDetails(card, details),
-                this.kanjiKeywordEmptyText(details),
+                card,
+                kanji,
             ));
         }
-    }
-
-    private kanjiKeywordEmptyText(details: KanjiDetailBundle): string {
-        return this.kanjiSourcesUnavailable(details) ? this.text('kanjiSourcesUnavailable') : this.text('noKanjiKeyword');
-    }
-
-    private kanjiSourcesUnavailable(details: KanjiDetailBundle): boolean {
-        const states = Object.values(details.sourceStates);
-        return states.some(state => state === 'unavailable')
-            && states.every(state => state === 'disabled' || state === 'unavailable');
     }
 
     private async applyEnrichedUchisenKeyword(
@@ -7214,7 +7276,7 @@ export class NewTabController {
         if (!uchisenData?.kanjiKeyword?.keyword) return;
         if (!this.canApplyKanjiEnrichment(slots, card)) return;
         if (!slots.prompt || this.state.revealAnswer) return;
-        replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(this.kanjiPromptKeywordsFromDetails(card, details, uchisenData)));
+        replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(this.kanjiPromptKeywordsFromDetails(card, details, uchisenData), card, kanji));
     }
 
     private applyEnrichedKanjiSvg(answer: HTMLElement | null, svgMarkup: string | undefined): void {

@@ -326,20 +326,20 @@
       configuredPublicProxy,
       ...builtInProxyUrls(targetUrl, options)
     ].filter((url) => Boolean(url)) : [];
-    const direct = directFetchUrl(targetUrl, options, Boolean(configured));
-    const directCandidate = direct ? { url: direct, kind: "direct" } : null;
     const proxyCandidates = [
       configured ? { url: configured, kind: "configured-proxy" } : null,
       ...publicProxies.map((url) => ({ url, kind: "public-proxy" }))
     ].filter((candidate) => Boolean(candidate));
+    const direct = directFetchUrl(targetUrl, options, proxyCandidates.length > 0);
+    const directCandidate = direct ? { url: direct, kind: "direct" } : null;
     const orderedCandidates = shouldPreferProxyFirst(targetUrl, Boolean(directCandidate), proxySafe) ? [...proxyCandidates, directCandidate] : [directCandidate, ...proxyCandidates];
     return uniqueFetchCandidates([
       ...orderedCandidates
     ]);
   }
-  function directFetchUrl(targetUrl, options, hasConfiguredProxy) {
+  function directFetchUrl(targetUrl, options, hasProxyCandidate) {
     if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
-    if (hasConfiguredProxy && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
+    if (hasProxyCandidate && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
     return targetUrl;
   }
   function uniqueFetchCandidates(candidates) {
@@ -1228,9 +1228,9 @@
       newTabStudyStepSpeaking: "Speaking",
       newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown.",
       newTabStudyStepWordHelp: "Japanese front, meaning and reading on reveal.",
-      newTabStudyStepRecallHelp: "Type the missing word in the example sentence.",
-      newTabStudyStepListenHelp: "Hear the word and choose the pitch pattern.",
-      newTabStudyStepSpeakingHelp: "Repeat the word aloud when microphone feedback is available.",
+      newTabStudyStepRecallHelp: "Type the missing word in the example sentence. Shown only when a card has an example sentence.",
+      newTabStudyStepListenHelp: "Hear the word and choose the pitch pattern. Shown only when pitch-accent data is available.",
+      newTabStudyStepSpeakingHelp: "Repeat the word aloud when microphone feedback is available. Shown only when audio is available.",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
       wordColors: "Word colors",
@@ -2944,9 +2944,9 @@ newTabStudyStepListen	ピッチ聞き取り
 newTabStudyStepSpeaking	発音
 newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。
 newTabStudyStepWordHelp	表は日本語、表示後に意味と読み。
-newTabStudyStepRecallHelp	例文の空欄に単語を入力します。
-newTabStudyStepListenHelp	音声を聞き、ピッチ型を選びます。
-newTabStudyStepSpeakingHelp	マイク採点が使える時に声に出して繰り返します。
+newTabStudyStepRecallHelp	例文の空欄に単語を入力します。例文があるカードのみ表示。
+newTabStudyStepListenHelp	音声を聞き、ピッチ型を選びます。ピッチアクセント情報がある時のみ表示。
+newTabStudyStepSpeakingHelp	マイク採点が使える時に声に出して繰り返します。音声がある時のみ表示。
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色

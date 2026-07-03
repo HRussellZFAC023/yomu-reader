@@ -125,9 +125,16 @@ async function cachedReaderCss(): Promise<string> {
 
 function resourceReaderCss(): string {
     try {
-        return typeof GM_getResourceText === 'function'
-            ? GM_getResourceText(READER_CSS_RESOURCE)
-            : '';
+        if (typeof GM_getResourceText !== 'function') return '';
+        // Tampermonkey/Violentmonkey return the resource text synchronously as a
+        // string. The browser-extension GM shim (UserScript Compiler) has no
+        // bundled resource and returns a Promise that resolves over XHR. A
+        // non-string here must degrade to '' so the critical inline CSS is used
+        // immediately and loadReaderCssFallback() fetches the full sheet later —
+        // otherwise isFullReaderCss(css) would call css.includes on a Promise and
+        // throw during ReaderApp.init(), aborting the whole extension boot.
+        const resource = GM_getResourceText(READER_CSS_RESOURCE);
+        return typeof resource === 'string' ? resource : '';
     } catch {
         return '';
     }
@@ -159,6 +166,7 @@ function isHostedYomuPage(url: URL): boolean {
 }
 
 function isFullReaderCss(css: string): boolean {
+    if (typeof css !== 'string') return false;
     return css.includes('.jpdb-reader-popover')
         && css.includes('.jpdb-reader-settings')
         && css.includes('.jpdb-reader-source-card')

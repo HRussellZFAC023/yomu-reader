@@ -298,7 +298,7 @@ describe('preferred Japanese site language', () => {
         appendSpy.mockRestore();
     });
 
-    it('uses page injection in WebExtension content scripts even when unsafeWindow mirrors window', () => {
+    it('skips inline page injection in WebExtension content scripts (MV3 CSP refuses it)', () => {
         const language = navigator.language;
         const appendedScripts: string[] = [];
         const appendSpy = vi.spyOn(document.head, 'append').mockImplementation((...nodes: Array<Node | string>) => {
@@ -311,9 +311,11 @@ describe('preferred Japanese site language', () => {
 
         applyPreferredJapaneseSiteLanguage(true);
 
+        // The isolated content-script world has no page-realm access and the
+        // extension CSP refuses any inline <script>; injecting one only logs a
+        // "Refused to execute inline script" error. No script must be appended.
         expect(navigator.language).toBe(language);
-        expect(appendedScripts.join('\n')).toContain('const crossRealmDescriptor =');
-        expect(appendedScripts.join('\n')).toContain('applyJapanesePreferencesInPage(globalThis, true)');
+        expect(appendedScripts).toHaveLength(0);
         appendSpy.mockRestore();
     });
 
@@ -325,10 +327,13 @@ describe('preferred Japanese site language', () => {
             return { createScript: options.createScript };
         });
         const appendSpy = vi.spyOn(document.head, 'append').mockImplementation(() => undefined);
-        vi.stubGlobal('browser', { runtime: { id: 'yomu-extension-test' } });
+        // Cross-realm userscript context (unsafeWindow is a distinct realm, no
+        // extension runtime): the reader falls back to injecting a page shim and
+        // must clone the Trusted Types policy options before creating the policy.
         vi.stubGlobal('cloneInto', cloneInto);
         vi.stubGlobal('trustedTypes', { createPolicy });
-        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('unsafeWindow', { document: {} });
+        vi.stubGlobal('GM_getValue', vi.fn());
 
         applyPreferredJapaneseSiteLanguage(true);
 

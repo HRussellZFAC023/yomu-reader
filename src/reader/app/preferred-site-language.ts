@@ -110,6 +110,12 @@ function applyPageContextJapanesePreferences(enabled: boolean): void {
             // Fall back to a script element below.
         }
     }
+    // In the MV3 browser extension the content script runs in the isolated world
+    // with no page-realm access, and the extension CSP refuses any inline <script>
+    // we append to the page. Skip the injection entirely (it would only log a
+    // "Refused to execute inline script" error); the cookie + redirect paths in
+    // applyPreferredJapaneseSiteLanguage remain the working mechanism there.
+    if (hasExtensionRuntime()) return;
     injectPagePreferenceScript(enabled);
 }
 
