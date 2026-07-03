@@ -117,7 +117,7 @@ export class CardPopoverRenderer {
         const provider = this.apiProviderForCard(card);
         const selectedDeckLabel = this.selectedApiDeckLabel(provider, data);
         const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language) : '';
-        const miningActions = this.renderApiMiningActions(cardStates, language, data, provider);
+        const miningActions = this.renderApiMiningActions(card, cardStates, language, data, provider);
         const ankiActions = data.loading ? '' : renderAnkiActionRow(data.ankiLookup, settings);
         return {
             cardStates,
@@ -233,12 +233,13 @@ export class CardPopoverRenderer {
     }
 
     private renderApiMiningActions(
+        card: JPDBCard,
         cardStates: ReturnType<typeof normalizeCardStates>,
         language: InterfaceLanguage,
         data: CardRenderData & { loading: boolean },
         provider: ApiSrsProviderView | null,
     ): string {
-        return renderApiMiningActions(this.settings(), cardStates, language, data, provider);
+        return renderApiMiningActions(this.settings(), card, cardStates, language, data, provider);
     }
 
     private renderReviewButtons(options: ReviewButtonsRenderOptions): string {
@@ -575,6 +576,7 @@ function miningActionState(cardStates: ReturnType<typeof normalizeCardStates>, l
 
 function renderApiMiningActions(
     settings: ReaderSettings,
+    card: JPDBCard,
     cardStates: ReturnType<typeof normalizeCardStates>,
     language: InterfaceLanguage,
     data: CardRenderData & { loading: boolean },
@@ -583,7 +585,15 @@ function renderApiMiningActions(
     if (!canRenderApiMiningActions(settings, provider)) return '';
     const state = miningActionState(cardStates, language);
     const addDeckSelect = renderAddDeckSelect(settings, data, language, provider);
-    return renderApiMiningActionDetails(language, state, addDeckSelect, provider);
+    return renderApiMiningActionDetails(language, state, addDeckSelect, provider, canToggleApiDeckState(card, settings));
+}
+
+// Mirrors changeProviderDeckState's resolution: Never forget / Blacklist land
+// on a provider that backs the card AND supports deck states (jpdb, jiten).
+// Rendering them for e.g. Bunpro-only cards produced buttons whose only
+// possible outcome was an error toast.
+function canToggleApiDeckState(card: JPDBCard, settings: ReaderSettings): boolean {
+    return apiSrsSwitchableProviderIds(card, settings).some(id => id === 'jpdb' || id === 'jiten');
 }
 
 function canRenderApiMiningActions(settings: ReaderSettings, provider: ApiSrsProviderView | null): boolean {
@@ -606,18 +616,21 @@ function renderAddDeckSelect(
     return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}" hidden>${deckOptions}</select>`;
 }
 
-function renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string, provider: ApiSrsProviderView | null): string {
+function renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string, provider: ApiSrsProviderView | null, canToggleDeckState: boolean): string {
     const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
     const directAdd = provider?.id === 'bunpro' || provider?.id === 'yomu-local';
     const directDeckSource = provider?.id === 'bunpro' ? 'bunpro' : provider?.id === 'yomu-local' ? 'yomu-local' : '';
     // Jiten now follows the same Add to deck / Never forget / Blacklist pattern
     // as JPDB; its old Mining/Suspended/Forget row was removed.
+    const deckStateButtons = canToggleDeckState
+        ? `
+                        <button class="jpdb-reader-btn nf${state.isNeverForget ? ' danger' : ''}" data-action="neverforget" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
+                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>`
+        : '';
     return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
-                    <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
-                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="${directAdd ? 'add' : 'deck-picker'}"${directAdd ? ` data-deck-source="${directDeckSource}"` : ''} aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>
-                        <button class="jpdb-reader-btn nf${state.isNeverForget ? ' danger' : ''}" data-action="neverforget" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
-                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
+                    <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: ${canToggleDeckState ? 3 : 1}">
+                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="${directAdd ? 'add' : 'deck-picker'}"${directAdd ? ` data-deck-source="${directDeckSource}"` : ''} aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>${deckStateButtons}
                     </div>
                     ${addDeckSelect}
                 </div>

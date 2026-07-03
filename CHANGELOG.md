@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.14] - 2026-07-03
+
+### Fixed
+
+- The popover's Never forget and Blacklist buttons now appear only when a connected service can actually set that state for the word (JPDB or Jiten backing the card); on Bunpro-only cards they previously rendered but could only produce an error toast.
+- The CI dead-code gate understands the companion build aliases again, so it stops flagging the alias-substituted companion facades and blocking CI.
+
+### Changed
+
+- Converged the keyless public-lookup fallback used by the reader and the new tab into one lookup module, removing the duplicated implementation that had started drifting.
+
 ## [1.6.13] - 2026-07-03
 
 ### Fixed

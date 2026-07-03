@@ -5303,6 +5303,22 @@ describe('reader helpers', () => {
         expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jiten')).toBe(true);
     });
 
+    it('hides Never forget and Blacklist for Bunpro-only cards where no provider can set deck state', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', bunproMiningEnabled: true, bunproFrontendApiToken: 'bunpro-token', enableReviews: true }),
+            isJpdbBackedCard: testIsJpdbBackedCard,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
+            dictionaryLabel: name => name,
+        });
+        const html = renderModalCard(renderer, jitenTestCard({ source: 'bunpro', jitenWordId: undefined, jitenReadingIndex: undefined, bunproReviewId: '77', bunproReviewableType: 'vocabulary' }), '読む。');
+        expect(html).toContain('data-action="add"');
+        expect(html).not.toContain('data-action="neverforget"');
+        expect(html).not.toContain('data-action="blacklist"');
+    });
+
     it('allows locked JPDB review buttons while keeping Anki review available', () => {
         const renderer = testCardPopoverRenderer({
             apiKey: 'test-key',

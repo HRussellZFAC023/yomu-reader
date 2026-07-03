@@ -32,7 +32,12 @@
     "scripts/lib/extension-runtime-hardening.mjs",
     "scripts/uchisen-bulk-publish.mjs",
     "scripts/validate-uchisen-queue.mjs",
-    "src/reader/companions/register-empty.ts"
+    "src/reader/companions/register-empty.ts",
+    // Substituted for the real modules by vite alias in companion builds
+    // (vite.config.ts greasyfork aliases) — invisible to the import graph.
+    "src/reader/app/i18n-companion.ts",
+    "src/reader/study/mining-context-companion.ts",
+    "src/reader/study/sources-companion.ts"
   ],
   "ignorePatterns": [
     "dist/**",
@@ -102,7 +107,8 @@
         "CaptureActiveVideoFrameFn",
         "IsAnkiDuplicateNoteErrorFn",
         "MobileAnkiHandoffAppNameFn",
-        "ResolveAnkiWordAudioFn"
+        "ResolveAnkiWordAudioFn",
+        "I18nCompanion"
       ]
     },
     {
