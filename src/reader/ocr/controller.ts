@@ -1956,11 +1956,17 @@ export class ImageOcrController {
                 frameSrc = readerCanvasSourceImageUrl();
                 if (frameSrc) contentKey = `src:${frameSrc}`; // page image URL is stable per page
             }
-            if (this.pendingCanvasSnapshots.get(canvas) !== pendingSnapshot) return;
+            // Drop the capture only if a NEWER snapshot superseded it. A missing entry
+            // means a page-turn release (releaseAllCanvasFrames on a signature change —
+            // e.g. the poll tick seeing the page this tap is FOR) deleted it as
+            // collateral while we awaited the mirror; the frame is still for the
+            // current page, and the token/key checks below catch genuine turns. In
+            // tap/manual mode nothing re-captures, so bailing here loses the tap.
+            if (this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return;
             if (!frameSrc) { this.handleCanvasCaptureNotReady(canvas, rect, userRequested); return; }
             contentKey ??= `surface:${key}`;
             if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
-            if (this.pendingCanvasSnapshots.get(canvas) !== pendingSnapshot) return;
+            if (this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return;
             const finishContentToken = canvasStablePageContentToken(canvas);
             if (startContentToken && finishContentToken && finishContentToken !== startContentToken) {
                 this.scheduleReaderRasterRefresh(40);
@@ -2021,6 +2027,11 @@ export class ImageOcrController {
         } finally {
             if (this.pendingCanvasSnapshots.get(canvas) === pendingSnapshot) this.pendingCanvasSnapshots.delete(canvas);
         }
+    }
+
+    private wasCanvasSnapshotSuperseded(canvas: HTMLCanvasElement, pendingSnapshot: PendingCanvasSnapshot): boolean {
+        const current = this.pendingCanvasSnapshots.get(canvas);
+        return Boolean(current && current !== pendingSnapshot);
     }
 
     private shouldHoldCanvasFramesForSamePageSignature(signature: string): boolean {

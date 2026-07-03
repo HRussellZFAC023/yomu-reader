@@ -1,5 +1,5 @@
 import { APP_NAME } from './constants';
-import { uiText } from './i18n';
+import { uiText } from '../app/i18n';
 import { Logger } from './logger';
 import {
     beginSettingsResetGuard,

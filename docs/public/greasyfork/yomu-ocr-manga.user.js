@@ -8906,14 +8906,14 @@ ${candidate.depth}`;
           frameSrc = readerCanvasSourceImageUrl();
           if (frameSrc) contentKey = `src:${frameSrc}`;
         }
-        if (this.pendingCanvasSnapshots.get(canvas) !== pendingSnapshot) return;
+        if (this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return;
         if (!frameSrc) {
           this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
           return;
         }
         contentKey ??= `surface:${key}`;
         if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
-        if (this.pendingCanvasSnapshots.get(canvas) !== pendingSnapshot) return;
+        if (this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return;
         const finishContentToken = canvasStablePageContentToken(canvas);
         if (startContentToken && finishContentToken && finishContentToken !== startContentToken) {
           this.scheduleReaderRasterRefresh(40);
@@ -8963,6 +8963,10 @@ ${candidate.depth}`;
       } finally {
         if (this.pendingCanvasSnapshots.get(canvas) === pendingSnapshot) this.pendingCanvasSnapshots.delete(canvas);
       }
+    }
+    wasCanvasSnapshotSuperseded(canvas, pendingSnapshot) {
+      const current = this.pendingCanvasSnapshots.get(canvas);
+      return Boolean(current && current !== pendingSnapshot);
     }
     shouldHoldCanvasFramesForSamePageSignature(signature) {
       if (!this.canvasReaderSignature) return false;

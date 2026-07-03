@@ -17287,7 +17287,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
 }
 .jpdb-subtitle-list .jpdb-subtitle-panel-options-toggle svg,
-.jpdb-subtitle-list .jpdb-subtitle-panel-options-item svg {
+.jpdb-subtitle-list .jpdb-subtitle-panel-options-item svg,
+.jpdb-subtitle-list .jpdb-subtitle-panel-close svg {
   width: 15px;
   height: 15px;
   fill: none;
@@ -17295,6 +17296,26 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+/* One-click drawer close (X): an icon button matching the options toggle, kept
+   scoped under .jpdb-subtitle-list for the same specificity reason (beats the
+   reader-root :where(button) reset regardless of stylesheet order). */
+.jpdb-subtitle-list .jpdb-subtitle-panel-close {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  min-width: 36px;
+  width: 36px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 12px;
+  line-height: 0;
+}
+.jpdb-subtitle-list .jpdb-subtitle-panel-close:hover,
+.jpdb-subtitle-list .jpdb-subtitle-panel-close:focus-visible {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
 }
 /* Anchored under the head row; the drawer clips overflow, so the menu drops
    down over the list body which always has room below the head. */

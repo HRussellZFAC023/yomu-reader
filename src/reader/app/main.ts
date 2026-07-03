@@ -249,7 +249,7 @@ import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState
 import { batchJitenFallbackCards, normalizedJitenLookupKey, publicLookupFallbackCards } from '../lookup/public-fallback-cards';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
-import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
+import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { OnboardingController } from './onboarding';
 
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';

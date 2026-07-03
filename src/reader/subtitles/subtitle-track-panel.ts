@@ -2,6 +2,7 @@ import { escapeHtml } from '../dom/index';
 import { uiText } from '../app/i18n';
 import { formatTrackKind, trackStatusText, type SubtitleTrackKind, type SubtitleTrackLoadingState } from './subtitle-track-metadata';
 import {
+    renderPanelCloseButton,
     renderPanelModeControls,
     renderPanelOptionsControls,
 } from './subtitle-surface';
@@ -51,6 +52,7 @@ export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): 
             menuOpen: state.optionsMenuOpen,
             language,
         }),
+        renderPanelCloseButton(language),
     ].filter(Boolean).join('');
     return `
         <div class="jpdb-subtitle-drawer-head">

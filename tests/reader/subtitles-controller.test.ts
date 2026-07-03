@@ -934,10 +934,14 @@ describe('SubtitlePlayerController', () => {
             expect(panel.querySelector('[data-action="panel-lines"]')).toBeNull();
             expect(panel.querySelector('[data-action="panel-shadow"]')).toBeNull();
             expect(panel.querySelector('[data-action="panel-mine"]')).toBeNull();
-            // Placement and close still live in the panel-options menu even
+            // Placement lives in the panel-options menu; the close (X) is now a
+            // standalone one-click head button OUTSIDE that menu. Both appear even
             // before a transcript exists — only the mode tabs need a surface.
             expect(panel.querySelector('[data-panel-options]')).not.toBeNull();
-            expect(panel.querySelector('[data-action="close-panel"]')).not.toBeNull();
+            const closeButton = panel.querySelector('.jpdb-subtitle-drawer-head [data-action="close-panel"]');
+            expect(closeButton).not.toBeNull();
+            expect(closeButton?.classList.contains('jpdb-subtitle-panel-close')).toBe(true);
+            expect(closeButton?.closest('.jpdb-subtitle-panel-options-menu')).toBeNull();
         } finally {
             controller.destroy();
         }
@@ -1139,6 +1143,7 @@ Watch the cat
                 video: HTMLVideoElement;
                 cues: Array<typeof cue>;
                 currentCue: typeof cue;
+                transcriptPanelSessionOpen: boolean;
             };
             internals.video = video;
             internals.cues = [cue];
@@ -1157,7 +1162,10 @@ Watch the cat
             expect(panel.hidden).toBe(false);
             expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(true);
             expect(button.getAttribute('aria-pressed')).toBe('true');
-            expect(settings.subtitleTranscriptVisible).toBe(true);
+            // Runtime open is tracked in page-scoped state, NOT persisted into the
+            // global "open by default" preference (that leaked across tabs).
+            expect(internals.transcriptPanelSessionOpen).toBe(true);
+            expect(settings.subtitleTranscriptVisible).toBe(false);
 
             button.click();
 
@@ -1165,13 +1173,107 @@ Watch the cat
             expect(panel.classList.contains('jpdb-subtitle-panel-closing')).toBe(true);
             expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(false);
             expect(button.getAttribute('aria-pressed')).toBe('false');
+            expect(internals.transcriptPanelSessionOpen).toBe(false);
             expect(settings.subtitleTranscriptVisible).toBe(false);
-            expect(onSettingsChange).toHaveBeenCalled();
+            // Opening/closing the drawer must not write persisted settings.
+            expect(onSettingsChange).not.toHaveBeenCalled();
 
             await vi.advanceTimersByTimeAsync(181);
 
             expect(panel.hidden).toBe(true);
             expect(panel.classList.contains('jpdb-subtitle-panel-closing')).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('closes the transcript drawer from the standalone head X button', async () => {
+        vi.useFakeTimers();
+        const onSettingsChange = vi.fn();
+        const { settings, controller } = createInstalledSubtitleController({ subtitleTranscriptVisible: false }, { onSettingsChange });
+
+        try {
+            const video = document.createElement('video');
+            const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+            const internals = controller as unknown as {
+                video: HTMLVideoElement;
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+                openLinesPanel: () => void;
+            };
+            internals.video = video;
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+            internals.openLinesPanel();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.hidden).toBe(false);
+
+            // The X is a one-click head button, not buried in the options popover.
+            const closeButton = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-head .jpdb-subtitle-panel-close[data-action="close-panel"]')!;
+            expect(closeButton).not.toBeNull();
+            expect(closeButton.closest('.jpdb-subtitle-panel-options-menu')).toBeNull();
+
+            closeButton.click();
+
+            expect(panel.classList.contains('jpdb-subtitle-panel-closing')).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(false);
+            await vi.advanceTimersByTimeAsync(181);
+            expect(panel.hidden).toBe(true);
+            // A one-click close is page-scoped and never rewrites persisted state.
+            expect(settings.subtitleTranscriptVisible).toBe(false);
+            expect(onSettingsChange).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('does not auto-open the drawer when opened elsewhere: default stays off (no cross-tab/homepage leak)', () => {
+        const onSettingsChange = vi.fn();
+        const { settings, controller } = createInstalledSubtitleController({ subtitleTranscriptVisible: false }, { onSettingsChange });
+
+        try {
+            const video = document.createElement('video');
+            const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+            const internals = controller as unknown as {
+                video: HTMLVideoElement;
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+                openLinesPanel: () => void;
+            };
+            internals.video = video;
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            // Open the drawer at runtime (as on a video site)...
+            internals.openLinesPanel();
+            expect(document.querySelector<HTMLElement>('.jpdb-subtitle-list')!.hidden).toBe(false);
+            // ...the persisted "open by default" preference must stay off, so a
+            // fresh tab / the homepage (which reads this global setting on load)
+            // does NOT auto-open.
+            expect(settings.subtitleTranscriptVisible).toBe(false);
+
+            // A brand-new controller sharing the same (still-false) settings — i.e.
+            // another tab — keeps its drawer closed after refresh.
+            const secondTab = createInstalledSubtitleController({ subtitleTranscriptVisible: false });
+            try {
+                const otherInternals = secondTab.controller as unknown as {
+                    video: HTMLVideoElement;
+                    cues: Array<typeof cue>;
+                    currentCue: typeof cue;
+                };
+                otherInternals.video = document.createElement('video');
+                otherInternals.cues = [cue];
+                otherInternals.currentCue = cue;
+                secondTab.controller.refresh();
+                const panels = document.querySelectorAll<HTMLElement>('.jpdb-subtitle-list');
+                expect([...panels].every(panel => panel.hidden)).toBe(true);
+            } finally {
+                secondTab.controller.destroy();
+            }
         } finally {
             controller.destroy();
         }
@@ -1239,6 +1341,66 @@ Watch the cat
         }
     });
 
+    it('keeps a stable side-panel top when the anchored video scrolls out of view', () => {
+        withViewport(1600, 900, () => {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: false,
+                subtitleTranscriptVisible: false,
+                subtitleTranscriptPlacement: 'right' as const,
+            };
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                onSettingsChange: () => undefined,
+            });
+
+            try {
+                document.body.innerHTML = '<section class="lesson-player"><video controls></video></section>';
+                const frame = document.querySelector<HTMLElement>('.lesson-player')!;
+                const video = document.querySelector<HTMLVideoElement>('video')!;
+                const internals = controller as unknown as {
+                    install: () => void;
+                    video: HTMLVideoElement;
+                    cues: Array<{ start: number; end: number; text: string; transcriptEligible: boolean }>;
+                    currentCue: { start: number; end: number; text: string; transcriptEligible: boolean };
+                    openLinesPanel: () => void;
+                    alignToVideo: () => void;
+                };
+                internals.install();
+                internals.video = video;
+                const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+                internals.cues = [cue];
+                internals.currentCue = cue;
+
+                // Video visible on-screen: the panel hangs from the video's top.
+                mockElementRect(frame, new DOMRect(70, 120, 1080, 600));
+                mockElementRect(video, new DOMRect(90, 140, 960, 540));
+                internals.openLinesPanel();
+                internals.alignToVideo();
+                const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                expect(panel.style.top).toBe('120px');
+
+                // Scroll the video far below the fold (out of view). The panel must
+                // NOT collapse toward the bottom by chasing the off-screen anchor —
+                // it holds a stable on-screen top instead.
+                mockElementRect(frame, new DOMRect(70, 1500, 1080, 600));
+                mockElementRect(video, new DOMRect(90, 1520, 960, 540));
+                internals.alignToVideo();
+
+                expect(document.querySelector<HTMLElement>('.jpdb-subtitle-player')!.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(true);
+                expect(panel.hidden).toBe(false);
+                // Stable top = the panel margin (10), NOT the collapsed bottom-pinned
+                // value (viewportHeight - 280 = 620) the off-screen anchor would force.
+                expect(panel.style.top).toBe('10px');
+                expect(panel.style.top).not.toBe('620px');
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
     it('shrinks hosted Yomu video frames when a side transcript panel reserves space', () => {
         withViewport(1180, 760, () => {
             document.body.innerHTML = '<section data-yomu-video-frame><video controls></video></section>';
@@ -1277,6 +1439,55 @@ Watch the cat
                 expect(video.style.height).toBe('585px');
                 expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')).toBe(true);
                 expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-side')).toBe(false);
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
+    it('never stretches a bounded hosted video frame past its natural width when docking left', () => {
+        // Repro of the homepage demo bug: the video card is a bounded embed
+        // (max-width, right-aligned in a grid column). Docking the panel LEFT used
+        // to set the frame width to the whole leftover viewport width, blowing up
+        // the 16/9 player height so the card's overflow:hidden cropped it.
+        withViewport(1600, 900, () => {
+            document.body.innerHTML = '<section data-yomu-video-frame><video controls></video></section>';
+            const { controller } = createInstalledSubtitleController({
+                subtitleTranscriptVisible: false,
+                subtitleTranscriptPlacement: 'left',
+            });
+            try {
+                const frame = document.querySelector<HTMLElement>('[data-yomu-video-frame]')!;
+                const video = document.querySelector<HTMLVideoElement>('video')!;
+                // A ~600px card pinned to the right of a wide viewport.
+                const cardRect = new DOMRect(940, 120, 600, 338);
+                mockElementRect(frame, cardRect);
+                mockElementRect(video, cardRect);
+                attachVideo(controller, { video });
+                const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+                const internals = controllerInternals<{
+                    cues: Array<typeof cue>;
+                    currentCue: typeof cue;
+                    openLinesPanel: () => void;
+                }>(controller);
+                internals.cues = [cue];
+                internals.currentCue = cue;
+
+                internals.openLinesPanel();
+
+                const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                expect(panel.hidden).toBe(false);
+                expect(panel.dataset.transcriptPlacement).toBe('left');
+                // The frame width is clamped to its natural (base) width — never
+                // grown to the leftover column width — so the aspect-ratio'd player
+                // keeps its height and is not cropped.
+                const frameWidth = Number.parseFloat(frame.style.width);
+                expect(frameWidth).toBeGreaterThan(0);
+                expect(frameWidth).toBeLessThanOrEqual(600);
+                expect(frame.style.maxWidth).toBe(frame.style.width);
+                // Base height preserved (not exploded by an oversized width).
+                expect(frame.style.height).toBe('338px');
+                expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-left')).toBe(true);
             } finally {
                 controller.destroy();
             }
@@ -3184,7 +3395,9 @@ Watch the cat
             expect(panel.querySelector('[data-action="panel-mine"]')).toBeNull();
             expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(true);
             expect(settings.subtitleTranscriptVisible).toBe(false);
-            expect(onSettingsChange).toHaveBeenCalled();
+            // Opening the tracks drawer is page-scoped runtime state, not a
+            // persisted settings change.
+            expect(onSettingsChange).not.toHaveBeenCalled();
         } finally {
             controller.destroy();
         }
@@ -3209,7 +3422,7 @@ Watch the cat
             const jimakuSearch = panel.querySelector<HTMLAnchorElement>('[data-jimaku-anime-search]')!;
             expect(jimakuSearch.href).toBe('https://jimaku.cc/opensearch/redirect?anime=true&query=Sousou%20no%20Frieren');
             expect(settings.subtitleTranscriptVisible).toBe(false);
-            expect(onSettingsChange).toHaveBeenCalled();
+            expect(onSettingsChange).not.toHaveBeenCalled();
         } finally {
             document.title = previousTitle;
             controller.destroy();
@@ -3648,7 +3861,9 @@ Watch the cat
             button.click();
 
             expectJapaneseTracksPanelOpen(panel);
-            expect(onSettingsChange).toHaveBeenCalled();
+            // Opening the tracks drawer is page-scoped runtime state, not a
+            // persisted settings change.
+            expect(onSettingsChange).not.toHaveBeenCalled();
         } finally {
             controller.destroy();
             Object.defineProperty(window, 'location', {

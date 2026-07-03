@@ -172,7 +172,7 @@ interface VideoInsetSnapshot {
     restore(): void;
 }
 
-const GENERIC_TARGET_INSET_PROPS = ['width', 'height', 'max-width', 'max-height', 'min-width', 'min-height', 'margin-left', 'margin-right', 'justify-self', 'object-fit'];
+const GENERIC_TARGET_INSET_PROPS = ['width', 'height', 'max-width', 'max-height', 'min-width', 'min-height', 'margin-left', 'margin-right', 'justify-self', 'object-fit', 'box-sizing'];
 const CONTAINED_VIDEO_INSET_PROPS = ['height', 'max-height', 'min-height', 'object-fit'];
 const CONTAINER_INSET_PROPS = ['width', 'max-width', 'min-width', 'height', 'max-height', 'min-height', 'margin-left', 'margin-right'];
 const WATCH_FLEXY_INSET_VARS = ['--ytd-watch-flexy-player-width', '--ytd-watch-flexy-player-height', '--ytd-watch-flexy-min-player-height'];
@@ -827,7 +827,7 @@ function clearYouTubeVideoElementInset(video: HTMLVideoElement | undefined): voi
     youtubeVideoElementInsetStyles.delete(video);
 }
 
-type GenericInsetProperty = 'width' | 'height' | 'maxWidth' | 'maxHeight' | 'minWidth' | 'minHeight' | 'marginLeft' | 'marginRight' | 'justifySelf' | 'objectFit';
+type GenericInsetProperty = 'width' | 'height' | 'maxWidth' | 'maxHeight' | 'minWidth' | 'minHeight' | 'marginLeft' | 'marginRight' | 'justifySelf' | 'objectFit' | 'boxSizing';
 
 const genericVideoInsetStyles = new WeakMap<HTMLElement, Partial<Record<GenericInsetProperty, string>>>();
 const genericVideoInsetBaseRects = new WeakMap<HTMLElement, { left: number; right: number; height: number }>();
@@ -868,6 +868,7 @@ function rememberGenericVideoInsetStyles(target: HTMLElement): void {
         marginRight: target.style.marginRight,
         justifySelf: target.style.justifySelf,
         objectFit: target.style.objectFit,
+        boxSizing: target.style.boxSizing,
     });
 }
 
@@ -890,12 +891,25 @@ function applyGenericSideInset(target: HTMLElement, side: SubtitleVideoInsetSide
     const rect = target.getBoundingClientRect();
     const baseRect = genericVideoInsetBaseRects.get(target) ?? rect;
     const inset = Number.parseFloat(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')) || 0;
+    // Never grow a page embed past the width it had before docking. `size` is the
+    // leftover viewport width beside the panel, which for a bounded embed (e.g.
+    // the homepage demo card: max-width 620px, justify-self:end in a grid column)
+    // is far wider than the card. Stretching its width blew up the aspect-ratio'd
+    // player height and the card's overflow:hidden cropped it ("wide and cropped
+    // out"). Clamp to the base width so a left/right dock only shrinks or shifts.
+    const baseWidth = Math.max(0, baseRect.right - baseRect.left);
+    const width = Math.round(Math.min(size, baseWidth || size));
     const margin = side === 'left'
         ? Math.max(0, Math.round(inset - baseRect.left))
         : Math.max(0, Math.round(Math.min(baseRect.right, visibleViewportWidth()) - (visibleViewportWidth() - inset)));
     const stableHeight = sideInsetStableHeight(target, height);
-    setStylePropertyIfChanged(target, 'width', `${Math.round(size)}px`);
-    setStylePropertyIfChanged(target, 'max-width', `${Math.round(size)}px`);
+    // baseRect.{width,height} are border-box (getBoundingClientRect) measurements,
+    // so pin the target to border-box too; otherwise setting a content-box width
+    // equal to the base outer width overshoots by the target's padding+border and
+    // the clamped card still renders slightly wider than natural.
+    setStylePropertyIfChanged(target, 'box-sizing', 'border-box');
+    setStylePropertyIfChanged(target, 'width', `${width}px`);
+    setStylePropertyIfChanged(target, 'max-width', `${width}px`);
     setStylePropertyIfChanged(target, 'min-width', '0px');
     setStylePropertyIfChanged(target, 'justify-self', 'start');
     if (stableHeight > 0) {
@@ -936,6 +950,7 @@ function restoreGenericSideInsetStyles(target: HTMLElement): void {
         'marginRight',
         'justifySelf',
         'objectFit',
+        'boxSizing',
     ]);
 }
 
@@ -962,6 +977,7 @@ function clearGenericVideoInsetTarget(target: HTMLElement): void {
         'marginRight',
         'justifySelf',
         'objectFit',
+        'boxSizing',
     ])) return;
     genericVideoInsetStyles.delete(target);
     genericVideoInsetBaseRects.delete(target);

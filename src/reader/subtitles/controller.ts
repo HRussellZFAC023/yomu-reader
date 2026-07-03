@@ -154,6 +154,7 @@ import {
     compareSubtitleVideoCandidates,
     isSubtitleOverlayVideoVisible,
     isSubtitleVideoElementRenderable,
+    renderPanelCloseButton,
     renderPanelModeControls,
     renderPanelOptionsControls,
     renderSubtitleStyleControls,
@@ -1143,6 +1144,18 @@ export class SubtitlePlayerController {
     private pausePanelOpen = false;
     private pausePanelDismissed = false;
     private pausePanelSyncScheduled = false;
+    // Runtime open-intent for the transcript drawer, scoped to THIS page/tab.
+    // The persisted `subtitleTranscriptVisible` is a pure "open by default"
+    // preference (settings form); mirroring runtime open/close into it leaked
+    // an open drawer across tabs and onto the homepage. This in-memory flag
+    // keeps the drawer re-openable after a track change within the same page
+    // without touching persisted settings.
+    private transcriptPanelSessionOpen = false;
+    // "Open by default" auto-opens the drawer once per surface (page load / SPA
+    // navigation), then a manual close sticks: without this a later refresh()
+    // would see the preference still true + the panel hidden and reopen it,
+    // making the new X close un-closable. Re-armed on YouTube navigation.
+    private transcriptDefaultOpenApplied = false;
     private subtitleDragOffsetYPx = 0;
     private subtitleStylePanelOpen = false;
     // Drawer-head panel-options popover (placement / pause auto-open / close).
@@ -1280,6 +1293,8 @@ export class SubtitlePlayerController {
     private handleYouTubeNavigation(): void {
         if (!isYouTubePage()) return;
         this.lastYouTubeTrackDiscoveryAt = 0;
+        // A new video is a fresh surface: let "open by default" re-apply once.
+        this.transcriptDefaultOpenApplied = false;
         this.scheduleDiscoverVideo();
         void this.discoverYouTubeTracksThrottled(true);
         this.scheduleAlignToVideo();
@@ -1387,8 +1402,11 @@ export class SubtitlePlayerController {
     }
 
     private openTranscriptPanelFromSettings(settings: ReaderSettings): void {
+        if (this.transcriptDefaultOpenApplied) return;
         if (!settings.subtitleTranscriptVisible || !this.hasTranscriptSurface() || !this.transcriptPanel?.hidden) return;
+        this.transcriptDefaultOpenApplied = true;
         this.panelMode = 'lines';
+        this.transcriptPanelSessionOpen = true;
         this.showTranscriptPanelElement();
         this.renderTranscriptPanel(true);
     }
@@ -4943,10 +4961,10 @@ export class SubtitlePlayerController {
         this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
         this.panelMode = mode;
         this.showTranscriptPanelElement();
-        if (options.persist ?? true) {
-            this.options.getSettings().subtitleTranscriptVisible = true;
-            this.options.onSettingsChange();
-        }
+        // Record the open as page-scoped runtime intent only. Persisting it into
+        // `subtitleTranscriptVisible` (a global setting) is what leaked an open
+        // drawer across tabs and onto the homepage.
+        if (options.persist ?? true) this.transcriptPanelSessionOpen = true;
         return true;
     }
 
@@ -5189,7 +5207,10 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         settings.subtitlePausePanel = !settings.subtitlePausePanel;
         if (settings.subtitlePausePanel) {
+            // "Open when paused" is mutually exclusive with "open by default":
+            // turning it on clears the persisted default and the runtime open.
             settings.subtitleTranscriptVisible = false;
+            this.transcriptPanelSessionOpen = false;
             if (this.video && this.video.paused && !this.video.ended && this.hasTranscriptSurface()) {
                 this.openLinesPanel({ persist: false, autoPause: true, deferRender: true });
             } else if (this.isTranscriptPanelOpen()) {
@@ -5232,7 +5253,7 @@ export class SubtitlePlayerController {
     }
 
     private shouldRestoreTranscriptPanel(): boolean {
-        return this.options.getSettings().subtitleTranscriptVisible && this.hasTranscriptSurface();
+        return this.transcriptPanelSessionOpen && this.hasTranscriptSurface();
     }
 
     private isTranscriptPanelOpen(): boolean {
@@ -5252,10 +5273,9 @@ export class SubtitlePlayerController {
         this.renderedTracksVirtualWindow = undefined;
         this.tracksVirtualRenderFrame = clearWindowAnimationFrame(this.tracksVirtualRenderFrame);
         this.showTranscriptPanelElement();
-        if (persist) {
-            this.options.getSettings().subtitleTranscriptVisible = false;
-            this.options.onSettingsChange();
-        }
+        // The tracks tab is a config surface, not the "lines open" state: don't
+        // let a track change re-restore lines behind it.
+        if (persist) this.transcriptPanelSessionOpen = false;
         this.renderTrackPanel();
         this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncPanelState();
@@ -5283,10 +5303,9 @@ export class SubtitlePlayerController {
             if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
         }
         this.hideTranscriptPanelElement({ immediate: options.immediate });
-        if (persist) {
-            this.options.getSettings().subtitleTranscriptVisible = false;
-            this.options.onSettingsChange();
-        }
+        // Closing is page-scoped runtime state; it must not rewrite the persisted
+        // "open by default" preference (that leaked closed/open across tabs).
+        if (persist) this.transcriptPanelSessionOpen = false;
         this.clearVideoInsetForTranscriptPanel();
         this.syncControls();
     }
@@ -5473,6 +5492,7 @@ export class SubtitlePlayerController {
                 <div class="jpdb-subtitle-drawer-actions">
                     ${renderPanelModeControls('shadow', this.hasTranscriptSurface(), language)}
                     ${this.renderPanelOptionsMenu(state.settings.subtitlePausePanel, language)}
+                    ${renderPanelCloseButton(language)}
                 </div>
             </div>
         `;
@@ -5963,6 +5983,7 @@ export class SubtitlePlayerController {
                     ${renderPanelModeControls('lines', this.hasTranscriptSurface(), language)}
                     <button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}" aria-label="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}">${subtitleIcon('locate')}</button>
                     ${this.renderPanelOptionsMenu(settings.subtitlePausePanel, language)}
+                    ${renderPanelCloseButton(language)}
                 </div>
             </div>
             <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state.virtual ? ' data-virtualized="true"' : ''}>
@@ -6947,7 +6968,14 @@ export class SubtitlePlayerController {
         // top instead of re-measuring the live player rect (youtubeVisiblePlayerRect
         // does 5 querySelectorAll + getBoundingClientRect) every frame — live
         // profiling showed getBoundingClientRect dominating resize-drag time.
-        const anchorTop = reuseDragRect ? referenceVideoRect.top : this.transcriptAnchorRect().top;
+        // Once the anchored video scrolls out of view, stop chasing its off-screen
+        // top: a negative top (scrolled up) grows the side panel to full height and
+        // a large top (scrolled below the fold) collapses it against the bottom, so
+        // the panel height jumped around while scrolling past the video. Freeze it
+        // at a stable on-screen anchor instead (the panel is position:fixed).
+        const anchorTop = reuseDragRect
+            ? referenceVideoRect.top
+            : this.stableTranscriptAnchorTop(referenceVideoRect);
         const layout = this.transcriptDrawerLayout({
             viewportWidth,
             viewportHeight,
@@ -7401,6 +7429,26 @@ export class SubtitlePlayerController {
         if (isYouTubePage()) return this.videoLayoutRect();
         if (!this.video) return this.videoLayoutRect();
         return transcriptAvoidanceTarget(this.video).getBoundingClientRect();
+    }
+
+    // The side panel normally hangs from the video's top. Once the video scrolls
+    // out of view, that top is off-screen (negative when scrolled up, huge when
+    // below the fold) and the clamp in the layout math then swings the panel's
+    // height from full-height to a bottom-pinned sliver. Return a stable on-screen
+    // anchor while the video is not overlay-visible so the panel keeps a steady
+    // height as you scroll past it (it stays position:fixed on screen regardless).
+    private stableTranscriptAnchorTop(referenceVideoRect: DOMRect): number {
+        const liveTop = this.transcriptAnchorRect().top;
+        if (this.isTranscriptAnchorVideoVisible(referenceVideoRect)) return liveTop;
+        return TRANSCRIPT_PANEL_MARGIN;
+    }
+
+    private isTranscriptAnchorVideoVisible(referenceVideoRect: DOMRect): boolean {
+        if (this.fullscreen) return true;
+        if (this.root && !this.root.classList.contains('jpdb-subtitle-video-out-of-view')) return true;
+        // Fall back to measuring the reference rect directly when the out-of-view
+        // class has not been reconciled yet (position can run before alignToVideo).
+        return this.isVideoOverlayVisible(referenceVideoRect);
     }
 
     private clearVideoInsetForTranscriptPanel(): boolean {

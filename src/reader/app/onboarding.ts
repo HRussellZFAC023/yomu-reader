@@ -1,6 +1,6 @@
 import { APP_NAME } from './constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
-import { uiText, type UiCopyKey } from './i18n';
+import { uiText, type UiCopyKey } from '../app/i18n';
 import { Logger } from './logger';
 import { defaultDictionaryLookupLinks, sanitizeAccentColor, saveSettings } from '../settings/index';
 import type { InterfaceLanguage, ReaderSettings } from './types';

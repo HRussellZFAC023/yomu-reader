@@ -7,7 +7,7 @@ import {
     shouldHideFuriganaForCardState,
     shouldRenderRuby,
 } from '../dom/index';
-import { cardStateLabel } from './i18n';
+import { cardStateLabel } from '../app/i18n';
 import { cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { primaryCardState } from '../cards/state';
 import { normalizedLookupText } from '../lookup/text-helpers';

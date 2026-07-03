@@ -9,7 +9,7 @@ import {
     type TextFragment,
     type TextTarget,
 } from '../dom/index';
-import { formatUiText, uiText } from './i18n';
+import { formatUiText, uiText } from '../app/i18n';
 import { Logger } from './logger';
 import { collectScanTargets } from './site-parsers';
 import { shouldLookupAnkiStatus } from '../settings/index';

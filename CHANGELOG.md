@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.15] - 2026-07-03
+
+### Fixed
+
+- The subtitle side panel gained a one-tap X close button in its header, matching the other side panels, and the close action left the panel-options menu.
+- Opening the subtitle panel no longer flips a persisted setting, so a panel opened on one video no longer auto-opens on every other tab and page; the open-by-default preference still applies once per page and a manual close now sticks.
+- The docked subtitle panel keeps a stable height when the video scrolls out of view instead of collapsing into a sliver pinned to the bottom of the screen.
+- Docking the subtitle panel to the left no longer stretches bounded page embeds to the full leftover column width, which was blowing the homepage demo video wide and cropping it.
+- Tapping a BookWalker page in manual scan mode no longer randomly fails to show the OCR overlay: the background page-turn poll could discard the in-flight tap snapshot mid-capture, and the capture now survives unless a genuinely newer snapshot replaced it.
+- Completed the interface-copy extraction: five same-directory imports still pulled the full Japanese UI copy tables into the core userscript, which now sits about 288 KB under the Greasy Fork limit.
+
 ## [1.6.14] - 2026-07-03
 
 ### Fixed

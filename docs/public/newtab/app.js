@@ -36130,14 +36130,14 @@ ${spelling}`);
           frameSrc = readerCanvasSourceImageUrl();
           if (frameSrc) contentKey = `src:${frameSrc}`;
         }
-        if (this.pendingCanvasSnapshots.get(canvas) !== pendingSnapshot) return;
+        if (this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return;
         if (!frameSrc) {
           this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
           return;
         }
         contentKey ??= `surface:${key}`;
         if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
-        if (this.pendingCanvasSnapshots.get(canvas) !== pendingSnapshot) return;
+        if (this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) return;
         const finishContentToken = canvasStablePageContentToken(canvas);
         if (startContentToken && finishContentToken && finishContentToken !== startContentToken) {
           this.scheduleReaderRasterRefresh(40);
@@ -36187,6 +36187,10 @@ ${spelling}`);
       } finally {
         if (this.pendingCanvasSnapshots.get(canvas) === pendingSnapshot) this.pendingCanvasSnapshots.delete(canvas);
       }
+    }
+    wasCanvasSnapshotSuperseded(canvas, pendingSnapshot) {
+      const current = this.pendingCanvasSnapshots.get(canvas);
+      return Boolean(current && current !== pendingSnapshot);
     }
     shouldHoldCanvasFramesForSamePageSignature(signature) {
       if (!this.canvasReaderSignature) return false;
@@ -39143,7 +39147,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.14".trim() ? "1.6.14".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.15".trim() ? "1.6.15".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -46576,7 +46580,6 @@ ${spelling}`);
   function renderPanelOptionsControls(state2) {
     const language = state2.language;
     const label = uiText(language, "subtitlePanelOptions");
-    const closeLabel = uiText(language, "closeSubtitlePanel");
     const autoLabel = uiText(language, "enableSubtitleAutoHide");
     const autoTitle = uiText(language, state2.pausePanelEnabled ? "disableSubtitleAutoHide" : "enableSubtitleAutoHide");
     const placementLabel = uiText(language, "subtitleTranscriptPlacement");
@@ -46591,13 +46594,13 @@ ${spelling}`);
                     ${subtitleIcon("auto-hide")}
                     <span>${escapeHtml$1(autoLabel)}</span>
                 </button>
-                <button class="jpdb-subtitle-panel-options-item" type="button" data-action="close-panel">
-                    ${subtitleIcon("close")}
-                    <span>${escapeHtml$1(closeLabel)}</span>
-                </button>
             </div>
         </div>
     `;
+  }
+  function renderPanelCloseButton(language) {
+    const closeLabel = uiText(language, "closeSubtitlePanel");
+    return `<button class="jpdb-subtitle-panel-close" type="button" data-action="close-panel" title="${escapeHtml$1(closeLabel)}" aria-label="${escapeHtml$1(closeLabel)}">${subtitleIcon("close")}</button>`;
   }
   function renderPanelOptionsPlacementItem(placement, currentPlacement, groupLabel, language) {
     const placementLabel = uiText(language, placement);
@@ -47139,7 +47142,7 @@ ${spelling}`);
     if (isYouTubePage$1() || !options.video) return;
     applyGenericVideoInset(options.video, options.side, options.side === "bottom" ? metrics.height : metrics.width, metrics.height);
   }
-  const GENERIC_TARGET_INSET_PROPS = ["width", "height", "max-width", "max-height", "min-width", "min-height", "margin-left", "margin-right", "justify-self", "object-fit"];
+  const GENERIC_TARGET_INSET_PROPS = ["width", "height", "max-width", "max-height", "min-width", "min-height", "margin-left", "margin-right", "justify-self", "object-fit", "box-sizing"];
   const CONTAINED_VIDEO_INSET_PROPS = ["height", "max-height", "min-height", "object-fit"];
   const CONTAINER_INSET_PROPS = ["width", "max-width", "min-width", "height", "max-height", "min-height", "margin-left", "margin-right"];
   const WATCH_FLEXY_INSET_VARS = ["--ytd-watch-flexy-player-width", "--ytd-watch-flexy-player-height", "--ytd-watch-flexy-min-player-height"];
@@ -47709,7 +47712,8 @@ ${spelling}`);
       marginLeft: target.style.marginLeft,
       marginRight: target.style.marginRight,
       justifySelf: target.style.justifySelf,
-      objectFit: target.style.objectFit
+      objectFit: target.style.objectFit,
+      boxSizing: target.style.boxSizing
     });
   }
   function applyGenericBottomInset(target, size, video) {
@@ -47729,10 +47733,13 @@ ${spelling}`);
     const rect = target.getBoundingClientRect();
     const baseRect = genericVideoInsetBaseRects.get(target) ?? rect;
     const inset = Number.parseFloat(document.documentElement.style.getPropertyValue("--jpdb-subtitle-video-inset")) || 0;
+    const baseWidth = Math.max(0, baseRect.right - baseRect.left);
+    const width = Math.round(Math.min(size, baseWidth || size));
     const margin = side === "left" ? Math.max(0, Math.round(inset - baseRect.left)) : Math.max(0, Math.round(Math.min(baseRect.right, visibleViewportWidth()) - (visibleViewportWidth() - inset)));
     const stableHeight = sideInsetStableHeight(target, height);
-    setStylePropertyIfChanged(target, "width", `${Math.round(size)}px`);
-    setStylePropertyIfChanged(target, "max-width", `${Math.round(size)}px`);
+    setStylePropertyIfChanged(target, "box-sizing", "border-box");
+    setStylePropertyIfChanged(target, "width", `${width}px`);
+    setStylePropertyIfChanged(target, "max-width", `${width}px`);
     setStylePropertyIfChanged(target, "min-width", "0px");
     setStylePropertyIfChanged(target, "justify-self", "start");
     if (stableHeight > 0) {
@@ -47769,7 +47776,8 @@ ${spelling}`);
       "marginLeft",
       "marginRight",
       "justifySelf",
-      "objectFit"
+      "objectFit",
+      "boxSizing"
     ]);
   }
   function restoreGenericBottomInsetStyles(target) {
@@ -47792,7 +47800,8 @@ ${spelling}`);
       "marginLeft",
       "marginRight",
       "justifySelf",
-      "objectFit"
+      "objectFit",
+      "boxSizing"
     ])) return;
     genericVideoInsetStyles.delete(target);
     genericVideoInsetBaseRects.delete(target);
@@ -48997,7 +49006,8 @@ ${spelling}`);
         pausePanelEnabled: state2.pausePanelEnabled,
         menuOpen: state2.optionsMenuOpen,
         language
-      })
+      }),
+      renderPanelCloseButton(language)
     ].filter(Boolean).join("");
     return `
         <div class="jpdb-subtitle-drawer-head">
@@ -50510,7 +50520,7 @@ ${spelling}`);
   }
   function renderSubtitleBatchMiningPanel(state2) {
     const language = state2.language;
-    return `<div class="jpdb-subtitle-batch-sticky"><div class="jpdb-subtitle-drawer-head"><div class="jpdb-subtitle-drawer-brand"><strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(subtitleText(language, "bmTitle"))}</strong><span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(batchMiningMetaText(state2))}</span></div><div class="jpdb-subtitle-drawer-actions">${renderPanelModeControls("mine", state2.hasTranscriptSurface, language)}${renderPanelOptionsControls({ placement: state2.placement, pausePanelEnabled: state2.pausePanelEnabled, menuOpen: state2.optionsMenuOpen, language })}</div></div>${renderBatchMiningToolbar(state2)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state2)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>`;
+    return `<div class="jpdb-subtitle-batch-sticky"><div class="jpdb-subtitle-drawer-head"><div class="jpdb-subtitle-drawer-brand"><strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(subtitleText(language, "bmTitle"))}</strong><span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(batchMiningMetaText(state2))}</span></div><div class="jpdb-subtitle-drawer-actions">${renderPanelModeControls("mine", state2.hasTranscriptSurface, language)}${renderPanelOptionsControls({ placement: state2.placement, pausePanelEnabled: state2.pausePanelEnabled, menuOpen: state2.optionsMenuOpen, language })}${renderPanelCloseButton(language)}</div></div>${renderBatchMiningToolbar(state2)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state2)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>`;
   }
   function renderBatchMiningToolbar(state2) {
     const language = state2.language;
@@ -51348,6 +51358,18 @@ ${spelling}`);
     pausePanelOpen = false;
     pausePanelDismissed = false;
     pausePanelSyncScheduled = false;
+    // Runtime open-intent for the transcript drawer, scoped to THIS page/tab.
+    // The persisted `subtitleTranscriptVisible` is a pure "open by default"
+    // preference (settings form); mirroring runtime open/close into it leaked
+    // an open drawer across tabs and onto the homepage. This in-memory flag
+    // keeps the drawer re-openable after a track change within the same page
+    // without touching persisted settings.
+    transcriptPanelSessionOpen = false;
+    // "Open by default" auto-opens the drawer once per surface (page load / SPA
+    // navigation), then a manual close sticks: without this a later refresh()
+    // would see the preference still true + the panel hidden and reopen it,
+    // making the new X close un-closable. Re-armed on YouTube navigation.
+    transcriptDefaultOpenApplied = false;
     subtitleDragOffsetYPx = 0;
     subtitleStylePanelOpen = false;
     // Drawer-head panel-options popover (placement / pause auto-open / close).
@@ -51496,6 +51518,7 @@ ${spelling}`);
     handleYouTubeNavigation() {
       if (!isYouTubePage()) return;
       this.lastYouTubeTrackDiscoveryAt = 0;
+      this.transcriptDefaultOpenApplied = false;
       this.scheduleDiscoverVideo();
       void this.discoverYouTubeTracksThrottled(true);
       this.scheduleAlignToVideo();
@@ -51596,8 +51619,11 @@ ${spelling}`);
       this.root.style.setProperty("--subtitle-weight", String(settings.subtitleFontWeight));
     }
     openTranscriptPanelFromSettings(settings) {
+      if (this.transcriptDefaultOpenApplied) return;
       if (!settings.subtitleTranscriptVisible || !this.hasTranscriptSurface() || !this.transcriptPanel?.hidden) return;
+      this.transcriptDefaultOpenApplied = true;
       this.panelMode = "lines";
+      this.transcriptPanelSessionOpen = true;
       this.showTranscriptPanelElement();
       this.renderTranscriptPanel(true);
     }
@@ -54609,10 +54635,7 @@ ${spelling}`);
       this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
       this.panelMode = mode;
       this.showTranscriptPanelElement();
-      if (options.persist ?? true) {
-        this.options.getSettings().subtitleTranscriptVisible = true;
-        this.options.onSettingsChange();
-      }
+      if (options.persist ?? true) this.transcriptPanelSessionOpen = true;
       return true;
     }
     replayShadowCue() {
@@ -54826,6 +54849,7 @@ ${spelling}`);
       settings.subtitlePausePanel = !settings.subtitlePausePanel;
       if (settings.subtitlePausePanel) {
         settings.subtitleTranscriptVisible = false;
+        this.transcriptPanelSessionOpen = false;
         if (this.video && this.video.paused && !this.video.ended && this.hasTranscriptSurface()) {
           this.openLinesPanel({ persist: false, autoPause: true, deferRender: true });
         } else if (this.isTranscriptPanelOpen()) {
@@ -54865,7 +54889,7 @@ ${spelling}`);
       this.syncPanelState();
     }
     shouldRestoreTranscriptPanel() {
-      return this.options.getSettings().subtitleTranscriptVisible && this.hasTranscriptSurface();
+      return this.transcriptPanelSessionOpen && this.hasTranscriptSurface();
     }
     isTranscriptPanelOpen() {
       return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && !this.transcriptPanelClosing);
@@ -54882,10 +54906,7 @@ ${spelling}`);
       this.renderedTracksVirtualWindow = void 0;
       this.tracksVirtualRenderFrame = clearWindowAnimationFrame(this.tracksVirtualRenderFrame);
       this.showTranscriptPanelElement();
-      if (persist) {
-        this.options.getSettings().subtitleTranscriptVisible = false;
-        this.options.onSettingsChange();
-      }
+      if (persist) this.transcriptPanelSessionOpen = false;
       this.renderTrackPanel();
       this.positionTranscriptPanel({ realignAfterInset: true });
       this.syncPanelState();
@@ -54908,10 +54929,7 @@ ${spelling}`);
         if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
       }
       this.hideTranscriptPanelElement({ immediate: options.immediate });
-      if (persist) {
-        this.options.getSettings().subtitleTranscriptVisible = false;
-        this.options.onSettingsChange();
-      }
+      if (persist) this.transcriptPanelSessionOpen = false;
       this.clearVideoInsetForTranscriptPanel();
       this.syncControls();
     }
@@ -55076,6 +55094,7 @@ ${spelling}`);
                 <div class="jpdb-subtitle-drawer-actions">
                     ${renderPanelModeControls("shadow", this.hasTranscriptSurface(), language)}
                     ${this.renderPanelOptionsMenu(state2.settings.subtitlePausePanel, language)}
+                    ${renderPanelCloseButton(language)}
                 </div>
             </div>
         `;
@@ -55525,6 +55544,7 @@ ${spelling}`);
                     ${renderPanelModeControls("lines", this.hasTranscriptSurface(), language)}
                     <button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}" aria-label="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}">${subtitleIcon("locate")}</button>
                     ${this.renderPanelOptionsMenu(settings.subtitlePausePanel, language)}
+                    ${renderPanelCloseButton(language)}
                 </div>
             </div>
             <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state2.virtual ? ' data-virtualized="true"' : ""}>
@@ -56362,7 +56382,7 @@ ${spelling}`);
       const settings = this.options.getSettings();
       const reuseDragRect = options.skipInset && this.transcriptLayoutReferenceRect;
       const referenceVideoRect = reuseDragRect ? this.transcriptLayoutReferenceRect : this.transcriptLayoutReferenceVideoRect(viewportWidth, viewportHeight);
-      const anchorTop = reuseDragRect ? referenceVideoRect.top : this.transcriptAnchorRect().top;
+      const anchorTop = reuseDragRect ? referenceVideoRect.top : this.stableTranscriptAnchorTop(referenceVideoRect);
       const layout = this.transcriptDrawerLayout({
         viewportWidth,
         viewportHeight,
@@ -56700,6 +56720,22 @@ ${spelling}`);
       if (isYouTubePage()) return this.videoLayoutRect();
       if (!this.video) return this.videoLayoutRect();
       return transcriptAvoidanceTarget(this.video).getBoundingClientRect();
+    }
+    // The side panel normally hangs from the video's top. Once the video scrolls
+    // out of view, that top is off-screen (negative when scrolled up, huge when
+    // below the fold) and the clamp in the layout math then swings the panel's
+    // height from full-height to a bottom-pinned sliver. Return a stable on-screen
+    // anchor while the video is not overlay-visible so the panel keeps a steady
+    // height as you scroll past it (it stays position:fixed on screen regardless).
+    stableTranscriptAnchorTop(referenceVideoRect) {
+      const liveTop = this.transcriptAnchorRect().top;
+      if (this.isTranscriptAnchorVideoVisible(referenceVideoRect)) return liveTop;
+      return TRANSCRIPT_PANEL_MARGIN;
+    }
+    isTranscriptAnchorVideoVisible(referenceVideoRect) {
+      if (this.fullscreen) return true;
+      if (this.root && !this.root.classList.contains("jpdb-subtitle-video-out-of-view")) return true;
+      return this.isVideoOverlayVisible(referenceVideoRect);
     }
     clearVideoInsetForTranscriptPanel() {
       this.transcriptLayoutReferenceRect = void 0;
