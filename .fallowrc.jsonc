@@ -19,6 +19,8 @@
     "scripts/package-gaming-electron.mjs",
     "scripts/youtube-fullscreen-smoke.mjs",
     "scripts/yt-live-harness.mjs",
+    "scripts/extension-boot-smoke.mjs",
+    "scripts/zz-ext-probe-firefox.mjs",
     "tests/reader/**/*.test.ts"
   ],
   "dynamicallyLoaded": [

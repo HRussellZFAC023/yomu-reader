@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.18] - 2026-07-03
+
+### Added
+
+- The homepage donation bar now shows a live goal computed from the real monthly operating costs (with a 10 GBP floor), converts it to your local currency, tracks month-to-date progress across providers, and offers Ko-fi, Buy Me a Coffee, PayPal, and Patreon alongside the card checkout. Provider buttons appear as each account goes live.
+- Yomu Gaming is now playable with a controller: the capture overlay gains gamepad navigation (d-pad or stick moves between recognized words, A opens the full in-overlay dictionary popover, B backs out, Y re-captures), shows Steam Deck-specific guidance when it detects one, and ships a manual Steam Deck test checklist.
+- An extension boot smoke (npm run smoke:extension-boot) drives the freshly packaged Chrome extension in a real browser: service worker, content-script reader boot, first-run onboarding, scanning, popover, popup, and new tab must all pass with zero console errors.
+
 ## [1.6.17] - 2026-07-03
 
 ### Fixed

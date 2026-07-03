@@ -144,6 +144,22 @@ textarea {
     color: #b42318;
 }
 
+.yomu-gaming-session-note {
+    grid-column: 1 / -1;
+    padding: 7px 10px;
+    border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent);
+    color: var(--jpdb-reader-text);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.yomu-gaming-session-note[data-session-tone="warning"] {
+    border-color: color-mix(in srgb, #8a5a00 42%, transparent);
+    background: color-mix(in srgb, #8a5a00 12%, transparent);
+}
+
 .yomu-gaming-settings.jpdb-reader-settings {
     position: relative;
     left: auto;
@@ -882,6 +898,18 @@ textarea {
     background: color-mix(in srgb, var(--jpdb-reader-black) 34%, transparent) !important;
     border-color: color-mix(in srgb, var(--jpdb-reader-white) 14%, transparent) !important;
     box-shadow: 0 1px 3px color-mix(in srgb, var(--jpdb-reader-black) 42%, transparent) !important;
+}
+
+/* Controller focus ring: on a Steam Deck (no mouse) the gamepad driver moves this
+   marker between words. It must read clearly over any game art. */
+.jpdb-reader-word[data-gamepad-focus="true"] {
+    outline: 3px solid var(--jpdb-reader-accent) !important;
+    outline-offset: 2px !important;
+    border-radius: 0.22em;
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 40%, var(--jpdb-reader-black) 40%) !important;
+    box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--jpdb-reader-black) 70%, transparent),
+        0 0 14px color-mix(in srgb, var(--jpdb-reader-accent) 60%, transparent) !important;
 }
 
 /* Text-only OCR (no per-line geometry) has nothing behind it, so show it as a readable

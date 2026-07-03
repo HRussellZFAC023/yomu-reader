@@ -1,0 +1,50 @@
+{
+  "$schema": "./operating-forecast.schema.json",
+  "currency": "GBP",
+  "floorGBP": 10,
+  "notes": "Monthly operating forecast for the shared Yomu services. Figures are honest estimates of recurring infrastructure cost, not a fundraising target. The effective donation goal is max(sum of line items, floorGBP). Update line items when infrastructure changes; the /goal and /status endpoints read this file at build time. USD lines assume GBP/USD ~= 0.75 (1 USD ~= 0.75 GBP). Sources: Cloudflare Workers Paid plan 5 USD/mo; R2 storage 0.015 USD/GB-month, egress free; R2 Class B ops 0.36 USD/million; .com registration ~10.44 USD/yr at-cost.",
+  "lineItems": [
+    {
+      "id": "workers-paid-plan",
+      "label": "Cloudflare Workers Paid plan",
+      "detail": "Shared plan covering yomu-support, yomu-audio, and edge (jpdb) Workers. Includes 10M requests + 30M CPU-ms/month.",
+      "monthlyGBP": 3.75,
+      "category": "compute"
+    },
+    {
+      "id": "r2-audio-storage",
+      "label": "R2 audio bucket storage",
+      "detail": "yomu-audio R2 bucket, ~8 GB of pronunciation audio at 0.015 USD/GB-month, with headroom for growth. Egress is free on R2.",
+      "monthlyGBP": 0.6,
+      "category": "storage"
+    },
+    {
+      "id": "r2-audio-operations",
+      "label": "R2 audio read operations",
+      "detail": "Class B (read) operations serving audio and the audio index manifest to readers.",
+      "monthlyGBP": 0.4,
+      "category": "storage"
+    },
+    {
+      "id": "domain-yomureader",
+      "label": "yomureader.com domain",
+      "detail": "Primary domain registration (~10.44 USD/yr at-cost) amortised monthly. Covers the apex plus audio, support, and edge subdomains.",
+      "monthlyGBP": 0.65,
+      "category": "domains"
+    },
+    {
+      "id": "d1-kv-state",
+      "label": "D1 + KV donation state",
+      "detail": "D1 donation ledger and KV (FX cache, manual provider totals, webhook state) for the support Worker.",
+      "monthlyGBP": 0.3,
+      "category": "storage"
+    },
+    {
+      "id": "api-and-testing",
+      "label": "API usage and test devices",
+      "detail": "Buffer for third-party API usage (dictionary/pitch/audio sources) and periodic testing-device costs that keep the reader working across real sites.",
+      "monthlyGBP": 4.5,
+      "category": "operations"
+    }
+  ]
+}

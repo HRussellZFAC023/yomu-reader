@@ -15,13 +15,21 @@
   "vars": {
     "SUPPORT_BANNER_ENABLED": "true",
     "SUPPORT_DAILY_BUDGET_GBP": "10",
-    "SUPPORT_DONATION_GOAL_MONTHLY_GBP": "10",
+    // Leave SUPPORT_DONATION_GOAL_MONTHLY_GBP unset to let the goal derive from
+    // operating-forecast.json (max(forecast, £10 floor)). Set it only to pin the
+    // goal to a fixed value for testing.
     "SUPPORT_DONATIONS_TODAY_GBP": "0",
     "SUPPORT_DONATIONS_THIS_MONTH_GBP": "0",
     "SUPPORT_ESTIMATED_DAILY_COST_GBP": "0",
-    "SUPPORT_ESTIMATED_MONTHLY_COST_GBP": "10",
     "SUPPORT_SUCCESS_URL": "https://yomureader.com/support?donation=success",
-    "SUPPORT_CANCEL_URL": "https://yomureader.com/support?donation=cancelled"
+    "SUPPORT_CANCEL_URL": "https://yomureader.com/support?donation=cancelled",
+    // Public provider links. Empty = hidden in the homepage bar. The supervised
+    // account-setup session pastes real URLs here (Ko-fi/BMAC page, PayPal.me,
+    // Patreon join URL). Stripe stays server-side via /donate.
+    "SUPPORT_PROVIDER_KOFI_URL": "",
+    "SUPPORT_PROVIDER_BMAC_URL": "",
+    "SUPPORT_PROVIDER_PAYPAL_URL": "",
+    "SUPPORT_PROVIDER_PATREON_URL": ""
   },
   "observability": {
     "enabled": true,
@@ -32,6 +40,18 @@
       "binding": "SUPPORT_DB",
       "database_name": "yomu-support",
       "database_id": "c39e8f5c-e6fc-44e0-9b0c-987cde5bcd3c"
+    }
+  ],
+  // SUPPORT_KV holds the daily FX-rate cache (24h) and month-to-date manual
+  // provider totals written by the Ko-fi / Patreon webhook receivers. Create it
+  // with `npx wrangler kv namespace create SUPPORT_KV --config
+  // workers/yomu-support/wrangler.jsonc` and paste the returned id below before
+  // deploying. Until then the Worker degrades gracefully: FX falls back to a
+  // per-request fetch and manual providers report zero.
+  "kv_namespaces": [
+    {
+      "binding": "SUPPORT_KV",
+      "id": "REPLACE_WITH_SUPPORT_KV_NAMESPACE_ID"
     }
   ]
 }

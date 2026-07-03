@@ -64,13 +64,32 @@ const HOSTED_RUNTIME_SCROLL_MARGIN_PX = 160;
 const HOSTED_JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const HOSTED_DOCS_TRANSLATED_ATTRIBUTES = ['aria-label', 'title', 'alt', 'placeholder'] as const;
 type HostedDocsTranslatedAttribute = typeof HOSTED_DOCS_TRANSLATED_ATTRIBUTES[number];
+interface HostedSupportProvider {
+    id?: string;
+    label?: string;
+    url?: string;
+    kind?: string;
+    enabled?: boolean;
+}
+interface HostedSupportDisplay {
+    currency?: string;
+    symbol?: string;
+    amount?: number;
+    goal?: number;
+    amountText?: string;
+    goalText?: string;
+    converted?: boolean;
+}
 interface HostedSupportStatus {
     dailyBudgetGbp?: number;
     donationGoalGbp?: number;
     donationsTodayGbp?: number;
     donationsThisMonthGbp?: number;
     estimatedMonthlyCostGbp?: number;
+    progressRatio?: number;
     donateUrl?: string;
+    providers?: HostedSupportProvider[];
+    display?: HostedSupportDisplay;
     banner?: {
         enabled?: boolean;
         dismissVersion?: string;
@@ -181,6 +200,9 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'The homepage donation bar now shows a live goal computed from the real monthly operating costs (with a 10 GBP floor), converts it to your local currency, tracks month-to-date progress across providers, and offers Ko-fi, Buy Me a Coffee, PayPal, and Patreon alongside the card checkout. Provider buttons appear as each account goes live.': 'ホームページの寄付バーは、実際の月間運用コストから算出した目標（下限10ポンド）を表示し、現地通貨に換算し、プロバイダー横断の当月進捗を追跡し、カード決済に加えてKo-fi、Buy Me a Coffee、PayPal、Patreonを提供するようになりました。各アカウントが有効になるとプロバイダーのボタンが表示されます。',
+    'Yomu Gaming is now playable with a controller: the capture overlay gains gamepad navigation (d-pad or stick moves between recognized words, A opens the full in-overlay dictionary popover, B backs out, Y re-captures), shows Steam Deck-specific guidance when it detects one, and ships a manual Steam Deck test checklist.': 'Yomu Gamingがコントローラーで操作できるようになりました。キャプチャオーバーレイにゲームパッド操作（十字キーまたはスティックで認識済みの単語間を移動、Aでオーバーレイ内の完全な辞書ポップオーバーを開く、Bで戻る、Yで再キャプチャ）が加わり、Steam Deckを検出するとDeck向けの案内を表示し、手動のSteam Deckテストチェックリストが付属します。',
+    'An extension boot smoke (npm run smoke:extension-boot) drives the freshly packaged Chrome extension in a real browser: service worker, content-script reader boot, first-run onboarding, scanning, popover, popup, and new tab must all pass with zero console errors.': '拡張機能起動スモーク（npm run smoke:extension-boot）は、パッケージしたばかりのChrome拡張機能を実ブラウザで動かします。Service Worker、コンテンツスクリプトのリーダー起動、初回オンボーディング、スキャン、ポップオーバー、ポップアップ、新しいタブのすべてがコンソールエラーゼロで通らなければなりません。',
     'The browser extension now works end to end: the reader crashed at startup because the extension GM shim returns its CSS resource as a promise where userscript managers return a string, so no page ever scanned. First-run onboarding now also shows in the extension, and the extension pages carry no inline scripts, which manifest v3 forbids.': 'ブラウザ拡張機能が最初から最後まで動作するようになりました。拡張機能のGMシムはCSSリソースをPromiseで返すのに対し、ユーザースクリプトマネージャーは文字列を返すため、リーダーが起動時にクラッシュしてどのページもスキャンされませんでした。初回オンボーディングも拡張機能で表示されるようになり、拡張機能のページはManifest V3が禁止するインラインスクリプトを含みません。',
     'The extension action popup is a real popup — open Study, open settings on the current page, and documentation — instead of the compiler\'s developer stub.': '拡張機能のアクションポップアップが、コンパイラの開発用スタブではなく、本物のポップアップ（Studyを開く、現在のページで設定を開く、ドキュメント）になりました。',
     'The keyless kanji drawing step now shows a word-with-blank prompt instead of the "No kanji keyword found." error heading, the step chips read Kanji 1 and Kanji 2 instead of printing the answer glyph, and the drawing grid is sized to sit under its prompt.': 'キーなしの漢字書き取りステップは、「No kanji keyword found.」というエラー見出しの代わりに空欄付きの単語プロンプトを表示するようになりました。ステップのチップは答えの字を印字せずKanji 1・Kanji 2と表示し、書き取りグリッドはプロンプトの下に収まるサイズになりました。',
@@ -3226,16 +3248,13 @@ function renderHostedSupportBanner(status: HostedSupportStatus): HTMLElement {
     meta.textContent = hostedSupportMeta(status);
     copy.append(meta);
 
+    const progress = renderHostedSupportProgress(status);
+    if (progress) copy.append(progress);
+
     const actions = document.createElement('div');
     actions.className = 'yomu-support-banner-actions';
 
-    const donate = document.createElement('a');
-    donate.className = 'yomu-support-banner-donate';
-    donate.href = hostedSupportDonateUrl(status);
-    donate.target = '_blank';
-    donate.rel = 'noopener';
-    donate.textContent = status.banner?.ctaLabel || 'Donate';
-    actions.append(donate);
+    for (const button of renderHostedSupportProviderButtons(status)) actions.append(button);
 
     const close = document.createElement('button');
     close.className = 'yomu-support-banner-close';
@@ -3252,15 +3271,119 @@ function renderHostedSupportBanner(status: HostedSupportStatus): HTMLElement {
     return banner;
 }
 
+function renderHostedSupportProgress(status: HostedSupportStatus): HTMLElement | null {
+    const ratio = hostedSupportProgressRatio(status);
+    if (ratio === null) return null;
+    const track = document.createElement('span');
+    track.className = 'yomu-support-banner-progress';
+    track.setAttribute('role', 'progressbar');
+    track.setAttribute('aria-label', 'This month toward the donation goal');
+    track.setAttribute('aria-valuemin', '0');
+    track.setAttribute('aria-valuemax', '100');
+    track.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
+    const fill = document.createElement('span');
+    fill.className = 'yomu-support-banner-progress-fill';
+    fill.style.width = `${Math.round(ratio * 100)}%`;
+    track.append(fill);
+    return track;
+}
+
+function hostedSupportProgressRatio(status: HostedSupportStatus): number | null {
+    if (typeof status.progressRatio === 'number' && Number.isFinite(status.progressRatio)) {
+        return Math.min(1, Math.max(0, status.progressRatio));
+    }
+    const goal = status.donationGoalGbp;
+    const received = status.donationsThisMonthGbp ?? status.donationsTodayGbp;
+    if (typeof goal === 'number' && goal > 0 && typeof received === 'number' && received >= 0) {
+        return Math.min(1, received / goal);
+    }
+    return null;
+}
+
+function renderHostedSupportProviderButtons(status: HostedSupportStatus): HTMLElement[] {
+    const buttons: HTMLElement[] = [];
+    const donate = document.createElement('a');
+    donate.className = 'yomu-support-banner-donate';
+    donate.href = hostedSupportDonateUrl(status);
+    donate.target = '_blank';
+    donate.rel = 'noopener';
+    donate.textContent = status.banner?.ctaLabel || 'Donate';
+    buttons.push(donate);
+
+    // Manual providers (Ko-fi/BMAC/PayPal/Patreon) render only when the Worker
+    // reports an enabled https URL, so the supervised session only has to fill
+    // the provider URLs to light these up.
+    for (const provider of status.providers ?? []) {
+        if (!provider?.enabled || provider.id === 'stripe') continue;
+        const url = safeHostedHttpsUrl(provider.url);
+        if (!url) continue;
+        const link = document.createElement('a');
+        link.className = 'yomu-support-banner-provider';
+        link.dataset.provider = provider.id ?? '';
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = provider.label || (provider.id ?? 'Support');
+        buttons.push(link);
+    }
+    return buttons;
+}
+
+function safeHostedHttpsUrl(value: string | undefined): string | null {
+    if (!value) return null;
+    try {
+        const url = new URL(value);
+        return url.protocol === 'https:' ? url.href : null;
+    } catch {
+        return null;
+    }
+}
+
 function hostedSupportMessage(status: HostedSupportStatus): string {
     return status.banner?.message
         || "Yomu's Ultimate Audio is donation funded. If this month's goal is missed, fast real-audio playback for words and shadowing will switch off next month.";
 }
 
 function hostedSupportMeta(status: HostedSupportStatus): string {
-    const cost = status.banner?.costLabel || `Donation goal: ${formatHostedSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10))}/month`;
-    const goal = status.banner?.goalLabel || `This month: ${formatHostedSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0)} / ${formatHostedSupportGbp(status.donationGoalGbp ?? 10)}`;
+    const goalText = hostedSupportGoalText(status);
+    const receivedText = hostedSupportReceivedText(status);
+    const cost = status.banner?.costLabel || `Donation goal: ${goalText}/month`;
+    const goal = status.banner?.goalLabel || `This month: ${receivedText} / ${goalText}`;
     return `${cost} · ${goal}`;
+}
+
+function hostedSupportGoalText(status: HostedSupportStatus): string {
+    const display = status.display;
+    if (display?.goalText) return display.goalText;
+    if (display?.converted && typeof display.goal === 'number' && display.currency) {
+        return formatHostedLocalCurrency(display.goal, display.currency);
+    }
+    return formatHostedSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10));
+}
+
+function hostedSupportReceivedText(status: HostedSupportStatus): string {
+    const display = status.display;
+    if (display?.amountText) return display.amountText;
+    if (display?.converted && typeof display.amount === 'number' && display.currency) {
+        return formatHostedLocalCurrency(display.amount, display.currency);
+    }
+    return formatHostedSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0);
+}
+
+// Client-side fallback: if the Worker could not localize (FX unavailable), or
+// the caller wants the visitor's own locale formatting, use Intl.NumberFormat
+// with navigator.language and the currency the Worker reported.
+function formatHostedLocalCurrency(value: number, currency: string): string {
+    try {
+        const locale = (typeof navigator !== 'undefined' && navigator.language) || 'en-GB';
+        return new Intl.NumberFormat(locale, {
+            style: 'currency',
+            currency,
+            maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+        }).format(value);
+    } catch {
+        return `${value.toFixed(value % 1 === 0 ? 0 : 2)} ${currency}`;
+    }
 }
 
 function hostedSupportDonateUrl(status: HostedSupportStatus): string {

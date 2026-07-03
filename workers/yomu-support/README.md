@@ -4,9 +4,33 @@ Donation and public service-budget status endpoint for `support.yomureader.com`.
 
 Routes:
 
-- `/status` returns public monthly running-cost, donation-progress, and banner copy used by the hosted site and Study page.
+- `/goal` returns the dynamic monthly donation goal. It reads
+  `operating-forecast.json` (checked-in Cloudflare/R2/domain/API line items in
+  GBP) and returns `{ floorGBP: 10, forecastGBP, monthlyGoalGBP, breakdown }`
+  where `monthlyGoalGBP = max(sum(lineItems), floorGBP)`. `cache-control` 5 min.
+- `/progress` returns month-to-date received across providers:
+  `{ month, totalThisMonthGbp, totalTodayGbp, providers[] }`. Stripe comes from
+  the D1 ledger; Ko-fi/Patreon totals come from KV (written by their webhooks).
+- `/status` combines goal + progress + a **localized display**. It accepts
+  `?currency=XXX` or derives the currency from `request.cf.country`, converts
+  GBP using a daily-cached FX rate, and returns `display: { amount, goal,
+  currency, symbol, amountText, goalText, converted }` plus `providers[]` and
+  banner copy used by the hosted homepage bar. `cache-control` 5 min.
 - `/donate` creates a Stripe Checkout session and redirects the user there. If Checkout is unavailable, it can redirect to `SUPPORT_STRIPE_PAYMENT_LINK_URL`; without that fallback it returns a clear temporary-unavailable response rather than looping through the support page.
 - `/stripe/webhook` accepts signed Stripe Checkout donation webhooks and records GBP donations in D1.
+- `/webhooks/kofi` accepts Ko-fi webhooks (shared verification token, GBP only),
+  storing the running month total in KV.
+- `/webhooks/patreon` accepts Patreon webhooks (HMAC-MD5 signature over the raw
+  body), storing the running month total in KV.
+
+Local currency: FX rates come from the free, key-less, ECB-backed
+`frankfurter.dev` endpoint (`GET /v1/latest?base=GBP`) and are cached in KV for
+24h. Unmapped or unsupported currencies fall back to GBP; the homepage also
+falls back to `Intl.NumberFormat` with the visitor's locale.
+
+The donation goal derives from `operating-forecast.json`. See that file and
+`PROVIDER-SETUP.md` for the supervised account-setup checklist (Ko-fi / Patreon
+/ BMAC / PayPal URLs and secrets, KV namespace creation).
 
 Secrets stay server-side:
 

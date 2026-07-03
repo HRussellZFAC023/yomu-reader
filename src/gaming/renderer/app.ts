@@ -28,6 +28,7 @@ import {
     normalizeGamingOcrResponse,
     type GamingOcrResult,
 } from '../shared';
+import { activateWordWithPointer, GamepadOverlayController } from './gamepad-overlay';
 import type { YomuGamingBridge, YomuGamingCaptureMode, YomuGamingCaptureSource, YomuGamingEnvironment, YomuGamingOcrProvider, YomuGamingSelectionRect } from '../ipc';
 
 declare global {
@@ -119,6 +120,7 @@ async function boot(): Promise<void> {
     renderSettingsShell();
     shellState.environment = await bridge.getEnvironment();
     updateHotkeyCopy();
+    updateSessionGuidance();
     updateCaptureOnboardingStatus();
 }
 
@@ -167,8 +169,42 @@ function renderGamingControlBar(): string {
                 <kbd data-hotkey>${escapeHtml(hotkeyLabel())}</kbd>
             </div>
             <div class="yomu-gaming-shell-status" data-gaming-shell-status data-status-tone="${shellState.statusTone}">${escapeHtml(shellState.status)}</div>
+            <div class="yomu-gaming-session-note" data-gaming-session-note hidden></div>
         </section>
     `;
+}
+
+// The main process detects the platform, display server, and whether this looks
+// like a Steam Deck / gamescope session. Surface that instead of silently dropping
+// it: a Deck-in-Game-Mode player needs to know the overlay is controller-driven,
+// and a Wayland/gamescope user needs to know global capture may need a portal grant.
+function updateSessionGuidance(): void {
+    const note = sessionGuidanceText(shellState.environment);
+    appRoot.querySelectorAll<HTMLElement>('[data-gaming-session-note]').forEach(element => {
+        element.textContent = note?.text ?? '';
+        element.hidden = !note;
+        if (note) element.dataset.sessionTone = note.tone;
+    });
+}
+
+function sessionGuidanceText(environment: YomuGamingEnvironment | null): { text: string; tone: 'info' | 'warning' } | null {
+    if (!environment) return null;
+    const wayland = /wayland/i.test(environment.displayServer);
+    if (environment.isSteamDeckSession) {
+        return {
+            text: wayland
+                ? 'Steam Deck detected (Wayland/gamescope). Map the capture shortcut to a Deck button in Steam Input, then use the D-pad to move between words, A to look up, B to close. If capture is blank, allow screen sharing when the portal asks.'
+                : 'Steam Deck detected. Map the capture shortcut to a Deck button in Steam Input; navigate the overlay with the D-pad (A looks up, B closes).',
+            tone: wayland ? 'warning' : 'info',
+        };
+    }
+    if (environment.platform === 'linux' && wayland) {
+        return {
+            text: 'Running under Wayland. Global screen capture uses the desktop portal — allow screen sharing when prompted. A controller can also drive the overlay (D-pad + A/B).',
+            tone: 'info',
+        };
+    }
+    return null;
 }
 
 function installGamingOnboarding(form: HTMLFormElement): void {
@@ -785,6 +821,15 @@ class OverlaySelectionController {
     private settings = loadGamingSettings();
     private capture: YomuGamingCaptureSource | null = null;
     private started = false;
+    // Controller navigation so the overlay is usable on a Steam Deck in Game Mode
+    // (no keyboard/mouse). It drives the same OCR word DOM the pointer path uses.
+    private readonly gamepad = new GamepadOverlayController({
+        words: () => this.gamepadWordTargets(),
+        activate: word => activateWordWithPointer(word),
+        back: () => this.handleGamepadBack(),
+        recapture: () => void this.recapture(),
+        settings: () => void this.gamingBridge.showApp().then(() => this.gamingBridge.hideOverlay()),
+    });
 
     constructor(private root: HTMLElement, private gamingBridge: YomuGamingBridge, private captureMode: YomuGamingCaptureMode) {
         window.addEventListener('keydown', event => {
@@ -793,6 +838,23 @@ class OverlaySelectionController {
             if (document.querySelector('.jpdb-reader-popover')) return;
             void this.gamingBridge.hideOverlay();
         });
+        this.gamepad.start();
+    }
+
+    // The reader may render words either anchored in place (geometry OCR) or inside
+    // the compact caption (text-only OCR). Both are valid gamepad targets.
+    private gamepadWordTargets(): HTMLElement[] {
+        return Array.from(this.root.querySelectorAll<HTMLElement>('[data-ocr-line] .jpdb-reader-word[data-vid][data-sid]'));
+    }
+
+    // B mirrors Escape: close the reader popover if one is open, otherwise close the
+    // whole overlay. The reader owns Escape for its own popover, so dispatch that first.
+    private handleGamepadBack(): void {
+        if (document.querySelector('.jpdb-reader-popover')) {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            return;
+        }
+        void this.gamingBridge.hideOverlay();
     }
 
     render(): void {
@@ -809,6 +871,7 @@ class OverlaySelectionController {
             </main>
         `;
         this.bind();
+        this.gamepad.reconcileFocus();
         if (!this.started) {
             this.started = true;
             void this.begin();

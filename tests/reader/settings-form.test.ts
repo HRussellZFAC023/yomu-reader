@@ -1311,6 +1311,24 @@ describe('settings form localization', () => {
         expect(normalizedTheme).toContain('ocrOverlayTheme: \'auto\'');
     });
 
+    it('renders the support banner with localized currency, a progress bar, and provider buttons', () => {
+        // Localized display: the banner prefers the Worker-provided display text
+        // and falls back to Intl.NumberFormat with the visitor's locale.
+        expect(DOCS_THEME_SOURCE).toContain('function formatHostedLocalCurrency(value: number, currency: string): string');
+        expect(DOCS_THEME_SOURCE).toContain('new Intl.NumberFormat(locale, {');
+        expect(DOCS_THEME_SOURCE).toContain('if (display?.goalText) return display.goalText;');
+        // Progress bar toward the localized monthly goal.
+        expect(DOCS_THEME_SOURCE).toContain('function renderHostedSupportProgress(status: HostedSupportStatus): HTMLElement | null');
+        expect(DOCS_THEME_SOURCE).toContain("track.setAttribute('role', 'progressbar');");
+        expect(DOCS_THEME_SOURCE).toContain("fill.className = 'yomu-support-banner-progress-fill';");
+        // Manual providers render only when the Worker reports an enabled https URL.
+        expect(DOCS_THEME_SOURCE).toContain('function renderHostedSupportProviderButtons(status: HostedSupportStatus): HTMLElement[]');
+        expect(DOCS_THEME_SOURCE).toContain("if (!provider?.enabled || provider.id === 'stripe') continue;");
+        expect(DOCS_THEME_SOURCE).toContain('const url = safeHostedHttpsUrl(provider.url);');
+        // Dismissal keeps its ~1-week reappear window.
+        expect(DOCS_THEME_SOURCE).toContain('const YOMU_SUPPORT_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1000;');
+    });
+
     it('shows Immersion Kit reveal audio autoplay enabled by default', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
