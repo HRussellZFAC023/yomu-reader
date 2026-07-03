@@ -737,7 +737,15 @@ async function run() {
             assert(state.scannedPages > 0 && state.textPdfPages === 0, 'image-backed OCR PDF should be classified as scanned, not text', state);
             assert(state.firstPageTextReason === 'image-backed-invisible-text', 'image-backed OCR PDF should be classified by its invisible text over a raster page', state);
             assert(state.hiddenTextLayers > 0, 'image-backed OCR PDF should hide the embedded OCR text layer', state);
-            assert(state.textLayerEnhancedWords === 0, 'image-backed OCR PDF should not render dense reader words/ruby into the hidden text layer', state);
+            // The scanner can transiently touch the text layer before the
+            // scanned classification hides it on loaded runners; the invariant
+            // is that enhanced words never SETTLE there.
+            await page.waitForFunction(() => {
+                const layers = [...document.querySelectorAll('.textLayer')];
+                return layers.every(layer => layer.querySelectorAll('.jpdb-reader-word, ruby').length === 0);
+            }, undefined, { timeout: 10_000 }).catch(async () => {
+                assert(false, 'image-backed OCR PDF should not render dense reader words/ruby into the hidden text layer', await readState(page));
+            });
             assert(state.ocrOnCanvases > 0 && state.ocrOffCanvases === 0, 'image-backed OCR PDF canvas should opt into Yomu OCR', state);
             assert(ocrRequests > beforeOcr, 'image-backed OCR PDF should call the configured Yomu OCR endpoint', { beforeOcr, ocrRequests, ocrPayloads, state });
             assert(state.visibleOcrLineCount > 0 && state.visibleOcrTextSample.includes(OCR_SMOKE_TEXT), 'image-backed OCR PDF should render readable OCR line targets', state);
