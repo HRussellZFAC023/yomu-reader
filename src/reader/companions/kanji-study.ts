@@ -26,6 +26,19 @@ import {
 import { handleStudyGrammarAction, renderStudyToolResult } from '../study/render-impl';
 import { openDeckPickerForCardAdd, setMiningControlsExpanded, toggleMiningControls } from '../study/mining-controls-impl';
 import { updateKanjiMiningControlsMount } from '../kanji/mining-controls-impl';
+import {
+    contextLabel,
+    createFallbackMiningContext,
+    immersionContextFromElement,
+    immersionContextFromExample,
+    inferMiningSourceKind,
+    loadMiningContext,
+    normalizeMiningSentence,
+    pageMiningContext,
+    resolveMiningContext,
+    saveMiningContext,
+} from '../study/mining-context';
+import { StudySourceController } from '../study/sources';
 
 registerYomuCompanion('kanjiStudy', {
     KanjiOriginClient,
@@ -62,4 +75,15 @@ registerYomuCompanion('kanjiStudy', {
     setMiningControlsExpanded,
     openDeckPickerForCardAdd,
     updateKanjiMiningControlsMount,
+    normalizeMiningSentence,
+    inferMiningSourceKind,
+    createFallbackMiningContext,
+    resolveMiningContext,
+    saveMiningContext,
+    loadMiningContext,
+    immersionContextFromExample,
+    immersionContextFromElement,
+    pageMiningContext,
+    contextLabel,
+    StudySourceController,
 });

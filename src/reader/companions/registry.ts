@@ -6,6 +6,7 @@ export type YoutubeImmersionFilterClass = typeof import('../subtitles/youtube').
 export type YoutubeImmersionFilterInstance = InstanceType<YoutubeImmersionFilterClass>;
 export type ImageOcrControllerClass = typeof import('../ocr/controller').ImageOcrController;
 export type NormalizeOcrRenderedTextFn = typeof import('../ocr/rendered-text').normalizeOcrRenderedText;
+export type I18nCompanion = typeof import('../app/i18n');
 export type RenderAnkiActionRowFn = typeof import('../anki/render-impl').renderAnkiActionRow;
 export type RenderAnkiExistingSectionFn = typeof import('../anki/render-impl').renderAnkiExistingSection;
 export type RenderAnkiNewCardPreviewFn = typeof import('../anki/render-impl').renderAnkiNewCardPreview;
@@ -45,6 +46,17 @@ type SetGrammarRuleKnownFn = typeof import('../study/tools-impl').setGrammarRule
 type SetKnownGrammarVisibleFn = typeof import('../study/tools-impl').setKnownGrammarVisible;
 type TranslateJapaneseSentenceFn = typeof import('../study/tools-impl').translateJapaneseSentence;
 type RenderGrammarHintsFn = typeof import('../study/tools-impl').renderGrammarHints;
+type NormalizeMiningSentenceFn = typeof import('../study/mining-context').normalizeMiningSentence;
+type InferMiningSourceKindFn = typeof import('../study/mining-context').inferMiningSourceKind;
+type CreateFallbackMiningContextFn = typeof import('../study/mining-context').createFallbackMiningContext;
+type ResolveMiningContextFn = typeof import('../study/mining-context').resolveMiningContext;
+type SaveMiningContextFn = typeof import('../study/mining-context').saveMiningContext;
+type LoadMiningContextFn = typeof import('../study/mining-context').loadMiningContext;
+type ImmersionContextFromExampleFn = typeof import('../study/mining-context').immersionContextFromExample;
+type ImmersionContextFromElementFn = typeof import('../study/mining-context').immersionContextFromElement;
+type PageMiningContextFn = typeof import('../study/mining-context').pageMiningContext;
+type ContextLabelFn = typeof import('../study/mining-context').contextLabel;
+type StudySourceControllerClass = typeof import('../study/sources').StudySourceController;
 
 interface YomuCompanionRegistry {
     anki?: {
@@ -77,6 +89,17 @@ interface YomuCompanionRegistry {
         ImageOcrController: ImageOcrControllerClass;
         normalizeOcrRenderedText?: NormalizeOcrRenderedTextFn;
     };
+    i18n?: Pick<I18nCompanion,
+        | 'CARD_STATE_LABEL_KEYS'
+        | 'audioSourceLabel'
+        | 'cardStateLabel'
+        | 'formatUiText'
+        | 'grammarRuleText'
+        | 'nextExplicitUiLanguage'
+        | 'resolveUiLanguage'
+        | 'uiList'
+        | 'uiText'
+    >;
     // ADR-0003 Kanji/Study extraction (scaffolding shipped 0.6.112; core
     // import-severing remains a follow-up lane).
     kanjiStudy?: {
@@ -114,6 +137,17 @@ interface YomuCompanionRegistry {
         setMiningControlsExpanded?: typeof import('../study/mining-controls-impl').setMiningControlsExpanded;
         openDeckPickerForCardAdd?: typeof import('../study/mining-controls-impl').openDeckPickerForCardAdd;
         updateKanjiMiningControlsMount?: typeof import('../kanji/mining-controls-impl').updateKanjiMiningControlsMount;
+        normalizeMiningSentence?: NormalizeMiningSentenceFn;
+        inferMiningSourceKind?: InferMiningSourceKindFn;
+        createFallbackMiningContext?: CreateFallbackMiningContextFn;
+        resolveMiningContext?: ResolveMiningContextFn;
+        saveMiningContext?: SaveMiningContextFn;
+        loadMiningContext?: LoadMiningContextFn;
+        immersionContextFromExample?: ImmersionContextFromExampleFn;
+        immersionContextFromElement?: ImmersionContextFromElementFn;
+        pageMiningContext?: PageMiningContextFn;
+        contextLabel?: ContextLabelFn;
+        StudySourceController?: StudySourceControllerClass;
     };
 }
 
@@ -155,6 +189,10 @@ export function yomuImageOcrController(): ImageOcrControllerClass | undefined {
 
 export function yomuNormalizeOcrRenderedText(): NormalizeOcrRenderedTextFn | undefined {
     return yomuCompanions().ocr?.normalizeOcrRenderedText;
+}
+
+export function yomuI18nCompanion(): YomuCompanionRegistry['i18n'] | undefined {
+    return yomuCompanions().i18n;
 }
 
 export function yomuKanjiStudyCompanion(): NonNullable<YomuCompanionRegistry['kanjiStudy']> | undefined {

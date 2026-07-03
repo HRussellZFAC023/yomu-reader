@@ -124,6 +124,10 @@ function readerResolveConfig(command: string) {
     const alias: Record<string, string> = {};
     if (shouldUseGreasyForkCompanions(command)) {
         alias['../companions/register-build-target'] = path.join(configRoot, 'src', 'reader', 'companions', 'register-empty.ts');
+        alias['../study/mining-context'] = path.join(configRoot, 'src', 'reader', 'study', 'mining-context-companion.ts');
+        alias['../study/sources'] = path.join(configRoot, 'src', 'reader', 'study', 'sources-companion.ts');
+        alias['../app/i18n'] = path.join(configRoot, 'src', 'reader', 'app', 'i18n-companion.ts');
+        alias['../../app/i18n'] = path.join(configRoot, 'src', 'reader', 'app', 'i18n-companion.ts');
         // Userscript + hosted reader cannot use chrome.identity, so they get the
         // serverless Google Identity Services / broker path instead of the
         // extension's background-worker sync.

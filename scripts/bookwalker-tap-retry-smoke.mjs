@@ -20,7 +20,7 @@ import { createSmokePaths, addGmStorageBridgeInitScript, YOMU_SETTINGS_KEY } fro
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
 const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST } = createSmokePaths(import.meta.dirname);
-const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video'].map(n => path.join(DIST, 'greasyfork', `${n}.user.js`));
+const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video', 'yomu-ocr-manga'].map(n => path.join(DIST, 'greasyfork', `${n}.user.js`));
 const BRIDGE = '__yomuTapRetryRequest';
 const IMG_URL = 'https://c.bookwalker.jp/scrambled/page-001.png';
 

@@ -20,7 +20,7 @@ import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib
 
 const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST, artifacts: ARTIFACTS } = createSmokePaths(import.meta.dirname);
 const ARTIFACT_DIR = path.join(ARTIFACTS, 'bookwalker-tap-passthrough');
-const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video'].map(n => path.join(DIST, 'greasyfork', `${n}.user.js`));
+const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video', 'yomu-ocr-manga'].map(n => path.join(DIST, 'greasyfork', `${n}.user.js`));
 const BRIDGE = '__yomuTapRequest';
 const IMG_URL = 'https://c.bookwalker.jp/scrambled/page-001.png';
 

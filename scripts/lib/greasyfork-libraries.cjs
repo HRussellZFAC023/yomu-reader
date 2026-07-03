@@ -18,6 +18,20 @@ const GREASY_FORK_LIBRARIES = [
     globalName: 'YomuKanjiStudyLibrary',
   },
   {
+    id: 'ocr-manga',
+    label: 'Yomu OCR/Manga',
+    entry: 'src/reader/companions/ocr-manga.ts',
+    fileName: 'yomu-ocr-manga.user.js',
+    globalName: 'YomuOcrMangaLibrary',
+  },
+  {
+    id: 'ui-copy',
+    label: 'Yomu UI Copy',
+    entry: 'src/reader/companions/ui-copy.ts',
+    fileName: 'yomu-ui-copy.user.js',
+    globalName: 'YomuUiCopyLibrary',
+  },
+  {
     id: 'settings-surface',
     label: 'Yomu Settings Surface',
     entry: 'src/reader/companions/settings-surface.ts',

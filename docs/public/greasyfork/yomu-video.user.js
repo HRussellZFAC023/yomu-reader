@@ -1,866 +1,5 @@
 (function() {
   "use strict";
-  function isBookwalkerViewerHost(hostname = location.hostname) {
-    return hostname === "bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
-  }
-  const ID_ATTR = "data-yomu-mid";
-  const MAX_OPS_PER_CANVAS = 6e3;
-  const PRUNE_KEEP = 3e3;
-  const MAX_REBUILD_DEPTH = 6;
-  const RELOAD_GUARD_KEY = "yomu:bw:mirror-loadguard";
-  const RELOAD_GUARD_WINDOW_MS = 8e3;
-  const RELOAD_GUARD_LIMIT = 4;
-  let recorderLoadGuardChecked = false;
-  let recorderLoopBroken = false;
-  let recorderInstallRetryTimer = 0;
-  let recorderInstallRetryCount = 0;
-  let recorderInstallDOMContentLoadedHooked = false;
-  const RECORDER_INSTALL_RETRY_DELAYS_MS = [0, 16, 50, 150, 400, 1e3];
-  const lastMirrorTargetSyncEpoch = /* @__PURE__ */ new Map();
-  const mirrorContentSummaryCache = /* @__PURE__ */ new Map();
-  function recorderReloadLoopDetected() {
-    if (recorderLoadGuardChecked) return recorderLoopBroken;
-    recorderLoadGuardChecked = true;
-    try {
-      const now = Date.now();
-      const prev = JSON.parse(sessionStorage.getItem(RELOAD_GUARD_KEY) || "null");
-      const next = prev && now - prev.at < RELOAD_GUARD_WINDOW_MS ? { n: prev.n + 1, at: prev.at } : { n: 1, at: now };
-      sessionStorage.setItem(RELOAD_GUARD_KEY, JSON.stringify(next));
-      recorderLoopBroken = next.n > RELOAD_GUARD_LIMIT;
-      if (recorderLoopBroken) {
-        try {
-          console.warn("[Yomu] BookWalker reload loop detected — disabling the OCR recorder injection for this load. Reload manually to retry.");
-        } catch {
-        }
-      }
-    } catch {
-      recorderLoopBroken = false;
-    }
-    return recorderLoopBroken;
-  }
-  const EPOCH_ATTR = "data-yomu-mirror-epoch";
-  const MARKER_ATTR = "data-yomu-mirror-recorder";
-  const METHOD_ATTR = "data-yomu-mirror-method";
-  const DUMP_ATTR = "data-yomu-mirror-dump";
-  const REQUEST_ATTR = "data-yomu-mirror-request";
-  const SUMMARY_REQUEST_PREFIX = "summary:";
-  const PULL_EVENT = "yomu-canvas-mirror-pull";
-  function pageWindow() {
-    return globalThis;
-  }
-  function state() {
-    const win = pageWindow();
-    return win.__yomuCanvasMirror ??= { seq: 0, nextId: 1, installed: false, records: /* @__PURE__ */ Object.create(null) };
-  }
-  function canvasId(canvas, create) {
-    const el = canvas;
-    if (el && typeof el.getAttribute === "function" && typeof el.setAttribute === "function") {
-      let id = el.getAttribute(ID_ATTR);
-      return id;
-    }
-    if (el && el.__yomuMid) return el.__yomuMid;
-    if (el && create) {
-      const id = `m${state().nextId++}`;
-      try {
-        el.__yomuMid = id;
-        return id;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  }
-  const destKey = (op) => `${op.dx},${op.dy},${op.dw},${op.dh}`;
-  function selectLatestReplayOps(ops, beforeSeq) {
-    let replaySeq = beforeSeq;
-    for (let index = ops.length - 1; index >= 0; index--) {
-      const op = ops[index];
-      if (op.seq >= replaySeq) continue;
-      if (op.clear) {
-        replaySeq = op.seq;
-        continue;
-      }
-      break;
-    }
-    return selectLatestContentOpsBefore(ops, replaySeq);
-  }
-  function selectLatestContentOpsBefore(ops, beforeSeq) {
-    const byDest = /* @__PURE__ */ new Map();
-    for (const op of ops) {
-      if (op.seq >= beforeSeq) continue;
-      if (op.clear) {
-        byDest.clear();
-        continue;
-      }
-      byDest.set(destKey(op), op);
-    }
-    return [...byDest.values()].sort((a, b) => a.seq - b.seq);
-  }
-  function collectLeafUrls(id, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
-    if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
-    const record = lookup(id);
-    if (!record) return out;
-    const next = new Set(seen).add(id);
-    for (const op of selectLatestReplayOps(record.ops, beforeSeq)) {
-      if (op.srcOps?.length) collectLeafUrlsFromSnapshot(op.srcOps, lookup, out, next, depth + 1);
-      else if (op.srcId) {
-        const before = out.size;
-        collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
-        if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
-          collectLeafUrls(op.srcId, Number.POSITIVE_INFINITY, lookup, out, next, depth + 1);
-        }
-      } else if (op.url) out.add(op.url);
-    }
-    return out;
-  }
-  function collectLeafUrlsFromSnapshot(ops, lookup, out, seen, depth) {
-    if (depth > MAX_REBUILD_DEPTH) return out;
-    for (const op of selectLatestReplayOps(ops, Number.POSITIVE_INFINITY)) {
-      if (op.srcOps?.length) collectLeafUrlsFromSnapshot(op.srcOps, lookup, out, seen, depth + 1);
-      else if (op.srcId) {
-        const before = out.size;
-        collectLeafUrls(op.srcId, op.seq, lookup, out, seen, depth + 1);
-        if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
-          collectLeafUrls(op.srcId, Number.POSITIVE_INFINITY, lookup, out, seen, depth + 1);
-        }
-      } else if (op.url) out.add(op.url);
-    }
-    return out;
-  }
-  function shouldUseLatestSourceFallback(id, beforeSeq, lookup) {
-    if (!Number.isFinite(beforeSeq)) return false;
-    const record = lookup(id);
-    if (!record?.ops.length) return false;
-    return !record.ops.some((op) => !op.clear && op.seq < beforeSeq);
-  }
-  function collectLeafContentFingerprints(id, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
-    if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
-    const record = lookup(id);
-    if (!record) return out;
-    const next = new Set(seen).add(id);
-    for (const op of selectLatestReplayOps(record.ops, beforeSeq)) {
-      if (op.srcOps?.length) {
-        collectLeafContentFingerprintsFromSnapshot(op.srcOps, lookup, out, next, depth + 1);
-      } else if (op.srcId) {
-        const before = out.size;
-        collectLeafContentFingerprints(op.srcId, op.seq, lookup, out, next, depth + 1);
-        if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
-          collectLeafContentFingerprints(op.srcId, Number.POSITIVE_INFINITY, lookup, out, next, depth + 1);
-        }
-      } else if (op.url) {
-        out.add([
-          canonicalBookwalkerAssetUrl(op.url),
-          op.sx,
-          op.sy,
-          op.sw,
-          op.sh,
-          op.dx,
-          op.dy,
-          op.dw,
-          op.dh
-        ].join(":"));
-      }
-    }
-    return out;
-  }
-  function collectLeafContentFingerprintsFromSnapshot(ops, lookup, out, seen, depth) {
-    if (depth > MAX_REBUILD_DEPTH) return out;
-    for (const op of selectLatestReplayOps(ops, Number.POSITIVE_INFINITY)) {
-      if (op.srcOps?.length) {
-        collectLeafContentFingerprintsFromSnapshot(op.srcOps, lookup, out, seen, depth + 1);
-      } else if (op.srcId) {
-        const before = out.size;
-        collectLeafContentFingerprints(op.srcId, op.seq, lookup, out, seen, depth + 1);
-        if (out.size === before && shouldUseLatestSourceFallback(op.srcId, op.seq, lookup)) {
-          collectLeafContentFingerprints(op.srcId, Number.POSITIVE_INFINITY, lookup, out, seen, depth + 1);
-        }
-      } else if (op.url) {
-        out.add([
-          canonicalBookwalkerAssetUrl(op.url),
-          op.sx,
-          op.sy,
-          op.sw,
-          op.sh,
-          op.dx,
-          op.dy,
-          op.dw,
-          op.dh
-        ].join(":"));
-      }
-    }
-    return out;
-  }
-  function markSkip(context) {
-    if (context) context.__yomuMirrorSkip = true;
-    return context;
-  }
-  function markCanvasMirrorSkip(context) {
-    if (context) context.__yomuMirrorSkip = true;
-    return context;
-  }
-  function isReadable(canvas) {
-    try {
-      markSkip(canvas.getContext("2d", { willReadFrequently: true }))?.getImageData(0, 0, 1, 1);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function rebuildById(id, beforeSeq, images, canvases, seen, depth) {
-    if (depth > MAX_REBUILD_DEPTH || seen.has(id)) return null;
-    const record = state().records[id];
-    if (!record || !record.w || !record.h) return null;
-    const ops = selectLatestReplayOps(record.ops, beforeSeq);
-    if (!ops.length) return null;
-    const out = document.createElement("canvas");
-    out.width = record.w;
-    out.height = record.h;
-    const ctx = markSkip(out.getContext("2d", { willReadFrequently: true }));
-    if (!ctx) return null;
-    seen.add(id);
-    let drew = 0;
-    for (const op of ops) {
-      let source = null;
-      if (op.srcOps?.length && op.srcW && op.srcH) {
-        source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1);
-      } else if (op.srcId) {
-        source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1) ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, (key) => state().records[key]) ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1) : null) ?? canvases.get(op.srcId) ?? null;
-      } else if (op.url) source = images.get(op.url) ?? null;
-      if (!source) continue;
-      try {
-        if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
-        else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
-        else ctx.drawImage(source, op.dx, op.dy);
-        drew++;
-      } catch {
-      }
-    }
-    return drew ? out : null;
-  }
-  function rebuildSnapshotSource(ops, width, height, images, canvases, seen, depth) {
-    if (depth > MAX_REBUILD_DEPTH || !width || !height) return null;
-    const contentOps = selectLatestReplayOps(ops, Number.POSITIVE_INFINITY);
-    if (!contentOps.length) return null;
-    const out = document.createElement("canvas");
-    out.width = width;
-    out.height = height;
-    const ctx = markSkip(out.getContext("2d", { willReadFrequently: true }));
-    if (!ctx) return null;
-    let drew = 0;
-    for (const op of contentOps) {
-      let source = null;
-      if (op.srcOps?.length && op.srcW && op.srcH) {
-        source = rebuildSnapshotSource(op.srcOps, op.srcW, op.srcH, images, canvases, new Set(seen), depth + 1);
-      } else if (op.srcId) {
-        source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1) ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, (key) => state().records[key]) ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1) : null) ?? canvases.get(op.srcId) ?? null;
-      } else if (op.url) {
-        source = images.get(op.url) ?? null;
-      }
-      if (!source) continue;
-      try {
-        if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
-        else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
-        else ctx.drawImage(source, op.dx, op.dy);
-        drew++;
-      } catch {
-      }
-    }
-    return drew ? out : null;
-  }
-  function pullPageMirrorRecords(target = state(), scope) {
-    const requestedId = typeof scope === "string" ? scope : scope ? canvasId(scope, false) ?? "" : "";
-    const parsed = requestPageMirrorPayload(requestedId);
-    if (!parsed?.records) return false;
-    mergeMirrorPayloadMetadata(target, parsed);
-    if (requestedId) {
-      let copied = false;
-      for (const [id, record] of Object.entries(parsed.records)) {
-        target.records[id] = record;
-        copied = true;
-      }
-      if (!copied) delete target.records[requestedId];
-      lastMirrorTargetSyncEpoch.set(requestedId, canvasMirrorTurnToken());
-    } else {
-      target.records = parsed.records;
-      lastMirrorTargetSyncEpoch.clear();
-    }
-    return true;
-  }
-  function pullPageMirrorContentSummary(id, target = state()) {
-    const parsed = requestPageMirrorPayload(`${SUMMARY_REQUEST_PREFIX}${id}`);
-    if (!parsed) return "";
-    mergeMirrorPayloadMetadata(target, parsed);
-    const token = parsed.summaries?.[id] ?? "";
-    const epoch = canvasMirrorTurnToken();
-    if (token) mirrorContentSummaryCache.set(id, { epoch, token });
-    else mirrorContentSummaryCache.delete(id);
-    return token;
-  }
-  function requestPageMirrorPayload(request) {
-    try {
-      const root = document.documentElement;
-      if (!root || !recorderMarkerPresent()) return null;
-      if (request) root.setAttribute(REQUEST_ATTR, request);
-      else root.removeAttribute(REQUEST_ATTR);
-      try {
-        root.dispatchEvent(new CustomEvent(PULL_EVENT));
-      } finally {
-        if (request) root.removeAttribute(REQUEST_ATTR);
-      }
-      const text = root.querySelector("[" + DUMP_ATTR + "]")?.textContent;
-      if (!text) return null;
-      return JSON.parse(text);
-    } catch {
-      return null;
-    }
-  }
-  function mergeMirrorPayloadMetadata(target, parsed) {
-    if (typeof parsed.seq === "number") target.seq = Math.max(target.seq, parsed.seq);
-    if (typeof parsed.nextId === "number") target.nextId = Math.max(target.nextId, parsed.nextId);
-    if (typeof parsed.epoch === "number") target.epoch = parsed.epoch;
-  }
-  function canvasMirrorTurnToken() {
-    try {
-      return document.documentElement?.getAttribute(EPOCH_ATTR) ?? "";
-    } catch {
-      return "";
-    }
-  }
-  function canvasMirrorContentToken(canvas) {
-    const id = canvasId(canvas, false);
-    if (!id) return "";
-    const s = state();
-    const epoch = canvasMirrorTurnToken();
-    if (recorderMarkerPresent()) {
-      const cachedSummary = mirrorContentSummaryCache.get(id);
-      if (cachedSummary && (!epoch || cachedSummary.epoch === epoch)) return cachedSummary.token;
-      const summary = pullPageMirrorContentSummary(id, s);
-      if (summary) return summary;
-    }
-    if (!s.records[id]?.ops.length || epoch && lastMirrorTargetSyncEpoch.get(id) !== epoch) {
-      pullPageMirrorRecords(s, id);
-    }
-    const content = collectLeafContentFingerprints(id, Number.POSITIVE_INFINITY, (key) => s.records[key]);
-    if (content.size) return `m:${[...content].sort().join("")}`;
-    const record = s.records[id];
-    const fingerprint = record ? operationContentFingerprint(id, record) : "";
-    return fingerprint ? `o:${fingerprint}` : "";
-  }
-  function operationContentFingerprint(id, record) {
-    const ops = selectLatestReplayOps(record.ops, Number.POSITIVE_INFINITY);
-    if (!ops.length) return "";
-    return [
-      id,
-      record.w,
-      record.h,
-      ...ops.map((op) => [
-        op.srcId ?? "",
-        canonicalBookwalkerAssetUrl(op.url),
-        op.sx,
-        op.sy,
-        op.sw,
-        op.sh,
-        op.dx,
-        op.dy,
-        op.dw,
-        op.dh
-      ].join(":"))
-    ].join("|");
-  }
-  function canonicalBookwalkerAssetUrl(rawUrl) {
-    if (!rawUrl) return "";
-    try {
-      const url = new URL(rawUrl, location.href);
-      if (isBookwalkerAssetHost(url.hostname)) {
-        url.hash = "";
-        for (const key of [...url.searchParams.keys()]) {
-          if (isVolatileSignedUrlParam(key)) url.searchParams.delete(key);
-        }
-        url.searchParams.sort();
-      }
-      return url.toString();
-    } catch {
-      return rawUrl;
-    }
-  }
-  function isBookwalkerAssetHost(hostname) {
-    return hostname === "bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
-  }
-  function isVolatileSignedUrlParam(key) {
-    const lower = key.toLowerCase();
-    return lower === "policy" || lower === "signature" || lower === "key-pair-id" || lower === "expires" || lower === "uuid" || lower === "bid" || lower === "ht" || lower === "hti" || lower === "pfcd" || lower.startsWith("x-amz-");
-  }
-  async function captureCanvasMirror(canvas, loadCleanImage) {
-    installCanvasMirrorRecorder();
-    const s = state();
-    const id = canvasId(canvas, false);
-    if (id && recorderMarkerPresent()) pullPageMirrorRecords(s, id);
-    const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, (key) => s.records[key]) : /* @__PURE__ */ new Set();
-    const images = /* @__PURE__ */ new Map();
-    if (urls.size) {
-      await Promise.all([...urls].map(async (url) => {
-        try {
-          const image = await loadCleanImage(url);
-          if (image) images.set(url, image);
-        } catch {
-        }
-      }));
-    }
-    const canvases = new Map(
-      Array.from(document.querySelectorAll(`canvas[${ID_ATTR}]`)).map((source) => [source.getAttribute(ID_ATTR) ?? "", source]).filter(([sourceId]) => sourceId)
-    );
-    const rebuilt = id ? rebuildById(id, Number.POSITIVE_INFINITY, images, canvases, /* @__PURE__ */ new Set(), 0) : null;
-    return rebuilt && isReadable(rebuilt) ? rebuilt : void 0;
-  }
-  function recorderBootstrap(win, opts) {
-    if (win.__yomuCanvasMirrorRecorder) return;
-    const HC = win.HTMLCanvasElement;
-    const OC = win.OffscreenCanvas;
-    const w2 = win;
-    if (!w2.CanvasRenderingContext2D?.prototype && !w2.OffscreenCanvasRenderingContext2D?.prototype) return;
-    const ATTR = opts.a, MAX = opts.m, KEEP = opts.k;
-    const S = win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: false, epoch: 0, records: /* @__PURE__ */ Object.create(null) };
-    const doc = win.document;
-    const root = doc && doc.documentElement;
-    let lastDrawUrl = "";
-    const bumpEpoch = (el) => {
-      if (el && el.nodeType && !el.isConnected) return;
-      S.epoch = (S.epoch || 0) + 1;
-      if (root) {
-        try {
-          root.setAttribute(opts.e, String(S.epoch));
-        } catch {
-        }
-      }
-    };
-    const isCanvas = (o) => Boolean(o) && (HC != null && o instanceof HC || OC != null && o instanceof OC);
-    const srcUrl = (o) => {
-      const m = o;
-      return m ? typeof m.currentSrc === "string" && m.currentSrc || typeof m.src === "string" && m.src || "" : "";
-    };
-    const idOf = (c, create) => {
-      const el = c;
-      if (el && typeof el.getAttribute === "function" && typeof el.setAttribute === "function") {
-        let i = el.getAttribute(ATTR);
-        if (!i && create) {
-          i = "m" + S.nextId++;
-          try {
-            el.setAttribute(ATTR, i);
-          } catch {
-            return null;
-          }
-        }
-        return i;
-      }
-      if (el && el.__yomuMid) return el.__yomuMid;
-      if (el && create) {
-        try {
-          return el.__yomuMid = "m" + S.nextId++;
-        } catch {
-          return null;
-        }
-      }
-      return null;
-    };
-    const rec = (id, w, h) => {
-      let r = S.records[id];
-      if (!r) {
-        r = { w, h, ops: [] };
-        S.records[id] = r;
-      }
-      if (w) r.w = w;
-      if (h) r.h = h;
-      if (r.ops.length >= MAX) r.ops.splice(0, r.ops.length - KEEP);
-      return r;
-    };
-    const dKey = (op) => op.dx + "," + op.dy + "," + op.dw + "," + op.dh;
-    const latestOpsBefore = (ops, beforeSeq) => {
-      const byDest = /* @__PURE__ */ new Map();
-      for (const op of ops) {
-        if (op.seq >= beforeSeq) continue;
-        if (op.clear) {
-          byDest.clear();
-          continue;
-        }
-        byDest.set(dKey(op), op);
-      }
-      return Array.from(byDest.values()).sort((a, b) => a.seq - b.seq);
-    };
-    const latestOps = (ops, beforeSeq) => {
-      let replaySeq = beforeSeq;
-      for (let index = ops.length - 1; index >= 0; index--) {
-        const op = ops[index];
-        if (!op || op.seq >= replaySeq) continue;
-        if (op.clear) {
-          replaySeq = op.seq;
-          continue;
-        }
-        break;
-      }
-      return latestOpsBefore(ops, replaySeq);
-    };
-    const snapshotOps = (id, beforeSeq, depth) => {
-      if (!id || depth > 4) return [];
-      const sourceRecord = S.records[id];
-      if (!sourceRecord) return [];
-      return latestOps(sourceRecord.ops, beforeSeq).map((sourceOp) => {
-        const copy = { ...sourceOp };
-        if (sourceOp.srcId) {
-          const nestedRecord = S.records[sourceOp.srcId];
-          if (nestedRecord) {
-            copy.srcW = nestedRecord.w;
-            copy.srcH = nestedRecord.h;
-            const nested = snapshotOps(sourceOp.srcId, sourceOp.seq, depth + 1);
-            if (nested.length) copy.srcOps = nested;
-          }
-        }
-        return copy;
-      });
-    };
-    const addSnapshotDependencies = (ops, out, seen, depth) => {
-      if (depth > 6) return;
-      for (const op of ops) {
-        if (op.srcOps?.length) addSnapshotDependencies(op.srcOps, out, seen, depth + 1);
-        else if (op.srcId) addRecordClosure(op.srcId, out, seen, depth + 1);
-      }
-    };
-    const addRecordClosure = (id, out, seen, depth) => {
-      if (!id || seen[id] || depth > 6) return;
-      const record = S.records[id];
-      if (!record) return;
-      seen[id] = true;
-      out[id] = record;
-      addSnapshotDependencies(record.ops, out, seen, depth + 1);
-    };
-    const requestedRecords = (id) => {
-      if (!id) return S.records;
-      const out = /* @__PURE__ */ Object.create(null);
-      addRecordClosure(id, out, /* @__PURE__ */ Object.create(null), 0);
-      return out;
-    };
-    const volatileSignedParam = (key) => {
-      const lower = key.toLowerCase();
-      return lower === "policy" || lower === "signature" || lower === "key-pair-id" || lower === "expires" || lower === "uuid" || lower === "bid" || lower === "ht" || lower === "hti" || lower === "pfcd" || lower.startsWith("x-amz-");
-    };
-    const canonicalUrl = (raw) => {
-      if (!raw) return "";
-      try {
-        const url = new URL(raw, win.location?.href || doc?.location?.href || "");
-        if (url.hostname === "bookwalker.jp" || url.hostname.endsWith(".bookwalker.jp")) {
-          url.hash = "";
-          for (const key of Array.from(url.searchParams.keys())) {
-            if (volatileSignedParam(key)) url.searchParams.delete(key);
-          }
-          url.searchParams.sort();
-        }
-        return url.toString();
-      } catch {
-        return raw;
-      }
-    };
-    const hashText = (value) => {
-      let hash = 2166136261;
-      for (let index = 0; index < value.length; index++) {
-        hash ^= value.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-      }
-      return (hash >>> 0).toString(36);
-    };
-    const leafFingerprint = (op) => [
-      canonicalUrl(op.url),
-      op.sx,
-      op.sy,
-      op.sw,
-      op.sh,
-      op.dx,
-      op.dy,
-      op.dw,
-      op.dh
-    ].join(":");
-    const addLeafFingerprintsFromOps = (ops, out, seen, depth) => {
-      if (depth > 6) return;
-      for (const op of latestOps(ops, Number.POSITIVE_INFINITY)) {
-        if (op.srcOps?.length) addLeafFingerprintsFromOps(op.srcOps, out, seen, depth + 1);
-        else if (op.srcId) addLeafFingerprints(op.srcId, op.seq, out, seen, depth + 1);
-        else if (op.url) out[leafFingerprint(op)] = true;
-      }
-    };
-    const addLeafFingerprints = (id, beforeSeq, out, seen, depth) => {
-      if (!id || seen[id] || depth > 6) return;
-      const record = S.records[id];
-      if (!record) return;
-      const nextSeen = { ...seen, [id]: true };
-      for (const op of latestOps(record.ops, beforeSeq)) {
-        if (op.srcOps?.length) addLeafFingerprintsFromOps(op.srcOps, out, nextSeen, depth + 1);
-        else if (op.srcId) addLeafFingerprints(op.srcId, op.seq, out, nextSeen, depth + 1);
-        else if (op.url) out[leafFingerprint(op)] = true;
-      }
-    };
-    const operationSummaryToken = (id, record) => {
-      const ops = latestOps(record.ops, Number.POSITIVE_INFINITY);
-      if (!ops.length) return "";
-      const payload = [
-        id,
-        record.w,
-        record.h,
-        ...ops.map((op) => [
-          op.srcId || "",
-          canonicalUrl(op.url),
-          op.sx,
-          op.sy,
-          op.sw,
-          op.sh,
-          op.dx,
-          op.dy,
-          op.dw,
-          op.dh
-        ].join(":"))
-      ].join("|");
-      return `o:${hashText(payload)}`;
-    };
-    const summaryToken = (id) => {
-      const record = S.records[id];
-      if (!record) return "";
-      const leafs = /* @__PURE__ */ Object.create(null);
-      addLeafFingerprints(id, Number.POSITIVE_INFINITY, leafs, /* @__PURE__ */ Object.create(null), 0);
-      const keys = Object.keys(leafs).sort();
-      if (keys.length) return `m:${hashText(keys.join(""))}`;
-      return operationSummaryToken(id, record);
-    };
-    const requestedSummaries = (id) => {
-      const out = /* @__PURE__ */ Object.create(null);
-      if (!id) return out;
-      const token = summaryToken(id);
-      if (token) out[id] = token;
-      return out;
-    };
-    const patch = (p) => {
-      if (!p) return false;
-      if (p.__yomuMirrorPatched) return true;
-      p.__yomuMirrorPatched = true;
-      const draw = p.drawImage;
-      p.drawImage = function(src) {
-        if (!this.__yomuMirrorSkip) {
-          try {
-            const cid = idOf(this.canvas, true);
-            if (cid) {
-              const r = rec(cid, this.canvas.width, this.canvas.height);
-              const a = arguments;
-              const sourceId = isCanvas(src) ? idOf(src, true) : null;
-              const o = { seq: S.seq++, srcId: sourceId, url: sourceId ? "" : srcUrl(src), sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false };
-              if (sourceId) {
-                const sourceRecord = S.records[sourceId];
-                if (sourceRecord) {
-                  o.srcW = sourceRecord.w;
-                  o.srcH = sourceRecord.h;
-                  const snapshot = snapshotOps(sourceId, o.seq, 0);
-                  if (snapshot.length) o.srcOps = snapshot;
-                }
-              }
-              if (a.length === 9) {
-                o.sx = a[1];
-                o.sy = a[2];
-                o.sw = a[3];
-                o.sh = a[4];
-                o.dx = a[5];
-                o.dy = a[6];
-                o.dw = a[7];
-                o.dh = a[8];
-              } else if (a.length === 5) {
-                o.dx = a[1];
-                o.dy = a[2];
-                o.dw = a[3];
-                o.dh = a[4];
-              } else if (a.length === 3) {
-                o.dx = a[1];
-                o.dy = a[2];
-              }
-              r.ops.push(o);
-              if (o.srcId) bumpEpoch(this.canvas);
-              else if (o.url && o.url !== lastDrawUrl) {
-                lastDrawUrl = o.url;
-                bumpEpoch(this.canvas);
-              }
-            }
-          } catch {
-          }
-        }
-        return draw.apply(this, arguments);
-      };
-      const clr = p.clearRect;
-      p.clearRect = function(x, y, w, h) {
-        if (!this.__yomuMirrorSkip) {
-          try {
-            if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) {
-              const cid = idOf(this.canvas, true);
-              if (cid) {
-                rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
-                bumpEpoch(this.canvas);
-              }
-            }
-          } catch {
-          }
-        }
-        return clr.apply(this, arguments);
-      };
-      return true;
-    };
-    const patchedCanvas = patch(w2.CanvasRenderingContext2D?.prototype);
-    const patchedOffscreen = patch(w2.OffscreenCanvasRenderingContext2D?.prototype);
-    const patched = patchedCanvas || patchedOffscreen;
-    if (!patched) return;
-    win.__yomuCanvasMirrorRecorder = true;
-    S.installed = true;
-    if (doc && root) {
-      try {
-        root.setAttribute(opts.r, "1");
-      } catch {
-      }
-      try {
-        root.addEventListener(opts.p, () => {
-          try {
-            let node = root.querySelector("[" + opts.d + "]");
-            if (!node) {
-              const created = doc.createElement("div");
-              created.setAttribute(opts.d, "1");
-              created.style.display = "none";
-              root.appendChild(created);
-              node = created;
-            }
-            const requestAttr = opts.q || "data-yomu-mirror-request";
-            const request = root.getAttribute(requestAttr) || "";
-            if (request.indexOf("summary:") === 0) {
-              node.textContent = JSON.stringify({ summaries: requestedSummaries(request.slice("summary:".length)), seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
-            } else {
-              node.textContent = JSON.stringify({ records: requestedRecords(request), seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
-            }
-          } catch {
-          }
-        });
-      } catch {
-      }
-    }
-  }
-  function recorderOpts() {
-    return { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP, e: EPOCH_ATTR, d: DUMP_ATTR, q: REQUEST_ATTR, p: PULL_EVENT, r: MARKER_ATTR };
-  }
-  function injectRecorderIntoPage(opts) {
-    const parent = document.head || document.documentElement;
-    if (!parent) return false;
-    const source = `;(${recorderBootstrap.toString()})(window, ${JSON.stringify(opts)});`;
-    try {
-      const script = document.createElement("script");
-      const nonce = [...document.querySelectorAll("script[nonce]")].map((el) => el.getAttribute("nonce")).find(Boolean);
-      if (nonce) script.setAttribute("nonce", nonce);
-      const trusted = createTrustedMirrorScript(source);
-      if (trusted) script.textContent = trusted;
-      else script.textContent = source;
-      parent.append(script);
-      script.remove();
-    } catch {
-      return false;
-    }
-    return recorderMarkerPresent() || Boolean(pageWindow().__yomuCanvasMirror?.installed);
-  }
-  function installRecorderThroughUnsafeWindow(opts) {
-    const win = userscriptUnsafeWindow();
-    if (!win) return false;
-    try {
-      recorderBootstrap(win, opts);
-    } catch {
-      return false;
-    }
-    return recorderMarkerPresent() || recorderWindowInstalled(win);
-  }
-  function userscriptUnsafeWindow() {
-    const uw = globalThis.unsafeWindow;
-    if (!uw || uw === globalThis) return null;
-    return uw;
-  }
-  function scheduleRecorderInstallRetry(hostname) {
-    if (recorderInstallRetryTimer) return;
-    const delay = RECORDER_INSTALL_RETRY_DELAYS_MS[Math.min(recorderInstallRetryCount, RECORDER_INSTALL_RETRY_DELAYS_MS.length - 1)] ?? 1e3;
-    recorderInstallRetryCount += 1;
-    recorderInstallRetryTimer = window.setTimeout(() => {
-      recorderInstallRetryTimer = 0;
-      installCanvasMirrorRecorder(hostname);
-    }, delay);
-    if (!recorderInstallDOMContentLoadedHooked && document.readyState === "loading") {
-      recorderInstallDOMContentLoadedHooked = true;
-      document.addEventListener("DOMContentLoaded", () => {
-        if (recorderAlreadyInstalled()) return;
-        if (recorderInstallRetryTimer) window.clearTimeout(recorderInstallRetryTimer);
-        recorderInstallRetryTimer = 0;
-        installCanvasMirrorRecorder(hostname);
-      }, { once: true });
-    }
-  }
-  function recorderMarkerPresent() {
-    try {
-      return document.documentElement?.getAttribute(MARKER_ATTR) === "1";
-    } catch {
-      return false;
-    }
-  }
-  function recorderAlreadyInstalled() {
-    if (recorderMarkerPresent()) return true;
-    const uw = userscriptUnsafeWindow();
-    return (uw ? recorderWindowInstalled(uw) : false) || recorderWindowInstalled(pageWindow());
-  }
-  function recorderWindowInstalled(win) {
-    try {
-      return Boolean(win.__yomuCanvasMirror?.installed);
-    } catch {
-      return false;
-    }
-  }
-  function likelyUserscriptContentSandbox() {
-    const g = globalThis;
-    return Boolean(g.unsafeWindow && g.unsafeWindow !== globalThis) || Boolean(g.GM_info || g.GM || g.GM_xmlhttpRequest);
-  }
-  function markRecorderMethod(method) {
-    try {
-      document.documentElement?.setAttribute(METHOD_ATTR, method);
-    } catch {
-    }
-  }
-  function createTrustedMirrorScript(code) {
-    try {
-      const factory = globalThis.trustedTypes;
-      if (!factory?.createPolicy) return null;
-      const policy = factory.createPolicy("yomu-canvas-mirror", { createScript: (s) => s });
-      return policy?.createScript ? policy.createScript(code) : null;
-    } catch {
-      return null;
-    }
-  }
-  function installCanvasMirrorRecorder(hostname = location.hostname) {
-    if (!isBookwalkerViewerHost(hostname)) return;
-    if (recorderAlreadyInstalled()) return;
-    if (recorderReloadLoopDetected()) return;
-    if (!document.head && !document.documentElement) {
-      scheduleRecorderInstallRetry(hostname);
-      return;
-    }
-    const opts = recorderOpts();
-    if (injectRecorderIntoPage(opts)) {
-      markRecorderMethod("script");
-      return;
-    }
-    if (document.readyState === "loading") {
-      scheduleRecorderInstallRetry(hostname);
-      return;
-    }
-    if (!likelyUserscriptContentSandbox() && installRecorderThroughUnsafeWindow(opts)) {
-      markRecorderMethod("unsafeWindow");
-      return;
-    }
-    if (likelyUserscriptContentSandbox()) return;
-    const s = state();
-    if (s.installed) return;
-    recorderBootstrap(pageWindow(), opts);
-    if (recorderAlreadyInstalled()) markRecorderMethod("current");
-  }
   const CARD_STATES = /* @__PURE__ */ new Set([
     "new",
     "learning",
@@ -931,9 +70,9 @@
     return states;
   }
   function appendNormalizedCardState(states, rawState) {
-    const state2 = normalizeCardState(rawState);
-    if (!state2 || states.includes(state2)) return;
-    states.push(state2);
+    const state = normalizeCardState(rawState);
+    if (!state || states.includes(state)) return;
+    states.push(state);
   }
   function primaryCardState(value) {
     return normalizeCardStates(value)[0] ?? "not-in-deck";
@@ -1643,7 +782,7 @@
   function gmStorageSyncRead(key, getValue) {
     try {
       const value = getValue(key, MISSING);
-      if (isPromiseLike$1(value)) return { kind: "fallback" };
+      if (isPromiseLike(value)) return { kind: "fallback" };
       if (value !== MISSING) return { kind: "found", value };
       return migratedLocalStorageSyncValue(key);
     } catch (error) {
@@ -1670,7 +809,7 @@
     if (typeof GM_setValue === "function") {
       try {
         const result = GM_setValue(key, value);
-        if (!isPromiseLike$1(result)) {
+        if (!isPromiseLike(result)) {
           mirrorManagedValueToHostedStorage(key, value);
           return;
         }
@@ -1684,7 +823,7 @@
     if (typeof GM_deleteValue === "function") {
       try {
         const result = GM_deleteValue(key);
-        if (isPromiseLike$1(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
+        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
       } catch (error) {
         debugStorageError("GM storage sync delete failed", key, error);
       }
@@ -1736,7 +875,7 @@
       return false;
     }
   }
-  function isPromiseLike$1(value) {
+  function isPromiseLike(value) {
     return Boolean(value) && typeof value.then === "function";
   }
   function asyncGmSetValue() {
@@ -2487,7 +1626,7 @@
       gradePass: "2"
     }
   };
-  function clampNumber$2(value, min, max, fallback) {
+  function clampNumber$1(value, min, max, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
   }
@@ -2524,7 +1663,7 @@
   function accessibleOcrBackgroundOpacity(opacity) {
     return Math.max(
       OCR_BACKGROUND_MIN_RENDERED_OPACITY,
-      clampNumber$2(opacity, 0, 1, DEFAULT_OCR_BACKGROUND_OPACITY)
+      clampNumber$1(opacity, 0, 1, DEFAULT_OCR_BACKGROUND_OPACITY)
     );
   }
   function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
@@ -2571,14 +1710,14 @@
   function furiganaHiddenStates(settings) {
     const states = /* @__PURE__ */ new Set();
     for (const group of settings.furiganaHiddenStateGroups) {
-      for (const state2 of FURIGANA_GROUP_STATES[group] ?? []) states.add(state2);
+      for (const state of FURIGANA_GROUP_STATES[group] ?? []) states.add(state);
     }
     return states;
   }
-  function shouldHideFuriganaForCardState(settings, state2) {
+  function shouldHideFuriganaForCardState(settings, state) {
     const mode = effectiveFuriganaMode(settings);
     if (mode === "off") return true;
-    return mode === "known-status" && furiganaHiddenStates(settings).has(state2);
+    return mode === "known-status" && furiganaHiddenStates(settings).has(state);
   }
   `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
   `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
@@ -2667,20 +1806,20 @@
     return readerCardSource(card) === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
   }
   function renderTokenHtml(surface, token, settings, miningInsightKeys) {
-    const state2 = primaryCardState(token.card.cardState);
+    const state = primaryCardState(token.card.cardState);
     const hasRuby = shouldRenderRuby(surface, token, settings);
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
     const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : "";
     const classes = [
-      readerWordClassName(state2, token, settings),
+      readerWordClassName(state, token, settings),
       hasRuby ? "jpdb-reader-has-furi" : "",
       hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
     ].filter(Boolean).join(" ");
     const source = ` data-card-source="${escapeHtml(readerCardSource(token.card))}"`;
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
-    const cardState = ` data-card-state="${escapeHtml(state2)}"`;
+    const cardState = ` data-card-state="${escapeHtml(state)}"`;
     const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
     const surfaceAttr = ` data-surface="${escapeHtml(surface)}"`;
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
@@ -2715,15 +1854,15 @@
     }
     return false;
   }
-  function readerWordClassName(state2, token, settings) {
+  function readerWordClassName(state, token, settings) {
     const classes = ["jpdb-reader-word"];
     if (isParticleCard(token.card)) {
       classes.push("jpdb-reader-particle");
     }
     if (hasKnownCardState(token.card)) {
-      classes.push(`jpdb-${state2}`);
+      classes.push(`jpdb-${state}`);
       const source = readerCardSource(token.card);
-      if (source !== "jpdb") classes.push(`${source}-${state2}`);
+      if (source !== "jpdb") classes.push(`${source}-${state}`);
     }
     classes.push(...cardDeckMembershipClassNames(token.card));
     if (settings.showPitchAccent) classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
@@ -2962,690 +2101,834 @@
   function renderKanjiNavigationText(value, options) {
     return escapeHtml(value);
   }
-  function normalizeOcrRenderedText(root) {
-    normalizeOcrRuby(root);
-    normalizeOcrPlainText(root);
+  function clampNumber(value, min, max) {
+    return Math.min(Math.max(value, min), Math.max(min, max));
   }
-  function normalizeOcrRuby(root) {
-    root.querySelectorAll("ruby").forEach((ruby) => {
-      const replacement = document.createElement("span");
-      replacement.className = "jpdb-ocr-ruby";
-      const furi = document.createElement("span");
-      furi.className = "jpdb-ocr-furi";
-      furi.dataset.jpdbReaderSurfaceIgnore = "true";
-      furi.setAttribute("aria-hidden", "true");
-      const base = document.createElement("span");
-      base.className = "jpdb-ocr-ruby-base";
-      const baseText = document.createElement("span");
-      baseText.className = "jpdb-ocr-ruby-base-text";
-      for (const child of Array.from(ruby.childNodes)) {
-        if (child instanceof HTMLElement && child.tagName === "RT") {
-          furi.textContent += child.textContent ?? "";
-        } else if (!(child instanceof HTMLElement && child.tagName === "RP")) {
-          baseText.append(child.cloneNode(true));
-        }
+  const ACTIVE_CUE_START_TOLERANCE_SECONDS = 0.05;
+  const ACTIVE_CUE_END_GRACE_SECONDS = 0.12;
+  const MIN_SUBTITLE_CUE_DURATION_SECONDS = 0.12;
+  function normalizeSubtitleCues(cues, options = {}) {
+    const normalized = [];
+    for (const cue of cues) normalized.push(...normalizedSubtitleCueParts(cue, options));
+    return normalized.sort((a, b) => a.start - b.start);
+  }
+  const HAS_CUE_WORD_CONTENT_RE = /[\p{L}\p{N}]/u;
+  function normalizedSubtitleCueParts(cue, options) {
+    const base = normalizedSubtitleCueBase(cue, options);
+    if (!base) return [];
+    if (!HAS_CUE_WORD_CONTENT_RE.test(base.text)) return [];
+    const sentenceParts = mergePunctuationOnlyCueParts(splitCueDisplayText(base.text));
+    if (sentenceParts.length <= 1) return [{ ...base, transcriptEligible: base.transcriptEligible }];
+    const timedParts = distributeCueParts(base, sentenceParts);
+    const normalized = timedParts.map((part) => normalizedSubtitleCuePart(base, part));
+    return normalized.length ? normalized : [{ ...base, transcriptEligible: base.transcriptEligible }];
+  }
+  function normalizedSubtitleCueBase(cue, options) {
+    const text = normalizeCaptionText(cue.text);
+    if (!hasUsableSubtitleCueBounds(cue, text)) return null;
+    const end = Math.max(cue.end, cue.start + MIN_SUBTITLE_CUE_DURATION_SECONDS);
+    const words = exactSubtitleWords(cue, cue.start, end);
+    return {
+      ...cue,
+      text,
+      start: cue.start,
+      end,
+      originalText: cue.originalText ?? text,
+      words,
+      wordTimingsExact: Boolean(words?.length),
+      transcriptEligible: options.transcriptEligible ?? cue.transcriptEligible ?? true
+    };
+  }
+  function hasUsableSubtitleCueBounds(cue, text) {
+    return Boolean(text && Number.isFinite(cue.start) && Number.isFinite(cue.end));
+  }
+  function normalizedSubtitleCuePart(base, part) {
+    const partWords = sliceCueWords(base, part.start, part.end);
+    return {
+      start: part.start,
+      end: part.end,
+      text: part.text,
+      originalText: base.originalText,
+      words: partWords,
+      wordTimingsExact: Boolean(partWords?.length),
+      transcriptEligible: base.transcriptEligible
+    };
+  }
+  function mergePunctuationOnlyCueParts(parts) {
+    const merged = [];
+    for (const part of parts) {
+      if (merged.length && !HAS_CUE_WORD_CONTENT_RE.test(part)) {
+        merged[merged.length - 1] += part;
+      } else {
+        merged.push(part);
       }
-      base.append(furi, baseText);
-      replacement.append(base);
-      ruby.replaceWith(replacement);
+    }
+    return merged;
+  }
+  function splitCueDisplayText(text) {
+    const normalized = normalizeCaptionText(text);
+    if (!normalized) return [];
+    const sentenceParts = splitSentencesByPunctuation(normalized);
+    if (sentenceParts.length > 1) return sentenceParts;
+    if (displayTextWeight(normalized) <= 38) return [normalized];
+    return splitOverlongCue(normalized);
+  }
+  function splitSentencesByPunctuation(text) {
+    const parts = [];
+    let start = 0;
+    let offset = 0;
+    for (const char of Array.from(text)) {
+      offset += char.length;
+      const end = subtitleSentenceBoundaryEnd(text, char, offset);
+      if (end === null) continue;
+      offset = end;
+      pushSubtitleSentencePart(parts, text, start, offset);
+      start = offset;
+    }
+    pushSubtitleSentencePart(parts, text, start, text.length);
+    return parts.length ? parts : [text];
+  }
+  function subtitleSentenceBoundaryEnd(text, char, offset) {
+    if (!isSubtitleSentencePunctuation(char)) return null;
+    return consumeClosingSubtitlePunctuation(text, offset);
+  }
+  function isSubtitleSentencePunctuation(char) {
+    return /[。！？!?]/u.test(char);
+  }
+  function consumeClosingSubtitlePunctuation(text, offset) {
+    let end = offset;
+    while (end < text.length && isSubtitleSentenceCloser(text[end])) end++;
+    return end;
+  }
+  function isSubtitleSentenceCloser(char) {
+    return /["'」』）\]]/u.test(char);
+  }
+  function pushSubtitleSentencePart(parts, text, start, end) {
+    const part = text.slice(start, end).trim();
+    if (part) parts.push(part);
+  }
+  function splitOverlongCue(text) {
+    const parts = [];
+    const tokens = overlongCueTokens(text);
+    let current = "";
+    for (const token of tokens) {
+      if (shouldFlushOverlongCuePart(current, token)) {
+        parts.push(current.trim());
+        current = token.trimStart();
+      } else {
+        current += token;
+      }
+    }
+    if (current.trim()) parts.push(current.trim());
+    return splitCuePartsOrOriginal(parts, text);
+  }
+  function overlongCueTokens(text) {
+    return text.includes(" ") ? text.split(/(\s+)/u).filter(Boolean) : Array.from(text);
+  }
+  function shouldFlushOverlongCuePart(current, token) {
+    return displayTextWeight(current + token) > 32 && Boolean(current.trim());
+  }
+  function splitCuePartsOrOriginal(parts, text) {
+    return parts.length > 1 ? parts : [text];
+  }
+  function distributeCueParts(cue, parts) {
+    const duration = Math.max(0.12, cue.end - cue.start);
+    const weights = parts.map((part) => Math.max(1, displayTextWeight(part)));
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0) || parts.length;
+    let cursor = cue.start;
+    return parts.map((part, index) => {
+      const partDuration = index === parts.length - 1 ? cue.end - cursor : duration * (weights[index] / totalWeight);
+      const start = cursor;
+      const end = index === parts.length - 1 ? cue.end : Math.min(cue.end, cursor + Math.max(0.12, partDuration));
+      cursor = end;
+      return { text: part, start, end: Math.max(end, start + 0.12) };
     });
   }
-  function normalizeOcrPlainText(root) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) => {
-        const parent = node.parentElement;
-        if (!parent) return NodeFilter.FILTER_REJECT;
-        if (!node.textContent?.trim()) return NodeFilter.FILTER_REJECT;
-        if (parent.classList.contains("jpdb-ocr-furi") || parent.classList.contains("jpdb-ocr-ruby-base")) return NodeFilter.FILTER_REJECT;
-        return parent === root || parent.classList.contains("jpdb-reader-word") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+  function exactSubtitleWords(cue, start, end) {
+    if (!cue.wordTimingsExact || !cue.words?.length) return void 0;
+    const words = cue.words.filter((word) => word.text.trim() && Number.isFinite(word.start) && Number.isFinite(word.end) && word.end > start && word.start < end).map((word) => ({ ...word, start: clampNumber(word.start, start, end), end: clampNumber(word.end, start, end) })).filter((word) => word.end > word.start);
+    return words.length ? words : void 0;
+  }
+  function sliceCueWords(cue, start, end) {
+    return exactSubtitleWords(cue, start, end);
+  }
+  function renderKaraokeTextParts(text, progress) {
+    const chars = Array.from(text);
+    const split = clampNumber(Math.round(progress), 0, chars.length);
+    const past = chars.slice(0, split).join("");
+    const current = chars.slice(split, split + 1).join("");
+    const upcoming = chars.slice(split + 1).join("");
+    return [
+      past ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-spoken">${escapeHtml(past)}</span>` : "",
+      current ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-current">${escapeHtml(current)}</span>` : "",
+      upcoming ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-pending">${escapeHtml(upcoming)}</span>` : ""
+    ].join("");
+  }
+  function karaokeCharacterProgress(cue, words, time) {
+    const total = compactTextLength(cue.text);
+    const edgeProgress = karaokeEdgeProgress(cue, time, total);
+    if (edgeProgress !== null) return edgeProgress;
+    return karaokeTimedWordProgress(sortedSubtitleWords(words), total, time);
+  }
+  function karaokeEdgeProgress(cue, time, total) {
+    if (!total) return 0;
+    if (time <= cue.start) return 0;
+    if (time >= cue.end) return total;
+    return null;
+  }
+  function sortedSubtitleWords(words) {
+    return [...words].filter(hasUsableSubtitleWordTiming).sort((a, b) => a.start - b.start);
+  }
+  function hasUsableSubtitleWordTiming(word) {
+    return Boolean(word.text.trim() && Number.isFinite(word.start) && Number.isFinite(word.end));
+  }
+  function karaokeTimedWordProgress(words, total, time) {
+    let cursor = 0;
+    for (const word of words) {
+      const length = compactTextLength(word.text);
+      if (!length) continue;
+      if (time >= word.end) {
+        cursor += length;
+        continue;
       }
+      if (time <= word.start) return Math.min(total, cursor);
+      return karaokeProgressInsideWord(total, cursor, length, word, time);
+    }
+    return Math.min(total, cursor);
+  }
+  function karaokeProgressInsideWord(total, cursor, length, word, time) {
+    const ratio = clampNumber((time - word.start) / Math.max(0.04, word.end - word.start), 0, 1);
+    return Math.min(total, cursor + Math.max(1, Math.floor(length * ratio)));
+  }
+  function compactTextLength(text) {
+    return Array.from(text.replace(/\s+/gu, "")).length;
+  }
+  function displayTextWeight(text) {
+    return compactTextLength(text);
+  }
+  function parseVttCuePayload(raw, cueStart, cueEnd) {
+    const timestampPattern = /<((?:(?:\d+:)?\d{2}:)?\d{2}[,.]\d{3})>/g;
+    const markers = vttTimestampMarkers(raw, timestampPattern);
+    const text = vttCueTextWithoutMarkers(raw, timestampPattern);
+    if (!markers.length) return { text };
+    return vttCuePayloadWithMarkers(raw, timestampPattern, markers, text, cueStart, cueEnd);
+  }
+  function vttCuePayloadWithMarkers(raw, timestampPattern, markers, text, cueStart, cueEnd) {
+    const words = [];
+    for (let index = 0; index < markers.length; index++) {
+      const markerWord = vttMarkerWord(raw, timestampPattern, markers, index);
+      if (!markerWord) continue;
+      if (/\s/u.test(markerWord.text)) return { text };
+      words.push(vttWordTiming(markerWord, cueStart, cueEnd));
+    }
+    return { text, words: words.length ? words : void 0, wordTimingsExact: Boolean(words.length) };
+  }
+  function vttTimestampMarkers(raw, timestampPattern) {
+    const markers = [];
+    raw.replace(timestampPattern, (match, rawTime, index) => {
+      appendVttTimestampMarker(markers, match, rawTime, index);
+      return match;
     });
-    const textNodes = [];
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (node instanceof Text) textNodes.push(node);
-    }
-    for (const textNode of textNodes) {
-      const replacement = document.createElement("span");
-      replacement.className = "jpdb-ocr-plain";
-      replacement.textContent = textNode.textContent ?? "";
-      textNode.replaceWith(replacement);
-    }
+    return markers;
   }
-  const STORE_KEY = "yomu-ocr-cache-v1";
-  const MAX_ENTRIES = 300;
-  const MAX_BYTES = 15e5;
-  const PERSIST_DELAY_MS = 1200;
-  function storage() {
+  function appendVttTimestampMarker(markers, match, rawTime, index) {
+    const time = parseSubtitleTime(rawTime.includes(":") ? rawTime : `00:${rawTime}`);
+    if (Number.isFinite(time)) markers.push({ time, index, endIndex: index + match.length });
+  }
+  function vttCueTextWithoutMarkers(raw, timestampPattern) {
+    return raw.replace(timestampPattern, "").replace(/<[^>]+>/g, "").trim();
+  }
+  function vttMarkerWord(raw, timestampPattern, markers, index) {
+    const marker = markers[index];
+    const next = markers[index + 1];
+    const segmentRaw = raw.slice(marker.endIndex, next?.index ?? raw.length).replace(timestampPattern, "").replace(/<[^>]+>/g, "");
+    const segmentText = segmentRaw.trim();
+    return segmentText ? { text: segmentText, start: marker.time, end: next?.time ?? Number.POSITIVE_INFINITY } : null;
+  }
+  function vttWordTiming(markerWord, cueStart, cueEnd) {
+    const start = clampNumber(markerWord.start, cueStart, cueEnd);
+    const end = clampNumber(markerWord.end, cueStart, cueEnd);
+    return { text: markerWord.text, start, end: Math.max(start + 0.04, end) };
+  }
+  function parseSubtitleText(text, options = {}) {
+    const normalizedText = text.replace(/^\uFEFF/, "");
+    return parseKnownSubtitleText(normalizedText, options) ?? parseVttSubtitleText(normalizedText, options);
+  }
+  function parseKnownSubtitleText(text, options) {
+    const youtubeJson = parseYouTubeJson3SubtitleText(text, options);
+    if (youtubeJson.length) return youtubeJson;
+    const youtubeXml = parseYouTubeXmlSubtitleText(text, options);
+    if (youtubeXml.length) return youtubeXml;
+    return looksLikeAssSubtitleText(text) ? parseAssSubtitleText(text) : void 0;
+  }
+  function looksLikeAssSubtitleText(text) {
+    return /^\s*\[Script Info\]/im.test(text) || /^\s*Dialogue:/im.test(text);
+  }
+  function parseVttSubtitleText(text, options) {
+    const cues = text.replace(/\r/g, "").replace(/^WEBVTT.*?\n\n/s, "").split(/\n{2,}/).map((block) => block.trim()).filter(Boolean).map(readVttCueBlock).filter((cue) => Boolean(cue));
+    const sorted = cues.sort((a, b) => a.start - b.start);
+    return options.smoothYouTubeFragments ? smoothFragmentedYouTubeCues(sorted) : sorted;
+  }
+  function readVttCueBlock(block) {
+    const lines = block.split("\n").filter(Boolean);
+    const timeIndex = lines.findIndex((line) => line.includes("-->"));
+    if (timeIndex < 0) return null;
+    const [startRaw, endRaw] = lines[timeIndex].split("-->").map((part) => part.trim().split(/\s+/)[0]);
+    const start = parseSubtitleTime(startRaw);
+    const end = parseSubtitleTime(endRaw);
+    const payload = parseVttCuePayload(lines.slice(timeIndex + 1).join("\n"), start, end);
+    return Number.isFinite(start) && Number.isFinite(end) && payload.text ? { start, end, text: payload.text, words: payload.words, wordTimingsExact: payload.wordTimingsExact } : null;
+  }
+  function parseYouTubeJson3SubtitleText(text, options = {}) {
+    if (!/^\s*\{/.test(text)) return [];
     try {
-      return typeof localStorage !== "undefined" ? localStorage : null;
+      const parsed = JSON.parse(text);
+      const sorted = parseYouTubeJson3Events(parsed.events ?? [], options);
+      return smoothFragmentedYouTubeCues(normalizeYouTubeAutoCaptionTiming(sorted, options.youtubeAutoGenerated === true));
     } catch {
-      return null;
+      return [];
     }
   }
-  function isPersistableOcrCacheKey(key) {
-    return !key.startsWith("data:") && !key.startsWith("blob:");
+  function parseYouTubeJson3Events(events, options) {
+    return events.map((event) => readYouTubeJson3Cue(event, options)).filter((cue) => Boolean(cue)).sort((a, b) => a.start - b.start);
   }
-  function isPersistableOcrCacheEntry(key, result) {
-    if (!isPersistableOcrCacheKey(key)) return false;
-    if (result === null && (key.startsWith("cv:") || key.startsWith("src:"))) return false;
-    return true;
+  function readYouTubeJson3Cue(event, options) {
+    const start = Number(event.tStartMs ?? Number.NaN) / 1e3;
+    const duration = Number(event.dDurationMs ?? 0) / 1e3;
+    const end = start + Math.max(duration, 0.75);
+    const text = youtubeJson3CueText(event.segs ?? []);
+    if (!isUsableYouTubeJson3Cue(start, end, text)) return null;
+    const words = options.youtubeAutoGenerated ? void 0 : youtubeJson3WordTimings(event.segs ?? [], start, end);
+    return { start, end, text, words, wordTimingsExact: Boolean(words?.length) };
   }
-  function loadPersistedOcrCache() {
-    const map = /* @__PURE__ */ new Map();
-    const store = storage();
-    if (!store) return map;
+  function youtubeJson3CueText(segs) {
+    return segs.map((seg) => seg.utf8 ?? "").join("").replace(/\s+/g, " ").trim();
+  }
+  function isUsableYouTubeJson3Cue(start, end, text) {
+    return Number.isFinite(start) && Number.isFinite(end) && Boolean(text);
+  }
+  function youtubeJson3WordTimings(segs, cueStart, cueEnd) {
+    const visible = segs.map((seg) => ({ text: seg.utf8 ?? "", offset: Number(seg.tOffsetMs) })).filter((seg) => seg.text.trim());
+    const timed = visible.filter((seg) => Number.isFinite(seg.offset) && !/\s/u.test(seg.text.trim()));
+    if (!timed.length || timed.length !== visible.length) return void 0;
+    return timed.map((seg, index) => {
+      const nextOffset = timed[index + 1]?.offset;
+      const start = cueStart + seg.offset / 1e3;
+      const end = nextOffset === void 0 ? cueEnd : cueStart + nextOffset / 1e3;
+      return { text: seg.text, start: clampNumber(start, cueStart, cueEnd), end: clampNumber(end, cueStart, cueEnd) };
+    }).filter((word) => word.end > word.start);
+  }
+  function parseYouTubeXmlSubtitleText(text, options = {}) {
+    if (!looksLikeYouTubeXmlSubtitleText(text)) return [];
     try {
-      const raw = store.getItem(STORE_KEY);
-      if (!raw) return map;
-      const parsed = JSON.parse(raw);
-      for (const [key, entry] of Object.entries(parsed).sort((a, b) => (a[1]?.at ?? 0) - (b[1]?.at ?? 0))) {
-        const result = entry?.r ?? null;
-        if (!isPersistableOcrCacheEntry(key, result)) continue;
-        map.set(key, result);
-      }
+      const document2 = parseXmlDocument(text, "text/xml");
+      const srv3 = parseYouTubeSrv3Rows(document2, options);
+      const cues = [
+        ...parseYouTubeTimedTextElements(document2),
+        ...parseYouTubeTtmlParagraphs(document2),
+        ...srv3.cues
+      ];
+      const sorted = cues.sort((a, b) => a.start - b.start);
+      const autoGenerated = isYouTubeXmlAutoGenerated(options, srv3, sorted);
+      const normalized = normalizeYouTubeAutoCaptionTiming(sorted, autoGenerated);
+      return autoGenerated ? normalized : smoothFragmentedYouTubeCues(normalized);
     } catch {
-      try {
-        store.removeItem(STORE_KEY);
-      } catch {
-      }
-    }
-    return map;
-  }
-  let persistTimer;
-  let pendingCache;
-  let pendingNow = 0;
-  let flushListenersInstalled = false;
-  function persistOcrCacheSoon(cache, now) {
-    if (!storage()) return;
-    installFlushListeners();
-    pendingCache = cache;
-    pendingNow = now;
-    if (persistTimer) clearTimeout(persistTimer);
-    persistTimer = setTimeout(() => {
-      flushPersistedOcrCache();
-    }, PERSIST_DELAY_MS);
-  }
-  function flushPersistedOcrCache() {
-    if (persistTimer) {
-      clearTimeout(persistTimer);
-      persistTimer = void 0;
-    }
-    const cache = pendingCache;
-    if (!cache) return;
-    const now = pendingNow || Date.now();
-    pendingCache = void 0;
-    pendingNow = 0;
-    writeOcrCache(cache, now);
-  }
-  function installFlushListeners() {
-    if (flushListenersInstalled) return;
-    flushListenersInstalled = true;
-    try {
-      if (typeof window !== "undefined") {
-        window.addEventListener("pagehide", flushPersistedOcrCache, { capture: true });
-      }
-      if (typeof document !== "undefined") {
-        document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "hidden") flushPersistedOcrCache();
-        }, { capture: true });
-      }
-    } catch {
+      return [];
     }
   }
-  function writeOcrCache(cache, now) {
-    const store = storage();
-    if (!store) return;
-    try {
-      const keys = [...cache.keys()].filter(isPersistableOcrCacheKey).reverse().slice(0, MAX_ENTRIES);
-      const out = {};
-      let bytes = 0;
-      for (const key of keys) {
-        const result = cache.get(key) ?? null;
-        if (!isPersistableOcrCacheEntry(key, result)) continue;
-        const serialized = JSON.stringify(result);
-        bytes += key.length + serialized.length + 24;
-        if (bytes > MAX_BYTES) break;
-        out[key] = { r: result, at: now };
-      }
-      store.setItem(STORE_KEY, JSON.stringify(out));
-    } catch {
+  function looksLikeYouTubeXmlSubtitleText(text) {
+    return /^\s*</.test(text) && /(<text\b|<p\b)/i.test(text);
+  }
+  function isYouTubeXmlAutoGenerated(options, srv3, cues) {
+    return options.youtubeAutoGenerated === true || srv3.sawLineBoundary || looksLikeOverlappingAutoGeneratedCues(cues);
+  }
+  function parseYouTubeTimedTextElements(document2) {
+    return Array.from(document2.querySelectorAll("text[start]")).map(readYouTubeTimedTextCue).filter((cue) => Boolean(cue));
+  }
+  function readYouTubeTimedTextCue(element) {
+    const start = Number(element.getAttribute("start"));
+    const duration = Number(element.getAttribute("dur") ?? 0);
+    const text = normalizeCaptionText(element.textContent ?? "");
+    return Number.isFinite(start) && text ? { start, end: start + Math.max(duration, 0.75), text } : null;
+  }
+  function parseYouTubeTtmlParagraphs(document2) {
+    return Array.from(document2.querySelectorAll("p[begin]")).map(readYouTubeTtmlCue).filter((cue) => Boolean(cue));
+  }
+  function readYouTubeTtmlCue(element) {
+    const start = parseSubtitleClockValue(element.getAttribute("begin") ?? "");
+    const end = parseSubtitleClockValue(element.getAttribute("end") ?? "");
+    const text = normalizeCaptionText(element.textContent ?? "");
+    return Number.isFinite(start) && Number.isFinite(end) && text ? { start, end, text } : null;
+  }
+  function parseYouTubeSrv3Rows(document2, options) {
+    const rows = Array.from(document2.querySelectorAll("p[t], p[_t]"));
+    let sawLineBoundary = false;
+    const cues = [];
+    for (let index = 0; index < rows.length; index++) {
+      const result = readYouTubeSrv3Row(rows[index], rows[index + 1], options);
+      sawLineBoundary ||= result.sawLineBoundary;
+      if (result.cue) cues.push(result.cue);
     }
+    return { cues, sawLineBoundary };
   }
-  const PAGE_COUNTER_SELECTOR = "#pageSliderCounter";
-  const CURRENT_SCREEN_CLASS = "currentScreen";
-  const CURRENT_SCREEN_SELECTOR = `.${CURRENT_SCREEN_CLASS}`;
-  const VIEWPORT_CONTAINER_SELECTOR = '[id^="viewport"]';
-  const BW_VERTICAL_SURFACE_SELECTOR = '.canvasRoot.verticalAxis[id], [id^="wideScreen"][id]';
-  const CANVAS_READER_HOST_PATTERNS = [
-    /(^|\.)bookwalker\.jp$/i,
-    /(^|\.)comic-walker\.com$/i
-  ];
-  const BACKGROUND_IMAGE_READER_HOST_PATTERNS = [
-    /(^|\.)mokuro\.app$/i
-  ];
-  const BACKGROUND_IMAGE_READER_SELECTOR = [
-    "[data-page-index]",
-    '[style*="background-image"]',
-    '[style*="background:"][style*="url("]'
-  ].join(",");
-  const MIN_PAGE_CANVAS_DIMENSION = 600;
-  const MIN_PAGE_CANVAS_ASPECT = 0.3;
-  const MAX_PAGE_CANVAS_ASPECT = 3.2;
-  const MIN_RENDERED_DIMENSION = 200;
-  const VIEWPORT_COVERAGE_FRACTION = 0.4;
-  const VIEWPORT_AREA_FRACTION = 0.18;
-  const CONTENT_SAMPLE_SIZE = 20;
-  const MIN_CONTENT_CONTRAST = 36;
-  const MIN_CONTENT_BUCKETS = 3;
-  const MIN_OPAQUE_FRACTION = 0.5;
-  function isKnownCanvasReaderHost(hostname = location.hostname) {
-    return CANVAS_READER_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
+  function readYouTubeSrv3Row(element, nextElement, options) {
+    const timing = youtubeSrv3Timing(element, nextElement);
+    const words = youtubeSrv3Words(element, timing, options);
+    const text = youtubeSrv3CueText(element, words);
+    return {
+      cue: Number.isFinite(timing.start) && text ? youtubeSrv3Cue(timing, text, words) : null,
+      sawLineBoundary: Number.isFinite(timing.nextLineBoundary)
+    };
   }
-  function isKnownBackgroundImageReaderHost(hostname = location.hostname) {
-    return BACKGROUND_IMAGE_READER_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
+  function youtubeSrv3Timing(element, nextElement) {
+    const startMs = Number(youtubeSrv3StartAttribute(element));
+    const durationMs = Number(element.getAttribute("d") ?? element.getAttribute("_d") ?? 0);
+    const start = startMs / 1e3;
+    const nextLineBoundary = youtubeSrv3LineBoundaryTime(nextElement);
+    const rawEnd = start + Math.max(durationMs / 1e3, 0.75);
+    return {
+      start,
+      end: youtubeSrv3CueEnd(start, rawEnd, nextLineBoundary),
+      nextLineBoundary
+    };
   }
-  function hasPageShape(canvas) {
-    const { width, height } = canvas;
-    if (width < MIN_PAGE_CANVAS_DIMENSION || height < MIN_PAGE_CANVAS_DIMENSION) return false;
-    const aspect = width / height;
-    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
+  function youtubeSrv3CueEnd(start, rawEnd, nextLineBoundary) {
+    return Number.isFinite(nextLineBoundary) && nextLineBoundary > start ? Math.min(rawEnd, nextLineBoundary) : rawEnd;
   }
-  function hasRenderedPageShape(rect) {
-    if (rect.width < MIN_RENDERED_DIMENSION || rect.height < MIN_RENDERED_DIMENSION) return false;
-    const aspect = rect.width / rect.height;
-    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
+  function youtubeSrv3Words(element, timing, options) {
+    return shouldReadYouTubeSrv3WordTimings(options, timing.nextLineBoundary) ? parseYouTubeSrv3WordNodes(element, timing.start, timing.end) : [];
   }
-  function isViewportProminent(element) {
-    const rect = element.getBoundingClientRect();
-    if (rect.width < MIN_RENDERED_DIMENSION || rect.height < MIN_RENDERED_DIMENSION) return false;
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
-    const coversAxis = rect.width >= viewportWidth * VIEWPORT_COVERAGE_FRACTION || rect.height >= viewportHeight * VIEWPORT_COVERAGE_FRACTION;
-    const coversArea = rect.width * rect.height >= viewportWidth * viewportHeight * VIEWPORT_AREA_FRACTION;
-    return coversAxis && coversArea;
+  function shouldReadYouTubeSrv3WordTimings(options, nextLineBoundary) {
+    return !options.youtubeAutoGenerated && !Number.isFinite(nextLineBoundary);
   }
-  function sampleCanvasContent(canvas) {
-    try {
-      const sample = document.createElement("canvas");
-      sample.width = CONTENT_SAMPLE_SIZE;
-      sample.height = CONTENT_SAMPLE_SIZE;
-      const context = markCanvasMirrorSkip(sample.getContext("2d", { willReadFrequently: true }));
-      if (!context) return null;
-      context.drawImage(
-        canvas,
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-        0,
-        0,
-        CONTENT_SAMPLE_SIZE,
-        CONTENT_SAMPLE_SIZE
-      );
-      const { data } = context.getImageData(0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
-      const buckets = /* @__PURE__ */ new Set();
-      let min = 255;
-      let max = 0;
-      let hash = 2166136261;
-      let opaque = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i + 3] < 8) continue;
-        opaque++;
-        const luminance = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114 | 0;
-        if (luminance < min) min = luminance;
-        if (luminance > max) max = luminance;
-        buckets.add(luminance >> 4);
-        hash ^= luminance;
-        hash = Math.imul(hash, 16777619) >>> 0;
-      }
-      return { buckets: buckets.size, contrast: max - min, hash, opaque };
-    } catch {
-      return null;
-    }
+  function youtubeSrv3CueText(element, words) {
+    return normalizeCaptionText(words.length ? words.map((word) => word.text).join("") : element.textContent ?? "");
   }
-  function looksLikeRenderedCanvasImage(canvas) {
-    return Boolean(canvasRenderedContentSignature(canvas));
+  function youtubeSrv3Cue(timing, text, words) {
+    return {
+      start: timing.start,
+      end: timing.end,
+      text,
+      words: words.length ? words : void 0,
+      wordTimingsExact: Boolean(words.length)
+    };
   }
-  function canvasRenderedContentSignature(canvas) {
-    const sample = sampleCanvasContent(canvas);
-    if (!sample) return void 0;
-    if (sample.opaque < CONTENT_SAMPLE_SIZE * CONTENT_SAMPLE_SIZE * MIN_OPAQUE_FRACTION) return void 0;
-    if (sample.contrast < MIN_CONTENT_CONTRAST || sample.buckets < MIN_CONTENT_BUCKETS) return void 0;
-    return `${sample.hash.toString(36)}:${sample.contrast}:${sample.buckets}`;
+  function youtubeSrv3LineBoundaryTime(element) {
+    if (!element) return Number.NaN;
+    if (!isYouTubeSrv3LineBoundaryText(element.textContent ?? "")) return Number.NaN;
+    const startMs = Number(youtubeSrv3StartAttribute(element));
+    return Number.isFinite(startMs) ? startMs / 1e3 : Number.NaN;
   }
-  function isLikelyPageCanvas(canvas, lenient) {
-    if (shouldForceCanvasReaderSurface(canvas)) return hasForcedCanvasReaderShape(canvas);
-    if (!hasPageShape(canvas)) return false;
-    if (lenient) return true;
-    return isViewportProminent(canvas) && looksLikeRenderedCanvasImage(canvas);
+  function isYouTubeSrv3LineBoundaryText(text) {
+    return text === "\n" || !text.trim();
   }
-  function pageCanvases(hostname = location.hostname, options = {}) {
-    const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
-    const canvases = Array.from(document.querySelectorAll("canvas")).filter((canvas) => !shouldSkipCanvasReaderSurface(canvas)).filter(isVisibleCanvasReaderSurface).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
-    if (!isBookwalkerViewerHost(hostname) || options.preferBookwalkerCurrent === false) return canvases;
-    const continuousScroll = bookwalkerContinuousScrollCanvases(canvases, hostname);
-    return continuousScroll.length ? continuousScroll : preferCurrentScreenCanvases(canvases);
+  function youtubeSrv3StartAttribute(element) {
+    return element.getAttribute("t") ?? element.getAttribute("_t");
   }
-  function shouldSkipCanvasReaderSurface(canvas) {
-    const mode = canvasOcrMode(canvas);
-    return mode === "off" || mode === "manual";
-  }
-  function isVisibleCanvasReaderSurface(canvas) {
-    if (canvas.hidden || canvas.getAttribute("aria-hidden") === "true") return false;
-    const style = getComputedStyle(canvas);
-    if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return false;
-    if (Number(style.opacity || "1") <= 0) return false;
-    return true;
-  }
-  function shouldForceCanvasReaderSurface(canvas) {
-    return canvasOcrMode(canvas) === "on";
-  }
-  function isManualCanvasReaderSurface(canvas) {
-    return canvasOcrMode(canvas) === "manual" && isVisibleCanvasReaderSurface(canvas) && isLikelyPageCanvas(canvas, true);
-  }
-  function canvasOcrMode(canvas) {
-    return canvas.dataset.yomuCanvasOcr || canvas.closest("[data-yomu-canvas-ocr]")?.dataset.yomuCanvasOcr;
-  }
-  function hasForcedCanvasReaderShape(canvas) {
-    const { width, height } = canvas;
-    if (Math.max(width, height) < MIN_PAGE_CANVAS_DIMENSION || Math.min(width, height) < MIN_RENDERED_DIMENSION) return false;
-    const aspect = width / height;
-    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
-  }
-  function bookwalkerContinuousScrollCanvases(canvases, hostname = location.hostname) {
-    const scrollCanvases = canvases.filter((canvas) => isBookwalkerContinuousScrollCanvasForHost(canvas, hostname));
-    if (scrollCanvases.length < 2) return [];
-    return hasVerticallyStackedDocumentPageRun(scrollCanvases) ? scrollCanvases : [];
-  }
-  function isBookwalkerContinuousScrollCanvas(canvas) {
-    return isBookwalkerContinuousScrollCanvasForHost(canvas, location.hostname);
-  }
-  function isBookwalkerContinuousScrollCanvasForHost(canvas, hostname) {
-    if (!isBookwalkerViewerHost(hostname)) return false;
-    const viewport = canvas.closest(VIEWPORT_CONTAINER_SELECTOR);
-    if (!viewport) return false;
-    if (viewport.id === "viewportW" || viewport.classList.contains("overScroll")) return true;
-    const viewportCanvases = Array.from(viewport.querySelectorAll("canvas")).filter((canvasInViewport) => !shouldSkipCanvasReaderSurface(canvasInViewport)).filter(isVisibleCanvasReaderSurface).filter((canvasInViewport) => isLikelyPageCanvas(canvasInViewport, true));
-    return hasVerticallyStackedDocumentPageRun(viewportCanvases);
-  }
-  function preferCurrentScreenCanvases(canvases) {
-    if (canvases.length < 2) return canvases;
-    const visible = visibleViewportCanvases(canvases);
-    if (hasDistinctVisiblePageLayout(visible)) return visible;
-    const current = canvases.filter(isOnScreenViewportCanvas);
-    if (current.length && visible.length === 1 && !current.includes(visible[0])) return visible;
-    if (hasVerticallyStackedDocumentPageRun(canvases)) return canvases;
-    if (!current.length) return canvases;
-    const renderedCurrent = current.filter(looksLikeRenderedCanvasImage);
-    if (renderedCurrent.length) return renderedCurrent;
-    const renderedFallback = canvases.filter((canvas) => !current.includes(canvas)).filter(looksLikeRenderedCanvasImage);
-    return renderedFallback.length ? renderedFallback : current;
-  }
-  function visibleViewportCanvases(canvases) {
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    if (!viewportWidth || !viewportHeight) return [];
-    return canvases.filter((canvas) => {
-      const rect = canvas.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.right >= 0 && rect.top <= viewportHeight && rect.left <= viewportWidth;
+  function normalizeYouTubeAutoCaptionTiming(cues, knownAutoGenerated) {
+    if (!cues.length) return cues;
+    const probablyAutoGenerated = knownAutoGenerated || looksLikeOverlappingAutoGeneratedCues(cues);
+    if (!probablyAutoGenerated) return cues;
+    return cues.map((cue, index) => {
+      const next = cues[index + 1];
+      const nextStart = next?.start;
+      const end = Number.isFinite(nextStart) && nextStart > cue.start ? Math.max(cue.start, Math.min(cue.end, nextStart - 1e-3)) : cue.end;
+      return {
+        ...cue,
+        end,
+        words: void 0,
+        wordTimingsExact: false
+      };
     });
   }
-  function hasDistinctVisiblePageLayout(canvases) {
-    return hasDistinctPageLayout(canvases.map((canvas) => canvas.getBoundingClientRect()));
-  }
-  function hasVerticallyStackedDocumentPageRun(canvases) {
-    const rects = canvases.map((canvas) => canvas.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0).sort((a, b) => a.top - b.top);
-    if (rects.length < 2) return false;
-    for (let index = 1; index < rects.length; index += 1) {
-      const previous = rects[index - 1];
-      const current = rects[index];
-      const smallerHeight = Math.max(1, Math.min(previous.height, current.height));
-      const smallerWidth = Math.max(1, Math.min(previous.width, current.width));
-      const verticalOverlap2 = Math.max(0, Math.min(previous.bottom, current.bottom) - Math.max(previous.top, current.top));
-      const horizontalOverlap2 = Math.max(0, Math.min(previous.right, current.right) - Math.max(previous.left, current.left));
-      if (Math.abs(current.top - previous.top) > smallerHeight * 0.45 && verticalOverlap2 / smallerHeight < 0.55 && horizontalOverlap2 / smallerWidth > 0.55) return true;
+  function looksLikeOverlappingAutoGeneratedCues(cues) {
+    const sampled = cues.slice(0, 80);
+    if (sampled.length < 3) return false;
+    let overlapping = 0;
+    for (let index = 1; index < sampled.length; index++) {
+      if (sampled[index - 1].end > sampled[index].start + 0.05) overlapping += 1;
     }
-    return false;
+    return overlapping / sampled.length > 0.5;
   }
-  function hasDistinctPageLayout(rects) {
-    const usefulRects = rects.filter((rect) => rect.width > 0 && rect.height > 0);
-    for (let i = 0; i < usefulRects.length; i += 1) {
-      for (let j = i + 1; j < usefulRects.length; j += 1) {
-        const a = usefulRects[i];
-        const b = usefulRects[j];
-        const smallerWidth = Math.max(1, Math.min(a.width, b.width));
-        const smallerHeight = Math.max(1, Math.min(a.height, b.height));
-        const largerWidth = Math.max(a.width, b.width);
-        const largerHeight = Math.max(a.height, b.height);
-        if (smallerWidth / largerWidth < 0.55 || smallerHeight / largerHeight < 0.55) continue;
-        const horizontalOverlap2 = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) / smallerWidth;
-        const verticalOverlap2 = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)) / smallerHeight;
-        const separatedHorizontally = Math.abs(a.left - b.left) > smallerWidth * 0.45 && horizontalOverlap2 < 0.55 && verticalOverlap2 > 0.55;
-        const separatedVertically = Math.abs(a.top - b.top) > smallerHeight * 0.45 && verticalOverlap2 < 0.55 && horizontalOverlap2 > 0.55;
-        if (separatedHorizontally || separatedVertically) return true;
-      }
+  function smoothFragmentedYouTubeCues(cues) {
+    if (!shouldSmoothFragmentedYouTubeCues(cues)) return cues;
+    const merged = [];
+    let current;
+    for (const cue of cues) {
+      current = mergeYouTubeFragmentIntoGroup(merged, current, cue);
     }
-    return false;
+    if (current) merged.push(current);
+    return merged;
   }
-  function isOnScreenViewportCanvas(canvas) {
-    const viewport = canvas.closest(VIEWPORT_CONTAINER_SELECTOR);
-    return viewport ? viewport.classList.contains(CURRENT_SCREEN_CLASS) : Boolean(canvas.closest(CURRENT_SCREEN_SELECTOR));
+  function shouldSmoothFragmentedYouTubeCues(cues) {
+    return cues.length >= 3 && looksLikeFragmentedYouTubeCues(cues);
   }
-  function hasBackgroundReaderSignal(element) {
-    return element.hasAttribute("data-page-index") || Boolean(element.closest("[data-mokuro-reader]"));
-  }
-  function isLikelyBackgroundImagePage(element, hostname) {
-    if (!backgroundImageReaderUrl(element)) return false;
-    const rect = element.getBoundingClientRect();
-    if (!hasRenderedPageShape(rect)) return false;
-    const knownHost = isKnownBackgroundImageReaderHost(hostname);
-    if (!knownHost && !hasBackgroundReaderSignal(element)) return false;
-    return knownHost || isViewportProminent(element);
-  }
-  function backgroundImagePages(hostname = location.hostname) {
-    return Array.from(document.querySelectorAll(BACKGROUND_IMAGE_READER_SELECTOR)).filter((element) => isLikelyBackgroundImagePage(element, hostname));
-  }
-  function isCanvasReaderPage(hostname = location.hostname) {
-    return pageCanvases(hostname).length > 0;
-  }
-  function collectCanvasReaderSurfaces(hostname = location.hostname) {
-    return pageCanvases(hostname);
-  }
-  function isBackgroundImageReaderPage(hostname = location.hostname) {
-    return backgroundImagePages(hostname).length > 0;
-  }
-  function collectBackgroundImageReaderSurfaces(hostname = location.hostname) {
-    return backgroundImagePages(hostname);
-  }
-  function isReaderRasterPage(hostname = location.hostname) {
-    return isCanvasReaderPage(hostname) || isBackgroundImageReaderPage(hostname) || isKnownCanvasReaderHost(hostname) || isKnownBackgroundImageReaderHost(hostname);
-  }
-  function canvasReaderPageCounter() {
-    return document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
-  }
-  function canvasReaderPageSignature() {
-    const canvases = pageCanvases();
-    const counter = canvasReaderSignatureCounter(canvases);
-    const tokens = canvasReaderContentTokens(canvases);
-    const surfaces = tokens.length;
-    const content = tokens.join(",");
-    const backgrounds = backgroundImagePages().map((element) => `${element.getAttribute("data-page-index") ?? ""}:${backgroundImageReaderUrl(element) ?? ""}`).join("|");
-    return `${counter}||${surfaces}|${content}|${backgrounds}`;
-  }
-  function canvasReaderSignatureCounter(canvases) {
-    const counter = canvasReaderPageCounter();
-    if (isBookwalkerViewerHost() && shouldIgnoreBookwalkerCounterForCanvasSignature(canvases)) return "";
-    return counter;
-  }
-  function shouldIgnoreBookwalkerCounterForCanvasSignature(canvases) {
-    try {
-      if (new URL(location.href).searchParams.get("cty") === "2") {
-        return hasVerticallyStackedDocumentPageRun(canvases);
-      }
-    } catch {
+  function mergeYouTubeFragmentIntoGroup(merged, current, cue) {
+    const normalized = normalizeYouTubeCueFragment(cue);
+    if (!normalized.text) return current;
+    if (!current) {
+      return pushCurrentYouTubeCueGroup(merged, current, normalized);
     }
-    return hasVerticallyStackedDocumentPageRun(canvases);
+    if (shouldBreakYouTubeLine(current, normalized)) return pushCurrentYouTubeCueGroup(merged, current, normalized);
+    return mergeYouTubeCueFragments(current, normalized);
   }
-  function canvasPageContentToken(canvas) {
-    try {
-      const signature = canvasRenderedContentSignature(canvas);
-      if (signature) return signature;
-    } catch {
+  function normalizeYouTubeCueFragment(cue) {
+    const hasExactWords = cueHasExactWordTimings(cue);
+    return {
+      ...cue,
+      text: normalizeCaptionText(cue.text),
+      words: hasExactWords ? cue.words : void 0,
+      wordTimingsExact: hasExactWords
+    };
+  }
+  function pushCurrentYouTubeCueGroup(merged, current, next) {
+    if (current) merged.push(current);
+    return next;
+  }
+  function looksLikeFragmentedYouTubeCues(cues) {
+    const sampled = cues.slice(0, 80);
+    const fragments = sampled.filter((cue) => displayTextWeight(cue.text) <= 14 || cue.end - cue.start <= 1.35).length;
+    return fragments / sampled.length >= 0.42;
+  }
+  function shouldBreakYouTubeLine(current, next) {
+    const gap = next.start - current.end;
+    if (isYouTubeContinuationFragment(current, next)) return false;
+    return gap > 2.6 || gap < -0.2 && !isProgressiveYouTubeCaption(current.text, next.text) || hasYouTubeLineBreakText(current);
+  }
+  function hasYouTubeLineBreakText(cue) {
+    return /[。！？!?]$/u.test(cue.text.trim()) || cue.end - cue.start >= 12 || displayTextWeight(cue.text) >= 68;
+  }
+  function isYouTubeContinuationFragment(current, next) {
+    return isTrailingPunctuationFragment(next.text) || isShortYouTubeContinuationFragment(next.text) || hasYouTubeCaptionTextOverlap(current.text, next.text);
+  }
+  function mergeYouTubeCueFragments(current, next) {
+    const progressive = isProgressiveYouTubeCaption(current.text, next.text);
+    const overlap = progressive ? 0 : youtubeCaptionTextOverlapLength(current.text, next.text);
+    const text = progressive ? next.text : mergeYouTubeCaptionFragmentText(current.text, next.text);
+    const words = mergedYouTubeCueWords(current, next, { progressive, overlap });
+    return {
+      ...current,
+      end: Math.max(current.end, next.end),
+      text,
+      originalText: text,
+      words,
+      wordTimingsExact: Boolean(words?.length)
+    };
+  }
+  function mergedYouTubeCueWords(current, next, merge) {
+    const words = youtubeCueMergeWords(current, next);
+    if (merge.progressive) return words.next;
+    if (!canMergeYouTubeCueWords(words.current, words.next, next.text)) return void 0;
+    return [...words.current, ...trimmedNextYouTubeCueWords(words.next, merge.overlap)];
+  }
+  function youtubeCueMergeWords(current, next) {
+    return {
+      current: cueHasExactWordTimings(current) ? current.words : void 0,
+      next: cueHasExactWordTimings(next) ? next.words : void 0
+    };
+  }
+  function trimmedNextYouTubeCueWords(words, overlap) {
+    return words ? subtitleWordsAfterCompactOffset(words, overlap) : [];
+  }
+  function canMergeYouTubeCueWords(currentWords, nextWords, nextText) {
+    return Boolean(currentWords && (nextWords || isTrailingPunctuationFragment(nextText)));
+  }
+  function mergeYouTubeCaptionFragmentText(left, right) {
+    const a = left.trim();
+    const b = right.trim();
+    const overlap = youtubeCaptionTextOverlapLength(a, b);
+    if (overlap > 0) {
+      const tail = sliceByCompactOffset(b, overlap);
+      return tail ? joinYouTubeCaptionFragments(a, tail) : a;
     }
-    return canvasMirrorContentToken(canvas) || stableSurfaceToken(canvas) || canvasMirrorTurnToken();
+    return joinYouTubeCaptionFragments(a, b);
   }
-  function canvasReaderSurfaceId(canvas) {
-    return bookwalkerVerticalSurface(canvas)?.id ?? canvas.closest(VIEWPORT_CONTAINER_SELECTOR)?.id ?? "";
+  function isProgressiveYouTubeCaption(current, next) {
+    const compactCurrent = compactCaptionText(current);
+    const compactNext = compactCaptionText(next);
+    return compactCurrent.length >= 2 && compactNext.length > compactCurrent.length && compactNext.startsWith(compactCurrent);
   }
-  function canvasReaderHasStableSurface(canvas) {
-    return Boolean(bookwalkerVerticalSurface(canvas));
+  function joinYouTubeCaptionFragments(left, right) {
+    const a = left.trim();
+    const b = right.trim();
+    const emptyJoin = emptyYouTubeCaptionFragmentJoin(a, b);
+    if (emptyJoin !== null) return emptyJoin;
+    return `${a}${youtubeCaptionFragmentSeparator(a, b)}${b}`;
   }
-  function stableSurfaceToken(canvas) {
-    const id = bookwalkerVerticalSurface(canvas)?.id;
-    return id ? `s:${id}:${canvas.width}x${canvas.height}` : "";
+  function emptyYouTubeCaptionFragmentJoin(left, right) {
+    if (!left) return right;
+    return right ? null : left;
   }
-  function bookwalkerVerticalSurface(canvas) {
-    if (!isBookwalkerViewerHost()) return null;
-    const surface = canvas.closest(BW_VERTICAL_SURFACE_SELECTOR);
-    if (!surface) return null;
-    if (surface.classList.contains("verticalAxis")) return surface;
-    return surface.closest("#viewportW,.overScroll") ? surface : null;
+  function youtubeCaptionFragmentSeparator(left, right) {
+    if (shouldJoinYouTubeCaptionFragmentsDirectly(left, right)) return "";
+    return shouldSpaceYouTubeCaptionFragments(left, right) ? " " : "";
   }
-  function canvasReaderContentTokens(canvases) {
-    const tokens = canvases.map((canvas) => {
-      try {
-        return canvasPageContentToken(canvas);
-      } catch {
-        return "";
-      }
+  function shouldJoinYouTubeCaptionFragmentsDirectly(left, right) {
+    return /^[、。，．！？!?））」』\]}]/u.test(right) || /[\s「『（([{]$/u.test(left);
+  }
+  function shouldSpaceYouTubeCaptionFragments(left, right) {
+    return /[A-Za-z0-9]$/u.test(left) && /^[A-Za-z0-9]/u.test(right);
+  }
+  function isTrailingPunctuationFragment(text) {
+    return /^[、。，．！？!?…・]+$/u.test(text.trim());
+  }
+  function isShortYouTubeContinuationFragment(text) {
+    const compact = compactCaptionText(text);
+    return compact.length <= 3 && /^[っッゃゅょぁぃぅぇぉャュョァィゥェォー〜、。，．！？!?…・んン]+$/u.test(compact);
+  }
+  function hasYouTubeCaptionTextOverlap(left, right) {
+    return youtubeCaptionTextOverlapLength(left, right) >= Math.min(6, compactCaptionText(right).length);
+  }
+  function youtubeCaptionTextOverlapLength(left, right) {
+    const a = compactCaptionText(left);
+    const b = compactCaptionText(right);
+    const max = Math.min(a.length, b.length);
+    for (let length = max; length >= 2; length--) {
+      if (a.endsWith(b.slice(0, length))) return length;
+    }
+    return 0;
+  }
+  function compactCaptionText(text) {
+    return text.replace(/\s+/gu, "");
+  }
+  function subtitleWordsAfterCompactOffset(words, compactOffset) {
+    if (compactOffset <= 0) return words;
+    let cursor = 0;
+    return words.filter((word) => {
+      const start = cursor;
+      cursor += compactTextLength(word.text);
+      return start >= compactOffset;
     });
-    return [...new Set(tokens)].filter(Boolean);
   }
-  function captureCanvasDataUrl(canvas, maxPixels) {
-    try {
-      const width = canvas.width;
-      const height = canvas.height;
-      if (!width || !height) return void 0;
-      const pixels = width * height;
-      const scale = maxPixels > 0 && pixels > maxPixels ? Math.sqrt(maxPixels / pixels) : 1;
-      if (scale >= 1) return canvas.toDataURL("image/jpeg", 0.86);
-      const scaled = document.createElement("canvas");
-      scaled.width = Math.max(1, Math.round(width * scale));
-      scaled.height = Math.max(1, Math.round(height * scale));
-      const context = markCanvasMirrorSkip(scaled.getContext("2d"));
-      if (!context) return void 0;
-      context.drawImage(canvas, 0, 0, scaled.width, scaled.height);
-      return scaled.toDataURL("image/jpeg", 0.86);
-    } catch {
-      return void 0;
+  function sliceByCompactOffset(text, compactOffset) {
+    if (compactOffset <= 0) return text;
+    for (const step of compactTextOffsetSteps(text)) {
+      if (step.seen >= compactOffset) return text.slice(step.index);
     }
+    return "";
   }
-  function captureCanvasRegionDataUrl(canvas, surfaceRect, regionRect, maxPixels) {
-    try {
-      if (!canvas.width || !canvas.height || !surfaceRect.width || !surfaceRect.height) return void 0;
-      const scaleX = canvas.width / surfaceRect.width;
-      const scaleY = canvas.height / surfaceRect.height;
-      const sx = Math.max(0, Math.round((regionRect.left - surfaceRect.left) * scaleX));
-      const sy = Math.max(0, Math.round((regionRect.top - surfaceRect.top) * scaleY));
-      const sw = Math.min(canvas.width - sx, Math.max(1, Math.round(regionRect.width * scaleX)));
-      const sh = Math.min(canvas.height - sy, Math.max(1, Math.round(regionRect.height * scaleY)));
-      if (sw <= 0 || sh <= 0) return void 0;
-      const pixels = sw * sh;
-      const scale = maxPixels > 0 && pixels > maxPixels ? Math.sqrt(maxPixels / pixels) : 1;
-      const out = document.createElement("canvas");
-      out.width = Math.max(1, Math.round(sw * scale));
-      out.height = Math.max(1, Math.round(sh * scale));
-      const context = markCanvasMirrorSkip(out.getContext("2d"));
-      if (!context) return void 0;
-      context.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
-      return out.toDataURL("image/jpeg", 0.86);
-    } catch {
-      return void 0;
+  function compactTextOffsetSteps(text) {
+    const steps = [];
+    let index = 0;
+    let seen = 0;
+    for (const char of Array.from(text)) {
+      index += char.length;
+      if (/\s/u.test(char)) continue;
+      steps.push({ index, seen: ++seen });
     }
+    return steps;
   }
-  function isCanvasReadable(canvas) {
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) return false;
-    try {
-      context.getImageData(0, 0, 1, 1);
+  function parseYouTubeSrv3WordNodes(element, cueStart, cueEnd) {
+    const nodes = Array.from(element.querySelectorAll("s"));
+    if (!nodes.length) return [];
+    if (nodes.some((node) => /\s/u.test((node.textContent ?? "").trim()))) return [];
+    const starts = nodes.map((node) => youtubeSrv3WordStart(node, cueStart));
+    return nodes.map((node, index) => readYouTubeSrv3WordTiming(node, index, starts, cueStart, cueEnd)).filter((word) => Boolean(word?.text.trim() && word.end > word.start));
+  }
+  function youtubeSrv3WordStart(node, cueStart) {
+    const raw = Number(node.getAttribute("t") ?? node.getAttribute("_t"));
+    return Number.isFinite(raw) ? cueStart + raw / 1e3 : Number.NaN;
+  }
+  function readYouTubeSrv3WordTiming(node, index, starts, cueStart, cueEnd) {
+    const text = node.textContent ?? "";
+    if (!text) return null;
+    const start = Number.isFinite(starts[index]) ? starts[index] : cueStart;
+    const end = nextYouTubeSrv3WordEnd(starts, index, cueEnd);
+    return { text, start: clampNumber(start, cueStart, cueEnd), end: clampNumber(end, cueStart, cueEnd) };
+  }
+  function nextYouTubeSrv3WordEnd(starts, index, cueEnd) {
+    const nextStart = starts.slice(index + 1).find(Number.isFinite);
+    return typeof nextStart === "number" && Number.isFinite(nextStart) ? nextStart : cueEnd;
+  }
+  function parseAssSubtitleText(text) {
+    const state = createAssParseState();
+    for (const rawLine of text.replace(/\r/g, "").split("\n")) {
+      readAssSubtitleLine(rawLine.trim(), state);
+    }
+    return state.cues.sort((a, b) => a.start - b.start);
+  }
+  function createAssParseState() {
+    return {
+      cues: [],
+      inEvents: false,
+      format: ["layer", "start", "end", "style", "name", "marginl", "marginr", "marginv", "effect", "text"]
+    };
+  }
+  function readAssSubtitleLine(line, state) {
+    if (!shouldParseAssCueLine(line, state)) return;
+    const cue = readAssDialogueCue(line, state.format);
+    if (cue) state.cues.push(cue);
+  }
+  function shouldParseAssCueLine(line, state) {
+    if (shouldIgnoreAssLine(line)) return false;
+    if (updateAssSectionState(line, state)) return false;
+    if (!shouldReadAssDialogueLine(line, state)) return false;
+    return !readAssFormatLine(line, state);
+  }
+  function shouldReadAssDialogueLine(line, state) {
+    return state.inEvents || /^Dialogue:/i.test(line);
+  }
+  function shouldIgnoreAssLine(line) {
+    return !line || line.startsWith(";");
+  }
+  function updateAssSectionState(line, state) {
+    if (/^\[Events\]/i.test(line)) {
+      state.inEvents = true;
       return true;
-    } catch {
-      return false;
     }
+    if (/^\[.+\]/.test(line)) {
+      state.inEvents = false;
+      return true;
+    }
+    return false;
   }
-  const READER_PAGE_IMAGE_PATTERNS = [
-    /\/item\/xhtml\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i,
-    // SpeedBinB / NFBR page tile
-    /\/(?:page|img|image|content)s?\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i
-  ];
-  const READER_PAGE_IMAGE_EXCLUDE = /(?:icon|logo|avatar|banner|thumb(?:nail)?|sprite|favicon|cover|ad[\b_-])/i;
-  function readerCanvasSourceImageUrl() {
-    let entries;
-    try {
-      entries = performance.getEntriesByType("resource");
-    } catch {
-      return void 0;
+  function readAssFormatLine(line, state) {
+    if (!/^Format:/i.test(line)) return false;
+    state.format = line.slice(line.indexOf(":") + 1).split(",").map((part) => part.trim().toLowerCase());
+    return true;
+  }
+  function readAssDialogueCue(line, format) {
+    if (!/^Dialogue:/i.test(line)) return null;
+    const values = splitAssDialogue(line.slice(line.indexOf(":") + 1), format.length);
+    const fields = assDialogueFields(values, format);
+    const start = parseSubtitleTime(fields.start);
+    const end = parseSubtitleTime(fields.end);
+    const cueText = cleanAssSubtitleText(fields.text);
+    return Number.isFinite(start) && Number.isFinite(end) && cueText ? { start, end, text: cueText } : null;
+  }
+  function assDialogueFields(values, format) {
+    const textIndex = format.indexOf("text");
+    return {
+      start: values[format.indexOf("start")] ?? "",
+      end: values[format.indexOf("end")] ?? "",
+      text: values.slice(textIndex >= 0 ? textIndex : values.length - 1).join(",")
+    };
+  }
+  function splitAssDialogue(value, fieldCount) {
+    const parts = [];
+    let start = 0;
+    const maxSplits = Math.max(0, fieldCount - 1);
+    for (let index = 0; index < value.length && parts.length < maxSplits; index++) {
+      if (value[index] !== ",") continue;
+      parts.push(value.slice(start, index).trim());
+      start = index + 1;
     }
-    const urls = entries.map((entry) => entry.name).filter((url) => typeof url === "string" && !READER_PAGE_IMAGE_EXCLUDE.test(url));
-    for (const pattern of READER_PAGE_IMAGE_PATTERNS) {
-      for (let index = urls.length - 1; index >= 0; index--) {
-        if (pattern.test(urls[index])) return urls[index];
+    parts.push(value.slice(start).trim());
+    return parts;
+  }
+  function cleanAssSubtitleText(value) {
+    return value.replace(/\{[^}]*}/g, "").replace(/\\[Nn]/g, "\n").replace(/\\h/g, " ").replace(/<[^>]+>/g, "").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n");
+  }
+  function parseSubtitleTime(value) {
+    const match = value.trim().match(/(?:(\d+):)?(\d{1,2}):(\d{2})(?:[,.](\d{1,3}))?/);
+    if (!match) return Number.NaN;
+    const [, hours = "0", minutes, seconds, fraction = "0"] = match;
+    return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds) + Number(fraction.padEnd(3, "0")) / 1e3;
+  }
+  function parseSubtitleClockValue(value) {
+    const trimmed = value.trim();
+    if (!trimmed) return Number.NaN;
+    if (/^\d+(?:\.\d+)?s$/i.test(trimmed)) return Number(trimmed.slice(0, -1));
+    if (/^\d+(?:\.\d+)?ms$/i.test(trimmed)) return Number(trimmed.slice(0, -2)) / 1e3;
+    if (/^\d+(?:\.\d+)?$/.test(trimmed)) return Number(trimmed);
+    return parseSubtitleTime(trimmed);
+  }
+  function formatSubtitleTime(value) {
+    const minutes = Math.floor(value / 60);
+    const seconds = Math.floor(value % 60).toString().padStart(2, "0");
+    return `${minutes}:${seconds}`;
+  }
+  function findAlignedCue(cues, cue) {
+    return cues.map((item) => ({
+      item,
+      overlap: Math.max(0, Math.min(cue.end, item.end) - Math.max(cue.start, item.start)),
+      startDistance: Math.abs(cue.start - item.start)
+    })).filter((candidate) => candidate.overlap > 0 || candidate.startDistance <= 0.45).sort((a, b) => b.overlap - a.overlap || a.startDistance - b.startDistance)[0]?.item;
+  }
+  function findActiveSubtitleCue(cues, time) {
+    return findActiveSubtitleCueFromIndex(cues, time, latestSubtitleCueStartIndex(cues, time));
+  }
+  function findInitialLeadInCue(cues, time) {
+    const first = cues[0];
+    if (!first) return void 0;
+    return time <= first.start ? first : void 0;
+  }
+  function findActiveSubtitleCueFromIndex(cues, time, index) {
+    let best;
+    for (let i = index; i >= 0; i--) {
+      const result = activeSubtitleCueSearchResult(cues[i], time, best);
+      best = result.best;
+      if (result.done) break;
+    }
+    return best;
+  }
+  function activeSubtitleCueSearchResult(cue, time, best) {
+    if (shouldStopActiveSubtitleCueSearch(cue, best)) return { best, done: true };
+    if (!isSubtitleCueActiveAtTime(cue, time)) return { best, done: false };
+    return {
+      best: isBetterActiveSubtitleCue(cue, best) ? cue : best,
+      done: false
+    };
+  }
+  function latestSubtitleCueStartIndex(cues, time) {
+    let low = 0;
+    let high = cues.length - 1;
+    let index = -1;
+    const latestAllowedStart = time + ACTIVE_CUE_START_TOLERANCE_SECONDS;
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      if (cues[mid].start <= latestAllowedStart) {
+        index = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
       }
     }
-    return void 0;
+    return index;
   }
-  function canUseReaderCanvasSourceImageFallback(hostname = location.hostname) {
-    return !isBookwalkerViewerHost(hostname);
+  function shouldStopActiveSubtitleCueSearch(cue, best) {
+    return Boolean(best && cue.start < best.start);
   }
-  function positionCanvasFrameImage(frame, rect) {
-    frame.style.left = `${rect.left}px`;
-    frame.style.top = `${rect.top}px`;
-    frame.style.width = `${rect.width}px`;
-    frame.style.height = `${rect.height}px`;
+  function isSubtitleCueActiveAtTime(cue, time) {
+    return time >= cue.start - ACTIVE_CUE_START_TOLERANCE_SECONDS && time < cue.end + ACTIVE_CUE_END_GRACE_SECONDS;
   }
-  function backgroundImageReaderUrl(element) {
-    const image = getComputedStyle(element).backgroundImage;
-    return firstCssBackgroundUrl(image);
+  function isBetterActiveSubtitleCue(cue, best) {
+    if (!best) return true;
+    if (cue.start > best.start) return true;
+    return cue.start === best.start && cue.end > best.end;
   }
-  function firstCssBackgroundUrl(value) {
-    const match = value.match(/url\((?:"([^"]+)"|'([^']+)'|([^)]*))\)/iu);
-    const raw = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
-    return raw.trim() || void 0;
+  function subtitleCueSignature(cue) {
+    return `${cue.start.toFixed(2)}:${cue.end.toFixed(2)}:${cue.text.trim()}`;
   }
-  const CAPTURE_VISIBLE_TAB_MESSAGE = "yomu.captureVisibleTab";
-  const SCREENSHOT_HIDE_STYLE_ID = "yomu-extension-screenshot-hide-style";
-  async function captureReaderSurfaceViaExtensionScreenshot(surface, maxPixels) {
-    const rect = surface.getBoundingClientRect();
-    const clip = visibleViewportIntersection(rect);
-    if (!clip || clip.width < 2 || clip.height < 2) return void 0;
-    const screenshot = await withReaderUiHidden(requestVisibleTabScreenshot);
-    if (!screenshot) return void 0;
-    const cropped = await cropVisibleTabScreenshot(screenshot, clip, maxPixels);
-    return cropped ? { dataUrl: cropped, rect: new DOMRect(clip.left, clip.top, clip.width, clip.height) } : void 0;
+  function cueHasExactWordTimings(cue) {
+    return Boolean(cue?.wordTimingsExact && cue.words?.length);
   }
-  async function requestVisibleTabScreenshot() {
-    const extension = extensionRuntime();
-    if (!extension?.runtime.id || typeof extension.runtime.sendMessage !== "function") return void 0;
-    const response = await sendExtensionMessage(extension, { type: CAPTURE_VISIBLE_TAB_MESSAGE, format: "jpeg", quality: 88 });
-    return screenshotResponseDataUrl(response);
+  function normalizeCaptionText(value) {
+    return decodeCaptionEntities(value).replace(/\u00a0/g, " ").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join(" ");
   }
-  function sendExtensionMessage(extension, message) {
-    if (extension.promiseBased) {
-      try {
-        return Promise.resolve(extension.runtime.sendMessage?.(message)).catch(() => void 0);
-      } catch {
-        return Promise.resolve(void 0);
-      }
-    }
-    return new Promise((resolve) => {
-      let settled = false;
-      const finish = (response) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timer);
-        resolve(response);
-      };
-      const timer = window.setTimeout(() => finish(void 0), 6e3);
-      try {
-        const maybePromise = extension.runtime.sendMessage?.(message, (response) => {
-          if (extension.runtime.lastError) finish(void 0);
-          else finish(response);
-        });
-        if (isPromiseLike(maybePromise)) {
-          void maybePromise.then(finish, () => finish(void 0));
-        }
-      } catch {
-        finish(void 0);
-      }
+  const CAPTION_ENTITY_RE = /&(nbsp|amp|lt|gt|quot|apos|#x[0-9a-f]+|#\d+);/gi;
+  const NAMED_CAPTION_ENTITIES = {
+    nbsp: " ",
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'"
+  };
+  function decodeCaptionEntities(value) {
+    if (!value.includes("&")) return value;
+    return value.replace(CAPTION_ENTITY_RE, (match, name) => {
+      const lower = name.toLowerCase();
+      if (lower in NAMED_CAPTION_ENTITIES) return NAMED_CAPTION_ENTITIES[lower];
+      const code = lower.startsWith("#x") ? Number.parseInt(lower.slice(2), 16) : Number.parseInt(lower.slice(1), 10);
+      return Number.isFinite(code) && code > 0 && code <= 1114111 ? String.fromCodePoint(code) : match;
     });
   }
-  function extensionRuntime() {
-    const global = globalThis;
-    if (global.browser?.runtime) return { promiseBased: true, runtime: global.browser.runtime };
-    if (global.chrome?.runtime) return { promiseBased: false, runtime: global.chrome.runtime };
-    return void 0;
+  function escapeWithBreaks(value) {
+    return withBreaks(escapeHtml(value));
   }
-  function screenshotResponseDataUrl(response) {
-    const detail = response;
-    return detail?.ok && typeof detail.dataUrl === "string" && detail.dataUrl.startsWith("data:image/") ? detail.dataUrl : void 0;
-  }
-  async function withReaderUiHidden(task) {
-    const style = ensureScreenshotHideStyle();
-    document.documentElement.dataset.yomuExtensionScreenshotCapture = "true";
-    await animationFrame();
-    try {
-      return await task();
-    } finally {
-      delete document.documentElement.dataset.yomuExtensionScreenshotCapture;
-      style.remove();
-    }
-  }
-  function ensureScreenshotHideStyle() {
-    document.getElementById(SCREENSHOT_HIDE_STYLE_ID)?.remove();
-    const style = document.createElement("style");
-    style.id = SCREENSHOT_HIDE_STYLE_ID;
-    const selectors = [
-      'html[data-yomu-extension-screenshot-capture="true"] [data-jpdb-reader-root]',
-      'html[data-yomu-extension-screenshot-capture="true"] .jpdb-ocr-canvas-frame',
-      'html[data-yomu-extension-screenshot-capture="true"] .jpdb-ocr-background-frame',
-      'html[data-yomu-extension-screenshot-capture="true"] .jpdb-ocr-layer'
-    ];
-    style.textContent = `${selectors.join(",")} { visibility: hidden !important; }`;
-    document.documentElement.append(style);
-    return style;
-  }
-  function animationFrame() {
-    return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-  }
-  function visibleViewportIntersection(rect) {
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    if (!viewportWidth || !viewportHeight) return null;
-    const left = Math.max(0, rect.left);
-    const top = Math.max(0, rect.top);
-    const right = Math.min(viewportWidth, rect.right);
-    const bottom = Math.min(viewportHeight, rect.bottom);
-    const width = right - left;
-    const height = bottom - top;
-    return width > 0 && height > 0 ? { left, top, width, height } : null;
-  }
-  async function cropVisibleTabScreenshot(dataUrl, rect, maxPixels) {
-    try {
-      const image = await loadScreenshotImage(dataUrl);
-      const scaleX = image.naturalWidth / Math.max(1, window.innerWidth || document.documentElement.clientWidth || 1);
-      const scaleY = image.naturalHeight / Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1);
-      const source = {
-        left: Math.max(0, Math.round(rect.left * scaleX)),
-        top: Math.max(0, Math.round(rect.top * scaleY)),
-        width: Math.max(1, Math.round(rect.width * scaleX)),
-        height: Math.max(1, Math.round(rect.height * scaleY))
-      };
-      source.width = Math.min(source.width, image.naturalWidth - source.left);
-      source.height = Math.min(source.height, image.naturalHeight - source.top);
-      if (source.width <= 0 || source.height <= 0) return void 0;
-      const pixels = source.width * source.height;
-      const scale = maxPixels > 0 && pixels > maxPixels ? Math.sqrt(maxPixels / pixels) : 1;
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(source.width * scale));
-      canvas.height = Math.max(1, Math.round(source.height * scale));
-      const context = canvas.getContext("2d");
-      if (!context) return void 0;
-      context.drawImage(image, source.left, source.top, source.width, source.height, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL("image/jpeg", 0.86);
-    } catch {
-      return void 0;
-    }
-  }
-  function loadScreenshotImage(dataUrl) {
-    return new Promise((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("Screenshot decode failed."));
-      image.src = dataUrl;
-    });
-  }
-  function isPromiseLike(value) {
-    return Boolean(value && typeof value.then === "function");
+  function withBreaks(value) {
+    return value.replace(/\n/g, "<br>");
   }
   const PRIVATE_IPV4_RANGES = [
     [0, 16777215],
@@ -4191,19 +3474,19 @@
         return await requestViaFetch(url, options);
       } catch (error) {
         if (!userscriptRequest) throw error;
-        return await requestViaUserscript$1(url, options, userscriptRequest);
+        return await requestViaUserscript(url, options, userscriptRequest);
       }
     }
     if (userscriptRequest) {
       try {
-        return await requestViaUserscript$1(url, options, userscriptRequest);
+        return await requestViaUserscript(url, options, userscriptRequest);
       } catch (error) {
         if (!shouldRetryWithFetch(error)) throw error;
       }
     }
     return requestViaFetch(url, options);
   }
-  function requestViaUserscript$1(url, options, userscriptRequest) {
+  function requestViaUserscript(url, options, userscriptRequest) {
     return new Promise((resolve, reject) => {
       const signal = options.signal;
       if (signal?.aborted) {
@@ -4341,7 +3624,7 @@
     if (Array.isArray(headers)) return Object.fromEntries(headers);
     return headers;
   }
-  async function requestJson$1(url, options = {}) {
+  async function requestJson(url, options = {}) {
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
@@ -6800,6566 +6083,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function uiText(language, key) {
     return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? "未翻訳" : COPY.en[key];
   }
-  function cardStateLabel(state2, language, fallback = state2) {
-    const key = CARD_STATE_LABEL_KEYS[state2];
+  function cardStateLabel(state, language, fallback = state) {
+    const key = CARD_STATE_LABEL_KEYS[state];
     return key ? uiText(language, key) : fallback;
-  }
-  function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
-    if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
-    return new Promise((resolve) => {
-      if (scheduleIdleCallback(() => resolve(), timeoutMs)) return;
-      window.setTimeout(resolve, Math.max(0, fallbackDelayMs));
-    });
-  }
-  function scheduleIdleCallback(callback, timeoutMs = 75) {
-    const requestIdleCallback = window.requestIdleCallback;
-    if (typeof requestIdleCallback !== "function") return false;
-    requestIdleCallback.call(window, callback, { timeout: timeoutMs });
-    return true;
-  }
-  function readBlobAsDataUrl(blob, errorMessage = "Could not read media.") {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(reader.error ?? new Error(errorMessage));
-      reader.readAsDataURL(blob);
-    });
-  }
-  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
-  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
-  const PITCH_CLASS_RULES = [
-    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
-    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
-    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
-    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
-  ];
-  function normalizePitchPatternForReading(pattern, reading) {
-    const levels = pitchLevels(pattern);
-    if (!levels.length) return "";
-    return normalizePitchLevelsForReading(levels, reading).join("");
-  }
-  function pitchLevels(pattern) {
-    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
-  }
-  function splitMorae(reading) {
-    if (!PRONUNCIATION_KANA.test(reading)) return [];
-    const morae = [];
-    for (const char of Array.from(reading)) {
-      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-      else morae.push(char);
-    }
-    return morae;
-  }
-  function countMorae(reading) {
-    return splitMorae(reading).length;
-  }
-  function pitchPatternFromPosition(reading, position) {
-    const moraCount = countMorae(reading);
-    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
-    if (position === 0) return `L${"H".repeat(moraCount)}`;
-    if (position === 1) return `H${"L".repeat(moraCount)}`;
-    const highMorae = position - 1;
-    const lowTail = moraCount - position + 1;
-    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
-  }
-  function pitchProfileForPattern(pattern, reading) {
-    const normalized = normalizePitchPatternForReading(pattern, reading);
-    const morae = splitMorae(reading);
-    const pitchNumber = pitchNumberFromPattern(normalized, reading);
-    return {
-      reading,
-      morae,
-      pitchNumber,
-      pattern: normalized,
-      className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber)
-    };
-  }
-  function pitchClassNameForPattern(pattern, reading) {
-    return pitchProfileForPattern(pattern, reading).className;
-  }
-  function contextPitchPattern(patterns, reading) {
-    if (!patterns?.length) return "";
-    if (!reading) return patterns[0];
-    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
-  }
-  function pitchNumberFromPattern(pattern, reading) {
-    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
-    const moraCount = countMorae(reading);
-    if (!moraCount) return null;
-    if (levels.length < moraCount) {
-      return looksLikeShortHeibanPattern(levels) ? 0 : null;
-    }
-    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
-    if (dropAt === -1) return levels[0] === "L" ? 0 : null;
-    return dropAt;
-  }
-  function looksLikeShortHeibanPattern(levels) {
-    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
-  }
-  function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
-    if (!moraCount) return "";
-    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-    return hasComplexPitchShape(pattern) ? "kifuku" : "";
-  }
-  function hasComplexPitchShape(pattern) {
-    const levels = pitchLevels(pattern);
-    return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
-  }
-  function countPitchTransitions(levels, from, to) {
-    let count = 0;
-    for (let index = 1; index < levels.length; index++) {
-      if (levels[index - 1] === from && levels[index] === to) count++;
-    }
-    return count;
-  }
-  function normalizePitchLevelsForReading(levels, reading) {
-    const chars = Array.from(reading);
-    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
-    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
-    const normalized = [];
-    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
-      if (normalized.length && SMALL_KANA.has(chars[index])) continue;
-      normalized.push(levels[index]);
-    }
-    return normalized.concat(levels.slice(chars.length));
-  }
-  function looksCharacterAlignedPitch(levels, chars) {
-    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
-    if (levels.length < chars.length) return false;
-    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
-  }
-  function getPitchClass(pitchAccent, reading) {
-    const pattern = contextPitchPattern(pitchAccent, reading);
-    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
-  }
-  function pushJapaneseOcrLine(lines, text, box) {
-    if (!text || !box || !HAS_JAPANESE.test(text)) return;
-    lines.push({ text, box, vertical: isVerticalOcrBox(box, text.length) });
-  }
-  function isVerticalOcrBox(box, textLength) {
-    if (textLength <= 1) return false;
-    const aspect = box.height / Math.max(1, box.width);
-    return aspect >= (textLength >= 4 ? 1.05 : 1.2);
-  }
-  function clampBox(box, width, height) {
-    const left = Math.max(0, Math.min(width, box.left));
-    const top = Math.max(0, Math.min(height, box.top));
-    const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
-    const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
-    if (right - left < 2 || bottom - top < 2) return null;
-    return { left, top, width: right - left, height: bottom - top };
-  }
-  function unionBoxes(boxes) {
-    if (!boxes.length) return null;
-    const left = Math.min(...boxes.map((box) => box.left));
-    const top = Math.min(...boxes.map((box) => box.top));
-    const right = Math.max(...boxes.map((box) => box.left + box.width));
-    const bottom = Math.max(...boxes.map((box) => box.top + box.height));
-    return { left, top, width: right - left, height: bottom - top };
-  }
-  function cleanOcrText(value) {
-    const text = typeof value === "string" ? value : String(value ?? "");
-    const normalized = text.replace(/[ \t\r\n]+/g, HAS_JAPANESE.test(text) ? "" : " ").trim();
-    return normalized.replaceAll("．．．", "…");
-  }
-  function numberFrom(value) {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : null;
-  }
-  function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
-    const state2 = { width: fallbackWidth, height: fallbackHeight, lines: [] };
-    for (const response of cloudVisionResponses(record)) {
-      appendCloudVisionPages(response, state2);
-      appendCloudVisionTextAnnotations(response, state2);
-    }
-    return state2.lines.length ? { width: state2.width, height: state2.height, lines: state2.lines } : null;
-  }
-  function cloudVisionResponses(record) {
-    if (Array.isArray(record.responses)) return record.responses;
-    return "fullTextAnnotation" in record ? [record] : [];
-  }
-  function appendCloudVisionPages(response, state2) {
-    const annotation = response?.fullTextAnnotation;
-    const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
-    for (const page of pages) appendCloudVisionPage(page, state2);
-  }
-  function appendCloudVisionPage(page, state2) {
-    state2.width = numberFrom(page.width) || state2.width;
-    state2.height = numberFrom(page.height) || state2.height;
-    for (const block of cloudVisionPageBlocks(page)) {
-      for (const paragraph of cloudVisionBlockParagraphs(block)) {
-        pushCloudVisionParagraphLines(paragraph, state2.lines, state2.width, state2.height);
-      }
-    }
-  }
-  function cloudVisionPageBlocks(page) {
-    return Array.isArray(page.blocks) ? page.blocks : [];
-  }
-  function cloudVisionBlockParagraphs(block) {
-    const paragraphs = block?.paragraphs;
-    return Array.isArray(paragraphs) ? paragraphs : [];
-  }
-  function appendCloudVisionTextAnnotations(response, state2) {
-    const annotations = Array.isArray(response?.textAnnotations) ? response.textAnnotations : [];
-    if (state2.lines.length || annotations.length <= 1) return;
-    for (const annotationItem of annotations.slice(1)) {
-      const item = annotationItem;
-      const text = cleanOcrText(item.description);
-      const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, state2.width, state2.height);
-      pushJapaneseOcrLine(state2.lines, text, box);
-    }
-  }
-  function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
-    const words = Array.isArray(paragraph.words) ? paragraph.words : [];
-    const current = { text: "", boxes: [] };
-    for (const word of words) {
-      cloudVisionWordSymbols(word).forEach((symbol) => appendCloudVisionSymbol(symbol, current, lines, width, height));
-    }
-    pushCloudVisionLine(lines, current);
-  }
-  function cloudVisionWordSymbols(word) {
-    const symbols = word?.symbols;
-    return Array.isArray(symbols) ? symbols : [];
-  }
-  function appendCloudVisionSymbol(symbol, current, lines, width, height) {
-    const symbolRecord = symbol;
-    current.text += String(symbolRecord.text ?? "");
-    const box = normalizeCloudVisionVertices(symbolRecord.boundingBox?.vertices, width, height);
-    if (box) current.boxes.push(box);
-    const breakType = cloudVisionSymbolBreakType(symbolRecord);
-    if (cloudVisionBreakAddsSpace(breakType)) current.text += " ";
-    if (cloudVisionBreakEndsLine(breakType)) pushCloudVisionLine(lines, current);
-  }
-  function cloudVisionSymbolBreakType(symbol) {
-    return symbol.property?.detectedBreak?.type;
-  }
-  function cloudVisionBreakAddsSpace(breakType) {
-    return breakType === "SPACE" || breakType === "SURE_SPACE" || breakType === "UNKNOWN";
-  }
-  function cloudVisionBreakEndsLine(breakType) {
-    return breakType === "LINE_BREAK" || breakType === "EOL_SURE_SPACE" || breakType === "HYPHEN";
-  }
-  function pushCloudVisionLine(lines, current) {
-    pushJapaneseOcrLine(lines, cleanOcrText(current.text), unionBoxes(current.boxes));
-    current.text = "";
-    current.boxes = [];
-  }
-  function normalizeCloudVisionVertices(value, width, height) {
-    if (!Array.isArray(value) || value.length < 2) return null;
-    const xs = value.map((vertex) => numberFrom(vertex?.x) ?? 0);
-    const ys = value.map((vertex) => numberFrom(vertex?.y) ?? 0);
-    const left = Math.min(...xs);
-    const top = Math.min(...ys);
-    return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
-  }
-  const SIMPLE_JS_ESCAPE_SEQUENCES = /* @__PURE__ */ new Map([
-    ["n", "\n"],
-    ["r", "\r"],
-    ["t", "	"],
-    ["b", "\b"],
-    ["f", "\f"],
-    ["v", "\v"],
-    ["0", "\0"],
-    ["\n", ""]
-  ]);
-  function googleLensUploadCallbackLiteral(html, key) {
-    const marker = "AF_initDataCallback(";
-    let searchIndex = 0;
-    while (searchIndex < html.length) {
-      const markerIndex = html.indexOf(marker, searchIndex);
-      if (markerIndex < 0) return null;
-      const literalStart = markerIndex + marker.length;
-      const literal = readBalancedLiteral(html, literalStart);
-      if (literal && callbackLiteralHasKey(literal, key)) return literal;
-      searchIndex = literalStart + Math.max(1, literal?.length ?? 1);
-    }
-    return null;
-  }
-  function callbackLiteralHasKey(literal, key) {
-    return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key)}['"]`).test(literal);
-  }
-  function escapeRegex(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-  function readBalancedLiteral(source, startIndex) {
-    const index = balancedLiteralStart(source, startIndex);
-    if (index < 0) return null;
-    const end = balancedLiteralEnd(source, index);
-    return end >= 0 ? source.slice(index, end + 1) : null;
-  }
-  function balancedLiteralStart(source, startIndex) {
-    let index = startIndex;
-    while (/\s/.test(source[index] ?? "")) index += 1;
-    return source[index] === "{" ? index : -1;
-  }
-  function balancedLiteralEnd(source, startIndex) {
-    let depth = 0;
-    for (let current = startIndex; current < source.length; current += 1) {
-      const char = source[current];
-      if (isQuote(char)) {
-        current = quotedLiteralEnd(source, current, char);
-        if (current < 0) return -1;
-        continue;
-      }
-      depth += balancedDepthDelta(char);
-      if (depth === 0) return current;
-    }
-    return -1;
-  }
-  function quotedLiteralEnd(source, startIndex, quote) {
-    for (let current = startIndex + 1; current < source.length; current += 1) {
-      const char = source[current];
-      if (char === "\\") {
-        current += 1;
-      } else if (char === quote) {
-        return current;
-      }
-    }
-    return -1;
-  }
-  function isQuote(char) {
-    return char === '"' || char === "'";
-  }
-  function balancedDepthDelta(char) {
-    if (char === "{" || char === "[" || char === "(") return 1;
-    if (char === "}" || char === "]" || char === ")") return -1;
-    return 0;
-  }
-  function parseJsDataLiteral(source) {
-    let index = 0;
-    const value = parseValue();
-    skipWhitespace();
-    if (index !== source.length) throw new Error("Unexpected trailing data.");
-    return value;
-    function parseValue() {
-      skipWhitespace();
-      const char = source[index];
-      if (char === "{") return parseObject();
-      if (char === "[") return parseArray();
-      if (char === '"' || char === "'") return parseString();
-      if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
-      return parseIdentifierValue();
-    }
-    function parseObject() {
-      const record = {};
-      index += 1;
-      skipWhitespace();
-      while (source[index] !== "}") {
-        const key = parseObjectKey();
-        skipWhitespace();
-        expect(":");
-        record[key] = parseValue();
-        skipWhitespace();
-        if (source[index] === ",") {
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        break;
-      }
-      expect("}");
-      return record;
-    }
-    function parseObjectKey() {
-      skipWhitespace();
-      const char = source[index];
-      if (char === '"' || char === "'") return parseString();
-      return parseIdentifier();
-    }
-    function parseArray() {
-      const values = [];
-      index += 1;
-      skipWhitespace();
-      while (source[index] !== "]") {
-        if (source[index] === ",") {
-          values.push(null);
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        values.push(parseValue());
-        skipWhitespace();
-        if (source[index] === ",") {
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        break;
-      }
-      expect("]");
-      return values;
-    }
-    function parseString() {
-      const quote = source[index];
-      let value2 = "";
-      index += 1;
-      while (index < source.length) {
-        const char = source[index++];
-        if (char === quote) return value2;
-        if (char !== "\\") {
-          value2 += char;
-          continue;
-        }
-        value2 += parseEscapeSequence();
-      }
-      throw new Error("Unterminated string.");
-    }
-    function parseEscapeSequence() {
-      const escaped = source[index++];
-      const simpleEscape = SIMPLE_JS_ESCAPE_SEQUENCES.get(escaped ?? "");
-      if (typeof simpleEscape === "string") return simpleEscape;
-      if (escaped === "\r") return parseCarriageReturnEscape();
-      return parseNamedEscapeSequence(escaped);
-    }
-    function parseCarriageReturnEscape() {
-      if (source[index] === "\n") index += 1;
-      return "";
-    }
-    function parseNamedEscapeSequence(escaped) {
-      if (escaped === "x") return codePointEscape(2);
-      if (escaped === "u") return parseUnicodeEscape();
-      return escaped ?? "";
-    }
-    function parseUnicodeEscape() {
-      if (source[index] === "{") {
-        const end = source.indexOf("}", index + 1);
-        if (end < 0) throw new Error("Invalid unicode escape.");
-        const value2 = Number.parseInt(source.slice(index + 1, end), 16);
-        index = end + 1;
-        return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
-      }
-      return codePointEscape(4);
-    }
-    function codePointEscape(length) {
-      const hex = source.slice(index, index + length);
-      if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
-      index += length;
-      return String.fromCharCode(Number.parseInt(hex, 16));
-    }
-    function parseNumber() {
-      const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
-      if (!match) throw new Error("Invalid number.");
-      index += match[0].length;
-      return Number(match[0]);
-    }
-    function parseIdentifierValue() {
-      const identifier = parseIdentifier();
-      if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
-      if (identifier === "true") return true;
-      if (identifier === "false") return false;
-      if (identifier === "Infinity") return Infinity;
-      return identifier;
-    }
-    function parseIdentifier() {
-      const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
-      if (!match) throw new Error("Expected identifier.");
-      index += match[0].length;
-      return match[0];
-    }
-    function skipWhitespace() {
-      while (/\s/.test(source[index] ?? "")) index += 1;
-    }
-    function expect(char) {
-      if (source[index] !== char) throw new Error(`Expected ${char}.`);
-      index += 1;
-    }
-  }
-  const LENS_WRITING_TOP_TO_BOTTOM = 2;
-  const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
-  const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
-  function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
-    if (cloudVision) return cloudVision;
-    const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
-    const lines = collectGenericOcrLines(record, width, height);
-    return japaneseOcrResult(width, height, lines);
-  }
-  function ocrResultDimensions(record, fallbackWidth, fallbackHeight) {
-    const resolution = record.context_resolution;
-    const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
-    const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
-    return { width, height };
-  }
-  function collectGenericOcrLines(record, width, height) {
-    const lines = [];
-    appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
-    appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
-    appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
-    return lines;
-  }
-  function genericRawLines(record) {
-    return Array.isArray(record.lines) ? record.lines : record.regions;
-  }
-  function appendGenericOcrLines(lines, value, width, height, normalize) {
-    if (Array.isArray(value)) lines.push(...normalize(value, width, height));
-  }
-  function normalizeSimpleLines(values, width, height) {
-    return values.map((item) => normalizeSimpleLine(item, width, height)).filter((line) => Boolean(line));
-  }
-  function normalizeStructuredOcrResults(values, width, height) {
-    return values.flatMap((item) => normalizeStructuredOcrResult(item, width, height));
-  }
-  function normalizeOcrRegionResults(regions, width, height) {
-    return regions.flatMap((region) => normalizeSingleOcrRegionResults(region, width, height));
-  }
-  function normalizeSingleOcrRegionResults(region, width, height) {
-    const regionRecord = asRecord(region);
-    if (!regionRecord) return [];
-    const regionBox = normalizeOcrRegion(regionRecord, width, height);
-    const { scaleWidth, scaleHeight } = ocrRegionScale(regionBox, width, height);
-    if (!Array.isArray(regionRecord.results)) return [];
-    const lines = normalizeStructuredOcrResults(regionRecord.results, scaleWidth, scaleHeight);
-    return offsetRegionLines(lines, regionBox, width, height);
-  }
-  function ocrRegionScale(regionBox, width, height) {
-    return {
-      scaleWidth: regionBox?.width ?? width,
-      scaleHeight: regionBox?.height ?? height
-    };
-  }
-  function offsetRegionLines(lines, regionBox, width, height) {
-    if (!regionBox) return lines;
-    return lines.map((line) => offsetLineToRegion(line, regionBox, width, height)).filter((line) => Boolean(line));
-  }
-  function japaneseOcrResult(width, height, lines) {
-    const japaneseLines = removeStandaloneFuriganaLines(lines).filter((line) => line.text.length > 0 && HAS_JAPANESE.test(line.text));
-    return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
-  }
-  function cleanOcrLookupLines(lines, parsed) {
-    const cleaned = lines.map((line, index) => {
-      const text = cleanOcrLookupText(line.text, parsed[index] ?? []);
-      return text === line.text ? line : { ...line, text };
-    });
-    return removeStandaloneFuriganaLines(cleaned);
-  }
-  function ocrLinesChanged(original, cleaned) {
-    return original.length !== cleaned.length || cleaned.some((line, index) => line.text !== original[index]?.text);
-  }
-  function cleanOcrLookupText(text, tokens) {
-    const rubies = tokens.flatMap((token) => token.rubies.map((ruby) => ({ ruby, token }))).sort((a, b) => b.ruby.start - a.ruby.start);
-    let cleaned = text;
-    for (const { ruby } of rubies) {
-      if (!OCR_KANJI_RE.test(cleaned.slice(ruby.start, ruby.end))) continue;
-      cleaned = removeOcrReadingAroundRuby(cleaned, ruby.text, ruby.start, ruby.end);
-    }
-    return cleanOcrText(cleaned);
-  }
-  function removeOcrReadingAroundRuby(text, reading, start, end) {
-    const cleanReading = cleanOcrText(reading);
-    if (!cleanReading) return text;
-    if (text.slice(Math.max(0, start - cleanReading.length), start) === cleanReading) {
-      return text.slice(0, start - cleanReading.length) + text.slice(start);
-    }
-    if (text.slice(end, end + cleanReading.length) === cleanReading) {
-      return text.slice(0, end) + text.slice(end + cleanReading.length);
-    }
-    return text;
-  }
-  function removeStandaloneFuriganaLines(lines) {
-    const filtered = lines.filter((line, index) => !isStandaloneFuriganaLine(line, lines, index));
-    return filtered.length ? filtered : lines;
-  }
-  function isStandaloneFuriganaLine(line, lines, index) {
-    const text = cleanOcrText(line.text).replace(/\s+/g, "");
-    if (!text || text.length > 10 || !OCR_KANA_ONLY_RE.test(text)) return false;
-    return lines.some((other, otherIndex) => otherIndex !== index && OCR_KANJI_RE.test(other.text) && ocrLineLooksLikeFuriganaFor(line, other));
-  }
-  function ocrLineLooksLikeFuriganaFor(furi, base) {
-    if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
-    const overlap = horizontalOverlap(furi.box, base.box);
-    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
-    const smaller = furi.box.height <= base.box.height * 0.75;
-    const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5 && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
-    return overlapRatio >= 0.32 && smaller && nearTop;
-  }
-  function horizontalOverlap(a, b) {
-    return Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
-  }
-  function ocrLineLooksLikeVerticalFuriganaFor(furi, base) {
-    if (!furi.vertical || !base.vertical) return false;
-    const overlap = verticalOverlap(furi.box, base.box);
-    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
-    const smaller = furi.box.width <= base.box.width * 0.75;
-    const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
-    return overlapRatio >= 0.32 && smaller && nearSide;
-  }
-  function verticalOverlap(a, b) {
-    return Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
-  }
-  function horizontalGap(a, b) {
-    if (a.left + a.width < b.left) return b.left - (a.left + a.width);
-    if (b.left + b.width < a.left) return a.left - (b.left + b.width);
-    return 0;
-  }
-  function parseGoogleLensResponse(bytes, width, height) {
-    const root = decodeProtoMessage(bytes);
-    const objectsResponse = protoFirstMessage(root, 2);
-    const text = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
-    const layout = text ? protoFirstMessage(text, 1) : null;
-    if (!layout) return null;
-    const lines = protoMessages(layout, 1).flatMap((paragraph) => googleLensParagraphLines(paragraph, width, height));
-    return lines.length ? { width, height, lines } : null;
-  }
-  function googleLensParagraphLines(paragraph, width, height) {
-    const vertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
-    const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
-    return protoMessages(paragraph, 2).map((line) => googleLensLine(line, vertical, paragraphBox, width, height)).filter((line) => Boolean(line));
-  }
-  function googleLensLine(line, paragraphVertical, paragraphBox, width, height) {
-    const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
-    const words = googleLensWords(line, width, height);
-    const text = googleLensLineText(words, paragraphVertical);
-    if (!text || !HAS_JAPANESE.test(text)) return null;
-    const box = googleLensLineBox(lineBox, words, paragraphBox);
-    if (!box) return null;
-    return {
-      text,
-      box,
-      vertical: paragraphVertical || isVerticalOcrBox(box, text.length)
-    };
-  }
-  function googleLensWords(line, width, height) {
-    return protoMessages(line, 1).map((word) => ({
-      text: protoString(word, 2),
-      separator: protoString(word, 3),
-      box: protoBox(protoFirstMessage(word, 4), width, height)
-    })).filter((word) => Boolean(word.text));
-  }
-  function googleLensLineText(words, paragraphVertical) {
-    const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
-    return cleanOcrText(orderedWords.map(googleLensWordText).join(""));
-  }
-  function googleLensWordText(word, index, words) {
-    return word.text + (word.separator || (index < words.length - 1 ? " " : ""));
-  }
-  function googleLensLineBox(lineBox, words, paragraphBox) {
-    return lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
-  }
-  function parseGoogleLensUploadHtml(html, width, height) {
-    const literal = googleLensUploadCallbackLiteral(html, "ds:1");
-    if (!literal) return null;
-    try {
-      const callback = parseJsDataLiteral(literal);
-      const lines = [];
-      for (const item of googleLensUploadLineItems(callback.data)) {
-        const { text, box } = googleLensUploadLine(item, width, height);
-        pushJapaneseOcrLine(lines, text, box);
-      }
-      return lines.length ? { width, height, lines } : null;
-    } catch {
-      return null;
-    }
-  }
-  function googleLensUploadLineItems(data) {
-    return googleLensUploadBlocks(data).flatMap((block) => googleLensUploadBlockLineItems(block));
-  }
-  function googleLensUploadBlocks(data) {
-    const blocks = data?.[2]?.[3]?.[0] ?? [];
-    return Array.isArray(blocks) ? blocks : [];
-  }
-  function googleLensUploadBlockLineItems(block) {
-    const blockData = Array.isArray(block) ? block : [];
-    const rawLines = blockData[2]?.[0]?.[5]?.[3];
-    const lineItems = rawLines?.[0];
-    return Array.isArray(lineItems) ? lineItems : [];
-  }
-  function googleLensUploadLine(item, width, height) {
-    const lineData = Array.isArray(item) ? item : [];
-    return {
-      text: googleLensUploadLineText(lineData[0]),
-      box: googleLensUploadLineBox(lineData[1], width, height)
-    };
-  }
-  function googleLensUploadLineText(value) {
-    const words = Array.isArray(value) ? value : [];
-    return cleanOcrText(words.map(googleLensUploadWordText).join(""));
-  }
-  function googleLensUploadWordText(word) {
-    const wordData = Array.isArray(word) ? word : [];
-    return `${wordData[0] ?? ""}${wordData[3] ?? ""}`;
-  }
-  function googleLensUploadLineBox(value, width, height) {
-    const boxData = Array.isArray(value) ? value : [];
-    if (boxData.length < 4) return null;
-    return clampBox({
-      top: Number(boxData[0]) * height,
-      left: Number(boxData[1]) * width,
-      width: Number(boxData[2]) * width,
-      height: Number(boxData[3]) * height
-    }, width, height);
-  }
-  function normalizeSimpleLine(value, width, height) {
-    const record = asRecord(value);
-    if (!record) return null;
-    const text = simpleLineText(record);
-    const box = simpleLineBox(record, width, height);
-    if (!text || !box) return null;
-    return { text, box, vertical: simpleLineIsVertical(record) };
-  }
-  function simpleLineText(record) {
-    return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
-  }
-  function simpleLineBox(record, width, height) {
-    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
-  }
-  function simpleLineIsVertical(record) {
-    return Boolean(record.vertical ?? record.is_vertical);
-  }
-  function normalizeStructuredOcrResult(value, width, height) {
-    if (!value || typeof value !== "object") return [];
-    const record = value;
-    const textLines = structuredOcrTextLines(record);
-    const vertical = structuredOcrVertical(record);
-    const lines = textLines.map((item) => normalizeStructuredOcrLine(item, width, height, vertical)).filter((line) => line !== null);
-    if (lines.length) return lines;
-    return normalizeStructuredOcrFallback(record, textLines, width, height, vertical);
-  }
-  function structuredOcrTextLines(record) {
-    if (Array.isArray(record.text_lines)) return record.text_lines;
-    return Array.isArray(record.text) ? record.text : [];
-  }
-  function structuredOcrVertical(record) {
-    return Boolean(record.is_vertical ?? record.box?.isVertical);
-  }
-  function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
-    const lineRecord = asRecord(item);
-    if (!lineRecord) return null;
-    const text = structuredOcrLineText(lineRecord);
-    const box = structuredOcrLineBox(lineRecord, width, height);
-    if (!text || !box) return null;
-    return { text, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
-  }
-  function structuredOcrLineText(record) {
-    return stringFrom(record.content ?? record.text ?? record.word);
-  }
-  function structuredOcrLineBox(record, width, height) {
-    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
-  }
-  function structuredOcrLineVertical(record, inheritedVertical) {
-    return Boolean(record.is_vertical ?? record.box?.isVertical ?? inheritedVertical);
-  }
-  function normalizeStructuredOcrFallback(record, textLines, width, height, vertical) {
-    const text = textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join("");
-    const box = normalizeBox(record.box, width, height);
-    return text && box ? [{ text, box, vertical }] : [];
-  }
-  function normalizeOcrRegion(record, width, height) {
-    const region = readOcrRegion(record);
-    if (!region) return null;
-    const box = clampBox(scaleOcrRegion(region, width, height), width, height);
-    return box && !isFullImageOcrRegion(box, width, height) ? box : null;
-  }
-  function readOcrRegion(record) {
-    const position = record.position;
-    const size = record.size;
-    if (!position || !size) return null;
-    return completeOcrRegionParts({
-      left: numberFrom(position.left),
-      top: numberFrom(position.top),
-      width: numberFrom(size.width),
-      height: numberFrom(size.height)
-    });
-  }
-  function completeOcrRegionParts(parts) {
-    if (parts.left === null) return null;
-    if (parts.top === null) return null;
-    if (parts.width === null) return null;
-    if (parts.height === null) return null;
-    return { left: parts.left, top: parts.top, width: parts.width, height: parts.height };
-  }
-  function scaleOcrRegion(region, width, height) {
-    const divisor = Math.max(region.left, region.top, region.width, region.height) <= 1 ? 1 : 100;
-    return {
-      left: region.left / divisor * width,
-      top: region.top / divisor * height,
-      width: region.width / divisor * width,
-      height: region.height / divisor * height
-    };
-  }
-  function isFullImageOcrRegion(box, width, height) {
-    return box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
-  }
-  function offsetLineToRegion(line, region, width, height) {
-    const box = clampBox({
-      left: region.left + line.box.left,
-      top: region.top + line.box.top,
-      width: line.box.width,
-      height: line.box.height
-    }, width, height);
-    return box ? { ...line, box } : null;
-  }
-  function normalizeBox(value, width, height) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    return normalizePositionDimensionsBox(record, width, height) ?? normalizeDirectBox(record, width, height) ?? normalizePointBox(record, width, height);
-  }
-  function normalizePositionDimensionsBox(record, width, height) {
-    const position = asRecord(record.position);
-    const dimensions = asRecord(record.dimensions);
-    if (!position || !dimensions) return null;
-    return boxFromNumbers({
-      left: numberFrom(position.left),
-      top: numberFrom(position.top),
-      width: numberFrom(dimensions.width),
-      height: numberFrom(dimensions.height)
-    }, width, height, "percent-100");
-  }
-  function normalizeDirectBox(record, width, height) {
-    const box = directBoxNumbers(record);
-    return boxFromNumbers(box, width, height, directBoxScale(box));
-  }
-  function directBoxNumbers(record) {
-    return {
-      left: numberFrom(record.left ?? record.x),
-      top: numberFrom(record.top ?? record.y),
-      width: numberFrom(record.width ?? record.w),
-      height: numberFrom(record.height ?? record.h)
-    };
-  }
-  function directBoxScale(box) {
-    return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
-  }
-  function normalizePointBox(record, width, height) {
-    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
-    if (points.length < 2) return null;
-    const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
-    const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
-    if (!xs.length || !ys.length) return null;
-    const percent = coordinatesAreFractional(xs, ys);
-    const scaledXs = scaleCoordinates(xs, width, percent);
-    const scaledYs = scaleCoordinates(ys, height, percent);
-    const left = Math.min(...scaledXs);
-    const top = Math.min(...scaledYs);
-    return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
-  }
-  function coordinatesAreFractional(xs, ys) {
-    return xs.every(isFractionalCoordinate) && ys.every(isFractionalCoordinate);
-  }
-  function isFractionalCoordinate(value) {
-    return value >= 0 && value <= 1;
-  }
-  function scaleCoordinates(values, scale, enabled) {
-    return enabled ? values.map((value) => value * scale) : values;
-  }
-  function boxFromNumbers(box, imageWidth, imageHeight, scale) {
-    if (!hasCompleteBoxNumbers(box)) return null;
-    const scaleInfo = boxScaleInfo(scale);
-    return clampBox({
-      left: scaleBoxNumber(box.left, imageWidth, scaleInfo),
-      top: scaleBoxNumber(box.top, imageHeight, scaleInfo),
-      width: scaleBoxNumber(box.width, imageWidth, scaleInfo),
-      height: scaleBoxNumber(box.height, imageHeight, scaleInfo)
-    }, imageWidth, imageHeight);
-  }
-  function hasCompleteBoxNumbers(box) {
-    return box.left !== null && box.top !== null && box.width !== null && box.height !== null;
-  }
-  function boxScaleInfo(scale) {
-    return {
-      fractional: scale !== "pixels",
-      factor: scale === "percent-100" ? 100 : 1
-    };
-  }
-  function scaleBoxNumber(value, dimension, scale) {
-    return scale.fractional ? value / scale.factor * dimension : value;
-  }
-  function decodeProtoMessage(bytes) {
-    const fields = [];
-    let offset = 0;
-    while (offset < bytes.length) {
-      const [tag, nextOffset] = readVarint(bytes, offset);
-      offset = nextOffset;
-      const field = Number(tag >> 3n);
-      const wire = Number(tag & 7n);
-      if (!field) break;
-      if (wire === 0) {
-        const [value, afterValue] = readVarint(bytes, offset);
-        offset = afterValue;
-        fields.push({ field, wire, value });
-      } else if (wire === 1) {
-        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
-        offset += 8;
-      } else if (wire === 2) {
-        const [length, afterLength] = readVarint(bytes, offset);
-        offset = afterLength;
-        const end = offset + Number(length);
-        fields.push({ field, wire, value: bytes.slice(offset, end) });
-        offset = end;
-      } else if (wire === 5) {
-        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
-        offset += 4;
-      } else {
-        break;
-      }
-    }
-    return fields;
-  }
-  function readVarint(bytes, offset) {
-    let shift = 0n;
-    let result = 0n;
-    while (offset < bytes.length) {
-      const byte = bytes[offset++];
-      result |= BigInt(byte & 127) << shift;
-      if (!(byte & 128)) return [result, offset];
-      shift += 7n;
-    }
-    return [result, offset];
-  }
-  function protoMessages(fields, field) {
-    return fields.filter((item) => item.field === field && item.wire === 2 && item.value instanceof Uint8Array).map((item) => decodeProtoMessage(item.value));
-  }
-  function protoFirstMessage(fields, field) {
-    return protoMessages(fields, field)[0] ?? null;
-  }
-  function protoString(fields, field) {
-    const item = fields.find((value) => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
-    return item ? new TextDecoder().decode(item.value) : "";
-  }
-  function protoNumber(fields, field) {
-    const item = fields.find((value) => value.field === field);
-    if (!item) return 0;
-    return typeof item.value === "bigint" ? Number(item.value) : typeof item.value === "number" ? item.value : 0;
-  }
-  function protoBox(geometry, width, height) {
-    const dimensions = protoBoxDimensions(geometry);
-    if (!dimensions) return null;
-    return clampBox(scaledProtoBox(dimensions, protoBoxIsNormalized(dimensions), width, height), width, height);
-  }
-  function protoBoxDimensions(geometry) {
-    const box = geometry ? protoFirstMessage(geometry, 1) : null;
-    if (!box) return null;
-    const dimensions = {
-      centerX: protoNumber(box, 1),
-      centerY: protoNumber(box, 2),
-      width: protoNumber(box, 3),
-      height: protoNumber(box, 4)
-    };
-    return dimensions.width && dimensions.height ? dimensions : null;
-  }
-  function protoBoxIsNormalized(box) {
-    return box.centerX <= 2 && box.centerY <= 2 && box.width <= 2 && box.height <= 2;
-  }
-  function scaledProtoBox(box, normalized, width, height) {
-    const scaledWidth = scaledProtoBoxValue(box.width, width, normalized);
-    const scaledHeight = scaledProtoBoxValue(box.height, height, normalized);
-    return {
-      left: scaledProtoBoxValue(box.centerX, width, normalized) - scaledWidth / 2,
-      top: scaledProtoBoxValue(box.centerY, height, normalized) - scaledHeight / 2,
-      width: scaledWidth,
-      height: scaledHeight
-    };
-  }
-  function scaledProtoBoxValue(value, scale, normalized) {
-    return normalized ? value * scale : value;
-  }
-  function stringFrom(value) {
-    return typeof value === "string" ? value.replace(/\s+/g, "").trim() : "";
-  }
-  function asRecord(value) {
-    return value && typeof value === "object" ? value : null;
-  }
-  const GODAN_ROWS = [
-    { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
-    { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
-    { ending: "ぐ", a: "が", i: "ぎ", e: "げ", o: "ご", te: "いで", ta: "いだ", rules: ["v5g", "v5"] },
-    { ending: "す", a: "さ", i: "し", e: "せ", o: "そ", te: "して", ta: "した", rules: ["v5s", "v5"] },
-    { ending: "つ", a: "た", i: "ち", e: "て", o: "と", te: "って", ta: "った", rules: ["v5t", "v5"] },
-    { ending: "ぬ", a: "な", i: "に", e: "ね", o: "の", te: "んで", ta: "んだ", rules: ["v5n", "v5"] },
-    { ending: "ぶ", a: "ば", i: "び", e: "べ", o: "ぼ", te: "んで", ta: "んだ", rules: ["v5b", "v5"] },
-    { ending: "む", a: "ま", i: "み", e: "め", o: "も", te: "んで", ta: "んだ", rules: ["v5m", "v5"] },
-    { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
-  ];
-  const ICHIDAN_RULES = [
-    ["ました", "る", "polite past"],
-    ["ませんでした", "る", "polite negative past"],
-    ["ません", "る", "polite negative"],
-    ["ましょう", "る", "polite volitional"],
-    ["ます", "る", "polite"],
-    ["なかった", "る", "negative past"],
-    ["なくて", "る", "negative te-form"],
-    ["なければ", "る", "negative conditional"],
-    ["ない", "る", "negative"],
-    ["たかった", "る", "desiderative past"],
-    ["たくなかった", "る", "desiderative negative past"],
-    ["たくない", "る", "desiderative negative"],
-    ["たい", "る", "desiderative"],
-    ["なさい", "る", "polite request"],
-    ["すぎる", "る", "excessive"],
-    ["られなかった", "る", "potential/passive negative past"],
-    ["られない", "る", "potential/passive negative"],
-    ["られて", "る", "potential/passive te-form"],
-    ["られた", "る", "potential/passive past"],
-    ["られる", "る", "potential/passive"],
-    ["させられた", "る", "causative passive past"],
-    ["させられる", "る", "causative passive"],
-    ["させない", "る", "causative negative"],
-    ["させて", "る", "causative te-form"],
-    ["させた", "る", "causative past"],
-    ["させる", "る", "causative"],
-    ["れば", "る", "conditional"],
-    ["よう", "る", "volitional"],
-    ["ろ", "る", "imperative"],
-    ["て", "る", "te-form"],
-    ["た", "る", "past"]
-  ];
-  const I_ADJECTIVE_RULES = [
-    ["くなかった", "い", "negative past"],
-    ["くありませんでした", "い", "polite negative past"],
-    ["くありません", "い", "polite negative"],
-    ["かった", "い", "past"],
-    ["くない", "い", "negative"],
-    ["くて", "い", "te-form"],
-    ["ければ", "い", "conditional"],
-    ["そう", "い", "looks"],
-    ["すぎる", "い", "excessive"],
-    ["く", "い", "adverbial"]
-  ];
-  const SURU_RULES = [
-    ["しませんでした", "する", "polite negative past"],
-    ["しません", "する", "polite negative"],
-    ["しました", "する", "polite past"],
-    ["しましょう", "する", "polite volitional"],
-    ["します", "する", "polite"],
-    ["しなかった", "する", "negative past"],
-    ["しなくて", "する", "negative te-form"],
-    ["しなければ", "する", "negative conditional"],
-    ["しない", "する", "negative"],
-    ["しなさい", "する", "polite request"],
-    ["しすぎる", "する", "excessive"],
-    ["された", "する", "passive past"],
-    ["されて", "する", "passive te-form"],
-    ["される", "する", "passive"],
-    ["させた", "する", "causative past"],
-    ["させて", "する", "causative te-form"],
-    ["させる", "する", "causative"],
-    ["できなかった", "する", "potential negative past"],
-    ["できない", "する", "potential negative"],
-    ["できた", "する", "potential past"],
-    ["できて", "する", "potential te-form"],
-    ["できる", "する", "potential"],
-    ["すれば", "する", "conditional"],
-    ["しよう", "する", "volitional"],
-    ["しろ", "する", "imperative"],
-    ["せよ", "する", "imperative"],
-    ["した", "する", "past"],
-    ["して", "する", "te-form"]
-  ];
-  const KURU_RULES = [
-    ["来ませんでした", "来る", "polite negative past"],
-    ["来ません", "来る", "polite negative"],
-    ["来ました", "来る", "polite past"],
-    ["来ます", "来る", "polite"],
-    ["来なかった", "来る", "negative past"],
-    ["来なくて", "来る", "negative te-form"],
-    ["来ない", "来る", "negative"],
-    ["来なさい", "来る", "polite request"],
-    ["来すぎる", "来る", "excessive"],
-    ["来られた", "来る", "potential/passive past"],
-    ["来られて", "来る", "potential/passive te-form"],
-    ["来られる", "来る", "potential/passive"],
-    ["来れば", "来る", "conditional"],
-    ["来よう", "来る", "volitional"],
-    ["来い", "来る", "imperative"],
-    ["来た", "来る", "past"],
-    ["来て", "来る", "te-form"],
-    ["きませんでした", "くる", "polite negative past"],
-    ["きません", "くる", "polite negative"],
-    ["きました", "くる", "polite past"],
-    ["きます", "くる", "polite"],
-    ["こなかった", "くる", "negative past"],
-    ["こなくて", "くる", "negative te-form"],
-    ["こない", "くる", "negative"],
-    ["きなさい", "くる", "polite request"],
-    ["きすぎる", "くる", "excessive"],
-    ["こられた", "くる", "potential/passive past"],
-    ["こられて", "くる", "potential/passive te-form"],
-    ["こられる", "くる", "potential/passive"],
-    ["くれば", "くる", "conditional"],
-    ["こよう", "くる", "volitional"],
-    ["こい", "くる", "imperative"],
-    ["きた", "くる", "past"],
-    ["きて", "くる", "te-form"]
-  ];
-  const TE_ASPECT_SUFFIXES = [
-    ["いる", "progressive"],
-    ["います", "polite progressive"],
-    ["いました", "polite progressive past"],
-    ["いません", "polite progressive negative"],
-    ["いませんでした", "polite progressive negative past"],
-    ["いた", "progressive past"],
-    ["いて", "progressive te-form"],
-    ["いない", "progressive negative"],
-    ["いなかった", "progressive negative past"],
-    ["いれば", "progressive conditional"],
-    ["る", "contracted progressive"],
-    ["ます", "contracted polite progressive"],
-    ["ました", "contracted polite progressive past"],
-    ["た", "contracted progressive past"],
-    ["て", "contracted progressive te-form"],
-    ["ない", "contracted progressive negative"],
-    ["なかった", "contracted progressive negative past"]
-  ];
-  const TE_COMPLETION_SUFFIXES = [
-    ["しまう", "completion"],
-    ["しまった", "completion past"],
-    ["しまって", "completion te-form"],
-    ["しまわない", "completion negative"],
-    ["しまいます", "polite completion"],
-    ["しまいました", "polite completion past"]
-  ];
-  const CONTRACTED_COMPLETION_SUFFIXES = [
-    ["う", "contracted completion"],
-    ["った", "contracted completion past"],
-    ["って", "contracted completion te-form"],
-    ["わない", "contracted completion negative"],
-    ["います", "contracted polite completion"],
-    ["いました", "contracted polite completion past"]
-  ];
-  const RULES = [
-    ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["v1"] })),
-    ...teCompoundRules("て", "る", ["v1"]),
-    ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["adj-i", "i-adj"] })),
-    ...SURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vs", "vs-s", "suru"] })),
-    ...teCompoundRules("して", "する", ["vs", "vs-s", "suru"]),
-    ...KURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vk", "kuru"] })),
-    ...teCompoundRules("来て", "来る", ["vk", "kuru"]),
-    ...teCompoundRules("きて", "くる", ["vk", "kuru"]),
-    ...GODAN_ROWS.flatMap((row) => godanRules(row)),
-    { from: "行って", to: "行く", reason: "te-form", rules: ["v5k", "v5"] },
-    { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
-    { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
-    { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
-  ];
-  function deinflectJapaneseTerm(source) {
-    const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
-    const seen = /* @__PURE__ */ new Set([candidateKey(results[0])]);
-    const queue = [results[0]];
-    expandDeinflectionQueue(queue, results, seen);
-    const sorted = sortDeinflectedTerms(results);
-    return sorted;
-  }
-  function expandDeinflectionQueue(queue, results, seen) {
-    for (let index = 0; index < queue.length; index++) {
-      expandDeinflectedTerm(queue[index], queue, results, seen);
-    }
-  }
-  function expandDeinflectedTerm(current, queue, results, seen) {
-    if (isDeinflectionDepthLimitReached(current)) return;
-    for (const rule of RULES) {
-      rememberExpandedDeinflection(current, rule, queue, results, seen);
-    }
-  }
-  function isDeinflectionDepthLimitReached(current) {
-    return current.depth >= 2;
-  }
-  function rememberExpandedDeinflection(current, rule, queue, results, seen) {
-    const next = deinflectedCandidate(current, rule);
-    if (!next) return;
-    if (!rememberDeinflectedCandidate(next, seen)) return;
-    results.push(next);
-    queue.push(next);
-  }
-  function sortDeinflectedTerms(results) {
-    return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
-  }
-  function deinflectedCandidate(current, rule) {
-    if (!canApplyDeinflectionRule(current.term, rule)) return null;
-    const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
-    if (!term || term === current.term) return null;
-    return {
-      term,
-      rules: rule.rules,
-      reasons: [...current.reasons, rule.reason],
-      depth: current.depth + 1
-    };
-  }
-  function canApplyDeinflectionRule(term, rule) {
-    return term.endsWith(rule.from) && (term.length > rule.from.length || rule.to.length > 0);
-  }
-  function rememberDeinflectedCandidate(candidate, seen) {
-    const key = candidateKey(candidate);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }
-  function godanRules(row) {
-    const rules = row.rules;
-    return [
-      ...teCompoundRules(row.te, row.ending, rules),
-      { from: row.te, to: row.ending, reason: "te-form", rules },
-      { from: row.ta, to: row.ending, reason: "past", rules },
-      { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },
-      { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
-      { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
-      { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
-      { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
-      { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
-      { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
-      { from: `${row.i}ましょう`, to: row.ending, reason: "polite volitional", rules },
-      { from: `${row.i}ます`, to: row.ending, reason: "polite", rules },
-      { from: `${row.i}たかった`, to: row.ending, reason: "desiderative past", rules },
-      { from: `${row.i}たくなかった`, to: row.ending, reason: "desiderative negative past", rules },
-      { from: `${row.i}たくない`, to: row.ending, reason: "desiderative negative", rules },
-      { from: `${row.i}たい`, to: row.ending, reason: "desiderative", rules },
-      { from: `${row.i}なさい`, to: row.ending, reason: "polite request", rules },
-      { from: `${row.i}すぎる`, to: row.ending, reason: "excessive", rules },
-      { from: `${row.e}ば`, to: row.ending, reason: "conditional", rules },
-      { from: `${row.o}う`, to: row.ending, reason: "volitional", rules },
-      { from: `${row.e}なかった`, to: row.ending, reason: "potential negative past", rules },
-      { from: `${row.e}ない`, to: row.ending, reason: "potential negative", rules },
-      { from: `${row.e}た`, to: row.ending, reason: "potential past", rules },
-      { from: `${row.e}て`, to: row.ending, reason: "potential te-form", rules },
-      { from: `${row.e}る`, to: row.ending, reason: "potential", rules },
-      { from: `${row.a}れなかった`, to: row.ending, reason: "passive negative past", rules },
-      { from: `${row.a}れない`, to: row.ending, reason: "passive negative", rules },
-      { from: `${row.a}れて`, to: row.ending, reason: "passive te-form", rules },
-      { from: `${row.a}れた`, to: row.ending, reason: "passive past", rules },
-      { from: `${row.a}れる`, to: row.ending, reason: "passive", rules },
-      { from: `${row.a}せない`, to: row.ending, reason: "causative negative", rules },
-      { from: `${row.a}せて`, to: row.ending, reason: "causative te-form", rules },
-      { from: `${row.a}せた`, to: row.ending, reason: "causative past", rules },
-      { from: `${row.a}せる`, to: row.ending, reason: "causative", rules },
-      { from: row.e, to: row.ending, reason: "imperative", rules }
-    ];
-  }
-  function teCompoundRules(te, to, rules) {
-    return [
-      ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
-      ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
-      ...contractedCompletionRules(te, to, rules)
-    ];
-  }
-  function contractedCompletionRules(te, to, rules) {
-    const stem = contractedCompletionStem(te);
-    return stem ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules })) : [];
-  }
-  function contractedCompletionStem(te) {
-    if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
-    if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
-    return "";
-  }
-  function candidateKey(candidate) {
-    return `${candidate.term}
-${candidate.rules.join(" ")}
-${candidate.depth}`;
-  }
-  const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
-  const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
-  const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
-  const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
-  const FALLBACK_INFLECTION_MAX_LENGTH = 18;
-  const FALLBACK_LOOKUP_TERM_LIMIT = 8;
-  const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など"]);
-  const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
-  const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
-  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
-  const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
-  const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
-  const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
-  const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
-  const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
-  const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
-  const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
-  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
-  const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max, value) => Math.max(max, value.length), 0);
-  const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
-  const KANA_I_ADJECTIVE_END_RE = /い$/u;
-  const SMALL_TSU_RE = /っ/u;
-  const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-  const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ]/u;
-  function normalizeFallbackTerm(text) {
-    return text.replace(/\s+/g, " ").trim().slice(0, 80);
-  }
-  let cachedSegmenterConstructor;
-  let cachedJapaneseWordSegmenter;
-  function fallbackJapaneseSegments(text) {
-    return segmentJapaneseText(text);
-  }
-  function segmentJapaneseText(text) {
-    const segmenter = japaneseWordSegmenter();
-    if (!segmenter) {
-      return Array.from(text.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
-        const start = match.index ?? 0;
-        return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text);
-      });
-    }
-    return Array.from(text.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
-      const start = match.index ?? 0;
-      return segmentJapaneseRun(match[0], start, segmenter, text);
-    });
-  }
-  function segmentJapaneseRun(text, offset, segmenter, sourceText) {
-    const segments = Array.from(segmenter.segment(text)).filter(isUsefulJapaneseSegment).map((segment) => ({
-      surface: segment.segment,
-      start: offset + segment.index,
-      end: offset + segment.index + segment.segment.length
-    }));
-    if (segments.at(-1)?.end !== offset + text.length) {
-      return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text, offset), sourceText);
-    }
-    return finalizeJapaneseRunSegments(segments, sourceText);
-  }
-  function finalizeJapaneseRunSegments(segments, sourceText) {
-    return mergeInflectedFallbackSegments(
-      splitLeadingParticleSegments(mergeContiguousKanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText)))),
-      sourceText
-    );
-  }
-  function mergeContiguousKanaSegments(segments) {
-    if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = contiguousKanaMergeSpanAt(segments, index);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function contiguousKanaMergeSpanAt(segments, startIndex) {
-    const first = segments[startIndex];
-    if (!first || !isPureKanaSegment(first.surface)) return null;
-    const previous = segments[startIndex - 1];
-    const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first.start;
-    if (isBoundarySegment(first.surface) && !atKanaRunStart) return null;
-    const runEnd = contiguousKanaRunEnd(segments, startIndex);
-    if (runEnd - startIndex < 2) return null;
-    let surface = first.surface;
-    let lastIndex = startIndex;
-    for (let index = startIndex + 1; index < runEnd; index += 1) {
-      const current = segments[index];
-      const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
-      if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
-      surface += current.surface;
-      lastIndex = index;
-    }
-    if (lastIndex === startIndex) return null;
-    return {
-      segment: { surface, start: first.start, end: segments[lastIndex].end },
-      nextIndex: lastIndex + 1
-    };
-  }
-  function contiguousKanaRunEnd(segments, startIndex) {
-    let index = startIndex + 1;
-    while (index < segments.length && isPureKanaSegment(segments[index].surface) && segments[index].start === segments[index - 1].end) {
-      index += 1;
-    }
-    return index;
-  }
-  function sliceKanaSpanSurface(segments, startIndex, endIndex) {
-    let surface = "";
-    for (let index = startIndex; index < endIndex; index += 1) surface += segments[index].surface;
-    return surface;
-  }
-  function isPureKanaSegment(surface) {
-    return HIRAGANA_SEGMENT_RE.test(surface);
-  }
-  function isKanaContentWordSpan(span) {
-    if (isKanaInflectableBaseShape(span)) return true;
-    return deinflectJapaneseTerm(span).some((candidate) => candidate.depth > 0 && Array.from(candidate.term).length >= 2 && !SMALL_TSU_RE.test(candidate.term) && (KANA_VERB_STEM_END_RE.test(candidate.term) || KANA_I_ADJECTIVE_END_RE.test(candidate.term)));
-  }
-  function isKanaInflectableBaseShape(span) {
-    if (Array.from(span).length < KANA_CONTENT_WORD_MIN_LENGTH || SMALL_TSU_RE.test(span)) return false;
-    return KANA_VERB_STEM_END_RE.test(span) || KANA_I_ADJECTIVE_END_RE.test(span);
-  }
-  function splitNumericCounterPrefixSegments(segments, sourceText) {
-    return segments.flatMap((segment) => splitNumericCounterPrefixSegment(segment, sourceText));
-  }
-  function splitNumericCounterPrefixSegment(segment, sourceText) {
-    const first = Array.from(segment.surface)[0] ?? "";
-    if (!first || first === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first)) return [segment];
-    if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
-    return [
-      { surface: first, start: segment.start, end: segment.start + first.length },
-      { surface: segment.surface.slice(first.length), start: segment.start + first.length, end: segment.end }
-    ];
-  }
-  function splitLeadingParticleSegments(segments) {
-    return segments.flatMap(splitLeadingParticleSegment);
-  }
-  function splitLeadingParticleSegment(segment) {
-    const prefix = PARTICLE_PREFIX_SEGMENTS.find((candidate) => {
-      if (!segment.surface.startsWith(candidate) || segment.surface.length <= candidate.length) return false;
-      return PARTICLE_PREFIX_REMAINDER_RE.test(segment.surface.slice(candidate.length));
-    });
-    if (!prefix) return [segment];
-    return [
-      { surface: prefix, start: segment.start, end: segment.start + prefix.length },
-      { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end }
-    ];
-  }
-  function mergeSegmenterCompoundOverrides(segments) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = segmenterCompoundOverrideSpanAt(segments, index);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function segmenterCompoundOverrideSpanAt(segments, startIndex) {
-    const first = segments[startIndex];
-    if (!first) return null;
-    let surface = "";
-    let best = null;
-    for (let index = startIndex; index < segments.length; index += 1) {
-      const current = segments[index];
-      if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
-      surface += current.surface;
-      if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
-      if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
-        best = {
-          segment: { surface, start: first.start, end: current.end },
-          nextIndex: index + 1
-        };
-      }
-    }
-    return best;
-  }
-  function mergeInflectedFallbackSegments(segments, sourceText) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = inflectedFallbackSpanAt(segments, index, sourceText);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
-    const first = segments[startIndex];
-    if (!first || isBoundarySegment(first.surface)) return null;
-    let surface = "";
-    let best = null;
-    for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
-      const current = nextInflectedFallbackSegment(segments, index, startIndex, first, surface, sourceText);
-      if (!current) break;
-      surface += current.surface;
-      if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
-      best = inflectedFallbackCandidateAt(segments, startIndex, index, first, current, surface) ?? best;
-    }
-    return best;
-  }
-  function fallbackInflectionScanEnd(segments, startIndex) {
-    return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
-  }
-  function nextInflectedFallbackSegment(segments, index, startIndex, first, surface, sourceText) {
-    const current = segments[index];
-    if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first)) return null;
-    if (index > startIndex && isNumericCounterFallbackStem(first, sourceText)) return null;
-    if (index > startIndex && isBoundarySegment(current.surface)) return null;
-    if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
-    return current;
-  }
-  function isContiguousFallbackSegment(segments, index, startIndex, first) {
-    const expectedStart = index === startIndex ? first.start : segments[index - 1]?.end;
-    return segments[index]?.start === expectedStart;
-  }
-  function inflectedFallbackCandidateAt(segments, startIndex, index, first, current, surface) {
-    if (index === startIndex) return null;
-    const lookupTerms = fallbackLookupTermsForText(surface);
-    if (lookupTerms.length <= 1) return null;
-    if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) return null;
-    return {
-      segment: { surface, start: first.start, end: current.end },
-      nextIndex: index + 1
-    };
-  }
-  function isBoundarySegment(surface) {
-    return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
-  }
-  function isInflectionContinuationSegment(surface) {
-    return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
-  }
-  function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
-    return isInflectionContinuationSegment(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && !hasUsefulFallbackDeinflection(currentSurface);
-  }
-  function isNumericCounterFallbackStem(segment, sourceText) {
-    return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment.surface) && numericRangeImmediatelyBefore(sourceText, segment.start);
-  }
-  function numericRangeImmediatelyBefore(sourceText, start) {
-    const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
-    return NUMERIC_RANGE_BEFORE_RE.test(before);
-  }
-  function hasUsefulFallbackDeinflection(surface) {
-    return fallbackLookupTermsForText(surface).length > 1;
-  }
-  function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
-    const first = segments[startIndex]?.surface ?? "";
-    if (!first || !SURU_STEM_SEGMENT_RE.test(first)) return false;
-    const suffix = surface.slice(first.length);
-    if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
-    if (hasSingleKanjiGodanSAlternative(first, lookupTerms)) return false;
-    return lookupTerms.some((term) => term.endsWith("する"));
-  }
-  function hasSingleKanjiGodanSAlternative(first, lookupTerms) {
-    return SINGLE_KANJI_SEGMENT_RE.test(first) && lookupTerms.some((term) => term === `${first}す`);
-  }
-  function japaneseWordSegmenter() {
-    const Segmenter = intlSegmenter();
-    if (!Segmenter) {
-      cachedSegmenterConstructor = null;
-      cachedJapaneseWordSegmenter = null;
-      return null;
-    }
-    if (cachedSegmenterConstructor !== Segmenter) {
-      cachedSegmenterConstructor = Segmenter;
-      cachedJapaneseWordSegmenter = new Segmenter("ja", { granularity: "word" });
-    }
-    return cachedJapaneseWordSegmenter ?? null;
-  }
-  function isUsefulJapaneseSegment(segment) {
-    const surface = segment.segment.trim();
-    return JAPANESE_CHARACTER_RE.test(surface);
-  }
-  function intlSegmenter() {
-    const candidate = Intl.Segmenter;
-    return typeof candidate === "function" ? candidate : null;
-  }
-  function fallbackJapaneseRunSegment(text, offset) {
-    const surface = text.trim();
-    if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
-    const start = offset + text.indexOf(surface);
-    return [{ surface, start, end: start + surface.length }];
-  }
-  function fallbackLookupTermsForText(text) {
-    const source = normalizeFallbackTerm(text);
-    if (!source) return [];
-    const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
-    return uniqueStrings$1([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
-  }
-  function isUsefulFallbackLookupCandidate(candidate) {
-    return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
-  }
-  function compareFallbackLookupCandidates(a, b) {
-    return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
-  }
-  function fallbackRulePriority(candidate) {
-    if (candidate.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
-    if (candidate.rules.some((rule) => rule === "v1")) return 1;
-    if (candidate.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
-    if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
-    return 3;
-  }
-  function uniqueStrings$1(values) {
-    const seen = /* @__PURE__ */ new Set();
-    return values.filter((value) => {
-      if (!value) return false;
-      if (seen.has(value)) return false;
-      seen.add(value);
-      return true;
-    });
-  }
-  function stableHash32(value) {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index += 1) {
-      hash ^= value.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-  }
-  function stablePositiveHashId(value) {
-    return stableHash32(value) || 1;
-  }
-  function stableHashBase36(value) {
-    return stableHash32(value).toString(36);
-  }
-  Logger.scope("Yomitan");
-  new TextDecoder();
-  Logger.scope("YomitanSettingsImport");
-  Logger.scope("Yomitan");
-  Logger.scope("ReaderParser");
-  function isTerminalOcrStatus(status) {
-    return status === "empty" || status === "failed";
-  }
-  const MAX_CACHE_ITEMS = 36;
-  const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15e3;
-  const OCR_STATUS_READY_DWELL_MS = 1e3;
-  const OCR_STATUS_FADE_MS = 360;
-  const READER_RASTER_RETRY_BASE_MS = 140;
-  const READER_RASTER_RETRY_MAX_MS = 1100;
-  const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
-  const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
-  const READER_RASTER_EMPTY_RETRY_MS = 650;
-  const READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS = 8e3;
-  const READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT = 40;
-  const READER_RASTER_BOTTOM_CHROME_RESERVE_PX = 56;
-  const READER_RASTER_FRAME_SIZE_CHANGE_PX = 2;
-  const READER_RASTER_REGION_MIN_SIZE_PX = 96;
-  const READER_RASTER_REGION_FULL_PAGE_FRACTION = 0.88;
-  const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
-  const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8e3;
-  const MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS = 48;
-  const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
-  const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
-  const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
-  const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
-  const LENS_PLATFORM_WEB = 3;
-  const LENS_SURFACE_CHROMIUM = 4;
-  const LENS_AUTO_FILTER = 7;
-  const log$2 = Logger.scope("OCR");
-  const STALE_OCR_STATE = Symbol("stale-ocr-state");
-  const OCR_WORD_UNDERLINE_OFFSET_EM = 0.12;
-  const OCR_WORD_UNDERLINE_THICKNESS_EM = 0.12;
-  const OCR_WORD_UNDERLINE_CLEARANCE_PX = 1;
-  const ocrVocabularyCache = /* @__PURE__ */ new WeakMap();
-  let ocrLayerCounter = 0;
-  const OCR_RECOGNIZERS = {
-    "google-lens": recognizeViaGoogleLens,
-    "cloud-vision": recognizeViaCloudVision,
-    "local-service": recognizeViaLocalService
-  };
-  const OCR_PROVIDER_CONFIGURED = {
-    "google-lens": () => true,
-    "cloud-vision": (settings) => Boolean(settings.ocrCloudVisionApiKey.trim()),
-    "local-service": () => true
-  };
-  const OCR_PROVIDER_LABELS = {
-    "google-lens": () => "google-lens",
-    "cloud-vision": (settings) => settings.ocrCloudVisionApiKey.trim() ? "cloud-vision" : null,
-    "local-service": localServiceProviderLabel
-  };
-  const VIDEO_FRAME_PLAYER_SELECTOR = [
-    "#movie_player",
-    ".html5-video-player",
-    "ytd-player",
-    "#player",
-    "#player-container",
-    "#player-container-outer",
-    "[data-yomu-video-frame]"
-  ].join(",");
-  const VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR = [
-    '[data-yomu-inline-fullscreen="true"]',
-    '[data-fullscreen-active="true"]',
-    "[fullscreen]",
-    "#movie_player.ytp-fullscreen",
-    ".html5-video-player.ytp-fullscreen",
-    "ytd-watch-flexy[fullscreen]",
-    "ytm-player[fullscreen]",
-    "ytm-player.fullscreen",
-    "ytm-player.ytp-fullscreen"
-  ].join(",");
-  const VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR = [
-    "ytd-thumbnail",
-    "ytd-rich-item-renderer",
-    "ytd-rich-grid-media",
-    "ytd-video-renderer",
-    "ytd-compact-video-renderer",
-    "ytd-grid-video-renderer",
-    "ytd-reel-item-renderer",
-    "ytd-playlist-thumbnail",
-    "ytd-video-preview",
-    "yt-thumbnail-view-model",
-    "yt-lockup-view-model",
-    "ytm-rich-item-renderer",
-    "ytm-compact-video-renderer",
-    "ytm-video-card-renderer",
-    "ytm-video-with-context-renderer",
-    "ytm-shorts-lockup-view-model",
-    "ytm-shorts-lockup-view-model-v2"
-  ].join(",");
-  const VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR = [
-    'a[href*="/watch"]',
-    'a[href*="/shorts/"]'
-  ].join(",");
-  const OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR = [
-    VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR,
-    "yt-image",
-    ".yt-core-image"
-  ].join(",");
-  function shouldSkipOcrRequest(state2, userRequested) {
-    return state2.autoSkipped && !userRequested;
-  }
-  function updateOcrRequestFlags(state2, image, userRequested) {
-    state2.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image, false));
-    state2.manualRequested ||= userRequested;
-    if (userRequested) state2.autoSkipped = false;
-  }
-  function shouldPinOcrLineFromPointer(event) {
-    return event.pointerType === "touch" || event.pointerType === "pen";
-  }
-  function isOcrImageStateIdle(state2) {
-    return !state2.result && !state2.loading && !state2.autoSkipped;
-  }
-  class LocalOcrUnavailableError extends Error {
-    constructor(endpointUrl) {
-      super("Local OCR server is unreachable.");
-      this.endpointUrl = endpointUrl;
-      this.name = "LocalOcrUnavailableError";
-    }
-  }
-  function beginOcrScan(state2, image, settings, manualRequested) {
-    state2.loading = true;
-    const provider = inlineProviderLabel(settings);
-    return {
-      provider,
-      done: log$2.time("scanImage", { provider, image: imageSummary(image), manualRequested })
-    };
-  }
-  function finishOcrScan(state2) {
-    state2.loading = false;
-    state2.manualRequested = false;
-  }
-  function renderNoOcrLines(state2) {
-    state2.autoSkipped = true;
-    state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
-  }
-  function logOcrFailure(state2, provider, manualRequested, error) {
-    state2.autoSkipped = !manualRequested;
-    if (isLocalOcrUnavailableError(error)) {
-      log$2.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
-      return;
-    }
-    log$2.warn("OCR scan failed", { provider, manualRequested }, error);
-  }
-  const OCR_NAVIGATION_EVENTS = ["yt-navigate-start", "yt-navigate-finish", "popstate"];
-  const OCR_FULLSCREEN_CHANGE_EVENTS = ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange"];
-  const MINING_PAUSE_MARKER_TTL_MS = 1500;
-  function isFreshMiningPause(video) {
-    const marked = Number(video.dataset.jpdbReaderMiningPause);
-    return Number.isFinite(marked) && Date.now() - marked < MINING_PAUSE_MARKER_TTL_MS;
-  }
-  class ImageOcrController {
-    constructor(options) {
-      this.options = options;
-      for (const [key, result] of loadPersistedOcrCache()) this.cache.set(key, result);
-    }
-    states = /* @__PURE__ */ new Map();
-    cache = /* @__PURE__ */ new Map();
-    localOcrUnavailable;
-    observer;
-    observerMargin = "";
-    mutationObserver;
-    queue = [];
-    // OCR runs as a small concurrency pool rather than one-at-a-time: manga
-    // readers surface many page images/canvases at once and the serial wait was
-    // the dominant source of "slow OCR". `activeScans` counts in-flight requests
-    // (capped by settings.ocrConcurrency) and `inFlightKeys` deduplicates work
-    // when several queued elements share the same image content (e.g. a canvas
-    // frame re-snapshotted on a page poll).
-    activeScans = 0;
-    inFlightKeys = /* @__PURE__ */ new Set();
-    positionFrame = 0;
-    refreshTimer = 0;
-    destroyed = false;
-    lastPointerMoveImage;
-    lastPointerMoveReaderSurface;
-    lastPointerMoveReaderSurfaceKey;
-    videoFrames = /* @__PURE__ */ new Map();
-    videoFrameVideos = /* @__PURE__ */ new Map();
-    videoFrameControls = /* @__PURE__ */ new Map();
-    videoFrameStatuses = /* @__PURE__ */ new Map();
-    // Compact loading/ready indicators for every OCR'd image (not just
-    // paused-video frames), so slow image OCR shows progress without a card.
-    imageStatuses = /* @__PURE__ */ new Map();
-    imageStatusTimers = /* @__PURE__ */ new Map();
-    // Reader raster snapshots (BookWalker/ComicWalker canvases and Mokuro CSS
-    // background pages): map each page surface to the invisible <img> we OCR in
-    // its place, plus the page fingerprint and the page-turn poll.
-    canvasFrames = /* @__PURE__ */ new Map();
-    canvasFrameSources = /* @__PURE__ */ new Map();
-    canvasFrameCaptureRects = /* @__PURE__ */ new Map();
-    canvasFrameStaticRects = /* @__PURE__ */ new Map();
-    canvasFrameRegionFractions = /* @__PURE__ */ new Map();
-    canvasFrameKeys = /* @__PURE__ */ new Map();
-    canvasFrameContentTokens = /* @__PURE__ */ new Map();
-    canvasPendingStatuses = /* @__PURE__ */ new Map();
-    canvasPendingStatusKeys = /* @__PURE__ */ new Map();
-    canvasPendingStatusContentTokens = /* @__PURE__ */ new Map();
-    // Canvases whose frame the user explicitly tapped to create. A native-text-layer
-    // page (shouldAutoScan=false) strips AUTO frames on the poll, but a frame the user
-    // tapped to make must survive that poll — only a real page turn drops it.
-    canvasFrameUserRequested = /* @__PURE__ */ new Set();
-    backgroundFrames = /* @__PURE__ */ new Map();
-    backgroundFrameSources = /* @__PURE__ */ new Map();
-    backgroundFrameKeys = /* @__PURE__ */ new Map();
-    canvasReaderSignature;
-    canvasReaderSamePageSignatureSkips = 0;
-    readerRasterPoll = 0;
-    readerRasterRetryTimer = 0;
-    pendingCanvasSnapshots = /* @__PURE__ */ new WeakMap();
-    // Map (not WeakMap) so a page turn can clear ALL readiness at once. Keyed by
-    // stable surface location instead of the canvas object: NFBR sometimes swaps an
-    // equivalent #viewport canvas node while painting the same page, and object-keyed
-    // readiness would then wait forever for "the same" sample to appear twice.
-    canvasContentReadiness = /* @__PURE__ */ new Map();
-    // Per-canvas failed-capture counter driving the backoff retry above.
-    canvasCaptureAttempts = /* @__PURE__ */ new Map();
-    readerRasterEmptyScans = /* @__PURE__ */ new Map();
-    readerRasterFailedScans = /* @__PURE__ */ new Set();
-    // Canvas -> remaining tap-driven recapture attempts. In tap/manual mode the poll
-    // never captures, so a tap whose capture wasn't ready (the tainted-canvas mirror
-    // rebuild momentarily failed: the origin-clean page image was still loading, or
-    // the engine repainted the page a beat late) must keep retrying AS a tap. This
-    // window deliberately SURVIVES page-signature changes (a late NFBR repaint, or the
-    // poll first registering the freshly-composited page, looks like a "turn") so the
-    // tap isn't silently dropped — the reported "a page just has no OCR, no Scanning…/
-    // Text ready pill" bug. Bounded so it can never become permanent auto-OCR in tap
-    // mode; cleared on success, frame release, disconnect, or teardown.
-    canvasTapRecapture = /* @__PURE__ */ new Map();
-    ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
-    pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
-    recentTouchOcrPoint;
-    handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
-    handleMediaResume = (event) => this.releaseVideoFrame(event.target);
-    // Stepping subtitle lines while paused seeks the video — the snapshot
-    // must follow the new frame instead of showing the stale one.
-    handleMediaSeeked = (event) => this.refreshVideoFrameAfterSeek(event.target);
-    handleDocumentPointerDown = (event) => {
-      this.unpinOcrLinesFromDocumentEvent(event);
-      this.requestOcrFromPointerEvent(event);
-    };
-    handleDocumentTouchStart = (event) => {
-      this.unpinOcrLinesFromDocumentEvent(event);
-      this.requestOcrFromTouchEvent(event);
-    };
-    handleDocumentPointerOver = (event) => this.requestOcrFromPointerEvent(event);
-    handleDocumentPointerMove = (event) => this.requestOcrFromPointerEvent(event);
-    handleDocumentClick = (event) => this.unpinOcrLinesFromDocumentEvent(event);
-    handleDocumentScroll = () => this.handleOcrViewportShift(120);
-    handleWindowScroll = () => this.handleOcrViewportShift(240);
-    handleWindowResize = () => this.handleOcrViewportShift(300);
-    handleSpaNavigation = () => this.teardownForNavigation();
-    init() {
-      this.destroyed = false;
-      const body = document.body;
-      if (!body) {
-        document.addEventListener("DOMContentLoaded", () => {
-          if (!this.destroyed) this.init();
-        }, { once: true });
-        return;
-      }
-      this.refresh();
-      document.addEventListener("pointerdown", this.handleDocumentPointerDown, true);
-      document.addEventListener("touchstart", this.handleDocumentTouchStart, { capture: true, passive: true });
-      document.addEventListener("pointerover", this.handleDocumentPointerOver, true);
-      document.addEventListener("pointermove", this.handleDocumentPointerMove, true);
-      document.addEventListener("click", this.handleDocumentClick, true);
-      document.addEventListener("pause", this.handleMediaPause, true);
-      document.addEventListener("play", this.handleMediaResume, true);
-      document.addEventListener("emptied", this.handleMediaResume, true);
-      document.addEventListener("seeked", this.handleMediaSeeked, true);
-      document.addEventListener("scroll", this.handleDocumentScroll, { capture: true, passive: true });
-      window.addEventListener("scroll", this.handleWindowScroll, { passive: true });
-      window.addEventListener("resize", this.handleWindowResize, { passive: true });
-      window.addEventListener("orientationchange", this.handleWindowResize, { passive: true });
-      for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) {
-        document.addEventListener(eventName, this.handleWindowResize, true);
-      }
-      window.visualViewport?.addEventListener("resize", this.handleDocumentScroll, { passive: true });
-      window.visualViewport?.addEventListener("scroll", this.handleDocumentScroll, { passive: true });
-      for (const eventName of OCR_NAVIGATION_EVENTS) {
-        window.addEventListener(eventName, this.handleSpaNavigation);
-      }
-      this.mutationObserver = new MutationObserver((mutations) => this.handleRenderableMediaMutations(mutations));
-      this.mutationObserver.observe(body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["style", "class", "hidden", "src", "srcset", "sizes", "loading", "poster", "data-yomu-canvas-ocr"]
-      });
-      this.startReaderRasterPollingIfNeeded();
-    }
-    destroy() {
-      this.destroyed = true;
-      document.removeEventListener("pointerdown", this.handleDocumentPointerDown, true);
-      document.removeEventListener("touchstart", this.handleDocumentTouchStart, true);
-      document.removeEventListener("pointerover", this.handleDocumentPointerOver, true);
-      document.removeEventListener("pointermove", this.handleDocumentPointerMove, true);
-      document.removeEventListener("click", this.handleDocumentClick, true);
-      document.removeEventListener("pause", this.handleMediaPause, true);
-      document.removeEventListener("play", this.handleMediaResume, true);
-      document.removeEventListener("emptied", this.handleMediaResume, true);
-      document.removeEventListener("seeked", this.handleMediaSeeked, true);
-      document.removeEventListener("scroll", this.handleDocumentScroll, true);
-      window.removeEventListener("scroll", this.handleWindowScroll);
-      window.removeEventListener("resize", this.handleWindowResize);
-      window.removeEventListener("orientationchange", this.handleWindowResize);
-      for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) {
-        document.removeEventListener(eventName, this.handleWindowResize, true);
-      }
-      window.visualViewport?.removeEventListener("resize", this.handleDocumentScroll);
-      window.visualViewport?.removeEventListener("scroll", this.handleDocumentScroll);
-      for (const eventName of OCR_NAVIGATION_EVENTS) {
-        window.removeEventListener(eventName, this.handleSpaNavigation);
-      }
-      this.releaseAllVideoFrames();
-      this.releaseAllCanvasFrames();
-      this.canvasTapRecapture.clear();
-      this.releaseAllBackgroundFrames();
-      if (this.readerRasterPoll) {
-        window.clearInterval(this.readerRasterPoll);
-        this.readerRasterPoll = 0;
-      }
-      if (this.readerRasterRetryTimer) {
-        window.clearTimeout(this.readerRasterRetryTimer);
-        this.readerRasterRetryTimer = 0;
-      }
-      this.mutationObserver?.disconnect();
-      if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
-      this.clear();
-    }
-    refresh(options = {}) {
-      if (this.destroyed) return;
-      const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) {
-        this.releaseAllVideoFrames();
-        this.clear();
-        return;
-      }
-      this.refreshCanvasReaderSurfaces(settings, options.userRequested);
-      this.refreshBackgroundImageReaderSurfaces(settings, options.userRequested);
-      if (!this.canScanInlineImages(Boolean(options.userRequested))) {
-        this.releaseInlineImageStates();
-        this.pruneDisconnectedStates();
-        this.schedulePosition();
-        return;
-      }
-      if (this.shouldSkipRefresh(settings, options)) {
-        this.pruneDisconnectedStates();
-        this.schedulePosition();
-        return;
-      }
-      this.pruneDisconnectedStates();
-      this.ensureObserver(settings);
-      const images = this.refreshImages(settings);
-      for (const image of images) {
-        this.observeRefreshImage(image, settings);
-      }
-      this.schedulePosition();
-    }
-    /**
-     * Re-evaluate auto-scan after something *outside* the reader's own settings
-     * changes the answer at runtime — currently mokuro's own "OCR enabled"
-     * (displayOCR) toggle, which the reader cannot see through its settings
-     * subscription. When the page now supplies its native text layer we drop the
-     * overlays the reader auto-painted before the flip, so the reader's OCR stops
-     * competing with mokuro's text boxes; manually-scanned panels are kept. When
-     * it no longer does, a normal refresh starts the reader's own scan.
-     */
-    reassessAutoScan() {
-      if (this.destroyed) return;
-      const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) return;
-      if (this.options.shouldAutoScan?.() === false && !hasCanvasOcrOptInSurface()) {
-        this.clearAutoScannedOverlays();
-        this.schedulePosition();
-        return;
-      }
-      this.refresh();
-    }
-    refreshForModeChange() {
-      if (this.destroyed) return;
-      const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) {
-        this.releaseAllVideoFrames();
-        this.clear();
-        return;
-      }
-      if (!settings.ocrAutoScanImages) {
-        this.clearAutoScannedOverlays();
-        this.schedulePosition();
-        return;
-      }
-      this.refresh();
-    }
-    shouldSkipRefresh(settings, options) {
-      if (options.userRequested) return false;
-      if (this.canAutoScanImage(settings)) return false;
-      return !settings.ocrAutoScanImages || !this.hasVisibleInlineOcrFallback(settings);
-    }
-    handleRenderableMediaMutations(mutations) {
-      const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) return;
-      const summary = summarizeRenderableMediaMutations(mutations);
-      if (!summary.touched) return;
-      this.schedulePosition();
-      if (!canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) return;
-      this.scheduleRefresh(summary.addedImage ? 0 : 40);
-    }
-    handleOcrViewportShift(refreshDelay) {
-      if (!this.options.getSettings().ocrEnabled) return;
-      this.schedulePosition();
-      if (this.hasReaderRasterSurfaces()) {
-        this.scheduleReaderRasterRefresh(refreshDelay);
-        return;
-      }
-      this.scheduleRefresh(refreshDelay);
-    }
-    hasReaderRasterSurfaces() {
-      return this.canvasFrames.size > 0 || this.canvasPendingStatuses.size > 0 || this.backgroundFrames.size > 0 || collectCanvasReaderSurfaces().length > 0 || collectBackgroundImageReaderSurfaces().length > 0;
-    }
-    hasVisibleInlineOcrFallback(settings) {
-      if (!this.canScanInlineImages(false)) return false;
-      return Array.from(document.images).some((image) => {
-        if (!readFallbackOcrResult(image, false)) return false;
-        return isCandidateImage(image, settings) && shouldObserveImage(image, settings);
-      });
-    }
-    refreshImages(settings) {
-      return Array.from(document.images).filter((image) => isCandidateImage(image, settings) && shouldObserveImage(image, settings)).sort((a, b) => this.compareRefreshImages(a, b)).slice(0, imageReaderMaxImages(settings));
-    }
-    compareRefreshImages(a, b) {
-      const priorityDelta = this.observePriority(a) - this.observePriority(b);
-      return priorityDelta || imageViewportDistance(a) - imageViewportDistance(b);
-    }
-    observeRefreshImage(image, settings) {
-      const state2 = this.ensureState(image);
-      this.observer?.observe(image);
-      if (this.shouldAutoEnqueueImage(image, state2, settings)) this.enqueue(image);
-    }
-    shouldAutoEnqueueImage(image, state2, settings) {
-      return (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) && isOcrImageStateIdle(state2) && isNearViewport(image, imagePrefetchMargin(settings));
-    }
-    canAutoScanImage(settings) {
-      return settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false;
-    }
-    canScanInlineImages(userRequested) {
-      return this.options.shouldScanInlineImages?.(userRequested) !== false;
-    }
-    async scanVisible() {
-      const settings = this.options.getSettings();
-      const retriedReaderFrames = this.retryVisibleReaderRasterFrames(settings);
-      this.refresh({ userRequested: true });
-      if (!this.canScanInlineImages(true)) {
-        if (!retriedReaderFrames) this.options.onToast(uiText(this.options.getSettings().interfaceLanguage, "ocrNoReadableImages"));
-        return;
-      }
-      const images = [...this.states.keys()].filter((image) => isCandidateImage(image, settings) && isNearViewport(image, 120));
-      if (!images.length) {
-        if (!retriedReaderFrames) this.options.onToast(uiText(this.options.getSettings().interfaceLanguage, "ocrNoReadableImages"));
-        return;
-      }
-      images.forEach((image) => this.enqueue(image, true));
-      log$2.info("Manual OCR scan queued images", { images: images.length });
-    }
-    captureSourceImageForElement(element) {
-      const line = element?.closest?.(".jpdb-ocr-line");
-      if (!line) return void 0;
-      const state2 = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
-      if (!state2) return void 0;
-      const image = captureImageElement(state2.image);
-      return image;
-    }
-    pinLineForElement(element) {
-      const line = element?.closest?.(".jpdb-ocr-line");
-      if (!line) return;
-      const state2 = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
-      if (state2) this.pinLine(state2, line);
-    }
-    clearActiveLines() {
-      this.unpinAllLines();
-    }
-    ensureObserver(settings) {
-      const rootMargin = `${imagePrefetchMargin(settings)}px 0px`;
-      if (this.observer && this.observerMargin === rootMargin) return;
-      this.observer?.disconnect();
-      this.observerMargin = rootMargin;
-      if (typeof IntersectionObserver !== "function") {
-        this.observer = void 0;
-        return;
-      }
-      this.observer = new IntersectionObserver((entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          const image = entry.target;
-          this.positionState(image);
-          const current = this.options.getSettings();
-          const state2 = this.states.get(image);
-          if (state2 && this.shouldAutoEnqueueImage(image, state2, current)) this.enqueue(image);
-        }
-      }, { rootMargin });
-    }
-    ensureState(image) {
-      const existing = this.states.get(image);
-      if (existing) return existing;
-      const overlay = document.createElement("div");
-      overlay.className = "jpdb-ocr-layer";
-      overlay.dataset.jpdbReaderRoot = "true";
-      overlay.dataset.ocrLayerId = String(++ocrLayerCounter);
-      overlay.hidden = true;
-      setOcrOverlayAccessibility(overlay, false);
-      this.mountOcrOverlayForImage(overlay, image);
-      const state2 = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
-      image.addEventListener("load", () => {
-        this.resetStateIfImageChanged(state2);
-        this.schedulePosition();
-        this.scheduleRefresh(0);
-      });
-      this.states.set(image, state2);
-      if (image.complete && image.naturalWidth > 0) {
-        this.schedulePosition();
-        const settings = this.options.getSettings();
-        if (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) this.enqueue(image);
-      }
-      return state2;
-    }
-    mountOcrOverlayForImage(overlay, image) {
-      const video = this.videoFrameVideos.get(image);
-      appendOcrArtifactToRoot(overlay, video ? videoFrameArtifactRoot(video) : document.body);
-    }
-    enqueue(image, userRequested = false) {
-      if (isYouTubeThumbnailImage(image)) return;
-      const state2 = this.states.get(image) ?? this.ensureState(image);
-      if (!this.shouldQueueOcrRequest(state2, image, userRequested)) return;
-      this.queueOcrRequest(image);
-    }
-    shouldQueueOcrRequest(state2, image, userRequested) {
-      if (shouldSkipOcrRequest(state2, userRequested)) return false;
-      const forceExistingOverlay = userRequested && !state2.overlayRequested;
-      updateOcrRequestFlags(state2, image, userRequested);
-      if (this.renderExistingOcrResult(state2, forceExistingOverlay)) return false;
-      return !state2.loading;
-    }
-    queueOcrRequest(image) {
-      this.queueImageForOcr(image);
-      this.drainQueue();
-    }
-    renderExistingOcrResult(state2, userRequested) {
-      if (!state2.result) return false;
-      if (userRequested) void this.renderResult(state2, state2.result, true, state2.key);
-      return true;
-    }
-    requestOcrFromPointerEvent(event) {
-      if (this.isDuplicateTouchPointerOcrEvent(event)) return false;
-      const settings = this.options.getSettings();
-      const image = ocrImageFromPointerEvent(event, settings);
-      if (image) {
-        if (!this.canScanInlineImages(true)) return false;
-        if (event.type === "pointermove" && image === this.lastPointerMoveImage) return false;
-        if (event.type === "pointermove") this.lastPointerMoveImage = image;
-        else this.lastPointerMoveImage = void 0;
-        this.lastPointerMoveReaderSurface = void 0;
-        this.lastPointerMoveReaderSurfaceKey = void 0;
-        this.enqueue(image, true);
-        return true;
-      }
-      const surface = ocrReaderSurfaceFromPointerEvent(event, settings);
-      if (!surface) return false;
-      const surfaceKey = readerRasterSurfaceSnapshotKey(surface);
-      if (event.type === "pointermove" && surface === this.lastPointerMoveReaderSurface && surfaceKey === this.lastPointerMoveReaderSurfaceKey) return false;
-      if (event.type === "pointermove") {
-        this.lastPointerMoveReaderSurface = surface;
-        this.lastPointerMoveReaderSurfaceKey = surfaceKey;
-      } else {
-        this.lastPointerMoveReaderSurface = void 0;
-        this.lastPointerMoveReaderSurfaceKey = void 0;
-      }
-      void this.snapshotReaderSurface(surface, settings).then((frame) => {
-        if (frame) this.enqueue(frame, true);
-      });
-      return true;
-    }
-    requestOcrFromTouchEvent(event) {
-      const point = touchPointFromEvent(event);
-      if (!point) return;
-      if (this.requestOcrFromPointerEvent(eventWithPoint(event, point))) {
-        this.recentTouchOcrPoint = { ...point, at: Date.now() };
-      }
-    }
-    isDuplicateTouchPointerOcrEvent(event) {
-      if (event.type !== "pointerdown" || !isPointerLikeEvent(event) || event.pointerType !== "touch") return false;
-      const recent = this.recentTouchOcrPoint;
-      if (!recent) return false;
-      if (Date.now() - recent.at > 700) {
-        this.recentTouchOcrPoint = void 0;
-        return false;
-      }
-      return Math.abs(event.clientX - recent.clientX) <= 6 && Math.abs(event.clientY - recent.clientY) <= 6;
-    }
-    async snapshotReaderSurface(surface, settings) {
-      if (surface instanceof HTMLCanvasElement) {
-        await this.snapshotCanvasSurface(surface, settings, true);
-        return this.canvasFrames.get(surface);
-      }
-      this.snapshotBackgroundImageSurface(surface, settings, true);
-      return this.backgroundFrames.get(surface);
-    }
-    queueImageForOcr(image) {
-      if (!this.queue.includes(image)) this.queue.push(image);
-    }
-    drainQueue() {
-      if (this.destroyed) return;
-      const limit = ocrConcurrencyLimit(this.options.getSettings());
-      while (this.activeScans < limit) {
-        const image = this.takeNextQueuedImage();
-        if (!image) return;
-        this.startScan(image);
-      }
-    }
-    // Pull the next queued image whose content is not already being scanned, so
-    // duplicate enqueues / re-snapshotted canvas frames don't fire redundant OCR
-    // calls (the cache fills them in once the in-flight scan resolves).
-    takeNextQueuedImage() {
-      for (let index = 0; index < this.queue.length; index++) {
-        const candidate = this.queue[index];
-        if (this.inFlightKeys.has(imageCacheKey(candidate))) continue;
-        this.queue.splice(index, 1);
-        return candidate;
-      }
-      return void 0;
-    }
-    startScan(image) {
-      if (this.destroyed) return;
-      const key = imageCacheKey(image);
-      this.activeScans++;
-      this.inFlightKeys.add(key);
-      const hasFastText = Boolean(readFallbackOcrResult(image, false));
-      const isReaderRasterFrame = this.isReaderRasterFrame(image);
-      const delay = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
-      void waitForIdle(delay, delay).then(() => this.scanImage(image)).catch((error) => {
-        if (isStaleOcrState(error)) return;
-        log$2.warn("OCR scan task failed unexpectedly", {}, error);
-      }).finally(() => {
-        this.activeScans = Math.max(0, this.activeScans - 1);
-        this.inFlightKeys.delete(key);
-        if (!this.destroyed) this.drainQueue();
-      });
-    }
-    async scanImage(image) {
-      if (this.destroyed) return;
-      const existingState = this.states.get(image);
-      if (!image.isConnected) {
-        if (existingState) this.releaseImageState(image, existingState);
-        return;
-      }
-      const state2 = existingState ?? this.ensureState(image);
-      const settings = this.options.getSettings();
-      const manualRequested = state2.manualRequested;
-      this.resetStateIfImageChanged(state2);
-      const key = state2.key;
-      if (await this.tryRenderCachedOcrResult(state2, key)) return;
-      if (!this.isCurrentContentState(state2, key)) return;
-      this.updateOcrStatus(image, "loading");
-      const scan = beginOcrScan(state2, image, settings, manualRequested);
-      try {
-        await this.scanUncachedImage(state2, image, key, settings, scan.provider, manualRequested);
-      } catch (error) {
-        if (isStaleOcrState(error)) return;
-        try {
-          await this.renderOcrFailure(state2, image, key, scan.provider, manualRequested, error);
-        } catch (renderError) {
-          if (isStaleOcrState(renderError)) return;
-          throw renderError;
-        }
-      } finally {
-        finishOcrScan(state2);
-        scan.done();
-      }
-    }
-    async renderCachedOcrResult(state2, key) {
-      if (this.isReaderRasterFrame(state2.image) && !state2.manualRequested && this.readerRasterFailedScans.has(key)) {
-        this.requireCurrentContentState(state2, key);
-        renderNoOcrLines(state2);
-        this.updateOcrStatus(state2.image, "failed");
-        state2.manualRequested = false;
-        return true;
-      }
-      if (!this.cache.has(key)) return false;
-      if (this.shouldSuppressAutoRenderedResult(state2, false)) {
-        this.clearAutoScannedOverlays();
-        return true;
-      }
-      const cached = this.cache.get(key);
-      this.requireCurrentContentState(state2, key);
-      if (!cached) {
-        if (this.isReaderRasterFrame(state2.image)) {
-          if ((this.readerRasterEmptyScans.get(key) ?? 0) >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) {
-            renderNoOcrLines(state2);
-            this.updateOcrStatus(state2.image, "empty");
-            state2.manualRequested = false;
-            return true;
-          }
-          this.forget(key);
-          return false;
-        }
-        if (this.shouldPreserveReaderRasterResult(state2)) return true;
-        renderNoOcrLines(state2);
-        this.updateOcrStatus(state2.image, "empty");
-        state2.manualRequested = false;
-        return true;
-      }
-      await this.renderResult(state2, cached, false, key);
-      state2.manualRequested = false;
-      return true;
-    }
-    async tryRenderCachedOcrResult(state2, key) {
-      try {
-        return await this.renderCachedOcrResult(state2, key);
-      } catch (error) {
-        if (isStaleOcrState(error)) return true;
-        throw error;
-      }
-    }
-    async scanUncachedImage(state2, image, key, settings, provider, manualRequested) {
-      const inlineFallback = readFallbackOcrResult(image, false);
-      const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
-      this.requireCurrentState(state2);
-      const result = inlineFallback ?? providerResult;
-      if (!result?.lines.length) {
-        this.readerRasterFailedScans.delete(key);
-        if (this.shouldPreserveReaderRasterResult(state2)) {
-          this.updateOcrStatus(image, "ready");
-          return;
-        }
-        const readerRasterEmptyAttempts = this.isReaderRasterFrame(image) ? this.recordReaderRasterEmptyScan(state2, key, manualRequested) : 0;
-        if (this.isReaderRasterFrame(image)) {
-          if (!manualRequested && readerRasterEmptyAttempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) {
-            this.remember(key, null);
-          } else {
-            this.forget(key);
-          }
-        } else {
-          this.remember(key, null);
-        }
-        this.requireCurrentContentState(state2, key);
-        renderNoOcrLines(state2);
-        this.updateOcrStatus(image, "empty");
-        return;
-      }
-      this.remember(key, result);
-      this.readerRasterEmptyScans.delete(key);
-      this.readerRasterFailedScans.delete(key);
-      this.requireCurrentContentState(state2, key);
-      state2.key = key;
-      if (this.shouldSuppressAutoRenderedResult(state2, Boolean(inlineFallback), manualRequested)) {
-        this.clearAutoScannedOverlays();
-        return;
-      }
-      await this.renderResult(state2, result, false, key);
-      log$2.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
-    }
-    shouldSuppressAutoRenderedResult(state2, inlineFallback, manualRequested = state2.manualRequested) {
-      return !manualRequested && !state2.overlayRequested && !inlineFallback && !this.isReaderRasterOcrOptInFrame(state2.image) && this.options.shouldAutoScan?.() === false;
-    }
-    isReaderRasterOcrOptInFrame(image) {
-      const canvas = this.canvasFrameSources.get(image);
-      return Boolean(canvas && isCanvasOcrOptInSurface(canvas));
-    }
-    async renderOcrFailure(state2, image, key, provider, manualRequested, error) {
-      this.requireCurrentContentState(state2, key);
-      const fallback = readFallbackOcrResult(image, false);
-      if (fallback?.lines.length) {
-        log$2.warn("OCR provider failed", { provider }, error);
-        this.readerRasterFailedScans.delete(key);
-        await this.renderResult(state2, fallback, false, key);
-        return;
-      }
-      if (this.isReaderRasterFrame(image)) this.rememberReaderRasterFailure(key);
-      logOcrFailure(state2, provider, manualRequested, error);
-      this.updateOcrStatus(image, "failed");
-    }
-    recognizeImage(image, settings) {
-      const recognizer = ocrRecognizer(settings);
-      if (!recognizer) return Promise.resolve(null);
-      if (this.shouldSplitBookwalkerSpreadFrame(image)) return this.recognizeBookwalkerSpreadFrame(image, settings, recognizer);
-      return this.recognizeWithDarkPass(image, settings, recognizer);
-    }
-    shouldSplitBookwalkerSpreadFrame(image) {
-      const canvas = this.canvasFrameSources.get(image);
-      if (!canvas || !isWideBookwalkerSpreadCanvas(canvas)) return false;
-      try {
-        const size = loadedImageSize(image);
-        return size.width / Math.max(1, size.height) >= BOOKWALKER_SPREAD_MIN_ASPECT;
-      } catch {
-        return false;
-      }
-    }
-    async recognizeBookwalkerSpreadFrame(image, settings, recognizer) {
-      const slices = await splitImageIntoPageColumns(image);
-      const results = await Promise.all(slices.map(async (slice) => {
-        const result = await this.recognizeWithDarkPass(slice.image, settings, recognizer).catch(() => null);
-        return result ? offsetOcrResult(result, slice.left, 0, slice.totalWidth, slice.totalHeight) : null;
-      }));
-      return mergeOcrResults(slices[0]?.totalWidth ?? 0, slices[0]?.totalHeight ?? 0, results);
-    }
-    // Normal recognition always runs. A second, inverted pass is spent only when
-    // the image has a dark region (where white-on-black text could hide) AND that
-    // region came back unread by the normal pass. Full-page reader canvases are
-    // the latency-sensitive path: if the normal pass found text on a manga page,
-    // don't double the provider round-trip just to search dark art regions. If a
-    // reader page comes back empty, the inverted recovery still gets a chance.
-    async recognizeWithDarkPass(image, settings, recognizer) {
-      const normal = await this.runRecognizer(image, settings, recognizer, false);
-      if (!settings.ocrInvertDarkPanels) return normal;
-      const field = buildLuminanceField(image);
-      if (!field || luminanceFieldDarkFraction(field) < DARK_REGION_TRIGGER) return normal;
-      if ((this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image)) && normal?.lines.length) return normal;
-      if (darkAreaIsRead(field, normal)) return normal;
-      const inverted = await this.runRecognizer(image, settings, recognizer, true).catch(() => null);
-      return mergeDarkPassResult(normal, inverted, field);
-    }
-    runRecognizer(image, settings, recognizer, invert) {
-      if (settings.ocrProvider !== "local-service") return recognizer(image, settings, invert);
-      return this.recognizeViaLocalServiceWithBackoff(image, settings, recognizer, invert);
-    }
-    async recognizeViaLocalServiceWithBackoff(image, settings, recognizer, invert) {
-      const endpointUrl = localOcrEndpointUrl(settings);
-      if (this.isLocalOcrUnavailable(endpointUrl)) throw new LocalOcrUnavailableError(endpointUrl);
-      try {
-        const result = await recognizer(image, settings, invert);
-        this.clearLocalOcrUnavailable(endpointUrl);
-        return result;
-      } catch (error) {
-        if (isLocalOcrConnectionError(error)) this.rememberLocalOcrUnavailable(endpointUrl);
-        throw error;
-      }
-    }
-    isLocalOcrUnavailable(endpointUrl) {
-      const unavailable = this.localOcrUnavailable;
-      if (!unavailable || unavailable.endpointUrl !== endpointUrl) return false;
-      if (Date.now() < unavailable.retryAt) return true;
-      this.localOcrUnavailable = void 0;
-      return false;
-    }
-    rememberLocalOcrUnavailable(endpointUrl) {
-      this.localOcrUnavailable = { endpointUrl, retryAt: Date.now() + LOCAL_OCR_UNAVAILABLE_RETRY_MS };
-    }
-    clearLocalOcrUnavailable(endpointUrl) {
-      if (this.localOcrUnavailable?.endpointUrl === endpointUrl) this.localOcrUnavailable = void 0;
-    }
-    async renderResult(state2, result, forceOverlay = false, expectedKey = state2.key) {
-      this.requireCurrentContentState(state2, expectedKey);
-      if (this.shouldPreserveReaderRasterResult(state2) && state2.overlay.querySelector(".jpdb-ocr-line") && ocrResultTextKey(state2.result) === ocrResultTextKey(result)) {
-        this.updateOcrStatus(state2.image, "ready");
-        return;
-      }
-      state2.result = result;
-      const settings = this.options.getSettings();
-      const showText = this.shouldShowOcrTextOverlay(state2, settings, forceOverlay);
-      const initialParsed = await this.parseOcrLines(result.lines);
-      this.requireCurrentContentState(state2, expectedKey);
-      const lines = cleanOcrLookupLines(result.lines, initialParsed);
-      if (!lines.length) {
-        if (this.shouldPreserveReaderRasterResult(state2)) {
-          this.updateOcrStatus(state2.image, "ready");
-          return;
-        }
-        renderNoOcrLines(state2);
-        this.updateOcrStatus(state2.image, "empty");
-        return;
-      }
-      const parsed = ocrLinesChanged(result.lines, lines) ? await this.parseOcrLines(lines) : initialParsed;
-      this.requireCurrentContentState(state2, expectedKey);
-      const sentence = lines.map((line) => line.text).join("\n");
-      const vocabulary = ocrVocabularyCards(state2.image);
-      const fallbackCardFromText = ocrFallbackCardFromImage(
-        state2.image,
-        this.options.fallbackCardFromText ?? ocrFallbackCardFromText
-      );
-      const renderedTokens = lines.map((line, index) => ocrTokensWithFallbackGaps(
-        line.text,
-        ocrTokensWithVocabulary(line.text, parsed[index] ?? [], vocabulary),
-        fallbackCardFromText
-      ));
-      const flatTokens = renderedTokens.flat();
-      await this.options.enrichTokensBeforeRender?.(flatTokens);
-      this.requireCurrentContentState(state2, expectedKey);
-      applyOcrOverlayStyle(state2.overlay, settings);
-      const lineElements = lines.map((line, index) => this.renderOcrLineElement(state2, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
-      const staleLines = Array.from(state2.overlay.querySelectorAll(".jpdb-ocr-line"));
-      state2.overlay.append(...lineElements);
-      staleLines.forEach((node) => node.remove());
-      this.revealVideoFrameOverlay(state2.image);
-      this.positionState(state2.image);
-      if (this.canvasFrameSources.has(state2.image)) {
-        this.canvasReaderSignature = canvasReaderPageSignature();
-        this.canvasReaderSamePageSignatureSkips = 0;
-      }
-      this.updateOcrStatus(state2.image, "ready");
-      void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).catch((error) => {
-        if (isStaleOcrState(error)) return;
-        log$2.warn("OCR rendered token enrichment failed", {}, error);
-      }).finally(() => this.schedulePosition());
-    }
-    shouldShowOcrTextOverlay(state2, settings, forceOverlay) {
-      if (this.isScannedPdfCanvasFrame(state2.image)) return false;
-      if (this.isReaderRasterFrame(state2.image)) return false;
-      return false;
-    }
-    isScannedPdfCanvasFrame(image) {
-      const canvas = this.canvasFrameSources.get(image);
-      return Boolean(canvas && (canvas.dataset.pdfText === "scanned" || canvas.closest('.pdf-page[data-pdf-text="scanned"]')));
-    }
-    async parseOcrLines(lines) {
-      const options = ocrParseOptions();
-      const texts = lines.map((line) => line.text);
-      if (this.options.parseJapaneseBatch) {
-        return this.options.parseJapaneseBatch(texts, options).then((parsed) => texts.map((_, index) => parsed[index] ?? [])).catch(() => texts.map(() => []));
-      }
-      return Promise.all(lines.map((line) => this.options.parseJapanese(line.text, options).catch(() => {
-        return [];
-      })));
-    }
-    renderOcrLineElement(state2, result, line, tokens, sentence, showText, settings) {
-      const element = createOcrLineElement(result, line, tokens, sentence, showText, settings);
-      this.rememberOcrWordRenderStates(element, tokens);
-      element.addEventListener("pointerenter", () => this.activateOcrLineMarkup(state2, element));
-      element.addEventListener("focusin", () => this.activateOcrLineMarkup(state2, element));
-      element.addEventListener("pointerdown", (event) => this.activateOcrLineFromPointer(state2, element, event), true);
-      element.addEventListener("keydown", (event) => this.toggleOcrLinePinnedFromKeyboard(state2, element, event));
-      element.addEventListener("click", (event) => this.toggleOcrLinePinned(state2, element, event));
-      return element;
-    }
-    activateOcrLineFromPointer(state2, element, event) {
-      if (event.button !== 0) return;
-      if (element.dataset.pinned === "true") {
-        this.activateOcrLineMarkup(state2, element);
-        return;
-      }
-      if (shouldPinOcrLineFromPointer(event)) {
-        element.focus({ preventScroll: true });
-        this.pinLine(state2, element);
-      } else {
-        this.activateOcrLineMarkup(state2, element);
-      }
-      this.pointerActivatedOcrLines.set(element, Date.now());
-    }
-    toggleOcrLinePinnedFromKeyboard(state2, element, event) {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      if (element.dataset.pinned === "true") {
-        this.unpinLine(element);
-      } else {
-        this.pinLine(state2, element);
-      }
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    toggleOcrLinePinned(state2, element, event) {
-      if (this.wasRecentlyPointerActivated(element)) {
-        this.activateOcrLineMarkup(state2, element);
-      } else if (element.dataset.pinned === "true") {
-        this.unpinLine(element);
-      } else {
-        this.activateOcrLineMarkup(state2, element);
-      }
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    wasRecentlyPointerActivated(element) {
-      const activatedAt = this.pointerActivatedOcrLines.get(element);
-      if (activatedAt === void 0) return false;
-      const recent = Date.now() - activatedAt < 800;
-      if (!recent) this.pointerActivatedOcrLines.delete(element);
-      return recent;
-    }
-    pinLine(state2, element) {
-      state2.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => {
-        if (line !== element) this.unpinLine(line);
-      });
-      this.activateOcrLineMarkup(state2, element);
-      element.classList.add("jpdb-ocr-line-active");
-      element.dataset.pinned = "true";
-      element.setAttribute("aria-pressed", "true");
-      this.schedulePosition();
-    }
-    unpinLine(element) {
-      element.classList.remove("jpdb-ocr-line-active");
-      element.dataset.pinned = "false";
-      element.setAttribute("aria-pressed", "false");
-      this.schedulePosition();
-    }
-    unpinOcrLinesFromDocumentEvent(event) {
-      const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest(".jpdb-ocr-line, .jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-onboarding, .jpdb-reader-fab")) return;
-      this.unpinAllLines();
-    }
-    unpinAllLines() {
-      for (const state2 of this.states.values()) {
-        state2.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => this.unpinLine(line));
-      }
-    }
-    observePriority(image) {
-      const state2 = this.states.get(image);
-      if (!state2) return 0;
-      if (!state2.result) return state2.autoSkipped ? 2 : 0;
-      return 1;
-    }
-    resetStateIfImageChanged(state2) {
-      const key = imageCacheKey(state2.image);
-      if (key === state2.key) return;
-      const preserveReaderRasterResult = this.shouldPreserveReaderRasterResult(state2);
-      state2.key = key;
-      if (!preserveReaderRasterResult) state2.result = void 0;
-      state2.loading = false;
-      state2.overlayRequested = false;
-      state2.manualRequested = false;
-      state2.autoSkipped = false;
-      if (!preserveReaderRasterResult) {
-        state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
-        this.removeImageStatusCard(state2.image);
-      }
-    }
-    shouldPreserveReaderRasterResult(state2) {
-      return Boolean(state2.result && this.isReaderRasterFrame(state2.image));
-    }
-    isReaderRasterFrame(image) {
-      return this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
-    }
-    recordReaderRasterEmptyScan(state2, key, userRequested) {
-      if (!this.isReaderRasterFrame(state2.image)) return 0;
-      const attempts = (this.readerRasterEmptyScans.get(key) ?? 0) + 1;
-      this.readerRasterEmptyScans.set(key, attempts);
-      if (!userRequested && attempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) return attempts;
-      window.setTimeout(() => {
-        if (!this.isCurrentContentState(state2, key)) return;
-        const canvas = this.canvasFrameSources.get(state2.image);
-        if (canvas) {
-          this.releaseCanvasFrame(canvas);
-          this.scheduleCanvasCaptureRetry(canvas, userRequested);
-          return;
-        }
-        const background = this.backgroundFrameSources.get(state2.image);
-        if (background) {
-          this.releaseBackgroundFrame(background);
-          this.scheduleReaderRasterRefresh(READER_RASTER_RETRY_BASE_MS);
-        }
-      }, READER_RASTER_EMPTY_RETRY_MS);
-      return attempts;
-    }
-    rememberReaderRasterFailure(key) {
-      if (key.startsWith("data:")) return;
-      this.readerRasterFailedScans.add(key);
-      while (this.readerRasterFailedScans.size > MAX_CACHE_ITEMS) {
-        const oldest = this.readerRasterFailedScans.values().next().value;
-        if (!oldest) break;
-        this.readerRasterFailedScans.delete(oldest);
-      }
-    }
-    remember(key, result) {
-      if (key.startsWith("data:")) return;
-      this.cache.set(key, result);
-      while (this.cache.size > MAX_CACHE_ITEMS) {
-        const oldest = this.cache.keys().next().value;
-        if (!oldest) break;
-        this.cache.delete(oldest);
-      }
-      persistOcrCacheSoon(this.cache, Date.now());
-    }
-    forget(key) {
-      if (!this.cache.delete(key)) return;
-      persistOcrCacheSoon(this.cache, Date.now());
-    }
-    schedulePosition() {
-      if (this.destroyed) return;
-      if (this.positionFrame) return;
-      this.positionFrame = requestAnimationFrame(() => {
-        this.positionFrame = 0;
-        if (this.destroyed) return;
-        this.positionVideoFrames();
-        this.positionCanvasFrames();
-        this.positionBackgroundFrames();
-        for (const image of this.states.keys()) this.positionState(image);
-        this.positionImageStatusCards();
-      });
-    }
-    positionImageStatusCards() {
-      for (const [image, card] of [...this.imageStatuses]) {
-        if (!image.isConnected) this.removeImageStatusCard(image);
-        else this.positionImageStatusCard(image, card);
-      }
-    }
-    // --- Paused-video frames (UT-27) ---
-    snapshotPausedVideo(target) {
-      if (this.destroyed) return;
-      if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
-      const settings = this.options.getSettings();
-      if (!settings.ocrEnabled || !settings.ocrVideoPauseFrames || settings.ocrProvider === "off") return;
-      if (isFreshMiningPause(target)) return;
-      if (isLikelyPausedVideoThumbnail(target)) return;
-      const rect = target.getBoundingClientRect();
-      if (rect.width * rect.height < settings.ocrMinImageArea) return;
-      if (!isNearViewport(target, 0) || isHiddenByCss(target)) return;
-      const dataUrl = (this.options.captureVideoFrame ?? captureVideoFrameDataUrl)(target);
-      if (!dataUrl) return;
-      const frame = document.createElement("img");
-      frame.className = "jpdb-ocr-video-frame";
-      frame.classList.add("jpdb-ocr-video-frame-pending");
-      frame.dataset.yomuVideoFrame = "true";
-      frame.dataset.ocrPending = "true";
-      frame.alt = "";
-      frame.addEventListener("load", () => {
-        if (this.videoFrames.get(target) === frame) this.enqueue(frame, true);
-      }, { once: true });
-      frame.src = dataUrl;
-      appendOcrArtifactToRoot(frame, videoFrameArtifactRoot(target));
-      this.videoFrames.set(target, frame);
-      this.videoFrameVideos.set(frame, target);
-      const status = this.createVideoFrameStatus("loading");
-      status.classList.add("jpdb-ocr-video-frame-pending");
-      this.videoFrameStatuses.set(target, status);
-      positionVideoFrameStatus(status, rect, target);
-      const resume = this.createVideoFrameResumeControl(target);
-      this.videoFrameControls.set(target, resume);
-      this.syncVideoFrameArtifactMount(target, frame);
-      positionVideoFrameImage(frame, rect, target);
-      positionVideoFrameStatus(status, rect, target);
-      positionVideoFrameResumeControl(resume, rect, target);
-      this.schedulePosition();
-    }
-    // Reveal the rest of the overlay once OCR has produced text: the frame image
-    // and status dot un-gate (the resume/play control is already visible from the
-    // moment the video paused), so the readable text appears with its status.
-    revealVideoFrameOverlay(image) {
-      if (!this.videoFrameVideos.has(image)) return;
-      image.classList.remove("jpdb-ocr-video-frame-pending");
-      delete image.dataset.ocrPending;
-      this.revealVideoFrameStatusAndResume(image);
-    }
-    // Reveal the status dot (the resume/play control is already visible from the
-    // moment of pause), leaving the captured frame image gated. Used on
-    // empty/failed terminal states: the viewer gets feedback without the
-    // (text-less) frame covering the player. During loading the status stays
-    // gated so the native player is reachable.
-    revealVideoFrameStatusAndResume(image) {
-      const video = this.videoFrameVideos.get(image);
-      if (!video) return;
-      this.videoFrameStatuses.get(video)?.classList.remove("jpdb-ocr-video-frame-pending");
-      this.videoFrameControls.get(video)?.classList.remove("jpdb-ocr-video-frame-pending");
-    }
-    createVideoFrameResumeControl(video) {
-      const language = this.options.getSettings().interfaceLanguage;
-      const label = uiText(language, "ocrPlayVideo");
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "jpdb-ocr-video-frame-resume";
-      setInnerHtml(button, playVideoIcon());
-      button.setAttribute("aria-label", label);
-      button.setAttribute("title", label);
-      button.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        this.releaseVideoFrame(video);
-        try {
-          void video.play()?.catch(() => void 0);
-        } catch {
-        }
-      });
-      return button;
-    }
-    createVideoFrameStatus(status) {
-      const element = document.createElement("div");
-      element.className = "jpdb-ocr-video-frame-status";
-      element.dataset.jpdbReaderRoot = "true";
-      element.dataset.jpdbReaderSurfaceIgnore = "true";
-      element.setAttribute("role", "status");
-      element.setAttribute("aria-live", "polite");
-      const label = document.createElement("span");
-      label.className = "jpdb-ocr-video-frame-status-label";
-      element.append(label);
-      this.setVideoFrameStatus(element, status);
-      appendOcrArtifactToRoot(element, document.body);
-      return element;
-    }
-    setVideoFrameStatus(element, status) {
-      const language = this.options.getSettings().interfaceLanguage;
-      const label = uiText(language, videoFrameStatusTextKey(status));
-      element.dataset.status = status;
-      element.classList.remove(
-        "jpdb-ocr-video-frame-status-loading",
-        "jpdb-ocr-video-frame-status-ready",
-        "jpdb-ocr-video-frame-status-empty",
-        "jpdb-ocr-video-frame-status-failed",
-        "jpdb-ocr-video-frame-status-fade-out"
-      );
-      element.classList.add("jpdb-ocr-video-frame-status", `jpdb-ocr-video-frame-status-${status}`);
-      element.setAttribute("aria-label", label);
-    }
-    updateVideoFrameStatusForImage(image, status) {
-      const video = this.videoFrameVideos.get(image);
-      if (!video) return;
-      const element = this.videoFrameStatuses.get(video);
-      if (element) this.setVideoFrameStatus(element, status);
-    }
-    // Drive both status surfaces: paused-video frames keep their card over the
-    // player; every other OCR'd image gets its own card over the image.
-    updateOcrStatus(image, status) {
-      if (this.videoFrameVideos.has(image)) {
-        this.applyVideoFrameStatusTransition(image, status);
-        return;
-      }
-      const canvas = this.canvasFrameSources.get(image);
-      if (canvas) this.removeCanvasPendingStatus(canvas);
-      this.updateImageStatusCard(image, status);
-    }
-    // Paused-frame overlays keep the image + status gated while OCR runs (the
-    // resume/play control is visible from the moment of pause), so the native
-    // player and its comment/like/scrubber controls stay reachable. On 'ready'
-    // the image + status un-gate; on empty/failed only the status un-gates (the
-    // text-less frame image stays hidden) so the viewer still gets feedback
-    // without the frame covering the player. A lookup/mining pause never reaches
-    // here — it is skipped at snapshot time via the mining marker.
-    applyVideoFrameStatusTransition(image, status) {
-      if (status === "ready") this.revealVideoFrameOverlay(image);
-      else if (status === "empty" || status === "failed") this.revealVideoFrameStatusAndResume(image);
-      this.updateVideoFrameStatusForImage(image, status);
-    }
-    updateImageStatusCard(image, status) {
-      if (this.videoFrameVideos.has(image)) return;
-      if (!this.options.getSettings().ocrEnabled) return;
-      const existing = this.imageStatuses.get(image);
-      const isCanvasFrame = this.canvasFrameSources.has(image);
-      const isReaderRasterFrame = isCanvasFrame || this.backgroundFrameSources.has(image);
-      this.clearImageStatusTimer(image);
-      if (isReaderRasterFrame && isTerminalOcrStatus(status) && this.hasReadyReaderRasterSibling(image)) {
-        this.releaseReaderRasterFrameForImage(image);
-        return;
-      }
-      if (status === "empty" && !isReaderRasterFrame) {
-        if (existing) removeOcrArtifact(existing);
-        this.imageStatuses.delete(image);
-        return;
-      }
-      const card = existing ?? this.createVideoFrameStatus(status);
-      if (existing) this.setVideoFrameStatus(card, status);
-      else this.imageStatuses.set(image, card);
-      card.classList.toggle("jpdb-ocr-canvas-status", isReaderRasterFrame);
-      this.configureReaderRasterStatusRetry(card, isReaderRasterFrame);
-      const labelNode = card.querySelector(".jpdb-ocr-video-frame-status-label");
-      if (labelNode) labelNode.textContent = isReaderRasterFrame ? uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status)) : "";
-      if (isReaderRasterFrame) this.updateReaderRasterRetryLabel(card, status);
-      this.positionImageStatusCard(image, card);
-      if (status === "ready" && isReaderRasterFrame) this.releaseTerminalReaderRasterSiblings(image);
-      if (status === "ready" && !isReaderRasterFrame) this.scheduleImageStatusFade(image, card);
-    }
-    hasReadyReaderRasterSibling(image) {
-      const groupKey = this.readerRasterFrameGroupKey(image);
-      if (!groupKey) return false;
-      for (const [candidate, card] of this.imageStatuses) {
-        if (candidate === image || card.dataset.status !== "ready") continue;
-        if (this.readerRasterFrameGroupKey(candidate) === groupKey) return true;
-      }
-      return false;
-    }
-    releaseTerminalReaderRasterSiblings(image) {
-      const groupKey = this.readerRasterFrameGroupKey(image);
-      if (!groupKey) return;
-      for (const [candidate, card] of [...this.imageStatuses]) {
-        if (candidate === image || !isTerminalOcrStatus(card.dataset.status)) continue;
-        if (this.readerRasterFrameGroupKey(candidate) === groupKey) this.releaseReaderRasterFrameForImage(candidate);
-      }
-    }
-    readerRasterFrameGroupKey(image) {
-      if (!isBookwalkerViewerHost()) return "";
-      const canvas = this.canvasFrameSources.get(image);
-      if (canvas) return bookwalkerSurfaceGroupKey(canvas);
-      const surface = this.backgroundFrameSources.get(image);
-      return surface?.id ?? "";
-    }
-    releaseReaderRasterFrameForImage(image) {
-      const canvas = this.canvasFrameSources.get(image);
-      if (canvas) {
-        this.releaseCanvasFrame(canvas);
-        return;
-      }
-      const background = this.backgroundFrameSources.get(image);
-      if (background) {
-        this.releaseBackgroundFrame(background);
-        return;
-      }
-      this.removeImageStatusCard(image);
-    }
-    scheduleImageStatusFade(image, card) {
-      const dwell = window.setTimeout(() => {
-        card.classList.add("jpdb-ocr-video-frame-status-fade-out");
-        const remove = window.setTimeout(() => this.removeImageStatusCard(image), OCR_STATUS_FADE_MS);
-        this.imageStatusTimers.set(image, remove);
-      }, OCR_STATUS_READY_DWELL_MS);
-      this.imageStatusTimers.set(image, dwell);
-    }
-    clearImageStatusTimer(image) {
-      const timer = this.imageStatusTimers.get(image);
-      if (timer !== void 0) window.clearTimeout(timer);
-      this.imageStatusTimers.delete(image);
-    }
-    positionImageStatusCard(image, card) {
-      const rect = this.readerRasterSourceRect(image) ?? image.getBoundingClientRect();
-      if (!isImageVisibleForOcr(image, rect)) {
-        card.hidden = true;
-        return;
-      }
-      card.hidden = false;
-      positionOcrImageStatus(card, rect);
-    }
-    removeImageStatusCard(image) {
-      this.clearImageStatusTimer(image);
-      const card = this.imageStatuses.get(image);
-      if (!card) return;
-      removeOcrArtifact(card);
-      this.imageStatuses.delete(image);
-    }
-    configureReaderRasterStatusRetry(card, enabled) {
-      if (!enabled) {
-        if (card.dataset.yomuOcrRetry === "true") {
-          delete card.dataset.yomuOcrRetry;
-          card.removeAttribute("role");
-          card.removeAttribute("tabindex");
-          card.removeAttribute("title");
-        }
-        return;
-      }
-      card.dataset.yomuOcrRetry = "true";
-      card.setAttribute("role", "button");
-      card.tabIndex = 0;
-      if (card.dataset.yomuOcrRetryListener === "true") return;
-      card.dataset.yomuOcrRetryListener = "true";
-      card.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        this.retryReaderRasterStatusCard(card);
-      });
-      card.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        event.stopPropagation();
-        this.retryReaderRasterStatusCard(card);
-      });
-    }
-    updateReaderRasterRetryLabel(card, status) {
-      const language = this.options.getSettings().interfaceLanguage;
-      const statusLabel = uiText(language, videoFrameStatusTextKey(status));
-      const retryLabel = uiText(language, "ocrRetryScan");
-      card.setAttribute("aria-label", `${statusLabel}. ${retryLabel}`);
-      card.setAttribute("title", retryLabel);
-    }
-    retryReaderRasterStatusCard(card) {
-      const image = [...this.imageStatuses].find(([, candidate]) => candidate === card)?.[0];
-      if (!image) return;
-      this.retryReaderRasterImage(image);
-    }
-    refreshVideoFrameAfterSeek(target) {
-      if (!(target instanceof HTMLVideoElement) || !target.paused) return;
-      if (!this.videoFrames.has(target)) return;
-      this.releaseVideoFrame(target);
-      this.snapshotPausedVideo(target);
-    }
-    releaseVideoFrame(target) {
-      if (!(target instanceof HTMLVideoElement)) return;
-      const frame = this.videoFrames.get(target);
-      if (!frame) return;
-      this.videoFrames.delete(target);
-      const control = this.videoFrameControls.get(target);
-      if (control) removeVideoFrameResumeControl(control);
-      this.videoFrameControls.delete(target);
-      const status = this.videoFrameStatuses.get(target);
-      if (status) removeOcrArtifact(status);
-      this.videoFrameStatuses.delete(target);
-      const state2 = this.states.get(frame);
-      if (state2) this.releaseImageState(frame, state2);
-      else this.forgetImageWork(frame);
-      this.videoFrameVideos.delete(frame);
-      removeOcrArtifact(frame);
-    }
-    releaseAllVideoFrames() {
-      for (const video of [...this.videoFrames.keys()]) this.releaseVideoFrame(video);
-    }
-    // --- Reader raster frames (canvas readers + CSS background-image readers) ---
-    startReaderRasterPollingIfNeeded() {
-      if (this.readerRasterPoll || !isReaderRasterPage()) return;
-      this.readerRasterPoll = window.setInterval(() => {
-        const settings = this.options.getSettings();
-        this.refreshCanvasReaderSurfaces(settings);
-        this.refreshBackgroundImageReaderSurfaces(settings);
-      }, 1200);
-    }
-    refreshCanvasReaderSurfaces(settings, userRequested = false) {
-      if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
-      const nativeTextLayerBlocksAutoScan = this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested;
-      const ocrOptInCanvases = nativeTextLayerBlocksAutoScan ? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested) : void 0;
-      if (nativeTextLayerBlocksAutoScan && !ocrOptInCanvases?.length) {
-        if (!isReaderRasterPage()) {
-          this.releaseAllCanvasFrames();
-          return;
-        }
-        const signature2 = canvasReaderPageSignature();
-        const turned = signature2 !== this.canvasReaderSignature;
-        this.canvasReaderSignature = signature2;
-        for (const canvas of [...this.canvasFrames.keys()]) {
-          if (turned || !this.canvasFrameUserRequested.has(canvas)) this.releaseCanvasFrame(canvas);
-        }
-        return;
-      }
-      if (!isReaderRasterPage()) {
-        this.releaseAllCanvasFrames();
-        return;
-      }
-      this.startReaderRasterPollingIfNeeded();
-      const signature = canvasReaderPageSignature();
-      if (signature !== this.canvasReaderSignature) {
-        if (this.shouldHoldCanvasFramesForSamePageSignature(signature)) {
-          this.scheduleReaderRasterRefresh(80);
-          return;
-        }
-        this.canvasReaderSamePageSignatureSkips = 0;
-        this.releaseAllCanvasFrames();
-        this.canvasReaderSignature = signature;
-      } else {
-        this.canvasReaderSamePageSignatureSkips = 0;
-      }
-      if (!settings.ocrAutoScanImages && !userRequested) {
-        this.retryPendingUserRequestedCaptures(settings);
-        return;
-      }
-      const canvases = ocrOptInCanvases ?? activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
-      for (const canvas of [...this.canvasPendingStatuses.keys()]) {
-        if (!canvases.includes(canvas)) this.removeCanvasPendingStatus(canvas);
-      }
-      for (const canvas of canvases) {
-        if (this.canvasFrames.has(canvas)) continue;
-        this.rebindExistingCanvasFrame(canvas, canvasSurfaceSnapshotKey(canvas), userRequested);
-      }
-      for (const canvas of [...this.canvasFrames.keys()]) {
-        if (canvases.includes(canvas)) continue;
-        if (this.shouldKeepCanvasFrameThroughStablePageSurfaceFlicker(canvas, signature)) continue;
-        if (this.canvasFrames.get(canvas)?.complete === false) continue;
-        this.releaseCanvasFrame(canvas);
-      }
-      for (const canvas of canvases) {
-        if (!this.canvasFrameNeedsResnapshot(canvas)) continue;
-        this.releaseCanvasFrameForResnapshot(canvas);
-      }
-      for (const canvas of canvases) {
-        if (this.canvasFrames.has(canvas)) continue;
-        this.snapshotCanvasSurface(canvas, settings, userRequested);
-      }
-      if (this.canvasFrames.size || this.canvasPendingStatuses.size) this.schedulePosition();
-    }
-    async snapshotCanvasSurface(canvas, settings, userRequested = false) {
-      const key = canvasSurfaceSnapshotKey(canvas);
-      const startContentToken = canvasStablePageContentToken(canvas);
-      if (this.canvasFrames.has(canvas)) {
-        if (!userRequested || this.canvasFrameKeys.get(canvas) === key) return;
-        this.releaseCanvasFrame(canvas);
-      }
-      const existingPending = this.pendingCanvasSnapshots.get(canvas);
-      if (existingPending?.key === key) {
-        if (Date.now() - existingPending.startedAt < READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS) return;
-        this.pendingCanvasSnapshots.delete(canvas);
-        this.setCanvasCaptureFailed(canvas);
-      }
-      const pendingSnapshot = { key, startedAt: Date.now() };
-      this.pendingCanvasSnapshots.set(canvas, pendingSnapshot);
-      try {
-        const rect = canvas.getBoundingClientRect();
-        if (rect.width * rect.height < settings.ocrMinImageArea) return;
-        if (!isNearViewport(canvas, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(canvas)) return;
-        this.updateCanvasPendingStatus(canvas, rect, "loading");
-        let frameSrc;
-        let frameRect = rect;
-        let contentKey;
-        const visibleRetryRect = userRequested ? bookwalkerVisibleCanvasRegion(canvas, rect) : void 0;
-        const captureRect = visibleRetryRect ?? rect;
-        const regionKey = visibleRetryRect ? canvasRegionContentKey(rect, visibleRetryRect) : "";
-        if (isCanvasReadable(canvas)) {
-          const contentSignature = canvasRenderedContentSignature(canvas);
-          if (!contentSignature) {
-            this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
-            return;
-          }
-          if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
-          frameSrc = visibleRetryRect ? captureCanvasRegionDataUrl(canvas, rect, visibleRetryRect, settings.ocrMaxImagePixels) : captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
-          frameRect = captureRect;
-          contentKey = `cv:${contentSignature}:${canvas.width}x${canvas.height}${regionKey}`;
-        } else if (isBookwalkerViewerHost()) {
-          const captureMirror = this.options.captureCanvasMirror ?? captureCanvasMirror;
-          const mirror = await captureMirror(canvas, loadCleanMirrorImage);
-          if (mirror) {
-            frameSrc = visibleRetryRect ? captureCanvasRegionDataUrl(mirror, rect, visibleRetryRect, settings.ocrMaxImagePixels) : captureCanvasDataUrl(mirror, settings.ocrMaxImagePixels);
-            frameRect = captureRect;
-            const mirrorSignature = canvasRenderedContentSignature(mirror);
-            if (mirrorSignature) contentKey = `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}`;
-          } else {
-            const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
-            const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
-            frameSrc = screenshot?.dataUrl;
-            frameRect = screenshot?.rect ?? rect;
-          }
-        } else if (canUseReaderCanvasSourceImageFallback()) {
-          frameSrc = readerCanvasSourceImageUrl();
-          if (frameSrc) contentKey = `src:${frameSrc}`;
-        }
-        if (this.pendingCanvasSnapshots.get(canvas) !== pendingSnapshot) return;
-        if (!frameSrc) {
-          this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
-          return;
-        }
-        contentKey ??= `surface:${key}`;
-        if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
-        if (this.pendingCanvasSnapshots.get(canvas) !== pendingSnapshot) return;
-        const finishContentToken = canvasStablePageContentToken(canvas);
-        if (startContentToken && finishContentToken && finishContentToken !== startContentToken) {
-          this.scheduleReaderRasterRefresh(40);
-          return;
-        }
-        if (canvasSurfaceSnapshotKey(canvas) !== key) {
-          this.scheduleReaderRasterRefresh(40);
-          return;
-        }
-        const frame = document.createElement("img");
-        frame.className = "jpdb-ocr-canvas-frame";
-        frame.dataset.yomuCanvasFrame = "true";
-        if (contentKey) frame.dataset.ocrContentKey = canvasFrameContentKey(contentKey, canvas);
-        frame.alt = "";
-        positionCanvasFrameImage(frame, frameRect);
-        frame.addEventListener("load", () => {
-          if (this.canvasFrames.get(canvas) === frame) {
-            this.removeCanvasPendingStatus(canvas);
-            this.enqueue(frame, userRequested);
-          }
-        }, { once: true });
-        document.body.append(frame);
-        this.canvasFrames.set(canvas, frame);
-        this.canvasFrameSources.set(frame, canvas);
-        this.canvasFrameCaptureRects.set(frame, frameRect);
-        this.canvasFrameKeys.set(canvas, key);
-        const capturedContentToken = finishContentToken || startContentToken;
-        if (capturedContentToken) this.canvasFrameContentTokens.set(canvas, capturedContentToken);
-        else this.canvasFrameContentTokens.delete(canvas);
-        if (frameRect !== rect) {
-          this.canvasFrameStaticRects.set(frame, frameRect);
-          this.canvasFrameRegionFractions.set(frame, new DOMRect(
-            (frameRect.left - rect.left) / rect.width,
-            (frameRect.top - rect.top) / rect.height,
-            frameRect.width / rect.width,
-            frameRect.height / rect.height
-          ));
-        }
-        if (userRequested) this.canvasFrameUserRequested.add(canvas);
-        else this.canvasFrameUserRequested.delete(canvas);
-        this.updateOcrStatus(frame, "loading");
-        frame.src = frameSrc;
-        this.clearCanvasCaptureRetry(canvas);
-        this.canvasReaderSignature = canvasReaderPageSignature();
-        this.canvasReaderSamePageSignatureSkips = 0;
-        this.schedulePosition();
-      } finally {
-        if (this.pendingCanvasSnapshots.get(canvas) === pendingSnapshot) this.pendingCanvasSnapshots.delete(canvas);
-      }
-    }
-    shouldHoldCanvasFramesForSamePageSignature(signature) {
-      if (!this.canvasReaderSignature) return false;
-      if (!this.canvasFrames.size) return false;
-      if (shouldTrustStableBookwalkerPageCounter() && hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
-      if (!isSameCanvasReaderPageLocation(this.canvasReaderSignature, signature)) return false;
-      if (hasDifferentRealCanvasReaderContent(this.canvasReaderSignature, signature)) return false;
-      if (hasSameRealCanvasReaderContent(this.canvasReaderSignature, signature)) return true;
-      if (hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
-      if (isCanvasMirrorEpochTransition(this.canvasReaderSignature, signature)) return false;
-      this.canvasReaderSamePageSignatureSkips += 1;
-      if (this.canvasReaderSamePageSignatureSkips <= READER_RASTER_SAME_PAGE_SIGNATURE_HOLD_LIMIT) return true;
-      this.canvasReaderSamePageSignatureSkips = 0;
-      return false;
-    }
-    shouldKeepCanvasFrameThroughStablePageSurfaceFlicker(canvas, signature) {
-      if (!canvas.isConnected) return false;
-      if (!this.canvasReaderSignature) return false;
-      if (shouldTrustStableBookwalkerPageCounter() && hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature)) return true;
-      return isSameCanvasReaderPageLocation(this.canvasReaderSignature, signature) && hasSameStableCanvasReaderPageCounter(this.canvasReaderSignature, signature);
-    }
-    rebindExistingCanvasFrame(canvas, key, userRequested) {
-      const existing = this.findCanvasFrameBySnapshotKey(key, canvas);
-      if (!existing) return false;
-      const { canvas: previousCanvas, frame } = existing;
-      if (this.canvasFrameStaticRects.has(frame)) return false;
-      const rect = canvas.getBoundingClientRect();
-      if (!rect.width || !rect.height) return false;
-      this.removeCanvasPendingStatus(previousCanvas);
-      this.removeCanvasPendingStatus(canvas);
-      this.canvasFrames.delete(previousCanvas);
-      this.canvasFrames.set(canvas, frame);
-      this.canvasFrameSources.set(frame, canvas);
-      this.canvasFrameKeys.delete(previousCanvas);
-      this.canvasFrameKeys.set(canvas, key);
-      const contentToken = this.canvasFrameContentTokens.get(previousCanvas) || canvasStablePageContentToken(canvas);
-      this.canvasFrameContentTokens.delete(previousCanvas);
-      if (contentToken) this.canvasFrameContentTokens.set(canvas, contentToken);
-      else this.canvasFrameContentTokens.delete(canvas);
-      this.canvasFrameCaptureRects.set(frame, rect);
-      this.canvasContentReadiness.delete(canvasContentReadinessKey(previousCanvas));
-      this.canvasContentReadiness.set(canvasContentReadinessKey(canvas), canvasPageContentToken(canvas));
-      this.canvasCaptureAttempts.delete(previousCanvas);
-      this.canvasTapRecapture.delete(previousCanvas);
-      if (this.canvasFrameUserRequested.has(previousCanvas) || userRequested) this.canvasFrameUserRequested.add(canvas);
-      else this.canvasFrameUserRequested.delete(canvas);
-      this.canvasFrameUserRequested.delete(previousCanvas);
-      positionCanvasFrameImage(frame, rect);
-      this.schedulePosition();
-      return true;
-    }
-    findCanvasFrameBySnapshotKey(key, excludeCanvas) {
-      for (const [canvas, frame] of this.canvasFrames) {
-        if (canvas === excludeCanvas) continue;
-        if (this.canvasFrameKeys.get(canvas) !== key) continue;
-        if (frame.complete === false) continue;
-        if (this.canvasContentTokenChanged(excludeCanvas, this.canvasFrameContentTokens.get(canvas))) continue;
-        return { canvas, frame };
-      }
-      return void 0;
-    }
-    canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested) {
-      const readinessKey = canvasContentReadinessKey(canvas);
-      if (userRequested) {
-        this.canvasContentReadiness.set(readinessKey, contentSignature);
-        return true;
-      }
-      const previous = this.canvasContentReadiness.get(readinessKey);
-      this.canvasContentReadiness.set(readinessKey, contentSignature);
-      if (previous === contentSignature) return true;
-      this.scheduleReaderRasterRefresh(140);
-      return false;
-    }
-    scheduleReaderRasterRefresh(delayMs) {
-      if (this.readerRasterRetryTimer || this.destroyed) return;
-      this.readerRasterRetryTimer = window.setTimeout(() => {
-        this.readerRasterRetryTimer = 0;
-        if (this.destroyed) return;
-        const settings = this.options.getSettings();
-        this.refreshCanvasReaderSurfaces(settings);
-        this.refreshBackgroundImageReaderSurfaces(settings);
-      }, delayMs);
-    }
-    // A canvas capture failed (engine hasn't painted / mirror has no ops yet).
-    // Retry with exponential backoff so the page OCRs as soon as it's ready instead
-    // of waiting for the next 1200ms poll. After the cap we stop the fast retry; the
-    // poll keeps trying and a tap force-rescans, so the page is never permanently
-    // stuck. The counter resets on a real turn (releaseAllCanvasFrames) or success.
-    // A user-requested (tapped) capture opens a bounded recapture WINDOW so the retry
-    // re-attempts AS a tap — in tap/manual mode the poll itself never captures, so
-    // without this a failed tap is dropped and the page never OCRs until the user taps
-    // again. The window survives page-signature changes (a late repaint, or the poll
-    // first seeing the freshly-composited page, that releaseAllCanvasFrames treats as a
-    // turn) and is bounded by its own attempt count, so it can never become permanent
-    // auto-OCR — it expires after READER_RASTER_MAX_CAPTURE_ATTEMPTS tries.
-    handleCanvasCaptureNotReady(canvas, rect, userRequested) {
-      if (this.scheduleCanvasCaptureRetry(canvas, userRequested)) return;
-      this.updateCanvasPendingStatus(canvas, rect, "failed");
-    }
-    scheduleCanvasCaptureRetry(canvas, userRequested = false) {
-      if (userRequested) {
-        if (!this.canvasTapRecapture.has(canvas)) this.canvasTapRecapture.set(canvas, READER_RASTER_MAX_CAPTURE_ATTEMPTS);
-        const remaining = this.canvasTapRecapture.get(canvas) ?? 0;
-        if (remaining <= 0) {
-          this.canvasTapRecapture.delete(canvas);
-          return false;
-        }
-        const attempt = READER_RASTER_MAX_CAPTURE_ATTEMPTS - remaining;
-        const delay2 = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** attempt, READER_RASTER_RETRY_MAX_MS);
-        this.scheduleReaderRasterRefresh(delay2);
-        return true;
-      }
-      const attempts = (this.canvasCaptureAttempts.get(canvas) ?? 0) + 1;
-      this.canvasCaptureAttempts.set(canvas, attempts);
-      if (attempts > READER_RASTER_MAX_CAPTURE_ATTEMPTS) return false;
-      const delay = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** (attempts - 1), READER_RASTER_RETRY_MAX_MS);
-      this.scheduleReaderRasterRefresh(delay);
-      return true;
-    }
-    // Re-attempt captures a tap requested but that weren't ready yet. Called before the
-    // tap-mode poll early-return so a tapped-but-not-ready page keeps trying without the
-    // user tapping again (the "page has no OCR" / no-pill report). Each pass decrements
-    // the canvas's remaining window so it bounds out even if snapshot can't schedule.
-    retryPendingUserRequestedCaptures(settings) {
-      if (!this.canvasTapRecapture.size) return;
-      for (const [canvas, remaining] of [...this.canvasTapRecapture]) {
-        if (!canvas.isConnected || this.canvasFrames.has(canvas) || remaining <= 0) {
-          this.canvasTapRecapture.delete(canvas);
-          continue;
-        }
-        this.canvasTapRecapture.set(canvas, remaining - 1);
-        void this.snapshotCanvasSurface(canvas, settings, true);
-      }
-    }
-    clearCanvasCaptureRetry(canvas) {
-      this.canvasCaptureAttempts.delete(canvas);
-      this.canvasTapRecapture.delete(canvas);
-    }
-    updateCanvasPendingStatus(canvas, rect, status) {
-      const existing = this.canvasPendingStatuses.get(canvas);
-      const card = existing ?? this.createVideoFrameStatus(status);
-      if (existing) this.setVideoFrameStatus(card, status);
-      else this.canvasPendingStatuses.set(canvas, card);
-      card.classList.add("jpdb-ocr-canvas-status");
-      this.configureCanvasPendingStatusRetry(card);
-      this.updateReaderRasterRetryLabel(card, status);
-      const contentToken = canvasStablePageContentToken(canvas);
-      if (contentToken) this.canvasPendingStatusContentTokens.set(canvas, contentToken);
-      else this.canvasPendingStatusContentTokens.delete(canvas);
-      const labelNode = card.querySelector(".jpdb-ocr-video-frame-status-label");
-      if (labelNode) labelNode.textContent = uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status));
-      card.hidden = false;
-      this.canvasPendingStatusKeys.set(canvas, canvasSurfaceSnapshotKey(canvas));
-      positionOcrImageStatus(card, this.visibleViewportIntersection(rect) ?? rect);
-    }
-    setCanvasCaptureFailed(canvas) {
-      const rect = canvas.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      this.updateCanvasPendingStatus(canvas, rect, "failed");
-    }
-    removeCanvasPendingStatus(canvas) {
-      const card = this.canvasPendingStatuses.get(canvas);
-      this.pendingCanvasSnapshots.delete(canvas);
-      if (!card) return;
-      removeOcrArtifact(card);
-      this.canvasPendingStatuses.delete(canvas);
-      this.canvasPendingStatusKeys.delete(canvas);
-      this.canvasPendingStatusContentTokens.delete(canvas);
-    }
-    isTerminalCanvasPendingStatus(card) {
-      const status = card.dataset.status;
-      return status === "empty" || status === "failed";
-    }
-    configureCanvasPendingStatusRetry(card) {
-      card.dataset.yomuOcrRetry = "true";
-      card.setAttribute("role", "button");
-      card.tabIndex = 0;
-      if (card.dataset.yomuOcrRetryListener === "true") return;
-      card.dataset.yomuOcrRetryListener = "true";
-      card.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        this.retryCanvasPendingStatusCard(card);
-      });
-      card.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        event.stopPropagation();
-        this.retryCanvasPendingStatusCard(card);
-      });
-    }
-    retryCanvasPendingStatusCard(card) {
-      const canvas = [...this.canvasPendingStatuses].find(([, candidate]) => candidate === card)?.[0];
-      if (!canvas) return;
-      this.pendingCanvasSnapshots.delete(canvas);
-      this.removeCanvasPendingStatus(canvas);
-      this.clearCanvasCaptureRetry(canvas);
-      void this.snapshotCanvasSurface(canvas, this.options.getSettings(), true);
-    }
-    releaseCanvasFrame(canvas) {
-      const frame = this.canvasFrames.get(canvas);
-      this.removeCanvasPendingStatus(canvas);
-      if (!frame) return;
-      this.canvasFrames.delete(canvas);
-      const state2 = this.states.get(frame);
-      if (state2) this.releaseImageState(frame, state2);
-      else this.forgetImageWork(frame);
-      this.canvasFrameSources.delete(frame);
-      this.canvasFrameCaptureRects.delete(frame);
-      this.canvasFrameStaticRects.delete(frame);
-      this.canvasFrameRegionFractions.delete(frame);
-      this.canvasFrameKeys.delete(canvas);
-      this.canvasFrameContentTokens.delete(canvas);
-      this.canvasContentReadiness.delete(canvasContentReadinessKey(canvas));
-      this.canvasCaptureAttempts.delete(canvas);
-      this.canvasTapRecapture.delete(canvas);
-      this.canvasFrameUserRequested.delete(canvas);
-      frame.remove();
-    }
-    releaseAllCanvasFrames() {
-      for (const canvas of [...this.canvasFrames.keys()]) this.releaseCanvasFrame(canvas);
-      for (const canvas of [...this.canvasPendingStatuses.keys()]) this.removeCanvasPendingStatus(canvas);
-      this.canvasContentReadiness.clear();
-      this.canvasCaptureAttempts.clear();
-      this.canvasReaderSignature = void 0;
-      this.canvasReaderSamePageSignatureSkips = 0;
-    }
-    positionCanvasFrames() {
-      for (const [canvas, status] of [...this.canvasPendingStatuses]) {
-        if (!canvas.isConnected) {
-          this.removeCanvasPendingStatus(canvas);
-          continue;
-        }
-        const key = this.canvasPendingStatusKeys.get(canvas);
-        if (key && canvasSurfaceSnapshotKey(canvas) !== key) {
-          this.removeCanvasPendingStatus(canvas);
-          continue;
-        }
-        if (this.canvasContentTokenChanged(canvas, this.canvasPendingStatusContentTokens.get(canvas))) {
-          this.removeCanvasPendingStatus(canvas);
-          this.scheduleReaderRasterRefresh(40);
-          continue;
-        }
-        const rect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
-        if (!rect) {
-          if (this.isTerminalCanvasPendingStatus(status)) this.removeCanvasPendingStatus(canvas);
-          else status.hidden = true;
-          continue;
-        }
-        status.hidden = false;
-        positionOcrImageStatus(status, rect);
-      }
-      for (const [canvas, frame] of [...this.canvasFrames]) {
-        if (!canvas.isConnected) {
-          this.releaseCanvasFrame(canvas);
-          continue;
-        }
-        const rect = canvas.getBoundingClientRect();
-        if (!rect.width || !rect.height || isHiddenByCss(canvas) || isInsideHiddenAncestor(canvas)) {
-          this.releaseCanvasFrame(canvas);
-          continue;
-        }
-        const key = this.canvasFrameKeys.get(canvas);
-        if (key && key !== canvasSurfaceSnapshotKey(canvas)) {
-          this.releaseCanvasFrame(canvas);
-          this.scheduleReaderRasterRefresh(40);
-          continue;
-        }
-        if (this.canvasContentTokenChanged(canvas, this.canvasFrameContentTokens.get(canvas))) {
-          this.releaseCanvasFrame(canvas);
-          this.scheduleReaderRasterRefresh(40);
-          continue;
-        }
-        const staticRect = this.canvasFrameStaticRects.get(frame);
-        if (staticRect) {
-          const currentRegionRect = this.canvasFrameRegionRect(frame, rect);
-          if (this.canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, rect)) {
-            if (this.shouldRecaptureReaderRasterFrameForSizeChange(frame)) {
-              this.releaseCanvasFrameForResnapshot(canvas);
-              this.scheduleReaderRasterRefresh(40);
-              continue;
-            }
-          }
-          positionCanvasFrameImage(frame, currentRegionRect ?? staticRect);
-          continue;
-        }
-        if (this.canvasFrameSizeChanged(frame, rect)) {
-          if (!this.shouldRecaptureReaderRasterFrameForSizeChange(frame)) {
-            positionCanvasFrameImage(frame, rect);
-            continue;
-          }
-          this.releaseCanvasFrameForResnapshot(canvas);
-          this.scheduleReaderRasterRefresh(40);
-          continue;
-        }
-        positionCanvasFrameImage(frame, rect);
-      }
-    }
-    releaseCanvasFrameForResnapshot(canvas) {
-      const preserveUserRequested = this.canvasFrameUserRequested.has(canvas);
-      this.releaseCanvasFrame(canvas);
-      if (preserveUserRequested) this.canvasTapRecapture.set(canvas, READER_RASTER_MAX_CAPTURE_ATTEMPTS);
-    }
-    canvasFrameNeedsResnapshot(canvas) {
-      const frame = this.canvasFrames.get(canvas);
-      if (!frame || frame.complete === false) return false;
-      const key = this.canvasFrameKeys.get(canvas);
-      if (key && key !== canvasSurfaceSnapshotKey(canvas)) return true;
-      if (this.canvasContentTokenChanged(canvas, this.canvasFrameContentTokens.get(canvas))) return true;
-      const staticRect = this.canvasFrameStaticRects.get(frame);
-      if (staticRect) {
-        const canvasRect = canvas.getBoundingClientRect();
-        const currentRegionRect = this.canvasFrameRegionRect(frame, canvasRect);
-        return Boolean(this.canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, canvasRect) && this.shouldRecaptureReaderRasterFrameForSizeChange(frame));
-      }
-      const rect = canvas.getBoundingClientRect();
-      return this.canvasFrameSizeChanged(frame, rect) && this.shouldRecaptureReaderRasterFrameForSizeChange(frame);
-    }
-    shouldRecaptureReaderRasterFrameForSizeChange(frame) {
-      if (!this.isReaderRasterFrame(frame)) return false;
-      const status = this.imageStatuses.get(frame)?.dataset.status;
-      return status === "ready" || Boolean(this.states.get(frame)?.result?.lines.length);
-    }
-    canvasFrameSizeChanged(frame, rect) {
-      const captured = this.canvasFrameCaptureRects.get(frame);
-      return Boolean(captured && this.canvasFrameRectSizeChanged(captured, rect));
-    }
-    canvasFrameRectSizeChanged(captured, current) {
-      return Math.abs(captured.width - current.width) > READER_RASTER_FRAME_SIZE_CHANGE_PX || Math.abs(captured.height - current.height) > READER_RASTER_FRAME_SIZE_CHANGE_PX;
-    }
-    canvasStaticFrameGeometryChanged(frame, staticRect, currentRegionRect, canvasRect) {
-      return Boolean(currentRegionRect && (this.canvasFrameRectSizeChanged(staticRect, currentRegionRect) || this.canvasFrameSourceSizeChanged(frame, staticRect, canvasRect)));
-    }
-    canvasFrameSourceSizeChanged(frame, staticRect, canvasRect) {
-      const fractions = this.canvasFrameRegionFractions.get(frame);
-      if (!fractions?.width || !fractions.height) return false;
-      const sourceWidth = staticRect.width / fractions.width;
-      const sourceHeight = staticRect.height / fractions.height;
-      return Math.abs(sourceWidth - canvasRect.width) > READER_RASTER_FRAME_SIZE_CHANGE_PX || Math.abs(sourceHeight - canvasRect.height) > READER_RASTER_FRAME_SIZE_CHANGE_PX;
-    }
-    canvasContentTokenChanged(canvas, previous) {
-      if (!previous) return false;
-      const current = canvasStablePageContentToken(canvas);
-      return Boolean(current && current !== previous);
-    }
-    canvasFrameRegionRect(frame, canvasRect) {
-      const fractions = this.canvasFrameRegionFractions.get(frame);
-      if (!fractions || !canvasRect.width || !canvasRect.height) return void 0;
-      return new DOMRect(
-        canvasRect.left + fractions.x * canvasRect.width,
-        canvasRect.top + fractions.y * canvasRect.height,
-        fractions.width * canvasRect.width,
-        fractions.height * canvasRect.height
-      );
-    }
-    visibleViewportIntersection(rect) {
-      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-      if (!viewportWidth || !viewportHeight) return void 0;
-      const left = Math.max(0, rect.left);
-      const top = Math.max(0, rect.top);
-      const right = Math.min(viewportWidth, rect.right);
-      const bottom = Math.min(viewportHeight, rect.bottom);
-      const width = right - left;
-      const height = bottom - top;
-      return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : void 0;
-    }
-    refreshBackgroundImageReaderSurfaces(settings, userRequested = false) {
-      if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
-      if (!settings.ocrAutoScanImages && !userRequested) return;
-      if (this.options.shouldAutoScan?.() === false && !userRequested) {
-        this.releaseAllBackgroundFrames();
-        return;
-      }
-      if (!isReaderRasterPage()) {
-        this.releaseAllBackgroundFrames();
-        return;
-      }
-      this.startReaderRasterPollingIfNeeded();
-      const surfaces = activeReaderRasterSurfaces(collectBackgroundImageReaderSurfaces(), settings, userRequested);
-      for (const surface of [...this.backgroundFrames.keys()]) {
-        const key = this.backgroundFrameKeys.get(surface);
-        if (!surfaces.includes(surface) || key !== backgroundSurfaceCacheKey(surface)) this.releaseBackgroundFrame(surface);
-      }
-      for (const surface of surfaces) {
-        if (this.backgroundFrames.has(surface)) continue;
-        this.snapshotBackgroundImageSurface(surface, settings, userRequested);
-      }
-    }
-    snapshotBackgroundImageSurface(surface, settings, userRequested = false) {
-      if (this.backgroundFrames.has(surface)) return;
-      const url = backgroundImageReaderUrl(surface);
-      if (!url) return;
-      const rect = surface.getBoundingClientRect();
-      if (rect.width * rect.height < settings.ocrMinImageArea) return;
-      if (!isNearViewport(surface, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(surface) || isInsideHiddenAncestor(surface)) return;
-      const frame = document.createElement("img");
-      frame.className = "jpdb-ocr-background-frame";
-      frame.dataset.yomuBackgroundFrame = "true";
-      frame.alt = "";
-      frame.decoding = "async";
-      positionCanvasFrameImage(frame, rect);
-      frame.addEventListener("load", () => {
-        if (this.backgroundFrames.get(surface) === frame) this.enqueue(frame, userRequested);
-      }, { once: true });
-      frame.src = url;
-      document.body.append(frame);
-      this.backgroundFrames.set(surface, frame);
-      this.backgroundFrameSources.set(frame, surface);
-      this.backgroundFrameKeys.set(surface, backgroundSurfaceCacheKey(surface));
-      this.schedulePosition();
-    }
-    releaseBackgroundFrame(surface) {
-      const frame = this.backgroundFrames.get(surface);
-      if (!frame) return;
-      this.backgroundFrames.delete(surface);
-      this.backgroundFrameKeys.delete(surface);
-      const state2 = this.states.get(frame);
-      if (state2) this.releaseImageState(frame, state2);
-      else this.forgetImageWork(frame);
-      this.backgroundFrameSources.delete(frame);
-      frame.remove();
-    }
-    releaseAllBackgroundFrames() {
-      for (const surface of [...this.backgroundFrames.keys()]) this.releaseBackgroundFrame(surface);
-    }
-    retryVisibleReaderRasterFrames(settings) {
-      let retried = 0;
-      for (const image of [...this.states.keys()]) {
-        if (!this.isReaderRasterFrame(image)) continue;
-        const rect = this.readerRasterSourceRect(image) ?? image.getBoundingClientRect();
-        if (!isImageVisibleForOcr(image, rect) || !isNearViewport(image, readerRasterCaptureMargin(settings, true))) continue;
-        this.retryReaderRasterImage(image);
-        retried++;
-      }
-      return retried;
-    }
-    retryReaderRasterImage(image) {
-      const key = imageCacheKey(image);
-      const state2 = this.states.get(image);
-      if (state2) this.forget(state2.key);
-      this.forget(key);
-      this.readerRasterEmptyScans.delete(key);
-      if (state2) this.readerRasterEmptyScans.delete(state2.key);
-      this.readerRasterFailedScans.delete(key);
-      if (state2) this.readerRasterFailedScans.delete(state2.key);
-      this.queue = this.queue.filter((queued) => queued !== image);
-      this.inFlightKeys.delete(key);
-      if (state2) this.inFlightKeys.delete(state2.key);
-      const settings = this.options.getSettings();
-      const canvas = this.canvasFrameSources.get(image);
-      if (canvas) {
-        this.releaseCanvasFrame(canvas);
-        void this.snapshotCanvasSurface(canvas, settings, true);
-        return;
-      }
-      const background = this.backgroundFrameSources.get(image);
-      if (background) {
-        this.releaseBackgroundFrame(background);
-        this.snapshotBackgroundImageSurface(background, settings, true);
-      }
-    }
-    positionBackgroundFrames() {
-      for (const [surface, frame] of [...this.backgroundFrames]) {
-        if (!surface.isConnected) {
-          this.releaseBackgroundFrame(surface);
-          continue;
-        }
-        positionCanvasFrameImage(frame, surface.getBoundingClientRect());
-      }
-    }
-    positionVideoFrames() {
-      for (const [video, frame] of [...this.videoFrames]) {
-        if (!video.isConnected || !video.paused) {
-          this.releaseVideoFrame(video);
-          continue;
-        }
-        const rect = video.getBoundingClientRect();
-        this.syncVideoFrameArtifactMount(video, frame);
-        positionVideoFrameImage(frame, rect, video);
-        const resume = this.videoFrameControls.get(video);
-        if (resume) positionVideoFrameResumeControl(resume, rect, video);
-        const status = this.videoFrameStatuses.get(video);
-        if (status) positionVideoFrameStatus(status, rect, video);
-      }
-    }
-    scheduleRefresh(delay) {
-      if (this.destroyed) return;
-      window.clearTimeout(this.refreshTimer);
-      this.refreshTimer = window.setTimeout(() => {
-        if (!this.destroyed) this.refresh();
-      }, delay);
-    }
-    positionState(image) {
-      const state2 = this.states.get(image);
-      if (!state2) return;
-      const rect = this.readerRasterSourceRect(image) ?? image.getBoundingClientRect();
-      const visible = isImageVisibleForOcr(image, rect);
-      state2.overlay.hidden = !visible;
-      setOcrOverlayAccessibility(state2.overlay, visible);
-      if (!visible) return;
-      setOcrArtifactPosition(state2.overlay, rect.left, rect.top);
-      state2.overlay.style.width = `${rect.width}px`;
-      state2.overlay.style.height = `${rect.height}px`;
-      this.fitLineFonts(state2, this.renderedOcrImageFrameForState(image, rect, state2.result));
-    }
-    readerRasterSourceRect(image) {
-      const canvas = this.canvasFrameSources.get(image);
-      if (canvas) {
-        const rect = canvas.getBoundingClientRect();
-        return this.canvasFrameRegionRect(image, rect) ?? this.canvasFrameStaticRects.get(image) ?? rect;
-      }
-      const surface = this.backgroundFrameSources.get(image);
-      return surface?.getBoundingClientRect();
-    }
-    renderedOcrImageFrameForState(image, rect, result) {
-      const frame = this.canvasFrameSources.has(image) ? renderedCanvasReaderFrame(rect) : renderedOcrImageFrame(image, rect, result);
-      let reserve = 0;
-      if (image.dataset.yomuVideoFrame === "true" && isYouTubePageForOcr()) {
-        reserve = Math.max(reserve, YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX);
-      }
-      if (this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image)) {
-        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-        if (viewportHeight && rect.bottom >= viewportHeight - 2) {
-          reserve = Math.max(reserve, READER_RASTER_BOTTOM_CHROME_RESERVE_PX);
-        }
-      }
-      if (!reserve) return frame;
-      return { ...frame, safeBottomInset: Math.max(0, Math.min(reserve, frame.imageHeight - 1)) };
-    }
-    fitLineFonts(state2, frame) {
-      const scale = this.options.getSettings().ocrFontScale;
-      state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((element) => {
-        const boxLeft = frame.imageLeft + Number(element.dataset.boxLeft) * frame.imageWidth;
-        const boxTop = frame.imageTop + Number(element.dataset.boxTop) * frame.imageHeight;
-        const boxWidth = Number(element.dataset.boxWidth) * frame.imageWidth;
-        const boxHeight = Number(element.dataset.boxHeight) * frame.imageHeight;
-        if (!Number.isFinite(boxWidth) || !Number.isFinite(boxHeight) || boxWidth <= 0 || boxHeight <= 0) return;
-        const text = element.dataset.ocrText ?? "";
-        const vertical = element.dataset.vertical === "true";
-        element.style.fontSize = `${ocrFontPx(text, boxWidth, boxHeight, vertical, scale)}px`;
-        this.fitLineFrame(element, boxLeft, boxTop, boxWidth, boxHeight, frame, vertical);
-      });
-    }
-    fitLineFrame(element, boxLeft, boxTop, boxWidth, boxHeight, frame, vertical) {
-      const textElement = element.querySelector(".jpdb-ocr-line-text");
-      if (!textElement) return;
-      const hasFurigana = element.dataset.hasFuri === "true";
-      const fontSize = Number.parseFloat(element.style.fontSize) || 16;
-      const underlineBleed = ocrWordUnderlineBleedPx(fontSize);
-      const padX = Math.max(4, Math.round(fontSize * 0.16));
-      const padTop = hasFurigana ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(2, Math.round(fontSize * 0.08));
-      const padBottom = vertical ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(3, underlineBleed);
-      element.style.setProperty("--jpdb-ocr-pad-x", `${padX}px`);
-      element.style.setProperty("--jpdb-ocr-pad-top", `${padTop}px`);
-      element.style.setProperty("--jpdb-ocr-pad-bottom", `${padBottom}px`);
-      const contentRect = textElement.getBoundingClientRect();
-      const contentWidth = Math.max(1, contentRect.width);
-      const contentHeight = Math.max(1, contentRect.height);
-      const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
-      const furiGutter = vertical && hasFurigana ? Math.round(fontSize * 0.55) : 0;
-      const underlineGutter = vertical ? underlineBleed : 0;
-      const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + underlineGutter * 2));
-      const frameHeight = vertical ? Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize)) : Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
-      const minLeft = frame.imageLeft;
-      const minTop = frame.imageTop;
-      const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth - furiGutter);
-      const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - (frame.safeBottomInset ?? 0) - frameHeight);
-      const left = clampNumber$1(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
-      const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
-      const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
-      const top = clampNumber$1(shouldCenterOcrText(element.dataset.ocrText ?? "", vertical) ? centeredTop : baselineAlignedTop, minTop, maxTop);
-      element.style.left = `${left}px`;
-      element.style.top = `${top}px`;
-      element.style.width = `${frameWidth}px`;
-      element.style.height = `${frameHeight}px`;
-    }
-    clear() {
-      this.observer?.disconnect();
-      this.observer = void 0;
-      this.observerMargin = "";
-      window.clearTimeout(this.refreshTimer);
-      this.releaseAllCanvasFrames();
-      this.releaseAllBackgroundFrames();
-      this.queue = [];
-      this.inFlightKeys.clear();
-      for (const state2 of this.states.values()) {
-        removeOcrArtifact(state2.overlay);
-      }
-      this.states.clear();
-      for (const timer of this.imageStatusTimers.values()) window.clearTimeout(timer);
-      this.imageStatusTimers.clear();
-      for (const card of this.imageStatuses.values()) removeOcrArtifact(card);
-      this.imageStatuses.clear();
-    }
-    // Drop only the overlays the reader auto-painted, keeping panels the user
-    // scanned by hand (those carry overlayRequested/manualRequested). Used when
-    // we start deferring to a page's native text layer mid-session. The cached
-    // results stay in `this.cache`, so flipping back re-renders them instantly
-    // without re-OCRing.
-    clearAutoScannedOverlays() {
-      for (const [image, state2] of [...this.states]) {
-        if (state2.manualRequested || state2.overlayRequested) continue;
-        const canvas = this.canvasFrameSources.get(image);
-        if (canvas) {
-          this.releaseCanvasFrame(canvas);
-          continue;
-        }
-        const background = this.backgroundFrameSources.get(image);
-        if (background) {
-          this.releaseBackgroundFrame(background);
-          continue;
-        }
-        this.releaseImageState(image, state2);
-      }
-    }
-    releaseInlineImageStates() {
-      for (const [image, state2] of [...this.states]) {
-        if (this.isReaderRasterFrame(image) || this.videoFrameVideos.has(image)) continue;
-        this.releaseImageState(image, state2);
-      }
-    }
-    rememberOcrWordRenderStates(line, tokens) {
-      const tokensByKey = new Map(tokens.map((token) => [ocrTokenRenderKey(token), token]));
-      line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
-        const token = tokensByKey.get(ocrRenderedWordKey(word));
-        if (!token) return;
-        this.ocrWordRenderStates.set(word, {
-          surface: word.dataset.surface || line.dataset.ocrText?.slice(token.start, token.end) || word.textContent || "",
-          token
-        });
-      });
-    }
-    activateOcrLineMarkup(state2, line) {
-      if (this.activateOcrMarkup(line)) this.positionState(state2.image);
-    }
-    activateOcrMarkup(line) {
-      const previousHasFurigana = line.dataset.hasFuri;
-      const wasActivated = line.dataset.ocrMarkupActivated === "true";
-      let hasFurigana = false;
-      const settings = this.options.getSettings();
-      line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
-        const state2 = this.ocrWordRenderStates.get(word);
-        if (!state2) return;
-        this.applyOcrPitchClass(word, state2.token);
-        if (!shouldRenderRuby(state2.surface, state2.token, settings)) {
-          this.setOcrWordPlainText(word, state2.surface);
-          return;
-        }
-        setInnerHtml(word, renderRuby(state2.surface, state2.token));
-        normalizeOcrRenderedText(word);
-        word.classList.add("jpdb-reader-has-furi");
-        hasFurigana = true;
-      });
-      line.dataset.hasFuri = String(hasFurigana);
-      line.dataset.ocrMarkupActivated = "true";
-      return !wasActivated || previousHasFurigana !== line.dataset.hasFuri;
-    }
-    applyOcrPitchClass(word, token) {
-      this.clearOcrPitchClass(word);
-      const pitchClass = ocrSafePitchClass(token.pitchClass);
-      word.dataset.pitchClass = pitchClass;
-      if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
-    }
-    clearOcrPitchClass(word) {
-      word.classList.forEach((className) => {
-        if (/^jpdb-pitch-/u.test(className)) word.classList.remove(className);
-      });
-      word.dataset.pitchClass = "";
-    }
-    setOcrWordPlainText(word, surface) {
-      word.classList.remove("jpdb-reader-has-furi");
-      setInnerHtml(word, escapeHtml(surface));
-      normalizeOcrRenderedText(word);
-    }
-    // Drop every paused-frame and image overlay when YouTube navigates so no
-    // stale OCR artifact (rail resume button, overlay over the player) carries
-    // across the SPA route change, then re-scan the destination page.
-    teardownForNavigation() {
-      if (this.states.size === 0 && this.videoFrames.size === 0 && this.canvasFrames.size === 0 && this.backgroundFrames.size === 0) return;
-      this.releaseAllVideoFrames();
-      this.clear();
-      if (this.options.getSettings().ocrEnabled) this.scheduleRefresh(0);
-    }
-    pruneDisconnectedStates() {
-      for (const [image, state2] of this.states) {
-        if (image.isConnected) continue;
-        this.releaseImageState(image, state2);
-      }
-    }
-    releaseImageState(image, state2 = this.states.get(image)) {
-      if (state2) {
-        this.observer?.unobserve(image);
-        removeOcrArtifact(state2.overlay);
-        this.states.delete(image);
-      }
-      this.forgetImageWork(image, state2);
-    }
-    syncVideoFrameArtifactMount(video, frame) {
-      const root = videoFrameArtifactRoot(video);
-      appendOcrArtifactToRoot(frame, root);
-      const state2 = this.states.get(frame);
-      if (state2) appendOcrArtifactToRoot(state2.overlay, root);
-      const status = this.videoFrameStatuses.get(video);
-      if (status) appendOcrArtifactToRoot(status, root);
-      const resume = this.videoFrameControls.get(video);
-      if (resume?.classList.contains("jpdb-ocr-video-frame-resume-fallback")) appendOcrArtifactToRoot(resume, root);
-    }
-    forgetImageWork(image, state2) {
-      this.queue = this.queue.filter((queued) => queued !== image);
-      this.inFlightKeys.delete(imageCacheKey(image));
-      if (state2) this.inFlightKeys.delete(state2.key);
-      this.removeImageStatusCard(image);
-    }
-    isCurrentState(state2) {
-      return !this.destroyed && this.states.get(state2.image) === state2;
-    }
-    requireCurrentState(state2) {
-      if (!this.isCurrentState(state2)) throw STALE_OCR_STATE;
-    }
-    isCurrentContentState(state2, key) {
-      return this.isCurrentState(state2) && state2.key === key && imageCacheKey(state2.image) === key;
-    }
-    requireCurrentContentState(state2, key) {
-      if (!this.isCurrentContentState(state2, key)) throw STALE_OCR_STATE;
-    }
-  }
-  function isStaleOcrState(error) {
-    return error === STALE_OCR_STATE;
-  }
-  function applyOcrOverlayStyle(overlay, settings) {
-    const theme = effectiveOcrOverlayTheme(settings);
-    overlay.dataset.ocrOverlayTheme = theme;
-    overlay.dataset.ocrOverlayVariant = settings.ocrOverlayTheme === "auto" ? "auto" : "custom";
-    if (theme === "light") {
-      overlay.style.setProperty("--jpdb-ocr-text-color", "#17202a");
-      overlay.style.setProperty("--jpdb-ocr-outline-color", "rgba(255, 255, 255, 0)");
-      overlay.style.setProperty("--jpdb-ocr-background-rgba", "rgba(248, 250, 252, 0.68)");
-      overlay.style.setProperty("--jpdb-ocr-background-active-rgba", "rgba(248, 250, 252, 0.86)");
-      return;
-    }
-    overlay.style.setProperty("--jpdb-ocr-text-color", settings.ocrTextColor);
-    overlay.style.setProperty("--jpdb-ocr-outline-color", settings.ocrOutlineColor);
-    const opacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
-    const background = accessibleOcrBackgroundColor(settings.accentColor, opacity);
-    overlay.style.setProperty("--jpdb-ocr-background-rgba", accentToRgba(background, opacity));
-    overlay.style.setProperty("--jpdb-ocr-background-active-rgba", accentToRgba(background, Math.min(1, opacity + 0.12)));
-  }
-  function effectiveOcrOverlayTheme(settings) {
-    if (settings.ocrOverlayTheme === "dark" || settings.ocrOverlayTheme === "light") return settings.ocrOverlayTheme;
-    if (settings.theme === "dark" || settings.theme === "light") return settings.theme;
-    try {
-      return matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-    } catch {
-      return "dark";
-    }
-  }
-  function ocrParseOptions() {
-    return {
-      allowSegmentedFallback: true,
-      includeLocalPitch: true
-    };
-  }
-  function ocrTokensWithFallbackGaps(text, tokens, fallbackCardFromText) {
-    const safeTokens = tokens.filter((token) => isRenderableOcrToken(token, text.length));
-    const fallbackTokens = fallbackJapaneseSegments(text).filter((segment) => !safeTokens.some((token) => rangesOverlap(segment.start, segment.end, token.start, token.end))).map((segment) => ocrFallbackToken(text, segment, fallbackCardFromText));
-    return fallbackTokens.length ? [...safeTokens, ...fallbackTokens].sort(compareOcrTokens) : safeTokens;
-  }
-  function ocrTokensWithVocabulary(text, tokens, vocabulary) {
-    if (!vocabulary?.size) return tokens;
-    return tokens.map((token) => ocrTokenWithVocabulary(text, token, vocabulary));
-  }
-  function ocrTokenWithVocabulary(text, token, vocabulary) {
-    const surface = ocrTokenSurface(text, token);
-    const seeded = vocabulary.get(ocrVocabularyKey(surface)) ?? vocabulary.get(ocrVocabularyKey(token.card.spelling));
-    if (!seeded) return token;
-    const card = cloneOcrVocabularyCard(seeded);
-    return {
-      ...token,
-      card,
-      pitchClass: getPitchClass(card.pitchAccent, card.reading || card.spelling) || token.pitchClass
-    };
-  }
-  function ocrTokenSurface(text, token) {
-    return text.slice(token.start, token.end) || token.card.spelling;
-  }
-  function isRenderableOcrToken(token, textLength) {
-    return Number.isFinite(token.start) && Number.isFinite(token.end) && token.start >= 0 && token.end <= textLength && token.end > token.start;
-  }
-  function ocrFallbackToken(sentence, segment, fallbackCardFromText) {
-    const card = fallbackCardFromText(segment.surface);
-    return {
-      card,
-      start: segment.start,
-      end: segment.end,
-      length: segment.end - segment.start,
-      rubies: [],
-      pitchClass: getPitchClass(card.pitchAccent, card.reading || card.spelling),
-      sentence
-    };
-  }
-  function ocrFallbackCardFromImage(image, fallbackCardFromText) {
-    const vocabulary = ocrVocabularyCards(image);
-    if (!vocabulary?.size) return fallbackCardFromText;
-    return (text) => {
-      const seeded = vocabulary.get(ocrVocabularyKey(text));
-      return seeded ? cloneOcrVocabularyCard(seeded) : fallbackCardFromText(text);
-    };
-  }
-  function ocrVocabularyCards(image) {
-    const cached = ocrVocabularyCache.get(image);
-    if (cached !== void 0) return cached;
-    const parsed = parseOcrVocabularyCards(image.dataset.ocrVocabulary);
-    ocrVocabularyCache.set(image, parsed);
-    return parsed;
-  }
-  function parseOcrVocabularyCards(value) {
-    if (!value) return null;
-    try {
-      const entries = JSON.parse(value);
-      if (!Array.isArray(entries)) return null;
-      const cards = /* @__PURE__ */ new Map();
-      entries.forEach((entry) => {
-        if (!isOcrVocabularyRecord(entry)) return;
-        const card = ocrVocabularyCard(entry);
-        const surface = ocrVocabularySurface(entry) || card?.spelling;
-        if (card && surface) cards.set(ocrVocabularyKey(surface), card);
-      });
-      return cards.size ? cards : null;
-    } catch {
-      return null;
-    }
-  }
-  function ocrVocabularyCard(entry) {
-    if (!isOcrVocabularyRecord(entry)) return null;
-    const surface = ocrVocabularySurface(entry);
-    const spelling = ocrVocabularyString(entry.spelling) || surface;
-    if (!surface || !spelling) return null;
-    const reading = ocrVocabularyString(entry.reading);
-    const id = -stablePositiveHashId(`ocr-vocabulary
-${spelling}
-${reading}`);
-    return {
-      vid: id,
-      sid: id,
-      rid: 0,
-      spelling,
-      reading,
-      frequencyRank: ocrVocabularyInteger(entry.frequencyRank) ?? null,
-      partOfSpeech: [],
-      meanings: [],
-      cardState: ["not-in-deck"],
-      pitchAccent: ocrVocabularyPitchPatterns(entry, reading),
-      wordWithReading: null,
-      source: "fallback"
-    };
-  }
-  function cloneOcrVocabularyCard(card) {
-    return {
-      ...card,
-      partOfSpeech: [...card.partOfSpeech],
-      meanings: card.meanings.map((meaning) => ({
-        ...meaning,
-        glosses: [...meaning.glosses],
-        partOfSpeech: [...meaning.partOfSpeech]
-      })),
-      cardState: [...card.cardState],
-      pitchAccent: [...card.pitchAccent]
-    };
-  }
-  function ocrVocabularySurface(entry) {
-    return ocrVocabularyString(entry.surface) || ocrVocabularyString(entry.text);
-  }
-  function ocrVocabularyPitchPatterns(entry, reading) {
-    const explicit = Array.isArray(entry.pitchAccent) ? entry.pitchAccent.filter((value) => typeof value === "string" && /^[HL]+$/u.test(value)) : [];
-    const positions = ocrVocabularyPitchPositions(entry);
-    return [
-      ...explicit,
-      ...positions.map((position) => pitchPatternFromPosition(reading, position)).filter(Boolean)
-    ];
-  }
-  function ocrVocabularyPitchPositions(entry) {
-    if (Array.isArray(entry.pitchPositions)) {
-      return entry.pitchPositions.map(ocrVocabularyInteger).filter((position2) => position2 !== void 0);
-    }
-    const position = ocrVocabularyInteger(entry.pitchPosition);
-    return position === void 0 ? [] : [position];
-  }
-  function ocrVocabularyKey(value) {
-    return value.replace(/\s+/g, " ").trim();
-  }
-  function ocrVocabularyString(value) {
-    return typeof value === "string" ? value.trim() : "";
-  }
-  function ocrVocabularyInteger(value) {
-    return Number.isInteger(value) ? value : void 0;
-  }
-  function isOcrVocabularyRecord(value) {
-    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-  }
-  function rangesOverlap(start, end, otherStart, otherEnd) {
-    return start < otherEnd && otherStart < end;
-  }
-  function compareOcrTokens(first, second) {
-    return first.start - second.start || second.length - first.length;
-  }
-  function ocrFallbackCardFromText(text) {
-    const spelling = text.replace(/\s+/g, " ").trim().slice(0, 80);
-    const id = -stablePositiveHashId(`ocr-fallback
-${spelling}`);
-    return {
-      vid: id,
-      sid: id,
-      rid: 0,
-      spelling,
-      reading: "",
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [],
-      cardState: ["not-in-deck"],
-      pitchAccent: [],
-      wordWithReading: null,
-      source: "fallback"
-    };
-  }
-  function createOcrLineElement(result, line, tokens, sentence, showText, settings) {
-    const element = document.createElement("div");
-    element.className = showText ? "jpdb-ocr-line jpdb-ocr-line-visible" : "jpdb-ocr-line";
-    setOcrLineDataset(element, result, line, sentence);
-    element.tabIndex = 0;
-    element.style.writingMode = line.vertical ? "vertical-rl" : "horizontal-tb";
-    element.setAttribute("role", "button");
-    element.setAttribute("aria-label", line.text);
-    element.setAttribute("aria-pressed", "false");
-    const textElement = createOcrLineText(line, tokens, settings);
-    element.append(textElement);
-    element.dataset.hasFuri = String(Boolean(textElement.querySelector(".jpdb-reader-has-furi")));
-    setOcrLinePosition(element, result, line);
-    return element;
-  }
-  function setOcrOverlayAccessibility(overlay, visible) {
-    overlay.setAttribute("aria-hidden", String(!visible));
-    if (!visible) {
-      overlay.removeAttribute("role");
-      overlay.removeAttribute("aria-label");
-      return;
-    }
-    overlay.setAttribute("role", "region");
-    overlay.setAttribute("aria-label", `Yomu OCR text ${overlay.dataset.ocrLayerId ?? ""}`.trim());
-  }
-  function setOcrLineDataset(element, result, line, sentence) {
-    element.dataset.ocrText = line.text;
-    element.dataset.boxLeft = String(line.box.left / result.width);
-    element.dataset.boxTop = String(line.box.top / result.height);
-    element.dataset.vertical = String(line.vertical);
-    element.dataset.boxWidth = String(line.box.width / result.width);
-    element.dataset.boxHeight = String(line.box.height / result.height);
-    element.dataset.sentence = sentence;
-  }
-  function createOcrLineText(line, tokens, settings) {
-    const textElement = document.createElement("span");
-    textElement.className = "jpdb-ocr-line-text";
-    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml(line.text));
-    normalizeOcrRenderedText(textElement);
-    return textElement;
-  }
-  function ocrTokenRenderKey(token) {
-    return `${token.start}:${token.end}:${token.card.vid}:${token.card.sid}`;
-  }
-  function ocrRenderedWordKey(word) {
-    return `${word.dataset.tokenStart ?? ""}:${word.dataset.tokenEnd ?? ""}:${word.dataset.vid ?? ""}:${word.dataset.sid ?? ""}`;
-  }
-  function ocrSafePitchClass(pitchClass) {
-    const normalized = pitchClass?.trim() ?? "";
-    return /^(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/u.test(normalized) ? normalized : "";
-  }
-  function setOcrLinePosition(element, result, line) {
-    element.style.left = `${100 * line.box.left / result.width}%`;
-    element.style.top = `${100 * line.box.top / result.height}%`;
-    element.style.width = `${100 * line.box.width / result.width}%`;
-    element.style.height = `${100 * line.box.height / result.height}%`;
-  }
-  function renderedOcrImageFrame(image, rect, result) {
-    const pausedVideoFrame = renderedPausedVideoFrame(image, rect);
-    if (pausedVideoFrame) return pausedVideoFrame;
-    const style = getComputedStyle(image);
-    const content = imageContentBox(image, rect, style);
-    const { sourceWidth, sourceHeight } = ocrSourceDimensions(image, rect, content, result);
-    const object = fittedObjectSize(style.objectFit, sourceWidth, sourceHeight, content.width, content.height);
-    const offset = objectPositionOffset(style.objectPosition, content.width - object.width, content.height - object.height);
-    return {
-      imageLeft: content.left + offset.x,
-      imageTop: content.top + offset.y,
-      imageWidth: Math.max(1, object.width),
-      imageHeight: Math.max(1, object.height)
-    };
-  }
-  function renderedPausedVideoFrame(image, rect) {
-    if (image.dataset.yomuVideoFrame !== "true") return null;
-    return {
-      imageLeft: 0,
-      imageTop: 0,
-      imageWidth: Math.max(1, rect.width),
-      imageHeight: Math.max(1, rect.height)
-    };
-  }
-  function renderedCanvasReaderFrame(rect) {
-    return {
-      imageLeft: 0,
-      imageTop: 0,
-      imageWidth: Math.max(1, rect.width),
-      imageHeight: Math.max(1, rect.height)
-    };
-  }
-  function ocrSourceDimensions(image, rect, content, result) {
-    return {
-      sourceWidth: firstTruthyNumber(result?.width, image.naturalWidth, image.width, content.width, rect.width),
-      sourceHeight: firstTruthyNumber(result?.height, image.naturalHeight, image.height, content.height, rect.height)
-    };
-  }
-  function firstTruthyNumber(...values) {
-    const value = values.find((candidate) => Boolean(candidate));
-    return value === void 0 ? 1 : value;
-  }
-  function imageContentBox(image, rect, style) {
-    const scaleX = rectScale(rect.width, image.offsetWidth);
-    const scaleY = rectScale(rect.height, image.offsetHeight);
-    const left = scaledBoxEdge(style.borderLeftWidth, scaleX) + scaledBoxEdge(style.paddingLeft, scaleX);
-    const right = scaledBoxEdge(style.borderRightWidth, scaleX) + scaledBoxEdge(style.paddingRight, scaleX);
-    const top = scaledBoxEdge(style.borderTopWidth, scaleY) + scaledBoxEdge(style.paddingTop, scaleY);
-    const bottom = scaledBoxEdge(style.borderBottomWidth, scaleY) + scaledBoxEdge(style.paddingBottom, scaleY);
-    return {
-      left,
-      top,
-      width: Math.max(1, rect.width - left - right),
-      height: Math.max(1, rect.height - top - bottom)
-    };
-  }
-  function rectScale(rectSize, layoutSize) {
-    return layoutSize > 0 ? rectSize / layoutSize : 1;
-  }
-  function scaledBoxEdge(value, scale) {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed * scale : 0;
-  }
-  function fittedObjectSize(objectFit, sourceWidth, sourceHeight, contentWidth, contentHeight) {
-    const safeSourceWidth = Math.max(1, sourceWidth);
-    const safeSourceHeight = Math.max(1, sourceHeight);
-    const safeContentWidth = Math.max(1, contentWidth);
-    const safeContentHeight = Math.max(1, contentHeight);
-    const contain = () => scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.min(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
-    switch (objectFit) {
-      case "contain":
-        return contain();
-      case "cover":
-        return scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.max(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
-      case "none":
-        return { width: safeSourceWidth, height: safeSourceHeight };
-      case "scale-down": {
-        const contained = contain();
-        return contained.width < safeSourceWidth || contained.height < safeSourceHeight ? contained : { width: safeSourceWidth, height: safeSourceHeight };
-      }
-      case "fill":
-      default:
-        return { width: safeContentWidth, height: safeContentHeight };
-    }
-  }
-  function scaledObjectSize(width, height, scale) {
-    return {
-      width: Math.max(1, width * scale),
-      height: Math.max(1, height * scale)
-    };
-  }
-  function objectPositionOffset(value, freeX, freeY) {
-    const tokens = cssPositionTokens(value);
-    const axes = parseObjectPositionAxes(tokens);
-    return {
-      x: axisPositionOffset(axes.x, freeX),
-      y: axisPositionOffset(axes.y, freeY)
-    };
-  }
-  function cssPositionTokens(value) {
-    return value.trim().match(/(?:calc\([^)]*\)|[^\s]+)/g) ?? [];
-  }
-  function parseObjectPositionAxes(tokens) {
-    const paired = parseKeywordPositionAxes(tokens);
-    if (paired) return paired;
-    const [first = "50%", second] = tokens;
-    if (isVerticalPositionKeyword(first)) return { x: positionAxis(second || "50%"), y: positionAxis(first) };
-    return { x: positionAxis(first), y: positionAxis(second || "50%") };
-  }
-  function parseKeywordPositionAxes(tokens) {
-    let x = null;
-    let y = null;
-    for (let index = 0; index < tokens.length; index += 1) {
-      const token = tokens[index];
-      if (isHorizontalPositionKeyword(token)) {
-        x = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
-        continue;
-      }
-      if (isVerticalPositionKeyword(token)) {
-        y = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
-      }
-    }
-    return x || y ? { x: x ?? positionAxis("50%"), y: y ?? positionAxis("50%") } : null;
-  }
-  function positionAxis(token) {
-    return positionKeyword(token) ? { keyword: token } : { token };
-  }
-  function positionOffsetToken(token) {
-    return token && !positionKeyword(token) ? token : void 0;
-  }
-  function axisPositionOffset(axis, freeSpace) {
-    const base = axis.keyword ? keywordPositionOffset(axis.keyword, freeSpace) : tokenPositionOffset(axis.token, freeSpace);
-    const offset = cssLengthPx(axis.offset);
-    if (axis.keyword === "right" || axis.keyword === "bottom") return base - offset;
-    return base + offset;
-  }
-  function keywordPositionOffset(keyword, freeSpace) {
-    if (keyword === "right" || keyword === "bottom") return freeSpace;
-    if (keyword === "center") return freeSpace / 2;
-    return 0;
-  }
-  function tokenPositionOffset(token, freeSpace) {
-    if (!token) return freeSpace / 2;
-    if (token.endsWith("%")) return freeSpace * (Number.parseFloat(token) || 0) / 100;
-    return cssLengthPx(token);
-  }
-  function cssLengthPx(value) {
-    if (!value) return 0;
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  function positionKeyword(token) {
-    return isHorizontalPositionKeyword(token) || isVerticalPositionKeyword(token) || token === "center";
-  }
-  function isHorizontalPositionKeyword(token) {
-    return token === "left" || token === "right";
-  }
-  function isVerticalPositionKeyword(token) {
-    return token === "top" || token === "bottom";
-  }
-  function captureImageElement(image) {
-    try {
-      if (!image.naturalWidth || !image.naturalHeight) return void 0;
-      const canvas = document.createElement("canvas");
-      const maxWidth = 960;
-      const scale = Math.min(1, maxWidth / image.naturalWidth);
-      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-      const context = canvas.getContext("2d");
-      if (!context) return void 0;
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL("image/jpeg", 0.84);
-    } catch {
-      return void 0;
-    }
-  }
-  function readFallbackOcrResult(image, _includeAccessibleText = false) {
-    const width = image.naturalWidth || image.width || 1;
-    const height = image.naturalHeight || image.height || 1;
-    return parseFallbackOcrLines(image.dataset.ocrLines, width, height);
-  }
-  function parseFallbackOcrLines(data, width, height) {
-    if (!data) return null;
-    try {
-      return normalizeOcrResult({ width, height, lines: JSON.parse(data) }, width, height);
-    } catch {
-      return null;
-    }
-  }
-  function ocrFontPx(text, boxWidth, boxHeight, vertical, scale) {
-    const safeScale = Math.max(0.7, Math.min(1.8, scale));
-    const length = Math.max(1, visualTextLength(text));
-    const byBoxThickness = vertical ? boxWidth * 0.72 : boxHeight * 0.58;
-    const byBoxLength = vertical ? boxHeight / length * 1.12 : boxWidth / length * 1.08;
-    const fitted = Math.min(byBoxThickness, byBoxLength) * safeScale;
-    return Math.max(11, Math.min(38, fitted));
-  }
-  function ocrWordUnderlineBleedPx(fontSize) {
-    return Math.ceil(fontSize * (OCR_WORD_UNDERLINE_OFFSET_EM + OCR_WORD_UNDERLINE_THICKNESS_EM)) + OCR_WORD_UNDERLINE_CLEARANCE_PX;
-  }
-  function visualTextLength(text) {
-    return [...text.trim()].reduce((total, char) => {
-      if (/\s/.test(char)) return total + 0.35;
-      if (/[\u0000-\u00ff]/.test(char)) return total + 0.62;
-      return total + 1;
-    }, 0);
-  }
-  function shouldCenterOcrText(text, vertical) {
-    return vertical || visualTextLength(text) <= 1.5;
-  }
-  function clampNumber$1(value, min, max) {
-    return Math.min(max, Math.max(min, value));
-  }
-  async function recognizeViaLocalService(image, settings, invert = false) {
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
-    const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
-    const body = JSON.stringify({
-      id: imageCacheKey(image),
-      language_code: settings.ocrLanguage || "ja-JP",
-      language: {
-        bcp47_tag: settings.ocrLanguage || "ja-JP",
-        two_letter_code: (settings.ocrLanguage || "ja").slice(0, 2)
-      },
-      base64_image: payload.base64,
-      image: payload.base64,
-      image_bytes: payload.base64,
-      ocr_engine: engine,
-      ocr_adapter_name: engine,
-      detection_only: false
-    });
-    const response = await requestJson(localOcrEndpointUrl(settings), body, settings.audioTimeoutMs);
-    return normalizeOcrResult(response, payload.width, payload.height);
-  }
-  async function recognizeViaCloudVision(image, settings, invert = false) {
-    const apiKey = settings.ocrCloudVisionApiKey.trim();
-    if (!apiKey) return null;
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
-    const body = JSON.stringify({
-      requests: [{
-        image: { content: payload.base64 },
-        features: [{ type: "TEXT_DETECTION", maxResults: 50, model: "builtin/latest" }],
-        imageContext: { languageHints: [(settings.ocrLanguage || "ja-JP").slice(0, 2)] }
-      }]
-    });
-    const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
-    const response = await requestJson(url, body, settings.audioTimeoutMs);
-    return normalizeOcrResult(response, payload.width, payload.height);
-  }
-  async function recognizeViaGoogleLens(image, settings, invert = false) {
-    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88, invert);
-    const protobuf = await recognizeViaGoogleLensProtobuf(blob, canvas, settings).catch((error) => {
-      log$2.warn("Google Lens protobuf failed", error);
-      return void 0;
-    });
-    if (protobuf?.lines.length) return protobuf;
-    const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs).catch((error) => {
-      log$2.warn("Google Lens upload failed", error);
-      return void 0;
-    });
-    if (protobuf === void 0 && upload === void 0) throw new Error("Google Lens OCR failed.");
-    return upload?.lines.length ? upload : upload ?? protobuf ?? null;
-  }
-  async function recognizeViaGoogleLensProtobuf(blob, canvas, settings) {
-    const bytes = new Uint8Array(await blob.arrayBuffer());
-    const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
-    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
-    return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
-  }
-  function ocrRecognizer(settings) {
-    const recognizer = OCR_RECOGNIZERS[settings.ocrProvider] ?? null;
-    return recognizer && isOcrProviderConfigured(settings) ? recognizer : null;
-  }
-  function isOcrProviderConfigured(settings) {
-    return OCR_PROVIDER_CONFIGURED[settings.ocrProvider]?.(settings) ?? false;
-  }
-  async function imageToBase64Payload(image, maxPixels, invertDark = false) {
-    const { canvas, blob } = await imageToBlobPayload(image, maxPixels, "image/jpeg", 0.86, invertDark);
-    return { base64: (await readBlobAsDataUrl(blob, "Blob read failed.")).split(",")[1] ?? "", width: canvas.width, height: canvas.height };
-  }
-  async function imageToBlobPayload(image, maxPixels, type, quality, invertDark = false) {
-    const canvas = await imageToCanvas(image, maxPixels, invertDark);
-    try {
-      return { canvas, blob: await canvasToBlob(canvas, type, quality) };
-    } catch {
-      const fallbackCanvas = await imageBlobToCanvas(image, maxPixels, invertDark);
-      return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
-    }
-  }
-  async function recognizeViaGoogleLensUpload(blob, width, height, timeout) {
-    const data = new FormData();
-    data.append("encoded_image", blob, "image.jpg");
-    const response = await requestTextForm(`https://lens.google.com/v3/upload?stcs=${Date.now().toString().slice(0, 10)}`, data, timeout, {
-      Origin: "https://lens.google.com",
-      Referer: "https://lens.google.com/"
-    });
-    return parseGoogleLensUploadHtml(response, width, height);
-  }
-  async function imageToCanvas(image, maxPixels, invert = false) {
-    try {
-      const canvas = drawImageToCanvas(image, maxPixels);
-      assertCanvasReadable(canvas);
-      return invert ? invertedCanvas(canvas) : canvas;
-    } catch {
-      return imageBlobToCanvas(image, maxPixels, invert);
-    }
-  }
-  async function imageBlobToCanvas(image, maxPixels, invert = false) {
-    const url = image.currentSrc || image.src;
-    if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
-    const blob = await requestBlob(url);
-    const objectUrl = URL.createObjectURL(blob);
-    try {
-      const loaded = await loadImage(objectUrl);
-      const canvas = drawImageToCanvas(loaded, maxPixels);
-      assertCanvasReadable(canvas);
-      return invert ? invertedCanvas(canvas) : canvas;
-    } finally {
-      URL.revokeObjectURL(objectUrl);
-    }
-  }
-  function invertedCanvas(canvas) {
-    try {
-      const inverted = document.createElement("canvas");
-      inverted.width = canvas.width;
-      inverted.height = canvas.height;
-      const context = inverted.getContext("2d");
-      if (!context) return canvas;
-      context.filter = "invert(1)";
-      context.drawImage(canvas, 0, 0);
-      return inverted;
-    } catch {
-      return canvas;
-    }
-  }
-  const DARK_FIELD_SIZE = 48;
-  const DARK_LUMINANCE = 90;
-  const DARK_REGION_TRIGGER = 0.1;
-  const DARK_LINE_MEAN_LUMINANCE = 110;
-  function buildLuminanceField(image) {
-    try {
-      if (!image.naturalWidth || !image.naturalHeight) return null;
-      const size = DARK_FIELD_SIZE;
-      const sample = document.createElement("canvas");
-      sample.width = size;
-      sample.height = size;
-      const context = sample.getContext("2d", { willReadFrequently: true });
-      if (!context) return null;
-      context.drawImage(image, 0, 0, size, size);
-      const { data } = context.getImageData(0, 0, size, size);
-      const lum = new Uint8Array(size * size);
-      let opaque = 0;
-      for (let i = 0, p = 0; i < data.length; i += 4, p++) {
-        if (data[i + 3] >= 8) opaque++;
-        lum[p] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114 | 0;
-      }
-      if (opaque < lum.length * 0.5) return null;
-      return { size, lum };
-    } catch {
-      return null;
-    }
-  }
-  function luminanceFieldDarkFraction(field) {
-    let dark = 0;
-    for (const value of field.lum) if (value < DARK_LUMINANCE) dark++;
-    return dark / field.lum.length;
-  }
-  function regionMeanLuminance(field, box, width, height) {
-    if (width <= 0 || height <= 0) return 255;
-    const x0 = Math.max(0, Math.floor(box.left / width * field.size));
-    const x1 = Math.min(field.size, Math.ceil((box.left + box.width) / width * field.size));
-    const y0 = Math.max(0, Math.floor(box.top / height * field.size));
-    const y1 = Math.min(field.size, Math.ceil((box.top + box.height) / height * field.size));
-    let sum = 0;
-    let count = 0;
-    for (let y = y0; y < y1; y++) {
-      for (let x = x0; x < x1; x++) {
-        sum += field.lum[y * field.size + x];
-        count++;
-      }
-    }
-    return count ? sum / count : 255;
-  }
-  function darkAreaIsRead(field, normal) {
-    const size = field.size;
-    let darkTotal = 0;
-    let darkCovered = 0;
-    const lines = normal?.lines ?? [];
-    const width = normal?.width || 1;
-    const height = normal?.height || 1;
-    const cellRects = lines.map((line) => ({
-      x0: Math.floor(line.box.left / width * size),
-      x1: Math.ceil((line.box.left + line.box.width) / width * size),
-      y0: Math.floor(line.box.top / height * size),
-      y1: Math.ceil((line.box.top + line.box.height) / height * size)
-    }));
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        if (field.lum[y * size + x] >= DARK_LUMINANCE) continue;
-        darkTotal++;
-        if (cellRects.some((r) => x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1)) darkCovered++;
-      }
-    }
-    if (!darkTotal) return true;
-    return darkCovered / darkTotal >= 0.5;
-  }
-  function boxesOverlapSignificantly(a, b) {
-    const ix = Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
-    const iy = Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
-    const intersection = ix * iy;
-    if (intersection <= 0) return false;
-    const minArea = Math.min(a.width * a.height, b.width * b.height) || 1;
-    return intersection / minArea >= 0.5;
-  }
-  function mergeDarkPassResult(normal, inverted, field) {
-    if (!inverted?.lines.length) return normal;
-    if (!normal) {
-      const darkOnly = field ? inverted.lines.filter((line) => regionMeanLuminance(field, line.box, inverted.width, inverted.height) < DARK_LINE_MEAN_LUMINANCE) : inverted.lines;
-      return darkOnly.length ? { width: inverted.width, height: inverted.height, lines: darkOnly } : null;
-    }
-    const lines = [...normal.lines];
-    for (const line of inverted.lines) {
-      if (field && regionMeanLuminance(field, line.box, inverted.width, inverted.height) >= DARK_LINE_MEAN_LUMINANCE) continue;
-      if (lines.some((existing) => boxesOverlapSignificantly(existing.box, line.box))) continue;
-      lines.push(line);
-    }
-    return { width: normal.width, height: normal.height, lines };
-  }
-  function drawImageToCanvas(image, maxPixels) {
-    const size = loadedImageSize(image);
-    const canvas = scaledCanvas(size, maxPixels);
-    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, 0, 0, canvas.width, canvas.height);
-    return canvas;
-  }
-  async function splitImageIntoPageColumns(image) {
-    const size = loadedImageSize(image);
-    const mid = Math.round(size.width / 2);
-    return Promise.all([
-      cropOcrImageColumn(image, 0, mid, size),
-      cropOcrImageColumn(image, mid, size.width - mid, size)
-    ]);
-  }
-  async function cropOcrImageColumn(image, left, width, size) {
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, width);
-    canvas.height = Math.max(1, size.height);
-    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, left, 0, width, size.height, 0, 0, canvas.width, canvas.height);
-    return {
-      image: await loadImage(canvas.toDataURL("image/jpeg", 0.9)),
-      left,
-      totalWidth: size.width,
-      totalHeight: size.height
-    };
-  }
-  function offsetOcrResult(result, left, top, width, height) {
-    return {
-      width,
-      height,
-      lines: result.lines.map((line) => ({
-        ...line,
-        box: { ...line.box, left: line.box.left + left, top: line.box.top + top }
-      }))
-    };
-  }
-  function mergeOcrResults(width, height, results) {
-    const lines = results.flatMap((result) => result?.lines ?? []);
-    return width && height && lines.length ? { width, height, lines } : null;
-  }
-  function loadedImageSize(image) {
-    const width = image.naturalWidth || image.width;
-    const height = image.naturalHeight || image.height;
-    if (!width || !height) throw new Error("Image is not loaded yet.");
-    return { width, height };
-  }
-  function scaledCanvas(size, maxPixels) {
-    const scale = Math.min(1, Math.sqrt(Math.max(16e4, maxPixels) / (size.width * size.height)));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(size.width * scale));
-    canvas.height = Math.max(1, Math.round(size.height * scale));
-    return canvas;
-  }
-  function drawableCanvasContext(canvas) {
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas unavailable.");
-    return context;
-  }
-  function assertCanvasReadable(canvas) {
-    canvas.getContext("2d")?.getImageData(0, 0, 1, 1);
-  }
-  function createGoogleLensRequest(imageBytes, width, height, locale) {
-    const [language = "ja", region = "US"] = (locale || "ja-JP").split(/[-_]/);
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    const requestId = protoMessage(
-      protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1e6))),
-      protoVarintField(2, 1),
-      protoVarintField(3, 1),
-      protoBytesField(4, randomBytes(16))
-    );
-    const localeContext = protoMessage(
-      protoStringField(1, language || "ja"),
-      protoStringField(2, region || "US"),
-      protoStringField(3, timeZone)
-    );
-    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
-    const clientContext = protoMessage(
-      protoVarintField(1, LENS_PLATFORM_WEB),
-      protoVarintField(2, LENS_SURFACE_CHROMIUM),
-      protoMessageField(4, localeContext),
-      protoMessageField(17, clientFilters)
-    );
-    const requestContext = protoMessage(
-      protoMessageField(3, requestId),
-      protoMessageField(4, clientContext)
-    );
-    const imageData = protoMessage(
-      protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
-      protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height)))
-    );
-    return protoMessage(protoMessageField(1, protoMessage(
-      protoMessageField(1, requestContext),
-      protoMessageField(3, imageData)
-    )));
-  }
-  function isCandidateImage(image, settings) {
-    if (isIgnoredOcrImage(image)) return false;
-    const rect = image.getBoundingClientRect();
-    const area = rect.width * rect.height;
-    if (area < settings.ocrMinImageArea) return false;
-    if (!isNearViewport(image, imagePrefetchMargin(settings))) return false;
-    if (isImageOccludedByVideo(image, rect)) return false;
-    return isVisibleOcrImage(image);
-  }
-  function ocrImageFromPointerEvent(event, settings) {
-    if (!settings.ocrEnabled || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
-    const image = pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
-    return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
-  }
-  function ocrReaderSurfaceFromPointerEvent(event, settings) {
-    if (!settings.ocrEnabled || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
-    if (pointerEventOverOcrOverlay(event)) return null;
-    return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
-  }
-  function touchPointFromEvent(event) {
-    const touchEvent = event;
-    const touch = touchEvent.changedTouches?.[0] ?? touchEvent.touches?.[0];
-    if (!touch || typeof touch.clientX !== "number" || typeof touch.clientY !== "number") return null;
-    return { clientX: touch.clientX, clientY: touch.clientY };
-  }
-  function eventWithPoint(event, point) {
-    return {
-      type: "pointerdown",
-      target: event.target,
-      button: 0,
-      clientX: point.clientX,
-      clientY: point.clientY,
-      pointerType: "touch"
-    };
-  }
-  function pointerEventOverOcrOverlay(event) {
-    const target = event.target;
-    if (target?.closest?.("[data-jpdb-reader-root]")) return true;
-    if (typeof event.clientX !== "number" || typeof event.clientY !== "number") return false;
-    return Boolean(document.elementFromPoint(event.clientX, event.clientY)?.closest?.("[data-jpdb-reader-root]"));
-  }
-  function shouldHandleOcrPointerEvent(event) {
-    if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;
-    return (event.type === "pointerover" || event.type === "pointermove") && isHoverPointerType(event.pointerType);
-  }
-  function isPointerLikeEvent(event) {
-    const candidate = event;
-    return typeof candidate.clientX === "number" && typeof candidate.clientY === "number";
-  }
-  function isHoverPointerType(pointerType) {
-    return !pointerType || pointerType === "mouse" || pointerType === "pen";
-  }
-  function pointerEventImageTarget(event) {
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target || target.closest("[data-jpdb-reader-root]")) return null;
-    return target instanceof HTMLImageElement ? target : target.closest("img");
-  }
-  function pointerEventImageAtPoint(event) {
-    const element = document.elementFromPoint?.(event.clientX, event.clientY);
-    if (!element || element.closest("[data-jpdb-reader-root]")) return null;
-    return element instanceof HTMLImageElement ? element : element.closest("img");
-  }
-  function pointerEventReaderSurfaceTarget(event, settings) {
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target || target.closest("[data-jpdb-reader-root]")) return null;
-    return readerSurfaceFromElement(target, settings);
-  }
-  function pointerEventReaderSurfaceAtPoint(event, settings) {
-    const element = document.elementFromPoint?.(event.clientX, event.clientY);
-    if (element && !element.closest("[data-jpdb-reader-root]")) {
-      const surface = readerSurfaceFromElement(element, settings);
-      if (surface) return surface;
-    }
-    return readerSurfaceAtPoint(event.clientX, event.clientY, settings);
-  }
-  function readerSurfaceFromElement(element, settings) {
-    const canvas = element instanceof HTMLCanvasElement ? element : element.closest("canvas");
-    if (canvas && isManualCanvasReaderSurface(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
-    if (canvas && collectCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
-    const background = collectBackgroundImageReaderSurfaces().find((surface) => (surface === element || surface.contains(element)) && isReaderSurfaceCandidate(surface, settings));
-    return background ?? null;
-  }
-  function readerSurfaceAtPoint(clientX, clientY, settings) {
-    const surfaces = [
-      ...collectCanvasReaderSurfaces(),
-      ...collectBackgroundImageReaderSurfaces()
-    ].filter((surface) => isReaderSurfaceCandidate(surface, settings));
-    return surfaces.find((surface) => rectContainsPoint(surface.getBoundingClientRect(), clientX, clientY)) ?? null;
-  }
-  function isReaderSurfaceCandidate(surface, settings) {
-    const rect = surface.getBoundingClientRect();
-    return rect.width * rect.height >= settings.ocrMinImageArea && isNearViewport(surface, settings.ocrPrefetchMargin) && !isHiddenByCss(surface) && !isInsideHiddenAncestor(surface);
-  }
-  function rectContainsPoint(rect, clientX, clientY) {
-    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
-  }
-  function isIgnoredOcrImage(image) {
-    return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]') || image.closest('[aria-hidden="true"], [hidden], .slick-cloned') || isBrandOrIconOcrImage(image) || isYouTubeThumbnailImage(image));
-  }
-  function isYouTubeThumbnailImage(image) {
-    return Boolean(image.closest(OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR));
-  }
-  const OCR_BRAND_IMAGE_TEXT_RE = /(^|[\s/_.?#&=-])(?:app-?icon|apple-touch-icon|avatar|badge|brand|favicon|icon|logo|site-icon|touch-icon|yomu-icon)(?=$|[\s/_.?#&=-])/iu;
-  const OCR_BRAND_IMAGE_CONTAINER_SELECTOR = [
-    "header",
-    "nav",
-    '[role="banner"]',
-    '[role="navigation"]',
-    '[class*="brand" i]',
-    '[class*="logo" i]',
-    '[id*="brand" i]',
-    '[id*="logo" i]'
-  ].join(",");
-  function isBrandOrIconOcrImage(image) {
-    if (OCR_BRAND_IMAGE_TEXT_RE.test(imageIdentityText(image))) return true;
-    const rect = image.getBoundingClientRect();
-    const area = rect.width * rect.height;
-    if (area > 0 && area <= 12e3 && isIconLikeImage(image, rect)) return true;
-    if (image.closest(OCR_BRAND_IMAGE_CONTAINER_SELECTOR)) return area <= 16e4 || isIconLikeImage(image, rect);
-    return false;
-  }
-  function imageIdentityText(image) {
-    return [
-      image.currentSrc,
-      image.src,
-      image.alt,
-      image.title,
-      image.id,
-      image.className,
-      image.getAttribute("aria-label"),
-      image.getAttribute("role")
-    ].filter(Boolean).join(" ");
-  }
-  function isIconLikeImage(image, rect = image.getBoundingClientRect()) {
-    const width = image.naturalWidth || rect.width;
-    const height = image.naturalHeight || rect.height;
-    if (!width || !height) return false;
-    const ratio = width / height;
-    return ratio >= 0.72 && ratio <= 1.38 && Math.max(rect.width, rect.height, width, height) <= 256;
-  }
-  function isVisibleOcrImage(image) {
-    return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
-  }
-  function isImageVisibleForOcr(image, rect) {
-    return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight && !isImageOccludedByVideo(image, rect);
-  }
-  function isInsideHiddenAncestor(element) {
-    for (let current = element.parentElement; current && current !== document.body; current = current.parentElement) {
-      if (isHiddenByCss(current) || isHiddenByAttribute(current)) return true;
-    }
-    return false;
-  }
-  function isHiddenByCss(element) {
-    const style = getComputedStyle(element);
-    return style.visibility === "hidden" || style.display === "none" || Number(style.opacity || "1") <= 0;
-  }
-  function isHiddenByAttribute(element) {
-    return element.getAttribute("aria-hidden") === "true" || element.hasAttribute("hidden");
-  }
-  function mutationTouchesRenderableMedia(mutation) {
-    if (mutation.type === "childList") {
-      return [...mutation.addedNodes, ...mutation.removedNodes].some(nodeContainsRenderableMedia);
-    }
-    return mutation.target instanceof Element && nodeContainsRenderableMedia(mutation.target);
-  }
-  function summarizeRenderableMediaMutations(mutations) {
-    let addedImage = false;
-    let touched = false;
-    for (const mutation of mutations) {
-      if (!mutationTouchesRenderableMedia(mutation)) continue;
-      touched = true;
-      if (mutation.type === "childList" && [...mutation.addedNodes].some(nodeContainsRenderableMedia)) addedImage = true;
-      if (addedImage) break;
-    }
-    return { touched, addedImage };
-  }
-  function canAutoRefreshOcrAfterMutation(settings, shouldAutoScan) {
-    return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
-  }
-  function nodeContainsRenderableMedia(node) {
-    return node instanceof HTMLImageElement || node instanceof HTMLVideoElement || node instanceof HTMLCanvasElement || node instanceof HTMLSourceElement || node instanceof HTMLElement && Boolean(backgroundImageReaderUrl(node)) || node instanceof Element && Boolean(node.querySelector('img, video, source, canvas, [data-page-index], [style*="background-image"], [style*="background:"][style*="url("]'));
-  }
-  function hasCanvasOcrOptInSurface() {
-    return Boolean(document.querySelector('canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas'));
-  }
-  function isCanvasOcrOptInSurface(canvas) {
-    return canvas.dataset.yomuCanvasOcr === "on" || Boolean(canvas.closest('[data-yomu-canvas-ocr="on"]'));
-  }
-  function isImageOccludedByVideo(image, rect = image.getBoundingClientRect()) {
-    if (image.dataset.yomuVideoFrame) return false;
-    const imageArea = rect.width * rect.height;
-    if (imageArea < 4) return false;
-    const imageRoot = image.getRootNode();
-    for (const video of document.querySelectorAll("video")) {
-      if (!isVisiblePeerVideo(video, image, imageRoot)) continue;
-      if (videoOccludesImage(video, rect, imageArea)) return true;
-    }
-    return false;
-  }
-  function isVisiblePeerVideo(video, image, imageRoot) {
-    return video.isConnected && video.getRootNode() === imageRoot && !isSameMediaNode(video, image) && visibleVideoRect(video) !== null && !isHiddenByCss(video);
-  }
-  function visibleVideoRect(video) {
-    const rect = video.getBoundingClientRect();
-    return rect.width >= 2 && rect.height >= 2 ? rect : null;
-  }
-  function videoOccludesImage(video, imageRect, imageArea) {
-    const videoRect = visibleVideoRect(video);
-    return Boolean(videoRect && intersectionArea(imageRect, videoRect) / imageArea >= 0.6);
-  }
-  function isSameMediaNode(video, image) {
-    return video === image.parentElement || image === video.parentElement;
-  }
-  function intersectionArea(a, b) {
-    const left = Math.max(a.left, b.left);
-    const top = Math.max(a.top, b.top);
-    const right = Math.min(a.right, b.right);
-    const bottom = Math.min(a.bottom, b.bottom);
-    return Math.max(0, right - left) * Math.max(0, bottom - top);
-  }
-  function shouldObserveImage(image, settings) {
-    return settings.ocrProvider !== "off" && (hasInlineOcrFallback(image) || isOcrProviderConfigured(settings));
-  }
-  function hasInlineOcrFallback(image) {
-    return Boolean(readFallbackOcrResult(image, false));
-  }
-  function isNearViewport(element, margin) {
-    const rect = element.getBoundingClientRect();
-    return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
-  }
-  function ocrConcurrencyLimit(settings) {
-    return Math.max(1, Math.min(8, Math.round(settings.ocrConcurrency || 1)));
-  }
-  function canvasPrefetchMargin(settings) {
-    const pages = Math.max(0, settings.ocrPrefetchPages || 0);
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    return Math.max(settings.ocrPrefetchMargin, pages * viewportHeight);
-  }
-  let imageReaderPageCache = { at: -Infinity, value: false };
-  function isLikelyImageReaderPage(settings) {
-    if (isReaderRasterPage()) return true;
-    const now = Date.now();
-    if (now - imageReaderPageCache.at < 1e3) return imageReaderPageCache.value;
-    let large = 0;
-    let value = false;
-    for (const image of Array.from(document.images)) {
-      const rect = image.getBoundingClientRect();
-      if (rect.width >= 300 && rect.width * rect.height >= settings.ocrMinImageArea && ++large >= 3) {
-        value = true;
-        break;
-      }
-    }
-    imageReaderPageCache = { at: now, value };
-    return value;
-  }
-  function imagePrefetchMargin(settings) {
-    return settings.ocrPrefetchPages > 0 && isLikelyImageReaderPage(settings) ? canvasPrefetchMargin(settings) : settings.ocrPrefetchMargin;
-  }
-  function imageReaderMaxImages(settings) {
-    return settings.ocrPrefetchPages > 0 && isLikelyImageReaderPage(settings) ? Math.max(settings.ocrMaxImagesPerPage, settings.ocrPrefetchPages * 2 + 1) : settings.ocrMaxImagesPerPage;
-  }
-  function activeReaderRasterSurfaces(surfaces, settings, userRequested) {
-    const margin = readerRasterCaptureMargin(settings, userRequested);
-    const active = surfaces.filter((surface) => isNearViewport(surface, margin)).sort((a, b) => visibleElementViewportArea(b) - visibleElementViewportArea(a) || elementViewportDistance(a) - elementViewportDistance(b));
-    if (!userRequested && isBookwalkerViewerHost()) return activeBookwalkerReaderRasterSurfaces(active, settings);
-    const limit = readerRasterMaxSurfaces(settings, userRequested);
-    return active.slice(0, limit);
-  }
-  function readerRasterCaptureMargin(settings, userRequested) {
-    if (userRequested) return settings.ocrPrefetchMargin;
-    return Math.min(canvasPrefetchMargin(settings), settings.ocrPrefetchMargin);
-  }
-  function readerRasterMaxSurfaces(settings, userRequested) {
-    const configured = Math.max(1, Math.round(settings.ocrMaxImagesPerPage || 1));
-    if (userRequested) return configured;
-    return Math.min(configured, 3);
-  }
-  function imageViewportDistance(image) {
-    return elementViewportDistance(image);
-  }
-  function elementViewportDistance(element) {
-    const rect = element.getBoundingClientRect();
-    if (!rect.width || !rect.height) return Number.POSITIVE_INFINITY;
-    if (rect.bottom < 0) return -rect.bottom;
-    if (rect.top > window.innerHeight) return rect.top - window.innerHeight;
-    if (rect.right < 0) return -rect.right;
-    if (rect.left > window.innerWidth) return rect.left - window.innerWidth;
-    return 0;
-  }
-  function visibleElementViewportArea(element) {
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    if (!viewportWidth || !viewportHeight) return 0;
-    const rect = element.getBoundingClientRect();
-    const left = Math.max(0, rect.left);
-    const top = Math.max(0, rect.top);
-    const right = Math.min(viewportWidth, rect.right);
-    const bottom = Math.min(viewportHeight, rect.bottom);
-    return Math.max(0, right - left) * Math.max(0, bottom - top);
-  }
-  function bookwalkerVisibleCanvasRegion(canvas, rect) {
-    if (!isBookwalkerViewerHost()) return void 0;
-    const clip = elementVisibleViewportClip(canvas);
-    if (!clip || !rect.width || !rect.height) return void 0;
-    const left = Math.max(clip.left, rect.left);
-    const top = Math.max(clip.top, rect.top);
-    const right = Math.min(clip.right, rect.right);
-    const bottom = Math.min(clip.bottom, rect.bottom);
-    const width = right - left;
-    const height = bottom - top;
-    if (width < READER_RASTER_REGION_MIN_SIZE_PX || height < READER_RASTER_REGION_MIN_SIZE_PX) return void 0;
-    const area = width * height;
-    const fullArea = rect.width * rect.height;
-    if (area >= fullArea * READER_RASTER_REGION_FULL_PAGE_FRACTION) return void 0;
-    return new DOMRect(left, top, width, height);
-  }
-  function elementVisibleViewportClip(element) {
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    if (!viewportWidth || !viewportHeight) return void 0;
-    let left = 0;
-    let top = 0;
-    let right = viewportWidth;
-    let bottom = viewportHeight;
-    for (let ancestor = element.parentElement; ancestor && ancestor !== document.documentElement; ancestor = ancestor.parentElement) {
-      const style = getComputedStyle(ancestor);
-      const clipsX = cssOverflowClips(style.overflowX) || cssOverflowClips(style.overflow);
-      const clipsY = cssOverflowClips(style.overflowY) || cssOverflowClips(style.overflow);
-      if (!clipsX && !clipsY) continue;
-      const rect = ancestor.getBoundingClientRect();
-      if (!rect.width || !rect.height) continue;
-      if (clipsX) {
-        left = Math.max(left, rect.left);
-        right = Math.min(right, rect.right);
-      }
-      if (clipsY) {
-        top = Math.max(top, rect.top);
-        bottom = Math.min(bottom, rect.bottom);
-      }
-    }
-    const width = right - left;
-    const height = bottom - top;
-    return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : void 0;
-  }
-  function cssOverflowClips(value) {
-    return value === "hidden" || value === "clip" || value === "auto" || value === "scroll";
-  }
-  function canvasRegionContentKey(surfaceRect, regionRect) {
-    const parts = [
-      regionRect.left - surfaceRect.left,
-      regionRect.top - surfaceRect.top,
-      regionRect.width,
-      regionRect.height
-    ].map((value) => Math.round(value));
-    return `:region:${parts.join(",")}`;
-  }
-  function activeBookwalkerReaderRasterSurfaces(surfaces, settings) {
-    const visible = surfaces.filter((surface) => visibleElementViewportArea(surface) > 1);
-    if (visible.length <= 1) return visible;
-    const spread = visibleBookwalkerSpreadSurfaces(visible);
-    if (spread.length) return spread.slice(0, Math.min(2, readerRasterMaxSurfaces(settings, false)));
-    const dominant = dominantBookwalkerSurfaceGroup(visible);
-    return dominant.slice(0, 1);
-  }
-  function dominantBookwalkerSurfaceGroup(surfaces) {
-    const groups = /* @__PURE__ */ new Map();
-    for (const surface of surfaces) {
-      const key = bookwalkerSurfaceGroupKey(surface);
-      if (!key) continue;
-      const group = groups.get(key);
-      if (group) group.push(surface);
-      else groups.set(key, [surface]);
-    }
-    let best;
-    let bestArea = 0;
-    for (const group of groups.values()) {
-      const area = group.reduce((sum, surface) => sum + visibleElementViewportArea(surface), 0);
-      if (area <= bestArea) continue;
-      best = group;
-      bestArea = area;
-    }
-    if (best?.length) {
-      return best.slice().sort((a, b) => visibleElementViewportArea(b) - visibleElementViewportArea(a) || elementViewportDistance(a) - elementViewportDistance(b));
-    }
-    return surfaces.slice(0, 1);
-  }
-  function bookwalkerSurfaceGroupKey(surface) {
-    if (surface instanceof HTMLCanvasElement && canvasReaderHasStableSurface(surface)) return canvasReaderSurfaceId(surface);
-    const element = surface instanceof HTMLElement ? surface : surface.parentElement;
-    return element?.closest('.canvasRoot.verticalAxis[id], [id^="wideScreen"][id]')?.id ?? "";
-  }
-  function visibleBookwalkerSpreadSurfaces(surfaces) {
-    if (surfaces.length < 2) return [];
-    const spread = surfaces.slice().sort((a, b) => visibleElementViewportArea(b) - visibleElementViewportArea(a)).slice(0, 2);
-    const [firstSurface, secondSurface] = spread;
-    if (!firstSurface || !secondSurface) return [];
-    const firstKey = bookwalkerSurfaceGroupKey(firstSurface);
-    const secondKey = bookwalkerSurfaceGroupKey(secondSurface);
-    if (firstKey && secondKey && firstKey === secondKey) return [];
-    const [first, second] = spread.map((surface) => surface.getBoundingClientRect());
-    if (!first || !second) return [];
-    const smallerHeight = Math.max(1, Math.min(first.height, second.height));
-    const verticalOverlap2 = Math.max(0, Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top));
-    if (verticalOverlap2 / smallerHeight < 0.55) return [];
-    const centerYGap = Math.abs(first.top + first.height / 2 - (second.top + second.height / 2));
-    if (centerYGap > Math.max(first.height, second.height) * 0.2) return [];
-    return first.right <= second.left || second.right <= first.left ? spread : [];
-  }
-  function captureVideoFrameDataUrl(video) {
-    try {
-      if (!video.videoWidth || !video.videoHeight || video.readyState < 2) return void 0;
-      const canvas = document.createElement("canvas");
-      const maxWidth = 960;
-      const scale = Math.min(1, maxWidth / video.videoWidth);
-      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-      const context = canvas.getContext("2d");
-      if (!context) return void 0;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL("image/jpeg", 0.84);
-    } catch {
-      return void 0;
-    }
-  }
-  function isTwitterHost(hostname = location.hostname) {
-    return hostname === "twitter.com" || hostname === "x.com" || hostname.endsWith(".twitter.com") || hostname.endsWith(".x.com");
-  }
-  function isLikelyPausedVideoThumbnail(video) {
-    if (isTwitterHost()) return true;
-    if (video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR)) return true;
-    if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
-    if (!video.closest(VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR)) return false;
-    return !isPrimaryPlayerSizedVideo(video);
-  }
-  function isPrimaryPlayerSizedVideo(video) {
-    const rect = video.getBoundingClientRect();
-    if (rect.width < 280 || rect.height < 160) return false;
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    if (!viewportWidth || !viewportHeight) return rect.width >= 480 && rect.height >= 270;
-    return rect.width >= viewportWidth * 0.6 || rect.width * rect.height >= viewportWidth * viewportHeight * 0.25;
-  }
-  function positionVideoFrameImage(frame, rect, video) {
-    const content = videoContentBox(rect, video);
-    setOcrArtifactPosition(frame, content.left, content.top);
-    frame.style.width = `${content.width}px`;
-    frame.style.height = `${content.height}px`;
-  }
-  function positionVideoFrameResumeControl(control, rect, video) {
-    const root = videoFrameArtifactRoot(video);
-    if (hideVideoFrameResumeControlBehindSubtitlePlayback(control, root)) return;
-    if (attachVideoFrameResumeControlToSubtitleRail(control, root)) return;
-    attachVideoFrameResumeControlFallback(control, root);
-    const content = videoContentBox(rect, video);
-    setOcrArtifactPosition(control, content.left + content.width - 12, content.top + 12);
-  }
-  function positionVideoFrameStatus(status, rect, video) {
-    const content = videoContentBox(rect, video);
-    const maxWidth = Math.max(96, Math.min(Math.max(96, content.width - 24), 320));
-    setOcrArtifactPosition(status, Math.max(8, content.left + 12), Math.max(8, content.top + 12));
-    status.style.maxWidth = `${maxWidth}px`;
-  }
-  function positionOcrImageStatus(status, rect) {
-    const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
-    setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
-    status.style.maxWidth = `${maxWidth}px`;
-  }
-  function setOcrArtifactPosition(element, viewportLeft, viewportTop) {
-    const offset = ocrArtifactRootOffset(element);
-    element.style.left = `${viewportLeft - offset.left}px`;
-    element.style.top = `${viewportTop - offset.top}px`;
-  }
-  function ocrArtifactRootOffset(element) {
-    if (element.dataset.yomuOcrFullscreenHosted !== "true") return { left: 0, top: 0 };
-    const root = element.parentElement;
-    if (!root || root === document.body || root === document.documentElement) return { left: 0, top: 0 };
-    const rect = root.getBoundingClientRect();
-    return { left: rect.left, top: rect.top };
-  }
-  function appendOcrArtifactToRoot(element, root) {
-    const oldRoot = element.parentElement;
-    const fullscreenHosted = root !== document.body;
-    if (fullscreenHosted) prepareOcrFullscreenHost(root);
-    element.dataset.yomuOcrFullscreenHosted = fullscreenHosted ? "true" : "false";
-    if (oldRoot !== root) root.append(element);
-    clearOcrFullscreenHostMarker(oldRoot);
-  }
-  function removeOcrArtifact(element) {
-    const oldRoot = element.parentElement;
-    element.remove();
-    clearOcrFullscreenHostMarker(oldRoot);
-  }
-  function clearOcrFullscreenHostMarker(root) {
-    if (!(root instanceof HTMLElement) || root === document.body) return;
-    if (root.querySelector('[data-yomu-ocr-fullscreen-hosted="true"]')) return;
-    delete root.dataset.yomuOcrFullscreenHost;
-    if (root.dataset.yomuOcrFullscreenHostPosition === "relative") {
-      root.style.position = "";
-      delete root.dataset.yomuOcrFullscreenHostPosition;
-    }
-  }
-  function prepareOcrFullscreenHost(root) {
-    root.dataset.yomuOcrFullscreenHost = "true";
-    const position = getComputedStyle(root).position;
-    if (position && position !== "static") return;
-    root.style.position = "relative";
-    root.dataset.yomuOcrFullscreenHostPosition = "relative";
-  }
-  function videoFrameArtifactRoot(video) {
-    return activeVideoFullscreenHost(video) ?? document.body;
-  }
-  function activeVideoFullscreenHost(video) {
-    const active = activeFullscreenElement();
-    if (active && (active === document.body || active === document.documentElement)) return document.body;
-    if (active instanceof HTMLVideoElement && active === video) return fullscreenVideoArtifactHost(video);
-    if (active && active.contains(video)) return active;
-    const host = video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR);
-    if (host && host.isConnected && host !== video && host.contains(video)) return host;
-    return youtubeFullscreenHostForOcrVideo(video);
-  }
-  function fullscreenVideoArtifactHost(video) {
-    const host = video.closest(VIDEO_FRAME_FULLSCREEN_HOST_SELECTOR) ?? video.closest(VIDEO_FRAME_PLAYER_SELECTOR);
-    if (host && host !== video && host.isConnected && host.contains(video)) return host;
-    return youtubeFullscreenHostForOcrVideo(video);
-  }
-  function youtubeFullscreenHostForOcrVideo(video) {
-    if (!isYouTubePageForOcr()) return null;
-    const scopedHost = [
-      video.closest('[data-yomu-inline-fullscreen="true"]'),
-      video.closest(".html5-video-player.ytp-fullscreen"),
-      video.closest("#movie_player.ytp-fullscreen"),
-      video.closest("ytd-watch-flexy[fullscreen] #movie_player"),
-      video.closest("ytd-watch-flexy[fullscreen] ytd-player"),
-      video.closest("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
-    ].find((element) => Boolean(element && element !== video));
-    if (scopedHost) return scopedHost;
-    return [
-      document.querySelector('[data-yomu-inline-fullscreen="true"]'),
-      document.querySelector(".html5-video-player.ytp-fullscreen"),
-      document.querySelector("#movie_player.ytp-fullscreen"),
-      document.querySelector("ytd-watch-flexy[fullscreen] #movie_player"),
-      document.querySelector("ytd-watch-flexy[fullscreen] ytd-player"),
-      document.querySelector("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen")
-    ].find((element) => Boolean(element && element !== video && (element.contains(video) || isYouTubeMobileFullscreenHostForOcr(element)))) ?? null;
-  }
-  function isYouTubePageForOcr() {
-    return /(^|\.)youtube\.com$/i.test(location.hostname) || /(^|\.)youtu\.be$/i.test(location.hostname);
-  }
-  function isYouTubeMobileFullscreenHostForOcr(element) {
-    return /^m\.youtube\.com$/i.test(location.hostname) && element.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen");
-  }
-  function activeFullscreenElement() {
-    const doc = document;
-    const element = doc.fullscreenElement ?? doc.webkitFullscreenElement ?? doc.mozFullScreenElement ?? doc.msFullscreenElement ?? null;
-    return element instanceof HTMLElement ? element : null;
-  }
-  function videoFrameStatusTextKey(status) {
-    switch (status) {
-      case "ready":
-        return "ocrPausedFrameReady";
-      case "empty":
-        return "ocrPausedFrameNoText";
-      case "failed":
-        return "ocrPausedFrameFailed";
-      case "loading":
-      default:
-        return "ocrPausedFrameScanning";
-    }
-  }
-  function attachVideoFrameResumeControlToSubtitleRail(control, root) {
-    const rail = subtitleRailForOcrRoot(root);
-    if (!rail?.isConnected) return false;
-    const oldParent = control.parentElement;
-    const oldRoot = subtitlePlayerRoot(control);
-    control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
-    control.dataset.yomuOcrFullscreenHosted = "false";
-    control.style.left = "";
-    control.style.top = "";
-    const panelButton = rail.querySelector(".jpdb-subtitle-panel-toggle");
-    if (control.parentElement !== rail) rail.insertBefore(control, panelButton ?? null);
-    clearOcrFullscreenHostMarker(oldParent);
-    updateSubtitleRailResumeState(oldRoot);
-    updateSubtitleRailResumeState(subtitlePlayerRoot(control));
-    return true;
-  }
-  function hideVideoFrameResumeControlBehindSubtitlePlayback(control, root) {
-    const rail = subtitleRailForOcrRoot(root);
-    const playback = rail?.querySelector('[data-action="playback"]');
-    if (!rail?.isConnected || !playback || playback.hidden || playback.disabled) return false;
-    const oldRoot = subtitlePlayerRoot(control);
-    removeOcrArtifact(control);
-    control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
-    control.dataset.yomuOcrFullscreenHosted = "false";
-    control.style.left = "";
-    control.style.top = "";
-    updateSubtitleRailResumeState(oldRoot);
-    return true;
-  }
-  function attachVideoFrameResumeControlFallback(control, root) {
-    const oldRoot = subtitlePlayerRoot(control);
-    appendOcrArtifactToRoot(control, root);
-    control.classList.add("jpdb-ocr-video-frame-resume-fallback");
-    updateSubtitleRailResumeState(oldRoot);
-  }
-  function removeVideoFrameResumeControl(control) {
-    const root = subtitlePlayerRoot(control);
-    removeOcrArtifact(control);
-    updateSubtitleRailResumeState(root);
-  }
-  function subtitleRailForOcrRoot(root) {
-    const rails = Array.from(document.querySelectorAll('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail'));
-    if (root === document.body) return rails.find((rail) => rail.isConnected) ?? null;
-    return rails.find((rail) => rail.isConnected && root.contains(rail)) ?? null;
-  }
-  function subtitlePlayerRoot(control) {
-    return control.closest(".jpdb-subtitle-player");
-  }
-  function updateSubtitleRailResumeState(root) {
-    if (!root) return;
-    root.classList.toggle("jpdb-ocr-video-frame-resume-active", Boolean(root.querySelector(".jpdb-ocr-video-frame-resume")));
-  }
-  function playVideoIcon() {
-    return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
-  }
-  function videoContentBox(rect, video) {
-    const intrinsicWidth = video.videoWidth;
-    const intrinsicHeight = video.videoHeight;
-    if (!intrinsicWidth || !intrinsicHeight || !rect.width || !rect.height) return rect;
-    const style = getComputedStyle(video);
-    const object = fittedObjectSize(videoObjectFit(style.objectFit), intrinsicWidth, intrinsicHeight, rect.width, rect.height);
-    const offset = objectPositionOffset(style.objectPosition || "50% 50%", rect.width - object.width, rect.height - object.height);
-    return {
-      left: rect.left + offset.x,
-      top: rect.top + offset.y,
-      width: object.width,
-      height: object.height
-    };
-  }
-  function videoObjectFit(value) {
-    switch (value) {
-      case "contain":
-      case "cover":
-      case "none":
-      case "scale-down":
-        return value;
-      case "fill":
-      default:
-        return "contain";
-    }
-  }
-  function imageCacheKey(image) {
-    const contentKey = image.dataset?.ocrContentKey;
-    if (contentKey) return contentKey;
-    return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
-  }
-  function ocrResultTextKey(result) {
-    return result?.lines.map((line) => line.text).join("\n") ?? "";
-  }
-  function readerRasterSurfaceSnapshotKey(surface) {
-    return surface instanceof HTMLCanvasElement ? canvasSurfaceSnapshotKey(surface) : backgroundSurfaceCacheKey(surface);
-  }
-  function canvasFrameContentKey(contentKey, canvas) {
-    return isWideBookwalkerSpreadCanvas(canvas) ? `${contentKey}:bw-spread-v2` : contentKey;
-  }
-  function isWideBookwalkerSpreadCanvas(canvas) {
-    return isBookwalkerViewerHost() && !isBookwalkerContinuousScrollCanvas(canvas) && canvas.width / Math.max(1, canvas.height) >= BOOKWALKER_SPREAD_MIN_ASPECT;
-  }
-  function canvasSurfaceSnapshotKey(canvas) {
-    const surfaceId = canvasReaderSurfaceId(canvas);
-    if (isBookwalkerViewerHost()) {
-      return [
-        canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
-        surfaceId,
-        canvas.width,
-        canvas.height
-      ].join("|");
-    }
-    return [
-      canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
-      surfaceId,
-      canvas.width,
-      canvas.height,
-      canvasPageContentToken(canvas)
-    ].join("|");
-  }
-  function canvasStablePageContentToken(canvas) {
-    if (!isBookwalkerViewerHost() || !canvasReaderHasStableSurface(canvas)) return "";
-    const token = canvasPageContentToken(canvas);
-    if (!token) return "";
-    if (token.startsWith("s:")) return "";
-    if (/^[0-9]+$/u.test(token)) return "";
-    return token;
-  }
-  function canvasContentReadinessKey(canvas) {
-    const surfaceId = canvasReaderSurfaceId(canvas);
-    return [
-      canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
-      surfaceId,
-      canvas.width,
-      canvas.height,
-      canvasPageContentToken(canvas)
-    ].join("|");
-  }
-  function isSameCanvasReaderPageLocation(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    return previousParts.counter === nextParts.counter && previousParts.backgrounds === nextParts.backgrounds;
-  }
-  function hasDifferentRealCanvasReaderContent(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    if (previousParts.content === nextParts.content) return false;
-    return !isCanvasMirrorEpochOrEmpty(previousParts.content) && !isCanvasMirrorEpochOrEmpty(nextParts.content);
-  }
-  function hasSameRealCanvasReaderContent(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    if (previousParts.content !== nextParts.content) return false;
-    return !isCanvasMirrorEpochOrEmpty(previousParts.content);
-  }
-  function isCanvasMirrorEpochTransition(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    if (previousParts.content === nextParts.content) return false;
-    return isCanvasMirrorEpochOrEmpty(previousParts.content) && isCanvasMirrorEpochOrEmpty(nextParts.content);
-  }
-  function hasSameStableCanvasReaderPageCounter(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    return previousParts.counter !== "" && previousParts.counter === nextParts.counter;
-  }
-  function shouldTrustStableBookwalkerPageCounter() {
-    if (!isBookwalkerViewerHost()) return false;
-    try {
-      return new URL(location.href).searchParams.get("cty") !== "2";
-    } catch {
-      return true;
-    }
-  }
-  function isCanvasMirrorEpochOrEmpty(content) {
-    return content === "" || /^\d+(?:,\d+)*$/.test(content);
-  }
-  function splitCanvasReaderSignature(signature) {
-    const parts = signature.split("|");
-    if (parts.length < 5) return null;
-    const [counter, scroll, surfaces, content, ...backgroundParts] = parts;
-    return {
-      backgrounds: backgroundParts.join("|"),
-      content: content ?? "",
-      counter: counter ?? "",
-      scroll: scroll ?? "",
-      surfaces: surfaces ?? ""
-    };
-  }
-  function backgroundSurfaceCacheKey(surface) {
-    const rect = surface.getBoundingClientRect();
-    return [
-      surface.getAttribute("data-page-index") ?? "",
-      backgroundImageReaderUrl(surface) ?? "",
-      Math.round(rect.width),
-      Math.round(rect.height)
-    ].join("|");
-  }
-  function protoMessage(...parts) {
-    return concatBytes(parts);
-  }
-  function protoMessageField(field, value) {
-    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
-  }
-  function protoBytesField(field, value) {
-    return protoMessageField(field, value);
-  }
-  function protoStringField(field, value) {
-    return protoBytesField(field, new TextEncoder().encode(value));
-  }
-  function protoVarintField(field, value) {
-    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
-  }
-  function protoTag(field, wire) {
-    return encodeVarint(field << 3 | wire);
-  }
-  function encodeVarint(value) {
-    let item = BigInt(value);
-    const bytes = [];
-    do {
-      let byte = Number(item & 0x7fn);
-      item >>= 7n;
-      if (item) byte |= 128;
-      bytes.push(byte);
-    } while (item);
-    return new Uint8Array(bytes);
-  }
-  function concatBytes(parts) {
-    const length = parts.reduce((sum, part) => sum + part.length, 0);
-    const result = new Uint8Array(length);
-    let offset = 0;
-    for (const part of parts) {
-      result.set(part, offset);
-      offset += part.length;
-    }
-    return result;
-  }
-  function randomBytes(length) {
-    const bytes = new Uint8Array(length);
-    crypto.getRandomValues(bytes);
-    return bytes;
-  }
-  function requestJson(url, data, timeout) {
-    const userscriptRequest = requestViaUserscript({
-      method: "POST",
-      url,
-      headers: { "content-type": "application/json" },
-      data,
-      responseType: "json",
-      timeout
-    }, (response) => response.response ?? (response.responseText ? JSON.parse(response.responseText) : null), (status) => `OCR endpoint returned ${status}.`, "OCR timed out.");
-    if (userscriptRequest) return userscriptRequest;
-    return fetchJsonWithTimeout(url, data, timeout).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
-  }
-  function fetchJsonWithTimeout(url, data, timeout) {
-    if (!timeout) return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data });
-    const controller = new AbortController();
-    let timedOut = false;
-    const timeoutId = window.setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, timeout);
-    return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data, signal: controller.signal }).catch((error) => {
-      if (timedOut || isAbortError(error)) throw new Error("OCR timed out.");
-      throw error;
-    }).finally(() => window.clearTimeout(timeoutId));
-  }
-  function requestArrayBuffer(url, data, timeout) {
-    const body = new Uint8Array(data);
-    const headers = {
-      "content-type": "application/x-protobuf",
-      "x-goog-api-key": GOOGLE_LENS_API_KEY,
-      accept: "*/*",
-      "accept-language": "ja,en-US;q=0.9,en;q=0.8"
-    };
-    const userscriptRequest = requestViaUserscript({
-      method: "POST",
-      url,
-      headers,
-      data: body.buffer,
-      responseType: "arraybuffer",
-      timeout
-    }, (response) => response.response, (status) => `Google Lens returned ${status}.`, "Google Lens timed out.");
-    if (userscriptRequest) return userscriptRequest;
-    return fetch(url, {
-      method: "POST",
-      headers,
-      body: body.buffer
-    }).then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
-  }
-  function requestTextForm(url, data, timeout, headers) {
-    const userscriptRequest = requestViaUserscript({
-      method: "POST",
-      url,
-      ...headers ? { headers } : {},
-      data,
-      responseType: "text",
-      timeout
-    }, (response) => String(response.responseText ?? response.response ?? ""), (status) => `Google Lens upload returned ${status}.`, "Google Lens upload timed out.");
-    if (userscriptRequest) return userscriptRequest;
-    return fetch(url, { method: "POST", body: data }).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
-  }
-  function requestBlob(url, timeout = 0) {
-    const fallbackType = imageMimeTypeFromUrl(url);
-    const userscriptRequest = requestViaUserscript({
-      method: "GET",
-      url,
-      responseType: "arraybuffer",
-      timeout
-    }, (response) => blobFromUserscriptResponse(response, fallbackType), (status) => `Image fetch returned ${status}.`, timeout ? "Image fetch timed out." : void 0);
-    if (userscriptRequest) return userscriptRequest;
-    if (!timeout) return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), timeout);
-    return fetch(url, { signal: controller.signal }).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`))).finally(() => window.clearTimeout(timer));
-  }
-  function blobFromUserscriptResponse(response, fallbackType = "image/jpeg") {
-    const value = response.response;
-    if (value instanceof Blob) return value.type ? value : new Blob([value], { type: fallbackType });
-    if (value instanceof ArrayBuffer) {
-      const head = new Uint8Array(value, 0, Math.min(16, value.byteLength));
-      return new Blob([value], { type: sniffImageMimeType(head) ?? fallbackType });
-    }
-    if (ArrayBuffer.isView(value)) {
-      const source = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-      const copy = new Uint8Array(source.byteLength);
-      copy.set(source);
-      return new Blob([copy.buffer], { type: sniffImageMimeType(copy.subarray(0, 16)) ?? fallbackType });
-    }
-    return new Blob([value], { type: fallbackType });
-  }
-  function imageMimeTypeFromUrl(url) {
-    const extension = url.split(/[?#]/, 1)[0].split(".").pop()?.toLowerCase();
-    switch (extension) {
-      case "png":
-        return "image/png";
-      case "gif":
-        return "image/gif";
-      case "webp":
-        return "image/webp";
-      case "avif":
-        return "image/avif";
-      case "bmp":
-        return "image/bmp";
-      default:
-        return "image/jpeg";
-    }
-  }
-  function sniffImageMimeType(bytes) {
-    if (bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return "image/jpeg";
-    if (bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71) return "image/png";
-    if (bytes.length >= 4 && bytes[0] === 71 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 56) return "image/gif";
-    if (bytes.length >= 12 && bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70 && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80) return "image/webp";
-    return void 0;
-  }
-  function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (!userscriptRequest) {
-      log$2.warnOnce("no-userscript-http-request", "No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.");
-      return null;
-    }
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      let requestHandle;
-      let timeoutId = 0;
-      const settle = (fn) => {
-        if (settled) return;
-        settled = true;
-        if (timeoutId) window.clearTimeout(timeoutId);
-        fn();
-      };
-      const onload = (response) => {
-        settle(() => {
-          if (isSuccessfulHttpStatus(response.status)) resolve(readResponse(response));
-          else reject(new Error(statusMessage(response.status)));
-        });
-      };
-      const fail = (error) => {
-        settle(() => reject(error instanceof Error ? error : new Error(String(error || "Request failed."))));
-      };
-      const timeout = Math.max(0, Math.round(options.timeout || 0));
-      if (timeout) {
-        timeoutId = window.setTimeout(() => {
-          try {
-            requestHandle?.abort?.();
-          } catch {
-          }
-          fail(new Error(timeoutMessage ?? "Request timed out."));
-        }, timeout);
-      }
-      try {
-        const result = userscriptRequest({
-          ...options,
-          onload,
-          onerror: fail,
-          ...timeoutMessage ? { ontimeout: () => fail(new Error(timeoutMessage)) } : {}
-        });
-        if (result && typeof result.then === "function") {
-          result.then(onload, fail);
-        } else if (result) {
-          requestHandle = result;
-        }
-      } catch (error) {
-        fail(error);
-      }
-    });
-  }
-  function isSuccessfulHttpStatus(status) {
-    return status >= 200 && status < 300;
-  }
-  function loadImage(url, timeout = 0) {
-    return new Promise((resolve, reject) => {
-      const image = new Image();
-      let timer = 0;
-      const settle = (fn) => {
-        if (timer) window.clearTimeout(timer);
-        fn();
-      };
-      image.onload = () => settle(() => resolve(image));
-      image.onerror = () => settle(() => reject(new Error("Image decode failed.")));
-      if (timeout) timer = window.setTimeout(() => settle(() => reject(new Error("Image decode timed out."))), timeout);
-      image.src = url;
-    });
-  }
-  const cleanMirrorImageCache = /* @__PURE__ */ new Map();
-  async function loadCleanMirrorImage(url) {
-    if (!url || url.startsWith("data:") || url.startsWith("blob:")) return void 0;
-    const cacheKey = canonicalBookwalkerAssetUrl(url);
-    const cached = cleanMirrorImageCache.get(cacheKey);
-    if (cached) return cached;
-    const pending = fetchCleanMirrorImage(url).then((image) => {
-      if (!image) {
-        cleanMirrorImageCache.delete(cacheKey);
-        return void 0;
-      }
-      cleanMirrorImageCache.set(cacheKey, image);
-      trimCleanMirrorImageCache();
-      return image;
-    }).catch((error) => {
-      cleanMirrorImageCache.delete(cacheKey);
-      throw error;
-    });
-    cleanMirrorImageCache.set(cacheKey, pending);
-    return pending;
-  }
-  async function fetchCleanMirrorImage(url) {
-    const blob = await requestBlob(url, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
-    const objectUrl = URL.createObjectURL(blob);
-    try {
-      return await loadImage(objectUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
-    } finally {
-      URL.revokeObjectURL(objectUrl);
-    }
-  }
-  function trimCleanMirrorImageCache() {
-    while (cleanMirrorImageCache.size > MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS) {
-      const oldest = cleanMirrorImageCache.keys().next().value;
-      if (!oldest) return;
-      cleanMirrorImageCache.delete(oldest);
-    }
-  }
-  function canvasToBlob(canvas, type, quality) {
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Image encoding failed.")), type, quality);
-    });
-  }
-  function imageSummary(image) {
-    return {
-      host: safeHost$1(image.currentSrc || image.src),
-      width: image.naturalWidth || image.width,
-      height: image.naturalHeight || image.height,
-      altLength: image.alt?.length ?? 0
-    };
-  }
-  function inlineProviderLabel(settings) {
-    return configuredOcrProviderLabel(settings) ?? settings.ocrProvider;
-  }
-  function configuredOcrProviderLabel(settings) {
-    return OCR_PROVIDER_LABELS[settings.ocrProvider]?.(settings) ?? null;
-  }
-  function localServiceProviderLabel(settings) {
-    return `local-service:${ocrEngineLabel(settings)}`;
-  }
-  function ocrEngineLabel(settings) {
-    return settings.ocrEngine || "auto";
-  }
-  function localOcrEndpointUrl(settings) {
-    return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
-  }
-  function isLocalOcrConnectionError(error) {
-    if (isLocalOcrUnavailableError(error)) return true;
-    if (!(error instanceof Error)) return true;
-    return error.name === "TypeError" || error.name === "AbortError" || /network|failed to fetch|load failed|cors|blocked|timed out|timeout|request failed/i.test(error.message);
-  }
-  function isLocalOcrUnavailableError(error) {
-    return error instanceof LocalOcrUnavailableError;
-  }
-  function isAbortError(error) {
-    return error instanceof Error && error.name === "AbortError";
-  }
-  function safeHost$1(value) {
-    try {
-      return new URL(value, location.href).host;
-    } catch {
-      return "inline-or-invalid";
-    }
-  }
-  function clampNumber(value, min, max) {
-    return Math.min(Math.max(value, min), Math.max(min, max));
-  }
-  const ACTIVE_CUE_START_TOLERANCE_SECONDS = 0.05;
-  const ACTIVE_CUE_END_GRACE_SECONDS = 0.12;
-  const MIN_SUBTITLE_CUE_DURATION_SECONDS = 0.12;
-  function normalizeSubtitleCues(cues, options = {}) {
-    const normalized = [];
-    for (const cue of cues) normalized.push(...normalizedSubtitleCueParts(cue, options));
-    return normalized.sort((a, b) => a.start - b.start);
-  }
-  const HAS_CUE_WORD_CONTENT_RE = /[\p{L}\p{N}]/u;
-  function normalizedSubtitleCueParts(cue, options) {
-    const base = normalizedSubtitleCueBase(cue, options);
-    if (!base) return [];
-    if (!HAS_CUE_WORD_CONTENT_RE.test(base.text)) return [];
-    const sentenceParts = mergePunctuationOnlyCueParts(splitCueDisplayText(base.text));
-    if (sentenceParts.length <= 1) return [{ ...base, transcriptEligible: base.transcriptEligible }];
-    const timedParts = distributeCueParts(base, sentenceParts);
-    const normalized = timedParts.map((part) => normalizedSubtitleCuePart(base, part));
-    return normalized.length ? normalized : [{ ...base, transcriptEligible: base.transcriptEligible }];
-  }
-  function normalizedSubtitleCueBase(cue, options) {
-    const text = normalizeCaptionText(cue.text);
-    if (!hasUsableSubtitleCueBounds(cue, text)) return null;
-    const end = Math.max(cue.end, cue.start + MIN_SUBTITLE_CUE_DURATION_SECONDS);
-    const words = exactSubtitleWords(cue, cue.start, end);
-    return {
-      ...cue,
-      text,
-      start: cue.start,
-      end,
-      originalText: cue.originalText ?? text,
-      words,
-      wordTimingsExact: Boolean(words?.length),
-      transcriptEligible: options.transcriptEligible ?? cue.transcriptEligible ?? true
-    };
-  }
-  function hasUsableSubtitleCueBounds(cue, text) {
-    return Boolean(text && Number.isFinite(cue.start) && Number.isFinite(cue.end));
-  }
-  function normalizedSubtitleCuePart(base, part) {
-    const partWords = sliceCueWords(base, part.start, part.end);
-    return {
-      start: part.start,
-      end: part.end,
-      text: part.text,
-      originalText: base.originalText,
-      words: partWords,
-      wordTimingsExact: Boolean(partWords?.length),
-      transcriptEligible: base.transcriptEligible
-    };
-  }
-  function mergePunctuationOnlyCueParts(parts) {
-    const merged = [];
-    for (const part of parts) {
-      if (merged.length && !HAS_CUE_WORD_CONTENT_RE.test(part)) {
-        merged[merged.length - 1] += part;
-      } else {
-        merged.push(part);
-      }
-    }
-    return merged;
-  }
-  function splitCueDisplayText(text) {
-    const normalized = normalizeCaptionText(text);
-    if (!normalized) return [];
-    const sentenceParts = splitSentencesByPunctuation(normalized);
-    if (sentenceParts.length > 1) return sentenceParts;
-    if (displayTextWeight(normalized) <= 38) return [normalized];
-    return splitOverlongCue(normalized);
-  }
-  function splitSentencesByPunctuation(text) {
-    const parts = [];
-    let start = 0;
-    let offset = 0;
-    for (const char of Array.from(text)) {
-      offset += char.length;
-      const end = subtitleSentenceBoundaryEnd(text, char, offset);
-      if (end === null) continue;
-      offset = end;
-      pushSubtitleSentencePart(parts, text, start, offset);
-      start = offset;
-    }
-    pushSubtitleSentencePart(parts, text, start, text.length);
-    return parts.length ? parts : [text];
-  }
-  function subtitleSentenceBoundaryEnd(text, char, offset) {
-    if (!isSubtitleSentencePunctuation(char)) return null;
-    return consumeClosingSubtitlePunctuation(text, offset);
-  }
-  function isSubtitleSentencePunctuation(char) {
-    return /[。！？!?]/u.test(char);
-  }
-  function consumeClosingSubtitlePunctuation(text, offset) {
-    let end = offset;
-    while (end < text.length && isSubtitleSentenceCloser(text[end])) end++;
-    return end;
-  }
-  function isSubtitleSentenceCloser(char) {
-    return /["'」』）\]]/u.test(char);
-  }
-  function pushSubtitleSentencePart(parts, text, start, end) {
-    const part = text.slice(start, end).trim();
-    if (part) parts.push(part);
-  }
-  function splitOverlongCue(text) {
-    const parts = [];
-    const tokens = overlongCueTokens(text);
-    let current = "";
-    for (const token of tokens) {
-      if (shouldFlushOverlongCuePart(current, token)) {
-        parts.push(current.trim());
-        current = token.trimStart();
-      } else {
-        current += token;
-      }
-    }
-    if (current.trim()) parts.push(current.trim());
-    return splitCuePartsOrOriginal(parts, text);
-  }
-  function overlongCueTokens(text) {
-    return text.includes(" ") ? text.split(/(\s+)/u).filter(Boolean) : Array.from(text);
-  }
-  function shouldFlushOverlongCuePart(current, token) {
-    return displayTextWeight(current + token) > 32 && Boolean(current.trim());
-  }
-  function splitCuePartsOrOriginal(parts, text) {
-    return parts.length > 1 ? parts : [text];
-  }
-  function distributeCueParts(cue, parts) {
-    const duration = Math.max(0.12, cue.end - cue.start);
-    const weights = parts.map((part) => Math.max(1, displayTextWeight(part)));
-    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0) || parts.length;
-    let cursor = cue.start;
-    return parts.map((part, index) => {
-      const partDuration = index === parts.length - 1 ? cue.end - cursor : duration * (weights[index] / totalWeight);
-      const start = cursor;
-      const end = index === parts.length - 1 ? cue.end : Math.min(cue.end, cursor + Math.max(0.12, partDuration));
-      cursor = end;
-      return { text: part, start, end: Math.max(end, start + 0.12) };
-    });
-  }
-  function exactSubtitleWords(cue, start, end) {
-    if (!cue.wordTimingsExact || !cue.words?.length) return void 0;
-    const words = cue.words.filter((word) => word.text.trim() && Number.isFinite(word.start) && Number.isFinite(word.end) && word.end > start && word.start < end).map((word) => ({ ...word, start: clampNumber(word.start, start, end), end: clampNumber(word.end, start, end) })).filter((word) => word.end > word.start);
-    return words.length ? words : void 0;
-  }
-  function sliceCueWords(cue, start, end) {
-    return exactSubtitleWords(cue, start, end);
-  }
-  function renderKaraokeTextParts(text, progress) {
-    const chars = Array.from(text);
-    const split = clampNumber(Math.round(progress), 0, chars.length);
-    const past = chars.slice(0, split).join("");
-    const current = chars.slice(split, split + 1).join("");
-    const upcoming = chars.slice(split + 1).join("");
-    return [
-      past ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-spoken">${escapeHtml(past)}</span>` : "",
-      current ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-current">${escapeHtml(current)}</span>` : "",
-      upcoming ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-pending">${escapeHtml(upcoming)}</span>` : ""
-    ].join("");
-  }
-  function karaokeCharacterProgress(cue, words, time) {
-    const total = compactTextLength(cue.text);
-    const edgeProgress = karaokeEdgeProgress(cue, time, total);
-    if (edgeProgress !== null) return edgeProgress;
-    return karaokeTimedWordProgress(sortedSubtitleWords(words), total, time);
-  }
-  function karaokeEdgeProgress(cue, time, total) {
-    if (!total) return 0;
-    if (time <= cue.start) return 0;
-    if (time >= cue.end) return total;
-    return null;
-  }
-  function sortedSubtitleWords(words) {
-    return [...words].filter(hasUsableSubtitleWordTiming).sort((a, b) => a.start - b.start);
-  }
-  function hasUsableSubtitleWordTiming(word) {
-    return Boolean(word.text.trim() && Number.isFinite(word.start) && Number.isFinite(word.end));
-  }
-  function karaokeTimedWordProgress(words, total, time) {
-    let cursor = 0;
-    for (const word of words) {
-      const length = compactTextLength(word.text);
-      if (!length) continue;
-      if (time >= word.end) {
-        cursor += length;
-        continue;
-      }
-      if (time <= word.start) return Math.min(total, cursor);
-      return karaokeProgressInsideWord(total, cursor, length, word, time);
-    }
-    return Math.min(total, cursor);
-  }
-  function karaokeProgressInsideWord(total, cursor, length, word, time) {
-    const ratio = clampNumber((time - word.start) / Math.max(0.04, word.end - word.start), 0, 1);
-    return Math.min(total, cursor + Math.max(1, Math.floor(length * ratio)));
-  }
-  function compactTextLength(text) {
-    return Array.from(text.replace(/\s+/gu, "")).length;
-  }
-  function displayTextWeight(text) {
-    return compactTextLength(text);
-  }
-  function parseVttCuePayload(raw, cueStart, cueEnd) {
-    const timestampPattern = /<((?:(?:\d+:)?\d{2}:)?\d{2}[,.]\d{3})>/g;
-    const markers = vttTimestampMarkers(raw, timestampPattern);
-    const text = vttCueTextWithoutMarkers(raw, timestampPattern);
-    if (!markers.length) return { text };
-    return vttCuePayloadWithMarkers(raw, timestampPattern, markers, text, cueStart, cueEnd);
-  }
-  function vttCuePayloadWithMarkers(raw, timestampPattern, markers, text, cueStart, cueEnd) {
-    const words = [];
-    for (let index = 0; index < markers.length; index++) {
-      const markerWord = vttMarkerWord(raw, timestampPattern, markers, index);
-      if (!markerWord) continue;
-      if (/\s/u.test(markerWord.text)) return { text };
-      words.push(vttWordTiming(markerWord, cueStart, cueEnd));
-    }
-    return { text, words: words.length ? words : void 0, wordTimingsExact: Boolean(words.length) };
-  }
-  function vttTimestampMarkers(raw, timestampPattern) {
-    const markers = [];
-    raw.replace(timestampPattern, (match, rawTime, index) => {
-      appendVttTimestampMarker(markers, match, rawTime, index);
-      return match;
-    });
-    return markers;
-  }
-  function appendVttTimestampMarker(markers, match, rawTime, index) {
-    const time = parseSubtitleTime(rawTime.includes(":") ? rawTime : `00:${rawTime}`);
-    if (Number.isFinite(time)) markers.push({ time, index, endIndex: index + match.length });
-  }
-  function vttCueTextWithoutMarkers(raw, timestampPattern) {
-    return raw.replace(timestampPattern, "").replace(/<[^>]+>/g, "").trim();
-  }
-  function vttMarkerWord(raw, timestampPattern, markers, index) {
-    const marker = markers[index];
-    const next = markers[index + 1];
-    const segmentRaw = raw.slice(marker.endIndex, next?.index ?? raw.length).replace(timestampPattern, "").replace(/<[^>]+>/g, "");
-    const segmentText = segmentRaw.trim();
-    return segmentText ? { text: segmentText, start: marker.time, end: next?.time ?? Number.POSITIVE_INFINITY } : null;
-  }
-  function vttWordTiming(markerWord, cueStart, cueEnd) {
-    const start = clampNumber(markerWord.start, cueStart, cueEnd);
-    const end = clampNumber(markerWord.end, cueStart, cueEnd);
-    return { text: markerWord.text, start, end: Math.max(start + 0.04, end) };
-  }
-  function parseSubtitleText(text, options = {}) {
-    const normalizedText = text.replace(/^\uFEFF/, "");
-    return parseKnownSubtitleText(normalizedText, options) ?? parseVttSubtitleText(normalizedText, options);
-  }
-  function parseKnownSubtitleText(text, options) {
-    const youtubeJson = parseYouTubeJson3SubtitleText(text, options);
-    if (youtubeJson.length) return youtubeJson;
-    const youtubeXml = parseYouTubeXmlSubtitleText(text, options);
-    if (youtubeXml.length) return youtubeXml;
-    return looksLikeAssSubtitleText(text) ? parseAssSubtitleText(text) : void 0;
-  }
-  function looksLikeAssSubtitleText(text) {
-    return /^\s*\[Script Info\]/im.test(text) || /^\s*Dialogue:/im.test(text);
-  }
-  function parseVttSubtitleText(text, options) {
-    const cues = text.replace(/\r/g, "").replace(/^WEBVTT.*?\n\n/s, "").split(/\n{2,}/).map((block) => block.trim()).filter(Boolean).map(readVttCueBlock).filter((cue) => Boolean(cue));
-    const sorted = cues.sort((a, b) => a.start - b.start);
-    return options.smoothYouTubeFragments ? smoothFragmentedYouTubeCues(sorted) : sorted;
-  }
-  function readVttCueBlock(block) {
-    const lines = block.split("\n").filter(Boolean);
-    const timeIndex = lines.findIndex((line) => line.includes("-->"));
-    if (timeIndex < 0) return null;
-    const [startRaw, endRaw] = lines[timeIndex].split("-->").map((part) => part.trim().split(/\s+/)[0]);
-    const start = parseSubtitleTime(startRaw);
-    const end = parseSubtitleTime(endRaw);
-    const payload = parseVttCuePayload(lines.slice(timeIndex + 1).join("\n"), start, end);
-    return Number.isFinite(start) && Number.isFinite(end) && payload.text ? { start, end, text: payload.text, words: payload.words, wordTimingsExact: payload.wordTimingsExact } : null;
-  }
-  function parseYouTubeJson3SubtitleText(text, options = {}) {
-    if (!/^\s*\{/.test(text)) return [];
-    try {
-      const parsed = JSON.parse(text);
-      const sorted = parseYouTubeJson3Events(parsed.events ?? [], options);
-      return smoothFragmentedYouTubeCues(normalizeYouTubeAutoCaptionTiming(sorted, options.youtubeAutoGenerated === true));
-    } catch {
-      return [];
-    }
-  }
-  function parseYouTubeJson3Events(events, options) {
-    return events.map((event) => readYouTubeJson3Cue(event, options)).filter((cue) => Boolean(cue)).sort((a, b) => a.start - b.start);
-  }
-  function readYouTubeJson3Cue(event, options) {
-    const start = Number(event.tStartMs ?? Number.NaN) / 1e3;
-    const duration = Number(event.dDurationMs ?? 0) / 1e3;
-    const end = start + Math.max(duration, 0.75);
-    const text = youtubeJson3CueText(event.segs ?? []);
-    if (!isUsableYouTubeJson3Cue(start, end, text)) return null;
-    const words = options.youtubeAutoGenerated ? void 0 : youtubeJson3WordTimings(event.segs ?? [], start, end);
-    return { start, end, text, words, wordTimingsExact: Boolean(words?.length) };
-  }
-  function youtubeJson3CueText(segs) {
-    return segs.map((seg) => seg.utf8 ?? "").join("").replace(/\s+/g, " ").trim();
-  }
-  function isUsableYouTubeJson3Cue(start, end, text) {
-    return Number.isFinite(start) && Number.isFinite(end) && Boolean(text);
-  }
-  function youtubeJson3WordTimings(segs, cueStart, cueEnd) {
-    const visible = segs.map((seg) => ({ text: seg.utf8 ?? "", offset: Number(seg.tOffsetMs) })).filter((seg) => seg.text.trim());
-    const timed = visible.filter((seg) => Number.isFinite(seg.offset) && !/\s/u.test(seg.text.trim()));
-    if (!timed.length || timed.length !== visible.length) return void 0;
-    return timed.map((seg, index) => {
-      const nextOffset = timed[index + 1]?.offset;
-      const start = cueStart + seg.offset / 1e3;
-      const end = nextOffset === void 0 ? cueEnd : cueStart + nextOffset / 1e3;
-      return { text: seg.text, start: clampNumber(start, cueStart, cueEnd), end: clampNumber(end, cueStart, cueEnd) };
-    }).filter((word) => word.end > word.start);
-  }
-  function parseYouTubeXmlSubtitleText(text, options = {}) {
-    if (!looksLikeYouTubeXmlSubtitleText(text)) return [];
-    try {
-      const document2 = parseXmlDocument(text, "text/xml");
-      const srv3 = parseYouTubeSrv3Rows(document2, options);
-      const cues = [
-        ...parseYouTubeTimedTextElements(document2),
-        ...parseYouTubeTtmlParagraphs(document2),
-        ...srv3.cues
-      ];
-      const sorted = cues.sort((a, b) => a.start - b.start);
-      const autoGenerated = isYouTubeXmlAutoGenerated(options, srv3, sorted);
-      const normalized = normalizeYouTubeAutoCaptionTiming(sorted, autoGenerated);
-      return autoGenerated ? normalized : smoothFragmentedYouTubeCues(normalized);
-    } catch {
-      return [];
-    }
-  }
-  function looksLikeYouTubeXmlSubtitleText(text) {
-    return /^\s*</.test(text) && /(<text\b|<p\b)/i.test(text);
-  }
-  function isYouTubeXmlAutoGenerated(options, srv3, cues) {
-    return options.youtubeAutoGenerated === true || srv3.sawLineBoundary || looksLikeOverlappingAutoGeneratedCues(cues);
-  }
-  function parseYouTubeTimedTextElements(document2) {
-    return Array.from(document2.querySelectorAll("text[start]")).map(readYouTubeTimedTextCue).filter((cue) => Boolean(cue));
-  }
-  function readYouTubeTimedTextCue(element) {
-    const start = Number(element.getAttribute("start"));
-    const duration = Number(element.getAttribute("dur") ?? 0);
-    const text = normalizeCaptionText(element.textContent ?? "");
-    return Number.isFinite(start) && text ? { start, end: start + Math.max(duration, 0.75), text } : null;
-  }
-  function parseYouTubeTtmlParagraphs(document2) {
-    return Array.from(document2.querySelectorAll("p[begin]")).map(readYouTubeTtmlCue).filter((cue) => Boolean(cue));
-  }
-  function readYouTubeTtmlCue(element) {
-    const start = parseSubtitleClockValue(element.getAttribute("begin") ?? "");
-    const end = parseSubtitleClockValue(element.getAttribute("end") ?? "");
-    const text = normalizeCaptionText(element.textContent ?? "");
-    return Number.isFinite(start) && Number.isFinite(end) && text ? { start, end, text } : null;
-  }
-  function parseYouTubeSrv3Rows(document2, options) {
-    const rows = Array.from(document2.querySelectorAll("p[t], p[_t]"));
-    let sawLineBoundary = false;
-    const cues = [];
-    for (let index = 0; index < rows.length; index++) {
-      const result = readYouTubeSrv3Row(rows[index], rows[index + 1], options);
-      sawLineBoundary ||= result.sawLineBoundary;
-      if (result.cue) cues.push(result.cue);
-    }
-    return { cues, sawLineBoundary };
-  }
-  function readYouTubeSrv3Row(element, nextElement, options) {
-    const timing = youtubeSrv3Timing(element, nextElement);
-    const words = youtubeSrv3Words(element, timing, options);
-    const text = youtubeSrv3CueText(element, words);
-    return {
-      cue: Number.isFinite(timing.start) && text ? youtubeSrv3Cue(timing, text, words) : null,
-      sawLineBoundary: Number.isFinite(timing.nextLineBoundary)
-    };
-  }
-  function youtubeSrv3Timing(element, nextElement) {
-    const startMs = Number(youtubeSrv3StartAttribute(element));
-    const durationMs = Number(element.getAttribute("d") ?? element.getAttribute("_d") ?? 0);
-    const start = startMs / 1e3;
-    const nextLineBoundary = youtubeSrv3LineBoundaryTime(nextElement);
-    const rawEnd = start + Math.max(durationMs / 1e3, 0.75);
-    return {
-      start,
-      end: youtubeSrv3CueEnd(start, rawEnd, nextLineBoundary),
-      nextLineBoundary
-    };
-  }
-  function youtubeSrv3CueEnd(start, rawEnd, nextLineBoundary) {
-    return Number.isFinite(nextLineBoundary) && nextLineBoundary > start ? Math.min(rawEnd, nextLineBoundary) : rawEnd;
-  }
-  function youtubeSrv3Words(element, timing, options) {
-    return shouldReadYouTubeSrv3WordTimings(options, timing.nextLineBoundary) ? parseYouTubeSrv3WordNodes(element, timing.start, timing.end) : [];
-  }
-  function shouldReadYouTubeSrv3WordTimings(options, nextLineBoundary) {
-    return !options.youtubeAutoGenerated && !Number.isFinite(nextLineBoundary);
-  }
-  function youtubeSrv3CueText(element, words) {
-    return normalizeCaptionText(words.length ? words.map((word) => word.text).join("") : element.textContent ?? "");
-  }
-  function youtubeSrv3Cue(timing, text, words) {
-    return {
-      start: timing.start,
-      end: timing.end,
-      text,
-      words: words.length ? words : void 0,
-      wordTimingsExact: Boolean(words.length)
-    };
-  }
-  function youtubeSrv3LineBoundaryTime(element) {
-    if (!element) return Number.NaN;
-    if (!isYouTubeSrv3LineBoundaryText(element.textContent ?? "")) return Number.NaN;
-    const startMs = Number(youtubeSrv3StartAttribute(element));
-    return Number.isFinite(startMs) ? startMs / 1e3 : Number.NaN;
-  }
-  function isYouTubeSrv3LineBoundaryText(text) {
-    return text === "\n" || !text.trim();
-  }
-  function youtubeSrv3StartAttribute(element) {
-    return element.getAttribute("t") ?? element.getAttribute("_t");
-  }
-  function normalizeYouTubeAutoCaptionTiming(cues, knownAutoGenerated) {
-    if (!cues.length) return cues;
-    const probablyAutoGenerated = knownAutoGenerated || looksLikeOverlappingAutoGeneratedCues(cues);
-    if (!probablyAutoGenerated) return cues;
-    return cues.map((cue, index) => {
-      const next = cues[index + 1];
-      const nextStart = next?.start;
-      const end = Number.isFinite(nextStart) && nextStart > cue.start ? Math.max(cue.start, Math.min(cue.end, nextStart - 1e-3)) : cue.end;
-      return {
-        ...cue,
-        end,
-        words: void 0,
-        wordTimingsExact: false
-      };
-    });
-  }
-  function looksLikeOverlappingAutoGeneratedCues(cues) {
-    const sampled = cues.slice(0, 80);
-    if (sampled.length < 3) return false;
-    let overlapping = 0;
-    for (let index = 1; index < sampled.length; index++) {
-      if (sampled[index - 1].end > sampled[index].start + 0.05) overlapping += 1;
-    }
-    return overlapping / sampled.length > 0.5;
-  }
-  function smoothFragmentedYouTubeCues(cues) {
-    if (!shouldSmoothFragmentedYouTubeCues(cues)) return cues;
-    const merged = [];
-    let current;
-    for (const cue of cues) {
-      current = mergeYouTubeFragmentIntoGroup(merged, current, cue);
-    }
-    if (current) merged.push(current);
-    return merged;
-  }
-  function shouldSmoothFragmentedYouTubeCues(cues) {
-    return cues.length >= 3 && looksLikeFragmentedYouTubeCues(cues);
-  }
-  function mergeYouTubeFragmentIntoGroup(merged, current, cue) {
-    const normalized = normalizeYouTubeCueFragment(cue);
-    if (!normalized.text) return current;
-    if (!current) {
-      return pushCurrentYouTubeCueGroup(merged, current, normalized);
-    }
-    if (shouldBreakYouTubeLine(current, normalized)) return pushCurrentYouTubeCueGroup(merged, current, normalized);
-    return mergeYouTubeCueFragments(current, normalized);
-  }
-  function normalizeYouTubeCueFragment(cue) {
-    const hasExactWords = cueHasExactWordTimings(cue);
-    return {
-      ...cue,
-      text: normalizeCaptionText(cue.text),
-      words: hasExactWords ? cue.words : void 0,
-      wordTimingsExact: hasExactWords
-    };
-  }
-  function pushCurrentYouTubeCueGroup(merged, current, next) {
-    if (current) merged.push(current);
-    return next;
-  }
-  function looksLikeFragmentedYouTubeCues(cues) {
-    const sampled = cues.slice(0, 80);
-    const fragments = sampled.filter((cue) => displayTextWeight(cue.text) <= 14 || cue.end - cue.start <= 1.35).length;
-    return fragments / sampled.length >= 0.42;
-  }
-  function shouldBreakYouTubeLine(current, next) {
-    const gap = next.start - current.end;
-    if (isYouTubeContinuationFragment(current, next)) return false;
-    return gap > 2.6 || gap < -0.2 && !isProgressiveYouTubeCaption(current.text, next.text) || hasYouTubeLineBreakText(current);
-  }
-  function hasYouTubeLineBreakText(cue) {
-    return /[。！？!?]$/u.test(cue.text.trim()) || cue.end - cue.start >= 12 || displayTextWeight(cue.text) >= 68;
-  }
-  function isYouTubeContinuationFragment(current, next) {
-    return isTrailingPunctuationFragment(next.text) || isShortYouTubeContinuationFragment(next.text) || hasYouTubeCaptionTextOverlap(current.text, next.text);
-  }
-  function mergeYouTubeCueFragments(current, next) {
-    const progressive = isProgressiveYouTubeCaption(current.text, next.text);
-    const overlap = progressive ? 0 : youtubeCaptionTextOverlapLength(current.text, next.text);
-    const text = progressive ? next.text : mergeYouTubeCaptionFragmentText(current.text, next.text);
-    const words = mergedYouTubeCueWords(current, next, { progressive, overlap });
-    return {
-      ...current,
-      end: Math.max(current.end, next.end),
-      text,
-      originalText: text,
-      words,
-      wordTimingsExact: Boolean(words?.length)
-    };
-  }
-  function mergedYouTubeCueWords(current, next, merge) {
-    const words = youtubeCueMergeWords(current, next);
-    if (merge.progressive) return words.next;
-    if (!canMergeYouTubeCueWords(words.current, words.next, next.text)) return void 0;
-    return [...words.current, ...trimmedNextYouTubeCueWords(words.next, merge.overlap)];
-  }
-  function youtubeCueMergeWords(current, next) {
-    return {
-      current: cueHasExactWordTimings(current) ? current.words : void 0,
-      next: cueHasExactWordTimings(next) ? next.words : void 0
-    };
-  }
-  function trimmedNextYouTubeCueWords(words, overlap) {
-    return words ? subtitleWordsAfterCompactOffset(words, overlap) : [];
-  }
-  function canMergeYouTubeCueWords(currentWords, nextWords, nextText) {
-    return Boolean(currentWords && (nextWords || isTrailingPunctuationFragment(nextText)));
-  }
-  function mergeYouTubeCaptionFragmentText(left, right) {
-    const a = left.trim();
-    const b = right.trim();
-    const overlap = youtubeCaptionTextOverlapLength(a, b);
-    if (overlap > 0) {
-      const tail = sliceByCompactOffset(b, overlap);
-      return tail ? joinYouTubeCaptionFragments(a, tail) : a;
-    }
-    return joinYouTubeCaptionFragments(a, b);
-  }
-  function isProgressiveYouTubeCaption(current, next) {
-    const compactCurrent = compactCaptionText(current);
-    const compactNext = compactCaptionText(next);
-    return compactCurrent.length >= 2 && compactNext.length > compactCurrent.length && compactNext.startsWith(compactCurrent);
-  }
-  function joinYouTubeCaptionFragments(left, right) {
-    const a = left.trim();
-    const b = right.trim();
-    const emptyJoin = emptyYouTubeCaptionFragmentJoin(a, b);
-    if (emptyJoin !== null) return emptyJoin;
-    return `${a}${youtubeCaptionFragmentSeparator(a, b)}${b}`;
-  }
-  function emptyYouTubeCaptionFragmentJoin(left, right) {
-    if (!left) return right;
-    return right ? null : left;
-  }
-  function youtubeCaptionFragmentSeparator(left, right) {
-    if (shouldJoinYouTubeCaptionFragmentsDirectly(left, right)) return "";
-    return shouldSpaceYouTubeCaptionFragments(left, right) ? " " : "";
-  }
-  function shouldJoinYouTubeCaptionFragmentsDirectly(left, right) {
-    return /^[、。，．！？!?））」』\]}]/u.test(right) || /[\s「『（([{]$/u.test(left);
-  }
-  function shouldSpaceYouTubeCaptionFragments(left, right) {
-    return /[A-Za-z0-9]$/u.test(left) && /^[A-Za-z0-9]/u.test(right);
-  }
-  function isTrailingPunctuationFragment(text) {
-    return /^[、。，．！？!?…・]+$/u.test(text.trim());
-  }
-  function isShortYouTubeContinuationFragment(text) {
-    const compact = compactCaptionText(text);
-    return compact.length <= 3 && /^[っッゃゅょぁぃぅぇぉャュョァィゥェォー〜、。，．！？!?…・んン]+$/u.test(compact);
-  }
-  function hasYouTubeCaptionTextOverlap(left, right) {
-    return youtubeCaptionTextOverlapLength(left, right) >= Math.min(6, compactCaptionText(right).length);
-  }
-  function youtubeCaptionTextOverlapLength(left, right) {
-    const a = compactCaptionText(left);
-    const b = compactCaptionText(right);
-    const max = Math.min(a.length, b.length);
-    for (let length = max; length >= 2; length--) {
-      if (a.endsWith(b.slice(0, length))) return length;
-    }
-    return 0;
-  }
-  function compactCaptionText(text) {
-    return text.replace(/\s+/gu, "");
-  }
-  function subtitleWordsAfterCompactOffset(words, compactOffset) {
-    if (compactOffset <= 0) return words;
-    let cursor = 0;
-    return words.filter((word) => {
-      const start = cursor;
-      cursor += compactTextLength(word.text);
-      return start >= compactOffset;
-    });
-  }
-  function sliceByCompactOffset(text, compactOffset) {
-    if (compactOffset <= 0) return text;
-    for (const step of compactTextOffsetSteps(text)) {
-      if (step.seen >= compactOffset) return text.slice(step.index);
-    }
-    return "";
-  }
-  function compactTextOffsetSteps(text) {
-    const steps = [];
-    let index = 0;
-    let seen = 0;
-    for (const char of Array.from(text)) {
-      index += char.length;
-      if (/\s/u.test(char)) continue;
-      steps.push({ index, seen: ++seen });
-    }
-    return steps;
-  }
-  function parseYouTubeSrv3WordNodes(element, cueStart, cueEnd) {
-    const nodes = Array.from(element.querySelectorAll("s"));
-    if (!nodes.length) return [];
-    if (nodes.some((node) => /\s/u.test((node.textContent ?? "").trim()))) return [];
-    const starts = nodes.map((node) => youtubeSrv3WordStart(node, cueStart));
-    return nodes.map((node, index) => readYouTubeSrv3WordTiming(node, index, starts, cueStart, cueEnd)).filter((word) => Boolean(word?.text.trim() && word.end > word.start));
-  }
-  function youtubeSrv3WordStart(node, cueStart) {
-    const raw = Number(node.getAttribute("t") ?? node.getAttribute("_t"));
-    return Number.isFinite(raw) ? cueStart + raw / 1e3 : Number.NaN;
-  }
-  function readYouTubeSrv3WordTiming(node, index, starts, cueStart, cueEnd) {
-    const text = node.textContent ?? "";
-    if (!text) return null;
-    const start = Number.isFinite(starts[index]) ? starts[index] : cueStart;
-    const end = nextYouTubeSrv3WordEnd(starts, index, cueEnd);
-    return { text, start: clampNumber(start, cueStart, cueEnd), end: clampNumber(end, cueStart, cueEnd) };
-  }
-  function nextYouTubeSrv3WordEnd(starts, index, cueEnd) {
-    const nextStart = starts.slice(index + 1).find(Number.isFinite);
-    return typeof nextStart === "number" && Number.isFinite(nextStart) ? nextStart : cueEnd;
-  }
-  function parseAssSubtitleText(text) {
-    const state2 = createAssParseState();
-    for (const rawLine of text.replace(/\r/g, "").split("\n")) {
-      readAssSubtitleLine(rawLine.trim(), state2);
-    }
-    return state2.cues.sort((a, b) => a.start - b.start);
-  }
-  function createAssParseState() {
-    return {
-      cues: [],
-      inEvents: false,
-      format: ["layer", "start", "end", "style", "name", "marginl", "marginr", "marginv", "effect", "text"]
-    };
-  }
-  function readAssSubtitleLine(line, state2) {
-    if (!shouldParseAssCueLine(line, state2)) return;
-    const cue = readAssDialogueCue(line, state2.format);
-    if (cue) state2.cues.push(cue);
-  }
-  function shouldParseAssCueLine(line, state2) {
-    if (shouldIgnoreAssLine(line)) return false;
-    if (updateAssSectionState(line, state2)) return false;
-    if (!shouldReadAssDialogueLine(line, state2)) return false;
-    return !readAssFormatLine(line, state2);
-  }
-  function shouldReadAssDialogueLine(line, state2) {
-    return state2.inEvents || /^Dialogue:/i.test(line);
-  }
-  function shouldIgnoreAssLine(line) {
-    return !line || line.startsWith(";");
-  }
-  function updateAssSectionState(line, state2) {
-    if (/^\[Events\]/i.test(line)) {
-      state2.inEvents = true;
-      return true;
-    }
-    if (/^\[.+\]/.test(line)) {
-      state2.inEvents = false;
-      return true;
-    }
-    return false;
-  }
-  function readAssFormatLine(line, state2) {
-    if (!/^Format:/i.test(line)) return false;
-    state2.format = line.slice(line.indexOf(":") + 1).split(",").map((part) => part.trim().toLowerCase());
-    return true;
-  }
-  function readAssDialogueCue(line, format) {
-    if (!/^Dialogue:/i.test(line)) return null;
-    const values = splitAssDialogue(line.slice(line.indexOf(":") + 1), format.length);
-    const fields = assDialogueFields(values, format);
-    const start = parseSubtitleTime(fields.start);
-    const end = parseSubtitleTime(fields.end);
-    const cueText = cleanAssSubtitleText(fields.text);
-    return Number.isFinite(start) && Number.isFinite(end) && cueText ? { start, end, text: cueText } : null;
-  }
-  function assDialogueFields(values, format) {
-    const textIndex = format.indexOf("text");
-    return {
-      start: values[format.indexOf("start")] ?? "",
-      end: values[format.indexOf("end")] ?? "",
-      text: values.slice(textIndex >= 0 ? textIndex : values.length - 1).join(",")
-    };
-  }
-  function splitAssDialogue(value, fieldCount) {
-    const parts = [];
-    let start = 0;
-    const maxSplits = Math.max(0, fieldCount - 1);
-    for (let index = 0; index < value.length && parts.length < maxSplits; index++) {
-      if (value[index] !== ",") continue;
-      parts.push(value.slice(start, index).trim());
-      start = index + 1;
-    }
-    parts.push(value.slice(start).trim());
-    return parts;
-  }
-  function cleanAssSubtitleText(value) {
-    return value.replace(/\{[^}]*}/g, "").replace(/\\[Nn]/g, "\n").replace(/\\h/g, " ").replace(/<[^>]+>/g, "").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n");
-  }
-  function parseSubtitleTime(value) {
-    const match = value.trim().match(/(?:(\d+):)?(\d{1,2}):(\d{2})(?:[,.](\d{1,3}))?/);
-    if (!match) return Number.NaN;
-    const [, hours = "0", minutes, seconds, fraction = "0"] = match;
-    return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds) + Number(fraction.padEnd(3, "0")) / 1e3;
-  }
-  function parseSubtitleClockValue(value) {
-    const trimmed = value.trim();
-    if (!trimmed) return Number.NaN;
-    if (/^\d+(?:\.\d+)?s$/i.test(trimmed)) return Number(trimmed.slice(0, -1));
-    if (/^\d+(?:\.\d+)?ms$/i.test(trimmed)) return Number(trimmed.slice(0, -2)) / 1e3;
-    if (/^\d+(?:\.\d+)?$/.test(trimmed)) return Number(trimmed);
-    return parseSubtitleTime(trimmed);
-  }
-  function formatSubtitleTime(value) {
-    const minutes = Math.floor(value / 60);
-    const seconds = Math.floor(value % 60).toString().padStart(2, "0");
-    return `${minutes}:${seconds}`;
-  }
-  function findAlignedCue(cues, cue) {
-    return cues.map((item) => ({
-      item,
-      overlap: Math.max(0, Math.min(cue.end, item.end) - Math.max(cue.start, item.start)),
-      startDistance: Math.abs(cue.start - item.start)
-    })).filter((candidate) => candidate.overlap > 0 || candidate.startDistance <= 0.45).sort((a, b) => b.overlap - a.overlap || a.startDistance - b.startDistance)[0]?.item;
-  }
-  function findActiveSubtitleCue(cues, time) {
-    return findActiveSubtitleCueFromIndex(cues, time, latestSubtitleCueStartIndex(cues, time));
-  }
-  function findInitialLeadInCue(cues, time) {
-    const first = cues[0];
-    if (!first) return void 0;
-    return time <= first.start ? first : void 0;
-  }
-  function findActiveSubtitleCueFromIndex(cues, time, index) {
-    let best;
-    for (let i = index; i >= 0; i--) {
-      const result = activeSubtitleCueSearchResult(cues[i], time, best);
-      best = result.best;
-      if (result.done) break;
-    }
-    return best;
-  }
-  function activeSubtitleCueSearchResult(cue, time, best) {
-    if (shouldStopActiveSubtitleCueSearch(cue, best)) return { best, done: true };
-    if (!isSubtitleCueActiveAtTime(cue, time)) return { best, done: false };
-    return {
-      best: isBetterActiveSubtitleCue(cue, best) ? cue : best,
-      done: false
-    };
-  }
-  function latestSubtitleCueStartIndex(cues, time) {
-    let low = 0;
-    let high = cues.length - 1;
-    let index = -1;
-    const latestAllowedStart = time + ACTIVE_CUE_START_TOLERANCE_SECONDS;
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2);
-      if (cues[mid].start <= latestAllowedStart) {
-        index = mid;
-        low = mid + 1;
-      } else {
-        high = mid - 1;
-      }
-    }
-    return index;
-  }
-  function shouldStopActiveSubtitleCueSearch(cue, best) {
-    return Boolean(best && cue.start < best.start);
-  }
-  function isSubtitleCueActiveAtTime(cue, time) {
-    return time >= cue.start - ACTIVE_CUE_START_TOLERANCE_SECONDS && time < cue.end + ACTIVE_CUE_END_GRACE_SECONDS;
-  }
-  function isBetterActiveSubtitleCue(cue, best) {
-    if (!best) return true;
-    if (cue.start > best.start) return true;
-    return cue.start === best.start && cue.end > best.end;
-  }
-  function subtitleCueSignature(cue) {
-    return `${cue.start.toFixed(2)}:${cue.end.toFixed(2)}:${cue.text.trim()}`;
-  }
-  function cueHasExactWordTimings(cue) {
-    return Boolean(cue?.wordTimingsExact && cue.words?.length);
-  }
-  function normalizeCaptionText(value) {
-    return decodeCaptionEntities(value).replace(/\u00a0/g, " ").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join(" ");
-  }
-  const CAPTION_ENTITY_RE = /&(nbsp|amp|lt|gt|quot|apos|#x[0-9a-f]+|#\d+);/gi;
-  const NAMED_CAPTION_ENTITIES = {
-    nbsp: " ",
-    amp: "&",
-    lt: "<",
-    gt: ">",
-    quot: '"',
-    apos: "'"
-  };
-  function decodeCaptionEntities(value) {
-    if (!value.includes("&")) return value;
-    return value.replace(CAPTION_ENTITY_RE, (match, name) => {
-      const lower = name.toLowerCase();
-      if (lower in NAMED_CAPTION_ENTITIES) return NAMED_CAPTION_ENTITIES[lower];
-      const code = lower.startsWith("#x") ? Number.parseInt(lower.slice(2), 16) : Number.parseInt(lower.slice(1), 10);
-      return Number.isFinite(code) && code > 0 && code <= 1114111 ? String.fromCodePoint(code) : match;
-    });
-  }
-  function escapeWithBreaks(value) {
-    return withBreaks(escapeHtml(value));
-  }
-  function withBreaks(value) {
-    return value.replace(/\n/g, "<br>");
   }
   const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
   const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
@@ -13481,21 +6207,21 @@ ${spelling}`);
         </div>
     `;
   }
-  function renderPanelOptionsControls(state2) {
-    const language = state2.language;
+  function renderPanelOptionsControls(state) {
+    const language = state.language;
     const label = uiText(language, "subtitlePanelOptions");
     const closeLabel = uiText(language, "closeSubtitlePanel");
     const autoLabel = uiText(language, "enableSubtitleAutoHide");
-    const autoTitle = uiText(language, state2.pausePanelEnabled ? "disableSubtitleAutoHide" : "enableSubtitleAutoHide");
+    const autoTitle = uiText(language, state.pausePanelEnabled ? "disableSubtitleAutoHide" : "enableSubtitleAutoHide");
     const placementLabel = uiText(language, "subtitleTranscriptPlacement");
     return `
         <div class="jpdb-subtitle-panel-options" data-panel-options>
-            <button class="jpdb-subtitle-panel-options-toggle" type="button" data-action="panel-options" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="${state2.menuOpen}">${subtitleIcon(transcriptPlacementIcon(state2.placement))}</button>
-            <div class="jpdb-subtitle-panel-options-menu" role="group" aria-label="${escapeHtml(label)}" ${state2.menuOpen ? "" : "hidden"}>
+            <button class="jpdb-subtitle-panel-options-toggle" type="button" data-action="panel-options" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="${state.menuOpen}">${subtitleIcon(transcriptPlacementIcon(state.placement))}</button>
+            <div class="jpdb-subtitle-panel-options-menu" role="group" aria-label="${escapeHtml(label)}" ${state.menuOpen ? "" : "hidden"}>
                 <div class="jpdb-subtitle-panel-options-placement" role="group" aria-label="${escapeHtml(placementLabel)}">
-                    ${TRANSCRIPT_PLACEMENTS.map((placement) => renderPanelOptionsPlacementItem(placement, state2.placement, placementLabel, language)).join("")}
+                    ${TRANSCRIPT_PLACEMENTS.map((placement) => renderPanelOptionsPlacementItem(placement, state.placement, placementLabel, language)).join("")}
                 </div>
-                <button class="jpdb-subtitle-panel-options-item jpdb-subtitle-panel-options-auto" type="button" data-action="toggle-pause-panel" title="${escapeHtml(autoTitle)}" aria-pressed="${state2.pausePanelEnabled}">
+                <button class="jpdb-subtitle-panel-options-item jpdb-subtitle-panel-options-auto" type="button" data-action="toggle-pause-panel" title="${escapeHtml(autoTitle)}" aria-pressed="${state.pausePanelEnabled}">
                     ${subtitleIcon("auto-hide")}
                     <span>${escapeHtml(autoLabel)}</span>
                 </button>
@@ -15346,36 +8072,36 @@ ${spelling}`);
   function extractJsonObject(text, start) {
     const objectStart = text.indexOf("{", start);
     if (objectStart < 0) return null;
-    const state2 = createJsonObjectScanState();
+    const state = createJsonObjectScanState();
     for (let index = objectStart; index < text.length; index++) {
-      if (scanJsonObjectCharacter(state2, text[index])) return text.slice(objectStart, index + 1);
+      if (scanJsonObjectCharacter(state, text[index])) return text.slice(objectStart, index + 1);
     }
     return null;
   }
   function createJsonObjectScanState() {
     return { depth: 0, inString: false, escaped: false };
   }
-  function scanJsonObjectCharacter(state2, char) {
-    if (state2.inString) {
-      scanJsonStringCharacter(state2, char);
+  function scanJsonObjectCharacter(state, char) {
+    if (state.inString) {
+      scanJsonStringCharacter(state, char);
       return false;
     }
     if (char === '"') {
-      state2.inString = true;
+      state.inString = true;
       return false;
     }
-    if (char === "{") state2.depth += 1;
+    if (char === "{") state.depth += 1;
     if (char !== "}") return false;
-    state2.depth -= 1;
-    return state2.depth === 0;
+    state.depth -= 1;
+    return state.depth === 0;
   }
-  function scanJsonStringCharacter(state2, char) {
-    if (state2.escaped) {
-      state2.escaped = false;
+  function scanJsonStringCharacter(state, char) {
+    if (state.escaped) {
+      state.escaped = false;
       return;
     }
-    if (char === "\\") state2.escaped = true;
-    if (char === '"') state2.inString = false;
+    if (char === "\\") state.escaped = true;
+    if (char === '"') state.inString = false;
   }
   function youtubeSubtitleRequestUrls(url) {
     return uniqueNonEmptyStrings([
@@ -15710,7 +8436,7 @@ ${spelling}`);
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLanguage}&tl=${targetLanguage}&dt=t&dj=1&q=${encodeURIComponent(joined)}`;
     const done = log$1.time("Translate subtitle batch", { count: texts.length });
     try {
-      const json = await requestJson$1(url, {
+      const json = await requestJson(url, {
         timeoutMs: TRANSLATION_TIMEOUT_MS,
         allowDirectCrossOrigin: true,
         allowConfiguredProxy: false,
@@ -15912,14 +8638,14 @@ ${spelling}`);
   function isEnglishOrNativeSubtitleTrack(track) {
     return isEnglishSubtitleTrack(track) || track.kind === "native";
   }
-  function renderSubtitleTrackPanel(state2) {
-    const language = state2.language;
+  function renderSubtitleTrackPanel(state) {
+    const language = state.language;
     const drawerActions = [
-      state2.hasTranscriptSurface ? renderPanelModeControls("tracks", true, language) : "",
+      state.hasTranscriptSurface ? renderPanelModeControls("tracks", true, language) : "",
       renderPanelOptionsControls({
-        placement: state2.placement,
-        pausePanelEnabled: state2.pausePanelEnabled,
-        menuOpen: state2.optionsMenuOpen,
+        placement: state.placement,
+        pausePanelEnabled: state.pausePanelEnabled,
+        menuOpen: state.optionsMenuOpen,
         language
       })
     ].filter(Boolean).join("");
@@ -15929,32 +8655,32 @@ ${spelling}`);
                 <strong class="jpdb-subtitle-drawer-title">${escapeHtml(uiText(language, "subtitlesTitle"))}</strong>
                 <span class="jpdb-subtitle-drawer-meta">${escapeHtml(subtitleDrawerMetaText({
       mode: "tracks",
-      count: state2.tracks.length,
-      tracks: state2.tracks,
-      selectedTrackId: state2.selectedTrackId,
-      secondaryTrackId: state2.secondaryTrackId,
+      count: state.tracks.length,
+      tracks: state.tracks,
+      selectedTrackId: state.selectedTrackId,
+      secondaryTrackId: state.secondaryTrackId,
       language
     }))}</span>
             </div>
             ${drawerActions ? `<div class="jpdb-subtitle-drawer-actions">${drawerActions}</div>` : ""}
         </div>
-        <div class="jpdb-subtitle-list-scroll"${state2.virtual ? ' data-virtualized="true"' : ""}>
+        <div class="jpdb-subtitle-list-scroll"${state.virtual ? ' data-virtualized="true"' : ""}>
             <div class="jpdb-subtitle-track-tools">
                 <button type="button" data-action="load">${escapeHtml(uiText(language, "loadJapaneseSubtitles"))}</button>
                 <button type="button" data-action="load-secondary">${escapeHtml(uiText(language, "loadNativeSubtitles"))}</button>
-                <a href="${escapeHtml(jimakuAnimeSearchUrl(state2.animeSearchQuery))}" target="_blank" rel="noopener" data-jimaku-anime-search>${escapeHtml(uiText(language, "searchAnimeSubtitles"))}</a>
+                <a href="${escapeHtml(jimakuAnimeSearchUrl(state.animeSearchQuery))}" target="_blank" rel="noopener" data-jimaku-anime-search>${escapeHtml(uiText(language, "searchAnimeSubtitles"))}</a>
             </div>
-            <div class="jpdb-subtitle-track-summary">${escapeHtml(trackPanelSummaryText(state2.autoDetected, language))}</div>
+            <div class="jpdb-subtitle-track-summary">${escapeHtml(trackPanelSummaryText(state.autoDetected, language))}</div>
             <div class="jpdb-subtitle-track-hint">${escapeHtml(uiText(language, "subtitleTracksHint"))}</div>
-            ${state2.virtual ? trackVirtualSpacer(state2.virtual.topSpacer) : ""}
-            ${state2.tracks.length ? trackPanelRows(state2).map((track) => renderSubtitleTrackRow(track, state2)).join("") : ""}
-            ${state2.virtual ? trackVirtualSpacer(state2.virtual.bottomSpacer) : ""}
+            ${state.virtual ? trackVirtualSpacer(state.virtual.topSpacer) : ""}
+            ${state.tracks.length ? trackPanelRows(state).map((track) => renderSubtitleTrackRow(track, state)).join("") : ""}
+            ${state.virtual ? trackVirtualSpacer(state.virtual.bottomSpacer) : ""}
         </div>
         <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeSubtitleTracksPanel"))}"></div>
     `;
   }
-  function trackPanelRows(state2) {
-    return state2.virtual ? state2.tracks.slice(state2.virtual.start, state2.virtual.end) : state2.tracks;
+  function trackPanelRows(state) {
+    return state.virtual ? state.tracks.slice(state.virtual.start, state.virtual.end) : state.tracks;
   }
   function trackVirtualSpacer(height) {
     return height > 0 ? `<div class="jpdb-subtitle-list-spacer" aria-hidden="true" style="height:${Math.round(height)}px"></div>` : "";
@@ -15971,10 +8697,10 @@ ${spelling}`);
     const secondary = secondaryTrack ? localizedSubtitleTrackLabel(secondaryTrack, options.language) : void 0;
     return drawerMetaParts(options.mode, options.count, primary, secondary, options.language).filter(Boolean).join(" · ");
   }
-  function renderSubtitleTrackRow(track, state2) {
-    const isPrimary = track.id === state2.selectedTrackId;
-    const isSecondary = track.id === state2.secondaryTrackId;
-    const language = state2.language;
+  function renderSubtitleTrackRow(track, state) {
+    const isPrimary = track.id === state.selectedTrackId;
+    const isSecondary = track.id === state.secondaryTrackId;
+    const language = state.language;
     return `
         <div class="jpdb-subtitle-track-row ${isPrimary || isSecondary ? "active" : ""}" data-track-id="${escapeHtml(track.id)}">
             <div class="jpdb-subtitle-track-title">
@@ -16122,42 +8848,42 @@ ${spelling}`);
     return `${trackCount} ${uiText(language, "subtitleTracksDetected")}`;
   }
   const GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS = "jpdb-subtitle-native-captions-suppressed";
-  function applySubtitleNativeTrackModes(state2) {
+  function applySubtitleNativeTrackModes(state) {
     const youtubePage = isYouTubePage();
-    const hasYomuCaptionContent = Boolean(state2.hasPrimaryCues || state2.currentCueText);
-    const yomuCaptionsActive = Boolean(state2.suppressNativeCaptions || state2.overlayVisible && (state2.selectedTrackId || hasYomuCaptionContent));
-    if (!youtubePage) return applyGenericNativeTrackModes(state2, yomuCaptionsActive);
+    const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
+    const yomuCaptionsActive = Boolean(state.suppressNativeCaptions || state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent));
+    if (!youtubePage) return applyGenericNativeTrackModes(state, yomuCaptionsActive);
     document.documentElement.classList.remove(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS);
-    return applyYouTubeNativeTrackModes(state2, yomuCaptionsActive);
+    return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
   }
-  function applyGenericNativeTrackModes(state2, yomuCaptionsActive) {
-    for (const option of state2.tracks) {
+  function applyGenericNativeTrackModes(state, yomuCaptionsActive) {
+    for (const option of state.tracks) {
       if (!option.track) continue;
-      if (isSelectedSubtitleTrack(option, state2)) {
+      if (isSelectedSubtitleTrack(option, state)) {
         if (yomuCaptionsActive) option.track.mode = "hidden";
         else ensureTextTrackReadable(option.track);
         continue;
       }
       if (yomuCaptionsActive) option.track.mode = "disabled";
     }
-    if (yomuCaptionsActive && (state2.suppressCaptionPlayerUi ?? true)) suppressGenericCaptionPlayerUi(state2.video);
+    if (yomuCaptionsActive && (state.suppressCaptionPlayerUi ?? true)) suppressGenericCaptionPlayerUi(state.video);
     document.documentElement.classList.toggle(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
     document.documentElement.classList.remove("jpdb-subtitle-yomu-captions-active");
     return false;
   }
-  function applyYouTubeNativeTrackModes(state2, yomuCaptionsActive) {
-    applyYouTubeTextTrackModes(state2);
+  function applyYouTubeNativeTrackModes(state, yomuCaptionsActive) {
+    applyYouTubeTextTrackModes(state);
     const hideYouTubeNativeCaptions = yomuCaptionsActive;
     document.documentElement.classList.toggle("jpdb-subtitle-yomu-captions-active", hideYouTubeNativeCaptions);
     return hideYouTubeNativeCaptions;
   }
-  function applyYouTubeTextTrackModes(state2) {
-    for (const option of state2.tracks) {
-      if (option.track) option.track.mode = isSelectedSubtitleTrack(option, state2) ? "hidden" : "disabled";
+  function applyYouTubeTextTrackModes(state) {
+    for (const option of state.tracks) {
+      if (option.track) option.track.mode = isSelectedSubtitleTrack(option, state) ? "hidden" : "disabled";
     }
   }
-  function isSelectedSubtitleTrack(option, state2) {
-    return option.id === state2.selectedTrackId || option.id === state2.secondaryTrackId;
+  function isSelectedSubtitleTrack(option, state) {
+    return option.id === state.selectedTrackId || option.id === state.secondaryTrackId;
   }
   function suppressGenericCaptionPlayerUi(video) {
     for (const player of genericCaptionPlayersForVideo(video)) {
@@ -16704,8 +9430,8 @@ ${spelling}`);
     return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || "1") > 0;
   }
   function isCaptionNearVideo(rect, videoRect, strict = false) {
-    const horizontalOverlap2 = Math.max(0, Math.min(rect.right, videoRect.right) - Math.max(rect.left, videoRect.left));
-    const overlapRatio = horizontalOverlap2 / Math.max(1, Math.min(rect.width, videoRect.width));
+    const horizontalOverlap = Math.max(0, Math.min(rect.right, videoRect.right) - Math.max(rect.left, videoRect.left));
+    const overlapRatio = horizontalOverlap / Math.max(1, Math.min(rect.width, videoRect.width));
     const overlapsVideo = captionOverlapsVideo(rect, videoRect, overlapRatio);
     const belowVideo = captionSitsBelowVideo(rect, videoRect, overlapRatio);
     const tooLarge = rect.width * rect.height > videoRect.width * videoRect.height * 0.45;
@@ -16750,6 +9476,17 @@ ${spelling}`);
     textarea.select();
     document.execCommand("copy");
     textarea.remove();
+  }
+  function stableHash32(value) {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+  function stableHashBase36(value) {
+    return stableHash32(value).toString(36);
   }
   function isApiMiningEnabled(settings) {
     return settings.jpdbMiningEnabled || settings.bunproMiningEnabled || settings.yomuLocalSrsEnabled;
@@ -16992,7 +9729,7 @@ ${spelling}`);
   function isSubtitleBatchMiningCandidateSelectedByDefault(card, iPlusOne) {
     if (!iPlusOne) return false;
     const states = normalizeCardStates(card.cardState);
-    return !states.some((state2) => BATCH_ALREADY_QUEUED_STATES.has(state2));
+    return !states.some((state) => BATCH_ALREADY_QUEUED_STATES.has(state));
   }
   function addBatchMiningRowCandidates(drafts, row) {
     const entries = batchMiningRowEntries(row);
@@ -17017,7 +9754,7 @@ ${spelling}`);
     return Array.from(entries, ([key, card]) => ({ key, card }));
   }
   function batchMiningCandidate(row, card, sentenceCardCount, unknownCardCount, iPlusOne) {
-    const state2 = primaryCardState(card.cardState);
+    const state = primaryCardState(card.cardState);
     return {
       key: subtitleBatchMiningCandidateKey(card),
       card,
@@ -17031,7 +9768,7 @@ ${spelling}`);
       unknownCardCount,
       iPlusOne,
       selected: isSubtitleBatchMiningCandidateSelectedByDefault(card, iPlusOne),
-      state: state2,
+      state,
       sortKey: batchMiningSortKey(card, row.rowIndex, iPlusOne, unknownCardCount, 1)
     };
   }
@@ -17079,7 +9816,7 @@ ${spelling}`);
     return BATCH_UNKNOWN_STATES.has(primaryCardState(card.cardState));
   }
   function isBatchMiningBlockedCard(card) {
-    return normalizeCardStates(card.cardState).some((state2) => BATCH_BLOCKED_STATES.has(state2));
+    return normalizeCardStates(card.cardState).some((state) => BATCH_BLOCKED_STATES.has(state));
   }
   function isBatchMiningParticleCard(card) {
     return card.partOfSpeech.includes("prt") || BATCH_PARTICLE_SURFACE_RE.test(card.spelling.trim());
@@ -17087,17 +9824,17 @@ ${spelling}`);
   function tsvCell(value) {
     return value.replace(/\t/gu, " ").replace(/\r?\n/gu, " ");
   }
-  function renderSubtitleBatchMiningPanel(state2) {
-    const language = state2.language;
-    return `<div class="jpdb-subtitle-batch-sticky"><div class="jpdb-subtitle-drawer-head"><div class="jpdb-subtitle-drawer-brand"><strong class="jpdb-subtitle-drawer-title">${escapeHtml(subtitleText(language, "bmTitle"))}</strong><span class="jpdb-subtitle-drawer-meta">${escapeHtml(batchMiningMetaText(state2))}</span></div><div class="jpdb-subtitle-drawer-actions">${renderPanelModeControls("mine", state2.hasTranscriptSurface, language)}${renderPanelOptionsControls({ placement: state2.placement, pausePanelEnabled: state2.pausePanelEnabled, menuOpen: state2.optionsMenuOpen, language })}</div></div>${renderBatchMiningToolbar(state2)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state2)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeTranscriptPanel"))}"></div>`;
+  function renderSubtitleBatchMiningPanel(state) {
+    const language = state.language;
+    return `<div class="jpdb-subtitle-batch-sticky"><div class="jpdb-subtitle-drawer-head"><div class="jpdb-subtitle-drawer-brand"><strong class="jpdb-subtitle-drawer-title">${escapeHtml(subtitleText(language, "bmTitle"))}</strong><span class="jpdb-subtitle-drawer-meta">${escapeHtml(batchMiningMetaText(state))}</span></div><div class="jpdb-subtitle-drawer-actions">${renderPanelModeControls("mine", state.hasTranscriptSurface, language)}${renderPanelOptionsControls({ placement: state.placement, pausePanelEnabled: state.pausePanelEnabled, menuOpen: state.optionsMenuOpen, language })}</div></div>${renderBatchMiningToolbar(state)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeTranscriptPanel"))}"></div>`;
   }
-  function renderBatchMiningToolbar(state2) {
-    const language = state2.language;
-    const selectedCount = state2.selectedKeys.size;
-    const candidateCount = state2.candidates.length;
-    const scanLabel = subtitleText(language, state2.status === "ready" ? "bmRescan" : "bmScan");
+  function renderBatchMiningToolbar(state) {
+    const language = state.language;
+    const selectedCount = state.selectedKeys.size;
+    const candidateCount = state.candidates.length;
+    const scanLabel = subtitleText(language, state.status === "ready" ? "bmRescan" : "bmScan");
     const buttons = [
-      `<button type="button" data-action="bm-scan" ${state2.status === "scanning" ? "disabled" : ""}>${subtitleIcon("transcript")}<span>${escapeHtml(scanLabel)}</span></button>`
+      `<button type="button" data-action="bm-scan" ${state.status === "scanning" ? "disabled" : ""}>${subtitleIcon("transcript")}<span>${escapeHtml(scanLabel)}</span></button>`
     ];
     if (candidateCount) {
       buttons.push(
@@ -17106,7 +9843,7 @@ ${spelling}`);
         renderBatchMiningGradeGroup({
           action: "bm-grade-selected",
           label: subtitleText(language, "bmGradeSelected"),
-          grades: state2.reviewGrades,
+          grades: state.reviewGrades,
           disabled: selectedCount === 0,
           className: "jpdb-subtitle-batch-grade-selected"
         }),
@@ -17116,37 +9853,37 @@ ${spelling}`);
     }
     return `<div class="jpdb-subtitle-batch-toolbar" role="toolbar" aria-label="${escapeHtml(subtitleText(language, "bmToolbar"))}">${buttons.join("")}</div>`;
   }
-  function renderBatchMiningBody(state2) {
-    if (state2.status === "failed") {
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml(state2.errorMessage || subtitleText(state2.language, "bmFailed"))}</div>`;
+  function renderBatchMiningBody(state) {
+    if (state.status === "failed") {
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml(state.errorMessage || subtitleText(state.language, "bmFailed"))}</div>`;
     }
-    if (state2.status === "scanning") {
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml(formatSubtitleText(state2.language, "bmScanning", {
-        count: state2.summary.parsedRows,
-        total: state2.summary.rows
+    if (state.status === "scanning") {
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml(formatSubtitleText(state.language, "bmScanning", {
+        count: state.summary.parsedRows,
+        total: state.summary.rows
       }))}</div>`;
     }
-    if (state2.status === "idle") {
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml(subtitleText(state2.language, "bmReady"))}</div>`;
+    if (state.status === "idle") {
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml(subtitleText(state.language, "bmReady"))}</div>`;
     }
-    if (!state2.candidates.length) {
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml(subtitleText(state2.language, "bmNoCandidates"))}</div>`;
+    if (!state.candidates.length) {
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml(subtitleText(state.language, "bmNoCandidates"))}</div>`;
     }
-    return `<div class="jpdb-subtitle-batch-list" role="list">${state2.candidates.map((candidate) => renderBatchMiningCandidate(candidate, state2)).join("")}</div>`;
+    return `<div class="jpdb-subtitle-batch-list" role="list">${state.candidates.map((candidate) => renderBatchMiningCandidate(candidate, state)).join("")}</div>`;
   }
-  function renderBatchMiningCandidate(candidate, state2) {
-    const language = state2.language;
-    const selected = state2.selectedKeys.has(candidate.key);
+  function renderBatchMiningCandidate(candidate, state) {
+    const language = state.language;
+    const selected = state.selectedKeys.has(candidate.key);
     const selectLabel = subtitleText(language, selected ? "bmDeselect" : "bmSelect");
     const wordLabel = `${selectLabel}: ${candidate.card.spelling}`;
-    return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml(wordLabel)}">${selected ? subtitleIcon("check") : ""}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" lang="ja">${escapeHtml(candidate.card.spelling)}</span>${candidate.card.reading && candidate.card.reading !== candidate.card.spelling ? `<span class="jpdb-subtitle-batch-reading" lang="ja">${escapeHtml(candidate.card.reading)}</span>` : ""}</button><div class="jpdb-subtitle-batch-meta">${candidate.iPlusOne ? `<span class="jpdb-subtitle-batch-badge">${escapeHtml(subtitleText(language, "bmIPlusOne"))}</span>` : ""}<span>${escapeHtml(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml(formatSubtitleText(language, "bmOccurrences", { count: candidate.occurrences }))}</span><span>${escapeHtml(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" lang="ja">${escapeHtml(candidate.sentence)}</div>${renderBatchMiningCandidateGrades(candidate, state2)}</div>`;
+    return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml(wordLabel)}">${selected ? subtitleIcon("check") : ""}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" lang="ja">${escapeHtml(candidate.card.spelling)}</span>${candidate.card.reading && candidate.card.reading !== candidate.card.spelling ? `<span class="jpdb-subtitle-batch-reading" lang="ja">${escapeHtml(candidate.card.reading)}</span>` : ""}</button><div class="jpdb-subtitle-batch-meta">${candidate.iPlusOne ? `<span class="jpdb-subtitle-batch-badge">${escapeHtml(subtitleText(language, "bmIPlusOne"))}</span>` : ""}<span>${escapeHtml(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml(formatSubtitleText(language, "bmOccurrences", { count: candidate.occurrences }))}</span><span>${escapeHtml(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" lang="ja">${escapeHtml(candidate.sentence)}</div>${renderBatchMiningCandidateGrades(candidate, state)}</div>`;
   }
-  function renderBatchMiningCandidateGrades(candidate, state2) {
-    if (!state2.reviewGrades.length) return "";
-    const label = `${subtitleText(state2.language, "bmGradeWord")}: ${candidate.card.spelling}`;
+  function renderBatchMiningCandidateGrades(candidate, state) {
+    if (!state.reviewGrades.length) return "";
+    const label = `${subtitleText(state.language, "bmGradeWord")}: ${candidate.card.spelling}`;
     return `<div class="jpdb-subtitle-batch-row-grades" role="group" aria-label="${escapeHtml(label)}">${renderBatchMiningGradeButtons({
       action: "bm-grade",
-      grades: state2.reviewGrades,
+      grades: state.reviewGrades,
       ariaContext: label
     })}</div>`;
   }
@@ -17160,22 +9897,22 @@ ${spelling}`);
       return `<button class="jpdb-subtitle-batch-grade-button" type="button" data-action="${escapeHtml(options.action)}" data-grade="${escapeHtml(grade)}" ${options.disabled ? "disabled" : ""} aria-label="${escapeHtml(ariaLabel)}">${escapeHtml(label)}</button>`;
     }).join("");
   }
-  function batchMiningMetaText(state2) {
-    if (state2.status === "scanning") {
-      return formatSubtitleText(state2.language, "bmScanning", {
-        count: state2.summary.parsedRows,
-        total: state2.summary.rows
+  function batchMiningMetaText(state) {
+    if (state.status === "scanning") {
+      return formatSubtitleText(state.language, "bmScanning", {
+        count: state.summary.parsedRows,
+        total: state.summary.rows
       });
     }
-    if (state2.status === "failed") return subtitleText(state2.language, "bmFailed");
-    if (state2.status === "ready") {
-      return formatSubtitleText(state2.language, "bmSummary", {
-        count: state2.summary.candidates,
-        iPlusOne: state2.summary.iPlusOne,
-        selected: state2.summary.selected
+    if (state.status === "failed") return subtitleText(state.language, "bmFailed");
+    if (state.status === "ready") {
+      return formatSubtitleText(state.language, "bmSummary", {
+        count: state.summary.candidates,
+        iPlusOne: state.summary.iPlusOne,
+        selected: state.summary.selected
       });
     }
-    return formatSubtitleText(state2.language, "bmRowsReady", { count: state2.summary.rows });
+    return formatSubtitleText(state.language, "bmRowsReady", { count: state.summary.rows });
   }
   const TRANSCRIPT_PANEL_ANIMATION_MS = 180;
   const TRANSCRIPT_PANEL_MIN_SIDE_WIDTH = 300;
@@ -19440,14 +12177,14 @@ ${spelling}`);
       if (!tokens.length || !this.options.beforeRenderTokens) return;
       await this.options.beforeRenderTokens(tokens);
     }
-    async resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache2) {
+    async resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache) {
       const pendingHtml = parsedHtml.map((promise) => promise.then((result) => result.html));
-      batch.forEach((item, index) => pendingCache2.set(item.key, pendingHtml[index]));
+      batch.forEach((item, index) => pendingCache.set(item.key, pendingHtml[index]));
       try {
         return await Promise.all([...ready, ...parsedHtml]);
       } finally {
         batch.forEach((item, index) => {
-          if (pendingCache2.get(item.key) === pendingHtml[index]) pendingCache2.delete(item.key);
+          if (pendingCache.get(item.key) === pendingHtml[index]) pendingCache.delete(item.key);
         });
       }
     }
@@ -19704,20 +12441,20 @@ ${spelling}`);
       }
     }
     applyKaraokeStateToPrimary(cue, time) {
-      const state2 = this.primaryKaraokeState(cue);
-      if (!state2) {
+      const state = this.primaryKaraokeState(cue);
+      if (!state) {
         this.lastKaraokeProgressKey = void 0;
         this.lastKaraokePrimaryWord = void 0;
         return;
       }
-      const progress = karaokeCharacterProgress(cue, state2.words, time);
+      const progress = karaokeCharacterProgress(cue, state.words, time);
       const progressKey = Math.floor(progress);
-      const primaryWord = state2.wordElements[0] ?? null;
+      const primaryWord = state.wordElements[0] ?? null;
       if (progressKey === this.lastKaraokeProgressKey && primaryWord === this.lastKaraokePrimaryWord) return;
       this.lastKaraokeProgressKey = progressKey;
       this.lastKaraokePrimaryWord = primaryWord;
       let cursor = 0;
-      for (const element of state2.wordElements) {
+      for (const element of state.wordElements) {
         cursor = applyKaraokeClassToWordElement(element, cursor, progress);
       }
     }
@@ -21009,7 +13746,7 @@ ${spelling}`);
     syncDrawerButtons(hasLines) {
       const panelButton = this.root?.querySelector('[data-action="panel"]');
       if (!panelButton) return;
-      const state2 = subtitleDrawerButtonState({
+      const state = subtitleDrawerButtonState({
         panelOpen: this.isTranscriptPanelOpen(),
         hasLines,
         hasTranscriptSurface: this.hasTranscriptSurface(),
@@ -21017,12 +13754,12 @@ ${spelling}`);
         trackCount: this.tracks.length
       });
       syncSubtitleDrawerButton(panelButton, {
-        disabled: state2.disabled,
-        pressed: state2.panelOpen,
+        disabled: state.disabled,
+        pressed: state.panelOpen,
         // Compact viewports force the bottom drawer, so while closed the
         // toggle must advertise where the panel will actually open, not the
         // stored side preference.
-        placement: state2.panelOpen ? this.effectiveTranscriptPlacement : this.plannedTranscriptPlacement(),
+        placement: state.panelOpen ? this.effectiveTranscriptPlacement : this.plannedTranscriptPlacement(),
         language: this.options.getSettings().interfaceLanguage
       });
     }
@@ -21568,36 +14305,36 @@ ${spelling}`);
       if (!panel) return;
       this.clearDeferredTranscriptPanelRender();
       this.transcriptPreviewPlayerResizeDeferred = false;
-      const state2 = this.transcriptPanelRenderState();
-      if (this.canRefreshTranscriptPanel(force, state2)) return;
-      this.lastTranscriptSignature = state2.signature;
-      this.renderedVirtualWindow = state2.virtual ? { start: state2.virtual.start, end: state2.virtual.end, rowCount: state2.totalRowCount ?? state2.rows.length } : void 0;
-      setInnerHtml(panel, this.renderTranscriptPanelHtml(state2));
-      this.afterTranscriptPanelRender(state2);
+      const state = this.transcriptPanelRenderState();
+      if (this.canRefreshTranscriptPanel(force, state)) return;
+      this.lastTranscriptSignature = state.signature;
+      this.renderedVirtualWindow = state.virtual ? { start: state.virtual.start, end: state.virtual.end, rowCount: state.totalRowCount ?? state.rows.length } : void 0;
+      setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
+      this.afterTranscriptPanelRender(state);
     }
     renderTranscriptPanelPreview() {
       const panel = this.renderableTranscriptPanel();
       if (!panel) return;
       const fullState = this.transcriptPanelRenderState();
-      const state2 = this.transcriptPanelPreviewState(fullState);
+      const state = this.transcriptPanelPreviewState(fullState);
       this.transcriptPreviewPlayerResizeDeferred = true;
       this.lastTranscriptSignature = "";
-      setInnerHtml(panel, this.renderTranscriptPanelHtml(state2));
-      this.afterTranscriptPanelRender(state2, { deferPlayerResize: true });
+      setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
+      this.afterTranscriptPanelRender(state, { deferPlayerResize: true });
     }
     renderShadowPanel(force = false) {
       const panel = this.renderableShadowPanel();
       if (!panel) return;
-      const state2 = this.shadowPanelRenderState();
-      if (!force && state2.signature === this.lastShadowSignature) return;
-      this.lastShadowSignature = state2.signature;
+      const state = this.shadowPanelRenderState();
+      if (!force && state.signature === this.lastShadowSignature) return;
+      this.lastShadowSignature = state.signature;
       this.transcriptTextTargetsByParseKey.clear();
-      setInnerHtml(panel, this.renderShadowPanelHtml(state2));
+      setInnerHtml(panel, this.renderShadowPanelHtml(state));
       this.indexTranscriptTextTargets(panel);
       this.bindTranscriptResizeHandle();
       this.positionTranscriptPanel();
       this.syncPanelState();
-      if (state2.cue && state2.parseKey) this.requestParsedShadowLineIfNeeded(state2.cue, state2.parseKey, state2.signature, state2.settings);
+      if (state.cue && state.parseKey) this.requestParsedShadowLineIfNeeded(state.cue, state.parseKey, state.signature, state.settings);
     }
     renderableShadowPanel() {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return null;
@@ -21627,25 +14364,25 @@ ${spelling}`);
         this.secondaryTrackId
       ].join("|");
     }
-    renderShadowPanelHtml(state2) {
-      const language = state2.settings.interfaceLanguage;
+    renderShadowPanelHtml(state) {
+      const language = state.settings.interfaceLanguage;
       return `
-            ${this.renderShadowPanelHead(state2)}
+            ${this.renderShadowPanelHead(state)}
             <div class="jpdb-subtitle-list-scroll jpdb-subtitle-shadow-scroll">
-                ${this.renderShadowPanelBody(state2)}
+                ${this.renderShadowPanelBody(state)}
             </div>
             <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeTranscriptPanel"))}"></div>
         `;
     }
-    renderShadowPanelHead(state2) {
-      const language = state2.settings.interfaceLanguage;
+    renderShadowPanelHead(state) {
+      const language = state.settings.interfaceLanguage;
       return `
             <div class="jpdb-subtitle-drawer-head">
                 <div class="jpdb-subtitle-drawer-brand">
                     <strong class="jpdb-subtitle-drawer-title">${escapeHtml(uiText(language, "subtitlesTitle"))}</strong>
                     <span class="jpdb-subtitle-drawer-meta">${escapeHtml(subtitleDrawerMetaText({
         mode: "lines",
-        count: state2.cue?.text.trim() ? 1 : 0,
+        count: state.cue?.text.trim() ? 1 : 0,
         tracks: this.tracks,
         selectedTrackId: this.selectedTrackId,
         secondaryTrackId: this.secondaryTrackId,
@@ -21654,28 +14391,28 @@ ${spelling}`);
                 </div>
                 <div class="jpdb-subtitle-drawer-actions">
                     ${renderPanelModeControls("shadow", this.hasTranscriptSurface(), language)}
-                    ${this.renderPanelOptionsMenu(state2.settings.subtitlePausePanel, language)}
+                    ${this.renderPanelOptionsMenu(state.settings.subtitlePausePanel, language)}
                 </div>
             </div>
         `;
     }
-    renderShadowPanelBody(state2) {
-      const cueText = state2.cue?.text.trim();
-      if (!state2.cue || !cueText) return this.renderTranscriptWaitingState();
-      return this.renderShadowCueCard(state2.cue, cueText, state2);
+    renderShadowPanelBody(state) {
+      const cueText = state.cue?.text.trim();
+      if (!state.cue || !cueText) return this.renderTranscriptWaitingState();
+      return this.renderShadowCueCard(state.cue, cueText, state);
     }
-    renderShadowCueCard(cue, cueText, state2) {
-      const language = state2.settings.interfaceLanguage;
-      const parsedLine = this.shadowParsedLine(cueText, state2.parseKey, state2.settings);
+    renderShadowCueCard(cue, cueText, state) {
+      const language = state.settings.interfaceLanguage;
+      const parsedLine = this.shadowParsedLine(cueText, state.parseKey, state.settings);
       const hiddenClass = this.shadowTextVisible ? "" : " jpdb-subtitle-shadow-line-hidden";
-      const secondary = this.renderShadowSecondaryLine(state2);
+      const secondary = this.renderShadowSecondaryLine(state);
       const neighbors = this.shadowCueNeighbors(cue);
       return `
             <div class="jpdb-subtitle-shadow-card">
                 ${this.renderShadowContextLine(neighbors.prev, "prev", language)}
                 <div class="jpdb-subtitle-shadow-current">
                     <span class="jpdb-subtitle-shadow-time">${formatSubtitleTime(cue.start)}-${formatSubtitleTime(cue.end)}</span>
-                    <strong class="jpdb-subtitle-shadow-line jpdb-subtitle-row-text${hiddenClass}" lang="ja" data-transcript-text data-parse-key="${escapeHtml(state2.parseKey)}"${parsedLine.parsedKeyAttribute}${parsedLine.provisionalAttribute}>${parsedLine.html}</strong>
+                    <strong class="jpdb-subtitle-shadow-line jpdb-subtitle-row-text${hiddenClass}" lang="ja" data-transcript-text data-parse-key="${escapeHtml(state.parseKey)}"${parsedLine.parsedKeyAttribute}${parsedLine.provisionalAttribute}>${parsedLine.html}</strong>
                     ${secondary}
                 </div>
                 ${this.renderShadowContextLine(neighbors.next, "next", language)}
@@ -21701,12 +14438,12 @@ ${spelling}`);
       const provisionalAttribute = parsed && !this.parsedHtmlCache.has(parseKey) ? ' data-parsed-provisional="true"' : "";
       return { html: parsed ?? escapeWithBreaks(cueText), parsedKeyAttribute, provisionalAttribute };
     }
-    renderShadowSecondaryLine(state2) {
-      if (!state2.settings.subtitleSecondaryVisible) return "";
-      const text = state2.secondary?.text.trim();
+    renderShadowSecondaryLine(state) {
+      if (!state.settings.subtitleSecondaryVisible) return "";
+      const text = state.secondary?.text.trim();
       if (!text) return "";
-      const blurClass = state2.settings.subtitleNativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
-      const label = uiText(state2.settings.interfaceLanguage, "toggleNativeSubtitleBlur");
+      const blurClass = state.settings.subtitleNativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
+      const label = uiText(state.settings.interfaceLanguage, "toggleNativeSubtitleBlur");
       return `<button class="jpdb-subtitle-shadow-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${escapeWithBreaks(text)}</button>`;
     }
     renderShadowActions(language) {
@@ -21957,18 +14694,18 @@ ${spelling}`);
       const key = target.closest("[data-batch-candidate-key]")?.dataset.batchCandidateKey;
       return key ? this.batchMiningCandidates.find((candidate) => candidate.key === key) : void 0;
     }
-    transcriptPanelPreviewState(state2) {
-      const rowCount = state2.rows.length;
-      if (!rowCount) return { ...state2, signature: `preview:${state2.signature}`, totalRowCount: 0 };
-      const activeIndex = state2.currentRowIndex >= 0 ? state2.currentRowIndex : 0;
+    transcriptPanelPreviewState(state) {
+      const rowCount = state.rows.length;
+      if (!rowCount) return { ...state, signature: `preview:${state.signature}`, totalRowCount: 0 };
+      const activeIndex = state.currentRowIndex >= 0 ? state.currentRowIndex : 0;
       const clampedActive = Math.min(Math.max(activeIndex, 0), rowCount - 1);
       const previewStart = Math.max(0, Math.min(clampedActive - 1, rowCount - 3));
       const previewEnd = Math.min(rowCount, previewStart + 3);
       return {
-        rows: state2.rows.slice(previewStart, previewEnd),
-        warmupRows: state2.warmupRows,
-        currentRowIndex: state2.currentRowIndex,
-        signature: `preview:${state2.signature}:${previewStart}`,
+        rows: state.rows.slice(previewStart, previewEnd),
+        warmupRows: state.warmupRows,
+        currentRowIndex: state.currentRowIndex,
+        signature: `preview:${state.signature}:${previewStart}`,
         rowIndexOffset: previewStart,
         totalRowCount: rowCount
       };
@@ -21993,9 +14730,9 @@ ${spelling}`);
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return null;
       return this.panelMode === "lines" ? this.transcriptPanel : null;
     }
-    canRefreshTranscriptPanel(force, state2) {
+    canRefreshTranscriptPanel(force, state) {
       if (force) return false;
-      return this.refreshExistingTranscriptPanel(state2);
+      return this.refreshExistingTranscriptPanel(state);
     }
     transcriptPanelRenderState() {
       const rows = this.transcriptRows();
@@ -22074,19 +14811,19 @@ ${spelling}`);
       const lastRendered = firstRendered + visibleRows - 1;
       return scrollTop <= 1 || currentRowIndex < firstRendered || currentRowIndex > lastRendered;
     }
-    refreshExistingTranscriptPanel(state2) {
-      if (this.lastTranscriptSignature !== state2.signature) return false;
-      this.updateTranscriptActiveLine(state2.currentRowIndex);
-      const hydrationIndex = this.transcriptHydrationPreferredIndex(state2);
+    refreshExistingTranscriptPanel(state) {
+      if (this.lastTranscriptSignature !== state.signature) return false;
+      this.updateTranscriptActiveLine(state.currentRowIndex);
+      const hydrationIndex = this.transcriptHydrationPreferredIndex(state);
       this.scheduleTranscriptHydration(hydrationIndex);
-      this.scheduleTranscriptCacheWarmup(state2.rows, hydrationIndex);
+      this.scheduleTranscriptCacheWarmup(state.rows, hydrationIndex);
       return true;
     }
-    renderTranscriptPanelHtml(state2) {
+    renderTranscriptPanelHtml(state) {
       const settings = this.options.getSettings();
       const language = settings.interfaceLanguage;
-      const rowCount = state2.totalRowCount ?? state2.rows.length;
-      const rowIndexOffset = state2.rowIndexOffset ?? 0;
+      const rowCount = state.totalRowCount ?? state.rows.length;
+      const rowIndexOffset = state.rowIndexOffset ?? 0;
       return `
             <div class="jpdb-subtitle-drawer-head">
                 <div class="jpdb-subtitle-drawer-brand">
@@ -22106,10 +14843,10 @@ ${spelling}`);
                     ${this.renderPanelOptionsMenu(settings.subtitlePausePanel, language)}
                 </div>
             </div>
-            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state2.virtual ? ' data-virtualized="true"' : ""}>
-                ${state2.virtual ? this.renderTranscriptVirtualSpacer(state2.virtual.topSpacer) : ""}
-                ${state2.rows.length ? state2.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state2.currentRowIndex)).join("") : this.renderTranscriptWaitingState()}
-                ${state2.virtual ? this.renderTranscriptVirtualSpacer(state2.virtual.bottomSpacer) : ""}
+            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state.virtual ? ' data-virtualized="true"' : ""}>
+                ${state.virtual ? this.renderTranscriptVirtualSpacer(state.virtual.topSpacer) : ""}
+                ${state.rows.length ? state.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state.currentRowIndex)).join("") : this.renderTranscriptWaitingState()}
+                ${state.virtual ? this.renderTranscriptVirtualSpacer(state.virtual.bottomSpacer) : ""}
             </div>
             <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeTranscriptPanel"))}"></div>
         `;
@@ -22117,26 +14854,26 @@ ${spelling}`);
     renderTranscriptVirtualSpacer(height) {
       return height > 0 ? `<div class="jpdb-subtitle-list-spacer" aria-hidden="true" style="height:${Math.round(height)}px"></div>` : "";
     }
-    afterTranscriptPanelRender(state2, options = {}) {
+    afterTranscriptPanelRender(state, options = {}) {
       this.indexTranscriptTextTargets();
       this.bindTranscriptScroller();
       this.bindTranscriptResizeHandle();
       this.positionTranscriptPanel({ resizeEventMode: options.deferPlayerResize ? "none" : "immediate" });
-      this.restoreTranscriptVirtualScroll(state2);
+      this.restoreTranscriptVirtualScroll(state);
       this.scrollTranscriptToActive();
-      const hydrationIndex = this.transcriptHydrationPreferredIndex(state2);
+      const hydrationIndex = this.transcriptHydrationPreferredIndex(state);
       this.scheduleTranscriptHydration(hydrationIndex);
-      this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state2.warmupRows ?? state2.rows, hydrationIndex);
+      this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state.warmupRows ?? state.rows, hydrationIndex);
       this.syncPanelState();
     }
-    transcriptHydrationPreferredIndex(state2) {
-      return state2.virtual?.start ?? state2.currentRowIndex;
+    transcriptHydrationPreferredIndex(state) {
+      return state.virtual?.start ?? state.currentRowIndex;
     }
-    restoreTranscriptVirtualScroll(state2) {
-      if (!state2.virtual) return;
+    restoreTranscriptVirtualScroll(state) {
+      if (!state.virtual) return;
       const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
       if (!scroller) return;
-      const scrollTop = Math.max(0, state2.virtual.scrollTop);
+      const scrollTop = Math.max(0, state.virtual.scrollTop);
       if (Math.abs(scroller.scrollTop - scrollTop) > 1) {
         this.markTranscriptProgrammaticScroll();
         scroller.scrollTop = scrollTop;
@@ -22259,8 +14996,8 @@ ${spelling}`);
       this.transcriptVirtualRenderFrame = requestAnimationFrame(() => {
         this.transcriptVirtualRenderFrame = void 0;
         if (this.destroyed || this.transcriptResizeActive || !this.isTranscriptPanelOpen() || this.panelMode !== "lines") return;
-        const state2 = this.transcriptPanelRenderState();
-        if (!state2.virtual || state2.signature === this.lastTranscriptSignature) return;
+        const state = this.transcriptPanelRenderState();
+        if (!state.virtual || state.signature === this.lastTranscriptSignature) return;
         this.renderTranscriptPanel(true);
       });
     }
@@ -22716,16 +15453,16 @@ ${spelling}`);
     renderTrackPanel() {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing || this.panelMode !== "tracks") return;
       this.transcriptTextTargetsByParseKey.clear();
-      const state2 = subtitleTrackPanelState(this.tracks);
+      const state = subtitleTrackPanelState(this.tracks);
       const settings = this.options.getSettings();
-      const tracks = state2.tracks.map((track) => ({
+      const tracks = state.tracks.map((track) => ({
         ...track,
         timing: this.trackTimingControlState(track.id)
       }));
       const virtual = this.tracksVirtualWindow(tracks.length);
       this.renderedTracksVirtualWindow = virtual ? { start: virtual.start, end: virtual.end, rowCount: tracks.length } : void 0;
       setInnerHtml(this.transcriptPanel, renderSubtitleTrackPanel({
-        ...state2,
+        ...state,
         tracks,
         selectedTrackId: this.selectedTrackId,
         secondaryTrackId: this.secondaryTrackId,
@@ -25768,13 +18505,8 @@ ${spelling}`);
       return void 0;
     }
   }
-  installCanvasMirrorRecorder();
   registerYomuCompanion("video", {
     SubtitlePlayerController,
     YoutubeImmersionFilter
-  });
-  registerYomuCompanion("ocr", {
-    ImageOcrController,
-    normalizeOcrRenderedText
   });
 })();

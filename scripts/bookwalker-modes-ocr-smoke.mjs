@@ -14,7 +14,7 @@ import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib
 
 const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST, artifacts: ARTIFACTS } = createSmokePaths(import.meta.dirname);
 const ARTIFACT_DIR = path.join(ARTIFACTS, 'bookwalker-modes-ocr');
-const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video']
+const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video', 'yomu-ocr-manga']
     .map(name => path.join(DIST, 'greasyfork', `${name}.user.js`));
 const BRIDGE = '__yomuBookwalkerModesRequest';
 const IMG_URL = 'https://c.bookwalker.jp/scrambled/page-mode.png';

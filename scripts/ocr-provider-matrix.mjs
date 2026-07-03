@@ -12,7 +12,7 @@ import { createSmokePaths, addGmStorageBridgeInitScript, YOMU_SETTINGS_KEY, gmRe
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
 const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST } = createSmokePaths(import.meta.dirname);
-const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video']
+const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'yomu-video', 'yomu-ocr-manga']
     .map(name => path.join(DIST, 'greasyfork', `${name}.user.js`));
 const BW_FIXTURE = 'file://' + new URL('./fixtures/bookwalker-viewer.html', import.meta.url).pathname;
 const BRIDGE = '__yomuOcrMatrixRequest';
