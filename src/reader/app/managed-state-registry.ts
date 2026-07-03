@@ -45,6 +45,7 @@ let resetWritesSuppressed = false;
  * Register a Yomu-managed store at its definition site. Idempotent per
  * (kind, key/prefix) so a module re-imported across test files does not duplicate.
  */
+// fallow-ignore-next-line unused-export
 export function registerManagedState(entry: ManagedStateEntry): void {
     const identity = managedStateIdentity(entry);
     if (registeredKeys.has(identity)) return;

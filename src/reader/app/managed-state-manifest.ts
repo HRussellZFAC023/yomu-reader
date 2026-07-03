@@ -97,6 +97,7 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
 let manifestRegistered = false;
 
 /** Register the full manifest once. Safe to call repeatedly. */
+// fallow-ignore-next-line unused-export
 export function registerManagedStateManifest(): void {
     if (manifestRegistered) return;
     manifestRegistered = true;

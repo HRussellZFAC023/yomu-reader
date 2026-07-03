@@ -200,6 +200,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Refreshed the documentation to match the shipped product: the study page docs and screenshots now show the real seven-step flow with the cloze recall, hints, and pitch question; a new extension section in Getting Started covers installing the Chrome and Firefox packages with the toolbar popup pictured; and the footer no longer claims store packages are \"being prepared\".": "ドキュメントを出荷済みの製品に合わせて刷新しました。学習ページの説明とスクリーンショットは、穴埋めリコール、ヒント、ピッチ質問を含む実際の7ステップフローを示すようになりました。Getting StartedにはChrome/Firefoxパッケージのインストールを扱う拡張機能セクションがツールバーポップアップの画像付きで加わり、フッターはストアパッケージを「準備中」と表記しなくなりました。",
     "Factory reset now clears every store the reader writes, driven by a central managed-state registry: an invariant test seeds all 44 registered stores plus any future yomu-prefixed keys and fails if anything survives, and debounced writers (pitch progress, the OCR cache) are suppressed during reset so they cannot re-create keys they just cleared.": "ファクトリーリセットは、中央のマネージド状態レジストリに基づき、リーダーが書き込むすべてのストアを消去するようになりました。不変条件テストが登録済みの44ストアと将来のyomuプレフィックスキーをすべてシードし、何かが残れば失敗します。また、デバウンスされた書き込み（ピッチ進捗、OCRキャッシュ）はリセット中に抑制され、消去したばかりのキーを再作成できません。",
     "The kanji drawing step always fronts the word meaning with a blanked cloze (\"drink - one kanji blanked\"), so an ambiguous blank never leaves you guessing which word you are drawing, and a keyword that would just repeat that meaning no longer renders below it.": "漢字書き取りステップは、常に単語の意味と空欄付きクローズを前面に表示するようになりました。曖昧な空欄でどの単語を書くのか迷うことがなくなり、その意味を繰り返すだけのキーワードは下に表示されなくなりました。",
     "Progressive hints on the ambiguous study steps: kanji drawing and typed recall gain a Hint control that reveals one tier at a time (meaning, then a kana cue) without giving the answer away before the reveal, which notes how many hints you used.": "曖昧になりやすい学習ステップに段階的なヒントを追加しました。漢字書き取りと入力式リコールにHintボタンが付き、一度に一段階ずつ（意味、次にかなの手がかり）を明かします。答え表示の前に答えを見せることはなく、答え表示では使ったヒント数が示されます。",
@@ -1457,7 +1458,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Use hosted Yomitan audio first, or self-host files when you need them.': 'まずはホスト版Yomitan音声を使い、必要なら音声ファイルを自分で配信できます。',
     'Get support': 'サポートを受ける',
     'Report a bug, join Discord, donate, or reinstall the userscript.': 'バグ報告、Discord参加、寄付、ユーザースクリプト再インストールができます。',
-    'Free userscript now. Chrome, Firefox, and Safari packages are being prepared for store submission.': '現在は無料ユーザースクリプト版です。Chrome、Firefox、Safari版はストア提出準備中です。',
+    'Free and open source. Install as a userscript, or as a Chrome or Firefox extension.': '無料でオープンソース。ユーザースクリプトとして、またはChrome・Firefox拡張機能としてインストールできます。',
     'Released under the MIT license.': 'MITライセンスで公開されています。',
     'Learn Japanese by reading what you actually like': '好きなものを読んで日本語を学ぶ',
     'Tap a word anywhere, understand it in context, save it for review, and keep reading. よむ turns real Japanese pages, manga, subtitles, and study sites into one connected immersion system.': 'どこでも単語をタップし、文脈で理解し、復習用に保存して、そのまま読み続けられます。よむは実際の日本語ページ、漫画、字幕、学習サイトを1つのつながった没入システムにします。',

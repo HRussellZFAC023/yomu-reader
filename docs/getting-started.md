@@ -62,7 +62,7 @@ To update later, open the same link again and let Tampermonkey replace the old v
    ```text
    // ==UserScript==
    // @name         よむ
-   // @version      1.4.79
+   // @version      ...
    // @match        *://*/*
    // ==/UserScript==
    (function () { "use strict"; ...
@@ -79,6 +79,35 @@ To update later, open the same link again and let Tampermonkey replace the old v
 </div>
 
 **You'll know it worked** when a small floating よむ button appears in the corner of Japanese pages — and the first time, よむ greets you with a welcome screen.
+
+## Prefer a browser extension? (Chrome and Firefox)
+
+On a computer, you can skip the userscript manager and install よむ as a normal browser extension instead. It's the same よむ, packaged for Chrome and Firefox, and it also turns your new-tab page into the [study page](/newtab/index.html). The extension isn't in the web stores yet, so you load it yourself from a release download — a few extra clicks, but no manager needed.
+
+Grab the latest packages from the [GitHub releases page](https://github.com/HRussellZFAC023/yomu-reader/releases/latest).
+
+<figure class="yomu-feature-shot">
+  <img :src="'/screenshots/extension-popup.png'" alt="The よむ browser-extension menu with buttons to open Study, open the video player, open settings on the current page, and open the documentation." style="max-width:320px">
+  <figcaption>Clicking the よむ toolbar icon opens this quick menu.</figcaption>
+</figure>
+
+### Chrome or Edge
+
+1. Download `yomureader.com-chrome.zip` from the latest release and unzip it.
+2. Open `chrome://extensions` (or `edge://extensions`) and turn on **Developer mode** in the top corner.
+3. Click **Load unpacked** and choose the folder you unzipped (the one with `manifest.json` inside).
+4. Open a Japanese page — the floating よむ button appears, and clicking the よむ toolbar icon opens a quick menu.
+
+### Firefox
+
+1. Download `yomureader.com-firefox.xpi` from the latest release.
+2. Open `about:debugging#/runtime/this-firefox`.
+3. Click **Load Temporary Add-on** and pick the `.xpi` file.
+4. Open a Japanese page to start reading.
+
+<div class="yomu-callout">
+  <strong>Which should I pick?</strong> The userscript is the easiest path and updates itself from one link, so it's the default recommendation. Choose the extension if you'd rather not run a userscript manager, or you want よむ on your new-tab page. On iPhone and iPad, the userscript is the only option — there's no iOS extension.
+</div>
 
 ## Step 3: Your first lookup
 

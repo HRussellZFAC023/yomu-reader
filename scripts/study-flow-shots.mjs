@@ -25,7 +25,16 @@ try {
         for (const file of files) {
             await page.goto(pathToFileURL(path.join(HTML_DIR, file)).href, { waitUntil: 'networkidle' });
             await page.waitForTimeout(150);
-            await page.screenshot({ path: path.join(dir, file.replace('.html', '.png')), fullPage: false });
+            const out = path.join(dir, file.replace('.html', '.png'));
+            // Screenshot the study card itself so the crop hugs the content
+            // (the stepper + prompt + per-step answer UI) instead of leaving a
+            // tall band of empty background below it.
+            const card = page.locator('.jpdb-reader-newtab-study').first();
+            if (await card.count()) {
+                await card.screenshot({ path: out });
+            } else {
+                await page.screenshot({ path: out, fullPage: false });
+            }
         }
         await context.close();
     }

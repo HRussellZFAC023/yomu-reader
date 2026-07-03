@@ -31,24 +31,28 @@ The page tries your sources in order, so it stays useful no matter how much you'
 
 A fresh install starts by sending you to **Settings → Dictionaries** so JMdict or another Yomitan ZIP can be downloaded into local storage — after that the page works even with no API key or Anki account.
 
-The same source pool feeds Word, Recall, Listen, and Kanji study. Listen builds its local pitch SRS from review words that have classifiable pitch accent, then falls back to local/common words when no provider is connected.
+Whatever's connected, the same pool of words feeds every step of the review below.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-newtab.png'" alt="The よむ new-tab study page loaded with a real study card.">
-  <figcaption>New-tab study using the current app defaults.</figcaption>
+  <img :src="'/screenshots/real-newtab.png'" alt="The よむ study page on the Recall step, with an example sentence and the target word blanked out for you to type back in.">
+  <figcaption>One card, one short run of steps — here, filling the blank in a real sentence.</figcaption>
 </figure>
 
-## Recall before you grade
+## One card, a few quick steps
 
-Switch to **Recall** mode when you want a Bunpro-style production pass. The front shows the meaning; you type the Japanese word, or write it into the input with Apple Pencil/Scribble on iPad, then よむ reveals the answer and keeps the normal review buttons underneath.
+Every card walks through a short sequence and you grade it once at the end. Depending on the word, you might:
 
-Exact spellings count as correct, readings are accepted when they identify the same card, and wrong answers still reveal the solution so you can choose the right SRS grade yourself. JPDB, Jiten, and Anki-backed cards all use their existing review adapters after reveal.
+- **Draw the kanji** from memory on a tracing pad before the answer shows.
+- **Read the word** inside a real example sentence.
+- **Fill in the blank** — the sentence reappears with the word removed and you type the Japanese back. Exact spellings count, and a matching reading is accepted too. If nothing comes to mind, **Hint** gives you a nudge (a first kana, the length, the meaning) one step at a time.
+- **Pick the pitch** — よむ plays the word and you choose its shape from labelled contour buttons.
+- **Say it aloud** — record yourself and よむ scores your pitch against the model, on your device.
 
-## Listen for pitch accent
+Steps that don't fit a card are skipped: a kana-only word has nothing to draw, and a word without pitch data skips the listen and speak steps. Grades flow through your usual JPDB, Jiten, or Anki review path once you reach the final step.
 
-Switch to **Listen** mode for audio-first pitch practice inspired by Kotu-style downstep drills. Perceive plays a word and asks which downstep position you heard, Recall fronts the word and meaning before you name the contour, and Shadow lets you record yourself locally for comparison.
+## Pitch practice built in
 
-The Listen deck is local SRS. It grows from the Anki, Jiten, JPDB, or local/common words already feeding study, reviews due pitch items first, and uses minimal-pair contrast replay when よむ can find another word with the same reading and a different accent.
+The listen and speak steps come from a lightweight pitch schedule that grows from the words already feeding your study — Anki, Jiten, JPDB, or local dictionary words with a clear pitch accent. It reviews the pitch shapes that are due first, and plays a same-reading, different-accent word back to back when it can find one, so the contrast is easy to hear.
 
 ## Best daily-review surface on mobile
 
@@ -66,7 +70,7 @@ When the hosted page has been visited once, the PWA cache keeps the Study shell 
 
 ## Review settings
 
-Open **Settings → Study** to choose a review source and switch the rating scale between the normal five buttons and a thumb-friendly **Fail / Pass** mode. The same source setting feeds Word, Recall, Listen, and kanji study. On phones, the two-button row uses the full available width so the actions stay centered and easy to hit.
+Open **Settings → Study** to choose a review source and switch the rating scale between the normal five buttons and a thumb-friendly **Fail / Pass** mode. On phones, the two-button row uses the full available width so the actions stay centered and easy to hit.
 
 ## Questions
 

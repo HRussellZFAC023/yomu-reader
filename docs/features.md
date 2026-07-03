@@ -129,19 +129,31 @@ If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary 
 
 ## New Tab Study Page
 
-よむ includes an optional [study page](/newtab/index.html). Use the full address after opening that local or hosted page as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries Anki study words when AnkiConnect is reachable, then Jiten, then JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
+Make the [study page](/newtab/index.html) your browser home or new-tab page and a Japanese review card greets you every time you open a tab. It pulls words from whatever you've connected — Anki when AnkiConnect is reachable, then Jiten, then JPDB, then the local dictionary words already in your browser — so it works even with no account.
 
-Study supports a normal Word mode, a Recall mode that shows the meaning first and asks you to type or write the Japanese answer before grading, a Listen mode for pitch-accent perception, recall, and shadowing, and kanji study. Recall grades go through the same JPDB, Jiten, or Anki review path as the normal study card after the answer is revealed; Listen keeps a local pitch SRS that grows from the review words and local/common words already feeding the page.
+Each card walks through a short set of steps, and you only grade once at the end:
+
+- **Draw the kanji** from memory on a small tracing pad, one character at a time.
+- **Read the word** in a real example sentence.
+- **Fill the blank** — the sentence appears with the word removed, and you type the Japanese back in. Stuck? Tap **Hint** for a nudge (a starting kana, the length, the meaning) without giving the answer away.
+- **Hear the pitch** — よむ plays the word and you pick its pitch shape from labelled contour buttons.
+- **Say it aloud** — record yourself and よむ scores your pitch against the model, right on your device.
+- **Check and grade** — the full answer and details appear, then you rate how it went.
+
+Steps only show up when they fit the card, so a kana-only word skips the kanji drawing and a word with no pitch data skips the listen and speak steps. The pitch practice keeps its own lightweight review schedule that grows from the words already feeding the page.
 
 On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests on the same computer. For phone and tablet setup, follow the Tailscale steps in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) instead of pointing mobile よむ at `localhost`.
 
 On iPhone, iPad, and Android, the study page works well for quick daily review. Full Anki status on mobile still needs desktop AnkiConnect reachable over LAN or Tailscale; the [setup guide](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) covers the steps.
 
-The hosted new-tab page carries a build id and checks for a fresh `version.json` on load. If a mobile shortcut keeps showing an older settings screen after a release, open the full new-tab URL in the browser, refresh, then close and reopen the shortcut. The troubleshooting steps in [Getting Started](/getting-started#if-something-does-not-work) cover the heavier reset path.
+<figure class="yomu-feature-shot">
+  <img :src="'/screenshots/real-newtab.png'" alt="The よむ study page on the Recall step, with an example sentence and the target word blanked out for you to type back in.">
+  <figcaption>Every card is one short run of steps — here, filling the blank in a real sentence.</figcaption>
+</figure>
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-newtab.png'" alt="The よむ study page loaded with a real study card.">
-  <figcaption>New-tab study using the current app defaults.</figcaption>
+  <img :src="'/screenshots/study-pitch-select.png'" alt="The よむ study page on the Listen step, asking which pitch shape you heard with labelled contour buttons.">
+  <figcaption>Pitch practice: hear the word, then pick its shape.</figcaption>
 </figure>
 
 ## Help And Support In Settings

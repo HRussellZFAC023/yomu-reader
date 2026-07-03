@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.23] - 2026-07-03
+
+### Changed
+
+- Refreshed the documentation to match the shipped product: the study page docs and screenshots now show the real seven-step flow with the cloze recall, hints, and pitch question; a new extension section in Getting Started covers installing the Chrome and Firefox packages with the toolbar popup pictured; and the footer no longer claims store packages are "being prepared".
+
 ## [1.6.22] - 2026-07-03
 
 ### Fixed

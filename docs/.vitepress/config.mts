@@ -242,7 +242,6 @@ export default defineConfig({
                 items: [
                     { text: 'All tools', link: '/tools/' },
                     { text: 'OCR & manga', link: '/tools/japanese-ocr' },
-                    { text: 'Yomu Gaming', link: '/tools/yomu-gaming' },
                     { text: 'Subtitles & video', link: '/tools/japanese-subtitle-reader' },
                     { text: 'Video Player', link: videoPlayerLink, target: '_self' },
                     { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
@@ -280,7 +279,7 @@ export default defineConfig({
             { icon: 'discord', link: 'https://discord.gg/jD6NPURewD' },
         ],
         footer: {
-            message: 'Free userscript now. Chrome, Firefox, and Safari packages are being prepared for store submission.',
+            message: 'Free and open source. Install as a userscript, or as a Chrome or Firefox extension.',
             copyright: 'Released under the MIT license.',
         },
     },
