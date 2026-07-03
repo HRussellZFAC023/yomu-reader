@@ -111,10 +111,12 @@ Grab the latest packages from the [GitHub releases page](https://github.com/HRus
 
 ## Step 3: Your first lookup
 
-The first time よむ runs, it shows a short **welcome screen** with two buttons:
+The first time よむ runs, it shows a **welcome panel**. The top half is quick setup — language, theme and accent colour, the immersion toggles (page scanning, image OCR, video subtitles), and the hover/scan shortcut fields — all pre-set to sensible defaults you can scroll straight past. Under the setup sit the two choices:
 
-- **Use without API key** — start reading right now, no account needed. **Pick this one to begin.**
+- **Use without API key** — the highlighted first button: start reading right now, no account needed. **Pick this one to begin.**
 - **Add API key** — connect Jiten or JPDB for word tracking and mining. Optional, and you can do it later ([Add an API source](#add-an-api-source-optional)).
+
+A feature grid below the buttons previews what よむ can do; you don't need to configure any of it now.
 
 The welcome screen also offers **Offline setup** (checked by default): よむ downloads the Jitendex dictionary and Kanjium pitch accents in the background, so parsing, lookup, furigana, and pitch colors all run locally in your browser — fast, private, and available offline. Leave it on unless you prefer to import your own dictionaries later in Settings → Sources.
 
@@ -148,11 +150,11 @@ You can also study from imported dictionaries instead — see Settings → Dicti
 Open よむ settings with the floating よむ button to switch these on when you want them. The **Open settings** shortcut is configurable in Settings → Shortcuts. Each is covered in [Features](/features).
 
 - **Dictionaries** — import any Yomitan ZIP dictionary, or download JMdict for offline definitions. Settings → Dictionaries.
-- **Images (OCR)** — look up Japanese text inside manga panels and screenshots. Settings → Images.
+- **Images (OCR)** — look up Japanese text inside manga panels and screenshots. Settings → Images. Reading manga on BookWalker or in mokuro volumes? Follow the [manga guide](/guides/read-manga-in-japanese).
 - **PC games** — download the first-party [Yomu Gaming release file](https://github.com/HRussellZFAC023/yomu-reader/releases/latest), finish the first-run setup, and set your capture shortcut. Yomu Gaming uses Yomu's default Google Lens-style OCR first; advanced local OCR is optional for offline capture.
 - **Video subtitles** — parse Japanese subtitle lines for lookup, with a transcript panel. For local files, use the [video player](/video-player/index.html).
 - **PDFs** — open the [PDF reader](/pdf-reader/index.html) when the Japanese is in a textbook, scan, or article file.
-- **Anki** — turn lookups into flashcards. Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full setup; phones and tablets can reach a desktop Anki over Wi-Fi or Tailscale, or hand off new notes to AnkiMobile/AnkiDroid.
+- **Anki** — turn lookups into flashcards with one tap: cards carry the word, reading, meaning, the sentence you found it in, and pitch and audio when available (see [mining guide](/guides/mine-sentences-to-anki)). Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full setup; phones and tablets can reach a desktop Anki over Wi-Fi or Tailscale, or hand off new notes to AnkiMobile/AnkiDroid.
 - **Audio** — Yomu hosted audio is on by default. Add [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/) or a local server only if you want another source.
 - **Study page** — open the [new-tab study app](/newtab/index.html) for daily review.
 

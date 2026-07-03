@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.36] - 2026-07-03
+
+### Changed
+
+- The getting-started guide now describes the real first-run welcome panel (quick setup plus the two choice buttons), points manga readers at the BookWalker/mokuro guide, and spells out what a mined Anki card carries; the features page documents that YouTube's Subscribe and Join buttons are intentionally left un-annotated to avoid re-render flicker.
+- Hardening: the two remaining unguarded document.elementFromPoint call sites use optional calls, matching their already-guarded siblings.
+
 ## [1.6.35] - 2026-07-03
 
 ### Changed

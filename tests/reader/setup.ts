@@ -8,6 +8,10 @@ if (typeof document !== 'undefined' && !document.elementFromPoint) {
     document.elementFromPoint = () => null;
 }
 
+// Do NOT blanket-stub matchMedia here: the codebase feature-detects its absence
+// (e.g. review-controls advertises keyboard hints when matchMedia is missing),
+// so a global always-false stub silently flips those keyboard-first paths.
+
 // A BroadcastChannel leaked past its test file can receive the next file's
 // postMessage from a different jsdom realm inside the same reused fork; Node's
 // dispatch then rejects the cross-realm MessageEvent (ERR_INVALID_ARG_TYPE) as

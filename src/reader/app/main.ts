@@ -369,7 +369,7 @@ function pointOverReaderRoot(event: Event): boolean {
     const x = touch ? touch.clientX : (event as MouseEvent).clientX;
     const y = touch ? touch.clientY : (event as MouseEvent).clientY;
     if (typeof x !== 'number' || typeof y !== 'number') return false;
-    return Boolean(document.elementFromPoint(x, y)?.closest?.(READER_ROOT_SELECTOR));
+    return Boolean(document.elementFromPoint?.(x, y)?.closest?.(READER_ROOT_SELECTOR));
 }
 
 // A gesture should be kept from the host viewer's page-turn handler ONLY when it is

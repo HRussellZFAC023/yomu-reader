@@ -10637,7 +10637,7 @@ ${spelling}`);
     const target = event.target;
     if (target?.closest?.("[data-jpdb-reader-root]")) return true;
     if (typeof event.clientX !== "number" || typeof event.clientY !== "number") return false;
-    return Boolean(document.elementFromPoint(event.clientX, event.clientY)?.closest?.("[data-jpdb-reader-root]"));
+    return Boolean(document.elementFromPoint?.(event.clientX, event.clientY)?.closest?.("[data-jpdb-reader-root]"));
   }
   function shouldHandleOcrPointerEvent(event) {
     if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;

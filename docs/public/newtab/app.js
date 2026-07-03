@@ -37909,7 +37909,7 @@ ${spelling}`);
     const target = event.target;
     if (target?.closest?.("[data-jpdb-reader-root]")) return true;
     if (typeof event.clientX !== "number" || typeof event.clientY !== "number") return false;
-    return Boolean(document.elementFromPoint(event.clientX, event.clientY)?.closest?.("[data-jpdb-reader-root]"));
+    return Boolean(document.elementFromPoint?.(event.clientX, event.clientY)?.closest?.("[data-jpdb-reader-root]"));
   }
   function shouldHandleOcrPointerEvent(event) {
     if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;
@@ -39311,7 +39311,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.35".trim() ? "1.6.35".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.36".trim() ? "1.6.36".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

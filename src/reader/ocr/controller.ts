@@ -3906,7 +3906,7 @@ function pointerEventOverOcrOverlay(event: Event & Pick<PointerEvent, 'clientX' 
     const target = event.target as Element | null;
     if (target?.closest?.('[data-jpdb-reader-root]')) return true;
     if (typeof event.clientX !== 'number' || typeof event.clientY !== 'number') return false;
-    return Boolean(document.elementFromPoint(event.clientX, event.clientY)?.closest?.('[data-jpdb-reader-root]'));
+    return Boolean(document.elementFromPoint?.(event.clientX, event.clientY)?.closest?.('[data-jpdb-reader-root]'));
 }
 
 function shouldHandleOcrPointerEvent(event: Event & Pick<PointerEvent, 'button' | 'pointerType'>): boolean {
