@@ -3196,9 +3196,13 @@ export class ReaderApp {
         if (!isYouTubeRuntimeHost() || hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings)) return options;
         const pageBudget = Math.max(0, Math.floor(options.publicLookupPageBudget ?? PITCH_ENRICHMENT_LIMIT));
         const keylessVisibleLimit = pageBudget || PITCH_ENRICHMENT_LIMIT;
+        // The jpdb.io pitch lane stays ON here (within the YouTube batch/page/
+        // deferred budgets): keyless feed words outside the local pitch dict
+        // otherwise stay grey 'unknown' forever — jiten backfills readings but
+        // pitch for many words exists only on jpdb.io. Budgets, pacing, and the
+        // deferred per-URL cap are the DOS guard; do not widen them here.
         return {
             ...options,
-            jpdbPublicLookup: false,
             publicLookupLimit: Math.max(Math.floor(options.publicLookupLimit ?? 0), keylessVisibleLimit),
             publicLookupTotalLimit: Math.max(Math.floor(options.publicLookupTotalLimit ?? 0), keylessVisibleLimit),
         };
@@ -7611,6 +7615,15 @@ export class ReaderApp {
         if (cached) return cached;
         const promise = this.dictionaries.lookupTermMeta(card.spelling, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences)
             .then(metaEntries => localPitchPatternFromMeta(card.reading, metaEntries))
+            .then(pattern => {
+                // Pitch banks key rows by kanji expression (これ等) while the
+                // card may carry the kana form (これら) — retry the exact-match
+                // query on the reading to recover kana-keyed rows.
+                const reading = card.reading.trim();
+                if (pattern || !reading || reading === card.spelling.trim()) return pattern;
+                return this.dictionaries.lookupTermMeta(reading, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences)
+                    .then(metaEntries => localPitchPatternFromMeta(card.reading, metaEntries));
+            })
             .catch(error => {
                 log.warn('Local pitch enrichment failed', { term: card.spelling }, error);
                 return '';

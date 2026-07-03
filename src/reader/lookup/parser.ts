@@ -511,6 +511,14 @@ export class ReaderParser {
         if (cached) return cached;
         const promise = lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).then(metaEntries => {
             return localPitchPatternFromMeta(card.reading, metaEntries);
+        }).then(pattern => {
+            // Pitch banks key rows by kanji expression (これ等) while the parsed
+            // card may carry the kana form (これら) — an exact-match retry on the
+            // reading recovers kana-keyed rows the spelling query misses.
+            const reading = card.reading.trim();
+            if (pattern || !reading || reading === card.spelling.trim()) return pattern;
+            return lookupTermMeta.call(this.dependencies.dictionaries, reading, 12, settings.dictionaryPreferences)
+                .then(metaEntries => localPitchPatternFromMeta(card.reading, metaEntries));
         }).catch(error => {
             log.warn('Local pitch parse failed', { term: card.spelling }, error);
             return '';

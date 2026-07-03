@@ -2250,7 +2250,10 @@ function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false
 function rubyFriendlyMirrorLineHeight(style: CSSStyleDeclaration): string {
     const fontSize = cssPixels(style.fontSize) || 16;
     const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
-    return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.62))}px`;
+    // 1.62 fit the ruby glyphs but parked the reading strip against the
+    // previous line's baseline on tight hosts (YouTube's ~1.3 titles);
+    // 1.78 leaves an actual gap between lines of annotated text.
+    return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
 }
 
 function observeTextMirrorHost(host: HTMLElement, sourceText: string): void {

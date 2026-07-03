@@ -683,6 +683,7 @@ const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
 const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2000;
 const DOM_CAPTION_STABLE_DELAY_MS = 180;
 const DOM_CAPTION_MISSING_GRACE_MS = 1200;
+const PLAYBACK_PAUSE_REASSERT_WINDOW_MS = 800;
 const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = 'youtube-dom-caption-fallback';
 const SUBTITLE_FILE_ACCEPT = [
     '.srt',
@@ -698,6 +699,11 @@ const SUBTITLE_FILE_ACCEPT = [
     'application/srt',
 ].join(',');
 const log = Logger.scope('Subtitles');
+interface YouTubePlayerApi {
+    seekTo?: (seconds: number, allowSeekAhead: boolean) => void;
+    pauseVideo?: () => void;
+    playVideo?: () => void;
+}
 const TRACK_LOAD_OPTIONS: Omit<SubtitleTrackLoadOptions<SubtitleTrackOption>, 'tracks' | 'transcriptEligible'> = {
     requestText: defaultRequestSubtitleText,
     onYouTubeRequestError: (track, url, error) => log.debug('YouTube subtitle request failed', {
@@ -1014,6 +1020,7 @@ export class SubtitlePlayerController {
     private transcriptPanel?: HTMLElement;
     private abortController?: AbortController;
     private video?: HTMLVideoElement;
+    private playbackPauseReassert?: { off: () => void };
     private cues: SubtitleCue[] = [];
     private secondaryCues: SubtitleCue[] = [];
     private tracks: SubtitleTrackOption[] = [];
@@ -1258,7 +1265,11 @@ export class SubtitlePlayerController {
             childList: true,
             subtree: true,
         });
-        document.addEventListener('keydown', event => this.handleKeydown(event), this.eventOptions());
+        // Capture phase: YouTube's own keydown handlers stopImmediatePropagation
+        // on keys they know, which starved the subtitle seek shortcuts of the
+        // event entirely. handleKeydown only preventDefaults on a configured
+        // shortcut match, so unmatched keys pass through untouched.
+        document.addEventListener('keydown', event => this.handleKeydown(event), this.eventOptions({ capture: true }));
         document.addEventListener('pointerdown', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
         document.addEventListener('visibilitychange', () => this.restartTickAfterVisibilityChange(), this.eventOptions());
         document.addEventListener('pointermove', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
@@ -1315,6 +1326,7 @@ export class SubtitlePlayerController {
     destroy(): void {
         this.destroyed = true;
         this.resetShadowPracticeState();
+        this.clearPlaybackPauseReassert();
         this.abortController?.abort();
         this.abortController = undefined;
         this.observer?.disconnect();
@@ -1467,6 +1479,9 @@ export class SubtitlePlayerController {
         this.bindSubtitleDragHandle();
         this.restoreSubtitleDragOffset();
         this.refresh();
+        // First paint lands in the right place instead of being corrected a
+        // frame later by the rAF-deferred alignment refresh() scheduled.
+        this.alignToVideo();
         // Touch devices get no pointermove, so without this the rail stays
         // visible forever; tapping the video re-reveals it via pointerdown.
         this.scheduleControlsIdle();
@@ -1556,6 +1571,10 @@ export class SubtitlePlayerController {
         this.removeStaleNativeTracks(candidate);
         this.attachTextTracks(candidate);
         this.observeVideoLayout(candidate);
+        // Align synchronously on bind: the video box is already measurable, and
+        // the rAF-deferred path otherwise paints the control rail one frame at
+        // the wrong position before it "sorts itself out".
+        this.alignToVideo();
         log.info('Subtitle video detected', videoSummary(candidate));
     }
 
@@ -4021,9 +4040,13 @@ export class SubtitlePlayerController {
         if (previousSubtitle || nextSubtitle) {
             if (!this.canUseSubtitleNavigationShortcut()) return;
             event.preventDefault();
+            // Listener runs in capture phase; stop the site's own handler from
+            // acting on the same key a second time.
+            event.stopPropagation();
             this.seekSubtitle(previousSubtitle ? -1 : 1);
         } else if (matchesShortcut(event, settings.shortcuts.copySubtitle) && this.subtitleCopyText(undefined)) {
             event.preventDefault();
+            event.stopPropagation();
             void this.copySubtitle();
         }
     }
@@ -4085,9 +4108,60 @@ export class SubtitlePlayerController {
     private toggleVideoPlayback(): void {
         const video = this.video;
         if (!video) return;
-        if (video.paused) void video.play().catch(() => undefined);
-        else video.pause();
+        const player = this.youTubePlayerApi(video);
+        if (video.paused) {
+            this.clearPlaybackPauseReassert();
+            if (player?.playVideo) player.playVideo();
+            else void video.play().catch(() => undefined);
+        } else {
+            if (player?.pauseVideo) player.pauseVideo();
+            else video.pause();
+            this.armPlaybackPauseReassert(video);
+        }
         this.syncControls();
+    }
+
+    // YouTube's #movie_player exposes its player API on the element in the
+    // page world. Routing pause/play/seek through it keeps YT's own state
+    // machine in agreement — a raw currentTime write triggers a re-buffer YT
+    // can bounce, and a raw pause() gets reactively re-played. Feature-detected
+    // so embeds, mobile hosts, isolated-world extension builds, and every
+    // non-YouTube site keep the raw HTMLMediaElement path.
+    private youTubePlayerApi(video: HTMLVideoElement): YouTubePlayerApi | null {
+        if (!isYouTubePage()) return null;
+        const player = document.getElementById('movie_player');
+        if (!player?.contains(video)) return null;
+        const api = player as unknown as YouTubePlayerApi;
+        return typeof api.seekTo === 'function' ? api : null;
+    }
+
+    // A single reactive play() from YouTube's controller or a competing
+    // extension can silently undo the pause pill (the "pressing pause didn't
+    // happen" symptom). Re-pause for a short window, then stand down so a
+    // deliberate resume is never fought — mirrors the mining-pause re-assert.
+    private armPlaybackPauseReassert(video: HTMLVideoElement): void {
+        this.clearPlaybackPauseReassert();
+        const armedAt = Date.now();
+        const reassert = () => {
+            if (this.video !== video || Date.now() - armedAt > PLAYBACK_PAUSE_REASSERT_WINDOW_MS) {
+                this.clearPlaybackPauseReassert();
+                return;
+            }
+            if (!video.paused) video.pause();
+        };
+        video.addEventListener('play', reassert);
+        video.addEventListener('playing', reassert);
+        this.playbackPauseReassert = {
+            off: () => {
+                video.removeEventListener('play', reassert);
+                video.removeEventListener('playing', reassert);
+            },
+        };
+    }
+
+    private clearPlaybackPauseReassert(): void {
+        this.playbackPauseReassert?.off();
+        this.playbackPauseReassert = undefined;
     }
 
     private togglePlayerFullscreen(): void {
@@ -4145,6 +4219,13 @@ export class SubtitlePlayerController {
     private seekVideoTo(time: number): void {
         const video = this.video;
         if (!video) return;
+        const player = this.youTubePlayerApi(video);
+        if (player?.seekTo) {
+            // The player API honours the seek instantly and preserves the play
+            // state itself — no resume dance, no post-seek 160ms wait.
+            player.seekTo(Math.max(0, time), true);
+            return;
+        }
         const shouldResume = !video.paused && !video.ended;
         video.currentTime = time;
         if (shouldResume) this.resumeVideoAfterSeek(video);

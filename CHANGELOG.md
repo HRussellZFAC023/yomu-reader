@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.28] - 2026-07-03
+
+### Fixed
+
+- YouTube's feed filter chips and engagement panels (description, transcript, the ask-AI panel) keep their pitch underlines visible at rest instead of hiding them until hover, and the ask-AI panel's centered heading now gets furigana like the panel body.
+- Subtitle words whose pitch has not resolved show the same neutral grey underline as the reader instead of rendering bare next to coloured neighbours.
+- Local pitch lookups now match katakana surfaces against hiragana dictionary readings, retry kana-keyed rows by reading, and accept a bank's single stored reading when the parsed one disagrees — resolving pitch for words that silently dropped before.
+- Keyless YouTube feed words outside the local pitch dictionary get pitch from the paced public lane again within the existing page budgets, so titles no longer render a wall of uniform grey.
+- Furigana lines no longer crowd the previous line on tight layouts like YouTube titles.
+- The video pause pill sticks: a competing play() is re-paused for a short window, pause/play/seek route through YouTube's own player API when available, subtitle seek shortcuts run in capture phase so the site cannot swallow them, and the control rail's first paint lands in the right place instead of correcting a frame later.
+- The performance profiler measures the local dictionary path end to end instead of reporting the local popover metric as always-null.
+
 ## [1.6.27] - 2026-07-03
 
 ### Fixed

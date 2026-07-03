@@ -31,4 +31,22 @@ describe('localPitchPatternsFromMeta', () => {
         expect(localPitchPatternFromMeta('はし', [pitchMeta({ reading: 'はし', position: 0 })])).toBeTruthy();
         expect(localPitchPatternFromMeta('はし', [])).toBe('');
     });
+
+    it('matches a katakana card reading against the hiragana stored reading', () => {
+        expect(localPitchPatternFromMeta('ハシ', [pitchMeta({ reading: 'はし', position: 1 })])).toBeTruthy();
+    });
+
+    it('falls back to a mismatched stored reading only when it is unambiguous', () => {
+        // One distinct stored reading: the bank has no homograph to mis-colour,
+        // so a parser-derived reading that disagrees still resolves.
+        expect(localPitchPatternFromMeta('ちがうよ', [
+            pitchMeta({ reading: 'はし', position: 1 }),
+            pitchMeta({ reading: 'はし', position: 2 }),
+        ])).toBeTruthy();
+        // Two distinct stored readings: ambiguous — keep dropping the pitch.
+        expect(localPitchPatternFromMeta('こい', [
+            pitchMeta({ reading: 'はし', position: 1 }),
+            pitchMeta({ reading: 'あめ', position: 0 }),
+        ])).toBe('');
+    });
 });

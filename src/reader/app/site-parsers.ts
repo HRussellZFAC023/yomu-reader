@@ -896,6 +896,31 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             && url.pathname === '/watch',
     },
     {
+        // Engagement panels (description, transcript, the "ask about this
+        // video" AI panel) are reading surfaces, but their panel titles are
+        // short centered headings, which the fragment scanner rejects as
+        // display chrome by default — この動画について質問する stayed bare while the
+        // panel body annotated. Scoped here so centered headings elsewhere on
+        // YouTube stay skipped.
+        id: 'youtube-engagement-panel-parser',
+        roots: [
+            'ytd-engagement-panel-section-list-renderer',
+            'ytm-engagement-panel-section-list-renderer',
+        ],
+        exclude: YOUTUBE_TEXT_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
+        includeUiChrome: true,
+        singlePassScan: true,
+        nonDestructive: true,
+        heading: true,
+        allowShortCenteredHeadings: true,
+        includePassiveInteractionRoots: true,
+        matches: url => url.hostname === 'youtube.com'
+            || url.hostname.endsWith('.youtube.com')
+            || url.hostname === 'youtu.be',
+    },
+    {
         id: 'youtube-chrome-parser',
         roots: YOUTUBE_CHROME_ROOTS,
         exclude: YOUTUBE_TEXT_EXCLUDE,

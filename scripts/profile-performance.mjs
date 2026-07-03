@@ -16,6 +16,13 @@ const LIVE = process.env.YOMU_PROFILE_LIVE === '1';
 const API_KEY = process.env.YOMU_PROFILE_API_KEY || process.env.YOMU_TEST_API_KEY || '';
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const USERSCRIPT_PATH = resolve(SCRIPT_DIR, '..', 'dist', 'yomu.user.js');
+// The local dictionary store (YomitanDictionaryStore) ships in the
+// settings-surface companion, not core — createLocalDictionaryStore() returns an
+// inert store whose lookup() resolves [] when the companion is absent. Injecting
+// only yomu.user.js therefore leaves every local-dictionary lookup empty no matter
+// how the IndexedDB is seeded, so the local-enrichment metrics stay null. Load the
+// companion first so the real store reads the seeded terms.
+const SETTINGS_COMPANION_PATH = resolve(SCRIPT_DIR, '..', 'dist', 'greasyfork', 'yomu-settings-surface.user.js');
 // The seed builds the local dictionary IndexedDB the userscript will later open,
 // so it MUST match the real schema in src/reader/dictionaries/yomitan/index.ts.
 // Read the live DB_NAME/DB_VERSION from that source at startup instead of
@@ -385,14 +392,19 @@ await page.waitForSelector('.jpdb-reader-popover', { timeout: 10000 });
 const popoverAt = await page.evaluate(() => performance.now());
 const dictionaryShellDebug = await popoverDebugSnapshot(page);
 const dictionaryDetails = await waitForDictionaryDetails(page, clickAt, popoverAt);
-const localDictionaryLoaded = await page.waitForFunction(() => /profile local (?:today|to read|read politely)/.test(document.querySelector('.jpdb-reader-popover')?.textContent || ''), null, { timeout: 3000 })
+// Match the seeded local gloss the way the learner-glossary summarizer renders
+// it (verbatim, function words preserved). The clicked word 今日 shows
+// "profile local for today"; the other seeded terms are reachable via the
+// nested/expanded surfaces.
+const localDictionaryLoaded = await page.waitForFunction(() => /profile local (?:for today|to read|as read politely|for japanese)/.test(document.querySelector('.jpdb-reader-popover')?.textContent || ''), null, { timeout: 3000 })
     .then(() => true)
     .catch(() => false);
 const localDictionaryAt = localDictionaryLoaded ? await page.evaluate(() => performance.now()) : null;
 const localDictionaryDebug = localDictionaryLoaded ? null : await page.evaluate(() => ({
     text: document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 500) ?? '',
-    dictionaries: [...document.querySelectorAll('.jpdb-reader-local-glossary')].map(node => ({
-        dictionary: node.getAttribute('data-dictionary'),
+    localSectionCount: document.querySelectorAll('.jpdb-reader-popover [data-source="local-dictionary"]').length,
+    dictionaries: [...document.querySelectorAll('.jpdb-reader-popover [data-source="local-dictionary"] .jpdb-reader-local-glossary')].map(node => ({
+        dictionary: node.closest('[data-source="local-dictionary"]')?.getAttribute('data-dictionary'),
         text: node.textContent?.replace(/\s+/g, ' ').trim().slice(0, 160) ?? '',
     })),
 }));
@@ -714,7 +726,11 @@ async function prepareProfilePage(page) {
 
 async function installReaderRuntimeIfNeeded(page) {
     const initialized = await page.evaluate(() => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')));
-    if (!initialized) await page.addScriptTag({ content: await readFile(USERSCRIPT_PATH, 'utf8') });
+    if (initialized) return;
+    // Register the local-dictionary store companion before core boots so
+    // createLocalDictionaryStore() picks up the real YomitanDictionaryStore.
+    await page.addScriptTag({ content: await readFile(SETTINGS_COMPANION_PATH, 'utf8') });
+    await page.addScriptTag({ content: await readFile(USERSCRIPT_PATH, 'utf8') });
 }
 
 async function waitForProfileWords(page, timeout) {
@@ -953,11 +969,17 @@ async function seedProfileDictionaries(page) {
             request.addEventListener('error', () => reject(request.error), { once: true });
         });
 
+        // Each gloss keeps a function word ("for"/"to"/"as") and stays lowercase so
+        // the learner-glossary summarizer renders it VERBATIM. A terse all-lowercase
+        // 2-4 word gloss (e.g. "profile local today") is otherwise humanized into a
+        // comma list ("profile, local, today") and a capitalized word triggers the
+        // example-sentence cut — either way the contiguous phrase the local metric
+        // matches on would never appear in the rendered section.
         const seededTerms = [
-            { expression: '今日', reading: 'きょう', glossary: ['profile local today'], score: 100, dictionary: 'Profile Local' },
+            { expression: '今日', reading: 'きょう', glossary: ['profile local for today'], score: 100, dictionary: 'Profile Local' },
             { expression: '読む', reading: 'よむ', glossary: ['profile local to read'], rules: 'v5m', score: 90, dictionary: 'Profile Local' },
-            { expression: '読みました', reading: 'よみました', glossary: ['profile local read politely'], rules: 'v5m', score: 80, dictionary: 'Profile Local' },
-            { expression: '日本語', reading: 'にほんご', glossary: ['profile local Japanese language'], score: 70, dictionary: 'Profile Local' },
+            { expression: '読みました', reading: 'よみました', glossary: ['profile local as read politely'], rules: 'v5m', score: 80, dictionary: 'Profile Local' },
+            { expression: '日本語', reading: 'にほんご', glossary: ['profile local for japanese'], score: 70, dictionary: 'Profile Local' },
         ];
 
         await new Promise((resolve, reject) => {
