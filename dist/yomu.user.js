@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.36
+// @version 1.6.37
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.36#sha256=Ujbm4h3u+fG2f6lga28msWrwzMa2zuaNkgspmFqauJ8=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.36#sha256=GOaWZEu1sKkJyWOrTa4sj7L6tdjATBkpg53Vpxa1szM=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.36#sha256=fm7s5Ya55OIXWKhvxaSNEwh67lw2oMxPs5zYhJpX1ws=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.36#sha256=fhu/0zZPPAA3R+YUhGScfmjzfMD3gycW+kmOGupiu00=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.36#sha256=2Ez7UFpU8r5m7rOaQTcW3O05g3+jE31G5N3hZzsLk0o=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.36#sha256=VjkPSQ/Mo1bFtiz7S+6JHQeRQc8svdCr3F8MSmctRpQ=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.37#sha256=Ujbm4h3u+fG2f6lga28msWrwzMa2zuaNkgspmFqauJ8=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.37#sha256=GOaWZEu1sKkJyWOrTa4sj7L6tdjATBkpg53Vpxa1szM=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.37#sha256=fm7s5Ya55OIXWKhvxaSNEwh67lw2oMxPs5zYhJpX1ws=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.37#sha256=fhu/0zZPPAA3R+YUhGScfmjzfMD3gycW+kmOGupiu00=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.37#sha256=2Ez7UFpU8r5m7rOaQTcW3O05g3+jE31G5N3hZzsLk0o=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.37#sha256=VjkPSQ/Mo1bFtiz7S+6JHQeRQc8svdCr3F8MSmctRpQ=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -32504,7 +32504,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.36"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.37"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -33248,6 +33248,123 @@ function inertLocalDictionaryStore() {
 }
 function companionMissingError() {
   return new Error("Local dictionaries unavailable: Yomu Settings Surface companion did not load.");
+}
+function uniqueTokensByCard(tokens) {
+  const seen = new Set();
+  return tokens.filter((token) => {
+  const key = cardKey(token.card);
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+  });
+}
+function normalizedNestedParseOptions(options, settings) {
+  const apiTimeoutMs = nestedParseApiTimeoutMs(options);
+  const allowApiTimeoutFallback = nestedParseAllowApiTimeoutFallback(options);
+  const skipApi = nestedParseSkipApi(options);
+  const requireApi = nestedParseRequireApi(options, skipApi);
+  return {
+  apiTimeoutMs,
+  allowApiTimeoutFallback,
+  jpdbTimeoutMs: options.jpdbTimeoutMs ?? apiTimeoutMs,
+  allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? allowApiTimeoutFallback,
+  includeLocalPitch: options.includeLocalPitch ?? false,
+  skipApi,
+  skipJpdb: options.skipJpdb ?? skipApi,
+  requireApi,
+  requireJpdb: options.requireJpdb ?? requireApi,
+  allowSegmentedFallback: options.allowSegmentedFallback ?? !hasJpdbApiCredential(settings)
+  };
+}
+function nestedParseApiTimeoutMs(options) {
+  return options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? 1200;
+}
+function waitForHoverCardInitialPaint() {
+  return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+}
+function nestedParseAllowApiTimeoutFallback(options) {
+  return options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback ?? false;
+}
+function nestedParseSkipApi(options) {
+  return options.skipApi ?? options.skipJpdb ?? false;
+}
+function nestedParseRequireApi(options, skipApi) {
+  return options.requireApi ?? options.requireJpdb ?? !skipApi;
+}
+function isYouTubeRuntimeHost(hostname = location.hostname) {
+  return isYouTubeHostname(hostname);
+}
+function isCompactPitchEnrichmentViewport() {
+  return window.innerWidth <= 700 || navigator.maxTouchPoints > 1;
+}
+function pitchEnrichmentQueueOptions(options) {
+  return {
+  publicLookup: options.publicLookup,
+  publicLookupTermLimit: options.publicLookupTermLimit,
+  jpdbPublicLookup: options.jpdbPublicLookup,
+  urgent: options.urgent
+  };
+}
+const SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE = /[\u3400-\u9fff々〆ヵヶ]|[\u30a0-\u30ffー]{2,}|[\u3040-\u309fー]{2,}/u;
+function isSubstantivePublicPitchLookupToken(token) {
+  const surface = token.sentence?.slice(token.start, token.end) ?? "";
+  return SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.spelling) || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.reading) || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(surface);
+}
+function publicLookupCardRequest(readingOrOptions, maybeOptions) {
+  return typeof readingOrOptions === "string" ? { options: maybeOptions, reading: readingOrOptions } : { options: readingOrOptions, reading: "" };
+}
+function canSearchPublicLookupCard(settings, options) {
+  return Boolean(
+  options.allowCandidateLookup || settings.jpdbDefinitionsEnabled || settings.showPitchAccent || settings.showFurigana && settings.furiganaMode !== "off"
+  );
+}
+function publicLookupSearchLimit(reading) {
+  return reading ? 12 : 1;
+}
+function publicLookupCardFromResults(cards, term, exact, reading) {
+  if (reading) return cards.find((card) => card.spelling === term && card.reading === reading);
+  const exactMatch = cards.find((card) => card.spelling === term || card.reading === term);
+  return exactMatch ?? (exact ? void 0 : cards[0]);
+}
+function publicJitenDetailLimit(requested) {
+  return Math.min(Math.max(0, Math.floor(requested)), PITCH_ENRICHMENT_LIMIT * 2);
+}
+function isHydratablePublicJitenCard(card) {
+  return card.source === "jiten" && Number.isFinite(card.jitenWordId ?? card.vid) && Number.isFinite(card.jitenReadingIndex ?? card.sid) && (!card.reading || !card.pitchAccent.length || !card.wordWithReading || !card.meanings.length);
+}
+function uniquePointerTextSpans(spans) {
+  const seen = new Set();
+  return spans.filter((span) => {
+  const key = `${span.term}
+${span.start}
+${span.end}`;
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+  });
+}
+function pointerSpanForResolvedCard(text2, offset, span, card) {
+  const surface = normalizedLookupText(text2.slice(span.start, span.end));
+  if (!surface) return span;
+  const values = [...new Set([card.spelling, card.reading].map(normalizedLookupText).filter(Boolean))].sort((first, second) => second.length - first.length);
+  for (const value of values) {
+  const relativeStart = surface.indexOf(value);
+  if (relativeStart < 0) continue;
+  const start = span.start + relativeStart;
+  const end = start + value.length;
+  if (offset < start || offset >= end) continue;
+  return { ...span, start, end };
+  }
+  return span;
+}
+function cardHasContextPitch(card) {
+  if (!card.pitchAccent.length) return false;
+  const reading = cardPronunciationReading(card);
+  if (!reading) return true;
+  return Boolean(contextPitchPattern(card.pitchAccent, reading));
+}
+function mergePitchPatterns(preferred, existing) {
+  return [...preferred, ...existing.filter((pattern) => !preferred.includes(pattern))];
 }
 const log = Logger.scope("ReaderApp");
 const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
@@ -39753,123 +39870,6 @@ class ReaderApp {
   toast(message) {
   showReaderToast(message);
   }
-}
-function uniqueTokensByCard(tokens) {
-  const seen = new Set();
-  return tokens.filter((token) => {
-  const key = cardKey(token.card);
-  if (seen.has(key)) return false;
-  seen.add(key);
-  return true;
-  });
-}
-function normalizedNestedParseOptions(options, settings) {
-  const apiTimeoutMs = nestedParseApiTimeoutMs(options);
-  const allowApiTimeoutFallback = nestedParseAllowApiTimeoutFallback(options);
-  const skipApi = nestedParseSkipApi(options);
-  const requireApi = nestedParseRequireApi(options, skipApi);
-  return {
-  apiTimeoutMs,
-  allowApiTimeoutFallback,
-  jpdbTimeoutMs: options.jpdbTimeoutMs ?? apiTimeoutMs,
-  allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? allowApiTimeoutFallback,
-  includeLocalPitch: options.includeLocalPitch ?? false,
-  skipApi,
-  skipJpdb: options.skipJpdb ?? skipApi,
-  requireApi,
-  requireJpdb: options.requireJpdb ?? requireApi,
-  allowSegmentedFallback: options.allowSegmentedFallback ?? !hasJpdbApiCredential(settings)
-  };
-}
-function nestedParseApiTimeoutMs(options) {
-  return options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? 1200;
-}
-function waitForHoverCardInitialPaint() {
-  return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
-}
-function nestedParseAllowApiTimeoutFallback(options) {
-  return options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback ?? false;
-}
-function nestedParseSkipApi(options) {
-  return options.skipApi ?? options.skipJpdb ?? false;
-}
-function nestedParseRequireApi(options, skipApi) {
-  return options.requireApi ?? options.requireJpdb ?? !skipApi;
-}
-function isYouTubeRuntimeHost(hostname = location.hostname) {
-  return isYouTubeHostname(hostname);
-}
-function isCompactPitchEnrichmentViewport() {
-  return window.innerWidth <= 700 || navigator.maxTouchPoints > 1;
-}
-function pitchEnrichmentQueueOptions(options) {
-  return {
-  publicLookup: options.publicLookup,
-  publicLookupTermLimit: options.publicLookupTermLimit,
-  jpdbPublicLookup: options.jpdbPublicLookup,
-  urgent: options.urgent
-  };
-}
-const SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE = /[\u3400-\u9fff々〆ヵヶ]|[\u30a0-\u30ffー]{2,}|[\u3040-\u309fー]{2,}/u;
-function isSubstantivePublicPitchLookupToken(token) {
-  const surface = token.sentence?.slice(token.start, token.end) ?? "";
-  return SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.spelling) || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.reading) || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(surface);
-}
-function publicLookupCardRequest(readingOrOptions, maybeOptions) {
-  return typeof readingOrOptions === "string" ? { options: maybeOptions, reading: readingOrOptions } : { options: readingOrOptions, reading: "" };
-}
-function canSearchPublicLookupCard(settings, options) {
-  return Boolean(
-  options.allowCandidateLookup || settings.jpdbDefinitionsEnabled || settings.showPitchAccent || settings.showFurigana && settings.furiganaMode !== "off"
-  );
-}
-function publicLookupSearchLimit(reading) {
-  return reading ? 12 : 1;
-}
-function publicLookupCardFromResults(cards, term, exact, reading) {
-  if (reading) return cards.find((card) => card.spelling === term && card.reading === reading);
-  const exactMatch = cards.find((card) => card.spelling === term || card.reading === term);
-  return exactMatch ?? (exact ? void 0 : cards[0]);
-}
-function publicJitenDetailLimit(requested) {
-  return Math.min(Math.max(0, Math.floor(requested)), PITCH_ENRICHMENT_LIMIT * 2);
-}
-function isHydratablePublicJitenCard(card) {
-  return card.source === "jiten" && Number.isFinite(card.jitenWordId ?? card.vid) && Number.isFinite(card.jitenReadingIndex ?? card.sid) && (!card.reading || !card.pitchAccent.length || !card.wordWithReading || !card.meanings.length);
-}
-function uniquePointerTextSpans(spans) {
-  const seen = new Set();
-  return spans.filter((span) => {
-  const key = `${span.term}
-${span.start}
-${span.end}`;
-  if (seen.has(key)) return false;
-  seen.add(key);
-  return true;
-  });
-}
-function pointerSpanForResolvedCard(text2, offset, span, card) {
-  const surface = normalizedLookupText(text2.slice(span.start, span.end));
-  if (!surface) return span;
-  const values = [...new Set([card.spelling, card.reading].map(normalizedLookupText).filter(Boolean))].sort((first, second) => second.length - first.length);
-  for (const value of values) {
-  const relativeStart = surface.indexOf(value);
-  if (relativeStart < 0) continue;
-  const start = span.start + relativeStart;
-  const end = start + value.length;
-  if (offset < start || offset >= end) continue;
-  return { ...span, start, end };
-  }
-  return span;
-}
-function cardHasContextPitch(card) {
-  if (!card.pitchAccent.length) return false;
-  const reading = cardPronunciationReading(card);
-  if (!reading) return true;
-  return Boolean(contextPitchPattern(card.pitchAccent, reading));
-}
-function mergePitchPatterns(preferred, existing) {
-  return [...preferred, ...existing.filter((pattern) => !preferred.includes(pattern))];
 }
 const RUNTIME_MARKER_ID = "jpdb-reader-runtime-owner";
 const RUNTIME_MARKER_OBSERVER_OPTIONS = {

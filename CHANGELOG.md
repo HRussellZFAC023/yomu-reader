@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.37] - 2026-07-03
+
+### Changed
+
+- Internal: the pure lookup, nested-parse, and pitch-enrichment helper functions at the tail of the reader's main module moved into their own main-lookup-helpers module — no behaviour change, just a smaller main file and a testable home for the helpers.
+
 ## [1.6.36] - 2026-07-03
 
 ### Changed
