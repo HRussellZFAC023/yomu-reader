@@ -120,18 +120,26 @@ jobs:
           Primary Linux x64 AppImage is included for Steam Deck and Desktop Linux. SHA-256 checksums are in SHA256SUMS.txt.
           EOF
 
-          if gh release view "$TAG" >/dev/null 2>&1; then
+          # Only upload once the release exists as NON-draft. While the main
+          # Release workflow's create is in flight it may exist as a draft that
+          # gh deletes on any upload failure — uploading into that draft is how
+          # v1.6.25's release object got destroyed under both workflows.
+          release_is_published() {
+            [ "$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)" = "false" ]
+          }
+          if release_is_published; then
             gh release upload "$TAG" release-assets/* --clobber
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            gh release create "$TAG" release-assets/* --title "$TAG" --notes-file release-notes-gaming.md --verify-tag
+            gh release create "$TAG" --title "$TAG" --notes-file release-notes-gaming.md --verify-tag
+            gh release upload "$TAG" release-assets/* --clobber
           else
             for attempt in $(seq 1 30); do
               sleep 20
-              if gh release view "$TAG" >/dev/null 2>&1; then
+              if release_is_published; then
                 gh release upload "$TAG" release-assets/* --clobber
                 exit 0
               fi
             done
-            echo "Timed out waiting for the main Release workflow to create ${TAG}." >&2
+            echo "Timed out waiting for the main Release workflow to publish ${TAG}." >&2
             exit 1
           fi

@@ -132,9 +132,18 @@ jobs:
             echo "::warning::No Linux AppImage in dist-gaming/packages; publishing core assets only. Release Yomu Gaming attaches the desktop builds." >&2
             find dist-gaming/packages -maxdepth 1 -type f -print >&2 || true
           fi
+          # Create the release WITHOUT assets, then upload separately.
+          # `gh release create` with asset args first creates a DRAFT, uploads,
+          # then publishes — and deletes its draft if any upload fails. The
+          # Gaming workflow's `gh release view` sees that draft and uploads the
+          # same AppImage filename concurrently, the name collision fails the
+          # create, and gh's cleanup nukes the release out from under BOTH
+          # workflows (v1.6.25 lost its release object this way). An asset-less
+          # create is atomic and published from the start; uploads then use
+          # --clobber, which tolerates the same name landing twice.
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TAG" --notes-file release-notes.md --latest
-            gh release upload "$TAG" "${assets[@]}" --clobber
           else
-            gh release create "$TAG" "${assets[@]}" --title "$TAG" --notes-file release-notes.md --latest --verify-tag
+            gh release create "$TAG" --title "$TAG" --notes-file release-notes.md --latest --verify-tag
           fi
+          gh release upload "$TAG" "${assets[@]}" --clobber
