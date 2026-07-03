@@ -8014,6 +8014,17 @@ html.jpdb-reader-doodle-active * {
   text-align: center !important;
   text-decoration: none !important;
 }
+/* The base .jpdb-reader-btn above is fully !important (it must out-rank host
+   button resets), so its 38px min-height silently defeats the non-!important
+   responsive rules that try to grow buttons on touch (popover-core's 46px
+   onboarding action + subtitles' 44px coarse-pointer rule). Restore the 44px
+   touch tap target here, with matching !important, so onboarding CTAs and every
+   other .jpdb-reader-btn meet the 44px target on phones/tablets. */
+@media (hover: none), (pointer: coarse) {
+  .jpdb-reader-btn {
+    min-height: 44px !important;
+  }
+}
 .jpdb-reader-btn:where(:link, :visited) {
   color: var(--jpdb-reader-text) !important;
 }
@@ -11652,6 +11663,17 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   padding: 0;
   border-radius: 12px;
   line-height: 0;
+}
+/* On touch, the primary drawer-dismiss control matches the 44px mode tabs beside
+   it (was 36px < 44px). The drawer head already stands 44px tall for the tabs, so
+   this only widens/heightens the close hit target — no layout reflow. */
+@media (hover: none), (pointer: coarse) {
+  .jpdb-subtitle-list .jpdb-subtitle-panel-close {
+    min-width: 44px;
+    width: 44px;
+    min-height: 44px;
+    height: 44px;
+  }
 }
 .jpdb-subtitle-list .jpdb-subtitle-panel-close:hover,
 .jpdb-subtitle-list .jpdb-subtitle-panel-close:focus-visible {

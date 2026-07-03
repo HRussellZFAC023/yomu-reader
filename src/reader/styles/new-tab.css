@@ -4223,7 +4223,12 @@ button.jpdb-reader-newtab-study-hint-btn:hover {
 
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls button {
     position: relative;
-    min-height: 38px !important;
+    /* Primary study control — must be a real 44px touch target on touch
+       devices. The previous 38px height leaned on a ::after hit-extension,
+       but the bar's fixed padding occluded the bottom band (effective height
+       ~41px < 44px, WCAG 2.5.8 fail). A genuine 44px height fits the fixed
+       bar (shell reserves 116px) and matches the pass-fail scale (54px). */
+    min-height: 44px !important;
     overflow: visible;
     touch-action: manipulation;
   }
@@ -4231,7 +4236,7 @@ button.jpdb-reader-newtab-study-hint-btn:hover {
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls button::after {
     content: "";
     position: absolute;
-    inset: -3px 0;
+    inset: 0;
     border-radius: 10px;
   }
 }

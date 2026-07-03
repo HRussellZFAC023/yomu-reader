@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.24] - 2026-07-03
+
+### Fixed
+
+- Touch targets across the reader now meet the 44px accessibility floor on phones and tablets: the study grade buttons (previously occluded to an effective 41px), every reader button on touch surfaces (a base style with !important had been silently defeating the responsive sizing, leaving onboarding CTAs at 38px), and the subtitle drawer close button (36px). Verified across iPhone, small-Android, and iPad viewports under 6x CPU throttling.
+
 ## [1.6.23] - 2026-07-03
 
 ### Changed

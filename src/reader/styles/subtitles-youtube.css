@@ -1325,6 +1325,17 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   border-radius: 12px;
   line-height: 0;
 }
+/* On touch, the primary drawer-dismiss control matches the 44px mode tabs beside
+   it (was 36px < 44px). The drawer head already stands 44px tall for the tabs, so
+   this only widens/heightens the close hit target — no layout reflow. */
+@media (hover: none), (pointer: coarse) {
+  .jpdb-subtitle-list .jpdb-subtitle-panel-close {
+    min-width: 44px;
+    width: 44px;
+    min-height: 44px;
+    height: 44px;
+  }
+}
 .jpdb-subtitle-list .jpdb-subtitle-panel-close:hover,
 .jpdb-subtitle-list .jpdb-subtitle-panel-close:focus-visible {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border));
