@@ -43,7 +43,21 @@ if (typeof NativeBroadcastChannel === 'function') {
 const TEST_LANGUAGE = 'en-US';
 const TEST_LANGUAGES = ['en-US', 'en'] as const;
 const PREFERRED_SITE_LANGUAGE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
+const OCR_CACHE_STORE_KEY = 'yomu-ocr-cache-v1';
 let mediaMethodRestorers: Array<() => void> = [];
+
+// The OCR controller hydrates its result cache from localStorage at construction
+// and persists on a 1200ms debounce. Stubbed test canvases all share one pixel
+// signature, so a flush from an earlier test short-circuits a later test's scan
+// (recognizeImage never fires) — only on runners slow enough for the debounce to
+// elapse mid-file, which is why it surfaced as a loaded-CI-only release flake.
+function resetPersistedOcrCache(): void {
+    try {
+        localStorage.removeItem(OCR_CACHE_STORE_KEY);
+    } catch {
+        // jsdom storage may be unavailable in a few isolated setup failures.
+    }
+}
 
 function resetPreferredSiteLanguage(): void {
     applyPreferredJapaneseSiteLanguage(false);
@@ -97,6 +111,7 @@ function restoreJsdomMediaElementMethods(): void {
 
 beforeEach(() => {
     resetLocaleState();
+    resetPersistedOcrCache();
     stubJsdomMediaElementMethods();
     vi.stubGlobal('GM_xmlhttpRequest', undefined);
     vi.stubGlobal('GM', undefined);
@@ -104,6 +119,7 @@ beforeEach(() => {
 
 afterEach(() => {
     resetLocaleState();
+    resetPersistedOcrCache();
     restoreJsdomMediaElementMethods();
     // Stop a test that left fake timers (or stubbed globals) on from leaking into
     // the next one, which otherwise surfaces as flaky failures in unrelated tests.

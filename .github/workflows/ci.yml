@@ -107,3 +107,9 @@ jobs:
       - run: npm run smoke:p0
         env:
           YOMU_PLAYWRIGHT_CHANNEL: chrome
+      - run: npm run smoke:furigana-local-default
+        env:
+          YOMU_PLAYWRIGHT_CHANNEL: chrome
+      - run: npm run smoke:youtube-controls-wake
+        env:
+          YOMU_PLAYWRIGHT_CHANNEL: chrome

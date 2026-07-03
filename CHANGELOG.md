@@ -2,9 +2,18 @@
 
 ## [1.6.8] - 2026-07-03
 
+### Added
+
+- Added two release gates: a YouTube controls-wake smoke (npm run smoke:youtube-controls-wake) proving Yomu never keeps the player controls awake during idle playback, and a keyless local-dictionary furigana smoke (npm run smoke:furigana-local-default) proving a fresh offline install still decorates difficult kanji with furigana and pitch colours. Both run in CI and the release workflow.
+
 ### Fixed
 
 - Keeps the YouTube Shorts player at its native size when the subtitle transcript drawer is open, instead of stretching the portrait video far past the viewport and cropping it.
+- Watching YouTube with a JPDB or Jiten API key no longer fires redundant keyless public jpdb.io/jiten.moe lookups for every caption line: the DOM-caption warm parse now routes through the same authoritative provider request the renderer uses, halving idle-playback API traffic.
+- Mutation batches that stay inside Yomu's own overlay now skip the per-mutation fullscreen scan, trimming main-thread work during subtitle playback.
+- Fixed the flaky release-gating BookWalker OCR test: the OCR result cache persisted to localStorage mid-file on slow CI runners, so an earlier test's cached scan short-circuited the next test's recognizer and failed the release build. Unit tests now reset the persisted OCR cache between tests.
+- Updated the subtitle player smoke's rail expectation to include the 1.6.7 visibility (eye) button, so npm run smoke:subtitles is green again on main.
+- The hosted donation endpoint now refuses Stripe test-mode secrets and validates checkout URLs, returning a clear service error instead of ever redirecting supporters to a sandbox payment page.
 
 ## [1.6.7] - 2026-07-02
 

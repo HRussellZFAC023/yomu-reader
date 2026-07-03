@@ -50340,11 +50340,11 @@ ${spelling}`);
       this.syncYouTubeMobileBottomSheetState();
       this.observer = new MutationObserver((mutations) => {
         this.syncYouTubeMobileBottomSheetState();
+        if (mutations.every(mutationInsideReaderRoot$1)) return;
         if (mutations.some((mutation) => this.mutationCouldAffectFullscreenState(mutation))) {
           this.syncFullscreenState();
           this.scheduleAlignToVideo();
         }
-        if (mutations.every(mutationInsideReaderRoot$1)) return;
         if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
         this.scheduleDiscoverVideo();
       });
@@ -51335,7 +51335,7 @@ ${spelling}`);
       if (!text2.trim() || !this.shouldParseSubtitles()) return;
       const texts = this.domCaptionCueTexts(text2);
       if (!texts.length) return;
-      void this.parseCueHtmlBatch(texts, this.options.getSettings(), { enrichBeforeRender: true }).catch(() => void 0);
+      void this.parseCueHtmlBatch(texts, this.options.getSettings(), { enrichBeforeRender: true, requireEnrichedProvisional: true }).catch(() => void 0);
     }
     domCaptionCueTexts(text2) {
       return normalizeSubtitleCues([{ start: 0, end: 4, text: text2 }]).map((cue) => cue.text.trim()).filter(Boolean);

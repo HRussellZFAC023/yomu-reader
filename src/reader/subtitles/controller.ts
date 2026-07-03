@@ -1227,11 +1227,15 @@ export class SubtitlePlayerController {
         this.syncYouTubeMobileBottomSheetState();
         this.observer = new MutationObserver(mutations => {
             this.syncYouTubeMobileBottomSheetState();
+            // Reader-root-only batches (Yomu's own overlay re-renders, the most
+            // common kind during playback) cannot change fullscreen state: the
+            // inline-fullscreen marker lives on the video-player host outside
+            // the reader root. Bail before the per-mutation fullscreen walk.
+            if (mutations.every(mutationInsideReaderRoot)) return;
             if (mutations.some(mutation => this.mutationCouldAffectFullscreenState(mutation))) {
                 this.syncFullscreenState();
                 this.scheduleAlignToVideo();
             }
-            if (mutations.every(mutationInsideReaderRoot)) return;
             if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
             this.scheduleDiscoverVideo();
         });
@@ -2387,7 +2391,7 @@ export class SubtitlePlayerController {
         // would parse only AFTER the stability window.
         const texts = this.domCaptionCueTexts(text);
         if (!texts.length) return;
-        void this.parseCueHtmlBatch(texts, this.options.getSettings(), { enrichBeforeRender: true }).catch(() => undefined);
+        void this.parseCueHtmlBatch(texts, this.options.getSettings(), { enrichBeforeRender: true, requireEnrichedProvisional: true }).catch(() => undefined);
     }
 
     private domCaptionCueTexts(text: string): string[] {
