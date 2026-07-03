@@ -39147,7 +39147,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.15".trim() ? "1.6.15".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.16".trim() ? "1.6.16".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -51620,12 +51620,10 @@ ${spelling}`);
     }
     openTranscriptPanelFromSettings(settings) {
       if (this.transcriptDefaultOpenApplied) return;
-      if (!settings.subtitleTranscriptVisible || !this.hasTranscriptSurface() || !this.transcriptPanel?.hidden) return;
+      if (!settings.subtitleTranscriptVisible || !this.hasTranscriptSurface()) return;
+      if (this.transcriptPanel && !this.transcriptPanel.hidden) return;
       this.transcriptDefaultOpenApplied = true;
-      this.panelMode = "lines";
-      this.transcriptPanelSessionOpen = true;
-      this.showTranscriptPanelElement();
-      this.renderTranscriptPanel(true);
+      this.openLinesPanel({ deferRender: true });
     }
     install() {
       if (this.root) return true;
@@ -54889,7 +54887,13 @@ ${spelling}`);
       this.syncPanelState();
     }
     shouldRestoreTranscriptPanel() {
-      return this.transcriptPanelSessionOpen && this.hasTranscriptSurface();
+      if (!this.hasTranscriptSurface()) return false;
+      if (this.transcriptPanelSessionOpen) return true;
+      if (!this.transcriptDefaultOpenApplied && this.options.getSettings().subtitleTranscriptVisible) {
+        this.transcriptDefaultOpenApplied = true;
+        return true;
+      }
+      return false;
     }
     isTranscriptPanelOpen() {
       return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && !this.transcriptPanelClosing);

@@ -181,6 +181,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Restored the subtitle panel\'s "open by default" behavior that 1.6.15 broke: the cross-tab leak fix removed the load-time trigger entirely, so the drawer never auto-opened for users who keep it visible. The persisted preference now applies once per page from the track-load path, a manual close still sticks, and opening still never writes the setting back.': '1.6.15で壊れた字幕パネルの「既定で開く」動作を復旧しました。タブ間リーク修正が読み込み時のトリガーごと取り除いたため、パネルを表示したままにしているユーザーでもドロワーが自動で開かなくなっていました。保存済みの設定はトラック読み込み時にページごとに一度だけ適用され、手動で閉じた状態は維持され、開いても設定が書き戻されることはありません。',
     'The subtitle side panel gained a one-tap X close button in its header, matching the other side panels, and the close action left the panel-options menu.': '字幕サイドパネルのヘッダーに、他のサイドパネルと同じワンタップのX閉じるボタンを追加し、閉じる操作をパネルオプションメニューから外しました。',
     'Opening the subtitle panel no longer flips a persisted setting, so a panel opened on one video no longer auto-opens on every other tab and page; the open-by-default preference still applies once per page and a manual close now sticks.': '字幕パネルを開いても保存設定が書き換わらなくなり、ある動画で開いたパネルが他のタブやページで勝手に開くことがなくなりました。「既定で開く」設定はページごとに一度だけ適用され、手動で閉じた状態は維持されます。',
     'The docked subtitle panel keeps a stable height when the video scrolls out of view instead of collapsing into a sliver pinned to the bottom of the screen.': 'ドッキングした字幕パネルは、動画が画面外へスクロールしても安定した高さを保ち、画面下部に細くつぶれることがなくなりました。',

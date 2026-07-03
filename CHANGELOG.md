@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.16] - 2026-07-03
+
+### Fixed
+
+- Restored the subtitle panel's "open by default" behavior that 1.6.15 broke: the cross-tab leak fix removed the load-time trigger entirely, so the drawer never auto-opened for users who keep it visible. The persisted preference now applies once per page from the track-load path, a manual close still sticks, and opening still never writes the setting back.
+
 ## [1.6.15] - 2026-07-03
 
 ### Fixed

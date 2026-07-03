@@ -10932,12 +10932,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     openTranscriptPanelFromSettings(settings) {
       if (this.transcriptDefaultOpenApplied) return;
-      if (!settings.subtitleTranscriptVisible || !this.hasTranscriptSurface() || !this.transcriptPanel?.hidden) return;
+      if (!settings.subtitleTranscriptVisible || !this.hasTranscriptSurface()) return;
+      if (this.transcriptPanel && !this.transcriptPanel.hidden) return;
       this.transcriptDefaultOpenApplied = true;
-      this.panelMode = "lines";
-      this.transcriptPanelSessionOpen = true;
-      this.showTranscriptPanelElement();
-      this.renderTranscriptPanel(true);
+      this.openLinesPanel({ deferRender: true });
     }
     install() {
       if (this.root) return true;
@@ -14201,7 +14199,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.syncPanelState();
     }
     shouldRestoreTranscriptPanel() {
-      return this.transcriptPanelSessionOpen && this.hasTranscriptSurface();
+      if (!this.hasTranscriptSurface()) return false;
+      if (this.transcriptPanelSessionOpen) return true;
+      if (!this.transcriptDefaultOpenApplied && this.options.getSettings().subtitleTranscriptVisible) {
+        this.transcriptDefaultOpenApplied = true;
+        return true;
+      }
+      return false;
     }
     isTranscriptPanelOpen() {
       return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && !this.transcriptPanelClosing);

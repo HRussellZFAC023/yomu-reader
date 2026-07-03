@@ -1403,12 +1403,15 @@ export class SubtitlePlayerController {
 
     private openTranscriptPanelFromSettings(settings: ReaderSettings): void {
         if (this.transcriptDefaultOpenApplied) return;
-        if (!settings.subtitleTranscriptVisible || !this.hasTranscriptSurface() || !this.transcriptPanel?.hidden) return;
+        if (!settings.subtitleTranscriptVisible || !this.hasTranscriptSurface()) return;
+        // "Already open" only counts when the panel element exists; it is
+        // created lazily by the open itself, so `?.hidden` being undefined on
+        // a fresh page used to deadlock default-open entirely.
+        if (this.transcriptPanel && !this.transcriptPanel.hidden) return;
         this.transcriptDefaultOpenApplied = true;
-        this.panelMode = 'lines';
-        this.transcriptPanelSessionOpen = true;
-        this.showTranscriptPanelElement();
-        this.renderTranscriptPanel(true);
+        // Go through the full open path: it creates the panel element when it
+        // does not exist yet, which showTranscriptPanelElement alone cannot.
+        this.openLinesPanel({ deferRender: true });
     }
 
     private install(): boolean {
@@ -5253,7 +5256,17 @@ export class SubtitlePlayerController {
     }
 
     private shouldRestoreTranscriptPanel(): boolean {
-        return this.transcriptPanelSessionOpen && this.hasTranscriptSurface();
+        if (!this.hasTranscriptSurface()) return false;
+        if (this.transcriptPanelSessionOpen) return true;
+        // Persisted "open by default" applies once per surface from the load
+        // path (track change), so a manual close sticks and opening never
+        // writes the setting back — the 1.6.15 cross-tab leak fix moved this
+        // out of the persisted flag but left no load-time trigger at all.
+        if (!this.transcriptDefaultOpenApplied && this.options.getSettings().subtitleTranscriptVisible) {
+            this.transcriptDefaultOpenApplied = true;
+            return true;
+        }
+        return false;
     }
 
     private isTranscriptPanelOpen(): boolean {
