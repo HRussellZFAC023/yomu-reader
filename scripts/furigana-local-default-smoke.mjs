@@ -83,10 +83,14 @@ try {
     await inject();
 
     // Import the mini offline dictionaries the way onboarding/settings does.
-    await page.evaluate(() => {
+    // Re-dispatch until the panel exists: the settings-surface companion
+    // registers its listener asynchronously after the runtime owner appears,
+    // so a single dispatch can be lost on slow CI runners.
+    await page.waitForFunction(() => {
+        if (document.querySelector('.jpdb-reader-settings')) return true;
         window.dispatchEvent(new CustomEvent('yomu-open-settings', { detail: { panel: 'dictionaries' } }));
-    });
-    await page.waitForSelector('.jpdb-reader-settings', { timeout: 10_000 });
+        return false;
+    }, null, { timeout: 30_000, polling: 500 });
     const importButton = page.locator('[data-action="import-yomitan-dictionary"]');
     await importButton.scrollIntoViewIfNeeded();
     const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 10_000 });
