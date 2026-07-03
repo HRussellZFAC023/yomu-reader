@@ -59,6 +59,9 @@ type ContextLabelFn = typeof import('../study/mining-context').contextLabel;
 type StudySourceControllerClass = typeof import('../study/sources').StudySourceController;
 
 interface YomuCompanionRegistry {
+    localDictionaries?: {
+        YomitanDictionaryStore: typeof import('../dictionaries/yomitan').YomitanDictionaryStore;
+    };
     anki?: {
         AnkiConnectClient: AnkiConnectClientClass;
         AnkiDuplicateNoteError: AnkiDuplicateNoteErrorClass;
@@ -189,6 +192,10 @@ export function yomuImageOcrController(): ImageOcrControllerClass | undefined {
 
 export function yomuNormalizeOcrRenderedText(): NormalizeOcrRenderedTextFn | undefined {
     return yomuCompanions().ocr?.normalizeOcrRenderedText;
+}
+
+export function yomuLocalDictionaries(): NonNullable<YomuCompanionRegistry['localDictionaries']> | undefined {
+    return yomuCompanions().localDictionaries;
 }
 
 export function yomuI18nCompanion(): YomuCompanionRegistry['i18n'] | undefined {

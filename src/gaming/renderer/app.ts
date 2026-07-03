@@ -1,6 +1,10 @@
 import '../../reader/styles/base.css';
 import '../../reader/styles/settings.css';
 import './styles.css';
+// The overlay bundles the real reader, which reaches companion-hosted
+// implementations (local dictionaries, UI copy, settings dialog) through
+// the ADR-0003 registry; populate it like the other self-contained builds.
+import '../../reader/companions/register-build-companions';
 import type { InterfaceLanguage, ReaderSettings } from '../../reader/app/types';
 import { bootReaderApp } from '../../reader/app/boot';
 import { escapeHtml } from '../../reader/dom/index';

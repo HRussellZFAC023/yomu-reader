@@ -16,7 +16,7 @@ import { stablePositiveHashId } from '../core/stable-hash';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
-import { YomitanDictionaryStore, glossaryToText, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
+import { glossaryToText, type YomitanDictionaryStore, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
 
 export { fallbackJapaneseSegments, fallbackLookupTermsForText, fallbackDictionaryLookupTermsForText, fallbackLookupTermsForCard } from './japanese-segments';
 

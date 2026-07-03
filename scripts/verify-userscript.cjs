@@ -49,10 +49,11 @@ assertNoRemoteExecutableLoaders(code);
 assertCompanionRequireSriHashes();
 assertKanjiStudySplitBoundary();
 assertAnkiRenderSplitBoundary();
+assertLocalDictionarySplitBoundary();
 assertZipReaderBundled();
 if (code.includes('// @downloadURL')) fail('Greasy Fork build should not advertise an alternate download URL.');
 if (code.includes('// @updateURL')) fail('Greasy Fork build should not advertise an alternate update URL.');
-if (!code.includes(BUNDLED_DEPENDENCY_NOTICE_MARKER) || !code.includes('fflate')) fail('bundled dependency source/version notice is missing.');
+if (code.includes('function inflateSync(') && !code.includes(BUNDLED_DEPENDENCY_NOTICE_MARKER)) fail('bundled dependency source/version notice is missing.');
 if (!fileExists(DIST_READER_CSS_PATH)) fail(`${READER_CSS_RELATIVE_PATH} is missing; docs and extension builds still ship the reader stylesheet as a local asset.`);
 const cssResource = readText(DIST_READER_CSS_PATH);
 for (const selector of [
@@ -109,7 +110,29 @@ function assertCompanionRequireSriHashes() {
   }
 }
 
+function settingsSurfaceCompanionCode() {
+  const library = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === 'settings-surface');
+  if (!library) fail('Yomu Settings Surface companion is missing from the Greasy Fork library manifest.');
+  const libraryPath = join(ROOT, 'dist', greasyForkLibraryPath(library.fileName));
+  if (!fileExists(libraryPath)) fail(`dist/${greasyForkLibraryPath(library.fileName)} is missing. Run npm run build first.`);
+  return readText(libraryPath);
+}
+
+function assertLocalDictionarySplitBoundary() {
+  const companionCode = settingsSurfaceCompanionCode();
+  for (const [label, signature] of [
+    ['YomitanDictionaryStore', 'class YomitanDictionaryStore'],
+    ['dexie import streaming', 'function streamDexieTables('],
+  ]) {
+    if (code.includes(signature)) fail(`ADR-0003 split regression: ${label} implementation leaked into ${USERSCRIPT_RELATIVE_PATH}.`);
+    if (!companionCode.includes(signature)) fail(`ADR-0003 split regression: ${label} is missing from the settings-surface companion.`);
+  }
+}
+
 function assertZipReaderBundled() {
+  // The dictionary ZIP reader ships with the local-dictionary store in the
+  // settings-surface companion (ADR-0003), not in the size-limited core.
+  const companionCode = settingsSurfaceCompanionCode();
   for (const signature of [
     'function inflateSync(data, opts)',
     'async function inflateRaw(bytes)',
@@ -118,7 +141,7 @@ function assertZipReaderBundled() {
     'Invalid ZIP archive: end record not found.',
     'Unsupported ZIP compression method',
   ]) {
-    if (!code.includes(signature)) fail(`the bundled ZIP reader is missing expected generated code: ${signature}`);
+    if (!companionCode.includes(signature)) fail(`the companion ZIP reader is missing expected generated code: ${signature}`);
   }
 }
 

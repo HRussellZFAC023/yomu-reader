@@ -23,8 +23,12 @@ const insertAt = markerIndex + USERSCRIPT_METADATA_END.length;
 const before = compactMetadataSpacing(stripRedundantMetadata(code.slice(0, insertAt)));
 const hasNotice = code.includes(BUNDLED_DEPENDENCY_NOTICE_MARKER);
 const after = stripGeneratedPureAnnotations(stripUserscriptBodyComments(code.slice(insertAt).replace(/^\n+/, '\n')));
+// The notice exists for Greasy Fork reviewers; only claim a bundled
+// dependency when fflate is actually in this build (it ships with the
+// local-dictionary companion when the ADR-0003 split is active).
+const needsNotice = !hasNotice && after.includes('function inflateSync(');
 
-writeText(DIST_USERSCRIPT_PATH, `${before}${hasNotice ? '' : notice}${after}`);
+writeText(DIST_USERSCRIPT_PATH, `${before}${needsNotice ? notice : ''}${after}`);
 console.log(`Annotated ${DIST_USERSCRIPT_PATH} with Greasy Fork compliance notes.`);
 
 function stripUserscriptBodyComments(value) {

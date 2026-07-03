@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.11] - 2026-07-03
+
+### Changed
+
+- Moved the local (Yomitan) dictionary engine and its ZIP/Dexie import machinery into the Yomu Settings Surface companion, dropping the core userscript to roughly 1.79 MB and growing Greasy Fork headroom from about 39 KB to over 200 KB. Behavior is unchanged: the companion is always required by the userscript and bundled into hosted, extension, new-tab, and gaming builds, and if it ever failed to load, local dictionary lookups would fall through to the online providers instead of breaking.
+
 ## [1.6.10] - 2026-07-03
 
 ### Changed

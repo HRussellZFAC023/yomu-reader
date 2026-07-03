@@ -335,12 +335,12 @@ import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings 
 import { VisiblePageScanner } from './visible-page-scanner';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 import { addWindowEventListener } from '../platform/window-events';
-import {
-    YomitanDictionaryStore,
-    type YomitanKanjiEntry,
-    type YomitanMetaEntry,
-    type YomitanTermEntry,
+import type {
+    YomitanKanjiEntry,
+    YomitanMetaEntry,
+    YomitanTermEntry,
 } from '../dictionaries/yomitan';
+import { createLocalDictionaryStore } from '../dictionaries/local-store';
 
 const log = Logger.scope('ReaderApp');
 type ReaderLifecycleSurface = {
@@ -612,7 +612,7 @@ export class ReaderApp {
     private bunproSrs = createBunproSrsAdapter(this.bunpro);
     private yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
     private rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : null;
-    private dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
+    private dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
     private cardRenderData = new CardRenderDataLoader({
         getSettings: () => this.settings,
         dictionaries: this.dictionaries,

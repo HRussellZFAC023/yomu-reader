@@ -24,7 +24,7 @@ import {
     type ApiSrsProviderAdapter,
 } from './srs-providers';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
-import { YomitanDictionaryStore } from '../dictionaries/yomitan';
+import type { YomitanDictionaryStore } from '../dictionaries/yomitan';
 import type { YomuSrsAdapter } from '../srs';
 import type { GrammarHint } from '../study/tools';
 
