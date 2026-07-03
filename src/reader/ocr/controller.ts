@@ -24,6 +24,13 @@ import {
 } from './canvas-readers';
 import { captureReaderSurfaceViaExtensionScreenshot } from './extension-screenshot';
 import { canonicalBookwalkerAssetUrl, captureCanvasMirror, markCanvasMirrorSkip } from './canvas-mirror';
+import {
+    hasIdentityChanged as hasCanvasIdentityChanged,
+    isGlobalEpochTransition as isCanvasContentEpochTransition,
+    isRealContentChange as isRealCanvasContentChange,
+    isSameRealContent as isSameRealCanvasContent,
+    stableContentIdentityForCanvas,
+} from './canvas-page-identity';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { waitForIdle } from '../platform/idle';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
@@ -2441,9 +2448,7 @@ export class ImageOcrController {
     }
 
     private canvasContentTokenChanged(canvas: HTMLCanvasElement, previous: string | undefined): boolean {
-        if (!previous) return false;
-        const current = canvasStablePageContentToken(canvas);
-        return Boolean(current && current !== previous);
+        return hasCanvasIdentityChanged(canvas, previous);
     }
 
     private canvasFrameRegionRect(frame: HTMLImageElement, canvasRect: DOMRect): DOMRect | undefined {
@@ -4742,19 +4747,12 @@ function canvasSurfaceSnapshotKey(canvas: HTMLCanvasElement): string {
     ].join('|');
 }
 
+// The per-canvas content identity used to decide whether a landed OCR frame still
+// belongs to its canvas — delegated to the single canvas-page-identity module so
+// every identity decision (scan / rescan / cache-key / retry / hold) reads the same
+// content-derived value rather than an ad-hoc proxy.
 function canvasStablePageContentToken(canvas: HTMLCanvasElement): string {
-    if (!isBookwalkerViewerHost() || !canvasReaderHasStableSurface(canvas)) return '';
-    const token = canvasPageContentToken(canvas);
-    if (!token) return '';
-    // In BookWalker continuous mode, `s:<wideScreen...>` is only the stable DOM
-    // surface, not the page painted into it. It is useful for avoiding scroll churn
-    // while records are still unavailable, but it must not be treated as proof that a
-    // landed OCR frame still belongs to the canvas after BookWalker repaints it.
-    if (token.startsWith('s:')) return '';
-    // A bare mirror epoch is global page activity, not per-canvas content. Ignore it
-    // here so another surface repaint cannot invalidate an otherwise-correct frame.
-    if (/^[0-9]+$/u.test(token)) return '';
-    return token;
+    return stableContentIdentityForCanvas(canvas);
 }
 
 function canvasContentReadinessKey(canvas: HTMLCanvasElement): string {
@@ -4787,21 +4785,20 @@ function isSameCanvasReaderPageLocation(previous: string, next: string): boolean
 // that is churn/not-ready, not proof of a turn, so it is NOT reported as a change.
 // This keeps within-page scroll and continuous epoch churn from tearing the OCR
 // overlay down on cty=2 while still releasing immediately on real content swaps.
+// The content classification is owned by canvas-page-identity; this wrapper only
+// extracts the content field from the whole-reader signature string.
 function hasDifferentRealCanvasReaderContent(previous: string, next: string): boolean {
     const previousParts = splitCanvasReaderSignature(previous);
     const nextParts = splitCanvasReaderSignature(next);
     if (!previousParts || !nextParts) return false;
-    if (previousParts.content === nextParts.content) return false;
-    return !isCanvasMirrorEpochOrEmpty(previousParts.content)
-        && !isCanvasMirrorEpochOrEmpty(nextParts.content);
+    return isRealCanvasContentChange(previousParts.content, nextParts.content);
 }
 
 function hasSameRealCanvasReaderContent(previous: string, next: string): boolean {
     const previousParts = splitCanvasReaderSignature(previous);
     const nextParts = splitCanvasReaderSignature(next);
     if (!previousParts || !nextParts) return false;
-    if (previousParts.content !== nextParts.content) return false;
-    return !isCanvasMirrorEpochOrEmpty(previousParts.content);
+    return isSameRealCanvasContent(previousParts.content, nextParts.content);
 }
 
 // The inverse fallback: the per-canvas content is only the global mirror epoch (or
@@ -4813,8 +4810,7 @@ function isCanvasMirrorEpochTransition(previous: string, next: string): boolean 
     const previousParts = splitCanvasReaderSignature(previous);
     const nextParts = splitCanvasReaderSignature(next);
     if (!previousParts || !nextParts) return false;
-    if (previousParts.content === nextParts.content) return false;
-    return isCanvasMirrorEpochOrEmpty(previousParts.content) && isCanvasMirrorEpochOrEmpty(nextParts.content);
+    return isCanvasContentEpochTransition(previousParts.content, nextParts.content);
 }
 
 function hasSameStableCanvasReaderPageCounter(previous: string, next: string): boolean {
@@ -4831,10 +4827,6 @@ function shouldTrustStableBookwalkerPageCounter(): boolean {
     } catch {
         return true;
     }
-}
-
-function isCanvasMirrorEpochOrEmpty(content: string): boolean {
-    return content === '' || /^\d+(?:,\d+)*$/.test(content);
 }
 
 function splitCanvasReaderSignature(signature: string): {

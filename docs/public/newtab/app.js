@@ -32655,6 +32655,46 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isPromiseLike(value) {
     return Boolean(value && typeof value.then === "function");
   }
+  function isCanvasMirrorEpochOrEmpty(content) {
+    return content === "" || /^\d+(?:,\d+)*$/.test(content);
+  }
+  function isStableSurfaceToken(content) {
+    return content.startsWith("s:");
+  }
+  function identityForCanvas(canvas) {
+    try {
+      return canvasPageContentToken(canvas);
+    } catch {
+      return "";
+    }
+  }
+  function isRealContentIdentity(identity) {
+    if (isCanvasMirrorEpochOrEmpty(identity)) return false;
+    if (isStableSurfaceToken(identity)) return false;
+    return true;
+  }
+  function stableContentIdentityForCanvas(canvas) {
+    if (!isBookwalkerViewerHost() || !canvasReaderHasStableSurface(canvas)) return "";
+    const token = identityForCanvas(canvas);
+    return isRealContentIdentity(token) ? token : "";
+  }
+  function hasIdentityChanged(canvas, lastIdentity) {
+    if (!lastIdentity) return false;
+    const current = stableContentIdentityForCanvas(canvas);
+    return Boolean(current && current !== lastIdentity);
+  }
+  function isRealContentChange(previousContent, nextContent) {
+    if (previousContent === nextContent) return false;
+    return isRealContentIdentity(previousContent) && isRealContentIdentity(nextContent);
+  }
+  function isSameRealContent(previousContent, nextContent) {
+    if (previousContent !== nextContent) return false;
+    return isRealContentIdentity(previousContent);
+  }
+  function isGlobalEpochTransition(previousContent, nextContent) {
+    if (previousContent === nextContent) return false;
+    return isCanvasMirrorEpochOrEmpty(previousContent) && isCanvasMirrorEpochOrEmpty(nextContent);
+  }
   function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
     if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
     return new Promise((resolve) => {
@@ -36669,9 +36709,7 @@ ${spelling}`);
       return Math.abs(sourceWidth - canvasRect.width) > READER_RASTER_FRAME_SIZE_CHANGE_PX || Math.abs(sourceHeight - canvasRect.height) > READER_RASTER_FRAME_SIZE_CHANGE_PX;
     }
     canvasContentTokenChanged(canvas, previous) {
-      if (!previous) return false;
-      const current = canvasStablePageContentToken(canvas);
-      return Boolean(current && current !== previous);
+      return hasIdentityChanged(canvas, previous);
     }
     canvasFrameRegionRect(frame, canvasRect) {
       const fractions = this.canvasFrameRegionFractions.get(frame);
@@ -38518,12 +38556,7 @@ ${spelling}`);
     ].join("|");
   }
   function canvasStablePageContentToken(canvas) {
-    if (!isBookwalkerViewerHost() || !canvasReaderHasStableSurface(canvas)) return "";
-    const token = canvasPageContentToken(canvas);
-    if (!token) return "";
-    if (token.startsWith("s:")) return "";
-    if (/^[0-9]+$/u.test(token)) return "";
-    return token;
+    return stableContentIdentityForCanvas(canvas);
   }
   function canvasContentReadinessKey(canvas) {
     const surfaceId = canvasReaderSurfaceId(canvas);
@@ -38545,22 +38578,19 @@ ${spelling}`);
     const previousParts = splitCanvasReaderSignature(previous);
     const nextParts = splitCanvasReaderSignature(next);
     if (!previousParts || !nextParts) return false;
-    if (previousParts.content === nextParts.content) return false;
-    return !isCanvasMirrorEpochOrEmpty(previousParts.content) && !isCanvasMirrorEpochOrEmpty(nextParts.content);
+    return isRealContentChange(previousParts.content, nextParts.content);
   }
   function hasSameRealCanvasReaderContent(previous, next) {
     const previousParts = splitCanvasReaderSignature(previous);
     const nextParts = splitCanvasReaderSignature(next);
     if (!previousParts || !nextParts) return false;
-    if (previousParts.content !== nextParts.content) return false;
-    return !isCanvasMirrorEpochOrEmpty(previousParts.content);
+    return isSameRealContent(previousParts.content, nextParts.content);
   }
   function isCanvasMirrorEpochTransition(previous, next) {
     const previousParts = splitCanvasReaderSignature(previous);
     const nextParts = splitCanvasReaderSignature(next);
     if (!previousParts || !nextParts) return false;
-    if (previousParts.content === nextParts.content) return false;
-    return isCanvasMirrorEpochOrEmpty(previousParts.content) && isCanvasMirrorEpochOrEmpty(nextParts.content);
+    return isGlobalEpochTransition(previousParts.content, nextParts.content);
   }
   function hasSameStableCanvasReaderPageCounter(previous, next) {
     const previousParts = splitCanvasReaderSignature(previous);
@@ -38575,9 +38605,6 @@ ${spelling}`);
     } catch {
       return true;
     }
-  }
-  function isCanvasMirrorEpochOrEmpty(content) {
-    return content === "" || /^\d+(?:,\d+)*$/.test(content);
   }
   function splitCanvasReaderSignature(signature) {
     const parts = signature.split("|");
@@ -39284,7 +39311,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.34".trim() ? "1.6.34".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.35".trim() ? "1.6.35".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

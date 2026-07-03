@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.35] - 2026-07-03
+
+### Changed
+
+- Canvas page identity has a single home: the OCR controller's per-canvas content-identity helpers moved into a dedicated canvas-page-identity module with an eleven-test invariant suite covering paged, continuous-scroll, and node-reuse modes — a refactor and test hardening of the shipped BookWalker fix, with surface tokens now consistently excluded from real-content comparisons.
+
 ## [1.6.34] - 2026-07-03
 
 ### Fixed
