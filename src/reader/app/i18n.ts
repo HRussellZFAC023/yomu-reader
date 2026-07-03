@@ -2458,6 +2458,13 @@ export interface GrammarRuleCopy {
 const JA_GRAMMAR_RULE_COPY_URL = `${DOCS_BASE_URL}data/ja-grammar-rule-copy.json`;
 let jaGrammarRuleCopyPromise: Promise<Record<string, GrammarRuleCopy>> | undefined;
 
+// Test seam: lets tests re-run the copy load against fresh request stubs
+// without vi.resetModules(), whose cold re-import of this module's graph
+// races the test timeout on loaded CI runners. Tree-shaken from builds.
+export function resetJaGrammarRuleCopyCacheForTests(): void {
+    jaGrammarRuleCopyPromise = undefined;
+}
+
 
 export function resolveUiLanguage(language: InterfaceLanguage): UiLanguage {
     if (language === 'ja' || language === 'en') return language;

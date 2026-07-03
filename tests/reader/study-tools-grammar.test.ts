@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
+import { grammarRuleText, resetJaGrammarRuleCopyCacheForTests } from '../../src/reader/app/i18n';
 import { detectGrammarHints, listLocalGrammarRuleExamples, listLocalGrammarRules, renderGrammarHints, resetGrammarRuleDataCacheForTests, type GrammarHint } from '../../src/reader/study/tools';
 
 const ENGLISH_WORD_RE = /\b[A-Za-z]{3,}\b/u;
@@ -69,13 +70,13 @@ describe('local Japanese grammar hints', () => {
             return { abort: vi.fn() };
         });
 
-        vi.resetModules();
+        // Reset the copy cache instead of vi.resetModules(): a cold re-import
+        // of the i18n module graph races the test timeout on loaded CI forks.
+        resetJaGrammarRuleCopyCacheForTests();
         vi.stubGlobal('fetch', fetchSpy);
         vi.stubGlobal('GM_xmlhttpRequest', requestSpy);
 
         try {
-            const { grammarRuleText } = await import('../../src/reader/app/i18n');
-
             await expect(grammarRuleText('ja', 'particle-wa')).resolves.toMatchObject({
                 short: 'marks the topic',
             });
@@ -88,7 +89,7 @@ describe('local Japanese grammar hints', () => {
         } finally {
             vi.stubGlobal('fetch', previousFetch);
             vi.stubGlobal('GM_xmlhttpRequest', previousRequest);
-            vi.resetModules();
+            resetJaGrammarRuleCopyCacheForTests();
         }
     });
 
