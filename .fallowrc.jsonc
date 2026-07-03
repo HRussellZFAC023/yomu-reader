@@ -21,8 +21,6 @@
     "scripts/yt-live-harness.mjs",
     "scripts/extension-boot-smoke.mjs",
     "scripts/zz-ext-probe-firefox.mjs",
-    "scripts/study-flow-render.mts",
-    "scripts/study-flow-shots.mjs",
     "scripts/study-shots-real.mjs",
     "tests/reader/**/*.test.ts"
   ],

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.27] - 2026-07-03
+
+### Fixed
+
+- The Recall step's answer box is visible again on the hosted study page: the inline first-paint stylesheet carried a stale copy of the answer-hiding rule without the kanji and recall exceptions and clobbered them, leaving the typed input at opacity zero.
+
+### Changed
+
+- The docs' study screenshots are captured from the real study page by one hardened script that asserts the answer input is actually opaque, replacing the jsdom skeleton renderer that had been misrepresenting the shipped layout.
+
 ## [1.6.26] - 2026-07-03
 
 ### Added

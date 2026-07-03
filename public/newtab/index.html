@@ -322,7 +322,11 @@
         transition: opacity .16s ease, transform .16s ease, filter .16s ease;
       }
 
-      .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-answer {
+      /* Must mirror new-tab.css: kanji + recall steps show their answer UI
+         (doodle canvas / typed input) pre-reveal. This inline first-paint copy
+         loads after the linked sheet, so a missing exception here clobbers the
+         mode rule and left the recall input invisible at opacity 0. */
+      .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not(.jpdb-reader-newtab-kanji-mode):not(.jpdb-reader-newtab-recall-mode) .jpdb-reader-newtab-answer {
         min-height: 0;
         opacity: 0;
         filter: blur(8px);
