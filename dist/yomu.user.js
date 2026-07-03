@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.25
+// @version 1.6.26
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.25#sha256=4vxfz+K0cEa/3O+yJetC5Vpt0X44HtTA4KwOCJCH3mA=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.25#sha256=snPC2FfDL8/GHz3siXZ7PbBgR+hqhIcE98+cIFmPtKY=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.25#sha256=1fseq4kLqKqXp/kRfbJ/g5At475gQMAFUDEBErawfXA=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.25#sha256=kNctFZjoo5LPMAk+qcCjhn6nTfSlzUsMVLbamx0q/fc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.25#sha256=7rHXQXTAlSK+5ZICvuBLOX7KZ4CwRh5TC8xMzagDGlA=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.25#sha256=6mLpDfqrOLcLup4AHJthm/BD5TKbmopDmGAIniuJr+k=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.26#sha256=dFWDsSJiXOFW7UfIkxlLNXDyhkIkVhzGyjHdZFPvhBM=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.26#sha256=ZrlpfhoF8tw10DMPmrCKz2LIm+47VqKlzC1f3FHAA38=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.26#sha256=dE8TbpDkkXRgZjnJlYascwNvnzucJ+lCc4nM2pcdYNU=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.26#sha256=XpJrSaFctXMl+5if/YMSl58JLvWGowY813RCHHfYV4o=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.26#sha256=/xY07BzvFYoq4VAn2FGmVrw/tW9bW73X7Sw70yoNocw=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.26#sha256=oxUonFMQsP1e1klmfil8FMxQHOp6O7SHkcsAleFvXak=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -2633,6 +2633,21 @@ function matchesShortcut(event, shortcut = "") {
 function shortcutModifiersMatch(event, modifiers) {
   return event.altKey === modifiers.has("alt") && event.ctrlKey === modifiers.has("ctrl") && event.metaKey === modifiers.has("meta") && event.shiftKey === modifiers.has("shift");
 }
+function formatShortcutEvent(event) {
+  const parts = [];
+  addShortcutModifierParts(parts, event);
+  addShortcutKeyPart(parts, normalizeEventKey(event.key));
+  return dedupeShortcutParts(parts).join("+");
+}
+function addShortcutModifierParts(parts, event) {
+  if (event.ctrlKey) parts.push("Ctrl");
+  if (event.altKey) parts.push("Alt");
+  if (event.shiftKey) parts.push("Shift");
+  if (event.metaKey) parts.push("Meta");
+}
+function addShortcutKeyPart(parts, key) {
+  if (!isModifierKey(key)) parts.push(key);
+}
 function shortcutIsPressed(shortcut = "", event, pressedKeys = new Set()) {
   if (!shortcut.trim()) return true;
   const parts = parseShortcut(shortcut);
@@ -2682,6 +2697,9 @@ function normalizeEventKey(key) {
 }
 function isModifierKey(key) {
   return key === "Alt" || key === "Ctrl" || key === "Meta" || key === "Shift";
+}
+function dedupeShortcutParts(parts) {
+  return parts.filter((part, index) => parts.indexOf(part) === index);
 }
 const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
 const LEGACY_SETTINGS_STORAGE_KEYS = [
@@ -25012,7 +25030,8 @@ const READER_DOCUMENT_CLICK_IGNORE_SELECTOR = [
   '[data-jpdb-reader-root] [data-action="kanji"][data-kanji]',
   "[data-yomu-jpdb-addon] [data-action]",
   "[data-settings-preview-lookup]",
-  ".jpdb-reader-settings .jpdb-reader-word"
+  ".jpdb-reader-settings .jpdb-reader-word",
+  ".jpdb-reader-onboarding"
 ].join(",");
 const NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR = [
   "a[href]",
@@ -28896,6 +28915,19 @@ function addSettingsRubyFromRenderedReadings(form, settings) {
   word.classList.add("jpdb-reader-has-furi");
   }
 }
+function ocrInteractionModeFromSettings(settings) {
+  if (!settings.ocrEnabled) return "off";
+  return settings.ocrAutoScanImages ? "auto" : "manual";
+}
+function nextOcrInteractionMode(mode) {
+  if (mode === "auto") return "manual";
+  if (mode === "manual") return "off";
+  return "auto";
+}
+function applyOcrInteractionMode(settings, mode) {
+  settings.ocrEnabled = mode !== "off";
+  settings.ocrAutoScanImages = mode === "auto";
+}
 const log$3 = Logger.scope("Onboarding");
 const ONBOARDING_ACCENT_SWATCHES = ["#5ea780", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
 const ONBOARDING_FEATURE_KEYS = [
@@ -28903,7 +28935,8 @@ const ONBOARDING_FEATURE_KEYS = [
   ["featureImages", "featureImagesBody"],
   ["featureVideo", "featureVideoBody"],
   ["featureControl", "featureControlBody"],
-  ["featureStudy", "featureStudyBody"]
+  ["featureStudy", "featureStudyBody"],
+  ["featureGame", "featureGameBody"]
 ];
 function selectedOnboardingLanguage(value, fallback) {
   return value === "en" || value === "ja" || value === "auto" ? value : fallback;
@@ -28921,8 +28954,12 @@ class OnboardingController {
   accentPreviewFrame;
   youtubeImmersionInput;
   preferJapaneseSiteLanguageInput;
-  manualScanInput;
   offlineDictionariesInput;
+  pageScanModeInputs = [];
+  ocrModeInputs = [];
+  manualPageScanShortcutInput;
+  manualPageScanShortcutLabel;
+  hoverLookupShortcutInput;
   async showIfNeeded() {
   if (this.options.getSettings().onboardingSeen) {
     return false;
@@ -29024,16 +29061,70 @@ class OnboardingController {
   immersionOptions.className = "jpdb-reader-onboarding-options";
   const immersionLegend = document.createElement("legend");
   immersionLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, "onboardingImmersionOptions");
+  this.hoverLookupShortcutInput = shortcutTextInput(
+    "shortcuts.hoverLookup",
+    this.options.getSettings().shortcuts.hoverLookup,
+    this.options.getSettings().interfaceLanguage,
+    "blankPlainHover"
+  );
+  this.manualPageScanShortcutInput = shortcutTextInput(
+    "shortcuts.scanPage",
+    this.options.getSettings().shortcuts.scanPage,
+    this.options.getSettings().interfaceLanguage,
+    "pressKeys"
+  );
   this.youtubeImmersionInput = checkboxInput("youtubeImmersionEnabled", this.options.getSettings().youtubeImmersionEnabled);
   this.preferJapaneseSiteLanguageInput = checkboxInput("preferJapaneseSiteLanguage", this.options.getSettings().preferJapaneseSiteLanguage);
-  this.manualScanInput = checkboxInput("manualScanEnabled", this.options.getSettings().manualScanEnabled);
   this.offlineDictionariesInput = checkboxInput("onboardingInstallOfflineDictionaries", true);
-  immersionOptions.append(
-    immersionLegend,
+  const pageScanMode = createModeGroup(
+    "pageScanMode",
+    uiText(this.options.getSettings().interfaceLanguage, "pageScanMode"),
+    pageScanModeFromSettings(this.options.getSettings()),
+    [
+      ["off", uiText(this.options.getSettings().interfaceLanguage, "pageScanModeOff")],
+      ["auto", uiText(this.options.getSettings().interfaceLanguage, "pageScanModeAuto")],
+      ["manual", uiText(this.options.getSettings().interfaceLanguage, "pageScanModeManual")]
+    ]
+  );
+  this.pageScanModeInputs = pageScanMode.inputs;
+  this.pageScanModeInputs.forEach((input) => {
+    input.addEventListener("change", () => this.syncManualPageScanShortcut());
+  });
+  const ocrMode = createModeGroup(
+    "ocrInteractionMode",
+    uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionMode"),
+    ocrInteractionModeFromSettings(this.options.getSettings()),
+    [
+      ["auto", uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionModeAuto")],
+      ["manual", uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionModeManual")],
+      ["off", uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionModeOff")]
+    ]
+  );
+  this.ocrModeInputs = ocrMode.inputs;
+  const immersionGrid = document.createElement("div");
+  immersionGrid.className = "jpdb-reader-onboarding-immersion-grid";
+  const defaultColumn = document.createElement("div");
+  defaultColumn.className = "jpdb-reader-onboarding-option-column";
+  defaultColumn.append(
     checkboxLabel(this.youtubeImmersionInput, uiText(this.options.getSettings().interfaceLanguage, "youtubeImmersionEnabled")),
     checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, "preferJapaneseSiteLanguage")),
-    checkboxLabel(this.manualScanInput, uiText(this.options.getSettings().interfaceLanguage, "manualScanEnabled")),
     checkboxLabel(this.offlineDictionariesInput, uiText(this.options.getSettings().interfaceLanguage, "onboardingInstallOfflineDictionaries"))
+  );
+  const scanColumn = document.createElement("div");
+  scanColumn.className = "jpdb-reader-onboarding-option-column";
+  scanColumn.append(pageScanMode.fieldset, ocrMode.fieldset);
+  const shortcutColumn = document.createElement("div");
+  shortcutColumn.className = "jpdb-reader-onboarding-option-column";
+  this.manualPageScanShortcutLabel = shortcutLabel(this.manualPageScanShortcutInput, uiText(this.options.getSettings().interfaceLanguage, "manualPageScanShortcut"));
+  this.manualPageScanShortcutLabel.dataset.manualPageScanShortcut = "true";
+  shortcutColumn.append(
+    shortcutLabel(this.hoverLookupShortcutInput, uiText(this.options.getSettings().interfaceLanguage, "onboardingHoverShortcut")),
+    this.manualPageScanShortcutLabel
+  );
+  immersionGrid.append(defaultColumn, scanColumn, shortcutColumn);
+  immersionOptions.append(
+    immersionLegend,
+    immersionGrid
   );
   const actions = document.createElement("div");
   actions.className = "jpdb-reader-onboarding-actions";
@@ -29062,6 +29153,7 @@ class OnboardingController {
   this.panel.append(closeButton, eyebrow, title, copy2, basics, immersionOptions, actions, featureList);
   this.syncThemeSwitch();
   this.syncAccentPicker(this.accentColorInput.value);
+  this.syncManualPageScanShortcut();
   document.body.append(this.backdrop, this.panel);
   this.panel.focus();
   this.annotateJapanese();
@@ -29091,10 +29183,21 @@ class OnboardingController {
   panel.querySelector(".jpdb-reader-onboarding-language span")?.replaceChildren(uiText(language, "onboardingLanguage"));
   panel.querySelector('[data-onboarding-copy="theme"]')?.replaceChildren(uiText(language, "theme"));
   panel.querySelector(".jpdb-reader-onboarding-options legend")?.replaceChildren(uiText(language, "onboardingImmersionOptions"));
+  panel.querySelector('[data-onboarding-copy="shortcuts.hoverLookup"]')?.replaceChildren(uiText(language, "onboardingHoverShortcut"));
+  this.hoverLookupShortcutInput?.setAttribute("placeholder", uiText(language, "blankPlainHover"));
+  panel.querySelector('[data-onboarding-copy="shortcuts.scanPage"]')?.replaceChildren(uiText(language, "manualPageScanShortcut"));
+  this.manualPageScanShortcutInput?.setAttribute("placeholder", uiText(language, "pressKeys"));
   panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, "youtubeImmersionEnabled"));
   panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, "preferJapaneseSiteLanguage"));
-  panel.querySelector('[data-onboarding-copy="manualScanEnabled"]')?.replaceChildren(uiText(language, "manualScanEnabled"));
   panel.querySelector('[data-onboarding-copy="onboardingInstallOfflineDictionaries"]')?.replaceChildren(uiText(language, "onboardingInstallOfflineDictionaries"));
+  panel.querySelector('[data-onboarding-mode-legend="pageScanMode"]')?.replaceChildren(uiText(language, "pageScanMode"));
+  setOnboardingModeLabel(panel, "pageScanMode", "off", uiText(language, "pageScanModeOff"));
+  setOnboardingModeLabel(panel, "pageScanMode", "auto", uiText(language, "pageScanModeAuto"));
+  setOnboardingModeLabel(panel, "pageScanMode", "manual", uiText(language, "pageScanModeManual"));
+  panel.querySelector('[data-onboarding-mode-legend="ocrInteractionMode"]')?.replaceChildren(uiText(language, "ocrInteractionMode"));
+  setOnboardingModeLabel(panel, "ocrInteractionMode", "auto", uiText(language, "ocrInteractionModeAuto"));
+  setOnboardingModeLabel(panel, "ocrInteractionMode", "manual", uiText(language, "ocrInteractionModeManual"));
+  setOnboardingModeLabel(panel, "ocrInteractionMode", "off", uiText(language, "ocrInteractionModeOff"));
   panel.querySelector(".jpdb-reader-onboarding-accent legend")?.replaceChildren(uiText(language, "onboardingAccentColor"));
   panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(uiText(language, "customAccentColor"));
   this.accentColorInput?.setAttribute("aria-label", uiText(language, "onboardingAccentColor"));
@@ -29148,6 +29251,8 @@ class OnboardingController {
   }
   completedOnboardingSettings(openSettings, installOfflineDictionaries) {
   const current = this.options.getSettings();
+  const pageScanMode = selectedMode(this.pageScanModeInputs, pageScanModeFromSettings(current));
+  const ocrMode = selectedMode(this.ocrModeInputs, ocrInteractionModeFromSettings(current));
   return {
     ...current,
     onboardingSeen: true,
@@ -29155,7 +29260,15 @@ class OnboardingController {
     localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
     youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
     preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
-    manualScanEnabled: this.manualScanInput?.checked ?? current.manualScanEnabled,
+    annotationsPaused: pageScanMode === "off",
+    manualScanEnabled: pageScanMode === "manual",
+    ocrEnabled: ocrMode !== "off",
+    ocrAutoScanImages: ocrMode === "auto",
+    shortcuts: {
+      ...current.shortcuts,
+      hoverLookup: this.hoverLookupShortcutInput?.value.trim() ?? current.shortcuts.hoverLookup,
+      scanPage: this.manualPageScanShortcutInput?.value.trim() ?? current.shortcuts.scanPage
+    },
     dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? "jpdb" : "local"),
     interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage),
     accentColor: sanitizeAccentColor(this.accentColorInput?.value, current.accentColor)
@@ -29176,8 +29289,12 @@ class OnboardingController {
   this.accentColorInput = void 0;
   this.youtubeImmersionInput = void 0;
   this.preferJapaneseSiteLanguageInput = void 0;
-  this.manualScanInput = void 0;
   this.offlineDictionariesInput = void 0;
+  this.pageScanModeInputs = [];
+  this.ocrModeInputs = [];
+  this.manualPageScanShortcutInput = void 0;
+  this.manualPageScanShortcutLabel = void 0;
+  this.hoverLookupShortcutInput = void 0;
   }
   createThemeToggle() {
   const wrapper = document.createElement("div");
@@ -29258,6 +29375,17 @@ class OnboardingController {
     button2.setAttribute("aria-pressed", String(selected));
   });
   }
+  syncManualPageScanShortcut() {
+  if (!this.manualPageScanShortcutLabel) return;
+  this.manualPageScanShortcutLabel.hidden = selectedMode(this.pageScanModeInputs, "auto") !== "manual";
+  }
+}
+function pageScanModeFromSettings(settings) {
+  if (settings.annotationsPaused) return "off";
+  return settings.manualScanEnabled ? "manual" : "auto";
+}
+function selectedMode(inputs, fallback) {
+  return inputs.find((input) => input.checked)?.value ?? fallback;
 }
 function normalizeLanguage(value, fallback) {
   return value === "en" || value === "ja" || value === "auto" ? value : fallback;
@@ -29293,6 +29421,62 @@ function checkboxLabel(input, text2) {
   copy2.dataset.onboardingCopy = input.name;
   copy2.textContent = text2;
   label.append(input, copy2);
+  return label;
+}
+function shortcutTextInput(name, value, language, placeholderKey) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.name = name;
+  input.value = value;
+  input.placeholder = uiText(language, placeholderKey);
+  input.autocomplete = "off";
+  input.inputMode = "none";
+  input.dataset.shortcutInput = "true";
+  input.setAttribute("aria-labelledby", onboardingCopyId(name));
+  input.addEventListener("keydown", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  input.value = event.key === "Backspace" || event.key === "Delete" ? "" : formatShortcutEvent(event);
+  });
+  input.addEventListener("paste", (event) => event.preventDefault());
+  return input;
+}
+function createModeGroup(name, legendText, selectedValue, options) {
+  const fieldset = document.createElement("fieldset");
+  fieldset.className = "jpdb-reader-onboarding-mode-group";
+  const legend = document.createElement("legend");
+  legend.dataset.onboardingModeLegend = name;
+  legend.textContent = legendText;
+  const inputs = options.map(([value, text2]) => {
+  const input = document.createElement("input");
+  input.type = "radio";
+  input.name = name;
+  input.value = value;
+  input.checked = value === selectedValue;
+  const label = document.createElement("label");
+  label.className = "inline";
+  label.dataset.onboardingModeLabel = `${name}.${value}`;
+  label.append(input, document.createTextNode(text2));
+  fieldset.append(label);
+  return input;
+  });
+  fieldset.prepend(legend);
+  return { fieldset, inputs };
+}
+function setOnboardingModeLabel(panel, name, value, text2) {
+  const label = panel.querySelector(`[data-onboarding-mode-label="${name}.${value}"]`);
+  const input = label?.querySelector("input");
+  if (!label || !input) return;
+  label.replaceChildren(input, document.createTextNode(text2));
+}
+function shortcutLabel(input, text2) {
+  const label = document.createElement("label");
+  label.className = "jpdb-reader-onboarding-shortcut";
+  const copy2 = document.createElement("span");
+  copy2.id = onboardingCopyId(input.name);
+  copy2.dataset.onboardingCopy = input.name;
+  copy2.textContent = text2;
+  label.append(copy2, input);
   return label;
 }
 function onboardingCopyId(name) {
@@ -29972,19 +30156,6 @@ function defineUntrackedValue(target, key, value) {
   } catch {
   }
   }
-}
-function ocrInteractionModeFromSettings(settings) {
-  if (!settings.ocrEnabled) return "off";
-  return settings.ocrAutoScanImages ? "auto" : "manual";
-}
-function nextOcrInteractionMode(mode) {
-  if (mode === "auto") return "manual";
-  if (mode === "manual") return "off";
-  return "auto";
-}
-function applyOcrInteractionMode(settings, mode) {
-  settings.ocrEnabled = mode !== "off";
-  settings.ocrAutoScanImages = mode === "auto";
 }
 const log$2 = Logger.scope("ReaderAudioActions");
 class ReaderAudioActions {
@@ -32278,7 +32449,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.25"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.26"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

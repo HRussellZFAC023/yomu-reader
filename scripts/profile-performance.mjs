@@ -16,6 +16,15 @@ const LIVE = process.env.YOMU_PROFILE_LIVE === '1';
 const API_KEY = process.env.YOMU_PROFILE_API_KEY || process.env.YOMU_TEST_API_KEY || '';
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const USERSCRIPT_PATH = resolve(SCRIPT_DIR, '..', 'dist', 'yomu.user.js');
+// The seed builds the local dictionary IndexedDB the userscript will later open,
+// so it MUST match the real schema in src/reader/dictionaries/yomitan/index.ts.
+// Read the live DB_NAME/DB_VERSION from that source at startup instead of
+// hardcoding them here — a hardcoded copy is exactly what went stale before
+// (seed stuck at v2 while the store moved to v4 + derived stores), which made
+// the userscript silently reopen at a newer version with empty term indexes
+// and left the profiler measuring the network fallback instead of the local path.
+const YOMITAN_STORE_SOURCE_PATH = resolve(SCRIPT_DIR, '..', 'src', 'reader', 'dictionaries', 'yomitan', 'index.ts');
+const YOMITAN_DB = await readYomitanDbSchemaConstants(YOMITAN_STORE_SOURCE_PATH);
 const IMMERSION_API_HOSTS = new Set(['apiv2express.immersionkit.com', 'apiv2.immersionkit.com']);
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const PROFILE_FIXTURE_PATH = '/__yomu-profile-fixture/';
@@ -896,47 +905,91 @@ function profileFixtureHtml() {
 </html>`;
 }
 
+// Read the real IndexedDB name/version the userscript uses from its source of
+// truth (src/reader/dictionaries/yomitan/index.ts). The seed opens the DB at
+// this exact version and mirrors the same store/index schema, so the userscript
+// finds the DB it expects instead of triggering a surprise upgrade that leaves
+// the derived term indexes empty. Fails loudly if the constants ever move or
+// rename so the seed can never silently drift out of the real schema again.
+async function readYomitanDbSchemaConstants(sourcePath) {
+    const source = await readFile(sourcePath, 'utf8').catch(error => {
+        throw new Error(`Could not read Yomitan store source at ${sourcePath} to sync the profiler seed schema: ${error?.message || error}`);
+    });
+    const name = source.match(/^const DB_NAME = '([^']+)';/m)?.[1];
+    const version = Number(source.match(/^const DB_VERSION = (\d+);/m)?.[1]);
+    if (!name || !Number.isInteger(version)) {
+        throw new Error(`Could not parse DB_NAME/DB_VERSION from ${sourcePath}. The profiler seed mirrors that schema; update readYomitanDbSchemaConstants() to match the current constants before profiling.`);
+    }
+    return { name, version };
+}
+
 async function seedProfileDictionaries(page) {
-    await page.evaluate(async () => {
-        const DB_NAME = 'jpdb-popup-reader-yomitan';
-        const DB_VERSION = 2;
+    await page.evaluate(async ({ dbName, dbVersion }) => {
+        // Mirror of the real onupgradeneeded in
+        // src/reader/dictionaries/yomitan/index.ts (~line 1704): every store the
+        // store creates, in the same shape, INCLUDING the derived term indexes
+        // (termSearch token index + termKanji character index) that were missing
+        // from the old v2 seed. Keeping these here means the seeded DB is byte-for
+        // -shape identical to a DB the userscript builds after a real import.
         const STORE_SPECS = [
             { name: 'terms', options: { keyPath: 'id', autoIncrement: true }, indexes: [['expression', 'expression'], ['reading', 'reading'], ['dictionary', 'dictionary']] },
             { name: 'kanji', options: { keyPath: 'id', autoIncrement: true }, indexes: [['character', 'character'], ['dictionary', 'dictionary']] },
             { name: 'termMeta', options: { keyPath: 'id', autoIncrement: true }, indexes: [['expression', 'expression'], ['dictionary', 'dictionary']] },
             { name: 'kanjiMeta', options: { keyPath: 'id', autoIncrement: true }, indexes: [['character', 'character'], ['dictionary', 'dictionary']] },
             { name: 'dictionaryInfo', options: { keyPath: 'title' }, indexes: [] },
+            { name: 'termSearch', options: { keyPath: 'id', autoIncrement: true }, indexes: [['token', 'token'], ['dictionary', 'dictionary']] },
+            { name: 'termKanji', options: { keyPath: 'id', autoIncrement: true }, indexes: [['character', 'character'], ['dictionary', 'dictionary']] },
         ];
         await new Promise(resolve => {
-            const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
+            const deleteRequest = indexedDB.deleteDatabase(dbName);
             deleteRequest.onsuccess = () => resolve();
             deleteRequest.onerror = () => resolve();
             deleteRequest.onblocked = () => resolve();
         });
         const db = await new Promise((resolve, reject) => {
-            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            const request = indexedDB.open(dbName, dbVersion);
             request.onupgradeneeded = () => installProfileStores(request, STORE_SPECS);
             request.addEventListener('success', () => resolve(request.result), { once: true });
             request.addEventListener('error', () => reject(request.error), { once: true });
         });
+
+        const seededTerms = [
+            { expression: '今日', reading: 'きょう', glossary: ['profile local today'], score: 100, dictionary: 'Profile Local' },
+            { expression: '読む', reading: 'よむ', glossary: ['profile local to read'], rules: 'v5m', score: 90, dictionary: 'Profile Local' },
+            { expression: '読みました', reading: 'よみました', glossary: ['profile local read politely'], rules: 'v5m', score: 80, dictionary: 'Profile Local' },
+            { expression: '日本語', reading: 'にほんご', glossary: ['profile local Japanese language'], score: 70, dictionary: 'Profile Local' },
+        ];
+
         await new Promise((resolve, reject) => {
-            const tx = db.transaction(['dictionaryInfo', 'terms', 'kanji', 'termMeta'], 'readwrite');
+            const tx = db.transaction(['dictionaryInfo', 'terms', 'kanji', 'termMeta', 'termSearch', 'termKanji'], 'readwrite');
             tx.objectStore('dictionaryInfo').put({ title: 'Profile Local', alias: 'Profile Local', enabled: true, priority: 0, type: 'terms', counts: { terms: 8 } });
             tx.objectStore('dictionaryInfo').put({ title: 'Profile Pitch', alias: 'Profile Pitch', enabled: true, priority: 1, type: 'metadata', counts: { termMeta: 2 } });
             tx.objectStore('dictionaryInfo').put({ title: 'Profile Kanji', alias: 'Profile Kanji', enabled: true, priority: 2, type: 'kanji', counts: { kanji: 2 } });
             const terms = tx.objectStore('terms');
-            [
-                { expression: '今日', reading: 'きょう', glossary: ['profile local today'], score: 100, dictionary: 'Profile Local' },
-                { expression: '読む', reading: 'よむ', glossary: ['profile local to read'], rules: 'v5m', score: 90, dictionary: 'Profile Local' },
-                { expression: '読みました', reading: 'よみました', glossary: ['profile local read politely'], rules: 'v5m', score: 80, dictionary: 'Profile Local' },
-                { expression: '日本語', reading: 'にほんご', glossary: ['profile local Japanese language'], score: 70, dictionary: 'Profile Local' },
-            ].forEach(entry => terms.add(entry));
+            seededTerms.forEach(entry => terms.add(entry));
             const kanji = tx.objectStore('kanji');
             kanji.add({ character: '今', onyomi: ['コン'], kunyomi: ['いま'], tags: [], meanings: ['now'], dictionary: 'Profile Kanji' });
             kanji.add({ character: '読', onyomi: ['ドク'], kunyomi: ['よ.む'], tags: [], meanings: ['read'], dictionary: 'Profile Kanji' });
             const termMeta = tx.objectStore('termMeta');
             termMeta.add({ expression: '今日', mode: 'freq', data: { frequency: 100 }, dictionary: 'Profile Pitch' });
             termMeta.add({ expression: '今日', mode: 'pitch', data: { reading: 'きょう', pitches: [{ position: 1 }] }, dictionary: 'Profile Pitch' });
+            // Populate the derived indexes the same way the store's rebuild does:
+            // termSearch = one row per glossary search token, termKanji = one row
+            // per unique kanji in the expression. Without this the userscript would
+            // still see the terms via the expression index, but English glossary
+            // search and kanji-similar-word lookups would resolve nothing until a
+            // background rebuild finished — a different DB state than the profiler
+            // wants to measure.
+            const termSearch = tx.objectStore('termSearch');
+            const termKanji = tx.objectStore('termKanji');
+            for (const entry of seededTerms) {
+                for (const token of glossarySearchTokens(entry.glossary)) {
+                    termSearch.add({ ...entry, token });
+                }
+                for (const character of uniqueExpressionKanji(entry.expression)) {
+                    termKanji.add({ ...entry, character });
+                }
+            }
             tx.oncomplete = () => {
                 db.close();
                 resolve();
@@ -954,16 +1007,62 @@ async function seedProfileDictionaries(page) {
         }
 
         function profileStoreForSpec(request, spec) {
-            const db = request.result;
-            return db.objectStoreNames.contains(spec.name)
+            const store = request.result;
+            return store.objectStoreNames.contains(spec.name)
                 ? request.transaction.objectStore(spec.name)
-                : db.createObjectStore(spec.name, spec.options);
+                : store.createObjectStore(spec.name, spec.options);
         }
 
         function ensureProfileIndex(store, name, keyPath) {
             if (!store.indexNames.contains(name)) store.createIndex(name, keyPath);
         }
-    });
+
+        // Faithful mirror of the term-search tokenizer in the Yomitan store
+        // (glossarySearchTokens / normalizeGlossarySearchText, index.ts ~1988):
+        // lowercase-normalize glossary text, split into words, and index each word
+        // plus its suffixes (>= 3 chars) and simple plural/possessive stems, keeping
+        // tokens >= 2 chars. Kept in lockstep with those source functions; the
+        // constants below match TERM_SEARCH_INDEX_* in that file.
+        function glossarySearchTokens(glossary) {
+            const MIN_TOKEN_LENGTH = 2;
+            const MIN_SUFFIX_LENGTH = 3;
+            const MAX_TOKENS_PER_TERM = 40;
+            const text = normalizeGlossarySearchText(glossary.join(' '));
+            const seen = new Set();
+            const tokens = [];
+            const push = token => {
+                if (token.length < MIN_TOKEN_LENGTH || seen.has(token)) return;
+                seen.add(token);
+                tokens.push(token);
+            };
+            for (const word of text.split(' ').filter(Boolean)) {
+                const variantSeen = new Set();
+                for (const variant of [word, word.endsWith("'s") ? word.slice(0, -2) : '', word.endsWith('s') ? word.slice(0, -1) : '']) {
+                    if (variant.length < MIN_TOKEN_LENGTH || variantSeen.has(variant)) continue;
+                    variantSeen.add(variant);
+                    push(variant);
+                    for (let start = 1; start <= variant.length - MIN_SUFFIX_LENGTH; start++) push(variant.slice(start));
+                }
+            }
+            return tokens.slice(0, MAX_TOKENS_PER_TERM);
+        }
+
+        function normalizeGlossarySearchText(value) {
+            return value.normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}\s'-]+/gu, ' ').replace(/\s+/g, ' ').trim();
+        }
+
+        // Mirror of uniqueExpressionKanji (index.ts ~1979): unique CJK ideographs
+        // (U+3400..U+9FFF) in expression order.
+        function uniqueExpressionKanji(expression) {
+            const seen = new Set();
+            return Array.from(expression).filter(character => {
+                const code = character.codePointAt(0) ?? 0;
+                if (code < 0x3400 || code > 0x9fff || seen.has(character)) return false;
+                seen.add(character);
+                return true;
+            });
+        }
+    }, { dbName: YOMITAN_DB.name, dbVersion: YOMITAN_DB.version });
 }
 
 function mockParse(body) {

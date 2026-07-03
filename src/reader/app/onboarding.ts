@@ -2,17 +2,20 @@ import { APP_NAME } from './constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { Logger } from './logger';
-import { defaultDictionaryLookupLinks, sanitizeAccentColor, saveSettings } from '../settings/index';
+import { defaultDictionaryLookupLinks, formatShortcutEvent, sanitizeAccentColor, saveSettings } from '../settings/index';
 import type { InterfaceLanguage, ReaderSettings } from './types';
+import { ocrInteractionModeFromSettings } from '../ocr/mode';
 
 const log = Logger.scope('Onboarding');
 const ONBOARDING_ACCENT_SWATCHES = ['#5ea780', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#0891b2'] as const;
+type PageScanMode = 'off' | 'auto' | 'manual';
 const ONBOARDING_FEATURE_KEYS = [
     ['featureText', 'featureTextBody'],
     ['featureImages', 'featureImagesBody'],
     ['featureVideo', 'featureVideoBody'],
     ['featureControl', 'featureControlBody'],
     ['featureStudy', 'featureStudyBody'],
+    ['featureGame', 'featureGameBody'],
 ] as const satisfies readonly (readonly [UiCopyKey, UiCopyKey])[];
 
 interface OnboardingOptions {
@@ -41,8 +44,12 @@ export class OnboardingController {
     private accentPreviewFrame?: number;
     private youtubeImmersionInput?: HTMLInputElement;
     private preferJapaneseSiteLanguageInput?: HTMLInputElement;
-    private manualScanInput?: HTMLInputElement;
     private offlineDictionariesInput?: HTMLInputElement;
+    private pageScanModeInputs: HTMLInputElement[] = [];
+    private ocrModeInputs: HTMLInputElement[] = [];
+    private manualPageScanShortcutInput?: HTMLInputElement;
+    private manualPageScanShortcutLabel?: HTMLElement;
+    private hoverLookupShortcutInput?: HTMLInputElement;
 
     constructor(private readonly options: OnboardingOptions) {}
 
@@ -158,16 +165,70 @@ export class OnboardingController {
         immersionOptions.className = 'jpdb-reader-onboarding-options';
         const immersionLegend = document.createElement('legend');
         immersionLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, 'onboardingImmersionOptions');
+        this.hoverLookupShortcutInput = shortcutTextInput(
+            'shortcuts.hoverLookup',
+            this.options.getSettings().shortcuts.hoverLookup,
+            this.options.getSettings().interfaceLanguage,
+            'blankPlainHover',
+        );
+        this.manualPageScanShortcutInput = shortcutTextInput(
+            'shortcuts.scanPage',
+            this.options.getSettings().shortcuts.scanPage,
+            this.options.getSettings().interfaceLanguage,
+            'pressKeys',
+        );
         this.youtubeImmersionInput = checkboxInput('youtubeImmersionEnabled', this.options.getSettings().youtubeImmersionEnabled);
         this.preferJapaneseSiteLanguageInput = checkboxInput('preferJapaneseSiteLanguage', this.options.getSettings().preferJapaneseSiteLanguage);
-        this.manualScanInput = checkboxInput('manualScanEnabled', this.options.getSettings().manualScanEnabled);
         this.offlineDictionariesInput = checkboxInput('onboardingInstallOfflineDictionaries', true);
-        immersionOptions.append(
-            immersionLegend,
+        const pageScanMode = createModeGroup(
+            'pageScanMode',
+            uiText(this.options.getSettings().interfaceLanguage, 'pageScanMode'),
+            pageScanModeFromSettings(this.options.getSettings()),
+            [
+                ['off', uiText(this.options.getSettings().interfaceLanguage, 'pageScanModeOff')],
+                ['auto', uiText(this.options.getSettings().interfaceLanguage, 'pageScanModeAuto')],
+                ['manual', uiText(this.options.getSettings().interfaceLanguage, 'pageScanModeManual')],
+            ],
+        );
+        this.pageScanModeInputs = pageScanMode.inputs;
+        this.pageScanModeInputs.forEach(input => {
+            input.addEventListener('change', () => this.syncManualPageScanShortcut());
+        });
+        const ocrMode = createModeGroup(
+            'ocrInteractionMode',
+            uiText(this.options.getSettings().interfaceLanguage, 'ocrInteractionMode'),
+            ocrInteractionModeFromSettings(this.options.getSettings()),
+            [
+                ['auto', uiText(this.options.getSettings().interfaceLanguage, 'ocrInteractionModeAuto')],
+                ['manual', uiText(this.options.getSettings().interfaceLanguage, 'ocrInteractionModeManual')],
+                ['off', uiText(this.options.getSettings().interfaceLanguage, 'ocrInteractionModeOff')],
+            ],
+        );
+        this.ocrModeInputs = ocrMode.inputs;
+        const immersionGrid = document.createElement('div');
+        immersionGrid.className = 'jpdb-reader-onboarding-immersion-grid';
+        const defaultColumn = document.createElement('div');
+        defaultColumn.className = 'jpdb-reader-onboarding-option-column';
+        defaultColumn.append(
             checkboxLabel(this.youtubeImmersionInput, uiText(this.options.getSettings().interfaceLanguage, 'youtubeImmersionEnabled')),
             checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, 'preferJapaneseSiteLanguage')),
-            checkboxLabel(this.manualScanInput, uiText(this.options.getSettings().interfaceLanguage, 'manualScanEnabled')),
             checkboxLabel(this.offlineDictionariesInput, uiText(this.options.getSettings().interfaceLanguage, 'onboardingInstallOfflineDictionaries')),
+        );
+        const scanColumn = document.createElement('div');
+        scanColumn.className = 'jpdb-reader-onboarding-option-column';
+        scanColumn.append(pageScanMode.fieldset, ocrMode.fieldset);
+        const shortcutColumn = document.createElement('div');
+        shortcutColumn.className = 'jpdb-reader-onboarding-option-column';
+        this.manualPageScanShortcutLabel = shortcutLabel(this.manualPageScanShortcutInput, uiText(this.options.getSettings().interfaceLanguage, 'manualPageScanShortcut'));
+        this.manualPageScanShortcutLabel.dataset.manualPageScanShortcut = 'true';
+        shortcutColumn.append(
+            shortcutLabel(this.hoverLookupShortcutInput, uiText(this.options.getSettings().interfaceLanguage, 'onboardingHoverShortcut')),
+            this.manualPageScanShortcutLabel,
+        );
+        immersionGrid.append(defaultColumn, scanColumn, shortcutColumn);
+        immersionOptions.append(
+            immersionLegend,
+            immersionGrid,
         );
 
         const actions = document.createElement('div');
@@ -199,6 +260,7 @@ export class OnboardingController {
         this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, actions, featureList);
         this.syncThemeSwitch();
         this.syncAccentPicker(this.accentColorInput.value);
+        this.syncManualPageScanShortcut();
         document.body.append(this.backdrop, this.panel);
         this.panel.focus();
         this.annotateJapanese();
@@ -234,10 +296,21 @@ export class OnboardingController {
         panel.querySelector('.jpdb-reader-onboarding-language span')?.replaceChildren(uiText(language, 'onboardingLanguage'));
         panel.querySelector('[data-onboarding-copy="theme"]')?.replaceChildren(uiText(language, 'theme'));
         panel.querySelector('.jpdb-reader-onboarding-options legend')?.replaceChildren(uiText(language, 'onboardingImmersionOptions'));
+        panel.querySelector('[data-onboarding-copy="shortcuts.hoverLookup"]')?.replaceChildren(uiText(language, 'onboardingHoverShortcut'));
+        this.hoverLookupShortcutInput?.setAttribute('placeholder', uiText(language, 'blankPlainHover'));
+        panel.querySelector('[data-onboarding-copy="shortcuts.scanPage"]')?.replaceChildren(uiText(language, 'manualPageScanShortcut'));
+        this.manualPageScanShortcutInput?.setAttribute('placeholder', uiText(language, 'pressKeys'));
         panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, 'youtubeImmersionEnabled'));
         panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, 'preferJapaneseSiteLanguage'));
-        panel.querySelector('[data-onboarding-copy="manualScanEnabled"]')?.replaceChildren(uiText(language, 'manualScanEnabled'));
         panel.querySelector('[data-onboarding-copy="onboardingInstallOfflineDictionaries"]')?.replaceChildren(uiText(language, 'onboardingInstallOfflineDictionaries'));
+        panel.querySelector('[data-onboarding-mode-legend="pageScanMode"]')?.replaceChildren(uiText(language, 'pageScanMode'));
+        setOnboardingModeLabel(panel, 'pageScanMode', 'off', uiText(language, 'pageScanModeOff'));
+        setOnboardingModeLabel(panel, 'pageScanMode', 'auto', uiText(language, 'pageScanModeAuto'));
+        setOnboardingModeLabel(panel, 'pageScanMode', 'manual', uiText(language, 'pageScanModeManual'));
+        panel.querySelector('[data-onboarding-mode-legend="ocrInteractionMode"]')?.replaceChildren(uiText(language, 'ocrInteractionMode'));
+        setOnboardingModeLabel(panel, 'ocrInteractionMode', 'auto', uiText(language, 'ocrInteractionModeAuto'));
+        setOnboardingModeLabel(panel, 'ocrInteractionMode', 'manual', uiText(language, 'ocrInteractionModeManual'));
+        setOnboardingModeLabel(panel, 'ocrInteractionMode', 'off', uiText(language, 'ocrInteractionModeOff'));
         panel.querySelector('.jpdb-reader-onboarding-accent legend')?.replaceChildren(uiText(language, 'onboardingAccentColor'));
         panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(uiText(language, 'customAccentColor'));
         this.accentColorInput?.setAttribute('aria-label', uiText(language, 'onboardingAccentColor'));
@@ -294,6 +367,8 @@ export class OnboardingController {
 
     private completedOnboardingSettings(openSettings: boolean | 'dictionaries', installOfflineDictionaries: boolean): ReaderSettings {
         const current = this.options.getSettings();
+        const pageScanMode = selectedMode(this.pageScanModeInputs, pageScanModeFromSettings(current));
+        const ocrMode = selectedMode(this.ocrModeInputs, ocrInteractionModeFromSettings(current));
         return {
             ...current,
             onboardingSeen: true,
@@ -301,7 +376,15 @@ export class OnboardingController {
             localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
             youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
             preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
-            manualScanEnabled: this.manualScanInput?.checked ?? current.manualScanEnabled,
+            annotationsPaused: pageScanMode === 'off',
+            manualScanEnabled: pageScanMode === 'manual',
+            ocrEnabled: ocrMode !== 'off',
+            ocrAutoScanImages: ocrMode === 'auto',
+            shortcuts: {
+                ...current.shortcuts,
+                hoverLookup: this.hoverLookupShortcutInput?.value.trim() ?? current.shortcuts.hoverLookup,
+                scanPage: this.manualPageScanShortcutInput?.value.trim() ?? current.shortcuts.scanPage,
+            },
             dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? 'jpdb' : 'local'),
             interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage),
             accentColor: sanitizeAccentColor(this.accentColorInput?.value, current.accentColor),
@@ -324,8 +407,12 @@ export class OnboardingController {
         this.accentColorInput = undefined;
         this.youtubeImmersionInput = undefined;
         this.preferJapaneseSiteLanguageInput = undefined;
-        this.manualScanInput = undefined;
         this.offlineDictionariesInput = undefined;
+        this.pageScanModeInputs = [];
+        this.ocrModeInputs = [];
+        this.manualPageScanShortcutInput = undefined;
+        this.manualPageScanShortcutLabel = undefined;
+        this.hoverLookupShortcutInput = undefined;
     }
 
     private createThemeToggle(): HTMLElement {
@@ -415,6 +502,20 @@ export class OnboardingController {
             button.setAttribute('aria-pressed', String(selected));
         });
     }
+
+    private syncManualPageScanShortcut(): void {
+        if (!this.manualPageScanShortcutLabel) return;
+        this.manualPageScanShortcutLabel.hidden = selectedMode<PageScanMode>(this.pageScanModeInputs, 'auto') !== 'manual';
+    }
+}
+
+function pageScanModeFromSettings(settings: ReaderSettings): PageScanMode {
+    if (settings.annotationsPaused) return 'off';
+    return settings.manualScanEnabled ? 'manual' : 'auto';
+}
+
+function selectedMode<T extends string>(inputs: HTMLInputElement[], fallback: T): T {
+    return (inputs.find(input => input.checked)?.value as T | undefined) ?? fallback;
 }
 
 function normalizeLanguage(value: unknown, fallback: InterfaceLanguage): InterfaceLanguage {
@@ -435,7 +536,7 @@ function button(text: string): HTMLButtonElement {
     return node;
 }
 
-function checkboxInput(name: keyof Pick<ReaderSettings, 'preferJapaneseSiteLanguage' | 'youtubeImmersionEnabled' | 'manualScanEnabled'> | 'onboardingInstallOfflineDictionaries', checked: boolean): HTMLInputElement {
+function checkboxInput(name: keyof Pick<ReaderSettings, 'preferJapaneseSiteLanguage' | 'youtubeImmersionEnabled'> | 'onboardingInstallOfflineDictionaries', checked: boolean): HTMLInputElement {
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.name = name;
@@ -456,6 +557,71 @@ function checkboxLabel(input: HTMLInputElement, text: string): HTMLLabelElement 
     copy.dataset.onboardingCopy = input.name;
     copy.textContent = text;
     label.append(input, copy);
+    return label;
+}
+
+function shortcutTextInput(name: 'shortcuts.hoverLookup' | 'shortcuts.scanPage', value: string, language: InterfaceLanguage, placeholderKey: UiCopyKey): HTMLInputElement {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.name = name;
+    input.value = value;
+    input.placeholder = uiText(language, placeholderKey);
+    input.autocomplete = 'off';
+    input.inputMode = 'none';
+    input.dataset.shortcutInput = 'true';
+    input.setAttribute('aria-labelledby', onboardingCopyId(name));
+    input.addEventListener('keydown', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        input.value = event.key === 'Backspace' || event.key === 'Delete' ? '' : formatShortcutEvent(event);
+    });
+    input.addEventListener('paste', event => event.preventDefault());
+    return input;
+}
+
+function createModeGroup<T extends string>(
+    name: string,
+    legendText: string,
+    selectedValue: T,
+    options: readonly (readonly [T, string])[],
+): { fieldset: HTMLFieldSetElement; inputs: HTMLInputElement[] } {
+    const fieldset = document.createElement('fieldset');
+    fieldset.className = 'jpdb-reader-onboarding-mode-group';
+    const legend = document.createElement('legend');
+    legend.dataset.onboardingModeLegend = name;
+    legend.textContent = legendText;
+    const inputs = options.map(([value, text]) => {
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = name;
+        input.value = value;
+        input.checked = value === selectedValue;
+        const label = document.createElement('label');
+        label.className = 'inline';
+        label.dataset.onboardingModeLabel = `${name}.${value}`;
+        label.append(input, document.createTextNode(text));
+        fieldset.append(label);
+        return input;
+    });
+    fieldset.prepend(legend);
+    return { fieldset, inputs };
+}
+
+function setOnboardingModeLabel(panel: HTMLElement, name: string, value: string, text: string): void {
+    const label = panel.querySelector<HTMLElement>(`[data-onboarding-mode-label="${name}.${value}"]`);
+    const input = label?.querySelector('input');
+    if (!label || !input) return;
+    label.replaceChildren(input, document.createTextNode(text));
+}
+
+function shortcutLabel(input: HTMLInputElement, text: string): HTMLLabelElement {
+    const label = document.createElement('label');
+    label.className = 'jpdb-reader-onboarding-shortcut';
+    const copy = document.createElement('span');
+    copy.id = onboardingCopyId(input.name);
+    copy.dataset.onboardingCopy = input.name;
+    copy.textContent = text;
+    label.append(copy, input);
     return label;
 }
 

@@ -1062,6 +1062,8 @@
       featureControlBody: "Tune features, shortcuts, and color.",
       featureStudy: "Study",
       featureStudyBody: "Review words and kanji on the study page.",
+      featureGame: "Game",
+      featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
@@ -2291,6 +2293,8 @@ featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
 featureStudyBody	学習ページで単語と漢字を復習。
+featureGame	ゲーム
+featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
 english	英語
 japanese	日本語

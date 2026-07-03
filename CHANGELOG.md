@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.26] - 2026-07-03
+
+### Added
+
+- The first-run welcome grew a sixth Game feature card and clearer defaults: page scanning and image OCR are now three-way choices, with hover-lookup and manual-scan shortcut fields alongside the existing offline dictionary download.
+
+### Fixed
+
+- Clicking a highlighted word inside the welcome panel's action buttons now presses the button instead of opening a dictionary popover over it.
+- The performance profiler seeds its local dictionary database at the real store version and full schema again (read from the store source with a drift guard), so it measures the local parse path instead of silently falling back to the network.
+
 ## [1.6.25] - 2026-07-03
 
 ### Changed

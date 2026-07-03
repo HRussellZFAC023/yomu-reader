@@ -106,9 +106,12 @@ try {
     const word = page.locator('.jpdb-reader-onboarding .jpdb-reader-word', { hasText: '日本語' }).first();
     assert(await word.count() === 1, 'Welcome panel did not render 日本語 as a reader word', { welcomeWords });
     const onboardingState = await page.evaluate(() => {
+        // :scope keeps the queries on the li's own title/body pair — the panel's
+        // interactive-word parse nests word spans inside <strong>, so a bare
+        // 'span' query would return the scanned title instead of the body copy.
         const features = Array.from(document.querySelectorAll('.jpdb-reader-onboarding-features > li')).map(item => ({
-            title: item.querySelector('strong')?.textContent?.trim() ?? '',
-            copy: item.querySelector('span')?.textContent?.trim() ?? '',
+            title: item.querySelector(':scope > strong')?.textContent?.trim() ?? '',
+            copy: item.querySelector(':scope > span')?.textContent?.trim() ?? '',
         }));
         const hoverShortcut = document.querySelector('input[name="shortcuts.hoverLookup"]');
         return {
@@ -129,6 +132,14 @@ try {
         && /hover without a key|キーなしホバー/i.test(onboardingState.hoverShortcutPlaceholder)
         && onboardingState.hasImmersionGrid, 'Welcome panel did not show the hover modifier shortcut input', onboardingState);
     assert(!onboardingState.hasCaptureShortcut, 'Browser onboarding exposed a capture-screen shortcut that cannot work here', onboardingState);
+
+    // Visual QA artifacts: the welcome panel at desktop and narrow widths.
+    await page.locator('.jpdb-reader-onboarding').screenshot({ path: path.join(ARTIFACTS, 'onboarding-welcome-panel.png') });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: path.join(ARTIFACTS, 'onboarding-welcome-panel-narrow.png') });
+    await page.setViewportSize({ width: 1200, height: 860 });
+    await page.waitForTimeout(250);
 
     await word.click();
     await page.waitForFunction(() => {

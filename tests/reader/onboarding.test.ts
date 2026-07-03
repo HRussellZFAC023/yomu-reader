@@ -3,7 +3,7 @@ import { OnboardingController } from '../../src/reader/app/onboarding';
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
-const MANUAL_SCAN_COPY = 'Manual page scanning';
+const PAGE_SCAN_LEGEND = 'Page scanning';
 
 describe('OnboardingController', () => {
     afterEach(() => {
@@ -36,7 +36,10 @@ describe('OnboardingController', () => {
 
         const youtubeFilter = document.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]');
         const siteLanguage = document.querySelector<HTMLInputElement>('input[name="preferJapaneseSiteLanguage"]');
-        const manualScan = document.querySelector<HTMLInputElement>('input[name="manualScanEnabled"]');
+        const pageScanAuto = document.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="auto"]');
+        const pageScanManual = document.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="manual"]');
+        const hoverShortcut = document.querySelector<HTMLInputElement>('input[name="shortcuts.hoverLookup"]');
+        const scanShortcutLabel = document.querySelector<HTMLElement>('[data-manual-page-scan-shortcut]');
         const accentColor = document.querySelector<HTMLInputElement>('input[name="accentColor"]');
         const themeSwitch = document.querySelector<HTMLButtonElement>('[data-onboarding-theme-switch]');
         const defaultAccentSwatch = document.querySelector<HTMLButtonElement>('[data-onboarding-accent="#5ea780"]');
@@ -45,23 +48,31 @@ describe('OnboardingController', () => {
         const featureText = () => Array.from(document.querySelectorAll('.jpdb-reader-onboarding-features > li span'), item => item.textContent);
         expect(youtubeFilter?.checked).toBe(true);
         expect(siteLanguage?.checked).toBe(true);
-        expect(manualScan?.checked).toBe(DEFAULT_SETTINGS.manualScanEnabled);
-        expect(document.body.textContent).toContain(MANUAL_SCAN_COPY);
-        expect(document.querySelector('.jpdb-reader-onboarding-immersion-grid')).toBeNull();
+        expect(pageScanAuto?.checked).toBe(true);
+        expect(pageScanManual?.checked).toBe(false);
+        expect(document.body.textContent).toContain(PAGE_SCAN_LEGEND);
+        expect(document.querySelector('.jpdb-reader-onboarding-immersion-grid')).not.toBeNull();
+        expect(hoverShortcut?.type).toBe('text');
+        expect(hoverShortcut?.placeholder).toBe('Blank means hover without a key');
+        // Scan shortcut only matters in manual mode; it stays hidden until then.
+        expect(scanShortcutLabel?.hidden).toBe(true);
         expect(document.querySelector('[name="shortcuts.captureScreen"], [data-onboarding-capture-shortcut]')).toBeNull();
         expect(accentColor?.value).toBe(DEFAULT_SETTINGS.accentColor);
         expect(themeSwitch?.getAttribute('aria-checked')).toBe('false');
         expect(themeSwitch?.title).toBe('Switch to dark theme');
         expect(themeSwitch?.getAttribute('aria-labelledby')).toBe('jpdb-reader-onboarding-theme-label');
         expect(defaultAccentSwatch?.getAttribute('aria-pressed')).toBe('true');
-        expect(featureItems).toHaveLength(5);
+        expect(featureItems).toHaveLength(6);
         expect(featureText()).toContain('Read any image by tapping it.');
         expect(featureText()).toContain('Review words and kanji on the study page.');
+        expect(featureText()).toContain('Install the Yomu app to use in games or anywhere on the PC.');
         expect(document.querySelector('.jpdb-reader-onboarding-grid > div')).toBeNull();
 
         youtubeFilter!.checked = false;
         siteLanguage!.checked = false;
-        manualScan!.checked = true;
+        pageScanManual!.checked = true;
+        pageScanManual!.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(scanShortcutLabel?.hidden).toBe(false);
         themeSwitch!.click();
         expect(settings.theme).toBe('dark');
         expect(themeSwitch?.getAttribute('aria-checked')).toBe('true');

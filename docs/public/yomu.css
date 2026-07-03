@@ -3048,6 +3048,18 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   font-size: 12px;
   font-weight: 850;
 }
+.jpdb-reader-onboarding-immersion-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.78fr) minmax(220px, 1fr) minmax(180px, 0.68fr);
+  gap: 14px 24px;
+  align-items: start;
+  min-width: 0;
+}
+.jpdb-reader-onboarding-option-column {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
 .jpdb-reader-onboarding-options label {
   display: flex;
   align-items: center;
@@ -3101,6 +3113,81 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   outline: 2px solid var(--jpdb-reader-accent);
   outline-offset: 3px;
 }
+.jpdb-reader-onboarding-mode-group {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.jpdb-reader-onboarding-mode-group legend {
+  padding: 0;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+.jpdb-reader-onboarding-mode-group label {
+  min-width: 0;
+  min-height: 32px;
+  justify-content: center;
+  padding: 5px 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 7px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  line-height: 1.15;
+  text-align: center;
+}
+.jpdb-reader-onboarding-mode-group input[type="radio"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.jpdb-reader-onboarding-mode-group label:has(input[type="radio"]:checked) {
+  border-color: var(--jpdb-reader-accent);
+  background: var(--jpdb-reader-accent-soft);
+  color: var(--jpdb-reader-text);
+}
+.jpdb-reader-onboarding-mode-group label:has(input[type="radio"]:focus-visible) {
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: 2px;
+}
+.jpdb-reader-onboarding-shortcut {
+  display: grid !important;
+  gap: 6px !important;
+  align-items: stretch !important;
+}
+/* The !important display above beats the UA's [hidden] rule, so restate it:
+   the manual-scan shortcut hides unless page scanning is set to manual. */
+.jpdb-reader-onboarding-shortcut[hidden] {
+  display: none !important;
+}
+.jpdb-reader-onboarding-shortcut input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid var(--jpdb-reader-border) !important;
+  border-radius: 7px;
+  background-color: var(--jpdb-reader-surface) !important;
+  color: var(--jpdb-reader-text) !important;
+  padding: 7px 10px;
+  font: 750 13px/1.2 var(--jpdb-reader-font);
+}
+.jpdb-reader-onboarding-shortcut input:focus-visible {
+  border-color: var(--jpdb-reader-accent) !important;
+  outline: 2px solid var(--jpdb-reader-accent-soft);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .jpdb-reader-onboarding-mode-group label,
+  .jpdb-reader-onboarding-shortcut input {
+    min-height: 44px;
+  }
+}
 .jpdb-reader-onboarding-actions {
   display: flex;
   flex-wrap: wrap;
@@ -3125,6 +3212,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
     font-size: 40px;
   }
   .jpdb-reader-onboarding-basics,
+  .jpdb-reader-onboarding-immersion-grid,
   .jpdb-reader-onboarding-features {
     grid-template-columns: 1fr;
   }
