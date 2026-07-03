@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.25] - 2026-07-03
+
+### Changed
+
+- Factory reset now derives its key list solely from the managed-state registry: the two legacy hand-maintained enumerations are gone (net minus thirty lines), with the registry proven a strict superset before deletion and the unregistered-key warning kept as the safety net.
+
 ## [1.6.24] - 2026-07-03
 
 ### Fixed

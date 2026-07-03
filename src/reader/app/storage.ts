@@ -12,35 +12,6 @@ const MISSING = { missing: true };
 const FACTORY_RESET_SIGNAL_KEY = 'yomu:factory-reset-signal';
 const FACTORY_RESET_CHANNEL_NAME = 'yomu:factory-reset';
 const YOMU_LOCAL_SRS_STORAGE_KEY = 'yomu:srs-local:v1';
-const KNOWN_MANAGED_STORAGE_KEYS = [
-    'jpdb-popup-reader-settings',
-    'jpdb-reader-settings',
-    'yomu-reader-settings',
-    'yomu-settings',
-    'jpdb-reader-newtab-card-cache',
-    'jpdb-reader-newtab-grade-queue',
-    'jpdb-reader-newtab-current-word',
-    'jpdb-reader-newtab-ui',
-    'jpdb-reader-newtab-jpdb-stats-history',
-    'jpdb-reader-newtab-disabled-anki-decks',
-    YOMU_LOCAL_SRS_STORAGE_KEY,
-    'jpdb-reader-source-open-state',
-    'jpdb-reader-settings-drawer-height-ratio',
-    'jpdb-reader-sheet-height-ratio',
-    'jpdb-reader-transcript-panel-size',
-    'jpdb-reader-subtitle-drag-offset',
-    'yomu:anki-status-index:v1',
-    'yomu:anki-status-index-rebuild:v1',
-    'yomu:jpdb-cache:v1',
-    'yomu:jiten-public-cache:v1',
-    'yomu.grammarPreferences.v1',
-    'yomu:enable-logs',
-    'yomu:prefer-japanese-site-language',
-    FACTORY_RESET_SIGNAL_KEY,
-];
-const MANAGED_INDEXED_DB_NAMES = [
-    'yomu-anki-status-index',
-];
 const MANAGED_CACHE_NAME_PREFIXES = [
     'yomu-newtab-',
     'yomu-pdf-reader-',
@@ -458,7 +429,7 @@ function addLocalStorageKeys(keys: Set<string>, prefixes: string[]): void {
 }
 
 async function addKnownManagedStorageKeys(keys: Set<string>, prefixes: string[]): Promise<void> {
-    for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
+    for (const key of registeredManagedStorageKeys()) {
         if (storageKeyMatchesPrefix(key, prefixes) && await storedValueExists(key)) keys.add(key);
     }
 }
@@ -521,10 +492,8 @@ async function addGmStorageKeys(keys: Set<string>): Promise<void> {
 }
 
 async function addKnownStoredKeys(keys: Set<string>): Promise<void> {
-    // The registry is the source of truth; KNOWN_MANAGED_STORAGE_KEYS is kept as a
-    // temporary safety net (any key it lists that the registry omits is still swept).
-    const knownKeys = new Set<string>([...KNOWN_MANAGED_STORAGE_KEYS, ...registeredManagedStorageKeys()]);
-    for (const key of knownKeys) {
+    // The registry is the single source of truth for managed exact keys.
+    for (const key of registeredManagedStorageKeys()) {
         if (await storedValueExists(key)) keys.add(key);
     }
 }
@@ -615,8 +584,8 @@ function isHostedYomuOrigin(): boolean {
 }
 
 async function clearManagedIndexedDatabases(): Promise<void> {
-    const names = new Set<string>([...MANAGED_INDEXED_DB_NAMES, ...registeredManagedIndexedDbNames()]);
-    await Promise.all([...names].map(deleteIndexedDbDatabase));
+    // The registry is the single source of truth for managed IndexedDB names.
+    await Promise.all(registeredManagedIndexedDbNames().map(deleteIndexedDbDatabase));
 }
 
 function isManagedBrowserCacheName(name: string): boolean {

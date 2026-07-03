@@ -19,6 +19,7 @@ import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib
 
 const { root: ROOT, dist: DIST, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
 const SETTINGS_COMPANION_PATH = path.join(DIST, 'greasyfork', 'yomu-settings-surface.user.js');
+const UI_COPY_COMPANION_PATH = path.join(DIST, 'greasyfork', 'yomu-ui-copy.user.js');
 const PAGE_PATH = '/onboarding-popover.html';
 const TARGETS = [
     { surface: '日本語', text: '日本[にほん]語[ご]', wordId: 1101, readingIndex: 0, pitchAccents: [0] },
@@ -57,7 +58,7 @@ const settings = {
 };
 
 mkdirSync(ARTIFACTS, { recursive: true });
-assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, SETTINGS_COMPANION_PATH], ROOT, 'Run npm run build first.');
+assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, SETTINGS_COMPANION_PATH, UI_COPY_COMPANION_PATH], ROOT, 'Run npm run build first.');
 
 const requests = [];
 const server = await startLoopbackServer((request, response) => {
@@ -94,6 +95,9 @@ try {
     await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
     await installUserscriptCssResource(page, CSS_PATH);
     await addScriptTagWithCspFallback(page, SETTINGS_COMPANION_PATH);
+    // Onboarding copy lives in the ui-copy companion since the 1.6.10 split;
+    // without it the panel renders raw i18n keys and the demo word never exists.
+    await addScriptTagWithCspFallback(page, UI_COPY_COMPANION_PATH);
     await addScriptTagWithCspFallback(page, SCRIPT_PATH);
 
     await page.waitForSelector('.jpdb-reader-onboarding', { state: 'visible', timeout: 10_000 });

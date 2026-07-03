@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.24
+// @version 1.6.25
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.24#sha256=4vxfz+K0cEa/3O+yJetC5Vpt0X44HtTA4KwOCJCH3mA=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.24#sha256=snPC2FfDL8/GHz3siXZ7PbBgR+hqhIcE98+cIFmPtKY=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.24#sha256=1fseq4kLqKqXp/kRfbJ/g5At475gQMAFUDEBErawfXA=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.24#sha256=kNctFZjoo5LPMAk+qcCjhn6nTfSlzUsMVLbamx0q/fc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.24#sha256=1MUZmWqdLaOnjMKLUYWVlFM2o8bBgO202lLYqPSQXtU=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.24#sha256=6mLpDfqrOLcLup4AHJthm/BD5TKbmopDmGAIniuJr+k=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.25#sha256=4vxfz+K0cEa/3O+yJetC5Vpt0X44HtTA4KwOCJCH3mA=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.25#sha256=snPC2FfDL8/GHz3siXZ7PbBgR+hqhIcE98+cIFmPtKY=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.25#sha256=1fseq4kLqKqXp/kRfbJ/g5At475gQMAFUDEBErawfXA=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.25#sha256=kNctFZjoo5LPMAk+qcCjhn6nTfSlzUsMVLbamx0q/fc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.25#sha256=7rHXQXTAlSK+5ZICvuBLOX7KZ4CwRh5TC8xMzagDGlA=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.25#sha256=6mLpDfqrOLcLup4AHJthm/BD5TKbmopDmGAIniuJr+k=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -1512,36 +1512,6 @@ registerManagedStateManifest();
 const MISSING = { missing: true };
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
-const YOMU_LOCAL_SRS_STORAGE_KEY$1 = "yomu:srs-local:v1";
-const KNOWN_MANAGED_STORAGE_KEYS = [
-  "jpdb-popup-reader-settings",
-  "jpdb-reader-settings",
-  "yomu-reader-settings",
-  "yomu-settings",
-  "jpdb-reader-newtab-card-cache",
-  "jpdb-reader-newtab-grade-queue",
-  "jpdb-reader-newtab-current-word",
-  "jpdb-reader-newtab-ui",
-  "jpdb-reader-newtab-jpdb-stats-history",
-  "jpdb-reader-newtab-disabled-anki-decks",
-  YOMU_LOCAL_SRS_STORAGE_KEY$1,
-  "jpdb-reader-source-open-state",
-  "jpdb-reader-settings-drawer-height-ratio",
-  "jpdb-reader-sheet-height-ratio",
-  "jpdb-reader-transcript-panel-size",
-  "jpdb-reader-subtitle-drag-offset",
-  "yomu:anki-status-index:v1",
-  "yomu:anki-status-index-rebuild:v1",
-  "yomu:jpdb-cache:v1",
-  "yomu:jiten-public-cache:v1",
-  "yomu.grammarPreferences.v1",
-  "yomu:enable-logs",
-  "yomu:prefer-japanese-site-language",
-  FACTORY_RESET_SIGNAL_KEY
-];
-const MANAGED_INDEXED_DB_NAMES = [
-  "yomu-anki-status-index"
-];
 const MANAGED_CACHE_NAME_PREFIXES = [
   "yomu-newtab-",
   "yomu-pdf-reader-",
@@ -1790,8 +1760,7 @@ async function addGmStorageKeys(keys) {
   }
 }
 async function addKnownStoredKeys(keys) {
-  const knownKeys = new Set([...KNOWN_MANAGED_STORAGE_KEYS, ...registeredManagedStorageKeys()]);
-  for (const key of knownKeys) {
+  for (const key of registeredManagedStorageKeys()) {
   if (await storedValueExists(key)) keys.add(key);
   }
 }
@@ -1867,8 +1836,7 @@ function isHostedYomuOrigin() {
   }
 }
 async function clearManagedIndexedDatabases() {
-  const names = new Set([...MANAGED_INDEXED_DB_NAMES, ...registeredManagedIndexedDbNames()]);
-  await Promise.all([...names].map(deleteIndexedDbDatabase));
+  await Promise.all(registeredManagedIndexedDbNames().map(deleteIndexedDbDatabase));
 }
 function isManagedBrowserCacheName(name) {
   return MANAGED_CACHE_NAME_PREFIXES.some((prefix) => name.startsWith(prefix));
@@ -32310,7 +32278,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.24"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.25"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

@@ -4049,35 +4049,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
   const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
   const YOMU_LOCAL_SRS_STORAGE_KEY$1 = "yomu:srs-local:v1";
-  const KNOWN_MANAGED_STORAGE_KEYS = [
-    "jpdb-popup-reader-settings",
-    "jpdb-reader-settings",
-    "yomu-reader-settings",
-    "yomu-settings",
-    "jpdb-reader-newtab-card-cache",
-    "jpdb-reader-newtab-grade-queue",
-    "jpdb-reader-newtab-current-word",
-    "jpdb-reader-newtab-ui",
-    "jpdb-reader-newtab-jpdb-stats-history",
-    "jpdb-reader-newtab-disabled-anki-decks",
-    YOMU_LOCAL_SRS_STORAGE_KEY$1,
-    "jpdb-reader-source-open-state",
-    "jpdb-reader-settings-drawer-height-ratio",
-    "jpdb-reader-sheet-height-ratio",
-    "jpdb-reader-transcript-panel-size",
-    "jpdb-reader-subtitle-drag-offset",
-    "yomu:anki-status-index:v1",
-    "yomu:anki-status-index-rebuild:v1",
-    "yomu:jpdb-cache:v1",
-    "yomu:jiten-public-cache:v1",
-    "yomu.grammarPreferences.v1",
-    "yomu:enable-logs",
-    "yomu:prefer-japanese-site-language",
-    FACTORY_RESET_SIGNAL_KEY
-  ];
-  const MANAGED_INDEXED_DB_NAMES = [
-    "yomu-anki-status-index"
-  ];
   const MANAGED_CACHE_NAME_PREFIXES = [
     "yomu-newtab-",
     "yomu-pdf-reader-",
@@ -4406,7 +4377,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   async function addKnownManagedStorageKeys(keys, prefixes) {
-    for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
+    for (const key of registeredManagedStorageKeys()) {
       if (storageKeyMatchesPrefix(key, prefixes) && await storedValueExists(key)) keys.add(key);
     }
   }
@@ -4455,8 +4426,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   async function addKnownStoredKeys(keys) {
-    const knownKeys = /* @__PURE__ */ new Set([...KNOWN_MANAGED_STORAGE_KEYS, ...registeredManagedStorageKeys()]);
-    for (const key of knownKeys) {
+    for (const key of registeredManagedStorageKeys()) {
       if (await storedValueExists(key)) keys.add(key);
     }
   }
@@ -4532,8 +4502,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   async function clearManagedIndexedDatabases() {
-    const names = /* @__PURE__ */ new Set([...MANAGED_INDEXED_DB_NAMES, ...registeredManagedIndexedDbNames()]);
-    await Promise.all([...names].map(deleteIndexedDbDatabase));
+    await Promise.all(registeredManagedIndexedDbNames().map(deleteIndexedDbDatabase));
   }
   function isManagedBrowserCacheName(name) {
     return MANAGED_CACHE_NAME_PREFIXES.some((prefix) => name.startsWith(prefix));
@@ -39285,7 +39254,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.24".trim() ? "1.6.24".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.25".trim() ? "1.6.25".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

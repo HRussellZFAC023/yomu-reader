@@ -885,17 +885,26 @@
   function isSurfaceIgnoredElement(element) {
     return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
   }
+  const entries = [];
   const registeredKeys = /* @__PURE__ */ new Set();
   function registerManagedState(entry) {
     const identity = managedStateIdentity(entry);
     if (registeredKeys.has(identity)) return;
     registeredKeys.add(identity);
+    entries.push(entry);
   }
   function registerManagedStates(list) {
     for (const entry of list) registerManagedState(entry);
   }
   function managedStateIdentity(entry) {
     return `${entry.kind}:${entry.key ?? ""}:${entry.prefix ?? ""}`;
+  }
+  function registeredManagedStorageKeys() {
+    const keys = /* @__PURE__ */ new Set();
+    for (const entry of entries) {
+      if (entry.kind !== "idb" && entry.key) keys.add(entry.key);
+    }
+    return [...keys];
   }
   const MANAGED_STATE_MANIFEST = [
     // Settings (also legacy migration keys). The bunpro token / pill selections /
@@ -973,32 +982,6 @@
   const MISSING = { missing: true };
   const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
   const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
-  const KNOWN_MANAGED_STORAGE_KEYS = [
-    "jpdb-popup-reader-settings",
-    "jpdb-reader-settings",
-    "yomu-reader-settings",
-    "yomu-settings",
-    "jpdb-reader-newtab-card-cache",
-    "jpdb-reader-newtab-grade-queue",
-    "jpdb-reader-newtab-current-word",
-    "jpdb-reader-newtab-ui",
-    "jpdb-reader-newtab-jpdb-stats-history",
-    "jpdb-reader-newtab-disabled-anki-decks",
-    YOMU_LOCAL_SRS_STORAGE_KEY,
-    "jpdb-reader-source-open-state",
-    "jpdb-reader-settings-drawer-height-ratio",
-    "jpdb-reader-sheet-height-ratio",
-    "jpdb-reader-transcript-panel-size",
-    "jpdb-reader-subtitle-drag-offset",
-    "yomu:anki-status-index:v1",
-    "yomu:anki-status-index-rebuild:v1",
-    "yomu:jpdb-cache:v1",
-    "yomu:jiten-public-cache:v1",
-    "yomu.grammarPreferences.v1",
-    "yomu:enable-logs",
-    "yomu:prefer-japanese-site-language",
-    FACTORY_RESET_SIGNAL_KEY
-  ];
   const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
     FACTORY_RESET_SIGNAL_KEY,
     // Transient cloud-sync handoff written before an OAuth redirect. Factory
@@ -1097,8 +1080,8 @@
   }
   async function exportStoredValues(prefixes) {
     const keys = (await storageKeys(prefixes)).filter(isBackupStorageKey);
-    const entries = await Promise.all(keys.map(async (key) => [key, await gmStorageGet(key, void 0)]));
-    return Object.fromEntries(entries.filter(([, value]) => value !== void 0));
+    const entries2 = await Promise.all(keys.map(async (key) => [key, await gmStorageGet(key, void 0)]));
+    return Object.fromEntries(entries2.filter(([, value]) => value !== void 0));
   }
   async function exportManagedStoredValues() {
     return await exportStoredValues(MANAGED_STORAGE_KEY_PREFIXES);
@@ -1206,7 +1189,7 @@
     }
   }
   async function addKnownManagedStorageKeys(keys, prefixes) {
-    for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
+    for (const key of registeredManagedStorageKeys()) {
       if (storageKeyMatchesPrefix(key, prefixes) && await storedValueExists(key)) keys.add(key);
     }
   }
@@ -11848,13 +11831,13 @@ ${candidate.depth}`;
     request.onerror = () => reject(request.error);
   }
   function termMatchesForEntries(expression, foundEntries, candidates, rank) {
-    const entries = sortTermMatchEntries(deduplicateTermMatchEntries(foundEntries), rank);
-    if (!entries.length) return [];
-    return (candidates.get(expression) ?? []).map((position) => termMatchForPosition(position, entries)).filter((match) => Boolean(match));
+    const entries2 = sortTermMatchEntries(deduplicateTermMatchEntries(foundEntries), rank);
+    if (!entries2.length) return [];
+    return (candidates.get(expression) ?? []).map((position) => termMatchForPosition(position, entries2)).filter((match) => Boolean(match));
   }
-  function deduplicateTermMatchEntries(entries) {
+  function deduplicateTermMatchEntries(entries2) {
     const seen = /* @__PURE__ */ new Set();
-    return entries.filter((item) => {
+    return entries2.filter((item) => {
       const key = `${item.id ?? ""}
 ${item.dictionary}
 ${item.expression}
@@ -11865,15 +11848,15 @@ ${item.sequence ?? ""}`;
       return true;
     });
   }
-  function sortTermMatchEntries(entries, rank) {
-    return entries.filter((item) => dictionaryEnabled(item.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
+  function sortTermMatchEntries(entries2, rank) {
+    return entries2.filter((item) => dictionaryEnabled(item.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
   }
-  function rankedDictionaryEntries(entries, rank, limit, compare = (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)) {
-    const ranked = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort(compare);
+  function rankedDictionaryEntries(entries2, rank, limit, compare = (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)) {
+    const ranked = entries2.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort(compare);
     return limit === void 0 ? ranked : ranked.slice(0, limit);
   }
-  function termMatchForPosition(position, entries) {
-    const entry = entries.find((item) => termRulesMatch(item.rules, position.deinflected.rules));
+  function termMatchForPosition(position, entries2) {
+    const entry = entries2.find((item) => termRulesMatch(item.rules, position.deinflected.rules));
     return entry ? {
       entry,
       ...position,
@@ -12591,8 +12574,8 @@ ${scopedInner}
       ...observedReaderDictionaryTypes(counts)
     ]);
   }
-  function addDictionaryTypeCounts(counts, entries, store) {
-    for (const entry of entries) {
+  function addDictionaryTypeCounts(counts, entries2, store) {
+    for (const entry of entries2) {
       const item = counts.get(entry.dictionary) ?? { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
       item[store]++;
       counts.set(entry.dictionary, item);
@@ -13134,8 +13117,8 @@ ${scopedInner}
     if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
     return readBlobWithFileReader(blob, (reader, value) => reader.readAsArrayBuffer(value), (reader) => reader.result);
   }
-  function countYomitanZipBanks(entries) {
-    return entries.filter((entry) => /^(term|kanji|term_meta|kanji_meta)_bank_\d+\.json$/i.test(entry.name)).length;
+  function countYomitanZipBanks(entries2) {
+    return entries2.filter((entry) => /^(term|kanji|term_meta|kanji_meta)_bank_\d+\.json$/i.test(entry.name)).length;
   }
   function yomitanZipDictionaryName(index, filename) {
     return index.title?.trim() || filename.replace(/\.zip$/i, "");
@@ -13383,16 +13366,16 @@ ${scopedInner}
     if (freq > maxRank) return;
     expressions.set(entry.expression, Math.min(freq, expressions.get(entry.expression) ?? Number.POSITIVE_INFINITY));
   }
-  function addSimilarTermByKanjiCandidate(entries, seen, entry, character, rank) {
+  function addSimilarTermByKanjiCandidate(entries2, seen, entry, character, rank) {
     if (!entry.expression?.includes(character)) return;
     if (!dictionaryEnabled(entry.dictionary, rank)) return;
-    addUniqueTermEntry(entries, seen, entry);
+    addUniqueTermEntry(entries2, seen, entry);
   }
-  function addUniqueTermEntry(entries, seen, entry) {
+  function addUniqueTermEntry(entries2, seen, entry) {
     const key = termExpressionReadingKey(entry);
     if (seen.has(key)) return;
     seen.add(key);
-    entries.push(entry);
+    entries2.push(entry);
   }
   function termExpressionReadingKey(entry) {
     return `${entry.expression}
@@ -13790,7 +13773,7 @@ ${entry.reading}`;
           const done = log$1.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
-            const entries = await this.getTermLookupEntries(
+            const entries2 = await this.getTermLookupEntries(
               db,
               expression,
               reading && reading !== expression ? reading : "",
@@ -13800,7 +13783,7 @@ ${entry.reading}`;
             const rank = dictionaryRank(preferences);
             const seen = /* @__PURE__ */ new Set();
             const results = rankedDictionaryEntries(
-              entries,
+              entries2,
               rank,
               void 0,
               (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(b.expression === expression) - Number(a.expression === expression) || Number(b.reading === reading) - Number(a.reading === reading) || (b.score ?? 0) - (a.score ?? 0)
@@ -13856,8 +13839,8 @@ ${entry.reading}`;
             const db = await this.db();
             const rank = dictionaryRank(preferences);
             const characters = [...new Set(Array.from(text).filter(isKanji))];
-            const entries = await this.getManyByIndex(db, "kanji", "character", characters, limit);
-            const results = rankedDictionaryEntries(entries, rank, limit);
+            const entries2 = await this.getManyByIndex(db, "kanji", "character", characters, limit);
+            const results = rankedDictionaryEntries(entries2, rank, limit);
             return results;
           } catch (error) {
             log$1.warn("Kanji lookup failed", { length: text.length, error });
@@ -13892,8 +13875,8 @@ ${entry.reading}`;
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
-            const entries = await this.getByIndex(db, "termMeta", "expression", expression, Math.max(limit * 8, 80));
-            const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
+            const entries2 = await this.getByIndex(db, "termMeta", "expression", expression, Math.max(limit * 8, 80));
+            const results = entries2.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
             return results;
           } catch (error) {
             log$1.warn("Term metadata lookup failed", { expression, error });
@@ -13912,8 +13895,8 @@ ${entry.reading}`;
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
-            const entries = await this.getSimilarTermEntriesByKanji(db, character, Math.max(limit * 8, 80), rank);
-            const results = entries.sort(
+            const entries2 = await this.getSimilarTermEntriesByKanji(db, character, Math.max(limit * 8, 80), rank);
+            const results = entries2.sort(
               (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0) || a.expression.length - b.expression.length
             ).slice(0, limit);
             return results;
@@ -14140,8 +14123,8 @@ ${entry.reading}`;
             index,
             IDBKeyRange.only(expression),
             limit,
-            (entries) => {
-              results.set(expression, entries);
+            (entries2) => {
+              results.set(expression, entries2);
               finish();
             },
             fail
@@ -14230,14 +14213,14 @@ ${entry.reading}`;
             await this.clearDerivedTermIndexes(db);
             clearedTermIndexesForImport = true;
           }
-          const entries = pending;
+          const entries2 = pending;
           const parsed = summary[label];
           pending = [];
           onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionarySavingBank")} ${label} ${saved.toLocaleString()} / ${parsed.toLocaleString()} ${this.text("dictionaryEntries")}...`);
-          await this.addToStore(store, entries, false, store !== "terms", (written) => {
+          await this.addToStore(store, entries2, false, store !== "terms", (written) => {
             onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionarySavingBank")} ${label} ${(saved + written).toLocaleString()} / ${parsed.toLocaleString()} ${this.text("dictionaryEntries")}...`);
           });
-          saved += entries.length;
+          saved += entries2.length;
           if (store === "terms") importedTerms = true;
         };
         for (const [index2, bankFile] of files.entries()) {
@@ -14585,24 +14568,24 @@ ${entry.reading}`;
       await clearStores(db, existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta", "dictionaryInfo", "termSearch", "termKanji"]));
       this.termKanjiIndexReady = false;
     }
-    async addToStore(storeName, entries, put = false, clearTermIndexes = true, onChunk) {
-      if (!entries.length) return;
+    async addToStore(storeName, entries2, put = false, clearTermIndexes = true, onChunk) {
+      if (!entries2.length) return;
       const db = await this.db();
       if (storeName === "terms" && clearTermIndexes) await this.clearDerivedTermIndexes(db);
       let written = 0;
-      for (let start = 0; start < entries.length; start += STORE_WRITE_BATCH_SIZE) {
-        const chunk = entries.slice(start, start + STORE_WRITE_BATCH_SIZE);
+      for (let start = 0; start < entries2.length; start += STORE_WRITE_BATCH_SIZE) {
+        const chunk = entries2.slice(start, start + STORE_WRITE_BATCH_SIZE);
         await this.addStoreChunk(db, storeName, chunk, put);
         written += chunk.length;
-        onChunk?.(written, entries.length);
+        onChunk?.(written, entries2.length);
         await nextTask();
       }
     }
-    addStoreChunk(db, storeName, entries, put) {
+    addStoreChunk(db, storeName, entries2, put) {
       return new Promise((resolve, reject) => {
         const tx = readwriteTransaction(db, storeName);
         const store = tx.objectStore(storeName);
-        for (const entry of entries) {
+        for (const entry of entries2) {
           put ? store.put(entry) : store.add(entry);
         }
         tx.oncomplete = () => {
@@ -14637,8 +14620,8 @@ ${entry.reading}`;
             index,
             IDBKeyRange.only(value),
             limit,
-            (entries) => {
-              results.push(...entries);
+            (entries2) => {
+              results.push(...entries2);
               finish();
             },
             fail
@@ -14666,14 +14649,14 @@ ${entry.reading}`;
     }
     async getTermKanjiIndexEntries(db, character, candidateLimit, rank) {
       return new Promise((resolve, reject) => {
-        const entries = [];
+        const entries2 = [];
         const seen = /* @__PURE__ */ new Set();
         const request = db.transaction("termKanji", "readonly").objectStore("termKanji").index("character").openCursor(IDBKeyRange.only(character));
         request.onerror = () => reject(request.error ?? new Error("Could not search local dictionary kanji index."));
         request.onsuccess = () => {
           const cursor = request.result;
-          if (!cursor || entries.length >= candidateLimit) {
-            resolve(entries);
+          if (!cursor || entries2.length >= candidateLimit) {
+            resolve(entries2);
             return;
           }
           const row = cursor.value;
@@ -14683,7 +14666,7 @@ ${entry.reading}`;
 ${entry.reading}`;
             if (!seen.has(key)) {
               seen.add(key);
-              entries.push(entry);
+              entries2.push(entry);
             }
           }
           cursor.continue();
@@ -14692,7 +14675,7 @@ ${entry.reading}`;
     }
     async getSimilarTermCursorEntries(db, character, candidateLimit, rank, options = {}) {
       return new Promise((resolve, reject) => {
-        const entries = [];
+        const entries2 = [];
         const seen = /* @__PURE__ */ new Set();
         const startedAt = performance.now();
         let visited = 0;
@@ -14700,17 +14683,17 @@ ${entry.reading}`;
         request.onerror = () => reject(request.error ?? new Error("Could not search local dictionaries."));
         request.onsuccess = () => {
           const cursor = request.result;
-          if (!cursor || entries.length >= candidateLimit) {
-            resolve(entries);
+          if (!cursor || entries2.length >= candidateLimit) {
+            resolve(entries2);
             return;
           }
           if (optionalCursorScanLimitReached(options, visited, startedAt)) {
-            resolve(entries);
+            resolve(entries2);
             return;
           }
           visited++;
           const entry = cursor.value;
-          addSimilarTermByKanjiCandidate(entries, seen, entry, character, rank);
+          addSimilarTermByKanjiCandidate(entries2, seen, entry, character, rank);
           cursor.continue();
         };
       });
@@ -14727,10 +14710,10 @@ ${entry.reading}`;
       return new Promise((resolve, reject) => {
         const tx = db.transaction("terms", "readonly");
         const store = tx.objectStore("terms");
-        const entries = [];
+        const entries2 = [];
         let pending = queries.length;
         const finish = () => {
-          if (--pending <= 0) resolve(entries);
+          if (--pending <= 0) resolve(entries2);
         };
         const fail = (error) => reject(error ?? new Error("Could not search local dictionary terms."));
         for (const item of queries) {
@@ -14739,7 +14722,7 @@ ${entry.reading}`;
             item.range,
             item.limit,
             (found) => {
-              entries.push(...found);
+              entries2.push(...found);
               finish();
             },
             fail
@@ -15151,9 +15134,9 @@ ${entry.expression}
 ${entry.reading}
 ${glossaryKey}`;
   }
-  function bestTermLookupEntry(entries, expression, rank) {
+  function bestTermLookupEntry(entries2, expression, rank) {
     const seen = /* @__PURE__ */ new Set();
-    for (const entry of [...entries].sort((a, b) => compareTermLookupEntries(a, b, expression, rank))) {
+    for (const entry of [...entries2].sort((a, b) => compareTermLookupEntries(a, b, expression, rank))) {
       if (!dictionaryEnabled(entry.dictionary, rank)) continue;
       const key = termLookupDedupKey(entry);
       if (seen.has(key)) continue;
@@ -15503,11 +15486,11 @@ ${glossaryKey}`;
     return typeof value === "string" && ANKI_SCAN_CONFIDENCE_VALUES.has(value);
   }
   function ankiScanConfidenceEntries(confidence) {
-    const entries = [];
+    const entries2 = [];
     for (const [role, value] of Object.entries(confidence)) {
-      if (isAnkiFieldMappingRole(role) && isAnkiScanConfidence(value)) entries.push([role, value]);
+      if (isAnkiFieldMappingRole(role) && isAnkiScanConfidence(value)) entries2.push([role, value]);
     }
-    return entries;
+    return entries2;
   }
   function readNewTabAnkiDisabledDecks(form) {
     return canonicalNewTabAnkiDisabledDecks(
