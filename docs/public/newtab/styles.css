@@ -6900,7 +6900,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    merely sits inside a link/expander keeps its pitch underline and state
    colours at rest. 1.5.4 stripped every passive word here, which made pitch
    underlines and colours on link-wrapped prose (news headlines, Wikipedia
-   links, forum titles) flicker in on hover and vanish on mouse-out. */
+   links, forum titles) flicker in on hover and vanish on mouse-out.
+   YouTube's feed filter chips and engagement panels (description, transcript,
+   the ask-AI panel) are carved OUT via the trailing :not() — their Japanese
+   is reading material despite the [role=tab]/[role=button] wrappers, so
+   underlines stay on at rest there like content. */
 :is(
   button,
   [role="button"],
@@ -6925,7 +6929,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   /* YouTube chrome roots without a button/nav ancestor — mirrors
      YOUTUBE_PASSIVE_CHROME_SELECTOR in site-parsers.ts; listed here, not
      marked in TS, because the stylesheet ships outside the 2 MB bundle. */
-  yt-chip-cloud-chip-view-model,
   ytd-masthead,
   ytm-pivot-bar-renderer,
   ytm-pivot-bar-item-renderer,
@@ -6939,12 +6942,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   ytm-button-renderer,
   ytm-toggle-button-renderer,
   ytm-bottom-sheet-renderer,
-  ytm-engagement-panel-section-list-renderer,
   ytm-reel-player-overlay-renderer,
   ytm-shorts-video-title-view-model,
   .jpdb-reader-control-text-mirror,
   [data-jpdb-reader-passive-chrome="true"]
-) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active) {
+) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer) .jpdb-reader-word) {
   --jpdb-reader-word-accessible-color: currentColor;
   --jpdb-reader-word-accessible-highlight: transparent;
   --jpdb-reader-word-accessible-underline: transparent;
@@ -6982,7 +6984,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   summary,
   label,
   select,
-  yt-chip-cloud-chip-view-model,
   ytd-masthead,
   ytm-pivot-bar-renderer,
   ytm-pivot-bar-item-renderer,
@@ -6996,12 +6997,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   ytm-button-renderer,
   ytm-toggle-button-renderer,
   ytm-bottom-sheet-renderer,
-  ytm-engagement-panel-section-list-renderer,
   ytm-reel-player-overlay-renderer,
   ytm-shorts-video-title-view-model,
   .jpdb-reader-control-text-mirror,
   [data-jpdb-reader-passive-chrome="true"]
-) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active)::after {
+) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer) .jpdb-reader-word)::after {
   border-block-end-color: transparent !important;
 }
 :is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)
@@ -16526,7 +16526,11 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 .jpdb-reader-subtitle-underline-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-status-decoration); }
 .jpdb-reader-subtitle-underline-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }
 .jpdb-reader-subtitle-underline-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-anki-decoration); }
-.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku) { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-decoration); }
+/* jpdb-pitch-unknown keeps the reader surface's neutral grey fallback so an
+   unresolved word never sits bare beside coloured neighbours. Words with NO
+   pitch class at all stay transparent — that remains the anti-flash window
+   while enrichment is still running. */
+.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku, .jpdb-pitch-unknown) { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-decoration); }
 .jpdb-reader-subtitle-text-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-status-text); }
 .jpdb-reader-subtitle-text-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-jpdb-text); }
 .jpdb-reader-subtitle-text-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-anki-text); }
@@ -16823,7 +16827,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   text-decoration-line: underline !important;
   text-decoration-color: transparent !important;
 }
-.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku) {
+.jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku, .jpdb-pitch-unknown) {
   --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);
   text-decoration-line: underline !important;
   text-decoration-color: transparent !important;

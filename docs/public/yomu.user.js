@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.27
+// @version 1.6.28
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.27#sha256=dFWDsSJiXOFW7UfIkxlLNXDyhkIkVhzGyjHdZFPvhBM=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.27#sha256=ZrlpfhoF8tw10DMPmrCKz2LIm+47VqKlzC1f3FHAA38=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.27#sha256=dE8TbpDkkXRgZjnJlYascwNvnzucJ+lCc4nM2pcdYNU=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.27#sha256=XpJrSaFctXMl+5if/YMSl58JLvWGowY813RCHHfYV4o=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.27#sha256=/xY07BzvFYoq4VAn2FGmVrw/tW9bW73X7Sw70yoNocw=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.27#sha256=oxUonFMQsP1e1klmfil8FMxQHOp6O7SHkcsAleFvXak=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.28#sha256=dFWDsSJiXOFW7UfIkxlLNXDyhkIkVhzGyjHdZFPvhBM=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.28#sha256=ZrlpfhoF8tw10DMPmrCKz2LIm+47VqKlzC1f3FHAA38=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.28#sha256=dE8TbpDkkXRgZjnJlYascwNvnzucJ+lCc4nM2pcdYNU=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.28#sha256=XpJrSaFctXMl+5if/YMSl58JLvWGowY813RCHHfYV4o=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.28#sha256=/xY07BzvFYoq4VAn2FGmVrw/tW9bW73X7Sw70yoNocw=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.28#sha256=Vro8HMnpoA7GWrw4EfRW3WJuoH4D/yhiMKACO+YCs+A=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -5667,7 +5667,7 @@ function styleTextMirror(mirror, host, hasRuby = false) {
 function rubyFriendlyMirrorLineHeight(style) {
   const fontSize = cssPixels(style.fontSize) || 16;
   const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
-  return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.62))}px`;
+  return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
 }
 function observeTextMirrorHost(host, sourceText) {
   const state = textMirrorHosts.get(host);
@@ -14079,23 +14079,38 @@ function localPitchPatternFromMeta(reading, entries2) {
   return localPitchPatternsFromMeta(reading, entries2)[0] ?? "";
 }
 function localPitchPatternsFromMeta(reading, entries2) {
+  const patterns = collectPitchPatterns(reading, entries2, false);
+  if (patterns.length) return patterns;
+  return distinctMetadataReadings(entries2).length === 1 ? collectPitchPatterns(reading, entries2, true) : patterns;
+}
+function collectPitchPatterns(reading, entries2, ignoreReadingMismatch) {
   const patterns = [];
   for (const entry of entries2) {
   if (entry.mode !== "pitch") continue;
-  for (const position of readPitchPositions(entry.data, reading)) {
+  for (const position of readPitchPositions(entry.data, reading, ignoreReadingMismatch)) {
     const pattern = pitchPatternFromPosition(reading, position);
     if (pattern && !patterns.includes(pattern)) patterns.push(pattern);
   }
   }
   return patterns;
 }
-function readPitchPositions(value, reading) {
+function distinctMetadataReadings(entries2) {
+  const readings = new Set();
+  for (const entry of entries2) {
+  if (entry.mode !== "pitch") continue;
+  const record = objectRecord(entry.data);
+  const reading = typeof record?.reading === "string" ? kanaNormalized(record.reading) : "";
+  if (reading) readings.add(reading);
+  }
+  return [...readings];
+}
+function readPitchPositions(value, reading, ignoreReadingMismatch) {
   const record = objectRecord(value);
   if (!record) {
   const position = pitchPositionFromValue(value);
   return position == null ? [] : [position];
   }
-  if (!pitchMetadataReadingMatches(record, reading)) return [];
+  if (!ignoreReadingMismatch && !pitchMetadataReadingMatches(record, reading)) return [];
   const candidates = pitchPositionCandidates(record).map((candidate) => pitchPositionFromValue(candidate)).filter((position) => position != null);
   if (candidates.length) return candidates;
   const direct = pitchPositionFromValue(record.position);
@@ -14103,7 +14118,10 @@ function readPitchPositions(value, reading) {
 }
 function pitchMetadataReadingMatches(record, reading) {
   const metadataReading = typeof record.reading === "string" ? record.reading : "";
-  return !metadataReading || !reading || metadataReading === reading;
+  return !metadataReading || !reading || kanaNormalized(metadataReading) === kanaNormalized(reading);
+}
+function kanaNormalized(value) {
+  return value.replace(/[ァ-ヶ]/gu, (character) => String.fromCharCode(character.charCodeAt(0) - 96));
 }
 function pitchPositionCandidates(record) {
   if (Array.isArray(record.pitches)) return record.pitches;
@@ -18963,6 +18981,10 @@ ${spelling}`);
   if (cached) return cached;
   const promise = lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).then((metaEntries) => {
     return localPitchPatternFromMeta(card.reading, metaEntries);
+  }).then((pattern) => {
+    const reading = card.reading.trim();
+    if (pattern || !reading || reading === card.spelling.trim()) return pattern;
+    return lookupTermMeta.call(this.dependencies.dictionaries, reading, 12, settings.dictionaryPreferences).then((metaEntries) => localPitchPatternFromMeta(card.reading, metaEntries));
   }).catch((error) => {
     log$c.warn("Local pitch parse failed", { term: card.spelling }, error);
     return "";
@@ -26258,6 +26280,23 @@ const SITE_PARSER_PROFILES = [
   matches: (url) => (url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be") && url.pathname === "/watch"
   },
   {
+  id: "youtube-engagement-panel-parser",
+  roots: [
+    "ytd-engagement-panel-section-list-renderer",
+    "ytm-engagement-panel-section-list-renderer"
+  ],
+  exclude: YOUTUBE_TEXT_EXCLUDE,
+  allowUiText: true,
+  minLength: 1,
+  includeUiChrome: true,
+  singlePassScan: true,
+  nonDestructive: true,
+  heading: true,
+  allowShortCenteredHeadings: true,
+  includePassiveInteractionRoots: true,
+  matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
+  },
+  {
   id: "youtube-chrome-parser",
   roots: YOUTUBE_CHROME_ROOTS,
   exclude: YOUTUBE_TEXT_EXCLUDE,
@@ -32449,7 +32488,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.27"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.28"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -35509,7 +35548,6 @@ class ReaderApp {
   const keylessVisibleLimit = pageBudget || PITCH_ENRICHMENT_LIMIT;
   return {
     ...options,
-    jpdbPublicLookup: false,
     publicLookupLimit: Math.max(Math.floor(options.publicLookupLimit ?? 0), keylessVisibleLimit),
     publicLookupTotalLimit: Math.max(Math.floor(options.publicLookupTotalLimit ?? 0), keylessVisibleLimit)
   };
@@ -38900,7 +38938,11 @@ class ReaderApp {
   const key = this.localPitchEnrichmentCacheKey(card);
   const cached = this.pitchEnrichmentLocalCache.get(key);
   if (cached) return cached;
-  const promise = this.dictionaries.lookupTermMeta(card.spelling, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences).then((metaEntries) => localPitchPatternFromMeta(card.reading, metaEntries)).catch((error) => {
+  const promise = this.dictionaries.lookupTermMeta(card.spelling, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences).then((metaEntries) => localPitchPatternFromMeta(card.reading, metaEntries)).then((pattern) => {
+    const reading = card.reading.trim();
+    if (pattern || !reading || reading === card.spelling.trim()) return pattern;
+    return this.dictionaries.lookupTermMeta(reading, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences).then((metaEntries) => localPitchPatternFromMeta(card.reading, metaEntries));
+  }).catch((error) => {
     log.warn("Local pitch enrichment failed", { term: card.spelling }, error);
     return "";
   });

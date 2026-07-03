@@ -10404,6 +10404,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
   const DOM_CAPTION_MISSING_GRACE_MS = 1200;
+  const PLAYBACK_PAUSE_REASSERT_WINDOW_MS = 800;
   const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = "youtube-dom-caption-fallback";
   const SUBTITLE_FILE_ACCEPT = [
     ".srt",
@@ -10629,6 +10630,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     transcriptPanel;
     abortController;
     video;
+    playbackPauseReassert;
     cues = [];
     secondaryCues = [];
     tracks = [];
@@ -10887,7 +10889,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         childList: true,
         subtree: true
       });
-      document.addEventListener("keydown", (event) => this.handleKeydown(event), this.eventOptions());
+      document.addEventListener("keydown", (event) => this.handleKeydown(event), this.eventOptions({ capture: true }));
       document.addEventListener("pointerdown", (event) => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
       document.addEventListener("visibilitychange", () => this.restartTickAfterVisibilityChange(), this.eventOptions());
       document.addEventListener("pointermove", (event) => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
@@ -10938,6 +10940,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     destroy() {
       this.destroyed = true;
       this.resetShadowPracticeState();
+      this.clearPlaybackPauseReassert();
       this.abortController?.abort();
       this.abortController = void 0;
       this.observer?.disconnect();
@@ -11078,6 +11081,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.bindSubtitleDragHandle();
       this.restoreSubtitleDragOffset();
       this.refresh();
+      this.alignToVideo();
       this.scheduleControlsIdle();
       return true;
     }
@@ -11154,6 +11158,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.removeStaleNativeTracks(candidate);
       this.attachTextTracks(candidate);
       this.observeVideoLayout(candidate);
+      this.alignToVideo();
       log.info("Subtitle video detected", videoSummary(candidate));
     }
     attachTextTracks(video) {
@@ -13221,9 +13226,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (previousSubtitle || nextSubtitle) {
         if (!this.canUseSubtitleNavigationShortcut()) return;
         event.preventDefault();
+        event.stopPropagation();
         this.seekSubtitle(previousSubtitle ? -1 : 1);
       } else if (matchesShortcut(event, settings.shortcuts.copySubtitle) && this.subtitleCopyText(void 0)) {
         event.preventDefault();
+        event.stopPropagation();
         void this.copySubtitle();
       }
     }
@@ -13275,9 +13282,57 @@ recommendedJiten	Jiten由来の頻度バッジです。
     toggleVideoPlayback() {
       const video = this.video;
       if (!video) return;
-      if (video.paused) void video.play().catch(() => void 0);
-      else video.pause();
+      const player = this.youTubePlayerApi(video);
+      if (video.paused) {
+        this.clearPlaybackPauseReassert();
+        if (player?.playVideo) player.playVideo();
+        else void video.play().catch(() => void 0);
+      } else {
+        if (player?.pauseVideo) player.pauseVideo();
+        else video.pause();
+        this.armPlaybackPauseReassert(video);
+      }
       this.syncControls();
+    }
+    // YouTube's #movie_player exposes its player API on the element in the
+    // page world. Routing pause/play/seek through it keeps YT's own state
+    // machine in agreement — a raw currentTime write triggers a re-buffer YT
+    // can bounce, and a raw pause() gets reactively re-played. Feature-detected
+    // so embeds, mobile hosts, isolated-world extension builds, and every
+    // non-YouTube site keep the raw HTMLMediaElement path.
+    youTubePlayerApi(video) {
+      if (!isYouTubePage()) return null;
+      const player = document.getElementById("movie_player");
+      if (!player?.contains(video)) return null;
+      const api = player;
+      return typeof api.seekTo === "function" ? api : null;
+    }
+    // A single reactive play() from YouTube's controller or a competing
+    // extension can silently undo the pause pill (the "pressing pause didn't
+    // happen" symptom). Re-pause for a short window, then stand down so a
+    // deliberate resume is never fought — mirrors the mining-pause re-assert.
+    armPlaybackPauseReassert(video) {
+      this.clearPlaybackPauseReassert();
+      const armedAt = Date.now();
+      const reassert = () => {
+        if (this.video !== video || Date.now() - armedAt > PLAYBACK_PAUSE_REASSERT_WINDOW_MS) {
+          this.clearPlaybackPauseReassert();
+          return;
+        }
+        if (!video.paused) video.pause();
+      };
+      video.addEventListener("play", reassert);
+      video.addEventListener("playing", reassert);
+      this.playbackPauseReassert = {
+        off: () => {
+          video.removeEventListener("play", reassert);
+          video.removeEventListener("playing", reassert);
+        }
+      };
+    }
+    clearPlaybackPauseReassert() {
+      this.playbackPauseReassert?.off();
+      this.playbackPauseReassert = void 0;
     }
     togglePlayerFullscreen() {
       const video = this.video;
@@ -13327,6 +13382,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     seekVideoTo(time) {
       const video = this.video;
       if (!video) return;
+      const player = this.youTubePlayerApi(video);
+      if (player?.seekTo) {
+        player.seekTo(Math.max(0, time), true);
+        return;
+      }
       const shouldResume = !video.paused && !video.ended;
       video.currentTime = time;
       if (shouldResume) this.resumeVideoAfterSeek(video);

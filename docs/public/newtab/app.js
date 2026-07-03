@@ -9295,7 +9295,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function rubyFriendlyMirrorLineHeight(style) {
     const fontSize = cssPixels(style.fontSize) || 16;
     const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
-    return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.62))}px`;
+    return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
   }
   function observeTextMirrorHost(host, sourceText) {
     const state2 = textMirrorHosts.get(host);
@@ -21728,23 +21728,38 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return localPitchPatternsFromMeta(reading, entries2)[0] ?? "";
   }
   function localPitchPatternsFromMeta(reading, entries2) {
+    const patterns = collectPitchPatterns(reading, entries2, false);
+    if (patterns.length) return patterns;
+    return distinctMetadataReadings(entries2).length === 1 ? collectPitchPatterns(reading, entries2, true) : patterns;
+  }
+  function collectPitchPatterns(reading, entries2, ignoreReadingMismatch) {
     const patterns = [];
     for (const entry of entries2) {
       if (entry.mode !== "pitch") continue;
-      for (const position of readPitchPositions(entry.data, reading)) {
+      for (const position of readPitchPositions(entry.data, reading, ignoreReadingMismatch)) {
         const pattern = pitchPatternFromPosition(reading, position);
         if (pattern && !patterns.includes(pattern)) patterns.push(pattern);
       }
     }
     return patterns;
   }
-  function readPitchPositions(value, reading) {
+  function distinctMetadataReadings(entries2) {
+    const readings2 = /* @__PURE__ */ new Set();
+    for (const entry of entries2) {
+      if (entry.mode !== "pitch") continue;
+      const record = objectRecord(entry.data);
+      const reading = typeof record?.reading === "string" ? kanaNormalized(record.reading) : "";
+      if (reading) readings2.add(reading);
+    }
+    return [...readings2];
+  }
+  function readPitchPositions(value, reading, ignoreReadingMismatch) {
     const record = objectRecord(value);
     if (!record) {
       const position = pitchPositionFromValue(value);
       return position == null ? [] : [position];
     }
-    if (!pitchMetadataReadingMatches(record, reading)) return [];
+    if (!ignoreReadingMismatch && !pitchMetadataReadingMatches(record, reading)) return [];
     const candidates = pitchPositionCandidates(record).map((candidate) => pitchPositionFromValue(candidate)).filter((position) => position != null);
     if (candidates.length) return candidates;
     const direct = pitchPositionFromValue(record.position);
@@ -21752,7 +21767,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function pitchMetadataReadingMatches(record, reading) {
     const metadataReading = typeof record.reading === "string" ? record.reading : "";
-    return !metadataReading || !reading || metadataReading === reading;
+    return !metadataReading || !reading || kanaNormalized(metadataReading) === kanaNormalized(reading);
+  }
+  function kanaNormalized(value) {
+    return value.replace(/[ァ-ヶ]/gu, (character) => String.fromCharCode(character.charCodeAt(0) - 96));
   }
   function pitchPositionCandidates(record) {
     if (Array.isArray(record.pitches)) return record.pitches;
@@ -34543,6 +34561,10 @@ ${spelling}`);
       if (cached) return cached;
       const promise = lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).then((metaEntries) => {
         return localPitchPatternFromMeta(card.reading, metaEntries);
+      }).then((pattern) => {
+        const reading = card.reading.trim();
+        if (pattern || !reading || reading === card.spelling.trim()) return pattern;
+        return lookupTermMeta.call(this.dependencies.dictionaries, reading, 12, settings.dictionaryPreferences).then((metaEntries) => localPitchPatternFromMeta(card.reading, metaEntries));
       }).catch((error) => {
         log$m.warn("Local pitch parse failed", { term: card.spelling }, error);
         return "";
@@ -39258,7 +39280,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.27".trim() ? "1.6.27".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.28".trim() ? "1.6.28".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -51114,6 +51136,7 @@ ${spelling}`);
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
   const DOM_CAPTION_MISSING_GRACE_MS = 1200;
+  const PLAYBACK_PAUSE_REASSERT_WINDOW_MS = 800;
   const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = "youtube-dom-caption-fallback";
   const SUBTITLE_FILE_ACCEPT = [
     ".srt",
@@ -51339,6 +51362,7 @@ ${spelling}`);
     transcriptPanel;
     abortController;
     video;
+    playbackPauseReassert;
     cues = [];
     secondaryCues = [];
     tracks = [];
@@ -51597,7 +51621,7 @@ ${spelling}`);
         childList: true,
         subtree: true
       });
-      document.addEventListener("keydown", (event) => this.handleKeydown(event), this.eventOptions());
+      document.addEventListener("keydown", (event) => this.handleKeydown(event), this.eventOptions({ capture: true }));
       document.addEventListener("pointerdown", (event) => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
       document.addEventListener("visibilitychange", () => this.restartTickAfterVisibilityChange(), this.eventOptions());
       document.addEventListener("pointermove", (event) => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
@@ -51648,6 +51672,7 @@ ${spelling}`);
     destroy() {
       this.destroyed = true;
       this.resetShadowPracticeState();
+      this.clearPlaybackPauseReassert();
       this.abortController?.abort();
       this.abortController = void 0;
       this.observer?.disconnect();
@@ -51788,6 +51813,7 @@ ${spelling}`);
       this.bindSubtitleDragHandle();
       this.restoreSubtitleDragOffset();
       this.refresh();
+      this.alignToVideo();
       this.scheduleControlsIdle();
       return true;
     }
@@ -51864,6 +51890,7 @@ ${spelling}`);
       this.removeStaleNativeTracks(candidate);
       this.attachTextTracks(candidate);
       this.observeVideoLayout(candidate);
+      this.alignToVideo();
       log$g.info("Subtitle video detected", videoSummary(candidate));
     }
     attachTextTracks(video) {
@@ -53931,9 +53958,11 @@ ${spelling}`);
       if (previousSubtitle || nextSubtitle) {
         if (!this.canUseSubtitleNavigationShortcut()) return;
         event.preventDefault();
+        event.stopPropagation();
         this.seekSubtitle(previousSubtitle ? -1 : 1);
       } else if (matchesShortcut(event, settings.shortcuts.copySubtitle) && this.subtitleCopyText(void 0)) {
         event.preventDefault();
+        event.stopPropagation();
         void this.copySubtitle();
       }
     }
@@ -53985,9 +54014,57 @@ ${spelling}`);
     toggleVideoPlayback() {
       const video = this.video;
       if (!video) return;
-      if (video.paused) void video.play().catch(() => void 0);
-      else video.pause();
+      const player = this.youTubePlayerApi(video);
+      if (video.paused) {
+        this.clearPlaybackPauseReassert();
+        if (player?.playVideo) player.playVideo();
+        else void video.play().catch(() => void 0);
+      } else {
+        if (player?.pauseVideo) player.pauseVideo();
+        else video.pause();
+        this.armPlaybackPauseReassert(video);
+      }
       this.syncControls();
+    }
+    // YouTube's #movie_player exposes its player API on the element in the
+    // page world. Routing pause/play/seek through it keeps YT's own state
+    // machine in agreement — a raw currentTime write triggers a re-buffer YT
+    // can bounce, and a raw pause() gets reactively re-played. Feature-detected
+    // so embeds, mobile hosts, isolated-world extension builds, and every
+    // non-YouTube site keep the raw HTMLMediaElement path.
+    youTubePlayerApi(video) {
+      if (!isYouTubePage()) return null;
+      const player = document.getElementById("movie_player");
+      if (!player?.contains(video)) return null;
+      const api = player;
+      return typeof api.seekTo === "function" ? api : null;
+    }
+    // A single reactive play() from YouTube's controller or a competing
+    // extension can silently undo the pause pill (the "pressing pause didn't
+    // happen" symptom). Re-pause for a short window, then stand down so a
+    // deliberate resume is never fought — mirrors the mining-pause re-assert.
+    armPlaybackPauseReassert(video) {
+      this.clearPlaybackPauseReassert();
+      const armedAt = Date.now();
+      const reassert = () => {
+        if (this.video !== video || Date.now() - armedAt > PLAYBACK_PAUSE_REASSERT_WINDOW_MS) {
+          this.clearPlaybackPauseReassert();
+          return;
+        }
+        if (!video.paused) video.pause();
+      };
+      video.addEventListener("play", reassert);
+      video.addEventListener("playing", reassert);
+      this.playbackPauseReassert = {
+        off: () => {
+          video.removeEventListener("play", reassert);
+          video.removeEventListener("playing", reassert);
+        }
+      };
+    }
+    clearPlaybackPauseReassert() {
+      this.playbackPauseReassert?.off();
+      this.playbackPauseReassert = void 0;
     }
     togglePlayerFullscreen() {
       const video = this.video;
@@ -54037,6 +54114,11 @@ ${spelling}`);
     seekVideoTo(time) {
       const video = this.video;
       if (!video) return;
+      const player = this.youTubePlayerApi(video);
+      if (player?.seekTo) {
+        player.seekTo(Math.max(0, time), true);
+        return;
+      }
       const shouldResume = !video.paused && !video.ended;
       video.currentTime = time;
       if (shouldResume) this.resumeVideoAfterSeek(video);
