@@ -229,6 +229,12 @@ export class StudySourceController {
         container: HTMLElement,
         translation: StudyTranslationResult,
     ): void {
+        if (!translation.translated) {
+            // Not a translatable Japanese sentence (OCR/page noise) — showing
+            // the raw text plus an empty result reads as a broken translation.
+            container.hidden = true;
+            return;
+        }
         const original = container.querySelector<HTMLElement>('[data-study-original-render]');
         if (original) setInnerHtml(original, renderTokensToHtml(sentence, translation.tokens, this.settings()));
         const result = container.querySelector<HTMLElement>('[data-study-translation-result]');

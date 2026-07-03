@@ -18,6 +18,11 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
     if (action === 'study-translate') {
         try {
             const translated = await translateJapaneseSentence(sentence, language);
+            if (!translated) {
+                panel.hidden = true;
+                panel.textContent = '';
+                return;
+            }
             replaceStudyPanelHtml(panel, renderStudyMeaningBlock(translated, language));
             return;
         } finally {

@@ -309,9 +309,24 @@ export function setKnownGrammarVisible(showKnown: boolean): GrammarPreferences {
     return next;
 }
 
+// A "sentence" reaching translation can be OCR or page noise (code
+// screenshots, UI chrome) that merely contains a stray CJK character; Google
+// passes the ASCII through and the popover ends up presenting garbage as a
+// translation. Require the text to be meaningfully Japanese before asking.
+const JAPANESE_CHAR = /[぀-ヿ㐀-鿿]/g;
+
+export function isTranslatableJapaneseSentence(sentence: string): boolean {
+    const trimmed = sentence.trim();
+    if (!trimmed) return false;
+    const japanese = trimmed.match(JAPANESE_CHAR)?.length ?? 0;
+    if (japanese < 2) return false;
+    const dense = trimmed.replace(/\s+/g, '').length;
+    return japanese / dense >= 0.15;
+}
+
 export async function translateJapaneseSentence(sentence: string, language: InterfaceLanguage = 'en'): Promise<string> {
     const trimmed = sentence.trim();
-    if (!trimmed) return '';
+    if (!trimmed || !isTranslatableJapaneseSentence(trimmed)) return '';
     const requestSentence = normalizeSentenceForTranslationRequest(trimmed);
     const targetLanguage = translationTargetLanguage(language);
     const cacheKey = `${targetLanguage}:${requestSentence}`;

@@ -5971,9 +5971,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const bottom = Math.max(...boxes.map((box) => box.top + box.height));
     return { left, top, width: right - left, height: bottom - top };
   }
+  const JAPANESE_INTERNAL_SPACE = /(?<=[、-〿぀-ヿ㐀-鿿！-｠])[ \t]+(?=[、-〿぀-ヿ㐀-鿿！-｠])/g;
   function cleanOcrText(value) {
     const text = typeof value === "string" ? value : String(value ?? "");
-    const normalized = text.replace(/[ \t\r\n]+/g, HAS_JAPANESE.test(text) ? "" : " ").trim();
+    const collapsed = text.replace(/[ \t\r\n]+/g, " ").trim();
+    const normalized = HAS_JAPANESE.test(collapsed) ? collapsed.replace(JAPANESE_INTERNAL_SPACE, "") : collapsed;
     return normalized.replaceAll("．．．", "…");
   }
   function numberFrom(value) {

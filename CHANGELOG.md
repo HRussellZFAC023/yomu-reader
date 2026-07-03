@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.13] - 2026-07-03
+
+### Fixed
+
+- OCR no longer strips the spaces out of Latin text when a line happens to contain a Japanese character (code screenshots turned into space-less soup); whitespace is now removed only between Japanese characters, where it is recognition noise.
+- The popover no longer presents machine-translation garbage for text that is not actually Japanese: sentence translation now requires the text to be meaningfully Japanese, the translation section hides itself when there is nothing translatable, and a missing study companion returns no translation instead of echoing the input back as one.
+
 ## [1.6.12] - 2026-07-03
 
 ### Fixed

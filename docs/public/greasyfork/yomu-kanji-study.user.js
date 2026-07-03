@@ -12360,9 +12360,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     writeGrammarPreferences(next);
     return next;
   }
+  const JAPANESE_CHAR = /[぀-ヿ㐀-鿿]/g;
+  function isTranslatableJapaneseSentence(sentence) {
+    const trimmed = sentence.trim();
+    if (!trimmed) return false;
+    const japanese = trimmed.match(JAPANESE_CHAR)?.length ?? 0;
+    if (japanese < 2) return false;
+    const dense = trimmed.replace(/\s+/g, "").length;
+    return japanese / dense >= 0.15;
+  }
   async function translateJapaneseSentence$1(sentence, language = "en") {
     const trimmed = sentence.trim();
-    if (!trimmed) return "";
+    if (!trimmed || !isTranslatableJapaneseSentence(trimmed)) return "";
     const requestSentence = normalizeSentenceForTranslationRequest(trimmed);
     const targetLanguage = translationTargetLanguage();
     const cacheKey = `${targetLanguage}:${requestSentence}`;
@@ -12769,6 +12778,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (action === "study-translate") {
       try {
         const translated = await translateJapaneseSentence$1(sentence, language);
+        if (!translated) {
+          panel.hidden = true;
+          panel.textContent = "";
+          return;
+        }
         replaceStudyPanelHtml(panel, renderStudyMeaningBlock(translated, language));
         return;
       } finally {
@@ -13574,7 +13588,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     yomuKanjiStudyCompanion()?.preloadJapaneseSentenceTranslation?.(sentence, language);
   }
   async function translateJapaneseSentence(sentence, language = "en") {
-    return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(sentence));
+    return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(""));
   }
   async function renderGrammarHints(hints, sentence, preferences, language = "en", options = {}) {
     return await (yomuKanjiStudyCompanion()?.renderGrammarHints?.(hints, sentence, preferences, language, options) ?? Promise.resolve(""));
@@ -13743,6 +13757,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return `${this.settings().interfaceLanguage}${sentence.trim()}`;
     }
     applyTranslation(popover, sentence, container, translation) {
+      if (!translation.translated) {
+        container.hidden = true;
+        return;
+      }
       const original = container.querySelector("[data-study-original-render]");
       if (original) setInnerHtml(original, renderTokensToHtml(sentence, translation.tokens, this.settings()));
       const result = container.querySelector("[data-study-translation-result]");

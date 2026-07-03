@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.12
+// @version 1.6.13
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.12#sha256=La5os09pjPmuUT51YozkrB+dz1HOBRqhPgehCQslqAs=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.12#sha256=rayCYzKXMJKVTLZYznNN3S/GnckvmWUtkHCs8iUul8s=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.12#sha256=GMyz08VIdQxYog5Uduu5yBAFozH7eBtww3cwiHaC7EU=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.12#sha256=SXUBOf6ENlZhpeZhFIfFy93WiOnkwxykGic436zYGpI=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.12#sha256=7W+0tBJc5909QOon5kGS8pQSNoH2virRYfh9KL9Lkac=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.12#sha256=u5chHLEiLCSlZs564ER5oSVj1ERZpoIGlayV3sTtksg=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.13#sha256=La5os09pjPmuUT51YozkrB+dz1HOBRqhPgehCQslqAs=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.13#sha256=H6AIuFBmHz+R8q2Ae2RJwMxCfGa0YDzAt06PxqE/8pY=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.13#sha256=IzioE1YiWZtmpPaKsMHIcNtWhLSYxToraUtQ+nneSfI=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.13#sha256=SXUBOf6ENlZhpeZhFIfFy93WiOnkwxykGic436zYGpI=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.13#sha256=7W+0tBJc5909QOon5kGS8pQSNoH2virRYfh9KL9Lkac=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.13#sha256=u5chHLEiLCSlZs564ER5oSVj1ERZpoIGlayV3sTtksg=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -34593,7 +34593,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.12"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.13"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

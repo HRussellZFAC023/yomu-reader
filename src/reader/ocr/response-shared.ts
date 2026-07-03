@@ -58,9 +58,19 @@ export function unionBoxes(boxes: OcrRect[]): OcrRect | null {
     return { left, top, width: right - left, height: bottom - top };
 }
 
+// OCR splits Japanese lines into spaced segments, so whitespace BETWEEN two
+// Japanese characters (incl. CJK punctuation/fullwidth forms) is recognition
+// noise. Only there: stripping the whole line when it merely CONTAINED
+// Japanese mangled Latin text into space-less soup (code screenshots with one
+// embedded kanji), and Latin↔Japanese boundaries keep their natural space.
+const JAPANESE_INTERNAL_SPACE = /(?<=[、-〿぀-ヿ㐀-鿿！-｠])[ \t]+(?=[、-〿぀-ヿ㐀-鿿！-｠])/g;
+
 export function cleanOcrText(value: unknown): string {
     const text = typeof value === 'string' ? value : String(value ?? '');
-    const normalized = text.replace(/[ \t\r\n]+/g, HAS_JAPANESE.test(text) ? '' : ' ').trim();
+    const collapsed = text.replace(/[ \t\r\n]+/g, ' ').trim();
+    const normalized = HAS_JAPANESE.test(collapsed)
+        ? collapsed.replace(JAPANESE_INTERNAL_SPACE, '')
+        : collapsed;
     return normalized.replaceAll('．．．', '…');
 }
 

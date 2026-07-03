@@ -28455,9 +28455,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     writeGrammarPreferences(next);
     return next;
   }
+  const JAPANESE_CHAR = /[぀-ヿ㐀-鿿]/g;
+  function isTranslatableJapaneseSentence(sentence) {
+    const trimmed = sentence.trim();
+    if (!trimmed) return false;
+    const japanese = trimmed.match(JAPANESE_CHAR)?.length ?? 0;
+    if (japanese < 2) return false;
+    const dense = trimmed.replace(/\s+/g, "").length;
+    return japanese / dense >= 0.15;
+  }
   async function translateJapaneseSentence$1(sentence, language = "en") {
     const trimmed = sentence.trim();
-    if (!trimmed) return "";
+    if (!trimmed || !isTranslatableJapaneseSentence(trimmed)) return "";
     const requestSentence = normalizeSentenceForTranslationRequest(trimmed);
     const targetLanguage = translationTargetLanguage();
     const cacheKey = `${targetLanguage}:${requestSentence}`;
@@ -29690,6 +29699,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (action === "study-translate") {
       try {
         const translated = await translateJapaneseSentence$1(sentence, language);
+        if (!translated) {
+          panel.hidden = true;
+          panel.textContent = "";
+          return;
+        }
         replaceStudyPanelHtml(panel, renderStudyMeaningBlock(translated, language));
         return;
       } finally {
@@ -30713,7 +30727,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     yomuKanjiStudyCompanion()?.preloadJapaneseSentenceTranslation?.(sentence, language);
   }
   async function translateJapaneseSentence(sentence, language = "en") {
-    return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(sentence));
+    return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(""));
   }
   async function renderGrammarHints(hints, sentence, preferences, language = "en", options = {}) {
     return await (yomuKanjiStudyCompanion()?.renderGrammarHints?.(hints, sentence, preferences, language, options) ?? Promise.resolve(""));
@@ -30882,6 +30896,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return `${this.settings().interfaceLanguage}${sentence.trim()}`;
     }
     applyTranslation(popover, sentence, container, translation) {
+      if (!translation.translated) {
+        container.hidden = true;
+        return;
+      }
       const original = container.querySelector("[data-study-original-render]");
       if (original) setInnerHtml(original, renderTokensToHtml(sentence, translation.tokens, this.settings()));
       const result = container.querySelector("[data-study-translation-result]");
@@ -32547,9 +32565,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const bottom = Math.max(...boxes.map((box) => box.top + box.height));
     return { left, top, width: right - left, height: bottom - top };
   }
+  const JAPANESE_INTERNAL_SPACE = /(?<=[、-〿぀-ヿ㐀-鿿！-｠])[ \t]+(?=[、-〿぀-ヿ㐀-鿿！-｠])/g;
   function cleanOcrText(value) {
     const text2 = typeof value === "string" ? value : String(value ?? "");
-    const normalized = text2.replace(/[ \t\r\n]+/g, HAS_JAPANESE.test(text2) ? "" : " ").trim();
+    const collapsed = text2.replace(/[ \t\r\n]+/g, " ").trim();
+    const normalized = HAS_JAPANESE.test(collapsed) ? collapsed.replace(JAPANESE_INTERNAL_SPACE, "") : collapsed;
     return normalized.replaceAll("．．．", "…");
   }
   function numberFrom(value) {
@@ -39123,7 +39143,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.12".trim() ? "1.6.12".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.13".trim() ? "1.6.13".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

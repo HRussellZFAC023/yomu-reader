@@ -67,7 +67,9 @@ export function preloadJapaneseSentenceTranslation(sentence: string, language: I
 }
 
 export async function translateJapaneseSentence(sentence: string, language: InterfaceLanguage = 'en'): Promise<string> {
-    return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(sentence));
+    // Empty means "no translation to show" — never parrot the input back as
+    // if it were a translation when the companion is unavailable.
+    return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(''));
 }
 
 export async function renderGrammarHints(
