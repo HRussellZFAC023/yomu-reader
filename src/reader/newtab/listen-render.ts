@@ -167,11 +167,24 @@ export function renderListenCard(view: ListenCardView, t: Translate): string {
         return `<div class="jpdb-reader-newtab-listen-card" data-listen-submode="shadow">${sections.join('')}</div>`;
     }
 
-    // Perceive + Recall share the position picker.
-    if (!view.revealed) {
-        sections.push(renderPositionPicker(view.item, view.selectedPosition, false, t));
-    } else {
-        sections.push(renderPositionPicker(view.item, view.selectedPosition, false, t));
+    // Perceive (the pitch-SELECTION step): a clear, audio-first prompt above the
+    // downstep picker so the step is self-explanatory ("Which pitch did you
+    // hear?"), with the word shown so the learner knows what they are picking for.
+    // The picker shows the reading's morae by design (you cannot choose a downstep
+    // position without them) — this is the intended kotu-style mechanic, not a
+    // pre-reveal reading leak of the word answer.
+    if (view.subMode === 'perceive') {
+        sections.push(`<div class="jpdb-reader-newtab-listen-cue">
+            <span class="jpdb-reader-newtab-listen-word" lang="ja">${escapeHtml(view.item.displaySpelling)}</span>
+            <span class="jpdb-reader-newtab-listen-prompt">${escapeHtml(t('listenPerceivePrompt'))}</span>
+        </div>`);
+    }
+
+    // Perceive + Recall share the position picker. On a pick the choice is saved
+    // but its correctness is NOT surfaced here — the single final-reveal boundary
+    // owns all correctness feedback (backlog GAP 2: no correctness leak pre-reveal).
+    sections.push(renderPositionPicker(view.item, view.selectedPosition, false, t));
+    if (view.revealed) {
         sections.push(`<div class="jpdb-reader-newtab-listen-verdict">${escapeHtml(t('listenChoiceSaved'))}</div>`);
     }
 

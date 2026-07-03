@@ -234,6 +234,14 @@ const NEW_TAB_COPY = {
         checkStrokeShapeOrder: 'Check stroke shape/order',
         checkStrokeCountOrder: 'Check stroke count/order',
         miningActions: 'Mining actions',
+        studyHintReveal: 'Hint',
+        studyHintMore: 'Another hint',
+        studyHintMeaning: 'Meaning',
+        studyHintKanjiKeyword: 'Kanji',
+        studyHintFirstKana: 'Starts with',
+        studyHintLength: 'Length',
+        studyHintUsedOne: 'Used 1 hint',
+        studyHintUsedMany: 'Used {count} hints',
     },
 } as const;
 
@@ -469,6 +477,14 @@ const JA_NEW_TAB_COPY: Partial<Record<NewTabCopyKey, string>> = {
     checkStrokeShapeOrder: '字形・筆順を確認',
     checkStrokeCountOrder: '画数・筆順を確認',
     miningActions: 'マイニング操作',
+    studyHintReveal: 'ヒント',
+    studyHintMore: 'もう一つヒント',
+    studyHintMeaning: '意味',
+    studyHintKanjiKeyword: '漢字',
+    studyHintFirstKana: '最初の音',
+    studyHintLength: '長さ',
+    studyHintUsedOne: 'ヒント1回',
+    studyHintUsedMany: 'ヒント{count}回',
 };
 
 const NEW_TAB_COPY_BY_LANGUAGE: Record<NewTabLanguage, Partial<Record<NewTabCopyKey, string>>> = {

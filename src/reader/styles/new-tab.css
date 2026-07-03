@@ -1893,6 +1893,79 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   text-wrap: balance;
 }
 
+/* "drink — ＿み物": the word-context lead line for a kanji-draw step. Meaning and
+   blanked-kanji cloze sit on one row so the draw prompt is never ambiguous. */
+.jpdb-reader-newtab-kanji-front-context {
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.jpdb-reader-newtab-kanji-front-meaning {
+  font-size: clamp(1.1rem, 3vw, 1.9rem);
+  font-weight: 800;
+}
+.jpdb-reader-newtab-kanji-front-sep {
+  color: var(--jpdb-reader-muted);
+  font-weight: 600;
+}
+.jpdb-reader-newtab-kanji-front-cloze {
+  font-size: clamp(1.35rem, 3.7vw, 2.4rem);
+  font-weight: 760;
+  letter-spacing: 0.04em;
+}
+
+/* Progressive-hint affordance (kanji-draw + recall): a muted, unobtrusive row
+   with a small "Hint" button. Revealed tiers list label + value; nothing prints
+   the full answer before the reveal. The kanji-draw panel lives inside the huge
+   .jpdb-reader-newtab-kanji-prompt (h1) whose font-size the (0,1,1) reader-root
+   `:where(button)` reset inherits into buttons — so hint font-sizes need a
+   compound selector (≥ specificity 0,1,1) to win, and the panel resets to a
+   sane base so items/small children don't inherit the 4.8rem prompt size. */
+.jpdb-reader-newtab-study-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 12px;
+  margin-top: clamp(6px, 1.4vh, 14px);
+  font-size: 1rem;
+  font-weight: 500;
+}
+.jpdb-reader-newtab-study .jpdb-reader-newtab-study-hint-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  color: var(--jpdb-reader-newtab-study-muted, var(--jpdb-reader-muted));
+  font-size: clamp(0.9rem, 2.2vw, 1.1rem);
+}
+.jpdb-reader-newtab-study .jpdb-reader-newtab-study-hint-item small {
+  color: var(--jpdb-reader-muted);
+  font-size: clamp(0.62rem, 1.6vw, 0.8rem);
+  font-weight: 820;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+button.jpdb-reader-newtab-study-hint-btn {
+  padding: 3px 12px;
+  border: 1px solid var(--jpdb-reader-border, currentColor);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jpdb-reader-accent, currentColor);
+  font-size: clamp(0.8rem, 2vw, 0.95rem);
+  font-weight: 720;
+  line-height: 1.4;
+  cursor: pointer;
+}
+button.jpdb-reader-newtab-study-hint-btn:hover {
+  background: color-mix(in srgb, var(--jpdb-reader-accent, currentColor) 12%, transparent);
+}
+.jpdb-reader-newtab-study-hint-summary {
+  margin-top: 6px;
+  color: var(--jpdb-reader-muted);
+  font-size: clamp(0.78rem, 1.9vw, 0.92rem);
+  font-weight: 640;
+}
+
 .jpdb-reader-newtab-revealed.jpdb-reader-newtab-kanji-mode
   .jpdb-reader-newtab-prompt {
   font-size: clamp(3.5rem, 9vh, 5rem);
@@ -4782,6 +4855,11 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-listen-meaning {
   color: var(--jpdb-reader-muted);
   font-size: 14px;
+}
+.jpdb-reader-newtab-listen-prompt {
+  color: var(--jpdb-reader-newtab-study-muted, var(--jpdb-reader-muted));
+  font-size: clamp(0.9rem, 2.2vw, 1.05rem);
+  font-weight: 720;
 }
 .jpdb-reader-newtab-listen-note {
   color: var(--jpdb-reader-muted);

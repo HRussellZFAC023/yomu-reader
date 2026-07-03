@@ -1497,11 +1497,11 @@
       newTabStudyStepRecall: "Write in sentence",
       newTabStudyStepListen: "Pitch listening",
       newTabStudyStepSpeaking: "Speaking",
-      newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown.",
+      newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.",
       newTabStudyStepWordHelp: "Japanese front, meaning and reading on reveal.",
-      newTabStudyStepRecallHelp: "Type the missing word in the example sentence. Shown only when a card has an example sentence.",
-      newTabStudyStepListenHelp: "Hear the word and choose the pitch pattern. Shown only when pitch-accent data is available.",
-      newTabStudyStepSpeakingHelp: "Repeat the word aloud when microphone feedback is available. Shown only when audio is available.",
+      newTabStudyStepRecallHelp: "Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.",
+      newTabStudyStepListenHelp: "Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.",
+      newTabStudyStepSpeakingHelp: "Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available.",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
       wordColors: "Word colors",
@@ -3213,11 +3213,11 @@ newTabStudyStepWord	単語の意味
 newTabStudyStepRecall	文で書く
 newTabStudyStepListen	ピッチ聞き取り
 newTabStudyStepSpeaking	発音
-newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。
+newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。単語の意味を表示するので空欄が曖昧になりません。ヒントで漢字キーワードを出せます。
 newTabStudyStepWordHelp	表は日本語、表示後に意味と読み。
-newTabStudyStepRecallHelp	例文の空欄に単語を入力します。例文があるカードのみ表示。
-newTabStudyStepListenHelp	音声を聞き、ピッチ型を選びます。ピッチアクセント情報がある時のみ表示。
-newTabStudyStepSpeakingHelp	マイク採点が使える時に声に出して繰り返します。音声がある時のみ表示。
+newTabStudyStepRecallHelp	例文の空欄に単語を入力します。ヒントで最初の音、次に長さを表示。例文があるカードのみ表示。
+newTabStudyStepListenHelp	音声を聞き、型の候補からピッチ型を選びます。正誤は最後の答え合わせまで表示しません。ピッチアクセント情報がある時のみ表示。
+newTabStudyStepSpeakingHelp	単語をシャドーイングします。ピッチの高低をこの端末でお手本と比較して採点します。音声がある時のみ表示。
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色
@@ -41287,11 +41287,11 @@ ${spelling}`);
     speaking: "Speaking"
   };
   const NEW_TAB_STUDY_STEP_HELP = {
-    "kanji-doodle": "Draw each kanji before the word answer is shown.",
+    "kanji-doodle": "Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.",
     word: "Japanese front, meaning and reading on reveal.",
-    "recall-cloze": "Type the missing word in the example sentence. Shown only when a card has an example sentence.",
-    "listen-pitch": "Hear the word and choose the pitch pattern. Shown only when pitch-accent data is available.",
-    speaking: "Repeat the word aloud when microphone feedback is available. Shown only when audio is available."
+    "recall-cloze": "Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.",
+    "listen-pitch": "Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.",
+    speaking: "Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available."
   };
   const NEW_TAB_STUDY_STEP_LABEL_KEYS = {
     "kanji-doodle": "newTabStudyStepKanji",
@@ -64671,7 +64671,15 @@ ${spelling}`);
       checkStrokeCount: "Check stroke count",
       checkStrokeShapeOrder: "Check stroke shape/order",
       checkStrokeCountOrder: "Check stroke count/order",
-      miningActions: "Mining actions"
+      miningActions: "Mining actions",
+      studyHintReveal: "Hint",
+      studyHintMore: "Another hint",
+      studyHintMeaning: "Meaning",
+      studyHintKanjiKeyword: "Kanji",
+      studyHintFirstKana: "Starts with",
+      studyHintLength: "Length",
+      studyHintUsedOne: "Used 1 hint",
+      studyHintUsedMany: "Used {count} hints"
     }
   };
   const JA_NEW_TAB_COPY = {
@@ -64903,7 +64911,15 @@ ${spelling}`);
     checkStrokeCount: "画数を確認",
     checkStrokeShapeOrder: "字形・筆順を確認",
     checkStrokeCountOrder: "画数・筆順を確認",
-    miningActions: "マイニング操作"
+    miningActions: "マイニング操作",
+    studyHintReveal: "ヒント",
+    studyHintMore: "もう一つヒント",
+    studyHintMeaning: "意味",
+    studyHintKanjiKeyword: "漢字",
+    studyHintFirstKana: "最初の音",
+    studyHintLength: "長さ",
+    studyHintUsedOne: "ヒント1回",
+    studyHintUsedMany: "ヒント{count}回"
   };
   const NEW_TAB_COPY_BY_LANGUAGE = {
     en: NEW_TAB_COPY.en,
@@ -72670,10 +72686,14 @@ ${newTabCardReading(card)}`;
       sections.push(renderRecordRow(view, t));
       return `<div class="jpdb-reader-newtab-listen-card" data-listen-submode="shadow">${sections.join("")}</div>`;
     }
-    if (!view.revealed) {
-      sections.push(renderPositionPicker(view.item, view.selectedPosition, false, t));
-    } else {
-      sections.push(renderPositionPicker(view.item, view.selectedPosition, false, t));
+    if (view.subMode === "perceive") {
+      sections.push(`<div class="jpdb-reader-newtab-listen-cue">
+            <span class="jpdb-reader-newtab-listen-word" lang="ja">${escapeHtml$1(view.item.displaySpelling)}</span>
+            <span class="jpdb-reader-newtab-listen-prompt">${escapeHtml$1(t("listenPerceivePrompt"))}</span>
+        </div>`);
+    }
+    sections.push(renderPositionPicker(view.item, view.selectedPosition, false, t));
+    if (view.revealed) {
       sections.push(`<div class="jpdb-reader-newtab-listen-verdict">${escapeHtml$1(t("listenChoiceSaved"))}</div>`);
     }
     return `<div class="jpdb-reader-newtab-listen-card" data-listen-submode="${view.subMode}">${sections.join("")}</div>`;
@@ -72953,6 +72973,47 @@ ${newTabCardReading(card)}`;
   }
   function kanjiCharacters(value) {
     return [...new Set(Array.from(value).filter((character) => KANJI_RE.test(character)))];
+  }
+  function kanjiDrawHints(card, context) {
+    const hints = [];
+    const meaning = firstCardMeaning(card).trim();
+    if (meaning && !context.meaningAlreadyShown) {
+      hints.push({ level: hints.length + 1, labelKey: "studyHintMeaning", text: meaning, kind: "text" });
+    }
+    const keyword = context.kanjiKeyword.trim();
+    if (keyword && !equalsIgnoreCase(keyword, meaning)) {
+      hints.push({ level: hints.length + 1, labelKey: "studyHintKanjiKeyword", text: keyword, kind: "text" });
+    }
+    const firstKana = context.firstKanaHint.trim();
+    if (firstKana) {
+      hints.push({ level: hints.length + 1, labelKey: "studyHintFirstKana", text: firstKana, kind: "text" });
+    }
+    return hints;
+  }
+  function recallHints(answer) {
+    const kana = Array.from(answer.trim());
+    if (!kana.length) return [];
+    const hints = [{ level: 1, labelKey: "studyHintFirstKana", text: kana[0] ?? "", kind: "text" }];
+    if (kana.length > 2) {
+      hints.push({ level: 2, labelKey: "studyHintLength", text: String(kana.length), kind: "count" });
+    }
+    return hints;
+  }
+  function equalsIgnoreCase(a, b) {
+    return a.toLocaleLowerCase() === b.toLocaleLowerCase();
+  }
+  const DRAW_MEANING_MAX_CHARS = 40;
+  const LEADING_POS_RE = /^(?:\d+-dan|\d+-adjective|transitive|intransitive|kana|godan|ichidan|suru|する|adj-[a-z]+|[nvi](?:-[a-z]+)?)\s+/iu;
+  function conciseDrawMeaning(meaning) {
+    let first2 = (meaning.split(/[;；]/u)[0] ?? "").trim();
+    for (let guard = 0; guard < 4 && LEADING_POS_RE.test(first2); guard += 1) {
+      first2 = first2.replace(LEADING_POS_RE, "").trim();
+    }
+    if (!first2) first2 = (meaning.split(/[;；]/u)[0] ?? "").trim();
+    if (Array.from(first2).length <= DRAW_MEANING_MAX_CHARS) return first2;
+    const clause = first2.split(/[,，]/u)[0]?.trim() ?? first2;
+    const chars = Array.from(clause);
+    return chars.length <= DRAW_MEANING_MAX_CHARS ? clause : `${chars.slice(0, DRAW_MEANING_MAX_CHARS).join("").trim()}…`;
   }
   const DEFAULT_THRESHOLD_PX = 96;
   const DEFAULT_MAX_PROGRESS_PX = 144;
@@ -74229,6 +74290,13 @@ ${entry.url}`),
     listenSpeakingScoring = false;
     listenSpeakingScoreGeneration = 0;
     recallOutcomes = /* @__PURE__ */ new Map();
+    // Pitch-selection pick per card (the chosen downstep position), persisted like
+    // the recall answer so it survives step navigation and folds into the single
+    // reveal — the pitch step feeds the same per-step outcome tracking as recall.
+    pitchOutcomes = /* @__PURE__ */ new Map();
+    // Progressive-hint reveal depth per card+step ("card|kanji-doodle:0:飲" -> 2).
+    // A hint never prints the full answer; the count folds into the reveal summary.
+    studyHintDepth = /* @__PURE__ */ new Map();
     studyStepOverride = null;
     rootEventController;
     rootClickHandlers = [
@@ -74252,6 +74320,7 @@ ${entry.url}`),
         void this.continueAfterBatch(root);
       },
       "study-step": (root, target) => this.activateStudyStepFromClick(root, target),
+      "study-hint": (root, target) => this.revealStudyHint(root, target),
       "dismiss-study-tour": (root) => {
         void this.dismissStudyTour(root);
       },
@@ -74463,6 +74532,8 @@ ${entry.url}`),
       this.doodlePreviewCache.clear();
       this.recallAnswers.clear();
       this.recallOutcomes.clear();
+      this.pitchOutcomes.clear();
+      this.studyHintDepth.clear();
       this.immersionAudioPlayer.reset();
       this.statsSnapshot = emptyStatsDashboardSnapshot();
       this.statsLoaded = false;
@@ -77457,6 +77528,7 @@ ${entry.url}`),
       this.renderStudySteps(slots.steps, session);
       this.renderStudyTour(slots.tour, session);
       this.renderPromptForMode(slots, card, state2, renderAsKanji);
+      this.renderStudyRevealHintSummary(slots, card);
       this.renderSessionProgress(slots, card, root);
       if (slots.reveal) slots.reveal.textContent = this.revealButtonLabel();
       this.renderControls(slots, card);
@@ -77615,9 +77687,10 @@ ${entry.url}`),
       if (isNewCard || isSubModeChange) {
         this.listenItem = item;
         this.listenRenderedSubMode = this.state.listenSubMode;
-        this.listenSelectedPosition = null;
-        this.listenRevealed = this.state.listenSubMode === "shadow";
-        this.listenOutcome = null;
+        const prior = this.state.listenSubMode === "perceive" ? this.pitchOutcomes.get(cardKey(card)) ?? null : null;
+        this.listenSelectedPosition = prior ? prior.position : null;
+        this.listenRevealed = this.state.listenSubMode === "shadow" || Boolean(prior);
+        this.listenOutcome = prior ? prior.outcome : null;
         this.listenContrastCard = null;
         this.clearListenSpeakingScore();
         this.clearListenRecording();
@@ -77693,6 +77766,8 @@ ${entry.url}`),
       const correct = position === this.listenItem.pitchNumber;
       this.listenRevealed = true;
       this.listenOutcome = correct ? "correct" : "wrong";
+      const card = this.visibleWords[this.index];
+      if (card) this.pitchOutcomes.set(cardKey(card), { position, outcome: this.listenOutcome });
       this.rerenderActiveListen();
       void this.playListenModelAudio();
     }
@@ -78488,30 +78563,6 @@ ${entry.url}`),
       if (this.state.revealAnswer) replaceChildrenWith(prompt, this.kanjiPopoverButton(kanji));
       else replaceChildrenWith(prompt, this.renderKanjiPromptKeywords(keywords, card, kanji, true));
     }
-    // A draw step must never front an error. When no meaning/keyword resolves
-    // (keyless, sources unavailable), fall back to the word itself with the
-    // target kanji blanked so the learner still has a concrete recall prompt.
-    kanjiDrawFallbackPrompt(card, kanji) {
-      const meaning = card ? firstCardMeaning(card) : "";
-      const cloze = card ? this.kanjiWordBlank(card.spelling, kanji) : "";
-      const detail = cloze || meaning;
-      return el(
-        "div",
-        { class: "jpdb-reader-newtab-kanji-front-keywords jpdb-reader-newtab-kanji-front-fallback" },
-        el(
-          "div",
-          { class: "jpdb-reader-newtab-kanji-front-keyword" },
-          el("small", {}, this.text("drawKanji")),
-          el("span", { lang: cloze ? "ja" : "en" }, detail || this.text("drawKanji"))
-        ),
-        cloze && meaning ? el(
-          "div",
-          { class: "jpdb-reader-newtab-kanji-front-keyword" },
-          el("small", {}, this.text("meaning")),
-          el("span", {}, meaning)
-        ) : null
-      );
-    }
     kanjiWordBlank(spelling, kanji) {
       if (!spelling.includes(kanji) || Array.from(spelling).length < 2) return "";
       return Array.from(spelling).map((character) => character === kanji ? "＿" : character).join("");
@@ -78525,19 +78576,142 @@ ${entry.url}`),
       }, kanji);
     }
     renderKanjiPromptKeywords(keywords, card, kanji, pending = false) {
-      if (!keywords.length) {
-        return pending ? el("span", { class: "jpdb-reader-newtab-kanji-front-empty" }, this.text("loadingKanjiDetails")) : this.kanjiDrawFallbackPrompt(card, kanji ?? "");
-      }
-      return el(
-        "div",
-        { class: "jpdb-reader-newtab-kanji-front-keywords" },
-        keywords.map((keyword) => el(
+      const context = card ? this.kanjiDrawWordContext(card, kanji ?? "") : null;
+      const rows = [];
+      if (context) rows.push(context);
+      const shownMeaning = context && card ? conciseDrawMeaning(firstCardMeaning(card)).trim().toLowerCase() : "";
+      const supplementary = shownMeaning ? keywords.filter((keyword) => keyword.text.trim().toLowerCase() !== shownMeaning) : keywords;
+      if (supplementary.length) {
+        rows.push(...supplementary.map((keyword) => el(
           "div",
           { class: "jpdb-reader-newtab-kanji-front-keyword" },
           el("small", {}, keyword.source),
           el("span", {}, keyword.text)
-        ))
+        )));
+      } else if (!context) {
+        return pending ? el("span", { class: "jpdb-reader-newtab-kanji-front-empty" }, this.text("loadingKanjiDetails")) : el("span", { class: "jpdb-reader-newtab-kanji-front-empty" }, this.text("drawKanji"));
+      }
+      return el(
+        "div",
+        { class: "jpdb-reader-newtab-kanji-front-keywords" },
+        ...rows,
+        this.renderStudyHintPanel(card, "kanji-doodle", kanji ?? "", keywords)
       );
+    }
+    // The word-context lead line for a kanji-draw step: meaning ("drink") plus the
+    // word with the target kanji blanked ("＿み物"). Only rendered for MULTI-kanji /
+    // multi-character words where blanking disambiguates — a single-kanji card has
+    // no blank to fill, so its kanji keyword alone carries the meaning and the
+    // context row would just duplicate it. The meaning is condensed to its first
+    // concise sense so a messy multi-clause dump never fronts.
+    kanjiDrawWordContext(card, kanji) {
+      const cloze = this.kanjiWordBlank(card.spelling, kanji);
+      if (!cloze) return null;
+      const meaning = conciseDrawMeaning(firstCardMeaning(card));
+      return el(
+        "div",
+        { class: "jpdb-reader-newtab-kanji-front-keyword jpdb-reader-newtab-kanji-front-context" },
+        meaning ? el("span", { class: "jpdb-reader-newtab-kanji-front-meaning" }, meaning) : null,
+        meaning ? el("span", { class: "jpdb-reader-newtab-kanji-front-sep", "aria-hidden": "true" }, "—") : null,
+        el("span", { class: "jpdb-reader-newtab-kanji-front-cloze", lang: "ja" }, cloze)
+      );
+    }
+    // ----- Progressive hints (kanji-draw + recall): a small "Hint" affordance on
+    // the steps that can be genuinely ambiguous. Each tap reveals one more tier;
+    // no tier prints the full answer before the reveal. Usage folds into the
+    // reveal summary ("used N hints").
+    studyHintStateKey(card, step, kanji) {
+      return `${cardKey(card)}|${step}${kanji ? `:${kanji}` : ""}`;
+    }
+    studyHintsForStep(card, step, kanji, keywords) {
+      if (step === "recall-cloze") {
+        return recallHints(newTabCardReading(card) || card.reading || card.spelling);
+      }
+      const keyword = this.keywordCache.get(kanji) ?? card.kanjiKeyword ?? keywords.find((entry) => entry.text)?.text ?? "";
+      return kanjiDrawHints(card, {
+        // The draw prompt fronts the meaning by default, so the meaning hint is
+        // suppressed there; the per-kanji keyword becomes the first available
+        // hint (e.g. "read" for 読 in a multi-kanji word), then the reading's
+        // first kana as the gentlest sound cue — still short of the full reading.
+        meaningAlreadyShown: Boolean(firstCardMeaning(card).trim()),
+        kanjiKeyword: keyword,
+        firstKanaHint: this.kanjiFirstKanaHint(card)
+      });
+    }
+    // The gentlest sound cue for a kanji-draw step: the first kana of the whole
+    // word (e.g. "の" for 飲み物). One kana is far short of the reading and only
+    // offered as the last hint tier after the keyword.
+    kanjiFirstKanaHint(card) {
+      if (Array.from(card.spelling).length < 2) return "";
+      const reading = (newTabCardReading(card) || card.reading || "").trim();
+      const first2 = Array.from(reading)[0];
+      return first2 ?? "";
+    }
+    renderStudyHintPanel(card, step, kanji, keywords) {
+      if (!card || this.state.revealAnswer) return null;
+      const hints = this.studyHintsForStep(card, step, kanji, keywords);
+      if (!hints.length) return null;
+      const depth = Math.min(this.studyHintDepth.get(this.studyHintStateKey(card, step, kanji)) ?? 0, hints.length);
+      const revealed = hints.slice(0, depth);
+      const more = depth < hints.length;
+      return el(
+        "div",
+        { class: "jpdb-reader-newtab-study-hint", dataset: { studyHintStep: step, ...kanji ? { studyHintKanji: kanji } : {} } },
+        ...revealed.map((hint) => el(
+          "span",
+          { class: "jpdb-reader-newtab-study-hint-item" },
+          el("small", {}, this.text(hint.labelKey)),
+          el(
+            "span",
+            hint.kind === "count" ? {} : { lang: step === "recall-cloze" ? "ja" : void 0 },
+            hint.kind === "count" ? this.formatHintCount(Number(hint.text)) : hint.text
+          )
+        )),
+        more ? el("button", {
+          type: "button",
+          class: "jpdb-reader-newtab-study-hint-btn",
+          dataset: { newtabAction: "study-hint" }
+        }, depth === 0 ? this.text("studyHintReveal") : this.text("studyHintMore")) : null
+      );
+    }
+    formatHintCount(count) {
+      return resolveUiLanguage(this.language()) === "ja" ? `${count}拍` : `${count} kana`;
+    }
+    revealStudyHint(root, target) {
+      const panel = target.closest("[data-study-hint-step]");
+      const step = panel?.dataset.studyHintStep;
+      if (!step) return;
+      const card = this.visibleWords[this.index];
+      if (!card) return;
+      const kanji = panel?.dataset.studyHintKanji ?? "";
+      const key = this.studyHintStateKey(card, step, kanji);
+      this.studyHintDepth.set(key, (this.studyHintDepth.get(key) ?? 0) + 1);
+      this.renderWord(root, card);
+    }
+    // Total hint taps across every step of the active card, for the reveal summary.
+    studyHintsUsedForCard(card) {
+      const prefix = `${cardKey(card)}|`;
+      let total = 0;
+      for (const [key, depth] of this.studyHintDepth) {
+        if (key.startsWith(prefix)) total += depth;
+      }
+      return total;
+    }
+    // Minimal reveal footnote: "Used N hints", shown only when the learner leaned
+    // on hints this card. Purely informational — grading stays a single choice at
+    // the reveal and is unaffected.
+    renderStudyRevealHintSummary(slots, card) {
+      if (!slots.meaning) return;
+      const existing = slots.meaning.querySelector(".jpdb-reader-newtab-study-hint-summary");
+      existing?.remove();
+      if (!this.state.revealAnswer) return;
+      const used = this.studyHintsUsedForCard(card);
+      if (used <= 0) return;
+      slots.meaning.appendChild(el(
+        "p",
+        { class: "jpdb-reader-newtab-study-hint-summary" },
+        used === 1 ? this.text("studyHintUsedOne") : this.text("studyHintUsedMany").replace("{count}", String(used))
+      ));
     }
     renderKanjiPromptAnswer(slots, card, kanji) {
       if (!slots.answer) return;
@@ -78703,6 +78877,7 @@ ${entry.url}`),
           class: "jpdb-reader-newtab-recall-result",
           dataset: { newtabRecallResult: outcome }
         }, this.recallOutcomeLabel(outcome, evaluation.canonicalAnswer)) : null,
+        this.renderStudyHintPanel(card, "recall-cloze", "", []),
         this.state.revealAnswer ? this.renderRecallSolution(card, state2) : null
       );
       if (!this.state.revealAnswer) this.focusRecallInputSoon(answer);

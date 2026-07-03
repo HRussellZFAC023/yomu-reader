@@ -127,7 +127,8 @@ describe('new-tab Listen mode', () => {
             // はし is 2 morae -> positions 0,1,2 = three buttons.
             expect(root.querySelectorAll('[data-listen-pos]')).toHaveLength(3);
             expect(root.querySelector('.jpdb-reader-newtab-listen-stats')).toBeNull();
-            expect(root.querySelector('.jpdb-reader-newtab-listen-prompt')).toBeNull();
+            // The pitch-selection step now fronts a clear audio-first prompt.
+            expect(root.querySelector('.jpdb-reader-newtab-listen-prompt')?.textContent).toBe('Which pitch did you hear?');
             expect(Array.from(root.querySelectorAll('.jpdb-reader-newtab-listen-pos-name'), element => element.textContent)).toEqual(['平板', '頭高', '尾高']);
             expect(root.querySelector('[data-newtab-action="listen-play"] svg')).not.toBeNull();
             expect(playWordAudio).toHaveBeenCalledTimes(1);

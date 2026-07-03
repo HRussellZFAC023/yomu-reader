@@ -70,11 +70,11 @@ const NEW_TAB_STUDY_STEP_LABELS: Record<NewTabStudyChallengeStep, string> = {
     speaking: 'Speaking',
 };
 const NEW_TAB_STUDY_STEP_HELP: Record<NewTabStudyChallengeStep, string> = {
-    'kanji-doodle': 'Draw each kanji before the word answer is shown.',
+    'kanji-doodle': 'Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.',
     word: 'Japanese front, meaning and reading on reveal.',
-    'recall-cloze': 'Type the missing word in the example sentence. Shown only when a card has an example sentence.',
-    'listen-pitch': 'Hear the word and choose the pitch pattern. Shown only when pitch-accent data is available.',
-    speaking: 'Repeat the word aloud when microphone feedback is available. Shown only when audio is available.',
+    'recall-cloze': 'Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.',
+    'listen-pitch': 'Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.',
+    speaking: 'Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available.',
 };
 const NEW_TAB_STUDY_STEP_LABEL_KEYS: Record<NewTabStudyChallengeStep, SettingsTextKey> = {
     'kanji-doodle': 'newTabStudyStepKanji',

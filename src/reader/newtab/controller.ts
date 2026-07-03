@@ -151,6 +151,7 @@ import { PitchSrsStore, pitchItemKey, type PitchSrsItem } from './pitch-srs';
 import { renderListenCard, type ListenCardView, type ListenOutcome } from './listen-render';
 import { scoreSpeakingBlob, type SpeakingPitchScore } from './speaking-score';
 import { createNewTabStudySession, type NewTabStudySession, type NewTabStudyStep, type NewTabStudyStepId, type NewTabStudyStepKind } from './study-session';
+import { conciseDrawMeaning, kanjiDrawHints, recallHints, type StudyHint, type StudyHintStep } from './study-hints';
 import { contextPitchPattern, pitchNumberForReading, splitMorae } from '../lookup/pitch-accent';
 import { installNewTabSwipeGesture, newTabSwipeGrade, type NewTabSwipeAction } from './swipe-gesture';
 import {
@@ -837,6 +838,13 @@ export class NewTabController {
     private listenSpeakingScoring = false;
     private listenSpeakingScoreGeneration = 0;
     private recallOutcomes = new Map<string, NewTabRecallOutcome>();
+    // Pitch-selection pick per card (the chosen downstep position), persisted like
+    // the recall answer so it survives step navigation and folds into the single
+    // reveal — the pitch step feeds the same per-step outcome tracking as recall.
+    private pitchOutcomes = new Map<string, { position: number; outcome: ListenOutcome }>();
+    // Progressive-hint reveal depth per card+step ("card|kanji-doodle:0:飲" -> 2).
+    // A hint never prints the full answer; the count folds into the reveal summary.
+    private studyHintDepth = new Map<string, number>();
     private studyStepOverride: { cardKey: string; id: NewTabStudyStepId } | null = null;
     private rootEventController: AbortController | undefined;
     private readonly rootClickHandlers: RootClickHandler[] = [
@@ -854,6 +862,7 @@ export class NewTabController {
         'undo-review': root => { void this.undoLastReview(root); },
         'continue-batch': root => { void this.continueAfterBatch(root); },
         'study-step': (root, target) => this.activateStudyStepFromClick(root, target),
+        'study-hint': (root, target) => this.revealStudyHint(root, target),
         'dismiss-study-tour': root => { void this.dismissStudyTour(root); },
         'recall-submit': root => this.submitRecallAnswer(root),
         'listen-pick': (root, target) => this.handleListenPick(root, target),
@@ -1115,6 +1124,8 @@ export class NewTabController {
         this.doodlePreviewCache.clear();
         this.recallAnswers.clear();
         this.recallOutcomes.clear();
+        this.pitchOutcomes.clear();
+        this.studyHintDepth.clear();
         this.immersionAudioPlayer.reset();
         this.statsSnapshot = emptyStatsDashboardSnapshot();
         this.statsLoaded = false;
@@ -4625,6 +4636,7 @@ export class NewTabController {
         this.renderStudySteps(slots.steps, session);
         this.renderStudyTour(slots.tour, session);
         this.renderPromptForMode(slots, card, state, renderAsKanji);
+        this.renderStudyRevealHintSummary(slots, card);
 
         this.renderSessionProgress(slots, card, root);
         if (slots.reveal) slots.reveal.textContent = this.revealButtonLabel();
@@ -4790,9 +4802,13 @@ export class NewTabController {
         if (isNewCard || isSubModeChange) {
             this.listenItem = item;
             this.listenRenderedSubMode = this.state.listenSubMode;
-            this.listenSelectedPosition = null;
-            this.listenRevealed = this.state.listenSubMode === 'shadow';
-            this.listenOutcome = null;
+            // Restore a prior perceive pick so the pitch selection sticks when the
+            // learner steps away and back within the same card (the pick is
+            // persisted per card, feeding the single reveal like recall does).
+            const prior = this.state.listenSubMode === 'perceive' ? this.pitchOutcomes.get(cardKey(card)) ?? null : null;
+            this.listenSelectedPosition = prior ? prior.position : null;
+            this.listenRevealed = this.state.listenSubMode === 'shadow' || Boolean(prior);
+            this.listenOutcome = prior ? prior.outcome : null;
             this.listenContrastCard = null;
             this.clearListenSpeakingScore();
             this.clearListenRecording();
@@ -4874,6 +4890,10 @@ export class NewTabController {
         const correct = position === this.listenItem.pitchNumber;
         this.listenRevealed = true;
         this.listenOutcome = correct ? 'correct' : 'wrong';
+        const card = this.visibleWords[this.index];
+        // Persist the pick per card so it survives step navigation and feeds the
+        // single reveal — the pitch step's outcome tracks exactly like recall.
+        if (card) this.pitchOutcomes.set(cardKey(card), { position, outcome: this.listenOutcome });
         this.rerenderActiveListen();
         void this.playListenModelAudio();
     }
@@ -5835,25 +5855,6 @@ export class NewTabController {
         else replaceChildrenWith(prompt, this.renderKanjiPromptKeywords(keywords, card, kanji, true));
     }
 
-    // A draw step must never front an error. When no meaning/keyword resolves
-    // (keyless, sources unavailable), fall back to the word itself with the
-    // target kanji blanked so the learner still has a concrete recall prompt.
-    private kanjiDrawFallbackPrompt(card: JPDBCard | undefined, kanji: string): HTMLElement {
-        const meaning = card ? firstCardMeaning(card) : '';
-        const cloze = card ? this.kanjiWordBlank(card.spelling, kanji) : '';
-        const detail = cloze || meaning;
-        return el('div', { class: 'jpdb-reader-newtab-kanji-front-keywords jpdb-reader-newtab-kanji-front-fallback' },
-            el('div', { class: 'jpdb-reader-newtab-kanji-front-keyword' },
-                el('small', {}, this.text('drawKanji')),
-                el('span', { lang: cloze ? 'ja' : 'en' }, detail || this.text('drawKanji')),
-            ),
-            cloze && meaning ? el('div', { class: 'jpdb-reader-newtab-kanji-front-keyword' },
-                el('small', {}, this.text('meaning')),
-                el('span', {}, meaning),
-            ) : null,
-        );
-    }
-
     private kanjiWordBlank(spelling: string, kanji: string): string {
         if (!spelling.includes(kanji) || Array.from(spelling).length < 2) return '';
         return Array.from(spelling).map(character => character === kanji ? '＿' : character).join('');
@@ -5869,17 +5870,149 @@ export class NewTabController {
     }
 
     private renderKanjiPromptKeywords(keywords: KanjiPromptKeyword[], card?: JPDBCard, kanji?: string, pending = false): HTMLElement | string {
-        if (!keywords.length) {
-            return pending
-                ? el('span', { class: 'jpdb-reader-newtab-kanji-front-empty' }, this.text('loadingKanjiDetails'))
-                : this.kanjiDrawFallbackPrompt(card, kanji ?? '');
-        }
-        return el('div', { class: 'jpdb-reader-newtab-kanji-front-keywords' },
-            keywords.map(keyword => el('div', { class: 'jpdb-reader-newtab-kanji-front-keyword' },
+        // "drink — ＿み物": the draw prompt ALWAYS carries the word meaning +
+        // blanked-kanji cloze when the card has them, so a bare "＿み物" is never
+        // ambiguous (読み物/飲み物/編み物 all fit the blank). Kanji keywords render
+        // below as supplementary signal. Neither leaks the reading.
+        const context = card ? this.kanjiDrawWordContext(card, kanji ?? '') : null;
+        const rows: Array<HTMLElement | null> = [];
+        if (context) rows.push(context);
+        // A keyword that merely restates the meaning already fronted by the
+        // context row ("drink — ＿み物" + "JPDB drink") is noise — drop it.
+        const shownMeaning = context && card ? conciseDrawMeaning(firstCardMeaning(card)).trim().toLowerCase() : '';
+        const supplementary = shownMeaning
+            ? keywords.filter(keyword => keyword.text.trim().toLowerCase() !== shownMeaning)
+            : keywords;
+        if (supplementary.length) {
+            rows.push(...supplementary.map(keyword => el('div', { class: 'jpdb-reader-newtab-kanji-front-keyword' },
                 el('small', {}, keyword.source),
                 el('span', {}, keyword.text),
-            )),
+            )));
+        } else if (!context) {
+            // No word context (kana-standalone kanji card) and no keyword: while a
+            // detail lookup is in flight show the loading state, else the bare draw
+            // instruction so the step never fronts an error.
+            return pending
+                ? el('span', { class: 'jpdb-reader-newtab-kanji-front-empty' }, this.text('loadingKanjiDetails'))
+                : el('span', { class: 'jpdb-reader-newtab-kanji-front-empty' }, this.text('drawKanji'));
+        }
+        return el('div', { class: 'jpdb-reader-newtab-kanji-front-keywords' },
+            ...rows,
+            this.renderStudyHintPanel(card, 'kanji-doodle', kanji ?? '', keywords),
         );
+    }
+
+    // The word-context lead line for a kanji-draw step: meaning ("drink") plus the
+    // word with the target kanji blanked ("＿み物"). Only rendered for MULTI-kanji /
+    // multi-character words where blanking disambiguates — a single-kanji card has
+    // no blank to fill, so its kanji keyword alone carries the meaning and the
+    // context row would just duplicate it. The meaning is condensed to its first
+    // concise sense so a messy multi-clause dump never fronts.
+    private kanjiDrawWordContext(card: JPDBCard, kanji: string): HTMLElement | null {
+        const cloze = this.kanjiWordBlank(card.spelling, kanji);
+        if (!cloze) return null;
+        const meaning = conciseDrawMeaning(firstCardMeaning(card));
+        return el('div', { class: 'jpdb-reader-newtab-kanji-front-keyword jpdb-reader-newtab-kanji-front-context' },
+            meaning ? el('span', { class: 'jpdb-reader-newtab-kanji-front-meaning' }, meaning) : null,
+            meaning ? el('span', { class: 'jpdb-reader-newtab-kanji-front-sep', 'aria-hidden': 'true' }, '—') : null,
+            el('span', { class: 'jpdb-reader-newtab-kanji-front-cloze', lang: 'ja' }, cloze),
+        );
+    }
+
+    // ----- Progressive hints (kanji-draw + recall): a small "Hint" affordance on
+    // the steps that can be genuinely ambiguous. Each tap reveals one more tier;
+    // no tier prints the full answer before the reveal. Usage folds into the
+    // reveal summary ("used N hints").
+
+    private studyHintStateKey(card: JPDBCard, step: StudyHintStep, kanji: string): string {
+        return `${cardKey(card)}|${step}${kanji ? `:${kanji}` : ''}`;
+    }
+
+    private studyHintsForStep(card: JPDBCard, step: StudyHintStep, kanji: string, keywords: KanjiPromptKeyword[]): StudyHint[] {
+        if (step === 'recall-cloze') {
+            return recallHints(newTabCardReading(card) || card.reading || card.spelling);
+        }
+        const keyword = this.keywordCache.get(kanji) ?? card.kanjiKeyword ?? keywords.find(entry => entry.text)?.text ?? '';
+        return kanjiDrawHints(card, {
+            // The draw prompt fronts the meaning by default, so the meaning hint is
+            // suppressed there; the per-kanji keyword becomes the first available
+            // hint (e.g. "read" for 読 in a multi-kanji word), then the reading's
+            // first kana as the gentlest sound cue — still short of the full reading.
+            meaningAlreadyShown: Boolean(firstCardMeaning(card).trim()),
+            kanjiKeyword: keyword,
+            firstKanaHint: this.kanjiFirstKanaHint(card),
+        });
+    }
+
+    // The gentlest sound cue for a kanji-draw step: the first kana of the whole
+    // word (e.g. "の" for 飲み物). One kana is far short of the reading and only
+    // offered as the last hint tier after the keyword.
+    private kanjiFirstKanaHint(card: JPDBCard): string {
+        if (Array.from(card.spelling).length < 2) return '';
+        const reading = (newTabCardReading(card) || card.reading || '').trim();
+        const first = Array.from(reading)[0];
+        return first ?? '';
+    }
+
+    private renderStudyHintPanel(card: JPDBCard | undefined, step: StudyHintStep, kanji: string, keywords: KanjiPromptKeyword[]): HTMLElement | null {
+        if (!card || this.state.revealAnswer) return null;
+        const hints = this.studyHintsForStep(card, step, kanji, keywords);
+        if (!hints.length) return null;
+        const depth = Math.min(this.studyHintDepth.get(this.studyHintStateKey(card, step, kanji)) ?? 0, hints.length);
+        const revealed = hints.slice(0, depth);
+        const more = depth < hints.length;
+        return el('div', { class: 'jpdb-reader-newtab-study-hint', dataset: { studyHintStep: step, ...(kanji ? { studyHintKanji: kanji } : {}) } },
+            ...revealed.map(hint => el('span', { class: 'jpdb-reader-newtab-study-hint-item' },
+                el('small', {}, this.text(hint.labelKey)),
+                el('span', hint.kind === 'count' ? {} : { lang: step === 'recall-cloze' ? 'ja' : undefined },
+                    hint.kind === 'count' ? this.formatHintCount(Number(hint.text)) : hint.text),
+            )),
+            more ? el('button', {
+                type: 'button',
+                class: 'jpdb-reader-newtab-study-hint-btn',
+                dataset: { newtabAction: 'study-hint' },
+            }, depth === 0 ? this.text('studyHintReveal') : this.text('studyHintMore')) : null,
+        );
+    }
+
+    private formatHintCount(count: number): string {
+        return resolveUiLanguage(this.language()) === 'ja' ? `${count}拍` : `${count} kana`;
+    }
+
+    private revealStudyHint(root: HTMLElement, target: HTMLElement): void {
+        const panel = target.closest<HTMLElement>('[data-study-hint-step]');
+        const step = panel?.dataset.studyHintStep as StudyHintStep | undefined;
+        if (!step) return;
+        const card = this.visibleWords[this.index];
+        if (!card) return;
+        const kanji = panel?.dataset.studyHintKanji ?? '';
+        const key = this.studyHintStateKey(card, step, kanji);
+        this.studyHintDepth.set(key, (this.studyHintDepth.get(key) ?? 0) + 1);
+        this.renderWord(root, card);
+    }
+
+    // Total hint taps across every step of the active card, for the reveal summary.
+    private studyHintsUsedForCard(card: JPDBCard): number {
+        const prefix = `${cardKey(card)}|`;
+        let total = 0;
+        for (const [key, depth] of this.studyHintDepth) {
+            if (key.startsWith(prefix)) total += depth;
+        }
+        return total;
+    }
+
+    // Minimal reveal footnote: "Used N hints", shown only when the learner leaned
+    // on hints this card. Purely informational — grading stays a single choice at
+    // the reveal and is unaffected.
+    private renderStudyRevealHintSummary(slots: NewTabStudySlots, card: JPDBCard): void {
+        if (!slots.meaning) return;
+        const existing = slots.meaning.querySelector('.jpdb-reader-newtab-study-hint-summary');
+        existing?.remove();
+        if (!this.state.revealAnswer) return;
+        const used = this.studyHintsUsedForCard(card);
+        if (used <= 0) return;
+        slots.meaning.appendChild(el('p', { class: 'jpdb-reader-newtab-study-hint-summary' },
+            used === 1 ? this.text('studyHintUsedOne') : this.text('studyHintUsedMany').replace('{count}', String(used))));
     }
 
     private renderKanjiPromptAnswer(slots: NewTabStudySlots, card: JPDBCard, kanji: string): void {
@@ -6035,6 +6168,7 @@ export class NewTabController {
                 class: 'jpdb-reader-newtab-recall-result',
                 dataset: { newtabRecallResult: outcome },
             }, this.recallOutcomeLabel(outcome, evaluation.canonicalAnswer)) : null,
+            this.renderStudyHintPanel(card, 'recall-cloze', '', []),
             this.state.revealAnswer ? this.renderRecallSolution(card, state) : null,
         );
         if (!this.state.revealAnswer) this.focusRecallInputSoon(answer);

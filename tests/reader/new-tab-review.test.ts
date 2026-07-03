@@ -8288,7 +8288,7 @@ describe('new tab review helpers', () => {
         });
     });
 
-    it('does not show vocabulary meanings on the kanji front before detail lookups resolve', async () => {
+    it('fronts a concise word meaning + blanked cloze on the kanji front, condensing messy glosses', async () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
         const lookup = deferred<{ kanji: string; keyword: string; meanings: string[]; readings: []; components: []; vocabulary: []; frequencyRank: null }>();
         const card = newTabTestCard({
@@ -8303,14 +8303,48 @@ describe('new tab review helpers', () => {
                 jpdbKanji: { lookup: vi.fn(() => lookup.promise) } as never,
             });
 
-            expect(newTabPromptText(root)).toBe('Loading kanji details...');
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).not.toContain('sow');
+            // Owner requirement A: the word meaning + blanked cloze front immediately
+            // so "＿く" is never ambiguous — but the raw multi-clause dump is
+            // condensed to its first concise sense, never dumped verbatim.
+            const promptText = root.querySelector('[data-newtab-prompt]')?.textContent ?? '';
+            expect(promptText).toContain('to sow');
+            expect(promptText).toContain('＿く');
+            expect(promptText).not.toContain('5-dan transitive');
 
             lookup.resolve({ kanji: '播', keyword: 'disseminate', meanings: ['disseminate'], readings: [], components: [], vocabulary: [], frequencyRank: null });
             await waitForExpect(() => {
                 expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('JPDB');
                 expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('disseminate');
             });
+        } finally {
+            restoreCanvas();
+        }
+    });
+
+    it('drops a kanji keyword that merely restates the fronted word meaning', async () => {
+        const restoreCanvas = stubKanjiDoodleBrowserApis();
+        const lookup = deferred<{ kanji: string; keyword: string; meanings: string[]; readings: []; components: []; vocabulary: []; frequencyRank: null }>();
+        const card = newTabTestCard({
+            vid: 21,
+            sid: 21,
+            spelling: '飲み物',
+            reading: 'のみもの',
+            meanings: [{ glosses: ['drink'], partOfSpeech: [] }],
+        });
+        try {
+            const { root } = createNewTabKanjiFrontFixture(card, {
+                jpdbKanji: { lookup: vi.fn(() => lookup.promise) } as never,
+            });
+            lookup.resolve({ kanji: '飲', keyword: 'drink', meanings: ['drink'], readings: [], components: [], vocabulary: [], frequencyRank: null });
+            await waitForExpect(() => {
+                const prompt = root.querySelector('[data-newtab-prompt]');
+                expect(prompt?.querySelector('.jpdb-reader-newtab-kanji-front-context')).not.toBeNull();
+            });
+            const prompt = root.querySelector('[data-newtab-prompt]');
+            expect(prompt?.textContent).toContain('＿み物');
+            // The context row already fronts "drink" — a "JPDB drink" pill below
+            // would be pure repetition.
+            expect(prompt?.querySelectorAll('.jpdb-reader-newtab-kanji-front-keyword:not(.jpdb-reader-newtab-kanji-front-context)').length).toBe(0);
         } finally {
             restoreCanvas();
         }
