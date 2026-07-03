@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.12] - 2026-07-03
+
+### Fixed
+
+- Restored paused-video OCR on the hosted video player and PDF reader: the 1.6.10 companion extraction moved OCR into the yomu-ocr-manga companion, but the hosted pages, their service-worker precache, and the docs hosted runtime still loaded the old companion list, so the hosted OCR overlay never appeared. All hosted companion lists now include yomu-ocr-manga and yomu-ui-copy.
+- The CI dead-code job now verifies the fallow platform binary after install and restores it when npm silently drops the optional dependency on a cold cache, which had been failing CI since 1.6.10.
+
 ## [1.6.11] - 2026-07-03
 
 ### Changed
