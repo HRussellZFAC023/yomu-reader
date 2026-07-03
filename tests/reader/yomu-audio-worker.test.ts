@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import AudioWorker, { resetAudioWorkerCacheForTests } from "../../workers/yomu-audio/src/index";
+import AudioWorker, { audioShardKeyForTests, resetAudioWorkerCacheForTests } from "../../workers/yomu-audio/src/index";
 
 type MockR2Object = {
   body: ReadableStream | null;
@@ -133,6 +133,61 @@ describe("Yomu audio Worker", () => {
         name: "nhk16 ネコ",
         url: "https://audio.yomureader.com/audio/nhk16/media/20170726141547.mp3",
       }],
+    });
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("returns Yomitan-compatible audio JSON from a sharded R2 index before using the legacy manifest or fallback", async () => {
+    const bucket = mockAudioBucket({
+      [audioShardKeyForTests("保有")]: {
+        contentType: "application/json",
+        body: JSON.stringify({
+          version: 2,
+          entries: {
+            "保有": [
+              {
+                r: "ほゆう",
+                s: [
+                  ["daijisen ほゆう [0]", "daijisen/media/s00005904.mp3"],
+                  ["nhk16 ホユー [0]", "nhk16/media/20171102163745.mp3"],
+                ],
+              },
+              {
+                r: "",
+                s: [["forvo_jp akitomo", "forvo_jp/akitomo/保有.mp3"]],
+              },
+            ],
+          },
+        }),
+      },
+      "index/audio-index.json": {
+        contentType: "application/json",
+        body: JSON.stringify({
+          entries: {
+            "保有\tほゆう": [
+              { name: "legacy duplicate", path: "jpod/media/legacy.mp3" },
+            ],
+          },
+        }),
+      },
+    });
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await AudioWorker.fetch(
+      new Request("https://audio.yomureader.com/?term=%E4%BF%9D%E6%9C%89&reading=%E3%81%BB%E3%82%86%E3%81%86"),
+      { AUDIO_BUCKET: bucket },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      type: "audioSourceList",
+      audioSources: [
+        { name: "daijisen ほゆう [0]", url: "https://audio.yomureader.com/audio/daijisen/media/s00005904.mp3" },
+        { name: "nhk16 ホユー [0]", url: "https://audio.yomureader.com/audio/nhk16/media/20171102163745.mp3" },
+        { name: "forvo_jp akitomo", url: "https://audio.yomureader.com/audio/forvo_jp/akitomo/%E4%BF%9D%E6%9C%89.mp3" },
+      ],
     });
     expect(upstream).not.toHaveBeenCalled();
   });

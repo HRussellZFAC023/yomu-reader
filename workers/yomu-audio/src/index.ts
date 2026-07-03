@@ -1,7 +1,10 @@
 const READ_METHODS = new Set(["GET", "HEAD"]);
 const DEFAULT_EMPTY_AUDIO_RESPONSE: AudioSourceListResponse = { type: "audioSourceList", audioSources: [] };
 const DEFAULT_AUDIO_MANIFEST_KEY = "index/audio-index.json";
+const DEFAULT_AUDIO_INDEX_PREFIX = "index/v2/shards";
 const MANIFEST_CACHE_TTL_MS = 60_000;
+const SHARD_CACHE_TTL_MS = 60_000;
+const MAX_SHARD_CACHE_ENTRIES = 32;
 const JAPANESE_POD_101_AUDIO_URL = "https://assets.languagepod101.com/dictionary/japanese/audiomp3.php";
 
 interface ExecutionContext {
@@ -11,6 +14,7 @@ interface ExecutionContext {
 interface Env {
   AUDIO_BUCKET?: R2Bucket;
   AUDIO_MANIFEST_KEY?: string;
+  AUDIO_INDEX_PREFIX?: string;
   AUDIO_UPSTREAM_URL?: string;
   AUDIO_DISABLED?: string;
   AUDIO_ANALYTICS_LOGS?: string;
@@ -21,6 +25,7 @@ interface AudioStatus {
   status: "ok" | "disabled" | "unconfigured";
   r2Configured: boolean;
   manifestKey: string;
+  indexPrefix: string;
   upstreamConfigured: boolean;
   cors: true;
   cache: {
@@ -60,6 +65,20 @@ interface AudioManifestSource {
   contentType?: string;
 }
 
+interface AudioShardIndex {
+  entries?: Record<string, AudioShardRecord[]>;
+}
+
+interface AudioShardRecord {
+  reading?: string;
+  r?: string;
+  sources?: AudioManifestSource[];
+  audioSources?: AudioManifestSource[];
+  s?: AudioShardTupleSource[];
+}
+
+type AudioShardTupleSource = [name: string, path: string] | [name: string, path: string, contentType: string];
+
 interface AudioSourceListResponse {
   type: "audioSourceList";
   audioSources: Array<{ name: string; url: string }>;
@@ -72,6 +91,7 @@ interface CachedManifest {
 }
 
 let cachedManifest: CachedManifest | null = null;
+const cachedShards = new Map<string, { key: string; expiresAt: number; index: AudioShardIndex | null }>();
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -113,10 +133,10 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
   const reading = url.searchParams.get("reading")?.trim() ?? "";
   if (!term && !reading) return jsonResponse(request, DEFAULT_EMPTY_AUDIO_RESPONSE, 200);
 
-  const manifestAudio = await audioSourcesFromManifest(request, env, term, reading);
-  if (manifestAudio) {
-    const response = jsonResponse(request, manifestAudio, 200, { "cache-control": "public, max-age=3600" });
-    recordAudioAnalytics(ctx, env, request, 200, "r2-manifest");
+  const r2Audio = await audioSourcesFromR2Index(request, env, term, reading);
+  if (r2Audio) {
+    const response = jsonResponse(request, r2Audio, 200, { "cache-control": "public, max-age=3600" });
+    recordAudioAnalytics(ctx, env, request, 200, "r2-index");
     return response;
   }
 
@@ -145,6 +165,7 @@ function audioStatus(env: Env): AudioStatus {
     status: truthyEnv(env.AUDIO_DISABLED) ? "disabled" : r2Configured || upstreamConfigured ? "ok" : "unconfigured",
     r2Configured,
     manifestKey: manifestKey(env),
+    indexPrefix: indexPrefix(env),
     upstreamConfigured,
     cors: true,
     cache: { queryTtlSeconds: 3600 },
@@ -167,15 +188,17 @@ async function serveR2AudioObject(request: Request, env: Env, rawKey: string): P
   return withCors(request, new Response(request.method === "HEAD" ? null : object.body, { status: 200, headers }));
 }
 
-async function audioSourcesFromManifest(
+async function audioSourcesFromR2Index(
   request: Request,
   env: Env,
   term: string,
   reading: string,
 ): Promise<AudioSourceListResponse | null> {
   if (!env.AUDIO_BUCKET) return null;
-  const manifest = await loadAudioManifest(env);
-  const sources = lookupManifestSources(manifest, term, reading);
+  const shardedSources = await lookupShardedIndexSources(env, term, reading);
+  const sources = shardedSources.length
+    ? shardedSources
+    : lookupManifestSources(await loadAudioManifest(env), term, reading);
   if (!sources.length) return null;
   const origin = new URL(request.url).origin;
   return {
@@ -185,6 +208,42 @@ async function audioSourcesFromManifest(
       url: manifestSourceUrl(origin, source),
     })),
   };
+}
+
+async function lookupShardedIndexSources(env: Env, term: string, reading: string): Promise<AudioManifestSource[]> {
+  const index = await loadAudioShard(env, term);
+  if (!index?.entries) return [];
+  const records = index.entries[normalizedManifestText(term)] ?? [];
+  const normalizedReading = normalizedManifestText(reading);
+  return records
+    .map((record) => ({
+      record,
+      reading: normalizedManifestText(record.reading ?? record.r),
+    }))
+    .filter(({ reading: recordReading }) => {
+      return !recordReading || !normalizedReading || recordReading === normalizedReading;
+    })
+    .sort((left, right) => readingMatchRank(left.reading, normalizedReading) - readingMatchRank(right.reading, normalizedReading))
+    .flatMap(({ record }) => shardRecordSources(record))
+    .filter(isManifestSource);
+}
+
+function readingMatchRank(recordReading: string, requestedReading: string): number {
+  if (recordReading && requestedReading && recordReading === requestedReading) return 0;
+  if (!recordReading) return 1;
+  return 2;
+}
+
+async function loadAudioShard(env: Env, term: string): Promise<AudioShardIndex | null> {
+  const key = audioShardKey(env, term);
+  const now = Date.now();
+  const cached = cachedShards.get(key);
+  if (cached && cached.expiresAt > now) return cached.index;
+  const object = await env.AUDIO_BUCKET?.get(key);
+  const index = object ? parseAudioShardIndex(await r2ObjectText(object)) : null;
+  cachedShards.set(key, { key, index, expiresAt: now + SHARD_CACHE_TTL_MS });
+  pruneShardCache();
+  return index;
 }
 
 async function loadAudioManifest(env: Env): Promise<AudioManifest | null> {
@@ -210,6 +269,17 @@ function lookupManifestSources(manifest: AudioManifest | null, term: string, rea
       && (!normalizedManifestText(record.reading) || normalizedManifestText(record.reading) === normalizedManifestText(reading)))
     .flatMap((record) => record.sources ?? record.audioSources ?? [])
     .filter(isManifestSource);
+}
+
+function shardRecordSources(record: AudioShardRecord): AudioManifestSource[] {
+  return [
+    ...(record.sources ?? record.audioSources ?? []),
+    ...(record.s ?? []).map((source) => ({
+      name: source[0],
+      path: source[1],
+      contentType: source[2],
+    })),
+  ];
 }
 
 function manifestSourceUrl(origin: string, source: AudioManifestSource): string {
@@ -238,19 +308,25 @@ function parseAudioManifest(text: string): AudioManifest | null {
   }
 }
 
+function parseAudioShardIndex(text: string): AudioShardIndex | null {
+  try {
+    const value = JSON.parse(text);
+    return value && typeof value === "object" ? value as AudioShardIndex : null;
+  } catch {
+    return null;
+  }
+}
+
 async function r2ObjectText(object: R2ObjectBody): Promise<string> {
   if (typeof object.text === "function") return object.text();
   return object.body ? await new Response(object.body).text() : "";
 }
 
-// The R2 manifest only covers the words that have been exported so far; without
-// this fallback every other word returns an empty list and Yomu clients whose
-// only enabled source is the hosted one go silent ("No playable audio found").
-// JapanesePod101's public dictionary endpoint carries the same jpod recordings,
-// so hand its URL to the client. The clip cannot be probed here — its
-// CloudFront origin rejects Cloudflare Worker egress with 403 — but the Yomu
-// client already recognises and rejects the endpoint's fixed "not available"
-// placeholder clip by size and hash before playing anything.
+// Keep a public fallback for terms missing from the hosted collection or during
+// partial index rollout. The clip cannot be probed here: JapanesePod101's
+// CloudFront origin rejects Cloudflare Worker egress with 403. The Yomu client
+// recognises and rejects the endpoint's fixed "not available" placeholder clip
+// by size and hash before playing anything.
 function japanesePod101Fallback(request: Request, env: Env, ctx: ExecutionContext, term: string, reading: string): Response {
   const fallbackUrl = japanesePod101Url(term, reading);
   if (!fallbackUrl) return jsonResponse(request, DEFAULT_EMPTY_AUDIO_RESPONSE, 200, { "x-yomu-audio-error": "unconfigured" });
@@ -320,7 +396,7 @@ function cacheKey(upstream: string): Request {
   return new Request(upstream, { method: "GET" });
 }
 
-function recordAudioAnalytics(ctx: ExecutionContext, env: Env, request: Request, status: number, source: "r2-manifest" | "upstream" | "jpod101-fallback"): void {
+function recordAudioAnalytics(ctx: ExecutionContext, env: Env, request: Request, status: number, source: "r2-index" | "upstream" | "jpod101-fallback"): void {
   if (!truthyEnv(env.AUDIO_ANALYTICS_LOGS)) return;
   ctx.waitUntil(Promise.resolve().then(() => {
     console.log(JSON.stringify({
@@ -335,6 +411,34 @@ function recordAudioAnalytics(ctx: ExecutionContext, env: Env, request: Request,
 
 function manifestKey(env: Env): string {
   return env.AUDIO_MANIFEST_KEY?.trim() || DEFAULT_AUDIO_MANIFEST_KEY;
+}
+
+function indexPrefix(env: Env): string {
+  return trimSlashes(env.AUDIO_INDEX_PREFIX?.trim() || DEFAULT_AUDIO_INDEX_PREFIX);
+}
+
+function audioShardKey(env: Env, term: string): string {
+  return `${indexPrefix(env)}/${audioShardId(term)}.json`;
+}
+
+function audioShardId(term: string): string {
+  return fnv1a32Hex(normalizedManifestText(term)).slice(0, 3);
+}
+
+function fnv1a32Hex(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    hash ^= code & 0xff;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+    hash ^= code >>> 8;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+function trimSlashes(value: string): string {
+  return value.replace(/^\/+|\/+$/gu, "");
 }
 
 function manifestKeyFor(term: string, reading: string): string {
@@ -365,8 +469,21 @@ function contentTypeForAudioKey(key: string): string {
   return "application/octet-stream";
 }
 
+function pruneShardCache(): void {
+  while (cachedShards.size > MAX_SHARD_CACHE_ENTRIES) {
+    const firstKey = cachedShards.keys().next().value;
+    if (!firstKey) return;
+    cachedShards.delete(firstKey);
+  }
+}
+
 export function resetAudioWorkerCacheForTests(): void {
   cachedManifest = null;
+  cachedShards.clear();
+}
+
+export function audioShardKeyForTests(term: string, prefix = DEFAULT_AUDIO_INDEX_PREFIX): string {
+  return audioShardKey({ AUDIO_INDEX_PREFIX: prefix }, term);
 }
 
 function isCorsPreflight(request: Request): boolean {

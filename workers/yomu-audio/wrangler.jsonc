@@ -14,6 +14,7 @@
   ],
   "vars": {
     "AUDIO_MANIFEST_KEY": "index/audio-index.json",
+    "AUDIO_INDEX_PREFIX": "index/v2/shards",
     "AUDIO_DISABLED": "false",
     "AUDIO_ANALYTICS_LOGS": "false"
   },

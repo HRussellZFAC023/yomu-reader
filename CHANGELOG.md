@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.33] - 2026-07-03
+
+### Fixed
+
+- The hosted audio worker's v2 sharded-index source is now committed to the repository: production has served shard lookups (index/v2/shards) since 2026-07-02, but the source only existed in the deployed Cloudflare version, so any redeploy from the repo would have silently reverted audio.yomureader.com to the legacy seed manifest.
+
+### Changed
+
+- The audio export script gained a --full mode that streams the local Yomitan audio database into the v2 shard index (with per-file existence verification and generated rclone/aws upload plans), and the worker README documents the three serving modes.
+
 ## [1.6.32] - 2026-07-03
 
 ### Fixed
