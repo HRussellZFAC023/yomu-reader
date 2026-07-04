@@ -1,14 +1,16 @@
 # Changelog
 
+## [1.6.46] - 2026-07-04
+
+### Fixed
+
+- Grading no longer re-fetches the whole provider queue after every single card: the study page now refreshes when the local pool runs low, every ten grades, or after a minute — a 500-due jpdb/Jiten session previously meant ~500 full-queue API round-trips with the cache invalidated each time, the same request-storm class that once overloaded jiten.moe.
+
 ## [1.6.45] - 2026-07-04
 
 ### Fixed
 
-<<<<<<< HEAD
 - The study page's Previous word and Continue controls now split the navigation row 50/50 during two-button study steps instead of leaving an empty third column.
-=======
-- Grading no longer re-fetches the whole provider queue after every single card: the study page now refreshes when the local pool runs low, every ten grades, or after a minute — a 500-due jpdb/Jiten session previously meant ~500 full-queue API round-trips with the cache invalidated each time, the same request-storm class that once overloaded jiten.moe.
->>>>>>> 5703e4523 (Release 1.6.45 - coalesce post-grade queue re-fetches (low-water / every-10-grades / 60s))
 
 ## [1.6.44] - 2026-07-04
 

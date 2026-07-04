@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-const APP_HASH = '0a5290683c3c';
-=======
-const APP_HASH = 'fffffc15ab62';
->>>>>>> 5703e4523 (Release 1.6.45 - coalesce post-grade queue re-fetches (low-water / every-10-grades / 60s))
+const APP_HASH = '622f0bfaad74';
 const CACHE_NAME = `yomu-newtab-${APP_HASH}`;
 const SHELL = ['./', './index.html', './manifest.webmanifest', './app.js', './styles.css', '../yomu.user.js'];
 const CACHEABLE_PATH_SUFFIXES = [
