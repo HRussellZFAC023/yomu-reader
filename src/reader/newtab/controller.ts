@@ -311,6 +311,9 @@ import {
     NEW_TAB_STATS_JPDB_CARD_LIMIT,
     NEW_TAB_STATS_JPDB_HISTORY_KEY,
     NEW_TAB_OFFLINE_WARM_LIMIT,
+    NEW_TAB_OFFLINE_WARM_CARD_TIMEOUT_MS,
+    NEW_TAB_OFFLINE_WARM_CONCURRENCY,
+    NEW_TAB_OFFLINE_WARM_RETRY_MS,
     NEW_TAB_STUDY_INTERACTIVE_SELECTOR,
     NEW_TAB_WORD_LIMIT,
     NEW_TAB_WORD_STATE_CLASSES,
@@ -784,6 +787,8 @@ export class NewTabController {
     // are warmed for offline study, plus the write-behind sync status.
     private readonly offlineReadyKeys = new Set<string>();
     private offlineWarmSignature = '';
+    private offlineWarmTotal = 0;
+    private offlineWarmRetryTimer: number | undefined;
     private syncPendingCount = 0;
     private lastSyncedAt: number | null = null;
     private uchisenDataCache = new Map<string, Promise<UchisenData | null>>();
@@ -5223,11 +5228,14 @@ export class NewTabController {
         return formatNewTabSessionElapsed(this.sessionProgress.snapshot([]).elapsedMs);
     }
 
-    // "cached N" — how many of the session's review cards are warmed for offline
-    // study (definition + meta + pitch persisted). Shown next to the timer.
+    // "cached N/M" — how many of the session's review cards are warmed for offline
+    // study (definition + meta + pitch) out of the warm target. Collapses to a
+    // plain "cached N" once the whole target is warm. Shown next to the timer.
     private offlineCacheSegment(): string {
         const count = this.offlineReadyKeys.size;
-        return count > 0 ? `${this.text('sessionCached')} ${count}` : '';
+        const total = this.offlineWarmTotal;
+        if (count >= total) return count > 0 ? `${this.text('sessionCached')} ${count}` : '';
+        return `${this.text('sessionCached')} ${count}/${total}`;
     }
 
     // Eventually-consistent sync status: how many grades are still queued to sync
@@ -5257,27 +5265,62 @@ export class NewTabController {
         }
     }
 
-    // Warm every due card's render data into the persistent caches once per session
-    // card-set, so an offline study run never has to reach the network. Bounded and
-    // yields between cards to avoid blocking the UI; only runs while online.
+    // Warm every due card's render data into the caches once per session card-set,
+    // so an offline study run never has to reach the network. Runs a small
+    // concurrent pool of idle-scheduled loads, races each card against a hard
+    // timeout (one hung lookup previously stalled the whole chain at "cached 1"),
+    // retries failures after a backoff, and re-persists the enriched cards (pitch
+    // accents land on the card objects during warming) into the offline cache.
     private warmOfflineCache(cards: readonly JPDBCard[]): void {
         const load = this.dependencies.loadCardRenderData;
         if (!load || typeof navigator !== 'undefined' && navigator.onLine === false) return;
         const signature = `${cards.length}:${cards.slice(0, 3).map(card => this.offlineReadyKey(card)).join(',')}`;
         if (signature === this.offlineWarmSignature) return;
         this.offlineWarmSignature = signature;
-        const queue = cards.slice(0, NEW_TAB_OFFLINE_WARM_LIMIT);
-        const warmNext = async (index: number): Promise<void> => {
+        const settings = this.dependencies.getSettings();
+        const limit = Math.max(NEW_TAB_OFFLINE_WARM_LIMIT, settings.newTabOfflineEnabled ? settings.newTabOfflineLimit : 0);
+        const queue = cards.slice(0, limit);
+        this.offlineWarmTotal = queue.length;
+        let nextIndex = 0;
+        let settled = 0;
+        let failures = 0;
+        const finishCard = (): void => {
+            settled += 1;
+            if (settled < queue.length) return;
+            this.writeOfflineCacheAfterLoad();
+            if (failures > 0) this.scheduleOfflineWarmRetry(signature);
+        };
+        const warmNext = async (): Promise<void> => {
+            const index = nextIndex++;
             if (index >= queue.length) return;
             const card = queue[index];
-            if (!this.offlineReadyKeys.has(this.offlineReadyKey(card)) && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
-                await load(card).then(() => this.markCardOfflineReady(card)).catch(() => undefined);
-            } else {
+            if (this.offlineReadyKeys.has(this.offlineReadyKey(card))) {
                 this.markCardOfflineReady(card);
+            } else if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+                const warmed = await Promise.race([
+                    load(card).then(() => true, () => false),
+                    new Promise<boolean>(resolve => setTimeout(() => resolve(false), NEW_TAB_OFFLINE_WARM_CARD_TIMEOUT_MS)),
+                ]);
+                if (warmed) this.markCardOfflineReady(card);
+                else failures += 1;
+            } else {
+                failures += 1;
             }
-            scheduleIdle(() => void warmNext(index + 1));
+            finishCard();
+            scheduleIdle(() => void warmNext());
         };
-        scheduleIdle(() => void warmNext(0));
+        const pool = Math.min(NEW_TAB_OFFLINE_WARM_CONCURRENCY, queue.length);
+        for (let worker = 0; worker < pool; worker += 1) scheduleIdle(() => void warmNext());
+    }
+
+    // Failed warms (flaky network, provider hiccup) retry on a later render tick
+    // instead of being lost for the rest of the session.
+    private scheduleOfflineWarmRetry(signature: string): void {
+        if (this.offlineWarmRetryTimer !== undefined || typeof window === 'undefined') return;
+        this.offlineWarmRetryTimer = window.setTimeout(() => {
+            this.offlineWarmRetryTimer = undefined;
+            if (this.offlineWarmSignature === signature) this.offlineWarmSignature = '';
+        }, NEW_TAB_OFFLINE_WARM_RETRY_MS);
     }
 
     private dailyGoalLabel(): string {

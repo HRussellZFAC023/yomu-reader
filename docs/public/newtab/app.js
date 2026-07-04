@@ -39352,7 +39352,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.64".trim() ? "1.6.64".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.65".trim() ? "1.6.65".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -70713,6 +70713,9 @@ ${newTabCardReading(card)}`;
   const JPDB_DECK_SAMPLE_LIMIT = 6;
   const NEW_TAB_WORD_LIMIT = 180;
   const NEW_TAB_OFFLINE_WARM_LIMIT = 80;
+  const NEW_TAB_OFFLINE_WARM_CARD_TIMEOUT_MS = 15e3;
+  const NEW_TAB_OFFLINE_WARM_CONCURRENCY = 3;
+  const NEW_TAB_OFFLINE_WARM_RETRY_MS = 3e4;
   const NEW_TAB_FALLBACK_SUPPLEMENT_MIN = 12;
   const NEW_TAB_DICTIONARY_FALLBACK_RANKS = [2e3, 6e3];
   const NEW_TAB_NAVIGATION_DEDUPE_MS = 550;
@@ -74659,6 +74662,8 @@ ${entry.url}`),
     // are warmed for offline study, plus the write-behind sync status.
     offlineReadyKeys = /* @__PURE__ */ new Set();
     offlineWarmSignature = "";
+    offlineWarmTotal = 0;
+    offlineWarmRetryTimer;
     syncPendingCount = 0;
     lastSyncedAt = null;
     uchisenDataCache = /* @__PURE__ */ new Map();
@@ -78479,11 +78484,14 @@ ${entry.url}`),
     sessionElapsedLabel() {
       return formatNewTabSessionElapsed(this.sessionProgress.snapshot([]).elapsedMs);
     }
-    // "cached N" — how many of the session's review cards are warmed for offline
-    // study (definition + meta + pitch persisted). Shown next to the timer.
+    // "cached N/M" — how many of the session's review cards are warmed for offline
+    // study (definition + meta + pitch) out of the warm target. Collapses to a
+    // plain "cached N" once the whole target is warm. Shown next to the timer.
     offlineCacheSegment() {
       const count = this.offlineReadyKeys.size;
-      return count > 0 ? `${this.text("sessionCached")} ${count}` : "";
+      const total = this.offlineWarmTotal;
+      if (count >= total) return count > 0 ? `${this.text("sessionCached")} ${count}` : "";
+      return `${this.text("sessionCached")} ${count}/${total}`;
     }
     // Eventually-consistent sync status: how many grades are still queued to sync
     // back to the providers, or a synced confirmation once the queue drains.
@@ -78506,27 +78514,61 @@ ${entry.url}`),
         this.renderSessionProgress(this.studySlots(root), card, root);
       }
     }
-    // Warm every due card's render data into the persistent caches once per session
-    // card-set, so an offline study run never has to reach the network. Bounded and
-    // yields between cards to avoid blocking the UI; only runs while online.
+    // Warm every due card's render data into the caches once per session card-set,
+    // so an offline study run never has to reach the network. Runs a small
+    // concurrent pool of idle-scheduled loads, races each card against a hard
+    // timeout (one hung lookup previously stalled the whole chain at "cached 1"),
+    // retries failures after a backoff, and re-persists the enriched cards (pitch
+    // accents land on the card objects during warming) into the offline cache.
     warmOfflineCache(cards) {
       const load = this.dependencies.loadCardRenderData;
       if (!load || typeof navigator !== "undefined" && navigator.onLine === false) return;
       const signature = `${cards.length}:${cards.slice(0, 3).map((card) => this.offlineReadyKey(card)).join(",")}`;
       if (signature === this.offlineWarmSignature) return;
       this.offlineWarmSignature = signature;
-      const queue = cards.slice(0, NEW_TAB_OFFLINE_WARM_LIMIT);
-      const warmNext = async (index) => {
+      const settings = this.dependencies.getSettings();
+      const limit = Math.max(NEW_TAB_OFFLINE_WARM_LIMIT, settings.newTabOfflineEnabled ? settings.newTabOfflineLimit : 0);
+      const queue = cards.slice(0, limit);
+      this.offlineWarmTotal = queue.length;
+      let nextIndex = 0;
+      let settled = 0;
+      let failures = 0;
+      const finishCard = () => {
+        settled += 1;
+        if (settled < queue.length) return;
+        this.writeOfflineCacheAfterLoad();
+        if (failures > 0) this.scheduleOfflineWarmRetry(signature);
+      };
+      const warmNext = async () => {
+        const index = nextIndex++;
         if (index >= queue.length) return;
         const card = queue[index];
-        if (!this.offlineReadyKeys.has(this.offlineReadyKey(card)) && (typeof navigator === "undefined" || navigator.onLine !== false)) {
-          await load(card).then(() => this.markCardOfflineReady(card)).catch(() => void 0);
-        } else {
+        if (this.offlineReadyKeys.has(this.offlineReadyKey(card))) {
           this.markCardOfflineReady(card);
+        } else if (typeof navigator === "undefined" || navigator.onLine !== false) {
+          const warmed = await Promise.race([
+            load(card).then(() => true, () => false),
+            new Promise((resolve) => setTimeout(() => resolve(false), NEW_TAB_OFFLINE_WARM_CARD_TIMEOUT_MS))
+          ]);
+          if (warmed) this.markCardOfflineReady(card);
+          else failures += 1;
+        } else {
+          failures += 1;
         }
-        scheduleIdle(() => void warmNext(index + 1));
+        finishCard();
+        scheduleIdle(() => void warmNext());
       };
-      scheduleIdle(() => void warmNext(0));
+      const pool = Math.min(NEW_TAB_OFFLINE_WARM_CONCURRENCY, queue.length);
+      for (let worker = 0; worker < pool; worker += 1) scheduleIdle(() => void warmNext());
+    }
+    // Failed warms (flaky network, provider hiccup) retry on a later render tick
+    // instead of being lost for the rest of the session.
+    scheduleOfflineWarmRetry(signature) {
+      if (this.offlineWarmRetryTimer !== void 0 || typeof window === "undefined") return;
+      this.offlineWarmRetryTimer = window.setTimeout(() => {
+        this.offlineWarmRetryTimer = void 0;
+        if (this.offlineWarmSignature === signature) this.offlineWarmSignature = "";
+      }, NEW_TAB_OFFLINE_WARM_RETRY_MS);
     }
     dailyGoalLabel() {
       const goal = this.dependencies.getSettings().newTabDailyGoalMinutes;

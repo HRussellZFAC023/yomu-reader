@@ -38,6 +38,11 @@ export const NEW_TAB_WORD_LIMIT = 180;
 // Cap on how many of the session's due cards are pre-warmed into the offline cache
 // (definition + meta + pitch) so a study run works fully offline without a network.
 export const NEW_TAB_OFFLINE_WARM_LIMIT = 80;
+// One hung lookup (e.g. an AnkiConnect request that never settles) must never
+// stall the warm queue — each card's warm is raced against this hard timeout.
+export const NEW_TAB_OFFLINE_WARM_CARD_TIMEOUT_MS = 15_000;
+export const NEW_TAB_OFFLINE_WARM_CONCURRENCY = 3;
+export const NEW_TAB_OFFLINE_WARM_RETRY_MS = 30_000;
 export const NEW_TAB_FALLBACK_SUPPLEMENT_MIN = 12;
 export const NEW_TAB_DICTIONARY_FALLBACK_RANKS = [2000, 6000] as const;
 export const NEW_TAB_NAVIGATION_DEDUPE_MS = 550;

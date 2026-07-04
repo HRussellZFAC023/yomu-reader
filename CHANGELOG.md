@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.65] - 2026-07-05
+
+### Fixed
+
+- Offline review caching no longer stalls at "Cached 1": each card's warm-up is now raced against a hard timeout, so one hung lookup (for example an unreachable AnkiConnect) can no longer freeze the whole cache queue.
+- The offline warm-up now runs a few cards in parallel and covers your full configured offline review cache limit (up to 500 cards), so a long train-ride session is ready much sooner.
+- Cards whose warm-up fails are retried automatically after half a minute instead of being skipped for the rest of the session.
+- Once warming finishes, the enriched cards (including fetched pitch accents) are re-saved to the offline review cache, so they survive reloads without a network.
+
+### Changed
+
+- The study session's cache indicator now shows live progress as "Cached N/M" while warming, collapsing to "Cached N" once the whole session is ready for offline use.
+
 ## [1.6.64] - 2026-07-04
 
 ### Changed
