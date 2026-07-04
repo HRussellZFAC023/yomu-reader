@@ -25120,7 +25120,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   const log$s = Logger.scope("KanjiDoodle");
   const PEN_MIN_DISTANCE = 8e-4;
-  const POINTER_MIN_DISTANCE = 35e-4;
+  const POINTER_MIN_DISTANCE = 16e-4;
+  const GHOST_VIEWBOX_UNITS = 109;
+  const GHOST_STROKE_UNITS = 3;
+  const GHOST_FALLBACK_RATIO = 0.82;
+  const GHOST_FALLBACK_MAX_PX = 220;
   const ACTIVE_DOODLE_CLASS = "jpdb-reader-doodle-active";
   const NATIVE_GESTURE_SUPPRESS_MS = 900;
   const KANJI_DOODLE_CLEAR_EVENT = "yomu:kanji-doodle-clear";
@@ -25186,6 +25190,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const width = Math.max(1, Math.round(rect.width * dpr));
       const height = Math.max(1, Math.round(rect.height * dpr));
       canvasRect = canvas.getBoundingClientRect();
+      measureGhost();
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;
         canvas.height = height;
@@ -25199,7 +25204,23 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         pressure: Math.max(0.12, Math.min(1, event.pressure || 0.55))
       };
     };
-    const strokeWidth = (point) => Math.max(1.8, Math.min(5.2, canvas.width * 66e-4)) * (0.74 + (point?.pressure ?? 0.55) * 0.28);
+    let measuredGhostSize = 0;
+    const measureGhost = () => {
+      const svg = ghost.querySelector("svg");
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const size = Math.min(rect.width, rect.height);
+      if (size > 0) measuredGhostSize = size;
+    };
+    const ghostDisplaySize = () => {
+      if (measuredGhostSize > 0) return measuredGhostSize;
+      const stageSize = Math.min(canvasRect.width, canvasRect.height);
+      return Math.min(stageSize * GHOST_FALLBACK_RATIO, GHOST_FALLBACK_MAX_PX);
+    };
+    const strokeWidth = (point) => {
+      const base = Math.max(2.4, GHOST_STROKE_UNITS / GHOST_VIEWBOX_UNITS * ghostDisplaySize() * dpr);
+      return base * (0.78 + (point?.pressure ?? 0.5) * 0.44);
+    };
     const setupStroke = (point) => {
       context.strokeStyle = resolvedDoodleInk(stage);
       context.lineCap = "round";
@@ -25212,9 +25233,33 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         drawPoint(stroke[0]);
         return;
       }
+      if (typeof context.quadraticCurveTo === "function") {
+        drawSmoothedStroke(stroke);
+        return;
+      }
       for (let index = 1; index < stroke.length; index += 1) {
         drawSegment(stroke[index - 1], stroke[index]);
       }
+    };
+    const drawSmoothedStroke = (stroke) => {
+      context.save();
+      setupStroke(averagePressurePoint(stroke));
+      context.beginPath();
+      context.moveTo(stroke[0].x * canvas.width, stroke[0].y * canvas.height);
+      for (let index = 1; index < stroke.length - 1; index += 1) {
+        const control = stroke[index];
+        const next = stroke[index + 1];
+        context.quadraticCurveTo(
+          control.x * canvas.width,
+          control.y * canvas.height,
+          (control.x + next.x) / 2 * canvas.width,
+          (control.y + next.y) / 2 * canvas.height
+        );
+      }
+      const last = stroke[stroke.length - 1];
+      context.lineTo(last.x * canvas.width, last.y * canvas.height);
+      context.stroke();
+      context.restore();
     };
     const drawPoint = (point) => {
       context.save();
@@ -25252,7 +25297,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const minDistance = pointerType === "pen" ? PEN_MIN_DISTANCE : POINTER_MIN_DISTANCE;
       if (last && Math.hypot(point.x - last.x, point.y - last.y) < minDistance) return;
       points.push(point);
-      if (last) drawSegment(last, point);
+      if (typeof context.quadraticCurveTo === "function") redraw();
+      else if (last) drawSegment(last, point);
       else drawPoint(point);
     };
     const applyPointerSamples = (event) => {
@@ -25352,6 +25398,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ghost.hidden = !traceVisible;
       stage.classList.toggle("trace-hidden", !traceVisible);
       trace.textContent = uiText(getLanguage(), traceVisible ? "hideTrace" : "showTrace");
+      if (traceVisible) {
+        measureGhost();
+        redraw();
+      }
     }, { signal });
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(stage);
@@ -25377,6 +25427,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     event.preventDefault();
     event.stopPropagation();
     clearSelection();
+  }
+  function averagePressurePoint(stroke) {
+    const pressure = stroke.reduce((sum, point) => sum + point.pressure, 0) / stroke.length;
+    return { ...stroke[stroke.length - 1], pressure };
   }
   function pointerSamples(event) {
     const coalesced = safeCoalescedPointerEvents(event);
@@ -25423,7 +25477,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   const FEATURE_INTERVAL = 20;
   const NORMALIZED_SIZE = 256;
-  const SHAPE_PASS_SCORE = 0.56;
+  const SHAPE_PASS_SCORE = 0.5;
+  const TOTAL_PASS_SCORE = 62;
   function assessKanjiStrokes(strokes, expectedStrokes, referenceStrokes) {
     const validStrokes = strokes.filter((stroke) => stroke.length > 1);
     const actualStrokes = validStrokes.length;
@@ -25434,7 +25489,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const shapeScore = assessStrokeShape(validStrokes, referenceStrokes, expected);
     const score = Math.round((shapeScore == null ? strokeScore * 0.62 + coverageScore * 0.24 + directionScore * 0.14 : strokeScore * 0.18 + coverageScore * 0.06 + directionScore * 0.04 + shapeScore * 0.72) * 100);
     const shapePassed = shapeScore == null || shapeScore >= SHAPE_PASS_SCORE;
-    const passed = actualStrokes === expected && score >= 68 && shapePassed;
+    const passed = actualStrokes === expected && score >= TOTAL_PASS_SCORE && shapePassed;
     const message = assessmentMessage(passed, actualStrokes, expected, shapeScore);
     return { passed, score, expectedStrokes: expected, actualStrokes, shapeScore: shapeScore ?? void 0, message };
   }
@@ -25480,7 +25535,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const scores = written.map((stroke, index) => strokeCorrespondenceScore(stroke, reference[index]));
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const worst = Math.min(...scores);
-    return average * 0.72 + worst * 0.28;
+    return average * 0.8 + worst * 0.2;
   }
   function kanjiShapeMatch(candidate, written, actualStrokes) {
     const referenceStrokes = candidate.strokeShapes.filter((stroke) => stroke.length > 1);
@@ -39353,7 +39408,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.58".trim() ? "1.6.58".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.59".trim() ? "1.6.59".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -80319,17 +80374,18 @@ ${entry.url}`),
     }
     async enrichKanjiCard(slots, card, kanji) {
       const details = await this.loadKanjiDetails(kanji);
-      if (!this.canApplyKanjiEnrichment(slots, card)) return;
+      if (!this.canApplyKanjiEnrichment(slots, card, kanji)) return;
       this.applyEnrichedKanjiKeyword(slots, card, kanji, details);
-      this.applyEnrichedKanjiSvg(slots.answer, details.vg?.svg);
+      this.applyEnrichedKanjiSvg(slots.answer, kanji, details.vg?.svg);
       this.applyEnrichedKanjiMeaning(slots, card, kanji, details);
       void this.applyEnrichedUchisenKeyword(slots, card, kanji, details);
     }
-    canApplyKanjiEnrichment(slots, card) {
+    canApplyKanjiEnrichment(slots, card, kanji) {
       const current = this.visibleWords[this.index];
       if (!current || cardKey(current) !== cardKey(card)) return false;
       const session = this.studySessionForCard(current, this.shouldRenderCardAsKanji(current));
       if (!this.studyStepRendersKanji(session)) return false;
+      if (kanji && session.activeStep.kind === "kanji-doodle" && session.activeStep.kanji && session.activeStep.kanji !== kanji) return false;
       const study = slots.prompt?.closest("[data-newtab-study]") ?? slots.answer?.closest("[data-newtab-study]");
       if (!study) return true;
       const renderedKey = study.dataset.newtabCard;
@@ -80350,14 +80406,16 @@ ${entry.url}`),
       if (!slots.prompt || this.state.revealAnswer) return;
       const uchisenData = await this.loadUchisenDetails(kanji);
       if (!uchisenData?.kanjiKeyword?.keyword) return;
-      if (!this.canApplyKanjiEnrichment(slots, card)) return;
+      if (!this.canApplyKanjiEnrichment(slots, card, kanji)) return;
       if (!slots.prompt || this.state.revealAnswer) return;
       replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(this.kanjiPromptKeywordsFromDetails(card, details, uchisenData), card, kanji));
     }
-    applyEnrichedKanjiSvg(answer, svgMarkup) {
+    applyEnrichedKanjiSvg(answer, kanji, svgMarkup) {
       if (!answer || !svgMarkup) return;
       const mounts = this.enrichedKanjiSvgMounts(answer);
       this.applyRevealedKanjiSvg(mounts.svg, svgMarkup);
+      const stageKanji = mounts.ghost?.closest(".jpdb-reader-doodle-stage")?.dataset.kanji;
+      if (stageKanji && stageKanji !== kanji) return;
       this.applyDoodleGhostSvg(mounts.ghost, svgMarkup);
     }
     enrichedKanjiSvgMounts(answer) {
@@ -80771,7 +80829,7 @@ ${entry.url}`),
       const count = `${assessment.actualStrokes}/${assessment.expectedStrokes} ${this.text("strokes")}`;
       if (assessment.passed) return `${this.text("looksRight")}: ${count}`;
       if (assessment.actualStrokes !== assessment.expectedStrokes) return `${this.text("checkStrokeCount")}: ${count}`;
-      if (assessment.shapeScore != null && assessment.shapeScore < 0.56) return `${this.text("checkStrokeShapeOrder")}: ${count}`;
+      if (assessment.shapeScore != null && assessment.shapeScore < SHAPE_PASS_SCORE) return `${this.text("checkStrokeShapeOrder")}: ${count}`;
       return `${this.text("checkStrokeCountOrder")}: ${count}`;
     }
     clearDoodleAssessment(slots) {
