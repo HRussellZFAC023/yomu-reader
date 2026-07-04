@@ -846,6 +846,7 @@ export class NewTabController {
     // A hint never prints the full answer; the count folds into the reveal summary.
     private studyHintDepth = new Map<string, number>();
     private studyStepOverride: { cardKey: string; id: NewTabStudyStepId } | null = null;
+    private pinnedStudyPlan: { cardKey: string; inputs: { hasPitchStep: boolean; hasRecallCloze: boolean } } | null = null;
     private rootEventController: AbortController | undefined;
     private readonly rootClickHandlers: RootClickHandler[] = [
         (root, _target, event, action) => this.handleRootUtilityClick(root, event, action),
@@ -1884,8 +1885,15 @@ export class NewTabController {
             return;
         }
         this.setStudyStepOverrideForCurrentCard(step.id);
+        // A kanji-doodle step on a WORD card renders in-session via the step
+        // override — switching state.mode to 'kanji' here jumped to the kanji
+        // QUEUE, re-resolving the visible card to a synthetic per-kanji card
+        // (owner: pressing Kanji 2 "takes back to old view"). Only real kanji
+        // cards study in kanji mode.
+        const card = this.visibleWords[this.index];
+        const stayInWordSession = step.kind === 'kanji-doodle' && card && !this.shouldRenderCardAsKanji(card);
         this.setState({
-            mode: step.mode,
+            mode: stayInWordSession ? 'word' : step.mode,
             listenSubMode: listenSubModeForStudyStepKind(step.kind) ?? this.state.listenSubMode,
             revealAnswer: false,
         }, root, { preserveWord: true });
@@ -4650,18 +4658,34 @@ export class NewTabController {
 
     private studySessionForCard(card: JPDBCard, renderAsKanji = this.shouldRenderCardAsKanji(card)): NewTabStudySession {
         const settings = this.dependencies.getSettings();
-        const reading = cardPronunciationReading(card);
         return createNewTabStudySession(card, {
             mode: this.state.mode,
             listenSubMode: this.state.listenSubMode,
             revealAnswer: this.state.revealAnswer,
             renderAsKanji,
-            hasPitchStep: pitchNumberForReading(card.pitchAccent, reading) != null,
-            hasRecallCloze: buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card)).hasCloze,
+            ...this.pinnedStudyPlanInputs(card),
             stepOrder: settings.newTabStudyStepOrder,
             disabledSteps: settings.newTabStudyDisabledSteps,
             activeStepId: this.studyStepOverrideForCard(card),
         });
+    }
+
+    // The step plan is PINNED per card at first presentation: async enrichment
+    // (pitch, sentence, second-kanji details) otherwise reshaped an on-screen
+    // session — 4 chips became 6 and Recall vanished mid-review, and a chip
+    // the user was about to press could stop existing (owner: "flow is super
+    // confusing going from 4 to 6 options"). Late enrichment benefits the NEXT
+    // card; the visible plan never changes underneath the user.
+    private pinnedStudyPlanInputs(card: JPDBCard): { hasPitchStep: boolean; hasRecallCloze: boolean } {
+        const key = cardKey(card);
+        if (this.pinnedStudyPlan?.cardKey === key) return this.pinnedStudyPlan.inputs;
+        const reading = cardPronunciationReading(card);
+        const inputs = {
+            hasPitchStep: pitchNumberForReading(card.pitchAccent, reading) != null,
+            hasRecallCloze: buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card)).hasCloze,
+        };
+        this.pinnedStudyPlan = { cardKey: key, inputs };
+        return inputs;
     }
 
     private studyStepOverrideForCard(card: JPDBCard): NewTabStudyStepId | null {
@@ -4692,6 +4716,13 @@ export class NewTabController {
     private studyStepRendersKanji(session: NewTabStudySession): boolean {
         return session.activeStep.kind === 'kanji-doodle'
             || (session.activeStep.kind === 'final-reveal' && session.activeStep.mode === 'kanji');
+    }
+
+    private wordSessionRendersKanji(): boolean {
+        if (this.state.mode !== 'word') return false;
+        const card = this.visibleWords[this.index];
+        if (!card) return false;
+        return this.studyStepRendersKanji(this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)));
     }
 
     private renderStudySteps(slot: HTMLElement | null, session: NewTabStudySession): void {
@@ -4772,6 +4803,10 @@ export class NewTabController {
     private renderPromptForMode(slots: NewTabStudySlots, card: JPDBCard, state: ReturnType<typeof primaryCardState>, renderAsKanji = this.shouldRenderCardAsKanji(card)): void {
         const step = this.studySessionForCard(card, renderAsKanji).activeStep;
         if (renderAsKanji) this.renderKanjiPrompt(slots, card, step.kanji);
+        // A word card's kanji-doodle steps render in-session (the kanji QUEUE
+        // is only for real kanji cards) — without this branch the Kanji 2 chip
+        // showed the plain word prompt.
+        else if (step.kind === 'kanji-doodle') this.renderKanjiPrompt(slots, card, step.kanji);
         else if (step.kind === 'listen-pitch' || step.kind === 'speaking') this.renderListenPrompt(slots, card);
         else if (step.kind === 'recall-cloze') this.renderRecallPrompt(slots, card, state);
         else this.renderWordPrompt(slots, card, state);
@@ -5347,7 +5382,11 @@ export class NewTabController {
         if (!statusSlot) return;
         const label = this.newTabStatusLabel(card);
         const toggleTarget = this.sourceToggleTarget(card);
-        this.renderSourceSelector(statusSlot, card);
+        // The pill's ⇄ toggle cycles every source, so it is the ONE switcher
+        // whenever a card is shown — the select stacked under it read as a
+        // duplicate control (owner: "just have one switcher"). The select
+        // still serves the card-less empty state, where there is no pill.
+        this.clearSourceSelector(statusSlot);
         replaceChildrenWith(statusSlot, ...[
             ...this.renderNewTabStatusLights(card),
             document.createTextNode(toggleTarget ? `${label} ⇄` : label),
@@ -5365,11 +5404,6 @@ export class NewTabController {
         statusSlot.removeAttribute('title');
         statusSlot.removeAttribute('aria-label');
         if (statusSlot instanceof HTMLButtonElement) statusSlot.disabled = true;
-    }
-
-    private renderSourceSelector(statusSlot: HTMLElement | null, card: JPDBCard): void {
-        const sources = this.sourceToggleSources(card);
-        this.renderSourceSelectorOptions(statusSlot, sources, this.sourceToggleCurrentSource(card, sources));
     }
 
     private renderSourceSelectorOptions(statusSlot: HTMLElement | null, sources: ConcreteNewTabWordSource[], current: ConcreteNewTabWordSource): void {
@@ -5857,7 +5891,10 @@ export class NewTabController {
 
     private kanjiWordBlank(spelling: string, kanji: string): string {
         if (!spelling.includes(kanji) || Array.from(spelling).length < 2) return '';
-        return Array.from(spelling).map(character => character === kanji ? '＿' : character).join('');
+        // Blank EVERY kanji, not just the active one: 図鑑 on the 図 step must
+        // read "＿＿", not "＿鑑" — the visible 鑑 is the answer to the next
+        // draw step (owner: "gives answer to next question").
+        return Array.from(spelling).map(character => isKanjiCharacter(character) ? '＿' : character).join('');
     }
 
     private kanjiPopoverButton(kanji: string): HTMLElement {
@@ -10360,7 +10397,10 @@ export class NewTabController {
         this.syncKeyHintVisibility(root);
         root.classList.toggle('jpdb-reader-newtab-search-mode', this.state.mode === 'search');
         root.classList.toggle('jpdb-reader-newtab-recall-mode', this.state.mode === 'recall');
-        root.classList.toggle('jpdb-reader-newtab-kanji-mode', this.state.mode === 'kanji');
+        // A word card's in-session kanji-doodle step keeps state.mode 'word'
+        // (the kanji QUEUE is a different surface) but still needs the
+        // kanji-mode class for the doodle stage CSS.
+        root.classList.toggle('jpdb-reader-newtab-kanji-mode', this.state.mode === 'kanji' || this.wordSessionRendersKanji());
         root.classList.toggle('jpdb-reader-newtab-stats-mode', this.state.mode === 'stats');
         root.classList.toggle('jpdb-reader-newtab-listen-mode', this.state.mode === 'listen');
         const search = root.querySelector<HTMLElement>('[data-newtab-search]');

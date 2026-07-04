@@ -74562,6 +74562,7 @@ ${entry.url}`),
     // A hint never prints the full answer; the count folds into the reveal summary.
     studyHintDepth = /* @__PURE__ */ new Map();
     studyStepOverride = null;
+    pinnedStudyPlan = null;
     rootEventController;
     rootClickHandlers = [
       (root, _target, event, action) => this.handleRootUtilityClick(root, event, action),
@@ -75495,17 +75496,19 @@ ${entry.url}`),
     }
     activateStudyStep(root, step) {
       if (step.kind === "final-reveal") {
-        const card = this.visibleWords[this.index];
+        const card2 = this.visibleWords[this.index];
         this.studyStepOverride = null;
-        const mode = card && this.shouldRenderCardAsKanji(card) ? "kanji" : "word";
-        if (card?.reviewSource === "jpdb-live" && !this.state.revealAnswer) this.dependencies.jpdbReviewBridge.reveal();
+        const mode = card2 && this.shouldRenderCardAsKanji(card2) ? "kanji" : "word";
+        if (card2?.reviewSource === "jpdb-live" && !this.state.revealAnswer) this.dependencies.jpdbReviewBridge.reveal();
         this.setState({ mode, revealAnswer: true }, root, { preserveWord: true });
-        this.maybeAutoPlayRevealedImmersionAudio(card, true);
+        this.maybeAutoPlayRevealedImmersionAudio(card2, true);
         return;
       }
       this.setStudyStepOverrideForCurrentCard(step.id);
+      const card = this.visibleWords[this.index];
+      const stayInWordSession = step.kind === "kanji-doodle" && card && !this.shouldRenderCardAsKanji(card);
       this.setState({
-        mode: step.mode,
+        mode: stayInWordSession ? "word" : step.mode,
         listenSubMode: listenSubModeForStudyStepKind(step.kind) ?? this.state.listenSubMode,
         revealAnswer: false
       }, root, { preserveWord: true });
@@ -77804,18 +77807,33 @@ ${entry.url}`),
     }
     studySessionForCard(card, renderAsKanji = this.shouldRenderCardAsKanji(card)) {
       const settings = this.dependencies.getSettings();
-      const reading = cardPronunciationReading(card);
       return createNewTabStudySession(card, {
         mode: this.state.mode,
         listenSubMode: this.state.listenSubMode,
         revealAnswer: this.state.revealAnswer,
         renderAsKanji,
-        hasPitchStep: pitchNumberForReading(card.pitchAccent, reading) != null,
-        hasRecallCloze: buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card)).hasCloze,
+        ...this.pinnedStudyPlanInputs(card),
         stepOrder: settings.newTabStudyStepOrder,
         disabledSteps: settings.newTabStudyDisabledSteps,
         activeStepId: this.studyStepOverrideForCard(card)
       });
+    }
+    // The step plan is PINNED per card at first presentation: async enrichment
+    // (pitch, sentence, second-kanji details) otherwise reshaped an on-screen
+    // session — 4 chips became 6 and Recall vanished mid-review, and a chip
+    // the user was about to press could stop existing (owner: "flow is super
+    // confusing going from 4 to 6 options"). Late enrichment benefits the NEXT
+    // card; the visible plan never changes underneath the user.
+    pinnedStudyPlanInputs(card) {
+      const key = cardKey(card);
+      if (this.pinnedStudyPlan?.cardKey === key) return this.pinnedStudyPlan.inputs;
+      const reading = cardPronunciationReading(card);
+      const inputs = {
+        hasPitchStep: pitchNumberForReading(card.pitchAccent, reading) != null,
+        hasRecallCloze: buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card)).hasCloze
+      };
+      this.pinnedStudyPlan = { cardKey: key, inputs };
+      return inputs;
     }
     studyStepOverrideForCard(card) {
       return this.studyStepOverride?.cardKey === cardKey(card) ? this.studyStepOverride.id : null;
@@ -77840,6 +77858,12 @@ ${entry.url}`),
     }
     studyStepRendersKanji(session) {
       return session.activeStep.kind === "kanji-doodle" || session.activeStep.kind === "final-reveal" && session.activeStep.mode === "kanji";
+    }
+    wordSessionRendersKanji() {
+      if (this.state.mode !== "word") return false;
+      const card = this.visibleWords[this.index];
+      if (!card) return false;
+      return this.studyStepRendersKanji(this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)));
     }
     renderStudySteps(slot, session) {
       if (!slot) return;
@@ -77926,6 +77950,7 @@ ${entry.url}`),
     renderPromptForMode(slots, card, state2, renderAsKanji = this.shouldRenderCardAsKanji(card)) {
       const step = this.studySessionForCard(card, renderAsKanji).activeStep;
       if (renderAsKanji) this.renderKanjiPrompt(slots, card, step.kanji);
+      else if (step.kind === "kanji-doodle") this.renderKanjiPrompt(slots, card, step.kanji);
       else if (step.kind === "listen-pitch" || step.kind === "speaking") this.renderListenPrompt(slots, card);
       else if (step.kind === "recall-cloze") this.renderRecallPrompt(slots, card, state2);
       else this.renderWordPrompt(slots, card, state2);
@@ -78427,7 +78452,7 @@ ${entry.url}`),
       if (!statusSlot) return;
       const label = this.newTabStatusLabel(card);
       const toggleTarget = this.sourceToggleTarget(card);
-      this.renderSourceSelector(statusSlot, card);
+      this.clearSourceSelector(statusSlot);
       replaceChildrenWith(statusSlot, ...[
         ...this.renderNewTabStatusLights(card),
         document.createTextNode(toggleTarget ? `${label} ⇄` : label)
@@ -78445,10 +78470,6 @@ ${entry.url}`),
       statusSlot.removeAttribute("title");
       statusSlot.removeAttribute("aria-label");
       if (statusSlot instanceof HTMLButtonElement) statusSlot.disabled = true;
-    }
-    renderSourceSelector(statusSlot, card) {
-      const sources = this.sourceToggleSources(card);
-      this.renderSourceSelectorOptions(statusSlot, sources, this.sourceToggleCurrentSource(card, sources));
     }
     renderSourceSelectorOptions(statusSlot, sources, current) {
       const select2 = this.sourceSelectForStatus(statusSlot);
@@ -78829,7 +78850,7 @@ ${entry.url}`),
     }
     kanjiWordBlank(spelling, kanji) {
       if (!spelling.includes(kanji) || Array.from(spelling).length < 2) return "";
-      return Array.from(spelling).map((character) => character === kanji ? "＿" : character).join("");
+      return Array.from(spelling).map((character) => isKanjiCharacter$1(character) ? "＿" : character).join("");
     }
     kanjiPopoverButton(kanji) {
       return el("button", {
@@ -82746,7 +82767,7 @@ ${entry.url}`),
       this.syncKeyHintVisibility(root);
       root.classList.toggle("jpdb-reader-newtab-search-mode", this.state.mode === "search");
       root.classList.toggle("jpdb-reader-newtab-recall-mode", this.state.mode === "recall");
-      root.classList.toggle("jpdb-reader-newtab-kanji-mode", this.state.mode === "kanji");
+      root.classList.toggle("jpdb-reader-newtab-kanji-mode", this.state.mode === "kanji" || this.wordSessionRendersKanji());
       root.classList.toggle("jpdb-reader-newtab-stats-mode", this.state.mode === "stats");
       root.classList.toggle("jpdb-reader-newtab-listen-mode", this.state.mode === "listen");
       const search = root.querySelector("[data-newtab-search]");

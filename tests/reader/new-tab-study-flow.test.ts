@@ -117,14 +117,16 @@ afterEach(() => {
 });
 
 describe('study flow: kanji-draw prompt clarity', () => {
-    it('carries the word meaning and blanked cloze so ＿み物 is never ambiguous', () => {
+    it('carries the word meaning and blanks EVERY kanji in the cloze', () => {
         const { controller, internals } = studyController([drinkCard()]);
         const root = studyRoot();
         try {
             internals.renderWord(root, internals.visibleWords[0]);
             const context = root.querySelector('.jpdb-reader-newtab-kanji-front-context');
             expect(context?.querySelector('.jpdb-reader-newtab-kanji-front-meaning')?.textContent).toBe('drink');
-            expect(context?.querySelector('.jpdb-reader-newtab-kanji-front-cloze')?.textContent).toBe('＿み物');
+            // 物 is the answer to the SECOND kanji draw step — a visible 物 on
+            // the 飲 step leaked it (owner: "gives answer to next question").
+            expect(context?.querySelector('.jpdb-reader-newtab-kanji-front-cloze')?.textContent).toBe('＿み＿');
             // The reading is never leaked on the draw front.
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).not.toContain('のみもの');
         } finally {

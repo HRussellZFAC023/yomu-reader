@@ -120,6 +120,7 @@
     "smoke:subtitle-live-sites": "node scripts/subtitle-live-video-site-smoke.mjs",
     "smoke:subtitle-live-compat": "YOMU_LIVE_VIDEO_SITE_SET=compat node scripts/subtitle-live-video-site-smoke.mjs",
     "smoke:study-personas": "node scripts/study-personas-smoke.mjs",
+    "smoke:study-flow-stability": "node scripts/study-flow-stability-smoke.mjs",
     "smoke:subtitles": "node scripts/subtitle-player-smoke.mjs",
     "smoke:youtube": "node scripts/youtube-feature-smoke.mjs",
     "smoke:youtube-auto-translation": "node scripts/youtube-auto-translation-smoke.mjs",

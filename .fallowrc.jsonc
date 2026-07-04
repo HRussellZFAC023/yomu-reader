@@ -22,6 +22,7 @@
     "scripts/extension-boot-smoke.mjs",
     "scripts/zz-ext-probe-firefox.mjs",
     "scripts/study-shots-real.mjs",
+    "scripts/study-flow-stability-smoke.mjs",
     "tests/reader/**/*.test.ts"
   ],
   "dynamicallyLoaded": [

@@ -5218,18 +5218,18 @@ describe('new tab review helpers', () => {
 
             const firstStatus = newTabStatusButton(root);
             expect(firstStatus.dataset.sourceToggleTarget).toBe('anki');
+            // The pill is the ONE switcher while a card is shown; the select
+            // no longer stacks under it (owner: "just have one switcher").
             const firstSelect = root.querySelector<HTMLSelectElement>('[data-newtab-source-select]')!;
-            expect(firstSelect.hidden).toBe(false);
-            expect(Array.from(firstSelect.options, option => option.value)).toEqual(['jpdb', 'anki', 'dictionary']);
-            expect(firstSelect.value).toBe('jpdb');
+            expect(firstSelect.hidden).toBe(true);
             firstStatus.click();
             expect(switched).toEqual(['anki']);
 
-            const secondSelect = root.querySelector<HTMLSelectElement>('[data-newtab-source-select]')!;
-            expect(secondSelect.value).toBe('anki');
-            secondSelect.value = 'jpdb';
-            secondSelect.dispatchEvent(new Event('change', { bubbles: true }));
-            expect(switched).toEqual(['anki', 'jpdb']);
+            const secondStatus = newTabStatusButton(root);
+            const nextTarget = secondStatus.dataset.sourceToggleTarget;
+            expect(nextTarget).toBeTruthy();
+            secondStatus.click();
+            expect(switched).toEqual(['anki', nextTarget]);
         } finally {
             root.remove();
         }
@@ -8341,7 +8341,7 @@ describe('new tab review helpers', () => {
                 expect(prompt?.querySelector('.jpdb-reader-newtab-kanji-front-context')).not.toBeNull();
             });
             const prompt = root.querySelector('[data-newtab-prompt]');
-            expect(prompt?.textContent).toContain('＿み物');
+            expect(prompt?.textContent).toContain('＿み＿');
             // The context row already fronts "drink" — a "JPDB drink" pill below
             // would be pure repetition.
             expect(prompt?.querySelectorAll('.jpdb-reader-newtab-kanji-front-keyword:not(.jpdb-reader-newtab-kanji-front-context)').length).toBe(0);
