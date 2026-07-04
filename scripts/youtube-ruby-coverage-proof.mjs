@@ -150,8 +150,45 @@ const pages = [
                       <a class="ytLockupMetadataViewModelTitle title" href="/watch?v=search3" data-proof-target data-proof-text="投資と貯金の勉強">投資と貯金の勉強</a>
                     </yt-lockup-metadata-view-model>
                   </yt-lockup-view-model>
+                  <ytd-video-renderer class="row">
+                    <div class="thumb"></div>
+                    <div>
+                      <a id="video-title" class="title" href="/watch?v=search4" data-proof-target data-proof-text="毎日配信のニュース">毎日配信のニュース</a>
+                      <div class="metadata-snippet-text clamped-snippet" data-proof-target data-proof-text="最新情報を毎日配信します。日本語の勉強と投資のニュースを読む。" data-proof-expect-ruby-room="true">最新情報を毎日配信します。日本語の勉強と投資のニュースを読む。</div>
+                    </div>
+                  </ytd-video-renderer>
+                  <ytd-channel-renderer class="row">
+                    <div class="mini-thumb round"></div>
+                    <div id="info">
+                      <a class="title" href="/@kyoto" data-proof-target data-proof-text="京都カフェチャンネル">京都カフェチャンネル</a>
+                      <div id="description" class="channel-card-description" data-proof-target data-proof-text="京都のカフェで朝ごはんを食べ歩きします">京都のカフェで朝ごはんを食べ歩きします</div>
+                    </div>
+                  </ytd-channel-renderer>
                 </ytd-two-column-search-results-renderer>
               </ytd-search>
+            </ytd-app>
+        `),
+    },
+    {
+        // /playlist rows + legacy header: the 1.6.40 tab-strip fix underlined
+        // 再生リスト while the page behind the click was fully bare.
+        name: 'desktop-playlist',
+        url: 'https://www.youtube.com/playlist?list=PLproof',
+        viewport: { width: 1280, height: 900 },
+        html: youtubeShell(`
+            <ytd-app>
+              <ytd-playlist-header-renderer class="playlist-header">
+                <h1 id="title" data-proof-target data-proof-text="日本語の勉強と東京散歩">日本語の勉強と東京散歩</h1>
+                <div class="metadata-wrapper" data-proof-target data-proof-text="毎日ニュースを読む">毎日ニュースを読む</div>
+              </ytd-playlist-header-renderer>
+              <ytd-playlist-video-renderer class="playlist-row">
+                <div class="mini-thumb"></div>
+                <a id="video-title" class="title clamped" href="/watch?v=pl1" data-proof-target data-proof-text="京都で朝ごはんを食べ歩きしてカフェで日本語を勉強" data-proof-expect-ruby-room="true">京都で朝ごはんを食べ歩きしてカフェで日本語を勉強</a>
+              </ytd-playlist-video-renderer>
+              <ytd-playlist-video-renderer class="playlist-row">
+                <div class="mini-thumb"></div>
+                <a id="video-title" class="title" href="/watch?v=pl2" data-proof-target data-proof-text="大阪で食べ歩き">大阪で食べ歩き</a>
+              </ytd-playlist-video-renderer>
             </ytd-app>
         `),
     },
@@ -253,6 +290,16 @@ const pages = [
                     <div class="mini-thumb"></div>
                     <a id="video-title" href="/watch?v=side" data-proof-target data-proof-text="関連動画の発行ニュース">関連動画の発行ニュース</a>
                   </ytd-compact-video-renderer>
+                  <ytd-playlist-panel-renderer class="queue-panel">
+                    <ytd-playlist-panel-video-renderer class="queue-row">
+                      <div class="mini-thumb"></div>
+                      <a id="video-title" class="queue-title" href="/watch?v=q1" data-proof-target data-proof-text="東京散歩と春コーデの最新情報を毎日配信します" data-proof-expect-ruby-room="true">東京散歩と春コーデの最新情報を毎日配信します</a>
+                    </ytd-playlist-panel-video-renderer>
+                    <ytd-playlist-panel-video-renderer class="queue-row">
+                      <div class="mini-thumb"></div>
+                      <a id="video-title" class="queue-title" href="/watch?v=q2" data-proof-target data-proof-text="字幕で日本語を読む">字幕で日本語を読む</a>
+                    </ytd-playlist-panel-video-renderer>
+                  </ytd-playlist-panel-renderer>
                 </aside>
               </main>
             </ytd-watch-flexy>
@@ -438,6 +485,18 @@ function youtubeShell(body) {
     /* Narrow like a real channel grid card so the 44px clamp actually crops
        the two-line title and the ruby-room sweep has work to do. */
     .channel .card { max-width: 320px; }
+    ytd-search, ytd-two-column-search-results-renderer, ytd-channel-renderer, ytd-playlist-header-renderer,
+    ytd-playlist-video-renderer, ytd-playlist-panel-renderer, ytd-playlist-panel-video-renderer { display: block; }
+    .round { border-radius: 50%; width: 88px; min-height: 88px; }
+    .clamped-snippet { font-size: 13px; line-height: 1.5; color: #ddd; overflow: hidden; height: 40px; max-height: 40px; max-width: 300px; margin-top: 8px; }
+    .channel-card-description { font-size: 13px; line-height: 1.5; color: #aaa; overflow: hidden; height: 20px; max-height: 20px; max-width: 300px; margin-top: 6px; }
+    .playlist-header { padding: 12px 28px; }
+    .playlist-header h1 { margin: 0 0 8px; font-size: 26px; }
+    .playlist-header .metadata-wrapper { color: #aaa; font-size: 14px; }
+    .playlist-row { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 14px; padding: 10px 28px; max-width: 560px; }
+    .queue-panel { display: block; padding: 10px; border: 1px solid #333; border-radius: 10px; margin-top: 16px; }
+    .queue-row { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 10px; margin-bottom: 12px; }
+    .queue-title { display: block; font-size: 14px; line-height: 1.35; overflow: hidden; height: 40px; max-height: 40px; color: #f1f1f1; text-decoration: none; }
     .proof-status { position: sticky; top: 0; z-index: 10; padding: 12px 18px; background: #123d24; border-bottom: 2px solid #65d184; font-size: 14px; font-weight: 700; }
     .topbar { height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 24px; background: #0f0f0f; }
     .chips { display: block; padding: 12px 26px 0; }

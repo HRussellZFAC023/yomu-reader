@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.42] - 2026-07-04
+
+### Fixed
+
+- Playlists are annotated: the watch-page queue panel, /playlist rows and their legacy header, and search-page channel cards (name plus description) are all scanned, with furigana room in their clamped titles — 1.6.40 underlined the 再生リスト tab while everything behind the click stayed bare.
+- Search-result description snippets no longer clip furigana: .metadata-snippet-text joined the ruby-room whitelist alongside the playlist and channel-card rows.
+
+### Changed
+
+- The YouTube ruby-coverage proof gained a desktop-playlist page plus queue-panel and channel-card fixtures, pinning the new coverage in real Chromium.
+- The feed-title recycler smoke serves its synthetic youtube.com via route interception instead of a loopback HTTP server: system Chrome's HSTS preload force-upgrades www.youtube.com to https, which failed the 1.6.41 CI and Release runs on their first execution of the new gate (verified green on both bundled Chromium and channel Chrome).
+
 ## [1.6.41] - 2026-07-04
 
 ### Fixed

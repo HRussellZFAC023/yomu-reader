@@ -883,6 +883,18 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-shelf-renderer',
             'ytd-reel-shelf-renderer',
             'ytd-grid-video-renderer',
+            // Playlist surfaces (watch-page queue + /playlist rows + legacy
+            // header) and search/browse channel cards: 1.6.40 underlined the
+            // 再生リスト tab while every row behind the click stayed bare.
+            'ytd-playlist-panel-video-renderer',
+            'ytd-playlist-video-renderer',
+            'ytd-playlist-header-renderer',
+            'ytd-channel-renderer',
+            'ytd-grid-channel-renderer',
+            'ytm-playlist-panel-video-renderer',
+            'ytm-playlist-video-renderer',
+            'ytm-channel-list-item-renderer',
+            'ytm-compact-channel-renderer',
             'ytm-rich-grid-renderer',
             'ytm-video-with-context-renderer',
             'ytm-shorts-lockup-view-model',

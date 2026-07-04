@@ -5,10 +5,10 @@
 // swap strips or rewrites the text after mirroring, the scanner must re-mirror
 // or un-hide — a hidden host with no visible mirror IS the blank-title bug.
 // Runs the real dist userscript on a synthetic feed served AS www.youtube.com
-// (host-resolver-rules) so the real YouTube site profiles engage, then drives
-// the two real recycler mutation patterns.
+// via route interception (no live server: system Chrome's HSTS preload
+// force-upgrades www.youtube.com to https, so a plain-HTTP loopback can never
+// serve it on the CI channel).
 import { readFileSync } from 'node:fs';
-import { createServer } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchSmokeBrowser } from './lib/smoke-harness.mjs';
@@ -21,24 +21,29 @@ const readDist = rel => readFileSync(join(distDir, rel), 'utf8');
 const TITLE_A = '伝説の陸上アスリートまとめ';
 const TITLE_B = '鈴木優香の日本一周の旅';
 
-const server = createServer((req, res) => {
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    res.end(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>feed</title></head><body>
-      <ytd-rich-grid-renderer>
-        <ytd-rich-item-renderer><a id="link"><yt-formatted-string id="video-title">${TITLE_A}</yt-formatted-string></a></ytd-rich-item-renderer>
-      </ytd-rich-grid-renderer>
-    </body></html>`);
-});
-await new Promise(resolveListen => server.listen(0, '127.0.0.1', resolveListen));
-const port = server.address().port;
+const FEED_HTML = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>feed</title></head><body>
+  <ytd-rich-grid-renderer>
+    <ytd-rich-item-renderer><a id="link"><yt-formatted-string id="video-title">${TITLE_A}</yt-formatted-string></a></ytd-rich-item-renderer>
+  </ytd-rich-grid-renderer>
+</body></html>`;
 
 const SETTINGS = {
     onboardingSeen: true, interfaceLanguage: 'ja', apiKey: '', jitenApiKey: '',
     localDictionariesEnabled: false, lookupOnClick: true, showFurigana: true, showPitchAccent: true,
 };
 
-const browser = await launchSmokeBrowser(undefined, 'chromium', { headless: true, args: [`--host-resolver-rules=MAP www.youtube.com 127.0.0.1:${port}`, '--ignore-certificate-errors'] });
+const browser = await launchSmokeBrowser(undefined, 'chromium', { headless: true });
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'ja-JP', bypassCSP: true });
+await context.route('**/*', route => {
+    // Mirror the catch-all loopback server this replaced: any youtube.com
+    // document navigation (the userscript may re-navigate for language) gets
+    // the fixture; subresources get an empty 404.
+    const hostname = new URL(route.request().url()).hostname;
+    if (hostname.endsWith('youtube.com') && route.request().resourceType() === 'document') {
+        return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: FEED_HTML });
+    }
+    return route.fulfill({ status: 404, contentType: 'text/plain', body: '' });
+});
 const page = await context.newPage();
 await page.exposeFunction('__yomuFeedReq', request => {
     const url = String(request?.url ?? '');
@@ -99,7 +104,7 @@ async function assertReadable(label, expected) {
 }
 
 try {
-    await page.goto(`http://www.youtube.com:${port}/`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    await page.goto('https://www.youtube.com/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
     await page.waitForSelector('#video-title .jpdb-reader-text-mirror', { timeout: 25_000 }).catch(() => {});
     const initial = await titleState();
     console.log('T0', JSON.stringify(initial));
@@ -122,7 +127,6 @@ try {
     console.log(JSON.stringify({ failures }));
 } finally {
     await browser.close();
-    server.close();
 }
 if (failures.length) { console.error('TITLE_RECYCLER_SMOKE_FAIL'); process.exit(1); }
 console.log('TITLE_RECYCLER_SMOKE_OK');

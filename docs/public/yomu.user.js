@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.41
+// @version 1.6.42
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.41#sha256=uG94kWrpdntj8D4tDRDDETZxasw4YU2h3RCbXPNe65w=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.41#sha256=kTHNlrs/zrwnowHIunnyKDZO2FRg6m8yZhd+GN52eu8=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.41#sha256=FWhi0n4TTVGWq4NZSvaJ0EQg686baSOTuGRAF5NkHtE=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.41#sha256=01kTTB+z2nZ2eLH8+nOsvwfh/RRpSPp9cFbCfADXNeI=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.41#sha256=R+duxyrQhB+Z3Im0cD82s7ueiV2fVOInXGNYy5QGH0M=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.41#sha256=5TpvjSy7g2PWinqtCp4f8b1+llcX8DguJRw7sL7e+Os=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.42#sha256=uG94kWrpdntj8D4tDRDDETZxasw4YU2h3RCbXPNe65w=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.42#sha256=kTHNlrs/zrwnowHIunnyKDZO2FRg6m8yZhd+GN52eu8=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.42#sha256=FWhi0n4TTVGWq4NZSvaJ0EQg686baSOTuGRAF5NkHtE=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.42#sha256=01kTTB+z2nZ2eLH8+nOsvwfh/RRpSPp9cFbCfADXNeI=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.42#sha256=R+duxyrQhB+Z3Im0cD82s7ueiV2fVOInXGNYy5QGH0M=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.42#sha256=5TpvjSy7g2PWinqtCp4f8b1+llcX8DguJRw7sL7e+Os=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -7068,7 +7068,7 @@ function hasVisibleBorderSide(style, width) {
   return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
 }
 const RUBY_ROOM_HARD_SKIP_SELECTOR = "[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending";
-const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = "ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-section-renderer :is(#title,h2),ytd-rich-shelf-renderer :is(#title,h2),ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3,grid-shelf-view-model h2,ytd-shelf-renderer :is(#title,h2),ytd-grid-video-renderer :is(#video-title,#metadata-line),yt-description-preview-view-model,yt-tab-shape";
+const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = "ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-section-renderer :is(#title,h2),ytd-rich-shelf-renderer :is(#title,h2),ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3,grid-shelf-view-model h2,ytd-shelf-renderer :is(#title,h2),ytd-grid-video-renderer :is(#video-title,#metadata-line),yt-description-preview-view-model,yt-tab-shape,ytd-playlist-panel-video-renderer #video-title,ytd-playlist-video-renderer #video-title,ytd-playlist-header-renderer :is(#title,.metadata-wrapper),ytd-video-renderer .metadata-snippet-text,:is(ytd-channel-renderer,ytd-grid-channel-renderer) :is(#info,#description)";
 const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ":is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])";
 const RUBY_ROOM_MAX_PX = 400;
 function makeRoomForRubyInCroppedRows(root = document) {
@@ -26272,6 +26272,15 @@ const SITE_PARSER_PROFILES = [
     "ytd-shelf-renderer",
     "ytd-reel-shelf-renderer",
     "ytd-grid-video-renderer",
+    "ytd-playlist-panel-video-renderer",
+    "ytd-playlist-video-renderer",
+    "ytd-playlist-header-renderer",
+    "ytd-channel-renderer",
+    "ytd-grid-channel-renderer",
+    "ytm-playlist-panel-video-renderer",
+    "ytm-playlist-video-renderer",
+    "ytm-channel-list-item-renderer",
+    "ytm-compact-channel-renderer",
     "ytm-rich-grid-renderer",
     "ytm-video-with-context-renderer",
     "ytm-shorts-lockup-view-model",
@@ -32510,7 +32519,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.41"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.42"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
