@@ -743,8 +743,10 @@
 .jpdb-reader-newtab-mode {
   justify-self: center;
   min-width: 0;
+  width: clamp(260px, 36vw, 372px);
+  max-width: 100%;
   display: inline-grid;
-  grid-template-columns: repeat(3, minmax(68px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--jpdb-reader-border);
@@ -771,6 +773,7 @@
   line-height: 1;
   text-align: center;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .jpdb-reader-newtab-install-app[data-install-prompt-available="true"]
@@ -4471,7 +4474,7 @@ button.jpdb-reader-newtab-study-hint-btn:hover {
     max-width: none;
     justify-self: stretch;
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 3px;
   }
 
@@ -5953,11 +5956,11 @@ button.jpdb-reader-newtab-study-hint-btn:hover {
 
 @media (max-width: 760px) {
   .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-mode {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-topbar {
-    grid-template-columns: auto 1fr auto auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .jpdb-reader-stats-metrics,

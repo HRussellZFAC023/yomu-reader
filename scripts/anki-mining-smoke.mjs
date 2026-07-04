@@ -971,19 +971,22 @@ async function runNewTabSourceToggleSmoke(browser, baseUrl) {
     await loadNewTabPage(page, baseUrl, '日本語');
 
     const initial = await readNewTabState(page);
-    assertNewTabState(initial, { prompt: '日本語', status: 'JPDB', sourceSelect: 'jpdb' }, 'Newtab did not start on JPDB');
+    assertNewTabState(initial, { prompt: '日本語', status: 'JPDB' }, 'Newtab did not start on JPDB');
 
     const jpdbToAnki = await toggleNewTabSource(page, 'anki', '暗記').catch(error => {
         throw new Error(`JPDB to Anki source switch failed with requests: ${JSON.stringify(summarizeAnkiNewtabRequests(requests))}`, { cause: error });
     });
     const anki = jpdbToAnki.state;
-    assertNewTabState(anki, { prompt: '暗記', status: 'Anki', sourceSelect: 'anki' }, 'Newtab source selector did not switch to Anki');
+    assertNewTabState(anki, { prompt: '暗記', status: 'Anki' }, 'Newtab source selector did not switch to Anki');
     assertNewTabToggleLatency(jpdbToAnki.elapsedMs, 'JPDB to Anki source toggle was too slow', { jpdbToAnkiMs: jpdbToAnki.elapsedMs, initial, anki, requests });
 
     const ankiToJpdb = await toggleNewTabSource(page, 'jpdb', '日本語');
     const jpdb = ankiToJpdb.state;
-    assertNewTabState(jpdb, { prompt: '日本語', status: 'JPDB', sourceSelect: 'jpdb' }, 'Newtab source selector did not switch back to JPDB');
+    assertNewTabState(jpdb, { prompt: '日本語', status: 'JPDB' }, 'Newtab source selector did not switch back to JPDB');
     assertNewTabToggleLatency(ankiToJpdb.elapsedMs, 'Anki to JPDB source toggle was too slow', { ankiToJpdbMs: ankiToJpdb.elapsedMs, anki, jpdb, requests });
+    const layout = await readNewTabModeLayout(page);
+    assert(layout.buttonsShareWidth, 'Newtab mode tabs do not take equal space', layout);
+    assert(layout.buttonsFillMode, 'Newtab mode tabs leave phantom grid space', layout);
 
     await page.screenshot({ path: path.join(ARTIFACTS, 'anki-mining-newtab-smoke.png'), fullPage: false });
     await page.close();
@@ -1010,14 +1013,38 @@ async function runMobileNewTabLayoutSmoke(browser, baseUrl) {
     await loadNewTabPage(page, baseUrl, '日本語');
 
     const state = await readNewTabState(page);
-    assertNewTabState(state, { prompt: '日本語', status: 'JPDB', sourceSelect: 'jpdb' }, 'Mobile newtab did not preserve source-selector state', { state, requests });
+    assertNewTabState(state, { prompt: '日本語', status: 'JPDB' }, 'Mobile newtab did not preserve the selected source state', { state, requests });
     const layout = await readMobileNewTabTopbarLayout(page);
     assert(layout.modeBelowHeader, 'Mobile newtab tabs overlapped the brand or theme controls', layout);
     assert(!layout.modeOverlapsBrand && !layout.modeOverlapsControls, 'Mobile newtab mode tabs collided with topbar controls', layout);
     assert(!layout.buttonOverlaps.length, 'Mobile newtab mode buttons overlapped each other', layout);
     assert(layout.modeWithinTopbar, 'Mobile newtab tabs overflowed the topbar width', layout);
+    assert(layout.buttonsShareWidth, 'Mobile newtab mode tabs do not take equal space', layout);
+    assert(layout.buttonsFillMode, 'Mobile newtab mode tabs leave phantom grid space', layout);
 
     await page.screenshot({ path: path.join(ARTIFACTS, 'anki-mining-newtab-mobile-layout-smoke.png'), fullPage: false });
+    await page.close();
+    return { state, layout };
+}
+
+async function runDesktopNewTabLayoutSmoke(browser, baseUrl) {
+    const requests = [];
+    const page = await newMockedPage(browser, requests, {
+        ...baseSettings,
+        newTabSource: 'auto',
+        yomuLocalSrsEnabled: false,
+    }, NEWTAB_VIEWPORT);
+    await loadNewTabPage(page, baseUrl, '日本語');
+
+    const state = await readNewTabState(page);
+    assertNewTabState(state, { prompt: '日本語', status: 'JPDB' }, 'Desktop newtab did not preserve the selected source state', { state, requests });
+    const layout = await readNewTabModeLayout(page);
+    assert(!layout.buttonOverlaps.length, 'Desktop newtab mode buttons overlapped each other', layout);
+    assert(layout.modeWithinTopbar, 'Desktop newtab tabs overflowed the topbar width', layout);
+    assert(layout.buttonsShareWidth, 'Desktop newtab mode tabs do not take equal space', layout);
+    assert(layout.buttonsFillMode, 'Desktop newtab mode tabs leave phantom grid space', layout);
+
+    await page.screenshot({ path: path.join(ARTIFACTS, 'anki-mining-newtab-desktop-layout-smoke.png'), fullPage: false });
     await page.close();
     return { state, layout };
 }
@@ -1338,13 +1365,16 @@ async function readNewTabState(page) {
     });
 }
 
-async function readMobileNewTabTopbarLayout(page) {
+async function readNewTabModeLayout(page) {
     return page.evaluate(() => {
         const topbar = rectFor('.jpdb-reader-newtab-topbar');
         const brand = rectFor('.jpdb-reader-newtab-brand');
         const controls = rectFor('.jpdb-reader-newtab-theme-controls');
         const mode = rectFor('.jpdb-reader-newtab-mode');
         const buttons = [...document.querySelectorAll('.jpdb-reader-newtab-mode button')].map(rectFromElement);
+        const widths = buttons.map(button => button.width);
+        const totalButtonWidth = buttons.reduce((sum, button) => sum + button.width, 0);
+        const expectedGapWidth = buttons.length > 1 ? mode.width - totalButtonWidth : 0;
         return {
             viewportWidth: window.innerWidth,
             topbar,
@@ -1357,6 +1387,10 @@ async function readMobileNewTabTopbarLayout(page) {
             modeWithinTopbar: mode.left >= topbar.left - 1 && mode.right <= topbar.right + 1,
             buttonOverlaps: overlappingPairs(buttons),
             buttonLabels: [...document.querySelectorAll('.jpdb-reader-newtab-mode button')].map(button => button.textContent?.trim() ?? ''),
+            buttonsShareWidth: widths.every(width => Math.abs(width - widths[0]) <= 1),
+            buttonsFillMode: buttons.length === 3 && expectedGapWidth <= (buttons.length - 1) * 4 + 14,
+            buttonWidths: widths,
+            expectedGapWidth,
         };
 
         function rectFor(selector) {
@@ -1397,6 +1431,8 @@ async function readMobileNewTabTopbarLayout(page) {
         }
     });
 }
+
+const readMobileNewTabTopbarLayout = readNewTabModeLayout;
 
 async function assertNewTabAnkiCardAudioButton(page, requests) {
     const selector = `[data-newtab-prompt] [data-action="anki-media-audio"][data-anki-media-name="${ANKI_MEDIA_FILENAME}"]`;
@@ -1523,6 +1559,7 @@ async function main() {
         const localRoot = await runLocalRootReaderSmoke(browser, baseUrl);
         const mobileHandoff = await runMobileAnkiHandoffSmoke(browser, baseUrl);
         const androidHandoff = await runAndroidAnkiDroidHandoffSmoke(browser, baseUrl);
+        const desktopNewtabLayout = await runDesktopNewTabLayoutSmoke(browser, baseUrl);
         const newtab = await runNewTabSourceToggleSmoke(browser, baseUrl).catch(error => ({
             skipped: true,
             reason: error instanceof Error ? error.message : String(error),
@@ -1530,7 +1567,7 @@ async function main() {
         const mobileNewtab = await runMobileNewTabLayoutSmoke(browser, baseUrl);
         const newtabMultiDeck = await runNewTabMultiDeckAnkiSmoke(browser, baseUrl);
         const jpdbMixedQueue = await runNewTabJpdbMixedQueueSmoke(browser, baseUrl);
-        console.log(JSON.stringify({ reader, localRoot, mobileHandoff, androidHandoff, newtab, mobileNewtab, newtabMultiDeck, jpdbMixedQueue }, null, 2));
+        console.log(JSON.stringify({ reader, localRoot, mobileHandoff, androidHandoff, desktopNewtabLayout, newtab, mobileNewtab, newtabMultiDeck, jpdbMixedQueue }, null, 2));
     } finally {
         await browser.close().catch(() => undefined);
         await closeServer(server);

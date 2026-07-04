@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.43] - 2026-07-04
+
+### Fixed
+
+- Study, Search, and Stats now divide the new-tab mode switcher evenly on desktop, mobile, first paint, and the Stats page, removing the invisible extra grid columns that left the tabs looking lopsided.
+
 ## [1.6.42] - 2026-07-04
 
 ### Fixed

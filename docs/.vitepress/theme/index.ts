@@ -200,6 +200,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Study, Search, and Stats now divide the new-tab mode switcher evenly on desktop, mobile, first paint, and the Stats page, removing the invisible extra grid columns that left the tabs looking lopsided.": "Study、Search、Stats が、デスクトップ・モバイル・初回表示・Statsページの新タブモード切り替え内で均等に並ぶようになりました。タブを不揃いに見せていた見えない余分なグリッド列を削除しました。",
     "Playlists are annotated: the watch-page queue panel, /playlist rows and their legacy header, and search-page channel cards (name plus description) are all scanned, with furigana room in their clamped titles — 1.6.40 underlined the 再生リスト tab while everything behind the click stayed bare.": "再生リストに注釈が付くようになりました。視聴ページのキューパネル、/playlistの行とその旧型ヘッダー、検索ページのチャンネルカード（名前と説明）がすべてスキャンされ、高さ制限されたタイトルにはふりがな用の余白が確保されます。1.6.40では「再生リスト」タブに下線が付いたのに、その先のページは何も注釈されていませんでした。",
     "Search-result description snippets no longer clip furigana: .metadata-snippet-text joined the ruby-room whitelist alongside the playlist and channel-card rows.": "検索結果の説明スニペットでふりがなが欠けなくなりました。.metadata-snippet-textが、再生リストやチャンネルカードの行とともにルビ余白の対象に加わりました。",
     "The YouTube ruby-coverage proof gained a desktop-playlist page plus queue-panel and channel-card fixtures, pinning the new coverage in real Chromium.": "YouTubeのルビ網羅プルーフに、デスクトップの再生リストページとキューパネル・チャンネルカードのフィクスチャを追加し、新しいカバレッジを実際のChromiumで検証するようにしました。",

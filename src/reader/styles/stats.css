@@ -716,11 +716,11 @@
 
 @media (max-width: 760px) {
   .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-mode {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-topbar {
-    grid-template-columns: auto 1fr auto auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .jpdb-reader-stats-metrics,
