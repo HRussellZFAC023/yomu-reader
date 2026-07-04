@@ -109,6 +109,7 @@
     "smoke:popover-actions": "node scripts/popover-action-pills-smoke.mjs",
     "smoke:youtube-performance": "node scripts/youtube-performance-profile.mjs",
     "smoke:youtube-ruby-proof": "node scripts/youtube-ruby-coverage-proof.mjs",
+    "smoke:youtube-title-recycler": "node scripts/youtube-title-recycler-smoke.mjs",
     "smoke:enhancement-coverage": "node scripts/enhancement-coverage-smoke.mjs",
     "smoke:enrichment-concurrency": "node scripts/enrichment-concurrency-smoke.mjs",
     "smoke:youtube-shorts-skip": "node scripts/youtube-shorts-skip-smoke.mjs",
