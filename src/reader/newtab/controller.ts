@@ -542,7 +542,6 @@ interface NewTabLoadOptions {
 }
 
 type ConcreteNewTabWordSource = NewTabConcreteSource;
-type StatusToggleSource = Extract<ConcreteNewTabWordSource, 'jpdb' | 'bunpro' | 'yomu-local' | 'anki'>;
 type NewTabSrsAdapterSource = Extract<NewTabConcreteSource, 'bunpro' | 'yomu-local'>;
 type NewTabSrsQueueAdapter = Pick<YomuSrsAdapter, 'label' | 'hasCredential' | 'stats' | 'queue' | 'review'>;
 type NavigationExpansionSource = 'dictionary' | 'jpdb' | 'public-jpdb' | 'anki';
@@ -1846,14 +1845,6 @@ export class NewTabController {
             const requested = target.closest<HTMLElement>('[data-listen-submode]')?.dataset.listenSubmode;
             const listenSubMode = requested === 'recall' || requested === 'shadow' ? requested : 'perceive';
             this.setState({ listenSubMode, revealAnswer: false }, root, { preserveWord: true });
-            return true;
-        }
-        if (action === 'source-toggle') {
-            event.preventDefault();
-            const source = this.sourceToggleClickTarget(target);
-            if (source === 'jpdb' || source === 'anki' || source === 'dictionary' || source === 'bunpro' || source === 'yomu-local') {
-                void this.switchReviewSource(root, source);
-            }
             return true;
         }
         return false;
@@ -5358,10 +5349,6 @@ export class NewTabController {
         return this.visibleWords.filter(card => !this.isReviewHistoryCard(card));
     }
 
-    private newTabStatusLabel(card: JPDBCard): string {
-        return [this.newTabCountLabel(card), this.newTabStatusSourceLabel(card), this.newTabSyncStatusLabel(card)].filter(Boolean).join(' · ');
-    }
-
     private newTabStatusSourceLabel(card: JPDBCard): string {
         if (this.shouldShowJitenOnlyApiFallbackSource(card)) return 'Jiten';
         const labels = this.reviewTargetSourceLabels(card);
@@ -5431,25 +5418,18 @@ export class NewTabController {
 
     private renderStatus(statusSlot: HTMLElement | null, card: JPDBCard): void {
         if (!statusSlot) return;
-        const label = this.newTabStatusLabel(card);
-        const toggleTarget = this.sourceToggleTarget(card);
-        // The pill's ⇄ toggle cycles every source, so it is the ONE switcher
-        // whenever a card is shown — the select stacked under it read as a
-        // duplicate control (owner: "just have one switcher"). The select
-        // still serves the card-less empty state, where there is no pill.
-        this.clearSourceSelector(statusSlot);
-        replaceChildrenWith(statusSlot, ...[
+        // The select is the ONE switcher — a real dropdown listing every
+        // source. The pill is pure status; it reflects the card actually
+        // shown, while the select reflects the CHOSEN source, so an empty
+        // queue falling back to another provider's cards no longer reads as
+        // two identical modes.
+        const sources = this.sourceToggleSources(card);
+        const selectorShown = this.renderSourceSelectorOptions(statusSlot, sources, this.selectedSelectorSource(card, sources));
+        const label = this.statusPillLabel(card, selectorShown);
+        replaceChildrenWith(statusSlot, ...(label ? [
             ...this.renderNewTabStatusLights(card),
-            document.createTextNode(toggleTarget ? `${label} ⇄` : label),
-        ].filter((node): node is HTMLElement | Text => Boolean(node)));
-        if (toggleTarget) {
-            statusSlot.dataset.newtabAction = 'source-toggle';
-            statusSlot.dataset.sourceToggleTarget = toggleTarget;
-            statusSlot.title = `${this.text('switchReviewSource')}: ${this.sourceToggleLabel(toggleTarget)}`;
-            statusSlot.setAttribute('aria-label', statusSlot.title);
-            if (statusSlot instanceof HTMLButtonElement) statusSlot.disabled = false;
-            return;
-        }
+            document.createTextNode(label),
+        ] : []));
         delete statusSlot.dataset.newtabAction;
         delete statusSlot.dataset.sourceToggleTarget;
         statusSlot.removeAttribute('title');
@@ -5457,12 +5437,30 @@ export class NewTabController {
         if (statusSlot instanceof HTMLButtonElement) statusSlot.disabled = true;
     }
 
-    private renderSourceSelectorOptions(statusSlot: HTMLElement | null, sources: ConcreteNewTabWordSource[], current: ConcreteNewTabWordSource): void {
+    // With the dropdown visible, repeating the single source name in the
+    // pill would read as two identical controls — keep only count/sync
+    // there. A multi-target label ("Jiten + JPDB") carries grading info the
+    // dropdown cannot show, so it stays.
+    private statusPillLabel(card: JPDBCard, selectorShown: boolean): string {
+        const sourceText = this.newTabStatusSourceLabel(card);
+        const showSource = !selectorShown || sourceText.includes(' + ');
+        return [this.newTabCountLabel(card), showSource ? sourceText : '', this.newTabSyncStatusLabel(card)]
+            .filter(Boolean)
+            .join(' · ');
+    }
+
+    private selectedSelectorSource(card: JPDBCard, sources: ConcreteNewTabWordSource[]): ConcreteNewTabWordSource {
+        const selected = this.state.source;
+        if (selected !== 'auto' && sources.includes(selected)) return selected;
+        return this.sourceToggleCurrentSource(card, sources);
+    }
+
+    private renderSourceSelectorOptions(statusSlot: HTMLElement | null, sources: ConcreteNewTabWordSource[], current: ConcreteNewTabWordSource): boolean {
         const select = this.sourceSelectForStatus(statusSlot);
-        if (!select) return;
+        if (!select) return false;
         if (sources.length < 2) {
             this.hideSourceSelector(select);
-            return;
+            return false;
         }
         replaceChildrenWith(select, ...sources.map(source => {
             const option = el('option', { value: source }, this.sourceToggleLabel(source));
@@ -5470,10 +5468,12 @@ export class NewTabController {
             return option;
         }));
         select.value = current;
+        select.dataset.source = current;
         select.hidden = false;
         select.disabled = false;
         select.title = this.text('switchReviewSource');
         select.setAttribute('aria-label', this.text('switchReviewSource'));
+        return true;
     }
 
     private sourceSelectForStatus(statusSlot: HTMLElement | null): HTMLSelectElement | null {
@@ -5489,6 +5489,7 @@ export class NewTabController {
     private hideSourceSelector(select: HTMLSelectElement): void {
         select.hidden = true;
         select.disabled = true;
+        delete select.dataset.source;
         select.replaceChildren();
         select.removeAttribute('title');
         select.removeAttribute('aria-label');
@@ -5562,7 +5563,6 @@ export class NewTabController {
         // Bunpro reviews still leaves the dropdown to jump to JPDB/Jiten,
         // Yomu or Anki (renderPlainStatus above clears it for other states).
         this.renderSourceSelectorOptions(statusSlot, this.emptyStateSelectorSources(source), source);
-        const target = this.emptySourceToggleTarget(source);
         const lightSource = source === 'jpdb' && this.sourceLabel.startsWith('Jiten') && !this.sourceLabel.includes(' + ')
             ? 'jiten'
             : source;
@@ -5572,16 +5572,8 @@ export class NewTabController {
                 dataset: { source: lightSource },
                 'aria-hidden': 'true',
             }),
-            document.createTextNode(target ? `${this.sourceToggleLabel(source)} ⇄` : this.sourceToggleLabel(source)),
+            document.createTextNode(this.sourceToggleLabel(source)),
         ].filter((node): node is HTMLElement | Text => Boolean(node)));
-        if (target) {
-            statusSlot.dataset.newtabAction = 'source-toggle';
-            statusSlot.dataset.sourceToggleTarget = target;
-            statusSlot.title = `${this.text('switchReviewSource')}: ${this.sourceToggleLabel(target)}`;
-            statusSlot.setAttribute('aria-label', statusSlot.title);
-            if (statusSlot instanceof HTMLButtonElement) statusSlot.disabled = false;
-            return;
-        }
         delete statusSlot.dataset.newtabAction;
         delete statusSlot.dataset.sourceToggleTarget;
         statusSlot.removeAttribute('title');
@@ -5597,28 +5589,6 @@ export class NewTabController {
         if (this.canOfferAnkiSource()) sources.push('anki');
         if (!sources.includes(current)) sources.push(current);
         return sources;
-    }
-
-    private emptySourceToggleTarget(source: 'jpdb' | 'bunpro' | 'yomu-local' | 'anki'): ConcreteNewTabWordSource | null {
-        if (source === 'bunpro') return this.canUseYomuLocalSource() ? 'yomu-local' : this.canUseJpdbSource() ? 'jpdb' : null;
-        if (source === 'yomu-local') return this.canUseJpdbSource() ? 'jpdb' : this.canUseBunproSource() ? 'bunpro' : this.canOfferAnkiSource() ? 'anki' : null;
-        if (source === 'jpdb') return this.canOfferAnkiSource() ? 'anki' : null;
-        return this.canUseJpdbSource() ? 'jpdb' : null;
-    }
-
-    private sourceToggleTarget(card: JPDBCard): ConcreteNewTabWordSource | null {
-        const sources = this.sourceToggleSources(card).filter(isStatusToggleSource);
-        if (sources.length < 2) return null;
-        const current = this.sourceToggleCurrentSource(card, sources);
-        const currentIndex = isStatusToggleSource(current) ? sources.indexOf(current) : -1;
-        return sources[(currentIndex + 1) % sources.length] ?? sources[0] ?? null;
-    }
-
-    private sourceToggleClickTarget(target: HTMLElement): ConcreteNewTabWordSource | null {
-        const renderedTarget = target.closest<HTMLElement>('[data-source-toggle-target]')?.dataset.sourceToggleTarget;
-        if (renderedTarget === 'jpdb' || renderedTarget === 'bunpro' || renderedTarget === 'yomu-local' || renderedTarget === 'anki' || renderedTarget === 'dictionary') return renderedTarget;
-        const card = this.visibleWords[this.index];
-        return card ? this.sourceToggleTarget(card) : null;
     }
 
     private sourceToggleSources(card: JPDBCard): ConcreteNewTabWordSource[] {
@@ -11141,6 +11111,3 @@ function isJitenBulkAction(action: string): boolean {
     return action === 'jiten-mining' || action === 'jiten-suspend' || action === 'jiten-forget';
 }
 
-function isStatusToggleSource(source: ConcreteNewTabWordSource): source is StatusToggleSource {
-    return source !== 'dictionary';
-}

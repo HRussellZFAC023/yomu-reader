@@ -1412,6 +1412,43 @@ button.jpdb-reader-newtab-status:disabled:empty {
   display: none;
 }
 
+/* Provider colour dot on the closed dropdown face (a select cannot host
+   the status-light span, so the dot is a background gradient). */
+.jpdb-reader-newtab-source-select[data-source] {
+  --jpdb-reader-newtab-source-dot: var(--jpdb-reader-faint);
+  padding-left: 24px;
+  background-image: radial-gradient(
+    circle at 12px 50%,
+    var(--jpdb-reader-newtab-source-dot) 0 3.5px,
+    transparent 4.5px
+  );
+  background-repeat: no-repeat;
+}
+
+.jpdb-reader-newtab-source-select[data-source="jpdb"] {
+  --jpdb-reader-newtab-source-dot: var(--jpdb-reader-accent);
+}
+
+.jpdb-reader-newtab-source-select[data-source="anki"] {
+  --jpdb-reader-newtab-source-dot: var(--jpdb-reader-state-new-bright);
+}
+
+.jpdb-reader-newtab-source-select[data-source="bunpro"] {
+  --jpdb-reader-newtab-source-dot: color-mix(
+    in srgb,
+    var(--jpdb-reader-danger) 78%,
+    var(--jpdb-reader-accent)
+  );
+}
+
+.jpdb-reader-newtab-source-select[data-source="yomu-local"] {
+  --jpdb-reader-newtab-source-dot: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 60%,
+    var(--jpdb-reader-state-new-bright)
+  );
+}
+
 .jpdb-reader-newtab-source-select:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--jpdb-reader-accent) 72%, transparent);
   outline-offset: 2px;

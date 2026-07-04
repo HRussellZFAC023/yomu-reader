@@ -1350,13 +1350,18 @@ async function waitForRequest(requests, predicate, timeoutMs = 12000) {
 async function readNewTabState(page) {
     return page.evaluate(() => {
         const status = document.querySelector('[data-newtab-status]');
+        const select = document.querySelector('[data-newtab-source-select]');
+        // The source name lives on the dropdown face now, not the pill —
+        // fold the selected option label into `status` so source assertions
+        // keep working.
+        const selectedLabel = select && !select.hidden ? select.selectedOptions[0]?.textContent?.trim() ?? '' : '';
         return {
             prompt: document.querySelector('[data-newtab-prompt]')?.textContent?.trim() ?? '',
-            status: status?.textContent?.trim() ?? '',
+            status: [status?.textContent?.trim() ?? '', selectedLabel].filter(Boolean).join(' · '),
             action: status?.dataset.newtabAction,
-            target: status?.dataset.sourceToggleTarget,
-            sourceSelect: document.querySelector('[data-newtab-source-select]')?.value ?? '',
-            light: document.querySelector('[data-newtab-status] .jpdb-reader-newtab-status-light')?.dataset.source,
+            sourceSelect: select?.value ?? '',
+            light: (document.querySelector('[data-newtab-status] .jpdb-reader-newtab-status-light')
+                ?? (select && !select.hidden ? select : null))?.dataset.source,
             controls: [...document.querySelectorAll('[data-newtab-controls] [data-newtab-action]')]
                 .map(element => element.dataset.newtabAction ?? ''),
             gradeButtons: [...document.querySelectorAll('[data-newtab-action="grade"]')]

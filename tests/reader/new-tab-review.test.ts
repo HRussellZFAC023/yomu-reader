@@ -989,10 +989,29 @@ function showNextNewTabWord(controller: NewTabController): void {
     (controller as unknown as { showNextWord(): void }).showNextWord();
 }
 
-function expectNewTabStatusToggleTarget(target: string, root: ParentNode = document): void {
+function newTabSourceSelect(root: ParentNode = document): HTMLSelectElement {
+    return root.querySelector<HTMLSelectElement>('[data-newtab-source-select]')!;
+}
+
+function newTabSourceSelectValues(root: ParentNode = document): string[] {
+    return Array.from(newTabSourceSelect(root).options).map(option => option.value);
+}
+
+function switchNewTabSource(target: string, root: ParentNode = document): void {
+    const select = newTabSourceSelect(root);
+    select.value = target;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function expectNewTabMergedStatusSelect(current: string, other: string, root: ParentNode = document): void {
     const status = newTabStatusButton(root);
-    expect(status.textContent).toContain('JPDB + Anki ⇄');
-    expect(status.dataset.sourceToggleTarget).toBe(target);
+    expect(status.textContent).toContain('JPDB + Anki');
+    expect(status.textContent).not.toContain('⇄');
+    expect(status.disabled).toBe(true);
+    const select = newTabSourceSelect(root);
+    expect(select.hidden).toBe(false);
+    expect(select.value).toBe(current);
+    expect(newTabSourceSelectValues(root)).toContain(other);
 }
 
 function expectNewTabStatusSources(sources: string[], root: ParentNode = document): void {
@@ -3820,7 +3839,7 @@ describe('new tab review helpers', () => {
             await Promise.resolve();
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('難波');
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).not.toContain('Loading kanji details');
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toContain('Anki');
+            expect(newTabSourceSelect(root).value).toBe('anki');
         } finally {
             root.remove();
             restoreCanvas();
@@ -3858,23 +3877,27 @@ describe('new tab review helpers', () => {
             });
 
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[0]!);
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('1 / 4 · JPDB');
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('1 / 4');
             expect(root.querySelector<HTMLElement>('[data-newtab-status] .jpdb-reader-newtab-status-light')?.dataset.source).toBe('jpdb');
+            expect(newTabSourceSelect(root).hidden).toBe(false);
 
             (controller as unknown as { index: number }).index = 1;
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[1]!);
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('2 / 4 · Jiten ⇄');
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('2 / 4');
             expect(root.querySelector<HTMLElement>('[data-newtab-status] .jpdb-reader-newtab-status-light')?.dataset.source).toBe('jiten');
+            expect(newTabSourceSelect(root).hidden).toBe(false);
 
             (controller as unknown as { index: number }).index = 2;
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[2]!);
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('3 / 4 · Anki ⇄');
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('3 / 4');
             expect(root.querySelector<HTMLElement>('[data-newtab-status] .jpdb-reader-newtab-status-light')?.dataset.source).toBe('anki');
+            expect(newTabSourceSelect(root).value).toBe('anki');
 
             (controller as unknown as { index: number }).index = 3;
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[3]!);
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('');
             expect(root.querySelector('[data-newtab-status] .jpdb-reader-newtab-status-light')).toBeNull();
+            expect(newTabSourceSelect(root).value).toBe('dictionary');
         } finally {
             controller.destroy();
             root.remove();
@@ -3902,9 +3925,14 @@ describe('new tab review helpers', () => {
         try {
             const status = newTabStatusButton(root);
 
-            expect(status.textContent).toContain('Anki ⇄');
-            expect(status.dataset.sourceToggleTarget).toBe('jpdb');
-            expect(status.title).toBe('Switch review source: Jiten');
+            expect(status.textContent).not.toContain('Anki');
+            expect(status.textContent).not.toContain('⇄');
+            expect(status.disabled).toBe(true);
+            const select = newTabSourceSelect(root);
+            expect(select.hidden).toBe(false);
+            expect(select.value).toBe('anki');
+            expect(newTabSourceSelectValues(root)).toContain('jpdb');
+            expect(select.querySelector<HTMLOptionElement>('option[value="jpdb"]')?.textContent).toBe('Jiten');
         } finally {
             controller.destroy();
             root.remove();
@@ -3938,11 +3966,13 @@ describe('new tab review helpers', () => {
         try {
             const status = newTabStatusButton(root);
 
-            expect(status.textContent).toContain('Jiten ⇄');
-            expect(status.disabled).toBe(false);
-            expect(status.dataset.sourceToggleTarget).toBe('anki');
-            expect(status.title).toBe('Switch review source: Anki');
-            expect(status.querySelector<HTMLElement>('.jpdb-reader-newtab-status-light')?.dataset.source).toBe('jiten');
+            expect(status.textContent).not.toContain('⇄');
+            expect(status.disabled).toBe(true);
+            const select = newTabSourceSelect(root);
+            expect(select.hidden).toBe(false);
+            expect(select.value).toBe('jpdb');
+            expect(select.querySelector<HTMLOptionElement>('option[value="jpdb"]')?.textContent).toBe('Jiten');
+            expect(newTabSourceSelectValues(root)).toContain('anki');
         } finally {
             controller.destroy();
             root.remove();
@@ -3997,7 +4027,8 @@ describe('new tab review helpers', () => {
             internals.bindRootEvents(root);
             internals.renderWord(root, first);
 
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('JPDB');
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('');
+            expect(newTabSourceSelect(root).value).toBe('jpdb');
             const progress = root.querySelector<HTMLElement>('[data-newtab-count]')!;
             expect(progress.textContent).toMatch(/^Done 0 · Left 2 · Due 2 · \d\d:\d\d · 0\/60 min$/);
             expect(progress.dataset.sessionCompletedReviews).toBe('0');
@@ -4010,14 +4041,16 @@ describe('new tab review helpers', () => {
             internals.showNextWord();
 
             expect(internals.index).toBe(1);
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('JPDB');
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('');
+            expect(newTabSourceSelect(root).value).toBe('jpdb');
             expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 2 · Due 2 · \d\d:\d\d · 0\/60 min$/);
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('日本語');
 
             internals.showPreviousWord();
 
             expect(internals.index).toBe(0);
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('JPDB');
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('');
+            expect(newTabSourceSelect(root).value).toBe('jpdb');
             expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 2 · Due 2 · \d\d:\d\d · 0\/60 min$/);
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('復習');
         } finally {
@@ -4131,7 +4164,8 @@ describe('new tab review helpers', () => {
             internals.bindRootEvents(root);
             internals.renderWord(root, current);
 
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('JPDB');
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('');
+            expect(newTabSourceSelect(root).value).toBe('jpdb');
             expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 539 · Due 539 · \d\d:\d\d · 0\/60 min$/);
             expect(root.textContent).not.toContain('360 / 539');
 
@@ -4367,30 +4401,28 @@ describe('new tab review helpers', () => {
         expect(listDeckCards).toHaveBeenCalledTimes(1);
         expect(listNewTabCards).toHaveBeenCalledTimes(1);
         const status = newTabStatusButton();
-        expect(status.textContent).toContain('JPDB ⇄');
-        expect(status.disabled).toBe(false);
+        expect(status.textContent).not.toContain('⇄');
+        expect(status.disabled).toBe(true);
         expect(status.closest('[data-newtab-controls]')).toBeNull();
         expect(Array.from(document.querySelectorAll<HTMLElement>('[data-newtab-controls] [data-newtab-action]'))
             .map(element => element.dataset.newtabAction)).toEqual(['previous', 'next']);
-        expect(status.dataset.sourceToggleTarget).toBe('anki');
+        expect(newTabSourceSelect().hidden).toBe(false);
+        expect(newTabSourceSelect().value).toBe('jpdb');
+        expect(newTabSourceSelectValues()).toContain('anki');
 
-        status.click();
+        switchNewTabSource('anki');
         await expectNewTabSourcePrompt(settings, 'anki', '暗記');
         expect(listDeckCards).toHaveBeenCalledTimes(1);
         expect(listNewTabCards).toHaveBeenCalledTimes(1);
-        const ankiStatus = newTabStatusButton();
-        expect(ankiStatus.textContent).toContain('Anki ⇄');
-        expect(ankiStatus.disabled).toBe(false);
-        expect(ankiStatus.dataset.sourceToggleTarget).toBe('jpdb');
+        expect(newTabSourceSelect().value).toBe('anki');
+        expect(newTabSourceSelectValues()).toContain('jpdb');
 
-        ankiStatus.click();
+        switchNewTabSource('jpdb');
         await expectNewTabSourcePrompt(settings, 'jpdb', '日本語');
         expect(listDeckCards).toHaveBeenCalledTimes(1);
-        const returnedJpdbStatus = newTabStatusButton();
-        expect(returnedJpdbStatus.textContent).toContain('JPDB ⇄');
-        expect(returnedJpdbStatus.dataset.sourceToggleTarget).toBe('anki');
+        expect(newTabSourceSelect().value).toBe('jpdb');
 
-        returnedJpdbStatus.click();
+        switchNewTabSource('anki');
         await expectNewTabSourcePrompt(settings, 'anki', '暗記');
         expect(listNewTabCards).toHaveBeenCalledTimes(1);
 
@@ -4407,14 +4439,13 @@ describe('new tab review helpers', () => {
         try {
             await controller.renderPage();
             expectNewTabPromptText('日本語');
-            const status = newTabStatusButton();
-            expect(status.dataset.sourceToggleTarget).toBe('anki');
+            expect(newTabSourceSelectValues()).toContain('anki');
 
             const internals = controller as unknown as {
                 state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             };
             internals.state = { ...internals.state, source: 'anki' };
-            status.click();
+            switchNewTabSource('anki');
 
             await expectNewTabSourcePrompt(settings, 'anki', '暗記');
             expect(listDeckCards).toHaveBeenCalledOnce();
@@ -5017,16 +5048,16 @@ describe('new tab review helpers', () => {
                 },
             });
 
-            newTabStatusButton().click();
+            switchNewTabSource('anki');
 
             await waitForExpect(() => {
                 expect(settings.newTabSource).toBe('anki');
                 expect(listNewTabCards).toHaveBeenCalledOnce();
-                expect(newTabStatusButton().textContent).toContain('Anki');
+                expect(newTabSourceSelect().value).toBe('anki');
                 expectNewTabPromptText('暗記');
             }, 3000);
             expect(listDeckCards).toHaveBeenCalledOnce();
-            expect(newTabStatusButton().dataset.sourceToggleTarget).toBe('jpdb');
+            expect(newTabSourceSelectValues()).toContain('jpdb');
         } finally {
             resetNewTabReviewStorage();
         }
@@ -5053,7 +5084,7 @@ describe('new tab review helpers', () => {
                 },
             });
 
-            newTabStatusButton().click();
+            switchNewTabSource('anki');
 
             await waitForExpect(() => {
                 expect(settings.newTabSource).toBe('anki');
@@ -5061,7 +5092,7 @@ describe('new tab review helpers', () => {
                 expectNewTabPromptText('暗記');
             }, 3000);
             expect(listDeckCards).toHaveBeenCalledOnce();
-            expect(newTabStatusButton().dataset.sourceToggleTarget).toBe('jpdb');
+            expect(newTabSourceSelectValues()).toContain('jpdb');
         } finally {
             resetNewTabReviewStorage();
         }
@@ -5112,13 +5143,13 @@ describe('new tab review helpers', () => {
                 },
             });
 
-            newTabStatusButton().click();
+            switchNewTabSource('anki');
 
             await waitForExpect(() => {
                 expect(settings.newTabSource).toBe('anki');
                 expect(newTabPromptText()).toBe('書く');
-                expect(newTabStatusButton().textContent).toContain('Dictionary');
-                expect(newTabStatusButton().dataset.sourceToggleTarget).toBe('jpdb');
+                expect(newTabSourceSelect().value).toBe('anki');
+                expect(newTabSourceSelectValues()).toContain('jpdb');
             }, 3000);
             expect(listNewTabCards).toHaveBeenCalledOnce();
             expect(listRandomTopTerms).toHaveBeenCalled();
@@ -5179,14 +5210,13 @@ describe('new tab review helpers', () => {
         try {
             await controller.renderPage();
             expectNewTabPromptText('暗記');
-            const status = newTabStatusButton();
-            expect(status.dataset.sourceToggleTarget).toBe('jpdb');
+            expect(newTabSourceSelectValues()).toContain('jpdb');
 
             const internals = controller as unknown as {
                 state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
             };
             internals.state = { ...internals.state, source: 'jpdb' };
-            status.click();
+            switchNewTabSource('jpdb');
 
             await expectNewTabSourcePrompt(settings, 'jpdb', '日本語');
             expect(listNewTabCards).toHaveBeenCalledOnce();
@@ -5225,16 +5255,16 @@ describe('new tab review helpers', () => {
         });
 
         internals.renderWord(root, card);
-        expectNewTabStatusToggleTarget('anki', root);
+        expectNewTabMergedStatusSelect('jpdb', 'anki', root);
 
         internals.state = { ...internals.state, source: 'anki' };
         internals.sourceLabel = 'JPDB + Anki';
         internals.renderWord(root, card);
 
-        expectNewTabStatusToggleTarget('jpdb', root);
+        expectNewTabMergedStatusSelect('anki', 'jpdb', root);
     });
 
-    it('cycles source-toggle clicks through the rendered JPDB and Anki targets', () => {
+    it('switches between the rendered JPDB and Anki sources through the source dropdown', () => {
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
             apiKey: 'jpdb-key',
@@ -5273,20 +5303,21 @@ describe('new tab review helpers', () => {
             internals.bindRootEvents(root);
             internals.renderWord(root, card);
 
+            // The select is the ONE switcher while a card is shown; the pill
+            // is pure status (disabled, no source-toggle action).
             const firstStatus = newTabStatusButton(root);
-            expect(firstStatus.dataset.sourceToggleTarget).toBe('anki');
-            // The pill is the ONE switcher while a card is shown; the select
-            // no longer stacks under it (owner: "just have one switcher").
-            const firstSelect = root.querySelector<HTMLSelectElement>('[data-newtab-source-select]')!;
-            expect(firstSelect.hidden).toBe(true);
-            firstStatus.click();
+            expect(firstStatus.disabled).toBe(true);
+            expect(firstStatus.dataset.newtabAction).toBeUndefined();
+            const firstSelect = newTabSourceSelect(root);
+            expect(firstSelect.hidden).toBe(false);
+            expect(firstSelect.value).toBe('jpdb');
+            expect(newTabSourceSelectValues(root)).toContain('anki');
+            switchNewTabSource('anki', root);
             expect(switched).toEqual(['anki']);
 
-            const secondStatus = newTabStatusButton(root);
-            const nextTarget = secondStatus.dataset.sourceToggleTarget;
-            expect(nextTarget).toBeTruthy();
-            secondStatus.click();
-            expect(switched).toEqual(['anki', nextTarget]);
+            expect(newTabSourceSelect(root).value).toBe('anki');
+            switchNewTabSource('jpdb', root);
+            expect(switched).toEqual(['anki', 'jpdb']);
         } finally {
             root.remove();
         }
@@ -5320,10 +5351,10 @@ describe('new tab review helpers', () => {
         });
 
         internals.renderWord(root, card);
-        expectNewTabStatusToggleTarget('anki', root);
+        expectNewTabMergedStatusSelect('anki', 'jpdb', root);
     });
 
-    it('does not toggle a visible JPDB card back to JPDB when Anki is available', () => {
+    it('offers both JPDB and Anki in the dropdown for a visible JPDB card when Anki is selected', () => {
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
             apiKey: 'jpdb-key',
@@ -5341,7 +5372,7 @@ describe('new tab review helpers', () => {
             sourceLabel: '',
         });
 
-        expectNewTabStatusToggleTarget('anki', root);
+        expectNewTabMergedStatusSelect('anki', 'jpdb', root);
     });
 
     it('falls back to study words when the status footer toggles to unavailable Anki', async () => {
@@ -5381,14 +5412,14 @@ describe('new tab review helpers', () => {
         });
 
         await controller.renderPage();
-        const status = document.querySelector<HTMLButtonElement>('[data-newtab-status]')!;
-        expect(status.textContent).toContain('JPDB ⇄');
-        expect(status.dataset.sourceToggleTarget).toBe('anki');
+        expect(newTabSourceSelect().value).toBe('jpdb');
+        expect(newTabSourceSelectValues()).toContain('anki');
 
-        status.click();
+        switchNewTabSource('anki');
 
         await waitForExpect(() => expect(settings.newTabSource).toBe('anki'));
-        await expectNewTabDictionaryCard('書く', document, 'Dictionary');
+        await expectNewTabDictionaryCard('書く', document, null);
+        expect(newTabSourceSelect().value).toBe('dictionary');
         expect(listNewTabCards).toHaveBeenCalledOnce();
         expect(listRandomTopTerms).toHaveBeenCalled();
 
@@ -5470,14 +5501,14 @@ describe('new tab review helpers', () => {
         await controller.renderPage();
         expect(newTabPromptText()).toBe('日本語');
         expect(listNewTabCards).toHaveBeenCalledOnce();
-        const status = document.querySelector<HTMLButtonElement>('[data-newtab-status]')!;
-        expect(status.textContent).toContain('JPDB ⇄');
-        expect(status.dataset.sourceToggleTarget).toBe('anki');
+        expect(newTabSourceSelect().value).toBe('jpdb');
+        expect(newTabSourceSelectValues()).toContain('anki');
 
-        status.click();
+        switchNewTabSource('anki');
 
         await waitForExpect(() => expect(settings.newTabSource).toBe('anki'));
-        await expectNewTabDictionaryCard('書く', document, 'Dictionary');
+        await expectNewTabDictionaryCard('書く', document, null);
+        expect(newTabSourceSelect().value).toBe('dictionary');
         expect(listNewTabCards).toHaveBeenCalledTimes(2);
         expect(listRandomTopTerms).toHaveBeenCalled();
 
@@ -5574,7 +5605,7 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('does not offer a misleading Dictionary toggle for Anki-only cards', () => {
+    it('keeps the Anki-only status pill inert and lists sources only in the dropdown', () => {
         const controller = new NewTabController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -5616,11 +5647,16 @@ describe('new tab review helpers', () => {
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, ankiCard);
 
         const status = root.querySelector<HTMLButtonElement>('[data-newtab-status]')!;
-        expect(status.textContent).toBe('1 / 1 · Anki');
+        expect(status.textContent).toBe('1 / 1');
         expect(status.dataset.newtabAction).toBeUndefined();
         expect(status.dataset.sourceToggleTarget).toBeUndefined();
         expect(status.title).toBe('');
         expect(status.disabled).toBe(true);
+        expect(newTabSourceSelect(root).value).toBe('anki');
+        // The dropdown lists Dictionary as an explicit destination — unlike
+        // the old cycle-toggle, picking it is a deliberate choice, not a
+        // misleading implied alternative.
+        expect(newTabSourceSelectValues(root)).toEqual(['anki', 'dictionary']);
     });
 
     it('falls back to study words when the selected Anki source has no card lister', async () => {
@@ -5716,15 +5752,14 @@ describe('new tab review helpers', () => {
             (controller as unknown as { bindRootEvents(root: HTMLElement): void; renderWord(root: HTMLElement, card: JPDBCard): void }).bindRootEvents(root);
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
 
-            const status = root.querySelector<HTMLButtonElement>('[data-newtab-status]')!;
-            expect(status.dataset.sourceToggleTarget).toBe('anki');
+            expect(newTabSourceSelectValues(root)).toContain('anki');
 
-            status.click();
+            switchNewTabSource('anki', root);
 
             await waitForExpect(() => {
                 expect(settings.newTabSource).toBe('anki');
                 expect(newTabPromptText(root)).toBe('読む');
-                expect(root.querySelector('[data-newtab-status]')?.textContent).toContain('Dictionary');
+                expect(newTabSourceSelect(root).value).toBe('dictionary');
                 expect(root.querySelector('[data-newtab-answer]')?.textContent).not.toBe('No review cards ready.');
             });
         } finally {
@@ -5820,16 +5855,16 @@ describe('new tab review helpers', () => {
         expect(newTabPromptText()).toBe('日本語');
         listRandomTopTerms.mockClear();
 
-        document.querySelector<HTMLButtonElement>('[data-newtab-status]')?.click();
+        switchNewTabSource('anki');
         await waitForExpect(() => {
             expect(settings.newTabSource).toBe('anki');
             expect(document.querySelector('[data-newtab-prompt]')?.textContent).not.toBe('日本語');
-            expect(document.querySelector('[data-newtab-status]')?.textContent).toContain('Dictionary');
+            expect(newTabSourceSelect().value).toBe('anki');
         });
 
         expect(listNewTabCards).toHaveBeenCalledTimes(2);
         expect(document.querySelector('[data-newtab-prompt]')?.textContent).not.toBe('日本語');
-        expect(document.querySelector<HTMLElement>('[data-newtab-status]')?.dataset.sourceToggleTarget).toBe('jpdb');
+        expect(newTabSourceSelectValues()).toContain('jpdb');
 
         document.body.replaceChildren();
         localStorage.removeItem('jpdb-reader-newtab-ui');
@@ -6395,11 +6430,14 @@ describe('new tab review helpers', () => {
             await controller.renderPage();
 
             const status = newTabStatusButton();
-            expect(status.textContent).toContain('Jiten ⇄');
+            expect(status.textContent).not.toContain('⇄');
             expect(status.textContent).not.toContain('JPDB');
-            expect(status.dataset.sourceToggleTarget).toBe('anki');
-            expect(status.title).toBe('Switch review source: Anki');
-            expect(status.querySelector<HTMLElement>('.jpdb-reader-newtab-status-light')?.dataset.source).toBe('jiten');
+            expect(status.disabled).toBe(true);
+            const select = newTabSourceSelect();
+            expect(select.hidden).toBe(false);
+            expect(select.value).toBe('jpdb');
+            expect(select.querySelector<HTMLOptionElement>('option[value="jpdb"]')?.textContent).toBe('Jiten');
+            expect(newTabSourceSelectValues()).toContain('anki');
         } finally {
             resetNewTabReviewStorage();
         }
@@ -6505,10 +6543,13 @@ describe('new tab review helpers', () => {
             await controller.renderPage();
 
             const status = newTabStatusButton();
-            expect(status.textContent).toBe('Jiten');
             expect(status.textContent).not.toContain('JPDB');
             expect(status.dataset.sourceToggleTarget).toBeUndefined();
-            expect(status.querySelector<HTMLElement>('.jpdb-reader-newtab-status-light')?.dataset.source).toBe('jiten');
+            const select = newTabSourceSelect();
+            expect(select.hidden).toBe(false);
+            expect(select.value).toBe('dictionary');
+            expect(select.querySelector<HTMLOptionElement>('option[value="jpdb"]')?.textContent).toBe('Jiten');
+            expect(newTabSourceSelectValues()).not.toContain('anki');
         } finally {
             resetNewTabReviewStorage();
         }
@@ -7856,7 +7897,7 @@ describe('new tab review helpers', () => {
             expect(targetSelect.value).toBe('anki:404');
             expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
             expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('RRTK · Recognition #404');
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toContain('Anki');
+            expect(newTabSourceSelect(root).value).toBe('anki');
             expect(root.querySelector('[data-newtab-status]')?.textContent).not.toContain('JPDB');
 
             targetSelect.value = 'anki:405';
