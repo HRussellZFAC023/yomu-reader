@@ -39352,7 +39352,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.65".trim() ? "1.6.65".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.66".trim() ? "1.6.66".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -48790,7 +48790,7 @@ ${spelling}`);
       requestNatives[name] = native;
       proto[name] = function patchedRequestFullscreen(...args) {
         const container = this instanceof videoCtor ? fullscreenContainerForVideo(this) : null;
-        if (container && container !== this) return requestElementFullscreenOrInline(container, args);
+        if (container && container !== this) return requestElementFullscreenOrInline(container, args, () => native.apply(this, args));
         return native.apply(this, args);
       };
     }
@@ -48801,7 +48801,7 @@ ${spelling}`);
       const native = original;
       videoProto[name] = function patchedVideoFullscreen(...args) {
         const container = fullscreenContainerForVideo(this);
-        if (container && container !== this) return requestElementFullscreenOrInline(container, args);
+        if (container && container !== this) return requestElementFullscreenOrInline(container, args, () => native.apply(this, args));
         return native.apply(this, args);
       };
     }
@@ -48811,7 +48811,7 @@ ${spelling}`);
       videoProto.webkitSetPresentationMode = function patchedPresentationMode(mode, ...args) {
         if (mode === "fullscreen") {
           const container = fullscreenContainerForVideo(this);
-          if (container && container !== this) return requestElementFullscreenOrInline(container, args);
+          if (container && container !== this) return requestElementFullscreenOrInline(container, args, () => native.apply(this, [mode, ...args]));
         }
         if (mode === "inline" || mode === "picture-in-picture") exitInlineFullscreen2();
         return native.apply(this, [mode, ...args]);
@@ -48846,21 +48846,22 @@ ${spelling}`);
       if (!isMobileYouTube()) return null;
       return win.document.querySelector("ytm-player, #movie_player, .html5-video-player");
     }
-    function requestElementFullscreenOrInline(target, args) {
+    function requestElementFullscreenOrInline(target, args, nativeVideoFallback) {
+      const fallback = () => nativeVideoFallback ? nativeVideoFallback() : enterInlineFullscreen2(target);
       for (const name of methods) {
         const native = requestNatives[name];
         if (!native || typeof target[name] !== "function") continue;
         try {
-          return fallbackInlineOnRequestFailure(native.apply(target, args), target);
+          return fallbackInlineOnRequestFailure(native.apply(target, args), fallback);
         } catch {
-          return enterInlineFullscreen2(target);
+          return fallback();
         }
       }
-      return enterInlineFullscreen2(target);
+      return fallback();
     }
-    function fallbackInlineOnRequestFailure(result, target) {
+    function fallbackInlineOnRequestFailure(result, fallback) {
       const promise = result;
-      return typeof promise?.catch === "function" ? promise.catch(() => enterInlineFullscreen2(target)) : result;
+      return typeof promise?.catch === "function" ? promise.catch(() => fallback()) : result;
     }
     function enterInlineFullscreen2(target) {
       const current = activeInlineFullscreenElement2();
@@ -51013,6 +51014,7 @@ ${spelling}`);
     "jpdb-subtitle-dragging"
   ];
   const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = "jpdb-subtitle-yt-sheet-open";
+  const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = "Yomu";
   const INLINE_FULLSCREEN_CLASS = "jpdb-subtitle-inline-fullscreen";
   const INLINE_FULLSCREEN_ATTRIBUTE = "data-yomu-inline-fullscreen";
   function isYouTubeTheaterMode() {
@@ -51025,6 +51027,11 @@ ${spelling}`);
       }
     }
     return false;
+  }
+  function canEnterNativeVideoFullscreen(video) {
+    const fullscreenVideo = video;
+    if (fullscreenVideo.webkitSupportsFullscreen === false) return false;
+    return typeof (fullscreenVideo.webkitEnterFullscreen ?? fullscreenVideo.webkitEnterFullScreen) === "function";
   }
   function currentFullscreenElement() {
     const fullscreenDocument = document;
@@ -51623,6 +51630,8 @@ ${spelling}`);
     subtitleDragOffsetFraction = loadSubtitleDragOffsetFraction();
     subtitleDragActive = false;
     subtitleDragPreviewOffsetYPx;
+    nativeFullscreenCueTrack;
+    nativeFullscreenCueVideo;
     transcriptResizeActive = false;
     asbMoveHandlesActive = false;
     asbSubtitleDragHandles = /* @__PURE__ */ new WeakSet();
@@ -52087,7 +52096,10 @@ ${spelling}`);
       }, this.eventOptions({ passive: true }));
       video.addEventListener("loadeddata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
       for (const eventName of ["webkitbeginfullscreen", "webkitendfullscreen", "webkitpresentationmodechanged"]) {
-        video.addEventListener(eventName, () => this.handleFullscreenLayoutChange(), this.eventOptions({ passive: true }));
+        video.addEventListener(eventName, () => {
+          if (!videoIsInNativeFullscreen(video)) this.hideNativeFullscreenCueTrack();
+          this.handleFullscreenLayoutChange();
+        }, this.eventOptions({ passive: true }));
       }
       const handlePlaybackTimeChanged = () => this.syncSubtitleToPlaybackTime();
       video.addEventListener("timeupdate", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
@@ -52120,6 +52132,7 @@ ${spelling}`);
     }
     addNativeTrack(track) {
       if (isYouTubePage()) return;
+      if (track === this.nativeFullscreenCueTrack || track.label === NATIVE_FULLSCREEN_CUE_TRACK_LABEL) return;
       if (this.tracks.some((item) => item.track === track)) return;
       const id = `native-${this.tracks.length}`;
       const label = track.label || track.language || `${uiText(this.options.getSettings().interfaceLanguage, "subtitleFallbackLabel")} ${this.tracks.length + 1}`;
@@ -53881,7 +53894,19 @@ ${spelling}`);
       }
     }
     clampedSubtitleBottomOffset(value) {
-      return Math.round(Math.min(Math.max(value, 2), 40));
+      return Math.round(Math.min(Math.max(value, this.minSubtitleBottomOffsetPercent()), 40));
+    }
+    // The bottom offset is a percentage of the video frame, but the floor is
+    // the screen: a letterboxed or inset frame leaves usable space below it,
+    // so the line may ride into that gap (negative offset) as long as its
+    // bottom edge stays on screen.
+    minSubtitleBottomOffsetPercent() {
+      const rect = this.root?.getBoundingClientRect();
+      const viewportBottom = window.innerHeight || document.documentElement.clientHeight || 0;
+      if (!rect || rect.height <= 0 || viewportBottom <= 0) return 2;
+      const belowFrameGap = viewportBottom - rect.bottom - 12;
+      if (belowFrameGap <= 0) return 2;
+      return Math.min(2, -Math.round(belowFrameGap / rect.height * 100));
     }
     clampedSubtitleDragOffset(offsetPx, dragFrame, bounds) {
       if (!Number.isFinite(offsetPx)) return this.subtitleDragOffsetYPx;
@@ -54202,13 +54227,12 @@ ${spelling}`);
         return;
       }
       const target = this.fullscreenRequestTarget(video);
-      if (target && target !== video) {
-        if (canRequestElementFullscreen(target)) void Promise.resolve(requestElementFullscreen(target)).catch(() => this.enterInlinePlayerFullscreen(target));
-        else this.enterInlinePlayerFullscreen(target);
-        return;
-      }
-      if (canRequestElementFullscreen(video)) void Promise.resolve(requestElementFullscreen(video)).catch(() => this.enterNativeVideoFullscreen(video));
-      else this.enterNativeVideoFullscreen(video);
+      const fallback = () => {
+        if (canEnterNativeVideoFullscreen(video)) this.enterNativeVideoFullscreen(video);
+        else this.enterInlinePlayerFullscreen(target ?? video);
+      };
+      if (canRequestElementFullscreen(target ?? video)) void Promise.resolve(requestElementFullscreen(target ?? video)).catch(fallback);
+      else fallback();
     }
     exitPlayerFullscreen() {
       if (activeInlineFullscreenElement()) {
@@ -54230,11 +54254,37 @@ ${spelling}`);
       return subtitleVideoLayoutTarget(video) ?? video;
     }
     enterNativeVideoFullscreen(video) {
+      this.showNativeFullscreenCueTrack(video);
       try {
         const fullscreenVideo = video;
         (fullscreenVideo.webkitEnterFullscreen ?? fullscreenVideo.webkitEnterFullScreen)?.call(video);
       } catch {
       }
+    }
+    // The iPhone system player paints in the browser top layer where the DOM
+    // overlay cannot follow, so mirror the loaded cues into a native text track
+    // for the duration of native video fullscreen.
+    showNativeFullscreenCueTrack(video) {
+      if (typeof video.addTextTrack !== "function" || typeof VTTCue !== "function") return;
+      try {
+        if (this.nativeFullscreenCueVideo !== video) {
+          this.nativeFullscreenCueTrack = void 0;
+          this.nativeFullscreenCueVideo = video;
+        }
+        const track = this.nativeFullscreenCueTrack ?? video.addTextTrack("subtitles", NATIVE_FULLSCREEN_CUE_TRACK_LABEL, "ja");
+        this.nativeFullscreenCueTrack = track;
+        for (const existing of Array.from(track.cues ?? [])) track.removeCue(existing);
+        for (const cue of this.cues) {
+          if (!(cue.end > cue.start)) continue;
+          track.addCue(new VTTCue(cue.start, cue.end, cue.originalText ?? cue.text));
+        }
+        track.mode = "showing";
+      } catch {
+      }
+    }
+    hideNativeFullscreenCueTrack() {
+      const track = this.nativeFullscreenCueTrack;
+      if (track && track.mode !== "disabled") track.mode = "disabled";
     }
     isFullscreenActive() {
       return Boolean(this.fullscreen || currentFullscreenElement() || videoIsInNativeFullscreen(this.video));

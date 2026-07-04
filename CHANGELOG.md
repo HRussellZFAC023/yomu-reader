@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.66] - 2026-07-05
+
+### Fixed
+
+- Fullscreen on mobile is now true fullscreen: on iPhone Safari, where the page fullscreen API does not exist, the fullscreen button and site fullscreen requests fall back to the video's native fullscreen instead of the CSS overlay mode that kept the browser bars on screen.
+- While the iPhone system player is showing, Yomu mirrors the loaded subtitle lines into a native subtitle track, so the current line stays visible in native fullscreen.
+- The subtitle line can now be dragged below the video frame: the drag stops at the bottom of the screen instead of at the frame edge, so letterboxed and inset players no longer trap the line inside the picture.
+
 ## [1.6.65] - 2026-07-05
 
 ### Fixed

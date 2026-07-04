@@ -262,6 +262,7 @@ const ASBPLAYER_SUBTITLE_DRAG_CLASSES = [
     'jpdb-subtitle-dragging',
 ] as const;
 const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = 'jpdb-subtitle-yt-sheet-open';
+const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = 'Yomu';
 const INLINE_FULLSCREEN_CLASS = 'jpdb-subtitle-inline-fullscreen';
 const INLINE_FULLSCREEN_ATTRIBUTE = 'data-yomu-inline-fullscreen';
 
@@ -333,9 +334,16 @@ type FullscreenDocument = Document & {
 type FullscreenVideoElement = HTMLVideoElement & {
     webkitDisplayingFullscreen?: boolean;
     webkitPresentationMode?: string;
+    webkitSupportsFullscreen?: boolean;
     webkitEnterFullscreen?: () => void;
     webkitEnterFullScreen?: () => void;
 };
+
+function canEnterNativeVideoFullscreen(video: HTMLVideoElement): boolean {
+    const fullscreenVideo = video as FullscreenVideoElement;
+    if (fullscreenVideo.webkitSupportsFullscreen === false) return false;
+    return typeof (fullscreenVideo.webkitEnterFullscreen ?? fullscreenVideo.webkitEnterFullScreen) === 'function';
+}
 
 type FullscreenTargetElement = HTMLElement & {
     webkitRequestFullscreen?: () => Promise<void> | void;
@@ -1174,6 +1182,8 @@ export class SubtitlePlayerController {
     private subtitleDragOffsetFraction = loadSubtitleDragOffsetFraction();
     private subtitleDragActive = false;
     private subtitleDragPreviewOffsetYPx?: number;
+    private nativeFullscreenCueTrack?: TextTrack;
+    private nativeFullscreenCueVideo?: HTMLVideoElement;
     private transcriptResizeActive = false;
     private asbMoveHandlesActive = false;
     private readonly asbSubtitleDragHandles = new WeakSet<HTMLElement>();
@@ -1681,7 +1691,10 @@ export class SubtitlePlayerController {
         }, this.eventOptions({ passive: true }));
         video.addEventListener('loadeddata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         for (const eventName of ['webkitbeginfullscreen', 'webkitendfullscreen', 'webkitpresentationmodechanged'] as const) {
-            video.addEventListener(eventName, () => this.handleFullscreenLayoutChange(), this.eventOptions({ passive: true }));
+            video.addEventListener(eventName, () => {
+                if (!videoIsInNativeFullscreen(video)) this.hideNativeFullscreenCueTrack();
+                this.handleFullscreenLayoutChange();
+            }, this.eventOptions({ passive: true }));
         }
         const handlePlaybackTimeChanged = () => this.syncSubtitleToPlaybackTime();
         video.addEventListener('timeupdate', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
@@ -1724,6 +1737,9 @@ export class SubtitlePlayerController {
 
     private addNativeTrack(track: TextTrack): void {
         if (isYouTubePage()) return;
+        // The native-fullscreen mirror track echoes Yomu's own loaded cues; it
+        // must never be re-discovered as a source track.
+        if (track === this.nativeFullscreenCueTrack || track.label === NATIVE_FULLSCREEN_CUE_TRACK_LABEL) return;
         if (this.tracks.some(item => item.track === track)) return;
         const id = `native-${this.tracks.length}`;
         const label = track.label || track.language || `${uiText(this.options.getSettings().interfaceLanguage, 'subtitleFallbackLabel')} ${this.tracks.length + 1}`;
@@ -3808,7 +3824,20 @@ export class SubtitlePlayerController {
     }
 
     private clampedSubtitleBottomOffset(value: number): number {
-        return Math.round(Math.min(Math.max(value, 2), 40));
+        return Math.round(Math.min(Math.max(value, this.minSubtitleBottomOffsetPercent()), 40));
+    }
+
+    // The bottom offset is a percentage of the video frame, but the floor is
+    // the screen: a letterboxed or inset frame leaves usable space below it,
+    // so the line may ride into that gap (negative offset) as long as its
+    // bottom edge stays on screen.
+    private minSubtitleBottomOffsetPercent(): number {
+        const rect = this.root?.getBoundingClientRect();
+        const viewportBottom = window.innerHeight || document.documentElement.clientHeight || 0;
+        if (!rect || rect.height <= 0 || viewportBottom <= 0) return 2;
+        const belowFrameGap = viewportBottom - rect.bottom - 12;
+        if (belowFrameGap <= 0) return 2;
+        return Math.min(2, -Math.round((belowFrameGap / rect.height) * 100));
     }
 
     private clampedSubtitleDragOffset(offsetPx: number, dragFrame?: HTMLElement, bounds?: { min: number; max: number }): number {
@@ -4204,13 +4233,16 @@ export class SubtitlePlayerController {
             return;
         }
         const target = this.fullscreenRequestTarget(video);
-        if (target && target !== video) {
-            if (canRequestElementFullscreen(target)) void Promise.resolve(requestElementFullscreen(target)).catch(() => this.enterInlinePlayerFullscreen(target));
-            else this.enterInlinePlayerFullscreen(target);
-            return;
-        }
-        if (canRequestElementFullscreen(video)) void Promise.resolve(requestElementFullscreen(video)).catch(() => this.enterNativeVideoFullscreen(video));
-        else this.enterNativeVideoFullscreen(video);
+        // True fullscreen first: element fullscreen on the player frame, then
+        // the video's own native fullscreen (the only real fullscreen iPhone
+        // Safari has). The CSS inline mode keeps the browser chrome on screen,
+        // so it is strictly a last resort.
+        const fallback = () => {
+            if (canEnterNativeVideoFullscreen(video)) this.enterNativeVideoFullscreen(video);
+            else this.enterInlinePlayerFullscreen(target ?? video);
+        };
+        if (canRequestElementFullscreen(target ?? video)) void Promise.resolve(requestElementFullscreen(target ?? video)).catch(fallback);
+        else fallback();
     }
 
     private exitPlayerFullscreen(): void {
@@ -4236,12 +4268,41 @@ export class SubtitlePlayerController {
     }
 
     private enterNativeVideoFullscreen(video: HTMLVideoElement): void {
+        this.showNativeFullscreenCueTrack(video);
         try {
             const fullscreenVideo = video as FullscreenVideoElement;
             (fullscreenVideo.webkitEnterFullscreen ?? fullscreenVideo.webkitEnterFullScreen)?.call(video);
         } catch {
             // Fullscreen is best-effort across userscript hosts and mobile Safari.
         }
+    }
+
+    // The iPhone system player paints in the browser top layer where the DOM
+    // overlay cannot follow, so mirror the loaded cues into a native text track
+    // for the duration of native video fullscreen.
+    private showNativeFullscreenCueTrack(video: HTMLVideoElement): void {
+        if (typeof video.addTextTrack !== 'function' || typeof VTTCue !== 'function') return;
+        try {
+            if (this.nativeFullscreenCueVideo !== video) {
+                this.nativeFullscreenCueTrack = undefined;
+                this.nativeFullscreenCueVideo = video;
+            }
+            const track = this.nativeFullscreenCueTrack ?? video.addTextTrack('subtitles', NATIVE_FULLSCREEN_CUE_TRACK_LABEL, 'ja');
+            this.nativeFullscreenCueTrack = track;
+            for (const existing of Array.from(track.cues ?? [])) track.removeCue(existing);
+            for (const cue of this.cues) {
+                if (!(cue.end > cue.start)) continue;
+                track.addCue(new VTTCue(cue.start, cue.end, cue.originalText ?? cue.text));
+            }
+            track.mode = 'showing';
+        } catch {
+            // Best effort — the system player still opens without the mirror.
+        }
+    }
+
+    private hideNativeFullscreenCueTrack(): void {
+        const track = this.nativeFullscreenCueTrack;
+        if (track && track.mode !== 'disabled') track.mode = 'disabled';
     }
 
     private isFullscreenActive(): boolean {

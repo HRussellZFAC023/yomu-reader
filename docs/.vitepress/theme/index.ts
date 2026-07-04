@@ -208,6 +208,9 @@ const HOSTED_MANGA_OCR_LINES = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Fullscreen on mobile is now true fullscreen: on iPhone Safari, where the page fullscreen API does not exist, the fullscreen button and site fullscreen requests fall back to the video's native fullscreen instead of the CSS overlay mode that kept the browser bars on screen.": "モバイルの全画面表示が本当の全画面になりました。ページ全画面APIが存在しないiPhoneのSafariでは、全画面ボタンやサイトからの全画面リクエストが、ブラウザのバーが画面に残るCSSオーバーレイ方式ではなく、動画本来のネイティブ全画面にフォールバックします。",
+    "While the iPhone system player is showing, Yomu mirrors the loaded subtitle lines into a native subtitle track, so the current line stays visible in native fullscreen.": "iPhoneのシステムプレーヤー表示中は、Yomuが読み込み済みの字幕行をネイティブ字幕トラックへミラーリングするため、ネイティブ全画面でも現在の行が表示され続けます。",
+    "The subtitle line can now be dragged below the video frame: the drag stops at the bottom of the screen instead of at the frame edge, so letterboxed and inset players no longer trap the line inside the picture.": "字幕行を動画フレームの下までドラッグできるようになりました。ドラッグはフレームの端ではなく画面の下端で止まるため、レターボックスや小さめのプレーヤーでも字幕が映像内に閉じ込められません。",
     "Offline review caching no longer stalls at \"Cached 1\": each card's warm-up is now raced against a hard timeout, so one hung lookup (for example an unreachable AnkiConnect) can no longer freeze the whole cache queue.": "オフライン復習のキャッシュが「キャッシュ 1」で止まらなくなりました。各カードの事前読み込みにハードタイムアウトを設けたため、応答しないルックアップ（例：接続できないAnkiConnect）が1件あってもキャッシュの列全体が固まることはありません。",
     "The offline warm-up now runs a few cards in parallel and covers your full configured offline review cache limit (up to 500 cards), so a long train-ride session is ready much sooner.": "オフラインの事前読み込みは数枚のカードを並行して処理し、設定したオフライン復習キャッシュ上限（最大500枚）まで全体をカバーするようになりました。長い電車移動のセッションもずっと早く準備が整います。",
     "Cards whose warm-up fails are retried automatically after half a minute instead of being skipped for the rest of the session.": "事前読み込みに失敗したカードは、セッション中ずっとスキップされるのではなく、30秒後に自動で再試行されます。",

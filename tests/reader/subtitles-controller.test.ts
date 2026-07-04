@@ -3993,6 +3993,43 @@ Watch the cat
         }
     });
 
+    it('lets a drag push the subtitle below the video frame while keeping it on screen', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const { controller, settings } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleBottomOffset: 16 });
+        try {
+            attachVideo(controller, { rect: new DOMRect(0, 0, 640, 360) });
+            const internals = controllerInternals<{ cues: Array<typeof cue>; currentCue: typeof cue }>(controller);
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const subtitleFrame = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+            const handle = document.querySelector<HTMLButtonElement>('[data-subtitle-drag-handle]')!;
+            // Video frame fills only the top 360px of a 768px-tall viewport:
+            // the space below the frame is draggable-into territory.
+            mockElementRect(root, new DOMRect(0, 0, 640, 360));
+            mockElementRect(subtitleFrame, new DOMRect(16, 220, 608, 72));
+
+            handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 100, pointerId: 9 }));
+            window.dispatchEvent(pointerEvent('pointermove', { clientY: 500, pointerId: 9 }));
+            window.dispatchEvent(pointerEvent('pointerup', { clientY: 500, pointerId: 9 }));
+
+            // 400px down over a 360px frame ≈ -95%: well below the old hard
+            // floor of 2%, but still above the on-screen minimum (≈ -110%).
+            expect(settings.subtitleBottomOffset).toBe(-95);
+
+            handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 100, pointerId: 10 }));
+            window.dispatchEvent(pointerEvent('pointermove', { clientY: 1500, pointerId: 10 }));
+            window.dispatchEvent(pointerEvent('pointerup', { clientY: 1500, pointerId: 10 }));
+
+            // A wild drag clamps at the viewport bottom instead of vanishing.
+            expect(settings.subtitleBottomOffset).toBe(-110);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps drag-updated subtitle position in sync with compact style controls', () => {
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleBottomOffset: 16 });

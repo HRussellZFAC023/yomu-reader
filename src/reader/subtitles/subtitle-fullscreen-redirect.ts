@@ -37,7 +37,7 @@ function fullscreenRedirectBootstrap(win: PatchableWindow): void {
             const container = this instanceof videoCtor
                 ? fullscreenContainerForVideo(this)
                 : null;
-            if (container && container !== this) return requestElementFullscreenOrInline(container, args);
+            if (container && container !== this) return requestElementFullscreenOrInline(container, args, () => native.apply(this, args));
             return native.apply(this, args);
         };
     }
@@ -49,7 +49,7 @@ function fullscreenRedirectBootstrap(win: PatchableWindow): void {
         const native = original as (this: HTMLVideoElement, ...args: unknown[]) => unknown;
         videoProto[name] = function patchedVideoFullscreen(this: HTMLVideoElement, ...args: unknown[]): unknown {
             const container = fullscreenContainerForVideo(this);
-            if (container && container !== this) return requestElementFullscreenOrInline(container, args);
+            if (container && container !== this) return requestElementFullscreenOrInline(container, args, () => native.apply(this, args));
             return native.apply(this, args);
         };
     }
@@ -60,7 +60,7 @@ function fullscreenRedirectBootstrap(win: PatchableWindow): void {
         videoProto.webkitSetPresentationMode = function patchedPresentationMode(this: HTMLVideoElement, mode: string, ...args: unknown[]): unknown {
             if (mode === 'fullscreen') {
                 const container = fullscreenContainerForVideo(this);
-                if (container && container !== this) return requestElementFullscreenOrInline(container, args);
+                if (container && container !== this) return requestElementFullscreenOrInline(container, args, () => native.apply(this, [mode, ...args]));
             }
             if (mode === 'inline' || mode === 'picture-in-picture') exitInlineFullscreen();
             return native.apply(this, [mode, ...args]);
@@ -100,23 +100,28 @@ function fullscreenRedirectBootstrap(win: PatchableWindow): void {
         return win.document.querySelector<HTMLElement>('ytm-player, #movie_player, .html5-video-player');
     }
 
-    function requestElementFullscreenOrInline(target: HTMLElement, args: unknown[]): unknown {
+    // nativeVideoFallback re-enters the video's own true fullscreen (iPhone's
+    // system player). Preferred over the CSS inline fallback when the element
+    // Fullscreen API is missing or refuses: inline "fullscreen" keeps the
+    // browser chrome on screen, which is not real fullscreen on mobile.
+    function requestElementFullscreenOrInline(target: HTMLElement, args: unknown[], nativeVideoFallback?: () => unknown): unknown {
+        const fallback = () => (nativeVideoFallback ? nativeVideoFallback() : enterInlineFullscreen(target));
         for (const name of methods) {
             const native = requestNatives[name];
             if (!native || typeof (target as unknown as Record<string, unknown>)[name] !== 'function') continue;
             try {
-                return fallbackInlineOnRequestFailure(native.apply(target, args), target);
+                return fallbackInlineOnRequestFailure(native.apply(target, args), fallback);
             } catch {
-                return enterInlineFullscreen(target);
+                return fallback();
             }
         }
-        return enterInlineFullscreen(target);
+        return fallback();
     }
 
-    function fallbackInlineOnRequestFailure(result: unknown, target: HTMLElement): unknown {
+    function fallbackInlineOnRequestFailure(result: unknown, fallback: () => unknown): unknown {
         const promise = result as { catch?: (callback: () => unknown) => unknown } | undefined;
         return typeof promise?.catch === 'function'
-            ? promise.catch(() => enterInlineFullscreen(target))
+            ? promise.catch(() => fallback())
             : result;
     }
 

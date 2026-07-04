@@ -94,7 +94,7 @@ describe('installSubtitleFullscreenRedirect', () => {
         });
     });
 
-    it('redirects iPhone WebKit video fullscreen into an inline fullscreen player host', () => {
+    it('lets iPhone WebKit video fullscreen proceed natively when no element fullscreen API exists', () => {
         withStubbedWebKitVideoFullscreen(calls => {
             document.body.innerHTML = '<div id="movie_player" class="html5-video-player"><div class="html5-video-container"><video></video></div></div>';
             const video = document.querySelector('video') as HTMLVideoElement & { webkitEnterFullscreen: () => unknown };
@@ -103,11 +103,12 @@ describe('installSubtitleFullscreenRedirect', () => {
 
             video.webkitEnterFullscreen();
 
-            expect(calls.enter).toHaveLength(0);
-            expect(player.getAttribute(INLINE_FULLSCREEN_ATTRIBUTE)).toBe('true');
-            expect(player.hasAttribute('fullscreen')).toBe(true);
-            expect(player.classList.contains('ytp-fullscreen')).toBe(true);
-            expect(document.documentElement.classList.contains(INLINE_FULLSCREEN_CLASS)).toBe(true);
+            // Native video fullscreen is the only TRUE fullscreen iPhone Safari
+            // has; the inline CSS mode keeps browser chrome visible so it must
+            // not swallow the native request.
+            expect(calls.enter).toEqual([video]);
+            expect(player.hasAttribute(INLINE_FULLSCREEN_ATTRIBUTE)).toBe(false);
+            expect(document.documentElement.classList.contains(INLINE_FULLSCREEN_CLASS)).toBe(false);
         });
     });
 
@@ -136,11 +137,13 @@ describe('installSubtitleFullscreenRedirect', () => {
             installSubtitleFullscreenRedirect();
 
             video.webkitSetPresentationMode('fullscreen');
-            expect(calls.presentationModes).toEqual([]);
-            expect(player.getAttribute(INLINE_FULLSCREEN_ATTRIBUTE)).toBe('true');
+            // With no element fullscreen API, the native presentation-mode
+            // change is the only true fullscreen — it must go through.
+            expect(calls.presentationModes).toEqual(['fullscreen']);
+            expect(player.hasAttribute(INLINE_FULLSCREEN_ATTRIBUTE)).toBe(false);
 
             video.webkitSetPresentationMode('inline');
-            expect(calls.presentationModes).toEqual(['inline']);
+            expect(calls.presentationModes).toEqual(['fullscreen', 'inline']);
             expect(player.hasAttribute(INLINE_FULLSCREEN_ATTRIBUTE)).toBe(false);
             expect(player.hasAttribute('fullscreen')).toBe(false);
             expect(player.classList.contains('ytp-fullscreen')).toBe(false);
