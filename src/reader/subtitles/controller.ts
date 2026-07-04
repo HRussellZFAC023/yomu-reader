@@ -1186,6 +1186,7 @@ export class SubtitlePlayerController {
         previous: () => this.seekSubtitle(-1),
         next: () => this.seekSubtitle(1),
         playback: () => this.toggleVideoPlayback(),
+        ocr: () => this.requestVideoFrameOcr(),
         visibility: () => this.toggleOverlayVisibility(),
         fullscreen: () => this.togglePlayerFullscreen(),
         copy: target => { void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target)); },
@@ -1443,6 +1444,10 @@ export class SubtitlePlayerController {
         const visibilityLabel = uiText(settings.interfaceLanguage, 'subtitleOverlayVisible');
         const panelLabel = uiText(settings.interfaceLanguage, 'openSubtitlePanel');
         const moveLabel = uiText(settings.interfaceLanguage, 'moveSubtitles');
+        const ocrLabel = uiText(settings.interfaceLanguage, 'readVideoFrame');
+        const ocrButton = settings.ocrEnabled && settings.ocrProvider !== 'off'
+            ? `<button class="jpdb-subtitle-ocr-trigger" type="button" data-action="ocr" title="${escapeHtml(ocrLabel)}" aria-label="${escapeHtml(ocrLabel)}">${subtitleIcon('scan')}</button>`
+            : '';
         setInnerHtml(root, `
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveLabel)}"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
@@ -1450,6 +1455,7 @@ export class SubtitlePlayerController {
                 <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
                 <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon('play')}</button>
+                ${ocrButton}
                 <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml(visibilityLabel)}" aria-label="${escapeHtml(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? 'eye' : 'eye-off')}</button>
                 <button class="jpdb-subtitle-fullscreen-toggle" type="button" data-action="fullscreen" title="${escapeHtml(fullscreenLabel)}" aria-label="${escapeHtml(fullscreenLabel)}">${subtitleIcon('fullscreen')}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
@@ -4114,6 +4120,21 @@ export class SubtitlePlayerController {
         this.syncControls();
         if (this.panelMode === 'shadow') this.renderShadowPanel(true);
         else if (this.panelMode === 'lines') this.renderTranscriptPanel();
+    }
+
+    // Rail OCR button: pause first (reading needs a still frame), then ask the
+    // OCR controller for a manual paused-frame snapshot — works even when the
+    // automatic ocrVideoPauseFrames setting is off.
+    private requestVideoFrameOcr(): void {
+        const video = this.video;
+        if (!video) return;
+        if (!video.paused) {
+            const player = this.youTubePlayerApi(video);
+            if (player?.pauseVideo) player.pauseVideo();
+            else video.pause();
+            this.armPlaybackPauseReassert(video);
+        }
+        document.dispatchEvent(new CustomEvent('yomu-ocr-video-frame-request', { detail: { video } }));
     }
 
     private toggleVideoPlayback(): void {

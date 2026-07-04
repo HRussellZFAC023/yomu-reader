@@ -391,6 +391,12 @@ export class ImageOcrController {
     private readonly pointerActivatedOcrLines = new WeakMap<HTMLElement, number>();
     private recentTouchOcrPoint?: { clientX: number; clientY: number; at: number };
     private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
+    // Manual trigger from the subtitle rail's OCR button: reads the paused
+    // frame on demand even when automatic pause-frame OCR is switched off.
+    private readonly handleManualFrameRequest = (event: Event) => {
+        const video = (event as CustomEvent<{ video?: HTMLVideoElement }>).detail?.video;
+        if (video) this.snapshotPausedVideo(video, true);
+    };
     private readonly handleMediaResume = (event: Event) => this.releaseVideoFrame(event.target);
     // Stepping subtitle lines while paused seeks the video — the snapshot
     // must follow the new frame instead of showing the stale one.
@@ -436,6 +442,7 @@ export class ImageOcrController {
         // moment playback resumes. Media events do not bubble, so listen in
         // the capture phase.
         document.addEventListener('pause', this.handleMediaPause, true);
+        document.addEventListener('yomu-ocr-video-frame-request', this.handleManualFrameRequest, true);
         document.addEventListener('play', this.handleMediaResume, true);
         document.addEventListener('emptied', this.handleMediaResume, true);
         document.addEventListener('seeked', this.handleMediaSeeked, true);
@@ -479,6 +486,7 @@ export class ImageOcrController {
         document.removeEventListener('pointermove', this.handleDocumentPointerMove, true);
         document.removeEventListener('click', this.handleDocumentClick, true);
         document.removeEventListener('pause', this.handleMediaPause, true);
+        document.removeEventListener('yomu-ocr-video-frame-request', this.handleManualFrameRequest, true);
         document.removeEventListener('play', this.handleMediaResume, true);
         document.removeEventListener('emptied', this.handleMediaResume, true);
         document.removeEventListener('seeked', this.handleMediaSeeked, true);
@@ -1442,15 +1450,20 @@ export class ImageOcrController {
 
     // --- Paused-video frames (UT-27) ---
 
-    private snapshotPausedVideo(target: EventTarget | null): void {
+    private snapshotPausedVideo(target: EventTarget | null, manual = false): void {
         if (this.destroyed) return;
         if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
         const settings = this.options.getSettings();
-        if (!settings.ocrEnabled || !settings.ocrVideoPauseFrames || settings.ocrProvider === 'off') return;
-        if (isFreshMiningPause(target)) return;
-        if (isLikelyPausedVideoThumbnail(target)) return;
+        if (!settings.ocrEnabled || settings.ocrProvider === 'off') return;
+        // The automatic pause path stays heuristic-gated; an explicit rail-button
+        // request is an unambiguous ask, so it skips the auto-only filters.
+        if (!manual) {
+            if (!settings.ocrVideoPauseFrames) return;
+            if (isFreshMiningPause(target)) return;
+            if (isLikelyPausedVideoThumbnail(target)) return;
+        }
         const rect = target.getBoundingClientRect();
-        if (rect.width * rect.height < settings.ocrMinImageArea) return;
+        if (!manual && rect.width * rect.height < settings.ocrMinImageArea) return;
         if (!isNearViewport(target, 0) || isHiddenByCss(target)) return;
         const dataUrl = (this.options.captureVideoFrame ?? captureVideoFrameDataUrl)(target);
         if (!dataUrl) return;
@@ -2706,9 +2719,11 @@ export class ImageOcrController {
         const furiGutter = vertical && hasFurigana ? Math.round(fontSize * 0.55) : 0;
         const underlineGutter = vertical ? underlineBleed : 0;
         const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + underlineGutter * 2));
-        const frameHeight = vertical
-            ? Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize))
-            : Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
+        // Vertical columns must also grow to the rendered text height: the OCR
+        // box is often shorter than the re-typeset column, and a frame clamped
+        // to the box height leaves the overflowing glyphs to be clipped at the
+        // layer edge instead of wrapped by the highlight.
+        const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
         const minLeft = frame.imageLeft;
         const minTop = frame.imageTop;
         const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth - furiGutter);

@@ -1175,7 +1175,11 @@ describe('reader raster OCR surfaces', () => {
                 expect(line).not.toBeNull();
                 expect(layer!.style.top).toBe('72px');
                 expect(layer!.style.height).toBe('300px');
-                expect(Math.round(Number.parseFloat(line!.style.top))).toBe(60);
+                // The vertical frame now grows to the re-typeset column height
+                // (mocked 190px text vs a 37.5px OCR box) and clamps inside the
+                // layer, so the column stays readable instead of clipped.
+                expect(Math.round(Number.parseFloat(line!.style.top))).toBe(0);
+                expect(Math.round(Number.parseFloat(line!.style.height))).toBeGreaterThanOrEqual(190);
             });
         } finally {
             elementRectSpy.mockRestore();

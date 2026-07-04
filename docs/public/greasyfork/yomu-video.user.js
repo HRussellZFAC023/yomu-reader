@@ -1573,7 +1573,7 @@
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
-    ocrVideoPauseFrames: true,
+    ocrVideoPauseFrames: false,
     ocrShowTextOverlay: false,
     ocrOverlayTheme: "auto",
     ocrProvider: "google-lens",
@@ -4114,7 +4114,7 @@
       ocrEnabled: "Read text in images",
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized text areas",
-      ocrVideoPauseFrames: "Read paused video frames",
+      ocrVideoPauseFrames: "Auto-read paused video frames",
       ocrInvertDarkPanels: "Read light text on dark panels",
       ocrProvider: "Image reading",
       ocrOverlayTheme: "OCR overlay theme",
@@ -4403,6 +4403,7 @@
       jumpToCurrentSubtitle: "Jump to current subtitle",
       playVideo: "Play video",
       pauseVideo: "Pause video",
+      readVideoFrame: "Read video frame (OCR)",
       enterFullscreen: "Enter fullscreen",
       exitFullscreen: "Exit fullscreen",
       copySubtitle: "Copy subtitle",
@@ -5215,6 +5216,7 @@ nextSubtitle	次の字幕
 jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
+readVideoFrame	動画フレームを読み取る（OCR）
 enterFullscreen	全画面表示
 exitFullscreen	全画面表示を終了
 copySubtitle	字幕をコピー
@@ -5806,7 +5808,7 @@ randomOrder	ランダム
 ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
-ocrVideoPauseFrames	一時停止した動画フレームを読む
+ocrVideoPauseFrames	一時停止した動画フレームを自動で読む
 ocrInvertDarkPanels	暗いコマの白い文字を読む
 ocrProvider	画像読み取り
 ocrOverlayTheme	OCRオーバーレイテーマ
@@ -6022,6 +6024,7 @@ previousSubtitle	前の字幕
 nextSubtitle	次の字幕
 playVideo	動画を再生
 pauseVideo	動画を一時停止
+readVideoFrame	動画フレームを読み取る（OCR）
 copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleSubtitleOverlay	字幕オーバーレイを切り替え
@@ -6348,8 +6351,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return `
         <div class="jpdb-subtitle-drawer-playback">
             <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
-            <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon("play")}</button>
             <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
+            <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon("play")}</button>
         </div>
     `;
   }
@@ -6459,6 +6462,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       pause: '<path d="M9 5v14"/><path d="M15 5v14"/>',
       play: '<path d="M8 5v14l11-7-11-7Z"/>',
       repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
+      scan: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M7 12h10"/>',
       stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
       style: '<path d="M4 7h5"/><path d="M15 7h5"/><circle cx="12" cy="7" r="2"/><path d="M4 17h9"/><path d="M19 17h1"/><circle cx="16" cy="17" r="2"/>',
       tracks: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',
@@ -10828,6 +10832,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       previous: () => this.seekSubtitle(-1),
       next: () => this.seekSubtitle(1),
       playback: () => this.toggleVideoPlayback(),
+      ocr: () => this.requestVideoFrameOcr(),
       visibility: () => this.toggleOverlayVisibility(),
       fullscreen: () => this.togglePlayerFullscreen(),
       copy: (target) => {
@@ -11080,6 +11085,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const visibilityLabel = uiText(settings.interfaceLanguage, "subtitleOverlayVisible");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
+      const ocrLabel = uiText(settings.interfaceLanguage, "readVideoFrame");
+      const ocrButton = settings.ocrEnabled && settings.ocrProvider !== "off" ? `<button class="jpdb-subtitle-ocr-trigger" type="button" data-action="ocr" title="${escapeHtml(ocrLabel)}" aria-label="${escapeHtml(ocrLabel)}">${subtitleIcon("scan")}</button>` : "";
       setInnerHtml(root, `
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveLabel)}"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
@@ -11087,6 +11094,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                 <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
                 <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon("play")}</button>
+                ${ocrButton}
                 <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml(visibilityLabel)}" aria-label="${escapeHtml(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? "eye" : "eye-off")}</button>
                 <button class="jpdb-subtitle-fullscreen-toggle" type="button" data-action="fullscreen" title="${escapeHtml(fullscreenLabel)}" aria-label="${escapeHtml(fullscreenLabel)}">${subtitleIcon("fullscreen")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon("panel-right")}</button>
@@ -13316,6 +13324,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.syncControls();
       if (this.panelMode === "shadow") this.renderShadowPanel(true);
       else if (this.panelMode === "lines") this.renderTranscriptPanel();
+    }
+    // Rail OCR button: pause first (reading needs a still frame), then ask the
+    // OCR controller for a manual paused-frame snapshot — works even when the
+    // automatic ocrVideoPauseFrames setting is off.
+    requestVideoFrameOcr() {
+      const video = this.video;
+      if (!video) return;
+      if (!video.paused) {
+        const player = this.youTubePlayerApi(video);
+        if (player?.pauseVideo) player.pauseVideo();
+        else video.pause();
+        this.armPlaybackPauseReassert(video);
+      }
+      document.dispatchEvent(new CustomEvent("yomu-ocr-video-frame-request", { detail: { video } }));
     }
     toggleVideoPlayback() {
       const video = this.video;

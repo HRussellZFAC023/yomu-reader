@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.50
+// @version 1.6.51
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.50#sha256=uG94kWrpdntj8D4tDRDDETZxasw4YU2h3RCbXPNe65w=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.50#sha256=kTHNlrs/zrwnowHIunnyKDZO2FRg6m8yZhd+GN52eu8=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.50#sha256=FWhi0n4TTVGWq4NZSvaJ0EQg686baSOTuGRAF5NkHtE=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.50#sha256=01kTTB+z2nZ2eLH8+nOsvwfh/RRpSPp9cFbCfADXNeI=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.50#sha256=R+duxyrQhB+Z3Im0cD82s7ueiV2fVOInXGNYy5QGH0M=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.50#sha256=5TpvjSy7g2PWinqtCp4f8b1+llcX8DguJRw7sL7e+Os=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.51#sha256=dWch5ctweTHVIvrPSHbJljlTRPDdI6NNqa4j2NAAw2A=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.51#sha256=sQ/1Bh9Qj7ccmbWUX3TK683Yv/SmToi0/CZCn7h/cfA=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.51#sha256=5DvHiot4TYDlZty5HeO8KE5eQv+zKfdMJGomCFQIfrc=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.51#sha256=DHvcrxMA3Sze1uGNbvBTXj1M7sgmHi46Wm7nVxeMczc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.51#sha256=cvLw83uqORhMLCqdzti9/dfHUi/JXScNWiGsKrwRfUE=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.51#sha256=ywVXMaMOT7cSk8L3vcJr3BMw+vNihaf3yG/4mI5vSCI=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -3045,7 +3045,7 @@ const DEFAULT_SETTINGS = {
   hideKnownFurigana: true,
   ocrEnabled: true,
   ocrAutoScanImages: true,
-  ocrVideoPauseFrames: true,
+  ocrVideoPauseFrames: false,
   ocrShowTextOverlay: false,
   ocrOverlayTheme: "auto",
   ocrProvider: "google-lens",
@@ -32530,7 +32530,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.50"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.51"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

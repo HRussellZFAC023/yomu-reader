@@ -3907,7 +3907,7 @@
       ocrEnabled: "Read text in images",
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized text areas",
-      ocrVideoPauseFrames: "Read paused video frames",
+      ocrVideoPauseFrames: "Auto-read paused video frames",
       ocrInvertDarkPanels: "Read light text on dark panels",
       ocrProvider: "Image reading",
       ocrOverlayTheme: "OCR overlay theme",
@@ -4196,6 +4196,7 @@
       jumpToCurrentSubtitle: "Jump to current subtitle",
       playVideo: "Play video",
       pauseVideo: "Pause video",
+      readVideoFrame: "Read video frame (OCR)",
       enterFullscreen: "Enter fullscreen",
       exitFullscreen: "Exit fullscreen",
       copySubtitle: "Copy subtitle",
@@ -4989,6 +4990,7 @@ nextSubtitle	次の字幕
 jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
+readVideoFrame	動画フレームを読み取る（OCR）
 enterFullscreen	全画面表示
 exitFullscreen	全画面表示を終了
 copySubtitle	字幕をコピー
@@ -5580,7 +5582,7 @@ randomOrder	ランダム
 ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
-ocrVideoPauseFrames	一時停止した動画フレームを読む
+ocrVideoPauseFrames	一時停止した動画フレームを自動で読む
 ocrInvertDarkPanels	暗いコマの白い文字を読む
 ocrProvider	画像読み取り
 ocrOverlayTheme	OCRオーバーレイテーマ
@@ -5796,6 +5798,7 @@ previousSubtitle	前の字幕
 nextSubtitle	次の字幕
 playVideo	動画を再生
 pauseVideo	動画を一時停止
+readVideoFrame	動画フレームを読み取る（OCR）
 copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleSubtitleOverlay	字幕オーバーレイを切り替え
@@ -7756,6 +7759,12 @@ ${candidate.depth}`;
     pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
     recentTouchOcrPoint;
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
+    // Manual trigger from the subtitle rail's OCR button: reads the paused
+    // frame on demand even when automatic pause-frame OCR is switched off.
+    handleManualFrameRequest = (event) => {
+      const video = event.detail?.video;
+      if (video) this.snapshotPausedVideo(video, true);
+    };
     handleMediaResume = (event) => this.releaseVideoFrame(event.target);
     // Stepping subtitle lines while paused seeks the video — the snapshot
     // must follow the new frame instead of showing the stale one.
@@ -7791,6 +7800,7 @@ ${candidate.depth}`;
       document.addEventListener("pointermove", this.handleDocumentPointerMove, true);
       document.addEventListener("click", this.handleDocumentClick, true);
       document.addEventListener("pause", this.handleMediaPause, true);
+      document.addEventListener("yomu-ocr-video-frame-request", this.handleManualFrameRequest, true);
       document.addEventListener("play", this.handleMediaResume, true);
       document.addEventListener("emptied", this.handleMediaResume, true);
       document.addEventListener("seeked", this.handleMediaSeeked, true);
@@ -7823,6 +7833,7 @@ ${candidate.depth}`;
       document.removeEventListener("pointermove", this.handleDocumentPointerMove, true);
       document.removeEventListener("click", this.handleDocumentClick, true);
       document.removeEventListener("pause", this.handleMediaPause, true);
+      document.removeEventListener("yomu-ocr-video-frame-request", this.handleManualFrameRequest, true);
       document.removeEventListener("play", this.handleMediaResume, true);
       document.removeEventListener("emptied", this.handleMediaResume, true);
       document.removeEventListener("seeked", this.handleMediaSeeked, true);
@@ -8615,15 +8626,18 @@ ${candidate.depth}`;
       }
     }
     // --- Paused-video frames (UT-27) ---
-    snapshotPausedVideo(target) {
+    snapshotPausedVideo(target, manual = false) {
       if (this.destroyed) return;
       if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
       const settings = this.options.getSettings();
-      if (!settings.ocrEnabled || !settings.ocrVideoPauseFrames || settings.ocrProvider === "off") return;
-      if (isFreshMiningPause(target)) return;
-      if (isLikelyPausedVideoThumbnail(target)) return;
+      if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
+      if (!manual) {
+        if (!settings.ocrVideoPauseFrames) return;
+        if (isFreshMiningPause(target)) return;
+        if (isLikelyPausedVideoThumbnail(target)) return;
+      }
       const rect = target.getBoundingClientRect();
-      if (rect.width * rect.height < settings.ocrMinImageArea) return;
+      if (!manual && rect.width * rect.height < settings.ocrMinImageArea) return;
       if (!isNearViewport(target, 0) || isHiddenByCss(target)) return;
       const dataUrl = (this.options.captureVideoFrame ?? captureVideoFrameDataUrl)(target);
       if (!dataUrl) return;
@@ -9655,7 +9669,7 @@ ${candidate.depth}`;
       const furiGutter = vertical && hasFurigana ? Math.round(fontSize * 0.55) : 0;
       const underlineGutter = vertical ? underlineBleed : 0;
       const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + underlineGutter * 2));
-      const frameHeight = vertical ? Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize)) : Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
+      const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
       const minLeft = frame.imageLeft;
       const minTop = frame.imageTop;
       const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth - furiGutter);

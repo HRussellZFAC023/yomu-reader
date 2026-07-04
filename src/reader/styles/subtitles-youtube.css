@@ -2133,8 +2133,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   .jpdb-subtitle-rail::-webkit-scrollbar { display: none; }
   .jpdb-subtitle-rail button,
-  .jpdb-subtitle-compact-video .jpdb-subtitle-rail button,
-  .jpdb-subtitle-drawer-playback button {
+  .jpdb-subtitle-compact-video .jpdb-subtitle-rail button {
     min-width: 42px;
     width: 42px;
     max-width: 42px;
@@ -2154,12 +2153,14 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     inset: -2px;
     border-radius: 12px;
   }
-  .jpdb-subtitle-drawer-playback { gap: 8px; }
+  /* Drawer transport keeps its compact 32px chrome (the 42px iPad sizing is
+     for the on-video rail only); hit-slop pads the touch target to 44px. */
+  .jpdb-subtitle-drawer-playback { gap: 12px; }
   .jpdb-subtitle-drawer-playback button::after {
     content: "";
     position: absolute;
-    inset: -2px;
-    border-radius: 12px;
+    inset: -6px;
+    border-radius: 13px;
   }
   .jpdb-subtitle-track-row button,
   .jpdb-subtitle-track-tools button,

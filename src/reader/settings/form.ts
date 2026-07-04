@@ -815,7 +815,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                         ['off', uiText(settings.interfaceLanguage, 'ocrInteractionModeOff')],
                     ])}
                     ${checkbox('ocrShowTextOverlay', 'Show recognized text on images', settings.ocrShowTextOverlay)}
-                    ${checkbox('ocrVideoPauseFrames', 'Read paused video frames', settings.ocrVideoPauseFrames)}
+                    ${checkbox('ocrVideoPauseFrames', 'Auto-read paused video frames', settings.ocrVideoPauseFrames)}
                     ${checkbox('ocrInvertDarkPanels', 'Read light text on dark panels', settings.ocrInvertDarkPanels)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">

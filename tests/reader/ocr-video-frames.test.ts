@@ -39,7 +39,9 @@ describe('paused-video OCR frames', () => {
 
     function createController(overrides: Partial<ReaderSettings> = {}): ImageOcrController {
         controller = new ImageOcrController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ...overrides }),
+            // Auto pause-frame OCR now ships opt-in; these tests exercise the
+            // automatic path, so they enable it explicitly.
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ocrVideoPauseFrames: true, ...overrides }),
             parseJapanese: vi.fn(async () => []),
             onToast: vi.fn(),
             captureVideoFrame: () => 'data:image/jpeg;base64,Zm9v',
@@ -429,7 +431,7 @@ describe('paused-video OCR frames', () => {
         // the gating class — regression guard for the className-clobber that would
         // expose the spinner over the player mid-scan.
         controller = new ImageOcrController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en' }),
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ocrVideoPauseFrames: true }),
             parseJapanese: () => new Promise<JPDBToken[]>(() => undefined),
             onToast: vi.fn(),
             captureVideoFrame: () => 'data:image/jpeg;base64,Zm9v',
@@ -483,6 +485,7 @@ describe('paused-video OCR frames', () => {
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
                 interfaceLanguage: 'en',
+                ocrVideoPauseFrames: true,
                 furiganaMode: 'all',
                 showPitchAccent: true,
                 wordUnderlineColorSource: 'pitch',
@@ -553,6 +556,16 @@ describe('paused-video OCR frames', () => {
             expect(resume.classList.contains('jpdb-ocr-video-frame-pending')).toBe(false);
             expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
         });
+    });
+
+    it('snapshots on a manual rail request even with automatic pause frames off', () => {
+        createController({ ocrVideoPauseFrames: false });
+        const video = pausedVideo();
+        video.dispatchEvent(new Event('pause'));
+        expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+
+        document.dispatchEvent(new CustomEvent('yomu-ocr-video-frame-request', { detail: { video } }));
+        expect(document.querySelector('.jpdb-ocr-video-frame')).not.toBeNull();
     });
 
     it('does not snapshot when the feature or OCR is disabled', () => {

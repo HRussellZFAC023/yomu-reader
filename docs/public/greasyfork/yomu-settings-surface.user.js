@@ -2366,7 +2366,7 @@
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
-    ocrVideoPauseFrames: true,
+    ocrVideoPauseFrames: false,
     ocrShowTextOverlay: false,
     ocrOverlayTheme: "auto",
     ocrProvider: "google-lens",
@@ -4350,7 +4350,7 @@
       ocrEnabled: "Read text in images",
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized text areas",
-      ocrVideoPauseFrames: "Read paused video frames",
+      ocrVideoPauseFrames: "Auto-read paused video frames",
       ocrInvertDarkPanels: "Read light text on dark panels",
       ocrProvider: "Image reading",
       ocrOverlayTheme: "OCR overlay theme",
@@ -4639,6 +4639,7 @@
       jumpToCurrentSubtitle: "Jump to current subtitle",
       playVideo: "Play video",
       pauseVideo: "Pause video",
+      readVideoFrame: "Read video frame (OCR)",
       enterFullscreen: "Enter fullscreen",
       exitFullscreen: "Exit fullscreen",
       copySubtitle: "Copy subtitle",
@@ -5432,6 +5433,7 @@ nextSubtitle	次の字幕
 jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
+readVideoFrame	動画フレームを読み取る（OCR）
 enterFullscreen	全画面表示
 exitFullscreen	全画面表示を終了
 copySubtitle	字幕をコピー
@@ -6023,7 +6025,7 @@ randomOrder	ランダム
 ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
-ocrVideoPauseFrames	一時停止した動画フレームを読む
+ocrVideoPauseFrames	一時停止した動画フレームを自動で読む
 ocrInvertDarkPanels	暗いコマの白い文字を読む
 ocrProvider	画像読み取り
 ocrOverlayTheme	OCRオーバーレイテーマ
@@ -6239,6 +6241,7 @@ previousSubtitle	前の字幕
 nextSubtitle	次の字幕
 playVideo	動画を再生
 pauseVideo	動画を一時停止
+readVideoFrame	動画フレームを読み取る（OCR）
 copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleSubtitleOverlay	字幕オーバーレイを切り替え
@@ -9689,7 +9692,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ["off", uiText(settings.interfaceLanguage, "ocrInteractionModeOff")]
     ])}
                     ${checkbox("ocrShowTextOverlay", "Show recognized text on images", settings.ocrShowTextOverlay)}
-                    ${checkbox("ocrVideoPauseFrames", "Read paused video frames", settings.ocrVideoPauseFrames)}
+                    ${checkbox("ocrVideoPauseFrames", "Auto-read paused video frames", settings.ocrVideoPauseFrames)}
                     ${checkbox("ocrInvertDarkPanels", "Read light text on dark panels", settings.ocrInvertDarkPanels)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">

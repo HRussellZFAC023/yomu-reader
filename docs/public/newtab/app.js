@@ -1707,7 +1707,7 @@
       ocrEnabled: "Read text in images",
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized text areas",
-      ocrVideoPauseFrames: "Read paused video frames",
+      ocrVideoPauseFrames: "Auto-read paused video frames",
       ocrInvertDarkPanels: "Read light text on dark panels",
       ocrProvider: "Image reading",
       ocrOverlayTheme: "OCR overlay theme",
@@ -1996,6 +1996,7 @@
       jumpToCurrentSubtitle: "Jump to current subtitle",
       playVideo: "Play video",
       pauseVideo: "Pause video",
+      readVideoFrame: "Read video frame (OCR)",
       enterFullscreen: "Enter fullscreen",
       exitFullscreen: "Exit fullscreen",
       copySubtitle: "Copy subtitle",
@@ -2808,6 +2809,7 @@ nextSubtitle	次の字幕
 jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
+readVideoFrame	動画フレームを読み取る（OCR）
 enterFullscreen	全画面表示
 exitFullscreen	全画面表示を終了
 copySubtitle	字幕をコピー
@@ -3399,7 +3401,7 @@ randomOrder	ランダム
 ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
-ocrVideoPauseFrames	一時停止した動画フレームを読む
+ocrVideoPauseFrames	一時停止した動画フレームを自動で読む
 ocrInvertDarkPanels	暗いコマの白い文字を読む
 ocrProvider	画像読み取り
 ocrOverlayTheme	OCRオーバーレイテーマ
@@ -3615,6 +3617,7 @@ previousSubtitle	前の字幕
 nextSubtitle	次の字幕
 playVideo	動画を再生
 pauseVideo	動画を一時停止
+readVideoFrame	動画フレームを読み取る（OCR）
 copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleSubtitleOverlay	字幕オーバーレイを切り替え
@@ -6889,7 +6892,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
-    ocrVideoPauseFrames: true,
+    ocrVideoPauseFrames: false,
     ocrShowTextOverlay: false,
     ocrOverlayTheme: "auto",
     ocrProvider: "google-lens",
@@ -35039,6 +35042,12 @@ ${spelling}`);
     pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
     recentTouchOcrPoint;
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
+    // Manual trigger from the subtitle rail's OCR button: reads the paused
+    // frame on demand even when automatic pause-frame OCR is switched off.
+    handleManualFrameRequest = (event) => {
+      const video = event.detail?.video;
+      if (video) this.snapshotPausedVideo(video, true);
+    };
     handleMediaResume = (event) => this.releaseVideoFrame(event.target);
     // Stepping subtitle lines while paused seeks the video — the snapshot
     // must follow the new frame instead of showing the stale one.
@@ -35074,6 +35083,7 @@ ${spelling}`);
       document.addEventListener("pointermove", this.handleDocumentPointerMove, true);
       document.addEventListener("click", this.handleDocumentClick, true);
       document.addEventListener("pause", this.handleMediaPause, true);
+      document.addEventListener("yomu-ocr-video-frame-request", this.handleManualFrameRequest, true);
       document.addEventListener("play", this.handleMediaResume, true);
       document.addEventListener("emptied", this.handleMediaResume, true);
       document.addEventListener("seeked", this.handleMediaSeeked, true);
@@ -35106,6 +35116,7 @@ ${spelling}`);
       document.removeEventListener("pointermove", this.handleDocumentPointerMove, true);
       document.removeEventListener("click", this.handleDocumentClick, true);
       document.removeEventListener("pause", this.handleMediaPause, true);
+      document.removeEventListener("yomu-ocr-video-frame-request", this.handleManualFrameRequest, true);
       document.removeEventListener("play", this.handleMediaResume, true);
       document.removeEventListener("emptied", this.handleMediaResume, true);
       document.removeEventListener("seeked", this.handleMediaSeeked, true);
@@ -35898,15 +35909,18 @@ ${spelling}`);
       }
     }
     // --- Paused-video frames (UT-27) ---
-    snapshotPausedVideo(target) {
+    snapshotPausedVideo(target, manual = false) {
       if (this.destroyed) return;
       if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
       const settings = this.options.getSettings();
-      if (!settings.ocrEnabled || !settings.ocrVideoPauseFrames || settings.ocrProvider === "off") return;
-      if (isFreshMiningPause(target)) return;
-      if (isLikelyPausedVideoThumbnail(target)) return;
+      if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
+      if (!manual) {
+        if (!settings.ocrVideoPauseFrames) return;
+        if (isFreshMiningPause(target)) return;
+        if (isLikelyPausedVideoThumbnail(target)) return;
+      }
       const rect = target.getBoundingClientRect();
-      if (rect.width * rect.height < settings.ocrMinImageArea) return;
+      if (!manual && rect.width * rect.height < settings.ocrMinImageArea) return;
       if (!isNearViewport(target, 0) || isHiddenByCss(target)) return;
       const dataUrl = (this.options.captureVideoFrame ?? captureVideoFrameDataUrl)(target);
       if (!dataUrl) return;
@@ -36938,7 +36952,7 @@ ${spelling}`);
       const furiGutter = vertical && hasFurigana ? Math.round(fontSize * 0.55) : 0;
       const underlineGutter = vertical ? underlineBleed : 0;
       const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + underlineGutter * 2));
-      const frameHeight = vertical ? Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize)) : Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
+      const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
       const minLeft = frame.imageLeft;
       const minTop = frame.imageTop;
       const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth - furiGutter);
@@ -39320,7 +39334,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.50".trim() ? "1.6.50".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.51".trim() ? "1.6.51".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -42133,7 +42147,7 @@ ${spelling}`);
       ["off", uiText(settings.interfaceLanguage, "ocrInteractionModeOff")]
     ])}
                     ${checkbox("ocrShowTextOverlay", "Show recognized text on images", settings.ocrShowTextOverlay)}
-                    ${checkbox("ocrVideoPauseFrames", "Read paused video frames", settings.ocrVideoPauseFrames)}
+                    ${checkbox("ocrVideoPauseFrames", "Auto-read paused video frames", settings.ocrVideoPauseFrames)}
                     ${checkbox("ocrInvertDarkPanels", "Read light text on dark panels", settings.ocrInvertDarkPanels)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
@@ -46801,8 +46815,8 @@ ${spelling}`);
     return `
         <div class="jpdb-subtitle-drawer-playback">
             <button type="button" data-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">‹</button>
-            <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml$1(playLabel)}" aria-label="${escapeHtml$1(playLabel)}">${subtitleIcon("play")}</button>
             <button type="button" data-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">›</button>
+            <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml$1(playLabel)}" aria-label="${escapeHtml$1(playLabel)}">${subtitleIcon("play")}</button>
         </div>
     `;
   }
@@ -46912,6 +46926,7 @@ ${spelling}`);
       pause: '<path d="M9 5v14"/><path d="M15 5v14"/>',
       play: '<path d="M8 5v14l11-7-11-7Z"/>',
       repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
+      scan: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M7 12h10"/>',
       stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
       style: '<path d="M4 7h5"/><path d="M15 7h5"/><circle cx="12" cy="7" r="2"/><path d="M4 17h9"/><path d="M19 17h1"/><circle cx="16" cy="17" r="2"/>',
       tracks: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',
@@ -51599,6 +51614,7 @@ ${spelling}`);
       previous: () => this.seekSubtitle(-1),
       next: () => this.seekSubtitle(1),
       playback: () => this.toggleVideoPlayback(),
+      ocr: () => this.requestVideoFrameOcr(),
       visibility: () => this.toggleOverlayVisibility(),
       fullscreen: () => this.togglePlayerFullscreen(),
       copy: (target) => {
@@ -51851,6 +51867,8 @@ ${spelling}`);
       const visibilityLabel = uiText(settings.interfaceLanguage, "subtitleOverlayVisible");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
+      const ocrLabel = uiText(settings.interfaceLanguage, "readVideoFrame");
+      const ocrButton = settings.ocrEnabled && settings.ocrProvider !== "off" ? `<button class="jpdb-subtitle-ocr-trigger" type="button" data-action="ocr" title="${escapeHtml$1(ocrLabel)}" aria-label="${escapeHtml$1(ocrLabel)}">${subtitleIcon("scan")}</button>` : "";
       setInnerHtml(root, `
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml$1(moveLabel)}" aria-label="${escapeHtml$1(moveLabel)}"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
@@ -51858,6 +51876,7 @@ ${spelling}`);
                 <button type="button" data-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">›</button>
                 <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml$1(playLabel)}" aria-label="${escapeHtml$1(playLabel)}">${subtitleIcon("play")}</button>
+                ${ocrButton}
                 <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml$1(visibilityLabel)}" aria-label="${escapeHtml$1(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? "eye" : "eye-off")}</button>
                 <button class="jpdb-subtitle-fullscreen-toggle" type="button" data-action="fullscreen" title="${escapeHtml$1(fullscreenLabel)}" aria-label="${escapeHtml$1(fullscreenLabel)}">${subtitleIcon("fullscreen")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml$1(panelLabel)}" aria-label="${escapeHtml$1(panelLabel)}">${subtitleIcon("panel-right")}</button>
@@ -54087,6 +54106,20 @@ ${spelling}`);
       this.syncControls();
       if (this.panelMode === "shadow") this.renderShadowPanel(true);
       else if (this.panelMode === "lines") this.renderTranscriptPanel();
+    }
+    // Rail OCR button: pause first (reading needs a still frame), then ask the
+    // OCR controller for a manual paused-frame snapshot — works even when the
+    // automatic ocrVideoPauseFrames setting is off.
+    requestVideoFrameOcr() {
+      const video = this.video;
+      if (!video) return;
+      if (!video.paused) {
+        const player = this.youTubePlayerApi(video);
+        if (player?.pauseVideo) player.pauseVideo();
+        else video.pause();
+        this.armPlaybackPauseReassert(video);
+      }
+      document.dispatchEvent(new CustomEvent("yomu-ocr-video-frame-request", { detail: { video } }));
     }
     toggleVideoPlayback() {
       const video = this.video;

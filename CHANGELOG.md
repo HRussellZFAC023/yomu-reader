@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.51] - 2026-07-04
+
+### Fixed
+
+- Vertical OCR text no longer spills past its highlight box: the frame now grows to the re-typeset column height, so long vertical lines stay wrapped instead of getting clipped at the overlay edge.
+- Restored the compact side-panel transport controls: the drawer's previous/next/pause cluster keeps its 32px chrome on touch devices (the 42px iPad sizing applies to the on-video rail only) and now matches the rail's ‹ › pause order.
+
+### Changed
+
+- Paused-video OCR is now manual-first: a new Read video frame (OCR) button in the subtitle rail scans the current frame on demand, and the settings checkbox now controls automatic pause scanning, which is off by default.
+
 ## [1.6.50] - 2026-07-04
 
 ### Changed
