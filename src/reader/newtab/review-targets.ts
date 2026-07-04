@@ -97,6 +97,12 @@ export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSetti
         add('bunpro-api');
     }
     if (card.reviewSource === 'yomu-local' && settings.yomuLocalSrsEnabled) add('yomu-local');
+    // Built-in starter/practice words grade into the local SRS: they're
+    // labeled "Yomu" (source 'fallback') and the local adapter creates the
+    // card on first review, so a keyless install's default deck is startable
+    // from the starter carousel — not only from mined pages. Without this the
+    // carousel branded itself "Yomu" while offering zero grade targets.
+    if (card.source === 'fallback' && !card.reviewSource && settings.yomuLocalSrsEnabled) add('yomu-local');
     if (settings.ankiEnabled && settings.newTabAnkiEnabled && ankiCardId) add('anki');
     return targets;
 }

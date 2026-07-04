@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.44] - 2026-07-04
+
+### Fixed
+
+- Keyless installs can start studying for real: the built-in starter cards (labeled "Yomu") now offer grade buttons that record into the local Yomu SRS — the deck is created on the first grade, so reviews begin from the starter carousel instead of only after mining words from pages.
+
+### Changed
+
+- The study personas smoke gained a keyless-grading scenario that reveals a starter card, grades it, and asserts the local deck recorded the review on the real built study page.
+- The YouTube ruby-coverage proof records video only outside CI: the recording needs Playwright's downloaded ffmpeg, which the channel-Chrome runners don't have — this was the remaining red step in the 1.6.42 CI and Release runs (verified passing in CI mode locally).
+
 ## [1.6.43] - 2026-07-04
 
 ### Fixed

@@ -379,11 +379,13 @@ mkdirSync(outputRoot, { recursive: true });
 await buildProofRunner();
 
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: process.env.YOMU_YOUTUBE_RUBY_PROOF_HEADED !== '1' });
+// Video needs Playwright's downloaded ffmpeg, which CI runners (channel
+// Chrome, no browser downloads) don't have — record locally only.
 const context = await browser.newContext({
     bypassCSP: true,
     locale: 'ja-JP',
     viewport: { width: 1280, height: 900 },
-    recordVideo: { dir: outputRoot, size: { width: 1280, height: 900 } },
+    ...(process.env.CI ? {} : { recordVideo: { dir: outputRoot, size: { width: 1280, height: 900 } } }),
 });
 
 const page = await context.newPage();

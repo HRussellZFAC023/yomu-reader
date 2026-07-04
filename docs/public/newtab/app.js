@@ -39309,7 +39309,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.43".trim() ? "1.6.43".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.44".trim() ? "1.6.44".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -70429,6 +70429,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
       add("bunpro-api");
     }
     if (card.reviewSource === "yomu-local" && settings.yomuLocalSrsEnabled) add("yomu-local");
+    if (card.source === "fallback" && !card.reviewSource && settings.yomuLocalSrsEnabled) add("yomu-local");
     if (settings.ankiEnabled && settings.newTabAnkiEnabled && ankiCardId) add("anki");
     return targets;
   }

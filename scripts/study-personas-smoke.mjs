@@ -306,6 +306,38 @@ const PERSONAS = [
     },
 ];
 
+// Keyless starter cards are labeled "Yomu" and must actually GRADE into the
+// local SRS (create-on-first-review) — before 1.6.43 the carousel branded
+// itself Yomu while rendering only Previous/Reveal/Next, so the default local
+// deck could never start from the study page.
+async function runKeylessLocalGrading(browser, baseUrl) {
+    const context = await browser.newContext({ bypassCSP: true, viewport: { width: 980, height: 760 } });
+    const page = await context.newPage();
+    await page.route('**/api.jiten.moe/**', route => route.abort('connectionrefused'));
+    await page.route('**/jpdb.io/**', route => route.abort('connectionrefused'));
+    await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: baseSettings({ enableReviews: true, yomuLocalSrsEnabled: true }) });
+    try {
+        await page.goto(`${baseUrl}/newtab/index.html?persona=keyless-grading`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('[data-newtab-prompt]', { timeout: 20_000 });
+        await revealVisibleCard(page);
+        const gradeButtons = await page.locator('[data-newtab-action="grade"]').count();
+        assert(gradeButtons > 0, 'keyless starter card revealed but rendered no grade buttons (local SRS target missing)');
+        const gradedSpelling = await page.evaluate(() => document.querySelector('[data-newtab-study]')?.getAttribute('data-newtab-card') ?? '');
+        await page.locator('[data-newtab-action="grade"][data-grade="okay"], [data-newtab-action="grade"][data-grade="pass"]').first().click();
+        await page.waitForFunction(() => {
+            const deck = window.GM_getValue?.('yomu:srs-local:v1', null);
+            return Boolean(deck && deck.cards && Object.keys(deck.cards).length > 0);
+        }, null, { timeout: 10_000 });
+        const deck = await page.evaluate(() => window.GM_getValue?.('yomu:srs-local:v1', null));
+        const cards = Object.values(deck?.cards ?? {});
+        assert(cards.length > 0, 'grade click did not create a card in the local Yomu deck');
+        assert(cards.some(card => (card.reviews ?? 0) > 0), 'local deck card was created but its review was not recorded');
+        return { ok: true, gradedSpelling, localDeckCards: cards.length };
+    } finally {
+        await context.close();
+    }
+}
+
 async function main() {
     assertBuiltArtifacts(BUILT_ARTIFACTS, ROOT, 'Run npm run build first.');
     const fixture = await startLoopbackServer((request, response) => {
@@ -328,8 +360,9 @@ async function main() {
             queryStudy.push(await runQueryStudyMode(browser, fixture.origin, query, 'kanji'));
         }
         const mobilePassFail = await runMobilePassFailLayout(browser, fixture.origin);
+        const keylessGrading = await runKeylessLocalGrading(browser, fixture.origin);
         const blockers = results.flatMap(result => result.feedback.filter(item => item.startsWith('BUG')));
-        console.log(JSON.stringify({ ok: !blockers.length, results, queryStudy, mobilePassFail }, null, 2));
+        console.log(JSON.stringify({ ok: !blockers.length, results, queryStudy, mobilePassFail, keylessGrading }, null, 2));
         if (blockers.length) process.exitCode = 1;
     } finally {
         await browser.close();

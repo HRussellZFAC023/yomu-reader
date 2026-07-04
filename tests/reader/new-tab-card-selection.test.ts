@@ -83,3 +83,22 @@ describe('reviewTargetsForNewTabCard dual API targets (UT-60)', () => {
         expect(reviewTargetsForNewTabCard(jitenOnly, settings, null)).toEqual(['jiten-api']);
     });
 });
+
+describe('reviewTargetsForNewTabCard keyless starter cards', () => {
+    it('grades "Yomu"-labeled starter cards into the local SRS without any provider credential', async () => {
+        const { reviewTargetsForNewTabCard, newTabCardSourceLabel } = await import('../../src/reader/newtab/review-targets');
+        const { DEFAULT_SETTINGS } = await import('../../src/reader/settings');
+        const keyless = { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', enableReviews: true, yomuLocalSrsEnabled: true };
+        const starter = kanjiCard({ vid: -1, sid: -1, source: 'fallback', reviewSource: undefined });
+        // Label and gradability must agree: the card says "Yomu", so it
+        // grades into the Yomu local SRS (create-on-first-review).
+        expect(newTabCardSourceLabel(starter, 'en')).toBe('Yomu');
+        expect(reviewTargetsForNewTabCard(starter, keyless, null)).toEqual(['yomu-local']);
+        // Disabling the local SRS removes the target again.
+        expect(reviewTargetsForNewTabCard(starter, { ...keyless, yomuLocalSrsEnabled: false }, null)).toEqual([]);
+        // A starter card explicitly re-homed to the local review source keeps
+        // a single target (no duplicate).
+        const rehomed = kanjiCard({ source: 'fallback', reviewSource: 'yomu-local' });
+        expect(reviewTargetsForNewTabCard(rehomed, keyless, null)).toEqual(['yomu-local']);
+    });
+});
