@@ -37,7 +37,22 @@ type FirefoxCloneInto = (value: unknown, targetScope: object, options?: { cloneF
 
 function cloneCustomEventDetail<T>(detail: T): T {
     if (detail === undefined || typeof window === 'undefined') return detail;
-    return pageCompartmentValue(detail, { cloneFunctions: false, wrapReflectors: true });
+    const cloneInto = readMethod<FirefoxCloneInto>(globalThis, 'cloneInto');
+    if (!cloneInto) return detail;
+    try {
+        return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true }) as T;
+    } catch {
+        // A sandbox object the page compartment refuses to clone must never reach
+        // dispatch — Firefox rejects it with "Not allowed to define cross-origin
+        // object as property" and the event is silently dropped (which is how a
+        // dead HTTP bridge starves the hosted study page of pitch/lookups). Fall
+        // back to a JSON string; bridge receivers parse string details.
+        try {
+            return JSON.stringify(detail) as unknown as T;
+        } catch {
+            return undefined as unknown as T;
+        }
+    }
 }
 
 export function dispatchWindowEvent(event: Event): boolean {

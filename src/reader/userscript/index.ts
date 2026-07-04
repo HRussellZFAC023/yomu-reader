@@ -1,5 +1,6 @@
 export {
     getUserscriptHttpRequest,
+    isUserscriptEventBridgeRequest,
     installUserscriptHttpBridge,
     installUserscriptHttpBridgeWhenReady,
     uninstallUserscriptHttpBridge,

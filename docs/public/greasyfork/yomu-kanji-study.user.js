@@ -142,7 +142,17 @@
   }
   function cloneCustomEventDetail(detail) {
     if (detail === void 0 || typeof window === "undefined") return detail;
-    return pageCompartmentValue(detail, { cloneFunctions: false, wrapReflectors: true });
+    const cloneInto = readMethod(globalThis, "cloneInto");
+    if (!cloneInto) return detail;
+    try {
+      return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
+    } catch {
+      try {
+        return JSON.stringify(detail);
+      } catch {
+        return void 0;
+      }
+    }
   }
   function dispatchWindowEvent(event) {
     const target = window;
@@ -1346,10 +1356,14 @@
     }
     return userscriptHttpEventBridge();
   }
+  const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
+  function isUserscriptEventBridgeRequest(request) {
+    return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
+  }
   function userscriptHttpEventBridge() {
     if (typeof window === "undefined" || typeof document === "undefined") return void 0;
     if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
-    return (options) => new Promise((resolve, reject) => {
+    return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
       const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
       const timeout = window.setTimeout(() => {
         cleanup();
@@ -1367,7 +1381,11 @@
       cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
       const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
       dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
-    });
+    }));
+  }
+  function tagEventBridgeRequest(request) {
+    request[EVENT_BRIDGE_TAG] = true;
+    return request;
   }
   function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
     const detail = bridgeResponseEventDetail(event);
@@ -1454,7 +1472,7 @@
       try {
         return await requestViaUserscript(url, options, userscriptRequest);
       } catch (error) {
-        if (!shouldRetryWithFetch(error)) throw error;
+        if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
       }
     }
     return requestViaFetch(url, options);
@@ -1584,6 +1602,11 @@
     } catch {
       return false;
     }
+  }
+  function shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error) {
+    if (!isUserscriptEventBridgeRequest(userscriptRequest)) return false;
+    if (!(error instanceof Error)) return true;
+    return !/\(\d{3}\)/.test(error.message);
   }
   function shouldRetryWithFetch(error) {
     if (!(error instanceof Error)) return true;
@@ -8040,7 +8063,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sandboxCompanions = value;
     writeYomuCompanionsTarget(globalThis, value);
     if (typeof window !== "undefined" && window !== globalThis) {
-      writeYomuCompanionsTarget(window, value);
+      const pageValue = pageCompartmentRegistryValue(value);
+      if (pageValue) writeYomuCompanionsTarget(window, pageValue);
+    }
+  }
+  function pageCompartmentRegistryValue(value) {
+    const cloneInto = globalThis.cloneInto;
+    if (typeof cloneInto !== "function") return value;
+    try {
+      return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
+    } catch {
+      return void 0;
     }
   }
   function writeYomuCompanionsTarget(target, value) {

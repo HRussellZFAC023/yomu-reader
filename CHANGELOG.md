@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.62] - 2026-07-04
+
+### Fixed
+
+- Firefox: the hosted study page no longer loses pitch accents and dictionary lookups when the userscript request bridge is dead — a bridge request that fails at the transport level (timeout or Xray failure, not a real HTTP status) now retries through the hosted proxy fetch path instead of surfacing CORS errors and empty cards.
+- Firefox: "Not allowed to define cross-origin object as property" console errors are fixed at the source — the companion registry is cloned into the page compartment before being published on the page window (and skipped when the clone is refused), and a bridge event payload the page compartment refuses to clone now falls back to a JSON string instead of dispatching a sandbox object that Firefox silently drops.
+
 ## [1.6.61] - 2026-07-04
 
 ### Changed
@@ -26,6 +33,7 @@
 - The kanji drawing brush now matches the trace template's stroke width and renders smoothed curves, so mouse and Apple Pencil strokes look like the underlying glyph instead of a thin jagged line.
 - Kanji stroke grading is more lenient: a correctly written character with one slightly wobbly stroke now passes instead of failing on "check stroke shape/order".
 - Advancing between kanji steps in a multi-kanji word no longer shows the previous kanji's trace: a late-loading template can no longer overwrite the active step's ghost or prompt.
+
 ## [1.6.58] - 2026-07-04
 
 ### Fixed

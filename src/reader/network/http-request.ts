@@ -1,7 +1,7 @@
 import { fetchWithCorsFallbacks } from './proxy-fetch';
 import { isSharedPublicProxySafeRequest, YOMU_SHARED_PUBLIC_PROXY_URL } from './proxy-fetch-rules';
 import type { ReaderHttpOptions } from './http-options';
-import { getUserscriptHttpRequest } from '../userscript/index';
+import { getUserscriptHttpRequest, isUserscriptEventBridgeRequest } from '../userscript/index';
 
 export async function requestHttp(url: string, options: ReaderHttpOptions = {}): Promise<unknown> {
     // Offline-first: when the browser is offline, skip the cross-origin attempt and
@@ -35,7 +35,7 @@ export async function requestHttp(url: string, options: ReaderHttpOptions = {}):
         try {
             return await requestViaUserscript(url, options, userscriptRequest);
         } catch (error) {
-            if (!shouldRetryWithFetch(error)) throw error;
+            if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
         }
     }
     return requestViaFetch(url, options);
@@ -192,6 +192,17 @@ function isSameOriginUrl(url: string): boolean {
     } catch {
         return false;
     }
+}
+
+// The hosted-page DOM-event bridge can be marked installed yet dead at request
+// time (a broken userscript world — e.g. a Firefox Xray failure — never answers,
+// so every request "times out" locally). An HTTP status failure means the bridge
+// actually worked, so only transport-level failures fall back to fetch, where the
+// hosted origin still has public-proxy candidates.
+function shouldRetryEventBridgeFailureWithFetch(userscriptRequest: UserscriptHttpRequest, error: unknown): boolean {
+    if (!isUserscriptEventBridgeRequest(userscriptRequest)) return false;
+    if (!(error instanceof Error)) return true;
+    return !/\(\d{3}\)/.test(error.message);
 }
 
 function shouldRetryWithFetch(error: unknown): boolean {

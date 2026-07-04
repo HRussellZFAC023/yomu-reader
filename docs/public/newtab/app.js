@@ -648,7 +648,17 @@
   }
   function cloneCustomEventDetail(detail) {
     if (detail === void 0 || typeof window === "undefined") return detail;
-    return pageCompartmentValue(detail, { cloneFunctions: false, wrapReflectors: true });
+    const cloneInto = readMethod(globalThis, "cloneInto");
+    if (!cloneInto) return detail;
+    try {
+      return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
+    } catch {
+      try {
+        return JSON.stringify(detail);
+      } catch {
+        return void 0;
+      }
+    }
   }
   function dispatchWindowEvent(event) {
     const target = window;
@@ -905,10 +915,14 @@
     }
     return userscriptHttpEventBridge();
   }
+  const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
+  function isUserscriptEventBridgeRequest(request) {
+    return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
+  }
   function userscriptHttpEventBridge() {
     if (typeof window === "undefined" || typeof document === "undefined") return void 0;
     if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
-    return (options) => new Promise((resolve, reject) => {
+    return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
       const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
       const timeout = window.setTimeout(() => {
         cleanup();
@@ -926,7 +940,11 @@
       cleanupBridgeResponseListener = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
       const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
       dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, options: requestOptions });
-    });
+    }));
+  }
+  function tagEventBridgeRequest(request) {
+    request[EVENT_BRIDGE_TAG] = true;
+    return request;
   }
   function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
     const detail = bridgeResponseEventDetail(event);
@@ -1146,7 +1164,7 @@
       try {
         return await requestViaUserscript$1(url, options, userscriptRequest);
       } catch (error) {
-        if (!shouldRetryWithFetch(error)) throw error;
+        if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
       }
     }
     return requestViaFetch(url, options);
@@ -1276,6 +1294,11 @@
     } catch {
       return false;
     }
+  }
+  function shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error) {
+    if (!isUserscriptEventBridgeRequest(userscriptRequest)) return false;
+    if (!(error instanceof Error)) return true;
+    return !/\(\d{3}\)/.test(error.message);
   }
   function shouldRetryWithFetch(error) {
     if (!(error instanceof Error)) return true;
@@ -19780,7 +19803,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     sandboxCompanions = value;
     writeYomuCompanionsTarget(globalThis, value);
     if (typeof window !== "undefined" && window !== globalThis) {
-      writeYomuCompanionsTarget(window, value);
+      const pageValue = pageCompartmentRegistryValue(value);
+      if (pageValue) writeYomuCompanionsTarget(window, pageValue);
+    }
+  }
+  function pageCompartmentRegistryValue(value) {
+    const cloneInto = globalThis.cloneInto;
+    if (typeof cloneInto !== "function") return value;
+    try {
+      return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
+    } catch {
+      return void 0;
     }
   }
   function writeYomuCompanionsTarget(target, value) {
@@ -39319,7 +39352,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.61".trim() ? "1.6.61".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.62".trim() ? "1.6.62".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

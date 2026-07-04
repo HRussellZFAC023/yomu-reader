@@ -124,10 +124,21 @@ function dispatchUserscriptBridgeReady(): void {
     dispatchBridgeEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT);
 }
 
+// The DOM-event bridge can be marked as installed yet still fail at request time
+// (e.g. a Firefox Xray regression in the userscript world). Callers use this tag
+// to fall back to fetch+proxy on transport-level bridge failures instead of
+// treating the timeout as a final answer.
+const EVENT_BRIDGE_TAG = Symbol.for('yomu.userscriptEventBridge');
+
+export function isUserscriptEventBridgeRequest(request: unknown): boolean {
+    return typeof request === 'function'
+        && (request as { [EVENT_BRIDGE_TAG]?: boolean })[EVENT_BRIDGE_TAG] === true;
+}
+
 function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
     if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
     if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== 'true') return undefined;
-    return ((options: UserscriptHttpRequestOptions) => new Promise<UserscriptHttpResponse>((resolve, reject) => {
+    return tagEventBridgeRequest((options: UserscriptHttpRequestOptions) => new Promise<UserscriptHttpResponse>((resolve, reject) => {
         const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
         const timeout = window.setTimeout(() => {
             cleanup();
@@ -145,7 +156,12 @@ function userscriptHttpEventBridge(): UserscriptHttpRequest | undefined {
         cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse as EventListener);
         const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
         dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
-    })) as UserscriptHttpRequest;
+    }));
+}
+
+function tagEventBridgeRequest(request: (options: UserscriptHttpRequestOptions) => Promise<UserscriptHttpResponse>): UserscriptHttpRequest {
+    (request as unknown as { [EVENT_BRIDGE_TAG]?: boolean })[EVENT_BRIDGE_TAG] = true;
+    return request as UserscriptHttpRequest;
 }
 
 function handleBridgeResponseEvent(

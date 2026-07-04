@@ -217,7 +217,25 @@ function writeYomuCompanions(value: YomuCompanionRegistry): void {
     sandboxCompanions = value;
     writeYomuCompanionsTarget(globalThis, value);
     if (typeof window !== 'undefined' && window !== globalThis) {
-        writeYomuCompanionsTarget(window, value);
+        // Cross-compartment target (Firefox userscript sandbox → Xray page window):
+        // a sandbox object may not be defined on the page window ("Not allowed to
+        // define cross-origin object as property" console errors on every page);
+        // it must be cloned into the page compartment first, and skipped if the
+        // clone is refused.
+        const pageValue = pageCompartmentRegistryValue(value);
+        if (pageValue) writeYomuCompanionsTarget(window, pageValue);
+    }
+}
+
+function pageCompartmentRegistryValue(value: YomuCompanionRegistry): YomuCompanionRegistry | undefined {
+    const cloneInto = (globalThis as {
+        cloneInto?: (value: unknown, scope: object, options?: { cloneFunctions?: boolean; wrapReflectors?: boolean }) => unknown;
+    }).cloneInto;
+    if (typeof cloneInto !== 'function') return value;
+    try {
+        return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true }) as YomuCompanionRegistry;
+    } catch {
+        return undefined;
     }
 }
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.61
+// @version 1.6.62
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.61#sha256=VtyH2sgBFCFgHe3bACWrDOVzCCg5QdnISsnFq8XteEs=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.61#sha256=+jqka3sbY72HbJEDaMQobTxHiBKOfCg6wENb8aVUcek=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.61#sha256=yOvgYEgWwOXv7641XmNhfr2RE3AHY/KB1vWd3nACOy0=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.61#sha256=DHvcrxMA3Sze1uGNbvBTXj1M7sgmHi46Wm7nVxeMczc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.61#sha256=EhfPLj4n4rFkiJCImaEgVPw5iraAxgCryg6hnaK/qUk=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.61#sha256=pTp1xoN/+8GpPvL0foFCHnJKmxikdG75z/60VoJ/y3Q=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.62#sha256=0mHYvwR1lFhiM2jB+6L7BdyHRu7PF07HsnKDPaIQCj4=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.62#sha256=kxVUVDmiXG+8rjt9uffTB0uXqkEv/j8L4j3xU1W5ehI=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.62#sha256=ZHLI1Mp1gsJbdT9vv1akrMP9Y/ePz7aVbrYbAPYBMJk=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.62#sha256=OqzwlfMm6WDgo24XoVKjMY+P8lKgmeCnDwm4XI9sCd0=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.62#sha256=39Vou9scdPr2MALdpfCIC3bPLNeHKS95AbrzeIT37Zo=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.62#sha256=x6QXoQ/3QtvWoEbDzgNEqbh8HUltpVmOITKGQPCHL+Q=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -284,7 +284,17 @@ function createWindowCustomEvent(type, detail, init = {}) {
 }
 function cloneCustomEventDetail(detail) {
   if (detail === void 0 || typeof window === "undefined") return detail;
-  return pageCompartmentValue(detail, { cloneFunctions: false, wrapReflectors: true });
+  const cloneInto = readMethod(globalThis, "cloneInto");
+  if (!cloneInto) return detail;
+  try {
+  return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
+  } catch {
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return void 0;
+  }
+  }
 }
 function dispatchWindowEvent(event) {
   const target = window;
@@ -7930,10 +7940,14 @@ function hasInstalledUserscriptHttpBridge(markerDataset = bridgeMarkerDataset())
 function dispatchUserscriptBridgeReady() {
   dispatchBridgeEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT);
 }
+const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
+function isUserscriptEventBridgeRequest(request) {
+  return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
+}
 function userscriptHttpEventBridge() {
   if (typeof window === "undefined" || typeof document === "undefined") return void 0;
   if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
-  return (options) => new Promise((resolve, reject) => {
+  return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
   const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   const timeout = window.setTimeout(() => {
     cleanup();
@@ -7951,7 +7965,11 @@ function userscriptHttpEventBridge() {
   cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
   const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
   dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
-  });
+  }));
+}
+function tagEventBridgeRequest(request) {
+  request[EVENT_BRIDGE_TAG] = true;
+  return request;
 }
 function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
   const detail = bridgeResponseEventDetail(event);
@@ -8044,7 +8062,7 @@ async function requestHttp(url, options = {}) {
   try {
     return await requestViaUserscript(url, options, userscriptRequest);
   } catch (error) {
-    if (!shouldRetryWithFetch(error)) throw error;
+    if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
   }
   }
   return requestViaFetch(url, options);
@@ -8174,6 +8192,11 @@ function isSameOriginUrl(url) {
   } catch {
   return false;
   }
+}
+function shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error) {
+  if (!isUserscriptEventBridgeRequest(userscriptRequest)) return false;
+  if (!(error instanceof Error)) return true;
+  return !/\(\d{3}\)/.test(error.message);
 }
 function shouldRetryWithFetch(error) {
   if (!(error instanceof Error)) return true;
@@ -32414,7 +32437,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.61"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.62"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
