@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.64] - 2026-07-04
+
+### Changed
+
+- The new-tab study source switcher is now a proper dropdown: the status pill's cycle toggle (⇄) was replaced by a select listing Yomu, JPDB/Jiten, Bunpro, Anki, and Dictionary, with the provider colour dot on the dropdown face.
+
+### Fixed
+
+- Switching review source no longer looks like flipping between two identical Yomu modes: the dropdown always shows the source you chose, while the status pill reflects the cards actually on screen, so an empty queue falling back to practice words is visible instead of silently re-showing the same cards.
+
 ## [1.6.63] - 2026-07-04
 
 ### Fixed
