@@ -2233,11 +2233,28 @@ export class NewTabController {
             return true;
         }
         if (!card) return true;
+        if (actionTarget.closest('[data-newtab-composed-of]') && this.activateComposedOfKanjiStep(root, card, kanji)) return true;
         if (this.dependencies.showKanjiCard) {
             void this.dependencies.showKanjiCard(card, kanji, sentenceForCard(card), actionTarget, this.nestedLookupOptions());
         } else {
             void this.dependencies.lookupText?.(kanji, kanji, actionTarget, this.nestedLookupOptions());
         }
+        return true;
+    }
+
+    // Composed-of chips on the study reveal navigate to the word's own kanji
+    // study step (revealed) so the dictionary sections below swap in place —
+    // a popover with a Back button would hide the card being studied.
+    private activateComposedOfKanjiStep(root: HTMLElement, card: JPDBCard, kanji: string): boolean {
+        const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
+        const step = session.steps.find(candidate => candidate.kind === 'kanji-doodle' && candidate.kanji === kanji);
+        if (!step) return false;
+        const kanjiCard = this.kanjiStudyCardFromSourceCard(card, kanji);
+        const kanjiStep = this.studySessionForCard(kanjiCard, true)
+            .steps.find(candidate => candidate.kind === 'kanji-doodle' && candidate.kanji === kanji);
+        if (!kanjiStep) return false;
+        this.setStudyStepOverrideForCard(kanjiCard, kanjiStep.id);
+        this.setState({ mode: step.mode, revealAnswer: true }, root, { preserveWord: true, preferredCardKey: cardKey(kanjiCard) });
         return true;
     }
 
@@ -4104,8 +4121,8 @@ export class NewTabController {
             });
     }
 
-    private setState(patch: Partial<NewTabUiState>, root: HTMLElement, options: { preserveWord: boolean }): void {
-        const preferredCardKey = options.preserveWord ? this.currentVisibleWordKey() : '';
+    private setState(patch: Partial<NewTabUiState>, root: HTMLElement, options: { preserveWord: boolean; preferredCardKey?: string }): void {
+        const preferredCardKey = options.preferredCardKey ?? (options.preserveWord ? this.currentVisibleWordKey() : '');
         const shouldClearReviewHistory = (patch.mode !== undefined && patch.mode !== this.state.mode)
             || (patch.source !== undefined && patch.source !== this.state.source);
         this.state = { ...this.state, ...patch };
@@ -4700,6 +4717,10 @@ export class NewTabController {
 
     private setStudyStepOverrideForCurrentCard(id: NewTabStudyStepId | null): void {
         const card = this.visibleWords[this.index];
+        this.setStudyStepOverrideForCard(card ?? null, id);
+    }
+
+    private setStudyStepOverrideForCard(card: JPDBCard | null, id: NewTabStudyStepId | null): void {
         this.studyStepOverride = card && id ? { cardKey: cardKey(card), id } : null;
     }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.61] - 2026-07-04
+
+### Changed
+
+- Tapping a "Composed of" kanji chip on the new-tab study reveal now switches the study card to that kanji's own step in place — the dictionary sections below swap to the kanji's details — instead of opening a lookup popover over the card.
+
 ## [1.6.60] - 2026-07-04
 
 ### Fixed

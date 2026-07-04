@@ -78,6 +78,13 @@ function mergedStudyStepsForCard(card: JPDBCard, options: NewTabStudySessionOpti
 }
 
 function activeStudyStep(steps: NewTabStudyStep[], options: NewTabStudySessionOptions): NewTabStudyStep | null {
+    // A revealed kanji step is the composed-of drilldown from the word back —
+    // it must survive the reveal shortcut below, which otherwise collapses
+    // every revealed state onto the final-reveal step.
+    if (options.revealAnswer && options.mode === 'kanji' && options.activeStepId) {
+        const active = steps.find(step => step.id === options.activeStepId);
+        if (active?.kind === 'kanji-doodle') return active;
+    }
     if (options.revealAnswer && options.mode !== 'listen') return steps.find(step => step.kind === 'final-reveal') ?? null;
     if (options.activeStepId) {
         const active = steps.find(step => step.id === options.activeStepId || step.kind === options.activeStepId);

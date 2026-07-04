@@ -39319,7 +39319,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.60".trim() ? "1.6.60".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.61".trim() ? "1.6.61".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -73310,6 +73310,10 @@ ${options.version}`;
     return dedupeStudySteps(steps);
   }
   function activeStudyStep(steps, options) {
+    if (options.revealAnswer && options.mode === "kanji" && options.activeStepId) {
+      const active = steps.find((step) => step.id === options.activeStepId);
+      if (active?.kind === "kanji-doodle") return active;
+    }
     if (options.revealAnswer && options.mode !== "listen") return steps.find((step) => step.kind === "final-reveal") ?? null;
     if (options.activeStepId) {
       const active = steps.find((step) => step.id === options.activeStepId || step.kind === options.activeStepId);
@@ -75927,11 +75931,26 @@ ${entry.url}`),
         return true;
       }
       if (!card) return true;
+      if (actionTarget.closest("[data-newtab-composed-of]") && this.activateComposedOfKanjiStep(root, card, kanji)) return true;
       if (this.dependencies.showKanjiCard) {
         void this.dependencies.showKanjiCard(card, kanji, sentenceForCard(card), actionTarget, this.nestedLookupOptions());
       } else {
         void this.dependencies.lookupText?.(kanji, kanji, actionTarget, this.nestedLookupOptions());
       }
+      return true;
+    }
+    // Composed-of chips on the study reveal navigate to the word's own kanji
+    // study step (revealed) so the dictionary sections below swap in place —
+    // a popover with a Back button would hide the card being studied.
+    activateComposedOfKanjiStep(root, card, kanji) {
+      const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
+      const step = session.steps.find((candidate) => candidate.kind === "kanji-doodle" && candidate.kanji === kanji);
+      if (!step) return false;
+      const kanjiCard = this.kanjiStudyCardFromSourceCard(card, kanji);
+      const kanjiStep = this.studySessionForCard(kanjiCard, true).steps.find((candidate) => candidate.kind === "kanji-doodle" && candidate.kanji === kanji);
+      if (!kanjiStep) return false;
+      this.setStudyStepOverrideForCard(kanjiCard, kanjiStep.id);
+      this.setState({ mode: step.mode, revealAnswer: true }, root, { preserveWord: true, preferredCardKey: cardKey(kanjiCard) });
       return true;
     }
     handleNestedTermLookupAction(root, actionTarget, event) {
@@ -77474,7 +77493,7 @@ ${entry.url}`),
       });
     }
     setState(patch, root, options) {
-      const preferredCardKey = options.preserveWord ? this.currentVisibleWordKey() : "";
+      const preferredCardKey = options.preferredCardKey ?? (options.preserveWord ? this.currentVisibleWordKey() : "");
       const shouldClearReviewHistory = patch.mode !== void 0 && patch.mode !== this.state.mode || patch.source !== void 0 && patch.source !== this.state.source;
       this.state = { ...this.state, ...patch };
       if (shouldClearReviewHistory) this.clearReviewHistory();
@@ -77976,6 +77995,9 @@ ${entry.url}`),
     }
     setStudyStepOverrideForCurrentCard(id) {
       const card = this.visibleWords[this.index];
+      this.setStudyStepOverrideForCard(card ?? null, id);
+    }
+    setStudyStepOverrideForCard(card, id) {
       this.studyStepOverride = card && id ? { cardKey: cardKey(card), id } : null;
     }
     studyStepForId(id) {

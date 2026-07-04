@@ -4936,6 +4936,44 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('composed-of chips swap to the kanji study step in place instead of opening a popover', () => {
+        const restoreCanvas = stubKanjiDoodleBrowserApis();
+        const showKanjiCard = vi.fn();
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            immersionKitEnabled: false,
+            newTabStudyDisabledSteps: [],
+        }, {
+            showKanjiCard,
+            rtk: { lookup: vi.fn(async () => null) } as never,
+            dictionaries: { lookupKanji: vi.fn(async () => []), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
+        });
+        const card = newTabTestCard({ spelling: '日本', reading: 'にほん', source: 'jpdb', cardState: ['due'] });
+        const root = renderSeededNewTabWord(controller, card, {
+            sourceLabel: 'JPDB',
+            state: { source: 'jpdb', revealAnswer: true },
+            studyStepId: 'final-reveal',
+            appendToDocument: true,
+            bindRootEvents: true,
+        });
+        try {
+            const chip = root.querySelector<HTMLButtonElement>('[data-newtab-composed-of] [data-kanji="本"]')!;
+            expect(chip).not.toBeNull();
+            chip.click();
+            expect(showKanjiCard).not.toHaveBeenCalled();
+            expect(root.classList.contains('jpdb-reader-newtab-kanji-mode')).toBe(true);
+            const activeStep = root.querySelector<HTMLElement>('[data-newtab-action="study-step"][data-active="true"]');
+            expect(activeStep?.dataset.studyStepKanji).toBe('本');
+            const state = (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state;
+            expect(state.mode).toBe('kanji');
+            expect(state.revealAnswer).toBe(true);
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+            restoreCanvas();
+        }
+    });
+
     it('skips the Composed-of line for kana-only words', () => {
         const controller = newTabPromptController(DEFAULT_SETTINGS, {
             rtk: { lookup: vi.fn(async () => null) } as never,
