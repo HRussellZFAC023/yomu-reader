@@ -27,7 +27,8 @@ type StrokePattern = StrokePoint[][];
 
 const FEATURE_INTERVAL = 20;
 const NORMALIZED_SIZE = 256;
-const SHAPE_PASS_SCORE = 0.56;
+export const SHAPE_PASS_SCORE = 0.5;
+const TOTAL_PASS_SCORE = 62;
 
 export function assessKanjiStrokes(strokes: DoodleStroke[], expectedStrokes: number, referenceStrokes?: KanjiVGStrokeShape[]): KanjiStrokeAssessment {
     const validStrokes = strokes.filter(stroke => stroke.length > 1);
@@ -43,7 +44,7 @@ export function assessKanjiStrokes(strokes: DoodleStroke[], expectedStrokes: num
             : strokeScore * 0.18 + coverageScore * 0.06 + directionScore * 0.04 + shapeScore * 0.72
     ) * 100);
     const shapePassed = shapeScore == null || shapeScore >= SHAPE_PASS_SCORE;
-    const passed = actualStrokes === expected && score >= 68 && shapePassed;
+    const passed = actualStrokes === expected && score >= TOTAL_PASS_SCORE && shapePassed;
     const message = assessmentMessage(passed, actualStrokes, expected, shapeScore);
     return { passed, score, expectedStrokes: expected, actualStrokes, shapeScore: shapeScore ?? undefined, message };
 }
@@ -101,7 +102,9 @@ function assessStrokeShape(strokes: DoodleStroke[], referenceStrokes: KanjiVGStr
     const scores = written.map((stroke, index) => strokeCorrespondenceScore(stroke, reference[index]));
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const worst = Math.min(...scores);
-    return average * 0.72 + worst * 0.28;
+    // Weight the worst stroke lightly: one wobbly stroke in an otherwise
+    // correct character should not fail the whole drawing.
+    return average * 0.8 + worst * 0.2;
 }
 
 function kanjiShapeMatch(candidate: KanjiShapeCandidate, written: StrokePattern, actualStrokes: number): KanjiShapeMatch | null {

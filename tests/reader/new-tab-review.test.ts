@@ -8332,6 +8332,26 @@ describe('new tab review helpers', () => {
         });
     });
 
+    it('drops a stale kanji SVG enrichment so the previous kanji never fills the next step ghost', () => {
+        const controller = newTabBareController();
+        const answer = document.createElement('div');
+        answer.innerHTML = `
+            <div class="jpdb-reader-doodle-stage" data-kanji="鑑">
+                <div class="jpdb-reader-doodle-ghost" data-newtab-doodle-ghost></div>
+            </div>
+        `;
+        const ghost = answer.querySelector<HTMLElement>('[data-newtab-doodle-ghost]')!;
+        const applySvg = (kanji: string) => (controller as unknown as {
+            applyEnrichedKanjiSvg(answer: HTMLElement | null, kanji: string, svg: string | undefined): void;
+        }).applyEnrichedKanjiSvg(answer, kanji, '<svg class="jpdb-reader-kanjivg-svg"><g><path d="M0 0L1 1"></path></g></svg>');
+
+        applySvg('図');
+        expect(ghost.querySelector('svg')).toBeNull();
+
+        applySvg('鑑');
+        expect(ghost.querySelector('svg')).not.toBeNull();
+    });
+
     it('fronts a concise word meaning + blanked cloze on the kanji front, condensing messy glosses', async () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
         const lookup = deferred<{ kanji: string; keyword: string; meanings: string[]; readings: []; components: []; vocabulary: []; frequencyRank: null }>();

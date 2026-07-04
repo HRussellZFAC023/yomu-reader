@@ -22,7 +22,15 @@ interface KanjiDoodleElements {
 }
 
 const PEN_MIN_DISTANCE = 0.0008;
-const POINTER_MIN_DISTANCE = 0.0035;
+const POINTER_MIN_DISTANCE = 0.0016;
+// The ghost trace is a KanjiVG glyph (109-unit viewBox) stroked at 3 units;
+// the brush matches that rendered width so drawn strokes sit flush on the trace.
+const GHOST_VIEWBOX_UNITS = 109;
+const GHOST_STROKE_UNITS = 3;
+// Fallback when the ghost is hidden (rect collapses to 0): the newtab stage
+// renders the glyph at min(82%, 220px) of the stage box.
+const GHOST_FALLBACK_RATIO = 0.82;
+const GHOST_FALLBACK_MAX_PX = 220;
 const ACTIVE_DOODLE_CLASS = 'jpdb-reader-doodle-active';
 const NATIVE_GESTURE_SUPPRESS_MS = 900;
 export const KANJI_DOODLE_CLEAR_EVENT = 'yomu:kanji-doodle-clear';
@@ -97,6 +105,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         const width = Math.max(1, Math.round(rect.width * dpr));
         const height = Math.max(1, Math.round(rect.height * dpr));
         canvasRect = canvas.getBoundingClientRect();
+        measureGhost();
         if (canvas.width !== width || canvas.height !== height) {
             canvas.width = width;
             canvas.height = height;
@@ -112,9 +121,27 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         };
     };
 
-    const strokeWidth = (point?: DoodlePoint): number => (
-        Math.max(1.8, Math.min(5.2, canvas.width * 0.0066)) * (0.74 + (point?.pressure ?? 0.55) * 0.28)
-    );
+    let measuredGhostSize = 0;
+    const measureGhost = (): void => {
+        const svg = ghost.querySelector('svg');
+        if (!svg) return;
+        const rect = svg.getBoundingClientRect();
+        const size = Math.min(rect.width, rect.height);
+        if (size > 0) measuredGhostSize = size;
+    };
+
+    const ghostDisplaySize = (): number => {
+        if (measuredGhostSize > 0) return measuredGhostSize;
+        const stageSize = Math.min(canvasRect.width, canvasRect.height);
+        return Math.min(stageSize * GHOST_FALLBACK_RATIO, GHOST_FALLBACK_MAX_PX);
+    };
+
+    const strokeWidth = (point?: DoodlePoint): number => {
+        const base = Math.max(2.4, (GHOST_STROKE_UNITS / GHOST_VIEWBOX_UNITS) * ghostDisplaySize() * dpr);
+        // Mouse reports a constant ~0.5 pressure (scale ≈ 1 → trace width);
+        // a pen's real pressure modulates gently around it.
+        return base * (0.78 + (point?.pressure ?? 0.5) * 0.44);
+    };
 
     const setupStroke = (point?: DoodlePoint) => {
         context.strokeStyle = resolvedDoodleInk(stage);
@@ -129,9 +156,37 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
             drawPoint(stroke[0]);
             return;
         }
+        if (typeof context.quadraticCurveTo === 'function') {
+            drawSmoothedStroke(stroke);
+            return;
+        }
         for (let index = 1; index < stroke.length; index += 1) {
             drawSegment(stroke[index - 1], stroke[index]);
         }
+    };
+
+    // One smoothed path per stroke: each raw point becomes the control point of
+    // a quadratic through segment midpoints, so sparse mouse samples render as
+    // a continuous curve instead of a jagged polyline.
+    const drawSmoothedStroke = (stroke: DoodlePoint[]) => {
+        context.save();
+        setupStroke(averagePressurePoint(stroke));
+        context.beginPath();
+        context.moveTo(stroke[0].x * canvas.width, stroke[0].y * canvas.height);
+        for (let index = 1; index < stroke.length - 1; index += 1) {
+            const control = stroke[index];
+            const next = stroke[index + 1];
+            context.quadraticCurveTo(
+                control.x * canvas.width,
+                control.y * canvas.height,
+                ((control.x + next.x) / 2) * canvas.width,
+                ((control.y + next.y) / 2) * canvas.height,
+            );
+        }
+        const last = stroke[stroke.length - 1];
+        context.lineTo(last.x * canvas.width, last.y * canvas.height);
+        context.stroke();
+        context.restore();
     };
 
     const drawPoint = (point: DoodlePoint) => {
@@ -173,7 +228,10 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         const minDistance = pointerType === 'pen' ? PEN_MIN_DISTANCE : POINTER_MIN_DISTANCE;
         if (last && Math.hypot(point.x - last.x, point.y - last.y) < minDistance) return;
         points.push(point);
-        if (last) drawSegment(last, point);
+        // Full redraw keeps the live stroke on the smoothed-curve path; the
+        // canvas is small enough that this is cheap even per coalesced sample.
+        if (typeof context.quadraticCurveTo === 'function') redraw();
+        else if (last) drawSegment(last, point);
         else drawPoint(point);
     };
 
@@ -284,6 +342,10 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         ghost.hidden = !traceVisible;
         stage.classList.toggle('trace-hidden', !traceVisible);
         trace.textContent = uiText(getLanguage(), traceVisible ? 'hideTrace' : 'showTrace');
+        if (traceVisible) {
+            measureGhost();
+            redraw();
+        }
     }, { signal });
 
     const resizeObserver = new ResizeObserver(resize);
@@ -311,6 +373,11 @@ function suppressNativeCanvasGesture(event: Event): void {
     event.preventDefault();
     event.stopPropagation();
     clearSelection();
+}
+
+function averagePressurePoint(stroke: DoodlePoint[]): DoodlePoint {
+    const pressure = stroke.reduce((sum, point) => sum + point.pressure, 0) / stroke.length;
+    return { ...stroke[stroke.length - 1], pressure };
 }
 
 function pointerSamples(event: PointerEvent): PointerEvent[] {

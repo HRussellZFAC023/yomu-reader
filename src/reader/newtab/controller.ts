@@ -72,7 +72,7 @@ import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-voca
 import { buildKanjiFacts, buildKanjiOriginGraph } from '../kanji/origin';
 import { installKanjiDoodle, KANJI_DOODLE_CLEAR_EVENT, type DoodleStroke } from '../kanji/doodle';
 import { renderAnkiRenderedCardStudyBody } from '../anki/render';
-import { assessKanjiStrokes, rankKanjiStrokeCandidates, type KanjiShapeCandidate, type KanjiStrokeAssessment } from '../kanji/stroke-grader';
+import { assessKanjiStrokes, rankKanjiStrokeCandidates, SHAPE_PASS_SCORE, type KanjiShapeCandidate, type KanjiStrokeAssessment } from '../kanji/stroke-grader';
 import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
 import type { JpdbReviewBridgeCard, JpdbReviewBridgeClient, JpdbReviewBridgeStatus } from '../jpdb/jpdb-review-bridge';
 import { publishCardStateSignal } from '../app/card-state-signal';
@@ -7414,19 +7414,22 @@ export class NewTabController {
 
     private async enrichKanjiCard(slots: NewTabStudySlots, card: JPDBCard, kanji: string): Promise<void> {
         const details = await this.loadKanjiDetails(kanji);
-        if (!this.canApplyKanjiEnrichment(slots, card)) return;
+        if (!this.canApplyKanjiEnrichment(slots, card, kanji)) return;
 
         this.applyEnrichedKanjiKeyword(slots, card, kanji, details);
-        this.applyEnrichedKanjiSvg(slots.answer, details.vg?.svg);
+        this.applyEnrichedKanjiSvg(slots.answer, kanji, details.vg?.svg);
         this.applyEnrichedKanjiMeaning(slots, card, kanji, details);
         void this.applyEnrichedUchisenKeyword(slots, card, kanji, details);
     }
 
-    private canApplyKanjiEnrichment(slots: NewTabStudySlots, card: JPDBCard): boolean {
+    private canApplyKanjiEnrichment(slots: NewTabStudySlots, card: JPDBCard, kanji?: string): boolean {
         const current = this.visibleWords[this.index];
         if (!current || cardKey(current) !== cardKey(card)) return false;
         const session = this.studySessionForCard(current, this.shouldRenderCardAsKanji(current));
         if (!this.studyStepRendersKanji(session)) return false;
+        // A late-resolving enrichment for a PREVIOUS kanji step must not
+        // overwrite the trace/prompt after advancing to the next kanji.
+        if (kanji && session.activeStep.kind === 'kanji-doodle' && session.activeStep.kanji && session.activeStep.kanji !== kanji) return false;
         const study = slots.prompt?.closest<HTMLElement>('[data-newtab-study]')
             ?? slots.answer?.closest<HTMLElement>('[data-newtab-study]');
         if (!study) return true;
@@ -7455,15 +7458,19 @@ export class NewTabController {
         if (!slots.prompt || this.state.revealAnswer) return;
         const uchisenData = await this.loadUchisenDetails(kanji);
         if (!uchisenData?.kanjiKeyword?.keyword) return;
-        if (!this.canApplyKanjiEnrichment(slots, card)) return;
+        if (!this.canApplyKanjiEnrichment(slots, card, kanji)) return;
         if (!slots.prompt || this.state.revealAnswer) return;
         replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(this.kanjiPromptKeywordsFromDetails(card, details, uchisenData), card, kanji));
     }
 
-    private applyEnrichedKanjiSvg(answer: HTMLElement | null, svgMarkup: string | undefined): void {
+    private applyEnrichedKanjiSvg(answer: HTMLElement | null, kanji: string, svgMarkup: string | undefined): void {
         if (!answer || !svgMarkup) return;
         const mounts = this.enrichedKanjiSvgMounts(answer);
         this.applyRevealedKanjiSvg(mounts.svg, svgMarkup);
+        // The ghost belongs to the stage stamped with the step's kanji; a stale
+        // enrichment for another kanji must not fill it.
+        const stageKanji = mounts.ghost?.closest<HTMLElement>('.jpdb-reader-doodle-stage')?.dataset.kanji;
+        if (stageKanji && stageKanji !== kanji) return;
         this.applyDoodleGhostSvg(mounts.ghost, svgMarkup);
     }
 
@@ -7960,7 +7967,7 @@ export class NewTabController {
         const count = `${assessment.actualStrokes}/${assessment.expectedStrokes} ${this.text('strokes')}`;
         if (assessment.passed) return `${this.text('looksRight')}: ${count}`;
         if (assessment.actualStrokes !== assessment.expectedStrokes) return `${this.text('checkStrokeCount')}: ${count}`;
-        if (assessment.shapeScore != null && assessment.shapeScore < 0.56) return `${this.text('checkStrokeShapeOrder')}: ${count}`;
+        if (assessment.shapeScore != null && assessment.shapeScore < SHAPE_PASS_SCORE) return `${this.text('checkStrokeShapeOrder')}: ${count}`;
         return `${this.text('checkStrokeCountOrder')}: ${count}`;
     }
 
