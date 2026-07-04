@@ -61,6 +61,24 @@ const vocabulary = [
     word('大阪', 'おおさか', 'heiban'),
     word('食べ歩き', 'たべあるき', 'heiban'),
     word('カフェ', 'かふぇ', 'heiban'),
+    word('動画', 'どうが', 'heiban'),
+    word('人気', 'にんき', 'heiban'),
+    word('視聴', 'しちょう', 'heiban'),
+    word('万', 'まん', 'heiban'),
+    word('回', 'かい', 'heiban'),
+    word('人', 'にん', 'heiban'),
+    word('者', 'しゃ', 'heiban'),
+    word('数', 'すう', 'heiban'),
+    word('登録', 'とうろく', 'heiban'),
+    word('チャンネル', 'ちゃんねる', 'heiban'),
+    word('ホーム', 'ほーむ', 'heiban'),
+    word('ショート', 'しょーと', 'heiban'),
+    word('ライブ', 'らいぶ', 'heiban'),
+    word('リスト', 'りすと', 'heiban'),
+    word('投稿', 'とうこう', 'heiban'),
+    word('マイページ', 'まいぺーじ', 'heiban'),
+    word('毎日', 'まいにち', 'heiban'),
+    word('再生', 'さいせい', 'heiban'),
 ];
 
 const longWatchTitle = '【完全独学】留学なし・お金をかけずに家で英語を話せるようになった方法｜日本語でニュースを読む勉強と投資と貯金の方法';
@@ -133,6 +151,59 @@ const pages = [
                   </yt-lockup-view-model>
                 </ytd-two-column-search-results-renderer>
               </ytd-search>
+            </ytd-app>
+        `),
+    },
+    {
+        // Channel page (owner iPad screenshot): tab strip, mini-guide (only
+        // scanned on /watch before), shelf headings, header description
+        // preview さらに表示, and grid metadata 10万回視聴 with cropped rows.
+        name: 'desktop-channel',
+        url: 'https://www.youtube.com/@tokyo',
+        viewport: { width: 1280, height: 900 },
+        html: youtubeShell(`
+            <ytd-app>
+              <ytd-mini-guide-renderer class="mini-guide">
+                <ytd-mini-guide-entry-renderer><a class="guide-entry"><span data-proof-target data-proof-text="ホーム" data-proof-expect-at-rest-decoration="true">ホーム</span></a></ytd-mini-guide-entry-renderer>
+                <ytd-mini-guide-entry-renderer><a class="guide-entry"><span data-proof-target data-proof-text="登録チャンネル">登録チャンネル</span></a></ytd-mini-guide-entry-renderer>
+                <ytd-mini-guide-entry-renderer><a class="guide-entry"><span>マイページ</span></a></ytd-mini-guide-entry-renderer>
+              </ytd-mini-guide-renderer>
+              <ytd-browse page-subtype="channels" class="channel">
+                <yt-page-header-view-model class="channel-header">
+                  <h1 class="channel-name" data-proof-target data-proof-text="東京散歩チャンネル">東京散歩チャンネル</h1>
+                  <yt-content-metadata-view-model>
+                    <div class="ytContentMetadataViewModelMetadataRow"><span data-proof-target data-proof-text="チャンネル登録者数 10万人">チャンネル登録者数 10万人</span></div>
+                  </yt-content-metadata-view-model>
+                  <yt-description-preview-view-model class="channel-description">
+                    <div class="channel-description-text" data-proof-target data-proof-text="東京の散歩と日本語の勉強について毎日配信します さらに表示" data-proof-expect-ruby-room="true">東京の散歩と日本語の勉強について毎日配信します さらに表示</div>
+                  </yt-description-preview-view-model>
+                </yt-page-header-view-model>
+                <yt-tab-group-shape class="tab-strip" role="tablist">
+                  <yt-tab-shape tab-title="ホーム"><div role="tab" class="tab" data-proof-target data-proof-text="ホーム" data-proof-expect-at-rest-decoration="true">ホーム</div></yt-tab-shape>
+                  <yt-tab-shape tab-title="動画"><div role="tab" class="tab" data-proof-target data-proof-text="動画" data-proof-expect-at-rest-decoration="true">動画</div></yt-tab-shape>
+                  <yt-tab-shape tab-title="ショート"><div role="tab" class="tab">ショート</div></yt-tab-shape>
+                  <yt-tab-shape tab-title="ライブ"><div role="tab" class="tab">ライブ</div></yt-tab-shape>
+                  <yt-tab-shape tab-title="再生リスト"><div role="tab" class="tab" data-proof-target data-proof-text="再生リスト">再生リスト</div></yt-tab-shape>
+                  <yt-tab-shape tab-title="投稿"><div role="tab" class="tab">投稿</div></yt-tab-shape>
+                </yt-tab-group-shape>
+                <grid-shelf-view-model class="shelf">
+                  <h2 class="shelf-title" data-proof-target data-proof-text="人気の動画">人気の動画</h2>
+                  <yt-lockup-view-model class="card">
+                    <div class="thumb"></div>
+                    <yt-lockup-metadata-view-model>
+                      <a class="ytLockupMetadataViewModelTitle title" href="/watch?v=ch1" data-proof-target data-proof-text="東京散歩と春コーデ">東京散歩と春コーデ</a>
+                    </yt-lockup-metadata-view-model>
+                  </yt-lockup-view-model>
+                </grid-shelf-view-model>
+                <ytd-shelf-renderer class="shelf">
+                  <div id="title" class="shelf-title" data-proof-target data-proof-text="動画">動画</div>
+                  <ytd-grid-video-renderer class="card">
+                    <div class="thumb"></div>
+                    <a id="video-title" class="title clamped" href="/watch?v=ch2" data-proof-target data-proof-text="京都で朝ごはんを食べ歩きしてカフェで日本語を勉強" data-proof-expect-ruby-room="true">京都で朝ごはんを食べ歩きしてカフェで日本語を勉強</a>
+                    <div id="metadata-line" class="grid-meta" data-proof-target data-proof-text="10万回視聴">10万回視聴</div>
+                  </ytd-grid-video-renderer>
+                </ytd-shelf-renderer>
+              </ytd-browse>
             </ytd-app>
         `),
     },
@@ -346,7 +417,26 @@ function youtubeShell(body) {
     ytd-app, ytm-app, ytd-watch-flexy, ytd-rich-grid-renderer, ytd-rich-item-renderer, ytd-video-renderer,
     ytd-compact-video-renderer, yt-lockup-view-model, yt-lockup-metadata-view-model, ytm-rich-grid-renderer,
     ytm-video-with-context-renderer, ytm-shorts-lockup-view-model, ytd-reel-item-renderer, ytm-slim-video-metadata-section-renderer,
-    ytd-watch-metadata, ytd-comments, ytd-comment-view-model, yt-live-chat-text-message-renderer { display: block; }
+    ytd-watch-metadata, ytd-comments, ytd-comment-view-model, yt-live-chat-text-message-renderer,
+    ytd-browse, yt-page-header-view-model, yt-content-metadata-view-model, yt-description-preview-view-model,
+    grid-shelf-view-model, ytd-shelf-renderer, ytd-grid-video-renderer, ytd-mini-guide-renderer,
+    ytd-mini-guide-entry-renderer, yt-tab-shape { display: block; }
+    yt-tab-group-shape { display: flex; gap: 26px; }
+    .mini-guide { position: fixed; top: 0; left: 0; bottom: 0; width: 76px; padding-top: 70px; background: #0f0f0f; }
+    .guide-entry { display: block; padding: 14px 6px; font-size: 11px; color: #f1f1f1; text-align: center; text-decoration: none; }
+    .channel { margin-left: 96px; padding: 24px; }
+    .channel-header { display: block; max-width: 640px; }
+    .channel-name { margin: 0 0 8px; font-size: 24px; }
+    .ytContentMetadataViewModelMetadataRow { color: #aaa; font-size: 14px; margin-bottom: 6px; }
+    .channel-description-text { max-width: 300px; font-size: 14px; line-height: 1.6; overflow: hidden; height: 40px; max-height: 40px; color: #ddd; }
+    .tab-strip { margin: 18px 0; border-bottom: 1px solid #333; }
+    .tab { padding: 10px 4px; font-size: 15px; color: #f1f1f1; }
+    .shelf { margin: 26px 0; }
+    .shelf-title { font-size: 20px; font-weight: 700; margin: 0 0 14px; }
+    .grid-meta { overflow: hidden; height: 20px; max-height: 20px; font-size: 13px; color: #aaa; }
+    /* Narrow like a real channel grid card so the 44px clamp actually crops
+       the two-line title and the ruby-room sweep has work to do. */
+    .channel .card { max-width: 320px; }
     .proof-status { position: sticky; top: 0; z-index: 10; padding: 12px 18px; background: #123d24; border-bottom: 2px solid #65d184; font-size: 14px; font-weight: 700; }
     .topbar { height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 24px; background: #0f0f0f; }
     .chips { display: block; padding: 12px 26px 0; }
@@ -609,6 +699,11 @@ function auditProofTarget(element, vocabulary) {
     if (rubyOutOfBounds) failures.push(rubyOutOfBounds + ' ruby annotations sit outside target bounds');
     if (expectedRubyRoom && element.dataset.yomuRubyRoom !== 'true') failures.push('expected clipped title to receive ruby room');
     if (expectedRubyRoom && rubyRoomHeight <= 38) failures.push('expected clipped title ruby room height to grow beyond the original title height');
+    if (element.getAttribute('data-proof-expect-at-rest-decoration') === 'true') {
+        const wordElements = Array.from(proofTargetWordRoot(element).querySelectorAll('.jpdb-reader-word')).filter(isVisibleElement);
+        const bare = wordElements.filter(wordElement => !hasAtRestDecoration(wordElement));
+        if (!wordElements.length || bare.length) failures.push('chrome word missing at-rest underline decoration (carve-out regressed)');
+    }
 
     return {
         label,
@@ -630,6 +725,20 @@ function auditProofTarget(element, vocabulary) {
 
 function isVisibleProofTarget(element) {
     return isVisibleElement(element) || Boolean(visibleTextMirror(element));
+}
+
+// Bare-until-hover suppression forces every decoration channel transparent, so
+// a carved-out chrome word must keep at least one visible at rest.
+function hasAtRestDecoration(wordElement) {
+    const style = getComputedStyle(wordElement);
+    const afterStyle = getComputedStyle(wordElement, '::after');
+    return !isTransparentColor(style.textDecorationColor)
+        || !isTransparentColor(afterStyle.borderBlockEndColor)
+        || !isTransparentColor(style.backgroundColor);
+}
+
+function isTransparentColor(value) {
+    return !value || value === 'transparent' || value === 'rgba(0, 0, 0, 0)';
 }
 
 function proofTargetWordRoot(element) {

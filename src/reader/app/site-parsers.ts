@@ -382,11 +382,11 @@ const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
     ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
 ].join(',');
-const YOUTUBE_WATCH_GUIDE_ROOTS = [
+const YOUTUBE_GUIDE_ROOTS = [
     'ytd-mini-guide-renderer',
     'ytd-guide-renderer',
 ];
-const YOUTUBE_WATCH_GUIDE_EXCLUDE = [
+const YOUTUBE_GUIDE_EXCLUDE = [
     COMMON_EXCLUDE,
     ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
 ].join(',');
@@ -873,6 +873,16 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-rich-item-renderer',
             'ytd-video-renderer',
             'yt-lockup-view-model',
+            // Channel pages: lockup ITEMS were scanned via yt-lockup-view-model
+            // but their shelf headings (人気の動画/動画), the channel header
+            // (name/handle/metadata/description preview さらに表示), and the
+            // legacy grid cards had no root at all, so they stayed bare.
+            'yt-page-header-view-model',
+            'ytd-c4-tabbed-header-renderer',
+            'grid-shelf-view-model',
+            'ytd-shelf-renderer',
+            'ytd-reel-shelf-renderer',
+            'ytd-grid-video-renderer',
             'ytm-rich-grid-renderer',
             'ytm-video-with-context-renderer',
             'ytm-shorts-lockup-view-model',
@@ -891,19 +901,20 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             || url.hostname === 'youtu.be',
     },
     {
-        id: 'youtube-watch-guide-parser',
-        roots: YOUTUBE_WATCH_GUIDE_ROOTS,
-        exclude: YOUTUBE_WATCH_GUIDE_EXCLUDE,
+        // The guide rail is the same persistent surface on every desktop page;
+        // scoping this to /watch left it bare on home, channel, and search.
+        id: 'youtube-guide-parser',
+        roots: YOUTUBE_GUIDE_ROOTS,
+        exclude: YOUTUBE_GUIDE_EXCLUDE,
         allowUiText: true,
         minLength: 1,
         includeUiChrome: true,
         singlePassScan: true,
         nonDestructive: true,
         includePassiveInteractionRoots: false,
-        matches: url => (url.hostname === 'youtube.com'
+        matches: url => url.hostname === 'youtube.com'
             || url.hostname.endsWith('.youtube.com')
-            || url.hostname === 'youtu.be')
-            && url.pathname === '/watch',
+            || url.hostname === 'youtu.be',
     },
     {
         // Engagement panels (description, transcript, the "ask about this

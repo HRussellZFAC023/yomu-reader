@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.40] - 2026-07-04
+
+### Fixed
+
+- YouTube channel pages are now annotated end to end: the tab strip (ホーム/動画/ショートなど), shelf headings like 人気の動画, the channel header with its description preview (さらに表示), and legacy grid cards are all scanned — and the guide rail no longer needs a watch page to get furigana and pitch.
+- Words in the channel tab strip keep their pitch underline at rest: the bare-until-hover chrome rule now carves out yt-tab-shape the same way it does chips, the guide, and the watch action row.
+- Cropped channel-page rows no longer clip furigana: clamped grid titles, 10万回視聴 metadata lines, and the channel description preview reserve ruby room like the watch title does.
+
+### Changed
+
+- The YouTube ruby-coverage proof gained a desktop-channel page that pins all of the above (scan coverage, at-rest underlines, ruby room) against the built stylesheet in real Chromium.
+
 ## [1.6.39] - 2026-07-04
 
 ### Fixed
