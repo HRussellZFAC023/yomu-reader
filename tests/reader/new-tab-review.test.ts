@@ -1575,8 +1575,10 @@ describe('new tab review helpers', () => {
             .toContain('.jpdb-reader-theme-light .jpdb-reader-newtab-controls button:not([data-grade]), .yomu-page-theme-light .jpdb-reader-newtab-controls button:not([data-grade]) { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 20%, var(--jpdb-reader-border));');
         expect(newTabCssRule(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab'))
             .toContain('--jpdb-reader-bg: var(--bg, var(--jpdb-reader-theme-light-bg));');
+        expect(newTabCssRule('.jpdb-reader-newtab'))
+            .not.toContain('--jpdb-reader-accent-readable');
         expect(newTabCssRule(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab'))
-            .toContain('--jpdb-reader-accent-readable: var( --accent-readable, var(--jpdb-reader-theme-light-accent-readable) );');
+            .not.toContain('--jpdb-reader-accent-readable');
         expect(normalizedCss)
             .toContain('button[data-newtab-action="reveal"] { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 72%, var(--jpdb-reader-border)); background: linear-gradient( 180deg, color-mix(in srgb, var(--jpdb-reader-accent) 94%, var(--jpdb-reader-white) 6%), var(--jpdb-reader-accent) ); color: var(--jpdb-reader-accent-text, var(--jpdb-reader-white));');
         expect(normalizedCss)

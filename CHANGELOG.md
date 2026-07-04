@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.48] - 2026-07-04
+
+### Fixed
+
+- New-tab accent text now follows custom theme colors. The Search button, active source chips, and selected browser controls no longer fall back to the default green readable-accent token when the userscript theme is set to another color, such as red.
+
 ## [1.6.47] - 2026-07-04
 
 ### Changed

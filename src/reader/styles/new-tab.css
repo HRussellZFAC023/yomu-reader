@@ -18,10 +18,6 @@
   --jpdb-reader-muted: var(--muted, var(--jpdb-reader-theme-dark-muted));
   --jpdb-reader-faint: var(--faint, var(--jpdb-reader-theme-dark-faint));
   --jpdb-reader-border: var(--border, var(--jpdb-reader-theme-dark-border));
-  --jpdb-reader-accent-readable: var(
-    --accent-readable,
-    var(--jpdb-reader-theme-dark-accent-readable)
-  );
   --jpdb-reader-newtab-content-width: min(760px, 100%);
   display: block;
   min-height: 100dvh;
@@ -44,10 +40,6 @@
   --jpdb-reader-muted: var(--muted, var(--jpdb-reader-theme-light-muted));
   --jpdb-reader-faint: var(--faint, var(--jpdb-reader-theme-light-faint));
   --jpdb-reader-border: var(--border, var(--jpdb-reader-theme-light-border));
-  --jpdb-reader-accent-readable: var(
-    --accent-readable,
-    var(--jpdb-reader-theme-light-accent-readable)
-  );
 }
 
 /* Swipe-grade edge glows (UT-21): hidden at rest, fade in only while a drag
