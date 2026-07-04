@@ -117,10 +117,12 @@ const PITCH_COLOR_FIELDS = [
     ['pitchColorKifuku', 'Kifuku (variable)'],
     ['pitchColorUnknown', 'Unknown / inherited'],
 ] as const satisfies readonly ColorInputField[];
+// No ocrBackgroundColor field: the highlight background is derived from the
+// accent color on every normalize (accessibleOcrBackgroundColor), so a picker
+// for it was a dead control whose pick was silently discarded.
 const OCR_COLOR_FIELDS = [
     ['ocrTextColor', 'Image text color'],
     ['ocrOutlineColor', 'Image text outline'],
-    ['ocrBackgroundColor', 'Image highlight background'],
 ] as const satisfies readonly ColorInputField[];
 const SUBTITLE_COLOR_FIELDS = [
     ['subtitleTextColor', 'Subtitle color'],
@@ -1880,7 +1882,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'immersionKitPlayOnHover', 'immersionKitPlayOnImageClick', 'immersionKitCategory', 'immersionKitSort', 'immersionKitLimit',
     'immersionKitMinLength', 'immersionKitMaxLength', 'immersionKitPlaybackRate', 'immersionKitExactMatch', 'ocrInteractionMode',
     'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrInvertDarkPanels', 'ocrProvider', 'ocrOverlayTheme', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
-    'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundColor', 'ocrBackgroundOpacity',
+    'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundOpacity',
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
     'subtitleOverlayVisible', 'subtitleSecondaryVisible', 'subtitleNativeBlurred', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',
     'subtitlePausePanel', 'subtitleShadowAutoPause', 'subtitleTranscriptPlacement', 'subtitleTranscriptAutoScroll', 'subtitleTranscriptAutoScrollResumeSeconds', 'subtitleAutoCopyLine', 'subtitleCopyIncludeTranslation', 'subtitleMiningPause',

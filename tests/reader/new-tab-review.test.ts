@@ -4224,7 +4224,7 @@ describe('new tab review helpers', () => {
         expect(gradeButtons[1]?.title).toContain('+3d');
     });
 
-    it('submits swipe-left and swipe-right grades on unrevealed new-tab SRS cards', async () => {
+    it('gates swipe grades on the revealed answer: pre-reveal drags are inert, revealed swipes grade', async () => {
         vi.stubGlobal('PointerEvent', class {});
         const runSwipe = async (deltaX: number, expectedGrade: JPDBGrade): Promise<void> => {
             const current = newTabTestCard({
@@ -4274,9 +4274,17 @@ describe('new tab review helpers', () => {
                 internals.bindRootEvents(root);
                 internals.renderWord(root, current);
 
-                const study = root.querySelector<HTMLElement>('[data-newtab-study]')!;
-                dispatchPointerSwipe(study, window, deltaX);
+                // Answer hidden: the drag must not even start — a swipe grade
+                // for an unseen answer would corrupt the provider's SRS state.
+                dispatchPointerSwipe(root.querySelector<HTMLElement>('[data-newtab-study]')!, window, deltaX);
+                await Promise.resolve();
+                await Promise.resolve();
+                expect(root.dataset.newtabSwipeDirection).toBeUndefined();
+                expect(reviewCard).not.toHaveBeenCalled();
 
+                internals.state.revealAnswer = true;
+                internals.renderWord(root, current);
+                dispatchPointerSwipe(root.querySelector<HTMLElement>('[data-newtab-study]')!, window, deltaX);
                 await Promise.resolve();
                 await Promise.resolve();
 

@@ -174,6 +174,34 @@ describe('study flow: progressive hints', () => {
     });
 });
 
+describe('study flow: swipe grading gate', () => {
+    it('ignores grade swipes until the answer is revealed, then grades once revealed', () => {
+        const { controller, internals } = studyController([drinkCard()], { newTabSwipeReviews: true });
+        const root = studyRoot();
+        const swipeable = controller as unknown as {
+            handleNewTabSwipe(root: HTMLElement, action: 'good'): void;
+            gradeCurrentCard(grade: string, target: unknown): Promise<void>;
+        };
+        try {
+            internals.state.mode = 'word';
+            internals.renderWord(root, internals.visibleWords[0]);
+            const gradeSpy = vi.spyOn(swipeable, 'gradeCurrentCard').mockResolvedValue(undefined);
+
+            // Mid-step (answer hidden) a horizontal drag must NOT submit a
+            // provider grade — the answer was never shown.
+            swipeable.handleNewTabSwipe(root, 'good');
+            expect(gradeSpy).not.toHaveBeenCalled();
+
+            internals.state.revealAnswer = true;
+            internals.renderWord(root, internals.visibleWords[0]);
+            swipeable.handleNewTabSwipe(root, 'good');
+            expect(gradeSpy).toHaveBeenCalledTimes(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+});
+
 describe('study flow: pitch-selection outcome persistence', () => {
     it('keeps the pitch pick when the learner steps away and back within a card', () => {
         const card = drinkCard();

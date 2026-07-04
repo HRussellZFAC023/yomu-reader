@@ -530,7 +530,6 @@ function readOcrFormSettings(reader: SettingsFormReader, current: ReaderSettings
         ocrConcurrency: clamped('ocrConcurrency', 1, 8, current.ocrConcurrency),
         ocrTextColor: sanitizeAccentColor(get('ocrTextColor'), current.ocrTextColor),
         ocrOutlineColor: sanitizeAccentColor(get('ocrOutlineColor'), current.ocrOutlineColor),
-        ocrBackgroundColor: sanitizeAccentColor(get('ocrBackgroundColor'), current.ocrBackgroundColor),
         ocrBackgroundOpacity: clamped('ocrBackgroundOpacity', 0, 1, current.ocrBackgroundOpacity),
         ocrFontScale: clamped('ocrFontScale', 0.7, 1.8, current.ocrFontScale),
     };

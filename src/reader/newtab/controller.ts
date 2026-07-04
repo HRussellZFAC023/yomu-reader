@@ -1949,10 +1949,16 @@ export class NewTabController {
     private canSwipeCurrentStudyCard(): boolean {
         if (!this.dependencies.getSettings().newTabSwipeReviews) return false;
         const card = this.visibleWords[this.index];
+        // Swipes submit real provider grades, so they obey the same gate as
+        // the grade shortcuts and buttons: answer revealed, final-reveal step.
+        // A horizontal drag mid Kanji/Recall/Listen step must never grade a
+        // card whose answer was never shown.
         return Boolean(
             card
             && this.state.mode !== 'search'
             && this.state.mode !== 'stats'
+            && this.state.revealAnswer
+            && this.isFinalRevealStep(card)
             && this.canReviewCard(card),
         );
     }

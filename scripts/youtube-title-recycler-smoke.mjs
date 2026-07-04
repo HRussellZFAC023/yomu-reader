@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
+import { launchSmokeBrowser } from './lib/smoke-harness.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(scriptDir, '..');
@@ -37,7 +37,7 @@ const SETTINGS = {
     localDictionariesEnabled: false, lookupOnClick: true, showFurigana: true, showPitchAccent: true,
 };
 
-const browser = await chromium.launch({ headless: true, args: [`--host-resolver-rules=MAP www.youtube.com 127.0.0.1:${port}`, '--ignore-certificate-errors'] });
+const browser = await launchSmokeBrowser(undefined, 'chromium', { headless: true, args: [`--host-resolver-rules=MAP www.youtube.com 127.0.0.1:${port}`, '--ignore-certificate-errors'] });
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'ja-JP', bypassCSP: true });
 const page = await context.newPage();
 await page.exposeFunction('__yomuFeedReq', request => {

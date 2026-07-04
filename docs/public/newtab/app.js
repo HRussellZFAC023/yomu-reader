@@ -1731,7 +1731,6 @@
       sharper: "Sharper",
       ocrTextColor: "Image text color",
       ocrOutlineColor: "Image text outline",
-      ocrBackgroundColor: "Image highlight",
       ocrBackgroundOpacity: "Image highlight opacity",
       ocrFontScale: "Image text scale",
       ocrEndpointUrl: "Local OCR server URL",
@@ -3424,7 +3423,6 @@ balanced	バランス
 sharper	高精細
 ocrTextColor	画像テキストの色
 ocrOutlineColor	画像テキストの縁取り
-ocrBackgroundColor	画像ハイライト背景
 ocrBackgroundOpacity	画像ハイライト不透明度
 ocrFontScale	画像テキスト倍率
 ocrEndpointUrl	ローカルOCRサーバーURL
@@ -39311,7 +39309,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.40".trim() ? "1.6.40".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.41".trim() ? "1.6.41".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -40090,7 +40088,6 @@ ${spelling}`);
       ocrConcurrency: clamped("ocrConcurrency", 1, 8, current.ocrConcurrency),
       ocrTextColor: sanitizeAccentColor(get("ocrTextColor"), current.ocrTextColor),
       ocrOutlineColor: sanitizeAccentColor(get("ocrOutlineColor"), current.ocrOutlineColor),
-      ocrBackgroundColor: sanitizeAccentColor(get("ocrBackgroundColor"), current.ocrBackgroundColor),
       ocrBackgroundOpacity: clamped("ocrBackgroundOpacity", 0, 1, current.ocrBackgroundOpacity),
       ocrFontScale: clamped("ocrFontScale", 0.7, 1.8, current.ocrFontScale)
     };
@@ -41500,8 +41497,7 @@ ${spelling}`);
   ];
   const OCR_COLOR_FIELDS = [
     ["ocrTextColor", "Image text color"],
-    ["ocrOutlineColor", "Image text outline"],
-    ["ocrBackgroundColor", "Image highlight background"]
+    ["ocrOutlineColor", "Image text outline"]
   ];
   const SUBTITLE_COLOR_FIELDS = [
     ["subtitleTextColor", "Subtitle color"],
@@ -43194,7 +43190,6 @@ ${spelling}`);
     "ocrMaxImagePixels",
     "ocrTextColor",
     "ocrOutlineColor",
-    "ocrBackgroundColor",
     "ocrBackgroundOpacity",
     "ocrFontScale",
     "ocrEndpointUrl",
@@ -54024,6 +54019,7 @@ ${spelling}`);
       const nextSubtitle = matchesShortcut(event, settings.shortcuts.nextSubtitle);
       if (previousSubtitle || nextSubtitle) {
         if (!this.canUseSubtitleNavigationShortcut()) return;
+        if (this.readerLookupPopoverOpen()) return;
         event.preventDefault();
         event.stopPropagation();
         this.seekSubtitle(previousSubtitle ? -1 : 1);
@@ -54035,6 +54031,9 @@ ${spelling}`);
     }
     canUseSubtitleNavigationShortcut() {
       return Boolean(this.video && this.videoHasPlayerAffordances());
+    }
+    readerLookupPopoverOpen() {
+      return Boolean(document.querySelector(".jpdb-reader-popover"));
     }
     seekSubtitle(direction) {
       if (!this.video) return;
@@ -75558,7 +75557,7 @@ ${entry.url}`),
       if (!this.dependencies.getSettings().newTabSwipeReviews) return false;
       const card = this.visibleWords[this.index];
       return Boolean(
-        card && this.state.mode !== "search" && this.state.mode !== "stats" && this.canReviewCard(card)
+        card && this.state.mode !== "search" && this.state.mode !== "stats" && this.state.revealAnswer && this.isFinalRevealStep(card) && this.canReviewCard(card)
       );
     }
     kanjiActionIdFromTarget(target) {

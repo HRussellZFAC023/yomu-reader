@@ -4038,6 +4038,12 @@ export class SubtitlePlayerController {
         const nextSubtitle = matchesShortcut(event, settings.shortcuts.nextSubtitle);
         if (previousSubtitle || nextSubtitle) {
             if (!this.canUseSubtitleNavigationShortcut()) return;
+            // A reader lookup popover shares defaults with subtitle seek
+            // (Play audio and Previous subtitle are both "A"). While a lookup
+            // is on screen the learner is acting on the word, not the
+            // timeline — yield BEFORE preventDefault so the reader's
+            // bubble-phase shortcut still receives the event.
+            if (this.readerLookupPopoverOpen()) return;
             event.preventDefault();
             // Listener runs in capture phase; stop the site's own handler from
             // acting on the same key a second time.
@@ -4052,6 +4058,12 @@ export class SubtitlePlayerController {
 
     private canUseSubtitleNavigationShortcut(): boolean {
         return Boolean(this.video && this.videoHasPlayerAffordances());
+    }
+
+    private readerLookupPopoverOpen(): boolean {
+        // Dismiss removes the popover node (main.ts removeReaderDialogNodes),
+        // so DOM presence is the open/closed signal.
+        return Boolean(document.querySelector('.jpdb-reader-popover'));
     }
 
     private seekSubtitle(direction: -1 | 1): void {

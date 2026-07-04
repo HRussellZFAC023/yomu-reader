@@ -429,7 +429,6 @@ const COPY = {
         sharper: 'Sharper',
         ocrTextColor: 'Image text color',
         ocrOutlineColor: 'Image text outline',
-        ocrBackgroundColor: 'Image highlight',
         ocrBackgroundOpacity: 'Image highlight opacity',
         ocrFontScale: 'Image text scale',
         ocrEndpointUrl: 'Local OCR server URL',
@@ -2128,7 +2127,6 @@ balanced	バランス
 sharper	高精細
 ocrTextColor	画像テキストの色
 ocrOutlineColor	画像テキストの縁取り
-ocrBackgroundColor	画像ハイライト背景
 ocrBackgroundOpacity	画像ハイライト不透明度
 ocrFontScale	画像テキスト倍率
 ocrEndpointUrl	ローカルOCRサーバーURL

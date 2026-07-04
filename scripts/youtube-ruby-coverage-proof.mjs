@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
+import { launchSmokeBrowser } from './lib/smoke-harness.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(scriptDir, '..');
@@ -330,7 +331,7 @@ rmSync(outputRoot, { recursive: true, force: true });
 mkdirSync(outputRoot, { recursive: true });
 await buildProofRunner();
 
-const browser = await chromium.launch({ headless: process.env.YOMU_YOUTUBE_RUBY_PROOF_HEADED !== '1' });
+const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: process.env.YOMU_YOUTUBE_RUBY_PROOF_HEADED !== '1' });
 const context = await browser.newContext({
     bypassCSP: true,
     locale: 'ja-JP',

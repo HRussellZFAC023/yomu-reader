@@ -380,6 +380,35 @@ describe('SubtitlePlayerController', () => {
         expect(commentEvent.defaultPrevented).toBe(false);
     });
 
+    it('yields A to the reader popover shortcuts while a lookup is open', () => {
+        // Play audio and Previous subtitle both default to "A": with a lookup
+        // on screen the reader wins (audio replays); with none the timeline
+        // seeks. The subtitle handler must yield WITHOUT preventDefault so the
+        // bubble-phase reader shortcut still receives the event.
+        const { controller } = createSubtitleController(makeSubtitleSettings());
+        const internals = controllerInternals<{
+            handleKeydown: (event: KeyboardEvent) => void;
+            seekSubtitle: (direction: -1 | 1) => void;
+        }>(controller);
+        const seekSubtitle = vi.fn();
+        internals.seekSubtitle = seekSubtitle;
+        attachVideo(controller);
+
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const withPopover = new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true });
+        internals.handleKeydown(withPopover);
+        expect(seekSubtitle).not.toHaveBeenCalled();
+        expect(withPopover.defaultPrevented).toBe(false);
+
+        popover.remove();
+        const withoutPopover = new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true });
+        internals.handleKeydown(withoutPopover);
+        expect(seekSubtitle).toHaveBeenCalledWith(-1);
+        expect(withoutPopover.defaultPrevented).toBe(true);
+    });
+
     it('renders subtitle navigation, playback, panel, and style controls in the rail', () => {
         const settings = {
             ...DEFAULT_SETTINGS,

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.41] - 2026-07-04
+
+### Fixed
+
+- Swiping a study card no longer submits a grade while the answer is hidden: swipe reviews obey the same gate as the grade buttons and shortcuts (final-reveal step, answer revealed), so a drag mid Kanji/Recall/Listen step can't silently mark a card "okay" on your SRS provider.
+- Pressing A while a lookup popover is open now replays the word audio instead of seeking the subtitle: the subtitle shortcuts yield to the reader while a lookup is on screen (Play audio and Previous subtitle both default to A), and a/d subtitle seeking is unchanged when no popover is open.
+- Removed the dead "Image highlight background" color picker from settings: the OCR highlight background is derived from the accent color, so the picker's choice was silently discarded — the control lied.
+
+### Changed
+
+- CI and the release gate now run the three hermetic regression smokes (study-flow stability, YouTube feed-title recycler, YouTube ruby coverage), so their changelog guard claims are enforced, not aspirational; the smokes now honor the CI browser channel.
+
 ## [1.6.40] - 2026-07-04
 
 ### Fixed

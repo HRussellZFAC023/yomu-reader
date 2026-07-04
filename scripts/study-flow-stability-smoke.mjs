@@ -11,6 +11,7 @@ import {
     addGmStorageBridgeInitScript,
     createSmokePaths,
     jsonHttpResponse,
+    launchSmokeBrowser,
     serveFile,
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
@@ -63,7 +64,7 @@ const server = await startLoopbackServer((req, res) => {
     }
 }, 'study-verify server');
 
-const browser = await chromium.launch({ headless: true });
+const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 const page = await (await browser.newContext({ viewport: { width: 1200, height: 900 } })).newPage();
 await page.exposeFunction('__yomuVerifyRequest', request => mockedRequest(request));
 await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: SETTINGS, requestBridgeName: '__yomuVerifyRequest' });

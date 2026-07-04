@@ -4374,7 +4374,6 @@
       sharper: "Sharper",
       ocrTextColor: "Image text color",
       ocrOutlineColor: "Image text outline",
-      ocrBackgroundColor: "Image highlight",
       ocrBackgroundOpacity: "Image highlight opacity",
       ocrFontScale: "Image text scale",
       ocrEndpointUrl: "Local OCR server URL",
@@ -6048,7 +6047,6 @@ balanced	バランス
 sharper	高精細
 ocrTextColor	画像テキストの色
 ocrOutlineColor	画像テキストの縁取り
-ocrBackgroundColor	画像ハイライト背景
 ocrBackgroundOpacity	画像ハイライト不透明度
 ocrFontScale	画像テキスト倍率
 ocrEndpointUrl	ローカルOCRサーバーURL
@@ -7455,7 +7453,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ocrConcurrency: clamped("ocrConcurrency", 1, 8, current.ocrConcurrency),
       ocrTextColor: sanitizeAccentColor(get("ocrTextColor"), current.ocrTextColor),
       ocrOutlineColor: sanitizeAccentColor(get("ocrOutlineColor"), current.ocrOutlineColor),
-      ocrBackgroundColor: sanitizeAccentColor(get("ocrBackgroundColor"), current.ocrBackgroundColor),
       ocrBackgroundOpacity: clamped("ocrBackgroundOpacity", 0, 1, current.ocrBackgroundOpacity),
       ocrFontScale: clamped("ocrFontScale", 0.7, 1.8, current.ocrFontScale)
     };
@@ -9067,8 +9064,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ];
   const OCR_COLOR_FIELDS = [
     ["ocrTextColor", "Image text color"],
-    ["ocrOutlineColor", "Image text outline"],
-    ["ocrBackgroundColor", "Image highlight background"]
+    ["ocrOutlineColor", "Image text outline"]
   ];
   const SUBTITLE_COLOR_FIELDS = [
     ["subtitleTextColor", "Subtitle color"],
@@ -10761,7 +10757,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "ocrMaxImagePixels",
     "ocrTextColor",
     "ocrOutlineColor",
-    "ocrBackgroundColor",
     "ocrBackgroundOpacity",
     "ocrFontScale",
     "ocrEndpointUrl",
