@@ -343,6 +343,9 @@ const NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS = 120;
 const NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS = 2_500;
 const NEW_TAB_SEARCH_PITCH_CONCURRENCY = 4;
 const NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS = 900;
+const QUEUE_REFRESH_LOW_WATER = 20;
+const QUEUE_REFRESH_GRADE_INTERVAL = 10;
+const QUEUE_REFRESH_MAX_AGE_MS = 60_000;
 const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
 const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
 const NEW_TAB_STATS_JITEN_HISTORY_LIMIT = 1000;
@@ -770,6 +773,13 @@ export class NewTabController {
     private index = 0;
     private sourceLabel = '';
     private visiblePoolSignature = '';
+    // Post-grade refresh coalescing: the graded card is removed locally, so
+    // queue accuracy does not need a provider round-trip per grade — a 500-due
+    // session must not become ~500 full-queue fetches (the per-word request
+    // storm class that once DOSed jiten.moe).
+    private gradesSinceQueueRefresh = 0;
+    private lastQueueRefreshAt = 0;
+    private recentlyGradedCardKeys: string[] = [];
     private sourceResultCache = new Map<ConcreteNewTabWordSource, NewTabSourceCacheEntry>();
     private sourceCacheVersions = new Map<ConcreteNewTabWordSource, number>();
     private state: NewTabUiState;
@@ -10072,18 +10082,39 @@ export class NewTabController {
                 this.renderBatchComplete(root);
                 return;
             }
+            this.markQueueRefreshed();
             void this.loadWordsInto(root, false, { useOfflineCache: false });
             return;
         }
         this.index = nextIndex;
         this.renderWord(root, this.visibleWords[this.index]);
         this.playCardEnterTransition(root);
-        if (this.shouldRefreshQueueAfterGrade(card)) void this.loadWordsInto(root, true, {
-            useOfflineCache: false,
-            quiet: true,
-            excludeCardKeys: [key],
-            preserveVisibleOrder: true,
-        });
+        this.gradesSinceQueueRefresh += 1;
+        this.recentlyGradedCardKeys.push(key);
+        if (this.shouldRefreshQueueAfterGrade(card) && this.queueRefreshDueAfterGrade()) {
+            const excludeCardKeys = this.recentlyGradedCardKeys.slice(-40);
+            this.markQueueRefreshed();
+            void this.loadWordsInto(root, true, {
+                useOfflineCache: false,
+                quiet: true,
+                excludeCardKeys,
+                preserveVisibleOrder: true,
+            });
+        }
+    }
+
+    // Refresh when the local pool is running dry, every N grades, or when the
+    // queue view is stale — never on every single grade.
+    private queueRefreshDueAfterGrade(): boolean {
+        return this.visibleWords.length < QUEUE_REFRESH_LOW_WATER
+            || this.gradesSinceQueueRefresh >= QUEUE_REFRESH_GRADE_INTERVAL
+            || Date.now() - this.lastQueueRefreshAt > QUEUE_REFRESH_MAX_AGE_MS;
+    }
+
+    private markQueueRefreshed(): void {
+        this.gradesSinceQueueRefresh = 0;
+        this.lastQueueRefreshAt = Date.now();
+        this.recentlyGradedCardKeys = this.recentlyGradedCardKeys.slice(-40);
     }
 
     // UT-45: button grades advance with the same brief card-enter motion the

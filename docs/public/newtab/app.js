@@ -74294,6 +74294,9 @@ ${entry.url}`),
   const NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS = 2500;
   const NEW_TAB_SEARCH_PITCH_CONCURRENCY = 4;
   const NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS = 900;
+  const QUEUE_REFRESH_LOW_WATER = 20;
+  const QUEUE_REFRESH_GRADE_INTERVAL = 10;
+  const QUEUE_REFRESH_MAX_AGE_MS = 6e4;
   const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
   const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
   const NEW_TAB_STATS_JITEN_HISTORY_LIMIT = 1e3;
@@ -74486,6 +74489,13 @@ ${entry.url}`),
     index = 0;
     sourceLabel = "";
     visiblePoolSignature = "";
+    // Post-grade refresh coalescing: the graded card is removed locally, so
+    // queue accuracy does not need a provider round-trip per grade — a 500-due
+    // session must not become ~500 full-queue fetches (the per-word request
+    // storm class that once DOSed jiten.moe).
+    gradesSinceQueueRefresh = 0;
+    lastQueueRefreshAt = 0;
+    recentlyGradedCardKeys = [];
     sourceResultCache = /* @__PURE__ */ new Map();
     sourceCacheVersions = /* @__PURE__ */ new Map();
     state;
@@ -82487,18 +82497,35 @@ ${entry.url}`),
           this.renderBatchComplete(root);
           return;
         }
+        this.markQueueRefreshed();
         void this.loadWordsInto(root, false, { useOfflineCache: false });
         return;
       }
       this.index = nextIndex;
       this.renderWord(root, this.visibleWords[this.index]);
       this.playCardEnterTransition(root);
-      if (this.shouldRefreshQueueAfterGrade(card)) void this.loadWordsInto(root, true, {
-        useOfflineCache: false,
-        quiet: true,
-        excludeCardKeys: [key],
-        preserveVisibleOrder: true
-      });
+      this.gradesSinceQueueRefresh += 1;
+      this.recentlyGradedCardKeys.push(key);
+      if (this.shouldRefreshQueueAfterGrade(card) && this.queueRefreshDueAfterGrade()) {
+        const excludeCardKeys = this.recentlyGradedCardKeys.slice(-40);
+        this.markQueueRefreshed();
+        void this.loadWordsInto(root, true, {
+          useOfflineCache: false,
+          quiet: true,
+          excludeCardKeys,
+          preserveVisibleOrder: true
+        });
+      }
+    }
+    // Refresh when the local pool is running dry, every N grades, or when the
+    // queue view is stale — never on every single grade.
+    queueRefreshDueAfterGrade() {
+      return this.visibleWords.length < QUEUE_REFRESH_LOW_WATER || this.gradesSinceQueueRefresh >= QUEUE_REFRESH_GRADE_INTERVAL || Date.now() - this.lastQueueRefreshAt > QUEUE_REFRESH_MAX_AGE_MS;
+    }
+    markQueueRefreshed() {
+      this.gradesSinceQueueRefresh = 0;
+      this.lastQueueRefreshAt = Date.now();
+      this.recentlyGradedCardKeys = this.recentlyGradedCardKeys.slice(-40);
     }
     // UT-45: button grades advance with the same brief card-enter motion the
     // swipe commit produces, so the two grading paths feel identical.

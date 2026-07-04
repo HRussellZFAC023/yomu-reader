@@ -202,6 +202,58 @@ describe('study flow: swipe grading gate', () => {
     });
 });
 
+describe('study flow: post-grade queue refresh coalescing', () => {
+    function reviewPool(count: number): JPDBCard[] {
+        return Array.from({ length: count }, (_, index) => drinkCard({ vid: 5000 + index, sid: 1 }));
+    }
+
+    function coalescingHarness(cards: JPDBCard[]) {
+        const { controller, internals } = studyController(cards);
+        const root = studyRoot();
+        internals.state.mode = 'word';
+        internals.state.source = 'jpdb';
+        const anyController = controller as unknown as {
+            sourceLabel: string;
+            markQueueRefreshed(): void;
+            advanceAfterGrade(root: HTMLElement, card: JPDBCard, grade?: string): void;
+            loadWordsInto(...args: unknown[]): Promise<void>;
+        };
+        anyController.sourceLabel = 'JPDB';
+        const loadSpy = vi.spyOn(anyController, 'loadWordsInto').mockResolvedValue(undefined);
+        anyController.markQueueRefreshed();
+        return { controller, internals, root, anyController, loadSpy };
+    }
+
+    it('refreshes the provider queue once per ten grades on a deep pool, not per grade', () => {
+        const { controller, internals, root, anyController, loadSpy } = coalescingHarness(reviewPool(60));
+        try {
+            for (let grade = 0; grade < 9; grade += 1) {
+                anyController.advanceAfterGrade(root, internals.visibleWords[0], 'okay');
+            }
+            // Nine grades: the graded cards left the pool locally with zero
+            // provider round-trips (a 500-due session must not be ~500 fetches).
+            expect(loadSpy).not.toHaveBeenCalled();
+            anyController.advanceAfterGrade(root, internals.visibleWords[0], 'okay');
+            expect(loadSpy).toHaveBeenCalledTimes(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('refreshes early when the local pool runs low', () => {
+        const { controller, internals, root, anyController, loadSpy } = coalescingHarness(reviewPool(21));
+        try {
+            anyController.advanceAfterGrade(root, internals.visibleWords[0], 'okay');
+            expect(loadSpy).not.toHaveBeenCalled();
+            // Second grade drops the pool below the low-water mark.
+            anyController.advanceAfterGrade(root, internals.visibleWords[0], 'okay');
+            expect(loadSpy).toHaveBeenCalledTimes(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+});
+
 describe('study flow: pitch-selection outcome persistence', () => {
     it('keeps the pitch pick when the learner steps away and back within a card', () => {
         const card = drinkCard();
