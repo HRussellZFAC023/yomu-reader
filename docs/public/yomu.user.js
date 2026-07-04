@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.55
+// @version 1.6.56
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.55#sha256=dWch5ctweTHVIvrPSHbJljlTRPDdI6NNqa4j2NAAw2A=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.55#sha256=sQ/1Bh9Qj7ccmbWUX3TK683Yv/SmToi0/CZCn7h/cfA=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.55#sha256=5DvHiot4TYDlZty5HeO8KE5eQv+zKfdMJGomCFQIfrc=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.55#sha256=DHvcrxMA3Sze1uGNbvBTXj1M7sgmHi46Wm7nVxeMczc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.55#sha256=cvLw83uqORhMLCqdzti9/dfHUi/JXScNWiGsKrwRfUE=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.55#sha256=UMhnvlwwnq9RWeZyYJmEcdrHXL/uPxrsPk52b8M0c6A=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.56#sha256=dWch5ctweTHVIvrPSHbJljlTRPDdI6NNqa4j2NAAw2A=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.56#sha256=sQ/1Bh9Qj7ccmbWUX3TK683Yv/SmToi0/CZCn7h/cfA=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.56#sha256=5DvHiot4TYDlZty5HeO8KE5eQv+zKfdMJGomCFQIfrc=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.56#sha256=DHvcrxMA3Sze1uGNbvBTXj1M7sgmHi46Wm7nVxeMczc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.56#sha256=cvLw83uqORhMLCqdzti9/dfHUi/JXScNWiGsKrwRfUE=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.56#sha256=UMhnvlwwnq9RWeZyYJmEcdrHXL/uPxrsPk52b8M0c6A=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -14181,17 +14181,18 @@ function renderExpressionComponentPitches(components) {
   if (!graphs.length) return "";
   return `<div class="jpdb-reader-pitch jpdb-reader-pitch-components">${graphs.join("")}</div>`;
 }
-function renderPitchGraphSvg(reading, pitch) {
+function renderPitchGraphSvg(reading, pitch, options = {}) {
   const morae = splitMorae(reading);
   const highs = pitchLevelsForDisplay(pitch, reading);
   if (highs.length < 2) return "";
   const width = morae.length * 24 + 18;
-  const points = highs.map((level, index) => `${9 + index * 24},${level === "H" ? 10 : 29}`).join(" ");
+  const startX = options.centerContent ? 21 : 9;
+  const points = highs.map((level, index) => `${startX + index * 24},${level === "H" ? 10 : 29}`).join(" ");
   const cls = pitchClassNameForPattern(pitch, reading) || "unknown";
   return `<svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
         <polyline class="${cls}" points="${points}"></polyline>
-        ${highs.map((level, index) => `<circle class="${cls}" cx="${9 + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
-        ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
+        ${highs.map((level, index) => `<circle class="${cls}" cx="${startX + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
+        ${morae.map((mora, index) => `<text x="${startX + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
     </svg>`;
 }
 function cardPronunciationReading(card) {
@@ -32530,7 +32531,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.55"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.56"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

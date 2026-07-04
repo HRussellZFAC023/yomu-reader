@@ -70,7 +70,7 @@ function renderPositionPicker(item: PitchSrsItem, selectedPosition: number | nul
     for (let position = 0; position <= moraCount; position += 1) {
         const pattern = pitchPatternFromPosition(item.reading, position);
         const className = pitchClassNameForPattern(pattern, item.reading);
-        const graph = renderPitchGraphSvg(item.reading, pattern);
+        const graph = renderPitchGraphSvg(item.reading, pattern, { centerContent: true });
         const isAnswer = position === item.pitchNumber;
         const isSelected = position === selectedPosition;
         const stateClass = revealed

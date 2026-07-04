@@ -21,6 +21,10 @@ export interface ExpressionComponentPitch {
     pitch: string;
 }
 
+export interface PitchGraphRenderOptions {
+    centerContent?: boolean;
+}
+
 // Expressions (気合いを入れる) have no pitch of their own; presenting one
 // component's accent as the whole expression would be wrong. Instead each
 // component gets its own labelled mini graph.
@@ -36,18 +40,19 @@ export function renderExpressionComponentPitches(components: ExpressionComponent
     return `<div class="jpdb-reader-pitch jpdb-reader-pitch-components">${graphs.join('')}</div>`;
 }
 
-export function renderPitchGraphSvg(reading: string, pitch: string): string {
+export function renderPitchGraphSvg(reading: string, pitch: string, options: PitchGraphRenderOptions = {}): string {
     const morae = splitMorae(reading);
     const highs = pitchLevelsForDisplay(pitch, reading);
     if (highs.length < 2) return '';
 
     const width = morae.length * 24 + 18;
-    const points = highs.map((level, index) => `${9 + index * 24},${level === 'H' ? 10 : 29}`).join(' ');
+    const startX = options.centerContent ? 21 : 9;
+    const points = highs.map((level, index) => `${startX + index * 24},${level === 'H' ? 10 : 29}`).join(' ');
     const cls = pitchClassNameForPattern(pitch, reading) || 'unknown';
     return `<svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
         <polyline class="${cls}" points="${points}"></polyline>
-        ${highs.map((level, index) => `<circle class="${cls}" cx="${9 + index * 24}" cy="${level === 'H' ? 10 : 29}" r="3"></circle>`).join('')}
-        ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml(mora)}</text>`).join('')}
+        ${highs.map((level, index) => `<circle class="${cls}" cx="${startX + index * 24}" cy="${level === 'H' ? 10 : 29}" r="3"></circle>`).join('')}
+        ${morae.map((mora, index) => `<text x="${startX + index * 24}" y="44" text-anchor="middle">${escapeHtml(mora)}</text>`).join('')}
     </svg>`;
 }
 

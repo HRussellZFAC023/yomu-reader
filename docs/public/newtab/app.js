@@ -21825,17 +21825,18 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!graphs.length) return "";
     return `<div class="jpdb-reader-pitch jpdb-reader-pitch-components">${graphs.join("")}</div>`;
   }
-  function renderPitchGraphSvg(reading, pitch) {
+  function renderPitchGraphSvg(reading, pitch, options = {}) {
     const morae = splitMorae(reading);
     const highs = pitchLevelsForDisplay(pitch, reading);
     if (highs.length < 2) return "";
     const width = morae.length * 24 + 18;
-    const points = highs.map((level, index) => `${9 + index * 24},${level === "H" ? 10 : 29}`).join(" ");
+    const startX = options.centerContent ? 21 : 9;
+    const points = highs.map((level, index) => `${startX + index * 24},${level === "H" ? 10 : 29}`).join(" ");
     const cls = pitchClassNameForPattern(pitch, reading) || "unknown";
     return `<svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
         <polyline class="${cls}" points="${points}"></polyline>
-        ${highs.map((level, index) => `<circle class="${cls}" cx="${9 + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
-        ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
+        ${highs.map((level, index) => `<circle class="${cls}" cx="${startX + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
+        ${morae.map((mora, index) => `<text x="${startX + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
     </svg>`;
   }
   function cardPronunciationReading(card) {
@@ -39334,7 +39335,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.55".trim() ? "1.6.55".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.56".trim() ? "1.6.56".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -73014,7 +73015,7 @@ ${options.version}`;
     for (let position = 0; position <= moraCount; position += 1) {
       const pattern = pitchPatternFromPosition(item.reading, position);
       const className = pitchClassNameForPattern(pattern, item.reading);
-      const graph = renderPitchGraphSvg(item.reading, pattern);
+      const graph = renderPitchGraphSvg(item.reading, pattern, { centerContent: true });
       position === item.pitchNumber;
       const isSelected = position === selectedPosition;
       const stateClass = isSelected ? " jpdb-reader-newtab-listen-pos-selected" : "";

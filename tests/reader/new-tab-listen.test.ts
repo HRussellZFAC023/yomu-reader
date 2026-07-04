@@ -137,6 +137,49 @@ describe('new-tab Listen mode', () => {
         }
     });
 
+    it('centers pitch picker graph contents inside each answer tile', () => {
+        const item: PitchSrsItem = {
+            key: 'じかん#0',
+            reading: 'じかん',
+            pitchNumber: 0,
+            pattern: pitchPatternFromPosition('じかん', 0),
+            pitchClass: 'heiban',
+            displaySpelling: '時間',
+            due: 0,
+            intervalDays: 0,
+            ease: 2.5,
+            reps: 0,
+            lapses: 0,
+            introducedAt: 0,
+        };
+        const view: ListenCardView = {
+            item,
+            meaning: 'time',
+            subMode: 'perceive',
+            revealed: false,
+            selectedPosition: null,
+            outcome: null,
+            hasAudio: true,
+            recording: false,
+            hasRecording: false,
+            speakingScore: null,
+            speakingScoring: false,
+            micEnabled: false,
+            micUnavailable: false,
+            contrast: null,
+        };
+        const root = document.createElement('div');
+        root.innerHTML = renderListenCard(view, key => newTabText('en', key));
+
+        const svg = root.querySelector<SVGSVGElement>('[data-listen-pos="0"] svg');
+        if (!svg) throw new Error('Expected the heiban pitch picker tile to render an SVG');
+        const width = Number(svg.getAttribute('width'));
+        const labelXs = Array.from(svg.querySelectorAll('text'), label => Number(label.getAttribute('x')));
+
+        expect(labelXs).toEqual([21, 45, 69]);
+        expect((Math.min(...labelXs) + Math.max(...labelXs)) / 2).toBe(width / 2);
+    });
+
     it('uses configured Study reveal and audio shortcuts in Listen mode', () => {
         const { controller, internals, playWordAudio } = listenController([pitchCard()], 'perceive', {
             shortcuts: {

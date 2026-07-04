@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.56] - 2026-07-04
+
+### Fixed
+
+- Centered the Listen mode pitch-pattern graphs inside each answer tile, so the mora labels and contour line sit visually under the tile number instead of leaning left.
+
 ## [1.6.55] - 2026-07-04
 
 ### Fixed
