@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.67] - 2026-07-05
+
+### Fixed
+
+- The study page now loads the real Bunpro review queue: Bunpro serves its queue from the reviews quiz endpoint, so the previously used endpoint only returned deck settings and the page silently fell back to other sources.
+- Bunpro grading requests now include the same correct flag Bunpro's own quiz sends, so graded reviews advance reliably.
+
 ## [1.6.66] - 2026-07-05
 
 ### Fixed

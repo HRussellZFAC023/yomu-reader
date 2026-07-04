@@ -77,7 +77,9 @@ export class BunproClient {
     }
 
     getQueue(): Promise<unknown> {
-        return this.frontend('/user/queue');
+        // /user/queue only returns deck settings; the actual review queue
+        // Bunpro's own quiz loads is /reviews/quiz_index.
+        return this.frontend('/reviews/quiz_index');
     }
 
     // fallow-ignore-next-line unused-class-member

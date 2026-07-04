@@ -21,7 +21,10 @@ export function createBunproSrsAdapter(client: BunproClient): YomuSrsAdapter {
         capabilities: { stats: true, queue: true, review: true, mine: true, import: false },
         hasCredential: () => client.hasFrontendCredential(),
         verify: () => client.getUser().then(() => true, () => false),
-        stats: async () => normalizeBunproStatsResponse(await client.getBaseStats()),
+        stats: async () => {
+            const [base, due] = await Promise.all([client.getBaseStats(), client.getDueCount().catch(() => null)]);
+            return normalizeBunproStatsResponse(base, due);
+        },
         queue: async limit => normalizeBunproQueueResponse(await client.getQueue(), limit),
         review: request => reviewBunproCard(client, request),
         mine: request => mineBunproCard(client, request),
@@ -37,23 +40,33 @@ export function normalizeBunproQueueResponse(raw: unknown, limit = 50): YomuSrsQ
         providerId: 'bunpro',
         fetchedAt: Date.now(),
         cards,
-        dueCount: readFirstNumber(raw, ['due_count', 'dueCount', 'reviews_due', 'reviewsDue']) ?? cards.filter(card => card.state.includes('due')).length,
+        dueCount: readFirstNumber(raw, ['due_count', 'dueCount', 'reviews_due', 'reviewsDue', 'total_pending_attempt_count']) ?? cards.filter(card => card.state.includes('due')).length,
         newCount: readFirstNumber(raw, ['new_count', 'newCount', 'new_cards', 'newCards']) ?? cards.filter(card => card.state.includes('new')).length,
         reviewCount: readFirstNumber(raw, ['review_count', 'reviewCount', 'reviews_count', 'reviewsCount']) ?? cards.length,
     };
 }
 
-export function normalizeBunproStatsResponse(raw: unknown): YomuSrsStatsSnapshot {
+export function normalizeBunproStatsResponse(raw: unknown, due?: unknown): YomuSrsStatsSnapshot {
+    // base_stats nests the useful numbers under `facts`; due counts come from
+    // /user/due as separate grammar/vocab totals.
+    const source = isRecord(raw) ? { ...(objectAt(raw, 'facts') ?? {}), ...raw } : raw;
     return {
         providerId: 'bunpro',
         fetchedAt: Date.now(),
-        reviewsDue: readFirstNumber(raw, ['reviews_due', 'reviewsDue', 'due', 'due_count']),
-        reviewsToday: readFirstNumber(raw, ['reviews_today', 'reviewsToday', 'reviews_done_today']),
-        newToday: readFirstNumber(raw, ['new_today', 'newToday', 'new_cards_today']),
-        streakDays: readFirstNumber(raw, ['streak', 'streak_days', 'streakDays']),
+        reviewsDue: bunproDueTotal(due) ?? readFirstNumber(source, ['reviews_due', 'reviewsDue', 'due', 'due_count']),
+        reviewsToday: readFirstNumber(source, ['reviews_today', 'reviewsToday', 'reviews_done_today']),
+        newToday: readFirstNumber(source, ['new_today', 'newToday', 'new_cards_today']),
+        streakDays: readFirstNumber(source, ['streak', 'streak_days', 'streakDays']),
         levelCounts: normalizeLevelCounts(raw),
         raw,
     };
+}
+
+function bunproDueTotal(due: unknown): number | undefined {
+    const grammar = readFirstNumber(due, ['total_due_grammar']);
+    const vocab = readFirstNumber(due, ['total_due_vocab']);
+    if (grammar === undefined && vocab === undefined) return undefined;
+    return (grammar ?? 0) + (vocab ?? 0);
 }
 
 export function normalizeBunproReviewable(raw: unknown, fallbackKind: YomuSrsReviewableKind = 'grammar'): YomuSrsReviewable | null {
@@ -91,9 +104,12 @@ export function normalizeBunproReviewable(raw: unknown, fallbackKind: YomuSrsRev
 
 async function reviewBunproCard(client: BunproClient, request: YomuSrsReviewRequest): Promise<YomuSrsReviewResult> {
     const reviewId = request.card.providerReviewId || request.card.providerCardId;
+    const rating = bunproRatingForGrade(request.grade);
     const raw = await client.updateReview(reviewId, {
         grade: request.grade,
-        rating: bunproRatingForGrade(request.grade),
+        rating,
+        // Bunpro's own quiz grades with a boolean `correct`.
+        correct: rating >= 3,
         sentence: request.sentence,
     });
     return { card: normalizeBunproReviewable(raw) ?? request.card, raw };
@@ -128,6 +144,8 @@ function bunproRatingForGrade(grade: YomuSrsReviewRequest['grade']): number {
 }
 
 function collectBunproReviewables(raw: unknown): unknown[] {
+    const quizEntries = collectBunproQuizIndexEntries(raw);
+    if (quizEntries.length) return quizEntries;
     const arrays = [
         readArray(raw, ['data']),
         readArray(raw, ['reviews']),
@@ -137,6 +155,55 @@ function collectBunproReviewables(raw: unknown): unknown[] {
         readArray(raw, ['due']),
     ];
     return arrays.find(items => items.length) ?? (Array.isArray(raw) ? raw : []);
+}
+
+// /reviews/quiz_index wraps each due review in a JSON:API envelope whose
+// review record only carries ids — the expression/reading/meaning live on the
+// sideloaded reviewable. Flatten both into one record the shared normalizer
+// understands, keeping the review id (the gradeable id) as `id`.
+function collectBunproQuizIndexEntries(raw: unknown): unknown[] {
+    if (!isRecord(raw)) return [];
+    const entries = [...readArray(raw, ['pending_attempt']), ...readArray(raw, ['pending_wrapup'])];
+    return entries
+        .map(entry => flattenBunproQuizIndexEntry(entry))
+        .filter((entry): entry is Record<string, unknown> => entry !== null);
+}
+
+function flattenBunproQuizIndexEntry(entry: unknown): Record<string, unknown> | null {
+    if (!isRecord(entry)) return null;
+    const review = objectAt(entry, 'data');
+    if (!review) return null;
+    const attributes = objectAt(review, 'attributes') ?? {};
+    const reviewId = readString(review, ['id']) || readString(attributes, ['id']);
+    if (!reviewId) return null;
+    const reviewable = bunproQuizIndexReviewable(entry, attributes);
+    return {
+        ...reviewable,
+        ...attributes,
+        // Slugs can be disambiguated ("カレー-dup"); the title is the word.
+        japanese: readString(reviewable, ['title']) || undefined,
+        id: reviewId,
+        review_id: reviewId,
+        // `state` is the last key the shared normalizer's srs_stage/srs_level/
+        // status/state chain reads, so nothing else may reintroduce those keys.
+        state: 'due',
+        srs_stage: undefined,
+        srs_level: undefined,
+        status: undefined,
+        next_review_at: readString(attributes, ['next_review']) || undefined,
+    };
+}
+
+function bunproQuizIndexReviewable(entry: Record<string, unknown>, reviewAttributes: Record<string, unknown>): Record<string, unknown> {
+    const type = readString(reviewAttributes, ['reviewable_type']).toLowerCase();
+    const wantedKind = type.includes('vocab') ? 'vocab' : 'grammar_point';
+    const included = readArray(entry, ['included']);
+    for (const item of included) {
+        if (!isRecord(item) || readString(item, ['type']) !== wantedKind) continue;
+        const attributes = objectAt(item, 'attributes');
+        if (attributes) return attributes;
+    }
+    return {};
 }
 
 function firstBunproSearchHit(raw: unknown, preferredKind: Extract<YomuSrsReviewableKind, 'grammar' | 'vocabulary'> = 'grammar'): unknown {

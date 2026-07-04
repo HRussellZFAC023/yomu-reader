@@ -68,11 +68,72 @@ describe('Bunpro SRS adapter', () => {
         expect(queue).toMatchObject({ providerId: 'bunpro', dueCount: 2, newCount: 1, reviewCount: 3 });
         expect(queue.cards[0]).toMatchObject({ providerId: 'bunpro', kind: 'vocabulary', expression: '食べる', state: ['due'] });
         expect(stats).toMatchObject({ providerId: 'bunpro', reviewsDue: 5, reviewsToday: 12, newToday: 3, streakDays: 9, levelCounts: { Seasoned: 4 } });
+
+        const liveShapedStats = normalizeBunproStatsResponse(
+            { facts: { days_studied: 5, streak: 1, grammar_studied: 3, vocab_studied: 26 }, badges: { data: [] } },
+            { total_due_grammar: 3, total_due_vocab: 26 },
+        );
+        expect(liveShapedStats).toMatchObject({ providerId: 'bunpro', reviewsDue: 29, streakDays: 1 });
+    });
+
+    it('normalizes the /reviews/quiz_index envelope Bunpro serves its own quiz from', () => {
+        const queue = normalizeBunproQueueResponse({
+            review_session_id: 1,
+            total_pending_attempt_count: 28,
+            total_pending_wrapup_count: 0,
+            pending_attempt: [{
+                data: {
+                    id: '60714209',
+                    type: 'review',
+                    attributes: {
+                        id: 60714209,
+                        streak: 3,
+                        next_review: '2026-07-02T06:00:00.000Z',
+                        reviewable_id: 10,
+                        reviewable_type: 'Vocab',
+                    },
+                },
+                included: [
+                    { id: '17132', type: 'study_question', attributes: { id: 17132, content: '…' } },
+                    { id: '10', type: 'vocab', attributes: { id: 10, title: 'アパート', kana: 'アパート', furigana: 'アパート', slug: 'アパート', meaning: 'apartment' } },
+                ],
+            }, {
+                data: {
+                    id: '60714300',
+                    type: 'review',
+                    attributes: { id: 60714300, streak: 1, next_review: '2026-07-02T06:00:00.000Z', reviewable_id: 100, reviewable_type: 'GrammarPoint' },
+                },
+                included: [
+                    { id: '100', type: 'grammar_point', attributes: { id: 100, title: 'にくい', furigana: 'にくい', slug: 'にくい', meaning: 'Difficult to, Hard to' } },
+                ],
+            }],
+            pending_wrapup: [],
+        });
+
+        expect(queue).toMatchObject({ providerId: 'bunpro', dueCount: 28, reviewCount: 2 });
+        expect(queue.cards[0]).toMatchObject({
+            providerCardId: '60714209',
+            providerReviewId: '60714209',
+            providerReviewableId: '10',
+            kind: 'vocabulary',
+            expression: 'アパート',
+            reading: 'アパート',
+            state: ['due'],
+            sourceUrl: `https://bunpro.jp/vocabs/${encodeURIComponent('アパート')}`,
+        });
+        expect(queue.cards[0]?.dueAt).toBe(Date.parse('2026-07-02T06:00:00.000Z'));
+        expect(queue.cards[0]?.meanings[0]?.glosses).toEqual(['apartment']);
+        expect(queue.cards[1]).toMatchObject({
+            providerReviewId: '60714300',
+            kind: 'grammar',
+            expression: 'にくい',
+            state: ['due'],
+        });
     });
 
     it('routes queue and final grades through the Bunpro client boundary', async () => {
         const request = vi.fn<[string, ReaderHttpOptions?], Promise<unknown>>(async (url, _options) => {
-            if (url.endsWith('/user/queue')) return { reviews: [{ id: 10, reviewable_type: 'Vocab', word: '読む', reading: 'よむ' }] };
+            if (url.endsWith('/reviews/quiz_index')) return { reviews: [{ id: 10, reviewable_type: 'Vocab', word: '読む', reading: 'よむ' }] };
             if (url.endsWith('/reviews/10/update')) return { id: 10, word: '読む', reading: 'よむ' };
             return {};
         });
@@ -83,7 +144,7 @@ describe('Bunpro SRS adapter', () => {
 
         expect(queue.cards[0]).toMatchObject({ expression: '読む', providerReviewId: '10' });
         expect(request.mock.calls.map(([url]) => String(url))).toEqual([
-            'https://api.bunpro.jp/api/frontend/user/queue',
+            'https://api.bunpro.jp/api/frontend/reviews/quiz_index',
             'https://api.bunpro.jp/api/frontend/reviews/10/update',
         ]);
     });
