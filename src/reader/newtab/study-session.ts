@@ -28,7 +28,6 @@ export interface NewTabStudySessionOptions {
     listenSubMode?: NewTabListenSubMode;
     revealAnswer: boolean;
     renderAsKanji: boolean;
-    hasPitchStep: boolean;
     hasRecallCloze: boolean;
     stepOrder?: NewTabStudyChallengeStep[];
     disabledSteps?: NewTabStudyChallengeStep[];
@@ -58,10 +57,12 @@ function mergedStudyStepsForCard(card: JPDBCard, options: NewTabStudySessionOpti
     if (options.renderAsKanji || containsKanji(card.spelling)) available.add('kanji-doodle');
     available.add('word');
     if (options.hasRecallCloze) available.add('recall-cloze');
-    if (options.hasPitchStep) {
-        available.add('listen-pitch');
-        available.add('speaking');
-    }
+    // Listen/Speak are part of EVERY card's flow regardless of provider: pitch
+    // data enriches lazily from the local dictionary, so gating the steps on
+    // already-loaded pitch made the flow shape depend on the review source
+    // (owner: "listen and speak should always be there, whether jiten or jpdb").
+    available.add('listen-pitch');
+    available.add('speaking');
     const disabled = new Set(options.disabledSteps ?? []);
     const ordered = normalizedChallengeStepOrder(options.stepOrder);
     const kanji = kanjiCharacters(card.spelling);

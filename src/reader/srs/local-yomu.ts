@@ -79,18 +79,21 @@ export class LocalYomuSrsRepository {
     async queue(limit = 50): Promise<YomuSrsQueueSnapshot> {
         const now = this.now();
         const cards = Object.values((await this.readDeck()).cards);
-        const due = cards
-            .filter(card => card.dueAt <= now)
-            .sort((a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt)
-            .slice(0, Math.max(0, Math.floor(limit)))
-            .map(card => this.toReviewable(card, now));
+        const cap = Math.max(0, Math.floor(limit));
+        const byDue = (a: StoredYomuSrsCard, b: StoredYomuSrsCard): number => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
+        const due = cards.filter(card => card.dueAt <= now).sort(byDue);
+        // Review-ahead fill: once the due cards run out the rest of the deck
+        // (soonest-due first) keeps the practice queue going, so the study tab
+        // never strands at "N words" when the learner has mined far more.
+        const ahead = cards.filter(card => card.dueAt > now).sort(byDue);
+        const queue = [...due, ...ahead].slice(0, cap).map(card => this.toReviewable(card, now));
         return {
             providerId: 'yomu-local',
             fetchedAt: now,
-            cards: due,
+            cards: queue,
             dueCount: cards.filter(card => card.dueAt <= now && card.reviews > 0).length,
             newCount: cards.filter(card => card.reviews === 0).length,
-            reviewCount: due.length,
+            reviewCount: Math.min(due.length, cap),
         };
     }
 

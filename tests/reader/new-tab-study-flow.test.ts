@@ -117,13 +117,16 @@ afterEach(() => {
 });
 
 describe('study flow: kanji-draw prompt clarity', () => {
-    it('carries the word meaning and blanks EVERY kanji in the cloze', () => {
+    it('hides the word meaning and blanks EVERY kanji in the cloze', () => {
         const { controller, internals } = studyController([drinkCard()]);
         const root = studyRoot();
         try {
             internals.renderWord(root, internals.visibleWords[0]);
             const context = root.querySelector('.jpdb-reader-newtab-kanji-front-context');
-            expect(context?.querySelector('.jpdb-reader-newtab-kanji-front-meaning')?.textContent).toBe('drink');
+            // The meaning is the answer to the session's word step — it must not
+            // front on the draw prompt (owner: "gives away the next part").
+            expect(context?.querySelector('.jpdb-reader-newtab-kanji-front-meaning')).toBeNull();
+            expect(context?.textContent).not.toContain('drink');
             // 物 is the answer to the SECOND kanji draw step — a visible 物 on
             // the 飲 step leaked it (owner: "gives answer to next question").
             expect(context?.querySelector('.jpdb-reader-newtab-kanji-front-cloze')?.textContent).toBe('＿み＿');
@@ -142,7 +145,8 @@ describe('study flow: progressive hints', () => {
         try {
             internals.bindRootEvents(root);
             internals.renderWord(root, internals.visibleWords[0]);
-            // The meaning is already fronted, so the Hint button offers the keyword.
+            // The meaning is hidden from the prompt, so it is the FIRST hint tier;
+            // the per-kanji keyword follows.
             const hintBtn = root.querySelector<HTMLElement>('.jpdb-reader-newtab-study-hint-btn');
             expect(hintBtn?.textContent).toBe('Hint');
             expect(root.querySelectorAll('.jpdb-reader-newtab-study-hint-item')).toHaveLength(0);
@@ -150,7 +154,12 @@ describe('study flow: progressive hints', () => {
             hintBtn?.click();
             const items = root.querySelectorAll('.jpdb-reader-newtab-study-hint-item');
             expect(items).toHaveLength(1);
-            expect(items[0]?.textContent).toContain('drink (v.)');
+            expect(items[0]?.textContent).toContain('drink');
+
+            root.querySelector<HTMLElement>('.jpdb-reader-newtab-study-hint-btn')?.click();
+            const moreItems = root.querySelectorAll('.jpdb-reader-newtab-study-hint-item');
+            expect(moreItems).toHaveLength(2);
+            expect(moreItems[1]?.textContent).toContain('drink (v.)');
             // Still short of the full reading.
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).not.toContain('のみもの');
         } finally {

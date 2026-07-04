@@ -30,7 +30,6 @@ describe('new-tab study session model', () => {
             listenSubMode: 'perceive',
             revealAnswer: false,
             renderAsKanji: false,
-            hasPitchStep: true,
             hasRecallCloze: true,
         });
 
@@ -47,16 +46,15 @@ describe('new-tab study session model', () => {
         expect(session.activeStep.kanji).toBe('読');
     });
 
-    it('collapses gracefully for kana-only cards without pitch or sentence cloze', () => {
+    it('keeps listen and speak steps for kana-only cards without preloaded pitch', () => {
         const session = createNewTabStudySession(sessionCard({ spelling: 'よむ', pitchAccent: [] }), {
             mode: 'word',
             revealAnswer: true,
             renderAsKanji: false,
-            hasPitchStep: false,
             hasRecallCloze: false,
         });
 
-        expect(session.steps.map(step => step.kind)).toEqual(['word', 'final-reveal']);
+        expect(session.steps.map(step => step.kind)).toEqual(['word', 'listen-pitch', 'speaking', 'final-reveal']);
         expect(session.activeStep.kind).toBe('final-reveal');
         expect(session.gradeStep.kind).toBe('final-reveal');
     });
@@ -67,7 +65,6 @@ describe('new-tab study session model', () => {
             listenSubMode: 'perceive',
             revealAnswer: false,
             renderAsKanji: true,
-            hasPitchStep: true,
             hasRecallCloze: true,
             activeStepId: 'word',
         });
@@ -81,7 +78,6 @@ describe('new-tab study session model', () => {
             mode: 'kanji',
             revealAnswer: false,
             renderAsKanji: true,
-            hasPitchStep: true,
             hasRecallCloze: true,
         });
 
@@ -93,7 +89,6 @@ describe('new-tab study session model', () => {
             mode: 'word',
             revealAnswer: false,
             renderAsKanji: false,
-            hasPitchStep: false,
             hasRecallCloze: true,
         });
 
@@ -108,7 +103,6 @@ describe('new-tab study session model', () => {
             mode: 'word',
             revealAnswer: false,
             renderAsKanji: false,
-            hasPitchStep: true,
             hasRecallCloze: true,
             stepOrder: ['word', 'listen-pitch', 'recall-cloze', 'kanji-doodle', 'speaking'],
             disabledSteps: ['speaking'],
@@ -129,9 +123,8 @@ describe('new-tab study session model', () => {
             mode: 'word',
             revealAnswer: false,
             renderAsKanji: false,
-            hasPitchStep: false,
             hasRecallCloze: false,
-            disabledSteps: ['word'],
+            disabledSteps: ['word', 'listen-pitch', 'speaking'],
         });
 
         expect(session.steps.map(step => step.kind)).toEqual(['final-reveal']);

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.63] - 2026-07-04
+
+### Fixed
+
+- Listen and Speak study steps now appear for every review source (JPDB, Jiten, Bunpro, Anki and the local Yomu deck): pitch accent loads from the local dictionary on demand and the steps run inside the card session, so toggling the review source no longer swaps the study flow between a Kanji/Word variant and a Listen/Speak variant.
+- The kanji drawing prompt no longer prints the word meaning next to the blanked word, which gave away the answer to the later Word step; the meaning now sits behind the first tier of the Hint button instead.
+- The local Yomu review queue keeps serving cards ahead of schedule once the due cards run out, so the study tab offers every mined word instead of stopping at the handful currently due.
+
 ## [1.6.62] - 2026-07-04
 
 ### Fixed

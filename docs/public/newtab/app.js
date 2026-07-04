@@ -39352,7 +39352,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.62".trim() ? "1.6.62".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.63".trim() ? "1.6.63".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -73324,10 +73324,8 @@ ${options.version}`;
     if (options.renderAsKanji || containsKanji(card.spelling)) available.add("kanji-doodle");
     available.add("word");
     if (options.hasRecallCloze) available.add("recall-cloze");
-    if (options.hasPitchStep) {
-      available.add("listen-pitch");
-      available.add("speaking");
-    }
+    available.add("listen-pitch");
+    available.add("speaking");
     const disabled = new Set(options.disabledSteps ?? []);
     const ordered = normalizedChallengeStepOrder(options.stepOrder);
     const kanji = kanjiCharacters(card.spelling);
@@ -73412,7 +73410,7 @@ ${options.version}`;
   function kanjiDrawHints(card, context) {
     const hints = [];
     const meaning = firstCardMeaning(card).trim();
-    if (meaning && !context.meaningAlreadyShown) {
+    if (meaning && true) {
       hints.push({ level: hints.length + 1, labelKey: "studyHintMeaning", text: meaning, kind: "text" });
     }
     const keyword = context.kanjiKeyword.trim();
@@ -73436,19 +73434,6 @@ ${options.version}`;
   }
   function equalsIgnoreCase(a, b) {
     return a.toLocaleLowerCase() === b.toLocaleLowerCase();
-  }
-  const DRAW_MEANING_MAX_CHARS = 40;
-  const LEADING_POS_RE = /^(?:\d+-dan|\d+-adjective|transitive|intransitive|kana|godan|ichidan|suru|する|adj-[a-z]+|[nvi](?:-[a-z]+)?)\s+/iu;
-  function conciseDrawMeaning(meaning) {
-    let first2 = (meaning.split(/[;；]/u)[0] ?? "").trim();
-    for (let guard = 0; guard < 4 && LEADING_POS_RE.test(first2); guard += 1) {
-      first2 = first2.replace(LEADING_POS_RE, "").trim();
-    }
-    if (!first2) first2 = (meaning.split(/[;；]/u)[0] ?? "").trim();
-    if (Array.from(first2).length <= DRAW_MEANING_MAX_CHARS) return first2;
-    const clause = first2.split(/[,，]/u)[0]?.trim() ?? first2;
-    const chars = Array.from(clause);
-    return chars.length <= DRAW_MEANING_MAX_CHARS ? clause : `${chars.slice(0, DRAW_MEANING_MAX_CHARS).join("").trim()}…`;
   }
   const DEFAULT_THRESHOLD_PX = 96;
   const DEFAULT_MAX_PROGRESS_PX = 144;
@@ -75390,7 +75375,7 @@ ${entry.url}`),
     }
     handleStudyKeydown(root, event, target) {
       if (!isNewTabStudyKeyboardMode(this.state.mode)) return;
-      if (this.state.mode === "listen") {
+      if (this.state.mode === "listen" || this.activeStudyStepIsListen()) {
         this.handleListenKeydown(root, event, target);
         return;
       }
@@ -75679,9 +75664,11 @@ ${entry.url}`),
       }
       this.setStudyStepOverrideForCurrentCard(step.id);
       const card = this.visibleWords[this.index];
+      const isListenStep = step.kind === "listen-pitch" || step.kind === "speaking";
       const stayInWordSession = step.kind === "kanji-doodle" && card && !this.shouldRenderCardAsKanji(card);
+      const sessionMode = card && this.shouldRenderCardAsKanji(card) ? "kanji" : "word";
       this.setState({
-        mode: stayInWordSession ? "word" : step.mode,
+        mode: isListenStep ? sessionMode : stayInWordSession ? "word" : step.mode,
         listenSubMode: listenSubModeForStudyStepKind(step.kind) ?? this.state.listenSubMode,
         revealAnswer: false
       }, root, { preserveWord: true });
@@ -78015,9 +78002,7 @@ ${entry.url}`),
     pinnedStudyPlanInputs(card) {
       const key = cardKey(card);
       if (this.pinnedStudyPlan?.cardKey === key) return this.pinnedStudyPlan.inputs;
-      const reading = cardPronunciationReading(card);
       const inputs = {
-        hasPitchStep: pitchNumberForReading(card.pitchAccent, reading) != null,
         hasRecallCloze: buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card)).hasCloze
       };
       this.pinnedStudyPlan = { cardKey: key, inputs };
@@ -78159,6 +78144,12 @@ ${entry.url}`),
       const item = this.pitchSrs.ensureFromCard(card, Date.now());
       if (!item) {
         this.listenItem = null;
+        void this.loadWordPitch(card).then((pitchAccent) => {
+          if (!pitchAccent.length) return;
+          if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
+          const root = this.listenRootEl();
+          if (root && this.visibleWords[this.index] === card) this.renderWord(root, card);
+        }).catch(() => void 0);
         setInnerHtml(prompt, `<div class="jpdb-reader-newtab-listen-card"><span class="jpdb-reader-newtab-listen-note">${escapeHtml$1(this.text("listenNoAudio"))}</span></div>`);
         return;
       }
@@ -78232,7 +78223,17 @@ ${entry.url}`),
     rerenderActiveListen() {
       const root = this.listenRootEl();
       const card = this.visibleWords[this.index];
-      if (root && card && this.state.mode === "listen") this.renderWord(root, card);
+      if (root && card && (this.state.mode === "listen" || this.activeStudyStepIsListen())) this.renderWord(root, card);
+    }
+    // In-session Listen/Speak steps keep state.mode on the word/kanji session
+    // (the listen TAB re-pools pitch-eligible cards only); listen interactions
+    // and shortcuts key off the active step instead.
+    activeStudyStepIsListen() {
+      if (!this.isStudyCardMode(this.state.mode)) return false;
+      const card = this.visibleWords[this.index];
+      if (!card) return false;
+      const kind = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)).activeStep.kind;
+      return kind === "listen-pitch" || kind === "speaking";
     }
     handleListenPick(_root, target) {
       const raw = target.closest("[data-listen-pos]")?.dataset.listenPos;
@@ -79055,8 +79056,7 @@ ${entry.url}`),
       const context = card ? this.kanjiDrawWordContext(card, kanji ?? "") : null;
       const rows = [];
       if (context) rows.push(context);
-      const shownMeaning = context && card ? conciseDrawMeaning(firstCardMeaning(card)).trim().toLowerCase() : "";
-      const supplementary = shownMeaning ? keywords.filter((keyword) => keyword.text.trim().toLowerCase() !== shownMeaning) : keywords;
+      const supplementary = keywords;
       if (supplementary.length) {
         rows.push(...supplementary.map((keyword) => el(
           "div",
@@ -79074,21 +79074,17 @@ ${entry.url}`),
         this.renderStudyHintPanel(card, "kanji-doodle", kanji ?? "", keywords)
       );
     }
-    // The word-context lead line for a kanji-draw step: meaning ("drink") plus the
-    // word with the target kanji blanked ("＿み物"). Only rendered for MULTI-kanji /
-    // multi-character words where blanking disambiguates — a single-kanji card has
-    // no blank to fill, so its kanji keyword alone carries the meaning and the
-    // context row would just duplicate it. The meaning is condensed to its first
-    // concise sense so a messy multi-clause dump never fronts.
+    // The word-context lead line for a kanji-draw step: the word with every kanji
+    // blanked ("＿み物"). Only rendered for MULTI-kanji / multi-character words
+    // where the blank shape adds signal — a single-kanji card has no blank to
+    // fill. The word MEANING is deliberately absent (it is the answer to the
+    // session's word/recall step); learners who need it tap the Hint.
     kanjiDrawWordContext(card, kanji) {
       const cloze = this.kanjiWordBlank(card.spelling, kanji);
       if (!cloze) return null;
-      const meaning = conciseDrawMeaning(firstCardMeaning(card));
       return el(
         "div",
         { class: "jpdb-reader-newtab-kanji-front-keyword jpdb-reader-newtab-kanji-front-context" },
-        meaning ? el("span", { class: "jpdb-reader-newtab-kanji-front-meaning" }, meaning) : null,
-        meaning ? el("span", { class: "jpdb-reader-newtab-kanji-front-sep", "aria-hidden": "true" }, "—") : null,
         el("span", { class: "jpdb-reader-newtab-kanji-front-cloze", lang: "ja" }, cloze)
       );
     }
@@ -79105,11 +79101,6 @@ ${entry.url}`),
       }
       const keyword = this.keywordCache.get(kanji) ?? card.kanjiKeyword ?? keywords.find((entry) => entry.text)?.text ?? "";
       return kanjiDrawHints(card, {
-        // The draw prompt fronts the meaning by default, so the meaning hint is
-        // suppressed there; the per-kanji keyword becomes the first available
-        // hint (e.g. "read" for 読 in a multi-kanji word), then the reading's
-        // first kana as the gentlest sound cue — still short of the full reading.
-        meaningAlreadyShown: Boolean(firstCardMeaning(card).trim()),
         kanjiKeyword: keyword,
         firstKanaHint: this.kanjiFirstKanaHint(card)
       });
@@ -82988,7 +82979,7 @@ ${entry.url}`),
       root.classList.toggle("jpdb-reader-newtab-recall-mode", this.state.mode === "recall");
       root.classList.toggle("jpdb-reader-newtab-kanji-mode", this.state.mode === "kanji" || this.wordSessionRendersKanji());
       root.classList.toggle("jpdb-reader-newtab-stats-mode", this.state.mode === "stats");
-      root.classList.toggle("jpdb-reader-newtab-listen-mode", this.state.mode === "listen");
+      root.classList.toggle("jpdb-reader-newtab-listen-mode", this.state.mode === "listen" || this.activeStudyStepIsListen());
       const search = root.querySelector("[data-newtab-search]");
       if (search) search.hidden = this.state.mode !== "search";
       const controls = root.querySelector("[data-newtab-controls]");
@@ -85169,14 +85160,18 @@ ${entry.url}`),
     async queue(limit = 50) {
       const now = this.now();
       const cards = Object.values((await this.readDeck()).cards);
-      const due = cards.filter((card) => card.dueAt <= now).sort((a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt).slice(0, Math.max(0, Math.floor(limit))).map((card) => this.toReviewable(card, now));
+      const cap = Math.max(0, Math.floor(limit));
+      const byDue = (a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
+      const due = cards.filter((card) => card.dueAt <= now).sort(byDue);
+      const ahead = cards.filter((card) => card.dueAt > now).sort(byDue);
+      const queue = [...due, ...ahead].slice(0, cap).map((card) => this.toReviewable(card, now));
       return {
         providerId: "yomu-local",
         fetchedAt: now,
-        cards: due,
+        cards: queue,
         dueCount: cards.filter((card) => card.dueAt <= now && card.reviews > 0).length,
         newCount: cards.filter((card) => card.reviews === 0).length,
-        reviewCount: due.length
+        reviewCount: Math.min(due.length, cap)
       };
     }
     // fallow-ignore-next-line unused-class-member

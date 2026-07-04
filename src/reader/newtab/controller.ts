@@ -152,7 +152,7 @@ import { PitchSrsStore, pitchItemKey, type PitchSrsItem } from './pitch-srs';
 import { renderListenCard, type ListenCardView, type ListenOutcome } from './listen-render';
 import { scoreSpeakingBlob, type SpeakingPitchScore } from './speaking-score';
 import { createNewTabStudySession, type NewTabStudySession, type NewTabStudyStep, type NewTabStudyStepId, type NewTabStudyStepKind } from './study-session';
-import { conciseDrawMeaning, kanjiDrawHints, recallHints, type StudyHint, type StudyHintStep } from './study-hints';
+import { kanjiDrawHints, recallHints, type StudyHint, type StudyHintStep } from './study-hints';
 import { contextPitchPattern, pitchNumberForReading, splitMorae } from '../lookup/pitch-accent';
 import { installNewTabSwipeGesture, newTabSwipeGrade, type NewTabSwipeAction } from './swipe-gesture';
 import {
@@ -846,7 +846,7 @@ export class NewTabController {
     // A hint never prints the full answer; the count folds into the reveal summary.
     private studyHintDepth = new Map<string, number>();
     private studyStepOverride: { cardKey: string; id: NewTabStudyStepId } | null = null;
-    private pinnedStudyPlan: { cardKey: string; inputs: { hasPitchStep: boolean; hasRecallCloze: boolean } } | null = null;
+    private pinnedStudyPlan: { cardKey: string; inputs: { hasRecallCloze: boolean } } | null = null;
     private rootEventController: AbortController | undefined;
     private readonly rootClickHandlers: RootClickHandler[] = [
         (root, _target, event, action) => this.handleRootUtilityClick(root, event, action),
@@ -1567,7 +1567,7 @@ export class NewTabController {
 
     private handleStudyKeydown(root: HTMLElement, event: KeyboardEvent, target: HTMLElement | null): void {
         if (!isNewTabStudyKeyboardMode(this.state.mode)) return;
-        if (this.state.mode === 'listen') {
+        if (this.state.mode === 'listen' || this.activeStudyStepIsListen()) {
             this.handleListenKeydown(root, event, target);
             return;
         }
@@ -1889,11 +1889,17 @@ export class NewTabController {
         // override — switching state.mode to 'kanji' here jumped to the kanji
         // QUEUE, re-resolving the visible card to a synthetic per-kanji card
         // (owner: pressing Kanji 2 "takes back to old view"). Only real kanji
-        // cards study in kanji mode.
+        // cards study in kanji mode. Listen/Speak steps likewise render
+        // in-session for EVERY card: switching to mode 'listen' re-pooled the
+        // queue through the pitch-gated listen tab and dropped cards whose
+        // pitch had not enriched yet (the whole flow shape then depended on
+        // the review provider).
         const card = this.visibleWords[this.index];
+        const isListenStep = step.kind === 'listen-pitch' || step.kind === 'speaking';
         const stayInWordSession = step.kind === 'kanji-doodle' && card && !this.shouldRenderCardAsKanji(card);
+        const sessionMode: NewTabMode = card && this.shouldRenderCardAsKanji(card) ? 'kanji' : 'word';
         this.setState({
-            mode: stayInWordSession ? 'word' : step.mode,
+            mode: isListenStep ? sessionMode : stayInWordSession ? 'word' : step.mode,
             listenSubMode: listenSubModeForStudyStepKind(step.kind) ?? this.state.listenSubMode,
             revealAnswer: false,
         }, root, { preserveWord: true });
@@ -4699,12 +4705,10 @@ export class NewTabController {
     // the user was about to press could stop existing (owner: "flow is super
     // confusing going from 4 to 6 options"). Late enrichment benefits the NEXT
     // card; the visible plan never changes underneath the user.
-    private pinnedStudyPlanInputs(card: JPDBCard): { hasPitchStep: boolean; hasRecallCloze: boolean } {
+    private pinnedStudyPlanInputs(card: JPDBCard): { hasRecallCloze: boolean } {
         const key = cardKey(card);
         if (this.pinnedStudyPlan?.cardKey === key) return this.pinnedStudyPlan.inputs;
-        const reading = cardPronunciationReading(card);
         const inputs = {
-            hasPitchStep: pitchNumberForReading(card.pitchAccent, reading) != null,
             hasRecallCloze: buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card)).hasCloze,
         };
         this.pinnedStudyPlan = { cardKey: key, inputs };
@@ -4854,6 +4858,15 @@ export class NewTabController {
         const item = this.pitchSrs.ensureFromCard(card, Date.now());
         if (!item) {
             this.listenItem = null;
+            // Listen/Speak steps exist for every provider, but SRS-adapter cards
+            // (Yomu local / Bunpro) arrive without pitch — enrich from the local
+            // pitch dictionary and re-render this card once pitch lands.
+            void this.loadWordPitch(card).then(pitchAccent => {
+                if (!pitchAccent.length) return;
+                if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
+                const root = this.listenRootEl();
+                if (root && this.visibleWords[this.index] === card) this.renderWord(root, card);
+            }).catch(() => undefined);
             setInnerHtml(prompt, `<div class="jpdb-reader-newtab-listen-card"><span class="jpdb-reader-newtab-listen-note">${escapeHtml(this.text('listenNoAudio'))}</span></div>`);
             return;
         }
@@ -4936,7 +4949,18 @@ export class NewTabController {
     private rerenderActiveListen(): void {
         const root = this.listenRootEl();
         const card = this.visibleWords[this.index];
-        if (root && card && this.state.mode === 'listen') this.renderWord(root, card);
+        if (root && card && (this.state.mode === 'listen' || this.activeStudyStepIsListen())) this.renderWord(root, card);
+    }
+
+    // In-session Listen/Speak steps keep state.mode on the word/kanji session
+    // (the listen TAB re-pools pitch-eligible cards only); listen interactions
+    // and shortcuts key off the active step instead.
+    private activeStudyStepIsListen(): boolean {
+        if (!this.isStudyCardMode(this.state.mode)) return false;
+        const card = this.visibleWords[this.index];
+        if (!card) return false;
+        const kind = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card)).activeStep.kind;
+        return kind === 'listen-pitch' || kind === 'speaking';
     }
 
     private handleListenPick(_root: HTMLElement, target: HTMLElement): void {
@@ -5934,19 +5958,15 @@ export class NewTabController {
     }
 
     private renderKanjiPromptKeywords(keywords: KanjiPromptKeyword[], card?: JPDBCard, kanji?: string, pending = false): HTMLElement | string {
-        // "drink — ＿み物": the draw prompt ALWAYS carries the word meaning +
-        // blanked-kanji cloze when the card has them, so a bare "＿み物" is never
-        // ambiguous (読み物/飲み物/編み物 all fit the blank). Kanji keywords render
-        // below as supplementary signal. Neither leaks the reading.
+        // The draw prompt fronts the blanked-kanji cloze ("＿み物") plus per-kanji
+        // keywords — NOT the word meaning: a later step of the same session quizzes
+        // the meaning, so printing it here answered that step in advance (owner:
+        // "showing 'time ＿＿' gives away the answer for the next part"). The
+        // meaning is still reachable as the first Hint tier.
         const context = card ? this.kanjiDrawWordContext(card, kanji ?? '') : null;
         const rows: Array<HTMLElement | null> = [];
         if (context) rows.push(context);
-        // A keyword that merely restates the meaning already fronted by the
-        // context row ("drink — ＿み物" + "JPDB drink") is noise — drop it.
-        const shownMeaning = context && card ? conciseDrawMeaning(firstCardMeaning(card)).trim().toLowerCase() : '';
-        const supplementary = shownMeaning
-            ? keywords.filter(keyword => keyword.text.trim().toLowerCase() !== shownMeaning)
-            : keywords;
+        const supplementary = keywords;
         if (supplementary.length) {
             rows.push(...supplementary.map(keyword => el('div', { class: 'jpdb-reader-newtab-kanji-front-keyword' },
                 el('small', {}, keyword.source),
@@ -5966,19 +5986,15 @@ export class NewTabController {
         );
     }
 
-    // The word-context lead line for a kanji-draw step: meaning ("drink") plus the
-    // word with the target kanji blanked ("＿み物"). Only rendered for MULTI-kanji /
-    // multi-character words where blanking disambiguates — a single-kanji card has
-    // no blank to fill, so its kanji keyword alone carries the meaning and the
-    // context row would just duplicate it. The meaning is condensed to its first
-    // concise sense so a messy multi-clause dump never fronts.
+    // The word-context lead line for a kanji-draw step: the word with every kanji
+    // blanked ("＿み物"). Only rendered for MULTI-kanji / multi-character words
+    // where the blank shape adds signal — a single-kanji card has no blank to
+    // fill. The word MEANING is deliberately absent (it is the answer to the
+    // session's word/recall step); learners who need it tap the Hint.
     private kanjiDrawWordContext(card: JPDBCard, kanji: string): HTMLElement | null {
         const cloze = this.kanjiWordBlank(card.spelling, kanji);
         if (!cloze) return null;
-        const meaning = conciseDrawMeaning(firstCardMeaning(card));
         return el('div', { class: 'jpdb-reader-newtab-kanji-front-keyword jpdb-reader-newtab-kanji-front-context' },
-            meaning ? el('span', { class: 'jpdb-reader-newtab-kanji-front-meaning' }, meaning) : null,
-            meaning ? el('span', { class: 'jpdb-reader-newtab-kanji-front-sep', 'aria-hidden': 'true' }, '—') : null,
             el('span', { class: 'jpdb-reader-newtab-kanji-front-cloze', lang: 'ja' }, cloze),
         );
     }
@@ -5998,11 +6014,11 @@ export class NewTabController {
         }
         const keyword = this.keywordCache.get(kanji) ?? card.kanjiKeyword ?? keywords.find(entry => entry.text)?.text ?? '';
         return kanjiDrawHints(card, {
-            // The draw prompt fronts the meaning by default, so the meaning hint is
-            // suppressed there; the per-kanji keyword becomes the first available
-            // hint (e.g. "read" for 読 in a multi-kanji word), then the reading's
-            // first kana as the gentlest sound cue — still short of the full reading.
-            meaningAlreadyShown: Boolean(firstCardMeaning(card).trim()),
+            // The draw prompt no longer fronts the word meaning (it would answer
+            // the session's word/recall step), so the meaning is the first hint
+            // tier, then the per-kanji keyword, then the reading's first kana as
+            // the gentlest sound cue — still short of the full reading.
+            meaningAlreadyShown: false,
             kanjiKeyword: keyword,
             firstKanaHint: this.kanjiFirstKanaHint(card),
         });
@@ -10467,7 +10483,7 @@ export class NewTabController {
         // kanji-mode class for the doodle stage CSS.
         root.classList.toggle('jpdb-reader-newtab-kanji-mode', this.state.mode === 'kanji' || this.wordSessionRendersKanji());
         root.classList.toggle('jpdb-reader-newtab-stats-mode', this.state.mode === 'stats');
-        root.classList.toggle('jpdb-reader-newtab-listen-mode', this.state.mode === 'listen');
+        root.classList.toggle('jpdb-reader-newtab-listen-mode', this.state.mode === 'listen' || this.activeStudyStepIsListen());
         const search = root.querySelector<HTMLElement>('[data-newtab-search]');
         if (search) search.hidden = this.state.mode !== 'search';
         const controls = root.querySelector<HTMLElement>('[data-newtab-controls]');

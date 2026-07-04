@@ -8390,7 +8390,7 @@ describe('new tab review helpers', () => {
         expect(ghost.querySelector('svg')).not.toBeNull();
     });
 
-    it('fronts a concise word meaning + blanked cloze on the kanji front, condensing messy glosses', async () => {
+    it('fronts the blanked cloze WITHOUT the word meaning on the kanji front', async () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
         const lookup = deferred<{ kanji: string; keyword: string; meanings: string[]; readings: []; components: []; vocabulary: []; frequencyRank: null }>();
         const card = newTabTestCard({
@@ -8405,13 +8405,15 @@ describe('new tab review helpers', () => {
                 jpdbKanji: { lookup: vi.fn(() => lookup.promise) } as never,
             });
 
-            // Owner requirement A: the word meaning + blanked cloze front immediately
-            // so "＿く" is never ambiguous — but the raw multi-clause dump is
-            // condensed to its first concise sense, never dumped verbatim.
+            // The blanked cloze fronts immediately, but the word meaning must
+            // NOT: it is the answer to the session's word step (owner: "showing
+            // 'time ＿＿' gives away the answer for the next part"). The meaning
+            // stays reachable behind the Hint button.
             const promptText = root.querySelector('[data-newtab-prompt]')?.textContent ?? '';
-            expect(promptText).toContain('to sow');
+            expect(promptText).not.toContain('to sow');
             expect(promptText).toContain('＿く');
             expect(promptText).not.toContain('5-dan transitive');
+            expect(promptText).toContain('Hint');
 
             lookup.resolve({ kanji: '播', keyword: 'disseminate', meanings: ['disseminate'], readings: [], components: [], vocabulary: [], frequencyRank: null });
             await waitForExpect(() => {

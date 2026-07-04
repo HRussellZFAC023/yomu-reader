@@ -137,7 +137,9 @@ describe('new-tab Recall mode', () => {
     it('fronts the meaning, checks the typed answer, and grades JPDB through the existing adapter', async () => {
         const card = recallCard();
         const jpdb = { reviewCard: vi.fn(async () => undefined) };
-        const { controller, internals } = recallController(card, {}, { jpdb: jpdb as never });
+        // Listen/Speak now follow Recall in every session; disable them here so
+        // this test still exercises the recall-submit → final-reveal handoff.
+        const { controller, internals } = recallController(card, { newTabStudyDisabledSteps: ['listen-pitch', 'speaking'] }, { jpdb: jpdb as never });
         const root = recallRoot();
         try {
             internals.renderWord(root, card);
