@@ -200,10 +200,12 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Shortened the hosted homepage action pills to "Guide" and "Game" so the first row stays readable and consistent on iPad.': "ホスト版ホームページのアクションピルを「Guide」と「Game」に短縮し、iPadでも最初の行が読みやすく揃って見えるようにしました。",
+    'Made the subtitle rail and drawer playback controls visibly larger on iPad and other touch screens, while keeping the controls aligned with the rest of the drawer chrome.': "iPadなどのタッチ画面で、字幕レールとドロワーの再生コントロールを見た目にも大きくしつつ、ドロワー内の他の操作部品と揃うようにしました。",
     "The study session's step chips are pinned per card: late pitch and sentence enrichment no longer reshapes an on-screen review (four chips silently became six and Recall vanished mid-session).": "学習セッションのステップチップはカードごとに固定されるようになりました。ピッチや例文の遅延取得によって、表示中のレビューの構成が変わることはもうありません(4つのチップが突然6つになり、リコールが消えていました)。",
     "The Kanji 2 chip drills the word's second kanji inside the same session — it previously jumped to the kanji queue's synthetic card and the second doodle never appeared.": "「漢字 2」チップは同じセッション内で単語の2文字目を練習するようになりました。以前は漢字キューの合成カードに飛んでしまい、2文字目の書き取りが表示されませんでした。",
     "The kanji draw prompt blanks every kanji in the word: 図鑑's first step showed ＿鑑, handing the answer to the second draw step.": "漢字書き取りの出題では、単語内のすべての漢字を空欄にするようになりました。図鑑の1文字目のステップで「＿鑑」と表示され、2文字目の答えを見せてしまっていました。",
-    "One source switcher: with two sources the status pill's ⇄ toggle is it, with three or more the select is it and the pill becomes a plain label — the stacked duplicate controls are gone.": "ソース切り替えは1つだけになりました。ソースが2つのときはステータスピルの⇄トグル、3つ以上のときはセレクトが切り替え役になり、ピルはただのラベルになります。縦に重なった重複コントロールはなくなりました。",
+    "One source switcher: while a card is shown the status pill's ⇄ toggle cycles every source and the select no longer stacks under it — the duplicate control is gone (the select still serves the card-less empty state).": "ソース切り替えは1つだけになりました。カード表示中はステータスピルの⇄トグルがすべてのソースを順番に切り替え、その下にセレクトが重なることはなくなりました(カードがない空の状態ではこれまで通りセレクトを使います)。",
     "A new study-flow stability smoke pins all four behaviours against the real built study page.": "新しい学習フロー安定性スモークが、実際にビルドされた学習ページに対してこれら4つの挙動を検証します。",
     "Internal: the pure lookup, nested-parse, and pitch-enrichment helper functions at the tail of the reader's main module moved into their own main-lookup-helpers module — no behaviour change, just a smaller main file and a testable home for the helpers.": "内部変更: リーダーのメインモジュール末尾にあった検索・ネスト解析・ピッチ強化の純粋ヘルパー関数群を、専用のmain-lookup-helpersモジュールに移動しました。動作の変更はなく、メインファイルが小さくなり、ヘルパーがテストしやすい場所に収まりました。",
     "The getting-started guide now describes the real first-run welcome panel (quick setup plus the two choice buttons), points manga readers at the BookWalker/mokuro guide, and spells out what a mined Anki card carries; the features page documents that YouTube's Subscribe and Join buttons are intentionally left un-annotated to avoid re-render flicker.": "スタートガイドが、実際の初回起動時のウェルカムパネル（クイック設定と2つの選択ボタン）を説明するようになりました。漫画の読者にはBookWalker/mokuroガイドへの案内を追加し、マイニングしたAnkiカードに何が保存されるかを明記しました。機能ページには、YouTubeのチャンネル登録・メンバーになるボタンを再描画のちらつき防止のため意図的に注釈しないことを記載しました。",
@@ -1340,6 +1342,8 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Get よむ': 'よむを入手',
     'Setup': 'セットアップ',
     'Setup guide': 'セットアップガイド',
+    'Guide': 'ガイド',
+    'Game': 'ゲーム',
     'Install よむ in about two minutes': '約2分でよむをインストール',
     'よむ runs through a userscript manager such as Tampermonkey. Add the manager once, install よむ, then refresh any Japanese page.': 'よむはTampermonkeyなどのユーザースクリプト管理拡張で動きます。管理拡張を一度入れてよむをインストールし、日本語ページを更新します。',
     'よむ runs in a userscript manager: Tampermonkey on desktop, or Userscripts on iPhone and iPad. Install the manager once, add the よむ userscript, then open a Japanese page and start reading.': 'よむはユーザースクリプト管理拡張で動きます。デスクトップではTampermonkey、iPhoneやiPadではUserscriptsを使います。管理拡張を一度入れ、よむユーザースクリプトを追加して、日本語ページを開けば読み始められます。',

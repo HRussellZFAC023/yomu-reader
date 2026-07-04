@@ -1,17 +1,24 @@
 # Changelog
 
-## [1.6.38] - 2026-07-04
+## [1.6.39] - 2026-07-04
 
 ### Fixed
 
 - The study session's step chips are pinned per card: late pitch and sentence enrichment no longer reshapes an on-screen review (four chips silently became six and Recall vanished mid-session).
 - The Kanji 2 chip drills the word's second kanji inside the same session — it previously jumped to the kanji queue's synthetic card and the second doodle never appeared.
 - The kanji draw prompt blanks every kanji in the word: 図鑑's first step showed ＿鑑, handing the answer to the second draw step.
-- One source switcher: with two sources the status pill's ⇄ toggle is it, with three or more the select is it and the pill becomes a plain label — the stacked duplicate controls are gone.
+- One source switcher: while a card is shown the status pill's ⇄ toggle cycles every source and the select no longer stacks under it — the duplicate control is gone (the select still serves the card-less empty state).
 
 ### Changed
 
 - A new study-flow stability smoke pins all four behaviours against the real built study page.
+
+## [1.6.38] - 2026-07-04
+
+### Changed
+
+- Shortened the hosted homepage action pills to "Guide" and "Game" so the first row stays readable and consistent on iPad.
+- Made the subtitle rail and drawer playback controls visibly larger on iPad and other touch screens, while keeping the controls aligned with the rest of the drawer chrome.
 
 ## [1.6.37] - 2026-07-03
 
