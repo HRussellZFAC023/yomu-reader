@@ -6,6 +6,10 @@ import {
     sharedHexToRgba,
     sharedMixHex,
 } from '../../../src/reader/core/color-math';
+import {
+    rememberSupportBannerDismissal,
+    shouldShowSupportBannerImpression,
+} from '../../../src/reader/app/support-banner-policy';
 import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';
@@ -34,7 +38,6 @@ const YOMU_SUPPORT_DONATE_URL = 'https://support.yomureader.com/donate';
 const YOMU_SUPPORT_FALLBACK_STATUS_URL = 'https://yomu-support.henry-robert-christopher-russell.workers.dev/status';
 const YOMU_SUPPORT_BANNER_ID = 'yomu-support-banner';
 const YOMU_SUPPORT_BANNER_DISMISSED_KEY = 'yomu-support-banner-dismissed-version';
-const YOMU_SUPPORT_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1000;
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 const HOSTED_DOCS_TRANSLATION_LEAF_SELECTOR = 'h1, h2, h3, h4, p, li, a, button, span, strong, small, figcaption, dt, dd, th, td, summary, label';
 const HOSTED_DOCS_HEAD_TRANSLATION_SELECTOR = [
@@ -206,6 +209,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Keyless installs can start studying for real: the built-in starter cards (labeled \"Yomu\") now offer grade buttons that record into the local Yomu SRS — the deck is created on the first grade, so reviews begin from the starter carousel instead of only after mining words from pages.": "APIキーなしのインストールでも本当に学習を始められるようになりました。内蔵のスターターカード（「Yomu」表示）に評価ボタンが付き、ローカルのYomu SRSに記録されます。最初の評価でデッキが作成されるため、ページから単語をマイニングしなくても、スターターカルーセルからレビューを始められます。",
     "The study personas smoke gained a keyless-grading scenario that reveals a starter card, grades it, and asserts the local deck recorded the review on the real built study page.": "学習ペルソナスモークに、キーなしでの評価シナリオを追加しました。実際にビルドされた学習ページでスターターカードを表示して評価し、ローカルデッキにレビューが記録されることを検証します。",
     "The YouTube ruby-coverage proof records video only outside CI: the recording needs Playwright's downloaded ffmpeg, which the channel-Chrome runners don't have — this was the remaining red step in the 1.6.42 CI and Release runs (verified passing in CI mode locally).": "YouTubeのルビ網羅プルーフは、CI以外でのみ動画を記録するようになりました。録画にはPlaywrightがダウンロードするffmpegが必要で、チャネルChromeのランナーには存在しないためです。これが1.6.42のCIとReleaseで残っていた失敗ステップでした（ローカルのCIモードで成功を確認済み）。",
+    "Made the donation/support banners quieter: new users get their first eligible visits banner-free, later impressions are sampled by visit cadence, shown banners cool down for two weeks, and manual dismissal hides the banner for a month.": "寄付／サポートバナーの表示頻度を控えめにしました。新規ユーザーの最初の対象訪問では表示せず、その後も訪問回数に応じて間引き、表示後は2週間、手動で閉じた場合は1か月非表示にします。",
     "Playlists are annotated: the watch-page queue panel, /playlist rows and their legacy header, and search-page channel cards (name plus description) are all scanned, with furigana room in their clamped titles — 1.6.40 underlined the 再生リスト tab while everything behind the click stayed bare.": "再生リストに注釈が付くようになりました。視聴ページのキューパネル、/playlistの行とその旧型ヘッダー、検索ページのチャンネルカード（名前と説明）がすべてスキャンされ、高さ制限されたタイトルにはふりがな用の余白が確保されます。1.6.40では「再生リスト」タブに下線が付いたのに、その先のページは何も注釈されていませんでした。",
     "Search-result description snippets no longer clip furigana: .metadata-snippet-text joined the ruby-room whitelist alongside the playlist and channel-card rows.": "検索結果の説明スニペットでふりがなが欠けなくなりました。.metadata-snippet-textが、再生リストやチャンネルカードの行とともにルビ余白の対象に加わりました。",
     "The YouTube ruby-coverage proof gained a desktop-playlist page plus queue-panel and channel-card fixtures, pinning the new coverage in real Chromium.": "YouTubeのルビ網羅プルーフに、デスクトップの再生リストページとキューパネル・チャンネルカードのフィクスチャを追加し、新しいカバレッジを実際のChromiumで検証するようにしました。",
@@ -3293,7 +3297,7 @@ function shouldShowHostedSupportBanner(status: HostedSupportStatus): boolean {
     const banner = status.banner;
     if (banner?.enabled === false) return false;
     const version = hostedSupportDismissVersion(status);
-    return !isHostedSupportDismissed(version);
+    return shouldShowHostedSupportBannerImpression(version);
 }
 
 function renderHostedSupportBanner(status: HostedSupportStatus): HTMLElement {
@@ -3466,28 +3470,18 @@ function hostedSupportDismissVersion(status: HostedSupportStatus): string {
     return status.banner?.dismissVersion || 'ultimate-audio-monthly-v1';
 }
 
-function isHostedSupportDismissed(version: string): boolean {
-    try {
-        const raw = window.localStorage.getItem(YOMU_SUPPORT_BANNER_DISMISSED_KEY);
-        if (!raw) return false;
-        const parsed = JSON.parse(raw) as { version?: unknown; dismissedUntil?: unknown };
-        return parsed.version === version
-            && typeof parsed.dismissedUntil === 'number'
-            && parsed.dismissedUntil > Date.now();
-    } catch {
-        return false;
-    }
+function shouldShowHostedSupportBannerImpression(version: string): boolean {
+    return shouldShowSupportBannerImpression({
+        storageKey: YOMU_SUPPORT_BANNER_DISMISSED_KEY,
+        version,
+    });
 }
 
 function rememberHostedSupportDismissal(version: string): void {
-    try {
-        window.localStorage.setItem(YOMU_SUPPORT_BANNER_DISMISSED_KEY, JSON.stringify({
-            version,
-            dismissedUntil: Date.now() + YOMU_SUPPORT_BANNER_DISMISS_MS,
-        }));
-    } catch {
-        // Storage may be blocked; closing still removes this instance.
-    }
+    rememberSupportBannerDismissal({
+        storageKey: YOMU_SUPPORT_BANNER_DISMISSED_KEY,
+        version,
+    });
 }
 
 function formatHostedSupportGbp(value: number): string {

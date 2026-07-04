@@ -32,6 +32,7 @@ import type { CardRenderData } from '../cards/render-data';
 import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
 import { APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, PDF_READER_PAGE_URL, SUPPORT_STATUS_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
+import { rememberSupportBannerDismissal, shouldShowSupportBannerImpression } from '../app/support-banner-policy';
 import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
 import { nearestElementByPoint, pointerPointFromEvent, pointInElementClientRects } from '../dom/pointer-geometry';
@@ -686,7 +687,6 @@ interface NewTabSupportStatus {
 const log = Logger.scope('NewTab');
 const NEW_TAB_MODE_NAMES = new Set<string>(['word', 'recall', 'kanji', 'search', 'stats', 'listen']);
 const NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY = 'yomu-newtab-support-banner-dismissed';
-const NEW_TAB_SUPPORT_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1000;
 
 function isNewTabModeName(value: string | undefined | null): value is NewTabMode {
     return Boolean(value && NEW_TAB_MODE_NAMES.has(value));
@@ -739,28 +739,18 @@ function newTabSupportDismissVersion(status: NewTabSupportStatus): string {
     return status.banner?.dismissVersion || 'ultimate-audio-monthly-v1';
 }
 
-function isNewTabSupportBannerDismissed(version: string): boolean {
-    try {
-        const raw = window.localStorage.getItem(NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY);
-        if (!raw) return false;
-        const parsed = JSON.parse(raw) as { version?: unknown; dismissedUntil?: unknown };
-        return parsed.version === version
-            && typeof parsed.dismissedUntil === 'number'
-            && parsed.dismissedUntil > Date.now();
-    } catch {
-        return false;
-    }
+function shouldShowNewTabSupportBannerImpression(version: string): boolean {
+    return shouldShowSupportBannerImpression({
+        storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
+        version,
+    });
 }
 
 function rememberNewTabSupportBannerDismissal(version: string): void {
-    try {
-        window.localStorage.setItem(NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY, JSON.stringify({
-            version,
-            dismissedUntil: Date.now() + NEW_TAB_SUPPORT_BANNER_DISMISS_MS,
-        }));
-    } catch {
-        // Storage may be blocked; closing still removes the current banner.
-    }
+    rememberSupportBannerDismissal({
+        storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
+        version,
+    });
 }
 
 function formatNewTabSupportGbp(value: number): string {
@@ -1792,7 +1782,7 @@ export class NewTabController {
 
     private shouldShowSupportBanner(status: NewTabSupportStatus): boolean {
         if (status.banner?.enabled === false) return false;
-        return !isNewTabSupportBannerDismissed(newTabSupportDismissVersion(status));
+        return shouldShowNewTabSupportBannerImpression(newTabSupportDismissVersion(status));
     }
 
     private renderSupportBanner(banner: HTMLElement, status: NewTabSupportStatus): void {

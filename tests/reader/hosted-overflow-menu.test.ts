@@ -29,8 +29,8 @@ describe('hosted overflow menus', () => {
         expect(theme).toContain("const YOMU_SUPPORT_FALLBACK_STATUS_URL = 'https://yomu-support.henry-robert-christopher-russell.workers.dev/status'");
         expect(theme).toContain("for (const url of [YOMU_SUPPORT_STATUS_URL, YOMU_SUPPORT_FALLBACK_STATUS_URL])");
         expect(theme).not.toContain("fallbackHostedSupportStatus");
-        expect(theme).toContain("const YOMU_SUPPORT_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1000");
-        expect(theme).toContain("dismissedUntil: Date.now() + YOMU_SUPPORT_BANNER_DISMISS_MS");
+        expect(theme).toContain("shouldShowSupportBannerImpression");
+        expect(theme).toContain("rememberSupportBannerDismissal");
         expect(theme).toContain("Yomu's Ultimate Audio is donation funded.");
     });
 
@@ -45,7 +45,7 @@ describe('hosted overflow menus', () => {
         expect(controller).toContain("uiText(language, 'support')");
         expect(controller).toContain("uiText(language, 'github')");
         expect(controller).toContain("SUPPORT_STATUS_URL");
-        expect(controller).toContain("NEW_TAB_SUPPORT_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1000");
+        expect(controller).toContain("shouldShowSupportBannerImpression");
         expect(controller).toContain("dismiss-support-banner");
         expect(controller).not.toContain("this.renderOverflowMenuLink('Local Audio'");
         expect(controller).not.toContain("this.renderOverflowMenuLink('Support'");

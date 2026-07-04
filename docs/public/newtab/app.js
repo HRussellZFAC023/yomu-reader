@@ -39309,7 +39309,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.46".trim() ? "1.6.46".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.47".trim() ? "1.6.47".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -70963,6 +70963,111 @@ ${newTabCardReading(card)}`;
       context.getSettings().interfaceLanguage
     ));
   }
+  const SUPPORT_BANNER_DAY_MS = 24 * 60 * 60 * 1e3;
+  const SUPPORT_BANNER_FIRST_QUIET_VISITS = 3;
+  const SUPPORT_BANNER_VISIT_INTERVAL = 6;
+  const SUPPORT_BANNER_IMPRESSION_COOLDOWN_MS = 14 * SUPPORT_BANNER_DAY_MS;
+  const SUPPORT_BANNER_DISMISS_MS = 30 * SUPPORT_BANNER_DAY_MS;
+  const supportBannerPageDecisions = /* @__PURE__ */ new Map();
+  function shouldShowSupportBannerImpression(options) {
+    const storage2 = supportBannerPolicyStorage(options.storage);
+    if (!storage2) return false;
+    const key = supportBannerPageDecisionKey(options);
+    const existingDecision = supportBannerPageDecisions.get(key);
+    if (existingDecision !== void 0) return existingDecision;
+    const now = policyNow(options);
+    const state2 = readSupportBannerPolicyState(storage2, options.storageKey, options.version);
+    if (state2.dismissedUntil > now) {
+      supportBannerPageDecisions.set(key, false);
+      return false;
+    }
+    state2.visits += 1;
+    const firstEligibleVisit = Math.max(0, Math.floor(options.firstQuietVisits ?? SUPPORT_BANNER_FIRST_QUIET_VISITS)) + 1;
+    state2.nextEligibleVisit = Math.max(state2.nextEligibleVisit, firstEligibleVisit);
+    const shouldShow = state2.visits >= state2.nextEligibleVisit && state2.hiddenUntil <= now;
+    if (shouldShow) {
+      state2.lastShownAt = now;
+      state2.hiddenUntil = now + Math.max(0, options.impressionCooldownMs ?? SUPPORT_BANNER_IMPRESSION_COOLDOWN_MS);
+      state2.nextEligibleVisit = state2.visits + Math.max(1, Math.floor(options.visitInterval ?? SUPPORT_BANNER_VISIT_INTERVAL));
+    }
+    if (!writeSupportBannerPolicyState(storage2, options.storageKey, state2)) {
+      supportBannerPageDecisions.set(key, false);
+      return false;
+    }
+    supportBannerPageDecisions.set(key, shouldShow);
+    return shouldShow;
+  }
+  function rememberSupportBannerDismissal(options) {
+    const storage2 = supportBannerPolicyStorage(options.storage);
+    const key = supportBannerPageDecisionKey(options);
+    supportBannerPageDecisions.set(key, false);
+    if (!storage2) return;
+    const now = policyNow(options);
+    const state2 = readSupportBannerPolicyState(storage2, options.storageKey, options.version);
+    const dismissMs = Math.max(0, options.dismissMs ?? SUPPORT_BANNER_DISMISS_MS);
+    const visitInterval = Math.max(1, Math.floor(options.visitInterval ?? SUPPORT_BANNER_VISIT_INTERVAL));
+    state2.dismissedUntil = now + dismissMs;
+    state2.hiddenUntil = Math.max(state2.hiddenUntil, state2.dismissedUntil);
+    state2.nextEligibleVisit = Math.max(state2.nextEligibleVisit, state2.visits + visitInterval);
+    writeSupportBannerPolicyState(storage2, options.storageKey, state2);
+  }
+  function supportBannerPolicyStorage(storage2) {
+    if (storage2 !== void 0) return storage2;
+    try {
+      return globalThis.localStorage ?? null;
+    } catch {
+      return null;
+    }
+  }
+  function supportBannerPageDecisionKey(options) {
+    return `${options.storageKey}
+${options.version}`;
+  }
+  function policyNow(options) {
+    return typeof options.now === "number" && Number.isFinite(options.now) ? options.now : Date.now();
+  }
+  function readSupportBannerPolicyState(storage2, storageKey, version) {
+    try {
+      const raw = storage2.getItem(storageKey);
+      if (!raw) return freshSupportBannerPolicyState(version);
+      const parsed = JSON.parse(raw);
+      if (!parsed || parsed.version !== version) return freshSupportBannerPolicyState(version);
+      return {
+        version,
+        visits: nonNegativeInteger(parsed.visits),
+        nextEligibleVisit: nonNegativeInteger(parsed.nextEligibleVisit),
+        hiddenUntil: nonNegativeTimestamp(parsed.hiddenUntil),
+        dismissedUntil: nonNegativeTimestamp(parsed.dismissedUntil),
+        lastShownAt: nonNegativeTimestamp(parsed.lastShownAt)
+      };
+    } catch {
+      return freshSupportBannerPolicyState(version);
+    }
+  }
+  function writeSupportBannerPolicyState(storage2, storageKey, state2) {
+    try {
+      storage2.setItem(storageKey, JSON.stringify(state2));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function freshSupportBannerPolicyState(version) {
+    return {
+      version,
+      visits: 0,
+      nextEligibleVisit: 0,
+      hiddenUntil: 0,
+      dismissedUntil: 0,
+      lastShownAt: 0
+    };
+  }
+  function nonNegativeInteger(value) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+  }
+  function nonNegativeTimestamp(value) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+  }
   function pointerPointFromEvent(event) {
     const point = { x: event.clientX, y: event.clientY };
     return Number.isFinite(point.x) && Number.isFinite(point.y) ? point : null;
@@ -74381,7 +74486,6 @@ ${entry.url}`),
   const log$2 = Logger.scope("NewTab");
   const NEW_TAB_MODE_NAMES = /* @__PURE__ */ new Set(["word", "recall", "kanji", "search", "stats", "listen"]);
   const NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY = "yomu-newtab-support-banner-dismissed";
-  const NEW_TAB_SUPPORT_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1e3;
   function isNewTabModeName(value) {
     return Boolean(value && NEW_TAB_MODE_NAMES.has(value));
   }
@@ -74426,24 +74530,17 @@ ${entry.url}`),
   function newTabSupportDismissVersion(status) {
     return status.banner?.dismissVersion || "ultimate-audio-monthly-v1";
   }
-  function isNewTabSupportBannerDismissed(version) {
-    try {
-      const raw = window.localStorage.getItem(NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY);
-      if (!raw) return false;
-      const parsed = JSON.parse(raw);
-      return parsed.version === version && typeof parsed.dismissedUntil === "number" && parsed.dismissedUntil > Date.now();
-    } catch {
-      return false;
-    }
+  function shouldShowNewTabSupportBannerImpression(version) {
+    return shouldShowSupportBannerImpression({
+      storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
+      version
+    });
   }
   function rememberNewTabSupportBannerDismissal(version) {
-    try {
-      window.localStorage.setItem(NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY, JSON.stringify({
-        version,
-        dismissedUntil: Date.now() + NEW_TAB_SUPPORT_BANNER_DISMISS_MS
-      }));
-    } catch {
-    }
+    rememberSupportBannerDismissal({
+      storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
+      version
+    });
   }
   function formatNewTabSupportGbp(value) {
     return `£${value.toFixed(value % 1 === 0 ? 0 : 2)}`;
@@ -75417,7 +75514,7 @@ ${entry.url}`),
     }
     shouldShowSupportBanner(status) {
       if (status.banner?.enabled === false) return false;
-      return !isNewTabSupportBannerDismissed(newTabSupportDismissVersion(status));
+      return shouldShowNewTabSupportBannerImpression(newTabSupportDismissVersion(status));
     }
     renderSupportBanner(banner, status) {
       const version = newTabSupportDismissVersion(status);

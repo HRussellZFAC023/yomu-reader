@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.47] - 2026-07-04
+
+### Changed
+
+- Made the donation/support banners quieter: new users get their first eligible visits banner-free, later impressions are sampled by visit cadence, shown banners cool down for two weeks, and manual dismissal hides the banner for a month.
+
 ## [1.6.46] - 2026-07-04
 
 ### Fixed

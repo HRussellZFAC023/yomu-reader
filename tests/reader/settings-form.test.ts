@@ -1325,8 +1325,11 @@ describe('settings form localization', () => {
         expect(DOCS_THEME_SOURCE).toContain('function renderHostedSupportProviderButtons(status: HostedSupportStatus): HTMLElement[]');
         expect(DOCS_THEME_SOURCE).toContain("if (!provider?.enabled || provider.id === 'stripe') continue;");
         expect(DOCS_THEME_SOURCE).toContain('const url = safeHostedHttpsUrl(provider.url);');
-        // Dismissal keeps its ~1-week reappear window.
-        expect(DOCS_THEME_SOURCE).toContain('const YOMU_SUPPORT_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1000;');
+        // Docs and newtab share the same quieter support-banner policy.
+        expect(DOCS_THEME_SOURCE).toContain('shouldShowSupportBannerImpression');
+        expect(DOCS_THEME_SOURCE).toContain('rememberSupportBannerDismissal');
+        expect(DOCS_THEME_SOURCE).toContain('function shouldShowHostedSupportBannerImpression(version: string): boolean');
+        expect(DOCS_THEME_SOURCE).toContain('function rememberHostedSupportDismissal(version: string): void');
     });
 
     it('shows Immersion Kit reveal audio autoplay enabled by default', () => {
