@@ -31,7 +31,10 @@ let activeRuntime: ActiveRuntime | undefined;
 export function bootReaderApp(): void {
     reconcileActiveRuntimeMarker();
     const embeddedFrame = isEmbeddedFrameWindow();
-    if (embeddedFrame && !shouldBootEmbeddedFrame()) return;
+    if (embeddedFrame && !shouldBootEmbeddedFrame()) {
+        watchEmbeddedFrameForVideo();
+        return;
+    }
     const bootWindow = window as YomuBootWindow;
     const runtimeKind = detectRuntimeKind();
     const ownerId = claimRuntime(runtimeKind);
@@ -133,7 +136,31 @@ function isEmbeddedFrameWindow(): boolean {
 }
 
 function shouldBootEmbeddedFrame(): boolean {
-    return isYouTubeMediaFrame();
+    return isYouTubeMediaFrame() || embeddedFrameHasVideo();
+}
+
+function embeddedFrameHasVideo(): boolean {
+    return Boolean(document.querySelector('video'));
+}
+
+// Streaming sites (kaa.lt et al.) host their player in a third-party iframe
+// that has no <video> at document-start. Booting the full reader in every
+// embedded frame would waste work in ad/analytics frames, so wait until a
+// video element actually appears and only then boot this frame.
+let embeddedFrameVideoObserver: MutationObserver | undefined;
+
+function watchEmbeddedFrameForVideo(): void {
+    if (embeddedFrameVideoObserver) return;
+    const observer = new MutationObserver(() => {
+        if (!embeddedFrameHasVideo()) return;
+        observer.disconnect();
+        embeddedFrameVideoObserver = undefined;
+        if (isEmbeddedFrameWindow()) bootReaderApp();
+    });
+    embeddedFrameVideoObserver = observer;
+    const observe = () => observer.observe(document.documentElement, { childList: true, subtree: true });
+    if (document.documentElement) observe();
+    else document.addEventListener('DOMContentLoaded', observe, { once: true });
 }
 
 function isYouTubeMediaFrame(): boolean {

@@ -208,6 +208,8 @@ const HOSTED_MANGA_OCR_LINES = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Video players hosted in third-party iframes (such as the kaa.lt player) are now detected: Yomu boots inside an embedded frame as soon as a video element appears, instead of only inside YouTube frames.": "サードパーティのiframeに埋め込まれた動画プレーヤー（kaa.ltのプレーヤーなど）を検出できるようになりました。よむはYouTubeのフレームだけでなく、埋め込みフレーム内に動画要素が現れた時点で起動します。",
+    "OCR now works inside embedded video frames: the subtitle rail's Read video frame (OCR) button and paused-frame capture are initialized in player iframes, where they previously did nothing.": "埋め込み動画フレーム内でもOCRが動作するようになりました。字幕レールの「動画フレームを読み取る（OCR）」ボタンと一時停止フレームのキャプチャがプレーヤーのiframe内でも初期化されます。これまでは何も起こりませんでした。",
     "Added balanced padding to new-tab search suggestions, so wrapped dictionary details no longer sit against the card edge.": "新タブの検索候補に上下左右そろった余白を追加しました。折り返した辞書の詳細がカードの端に張り付かなくなります。",
     "The subtitle drawer's previous/next/play cluster moved into the head's top row beside the options and close buttons, so it no longer wraps onto its own line over the transcript on narrow panels, and it now shares the same bordered button chrome as its neighbours.": "字幕ドロワーの前へ／次へ／再生ボタン群を、ヘッダー上段のオプション・閉じるボタンの横に移動しました。幅の狭いパネルでもトランスクリプトの上に折り返して独立した行になることがなくなり、隣のボタンと同じ枠線付きのボタンスタイルを共有するようになりました。",
     "Every subtitle rail button, the drawer transport, and the panel position selector now respond to hover and keyboard focus with the shared accent highlight.": "字幕レールのすべてのボタン、ドロワーの再生操作、パネルの位置セレクターが、ホバーとキーボードフォーカスに共通のアクセントハイライトで反応するようになりました。",

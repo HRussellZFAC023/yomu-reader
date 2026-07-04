@@ -1020,6 +1020,9 @@ export class ReaderApp {
         if (this.isDestroyed || !document.body) return;
         if (this.embeddedFrame) {
             this.subtitles.init();
+            // Player iframes need OCR too: the subtitle rail's OCR button and
+            // paused-frame OCR dispatch/listen inside this frame's document.
+            this.ocr.init();
             if (this.shouldScanEmbeddedFrame()) {
                 this.setupAutoScan();
                 this.scheduleAutoScan(0, { force: true });

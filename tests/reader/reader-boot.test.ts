@@ -78,6 +78,33 @@ describe('reader boot', () => {
         expect(document.getElementById('jpdb-reader-runtime-owner')).toBeNull();
     });
 
+    it('boots embedded frames that already contain a video in restricted mode', () => {
+        document.body.append(document.createElement('video'));
+
+        withWindowProperty('top', {} as Window, () => {
+            bootReaderApp();
+        });
+
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+    });
+
+    it('boots an embedded frame once a video appears after document-start', async () => {
+        const descriptor = Object.getOwnPropertyDescriptor(window, 'top');
+        Object.defineProperty(window, 'top', { configurable: true, value: {} as Window });
+        try {
+            bootReaderApp();
+            expect(appMocks.init).not.toHaveBeenCalled();
+
+            document.body.append(document.createElement('video'));
+            await vi.waitFor(() => {
+                expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+            });
+        } finally {
+            if (descriptor) Object.defineProperty(window, 'top', descriptor);
+            else delete (window as unknown as Record<string, unknown>).top;
+        }
+    });
+
     it('boots YouTube embedded frames in restricted mode', () => {
         withWindowProperty('top', {} as Window, () => {
             withWindowProperty('location', new URL('https://www.youtube.com/embed/abc123') as unknown as Location, () => {

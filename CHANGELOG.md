@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.54] - 2026-07-04
+
+### Fixed
+
+- Video players hosted in third-party iframes (such as the kaa.lt player) are now detected: Yomu boots inside an embedded frame as soon as a video element appears, instead of only inside YouTube frames.
+- OCR now works inside embedded video frames: the subtitle rail's Read video frame (OCR) button and paused-frame capture are initialized in player iframes, where they previously did nothing.
+
 ## [1.6.53] - 2026-07-04
 
 ### Fixed

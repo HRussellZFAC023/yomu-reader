@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.53
+// @version 1.6.54
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.53#sha256=dWch5ctweTHVIvrPSHbJljlTRPDdI6NNqa4j2NAAw2A=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.53#sha256=sQ/1Bh9Qj7ccmbWUX3TK683Yv/SmToi0/CZCn7h/cfA=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.53#sha256=5DvHiot4TYDlZty5HeO8KE5eQv+zKfdMJGomCFQIfrc=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.53#sha256=DHvcrxMA3Sze1uGNbvBTXj1M7sgmHi46Wm7nVxeMczc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.53#sha256=cvLw83uqORhMLCqdzti9/dfHUi/JXScNWiGsKrwRfUE=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.53#sha256=UMhnvlwwnq9RWeZyYJmEcdrHXL/uPxrsPk52b8M0c6A=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.54#sha256=dWch5ctweTHVIvrPSHbJljlTRPDdI6NNqa4j2NAAw2A=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.54#sha256=sQ/1Bh9Qj7ccmbWUX3TK683Yv/SmToi0/CZCn7h/cfA=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.54#sha256=5DvHiot4TYDlZty5HeO8KE5eQv+zKfdMJGomCFQIfrc=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.54#sha256=DHvcrxMA3Sze1uGNbvBTXj1M7sgmHi46Wm7nVxeMczc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.54#sha256=cvLw83uqORhMLCqdzti9/dfHUi/JXScNWiGsKrwRfUE=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.54#sha256=UMhnvlwwnq9RWeZyYJmEcdrHXL/uPxrsPk52b8M0c6A=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -32530,7 +32530,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.53"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.54"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -33956,6 +33956,7 @@ class ReaderApp {
   if (this.isDestroyed || !document.body) return;
   if (this.embeddedFrame) {
     this.subtitles.init();
+    this.ocr.init();
     if (this.shouldScanEmbeddedFrame()) {
       this.setupAutoScan();
       this.scheduleAutoScan(0, { force: true });
@@ -39908,7 +39909,10 @@ let activeRuntime;
 function bootReaderApp() {
   reconcileActiveRuntimeMarker();
   const embeddedFrame = isEmbeddedFrameWindow();
-  if (embeddedFrame && !shouldBootEmbeddedFrame()) return;
+  if (embeddedFrame && !shouldBootEmbeddedFrame()) {
+  watchEmbeddedFrameForVideo();
+  return;
+  }
   const bootWindow = window;
   const runtimeKind = detectRuntimeKind();
   const ownerId = claimRuntime(runtimeKind);
@@ -39994,7 +39998,24 @@ function isEmbeddedFrameWindow() {
   }
 }
 function shouldBootEmbeddedFrame() {
-  return isYouTubeMediaFrame();
+  return isYouTubeMediaFrame() || embeddedFrameHasVideo();
+}
+function embeddedFrameHasVideo() {
+  return Boolean(document.querySelector("video"));
+}
+let embeddedFrameVideoObserver;
+function watchEmbeddedFrameForVideo() {
+  if (embeddedFrameVideoObserver) return;
+  const observer = new MutationObserver(() => {
+  if (!embeddedFrameHasVideo()) return;
+  observer.disconnect();
+  embeddedFrameVideoObserver = void 0;
+  if (isEmbeddedFrameWindow()) bootReaderApp();
+  });
+  embeddedFrameVideoObserver = observer;
+  const observe = () => observer.observe(document.documentElement, { childList: true, subtree: true });
+  if (document.documentElement) observe();
+  else document.addEventListener("DOMContentLoaded", observe, { once: true });
 }
 function isYouTubeMediaFrame() {
   return YOUTUBE_PLAYBACK_HOST_RE.test(location.hostname) && YOUTUBE_PLAYBACK_PATH_RE.test(location.pathname);
