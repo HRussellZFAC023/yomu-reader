@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.53] - 2026-07-04
+
+### Fixed
+
+- Added balanced padding to new-tab search suggestions, so wrapped dictionary details no longer sit against the card edge.
+
 ## [1.6.52] - 2026-07-04
 
 ### Fixed

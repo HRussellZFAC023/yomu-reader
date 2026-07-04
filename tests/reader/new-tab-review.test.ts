@@ -1549,6 +1549,13 @@ describe('new tab review helpers', () => {
             .toContain('@media (max-width: 420px) { .jpdb-reader-newtab-shell { width: min(100vw - 12px, 420px); } .jpdb-reader-newtab-mode button { min-height: 36px; padding-inline: 6px; font-size: 10px; }');
     });
 
+    it('keeps new-tab search suggestions padded on every edge', () => {
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('.jpdb-reader-newtab-search-suggestions[hidden] { display: none; } .jpdb-reader-newtab-search-suggestions button { display: grid; align-content: center; justify-items: start; gap: 3px; min-width: 0; min-height: 44px; padding: 12px; text-align: left; }');
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .not.toContain('min-height: 44px; padding-inline: 12px; text-align: left;');
+    });
+
     it('styles current Anki card audio as the newtab icon speaker', () => {
         const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
 
