@@ -39309,7 +39309,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.44".trim() ? "1.6.44".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.45".trim() ? "1.6.45".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -81895,6 +81895,7 @@ ${entry.url}`),
       const gradeCount = buttons.filter((button) => button instanceof HTMLButtonElement && Boolean(button.dataset.grade)).length;
       const hasGrades = gradeCount > 0;
       slots.controls.classList.toggle("jpdb-reader-newtab-grade-controls", hasGrades);
+      slots.controls.dataset.newtabControlCount = String(buttons.length);
       slots.controls.dataset.newtabGradeControls = String(hasGrades);
       if (hasGrades) {
         slots.controls.dataset.newtabGradeCount = String(gradeCount);
@@ -82297,6 +82298,11 @@ ${entry.url}`),
       setOptionalText(slots.status, "");
       if (slots.controls) {
         slots.controls.hidden = false;
+        slots.controls.classList.remove("jpdb-reader-newtab-grade-controls");
+        slots.controls.dataset.newtabControlCount = "1";
+        slots.controls.dataset.newtabGradeControls = "false";
+        delete slots.controls.dataset.newtabGradeCount;
+        delete slots.controls.dataset.newtabGradeScale;
         replaceChildrenWith(
           slots.controls,
           el("button", { type: "button", dataset: { newtabAction: "continue-batch" } }, this.text("continueStudying"))

@@ -1568,6 +1568,8 @@ describe('new tab review helpers', () => {
         expect(normalizedCss)
             .toContain('button.jpdb-reader-newtab-status { display: inline-flex; align-items: center; justify-content: center; gap: 5px; max-width: min(360px, calc(100vw - 56px)); min-height: 26px; padding: 5px 10px; border: 1px solid rgba(139, 160, 177, 0.24); border-radius: 999px; background: var(--jpdb-reader-surface); color: var(--jpdb-reader-text);');
         expect(normalizedCss)
+            .toContain('.jpdb-reader-newtab-controls[data-newtab-control-count="2"]:not(.jpdb-reader-newtab-grade-controls) { grid-template-columns: repeat(2, minmax(0, 1fr)); }');
+        expect(normalizedCss)
             .toContain('.jpdb-reader-newtab-controls button { display: grid; place-items: center; width: 100%; min-height: 42px; padding: 0 12px; border: 1px solid rgba(139, 160, 177, 0.24); border-radius: 8px; background: linear-gradient( 180deg, color-mix(in srgb, var(--jpdb-reader-surface-2) 82%, var(--jpdb-reader-bg) 18%), color-mix(in srgb, var(--jpdb-reader-surface) 90%, var(--jpdb-reader-bg) 10%) ); color: var(--jpdb-reader-text);');
         expect(normalizedCss)
             .toContain('.jpdb-reader-theme-light .jpdb-reader-newtab-controls button:not([data-grade]), .yomu-page-theme-light .jpdb-reader-newtab-controls button:not([data-grade]) { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 20%, var(--jpdb-reader-border));');
@@ -7032,6 +7034,31 @@ describe('new tab review helpers', () => {
             expect(root.querySelector('[data-newtab-action="undo-review"]')).toBeNull();
             expect(root.querySelector('[data-newtab-action="previous"]')).not.toBeNull();
             expect(root.querySelector('[data-newtab-action="next"]')).not.toBeNull();
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('marks two-button study-step navigation for equal-width controls', () => {
+        const card = newTabTestCard({ spelling: '図鑑', reading: 'ずかん' });
+        const controller = newTabBareController(() => ({
+                ...DEFAULT_SETTINGS,
+                immersionKitEnabled: false,
+                newTabStudyDisabledSteps: ['recall-cloze', 'listen-pitch', 'speaking'],
+            }));
+        const root = renderSeededNewTabWord(controller, card, {
+            sourceLabel: 'Dictionary',
+            state: { mode: 'word', revealAnswer: false },
+        });
+
+        try {
+            const controls = root.querySelector<HTMLElement>('[data-newtab-controls]');
+            const actions = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-newtab-controls] [data-newtab-action]'))
+                .map(button => button.dataset.newtabAction);
+
+            expect(controls?.dataset.newtabGradeControls).toBe('false');
+            expect(controls?.dataset.newtabControlCount).toBe('2');
+            expect(actions).toEqual(['previous', 'next']);
         } finally {
             root.remove();
         }

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.45] - 2026-07-04
+
+### Fixed
+
+- The study page's Previous word and Continue controls now split the navigation row 50/50 during two-button study steps instead of leaving an empty third column.
+
 ## [1.6.44] - 2026-07-04
 
 ### Fixed

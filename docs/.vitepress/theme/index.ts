@@ -200,6 +200,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "The study page's Previous word and Continue controls now split the navigation row 50/50 during two-button study steps instead of leaving an empty third column.": "学習ページで2ボタンの学習ステップを表示している間、「前の単語」と「続ける」の操作がナビゲーション行を50/50で分け合うようになりました。空の3列目が残ることはありません。",
     "Study, Search, and Stats now divide the new-tab mode switcher evenly on desktop, mobile, first paint, and the Stats page, removing the invisible extra grid columns that left the tabs looking lopsided.": "Study、Search、Stats が、デスクトップ・モバイル・初回表示・Statsページの新タブモード切り替え内で均等に並ぶようになりました。タブを不揃いに見せていた見えない余分なグリッド列を削除しました。",
     "Keyless installs can start studying for real: the built-in starter cards (labeled \"Yomu\") now offer grade buttons that record into the local Yomu SRS — the deck is created on the first grade, so reviews begin from the starter carousel instead of only after mining words from pages.": "APIキーなしのインストールでも本当に学習を始められるようになりました。内蔵のスターターカード（「Yomu」表示）に評価ボタンが付き、ローカルのYomu SRSに記録されます。最初の評価でデッキが作成されるため、ページから単語をマイニングしなくても、スターターカルーセルからレビューを始められます。",
     "The study personas smoke gained a keyless-grading scenario that reveals a starter card, grades it, and asserts the local deck recorded the review on the real built study page.": "学習ペルソナスモークに、キーなしでの評価シナリオを追加しました。実際にビルドされた学習ページでスターターカードを表示して評価し、ローカルデッキにレビューが記録されることを検証します。",

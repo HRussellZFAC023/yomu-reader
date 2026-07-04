@@ -9395,6 +9395,7 @@ export class NewTabController {
         const gradeCount = buttons.filter(button => button instanceof HTMLButtonElement && Boolean(button.dataset.grade)).length;
         const hasGrades = gradeCount > 0;
         slots.controls.classList.toggle('jpdb-reader-newtab-grade-controls', hasGrades);
+        slots.controls.dataset.newtabControlCount = String(buttons.length);
         slots.controls.dataset.newtabGradeControls = String(hasGrades);
         if (hasGrades) {
             slots.controls.dataset.newtabGradeCount = String(gradeCount);
@@ -9847,6 +9848,11 @@ export class NewTabController {
         setOptionalText(slots.status, '');
         if (slots.controls) {
             slots.controls.hidden = false;
+            slots.controls.classList.remove('jpdb-reader-newtab-grade-controls');
+            slots.controls.dataset.newtabControlCount = '1';
+            slots.controls.dataset.newtabGradeControls = 'false';
+            delete slots.controls.dataset.newtabGradeCount;
+            delete slots.controls.dataset.newtabGradeScale;
             replaceChildrenWith(slots.controls,
                 el('button', { type: 'button', dataset: { newtabAction: 'continue-batch' } }, this.text('continueStudying')),
             );

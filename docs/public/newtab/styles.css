@@ -2523,6 +2523,10 @@ button.jpdb-reader-newtab-study-hint-btn:hover {
   padding: 8px;
 }
 
+.jpdb-reader-newtab-controls[data-newtab-control-count="2"]:not(.jpdb-reader-newtab-grade-controls) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .jpdb-reader-newtab-controls[hidden],
 .jpdb-reader-newtab-search-mode .jpdb-reader-newtab-controls {
   display: none !important;
@@ -4341,6 +4345,10 @@ button.jpdb-reader-newtab-study-hint-btn:hover {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     padding: 6px;
+  }
+
+  .jpdb-reader-newtab-controls[data-newtab-control-count="2"]:not(.jpdb-reader-newtab-grade-controls) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
