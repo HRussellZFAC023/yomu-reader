@@ -208,6 +208,7 @@ const HOSTED_MANGA_OCR_LINES = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Clicking the headword on an unrevealed study word card now opens the word's own lookup instead of a component kanji card; per-kanji drilldown appears only after the answer is revealed.": "解答表示前の学習単語カードで見出し語をクリックすると、構成漢字のカードではなく単語自体の詳細が開くようになりました。漢字ごとの掘り下げは解答を表示した後にのみ表示されます。",
     "Video players hosted in third-party iframes (such as the kaa.lt player) are now detected: Yomu boots inside an embedded frame as soon as a video element appears, instead of only inside YouTube frames.": "サードパーティのiframeに埋め込まれた動画プレーヤー（kaa.ltのプレーヤーなど）を検出できるようになりました。よむはYouTubeのフレームだけでなく、埋め込みフレーム内に動画要素が現れた時点で起動します。",
     "OCR now works inside embedded video frames: the subtitle rail's Read video frame (OCR) button and paused-frame capture are initialized in player iframes, where they previously did nothing.": "埋め込み動画フレーム内でもOCRが動作するようになりました。字幕レールの「動画フレームを読み取る（OCR）」ボタンと一時停止フレームのキャプチャがプレーヤーのiframe内でも初期化されます。これまでは何も起こりませんでした。",
     "Added balanced padding to new-tab search suggestions, so wrapped dictionary details no longer sit against the card edge.": "新タブの検索候補に上下左右そろった余白を追加しました。折り返した辞書の詳細がカードの端に張り付かなくなります。",

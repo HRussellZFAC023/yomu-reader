@@ -6564,14 +6564,18 @@ export class NewTabController {
     private renderPromptReaderWord(card: JPDBCard, state: ReturnType<typeof primaryCardState>, sentence: string): HTMLSpanElement {
         const word = this.renderReaderWord(card, state, card.spelling, sentence);
         word.classList.add('jpdb-reader-parseable');
-        word.dataset.jpdbReaderKanjiNav = 'true';
-        word.dataset.jpdbReaderKanjiNavLabel = this.text('showKanji');
         const revealAnswer = this.state.revealAnswer;
+        // Kanji drilldown only after reveal — on the unrevealed prompt a click
+        // on the headword must open the word itself, not its component kanji.
+        if (revealAnswer) {
+            word.dataset.jpdbReaderKanjiNav = 'true';
+            word.dataset.jpdbReaderKanjiNavLabel = this.text('showKanji');
+        }
         setInnerHtml(word, renderCardSpellingWithFurigana(card, {
             ...this.dependencies.getSettings(),
             furiganaMode: revealAnswer ? 'all' : 'off',
             showFurigana: revealAnswer,
-        }, { enabled: true, label: this.text('showKanji') }));
+        }, { enabled: revealAnswer, label: this.text('showKanji') }));
         if (!revealAnswer) this.hidePromptPronunciation(word);
         return word;
     }

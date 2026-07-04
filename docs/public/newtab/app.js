@@ -39334,7 +39334,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.54".trim() ? "1.6.54".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.55".trim() ? "1.6.55".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -79620,14 +79620,16 @@ ${entry.url}`),
     renderPromptReaderWord(card, state2, sentence) {
       const word = this.renderReaderWord(card, state2, card.spelling, sentence);
       word.classList.add("jpdb-reader-parseable");
-      word.dataset.jpdbReaderKanjiNav = "true";
-      word.dataset.jpdbReaderKanjiNavLabel = this.text("showKanji");
       const revealAnswer = this.state.revealAnswer;
+      if (revealAnswer) {
+        word.dataset.jpdbReaderKanjiNav = "true";
+        word.dataset.jpdbReaderKanjiNavLabel = this.text("showKanji");
+      }
       setInnerHtml(word, renderCardSpellingWithFurigana(card, {
         ...this.dependencies.getSettings(),
         furiganaMode: revealAnswer ? "all" : "off",
         showFurigana: revealAnswer
-      }, { enabled: true, label: this.text("showKanji") }));
+      }, { enabled: revealAnswer, label: this.text("showKanji") }));
       if (!revealAnswer) this.hidePromptPronunciation(word);
       return word;
     }

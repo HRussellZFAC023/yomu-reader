@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.55] - 2026-07-04
+
+### Fixed
+
+- Clicking the headword on an unrevealed study word card now opens the word's own lookup instead of a component kanji card; per-kanji drilldown appears only after the answer is revealed.
+
 ## [1.6.54] - 2026-07-04
 
 ### Fixed
