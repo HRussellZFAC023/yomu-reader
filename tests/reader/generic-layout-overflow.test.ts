@@ -183,7 +183,7 @@ describe('generic reader layout overflow guards', () => {
         expect(heading.style.minHeight).toBe('58px');
     });
 
-    it('marks compact media tiles as passive chrome so highlights cannot resize card layouts', () => {
+    it('keeps compact media tiles passive while rendering their furigana', () => {
         document.body.innerHTML = `
             <section class="book-carousel">
                 <article class="book-card" style="width:156px">
@@ -204,10 +204,9 @@ describe('generic reader layout overflow guards', () => {
         const target = collectTargets().find(candidate => candidate.text.includes('日本語の漫画タイトル'));
 
         expect(target).toBeTruthy();
-        expect(target?.suppressRuby).toBe(true);
+        expect(target?.suppressRuby).toBeFalsy();
         expect(target?.passiveInteraction).toBe(true);
-        expect(link.dataset.jpdbReaderPassiveChrome).toBe('true');
-        expect(link.dataset.jpdbReaderPassiveAtomic).toBeUndefined();
+        expect(link.dataset.jpdbReaderPassiveChrome).toBeUndefined();
 
         applyTokensToScanTarget(target!, [
             token('日本語', target!.text.indexOf('日本語'), target!.text, 'にほんご'),
@@ -222,8 +221,7 @@ describe('generic reader layout overflow guards', () => {
         expect(words).toHaveLength(2);
         expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
         expect(link.querySelector('.jpdb-reader-text-mirror')).toBeNull();
-        expect(link.textContent?.replace(/\s+/g, '').trim()).toBe('日本語の漫画タイトル');
-        expect(link.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(link.querySelector('rt,.jpdb-reader-furi')).not.toBeNull();
     });
 
     it('suppresses ruby on compact tabindex and onclick controls without named button roles', () => {

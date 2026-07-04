@@ -52,7 +52,8 @@ describe('BookWalker site scan boundaries', () => {
                 expect(targets.map(target => target.text)).toEqual(expected);
                 expect(targets.every(target => 'parserId' in target && target.parserId === 'residual-visible-japanese-parser')).toBe(true);
                 expect(targets.every(target => target.passiveInteraction)).toBe(true);
-                expect(targets.every(target => target.suppressRuby)).toBe(true);
+                const carouselHeading = targets.find(target => target.text === '異世界漫画フェア');
+                expect(carouselHeading?.suppressRuby).toBeFalsy();
                 expect(targets.every(target => target.nonDestructive !== true)).toBe(true);
             }
         } finally {
@@ -94,9 +95,9 @@ describe('BookWalker site scan boundaries', () => {
             expect(title).toBeTruthy();
             expect(title).toMatchObject({
                 parserId: 'bookwalker-storefront',
-                suppressRuby: true,
                 passiveInteraction: true,
             });
+            expect(title?.suppressRuby).toBeFalsy();
             expect(title?.nonDestructive).not.toBe(true);
         } finally {
             restoreRects();
@@ -146,14 +147,17 @@ describe('BookWalker site scan boundaries', () => {
                 applyTokensToScanTarget(target, [token], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
             }
 
-            const bodyText = normalizedRenderedText(document.body.textContent ?? '');
+            const withoutFurigana = document.body.cloneNode(true) as HTMLElement;
+            withoutFurigana.querySelectorAll('rt,rp,.jpdb-reader-furi').forEach(node => node.remove());
+            const bodyText = normalizedRenderedText(withoutFurigana.textContent ?? '');
             for (const text of expectedText) {
                 expect(bodyText).toContain(text);
             }
             expect(document.querySelector('.jpdb-reader-text-mirror')).toBeNull();
             expect(Array.from(document.querySelectorAll<HTMLElement>('[style]'))
                 .filter(element => element.style.getPropertyValue('visibility') === 'hidden')).toEqual([]);
-            expect(document.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            // Content prose (title/lead) now keeps its furigana on product pages.
+            expect(document.querySelector('.m-bookDetailLead rt,.m-bookDetailTitle rt')).not.toBeNull();
             expect(document.querySelectorAll('.jpdb-reader-passive-word').length).toBeGreaterThan(0);
         } finally {
             restoreRects();
@@ -218,7 +222,7 @@ describe('BookWalker site scan boundaries', () => {
         }
     });
 
-    it('marks compact card-grid and positioned storefront titles as passive ruby-suppressed targets', () => {
+    it('keeps compact card-grid and positioned storefront titles passive with ruby allowed', () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `
             <main>
@@ -248,20 +252,20 @@ describe('BookWalker site scan boundaries', () => {
 
             expect(gridTitle).toMatchObject({
                 parserId: 'residual-visible-japanese-parser',
-                suppressRuby: true,
                 passiveInteraction: true,
             });
+            expect(gridTitle?.suppressRuby).toBeFalsy();
             expect(positionedTitle).toMatchObject({
                 parserId: 'residual-visible-japanese-parser',
-                suppressRuby: true,
                 passiveInteraction: true,
             });
+            expect(positionedTitle?.suppressRuby).toBeFalsy();
         } finally {
             restoreRects();
         }
     });
 
-    it('marks storefront product-gallery titles through neutral wrappers as passive ruby-suppressed targets', () => {
+    it('keeps storefront product-gallery titles passive with ruby allowed through neutral wrappers', () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `
             <main>
@@ -294,15 +298,15 @@ describe('BookWalker site scan boundaries', () => {
             expect(title).toBeTruthy();
             expect(title).toMatchObject({
                 parserId: 'residual-visible-japanese-parser',
-                suppressRuby: true,
                 passiveInteraction: true,
             });
+            expect(title?.suppressRuby).toBeFalsy();
         } finally {
             restoreRects();
         }
     });
 
-    it('marks deeply wrapped live-gallery titles as passive ruby-suppressed targets', () => {
+    it('keeps deeply wrapped live-gallery titles passive with ruby allowed', () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `
             <main>
@@ -336,9 +340,9 @@ describe('BookWalker site scan boundaries', () => {
             expect(title).toBeTruthy();
             expect(title).toMatchObject({
                 parserId: 'residual-visible-japanese-parser',
-                suppressRuby: true,
                 passiveInteraction: true,
             });
+            expect(title?.suppressRuby).toBeFalsy();
         } finally {
             restoreRects();
         }
@@ -408,13 +412,13 @@ describe('BookWalker site scan boundaries', () => {
         expect(isReaderRasterPage('viewer.bookwalker.jp')).toBe(true);
     });
 
-    it('allows image OCR auto-scan on BookWalker reader canvases, not storefront pages', () => {
+    it('allows image OCR auto-scan on BookWalker reader canvases and Japanese storefront pages', () => {
         stubLocation(BOOKWALKER_HOME_URL);
         document.body.innerHTML = '<main><h1>本を探す</h1><img src="/cover.jpg" width="240" height="340"></main>';
 
         expect(isBookWalkerStorefrontPage()).toBe(true);
         expect(shouldAutoScanImageOcr(false)).toBe(false);
-        expect(shouldAutoScanImageOcr(true)).toBe(false);
+        expect(shouldAutoScanImageOcr(true)).toBe(true);
 
         stubLocation('https://viewer.bookwalker.jp/03/1/viewer.html?cty=2');
         document.body.innerHTML = `
@@ -467,14 +471,14 @@ describe('BookWalker site scan boundaries', () => {
         }
     });
 
-    it('disables generic visible auto-scan scheduling on BookWalker storefront and reader pages', () => {
+    it('keeps generic visible auto-scan on storefront pages and off reader viewers', () => {
         stubLocation(BOOKWALKER_HOME_URL);
-        expect(allowsGenericVisibleAutoScan()).toBe(false);
+        expect(allowsGenericVisibleAutoScan()).toBe(true);
         expect(isBookWalkerStorefrontPage()).toBe(true);
         expect(isBookWalkerReaderPage()).toBe(false);
 
         stubLocation(BOOKWALKER_WWW_HOME_URL);
-        expect(allowsGenericVisibleAutoScan()).toBe(false);
+        expect(allowsGenericVisibleAutoScan()).toBe(true);
         expect(isBookWalkerStorefrontPage()).toBe(true);
         expect(isBookWalkerReaderPage()).toBe(false);
 

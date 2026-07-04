@@ -134,7 +134,7 @@ describe('makeRoomForRubyInCroppedRows', () => {
         document.body.innerHTML = '';
     });
 
-    it('leaves generic boxes untouched when rendered ruby geometry exceeds the box without scroll overflow', () => {
+    it('grows generic boxes whose rendered ruby geometry is cropped by the box', () => {
         document.body.innerHTML = `
             <div id="title" style="overflow:hidden;height:42px;line-height:21px">${annotatedWord()}の短い動画</div>
         `;
@@ -144,8 +144,9 @@ describe('makeRoomForRubyInCroppedRows', () => {
         mockRect(title, { top: 0, bottom: 42, height: 42 });
         mockRect(base, { top: 22, bottom: 44, height: 22 });
 
-        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
-        expect(title.style.height).toBe('42px');
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(title.dataset.yomuRubyRoom).toBe('true');
+        expect(title.style.minHeight).toBe('44px');
         expect(title.querySelector('rt')?.textContent).toBe('しんそつ');
         document.body.innerHTML = '';
     });

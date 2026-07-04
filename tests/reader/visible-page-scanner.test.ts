@@ -292,7 +292,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('keeps generic compact media-card annotations from adding ruby height', async () => {
+    it('renders furigana on generic compact media-card titles while keeping them passive', async () => {
         const restoreRects = mockVisibleElementRects();
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -328,11 +328,9 @@ describe('VisiblePageScanner', () => {
             const word = title.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="温泉"]')!;
             expect(word).not.toBeNull();
             expect(word.dataset.jpdbReaderPassive).toBe('true');
-            expect(word.querySelector('rt')).toBeNull();
-            const passiveChrome = title.closest<HTMLElement>('[data-jpdb-reader-passive-chrome="true"]');
-            expect(passiveChrome).not.toBeNull();
-            expect(passiveChrome?.getAttribute('aria-label')).toContain('人妻温泉旅行');
-            expect(title.textContent).toContain('人妻温泉旅行');
+            expect(word.querySelector('rt')).not.toBeNull();
+            expect(title.closest('[data-jpdb-reader-passive-chrome="true"]')).toBeNull();
+            expect(textWithoutFurigana(title)).toContain('人妻温泉旅行');
         } finally {
             scanner.destroy();
             Object.defineProperty(window, 'location', {
@@ -344,7 +342,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('keeps compact carousel titles with sibling cover links from adding ruby height', async () => {
+    it('renders furigana on compact carousel titles with sibling cover links', async () => {
         const restoreRects = mockVisibleElementRects();
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -386,9 +384,9 @@ describe('VisiblePageScanner', () => {
             const word = (mirror ?? title).querySelector<HTMLElement>('.jpdb-reader-word[data-expression="日本語"]');
             expect(word).not.toBeNull();
             expect(word?.dataset.jpdbReaderPassive).toBe('true');
-            expect(word?.querySelector('rt,.jpdb-reader-furi')).toBeNull();
-            expect(title.closest('[data-jpdb-reader-passive-chrome="true"]')).not.toBeNull();
-            expect(title.textContent).toContain('日本語の漫画タイトル');
+            expect(word?.querySelector('rt,.jpdb-reader-furi')).not.toBeNull();
+            expect(title.closest('[data-jpdb-reader-passive-chrome="true"]')).toBeNull();
+            expect(textWithoutFurigana(title)).toContain('日本語の漫画タイトル');
         } finally {
             scanner.destroy();
             Object.defineProperty(window, 'location', {
@@ -400,7 +398,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('keeps compact product-gallery titles from adding ruby height through neutral wrappers', async () => {
+    it('renders furigana on compact product-gallery titles through neutral wrappers', async () => {
         const restoreRects = mockVisibleElementRects();
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -447,9 +445,9 @@ describe('VisiblePageScanner', () => {
             const word = (mirror ?? title).querySelector<HTMLElement>('.jpdb-reader-word[data-expression="先生"]');
             expect(word).not.toBeNull();
             expect(word?.dataset.jpdbReaderPassive).toBe('true');
-            expect(word?.querySelector('rt,.jpdb-reader-furi')).toBeNull();
-            expect(title.closest('[data-jpdb-reader-passive-chrome="true"]')).not.toBeNull();
-            expect(title.textContent).toContain('あなた達それでも先生ですかっ');
+            expect(word?.querySelector('rt,.jpdb-reader-furi')).not.toBeNull();
+            expect(title.closest('[data-jpdb-reader-passive-chrome="true"]')).toBeNull();
+            expect(textWithoutFurigana(title)).toContain('あなた達それでも先生ですかっ');
         } finally {
             scanner.destroy();
             Object.defineProperty(window, 'location', {
@@ -2749,3 +2747,9 @@ describe('abortable visible-work scheduling (P1)', () => {
         }
     });
 });
+
+function textWithoutFurigana(element: HTMLElement): string {
+    const clone = element.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('rt,rp,.jpdb-reader-furi').forEach(node => node.remove());
+    return clone.textContent ?? '';
+}

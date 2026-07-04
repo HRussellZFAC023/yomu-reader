@@ -5,8 +5,6 @@ import { canAttemptReaderAutoAudio } from '../../src/reader/audio/activation';
 import { registerReaderMenuCommands } from '../../src/reader/app/menu-commands';
 import { bindReaderRuntimeEvents } from '../../src/reader/app/runtime-events';
 import {
-    GENERIC_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
-    GENERIC_PUBLIC_PITCH_ENRICHMENT_LIMIT,
     YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
     YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
     YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
@@ -82,40 +80,26 @@ describe('reader runtime helpers', () => {
         expect(shouldShowReaderOnboarding(false, 'https://example.com/article')).toBe(false);
     });
 
-    it('keeps background page pitch enrichment bounded by host and viewport', () => {
-        expect(backgroundPitchEnrichmentOptionsForHost('example.com')).toEqual({
-            publicLookupLimit: GENERIC_PUBLIC_PITCH_ENRICHMENT_LIMIT,
-            publicLookupTotalLimit: GENERIC_PUBLIC_PITCH_ENRICHMENT_LIMIT,
-            publicLookupPageBudget: GENERIC_PUBLIC_PITCH_ENRICHMENT_LIMIT,
-            publicLookupTermLimit: 3,
-            substantivePublicLookupOnly: true,
-            deferPublicLookup: false,
-        });
-        expect(backgroundPitchEnrichmentOptionsForHost('example.com', true)).toEqual({
-            publicLookupLimit: GENERIC_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
-            publicLookupTotalLimit: GENERIC_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
-            publicLookupPageBudget: GENERIC_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
-            publicLookupTermLimit: 3,
-            substantivePublicLookupOnly: true,
-            deferPublicLookup: false,
-        });
-        expect(nestedPitchEnrichmentOptionsForHost('example.com')).toEqual({ publicLookupLimit: 3 });
-        expect(backgroundPitchEnrichmentOptionsForHost('www.youtube.com')).toEqual({
+    it('gives every host the paced YouTube-tier public pitch budget', () => {
+        const desktop = {
             publicLookupLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
             publicLookupTotalLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
             publicLookupPageBudget: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
             publicLookupTermLimit: 3,
             substantivePublicLookupOnly: true,
-            deferPublicLookup: false,
-        });
-        expect(backgroundPitchEnrichmentOptionsForHost('m.youtube.com', true)).toEqual({
+        };
+        const mobile = {
             publicLookupLimit: YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
             publicLookupTotalLimit: YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
             publicLookupPageBudget: YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
             publicLookupTermLimit: 3,
             substantivePublicLookupOnly: true,
-            deferPublicLookup: false,
-        });
+        };
+        expect(backgroundPitchEnrichmentOptionsForHost('example.com')).toEqual(desktop);
+        expect(backgroundPitchEnrichmentOptionsForHost('example.com', true)).toEqual(mobile);
+        expect(backgroundPitchEnrichmentOptionsForHost('www.youtube.com')).toEqual(desktop);
+        expect(backgroundPitchEnrichmentOptionsForHost('m.youtube.com', true)).toEqual(mobile);
+        expect(nestedPitchEnrichmentOptionsForHost('example.com')).toEqual({ publicLookupLimit: 3 });
         expect(nestedPitchEnrichmentOptionsForHost('www.youtube.com')).toEqual({ publicLookup: false });
     });
 

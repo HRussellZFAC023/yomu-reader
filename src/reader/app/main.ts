@@ -943,7 +943,7 @@ export class ReaderApp {
             parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
             onToast: message => this.toast(message),
             shouldAutoScan: () => shouldAutoScanImageOcr(this.pageHasJapaneseText),
-            shouldScanInlineImages: () => !isBookWalkerStorefrontPage(),
+            shouldScanInlineImages: () => true,
             enrichTokensBeforeRender: tokens => this.enrichOcrTokensBeforeRender(tokens),
             enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
             fallbackCardFromText: text => this.parser.fallbackCardFromText(text),
@@ -3214,14 +3214,15 @@ export class ReaderApp {
 
     private backgroundPitchEnrichmentOptions(): PitchEnrichmentOptions {
         const options = backgroundPitchEnrichmentOptionsForHost(location.hostname, isCompactPitchEnrichmentViewport());
-        if (!isYouTubeRuntimeHost() || hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings)) return options;
+        if (hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings)) return options;
         const pageBudget = Math.max(0, Math.floor(options.publicLookupPageBudget ?? PITCH_ENRICHMENT_LIMIT));
         const keylessVisibleLimit = pageBudget || PITCH_ENRICHMENT_LIMIT;
-        // The jpdb.io pitch lane stays ON here (within the YouTube batch/page/
-        // deferred budgets): keyless feed words outside the local pitch dict
-        // otherwise stay grey 'unknown' forever — jiten backfills readings but
-        // pitch for many words exists only on jpdb.io. Budgets, pacing, and the
-        // deferred per-URL cap are the DOS guard; do not widen them here.
+        // The jpdb.io pitch lane stays ON for keyless users on EVERY host
+        // (within the batch/page/deferred budgets): words outside the local
+        // pitch dict otherwise stay grey 'unknown' forever — jiten backfills
+        // readings but pitch for many words exists only on jpdb.io. Budgets,
+        // pacing, and the deferred per-URL cap are the DOS guard; do not widen
+        // them here.
         return {
             ...options,
             publicLookupLimit: Math.max(Math.floor(options.publicLookupLimit ?? 0), keylessVisibleLimit),

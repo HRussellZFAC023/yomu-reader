@@ -11,7 +11,7 @@ import type { RtkInfo } from '../kanji/rtk';
 import { matchesShortcut } from '../settings/index';
 import { openUrlInNewTab } from '../ui/browser';
 import { documentLooksLikeImageReadingPage } from './dom-helpers';
-import { collectSiteScanTargets, isBookWalkerReaderPage, isBookWalkerStorefrontPage, siteProvidesNativeTextLayer } from './site-parsers';
+import { collectSiteScanTargets, isBookWalkerReaderPage } from './site-parsers';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import type { YomitanKanjiEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 
@@ -27,8 +27,6 @@ export const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
 export const PITCH_ENRICHMENT_LIMIT = 12;
 export const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
 export const PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT = 6;
-export const GENERIC_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
-export const GENERIC_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
 export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 10;
 export const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
 export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 10;
@@ -168,12 +166,18 @@ export function hasVisibleSiteScanTargets(): boolean {
 }
 
 export function allowsGenericVisibleAutoScan(): boolean {
-    return !isYouTubeHostForAutoScan() && !isBookWalkerStorefrontPage() && !isBookWalkerReaderPage();
+    // Canvas reader viewers have no page text worth scanning; storefront and
+    // every other host use the generic visible-text auto scan like any site.
+    return !isYouTubeHostForAutoScan() && !isBookWalkerReaderPage();
 }
 
 export function shouldAutoScanImageOcr(pageHasJapaneseText: boolean): boolean {
-    return !siteProvidesNativeTextLayer()
-        && (pageHasJapaneseText || documentLooksLikeImageReadingPage() || (isBookWalkerReaderPage() && Boolean(document.querySelector('canvas'))));
+    // A native text layer describes the page's TEXT, not its images — sites
+    // full of cover/banner art still deserve automatic image OCR. The
+    // per-image gates (size, viewport proximity, per-page cap) bound the cost.
+    return pageHasJapaneseText
+        || documentLooksLikeImageReadingPage()
+        || (isBookWalkerReaderPage() && Boolean(document.querySelector('canvas')));
 }
 
 export function allowsFrequentVisibleAutoScan(): boolean {
@@ -188,20 +192,12 @@ export function isYouTubeHostname(hostname = location.hostname): boolean {
     return hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com');
 }
 
-export function backgroundPitchEnrichmentOptionsForHost(hostname: string, compactViewport = false): PitchEnrichmentOptions {
-    if (!isYouTubeHostname(hostname)) {
-        const publicLookupLimit = compactViewport
-            ? GENERIC_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT
-            : GENERIC_PUBLIC_PITCH_ENRICHMENT_LIMIT;
-        return {
-            publicLookupLimit,
-            publicLookupTotalLimit: publicLookupLimit,
-            publicLookupPageBudget: publicLookupLimit,
-            publicLookupTermLimit: 3,
-            substantivePublicLookupOnly: true,
-            deferPublicLookup: false,
-        };
-    }
+// Every host gets the budget tier that was proven on YouTube: a paced batch
+// window, a finite per-URL budget, and the idle-gated deferred lane retrying
+// the budget-denied tail. A tiny generic budget (previously 3 lookups/page
+// with the deferred lane off) abandoned everything else at grey
+// jpdb-pitch-unknown until the user clicked each word.
+export function backgroundPitchEnrichmentOptionsForHost(_hostname: string, compactViewport = false): PitchEnrichmentOptions {
     return {
         publicLookupLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
         publicLookupTotalLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
@@ -212,7 +208,6 @@ export function backgroundPitchEnrichmentOptionsForHost(hostname: string, compac
         // lookup when the first candidates miss. Matches the subtitle path.
         publicLookupTermLimit: 3,
         substantivePublicLookupOnly: true,
-        deferPublicLookup: false,
     };
 }
 

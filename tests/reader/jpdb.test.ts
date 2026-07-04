@@ -30522,7 +30522,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps YouTube background public pitch enrichment bounded and non-deferred', async () => {
+    it('keeps YouTube background public pitch enrichment bounded', async () => {
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/results?search_query=%E6%97%A5%E6%9C%AC',
             origin: 'https://www.youtube.com',
@@ -30572,7 +30572,6 @@ describe('reader helpers', () => {
                 publicLookupPageBudget: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
                 publicLookupTermLimit: 3,
                 substantivePublicLookupOnly: true,
-                deferPublicLookup: false,
             });
             expect(publicPitch).toHaveBeenCalledTimes(YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT);
             expect(publicPitch).toHaveBeenCalledWith('背景0', 'はいけい');
@@ -30635,7 +30634,6 @@ describe('reader helpers', () => {
                 publicLookupPageBudget: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
                 publicLookupTermLimit: 3,
                 substantivePublicLookupOnly: true,
-                deferPublicLookup: false,
             });
             await internals.enrichPitchWords(youtubeCards.map(lookupCard => testTokenForCard(lookupCard)), options);
 
@@ -36838,7 +36836,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('suppresses ruby in compact non-YouTube media tile titles so grids keep their height', () => {
+    it('renders furigana in compact non-YouTube media tile titles', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 220, height: 36 });
         document.body.innerHTML = `
             <main>
@@ -36855,7 +36853,8 @@ describe('reader helpers', () => {
         rectSpy.mockRestore();
         const target = targets.find(candidate => candidate.text === '日本語の動画タイトル')!;
 
-        expect(target).toMatchObject({ suppressRuby: true, passiveInteraction: true });
+        expect(target).toMatchObject({ passiveInteraction: true });
+        expect(target.suppressRuby).toBeFalsy();
 
         applyTokensToScanTarget(target, [{
             card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
@@ -36870,11 +36869,11 @@ describe('reader helpers', () => {
         const word = document.querySelector<HTMLElement>('[data-card-title] .jpdb-reader-word')!;
         expect(readerWordSurfaceText(word)).toBe('日本語');
         expect(word.dataset.jpdbReaderPassive).toBe('true');
-        expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(word.querySelector('rt,.jpdb-reader-furi')).not.toBeNull();
         expectRenderedPitchWord(word, 'heiban');
     });
 
-    it('suppresses ruby in compact media tile titles when the cover is a sibling link', () => {
+    it('renders furigana in compact media tile titles when the cover is a sibling link', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 149, height: 36 });
         document.body.innerHTML = `
             <main>
@@ -36900,7 +36899,8 @@ describe('reader helpers', () => {
         rectSpy.mockRestore();
         const target = targets.find(candidate => candidate.text === '日本語の漫画タイトル')!;
 
-        expect(target).toMatchObject({ suppressRuby: true, passiveInteraction: true });
+        expect(target).toMatchObject({ passiveInteraction: true });
+        expect(target.suppressRuby).toBeFalsy();
 
         applyTokensToScanTarget(target, [{
             card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
@@ -36915,7 +36915,7 @@ describe('reader helpers', () => {
         const word = document.querySelector<HTMLElement>('[data-book-title] .jpdb-reader-word')!;
         expect(readerWordSurfaceText(word)).toBe('日本語');
         expect(word.dataset.jpdbReaderPassive).toBe('true');
-        expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expect(word.querySelector('rt,.jpdb-reader-furi')).not.toBeNull();
         expectRenderedPitchWord(word, 'heiban');
     });
 

@@ -1394,7 +1394,6 @@ function isYouTubeSiteParserProfile(profile: SiteParserProfile): boolean {
 
 function shouldSuppressSiteScanRuby(profile: SiteParserProfile, target: FragmentTextTarget): boolean {
     if (profile.id === BOOKWALKER_READER_PARSER_ID) return isBookWalkerReaderPassiveChromeTarget(target.parent);
-    if (profile.id === BOOKWALKER_STOREFRONT_PARSER_ID) return true;
     if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
     if (profile.id === 'jiten-parser') return isJitenStudyPromptTarget(target.parent, target.text);
     return false;
@@ -1503,10 +1502,12 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
     return useNonDestructiveGenericScan ? markTargetsNonDestructive(visibleTargets) : visibleTargets;
 }
 
+// Passive keeps click-through navigation; ruby/pitch still render — the
+// per-element layout guards (compact chrome, ruby-room growth) decide
+// decoration, not a blanket suppressRuby.
 function markTargetsPassive(targets: ScanTextTarget[], options: { nonDestructive?: boolean } = {}): ScanTextTarget[] {
     return targets.map(target => ({
         ...target,
-        suppressRuby: true,
         passiveInteraction: true,
         nonDestructive: options.nonDestructive || undefined,
         ...('fragments' in target

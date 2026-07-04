@@ -128,19 +128,13 @@ const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${role
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
 const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs('account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar')}`;
-const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = selectorPairs('banner,book,card,carousel,gallery,grid,item,lockup,movie,poster,product,rail,scroll,shelf,slick,slider,splide,swiper,thumb,tile,video,volume,work', ['class']);
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
 const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
-const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = `canvas,img,picture,svg,video,${selectorPairs('cover,image,poster,thumb', ['class'])}`;
-const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
-const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
-const COMPACT_MEDIA_CHROME_TEXT_LIMIT = 40;
 const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
 const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
 const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
 const COMPACT_VERTICAL_CHROME_MAX_WIDTH = 96;
 const COMPACT_VERTICAL_CHROME_MAX_HEIGHT = 360;
-const COMPACT_MEDIA_RUBY_RISK_ANCESTOR_LIMIT = 8;
 const COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT = 10;
 const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
 const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
@@ -2013,14 +2007,12 @@ function hasNotificationActionPeer(container: HTMLElement, textElement: HTMLElem
     return Array.from(row.querySelectorAll<HTMLElement>(selector)).some(action => !container.contains(action));
 }
 
+// Media-card/carousel titles are CONTENT, not chrome: they keep furigana and
+// pitch decorations at rest (clipped rows grow via makeRoomForRubyInCroppedRows).
+// Only YouTube's feedback chrome rows still suppress ruby here — everything
+// else routes through the interactive-chrome checks below.
 function shouldSuppressCompactMediaRuby(parent: HTMLElement): boolean {
-    if (isYouTubeFeedbackChromeLinkText(parent)) return true;
-    if (isYouTubeHost()) return false;
-    return isCompactMediaCardLinkText(parent)
-        || isCompactPeerMediaCardLinkText(parent)
-        || isCompactMediaChromeLinkText(parent)
-        || isMediaCarouselText(parent)
-        || isLayoutFragileMediaTileText(parent);
+    return isYouTubeFeedbackChromeLinkText(parent);
 }
 
 export function isYouTubeHost(): boolean {
@@ -2035,51 +2027,9 @@ function isYouTubeFeedbackChromeLinkText(parent: HTMLElement): boolean {
     return Boolean(parent.closest(YOUTUBE_FEEDBACK_CHROME_SELECTOR));
 }
 
-function isCompactMediaCardLinkText(parent: HTMLElement): boolean {
-    const link = parent.closest<HTMLElement>('a[href]');
-    if (!link || parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
-    if (!safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
-    if (!link.closest(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
 
-    const textLength = compactLength(parent.textContent ?? '');
-    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
-    return compactLength(link.textContent ?? '') <= COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT;
-}
 
-function isCompactPeerMediaCardLinkText(parent: HTMLElement): boolean {
-    const link = parent.closest<HTMLElement>('a[href]');
-    if (!link || isLikelyProseLink(link, parent)) return false;
-    if (safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
 
-    const textLength = compactLength(parent.textContent ?? '');
-    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
-    if (compactLength(link.textContent ?? '') > COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT) return false;
-
-    const context = closestCompactMediaContext(parent);
-    if (!context || !context.closest(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
-    const linkWidth = link.getBoundingClientRect().width;
-    return linkWidth === 0 || linkWidth <= 260;
-}
-
-function isCompactMediaChromeLinkText(parent: HTMLElement): boolean {
-    const link = parent.closest<HTMLElement>('a[href],button,[role="link"],[role="button"]');
-    if (!link || isLikelyProseLink(link, parent)) return false;
-    if (!safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
-
-    const textLength = compactLength(parent.textContent ?? '');
-    if (textLength < 2 || textLength > COMPACT_MEDIA_CHROME_TEXT_LIMIT) return false;
-    if (compactLength(link.textContent ?? '') > COMPACT_MEDIA_CHROME_TEXT_LIMIT) return false;
-    return isNavigationChromeContext(link) || hasCompactCenteredMediaChrome(parent, link);
-}
-
-function isMediaCarouselText(parent: HTMLElement): boolean {
-    const textLength = compactLength(parent.textContent ?? '');
-    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT) return false;
-    const carousel = closestMediaCarousel(parent);
-    if (!carousel) return false;
-    if (isReadableProseContext(parent) && !carousel.explicit) return false;
-    return true;
-}
 
 function closestMediaCarousel(parent: HTMLElement): { element: HTMLElement; explicit: boolean } | null {
     let current: HTMLElement | null = parent;
@@ -2110,31 +2060,8 @@ function isNavigationChromeContext(element: HTMLElement): boolean {
     return Boolean(element.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
 }
 
-function hasCompactCenteredMediaChrome(parent: HTMLElement, link: HTMLElement): boolean {
-    const parentStyle = safeComputedStyle(parent);
-    const linkStyle = safeComputedStyle(link);
-    if (parentStyle.textAlign !== 'center' && linkStyle.textAlign !== 'center') return false;
-    const rect = link.getBoundingClientRect();
-    return rect.width === 0 || rect.width <= 240;
-}
 
-function isLayoutFragileMediaTileText(parent: HTMLElement): boolean {
-    if (isReadableProseContext(parent)) return false;
-    const context = closestCompactMediaContext(parent);
-    if (!context) return false;
-    return hasCompactMediaRubyRisk(parent) || hasCompactMediaSizingRisk(parent, context);
-}
 
-function hasCompactMediaRubyRisk(parent: HTMLElement): boolean {
-    if (isLayoutSensitiveScanElement(parent)) return true;
-    let current: HTMLElement | null = parent;
-    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < COMPACT_MEDIA_RUBY_RISK_ANCESTOR_LIMIT; depth++) {
-        const style = safeComputedStyle(current);
-        if (isVerticalWritingMode(style.writingMode) || hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
-        current = current.parentElement;
-    }
-    return false;
-}
 
 function closestCompactMediaContext(parent: HTMLElement): HTMLElement | null {
     let current: HTMLElement | null = parent;
@@ -2169,28 +2096,8 @@ function isCompactMediaContext(element: HTMLElement): boolean {
     return structured && compact;
 }
 
-function hasCompactMediaSizingRisk(parent: HTMLElement, context: HTMLElement): boolean {
-    const textLength = compactLength(parent.textContent ?? '');
-    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
-    if (context.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return true;
-    return Boolean(closestMediaLayoutContainer(parent));
-}
 
-function closestMediaLayoutContainer(parent: HTMLElement): HTMLElement | null {
-    let current: HTMLElement | null = parent;
-    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 8; depth++) {
-        if (mediaCarouselMatch(current)) return current;
-        if (current.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return current;
-        if (isPositionedUiContainer(current)) return current;
-        current = current.parentElement;
-    }
-    return null;
-}
 
-function isPositionedUiContainer(element: HTMLElement): boolean {
-    const position = safeComputedStyle(element).position;
-    return position === 'absolute' || position === 'fixed' || position === 'sticky';
-}
 
 function nonDestructiveScanHost(target: ScanTextTarget): HTMLElement {
     if (!isFragmentTextTarget(target)) return target.parent;
@@ -4096,17 +4003,14 @@ function hasVisibleBorderSide(style: string, width: string): boolean {
     return Boolean(style && style !== 'none' && style !== 'hidden' && cssPixels(width) > 0);
 }
 
-// Late-clamp reconciliation for explicit rich-reader surfaces. Most generic
-// pages must keep their authored layout; compact scanner heuristics suppress
-// ruby there instead. The resize path remains for the whitelisted YouTube and
-// Google Search text boxes that historically need ruby room after hydration.
-// Containers we must never reserve ruby room on: cards the YouTube filter has
+// Late-clamp reconciliation: any site's clamped/ellipsis/clipped text row that
+// actually crops its furigana gets its height cap lifted (bounded by
+// RUBY_ROOM_MAX_PX). Containers we must never reserve ruby room on: cards the YouTube filter has
 // collapsed/hidden (sizing them un-collapses the filter into giant gaps) and
 // any aria-hidden subtree. Scanned words can live inside a collapsed card; room
 // must skip them.
 const RUBY_ROOM_HARD_SKIP_SELECTOR = '[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending';
 const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = 'ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-section-renderer :is(#title,h2),ytd-rich-shelf-renderer :is(#title,h2),ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3,grid-shelf-view-model h2,ytd-shelf-renderer :is(#title,h2),ytd-grid-video-renderer :is(#video-title,#metadata-line),yt-description-preview-view-model,yt-tab-shape,ytd-playlist-panel-video-renderer #video-title,ytd-playlist-video-renderer #video-title,ytd-playlist-header-renderer :is(#title,.metadata-wrapper),ytd-video-renderer .metadata-snippet-text,:is(ytd-channel-renderer,ytd-grid-channel-renderer) :is(#info,#description)';
-const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ':is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])';
 // A clamped/ellipsis text row's furigana never needs more than a few lines of
 // extra height. A room far larger than this means we measured a container (a
 // collapsed card, a virtualized list) rather than a text row — refuse it so a
@@ -4119,10 +4023,15 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
     for (const word of words) {
         if (!word.querySelector('rt')) continue;
         for (const box of cropCapableBoxes(word.parentElement)) {
-            if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR)
-                || !(isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box))) continue;
-            if (!boxActuallyCrops(box)) continue;
-            const roomHeight = rubyRoomHeight(box);
+            if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || box.closest('[aria-hidden="true"],[hidden]')) continue;
+            // Curated YouTube/Google rows grow on any crop signal (their crop
+            // is always ruby-caused). Every OTHER site's clamped/ellipsis/
+            // clipped row grows only when the RUBY itself overflows the box —
+            // plain scroll overflow there usually means an intentionally
+            // collapsed read-more region, which must stay collapsed.
+            const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
+            if (curated ? !boxActuallyCrops(box) : !rubyCropsBox(box)) continue;
+            const roomHeight = curated ? rubyRoomHeight(box) : genericRubyRoomHeight(box);
             if (roomHeight > RUBY_ROOM_MAX_PX) continue;
             if (previousRubyRoomHeight(box) >= roomHeight) continue;
             box.dataset.yomuRubyRoom = 'true';
@@ -4135,6 +4044,27 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
     return adjusted;
 }
 
+function rubyCropsBox(box: HTMLElement): boolean {
+    return rubyBottomOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
+}
+
+// Generic rows must never inherit scrollHeight (a collapsed region's full
+// content height); the room is the visible height plus exactly the ruby
+// overflow the box is cropping.
+function genericRubyRoomHeight(box: HTMLElement): number {
+    const mirror = box.querySelector<HTMLElement>('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
+    return Math.ceil(Math.max(box.clientHeight + rubyBottomOverflow(box), mirror ? mirror.scrollHeight : 0));
+}
+
+const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ':is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])';
+
+function isGoogleSearchRubyRoomTextBox(box: HTMLElement): boolean {
+    return /(^|\.)google\./i.test(location.hostname)
+        && location.pathname === '/search'
+        && (safeElementMatches(box, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR)
+            || !!box.closest(RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR));
+}
+
 function isYouTubeRubyRoomTextBox(box: HTMLElement): boolean {
     if (safeElementMatches(box, 'yt-attributed-string,yt-formatted-string,.ytAttributedStringHost,.yt-core-attributed-string')) {
         return safeElementMatches(box, 'ytd-comment-view-model #content-text,ytm-comment-renderer #content-text');
@@ -4143,12 +4073,6 @@ function isYouTubeRubyRoomTextBox(box: HTMLElement): boolean {
         || !!box.closest(RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR);
 }
 
-function isGoogleSearchRubyRoomTextBox(box: HTMLElement): boolean {
-    return /(^|\.)google\./i.test(location.hostname)
-        && location.pathname === '/search'
-        && (safeElementMatches(box, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR)
-            || !!box.closest(RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR));
-}
 
 function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration, roomHeight: number): void {
     const contentHeight = `${roomHeight}px`;
