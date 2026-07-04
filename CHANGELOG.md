@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.60] - 2026-07-04
+
+### Fixed
+
+- Furigana and pitch-accent decorations now render at rest on every page, including store and video tile grids (BookWalker home, hanime1, and similar catalog layouts) that previously showed decorations only while hovering a word.
+- Cropped furigana never disappears or truncates: any site's clamped or clipped text row now grows just enough for its ruby line, a repair that was previously limited to YouTube and Google Search.
+- Words no longer stay on a grey unknown-pitch underline until clicked: every site now gets the same paced background pitch and reading enrichment budget that YouTube used, including for keyless users.
+- Automatic image OCR now triggers on ordinary pages with large images, such as the BookWalker storefront, which was hard-excluded before.
+
+### Changed
+
+- Removed the BookWalker-specific ruby suppression and scan gates in favour of generic layout guards, so store pages keep furigana while buttons and menus stay undecorated.
+
 ## [1.6.59] - 2026-07-04
 
 ### Fixed
