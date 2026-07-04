@@ -68,7 +68,7 @@ function canResolveAudioCandidatesWithoutNetwork(source: AudioSourceSetting, car
     }
 }
 
-function hasJitenAudioReference(card: JPDBCard): boolean {
+export function hasJitenAudioReference(card: JPDBCard): boolean {
     return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex)
         || card.source === 'jiten' && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
 }

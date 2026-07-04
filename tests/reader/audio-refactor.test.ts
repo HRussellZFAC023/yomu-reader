@@ -660,6 +660,40 @@ describe('audio module boundaries', () => {
         }
     });
 
+    it('falls back to Jiten TTS for Jiten-backed kana words when hosted audio has no clip', async () => {
+        const requested = stubAudioServerJson({ type: 'audioSourceList', audioSources: [] });
+        const media = recordMediaElementPlayback();
+        const { speak } = stubJapaneseSpeechSynthesis();
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnabled: true,
+                audioEnableDefaultSources: true,
+                audioSources: [],
+                audioFallbackChimeEnabled: false,
+                audioTtsMode: 'fallback',
+            }));
+            const target: JPDBCard = {
+                ...card('よむ', 'よむ'),
+                vid: 1456360,
+                sid: 3,
+                source: 'jiten',
+                jitenWordId: 1456360,
+                jitenReadingIndex: 3,
+            };
+
+            await expect(player.play(target, { userGesture: true })).resolves.toBe(true);
+
+            expect(requested[0]).toBe(`https://audio.yomureader.com/?term=${encodeURIComponent('よむ')}&reading=${encodeURIComponent('よむ')}`);
+            expect(media.playedSources.some(src => src.includes('/api/tts/word/1456360/3?voice='))).toBe(true);
+            expect(speak).not.toHaveBeenCalled();
+        } finally {
+            media.restore();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('decodes the retained blob bytes for the Web Audio fallback without re-fetching the URL', async () => {
         const previousActivation = Object.getOwnPropertyDescriptor(navigator, 'userActivation');
         Object.defineProperty(navigator, 'userActivation', {

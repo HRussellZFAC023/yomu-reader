@@ -25,6 +25,7 @@ import {
     isApiTextToSpeechSource,
     isBrowserTextToSpeechSource,
     isTextToSpeechFallbackSource,
+    hasJitenAudioReference,
     orderAudioCandidates,
     orderAudioSources,
     preparedAudioCacheKey,
@@ -302,7 +303,8 @@ export class AudioPlayer {
         if (realAudioResult !== 'miss') return { state: realAudioResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
         if (attemptState.skippedAvoidedIdentity) return { state: 'miss', skippedAvoidedIdentity: true };
 
-        const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), card), fallbackContext);
+        const apiTextToSpeechSources = apiTextToSpeechFallbackSources(sources, card, settings);
+        const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(apiTextToSpeechSources, card), fallbackContext);
         if (apiTextToSpeechResult !== 'miss') return { state: apiTextToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
         if (attemptState.skippedAvoidedIdentity) return { state: 'miss', skippedAvoidedIdentity: true };
 
@@ -1118,6 +1120,36 @@ function shouldUseGestureAudioReservation(request: AudioPlaybackRequest): boolea
 
 function hasGestureReservableAudioSource(request: AudioPlaybackRequest): boolean {
     return request.sources.some(source => !isBrowserTextToSpeechSource(source));
+}
+
+function apiTextToSpeechFallbackSources(
+    sources: AudioSourceSetting[],
+    card: JPDBCard,
+    settings: ReaderSettings,
+): AudioSourceSetting[] {
+    const apiSources = sources.filter(isApiTextToSpeechSource);
+    if (!shouldAddImplicitJitenTtsFallback(apiSources, card, settings)) return apiSources;
+    return [...apiSources, implicitJitenTtsSource(settings)];
+}
+
+function shouldAddImplicitJitenTtsFallback(
+    apiSources: AudioSourceSetting[],
+    card: JPDBCard,
+    settings: ReaderSettings,
+): boolean {
+    return settings.audioEnableDefaultSources
+        && !apiSources.some(source => source.type === 'jiten-tts')
+        && hasJitenAudioReference(card);
+}
+
+function implicitJitenTtsSource(settings: ReaderSettings): AudioSourceSetting {
+    const configured = settings.audioSources.find(source => source.type === 'jiten-tts');
+    return {
+        type: 'jiten-tts',
+        url: '',
+        voice: configured?.voice ?? '',
+        enabled: true,
+    };
 }
 
 function audioErrorMessage(error: unknown): string {

@@ -19140,7 +19140,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const realAudioResult = await this.playOrderedSources(realAudioSources, context);
       if (realAudioResult !== "miss") return { state: realAudioResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
       if (attemptState.skippedAvoidedIdentity) return { state: "miss", skippedAvoidedIdentity: true };
-      const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), card), fallbackContext);
+      const apiTextToSpeechSources = apiTextToSpeechFallbackSources(sources, card, settings);
+      const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(apiTextToSpeechSources, card), fallbackContext);
       if (apiTextToSpeechResult !== "miss") return { state: apiTextToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
       if (attemptState.skippedAvoidedIdentity) return { state: "miss", skippedAvoidedIdentity: true };
       const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), card), fallbackContext);
@@ -19776,6 +19777,23 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function hasGestureReservableAudioSource(request) {
     return request.sources.some((source) => !isBrowserTextToSpeechSource(source));
+  }
+  function apiTextToSpeechFallbackSources(sources, card, settings) {
+    const apiSources = sources.filter(isApiTextToSpeechSource);
+    if (!shouldAddImplicitJitenTtsFallback(apiSources, card, settings)) return apiSources;
+    return [...apiSources, implicitJitenTtsSource(settings)];
+  }
+  function shouldAddImplicitJitenTtsFallback(apiSources, card, settings) {
+    return settings.audioEnableDefaultSources && !apiSources.some((source) => source.type === "jiten-tts") && hasJitenAudioReference(card);
+  }
+  function implicitJitenTtsSource(settings) {
+    const configured = settings.audioSources.find((source) => source.type === "jiten-tts");
+    return {
+      type: "jiten-tts",
+      url: "",
+      voice: configured?.voice ?? "",
+      enabled: true
+    };
   }
   function audioErrorMessage(error) {
     return error instanceof Error ? error.message : String(error);
@@ -39335,7 +39353,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.57".trim() ? "1.6.57".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.58".trim() ? "1.6.58".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

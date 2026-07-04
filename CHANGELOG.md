@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.58] - 2026-07-04
+
+### Fixed
+
+- Restored word audio for Jiten-backed kana words such as `よむ`: when the hosted audio source has no playable clip, よむ now falls back to the exact Jiten TTS word reference already attached to the rendered word, so hover autoplay and the popover speaker button play real audio.
+- Refreshed the Cloudflare-hosted audio corpus from the local Rust audio server and uploaded the sharded R2 index, so the default hosted source now covers the full available Japanese local collection instead of only earlier seeded clips.
+
 ## [1.6.57] - 2026-07-04
 
 ### Fixed

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.57
+// @version 1.6.58
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.57#sha256=dWch5ctweTHVIvrPSHbJljlTRPDdI6NNqa4j2NAAw2A=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.57#sha256=sQ/1Bh9Qj7ccmbWUX3TK683Yv/SmToi0/CZCn7h/cfA=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.57#sha256=5DvHiot4TYDlZty5HeO8KE5eQv+zKfdMJGomCFQIfrc=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.57#sha256=DHvcrxMA3Sze1uGNbvBTXj1M7sgmHi46Wm7nVxeMczc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.57#sha256=cvLw83uqORhMLCqdzti9/dfHUi/JXScNWiGsKrwRfUE=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.57#sha256=UMhnvlwwnq9RWeZyYJmEcdrHXL/uPxrsPk52b8M0c6A=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.58#sha256=dWch5ctweTHVIvrPSHbJljlTRPDdI6NNqa4j2NAAw2A=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.58#sha256=sQ/1Bh9Qj7ccmbWUX3TK683Yv/SmToi0/CZCn7h/cfA=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.58#sha256=5DvHiot4TYDlZty5HeO8KE5eQv+zKfdMJGomCFQIfrc=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.58#sha256=DHvcrxMA3Sze1uGNbvBTXj1M7sgmHi46Wm7nVxeMczc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.58#sha256=cvLw83uqORhMLCqdzti9/dfHUi/JXScNWiGsKrwRfUE=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.58#sha256=UMhnvlwwnq9RWeZyYJmEcdrHXL/uPxrsPk52b8M0c6A=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -9604,7 +9604,8 @@ class AudioPlayer {
   const realAudioResult = await this.playOrderedSources(realAudioSources, context);
   if (realAudioResult !== "miss") return { state: realAudioResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
   if (attemptState.skippedAvoidedIdentity) return { state: "miss", skippedAvoidedIdentity: true };
-  const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), card), fallbackContext);
+  const apiTextToSpeechSources = apiTextToSpeechFallbackSources(sources, card, settings);
+  const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(apiTextToSpeechSources, card), fallbackContext);
   if (apiTextToSpeechResult !== "miss") return { state: apiTextToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
   if (attemptState.skippedAvoidedIdentity) return { state: "miss", skippedAvoidedIdentity: true };
   const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), card), fallbackContext);
@@ -10233,6 +10234,23 @@ function shouldUseGestureAudioReservation(request) {
 }
 function hasGestureReservableAudioSource(request) {
   return request.sources.some((source) => !isBrowserTextToSpeechSource(source));
+}
+function apiTextToSpeechFallbackSources(sources, card, settings) {
+  const apiSources = sources.filter(isApiTextToSpeechSource);
+  if (!shouldAddImplicitJitenTtsFallback(apiSources, card, settings)) return apiSources;
+  return [...apiSources, implicitJitenTtsSource(settings)];
+}
+function shouldAddImplicitJitenTtsFallback(apiSources, card, settings) {
+  return settings.audioEnableDefaultSources && !apiSources.some((source) => source.type === "jiten-tts") && hasJitenAudioReference(card);
+}
+function implicitJitenTtsSource(settings) {
+  const configured = settings.audioSources.find((source) => source.type === "jiten-tts");
+  return {
+  type: "jiten-tts",
+  url: "",
+  voice: configured?.voice ?? "",
+  enabled: true
+  };
 }
 function audioErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
@@ -32531,7 +32549,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.57"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.58"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
