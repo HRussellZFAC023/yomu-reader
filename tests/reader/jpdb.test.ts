@@ -10295,6 +10295,8 @@ describe('reader helpers', () => {
     it('keeps Immersion Kit thumbnails from collapsing in short frames', () => {
         expect(IMMERSION_STUDY_CSS).toContain('--jpdb-reader-example-media-max-height: clamp(150px, calc(100vh - 300px), 260px);');
         expect(IMMERSION_STUDY_CSS).toContain('--jpdb-reader-example-media-max-height: clamp(130px, calc(100vh - 300px), 230px);');
+        expect(IMMERSION_STUDY_CSS).toContain('min-width: min(100%, 320px);');
+        expect(IMMERSION_STUDY_CSS).toContain('min-height: min(180px, var(--jpdb-reader-example-media-max-height));');
         expect(IMMERSION_STUDY_CSS).not.toContain('max-height: min(260px, calc(100vh - 300px));');
     });
 

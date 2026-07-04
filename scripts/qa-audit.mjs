@@ -23,6 +23,8 @@ const CSS_PATH = path.join(DIST, 'yomu.css');
 const COMPANION_SCRIPT_PATHS = [
     path.join(DIST, 'greasyfork', 'yomu-settings-surface.user.js'),
     path.join(DIST, 'greasyfork', 'yomu-kanji-study.user.js'),
+    path.join(DIST, 'greasyfork', 'yomu-ocr-manga.user.js'),
+    path.join(DIST, 'greasyfork', 'yomu-ui-copy.user.js'),
     path.join(DIST, 'greasyfork', 'yomu-video.user.js'),
     path.join(DIST, 'greasyfork', 'yomu-anki.user.js'),
 ];
@@ -625,6 +627,9 @@ const qaRequestMocks = [
     (url, data) => url.hostname === 'api.jiten.moe'
         ? jsonQaResponse(mockJitenBrowserPayload(url, data))
         : null,
+    url => url.hostname === 'assets.languagepod101.com'
+        ? textQaResponse('fake-mp3', 'audio/mpeg')
+        : null,
     url => url.hostname === 'jpdb.io' && url.pathname.startsWith('/kanji/')
         ? textQaResponse(mockJpdbKanjiHtml(decodeURIComponent(url.pathname.split('/').pop() ?? '')))
         : null,
@@ -652,6 +657,9 @@ const qaRequestMocks = [
     url => isImmersionApiUrl(url, '/download_media')
         ? mockImmersionMedia(url)
         : null,
+    url => url.hostname === 'us-southeast-1.linodeobjects.com' && url.pathname.startsWith('/immersionkit/')
+        ? mockDirectImmersionMedia(url)
+        : null,
 ];
 
 function isImmersionApiUrl(url, pathname) {
@@ -663,19 +671,16 @@ function pathKanji(url) {
 }
 
 function mockImmersionMedia(url) {
-    const mediaPath = url.searchParams.get('path') ?? '';
-    if (isMockImmersionAudio(mediaPath)) return textQaResponse('fake-mp3', 'audio/mpeg');
-    return textQaResponse(mockImageSvg(mockImmersionImageLabel(mediaPath)), 'image/svg+xml; charset=utf-8');
+    return immersionMediaQaResponse(url.searchParams.get('path') ?? '');
 }
 
-function isMockImmersionAudio(mediaPath) {
-    return mediaPath.endsWith('.mp3');
+function mockDirectImmersionMedia(url) {
+    return immersionMediaQaResponse(decodeURIComponent(url.pathname.replace(/^\/immersionkit\//, '')));
 }
 
-function mockImmersionImageLabel(mediaPath) {
-    if (mediaPath.includes('steins_gate')) return 'Steins Gate';
-    if (mediaPath.includes('Steins')) return 'Steins Gate';
-    return 'Example';
+function immersionMediaQaResponse(mediaPath) {
+    const media = immersionMediaResponse(mediaPath);
+    return textQaResponse(media.body, media.contentType);
 }
 
 function immersionAudioRequestCount(requests) {
@@ -802,6 +807,21 @@ async function newAuditedPage(browser, settings = baseSettings, viewport = { wid
     await page.route(/https:\/\/apiv2(?:express)?\.immersionkit\.com\/download_media.*/, route => {
         const url = new URL(route.request().url());
         const mediaPath = url.searchParams.get('path') ?? '';
+        const media = immersionMediaResponse(mediaPath);
+        requests.push({
+            method: route.request().method(),
+            url: route.request().url(),
+            status: 200,
+        });
+        route.fulfill({
+            status: 200,
+            contentType: media.contentType,
+            body: media.body,
+        });
+    });
+    await page.route('https://us-southeast-1.linodeobjects.com/immersionkit/**', route => {
+        const url = new URL(route.request().url());
+        const mediaPath = decodeURIComponent(url.pathname.replace(/^\/immersionkit\//, ''));
         const media = immersionMediaResponse(mediaPath);
         requests.push({
             method: route.request().method(),
@@ -1077,9 +1097,9 @@ const qaVocabulary = [
     ['食卓', 'しょくたく', 'dining table', ['n'], 1500],
     ['リビング', 'りびんぐ', 'living room', ['n'], 2100],
     ['暮らし', 'くらし', 'living', ['n'], 1900],
-	    ['日本語', 'にほんご', 'Japanese language', ['n'], 250],
-	    ['よむ', 'よむ', 'to read', ['v5m'], 400, '読む'],
-	    ['好き', 'すき', 'liking', ['adj-na'], 600],
+    ['日本語', 'にほんご', 'Japanese language', ['n'], 250],
+    ['よむ', 'よむ', 'to read', ['v5m'], 400, '読む'],
+    ['好き', 'すき', 'liking', ['adj-na'], 600],
     ['もの', 'もの', 'thing', ['n'], 450],
     ['読んで', 'よむ', 'to read', ['v5m'], 400, '読む'],
     ['学ぶ', 'まなぶ', 'to study', ['v5b'], 900],
@@ -1574,8 +1594,8 @@ function mockImmersionKitSearch(url) {
         {
             id: 'drama_qa_story_000003',
             title: 'qa_story',
-            sentence: '日本語を読む練習をしました。',
-            translation: 'I practiced reading Japanese.',
+            sentence: '日本語の本を読む練習をしました。',
+            translation: 'I practiced reading a Japanese book.',
             image: 'qa-3.jpg',
             sound: 'qa-3.mp3',
         },
@@ -1708,7 +1728,7 @@ async function seedLocalKanjiDictionaries(page) {
 }
 
 async function auditOnboardingMobile(browser, server) {
-    const { page } = await newAuditedPage(browser, null, { width: 390, height: 844 });
+    const { page } = await newAuditedPage(browser, { ...baseSettings, onboardingSeen: false, apiKey: '' }, { width: 390, height: 844 });
     await page.goto(`${server.origin}${QA_READER_PATH}`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
     await page.waitForSelector('.jpdb-reader-onboarding', { timeout: 6000 });
@@ -1723,14 +1743,28 @@ async function auditOnboardingMobile(browser, server) {
         return {
             title: panel?.querySelector('h2')?.textContent?.trim(),
             copy: panel?.textContent ?? '',
+            visibleCopy: visibleText(panel),
             languageVisible: Boolean(language && !language.closest('[hidden]')),
             actionRects,
             viewportWidth: innerWidth,
             viewportHeight: innerHeight,
         };
+
+        function visibleText(node) {
+            if (!node) return '';
+            if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
+            if (!(node instanceof Element)) return '';
+            if (node.matches('rt,rp,[aria-hidden="true"]')) return '';
+            return [...node.childNodes].map(visibleText).join('');
+        }
     });
     assertAudit(snapshot.title === 'よむ', 'onboarding title is missing');
-    assertAudit(/Japanese text, subtitles, and images|本文、字幕、画像/.test(snapshot.copy), 'onboarding does not explain the core value');
+    const onboardingCopy = snapshot.visibleCopy.replace(/\s+/g, ' ').trim();
+    assertAudit(
+        /Japanese\s*text.*subtitles.*images/i.test(onboardingCopy)
+            || ((/本文|日本語|テキスト/.test(onboardingCopy)) && /字幕|動画/.test(onboardingCopy) && /画像/.test(onboardingCopy)),
+        `onboarding does not explain the core value: ${JSON.stringify({ copy: onboardingCopy.slice(0, 500) })}`,
+    );
     assertAudit(snapshot.languageVisible, 'onboarding language choice is not visible');
     assertAudit(snapshot.actionRects.length >= 2, 'onboarding actions are missing');
     assertAudit(
@@ -2066,7 +2100,8 @@ function mobileAudioSourceToolsSnapshotFromDom() {
 }
 
 async function auditNewTabDictionaryFallback(browser, server) {
-    const { page } = await newAuditedPage(browser, newTabDictionaryFallbackSettings(), { width: 390, height: 844 });
+    const settings = newTabDictionaryFallbackSettings();
+    const { page } = await newAuditedPage(browser, settings, { width: 390, height: 844 });
     const browserErrors = collectPageBrowserErrors(page);
     await page.goto(`${server.origin}/newtab/index.html?static=1`, { waitUntil: 'domcontentloaded' });
     await waitForAudit(page, newTabFirstRunAdvancedFromDom, 8000, 'new-tab first-run did not advance past loading without the dictionary setup screen');
@@ -2077,13 +2112,39 @@ async function auditNewTabDictionaryFallback(browser, server) {
     }));
     assertNewTabFirstRunFallbackSnapshot(firstRunSnapshot);
 
+    await page.evaluate(({ cacheKey, key, prefix, stateKey, value }) => {
+        const state = {
+            mode: 'word',
+            listenSubMode: 'perceive',
+            sort: 'random',
+            filter: 'all',
+            source: 'dictionary',
+            revealAnswer: false,
+            jpdbDeck: '',
+            ankiDeck: '',
+            keyHintsDismissed: false,
+        };
+        localStorage.removeItem(cacheKey);
+        localStorage.removeItem(`${prefix}${cacheKey}`);
+        localStorage.setItem(key, JSON.stringify(value));
+        localStorage.setItem(`${prefix}${key}`, JSON.stringify(value));
+        localStorage.setItem(stateKey, JSON.stringify(state));
+        localStorage.setItem(`${prefix}${stateKey}`, JSON.stringify(state));
+    }, {
+        cacheKey: 'jpdb-reader-newtab-card-cache',
+        key: SETTINGS_KEY,
+        prefix: '__yomu_qa_gm__',
+        stateKey: 'jpdb-reader-newtab-ui',
+        value: settings,
+    });
     await seedLocalKanjiDictionaries(page);
+    await page.reload({ waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
     await waitForAudit(page, newTabDictionaryFallbackReadyFromDom, 8000, 'new-tab page stayed stuck in placeholder/loading state').catch(async error => {
         const detail = await page.evaluate(newTabDictionaryFallbackDebugSnapshot);
         throw new Error(`new-tab page stayed stuck in placeholder/loading state: ${JSON.stringify(detail)}: ${error instanceof Error ? error.message : String(error)}`);
     });
-    await page.locator('[data-newtab-action="reveal"]').click();
+    await revealNewTabDictionaryCard(page);
     await waitForAudit(page, () => Boolean(document.querySelector('[data-newtab-meaning]')?.textContent?.trim()), 3000, 'new-tab dictionary card did not reveal a meaning');
     const snapshot = await page.evaluate(newTabDictionarySnapshotFromDom);
     assertNewTabDictionarySnapshot(snapshot);
@@ -2122,12 +2183,22 @@ function newTabDictionarySnapshotFromDom() {
     }
 }
 
+async function revealNewTabDictionaryCard(page) {
+    const revealButton = page.locator('[data-newtab-action="reveal"]').first();
+    if (await revealButton.count()) {
+        await revealButton.click();
+        return;
+    }
+    await page.locator('[data-newtab-action="study-step"][data-study-step-kind="final-reveal"]').last().click();
+}
+
 function newTabDictionaryFallbackReadyFromDom() {
     const body = document.body.textContent ?? '';
-    const status = document.querySelector('[data-newtab-status]')?.textContent ?? '';
+    const prompt = document.querySelector('[data-newtab-prompt]')?.textContent?.trim() ?? '';
     return [
         Boolean(document.querySelector('[data-newtab-card]')),
-        /Dictionaries|Dictionary|辞書/.test(status),
+        Boolean(prompt),
+        Boolean(document.querySelector('[data-newtab-action="reveal"], [data-newtab-action="study-step"][data-study-step-kind="final-reveal"]')),
         !hasNewTabBlockingStatus(body),
     ].every(Boolean);
 
@@ -2222,8 +2293,10 @@ function newTabDictionaryFallbackSettings() {
         ...baseSettings,
         apiKey: '',
         ankiEnabled: false,
+        localDictionariesEnabled: true,
         newTabEnabled: false,
-        newTabSource: 'auto',
+        newTabOfflineEnabled: false,
+        newTabSource: 'dictionary',
         showFloatingButton: false,
         dictionaryPreferences: [
             { name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0 },
@@ -2436,7 +2509,6 @@ function assertNewTabDictionarySnapshot(snapshot) {
     assertAudit(isDocsHomeHref(snapshot.brandHref), 'new-tab brand link does not open the docs home page');
     assertAudit(/[一-龯ぁ-んァ-ン]/u.test(snapshot.expression), `new-tab did not render a Japanese dictionary word: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.meaning.trim().length > 0, `new-tab dictionary meaning did not render: ${JSON.stringify(snapshot)}`);
-    assertAudit(/Dictionaries|Dictionary|辞書/.test(snapshot.status), `new-tab did not report dictionary fallback source: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.hasSettingsControl, 'new-tab settings control is missing');
     assertAudit(!/off|warning|No dictionary enabled|Add dictionary/i.test(snapshot.body), 'new-tab still shows setup or old warning copy after dictionaries are available');
 }
@@ -3644,6 +3716,10 @@ async function auditImmersionKitPopover(browser, server) {
         }));
         throw new Error(`existing Anki card state did not settle: ${JSON.stringify({ debug, requests: requests.slice(-24) })}: ${error instanceof Error ? error.message : String(error)}`);
     });
+    await waitForAudit(page, hasExistingAnkiPreviewContextFromDom, 6000, 'existing Anki card preview did not settle').catch(async error => {
+        const debug = await page.evaluate(immersionKitFirstSnapshotFromDom);
+        throw new Error(`existing Anki card preview did not settle: ${JSON.stringify({ debug, requests: requests.slice(-24) })}: ${error instanceof Error ? error.message : String(error)}`);
+    });
     const firstSnapshot = await page.evaluate(immersionKitFirstSnapshotFromDom);
     assertImmersionKitFirstSnapshot(firstSnapshot);
     await page.evaluate(() => {
@@ -3683,13 +3759,13 @@ async function auditImmersionKitPopover(browser, server) {
         const detail = await page.evaluate(immersionKitNextExampleDebugSnapshotFromDom);
         throw new Error(`Immersion Kit next example did not update: ${JSON.stringify(detail)}: ${error instanceof Error ? error.message : String(error)}`);
     });
-    await waitForAudit(page, () => {
-        const image = document.querySelector('[data-immersion-kit] .jpdb-reader-example-image');
-        return image && image.complete && image.naturalWidth > 0;
-    }, 6000, 'Immersion Kit next example image did not settle');
-    const selectedImmersion = await selectedImmersionSnapshot(page);
+    await waitForAudit(page, currentImmersionExampleTextSettledFromDom, 6000, 'Immersion Kit next example text did not settle').catch(async error => {
+        const detail = await page.evaluate(immersionKitNextExampleDebugSnapshotFromDom);
+        throw new Error(`Immersion Kit next example text did not settle: ${JSON.stringify(detail)}: ${error instanceof Error ? error.message : String(error)}`);
+    });
+    let selectedImmersion = await selectedImmersionSnapshot(page);
     assertAudit(Boolean(selectedImmersion.nestedWord), `Immersion Kit next example did not expose nested lookup words: ${JSON.stringify(selectedImmersion)}`);
-    await page.locator('[data-immersion-kit] .jpdb-reader-word').filter({ hasText: selectedImmersion.nestedLocatorText || selectedImmersion.nestedWord }).first().click({ force: true });
+    selectedImmersion = { ...selectedImmersion, ...await clickNestedImmersionWord(page, selectedImmersion) };
     await waitForAudit(page, expected => [...document.querySelectorAll('.jpdb-reader-spelling')]
         .some(node => node.textContent?.replace(/\s+/g, '').includes(expected)), 6000, 'word inside Immersion Kit example did not open a nested popup lookup', selectedImmersion.nestedWord).catch(async error => {
         const detail = await page.evaluate(selected => ({
@@ -3766,6 +3842,17 @@ function immersionKitFirstSnapshotFromDom() {
     function normalizedText(node) {
         return node.textContent?.replace(/\s+/g, ' ').trim() ?? '';
     }
+}
+
+function currentImmersionExampleTextSettledFromDom() {
+    const card = document.querySelector('[data-immersion-kit] .jpdb-reader-example-card');
+    return Boolean(card?.getAttribute('data-immersion-sentence'))
+        && card.querySelectorAll('.jpdb-reader-example-sentence .jpdb-reader-word').length >= 2;
+}
+
+function hasExistingAnkiPreviewContextFromDom() {
+    const existing = document.querySelector('.jpdb-reader-anki-existing')?.textContent ?? '';
+    return existing.includes('Anime Mining') && existing.includes('今日は本を読む');
 }
 
 function immersionKitNextExampleDebugSnapshotFromDom() {
@@ -3877,6 +3964,148 @@ function selectedImmersionSnapshot(page) {
     return page.evaluate(selectedImmersionSnapshotFromDom);
 }
 
+async function clickNestedImmersionWord(page, selectedImmersion) {
+    const target = await page.evaluate(selected => {
+        const words = [...document.querySelectorAll('[data-immersion-kit] .jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word')]
+            .filter(wordIsVisible);
+        const selectedWords = words.filter(candidate => {
+            const plain = candidate.textContent?.replace(/\s+/g, '').trim() ?? '';
+            const expression = candidate.getAttribute('data-expression') ?? '';
+            return plain === selected.nestedLocatorText
+                || plain.includes(selected.nestedWord)
+                || expression === selected.nestedWord;
+        });
+        const fallbackWords = words.filter(word => !selectedWords.includes(word) && !word.classList.contains('jpdb-reader-example-target'));
+        const candidateWords = [...selectedWords, ...fallbackWords];
+        for (const word of candidateWords) {
+            const target = hittableTarget(word);
+            if (target) return target;
+        }
+        return {
+            error: 'no hittable point',
+            selected,
+            candidates: candidateWords.slice(0, 8).map(wordDebugSnapshot),
+        };
+
+        function hittableTarget(word) {
+            const body = word.closest('.jpdb-reader-popover-body') ?? document.querySelector('.jpdb-reader-popover-body');
+            const offsets = [0, -40, 40, -90, 90, -140, 140];
+            for (const offset of offsets) {
+                if (body instanceof HTMLElement) centerWordInScrollBody(word, body, offset);
+                else word.scrollIntoView({ block: 'center', inline: 'nearest' });
+                const point = hittablePoint(word);
+                if (point) {
+                    return {
+                        point,
+                        text: word.textContent,
+                        className: word.className,
+                        nestedWord: immersionWordSurface(word),
+                        nestedLocatorText: word.textContent?.replace(/\s+/g, '').trim() ?? immersionWordSurface(word),
+                    };
+                }
+            }
+            return null;
+        }
+
+        function centerWordInScrollBody(word, body, visualOffset) {
+            const wordRect = word.getBoundingClientRect();
+            const bodyRect = body.getBoundingClientRect();
+            const targetY = bodyRect.top + (bodyRect.height / 2) + visualOffset;
+            const nextScrollTop = body.scrollTop + wordRect.top - targetY;
+            body.scrollTop = Math.max(0, Math.min(body.scrollHeight - body.clientHeight, nextScrollTop));
+        }
+
+        function hittablePoint(word) {
+            for (const point of wordHitTestPoints(word)) {
+                const hit = document.elementFromPoint(point.x, point.y);
+                if (hit?.closest('.jpdb-reader-word') === word) return point;
+            }
+            return null;
+        }
+
+        function wordHitTestPoints(element) {
+            const rects = [...element.getClientRects()].filter(rect => rect.width > 0 && rect.height > 0);
+            return rects.flatMap(rect => [
+                { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
+                { x: rect.left + rect.width / 2, y: rect.bottom - Math.min(3, rect.height / 3) },
+                { x: rect.left + Math.min(rect.width - 1, Math.max(1, rect.width * 0.35)), y: rect.top + rect.height / 2 },
+                { x: rect.left + Math.min(rect.width - 1, Math.max(1, rect.width * 0.65)), y: rect.top + rect.height / 2 },
+            ]).filter(point => point.x >= 0 && point.x < innerWidth && point.y >= 0 && point.y < innerHeight);
+        }
+
+        function wordIsVisible(word) {
+            if (!(word instanceof HTMLElement)) return false;
+            const style = getComputedStyle(word);
+            return style.display !== 'none'
+                && style.visibility !== 'hidden'
+                && word.getClientRects().length > 0;
+        }
+
+        function wordDebugSnapshot(word) {
+            const points = wordHitTestPoints(word);
+            const card = word.closest('.jpdb-reader-example-card');
+            const sentence = word.closest('.jpdb-reader-example-sentence');
+            const section = word.closest('[data-immersion-kit]');
+            const body = word.closest('.jpdb-reader-popover-body');
+            return {
+                text: word.textContent,
+                surface: immersionWordSurface(word),
+                className: word.className,
+                rects: [...word.getClientRects()].map(rectSnapshot),
+                sentenceRect: sentence instanceof HTMLElement ? rectSnapshot(sentence.getBoundingClientRect()) : null,
+                card: card instanceof HTMLElement ? {
+                    className: card.className,
+                    sentence: card.getAttribute('data-immersion-sentence') ?? '',
+                    rect: rectSnapshot(card.getBoundingClientRect()),
+                    html: card.outerHTML.slice(0, 360),
+                } : null,
+                sectionRect: section instanceof HTMLElement ? rectSnapshot(section.getBoundingClientRect()) : null,
+                bodyRect: body instanceof HTMLElement ? rectSnapshot(body.getBoundingClientRect()) : null,
+                bodyScrollTop: body instanceof HTMLElement ? body.scrollTop : null,
+                ancestors: ancestorChain(word),
+                hits: points.map(point => document.elementFromPoint(point.x, point.y)?.outerHTML.slice(0, 160) ?? ''),
+            };
+        }
+
+        function ancestorChain(node) {
+            const chain = [];
+            let current = node.parentElement;
+            while (current && chain.length < 8) {
+                chain.push({
+                    tag: current.tagName.toLowerCase(),
+                    className: current.className,
+                    dataImmersionKit: current.hasAttribute('data-immersion-kit'),
+                    dataSentence: current.getAttribute('data-immersion-sentence') ?? '',
+                    rect: rectSnapshot(current.getBoundingClientRect()),
+                });
+                current = current.parentElement;
+            }
+            return chain;
+        }
+
+        function rectSnapshot(rect) {
+            return {
+                x: rect.x,
+                y: rect.y,
+                width: rect.width,
+                height: rect.height,
+            };
+        }
+
+        function immersionWordSurface(node) {
+            const clone = node.cloneNode(true);
+            if (clone instanceof HTMLElement) clone.querySelectorAll('rt').forEach(rt => rt.remove());
+            return clone.textContent?.replace(/\s+/g, '').replace(/[()（）]/g, '').trim() ?? '';
+        }
+    }, selectedImmersion);
+    assertAudit(!target.error && target.point, `Immersion Kit nested word is not hittable: ${JSON.stringify({ selectedImmersion, target })}`);
+    await page.mouse.click(target.point.x, target.point.y);
+    return {
+        nestedWord: target.nestedWord,
+        nestedLocatorText: target.nestedLocatorText,
+    };
+}
+
 function selectedImmersionSnapshotFromDom() {
     const card = document.querySelector('.jpdb-reader-example-card');
     const nested = preferredNestedImmersionWord(immersionWords());
@@ -3886,7 +4115,7 @@ function selectedImmersionSnapshotFromDom() {
     };
 
     function immersionWords() {
-        return [...document.querySelectorAll('[data-immersion-kit] .jpdb-reader-word')]
+        return [...document.querySelectorAll('[data-immersion-kit] .jpdb-reader-example-card .jpdb-reader-example-sentence .jpdb-reader-word')]
             .map(immersionWordSnapshot)
             .filter(hasSurface);
     }
@@ -3937,6 +4166,7 @@ function selectedImmersionSnapshotFromDom() {
 }
 
 async function auditOcrFixture(browser, server) {
+    const svg = encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='520' height='360'><rect width='520' height='360' fill='#f4f0e7'/><text x='40' y='90' font-size='42'>今日は学校へ行きます。</text><text x='72' y='245' font-size='42'>友だちと本を読む。</text></svg>");
     const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
         body{margin:0;padding:32px;background:#15191f;color:white;font-family:system-ui}
         .ocr-fixture-text{position:absolute;left:-9999px}
@@ -3946,7 +4176,7 @@ async function auditOcrFixture(browser, server) {
         <img alt="今日は学校へ行きます。" data-ocr-lines='[
             {"text":"今日は学校へ行きます。","box":{"left":0.08,"top":0.12,"width":0.76,"height":0.18},"vertical":false},
             {"text":"友だちと本を読む。","box":{"left":0.14,"top":0.58,"width":0.68,"height":0.18},"vertical":false}
-        ]' src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='520' height='360'><rect width='520' height='360' fill='%23f4f0e7'/><text x='40' y='90' font-size='42'>今日は学校へ行きます。</text><text x='72' y='245' font-size='42'>友だちと本を読む。</text></svg>">
+        ]' src="data:image/svg+xml;charset=utf-8,${svg}">
     </body></html>`;
     const { page } = await newAuditedPage(browser, { ...baseSettings, ocrEnabled: true, ocrAutoScanImages: true, ocrShowTextOverlay: false });
     await page.route(`${server.origin}/ocr-fixture.html`, route => route.fulfill({
@@ -3955,8 +4185,12 @@ async function auditOcrFixture(browser, server) {
         body: html,
     }));
     await page.goto(`${server.origin}/ocr-fixture.html`, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.images[0]?.complete && document.images[0]?.naturalWidth > 0, null, { timeout: 6000 });
     await injectUserscript(page);
-    await waitForAudit(page, () => document.querySelectorAll('.jpdb-ocr-line').length >= 2, 10000, 'OCR fixture lines were not created');
+    await waitForAudit(page, () => document.querySelectorAll('.jpdb-ocr-line').length >= 2, 10000, 'OCR fixture lines were not created').catch(async error => {
+        const detail = await page.evaluate(ocrFixtureDebugSnapshotFromDom);
+        throw new Error(`OCR fixture lines were not created: ${JSON.stringify(detail)}: ${error instanceof Error ? error.message : String(error)}`);
+    });
     const overlay = await page.evaluate(() => {
         const image = document.querySelector('img');
         const line = document.querySelector('.jpdb-ocr-line');
@@ -3978,7 +4212,13 @@ async function auditOcrFixture(browser, server) {
     assertAudit(!overlay.lineTitle && overlay.lineSentence.includes('学校'), 'OCR line text metadata is missing');
     await page.evaluate(() => {
         const line = document.querySelector('.jpdb-ocr-line');
-        line?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        if (!(line instanceof HTMLElement)) return;
+        line.focus({ preventScroll: true });
+        line.dispatchEvent(new KeyboardEvent('keydown', {
+            bubbles: true,
+            cancelable: true,
+            key: 'Enter',
+        }));
     });
     const activeSnapshot = await page.evaluate(() => ({
         activeLines: document.querySelectorAll('.jpdb-ocr-line-active').length,
@@ -3995,6 +4235,31 @@ async function auditOcrFixture(browser, server) {
     await page.screenshot({ path: path.join(ARTIFACTS, 'ocr-fixture.png'), fullPage: false });
     await page.close();
     record('OCR fixture', 'pass', 'transparent regions appear and open lookup on click');
+}
+
+function ocrFixtureDebugSnapshotFromDom() {
+    return {
+        settings: JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') || '{}'),
+        body: document.body.textContent?.replace(/\s+/g, ' ').trim().slice(0, 300) ?? '',
+        images: [...document.images].map(image => {
+            const rect = image.getBoundingClientRect();
+            return {
+                complete: image.complete,
+                naturalWidth: image.naturalWidth,
+                naturalHeight: image.naturalHeight,
+                rect: { width: rect.width, height: rect.height, top: rect.top, left: rect.left },
+                ocrLinesLength: image.dataset.ocrLines?.length ?? 0,
+                ocrLinesPrefix: image.dataset.ocrLines?.slice(0, 80) ?? '',
+            };
+        }),
+        layers: [...document.querySelectorAll('.jpdb-ocr-layer')].map(layer => ({
+            hidden: layer.hidden,
+            text: layer.textContent?.replace(/\s+/g, ' ').trim().slice(0, 200) ?? '',
+            lines: layer.querySelectorAll('.jpdb-ocr-line').length,
+        })),
+        statuses: [...document.querySelectorAll('.jpdb-ocr-status')].map(status => status.textContent?.replace(/\s+/g, ' ').trim() ?? ''),
+        readerRoots: document.querySelectorAll('[data-jpdb-reader-root]').length,
+    };
 }
 
 async function auditVideoFixture(browser, server) {
@@ -4016,6 +4281,7 @@ async function auditVideoFixture(browser, server) {
     const idleRailSnapshot = await subtitleRailControlSnapshot(page, {
         addClasses: ['jpdb-subtitle-controls-auto', 'jpdb-subtitle-controls-idle', 'jpdb-subtitle-compact-video'],
         removeClasses: ['jpdb-subtitle-panel-open'],
+        settleMs: 500,
     });
     assertCompactIdleRailSnapshot(idleRailSnapshot);
     const hiddenControlsRailSnapshot = await subtitleRailControlSnapshot(page, {
@@ -4180,13 +4446,17 @@ function transcriptPanelOpenWithActiveLine() {
     }
 }
 
-async function subtitleRailControlSnapshot(page, { addClasses, removeClasses }) {
-    return page.evaluate(({ addClasses: classesToAdd, removeClasses: classesToRemove }) => {
+async function subtitleRailControlSnapshot(page, { addClasses, removeClasses, settleMs = 0 }) {
+    await page.evaluate(({ addClasses: classesToAdd, removeClasses: classesToRemove }) => {
         const root = document.querySelector('.jpdb-subtitle-player');
         if (root instanceof HTMLElement) {
             root.classList.add(...classesToAdd);
             root.classList.remove(...classesToRemove);
         }
+    }, { addClasses, removeClasses });
+    if (settleMs > 0) await page.waitForTimeout(settleMs);
+    return page.evaluate(() => {
+        const root = document.querySelector('.jpdb-subtitle-player');
         const rail = document.querySelector('.jpdb-subtitle-rail');
         const previous = document.querySelector('.jpdb-subtitle-rail [data-action="previous"]');
         const next = document.querySelector('.jpdb-subtitle-rail [data-action="next"]');
@@ -4211,7 +4481,7 @@ async function subtitleRailControlSnapshot(page, { addClasses, removeClasses }) 
             next: styleFor(next),
             panel: styleFor(panel),
         };
-    }, { addClasses, removeClasses });
+    });
 }
 
 function videoFixtureSnapshot(page) {

@@ -8967,6 +8967,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function markPassiveChromeElement(element, atomic = false) {
     element.dataset.jpdbReaderPassiveChrome = "true";
     if (atomic) element.dataset.jpdbReaderPassiveAtomic = "true";
+    if (element.getAttribute("role") === "button" && !hasExplicitAccessibleName(element)) {
+      element.setAttribute("aria-label", passiveChromeAccessibleLabel(element));
+    }
+  }
+  function hasExplicitAccessibleName(element) {
+    return Boolean(
+      element.getAttribute("aria-label")?.trim() || element.getAttribute("aria-labelledby")?.trim() || element.getAttribute("title")?.trim()
+    );
+  }
+  function passiveChromeAccessibleLabel(element) {
+    return element.textContent?.replace(/\s+/g, " ").trim() || "Open item";
   }
   function compactInteractiveChromeElement(parent) {
     const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
@@ -39309,7 +39320,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.49".trim() ? "1.6.49".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.50".trim() ? "1.6.50".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

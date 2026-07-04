@@ -7,6 +7,7 @@
 @import './styles/settings.css';
 @import './styles/subtitles-youtube.css';
 @import './styles/youtube-filter.css';
+@import './styles/interactions.css';
 
 /* Due-in previews on the popover grade row (Jiten/Anki parity). */
 .jpdb-reader-btn .jpdb-reader-grade-interval {

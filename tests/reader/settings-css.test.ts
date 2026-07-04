@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { TRANSCRIPT_PANEL_Z_INDEX } from '../../src/reader/subtitles/subtitle-layout';
 
 const BASE_CSS = readFileSync('src/reader/styles/base.css', 'utf8');
+const IMMERSION_CSS = readFileSync('src/reader/styles/immersion-study.css', 'utf8');
 const KANJI_CSS = readFileSync('src/reader/styles/kanji.css', 'utf8');
+const INTERACTIONS_CSS = readFileSync('src/reader/styles/interactions.css', 'utf8');
 const LOCAL_DICTIONARIES_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
 const NEW_TAB_CSS = readFileSync('src/reader/styles/new-tab.css', 'utf8');
 const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
@@ -52,6 +54,7 @@ describe('settings CSS', () => {
     it('pins Yomu control colors over host page button CSS', () => {
         const normalizedReaderWordsOcrCss = normalizeCss(READER_WORDS_OCR_CSS);
         const normalizedSettingsCss = normalizeCss(SETTINGS_CSS);
+        const normalizedInteractionsCss = normalizeCss(INTERACTIONS_CSS);
 
         expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab { position: fixed !important; display: inline-flex !important;');
         expect(normalizedReaderWordsOcrCss).toContain('inline-size: 52px !important; block-size: 52px !important; min-inline-size: 52px !important; min-block-size: 52px !important; max-inline-size: 52px !important; max-block-size: 52px !important;');
@@ -60,6 +63,33 @@ describe('settings CSS', () => {
         expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab:hover, .jpdb-reader-fab:focus-visible { border-color: var(--jpdb-reader-accent) !important; color: var(--jpdb-reader-accent-readable) !important;');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-tab { min-height: 34px !important; padding: 0 11px !important; border: 1px solid var(--jpdb-reader-border) !important;');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-tab[aria-selected="true"] { border-color: var(--jpdb-reader-accent) !important; color: var(--jpdb-reader-accent-readable) !important; background: var(--jpdb-reader-accent-soft) !important; }');
+        expect(normalizedInteractionsCss).toContain('filter: brightness(1.045);');
+        expect(normalizedInteractionsCss).toContain('.jpdb-reader-stats-dropzone:focus-within, .jpdb-reader-stats-dropzone:hover { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 64%, var(--jpdb-reader-border));');
+    });
+
+    it('imports the shared interaction state layer into both reader CSS bundles', () => {
+        const readerEntryCss = readFileSync('src/reader/styles-reader.css', 'utf8');
+        const newTabEntryCss = readFileSync('src/reader/styles.css', 'utf8');
+        const normalizedInteractionsCss = normalizeCss(INTERACTIONS_CSS);
+
+        expect(readerEntryCss).toContain("@import './styles/interactions.css';");
+        expect(newTabEntryCss.trim().endsWith("@import './styles/interactions.css';")).toBe(true);
+        expect(normalizedInteractionsCss).toContain('.jpdb-reader-popover :where( .jpdb-reader-source-card > summary.jpdb-reader-local-title,');
+        expect(normalizedInteractionsCss).toContain('.jpdb-reader-newtab .jpdb-reader-newtab-more[open] .jpdb-reader-newtab-more-menu, .jpdb-reader-newtab .jpdb-reader-newtab-search-card-shell[data-newtab-search-expanded="true"] .jpdb-reader-newtab-search-detail, .jpdb-subtitle-style-popover:not([hidden]) { animation: jpdb-reader-interaction-enter 0.14s ease-out both; }');
+        expect(normalizedInteractionsCss).toContain('.jpdb-reader-newtab .jpdb-reader-newtab-study { transition: background-color 0.16s ease, filter 0.16s ease; }');
+        expect(normalizedInteractionsCss).toContain('@media (prefers-reduced-motion: reduce)');
+    });
+
+    it('keeps compact dictionary statuses readable and captions clickable around details blocks', () => {
+        const normalizedImmersionCss = normalizeCss(IMMERSION_CSS);
+        const normalizedLocalDictionaryCss = normalizeCss(LOCAL_DICTIONARIES_CSS);
+        const normalizedNewTabCss = normalizeCss(NEW_TAB_CSS);
+
+        expect(normalizedLocalDictionaryCss).toContain('.jpdb-reader-source-status { flex: 0 0 auto; margin-left: auto; color: var(--jpdb-reader-muted);');
+        expect(normalizedImmersionCss).toContain('.jpdb-reader-grammar-more { display: grid; gap: 4px; pointer-events: none; }');
+        expect(normalizedImmersionCss).toContain('.jpdb-reader-grammar-more > * { pointer-events: auto; }');
+        expect(normalizedNewTabCss).toContain('button.jpdb-reader-newtab-study-hint-btn { padding: 3px 12px; border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent, currentColor) 42%, var(--jpdb-reader-border, currentColor));');
+        expect(normalizedNewTabCss).toContain('color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text, currentColor));');
     });
 
     it('lets subtitle rails idle while the transcript panel is open', () => {

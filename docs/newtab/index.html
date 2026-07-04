@@ -112,6 +112,15 @@
         font-size: 15px;
         font-weight: 620;
         cursor: pointer;
+        transition: color .16s ease, filter .16s ease;
+      }
+
+      .jpdb-reader-language-toggle:hover,
+      .jpdb-reader-language-toggle:focus-visible {
+        color: var(--accent);
+        filter: brightness(1.05);
+        outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+        outline-offset: 3px;
       }
 
       .jpdb-reader-newtab-brand {
@@ -182,6 +191,15 @@
         gap: clamp(10px, 2.2vh, 20px);
         cursor: pointer;
         user-select: none;
+        transition: background .16s ease, filter .16s ease;
+      }
+
+      .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-study:hover {
+        background: color-mix(in srgb, var(--accent) 5%, transparent);
+      }
+
+      .jpdb-reader-newtab-study:active {
+        filter: brightness(.985);
       }
 
       .jpdb-reader-newtab-study.jpdb-reader-newtab-study-anki-card {

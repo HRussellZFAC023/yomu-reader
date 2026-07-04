@@ -303,7 +303,7 @@ describe('VisiblePageScanner', () => {
             <main>
                 <section class="video-grid">
                     <article class="video-card">
-                        <a class="video-card-link" href="/watch/sample-title/">
+                        <a class="video-card-link" role="button" href="/watch/sample-title/">
                             <img src="/thumb.jpg" alt="">
                             <span class="video-title">人妻温泉旅行</span>
                         </a>
@@ -329,7 +329,9 @@ describe('VisiblePageScanner', () => {
             expect(word).not.toBeNull();
             expect(word.dataset.jpdbReaderPassive).toBe('true');
             expect(word.querySelector('rt')).toBeNull();
-            expect(title.closest('[data-jpdb-reader-passive-chrome="true"]')).not.toBeNull();
+            const passiveChrome = title.closest<HTMLElement>('[data-jpdb-reader-passive-chrome="true"]');
+            expect(passiveChrome).not.toBeNull();
+            expect(passiveChrome?.getAttribute('aria-label')).toContain('人妻温泉旅行');
             expect(title.textContent).toContain('人妻温泉旅行');
         } finally {
             scanner.destroy();

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.50] - 2026-07-04
+
+### Changed
+
+- Added hover, focus, active, and reduced-motion-aware transition coverage across Yomu's popover, settings, new-tab, subtitle, YouTube-filter, and gaming overlay controls, including details summaries and large study-card hit targets that previously felt static.
+
 ## [1.6.49] - 2026-07-04
 
 ### Changed

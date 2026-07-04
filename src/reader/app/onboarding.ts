@@ -259,7 +259,7 @@ export class OnboardingController {
             if (this.handleWordLookup(event)) event.preventDefault();
         });
 
-        this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, actions, featureList);
+        this.panel.append(closeButton, eyebrow, title, copy, basics, actions, immersionOptions, featureList);
         this.syncThemeSwitch();
         this.syncAccentPicker(this.accentColorInput.value);
         this.syncManualPageScanShortcut();

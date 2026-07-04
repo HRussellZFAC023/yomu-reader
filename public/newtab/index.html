@@ -207,6 +207,14 @@
         transition: border-color .18s ease, background .18s ease;
       }
 
+      .jpdb-reader-theme-switch:hover,
+      .jpdb-reader-theme-switch:focus-visible {
+        border-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+        outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+        outline-offset: 3px;
+      }
+
       .jpdb-reader-theme-switch .check {
         position: absolute;
         top: 1px;
@@ -278,6 +286,15 @@
         cursor: pointer;
         user-select: none;
         padding-top: clamp(16px, 3vh, 32px);
+        transition: background .16s ease, filter .16s ease;
+      }
+
+      .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-study:hover {
+        background: color-mix(in srgb, var(--accent) 5%, transparent);
+      }
+
+      .jpdb-reader-newtab-study:active {
+        filter: brightness(.985);
       }
 
       .jpdb-reader-newtab-study.jpdb-reader-newtab-study-anki-card {

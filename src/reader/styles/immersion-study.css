@@ -44,7 +44,9 @@
 .jpdb-reader-example-card.has-image .jpdb-reader-example-media {
   justify-self: center;
   width: fit-content;
+  min-width: min(100%, 320px);
   max-width: 100%;
+  min-height: min(180px, var(--jpdb-reader-example-media-max-height));
   overflow: hidden;
 }
 .jpdb-reader-example-body {
@@ -731,9 +733,13 @@ mark.jpdb-reader-example-target {
 .jpdb-reader-grammar-more {
   display: grid;
   gap: 4px;
+  pointer-events: none;
 }
 .jpdb-reader-grammar-more[open] {
   row-gap: 6px;
+}
+.jpdb-reader-grammar-more > * {
+  pointer-events: auto;
 }
 .jpdb-reader-grammar-more > summary {
   width: max-content;

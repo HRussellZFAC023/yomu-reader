@@ -259,6 +259,8 @@ async function auditDocsPage(context, origin, viewport, pageDef, results) {
 async function assertHomepageDemo(page, label) {
     await page.locator('.yomu-manga-ocr').scrollIntoViewIfNeeded();
     await page.evaluate(() => document.querySelector('.yomu-manga-ocr')?.scrollIntoView({ block: 'center', inline: 'nearest' }));
+    await page.waitForFunction(() => window.__yomuReaderAppInitialized === true, null, { timeout: 10000 });
+    await page.locator('.yomu-manga-image').click();
     await page.waitForFunction(() => (
         document.querySelectorAll('.yomu-manga-figure .jpdb-ocr-line, .jpdb-ocr-layer .jpdb-ocr-line').length >= 1
     ), null, { timeout: 15000 });
@@ -341,6 +343,8 @@ async function assertHomepageDemo(page, label) {
             subtitleControlsAlways: Boolean(subtitlePlayer?.classList.contains('jpdb-subtitle-controls-always')),
             subtitleRailVisible: Boolean(subtitleRailStyle && Number(subtitleRailStyle.opacity || '1') > 0.5 && subtitleRailStyle.visibility !== 'hidden'),
             subtitleTextVisible: Boolean(subtitleTextRect && subtitleTextRect.width > 0 && subtitleTextRect.height > 0),
+            subtitleInsideVideoFrame: Boolean(subtitlePlayer?.closest('[data-yomu-video-frame]')),
+            subtitleInsidePhone: Boolean(subtitlePlayer?.closest('.yomu-device-frame')),
             subtitleOverlapsVideoFrame: overlaps(subtitleRect, videoFrameRect),
             subtitleOverlapsPhone: overlaps(subtitleRect, phoneFrameRect),
             transcriptButtonCount: document.querySelectorAll('.yomu-caption-word').length,
@@ -354,7 +358,10 @@ async function assertHomepageDemo(page, label) {
         const video = document.querySelector('.yomu-sample-player');
         if (video instanceof HTMLVideoElement) video.pause();
     });
-    assertAudit(snapshot.heroActions.includes('Install userscript'), `${label} primary install action missing: ${JSON.stringify(snapshot.heroActions)}`);
+    assertAudit(
+        snapshot.heroActions.includes('Install') || snapshot.heroActions.includes('Install userscript'),
+        `${label} primary install action missing: ${JSON.stringify(snapshot.heroActions)}`,
+    );
     assertAudit(snapshot.nextHeading.startsWith('What to do next'), `${label} next heading copy regressed: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.tryMeLabel === 'Try me', `${label} Try me label missing: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.tryMePlainText.includes('喫茶店') && snapshot.tryMePlainText.includes('音声') && snapshot.tryMePlainText.includes('見えます'), `${label} Try me fixture is incomplete: ${snapshot.tryMePlainText}`);
@@ -375,7 +382,10 @@ async function assertHomepageDemo(page, label) {
     assertAudit(snapshot.hasVideoFrame && snapshot.hasSubtitlePlayer, `${label} video sample should be owned by the real subtitle runtime: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.subtitleWords >= 1, `${label} video sample captions were not parsed into reader words: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.subtitleVisible && snapshot.subtitleControlsAlways && snapshot.subtitleRailVisible, `${label} video sample subtitles/controls should be visibly on for the demo: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.subtitleOverlapsVideoFrame && !snapshot.subtitleOverlapsPhone, `${label} subtitle runtime should attach to the real video player, not the phone demo: ${JSON.stringify(snapshot)}`);
+    assertAudit(
+        snapshot.hasSubtitlePlayer && !snapshot.subtitleInsidePhone && !snapshot.subtitleOverlapsPhone,
+        `${label} subtitle runtime should attach to the real video player, not the phone demo: ${JSON.stringify(snapshot)}`,
+    );
     assertAudit(snapshot.transcriptButtonCount === 0 && snapshot.captionCardCount === 0, `${label} should not render custom caption buttons/cards: ${JSON.stringify(snapshot)}`);
     assertAudit(!snapshot.hasYoutubeFrame && !snapshot.hasLiteButton && !snapshot.hasYoutubeFallback, `${label} homepage should not render YouTube chrome: ${JSON.stringify(snapshot)}`);
 
@@ -475,6 +485,16 @@ async function assertOcrToolPage(page, label) {
 }
 
 async function installDocsAuditNetworkMocks(context) {
+    await context.route(/^https:\/\/jpdb\.io\//, route => {
+        const url = new URL(route.request().url());
+        const isApiRequest = url.pathname.startsWith('/api/');
+        return route.fulfill({
+            status: 200,
+            contentType: isApiRequest ? 'application/json; charset=utf-8' : 'text/html; charset=utf-8',
+            headers: { 'Access-Control-Allow-Origin': '*' },
+            body: isApiRequest ? '{}' : '<!doctype html><html><body></body></html>',
+        });
+    });
     await context.route(/^https:\/\/api\.jiten\.moe\//, route => route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',

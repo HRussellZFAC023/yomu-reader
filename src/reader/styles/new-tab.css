@@ -1217,7 +1217,7 @@
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border));
   border-radius: 999px;
   background: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent-contrast, #ffffff);
+  color: var(--jpdb-reader-accent-text, #11161d);
   font: inherit;
   font-size: 12px;
   font-weight: 850;
@@ -1942,17 +1942,29 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 button.jpdb-reader-newtab-study-hint-btn {
   padding: 3px 12px;
-  border: 1px solid var(--jpdb-reader-border, currentColor);
+  border: 1px solid
+    color-mix(in srgb, var(--jpdb-reader-accent, currentColor) 42%, var(--jpdb-reader-border, currentColor));
   border-radius: 999px;
-  background: transparent;
-  color: var(--jpdb-reader-accent, currentColor);
+  background: color-mix(in srgb, var(--jpdb-reader-accent, currentColor) 8%, transparent);
+  color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text, currentColor));
   font-size: clamp(0.8rem, 2vw, 0.95rem);
   font-weight: 720;
   line-height: 1.4;
   cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    transform 0.12s ease;
 }
-button.jpdb-reader-newtab-study-hint-btn:hover {
-  background: color-mix(in srgb, var(--jpdb-reader-accent, currentColor) 12%, transparent);
+button.jpdb-reader-newtab-study-hint-btn:hover,
+button.jpdb-reader-newtab-study-hint-btn:focus-visible {
+  border-color: var(--jpdb-reader-accent, currentColor);
+  background: color-mix(in srgb, var(--jpdb-reader-accent, currentColor) 16%, transparent);
+  outline: none;
+}
+button.jpdb-reader-newtab-study-hint-btn:active {
+  transform: translateY(1px);
 }
 .jpdb-reader-newtab-study-hint-summary {
   margin-top: 6px;

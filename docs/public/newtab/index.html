@@ -25,7 +25,7 @@
     <meta name="theme-color" content="#181b20">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <link rel="stylesheet" href="./styles.css?v=56edf280b9ef">
+    <link rel="stylesheet" href="./styles.css?v=3a841e5d610c">
     <meta name="apple-mobile-web-app-title" content="よむ">
     <meta name="color-scheme" content="light dark">
     <meta http-equiv="Cache-Control" content="no-cache">
@@ -207,6 +207,14 @@
         transition: border-color .18s ease, background .18s ease;
       }
 
+      .jpdb-reader-theme-switch:hover,
+      .jpdb-reader-theme-switch:focus-visible {
+        border-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+        outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+        outline-offset: 3px;
+      }
+
       .jpdb-reader-theme-switch .check {
         position: absolute;
         top: 1px;
@@ -278,6 +286,15 @@
         cursor: pointer;
         user-select: none;
         padding-top: clamp(16px, 3vh, 32px);
+        transition: background .16s ease, filter .16s ease;
+      }
+
+      .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-study:hover {
+        background: color-mix(in srgb, var(--accent) 5%, transparent);
+      }
+
+      .jpdb-reader-newtab-study:active {
+        filter: brightness(.985);
       }
 
       .jpdb-reader-newtab-study.jpdb-reader-newtab-study-anki-card {
@@ -487,8 +504,8 @@
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
     <script>
       (() => {
-        const appHash = '8aa13f250434';
-        const buildId = '1.6.49-8aa13f250434';
+        const appHash = '6540a21a199c';
+        const buildId = '1.6.50-6540a21a199c';
         window.yomuNewTabAppHash = appHash;
         window.yomuNewTabBuildId = buildId;
         if (appHash.startsWith('__') || buildId.startsWith('__')) return;
@@ -525,7 +542,7 @@
         }, { once: true });
       }
     </script>
-    <script src="./app.js?v=8aa13f250434"></script>
+    <script src="./app.js?v=6540a21a199c"></script>
   </body>
 
 </html>

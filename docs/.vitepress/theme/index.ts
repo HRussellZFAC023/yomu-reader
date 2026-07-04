@@ -201,10 +201,16 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '下さいね', spelling: '下さい', reading: 'ください', pitchPosition: 3 },
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
+const HOSTED_MANGA_OCR_LINES = [
+    { text: 'ファントムハイヴ家の執事たるもの', box: { left: 0.52, top: 0.09, width: 0.38, height: 0.055 } },
+    { text: 'この程度の技が使えなくてどうします', box: { left: 0.08, top: 0.47, width: 0.52, height: 0.07 } },
+    { text: '約束通りこれから晩餐の復習と予習を下さいね', box: { left: 0.12, top: 0.82, width: 0.72, height: 0.06 } },
+] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "The Greasy Fork listing is findable by name: the userscript description now leads with \"Yomu (よむ)\" and names its features (popup dictionary, furigana, pitch accent, manga OCR, video subtitles, Anki/JPDB/Jiten mining) so a search for \"yomu\" surfaces it, instead of the bare \"Japanese reader.\" that matched nothing.": "Greasy Forkのリストが名前で見つかるようになりました。ユーザースクリプトの説明が「Yomu (よむ)」で始まり、主な機能（ポップアップ辞書、ふりがな、ピッチアクセント、漫画のOCR、動画の字幕、Anki/JPDB/Jitenへのマイニング）を明記するようになったため、「yomu」で検索すると表示されます。これまでは何にも一致しない素っ気ない「Japanese reader.」でした。",
     "New-tab accent text now follows custom theme colors. The Search button, active source chips, and selected browser controls no longer fall back to the default green readable-accent token when the userscript theme is set to another color, such as red.": "新タブのアクセント文字色が、カスタムテーマ色に従うようになりました。Searchボタン、アクティブなソースチップ、選択中のブラウザー操作が、ユーザースクリプトのテーマを赤など別の色に設定しているときに既定の緑の読みやすいアクセントトークンへ戻ることはありません。",
+    "Added hover, focus, active, and reduced-motion-aware transition coverage across Yomu's popover, settings, new-tab, subtitle, YouTube-filter, and gaming overlay controls, including details summaries and large study-card hit targets that previously felt static.": "よむのポップアップ、設定、新しいタブ、字幕、YouTubeフィルター、Gamingオーバーレイの操作部に、ホバー、フォーカス、押下状態と、動きを抑える設定に対応したトランジションを追加しました。これまで静的に見えていた詳細サマリーや大きな学習カードのヒット対象も含みます。",
     "The study page's Previous word and Continue controls now split the navigation row 50/50 during two-button study steps instead of leaving an empty third column.": "学習ページで2ボタンの学習ステップを表示している間、「前の単語」と「続ける」の操作がナビゲーション行を50/50で分け合うようになりました。空の3列目が残ることはありません。",
     "Study, Search, and Stats now divide the new-tab mode switcher evenly on desktop, mobile, first paint, and the Stats page, removing the invisible extra grid columns that left the tabs looking lopsided.": "Study、Search、Stats が、デスクトップ・モバイル・初回表示・Statsページの新タブモード切り替え内で均等に並ぶようになりました。タブを不揃いに見せていた見えない余分なグリッド列を削除しました。",
     "Grading no longer re-fetches the whole provider queue after every single card: the study page now refreshes when the local pool runs low, every ten grades, or after a minute — a 500-due jpdb/Jiten session previously meant ~500 full-queue API round-trips with the cache invalidated each time, the same request-storm class that once overloaded jiten.moe.": "評価のたびにプロバイダーのキュー全体を再取得しなくなりました。学習ページは、ローカルのプールが少なくなったとき、10回評価するごと、または1分経過後にのみ更新されます。これまでは500枚のjpdb/Jitenセッションで約500回ものキュー全体のAPI取得が発生し、そのたびにキャッシュも無効化されていました。これはかつてjiten.moeに負荷をかけたのと同じ種類のリクエスト集中です。",
@@ -2357,12 +2363,24 @@ const HOSTED_RESEARCH_COPY_SEGMENTS: Record<InterfaceLanguage, readonly HostedRe
 
 function syncLandmarks() {
     const content = document.querySelector<HTMLElement>('#VPContent');
+    syncSkipLinkLandmark();
     if (!content) return;
     if (content.querySelector('main')) {
         content.removeAttribute('role');
         return;
     }
     content.setAttribute('role', 'main');
+}
+
+function syncSkipLinkLandmark(): void {
+    const skipLink = document.querySelector<HTMLAnchorElement>('.VPSkipLink');
+    if (!skipLink || skipLink.closest('[data-yomu-skip-links]')) return;
+    const nav = document.createElement('nav');
+    nav.className = 'yomu-skip-links';
+    nav.dataset.yomuSkipLinks = 'true';
+    nav.setAttribute('aria-label', 'Skip links');
+    skipLink.before(nav);
+    nav.append(skipLink);
 }
 
 function installHostedLanguageToggle() {
@@ -3702,6 +3720,7 @@ function prepareHostedMangaOcrDemo(): void {
     const image = document.querySelector<HTMLImageElement>('.yomu-manga-image[src*="manga-ocr-sample"]');
     if (!image) return;
     image.dataset.ocrVocabulary = JSON.stringify(HOSTED_MANGA_OCR_VOCABULARY);
+    image.dataset.ocrLines = JSON.stringify(HOSTED_MANGA_OCR_LINES);
 }
 
 function hostedYomuRuntimeWindow(): HostedYomuRuntimeWindow {

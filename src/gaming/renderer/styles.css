@@ -42,6 +42,46 @@ textarea {
     font: inherit;
 }
 
+:where(.yomu-gaming-shell, .overlay-root, body.yomu-gaming-overlay-document) :where(
+    button,
+    input,
+    select,
+    textarea,
+    label,
+    [role="button"],
+    [tabindex]:not([tabindex="-1"])
+) {
+    transition:
+        background-color 0.16s ease,
+        border-color 0.16s ease,
+        box-shadow 0.16s ease,
+        color 0.16s ease,
+        filter 0.16s ease,
+        opacity 0.16s ease,
+        transform 0.14s ease;
+}
+
+:where(.yomu-gaming-shell, .overlay-root, body.yomu-gaming-overlay-document) :where(
+    button,
+    label,
+    [role="button"],
+    [tabindex]:not([tabindex="-1"])
+):focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--jpdb-reader-accent) 70%, transparent);
+    outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    :where(.yomu-gaming-shell, .overlay-root, body.yomu-gaming-overlay-document) :where(
+        button,
+        label,
+        [role="button"],
+        [tabindex]:not([tabindex="-1"])
+    ):where(:hover):where(:not(:disabled, [aria-disabled="true"])) {
+        filter: brightness(1.055);
+    }
+}
+
 .yomu-gaming-shell {
     display: flex;
     flex-direction: column;

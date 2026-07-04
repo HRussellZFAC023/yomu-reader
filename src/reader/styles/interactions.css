@@ -1,0 +1,409 @@
+/* Shared interaction states for controls that do not own a bespoke hover/focus
+   treatment. Keep this file imported last: component-specific states should win
+   by specificity, while these rules fill the quiet gaps left by the reset. */
+:where(
+  .jpdb-reader-popover,
+  .jpdb-reader-settings,
+  .jpdb-reader-onboarding,
+  .jpdb-reader-newtab,
+  .jpdb-subtitle-player,
+  .jpdb-subtitle-list,
+  .yomu-jpdb-page-addon
+) :where(
+  a[href],
+  button,
+  summary,
+  label,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [role="link"],
+  [role="menuitem"],
+  [role="option"],
+  [role="radio"],
+  [role="switch"],
+  [role="tab"],
+  [data-action],
+  [tabindex]:not([tabindex="-1"])
+) {
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    filter 0.16s ease,
+    opacity 0.16s ease,
+    text-decoration-color 0.16s ease,
+    transform 0.14s ease;
+}
+
+:where(
+  .jpdb-reader-popover,
+  .jpdb-reader-settings,
+  .jpdb-reader-onboarding,
+  .jpdb-reader-newtab,
+  .jpdb-subtitle-player,
+  .jpdb-subtitle-list,
+  .yomu-jpdb-page-addon
+) :where(
+  a[href],
+  button,
+  summary,
+  label,
+  [role="button"],
+  [role="link"],
+  [role="menuitem"],
+  [role="option"],
+  [role="radio"],
+  [role="switch"],
+  [role="tab"],
+  [data-action],
+  [tabindex]:not([tabindex="-1"])
+):where(:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--jpdb-reader-accent) 62%, transparent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :where(
+    .jpdb-reader-popover,
+    .jpdb-reader-settings,
+    .jpdb-reader-onboarding,
+    .jpdb-reader-newtab,
+    .jpdb-subtitle-player,
+    .jpdb-subtitle-list,
+    .yomu-jpdb-page-addon
+  ) :where(
+    a[href],
+    button,
+    summary,
+    label,
+    [role="button"],
+    [role="link"],
+    [role="menuitem"],
+    [role="option"],
+    [role="radio"],
+    [role="switch"],
+    [role="tab"],
+    [data-action],
+    [tabindex]:not([tabindex="-1"])
+  ):where(:hover):where(:not(:disabled, [aria-disabled="true"])) {
+    filter: brightness(1.045);
+  }
+
+  :where(
+    .jpdb-reader-popover,
+    .jpdb-reader-settings,
+    .jpdb-reader-onboarding,
+    .jpdb-reader-newtab,
+    .jpdb-subtitle-player,
+    .jpdb-subtitle-list,
+    .yomu-jpdb-page-addon
+  ) :where(input, select, textarea):where(:enabled:hover) {
+    border-color: color-mix(in srgb, var(--jpdb-reader-accent) 54%, var(--jpdb-reader-border)) !important;
+  }
+}
+
+:where(
+  .jpdb-reader-popover,
+  .jpdb-reader-settings,
+  .jpdb-reader-onboarding,
+  .jpdb-reader-newtab,
+  .jpdb-subtitle-player,
+  .jpdb-subtitle-list,
+  .yomu-jpdb-page-addon
+) :where(
+  button,
+  summary,
+  label,
+  [role="button"],
+  [role="menuitem"],
+  [role="option"],
+  [role="radio"],
+  [role="switch"],
+  [role="tab"],
+  [data-action],
+  [tabindex]:not([tabindex="-1"])
+):where(:active):where(:not(:disabled, [aria-disabled="true"])) {
+  filter: brightness(0.96);
+}
+
+:where(
+  .jpdb-reader-popover,
+  .jpdb-reader-settings,
+  .jpdb-reader-onboarding,
+  .jpdb-reader-newtab,
+  .jpdb-subtitle-player,
+  .jpdb-subtitle-list,
+  .yomu-jpdb-page-addon
+) :where(:disabled, [aria-disabled="true"]) {
+  filter: none;
+}
+
+.jpdb-reader-popover :where(
+  .jpdb-reader-source-card > summary.jpdb-reader-local-title,
+  .jpdb-reader-study-source > summary.jpdb-reader-local-title,
+  .jpdb-reader-dictionary-group > summary.jpdb-reader-local-head,
+  .jpdb-reader-dictionary-group > summary.jpdb-reader-local-title.jpdb-reader-example-summary,
+  .jpdb-reader-local-glossary .gloss-sc-summary,
+  .jpdb-reader-anki-existing-note-title,
+  .jpdb-reader-anki-stored-fields > summary,
+  .jpdb-reader-anki-rendered-card-title,
+  .jpdb-reader-grammar-more > summary,
+  .jpdb-reader-rtk summary:not(.jpdb-reader-local-title),
+  .jpdb-reader-jpdb-kanji summary:not(.jpdb-reader-local-title),
+  .jpdb-reader-jiten-kanji-more > summary.jpdb-reader-local-title
+),
+.jpdb-reader-settings .jpdb-reader-proxy-guide > summary,
+.jpdb-reader-newtab .jpdb-reader-newtab-handwriting summary,
+.jpdb-reader-newtab .jpdb-reader-newtab-kanji-details .jpdb-reader-local-title {
+  border-radius: 7px;
+  outline-offset: 2px;
+}
+
+.jpdb-reader-popover :where(
+  .jpdb-reader-source-card > summary.jpdb-reader-local-title,
+  .jpdb-reader-study-source > summary.jpdb-reader-local-title,
+  .jpdb-reader-dictionary-group > summary.jpdb-reader-local-head,
+  .jpdb-reader-dictionary-group > summary.jpdb-reader-local-title.jpdb-reader-example-summary,
+  .jpdb-reader-anki-existing-note-title,
+  .jpdb-reader-anki-rendered-card-title
+)::after,
+.jpdb-reader-popover .jpdb-reader-local-glossary .gloss-sc-summary,
+.jpdb-reader-popover .jpdb-reader-grammar-more > summary::after,
+.jpdb-reader-settings .jpdb-reader-proxy-guide-toggle {
+  transition:
+    color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.jpdb-reader-popover :where(
+  .jpdb-reader-source-card[open] > summary.jpdb-reader-local-title,
+  .jpdb-reader-study-source[open] > summary.jpdb-reader-local-title,
+  .jpdb-reader-dictionary-group[open] > summary.jpdb-reader-local-head,
+  .jpdb-reader-dictionary-group[open] > summary.jpdb-reader-local-title.jpdb-reader-example-summary,
+  .jpdb-reader-anki-existing-note[open] > .jpdb-reader-anki-existing-note-title,
+  .jpdb-reader-anki-rendered-card[open] > .jpdb-reader-anki-rendered-card-title,
+  .jpdb-reader-grammar-more[open] > summary,
+  .jpdb-reader-rtk details[open] > summary:not(.jpdb-reader-local-title),
+  .jpdb-reader-jpdb-kanji details[open] > summary:not(.jpdb-reader-local-title),
+  .jpdb-reader-jiten-kanji-more[open] > summary.jpdb-reader-local-title
+),
+.jpdb-reader-settings .jpdb-reader-proxy-guide[open] > summary,
+.jpdb-reader-newtab .jpdb-reader-newtab-handwriting[open] summary {
+  color: var(--jpdb-reader-accent-readable);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .jpdb-reader-popover :where(
+    .jpdb-reader-source-card:not([data-immersion-empty="true"]) > summary.jpdb-reader-local-title,
+    .jpdb-reader-study-source > summary.jpdb-reader-local-title,
+    .jpdb-reader-dictionary-group > summary.jpdb-reader-local-head,
+    .jpdb-reader-dictionary-group > summary.jpdb-reader-local-title.jpdb-reader-example-summary,
+    .jpdb-reader-local-glossary .gloss-sc-summary,
+    .jpdb-reader-anki-existing-note-title,
+    .jpdb-reader-anki-stored-fields > summary,
+    .jpdb-reader-anki-rendered-card-title,
+    .jpdb-reader-grammar-more > summary,
+    .jpdb-reader-origin-graph-toggle,
+    .jpdb-reader-rtk summary:not(.jpdb-reader-local-title),
+    .jpdb-reader-jpdb-kanji summary:not(.jpdb-reader-local-title),
+    .jpdb-reader-jiten-kanji-more > summary.jpdb-reader-local-title
+  ):hover,
+  .jpdb-reader-settings .jpdb-reader-proxy-guide > summary:hover,
+  .jpdb-reader-newtab .jpdb-reader-newtab-handwriting summary:hover,
+  .jpdb-reader-newtab .jpdb-reader-newtab-kanji-details .jpdb-reader-local-title:hover {
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 9%, transparent);
+    color: var(--jpdb-reader-accent-readable);
+  }
+}
+
+.jpdb-reader-popover .jpdb-reader-origin-graph-toggle:focus-within {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 58%, var(--jpdb-reader-border));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent),
+    0 8px 20px color-mix(in srgb, var(--jpdb-reader-bg) 24%, transparent);
+}
+
+.jpdb-reader-newtab .jpdb-reader-newtab-more[open] .jpdb-reader-newtab-more-menu,
+.jpdb-reader-newtab .jpdb-reader-newtab-search-card-shell[data-newtab-search-expanded="true"] .jpdb-reader-newtab-search-detail,
+.jpdb-subtitle-style-popover:not([hidden]) {
+  animation: jpdb-reader-interaction-enter 0.14s ease-out both;
+}
+
+@keyframes jpdb-reader-interaction-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.jpdb-reader-newtab :where(
+  .jpdb-reader-newtab-support-close,
+  .jpdb-reader-newtab-overflow,
+  .jpdb-reader-newtab-menu-item,
+  .jpdb-reader-newtab-mode button,
+  .jpdb-reader-newtab-searchbox button,
+  .jpdb-reader-newtab-search-suggestions button,
+  .jpdb-reader-newtab-search-links a,
+  .jpdb-reader-newtab-search-links button,
+  .jpdb-reader-newtab-handwriting-candidates button,
+  .jpdb-reader-newtab-search-card,
+  .jpdb-reader-newtab-study-step,
+  .jpdb-reader-newtab-study-tour button,
+  .jpdb-reader-newtab-browse-chip,
+  .jpdb-reader-newtab-browse-direction,
+  .jpdb-reader-newtab-browse-select-toggle,
+  .jpdb-reader-newtab-composed-of-kanji,
+  .jpdb-reader-newtab-browse-bulk button,
+  .jpdb-reader-newtab-listen-submodes button
+) {
+  will-change: filter;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .jpdb-reader-newtab :where(
+    .jpdb-reader-newtab-support-close,
+    .jpdb-reader-newtab-overflow,
+    .jpdb-reader-newtab-menu-item,
+    .jpdb-reader-newtab-mode button,
+    .jpdb-reader-newtab-searchbox button,
+    .jpdb-reader-newtab-search-suggestions button,
+    .jpdb-reader-newtab-search-links a,
+    .jpdb-reader-newtab-search-links button,
+    .jpdb-reader-newtab-handwriting-candidates button,
+    .jpdb-reader-newtab-search-card,
+    .jpdb-reader-newtab-study-step,
+    .jpdb-reader-newtab-study-tour button,
+    .jpdb-reader-newtab-browse-chip,
+    .jpdb-reader-newtab-browse-direction,
+    .jpdb-reader-newtab-browse-select-toggle,
+    .jpdb-reader-newtab-composed-of-kanji,
+    .jpdb-reader-newtab-browse-bulk button,
+    .jpdb-reader-newtab-listen-submodes button
+  ):where(:hover):where(:not(:disabled, [aria-disabled="true"])) {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent),
+      0 8px 18px color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent);
+  }
+
+  .jpdb-reader-newtab :where(
+    .jpdb-reader-newtab-kanji-popover-word,
+    .jpdb-reader-newtab-kanji-backing-word .jpdb-reader-newtab-kanji-backing-term,
+    .jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word
+  ):hover {
+    text-decoration-color: var(--jpdb-reader-accent-readable) !important;
+  }
+}
+
+.jpdb-reader-newtab :where(
+  .jpdb-reader-newtab-kanji-popover-word,
+  .jpdb-reader-newtab-kanji-backing-word .jpdb-reader-newtab-kanji-backing-term,
+  .jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word
+) {
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.12em;
+}
+
+.jpdb-reader-newtab .jpdb-reader-newtab-study {
+  transition:
+    background-color 0.16s ease,
+    filter 0.16s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .jpdb-reader-newtab:not(
+    .jpdb-reader-newtab-search-mode,
+    .jpdb-reader-newtab-stats-mode,
+    .jpdb-reader-newtab-revealed
+  ) .jpdb-reader-newtab-study:hover {
+    background: color-mix(in srgb, var(--jpdb-reader-accent) 5%, transparent);
+  }
+}
+
+.jpdb-reader-newtab .jpdb-reader-newtab-study:active {
+  filter: brightness(0.985);
+}
+
+.jpdb-reader-stats-dropzone {
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease;
+}
+
+.jpdb-reader-stats-dropzone:focus-within,
+.jpdb-reader-stats-dropzone:hover {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 64%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 10%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 14%, transparent);
+}
+
+.jpdb-youtube-filter-bar button {
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    filter 0.16s ease,
+    opacity 0.16s ease;
+}
+
+.jpdb-youtube-filter-bar button:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .jpdb-youtube-filter-bar button:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(
+    .jpdb-reader-popover,
+    .jpdb-reader-settings,
+    .jpdb-reader-onboarding,
+    .jpdb-reader-newtab,
+    .jpdb-subtitle-player,
+    .jpdb-subtitle-list,
+    .yomu-jpdb-page-addon
+  ) :where(
+    a[href],
+    button,
+    summary,
+    label,
+    input,
+    select,
+    textarea,
+    [role="button"],
+    [role="link"],
+    [role="menuitem"],
+    [role="option"],
+    [role="radio"],
+    [role="switch"],
+    [role="tab"],
+    [data-action],
+    [tabindex]:not([tabindex="-1"])
+  ),
+  .jpdb-reader-stats-dropzone,
+  .jpdb-reader-newtab .jpdb-reader-newtab-study,
+  .jpdb-youtube-filter-bar button {
+    transition: none !important;
+  }
+
+  .jpdb-reader-newtab .jpdb-reader-newtab-more[open] .jpdb-reader-newtab-more-menu,
+  .jpdb-reader-newtab .jpdb-reader-newtab-search-card-shell[data-newtab-search-expanded="true"] .jpdb-reader-newtab-search-detail,
+  .jpdb-subtitle-style-popover:not([hidden]) {
+    animation: none !important;
+  }
+}

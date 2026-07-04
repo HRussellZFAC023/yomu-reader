@@ -1861,6 +1861,21 @@ function markCompactMediaPassiveChrome(parent: HTMLElement): void {
 function markPassiveChromeElement(element: HTMLElement, atomic = false): void {
     element.dataset.jpdbReaderPassiveChrome = 'true';
     if (atomic) element.dataset.jpdbReaderPassiveAtomic = 'true';
+    if (element.getAttribute('role') === 'button' && !hasExplicitAccessibleName(element)) {
+        element.setAttribute('aria-label', passiveChromeAccessibleLabel(element));
+    }
+}
+
+function hasExplicitAccessibleName(element: HTMLElement): boolean {
+    return Boolean(
+        element.getAttribute('aria-label')?.trim()
+        || element.getAttribute('aria-labelledby')?.trim()
+        || element.getAttribute('title')?.trim(),
+    );
+}
+
+function passiveChromeAccessibleLabel(element: HTMLElement): string {
+    return element.textContent?.replace(/\s+/g, ' ').trim() || 'Open item';
 }
 
 function compactInteractiveChromeElement(parent: HTMLElement): HTMLElement | null {
