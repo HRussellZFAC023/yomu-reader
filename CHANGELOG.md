@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.49] - 2026-07-04
+
+### Changed
+
+- The Greasy Fork listing is findable by name: the userscript description now leads with "Yomu (よむ)" and names its features (popup dictionary, furigana, pitch accent, manga OCR, video subtitles, Anki/JPDB/Jiten mining) so a search for "yomu" surfaces it, instead of the bare "Japanese reader." that matched nothing.
+
 ## [1.6.48] - 2026-07-04
 
 ### Fixed
