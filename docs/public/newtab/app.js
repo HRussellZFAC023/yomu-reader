@@ -7988,19 +7988,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
   const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
   const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar")}`;
-  const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = selectorPairs("banner,book,card,carousel,gallery,grid,item,lockup,movie,poster,product,rail,scroll,shelf,slick,slider,splide,swiper,thumb,tile,video,volume,work", ["class"]);
   const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
   const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
-  const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = `canvas,img,picture,svg,video,${selectorPairs("cover,image,poster,thumb", ["class"])}`;
-  const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
-  const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
-  const COMPACT_MEDIA_CHROME_TEXT_LIMIT = 40;
   const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
   const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
   const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
   const COMPACT_VERTICAL_CHROME_MAX_WIDTH = 96;
   const COMPACT_VERTICAL_CHROME_MAX_HEIGHT = 360;
-  const COMPACT_MEDIA_RUBY_RISK_ANCESTOR_LIMIT = 8;
   const COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT = 10;
   const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
   const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
@@ -9090,9 +9084,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Array.from(row.querySelectorAll(selector)).some((action) => !container.contains(action));
   }
   function shouldSuppressCompactMediaRuby(parent) {
-    if (isYouTubeFeedbackChromeLinkText(parent)) return true;
-    if (isYouTubeHost$1()) return false;
-    return isCompactMediaCardLinkText(parent) || isCompactPeerMediaCardLinkText(parent) || isCompactMediaChromeLinkText(parent) || isMediaCarouselText(parent) || isLayoutFragileMediaTileText(parent);
+    return isYouTubeFeedbackChromeLinkText(parent);
   }
   function isYouTubeHost$1() {
     const hostname = location.hostname.toLowerCase();
@@ -9101,44 +9093,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isYouTubeFeedbackChromeLinkText(parent) {
     if (parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
     return Boolean(parent.closest(YOUTUBE_FEEDBACK_CHROME_SELECTOR));
-  }
-  function isCompactMediaCardLinkText(parent) {
-    const link = parent.closest("a[href]");
-    if (!link || parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
-    if (!safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
-    if (!link.closest(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
-    const textLength = compactLength(parent.textContent ?? "");
-    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
-    return compactLength(link.textContent ?? "") <= COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT;
-  }
-  function isCompactPeerMediaCardLinkText(parent) {
-    const link = parent.closest("a[href]");
-    if (!link || isLikelyProseLink(link, parent)) return false;
-    if (safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
-    const textLength = compactLength(parent.textContent ?? "");
-    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
-    if (compactLength(link.textContent ?? "") > COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT) return false;
-    const context = closestCompactMediaContext(parent);
-    if (!context || !context.closest(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
-    const linkWidth = link.getBoundingClientRect().width;
-    return linkWidth === 0 || linkWidth <= 260;
-  }
-  function isCompactMediaChromeLinkText(parent) {
-    const link = parent.closest('a[href],button,[role="link"],[role="button"]');
-    if (!link || isLikelyProseLink(link, parent)) return false;
-    if (!safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
-    const textLength = compactLength(parent.textContent ?? "");
-    if (textLength < 2 || textLength > COMPACT_MEDIA_CHROME_TEXT_LIMIT) return false;
-    if (compactLength(link.textContent ?? "") > COMPACT_MEDIA_CHROME_TEXT_LIMIT) return false;
-    return isNavigationChromeContext(link) || hasCompactCenteredMediaChrome(parent, link);
-  }
-  function isMediaCarouselText(parent) {
-    const textLength = compactLength(parent.textContent ?? "");
-    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT) return false;
-    const carousel = closestMediaCarousel(parent);
-    if (!carousel) return false;
-    if (isReadableProseContext(parent) && !carousel.explicit) return false;
-    return true;
   }
   function closestMediaCarousel(parent) {
     let current = parent;
@@ -9162,29 +9116,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function isNavigationChromeContext(element) {
     return Boolean(element.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
-  }
-  function hasCompactCenteredMediaChrome(parent, link) {
-    const parentStyle = safeComputedStyle(parent);
-    const linkStyle = safeComputedStyle(link);
-    if (parentStyle.textAlign !== "center" && linkStyle.textAlign !== "center") return false;
-    const rect = link.getBoundingClientRect();
-    return rect.width === 0 || rect.width <= 240;
-  }
-  function isLayoutFragileMediaTileText(parent) {
-    if (isReadableProseContext(parent)) return false;
-    const context = closestCompactMediaContext(parent);
-    if (!context) return false;
-    return hasCompactMediaRubyRisk(parent) || hasCompactMediaSizingRisk(parent, context);
-  }
-  function hasCompactMediaRubyRisk(parent) {
-    if (isLayoutSensitiveScanElement(parent)) return true;
-    let current = parent;
-    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < COMPACT_MEDIA_RUBY_RISK_ANCESTOR_LIMIT; depth++) {
-      const style = safeComputedStyle(current);
-      if (isVerticalWritingMode(style.writingMode) || hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
-      current = current.parentElement;
-    }
-    return false;
   }
   function closestCompactMediaContext(parent) {
     let current = parent;
@@ -9214,26 +9145,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const structured = display.includes("grid") || display.includes("flex") || display === "block";
     const compact = rect.width === 0 || rect.width <= 560;
     return structured && compact;
-  }
-  function hasCompactMediaSizingRisk(parent, context) {
-    const textLength = compactLength(parent.textContent ?? "");
-    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
-    if (context.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return true;
-    return Boolean(closestMediaLayoutContainer(parent));
-  }
-  function closestMediaLayoutContainer(parent) {
-    let current = parent;
-    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 8; depth++) {
-      if (mediaCarouselMatch(current)) return current;
-      if (current.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return current;
-      if (isPositionedUiContainer(current)) return current;
-      current = current.parentElement;
-    }
-    return null;
-  }
-  function isPositionedUiContainer(element) {
-    const position = safeComputedStyle(element).position;
-    return position === "absolute" || position === "fixed" || position === "sticky";
   }
   function nonDestructiveScanHost(target) {
     if (!isFragmentTextTarget(target)) return target.parent;

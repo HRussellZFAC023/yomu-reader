@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.59#sha256=dWch5ctweTHVIvrPSHbJljlTRPDdI6NNqa4j2NAAw2A=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.59#sha256=fa//eS0gi4/zO71JQyf5CkBm+ohyaMxezOBXTfK+8NA=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.59#sha256=5DvHiot4TYDlZty5HeO8KE5eQv+zKfdMJGomCFQIfrc=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.59#sha256=VtyH2sgBFCFgHe3bACWrDOVzCCg5QdnISsnFq8XteEs=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.59#sha256=+jqka3sbY72HbJEDaMQobTxHiBKOfCg6wENb8aVUcek=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.59#sha256=yOvgYEgWwOXv7641XmNhfr2RE3AHY/KB1vWd3nACOy0=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.59#sha256=DHvcrxMA3Sze1uGNbvBTXj1M7sgmHi46Wm7nVxeMczc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.59#sha256=cvLw83uqORhMLCqdzti9/dfHUi/JXScNWiGsKrwRfUE=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.59#sha256=UMhnvlwwnq9RWeZyYJmEcdrHXL/uPxrsPk52b8M0c6A=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.59#sha256=EhfPLj4n4rFkiJCImaEgVPw5iraAxgCryg6hnaK/qUk=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.59#sha256=pTp1xoN/+8GpPvL0foFCHnJKmxikdG75z/60VoJ/y3Q=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -4168,19 +4168,13 @@ const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${role
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
 const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,picker,profile,signin,toolbar")}`;
-const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = selectorPairs("banner,book,card,carousel,gallery,grid,item,lockup,movie,poster,product,rail,scroll,shelf,slick,slider,splide,swiper,thumb,tile,video,volume,work", ["class"]);
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
 const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
-const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = `canvas,img,picture,svg,video,${selectorPairs("cover,image,poster,thumb", ["class"])}`;
-const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
-const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
-const COMPACT_MEDIA_CHROME_TEXT_LIMIT = 40;
 const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
 const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
 const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
 const COMPACT_VERTICAL_CHROME_MAX_WIDTH = 96;
 const COMPACT_VERTICAL_CHROME_MAX_HEIGHT = 360;
-const COMPACT_MEDIA_RUBY_RISK_ANCESTOR_LIMIT = 8;
 const COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT = 10;
 const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
 const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
@@ -5467,9 +5461,7 @@ function hasNotificationActionPeer(container, textElement) {
   return Array.from(row.querySelectorAll(selector)).some((action) => !container.contains(action));
 }
 function shouldSuppressCompactMediaRuby(parent) {
-  if (isYouTubeFeedbackChromeLinkText(parent)) return true;
-  if (isYouTubeHost()) return false;
-  return isCompactMediaCardLinkText(parent) || isCompactPeerMediaCardLinkText(parent) || isCompactMediaChromeLinkText(parent) || isMediaCarouselText(parent) || isLayoutFragileMediaTileText(parent);
+  return isYouTubeFeedbackChromeLinkText(parent);
 }
 function isYouTubeHost() {
   const hostname = location.hostname.toLowerCase();
@@ -5478,44 +5470,6 @@ function isYouTubeHost() {
 function isYouTubeFeedbackChromeLinkText(parent) {
   if (parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
   return Boolean(parent.closest(YOUTUBE_FEEDBACK_CHROME_SELECTOR));
-}
-function isCompactMediaCardLinkText(parent) {
-  const link = parent.closest("a[href]");
-  if (!link || parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
-  if (!safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
-  if (!link.closest(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
-  const textLength = compactLength(parent.textContent ?? "");
-  if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
-  return compactLength(link.textContent ?? "") <= COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT;
-}
-function isCompactPeerMediaCardLinkText(parent) {
-  const link = parent.closest("a[href]");
-  if (!link || isLikelyProseLink(link, parent)) return false;
-  if (safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
-  const textLength = compactLength(parent.textContent ?? "");
-  if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
-  if (compactLength(link.textContent ?? "") > COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT) return false;
-  const context = closestCompactMediaContext(parent);
-  if (!context || !context.closest(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
-  const linkWidth = link.getBoundingClientRect().width;
-  return linkWidth === 0 || linkWidth <= 260;
-}
-function isCompactMediaChromeLinkText(parent) {
-  const link = parent.closest('a[href],button,[role="link"],[role="button"]');
-  if (!link || isLikelyProseLink(link, parent)) return false;
-  if (!safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
-  const textLength = compactLength(parent.textContent ?? "");
-  if (textLength < 2 || textLength > COMPACT_MEDIA_CHROME_TEXT_LIMIT) return false;
-  if (compactLength(link.textContent ?? "") > COMPACT_MEDIA_CHROME_TEXT_LIMIT) return false;
-  return isNavigationChromeContext(link) || hasCompactCenteredMediaChrome(parent, link);
-}
-function isMediaCarouselText(parent) {
-  const textLength = compactLength(parent.textContent ?? "");
-  if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT) return false;
-  const carousel = closestMediaCarousel(parent);
-  if (!carousel) return false;
-  if (isReadableProseContext(parent) && !carousel.explicit) return false;
-  return true;
 }
 function closestMediaCarousel(parent) {
   let current = parent;
@@ -5539,29 +5493,6 @@ function mediaCarouselClipsHorizontally(element2) {
 }
 function isNavigationChromeContext(element2) {
   return Boolean(element2.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
-}
-function hasCompactCenteredMediaChrome(parent, link) {
-  const parentStyle = safeComputedStyle(parent);
-  const linkStyle = safeComputedStyle(link);
-  if (parentStyle.textAlign !== "center" && linkStyle.textAlign !== "center") return false;
-  const rect = link.getBoundingClientRect();
-  return rect.width === 0 || rect.width <= 240;
-}
-function isLayoutFragileMediaTileText(parent) {
-  if (isReadableProseContext(parent)) return false;
-  const context = closestCompactMediaContext(parent);
-  if (!context) return false;
-  return hasCompactMediaRubyRisk(parent) || hasCompactMediaSizingRisk(parent, context);
-}
-function hasCompactMediaRubyRisk(parent) {
-  if (isLayoutSensitiveScanElement(parent)) return true;
-  let current = parent;
-  for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < COMPACT_MEDIA_RUBY_RISK_ANCESTOR_LIMIT; depth++) {
-  const style = safeComputedStyle(current);
-  if (isVerticalWritingMode(style.writingMode) || hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
-  current = current.parentElement;
-  }
-  return false;
 }
 function closestCompactMediaContext(parent) {
   let current = parent;
@@ -5591,26 +5522,6 @@ function isCompactMediaContext(element2) {
   const structured = display.includes("grid") || display.includes("flex") || display === "block";
   const compact = rect.width === 0 || rect.width <= 560;
   return structured && compact;
-}
-function hasCompactMediaSizingRisk(parent, context) {
-  const textLength = compactLength(parent.textContent ?? "");
-  if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
-  if (context.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return true;
-  return Boolean(closestMediaLayoutContainer(parent));
-}
-function closestMediaLayoutContainer(parent) {
-  let current = parent;
-  for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 8; depth++) {
-  if (mediaCarouselMatch(current)) return current;
-  if (current.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return current;
-  if (isPositionedUiContainer(current)) return current;
-  current = current.parentElement;
-  }
-  return null;
-}
-function isPositionedUiContainer(element2) {
-  const position = safeComputedStyle(element2).position;
-  return position === "absolute" || position === "fixed" || position === "sticky";
 }
 function nonDestructiveScanHost(target) {
   if (!isFragmentTextTarget$1(target)) return target.parent;
@@ -7080,7 +6991,6 @@ function hasVisibleBorderSide(style, width) {
 }
 const RUBY_ROOM_HARD_SKIP_SELECTOR = "[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending";
 const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = "ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-section-renderer :is(#title,h2),ytd-rich-shelf-renderer :is(#title,h2),ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3,grid-shelf-view-model h2,ytd-shelf-renderer :is(#title,h2),ytd-grid-video-renderer :is(#video-title,#metadata-line),yt-description-preview-view-model,yt-tab-shape,ytd-playlist-panel-video-renderer #video-title,ytd-playlist-video-renderer #video-title,ytd-playlist-header-renderer :is(#title,.metadata-wrapper),ytd-video-renderer .metadata-snippet-text,:is(ytd-channel-renderer,ytd-grid-channel-renderer) :is(#info,#description)";
-const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ":is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])";
 const RUBY_ROOM_MAX_PX = 400;
 function makeRoomForRubyInCroppedRows(root = document) {
   let adjusted = 0;
@@ -7088,9 +6998,10 @@ function makeRoomForRubyInCroppedRows(root = document) {
   for (const word of words) {
   if (!word.querySelector("rt")) continue;
   for (const box of cropCapableBoxes(word.parentElement)) {
-    if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || !(isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box))) continue;
-    if (!boxActuallyCrops(box)) continue;
-    const roomHeight = rubyRoomHeight(box);
+    if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || box.closest('[aria-hidden="true"],[hidden]')) continue;
+    const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
+    if (curated ? !boxActuallyCrops(box) : !rubyCropsBox(box)) continue;
+    const roomHeight = curated ? rubyRoomHeight(box) : genericRubyRoomHeight(box);
     if (roomHeight > RUBY_ROOM_MAX_PX) continue;
     if (previousRubyRoomHeight(box) >= roomHeight) continue;
     box.dataset.yomuRubyRoom = "true";
@@ -7102,14 +7013,22 @@ function makeRoomForRubyInCroppedRows(root = document) {
   }
   return adjusted;
 }
+function rubyCropsBox(box) {
+  return rubyBottomOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
+}
+function genericRubyRoomHeight(box) {
+  const mirror = box.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
+  return Math.ceil(Math.max(box.clientHeight + rubyBottomOverflow(box), mirror ? mirror.scrollHeight : 0));
+}
+const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ":is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])";
+function isGoogleSearchRubyRoomTextBox(box) {
+  return /(^|\.)google\./i.test(location.hostname) && location.pathname === "/search" && (safeElementMatches$1(box, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR) || !!box.closest(RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR));
+}
 function isYouTubeRubyRoomTextBox(box) {
   if (safeElementMatches$1(box, "yt-attributed-string,yt-formatted-string,.ytAttributedStringHost,.yt-core-attributed-string")) {
   return safeElementMatches$1(box, "ytd-comment-view-model #content-text,ytm-comment-renderer #content-text");
   }
   return safeElementMatches$1(box, RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR) || !!box.closest(RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR);
-}
-function isGoogleSearchRubyRoomTextBox(box) {
-  return /(^|\.)google\./i.test(location.hostname) && location.pathname === "/search" && (safeElementMatches$1(box, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR) || !!box.closest(RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR));
 }
 function makeRoomForRubyInBox(box, style, roomHeight) {
   const contentHeight = `${roomHeight}px`;
@@ -25786,7 +25705,6 @@ const YOMU_PDF_READER_EXCLUDE = [
   ".textLayer .endOfContent",
   '.textLayer span[role="img"]'
 ].join(",");
-const YOMU_PDF_READER_MIN_TEXT_LENGTH = 8;
 const YOUTUBE_CHROME_ROOTS = [
   "yt-chip-cloud-chip-renderer button",
   'yt-chip-cloud-chip-renderer [role="tab"]',
@@ -26474,43 +26392,6 @@ function isBookWalkerReaderUrl(url) {
   if (hostname !== "bookwalker.jp" && hostname !== "www.bookwalker.jp") return true;
   return Boolean(document.querySelector('canvas, #pageSliderCounter, #viewer, #renderer, #bookContainer, [id^="viewport"]'));
 }
-function siteProvidesNativeTextLayer(href = window.location.href) {
-  return getMatchingSiteParsers(href).some((profile) => {
-  if (!profile.providesTextLayer) return false;
-  if (profile.id === "mokuro-parser") return mokuroDisplayOcrEnabled();
-  if (profile.id === "yomu-pdf-reader-parser") return yomuPdfReaderProvidesNativeTextLayer();
-  return true;
-  });
-}
-function yomuPdfReaderProvidesNativeTextLayer() {
-  const pages = Array.from(document.querySelectorAll(".pdf-page"));
-  if (!pages.length) return true;
-  const visiblePages = pages.filter(isVisiblePdfReaderPage);
-  if (!visiblePages.length) return true;
-  if (visiblePages.some(isScannedPdfReaderPage)) return false;
-  return visiblePages.some((page) => isTextPdfReaderPage(page) || isPendingPdfReaderPage(page));
-}
-function isScannedPdfReaderPage(page) {
-  return page.dataset.pdfText === "scanned" || page.dataset.yomuCanvasOcr === "on" || page.classList.contains("scanned");
-}
-function isTextPdfReaderPage(page) {
-  if (page.dataset.pdfText === "text") return true;
-  const textLayer = page.querySelector(".textLayer");
-  if (!textLayer || textLayer.hidden || textLayer.getAttribute("aria-hidden") === "true") return false;
-  return compactText(textLayer.textContent ?? "").length >= YOMU_PDF_READER_MIN_TEXT_LENGTH;
-}
-function isPendingPdfReaderPage(page) {
-  return !page.dataset.pdfText || page.dataset.pdfText === "pending";
-}
-function isVisiblePdfReaderPage(page) {
-  const rect = page.getBoundingClientRect();
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
-  return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.right >= 0 && rect.top <= viewportHeight && rect.left <= viewportWidth;
-}
-function compactText(value) {
-  return value.replace(/\s+/g, "");
-}
 function mokuroDisplayOcrEnabled() {
   try {
   if (typeof localStorage === "undefined") return true;
@@ -26694,7 +26575,6 @@ function isYouTubeSiteParserProfile(profile) {
 }
 function shouldSuppressSiteScanRuby(profile, target) {
   if (profile.id === BOOKWALKER_READER_PARSER_ID) return isBookWalkerReaderPassiveChromeTarget(target.parent);
-  if (profile.id === BOOKWALKER_STOREFRONT_PARSER_ID) return true;
   if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
   if (profile.id === "jiten-parser") return isJitenStudyPromptTarget(target.parent, target.text);
   return false;
@@ -26785,7 +26665,6 @@ function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.loc
 function markTargetsPassive(targets, options = {}) {
   return targets.map((target) => ({
   ...target,
-  suppressRuby: true,
   passiveInteraction: true,
   nonDestructive: options.nonDestructive || void 0,
   ..."fragments" in target ? {
@@ -27161,8 +27040,6 @@ const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
 const PITCH_ENRICHMENT_LIMIT = 12;
 const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
 const PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT = 6;
-const GENERIC_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
-const GENERIC_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
 const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 10;
 const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
 const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 10;
@@ -27257,10 +27134,10 @@ function hasVisibleSiteScanTargets() {
   return (collectSiteScanTargets(1)?.length ?? 0) > 0;
 }
 function allowsGenericVisibleAutoScan() {
-  return !isYouTubeHostForAutoScan() && !isBookWalkerStorefrontPage() && !isBookWalkerReaderPage();
+  return !isYouTubeHostForAutoScan() && !isBookWalkerReaderPage();
 }
 function shouldAutoScanImageOcr(pageHasJapaneseText) {
-  return !siteProvidesNativeTextLayer() && (pageHasJapaneseText || documentLooksLikeImageReadingPage() || isBookWalkerReaderPage() && Boolean(document.querySelector("canvas")));
+  return pageHasJapaneseText || documentLooksLikeImageReadingPage() || isBookWalkerReaderPage() && Boolean(document.querySelector("canvas"));
 }
 function allowsFrequentVisibleAutoScan() {
   return true;
@@ -27268,25 +27145,13 @@ function allowsFrequentVisibleAutoScan() {
 function isYouTubeHostname(hostname = location.hostname) {
   return hostname === "youtu.be" || hostname === "youtube.com" || hostname.endsWith(".youtube.com");
 }
-function backgroundPitchEnrichmentOptionsForHost(hostname, compactViewport = false) {
-  if (!isYouTubeHostname(hostname)) {
-  const publicLookupLimit = compactViewport ? GENERIC_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : GENERIC_PUBLIC_PITCH_ENRICHMENT_LIMIT;
-  return {
-    publicLookupLimit,
-    publicLookupTotalLimit: publicLookupLimit,
-    publicLookupPageBudget: publicLookupLimit,
-    publicLookupTermLimit: 3,
-    substantivePublicLookupOnly: true,
-    deferPublicLookup: false
-  };
-  }
+function backgroundPitchEnrichmentOptionsForHost(_hostname, compactViewport = false) {
   return {
   publicLookupLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
   publicLookupTotalLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
   publicLookupPageBudget: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
   publicLookupTermLimit: 3,
-  substantivePublicLookupOnly: true,
-  deferPublicLookup: false
+  substantivePublicLookupOnly: true
   };
 }
 function nestedPitchEnrichmentOptionsForHost(hostname) {
@@ -33904,7 +33769,7 @@ class ReaderApp {
     parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
     onToast: (message) => this.toast(message),
     shouldAutoScan: () => shouldAutoScanImageOcr(this.pageHasJapaneseText),
-    shouldScanInlineImages: () => !isBookWalkerStorefrontPage(),
+    shouldScanInlineImages: () => true,
     enrichTokensBeforeRender: (tokens) => this.enrichOcrTokensBeforeRender(tokens),
     enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
     fallbackCardFromText: (text2) => this.parser.fallbackCardFromText(text2)
@@ -35722,7 +35587,7 @@ class ReaderApp {
   }
   backgroundPitchEnrichmentOptions() {
   const options = backgroundPitchEnrichmentOptionsForHost(location.hostname, isCompactPitchEnrichmentViewport());
-  if (!isYouTubeRuntimeHost() || hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings)) return options;
+  if (hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings)) return options;
   const pageBudget = Math.max(0, Math.floor(options.publicLookupPageBudget ?? PITCH_ENRICHMENT_LIMIT));
   const keylessVisibleLimit = pageBudget || PITCH_ENRICHMENT_LIMIT;
   return {
