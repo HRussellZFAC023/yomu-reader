@@ -18299,7 +18299,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     top: max(8px, env(safe-area-inset-top));
     right: max(8px, env(safe-area-inset-right));
     bottom: auto;
-    gap: 3px;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 13px;
     max-width: calc(100% - 16px);
     flex-wrap: wrap;
     overflow: visible;
@@ -18307,27 +18309,34 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     -webkit-overflow-scrolling: touch;
   }
   .jpdb-subtitle-rail::-webkit-scrollbar { display: none; }
-  .jpdb-subtitle-rail button {
+  .jpdb-subtitle-rail button,
+  .jpdb-subtitle-compact-video .jpdb-subtitle-rail button,
+  .jpdb-subtitle-drawer-playback button {
+    min-width: 42px;
+    width: 42px;
+    max-width: 42px;
+    min-height: 42px;
+    height: 42px;
+    max-height: 42px;
     padding: 0;
     font-size: 11px;
+    border-radius: 10px;
     touch-action: manipulation;
   }
-  /* Hit-slop: compact rail buttons render 34px; -6px pads the touch target to
-     46px without growing the visible chrome. */
+  /* 42px visible chrome with a small halo gives iPad a familiar 46px target
+     without making neighbouring subtitle controls collide. */
   .jpdb-subtitle-rail button::after {
     content: "";
     position: absolute;
-    inset: -6px;
-    border-radius: 9px;
+    inset: -2px;
+    border-radius: 12px;
   }
-  /* Hit-slop for the drawer transport cluster (32px chrome → 44px target); the
-     wider gap keeps neighbouring touch targets from overlapping. */
-  .jpdb-subtitle-drawer-playback { gap: 12px; }
+  .jpdb-subtitle-drawer-playback { gap: 8px; }
   .jpdb-subtitle-drawer-playback button::after {
     content: "";
     position: absolute;
-    inset: -6px;
-    border-radius: 13px;
+    inset: -2px;
+    border-radius: 12px;
   }
   .jpdb-subtitle-track-row button,
   .jpdb-subtitle-track-tools button,

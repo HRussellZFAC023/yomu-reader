@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.38] - 2026-07-04
+
+### Changed
+
+- Shortened the hosted homepage action pills to "Guide" and "Game" so the first row stays readable and consistent on iPad.
+- Made the subtitle rail and drawer playback controls visibly larger on iPad and other touch screens, while keeping the controls aligned with the rest of the drawer chrome.
+
 ## [1.6.37] - 2026-07-03
 
 ### Changed

@@ -4572,12 +4572,14 @@ Watch the cat
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
         // any-pointer:coarse (not the primary pointer) so an iPad-with-Pencil
-        // (pointer:fine, width > 768px) still gets the 44px touch targets.
+        // (pointer:fine, width > 768px) still gets the larger touch targets.
         expect(normalizedCss).toContain('@media (max-width: 768px), (any-pointer: coarse) {');
-        expect(normalizedCss).toContain('.jpdb-subtitle-rail button::after { content: ""; position: absolute; inset: -6px; border-radius: 9px; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-rail button { padding: 0; font-size: 11px; touch-action: manipulation; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-rail button::after { content: ""; position: absolute; inset: -2px; border-radius: 12px; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-drawer-playback button::after { content: ""; position: absolute; inset: -2px; border-radius: 12px; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-rail button, .jpdb-subtitle-compact-video .jpdb-subtitle-rail button, .jpdb-subtitle-drawer-playback button { min-width: 42px; width: 42px; max-width: 42px; min-height: 42px; height: 42px; max-height: 42px; padding: 0; font-size: 11px; border-radius: 10px; touch-action: manipulation; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail::-webkit-scrollbar { display: none; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-rail { top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); bottom: auto; gap: 3px; max-width: calc(100% - 16px); flex-wrap: wrap; overflow: visible;');
+        expect(normalizedCss).toContain('.jpdb-subtitle-rail { top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); bottom: auto; gap: 4px; padding: 4px; border-radius: 13px; max-width: calc(100% - 16px); flex-wrap: wrap; overflow: visible;');
+        expect(normalizedCss).toContain('.jpdb-subtitle-drawer-playback { gap: 8px; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-drawer-actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; max-width: 100%; min-width: 0; overflow: visible; scrollbar-width: none; -webkit-overflow-scrolling: touch; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-panel-mode button { min-width: 44px; padding-inline: 4px; font-size: 10px; }');
         // The merged panel-options control keeps 44px touch targets on coarse pointers.

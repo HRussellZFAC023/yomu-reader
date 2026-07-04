@@ -20,7 +20,7 @@ hero:
       text: Install
       link: https://yomureader.com/yomu.user.js
     - theme: alt
-      text: Setup guide
+      text: Guide
       link: /getting-started
       target: _self
     - theme: alt
@@ -36,7 +36,7 @@ hero:
       link: /newtab/index.html
       target: _self
     - theme: alt
-      text: Yomu Gaming
+      text: Game
       link: /tools/yomu-gaming
       target: _self
 ---

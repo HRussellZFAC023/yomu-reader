@@ -200,6 +200,8 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Shortened the hosted homepage action pills to "Guide" and "Game" so the first row stays readable and consistent on iPad.': "ホスト版ホームページのアクションピルを「Guide」と「Game」に短縮し、iPadでも最初の行が読みやすく揃って見えるようにしました。",
+    'Made the subtitle rail and drawer playback controls visibly larger on iPad and other touch screens, while keeping the controls aligned with the rest of the drawer chrome.': "iPadなどのタッチ画面で、字幕レールとドロワーの再生コントロールを見た目にも大きくしつつ、ドロワー内の他の操作部品と揃うようにしました。",
     "Internal: the pure lookup, nested-parse, and pitch-enrichment helper functions at the tail of the reader's main module moved into their own main-lookup-helpers module — no behaviour change, just a smaller main file and a testable home for the helpers.": "内部変更: リーダーのメインモジュール末尾にあった検索・ネスト解析・ピッチ強化の純粋ヘルパー関数群を、専用のmain-lookup-helpersモジュールに移動しました。動作の変更はなく、メインファイルが小さくなり、ヘルパーがテストしやすい場所に収まりました。",
     "The getting-started guide now describes the real first-run welcome panel (quick setup plus the two choice buttons), points manga readers at the BookWalker/mokuro guide, and spells out what a mined Anki card carries; the features page documents that YouTube's Subscribe and Join buttons are intentionally left un-annotated to avoid re-render flicker.": "スタートガイドが、実際の初回起動時のウェルカムパネル（クイック設定と2つの選択ボタン）を説明するようになりました。漫画の読者にはBookWalker/mokuroガイドへの案内を追加し、マイニングしたAnkiカードに何が保存されるかを明記しました。機能ページには、YouTubeのチャンネル登録・メンバーになるボタンを再描画のちらつき防止のため意図的に注釈しないことを記載しました。",
     "Hardening: the two remaining unguarded document.elementFromPoint call sites use optional calls, matching their already-guarded siblings.": "堅牢化: 残っていた2箇所の未ガードのdocument.elementFromPoint呼び出しを、既にガード済みの同種の呼び出しに合わせてオプショナル呼び出しにしました。",
@@ -1335,6 +1337,8 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Get よむ': 'よむを入手',
     'Setup': 'セットアップ',
     'Setup guide': 'セットアップガイド',
+    'Guide': 'ガイド',
+    'Game': 'ゲーム',
     'Install よむ in about two minutes': '約2分でよむをインストール',
     'よむ runs through a userscript manager such as Tampermonkey. Add the manager once, install よむ, then refresh any Japanese page.': 'よむはTampermonkeyなどのユーザースクリプト管理拡張で動きます。管理拡張を一度入れてよむをインストールし、日本語ページを更新します。',
     'よむ runs in a userscript manager: Tampermonkey on desktop, or Userscripts on iPhone and iPad. Install the manager once, add the よむ userscript, then open a Japanese page and start reading.': 'よむはユーザースクリプト管理拡張で動きます。デスクトップではTampermonkey、iPhoneやiPadではUserscriptsを使います。管理拡張を一度入れ、よむユーザースクリプトを追加して、日本語ページを開けば読み始められます。',
