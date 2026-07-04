@@ -627,7 +627,7 @@ async function verifyHostedFullscreenPausedOcrTapabilityMobile(page, baseUrl) {
     await closeHostedTranscriptPanel(page);
     await enterHostedInlineFullscreenFallback(page);
     await installHostedPausedVideoCaptureStub(page);
-    await dispatchHostedVideoEvent(page, 'pause');
+    await requestHostedPausedVideoFrameOcr(page);
     await injectHostedPausedFrameOcrLines(page);
     await page.waitForSelector('[data-yomu-video-frame] .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word', { timeout: 6000 });
     const ready = await readHostedFullscreenPausedOcrTapState(page);
@@ -902,7 +902,8 @@ function hostedThemeToggleResponsive(state) {
 
 async function assertHostedPausedVideoOcrDoesNotCoverPlayback(page) {
     await installHostedPausedVideoCaptureStub(page);
-    await dispatchHostedVideoEvent(page, 'pause');
+    await page.waitForSelector('.jpdb-subtitle-rail [data-action="ocr"]', { state: 'visible', timeout: 5000 });
+    await page.locator('.jpdb-subtitle-rail [data-action="ocr"]').click();
     await page.waitForSelector('.jpdb-ocr-video-frame', { state: 'attached', timeout: 5000 });
     await page.waitForSelector('.jpdb-ocr-video-frame-status', { state: 'attached', timeout: 5000 });
     const state = await readHostedPausedVideoOcrState(page);
@@ -1711,6 +1712,14 @@ async function dispatchHostedVideoEvent(page, eventName) {
         }
         video?.dispatchEvent(new Event(name));
     }, eventName);
+}
+
+async function requestHostedPausedVideoFrameOcr(page) {
+    await page.evaluate(() => {
+        const video = document.querySelector('video');
+        if (!video) throw new Error('Hosted video element missing');
+        document.dispatchEvent(new CustomEvent('yomu-ocr-video-frame-request', { detail: { video } }));
+    });
 }
 
 async function readHostedPlayerLayoutState(page) {

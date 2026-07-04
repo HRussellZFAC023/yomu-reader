@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.57] - 2026-07-04
+
+### Fixed
+
+- Updated the release smoke for paused-frame video OCR to use the manual Read video frame (OCR) action, matching the current manual-first video player behavior before publishing.
+
 ## [1.6.56] - 2026-07-04
 
 ### Fixed
