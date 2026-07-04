@@ -208,6 +208,8 @@ const HOSTED_MANGA_OCR_LINES = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "The subtitle drawer's previous/next/play cluster moved into the head's top row beside the options and close buttons, so it no longer wraps onto its own line over the transcript on narrow panels, and it now shares the same bordered button chrome as its neighbours.": "字幕ドロワーの前へ／次へ／再生ボタン群を、ヘッダー上段のオプション・閉じるボタンの横に移動しました。幅の狭いパネルでもトランスクリプトの上に折り返して独立した行になることがなくなり、隣のボタンと同じ枠線付きのボタンスタイルを共有するようになりました。",
+    "Every subtitle rail button, the drawer transport, and the panel position selector now respond to hover and keyboard focus with the shared accent highlight.": "字幕レールのすべてのボタン、ドロワーの再生操作、パネルの位置セレクターが、ホバーとキーボードフォーカスに共通のアクセントハイライトで反応するようになりました。",
     "Vertical OCR text no longer spills past its highlight box: the frame now grows to the re-typeset column height, so long vertical lines stay wrapped instead of getting clipped at the overlay edge.": "縦書きのOCRテキストがハイライト枠からはみ出さなくなりました。枠が組み直された列の高さまで広がるため、長い縦の行がオーバーレイの端で切れずに枠内に収まります。",
     "Restored the compact side-panel transport controls: the drawer's previous/next/pause cluster keeps its 32px chrome on touch devices (the 42px iPad sizing applies to the on-video rail only) and now matches the rail's ‹ › pause order.": "サイドパネルのコンパクトな再生操作を復元しました。ドロワーの前へ／次へ／一時停止ボタンはタッチ端末でも32pxの見た目を保ち（42pxのiPad向けサイズは動画上のレールのみに適用）、並び順もレールと同じ「‹ › 一時停止」になりました。",
     "Paused-video OCR is now manual-first: a new Read video frame (OCR) button in the subtitle rail scans the current frame on demand, and the settings checkbox now controls automatic pause scanning, which is off by default.": "一時停止した動画のOCRは手動が基本になりました。字幕レールに追加された「動画フレームを読み取る（OCR）」ボタンで現在のフレームを必要なときに読み取れます。設定のチェックボックスは自動の一時停止スキャンを制御し、既定ではオフです。",

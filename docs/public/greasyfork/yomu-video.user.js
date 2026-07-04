@@ -6332,6 +6332,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                     <span class="jpdb-subtitle-drawer-meta">${escapeHtml(state.meta)}</span>
                 </div>
                 <div class="jpdb-subtitle-drawer-top-actions">
+                    ${renderDrawerPlayback(language)}
                     ${renderPanelOptionsControls(state.options)}
                     ${renderPanelCloseButton(language)}
                 </div>
@@ -6339,7 +6340,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
             <div class="jpdb-subtitle-drawer-actions">
                 ${state.showModeTabs === false ? "" : renderPanelModeControls(state.mode, state.canShowLines, language)}
                 ${state.extraActions ?? ""}
-                ${renderDrawerPlayback(language)}
             </div>
         </div>
     `;

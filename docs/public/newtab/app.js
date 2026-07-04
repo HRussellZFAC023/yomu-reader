@@ -39334,7 +39334,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.51".trim() ? "1.6.51".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.52".trim() ? "1.6.52".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -46796,6 +46796,7 @@ ${spelling}`);
                     <span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(state2.meta)}</span>
                 </div>
                 <div class="jpdb-subtitle-drawer-top-actions">
+                    ${renderDrawerPlayback(language)}
                     ${renderPanelOptionsControls(state2.options)}
                     ${renderPanelCloseButton(language)}
                 </div>
@@ -46803,7 +46804,6 @@ ${spelling}`);
             <div class="jpdb-subtitle-drawer-actions">
                 ${state2.showModeTabs === false ? "" : renderPanelModeControls(state2.mode, state2.canShowLines, language)}
                 ${state2.extraActions ?? ""}
-                ${renderDrawerPlayback(language)}
             </div>
         </div>
     `;

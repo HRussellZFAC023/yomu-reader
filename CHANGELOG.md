@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.52] - 2026-07-04
+
+### Fixed
+
+- The subtitle drawer's previous/next/play cluster moved into the head's top row beside the options and close buttons, so it no longer wraps onto its own line over the transcript on narrow panels, and it now shares the same bordered button chrome as its neighbours.
+- Every subtitle rail button, the drawer transport, and the panel position selector now respond to hover and keyboard focus with the shared accent highlight.
+
 ## [1.6.51] - 2026-07-04
 
 ### Fixed

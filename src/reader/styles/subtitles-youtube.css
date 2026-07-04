@@ -719,6 +719,13 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   overflow: visible;
   white-space: nowrap;
 }
+/* Every rail control answers hover/focus with the shared accent treatment
+   (the generic interactions brightness bump is invisible on these surfaces). */
+.jpdb-subtitle-rail button:is(:hover, :focus-visible):not(:disabled) {
+  color: var(--jpdb-reader-text);
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
+}
 .jpdb-subtitle-rail button[data-action="previous"],
 .jpdb-subtitle-rail button[data-action="next"] {
   font-size: 19px;
@@ -1233,36 +1240,35 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   max-width: 100%;
   gap: 8px;
 }
-/* ‹ ▶ › transport cluster at the trailing edge of the actions row — the
-   drawer is where line-by-line review happens, so it carries its own
-   playback controls alongside the on-video rail's copy. */
+/* ‹ › ▶ transport cluster lives in the head's top-actions row beside the
+   options and close buttons — never in the wrappable tabs row, so it cannot
+   wrap onto its own line over the list. It shares the bordered icon-button
+   chrome (base .jpdb-subtitle-list button supplies border + surface). */
 .jpdb-subtitle-drawer-playback {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: auto;
+  gap: 6px;
 }
-.jpdb-subtitle-drawer-playback button {
+.jpdb-subtitle-list .jpdb-subtitle-drawer-playback button {
   position: relative;
   display: inline-grid;
   place-items: center;
-  min-width: 32px;
-  width: 32px;
-  min-height: 32px;
-  height: 32px;
+  flex: 0 0 auto;
+  min-width: 36px;
+  width: 36px;
+  min-height: 36px;
+  height: 36px;
   padding: 0;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  box-shadow: none;
+  border-radius: 12px;
   color: var(--jpdb-reader-muted);
   font-size: 17px;
   font-weight: 700;
   line-height: 1;
 }
-.jpdb-subtitle-drawer-playback button:hover:not(:disabled) {
+.jpdb-subtitle-list .jpdb-subtitle-drawer-playback button:is(:hover, :focus-visible):not(:disabled) {
   color: var(--jpdb-reader-text);
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, var(--jpdb-reader-surface));
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
 }
 .jpdb-subtitle-drawer-playback button:disabled {
   opacity: .42;
@@ -1436,6 +1442,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   box-shadow: none;
   font-size: 12px;
   font-weight: 700;
+}
+.jpdb-subtitle-list .jpdb-subtitle-panel-options-item:is(:hover, :focus-visible) {
+  color: var(--jpdb-reader-text);
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, var(--jpdb-reader-surface));
 }
 .jpdb-subtitle-list .jpdb-subtitle-panel-options-item[aria-pressed="true"] {
   color: var(--jpdb-reader-text);
@@ -2153,14 +2163,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     inset: -2px;
     border-radius: 12px;
   }
-  /* Drawer transport keeps its compact 32px chrome (the 42px iPad sizing is
-     for the on-video rail only); hit-slop pads the touch target to 44px. */
-  .jpdb-subtitle-drawer-playback { gap: 12px; }
-  .jpdb-subtitle-drawer-playback button::after {
-    content: "";
-    position: absolute;
-    inset: -6px;
-    border-radius: 13px;
+  /* Drawer transport sits beside the 44px close/options buttons on touch, so
+     it takes the same 44px chrome instead of hit-slop halos. */
+  .jpdb-subtitle-list .jpdb-subtitle-drawer-playback button {
+    min-width: 44px;
+    width: 44px;
+    min-height: 44px;
+    height: 44px;
   }
   .jpdb-subtitle-track-row button,
   .jpdb-subtitle-track-tools button,

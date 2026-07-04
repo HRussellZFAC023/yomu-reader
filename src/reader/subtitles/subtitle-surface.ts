@@ -82,8 +82,8 @@ export interface DrawerHeadState {
     meta: string;
     canShowLines: boolean;
     options: PanelOptionsControlsState;
-    // Mode-specific extra buttons rendered between the tabs and the playback
-    // cluster (e.g. the lines panel's jump-to-current locate button).
+    // Mode-specific extra buttons rendered after the tabs (e.g. the lines
+    // panel's jump-to-current locate button).
     extraActions?: string;
     // The tracks panel opens before any video/transcript exists, where the
     // mode tabs are meaningless — it hides them instead of disabling them.
@@ -105,6 +105,7 @@ export function renderDrawerHead(state: DrawerHeadState): string {
                     <span class="jpdb-subtitle-drawer-meta">${escapeHtml(state.meta)}</span>
                 </div>
                 <div class="jpdb-subtitle-drawer-top-actions">
+                    ${renderDrawerPlayback(language)}
                     ${renderPanelOptionsControls(state.options)}
                     ${renderPanelCloseButton(language)}
                 </div>
@@ -112,7 +113,6 @@ export function renderDrawerHead(state: DrawerHeadState): string {
             <div class="jpdb-subtitle-drawer-actions">
                 ${state.showModeTabs === false ? '' : renderPanelModeControls(state.mode, state.canShowLines, language)}
                 ${state.extraActions ?? ''}
-                ${renderDrawerPlayback(language)}
             </div>
         </div>
     `;

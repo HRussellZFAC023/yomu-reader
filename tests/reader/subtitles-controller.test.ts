@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTING
 import { readPageCaptionText } from '../../src/reader/subtitles/subtitle-dom-captions';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles/controller';
 import { subtitleCueSignature } from '../../src/reader/subtitles/subtitle-cues';
+import { renderDrawerHead } from '../../src/reader/subtitles/subtitle-surface';
 import { SUBTITLE_DRAG_OFFSET_KEY } from '../../src/reader/subtitles/subtitle-layout';
 import { createSubtitleVideoInsetAdapter, subtitleVideoLayoutTarget } from '../../src/reader/subtitles/subtitle-video-inset';
 
@@ -407,6 +408,26 @@ describe('SubtitlePlayerController', () => {
         internals.handleKeydown(withoutPopover);
         expect(seekSubtitle).toHaveBeenCalledWith(-1);
         expect(withoutPopover.defaultPrevented).toBe(true);
+    });
+
+    it('keeps the drawer transport in the top-actions row so it never wraps over the list', () => {
+        const host = document.createElement('div');
+        host.innerHTML = renderDrawerHead({
+            mode: 'lines',
+            title: 'Subtitles',
+            meta: '13 lines',
+            canShowLines: true,
+            options: { placement: 'right', pausePanelEnabled: false, menuOpen: false, language: 'en' },
+        });
+
+        const playback = host.querySelector('.jpdb-subtitle-drawer-playback');
+        expect(playback).not.toBeNull();
+        // Anti-wrap guard: the ‹ › ▶ cluster lives beside the options/close
+        // buttons in the fixed top row, not in the wrappable tabs row where it
+        // used to break onto its own line over the transcript.
+        expect(playback!.closest('.jpdb-subtitle-drawer-top-actions')).not.toBeNull();
+        expect(host.querySelector('.jpdb-subtitle-drawer-actions .jpdb-subtitle-drawer-playback')).toBeNull();
+        expect([...playback!.querySelectorAll('button')].map(b => b.dataset.action)).toEqual(['previous', 'next', 'playback']);
     });
 
     it('renders subtitle navigation, playback, panel, and style controls in the rail', () => {
@@ -4604,12 +4625,18 @@ Watch the cat
         // (pointer:fine, width > 768px) still gets the larger touch targets.
         expect(normalizedCss).toContain('@media (max-width: 768px), (any-pointer: coarse) {');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail button::after { content: ""; position: absolute; inset: -2px; border-radius: 12px; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-drawer-playback button::after { content: ""; position: absolute; inset: -6px; border-radius: 13px; }');
+        // Drawer transport matches its 44px top-row neighbours on touch — real
+        // chrome, not an invisible hit-slop halo.
+        expect(normalizedCss).toContain('.jpdb-subtitle-list .jpdb-subtitle-drawer-playback button { min-width: 44px; width: 44px; min-height: 44px; height: 44px; }');
+        expect(normalizedCss).not.toContain('.jpdb-subtitle-drawer-playback button::after');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail button, .jpdb-subtitle-compact-video .jpdb-subtitle-rail button { min-width: 42px; width: 42px; max-width: 42px; min-height: 42px; height: 42px; max-height: 42px; padding: 0; font-size: 11px; border-radius: 10px; touch-action: manipulation; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail::-webkit-scrollbar { display: none; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail { top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); bottom: auto; gap: 4px; padding: 4px; border-radius: 13px; max-width: calc(100% - 16px); flex-wrap: wrap; overflow: visible;');
-        // The drawer transport keeps its compact 32px chrome; hit-slop pads to 44px.
-        expect(normalizedCss).toContain('.jpdb-subtitle-drawer-playback { gap: 12px; }');
+        // The drawer transport shares the bordered icon-button chrome and answers
+        // hover with the accent treatment like the close/options buttons.
+        expect(normalizedCss).toContain('.jpdb-subtitle-list .jpdb-subtitle-drawer-playback button:is(:hover, :focus-visible):not(:disabled) {');
+        expect(normalizedCss).toContain('.jpdb-subtitle-rail button:is(:hover, :focus-visible):not(:disabled) {');
+        expect(normalizedCss).toContain('.jpdb-subtitle-list .jpdb-subtitle-panel-options-item:is(:hover, :focus-visible) {');
         expect(normalizedCss).toContain('.jpdb-subtitle-drawer-actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; max-width: 100%; min-width: 0; overflow: visible; scrollbar-width: none; -webkit-overflow-scrolling: touch; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-panel-mode button { min-width: 44px; padding-inline: 4px; font-size: 10px; }');
         // The merged panel-options control keeps 44px touch targets on coarse pointers.
