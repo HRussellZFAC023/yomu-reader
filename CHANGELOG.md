@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.76] - 2026-07-05
+
+### Fixed
+
+- The Yomu Gaming desktop app icon no longer degrades into a corrupted blue square at small sizes (window titles, Finder lists, the Dock at small scale): the packager derived the 16px and 32px macOS icon representations from the 512px raster with a broken downscaler, so every rebuild reintroduced the garbled icon. All icon sizes are now rendered directly from the canonical vector artwork and shipped as a prebuilt icon file the packager uses as-is.
+
 ## [1.6.75] - 2026-07-05
 
 ### Fixed

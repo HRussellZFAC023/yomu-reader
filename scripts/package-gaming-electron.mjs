@@ -63,6 +63,9 @@ const artifactPaths = await build({
         mac: {
             category: 'public.app-category.education',
             artifactName: 'yomu-gaming-${version}-${os}-${arch}.${ext}',
+            // Prebuilt icns (scripts/generate-gaming-icon.mjs): app-builder's own
+            // PNG→icns downscaler corrupts the 16/32px representations.
+            icon: path.join(distRoot, 'yomu-icon.icns'),
         },
         win: {
             artifactName: 'yomu-gaming-${version}-${os}-${arch}.${ext}',

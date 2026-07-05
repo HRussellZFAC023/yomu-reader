@@ -10,7 +10,9 @@ const appRoot = path.resolve(scriptDir, '..');
 const outDir = path.join(appRoot, 'dist-gaming', 'electron');
 const rendererOutDir = path.join(appRoot, 'dist-gaming', 'renderer');
 const sourceIconPng = path.join(appRoot, 'public', 'app-icons', 'yomu-gaming-512.png');
+const sourceIconIcns = path.join(appRoot, 'public', 'app-icons', 'yomu-gaming.icns');
 const generatedIconPng = path.join(appRoot, 'dist-gaming', 'yomu-icon-512.png');
+const generatedIconIcns = path.join(appRoot, 'dist-gaming', 'yomu-icon.icns');
 
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
@@ -40,13 +42,14 @@ await Promise.all([
 
 mkdirSync(path.dirname(generatedIconPng), { recursive: true });
 copyAppIcon(sourceIconPng, generatedIconPng);
+copyAppIcon(sourceIconIcns, generatedIconIcns);
 copyFileSync(generatedIconPng, path.join(outDir, 'yomu-icon-512.png'));
 mkdirSync(rendererOutDir, { recursive: true });
 copyFileSync(generatedIconPng, path.join(rendererOutDir, 'yomu-icon-512.png'));
 
-function copyAppIcon(sourcePng, outputPng) {
-    if (!existsSync(sourcePng)) {
-        throw new Error(`Missing Yomu Gaming icon: ${sourcePng}`);
+function copyAppIcon(source, output) {
+    if (!existsSync(source)) {
+        throw new Error(`Missing Yomu Gaming icon (run scripts/generate-gaming-icon.mjs): ${source}`);
     }
-    copyFileSync(sourcePng, outputPng);
+    copyFileSync(source, output);
 }
