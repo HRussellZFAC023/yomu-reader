@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.69] - 2026-07-05
+
+### Fixed
+
+- Japanese text that no site profile covers is now always decorated: pages with a curated parser (like YouTube) run a residual scan over any remaining visible Japanese, so surfaces such as the mobile watch page's view-count line, hashtag row, and もっと見る expander get furigana and pitch instead of staying bare.
+- The mobile YouTube watch metadata section and channel row are now scanned directly (view count, date, hashtags, description expander), not just the video title.
+- Yomu's video control rail no longer covers YouTube's own CC and settings buttons on phones and tablets: the rail measures the player's native top control row and moves below it.
+- Furigana readings no longer wrap onto two lines inside narrow menus and chips, so 標準 no longer renders its reading as stacked fragments; a reading always stays on one line.
+- Adding furigana no longer shifts or breaks compact UI layouts: words in menus, chips, and slider labels keep the host's original line height and draw the reading above it, so the playback-speed 倍 label no longer rides onto the slider handle.
+
 ## [1.6.68] - 2026-07-05
 
 ### Fixed

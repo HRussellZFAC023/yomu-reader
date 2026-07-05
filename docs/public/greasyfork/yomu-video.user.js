@@ -11636,6 +11636,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.syncShadowLoop();
       this.realignIfVideoMoved();
       this.syncPlayerChromeIdleState();
+      this.syncNativeControlsInset();
       this.syncAsbPlayerSubtitleMoveHandles(settings);
       if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
       if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
@@ -11659,6 +11660,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
         this.showControlsTemporarily();
       }
       this.lastPlayerChromeHidden = chromeHidden;
+    }
+    // m.youtube.com stacks its own top control row (autoplay/CC/settings) in
+    // the same corner the rail occupies, and the rail shows in lockstep with
+    // that chrome — whenever both are visible they collide. Measure the native
+    // top row and push the rail below it via a CSS inset variable.
+    syncNativeControlsInset() {
+      if (!this.root) return;
+      const overlay = document.querySelector("#player-control-overlay");
+      this.root.classList.toggle("jpdb-subtitle-native-top-controls", Boolean(overlay));
+      if (!overlay) {
+        this.root.style.removeProperty("--jpdb-subtitle-native-top-inset");
+        return;
+      }
+      const topRow = overlay.querySelector(".player-controls-top");
+      const rowRect = topRow?.getBoundingClientRect();
+      if (!rowRect || rowRect.height <= 0) return;
+      const rootTop = this.root.getBoundingClientRect().top;
+      const inset = Math.round(Math.min(Math.max(rowRect.bottom - rootTop + 8, 48), 160));
+      this.root.style.setProperty("--jpdb-subtitle-native-top-inset", `${inset}px`);
     }
     blurFocusedRailControl() {
       const active = document.activeElement;

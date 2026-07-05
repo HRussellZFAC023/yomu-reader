@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.68
+// @version 1.6.69
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.68#sha256=Z9LgCGwAC/E1Tf/Fers1ZBYrjO2PPSmVMC5ZlP5CPd8=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.68#sha256=bTWyaA1wVl95xZ3OSPH2AEbTl/rh/DB4T16altfd7qE=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.68#sha256=/vAmxw77aqSzUrKro7JExUDT8R+5DQaTT1KghoTnJSk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.68#sha256=xWYwdM2Crx9YJFsxjppG1+x4KnS1/IvL9Ubzsle4b3E=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.68#sha256=bxYnb9ZHoWC2ICMQs6fZ95Wume5QeHPzH0qsukPMHmU=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.68#sha256=dpglUonOWe4aPi8eVEAscpdaewG2qbadsBohytRxN54=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.69#sha256=Z9LgCGwAC/E1Tf/Fers1ZBYrjO2PPSmVMC5ZlP5CPd8=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.69#sha256=bTWyaA1wVl95xZ3OSPH2AEbTl/rh/DB4T16altfd7qE=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.69#sha256=/vAmxw77aqSzUrKro7JExUDT8R+5DQaTT1KghoTnJSk=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.69#sha256=xWYwdM2Crx9YJFsxjppG1+x4KnS1/IvL9Ubzsle4b3E=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.69#sha256=bxYnb9ZHoWC2ICMQs6fZ95Wume5QeHPzH0qsukPMHmU=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.69#sha256=rcrq4DeFJeaVQBlKIcAXgfSFVifBJMoVPKIXrZWN6HU=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -26204,8 +26204,8 @@ const SITE_PARSER_PROFILES = [
     "ytd-watch-metadata #attributed-snippet-text",
     "ytd-watch-metadata #attributed-description-text",
     "ytd-watch-metadata yt-attributed-string#attributed-description-text",
-    "ytm-slim-video-metadata-section-renderer h1",
-    "ytm-slim-video-metadata-section-renderer #title",
+    "ytm-slim-video-metadata-section-renderer",
+    "ytm-slim-owner-renderer",
     "ytm-expandable-video-description-body-renderer",
     "ytm-structured-description-content-renderer",
     YOUTUBE_COMMENT_HEADER_ROOTS,
@@ -26680,7 +26680,14 @@ function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.loc
   }
   const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
   if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
-  return [...baseTargets, ...profileUiChromeTargets];
+  const profileTargets = [...baseTargets, ...profileUiChromeTargets];
+  if (matchingProfiles.some((profile) => profile.suppressResidualVisibleScan)) return profileTargets;
+  const residualTargets = collectResidualVisibleJapaneseTargets(
+    effectiveLimit - profileTargets.length,
+    profileTargets,
+    matchingProfiles
+  );
+  return residualTargets.length ? [...profileTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some((profile) => profile.nonDestructive) })] : profileTargets;
   }
   const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length - profileUiChromeTargets.length, [...baseTargets, ...profileUiChromeTargets]);
   const uiChromeTargets = collectSafeUiChromeTargets(
@@ -26774,7 +26781,7 @@ function residualVisibleJapaneseCandidateLimit(limit, existingTargetCount) {
   return Math.max(limit, existingTargetCount + limit + 24);
 }
 function residualVisibleJapaneseExcludeSelector(profiles) {
-  const entries2 = [COMMON_EXCLUDE];
+  const entries2 = [COMMON_EXCLUDE, "ruby"];
   if (profiles.some(isYouTubeSiteParserProfile)) {
   entries2.push(...YT_PLAYER_CHROME_EXCLUDE_ENTRIES);
   }
@@ -32503,7 +32510,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.68"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.69"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

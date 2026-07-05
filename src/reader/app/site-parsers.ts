@@ -1619,7 +1619,10 @@ function residualVisibleJapaneseCandidateLimit(limit: number, existingTargetCoun
 }
 
 function residualVisibleJapaneseExcludeSelector(profiles: SiteParserProfile[]): string {
-    const entries = [COMMON_EXCLUDE];
+    // Native ruby already carries its reading (jpdb.io headwords, NHK prose);
+    // this last-resort pass must not re-annotate it. Ruby-aware enrichment
+    // stays with the profile and prose scans.
+    const entries = [COMMON_EXCLUDE, 'ruby'];
     if (profiles.some(isYouTubeSiteParserProfile)) {
         entries.push(...YT_PLAYER_CHROME_EXCLUDE_ENTRIES);
     }

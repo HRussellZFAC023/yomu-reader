@@ -3644,7 +3644,9 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word ruby {');
         expect(normalizedCss).toContain('display: ruby !important;');
         expect(normalizedCss).toContain('.jpdb-reader-word rt {');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi { white-space: normal; overflow-wrap: anywhere; }');
+        // A reading must never break across lines (stacked kana fragments in
+        // narrow flex chrome); only word/ruby level wrapping is allowed.
+        expect(normalizedCss).toContain('.jpdb-reader-word rt.jpdb-reader-furi { white-space: nowrap; overflow-wrap: normal; }');
         expect(normalizedCss).toContain('display: ruby-text !important;');
         // UT-47: hiding is per state group now.
         expect(normalizedCss).toContain('.yomu-furi-hide-known .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
@@ -3761,7 +3763,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word), .VwiC3b .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal;');
         expect(normalizedCss).toContain('.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal;');
         expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal; overflow-wrap: break-word !important; line-break: auto; }');
-        expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word rt, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word rt { white-space: normal; overflow-wrap: anywhere; }');
+        expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby { white-space: normal; overflow-wrap: anywhere; }');
         expect(normalizedCss).not.toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word::after, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word::after { border-block-end-color: transparent; }');
         expect(normalizedCss).not.toContain('} .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal;');
     });
@@ -35535,8 +35537,14 @@ describe('reader helpers', () => {
             'Webアプリ開発を目指して、日本語で勉強中の新卒エンジニアです！',
             '今夜も配信見なかったごめんね。',
         ]));
-        expect(targets.some(target => target.text.includes('118,245') || target.text.includes('チャンネル登録'))).toBe(false);
-        expect(targets.every(target => target.singlePassScan === true)).toBe(true);
+        // Watch metadata chrome (view counts, subscribe labels) is no longer
+        // dropped: the residual pass collects it as a passive non-destructive
+        // target so every visible Japanese surface gets decoration.
+        const metadataRow = targets.find(target => target.text.includes('回視聴') || target.text.includes('チャンネル登録'));
+        expect(metadataRow).toBeTruthy();
+        expect(metadataRow?.passiveInteraction).toBe(true);
+        expect(metadataRow?.nonDestructive).toBe(true);
+        expect(targets.filter(target => !target.passiveInteraction).every(target => target.singlePassScan === true)).toBe(true);
 
         const title = targets.find(target => target.text === '新卒エンジニア、仕事終わりにプログラミング勉強をする！！');
         const description = targets.find(target => target.text.startsWith('Webアプリ開発'));
