@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.80
+// @version 1.6.81
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.80#sha256=BTsTKkK11pTKP4BkXxdapiXcKCC9kJA8YyqWsSVegJ0=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.80#sha256=zjZMjln3sg66KNP8QUGbfXDkd6uFHbcGVVNSCIfRd74=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.80#sha256=j7UeK9pWUaQOGzz6JIjmQ1we8WS5IDBvu/ptBM8TZ8w=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.80#sha256=4L4hEitPWhEM9M8bBstYGHdhmHHk0OW2tnDM91GnW0c=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.80#sha256=Pvjrtc5X/H7bvlv8S1eyYqog/AgGIVLNfZ94jj6y17E=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.80#sha256=UiyUz5Rud4kRLsmLS9tLlCcgynWoUZ1w+/P3hGZ+puU=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.81#sha256=BTsTKkK11pTKP4BkXxdapiXcKCC9kJA8YyqWsSVegJ0=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.81#sha256=zjZMjln3sg66KNP8QUGbfXDkd6uFHbcGVVNSCIfRd74=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.81#sha256=j7UeK9pWUaQOGzz6JIjmQ1we8WS5IDBvu/ptBM8TZ8w=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.81#sha256=4L4hEitPWhEM9M8bBstYGHdhmHHk0OW2tnDM91GnW0c=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.81#sha256=Pvjrtc5X/H7bvlv8S1eyYqog/AgGIVLNfZ94jj6y17E=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.81#sha256=UiyUz5Rud4kRLsmLS9tLlCcgynWoUZ1w+/P3hGZ+puU=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -5087,7 +5087,9 @@ function collapseWhitespaceWithOffsets(text2) {
     const start = index;
     while (index < text2.length && /\s/u.test(text2[index] ?? "")) index += 1;
     const mapped = normalized.length;
-    if (normalized.length > 0 && index < text2.length) normalized += " ";
+    if (normalized.length > 0 && index < text2.length && !(isCjkChar(normalized[normalized.length - 1]) && isCjkChar(text2[index]))) {
+      normalized += " ";
+    }
     for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
     continue;
   }
@@ -5097,6 +5099,9 @@ function collapseWhitespaceWithOffsets(text2) {
   }
   offsets[text2.length] = normalized.length;
   return { normalized, offsets };
+}
+function isCjkChar(char) {
+  return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-｠]/u.test(char ?? "");
 }
 function remapTokenOffsets(token, offsets, sentence) {
   const start = offsets[token.start] ?? token.start;
@@ -26328,6 +26333,8 @@ const SITE_PARSER_PROFILES = [
     "ytd-watch-metadata #owner ytd-channel-name yt-formatted-string",
     "ytd-watch-metadata #owner ytd-channel-name .ytAttributedStringHost",
     "ytd-watch-metadata #owner ytd-channel-name",
+    "ytd-watch-metadata #owner-sub-count",
+    "ytd-watch-metadata #owner #subscribe-button",
     "ytd-watch-info-text",
     "ytd-watch-metadata #info-strings",
     "ytd-watch-metadata #metadata-line",
@@ -26345,6 +26352,12 @@ const SITE_PARSER_PROFILES = [
     "ytd-watch-metadata #attributed-snippet-text",
     "ytd-watch-metadata #attributed-description-text",
     "ytd-watch-metadata yt-attributed-string#attributed-description-text",
+    "ytd-channel-renderer",
+    "ytd-search-sub-menu-renderer",
+    "ytd-shelf-renderer #show-more-button",
+    "ytd-shelf-renderer #expand",
+    "ytd-shelf-renderer yt-button-renderer",
+    "ytd-mini-guide-entry-renderer",
     "ytm-slim-video-metadata-section-renderer",
     "ytm-slim-owner-renderer",
     "ytm-expandable-video-description-body-renderer",
@@ -26709,14 +26722,22 @@ function siteScanPassiveInteractionExcludeSelector(profile) {
 function addUniqueSiteScanTarget(profile, target, context) {
   return appendAdmittedFragmentTarget(context.targets, context.seen, target, {
   reject: (candidate) => shouldRejectProfileScanTarget(profile, candidate),
-  transform: (candidate) => siteScanTargetWithProfileOptions(profile, candidate)
+  transform: (candidate) => siteScanTargetWithProfileOptions(profile, volatileYouTubeTargetAsPassiveMirror(profile, candidate))
   });
 }
 function shouldRejectProfileScanTarget(profile, target) {
   if (!isYouTubeSiteParserProfile(profile)) return false;
-  if (target.parent.closest(YOUTUBE_VOLATILE_WATCH_METADATA_SELECTOR)) return true;
-  if (targetSpansMultipleYouTubeWatchMetadataTextHosts(target)) return true;
-  return false;
+  return targetSpansMultipleYouTubeWatchMetadataTextHosts(target);
+}
+function volatileYouTubeTargetAsPassiveMirror(profile, target) {
+  if (!isYouTubeSiteParserProfile(profile)) return target;
+  if (!target.parent.closest(YOUTUBE_VOLATILE_WATCH_METADATA_SELECTOR)) return target;
+  return {
+  ...target,
+  passiveInteraction: true,
+  nonDestructive: true,
+  fragments: target.fragments.map((fragment) => ({ ...fragment, passiveInteraction: true }))
+  };
 }
 function targetSpansMultipleYouTubeWatchMetadataTextHosts(target) {
   if (!target.parent.closest("ytd-watch-metadata")) return false;
@@ -32657,7 +32678,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.80"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.81"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

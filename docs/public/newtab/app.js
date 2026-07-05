@@ -8731,7 +8731,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         const start = index;
         while (index < text2.length && /\s/u.test(text2[index] ?? "")) index += 1;
         const mapped = normalized.length;
-        if (normalized.length > 0 && index < text2.length) normalized += " ";
+        if (normalized.length > 0 && index < text2.length && !(isCjkChar(normalized[normalized.length - 1]) && isCjkChar(text2[index]))) {
+          normalized += " ";
+        }
         for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
         continue;
       }
@@ -8741,6 +8743,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     offsets[text2.length] = normalized.length;
     return { normalized, offsets };
+  }
+  function isCjkChar(char) {
+    return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-｠]/u.test(char ?? "");
   }
   function remapTokenOffsets(token, offsets, sentence) {
     const start = offsets[token.start] ?? token.start;
@@ -39437,7 +39442,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.80".trim() ? "1.6.80".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.81".trim() ? "1.6.81".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

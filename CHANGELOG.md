@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.81] - 2026-07-05
+
+### Fixed
+
+- Desktop-layout YouTube chrome that starved behind the video grid is now decorated: the left mini-guide rail entries, the search filter row, search channel cards, and shelf "+other N" expanders are collected with the high-value watch text instead of trailing the grids at the scan cap.
+- Subscriber counts and subscribe buttons are decorated at last: those rows re-render constantly, which used to exclude them entirely; they now ride the passive overlay mirror, which absorbs the re-renders, so チャンネル登録者数 rows get furigana and pitch everywhere.
+- A line break inside a Japanese word no longer renders as a space: YouTube wraps metadata like 視聴 across source line breaks, and the overlay used to show "視 聴" with the word split for the tokenizer too; line breaks between Japanese characters now collapse to nothing while Latin text keeps its single space.
+
 ## [1.6.80] - 2026-07-05
 
 ### Fixed

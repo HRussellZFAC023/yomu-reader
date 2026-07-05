@@ -59,7 +59,7 @@ describe('profile-site residual visible Japanese scan', () => {
         expect(subCount?.nonDestructive).toBe(true);
         // Collected by the profile pass itself, not the residual tail — the
         // residual pass starves behind big grids exactly where these rows live.
-        expect(subCount?.parserId).not.toBe('residual-visible-japanese-parser');
+        expect((subCount as { parserId?: string } | undefined)?.parserId).not.toBe('residual-visible-japanese-parser');
     });
 
     it('still collects the rooted metadata first', () => {
