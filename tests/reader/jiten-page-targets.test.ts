@@ -32,6 +32,62 @@ function renderStudyPage(options: { revealed: boolean }): void {
     `;
 }
 
+function stubParseLocation(query: string): void {
+    vi.stubGlobal('location', {
+        href: `https://jiten.moe/parse?text=${encodeURIComponent(query)}`,
+        origin: 'https://jiten.moe',
+        hostname: 'jiten.moe',
+        pathname: '/parse',
+        search: `?text=${encodeURIComponent(query)}`,
+    });
+}
+
+describe('jiten parse-page addon target', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        document.body.replaceChildren();
+        document.title = '';
+    });
+
+    it('produces no target on a no-results search page (garbage title term + body anchor)', () => {
+        stubParseLocation('ペッパピック');
+        document.title = 'Search ペッパピック - Jiten';
+        document.body.innerHTML = '<div id="__nuxt"><header>Jiten</header><p>No results found for "ペッパピック"</p></div>';
+
+        // Neither bug may resurface: the title fallback must refuse the
+        // "Search <query>" chrome as a headword, and with no content column
+        // there is no anchor — a document.body anchor once mounted an
+        // Immersion Kit addon above the whole app shell.
+        expect(currentJitenTermTarget()).toBeNull();
+    });
+
+    it('produces no target before the vocab column hydrates, even with a Japanese title', () => {
+        stubParseLocation('食べる');
+        document.title = '食べる - Jiten';
+        document.body.innerHTML = '<div id="__nuxt"></div>';
+
+        expect(currentJitenTermTarget()).toBeNull();
+    });
+
+    it('anchors after the vocab column\'s last child once hydrated', () => {
+        stubParseLocation('食べる');
+        document.title = 'Search 食べる - Jiten';
+        document.body.innerHTML = `
+            <div id="__nuxt">
+                <div class="flex flex-col max-w-2xl">
+                    <div class="text-3xl" lang="ja">食べる</div>
+                    <div class="mt-2" data-case="last">senses</div>
+                </div>
+            </div>
+        `;
+
+        const target = currentJitenTermTarget();
+
+        expect(target?.term).toBe('食べる');
+        expect(target?.anchor.dataset.case).toBe('last');
+    });
+});
+
 describe('jiten study-page addon anchor', () => {
     afterEach(() => {
         vi.unstubAllGlobals();

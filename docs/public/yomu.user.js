@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.71
+// @version 1.6.72
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.71#sha256=r+U3PPlMNcOWCLRVtHZhUi4xLBnGczjeYX3GVq8WU1M=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.71#sha256=NKYC/VXaQkKHPiOpiUqTesgQk8/nI2XOnTh8D/Ygrxk=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.71#sha256=DDs7i2K5xteBYt55n2PKuvpdBwD2bYuubpk2nR2KdoM=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.71#sha256=N1++NNa9Le4vmLfAkgmyxd1/OI56ZQO3Y1XjSeezdkA=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.71#sha256=vgC8ZXCszAQNrGCyis12JRidrrMeo/efhVJ715e6nLg=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.71#sha256=mpRGn5vgdK+axkUJgXDcO9AtbHA76IBwDXwHrKDHltE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.72#sha256=r+U3PPlMNcOWCLRVtHZhUi4xLBnGczjeYX3GVq8WU1M=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.72#sha256=NKYC/VXaQkKHPiOpiUqTesgQk8/nI2XOnTh8D/Ygrxk=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.72#sha256=DDs7i2K5xteBYt55n2PKuvpdBwD2bYuubpk2nR2KdoM=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.72#sha256=N1++NNa9Le4vmLfAkgmyxd1/OI56ZQO3Y1XjSeezdkA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.72#sha256=vgC8ZXCszAQNrGCyis12JRidrrMeo/efhVJ715e6nLg=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.72#sha256=mpRGn5vgdK+axkUJgXDcO9AtbHA76IBwDXwHrKDHltE=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -15801,7 +15801,8 @@ function extractCurrentJitenKanji() {
 function currentJitenTermTarget() {
   if (isJitenKanjiPage()) {
   const kanji = extractCurrentJitenKanji();
-  return kanji ? { term: kanji, reading: kanji, queries: [kanji], examples: [], anchor: jitenKanjiAnchor() } : null;
+  const anchor2 = jitenKanjiAnchor();
+  return kanji && anchor2 ? { term: kanji, reading: kanji, queries: [kanji], examples: [], anchor: anchor2 } : null;
   }
   const headword = jitenHeadword();
   if (!headword) return null;
@@ -15837,7 +15838,8 @@ function jitenStudyAnswerHidden() {
 function currentJitenLocalDictionaryTargets() {
   if (isJitenKanjiPage()) {
   const kanji = extractCurrentJitenKanji();
-  return kanji ? [{ term: kanji, reading: kanji, alternates: [kanji], compounds: [], examples: [], anchor: jitenKanjiAnchor() }] : [];
+  const anchor2 = jitenKanjiAnchor();
+  return kanji && anchor2 ? [{ term: kanji, reading: kanji, alternates: [kanji], compounds: [], examples: [], anchor: anchor2 }] : [];
   }
   const headword = jitenHeadword();
   if (!headword) return [];
@@ -15863,7 +15865,7 @@ function jitenHeadword() {
 }
 function termFromTitle() {
   const title = cleanText(document.title.replace(/\s*[-–—|].*$/, ""));
-  return JAPANESE_RE.test(title) ? title : "";
+  return JAPANESE_RE.test(title) && !/[A-Za-z]/.test(title) ? title : "";
 }
 function jitenAlternateForms() {
   const heading = Array.from(document.querySelectorAll("h1, h2, h3, h4")).find((node) => /^forms|別の表記|表記/i.test(cleanText(node.textContent ?? "")));
@@ -15874,13 +15876,12 @@ function jitenVocabAnchor() {
   const column = ownedElement(document.querySelector(VOCAB_COLUMN_SELECTOR));
   const lastChild = column?.lastElementChild;
   if (lastChild instanceof HTMLElement) return lastChild;
-  return column ?? document.querySelector("main") ?? document.body;
+  return column;
 }
 function jitenKanjiAnchor() {
   const header = ownedElement(document.querySelector(".text-center"));
   if (header) return header;
-  const glyphHeader = document.querySelector(KANJI_GLYPH_SELECTOR)?.closest(".space-y-2");
-  return glyphHeader ?? document.querySelector("main") ?? document.body;
+  return document.querySelector(KANJI_GLYPH_SELECTOR)?.closest(".space-y-2") ?? null;
 }
 function ownedElement(element2) {
   return element2 && !element2.closest(READER_OWNED_SELECTOR) ? element2 : null;
@@ -32510,7 +32511,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.71"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.72"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -34491,11 +34492,11 @@ class ReaderApp {
   void this.parseJpdbPageAddonJapanese(root);
   }
   createJpdbPageAddonRoot(kind, key, anchor, generation) {
-  if (!anchor.isConnected) return null;
+  if (!anchor.isConnected || anchor === document.body) return null;
   const existing = Array.from(document.querySelectorAll(`[data-yomu-jpdb-addon="${kind}"]`)).find((element2) => element2.dataset.yomuAddonKey === key);
   if (existing) {
     existing.dataset.yomuGeneration = String(generation);
-    existing.dataset.yomuAnchorFallback = String(anchor === document.body || anchor.tagName === "MAIN");
+    existing.dataset.yomuAnchorFallback = String(anchor.tagName === "MAIN");
     return existing;
   }
   const root = document.createElement("div");
@@ -34503,11 +34504,10 @@ class ReaderApp {
   root.dataset.yomuJpdbAddon = kind;
   root.dataset.yomuAddonKey = key;
   root.dataset.yomuGeneration = String(generation);
-  root.dataset.yomuAnchorFallback = String(anchor === document.body || anchor.tagName === "MAIN");
+  root.dataset.yomuAnchorFallback = String(anchor.tagName === "MAIN");
   root.className = `yomu-jpdb-page-addon yomu-jpdb-${kind}-addon`;
   this.pauseAutoScanObserver(() => {
-    if (anchor === document.body) document.body.prepend(root);
-    else anchor.insertAdjacentElement("afterend", root);
+    anchor.insertAdjacentElement("afterend", root);
   });
   return root;
   }

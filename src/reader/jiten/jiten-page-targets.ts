@@ -50,7 +50,8 @@ export function extractCurrentJitenKanji(): string {
 export function currentJitenTermTarget(): JpdbTermTarget | null {
     if (isJitenKanjiPage()) {
         const kanji = extractCurrentJitenKanji();
-        return kanji ? { term: kanji, reading: kanji, queries: [kanji], examples: [], anchor: jitenKanjiAnchor() } : null;
+        const anchor = jitenKanjiAnchor();
+        return kanji && anchor ? { term: kanji, reading: kanji, queries: [kanji], examples: [], anchor } : null;
     }
     const headword = jitenHeadword();
     if (!headword) return null;
@@ -97,7 +98,8 @@ function jitenStudyAnswerHidden(): boolean {
 export function currentJitenLocalDictionaryTargets(): LocalDictionaryTarget[] {
     if (isJitenKanjiPage()) {
         const kanji = extractCurrentJitenKanji();
-        return kanji ? [{ term: kanji, reading: kanji, alternates: [kanji], compounds: [], examples: [], anchor: jitenKanjiAnchor() }] : [];
+        const anchor = jitenKanjiAnchor();
+        return kanji && anchor ? [{ term: kanji, reading: kanji, alternates: [kanji], compounds: [], examples: [], anchor }] : [];
     }
     const headword = jitenHeadword();
     if (!headword) return [];
@@ -123,9 +125,13 @@ function jitenHeadword(): { term: string; reading: string } | null {
     return titleTerm ? { term: titleTerm, reading: titleTerm } : null;
 }
 
+// Search/parse pages title as "Search <query> - Jiten": a Latin word in the
+// stripped title means it is page chrome around a query, not a headword, so
+// the fallback must refuse it — a "Search ペッパピック" term once drove an
+// Immersion Kit lookup whose result mounted over the whole search page.
 function termFromTitle(): string {
     const title = cleanText(document.title.replace(/\s*[-–—|].*$/, ''));
-    return JAPANESE_RE.test(title) ? title : '';
+    return JAPANESE_RE.test(title) && !/[A-Za-z]/.test(title) ? title : '';
 }
 
 function jitenAlternateForms(): string[] {
@@ -138,18 +144,20 @@ function jitenAlternateForms(): string[] {
         .slice(0, 8);
 }
 
-function jitenVocabAnchor(): HTMLElement {
+// No coarse fallback (jiten has no <main>; document.body would mount the
+// addon above the whole app shell): until Nuxt hydrates the real content
+// column there is no target, and the enhancement refresh mounts once it exists.
+function jitenVocabAnchor(): HTMLElement | null {
     const column = ownedElement(document.querySelector<HTMLElement>(VOCAB_COLUMN_SELECTOR));
     const lastChild = column?.lastElementChild;
     if (lastChild instanceof HTMLElement) return lastChild;
-    return column ?? document.querySelector<HTMLElement>('main') ?? document.body;
+    return column;
 }
 
-function jitenKanjiAnchor(): HTMLElement {
+function jitenKanjiAnchor(): HTMLElement | null {
     const header = ownedElement(document.querySelector<HTMLElement>('.text-center'));
     if (header) return header;
-    const glyphHeader = document.querySelector<HTMLElement>(KANJI_GLYPH_SELECTOR)?.closest<HTMLElement>('.space-y-2');
-    return glyphHeader ?? document.querySelector<HTMLElement>('main') ?? document.body;
+    return document.querySelector<HTMLElement>(KANJI_GLYPH_SELECTOR)?.closest<HTMLElement>('.space-y-2') ?? null;
 }
 
 function ownedElement<T extends HTMLElement>(element: T | null): T | null {

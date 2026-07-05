@@ -1674,12 +1674,16 @@ export class ReaderApp {
     }
 
     private createJpdbPageAddonRoot(kind: 'word' | 'kanji', key: string, anchor: HTMLElement, generation: number): HTMLElement | null {
-        if (!anchor.isConnected) return null;
+        // Never mount to document.body: prepending there renders the addon
+        // above the site's entire app shell (a coarse pre-hydration anchor on
+        // SPA pages). Skip instead — the enhancement refresh mounts once a
+        // real anchor exists.
+        if (!anchor.isConnected || anchor === document.body) return null;
         const existing = Array.from(document.querySelectorAll<HTMLElement>(`[data-yomu-jpdb-addon="${kind}"]`))
             .find(element => element.dataset.yomuAddonKey === key);
         if (existing) {
             existing.dataset.yomuGeneration = String(generation);
-            existing.dataset.yomuAnchorFallback = String(anchor === document.body || anchor.tagName === 'MAIN');
+            existing.dataset.yomuAnchorFallback = String(anchor.tagName === 'MAIN');
             return existing;
         }
         const root = document.createElement('div');
@@ -1687,14 +1691,12 @@ export class ReaderApp {
         root.dataset.yomuJpdbAddon = kind;
         root.dataset.yomuAddonKey = key;
         root.dataset.yomuGeneration = String(generation);
-        // SPA pages (Nuxt on jiten.moe) can hand us only a coarse fallback
-        // anchor before hydration; mark it so the enhancement re-mounts once
-        // the real anchor exists instead of staying stranded.
-        root.dataset.yomuAnchorFallback = String(anchor === document.body || anchor.tagName === 'MAIN');
+        // A coarse fallback anchor (e.g. <main>) is marked so the enhancement
+        // re-mounts once the real anchor exists instead of staying stranded.
+        root.dataset.yomuAnchorFallback = String(anchor.tagName === 'MAIN');
         root.className = `yomu-jpdb-page-addon yomu-jpdb-${kind}-addon`;
         this.pauseAutoScanObserver(() => {
-            if (anchor === document.body) document.body.prepend(root);
-            else anchor.insertAdjacentElement('afterend', root);
+            anchor.insertAdjacentElement('afterend', root);
         });
         return root;
     }

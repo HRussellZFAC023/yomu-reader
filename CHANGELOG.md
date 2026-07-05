@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.72] - 2026-07-05
+
+### Fixed
+
+- jiten.moe search pages no longer break: a no-results parse page (for example jiten.moe/parse with an unknown word) previously treated its "Search …" page title as a dictionary headword and mounted an Immersion Kit media panel above the whole site, pushing the header and search box down the page. The title fallback now refuses page chrome, and the panel only mounts once the real vocabulary column exists.
+- Dictionary-page add-ons can no longer attach to the top of the page body on any site: if no real anchor element exists yet (for example before a single-page app finishes rendering), the add-on now waits and mounts in place once the content appears.
+
 ## [1.6.71] - 2026-07-05
 
 ### Fixed
