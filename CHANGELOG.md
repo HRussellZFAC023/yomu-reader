@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.73] - 2026-07-05
+
+### Changed
+
+- Immersion Kit example cards now share one set of styles across the popover dictionary, the new-tab study card, the kanji-study card, and dictionary-page add-ons: the caption overlay, target-word highlight, and translation-blur rules live in a single place instead of four diverging copies, so every surface gets the same behaviour and future fixes land everywhere at once.
+
+### Fixed
+
+- The caption clamp that keeps Immersion Kit subtitles inside the picture now also applies to popover dictionary examples, whose media box has a minimum width that could exceed a narrow screenshot.
+
 ## [1.6.72] - 2026-07-05
 
 ### Fixed

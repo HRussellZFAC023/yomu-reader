@@ -50,14 +50,19 @@ const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
 const NEW_TAB_UI_KEY = 'jpdb-reader-newtab-ui';
 const NEW_TAB_CURRENT_WORD_KEY = 'jpdb-reader-newtab-current-word';
 const NEW_TAB_CSS = readFileSync('src/reader/styles/new-tab.css', 'utf8');
+const IMMERSION_CSS = readFileSync('src/reader/styles/immersion-study.css', 'utf8');
 const NORMALIZED_NEW_TAB_CSS = NEW_TAB_CSS.replace(/\s+/g, ' ');
 
 function newTabCssRule(selector: string): string {
-    const start = NORMALIZED_NEW_TAB_CSS.indexOf(`${selector} {`);
+    return immersionCssRule(NORMALIZED_NEW_TAB_CSS, selector);
+}
+
+function immersionCssRule(normalizedCss: string, selector: string): string {
+    const start = normalizedCss.indexOf(`${selector} {`);
     expect(start).toBeGreaterThanOrEqual(0);
-    const end = NORMALIZED_NEW_TAB_CSS.indexOf(' }', start);
+    const end = normalizedCss.indexOf(' }', start);
     expect(end).toBeGreaterThan(start);
-    return NORMALIZED_NEW_TAB_CSS.slice(start, end + 2);
+    return normalizedCss.slice(start, end + 2);
 }
 
 beforeEach(() => {
@@ -1616,19 +1621,27 @@ describe('new tab review helpers', () => {
         const imageSentenceRule = newTabCssRule('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence');
         const subtitleWordRule = newTabCssRule('.jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word');
         const imageWordRule = newTabCssRule('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word');
-        const imageTargetRule = newTabCssRule('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target');
+        const normalizedImmersionCss = IMMERSION_CSS.replace(/\s+/g, ' ');
+        const sharedSentenceRule = immersionCssRule(normalizedImmersionCss, '.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence');
 
-        expect(imageSentenceRule).toContain('left: 50%;');
+        // Overlay geometry is shared (immersion-study.css); the new-tab rule only
+        // reskins it as a video subtitle.
+        expect(sharedSentenceRule).toContain('left: 50%;');
+        expect(sharedSentenceRule).toContain('transform: translateX(-50%);');
+        expect(sharedSentenceRule).toContain('color: var(--jpdb-reader-white);');
+        expect(sharedSentenceRule).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg));');
+        expect(sharedSentenceRule).toContain('calc(var(--yomu-immersion-frame-width, 100%) - 12px)');
         expect(imageSentenceRule).toContain('max-width: min( calc(100% - clamp(28px, 8%, 52px)), calc(var(--yomu-immersion-frame-width, 100%) - 12px) );');
-        expect(imageSentenceRule).toContain('transform: translateX(-50%);');
-        expect(imageSentenceRule).toContain('color: var(--jpdb-reader-white);');
-        expect(imageSentenceRule).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg));');
         expect(imageSentenceRule).toContain('text-shadow: 0 1px 2px var(--subtitle-outline, var(--jpdb-reader-video-outline))');
         expect(imageSentenceRule).not.toContain('right: clamp(');
         expect(subtitleWordRule)
             .toContain('--jpdb-reader-subtitle-fallback: var(--jpdb-reader-white);');
         expect(imageWordRule).toContain('-webkit-text-stroke: 0.02em');
-        expect(imageTargetRule).toContain('var(--jpdb-reader-video-target-backdrop)');
+        expect(normalizedImmersionCss).toContain(':is(.jpdb-reader-example-target, .jpdb-reader-word.jpdb-reader-example-target) { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
+        // Deduped: new-tab.css must not re-declare the shared target/blur rules.
+        expect(normalizedCss).not.toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-target {');
+        expect(normalizedCss).not.toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target {');
+        expect(normalizedCss).not.toContain('translation-blurred');
         expect(normalizedCss)
             .not.toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); background: transparent; box-shadow: none; }');
         expect(normalizedCss)

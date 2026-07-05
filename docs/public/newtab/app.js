@@ -39370,7 +39370,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.72".trim() ? "1.6.72".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.73".trim() ? "1.6.73".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -63570,6 +63570,19 @@ ${spelling}`);
     if (order) return order;
     return queryLength(b) - queryLength(a);
   }
+  function publishImmersionFrameWidth(media) {
+    if (!media) return;
+    const rect = media.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const width = immersionPaintedWidth(media, rect);
+    if (width) media.style.setProperty("--yomu-immersion-frame-width", `${Math.round(width)}px`);
+    else media.style.removeProperty("--yomu-immersion-frame-width");
+  }
+  function immersionPaintedWidth(media, rect) {
+    const image = media.querySelector(".jpdb-reader-example-image");
+    if (!image || !image.naturalWidth || !image.naturalHeight) return 0;
+    return Math.min(rect.width, rect.height * (image.naturalWidth / image.naturalHeight));
+  }
   const IMMERSION_SOURCE_TITLES_JA = {
     "My Neighbor Totoro": "となりのトトロ"
   };
@@ -64321,6 +64334,7 @@ ${spelling}`);
           });
         };
         imageElement.addEventListener("error", loadNextImageCandidate);
+        imageElement.addEventListener("load", () => publishImmersionFrameWidth(imageElement.closest(".jpdb-reader-example-media")));
         imageElement.addEventListener("load", () => this.options.repositionPopover(), { once: true });
         if (!imageElement.dataset.immersionImageSrc) {
           this.hideBrokenExampleImage(container, imageElement);
@@ -71266,17 +71280,10 @@ ${options.version}`;
     if (!media) return;
     const rect = media.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
-    const paintedWidth = newTabImmersionPaintedWidth(media, rect);
-    if (paintedWidth) media.style.setProperty("--yomu-immersion-frame-width", `${Math.round(paintedWidth)}px`);
-    else media.style.removeProperty("--yomu-immersion-frame-width");
-    const scale = Math.sqrt(Math.min((paintedWidth || rect.width) / 1280, rect.height / 720));
+    publishImmersionFrameWidth(media);
+    const scale = Math.sqrt(Math.min((immersionPaintedWidth(media, rect) || rect.width) / 1280, rect.height / 720));
     const size = Math.max(13, Math.min(18, Math.round(22 * Math.max(0.55, scale))));
     media.style.setProperty("--subtitle-font-size", `${size}px`);
-  }
-  function newTabImmersionPaintedWidth(media, rect) {
-    const image = media.querySelector(".jpdb-reader-example-image");
-    if (!image || !image.naturalWidth || !image.naturalHeight) return 0;
-    return Math.min(rect.width, rect.height * (image.naturalWidth / image.naturalHeight));
   }
   function shouldRenderNewTabImmersionTranslation(example, settings) {
     return settings.immersionKitShowTranslation && Boolean(example.translation);

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.72
+// @version 1.6.73
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.72#sha256=r+U3PPlMNcOWCLRVtHZhUi4xLBnGczjeYX3GVq8WU1M=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.72#sha256=NKYC/VXaQkKHPiOpiUqTesgQk8/nI2XOnTh8D/Ygrxk=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.72#sha256=DDs7i2K5xteBYt55n2PKuvpdBwD2bYuubpk2nR2KdoM=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.72#sha256=N1++NNa9Le4vmLfAkgmyxd1/OI56ZQO3Y1XjSeezdkA=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.72#sha256=vgC8ZXCszAQNrGCyis12JRidrrMeo/efhVJ715e6nLg=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.72#sha256=mpRGn5vgdK+axkUJgXDcO9AtbHA76IBwDXwHrKDHltE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.73#sha256=r+U3PPlMNcOWCLRVtHZhUi4xLBnGczjeYX3GVq8WU1M=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.73#sha256=NKYC/VXaQkKHPiOpiUqTesgQk8/nI2XOnTh8D/Ygrxk=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.73#sha256=DDs7i2K5xteBYt55n2PKuvpdBwD2bYuubpk2nR2KdoM=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.73#sha256=N1++NNa9Le4vmLfAkgmyxd1/OI56ZQO3Y1XjSeezdkA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.73#sha256=vgC8ZXCszAQNrGCyis12JRidrrMeo/efhVJ715e6nLg=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.73#sha256=mpRGn5vgdK+axkUJgXDcO9AtbHA76IBwDXwHrKDHltE=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -17210,6 +17210,19 @@ function isLowValueExampleSentenceToken(token) {
   if (!spelling || !KANA_ONLY_RE$1.test(spelling)) return false;
   return LOW_VALUE_EXAMPLE_PART_RE.test(token.card.partOfSpeech.join(" "));
 }
+function publishImmersionFrameWidth(media) {
+  if (!media) return;
+  const rect = media.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+  const width = immersionPaintedWidth(media, rect);
+  if (width) media.style.setProperty("--yomu-immersion-frame-width", `${Math.round(width)}px`);
+  else media.style.removeProperty("--yomu-immersion-frame-width");
+}
+function immersionPaintedWidth(media, rect) {
+  const image = media.querySelector(".jpdb-reader-example-image");
+  if (!image || !image.naturalWidth || !image.naturalHeight) return 0;
+  return Math.min(rect.width, rect.height * (image.naturalWidth / image.naturalHeight));
+}
 const IMMERSION_SOURCE_TITLES_JA = {
   "My Neighbor Totoro": "となりのトトロ"
 };
@@ -19773,6 +19786,7 @@ class ImmersionPopoverController {
       });
     };
     imageElement.addEventListener("error", loadNextImageCandidate);
+    imageElement.addEventListener("load", () => publishImmersionFrameWidth(imageElement.closest(".jpdb-reader-example-media")));
     imageElement.addEventListener("load", () => this.options.repositionPopover(), { once: true });
     if (!imageElement.dataset.immersionImageSrc) {
       this.hideBrokenExampleImage(container, imageElement);
@@ -32511,7 +32525,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.72"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.73"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

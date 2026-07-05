@@ -19,6 +19,7 @@ import {
     uniqueImmersionQueries,
 } from './query';
 import { isAbortError } from './errors';
+import { publishImmersionFrameWidth } from './frame-width';
 import { ImmersionKitClient, isImmersionKitRateLimitError, type ImmersionKitExample, type ImmersionKitSearchOptions } from './kit';
 import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './labels';
 import { nextImmersionExampleIndex, renderImmersionExampleActionsHtml, validImmersionExampleIndex } from './player-view';
@@ -802,6 +803,7 @@ export class ImmersionPopoverController {
                     });
             };
             imageElement.addEventListener('error', loadNextImageCandidate);
+            imageElement.addEventListener('load', () => publishImmersionFrameWidth(imageElement.closest<HTMLElement>('.jpdb-reader-example-media')));
             imageElement.addEventListener('load', () => this.options.repositionPopover(), { once: true });
             if (!imageElement.dataset.immersionImageSrc) {
                 this.hideBrokenExampleImage(container, imageElement);

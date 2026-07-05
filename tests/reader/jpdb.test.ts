@@ -3799,13 +3799,13 @@ describe('reader helpers', () => {
         expect(html).toContain('<polyline class="atamadaka"');
         expect(html).toContain('<circle class="atamadaka"');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-sentence .jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) );');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) );');
-        expect(normalizedNewTabCss).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg));');
-        expect(normalizedNewTabCss).toContain('-webkit-box-decoration-break: clone; box-decoration-break: clone;');
-        expect(normalizedNewTabCss).toContain('box-shadow: 0 6px 16px var(--jpdb-reader-shadow), inset 0 0 0 1px var(--jpdb-reader-ocr-inset);');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; }');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; text-decoration-color: transparent !important; }');
+        // Target highlighting and the overlay pill are shared rules in
+        // immersion-study.css; new-tab.css must not re-declare them.
+        expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-target {');
+        expect(normalizedImmersionCss).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg));');
+        expect(normalizedImmersionCss).toContain('-webkit-box-decoration-break: clone; box-decoration-break: clone;');
+        expect(normalizedImmersionCss).toContain('box-shadow: 0 6px 16px var(--jpdb-reader-shadow), inset 0 0 0 1px var(--jpdb-reader-ocr-inset);');
+        expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target {');
         expect(normalizedNewTabCss).toContain('@media (pointer: coarse) { .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom))); }');
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-install-app, .jpdb-reader-language-toggle { width: 44px !important;');
         // Immersion Kit controls stay compact on touch (user-reported: 44px
@@ -3826,7 +3826,7 @@ describe('reader helpers', () => {
         expect(normalizedImmersionCss).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg));');
         expect(normalizedImmersionCss).toContain('-webkit-box-decoration-break: clone; box-decoration-break: clone;');
         expect(normalizedImmersionCss).toContain('box-shadow: 0 6px 16px var(--jpdb-reader-shadow), inset 0 0 0 1px var(--jpdb-reader-ocr-inset);');
-        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
+        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence :is(.jpdb-reader-example-target, .jpdb-reader-word.jpdb-reader-example-target) { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
         expect(normalizedImmersionCss).toContain('.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; }');
         expect(normalizedImmersionCss).toContain('.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; text-decoration-color: transparent !important; }');
         expect(normalizedImmersionCss).toContain('.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 0 0 6px; }');

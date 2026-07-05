@@ -5245,7 +5245,13 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   z-index: 1;
   justify-self: stretch;
   box-sizing: border-box;
-  max-width: calc(100% - clamp(20px, 8%, 36px));
+  /* Letterboxed stills can paint narrower than the media box (min-width floor,
+     object-fit: contain frames); surfaces that know the painted width publish
+     --yomu-immersion-frame-width so the caption never hangs past the picture. */
+  max-width: min(
+    calc(100% - clamp(20px, 8%, 36px)),
+    calc(var(--yomu-immersion-frame-width, 100%) - 12px)
+  );
   padding: 2px 6px;
   border-radius: 4px;
   transform: translateX(-50%);
@@ -5369,21 +5375,7 @@ mark.jpdb-reader-example-target {
 }
 .jpdb-reader-example-card.has-image
   .jpdb-reader-example-sentence
-  .jpdb-reader-example-target {
-  --jpdb-reader-word-underline: transparent;
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%,
-    var(--jpdb-reader-video-target-backdrop)
-  ) !important;
-  box-shadow:
-    0 0.08em 0 color-mix(in srgb, var(--jpdb-reader-black) 58%, transparent),
-    inset 0 -0.12em 0 color-mix(in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 74%, transparent) !important;
-  text-decoration-color: transparent !important;
-}
-.jpdb-reader-example-card.has-image
-  .jpdb-reader-example-sentence
-  .jpdb-reader-word.jpdb-reader-example-target {
+  :is(.jpdb-reader-example-target, .jpdb-reader-word.jpdb-reader-example-target) {
   --jpdb-reader-word-underline: transparent;
   background: color-mix(
     in srgb,
