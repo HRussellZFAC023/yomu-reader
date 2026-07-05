@@ -1832,27 +1832,54 @@ function targetForcesAllFurigana(parent: HTMLElement): boolean {
 // m.youtube community-post bodies showed a half-clipped first line. Probe the
 // engine once and keep readings out of clamped boxes where it is broken —
 // colour and pitch underlines still render there.
-let rubyBreaksLineClampCache: boolean | null = null;
-function rubyBreaksLineClamp(): boolean {
-    if (rubyBreaksLineClampCache !== null) return rubyBreaksLineClampCache;
+// WebKit also grows the line box when a ruby annotation lands in it (Chromium
+// paints the reading without moving the line): in a fixed-height or ellipsis
+// row the grown line shifts the base text out of the clip window, so only the
+// furigana stays visible (Shorts titles, shelf headings on iPhone). Probe both
+// distortions once and keep readings out of constrained rows where either
+// bites — colour and pitch underlines still render there.
+let rubyDistortsConstrainedRowsCache: boolean | null = null;
+function rubyDistortsConstrainedRows(): boolean {
+    if (rubyDistortsConstrainedRowsCache !== null) return rubyDistortsConstrainedRowsCache;
     if (!document.body) return false;
-    const probe = document.createElement('div');
-    probe.style.cssText = 'position:absolute;left:-9999px;top:0;width:120px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:20px;line-height:1.2;';
-    probe.innerHTML = '<ruby>漢字<rt>かんじ</rt></ruby>の後に長いテキストが続いて二行目を埋めます';
-    document.body.appendChild(probe);
-    // 0 = unmeasurable layout (jsdom, detached documents): assume healthy.
-    // A broken WebKit measures ~0.66em (13px here); healthy engines ≥2 lines.
-    const height = probe.getBoundingClientRect().height;
-    const collapsed = height > 0 && height < 20;
-    probe.remove();
-    rubyBreaksLineClampCache = collapsed;
-    return collapsed;
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;left:-9999px;top:0;';
+    // The probe ruby carries the real word/furi classes so the measurement
+    // reflects Yomu-styled annotations (our rt CSS keeps Chromium's line box
+    // from growing; bare native ruby would flag healthy engines too).
+    const styledRuby = '<span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-has-furi"><ruby><span class="jpdb-reader-ruby-base">漢字</span><rt class="jpdb-reader-furi">かんじ</rt></ruby></span>';
+    const clampStyle = 'width:120px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:20px;line-height:1.2;';
+    const growStyle = 'font-size:20px;line-height:24px;white-space:nowrap;';
+    // Every measurement compares against an identical no-ruby baseline, so
+    // environments with mocked or unmeasurable layout (jsdom tests) read as
+    // healthy instead of tripping fixed thresholds.
+    host.innerHTML = `<div data-yomu-probe="clamp" style="${clampStyle}">${styledRuby}の後に長いテキストが続いて二行目を埋めます</div>`
+        + `<div data-yomu-probe="clamp-base" style="${clampStyle}">漢字の後に長いテキストが続いて二行目を埋めます</div>`
+        + `<div data-yomu-probe="grow" style="${growStyle}">${styledRuby}</div>`
+        + `<div data-yomu-probe="grow-base" style="${growStyle}">漢字</div>`;
+    document.body.appendChild(host);
+    const measure = (key: string) => host.querySelector(`[data-yomu-probe="${key}"]`)?.getBoundingClientRect().height ?? 0;
+    // A collapsing WebKit clamp measures ~0.66em against 2 baseline lines.
+    const collapses = measure('clamp-base') > 0 && measure('clamp') < measure('clamp-base') * 0.6;
+    // A line-growing engine renders the fixed 24px line visibly taller.
+    const grows = measure('grow-base') > 0 && measure('grow') > measure('grow-base') + 6;
+    host.remove();
+    rubyDistortsConstrainedRowsCache = collapses || grows;
+    return rubyDistortsConstrainedRowsCache;
 }
 
-function isInsideLineClampBox(element: HTMLElement): boolean {
+// Deliberately no display-heading exemption here: on a distorting engine a
+// clipped heading loses its base text just like any other constrained row.
+function isInsideRubyFragileConstrainedRow(element: HTMLElement): boolean {
     let current: HTMLElement | null = element;
     for (let depth = 0; current && depth < 5; depth += 1) {
-        if (hasLineClamp(safeComputedStyle(current))) return true;
+        const style = safeComputedStyle(current);
+        if (hasLineClamp(style)) return true;
+        if (isEllipsisTextRow(style)) return true;
+        if (clipsOverflow(style)) {
+            const height = current.getBoundingClientRect().height;
+            if (height > 0 && height <= 96) return true;
+        }
         current = current.parentElement;
     }
     return false;
@@ -1860,7 +1887,7 @@ function isInsideLineClampBox(element: HTMLElement): boolean {
 
 function shouldSuppressCompactScanRuby(parent: HTMLElement): boolean {
     if (parent.closest(READER_ROOT_SELECTOR)) return false;
-    if (rubyBreaksLineClamp() && isInsideLineClampBox(parent)) return true;
+    if (rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(parent)) return true;
     if (shouldSuppressCompactMediaRuby(parent)) {
         markCompactMediaPassiveChrome(parent);
         return true;

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.75] - 2026-07-05
+
+### Fixed
+
+- Base text no longer disappears from clipped single-line rows when furigana is added: Shorts titles and shelf headings could shift out of their fixed-height clip window leaving only the reading visible. Words inside sub-one-line clipped or ellipsis rows now keep colour and pitch underlines without an in-place reading, so the text itself always stays visible on every engine and layout.
+
 ## [1.6.74] - 2026-07-05
 
 ### Fixed

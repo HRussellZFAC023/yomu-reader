@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.74
+// @version 1.6.75
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.74#sha256=r+U3PPlMNcOWCLRVtHZhUi4xLBnGczjeYX3GVq8WU1M=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.74#sha256=NKYC/VXaQkKHPiOpiUqTesgQk8/nI2XOnTh8D/Ygrxk=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.74#sha256=DDs7i2K5xteBYt55n2PKuvpdBwD2bYuubpk2nR2KdoM=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.74#sha256=N1++NNa9Le4vmLfAkgmyxd1/OI56ZQO3Y1XjSeezdkA=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.74#sha256=vgC8ZXCszAQNrGCyis12JRidrrMeo/efhVJ715e6nLg=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.74#sha256=mpRGn5vgdK+axkUJgXDcO9AtbHA76IBwDXwHrKDHltE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.75#sha256=r+U3PPlMNcOWCLRVtHZhUi4xLBnGczjeYX3GVq8WU1M=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.75#sha256=NKYC/VXaQkKHPiOpiUqTesgQk8/nI2XOnTh8D/Ygrxk=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.75#sha256=DDs7i2K5xteBYt55n2PKuvpdBwD2bYuubpk2nR2KdoM=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.75#sha256=N1++NNa9Le4vmLfAkgmyxd1/OI56ZQO3Y1XjSeezdkA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.75#sha256=vgC8ZXCszAQNrGCyis12JRidrrMeo/efhVJ715e6nLg=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.75#sha256=mpRGn5vgdK+axkUJgXDcO9AtbHA76IBwDXwHrKDHltE=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -5331,31 +5331,41 @@ function scanTargetSuppressesRuby(parent, suppressRuby) {
 function targetForcesAllFurigana(parent) {
   return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
 }
-let rubyBreaksLineClampCache = null;
-function rubyBreaksLineClamp() {
-  if (rubyBreaksLineClampCache !== null) return rubyBreaksLineClampCache;
+let rubyDistortsConstrainedRowsCache = null;
+function rubyDistortsConstrainedRows() {
+  if (rubyDistortsConstrainedRowsCache !== null) return rubyDistortsConstrainedRowsCache;
   if (!document.body) return false;
-  const probe = document.createElement("div");
-  probe.style.cssText = "position:absolute;left:-9999px;top:0;width:120px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:20px;line-height:1.2;";
-  probe.innerHTML = "<ruby>漢字<rt>かんじ</rt></ruby>の後に長いテキストが続いて二行目を埋めます";
-  document.body.appendChild(probe);
-  const height = probe.getBoundingClientRect().height;
-  const collapsed = height > 0 && height < 20;
-  probe.remove();
-  rubyBreaksLineClampCache = collapsed;
-  return collapsed;
+  const host = document.createElement("div");
+  host.style.cssText = "position:absolute;left:-9999px;top:0;";
+  const styledRuby = '<span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-has-furi"><ruby><span class="jpdb-reader-ruby-base">漢字</span><rt class="jpdb-reader-furi">かんじ</rt></ruby></span>';
+  const clampStyle = "width:120px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:20px;line-height:1.2;";
+  const growStyle = "font-size:20px;line-height:24px;white-space:nowrap;";
+  host.innerHTML = `<div data-yomu-probe="clamp" style="${clampStyle}">${styledRuby}の後に長いテキストが続いて二行目を埋めます</div><div data-yomu-probe="clamp-base" style="${clampStyle}">漢字の後に長いテキストが続いて二行目を埋めます</div><div data-yomu-probe="grow" style="${growStyle}">${styledRuby}</div><div data-yomu-probe="grow-base" style="${growStyle}">漢字</div>`;
+  document.body.appendChild(host);
+  const measure = (key) => host.querySelector(`[data-yomu-probe="${key}"]`)?.getBoundingClientRect().height ?? 0;
+  const collapses = measure("clamp-base") > 0 && measure("clamp") < measure("clamp-base") * 0.6;
+  const grows = measure("grow-base") > 0 && measure("grow") > measure("grow-base") + 6;
+  host.remove();
+  rubyDistortsConstrainedRowsCache = collapses || grows;
+  return rubyDistortsConstrainedRowsCache;
 }
-function isInsideLineClampBox(element2) {
+function isInsideRubyFragileConstrainedRow(element2) {
   let current = element2;
   for (let depth = 0; current && depth < 5; depth += 1) {
-  if (hasLineClamp(safeComputedStyle(current))) return true;
+  const style = safeComputedStyle(current);
+  if (hasLineClamp(style)) return true;
+  if (isEllipsisTextRow(style)) return true;
+  if (clipsOverflow(style)) {
+    const height = current.getBoundingClientRect().height;
+    if (height > 0 && height <= 96) return true;
+  }
   current = current.parentElement;
   }
   return false;
 }
 function shouldSuppressCompactScanRuby(parent) {
   if (parent.closest(READER_ROOT_SELECTOR$3)) return false;
-  if (rubyBreaksLineClamp() && isInsideLineClampBox(parent)) return true;
+  if (rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(parent)) return true;
   if (shouldSuppressCompactMediaRuby(parent)) {
   markCompactMediaPassiveChrome(parent);
   return true;
@@ -32551,7 +32561,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.74"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.75"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

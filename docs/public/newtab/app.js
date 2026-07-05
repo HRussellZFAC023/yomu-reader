@@ -8967,31 +8967,41 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function targetForcesAllFurigana(parent) {
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
   }
-  let rubyBreaksLineClampCache = null;
-  function rubyBreaksLineClamp() {
-    if (rubyBreaksLineClampCache !== null) return rubyBreaksLineClampCache;
+  let rubyDistortsConstrainedRowsCache = null;
+  function rubyDistortsConstrainedRows() {
+    if (rubyDistortsConstrainedRowsCache !== null) return rubyDistortsConstrainedRowsCache;
     if (!document.body) return false;
-    const probe = document.createElement("div");
-    probe.style.cssText = "position:absolute;left:-9999px;top:0;width:120px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:20px;line-height:1.2;";
-    probe.innerHTML = "<ruby>漢字<rt>かんじ</rt></ruby>の後に長いテキストが続いて二行目を埋めます";
-    document.body.appendChild(probe);
-    const height = probe.getBoundingClientRect().height;
-    const collapsed = height > 0 && height < 20;
-    probe.remove();
-    rubyBreaksLineClampCache = collapsed;
-    return collapsed;
+    const host = document.createElement("div");
+    host.style.cssText = "position:absolute;left:-9999px;top:0;";
+    const styledRuby = '<span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-has-furi"><ruby><span class="jpdb-reader-ruby-base">漢字</span><rt class="jpdb-reader-furi">かんじ</rt></ruby></span>';
+    const clampStyle = "width:120px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:20px;line-height:1.2;";
+    const growStyle = "font-size:20px;line-height:24px;white-space:nowrap;";
+    host.innerHTML = `<div data-yomu-probe="clamp" style="${clampStyle}">${styledRuby}の後に長いテキストが続いて二行目を埋めます</div><div data-yomu-probe="clamp-base" style="${clampStyle}">漢字の後に長いテキストが続いて二行目を埋めます</div><div data-yomu-probe="grow" style="${growStyle}">${styledRuby}</div><div data-yomu-probe="grow-base" style="${growStyle}">漢字</div>`;
+    document.body.appendChild(host);
+    const measure = (key) => host.querySelector(`[data-yomu-probe="${key}"]`)?.getBoundingClientRect().height ?? 0;
+    const collapses = measure("clamp-base") > 0 && measure("clamp") < measure("clamp-base") * 0.6;
+    const grows = measure("grow-base") > 0 && measure("grow") > measure("grow-base") + 6;
+    host.remove();
+    rubyDistortsConstrainedRowsCache = collapses || grows;
+    return rubyDistortsConstrainedRowsCache;
   }
-  function isInsideLineClampBox(element) {
+  function isInsideRubyFragileConstrainedRow(element) {
     let current = element;
     for (let depth = 0; current && depth < 5; depth += 1) {
-      if (hasLineClamp(safeComputedStyle(current))) return true;
+      const style = safeComputedStyle(current);
+      if (hasLineClamp(style)) return true;
+      if (isEllipsisTextRow(style)) return true;
+      if (clipsOverflow(style)) {
+        const height = current.getBoundingClientRect().height;
+        if (height > 0 && height <= 96) return true;
+      }
       current = current.parentElement;
     }
     return false;
   }
   function shouldSuppressCompactScanRuby(parent) {
     if (parent.closest(READER_ROOT_SELECTOR)) return false;
-    if (rubyBreaksLineClamp() && isInsideLineClampBox(parent)) return true;
+    if (rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(parent)) return true;
     if (shouldSuppressCompactMediaRuby(parent)) {
       markCompactMediaPassiveChrome(parent);
       return true;
@@ -39393,7 +39403,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.74".trim() ? "1.6.74".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.75".trim() ? "1.6.75".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
