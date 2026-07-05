@@ -8,6 +8,7 @@ import type { BunproClient } from './bunpro';
 const BUNPRO_SRS_TIERS = ['beginner', 'adept', 'seasoned', 'expert', 'master', 'ghost'] as const;
 const BUNPRO_WORD_STATES_STORAGE_KEY = 'yomu:bunpro-word-states:v1';
 const BUNPRO_WORD_STATES_TTL_MS = 6 * 60 * 60 * 1_000;
+const BUNPRO_WORD_STATES_RETRY_BACKOFF_MS = 5 * 60 * 1_000;
 const BUNPRO_WORD_STATES_MAX_PAGES = 50;
 
 type BunproSrsTier = (typeof BUNPRO_SRS_TIERS)[number];
@@ -23,6 +24,8 @@ export type BunproWordStateMap = Map<string, BunproWordStateEntry>;
 
 interface StoredBunproWordStates {
     fetchedAt: number;
+    /** Fingerprint of the credential the index was fetched with. */
+    credential?: string;
     states: Record<string, { s: string; d: number | null }>;
 }
 
@@ -36,32 +39,49 @@ export class BunproWordStateStore {
     private pending: Promise<BunproWordStateMap | null> | null = null;
 
     constructor(
-        private readonly client: Pick<BunproClient, 'getSrsOverview' | 'getSrsLevelDetails' | 'hasFrontendCredential'>,
+        private readonly client: Pick<BunproClient, 'getSrsOverview' | 'getSrsLevelDetails' | 'hasFrontendCredential' | 'frontendCredentialFingerprint'>,
         private readonly ttlMs = BUNPRO_WORD_STATES_TTL_MS,
     ) {}
 
+    /** Drop the in-memory index (settings may have changed). The persisted
+     * cache stays — it is validated against the credential fingerprint on the
+     * next load, so a token swap can never colour from the previous account
+     * while an unrelated settings change keeps the cheap warm cache. */
+    clear(): void {
+        this.states = null;
+        this.retryAfter = 0;
+    }
+
     async load(now = Date.now()): Promise<BunproWordStateMap | null> {
         if (this.states) return this.states;
+        if (now < this.retryAfter) return null;
         this.pending ??= this.loadFresh(now).finally(() => { this.pending = null; });
         return this.pending;
     }
 
+    private retryAfter = 0;
+
     private async loadFresh(now: number): Promise<BunproWordStateMap | null> {
+        const credential = this.client.frontendCredentialFingerprint();
         const stored = await gmStorageGet<StoredBunproWordStates | null>(BUNPRO_WORD_STATES_STORAGE_KEY, null);
-        const cached = restoreBunproWordStates(stored);
-        if (cached && stored && now - stored.fetchedAt < this.ttlMs) {
+        const storedForUser = stored && (stored.credential ?? '') === credential ? stored : null;
+        const cached = restoreBunproWordStates(storedForUser);
+        if (cached && storedForUser && now - storedForUser.fetchedAt < this.ttlMs) {
             this.states = cached;
             return cached;
         }
         if (!this.client.hasFrontendCredential()) return cached;
         try {
             const fetched = await fetchBunproWordStates(this.client);
-            await gmStorageSet(BUNPRO_WORD_STATES_STORAGE_KEY, persistableBunproWordStates(fetched, now));
+            await gmStorageSet(BUNPRO_WORD_STATES_STORAGE_KEY, persistableBunproWordStates(fetched, now, credential));
             this.states = fetched;
             return fetched;
         } catch {
-            // Keep colouring from the stale index rather than dropping it.
+            // Keep colouring from the stale index rather than dropping it. With
+            // no cache at all, back off instead of re-running the full tier
+            // enumeration on every scan pass while bunpro.jp is erroring.
             this.states = cached;
+            if (!cached) this.retryAfter = now + BUNPRO_WORD_STATES_RETRY_BACKOFF_MS;
             return cached;
         }
     }
@@ -163,12 +183,12 @@ function restoreBunproWordStates(stored: StoredBunproWordStates | null): BunproW
     return states;
 }
 
-function persistableBunproWordStates(states: BunproWordStateMap, fetchedAt: number): StoredBunproWordStates {
+function persistableBunproWordStates(states: BunproWordStateMap, fetchedAt: number, credential: string): StoredBunproWordStates {
     const stored: StoredBunproWordStates['states'] = {};
     states.forEach((entry, expression) => {
         stored[expression] = { s: entry.state, d: entry.dueAt };
     });
-    return { fetchedAt, states: stored };
+    return { fetchedAt, credential, states: stored };
 }
 
 function parseEpoch(value: unknown): number | null {

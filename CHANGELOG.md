@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.86] - 2026-07-05
+
+### Fixed
+
+- Overlay-decorated text no longer flickers or tears down on rows with hidden duplicate labels: the mirror staleness check now reads the host through the same visible-text extractor it was seeded with, and hidden or script-only text can no longer be painted into the mirror.
+- Live-updating mirrored rows (view counts, subscriber counts) refresh in place instead of flapping between decorated and bare: the stale-mirror rescan is no longer debounced past the mirror's removal grace window.
+- Safari/WebKit constrained-row handling can no longer lock in a wrong verdict when the reader stylesheet loads late: the ruby layout probe verifies Yomu's own styles are applied before caching its result, so healthy engines keep in-place furigana.
+- Clipped single-line rows now also grow when furigana clips at the top of the row (Google search chips and similar fixed-height labels), and removing a mirror no longer overwrites styles the page changed while the mirror was up.
+- Bunpro colouring hardening: the review index is cached per account so switching tokens can never colour words from the previous account, a failed fetch backs off for five minutes instead of retrying on every scan, and words that leave the Bunpro index restore their original provider state and classes.
+- Smoother scrolling: scroll-triggered rescans are debounced on every site, and scrolling inside Yomu's own panels and popovers no longer triggers page rescans.
+- Rare supplementary-plane kanji (such as 𠮟) are now treated as CJK when collapsing soft line breaks, so words containing them no longer gain a stray space.
+
 ## [1.6.85] - 2026-07-05
 
 ### Added

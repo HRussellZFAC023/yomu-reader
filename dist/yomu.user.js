@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.85
+// @version 1.6.86
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.85#sha256=MckBoQek04F/5L7ew566RdMWj1j3jl/AfPjAt9el8mE=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.85#sha256=FOvCf7KbOTzYSH/kt8VlXqdkpaEl57KOu1wjtgxgfQE=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.85#sha256=Hgu0mcMzilg8tNkAtAZUEBoT4JNFj3EUEZcbxQdnzlc=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.85#sha256=Qp7PEqQNrMqpmEXR16D4rahWHVy0qb9unv2HAapo9/Y=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.85#sha256=++cbQibSCMrs8Nx9aMh6GVfvnIoaJ7pmgL4dHS/RlXo=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.85#sha256=3Df3EEyVtSvce9ui6qtxUj34MtRqwjIpZ4evw33rLQE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.86#sha256=MckBoQek04F/5L7ew566RdMWj1j3jl/AfPjAt9el8mE=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.86#sha256=FOvCf7KbOTzYSH/kt8VlXqdkpaEl57KOu1wjtgxgfQE=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.86#sha256=Hgu0mcMzilg8tNkAtAZUEBoT4JNFj3EUEZcbxQdnzlc=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.86#sha256=Qp7PEqQNrMqpmEXR16D4rahWHVy0qb9unv2HAapo9/Y=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.86#sha256=++cbQibSCMrs8Nx9aMh6GVfvnIoaJ7pmgL4dHS/RlXo=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.86#sha256=3Df3EEyVtSvce9ui6qtxUj34MtRqwjIpZ4evw33rLQE=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -4982,11 +4982,12 @@ function nonDestructiveHostRenderPlan(host, target, tokens) {
 function collapsedTextKey(text2) {
   return text2.replace(/\s+/gu, "");
 }
+const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden]`;
 function hostOriginalTextWithNodeOffsets(host) {
   const nodeOffsets = new Map();
   let hostText = "";
   const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
-  acceptNode: (node) => node.parentElement?.closest(READER_OWNED_TEXT_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+  acceptNode: (node) => node.parentElement?.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
   });
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
   nodeOffsets.set(node, hostText.length);
@@ -5067,7 +5068,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   }
   hideTextMirrorHost(host, state);
   host.append(mirror);
-  observeTextMirrorHost(host, text2);
+  observeTextMirrorHost(host);
   } catch (error) {
   removeTextMirror(host);
   throw error;
@@ -5091,7 +5092,7 @@ function collapseWhitespaceWithOffsets(text2) {
     const start = index;
     while (index < text2.length && /\s/u.test(text2[index] ?? "")) index += 1;
     const mapped = normalized.length;
-    if (normalized.length > 0 && index < text2.length && !(isCjkChar(normalized[normalized.length - 1]) && isCjkChar(text2[index]))) {
+    if (normalized.length > 0 && index < text2.length && !(isCjkChar(lastFullChar(normalized)) && isCjkChar(String.fromCodePoint(text2.codePointAt(index) ?? 0)))) {
       normalized += " ";
     }
     for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
@@ -5105,7 +5106,12 @@ function collapseWhitespaceWithOffsets(text2) {
   return { normalized, offsets };
 }
 function isCjkChar(char) {
-  return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-｠]/u.test(char ?? "");
+  return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-｠\u{20000}-\u{3FFFF}]/u.test(char ?? "");
+}
+function lastFullChar(text2) {
+  if (!text2) return void 0;
+  const chars = Array.from(text2.slice(-2));
+  return chars[chars.length - 1];
 }
 function remapTokenOffsets(token, offsets, sentence) {
   const start = offsets[token.start] ?? token.start;
@@ -5272,9 +5278,9 @@ function removeCanvasFallbackTextLayer(canvas) {
   const state = canvasFallbackTextLayers.get(canvas);
   state?.layer.remove();
   if (state) {
-  restoreStyleProperty(canvas, "visibility", state.canvasVisibility, state.canvasVisibilityPriority);
+  restoreStyleProperty(canvas, "visibility", "hidden", state.canvasVisibility, state.canvasVisibilityPriority);
   const host = canvas.parentElement;
-  if (host && state.hostPositionAdjusted) restoreStyleProperty(host, "position", state.hostPosition, state.hostPositionPriority);
+  if (host && state.hostPositionAdjusted) restoreStyleProperty(host, "position", "relative", state.hostPosition, state.hostPositionPriority);
   }
   canvasFallbackTextLayers.delete(canvas);
 }
@@ -5343,7 +5349,7 @@ function restoreControlTextMirrorHost(host, state) {
   else host.setAttribute(READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE, state.placeholderHiddenAttribute);
   }
   if (state.parent && state.parentPositionAdjusted) {
-  restoreStyleProperty(state.parent, "position", state.parentPosition, state.parentPositionPriority);
+  restoreStyleProperty(state.parent, "position", "relative", state.parentPosition, state.parentPositionPriority);
   }
 }
 function furiganaSettingsForTarget(settings, parent) {
@@ -5371,9 +5377,14 @@ function rubyDistortsConstrainedRows() {
   host.innerHTML = `<div data-yomu-probe="clamp" style="${clampStyle}">${styledRuby}の後に長いテキストが続いて二行目を埋めます</div><div data-yomu-probe="clamp-base" style="${clampStyle}">漢字の後に長いテキストが続いて二行目を埋めます</div><div data-yomu-probe="grow" style="${growStyle}">${styledRuby}</div><div data-yomu-probe="grow-base" style="${growStyle}">漢字</div>`;
   document.body.appendChild(host);
   const measure = (key) => host.querySelector(`[data-yomu-probe="${key}"]`)?.getBoundingClientRect().height ?? 0;
+  const probeRt = host.querySelector("rt.jpdb-reader-furi");
+  const probeRtStyle = probeRt ? safeComputedStyle(probeRt) : null;
+  const rtFontSize = probeRtStyle ? Number.parseFloat(probeRtStyle.fontSize || "0") : 0;
+  const readerCssApplied = probeRtStyle?.userSelect === "none" || probeRtStyle?.webkitUserSelect === "none";
   const collapses = measure("clamp-base") > 0 && measure("clamp") < measure("clamp-base") * 0.6;
   const grows = measure("grow-base") > 0 && measure("grow") > measure("grow-base") + 6;
   host.remove();
+  if (!readerCssApplied && rtFontSize > 0) return collapses;
   rubyDistortsConstrainedRowsCache = collapses || grows;
   return rubyDistortsConstrainedRowsCache;
 }
@@ -5671,10 +5682,10 @@ function rubyFriendlyMirrorLineHeight(style) {
   const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
   return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
 }
-function observeTextMirrorHost(host, sourceText) {
+function observeTextMirrorHost(host) {
   const state = textMirrorHosts.get(host);
   if (!state) return;
-  state.sourceText = normalizedMirrorHostText(sourceText);
+  state.sourceText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
   state.observer = new MutationObserver((mutations) => {
   if (mutations.every(mutationInsideTextMirror)) return;
   if (!currentTextMirror(host)) {
@@ -5756,12 +5767,14 @@ function reassertTextMirrorHostStyles(host, state) {
   }
 }
 function restoreTextMirrorHost(host, state) {
-  restoreStyleProperty(host, "visibility", state.visibility, state.visibilityPriority);
-  if (state.overflowAdjusted) restoreStyleProperty(host, "overflow", state.overflow, state.overflowPriority);
-  if (state.positioned) restoreStyleProperty(host, "position", state.position, state.positionPriority);
-  if (state.displayAdjusted) restoreStyleProperty(host, "display", state.display, state.displayPriority);
+  restoreStyleProperty(host, "visibility", "hidden", state.visibility, state.visibilityPriority);
+  if (state.overflowAdjusted) restoreStyleProperty(host, "overflow", "visible", state.overflow, state.overflowPriority);
+  if (state.positioned) restoreStyleProperty(host, "position", "relative", state.position, state.positionPriority);
+  if (state.displayAdjusted) restoreStyleProperty(host, "display", "inline-block", state.display, state.displayPriority);
 }
-function restoreStyleProperty(host, property, value, priority2) {
+function restoreStyleProperty(host, property, injectedValue, value, priority2) {
+  const current = host.style.getPropertyValue(property);
+  if (current && current !== injectedValue) return;
   if (value) host.style.setProperty(property, value, priority2);
   else host.style.removeProperty(property);
 }
@@ -7092,11 +7105,11 @@ function makeRoomForRubyInCroppedRows(root = document) {
   return adjusted;
 }
 function rubyCropsBox(box) {
-  return rubyBottomOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
+  return rubyBottomOverflow(box) > 1 || rubyTopOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
 }
 function genericRubyRoomHeight(box) {
   const mirror = box.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
-  return Math.ceil(Math.max(box.clientHeight + rubyBottomOverflow(box), mirror ? mirror.scrollHeight : 0));
+  return Math.ceil(Math.max(box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box), mirror ? mirror.scrollHeight : 0));
 }
 const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ":is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])";
 function isGoogleSearchRubyRoomTextBox(box) {
@@ -7140,17 +7153,33 @@ function cropCapableBoxes(element2) {
   return boxes.length || !fallback ? boxes : [fallback];
 }
 function boxActuallyCrops(box) {
-  return box.scrollHeight > box.clientHeight + 1 || rubyBottomOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
+  return box.scrollHeight > box.clientHeight + 1 || rubyBottomOverflow(box) > 1 || rubyTopOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
 }
 function rubyRoomHeight(box) {
   const mirror = box.querySelector(".jpdb-reader-text-mirror");
   const mirrorHeight = mirror ? mirror.scrollHeight : 0;
-  return Math.ceil(Math.max(box.scrollHeight, box.clientHeight + rubyBottomOverflow(box), mirrorHeight));
+  return Math.ceil(Math.max(
+  box.scrollHeight,
+  box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
+  mirrorHeight
+  ));
 }
 function rubyMirrorBlockOverflow(box) {
   const mirror = box.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
   if (!mirror) return 0;
   return Math.max(0, mirror.scrollHeight - box.clientHeight);
+}
+function rubyTopOverflow(box) {
+  const boxRect = box.getBoundingClientRect();
+  let overflow = 0;
+  for (const ruby of box.querySelectorAll("ruby")) {
+  const base = ruby.querySelector(".jpdb-reader-ruby-base") ?? ruby;
+  if (!baseVisibleInBox(base.getBoundingClientRect(), boxRect)) continue;
+  const rt = ruby.querySelector("rt");
+  if (!rt) continue;
+  overflow = Math.max(overflow, boxRect.top - rt.getBoundingClientRect().top);
+  }
+  return Math.max(0, overflow);
 }
 function rubyBottomOverflow(box) {
   const boxRect = box.getBoundingClientRect();
@@ -25390,7 +25419,9 @@ function applyBunproStateToRenderedWord(word, state) {
   }
   if (previous === state) return false;
   if (previous) word.classList.remove(`jpdb-${previous}`, `bunpro-${previous}`);
-  word.classList.remove("jpdb-not-in-deck");
+  else word.dataset.bunproPrefillState = word.dataset.cardState ?? "";
+  const source = word.dataset.cardSource ?? "jpdb";
+  word.classList.remove("jpdb-not-in-deck", `${source}-not-in-deck`);
   word.classList.add(`jpdb-${state}`, `bunpro-${state}`);
   word.dataset.cardState = state;
   word.dataset.bunproState = state;
@@ -25400,8 +25431,17 @@ function clearRenderedWordBunproState(word) {
   const previous = word.dataset.bunproState ?? "";
   if (previous) word.classList.remove(`jpdb-${previous}`, `bunpro-${previous}`);
   delete word.dataset.bunproState;
-  word.classList.add("jpdb-not-in-deck");
-  word.dataset.cardState = "not-in-deck";
+  const prefill = word.dataset.bunproPrefillState;
+  delete word.dataset.bunproPrefillState;
+  const restored = prefill ?? "not-in-deck";
+  if (restored) {
+  const source = word.dataset.cardSource ?? "jpdb";
+  word.classList.add(`jpdb-${restored}`);
+  if (source !== "jpdb") word.classList.add(`${source}-${restored}`);
+  word.dataset.cardState = restored;
+  } else {
+  delete word.dataset.cardState;
+  }
 }
 function clearRenderedWordMiningInsight(word) {
   word.classList.remove("jpdb-reader-i-plus-one");
@@ -31380,6 +31420,17 @@ class BunproClient {
   hasFrontendCredential() {
   return Boolean(this.getFrontendToken().trim());
   }
+  /** Cheap non-reversible fingerprint of the frontend token, so persisted
+   * per-account caches can be validated without storing the token itself. */
+  frontendCredentialFingerprint() {
+  const token = this.getFrontendToken().trim();
+  if (!token) return "";
+  let hash = 5381;
+  for (let index = 0; index < token.length; index += 1) {
+    hash = (hash << 5) + hash + token.charCodeAt(index) >>> 0;
+  }
+  return `${hash.toString(16)}:${token.length}`;
+  }
   hasLegacyCredential() {
   return Boolean(this.getLegacyApiKey().trim());
   }
@@ -31557,6 +31608,7 @@ function trimBunproSearchSection(section, limit) {
 const BUNPRO_SRS_TIERS = ["beginner", "adept", "seasoned", "expert", "master", "ghost"];
 const BUNPRO_WORD_STATES_STORAGE_KEY = "yomu:bunpro-word-states:v1";
 const BUNPRO_WORD_STATES_TTL_MS = 6 * 60 * 60 * 1e3;
+const BUNPRO_WORD_STATES_RETRY_BACKOFF_MS = 5 * 60 * 1e3;
 const BUNPRO_WORD_STATES_MAX_PAGES = 50;
 class BunproWordStateStore {
   constructor(client, ttlMs = BUNPRO_WORD_STATES_TTL_MS) {
@@ -31565,28 +31617,41 @@ class BunproWordStateStore {
   }
   states = null;
   pending = null;
+  /** Drop the in-memory index (settings may have changed). The persisted
+   * cache stays — it is validated against the credential fingerprint on the
+   * next load, so a token swap can never colour from the previous account
+   * while an unrelated settings change keeps the cheap warm cache. */
+  clear() {
+  this.states = null;
+  this.retryAfter = 0;
+  }
   async load(now = Date.now()) {
   if (this.states) return this.states;
+  if (now < this.retryAfter) return null;
   this.pending ??= this.loadFresh(now).finally(() => {
     this.pending = null;
   });
   return this.pending;
   }
+  retryAfter = 0;
   async loadFresh(now) {
+  const credential = this.client.frontendCredentialFingerprint();
   const stored = await gmStorageGet(BUNPRO_WORD_STATES_STORAGE_KEY, null);
-  const cached = restoreBunproWordStates(stored);
-  if (cached && stored && now - stored.fetchedAt < this.ttlMs) {
+  const storedForUser = stored && (stored.credential ?? "") === credential ? stored : null;
+  const cached = restoreBunproWordStates(storedForUser);
+  if (cached && storedForUser && now - storedForUser.fetchedAt < this.ttlMs) {
     this.states = cached;
     return cached;
   }
   if (!this.client.hasFrontendCredential()) return cached;
   try {
     const fetched = await fetchBunproWordStates(this.client);
-    await gmStorageSet(BUNPRO_WORD_STATES_STORAGE_KEY, persistableBunproWordStates(fetched, now));
+    await gmStorageSet(BUNPRO_WORD_STATES_STORAGE_KEY, persistableBunproWordStates(fetched, now, credential));
     this.states = fetched;
     return fetched;
   } catch {
     this.states = cached;
+    if (!cached) this.retryAfter = now + BUNPRO_WORD_STATES_RETRY_BACKOFF_MS;
     return cached;
   }
   }
@@ -31674,12 +31739,12 @@ function restoreBunproWordStates(stored) {
   }
   return states;
 }
-function persistableBunproWordStates(states, fetchedAt) {
+function persistableBunproWordStates(states, fetchedAt, credential) {
   const stored = {};
   states.forEach((entry, expression) => {
   stored[expression] = { s: entry.state, d: entry.dueAt };
   });
-  return { fetchedAt, states: stored };
+  return { fetchedAt, credential, states: stored };
 }
 function parseEpoch(value) {
   if (typeof value !== "string" || !value.trim()) return null;
@@ -32847,7 +32912,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.85"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.86"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -34072,7 +34137,7 @@ class ReaderApp {
   autoScanForced = false;
   autoScanObserver;
   handleNonDestructiveMirrorStale = () => {
-  if (this.canParseJapanese()) this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
+  if (this.canParseJapanese()) this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true });
   };
   asbScanTimer;
   hoverLookupTimer;
@@ -34645,6 +34710,7 @@ class ReaderApp {
   this.jpdbVocabulary.clear();
   this.jitenPublicVocabulary.clear();
   this.cardRenderData.clear();
+  this.bunproWordStates.clear();
   }
   scheduleDictionaryRescan() {
   if (this.activePopover?.classList.contains("jpdb-reader-settings")) {
@@ -35126,9 +35192,10 @@ class ReaderApp {
     }
   });
   this.observeAutoScanMutations();
-  window.addEventListener("scroll", () => {
+  window.addEventListener("scroll", (event) => {
+    if (eventTargetsReaderRoot(event)) return;
     {
-      this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: isYouTubeHostname() });
+      this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: true });
     }
   }, { passive: true, capture: true });
   window.addEventListener("resize", () => {

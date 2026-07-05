@@ -837,7 +837,10 @@ async function assertHostedThemeToggleResponsiveWithLoadedSubtitles(page) {
         const changed = root.classList.contains('yomu-page-theme-light') !== previous.light
             || root.classList.contains('yomu-page-theme-dark') !== previous.dark;
         const line = document.querySelector('.jpdb-subtitle-lines');
-        return changed && (line?.textContent ?? '').includes('猫を見る');
+        if (!line) return false;
+        const clone = line.cloneNode(true);
+        clone.querySelectorAll('rt,rp').forEach(node => node.remove());
+        return changed && (clone.textContent ?? '').includes('猫を見る');
     }, before, { timeout: 2000 });
     const state = await readHostedThemeResponsivenessState(page);
     assert(hostedThemeToggleResponsive(state), 'Hosted dark-mode toggle became slow or hid subtitles after loading a video/subtitle file', state);
@@ -885,7 +888,12 @@ async function readHostedThemeResponsivenessState(page) {
                 rootVisibility: rootStyle?.visibility ?? null,
                 lineDisplay: lineStyle?.display ?? null,
                 lineVisibility: lineStyle?.visibility ?? null,
-                lineText: lineElement?.textContent ?? '',
+                lineText: (() => {
+                if (!lineElement) return '';
+                const clone = lineElement.cloneNode(true);
+                clone.querySelectorAll('rt,rp').forEach(node => node.remove());
+                return clone.textContent ?? '';
+            })(),
                 rootRect: rect(rootElement),
                 lineRect: rect(lineElement),
             };
@@ -1012,7 +1020,12 @@ async function readHostedPausedVideoOcrState(page) {
                 rootVisibility: rootStyle?.visibility ?? null,
                 lineDisplay: lineStyle?.display ?? null,
                 lineVisibility: lineStyle?.visibility ?? null,
-                lineText: lineElement?.textContent ?? '',
+                lineText: (() => {
+                if (!lineElement) return '';
+                const clone = lineElement.cloneNode(true);
+                clone.querySelectorAll('rt,rp').forEach(node => node.remove());
+                return clone.textContent ?? '';
+            })(),
                 rootRect: rect(rootElement),
                 lineRect: rect(lineElement),
             };
@@ -1335,7 +1348,12 @@ async function readHostedFullscreenPausedOcrTapState(page) {
             frameHosted: frame?.getAttribute('data-yomu-ocr-fullscreen-hosted') ?? null,
             overlayHosted: overlay?.getAttribute('data-yomu-ocr-fullscreen-hosted') ?? null,
             ocrWords: document.querySelectorAll('.jpdb-ocr-layer .jpdb-reader-word').length,
-            lineText: line?.textContent ?? '',
+            lineText: (() => {
+                if (!line) return '';
+                const clone = line.cloneNode(true);
+                clone.querySelectorAll('rt,rp').forEach(node => node.remove());
+                return clone.textContent ?? '';
+            })(),
             linePointerEvents: lineStyle?.pointerEvents ?? '',
             lineActive: line?.classList.contains('jpdb-ocr-line-active') ?? false,
             linePinned: line?.getAttribute('data-pinned') ?? '',
@@ -1409,7 +1427,15 @@ async function readHostedFullscreenSubtitleState(page) {
             rootRect: rect(root),
             stageRect: rect(stage),
             panelHidden: panel?.hidden ?? null,
-            lineText: line?.textContent ?? '',
+            // Base text only: furigana annotations (rt readings and their rp
+            // parens) are legitimate in the cue line — the contract is that
+            // the cue's BASE text survives fullscreen, decorated or not.
+            lineText: (() => {
+                if (!line) return '';
+                const clone = line.cloneNode(true);
+                clone.querySelectorAll('rt,rp').forEach(node => node.remove());
+                return clone.textContent ?? '';
+            })(),
             toggleLabel: toggle?.getAttribute('aria-label') ?? '',
             toggleVisible: toggle ? getComputedStyle(toggle).display !== 'none' : false,
             viewport: { width: window.innerWidth, height: window.innerHeight },
@@ -1801,7 +1827,12 @@ async function readHostedOnVideoSubtitleState(page) {
             textVisibility: textStyle?.visibility ?? null,
             lineDisplay: lineStyle?.display ?? null,
             lineVisibility: lineStyle?.visibility ?? null,
-            lineText: line?.textContent ?? '',
+            lineText: (() => {
+                if (!line) return '';
+                const clone = line.cloneNode(true);
+                clone.querySelectorAll('rt,rp').forEach(node => node.remove());
+                return clone.textContent ?? '';
+            })(),
             textRect: rect(text),
             lineRect: rect(line),
         };

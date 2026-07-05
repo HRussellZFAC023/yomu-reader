@@ -1419,14 +1419,20 @@ function collapsedTextKey(text: string): string {
     return text.replace(/\s+/gu, '');
 }
 
+// Text the host never paints must not reach the mirror either — the mirror
+// replaces the host's visible rendering, so mirroring script/[hidden] text
+// would paint duplicate labels the page keeps invisible. aria-hidden stays
+// included: it hides from the a11y tree only and is often visually rendered.
+const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden]`;
+
 // The host's source text in document order, skipping any reader-owned subtree (a
-// prior mirror / annotated word / reader root) so re-scans compare against the
-// page's own text rather than our own output.
+// prior mirror / annotated word / reader root) and never-painted nodes so the
+// mirror renders — and re-scans compare against — the page's visible text.
 function hostOriginalTextWithNodeOffsets(host: HTMLElement): { hostText: string; nodeOffsets: Map<Text, number> } {
     const nodeOffsets = new Map<Text, number>();
     let hostText = '';
     const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
-        acceptNode: node => node.parentElement?.closest(READER_OWNED_TEXT_SELECTOR)
+        acceptNode: node => node.parentElement?.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR)
             ? NodeFilter.FILTER_REJECT
             : NodeFilter.FILTER_ACCEPT,
     });
@@ -1524,7 +1530,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
         }
         hideTextMirrorHost(host, state);
         host.append(mirror);
-        observeTextMirrorHost(host, text);
+        observeTextMirrorHost(host);
     } catch (error) {
         removeTextMirror(host);
         throw error;
@@ -1555,7 +1561,7 @@ function collapseWhitespaceWithOffsets(text: string): { normalized: string; offs
             // turning that into "視 聴" splits the word both visually and for
             // the tokenizer. Latin boundaries keep their single space.
             if (normalized.length > 0 && index < text.length
-                && !(isCjkChar(normalized[normalized.length - 1]) && isCjkChar(text[index]))) {
+                && !(isCjkChar(lastFullChar(normalized)) && isCjkChar(String.fromCodePoint(text.codePointAt(index) ?? 0)))) {
                 normalized += ' ';
             }
             for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
@@ -1572,7 +1578,15 @@ function collapseWhitespaceWithOffsets(text: string): { normalized: string; offs
 // Ideographic space through katakana, CJK ideographs, compat ideographs, and
 // fullwidth forms — the scripts whose soft line breaks carry no space.
 function isCjkChar(char: string | undefined): boolean {
-    return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-｠]/u.test(char ?? '');
+    return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-｠\u{20000}-\u{3FFFF}]/u.test(char ?? '');
+}
+
+// The last full character (code point, not UTF-16 unit) of a string, so
+// supplementary-plane kanji are not misread as lone surrogates.
+function lastFullChar(text: string): string | undefined {
+    if (!text) return undefined;
+    const chars = Array.from(text.slice(-2));
+    return chars[chars.length - 1];
 }
 
 function remapTokenOffsets(token: JPDBToken, offsets: number[], sentence: string): JPDBToken {
@@ -1768,9 +1782,9 @@ function removeCanvasFallbackTextLayer(canvas: HTMLCanvasElement): void {
     const state = canvasFallbackTextLayers.get(canvas);
     state?.layer.remove();
     if (state) {
-        restoreStyleProperty(canvas, 'visibility', state.canvasVisibility, state.canvasVisibilityPriority);
+        restoreStyleProperty(canvas, 'visibility', 'hidden', state.canvasVisibility, state.canvasVisibilityPriority);
         const host = canvas.parentElement;
-        if (host && state.hostPositionAdjusted) restoreStyleProperty(host, 'position', state.hostPosition, state.hostPositionPriority);
+        if (host && state.hostPositionAdjusted) restoreStyleProperty(host, 'position', 'relative', state.hostPosition, state.hostPositionPriority);
     }
     canvasFallbackTextLayers.delete(canvas);
 }
@@ -1849,7 +1863,7 @@ function restoreControlTextMirrorHost(host: HTMLElement, state: ControlTextMirro
         else host.setAttribute(READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE, state.placeholderHiddenAttribute);
     }
     if (state.parent && state.parentPositionAdjusted) {
-        restoreStyleProperty(state.parent, 'position', state.parentPosition, state.parentPositionPriority);
+        restoreStyleProperty(state.parent, 'position', 'relative', state.parentPosition, state.parentPositionPriority);
     }
 }
 
@@ -1904,11 +1918,26 @@ function rubyDistortsConstrainedRows(): boolean {
         + `<div data-yomu-probe="grow-base" style="${growStyle}">漢字</div>`;
     document.body.appendChild(host);
     const measure = (key: string) => host.querySelector(`[data-yomu-probe="${key}"]`)?.getBoundingClientRect().height ?? 0;
+    // The verdict is only meaningful once our stylesheet styles the probe rt.
+    // Measured before the reader CSS is attached — early boot, iframes,
+    // CSP-delayed styles — a HEALTHY engine grows the line under UA-styled
+    // ruby and the poisoned verdict would route every clipped row on the page
+    // through the mirror forever. Font-size can't discriminate (the UA default
+    // rt is already ~50%); .jpdb-reader-furi's user-select:none is a signal no
+    // UA stylesheet sets. Without it, skip caching and report only the
+    // CSS-independent clamp verdict; the next caller re-probes. jsdom (no
+    // real layout) measures 0 everywhere and caches false as before.
+    const probeRt = host.querySelector('rt.jpdb-reader-furi');
+    const probeRtStyle = probeRt ? safeComputedStyle(probeRt as HTMLElement) : null;
+    const rtFontSize = probeRtStyle ? Number.parseFloat(probeRtStyle.fontSize || '0') : 0;
+    const readerCssApplied = probeRtStyle?.userSelect === 'none'
+        || probeRtStyle?.webkitUserSelect === 'none';
     // A collapsing WebKit clamp measures ~0.66em against 2 baseline lines.
     const collapses = measure('clamp-base') > 0 && measure('clamp') < measure('clamp-base') * 0.6;
     // A line-growing engine renders the fixed 24px line visibly taller.
     const grows = measure('grow-base') > 0 && measure('grow') > measure('grow-base') + 6;
     host.remove();
+    if (!readerCssApplied && rtFontSize > 0) return collapses;
     rubyDistortsConstrainedRowsCache = collapses || grows;
     return rubyDistortsConstrainedRowsCache;
 }
@@ -2294,10 +2323,15 @@ function rubyFriendlyMirrorLineHeight(style: CSSStyleDeclaration): string {
     return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
 }
 
-function observeTextMirrorHost(host: HTMLElement, sourceText: string): void {
+function observeTextMirrorHost(host: HTMLElement): void {
     const state = textMirrorHosts.get(host);
     if (!state) return;
-    state.sourceText = normalizedMirrorHostText(sourceText);
+    // Capture the baseline through the SAME extractor the staleness check
+    // uses. The render plan's text walk has different skip rules (it keeps
+    // hidden/aria-hidden text), so seeding sourceText from the plan left
+    // hosts with any aria-hidden node permanently "stale" — every re-render
+    // then tore the mirror down after the grace instead of keeping it.
+    state.sourceText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
     state.observer = new MutationObserver(mutations => {
         if (mutations.every(mutationInsideTextMirror)) return;
         if (!currentTextMirror(host)) {
@@ -2411,13 +2445,18 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
 }
 
 function restoreTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
-    restoreStyleProperty(host, 'visibility', state.visibility, state.visibilityPriority);
-    if (state.overflowAdjusted) restoreStyleProperty(host, 'overflow', state.overflow, state.overflowPriority);
-    if (state.positioned) restoreStyleProperty(host, 'position', state.position, state.positionPriority);
-    if (state.displayAdjusted) restoreStyleProperty(host, 'display', state.display, state.displayPriority);
+    restoreStyleProperty(host, 'visibility', 'hidden', state.visibility, state.visibilityPriority);
+    if (state.overflowAdjusted) restoreStyleProperty(host, 'overflow', 'visible', state.overflow, state.overflowPriority);
+    if (state.positioned) restoreStyleProperty(host, 'position', 'relative', state.position, state.positionPriority);
+    if (state.displayAdjusted) restoreStyleProperty(host, 'display', 'inline-block', state.display, state.displayPriority);
 }
 
-function restoreStyleProperty(host: HTMLElement, property: string, value: string, priority: string): void {
+// Restore the pre-mirror inline value ONLY while the property still carries
+// Yomu's injected value — if the framework rewrote the host's style while the
+// mirror was up, its newer value wins over our stale capture.
+function restoreStyleProperty(host: HTMLElement, property: string, injectedValue: string, value: string, priority: string): void {
+    const current = host.style.getPropertyValue(property);
+    if (current && current !== injectedValue) return;
     if (value) host.style.setProperty(property, value, priority);
     else host.style.removeProperty(property);
 }
@@ -4161,7 +4200,7 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
 }
 
 function rubyCropsBox(box: HTMLElement): boolean {
-    return rubyBottomOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
+    return rubyBottomOverflow(box) > 1 || rubyTopOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
 }
 
 // Generic rows must never inherit scrollHeight (a collapsed region's full
@@ -4169,7 +4208,7 @@ function rubyCropsBox(box: HTMLElement): boolean {
 // overflow the box is cropping.
 function genericRubyRoomHeight(box: HTMLElement): number {
     const mirror = box.querySelector<HTMLElement>('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
-    return Math.ceil(Math.max(box.clientHeight + rubyBottomOverflow(box), mirror ? mirror.scrollHeight : 0));
+    return Math.ceil(Math.max(box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box), mirror ? mirror.scrollHeight : 0));
 }
 
 const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ':is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])';
@@ -4230,7 +4269,10 @@ function cropCapableBoxes(element: HTMLElement | null): HTMLElement[] {
 }
 
 function boxActuallyCrops(box: HTMLElement): boolean {
-    return box.scrollHeight > box.clientHeight + 1 || rubyBottomOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
+    return box.scrollHeight > box.clientHeight + 1
+        || rubyBottomOverflow(box) > 1
+        || rubyTopOverflow(box) > 1
+        || rubyMirrorBlockOverflow(box) > 1;
 }
 
 function rubyRoomHeight(box: HTMLElement): number {
@@ -4241,13 +4283,34 @@ function rubyRoomHeight(box: HTMLElement): number {
     // and the top furigana row / wrapped line is cropped.
     const mirror = box.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
     const mirrorHeight = mirror ? mirror.scrollHeight : 0;
-    return Math.ceil(Math.max(box.scrollHeight, box.clientHeight + rubyBottomOverflow(box), mirrorHeight));
+    return Math.ceil(Math.max(
+        box.scrollHeight,
+        box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
+        mirrorHeight,
+    ));
 }
 
 function rubyMirrorBlockOverflow(box: HTMLElement): number {
     const mirror = box.querySelector<HTMLElement>('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
     if (!mirror) return 0;
     return Math.max(0, mirror.scrollHeight - box.clientHeight);
+}
+
+// Furigana paints ABOVE the base line without growing the line box, so a
+// fixed-height overflow-hidden row (a chip label) clips the reading at the
+// box TOP while scrollHeight and bottom overflow both read clean. Measure the
+// rt annotations directly.
+function rubyTopOverflow(box: HTMLElement): number {
+    const boxRect = box.getBoundingClientRect();
+    let overflow = 0;
+    for (const ruby of box.querySelectorAll<HTMLElement>('ruby')) {
+        const base = ruby.querySelector<HTMLElement>('.jpdb-reader-ruby-base') ?? ruby;
+        if (!baseVisibleInBox(base.getBoundingClientRect(), boxRect)) continue;
+        const rt = ruby.querySelector<HTMLElement>('rt');
+        if (!rt) continue;
+        overflow = Math.max(overflow, boxRect.top - rt.getBoundingClientRect().top);
+    }
+    return Math.max(0, overflow);
 }
 
 function rubyBottomOverflow(box: HTMLElement): number {

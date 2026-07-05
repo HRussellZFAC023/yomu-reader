@@ -63,6 +63,18 @@ export class BunproClient {
         return Boolean(this.getFrontendToken().trim());
     }
 
+    /** Cheap non-reversible fingerprint of the frontend token, so persisted
+     * per-account caches can be validated without storing the token itself. */
+    frontendCredentialFingerprint(): string {
+        const token = this.getFrontendToken().trim();
+        if (!token) return '';
+        let hash = 5381;
+        for (let index = 0; index < token.length; index += 1) {
+            hash = ((hash << 5) + hash + token.charCodeAt(index)) >>> 0;
+        }
+        return `${hash.toString(16)}:${token.length}`;
+    }
+
     // fallow-ignore-next-line unused-class-member
     hasLegacyCredential(): boolean {
         return Boolean(this.getLegacyApiKey().trim());

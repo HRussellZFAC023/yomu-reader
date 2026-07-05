@@ -8615,11 +8615,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function collapsedTextKey(text2) {
     return text2.replace(/\s+/gu, "");
   }
+  const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden]`;
   function hostOriginalTextWithNodeOffsets(host) {
     const nodeOffsets = /* @__PURE__ */ new Map();
     let hostText = "";
     const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) => node.parentElement?.closest(READER_OWNED_TEXT_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+      acceptNode: (node) => node.parentElement?.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
     });
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       nodeOffsets.set(node, hostText.length);
@@ -8700,7 +8701,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       hideTextMirrorHost(host, state2);
       host.append(mirror);
-      observeTextMirrorHost(host, text2);
+      observeTextMirrorHost(host);
     } catch (error) {
       removeTextMirror(host);
       throw error;
@@ -8724,7 +8725,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         const start = index;
         while (index < text2.length && /\s/u.test(text2[index] ?? "")) index += 1;
         const mapped = normalized.length;
-        if (normalized.length > 0 && index < text2.length && !(isCjkChar(normalized[normalized.length - 1]) && isCjkChar(text2[index]))) {
+        if (normalized.length > 0 && index < text2.length && !(isCjkChar(lastFullChar(normalized)) && isCjkChar(String.fromCodePoint(text2.codePointAt(index) ?? 0)))) {
           normalized += " ";
         }
         for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
@@ -8738,7 +8739,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return { normalized, offsets };
   }
   function isCjkChar(char) {
-    return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-｠]/u.test(char ?? "");
+    return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-｠\u{20000}-\u{3FFFF}]/u.test(char ?? "");
+  }
+  function lastFullChar(text2) {
+    if (!text2) return void 0;
+    const chars = Array.from(text2.slice(-2));
+    return chars[chars.length - 1];
   }
   function remapTokenOffsets(token, offsets, sentence) {
     const start = offsets[token.start] ?? token.start;
@@ -8899,9 +8905,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const state2 = canvasFallbackTextLayers.get(canvas);
     state2?.layer.remove();
     if (state2) {
-      restoreStyleProperty$1(canvas, "visibility", state2.canvasVisibility, state2.canvasVisibilityPriority);
+      restoreStyleProperty$1(canvas, "visibility", "hidden", state2.canvasVisibility, state2.canvasVisibilityPriority);
       const host = canvas.parentElement;
-      if (host && state2.hostPositionAdjusted) restoreStyleProperty$1(host, "position", state2.hostPosition, state2.hostPositionPriority);
+      if (host && state2.hostPositionAdjusted) restoreStyleProperty$1(host, "position", "relative", state2.hostPosition, state2.hostPositionPriority);
     }
     canvasFallbackTextLayers.delete(canvas);
   }
@@ -8970,7 +8976,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       else host.setAttribute(READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE, state2.placeholderHiddenAttribute);
     }
     if (state2.parent && state2.parentPositionAdjusted) {
-      restoreStyleProperty$1(state2.parent, "position", state2.parentPosition, state2.parentPositionPriority);
+      restoreStyleProperty$1(state2.parent, "position", "relative", state2.parentPosition, state2.parentPositionPriority);
     }
   }
   function furiganaSettingsForTarget(settings, parent) {
@@ -8998,9 +9004,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     host.innerHTML = `<div data-yomu-probe="clamp" style="${clampStyle}">${styledRuby}の後に長いテキストが続いて二行目を埋めます</div><div data-yomu-probe="clamp-base" style="${clampStyle}">漢字の後に長いテキストが続いて二行目を埋めます</div><div data-yomu-probe="grow" style="${growStyle}">${styledRuby}</div><div data-yomu-probe="grow-base" style="${growStyle}">漢字</div>`;
     document.body.appendChild(host);
     const measure = (key) => host.querySelector(`[data-yomu-probe="${key}"]`)?.getBoundingClientRect().height ?? 0;
+    const probeRt = host.querySelector("rt.jpdb-reader-furi");
+    const probeRtStyle = probeRt ? safeComputedStyle(probeRt) : null;
+    const rtFontSize = probeRtStyle ? Number.parseFloat(probeRtStyle.fontSize || "0") : 0;
+    const readerCssApplied = probeRtStyle?.userSelect === "none" || probeRtStyle?.webkitUserSelect === "none";
     const collapses = measure("clamp-base") > 0 && measure("clamp") < measure("clamp-base") * 0.6;
     const grows = measure("grow-base") > 0 && measure("grow") > measure("grow-base") + 6;
     host.remove();
+    if (!readerCssApplied && rtFontSize > 0) return collapses;
     rubyDistortsConstrainedRowsCache = collapses || grows;
     return rubyDistortsConstrainedRowsCache;
   }
@@ -9298,10 +9309,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
     return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
   }
-  function observeTextMirrorHost(host, sourceText) {
+  function observeTextMirrorHost(host) {
     const state2 = textMirrorHosts.get(host);
     if (!state2) return;
-    state2.sourceText = normalizedMirrorHostText(sourceText);
+    state2.sourceText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
     state2.observer = new MutationObserver((mutations) => {
       if (mutations.every(mutationInsideTextMirror)) return;
       if (!currentTextMirror(host)) {
@@ -9383,12 +9394,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   function restoreTextMirrorHost(host, state2) {
-    restoreStyleProperty$1(host, "visibility", state2.visibility, state2.visibilityPriority);
-    if (state2.overflowAdjusted) restoreStyleProperty$1(host, "overflow", state2.overflow, state2.overflowPriority);
-    if (state2.positioned) restoreStyleProperty$1(host, "position", state2.position, state2.positionPriority);
-    if (state2.displayAdjusted) restoreStyleProperty$1(host, "display", state2.display, state2.displayPriority);
+    restoreStyleProperty$1(host, "visibility", "hidden", state2.visibility, state2.visibilityPriority);
+    if (state2.overflowAdjusted) restoreStyleProperty$1(host, "overflow", "visible", state2.overflow, state2.overflowPriority);
+    if (state2.positioned) restoreStyleProperty$1(host, "position", "relative", state2.position, state2.positionPriority);
+    if (state2.displayAdjusted) restoreStyleProperty$1(host, "display", "inline-block", state2.display, state2.displayPriority);
   }
-  function restoreStyleProperty$1(host, property, value, priority) {
+  function restoreStyleProperty$1(host, property, injectedValue, value, priority) {
+    const current = host.style.getPropertyValue(property);
+    if (current && current !== injectedValue) return;
     if (value) host.style.setProperty(property, value, priority);
     else host.style.removeProperty(property);
   }
@@ -39435,7 +39448,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.85".trim() ? "1.6.85".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.86".trim() ? "1.6.86".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -84797,6 +84810,17 @@ ${entry.url}`),
     }
     hasFrontendCredential() {
       return Boolean(this.getFrontendToken().trim());
+    }
+    /** Cheap non-reversible fingerprint of the frontend token, so persisted
+     * per-account caches can be validated without storing the token itself. */
+    frontendCredentialFingerprint() {
+      const token = this.getFrontendToken().trim();
+      if (!token) return "";
+      let hash = 5381;
+      for (let index = 0; index < token.length; index += 1) {
+        hash = (hash << 5) + hash + token.charCodeAt(index) >>> 0;
+      }
+      return `${hash.toString(16)}:${token.length}`;
     }
     // fallow-ignore-next-line unused-class-member
     hasLegacyCredential() {

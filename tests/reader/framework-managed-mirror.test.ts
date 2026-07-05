@@ -87,6 +87,25 @@ describe('framework-managed chat mirror', () => {
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
     });
 
+    it('keeps the mirror through re-renders when the host carries aria-hidden text', async () => {
+        // The staleness baseline and the staleness check must read the host
+        // through the same extractor: aria-hidden duplicate labels (YouTube
+        // subscribe-button crossfades) are excluded from the check, so a
+        // baseline that INCLUDED them made every such host stale from birth —
+        // the first re-render then tore the mirror down after the grace.
+        document.body.innerHTML = `<div data-message-author-role="assistant"><div id="host" class="markdown">${TEXT}<span aria-hidden="true">${TEXT}</span></div></div>`;
+        const host = document.getElementById('host')!;
+        markReactOwned(host);
+        paint(host);
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
+
+        // A routine framework re-render that does NOT change the visible text.
+        (host.firstChild as Text).data = TEXT;
+        await new Promise(resolve => setTimeout(resolve, STALE_MIRROR_REMOVAL_GRACE_MS + 150));
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
+        expect(host.style.getPropertyValue('visibility')).toBe('hidden');
+    });
+
     it('keeps the higher-fidelity destructive paint on static framework article prose', () => {
         // A React/Next.js article is framework-owned but not a live chat surface; it
         // must keep inline destructive rendering (preserving bold/links/code) — no

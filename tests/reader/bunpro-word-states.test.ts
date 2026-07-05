@@ -123,6 +123,7 @@ describe('BunproWordStateStore', () => {
     it('fetches once, persists, and reuses the in-memory index', async () => {
         const client = {
             hasFrontendCredential: () => true,
+            frontendCredentialFingerprint: () => 'fp',
             getSrsOverview: vi.fn(async () => overview({ beginner: 1 })),
             getSrsLevelDetails: vi.fn(async () => detailsPage([{ reviewId: 1, reviewableId: 11, title: '読む', streak: 2 }])),
         };
@@ -139,10 +140,12 @@ describe('BunproWordStateStore', () => {
     it('serves a fresh persisted index without hitting the network', async () => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
             fetchedAt: Date.now(),
+            credential: 'fp',
             states: { '物価': { s: 'known', d: null } },
         }));
         const client = {
             hasFrontendCredential: () => true,
+            frontendCredentialFingerprint: () => 'fp',
             getSrsOverview: vi.fn(async () => overview({})),
             getSrsLevelDetails: vi.fn(async () => detailsPage([])),
         };
@@ -154,16 +157,55 @@ describe('BunproWordStateStore', () => {
     it('falls back to a stale persisted index when the refetch fails', async () => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
             fetchedAt: 0,
+            credential: 'fp',
             states: { '読む': { s: 'learning', d: null } },
         }));
         const client = {
             hasFrontendCredential: () => true,
+            frontendCredentialFingerprint: () => 'fp',
             getSrsOverview: vi.fn(async () => { throw new Error('offline'); }),
             getSrsLevelDetails: vi.fn(async () => detailsPage([])),
         };
         const states = await new BunproWordStateStore(client).load();
         expect(client.getSrsOverview).toHaveBeenCalledTimes(1);
         expect(states?.get('読む')?.state).toBe('learning');
+    });
+
+    it('rejects a persisted index fetched with a different credential', async () => {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            fetchedAt: Date.now(),
+            credential: 'other-user',
+            states: { '物価': { s: 'known', d: null } },
+        }));
+        const client = {
+            hasFrontendCredential: () => true,
+            frontendCredentialFingerprint: () => 'fp',
+            getSrsOverview: vi.fn(async () => overview({ beginner: 1 })),
+            getSrsLevelDetails: vi.fn(async () => detailsPage([{ reviewId: 1, reviewableId: 11, title: '読む', streak: 2 }])),
+        };
+        const states = await new BunproWordStateStore(client).load();
+        // The other account's cache never colours this user's pages.
+        expect(states?.get('物価')).toBeUndefined();
+        expect(states?.get('読む')?.state).toBe('learning');
+        expect(client.getSrsOverview).toHaveBeenCalledTimes(1);
+    });
+
+    it('backs off after a failed fetch with no cache instead of refetching every call', async () => {
+        const client = {
+            hasFrontendCredential: () => true,
+            frontendCredentialFingerprint: () => 'fp',
+            getSrsOverview: vi.fn(async () => { throw new Error('offline'); }),
+            getSrsLevelDetails: vi.fn(async () => detailsPage([])),
+        };
+        const store = new BunproWordStateStore(client);
+        const start = Date.now();
+        expect(await store.load(start)).toBeNull();
+        expect(await store.load(start + 1_000)).toBeNull();
+        expect(await store.load(start + 60_000)).toBeNull();
+        expect(client.getSrsOverview).toHaveBeenCalledTimes(1);
+        // After the backoff window a retry is allowed again.
+        await store.load(start + 6 * 60_000);
+        expect(client.getSrsOverview).toHaveBeenCalledTimes(2);
     });
 });
 
@@ -213,6 +255,28 @@ describe('applyBunproStateToRenderedWord', () => {
         expect(word.classList.contains('jpdb-not-in-deck')).toBe(true);
         expect(word.dataset.cardState).toBe('not-in-deck');
         expect(word.dataset.bunproState).toBeUndefined();
+    });
+
+    it('restores a blank provider state instead of inventing not-in-deck', () => {
+        const word = renderedWord('jpdb-reader-word', '');
+        applyBunproStateToRenderedWord(word, 'known');
+        expect(applyBunproStateToRenderedWord(word, null)).toBe(true);
+        expect(word.classList.contains('jpdb-not-in-deck')).toBe(false);
+        expect(word.classList.contains('jpdb-known')).toBe(false);
+        expect(word.dataset.cardState).toBeUndefined();
+    });
+
+    it('clears the source-prefixed not-in-deck class when filling a jiten word', () => {
+        const word = renderedWord('jpdb-reader-word jpdb-not-in-deck jiten-not-in-deck', 'not-in-deck');
+        word.dataset.cardSource = 'jiten';
+        expect(applyBunproStateToRenderedWord(word, 'learning')).toBe(true);
+        expect(word.classList.contains('jiten-not-in-deck')).toBe(false);
+        expect(word.classList.contains('jpdb-learning')).toBe(true);
+        // Leaving the index restores the jiten verdict, source class included.
+        applyBunproStateToRenderedWord(word, null);
+        expect(word.classList.contains('jpdb-not-in-deck')).toBe(true);
+        expect(word.classList.contains('jiten-not-in-deck')).toBe(true);
+        expect(word.dataset.cardState).toBe('not-in-deck');
     });
 
     it('is a no-op for untracked words that stay untracked', () => {

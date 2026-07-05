@@ -162,7 +162,9 @@ export function applyBunproStateToRenderedWord(word: HTMLElement, state: string 
     }
     if (previous === state) return false;
     if (previous) word.classList.remove(`jpdb-${previous}`, `bunpro-${previous}`);
-    word.classList.remove('jpdb-not-in-deck');
+    else word.dataset.bunproPrefillState = word.dataset.cardState ?? '';
+    const source = word.dataset.cardSource ?? 'jpdb';
+    word.classList.remove('jpdb-not-in-deck', `${source}-not-in-deck`);
     word.classList.add(`jpdb-${state}`, `bunpro-${state}`);
     word.dataset.cardState = state;
     word.dataset.bunproState = state;
@@ -173,8 +175,20 @@ function clearRenderedWordBunproState(word: HTMLElement): void {
     const previous = word.dataset.bunproState ?? '';
     if (previous) word.classList.remove(`jpdb-${previous}`, `bunpro-${previous}`);
     delete word.dataset.bunproState;
-    word.classList.add('jpdb-not-in-deck');
-    word.dataset.cardState = 'not-in-deck';
+    // Restore the provider state captured before Bunpro filled the word — a
+    // word the provider had no opinion on must go back to blank, not invent
+    // a not-in-deck verdict.
+    const prefill = word.dataset.bunproPrefillState;
+    delete word.dataset.bunproPrefillState;
+    const restored = prefill ?? 'not-in-deck';
+    if (restored) {
+        const source = word.dataset.cardSource ?? 'jpdb';
+        word.classList.add(`jpdb-${restored}`);
+        if (source !== 'jpdb') word.classList.add(`${source}-${restored}`);
+        word.dataset.cardState = restored;
+    } else {
+        delete word.dataset.cardState;
+    }
 }
 
 function clearRenderedWordMiningInsight(word: HTMLElement): void {

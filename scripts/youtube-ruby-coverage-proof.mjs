@@ -842,8 +842,12 @@ function renderedWordDetails(root) {
         hasRuby: Boolean(word.querySelector('rt')),
         rt: Array.from(word.querySelectorAll('rt')).map(rt => rt.textContent || '').join('|'),
         passiveInteraction: word.classList.contains('jpdb-reader-passive-word'),
+        // A word may lack in-place rt ONLY when its target's scan plan says
+        // suppression fired, or a visible text mirror carries the reading for
+        // its host. "passive word without rt" alone is NOT suppression — that
+        // circular reading made the furigana check vacuous for passive words.
         rubySuppressed: closestProofTargetSuppressesRuby(word)
-            || (!word.querySelector('rt') && word.classList.contains('jpdb-reader-passive-word')),
+            || (!word.querySelector('rt') && hostMirrorCarriesReading(word)),
         source: word.dataset.cardSource || '',
         pitchClass: word.dataset.pitchClass || '',
         className: word.className,
@@ -852,6 +856,17 @@ function renderedWordDetails(root) {
 
 function closestProofTargetSuppressesRuby(word) {
     return word.closest('[data-proof-target]')?.dataset.proofScanSuppressRuby === 'true';
+}
+
+// True when the word's host is decorated by a visible text mirror whose rt
+// carries a reading — the constrained-row/mirror architecture's legitimate
+// replacement for in-place ruby.
+function hostMirrorCarriesReading(word) {
+    const mirror = word.closest('.jpdb-reader-text-mirror');
+    if (mirror) return Boolean(mirror.querySelector('rt')) && isVisibleElement(mirror);
+    const host = word.parentElement?.closest?.('[data-proof-target]') ?? word.parentElement;
+    const hostMirror = host ? visibleTextMirror(host) : null;
+    return Boolean(hostMirror?.querySelector('rt'));
 }
 
 function missingExpectedSurfaces(expected, actual) {

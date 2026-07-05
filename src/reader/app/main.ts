@@ -807,7 +807,12 @@ export class ReaderApp {
     private autoScanForced = false;
     private autoScanObserver?: MutationObserver;
     private readonly handleNonDestructiveMirrorStale = () => {
-        if (this.canParseJapanese()) this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
+        // No debounce: volatile hosts (live view/sub counts) fire stale faster
+        // than the scan delay, and a debounced deadline pushed forward on every
+        // event starves the rescan past the 600ms stale-mirror grace — the
+        // mirror tears down and re-mirrors in a visible flap. Holding the first
+        // deadline guarantees the refresh runs inside the grace window.
+        if (this.canParseJapanese()) this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true });
     };
     private asbScanTimer?: number;
     private hoverLookupTimer?: number;
@@ -1459,6 +1464,9 @@ export class ReaderApp {
         this.jpdbVocabulary.clear();
         this.jitenPublicVocabulary.clear();
         this.cardRenderData.clear();
+        // Credential/settings changes must drop the Bunpro SRS index too, or a
+        // token swap keeps colouring words from the previous account.
+        this.bunproWordStates.clear();
     }
 
     private scheduleDictionaryRescan(): void {
@@ -2033,9 +2041,16 @@ export class ReaderApp {
         // listener only sees page scrolls. Bottom sheets and side panels
         // (m.youtube comment sheet) scroll their own containers; without the
         // capture phase their content never got a settle re-scan.
-        window.addEventListener('scroll', () => {
+        window.addEventListener('scroll', event => {
+            // Scrolls inside Yomu's own UI (popover bodies, settings sheet,
+            // transcript drawer) never change page content — don't rescan.
+            if (eventTargetsReaderRoot(event)) return;
             if (allowsFrequentVisibleAutoScan()) {
-                this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: isYouTubeHostname() });
+                // Always debounce: without it the pending timer fires mid-fling
+                // and every ~160ms of scrolling runs a full visible-page scan
+                // (collection + residual body walk). Trailing-edge means one
+                // settle scan after the scroll stops.
+                this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: true });
             }
         }, { passive: true, capture: true });
         window.addEventListener('resize', () => {
