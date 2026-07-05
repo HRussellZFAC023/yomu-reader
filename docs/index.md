@@ -20,16 +20,16 @@ hero:
       text: Install
       link: https://yomureader.com/yomu.user.js
     - theme: alt
+      text: Study
+      link: /newtab/index.html
+      target: _self
+    - theme: alt
       text: Watch
       link: /video-player/index.html
       target: _self
     - theme: alt
       text: Read
       link: /pdf-reader/index.html
-      target: _self
-    - theme: alt
-      text: Study
-      link: /newtab/index.html
       target: _self
     - theme: alt
       text: Game

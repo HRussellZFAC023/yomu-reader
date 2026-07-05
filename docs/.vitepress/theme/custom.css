@@ -1187,6 +1187,10 @@ html[lang="ja"] .VPHomeHero .tagline {
   line-height: 1.2;
 }
 
+.VPHomeHero .actions .VPButton[href="/newtab/index.html"] {
+  font-weight: 800;
+}
+
 .yomu-store-status-row small {
   padding: 2px 7px;
   border: 1px solid color-mix(in srgb, var(--vp-c-brand-2) 24%, var(--vp-c-divider));

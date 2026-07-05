@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.82] - 2026-07-05
+
+### Changed
+
+- Moved the homepage Study CTA directly after Install and made the Study pill label bold.
+
 ## [1.6.81] - 2026-07-05
 
 ### Fixed
