@@ -4946,6 +4946,27 @@ describe('reader helpers', () => {
         expect(spelling.classList.contains('jpdb-pitch-heiban')).toBe(true);
     });
 
+    it('renders compound components as nested dictionary lookup links', () => {
+        const renderer = testCardPopoverRenderer();
+        document.body.innerHTML = renderModalCard(renderer, {
+            ...card,
+            spelling: '跳梁跋扈',
+            reading: 'ちょうりょうばっこ',
+            pitchAccent: [],
+        }, '跳梁跋扈だ。', {
+            expressionComponents: [
+                { text: '跳梁', reading: 'ちょうりょう' },
+                { text: '跋扈', reading: 'ばっこ' },
+            ],
+        });
+
+        const section = document.querySelector<HTMLElement>('.jpdb-reader-expression-components')!;
+        const links = [...section.querySelectorAll<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]')];
+        expect(section.textContent).toContain('Composed of');
+        expect(links.map(link => link.dataset.dictionaryLookup)).toEqual(['跳梁', '跋扈']);
+        expect(links.map(link => link.dataset.dictionaryReading)).toEqual(['ちょうりょう', 'ばっこ']);
+    });
+
     it('renders furigana on the popup headword without losing inline kanji navigation', () => {
         const renderer = testCardPopoverRenderer({
             showFurigana: true,
@@ -35253,6 +35274,58 @@ describe('reader helpers', () => {
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
+            rectSpy.mockRestore();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('keeps Discord-shaped clickable message prose active so pitch underlines persist at rest', () => {
+        const visibleRect = {
+            left: 0,
+            right: 760,
+            top: 0,
+            bottom: 120,
+            width: 760,
+            height: 120,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect;
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(visibleRect);
+        document.body.innerHTML = `
+            <main role="main">
+                <ol class="messagesWrapper">
+                    <li role="article" class="messageListItem">
+                        <h3 class="username">lov</h3>
+                        <div role="button" tabindex="0" class="messageContent">
+                            跳梁跋扈
+                        </div>
+                    </li>
+                </ol>
+            </main>
+        `;
+
+        try {
+            const targets = collectScanTargets(10, 'https://discord.com/channels/1/2/3');
+            const target = targets.find(candidate => candidate.text.trim() === '跳梁跋扈');
+            expect(target).toBeTruthy();
+            expect(target).not.toMatchObject({ passiveInteraction: true });
+
+            applyTokensToScanTarget(target!, [{
+                card: { ...card, vid: 44, sid: 0, spelling: '跳梁跋扈', reading: 'ちょうりょうばっこ', cardState: ['known'], pitchAccent: ['LHHHLLL'] },
+                start: 0,
+                end: 4,
+                length: 4,
+                rubies: [{ text: 'ちょうりょうばっこ', start: 0, end: 4, length: 4 }],
+                pitchClass: 'nakadaka',
+                sentence: '跳梁跋扈',
+            }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+            const word = document.querySelector<HTMLElement>('.messageContent .jpdb-reader-word')!;
+            expect(word.classList.contains('jpdb-reader-passive-word')).toBe(false);
+            expect(word.dataset.jpdbReaderPassive).toBeUndefined();
+            expect(word.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
+        } finally {
             rectSpy.mockRestore();
             document.body.replaceChildren();
         }

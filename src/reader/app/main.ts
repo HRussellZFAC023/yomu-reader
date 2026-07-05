@@ -1270,6 +1270,7 @@ export class ReaderApp {
         void loadReaderCssFallback().then(css => {
             if (!css || this.isDestroyed) return;
             style.textContent = css;
+            this.applyTheme();
         }).catch(error => {
             log.warn('Reader CSS fallback load failed', error);
         });

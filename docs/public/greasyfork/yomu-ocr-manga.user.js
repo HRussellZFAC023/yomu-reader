@@ -4561,6 +4561,7 @@
       ankiLocalDictionaryStatus: "local dictionary",
       selection: "Selection",
       parsedFrom: "Parsed from",
+      composedOf: "Composed of",
       selectionPopoverShowTranslation: "Show translation in selection popovers",
       imageReadingEnabled: "Image reading enabled.",
       imageReadingHidden: "Image reading hidden.",
@@ -5191,6 +5192,7 @@ ankiMergeImage	画像
 ankiMergeComplete	YomuデータをAnkiに統合しました ({parts})。
 selection	選択範囲
 parsedFrom	解析元
+composedOf	構成語
 selectionPopoverShowTranslation	選択ポップアップに翻訳を表示
 imageReadingEnabled	画像読み取りを有効にしました。
 imageReadingHidden	画像読み取りを非表示にしました。

@@ -77,9 +77,49 @@ describe('expression component pitch', () => {
 
         const data = await loader.load(expressionCard('気合いを入れる', 'きあいをいれる')).all;
 
+        expect(data.expressionComponents?.map(component => component.text)).toEqual(['気合い', '入れる']);
         expect(data.componentPitches?.map(component => component.text)).toEqual(['気合い', '入れる']);
         expect(data.componentPitches?.map(component => component.reading)).toEqual(['きあい', 'いれる']);
         expect(data.componentPitches?.every(component => component.pitch.length > 0)).toBe(true);
+    });
+
+    it('segments compound idioms into lookup components instead of keeping only the full entry', async () => {
+        const loader = createLoader({
+            entriesByTerm: {
+                跳梁跋扈: [termEntry('跳梁跋扈', 'ちょうりょうばっこ')],
+                跳梁: [termEntry('跳梁', 'ちょうりょう')],
+                跋扈: [termEntry('跋扈', 'ばっこ')],
+            },
+            metaByTerm: {
+                跳梁: [pitchMeta('跳梁', 'ちょうりょう', 0)],
+                跋扈: [pitchMeta('跋扈', 'ばっこ', 1)],
+            },
+        });
+
+        const data = await loader.load(expressionCard('跳梁跋扈', 'ちょうりょうばっこ')).all;
+
+        expect(data.expressionComponents?.map(component => component.text)).toEqual(['跳梁', '跋扈']);
+        expect(data.expressionComponents?.map(component => component.reading)).toEqual(['ちょうりょう', 'ばっこ']);
+        expect(data.componentPitches?.map(component => component.text)).toEqual(['跳梁', '跋扈']);
+        expect(data.componentPitches?.every(component => component.pitch.length > 0)).toBe(true);
+    });
+
+    it('segments kanji-only compound components even when the full compound is missing locally', async () => {
+        const loader = createLoader({
+            entriesByTerm: {
+                跳梁: [termEntry('跳梁', 'ちょうりょう')],
+                跋扈: [termEntry('跋扈', 'ばっこ')],
+            },
+            metaByTerm: {
+                跳梁: [pitchMeta('跳梁', 'ちょうりょう', 0)],
+                跋扈: [pitchMeta('跋扈', 'ばっこ', 1)],
+            },
+        });
+
+        const data = await loader.load(expressionCard('跳梁跋扈', 'ちょうりょうばっこ')).all;
+
+        expect(data.expressionComponents?.map(component => component.text)).toEqual(['跳梁', '跋扈']);
+        expect(data.componentPitches?.map(component => component.text)).toEqual(['跳梁', '跋扈']);
     });
 
     it('keeps componentPitches empty when the card has its own pitch', async () => {
@@ -103,6 +143,7 @@ describe('expression component pitch', () => {
 
         const data = await loader.load(expressionCard('気合いを', 'きあいを')).all;
 
+        expect(data.expressionComponents ?? []).toEqual([]);
         expect(data.componentPitches ?? []).toEqual([]);
     });
 

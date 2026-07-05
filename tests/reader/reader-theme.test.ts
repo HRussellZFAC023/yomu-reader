@@ -496,6 +496,22 @@ describe('reader theme', () => {
         expect(contrastRatio(text, '#ffffff')).toBeGreaterThanOrEqual(4.5);
     });
 
+    it('derives accessible underlines from Yomu underline variables, not native transparent decoration', () => {
+        document.body.innerHTML = `
+            <p style="background: rgb(255, 255, 255); color: rgb(20, 20, 20);">
+                <span class="jpdb-reader-word jpdb-pitch-unknown" style="--jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source); --jpdb-reader-word-decoration-source: rgb(156, 163, 175); text-decoration-color: transparent;">読む</span>
+            </p>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        refreshReaderWordContrastForWord(word);
+
+        const underline = word.style.getPropertyValue('--jpdb-reader-word-accessible-underline');
+        expect(underline).not.toBe('');
+        expect(underline).not.toBe('transparent');
+        expect(contrastRatio(underline, '#ffffff')).toBeGreaterThanOrEqual(3);
+    });
+
     it('keeps Anki-colored page words readable while hovered', async () => {
         const { word, stopHovering } = hoveredReaderWord('<span class="jpdb-reader-word anki-known" style="color: rgb(30, 120, 90); --jpdb-reader-word-accessible-color: rgb(255, 255, 255);">読む</span>');
 

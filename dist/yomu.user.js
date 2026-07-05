@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.77
+// @version 1.6.78
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.77#sha256=r+U3PPlMNcOWCLRVtHZhUi4xLBnGczjeYX3GVq8WU1M=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.77#sha256=NKYC/VXaQkKHPiOpiUqTesgQk8/nI2XOnTh8D/Ygrxk=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.77#sha256=DDs7i2K5xteBYt55n2PKuvpdBwD2bYuubpk2nR2KdoM=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.77#sha256=N1++NNa9Le4vmLfAkgmyxd1/OI56ZQO3Y1XjSeezdkA=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.77#sha256=vgC8ZXCszAQNrGCyis12JRidrrMeo/efhVJ715e6nLg=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.77#sha256=mpRGn5vgdK+axkUJgXDcO9AtbHA76IBwDXwHrKDHltE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.78#sha256=BTsTKkK11pTKP4BkXxdapiXcKCC9kJA8YyqWsSVegJ0=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.78#sha256=zjZMjln3sg66KNP8QUGbfXDkd6uFHbcGVVNSCIfRd74=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.78#sha256=j7UeK9pWUaQOGzz6JIjmQ1we8WS5IDBvu/ptBM8TZ8w=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.78#sha256=4L4hEitPWhEM9M8bBstYGHdhmHHk0OW2tnDM91GnW0c=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.78#sha256=Pvjrtc5X/H7bvlv8S1eyYqog/AgGIVLNfZ94jj6y17E=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.78#sha256=UiyUz5Rud4kRLsmLS9tLlCcgynWoUZ1w+/P3hGZ+puU=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -4165,7 +4165,7 @@ const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = `script,style,noscript,textarea,inp
 const FORM_CHROME_BOUNDARY_TAGS = ",FORM,LABEL,FIELDSET,LEGEND,";
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
 const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
-const CONVERSATION_TEXT_CLASS_RE = /(^|[-_\s])(chat|comment|message|post|reply)(?:[-_\s]*(body|content|copy|text|txt))?([-_\s_]|$)/i;
+const CONVERSATION_TEXT_CLASS_RE = /(^|\s)(chat|comment|message|post|reply)(?:[-_\s]*(body|bubble|content|copy|message|text|txt))?(?:_[a-z0-9]+)?(?=$|\s)/i;
 const READABLE_PROSE_CONTAINER_SELECTOR = "article,main,[role=main],[role=article]";
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6";
@@ -4719,6 +4719,7 @@ function hasRawJapaneseOutsideReaderWords(element2) {
 }
 function isPassiveInteractionElement(element2) {
   if (element2.closest(READER_ROOT_SELECTOR$3)) return false;
+  if (element2 instanceof HTMLElement && isReadableProseContext(element2) && !readableContextPassiveChromeElement(element2)) return false;
   if (element2.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
   const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
   if (compactInteraction && isCompactPassiveInteractionElement(compactInteraction)) return true;
@@ -4733,6 +4734,18 @@ function isCompactPassiveInteractionElement(element2) {
 function isCompactPassiveChromeElement(element2) {
   if (isLikelyProseElement(element2)) return false;
   return isCompactPassiveInteractionElement(element2);
+}
+function readableContextPassiveChromeElement(element2) {
+  const interaction = element2.closest(PASSIVE_INTERACTION_SELECTOR);
+  if (interaction) {
+  if (isConversationTextClass(interaction)) return null;
+  if (safeElementMatches$1(interaction, 'a[href],[role="link"]')) return interaction;
+  if (isCompactPassiveInteractionElement(interaction)) return interaction;
+  }
+  const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+  if (compactInteraction && !isConversationTextClass(compactInteraction) && isCompactPassiveInteractionElement(compactInteraction)) return compactInteraction;
+  const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
+  return compactChrome && isCompactPassiveChromeElement(compactChrome) ? compactChrome : null;
 }
 function isFragmentPassiveInteractionElement(element2, options) {
   if (isPassiveInteractionElement(element2)) return true;
@@ -14101,8 +14114,8 @@ function collectPitchPatterns(reading, entries2, ignoreReadingMismatch) {
   const patterns = [];
   for (const entry of entries2) {
   if (entry.mode !== "pitch") continue;
-  for (const position of readPitchPositions(entry.data, reading, ignoreReadingMismatch)) {
-    const pattern = pitchPatternFromPosition(reading, position);
+  for (const candidate of readPitchCandidates(entry.data, reading, ignoreReadingMismatch)) {
+    const pattern = pitchPatternFromCandidate(reading, candidate);
     if (pattern && !patterns.includes(pattern)) patterns.push(pattern);
   }
   }
@@ -14118,17 +14131,20 @@ function distinctMetadataReadings(entries2) {
   }
   return [...readings];
 }
-function readPitchPositions(value, reading, ignoreReadingMismatch) {
+function readPitchCandidates(value, reading, ignoreReadingMismatch) {
   const record = objectRecord(value);
   if (!record) {
-  const position = pitchPositionFromValue(value);
-  return position == null ? [] : [position];
+  const candidate = pitchCandidateFromValue(value);
+  return candidate == null ? [] : [candidate];
   }
   if (!ignoreReadingMismatch && !pitchMetadataReadingMatches(record, reading)) return [];
-  const candidates = pitchPositionCandidates(record).map((candidate) => pitchPositionFromValue(candidate)).filter((position) => position != null);
+  const candidates = pitchPositionCandidates(record).map((candidate) => pitchCandidateFromValue(candidate)).filter((candidate) => candidate != null);
   if (candidates.length) return candidates;
-  const direct = pitchPositionFromValue(record.position);
+  const direct = pitchCandidateFromValue(record.position);
   return direct == null ? [] : [direct];
+}
+function pitchPatternFromCandidate(reading, candidate) {
+  return typeof candidate === "number" ? pitchPatternFromPosition(reading, candidate) : normalizePitchPatternsForReading([candidate], reading)[0] ?? "";
 }
 function pitchMetadataReadingMatches(record, reading) {
   const metadataReading = typeof record.reading === "string" ? record.reading : "";
@@ -14141,16 +14157,20 @@ function pitchPositionCandidates(record) {
   if (Array.isArray(record.pitches)) return record.pitches;
   return Array.isArray(record.positions) ? record.positions : [];
 }
-function pitchPositionFromValue(value) {
-  const direct = directPitchPositionValue(value);
+function pitchCandidateFromValue(value) {
+  const direct = directPitchCandidateValue(value);
   if (direct !== null) return direct;
   if (!value || typeof value !== "object") return null;
   const record = value;
-  return pitchPositionFromValue(record.position);
+  return pitchCandidateFromValue(record.position);
 }
-function directPitchPositionValue(value) {
+function directPitchCandidateValue(value) {
   if (typeof value === "number") return validPitchPosition(value);
-  if (typeof value === "string" && value.trim()) return validPitchPosition(Number(value));
+  if (typeof value === "string" && value.trim()) {
+  const trimmed = value.trim();
+  if (/^[HL]+$/i.test(trimmed)) return trimmed.toUpperCase();
+  return validPitchPosition(Number(trimmed));
+  }
   return null;
 }
 function validPitchPosition(value) {
@@ -14251,6 +14271,7 @@ class CardPopoverRenderer {
   render(card, sentence, trigger, data) {
   const view = this.renderView(card, data);
   const ankiSourceSection = this.renderAnkiSourceSection(card, sentence, data, view);
+  const expressionComponents = this.renderExpressionComponents(data, view);
   const definitionSources = this.dependencies.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, {
     [ANKI_SOURCE_ID]: ankiSourceSection
   });
@@ -14261,6 +14282,7 @@ class CardPopoverRenderer {
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
                 ${this.renderHeader(card, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}
+                ${expressionComponents}
                 ${definitionSources}
                 ${fallbackAnkiSection}
                 ${view.loadingDetails}
@@ -14334,6 +14356,31 @@ class CardPopoverRenderer {
   }
   renderPartOfSpeech(view) {
   return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(view.cardPosDetails)}">${escapeHtml$1(view.cardPos)}</div>` : "";
+  }
+  renderExpressionComponents(data, view) {
+  const components = uniqueExpressionComponents(data.expressionComponents ?? []);
+  if (data.loading || components.length < 2) return "";
+  const rows = components.map((component) => this.renderExpressionComponent(component)).join("");
+  return `<details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-expression-components" open>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(view.language, "composedOf"))}</span>
+                <span class="jpdb-reader-example-count">${components.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in jpdb-reader-expression-component-list">${rows}</ul>
+            </div>
+        </details>`;
+  }
+  renderExpressionComponent(component) {
+  const reading = component.reading && component.reading !== component.text ? `<small>${escapeHtml$1(component.reading)}</small>` : "";
+  return `<li class="jpdb-reader-jpdb-used-in-row jpdb-reader-expression-component-row">
+            <div class="jpdb-reader-jpdb-used-in-main jpdb-reader-expression-component-main">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(component.text)}" data-dictionary-reading="${escapeHtml$1(component.reading)}" data-external="false">
+                    <span class="jpdb-reader-jpdb-used-in-term">${escapeHtml$1(component.text)}</span>
+                </a>
+                ${reading}
+            </div>
+        </li>`;
   }
   renderAnkiExistingSection(data, view) {
   return data.loading ? "" : renderAnkiExistingSection(data.ankiLookup, view.storedContext, this.settings(), {
@@ -14685,6 +14732,16 @@ function renderAnkiMeta(lookup, settings) {
 function renderMeta(metaItems) {
   return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : "";
 }
+function uniqueExpressionComponents(components) {
+  const seen = new Set();
+  return components.filter((component) => {
+  const key = `${component.text}
+${component.reading}`;
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+  });
+}
 function renderProviderToggle(nextProvider, language, content = "") {
   const label = `${uiText(language, "switchGradingProvider")} (${nextProvider.label})`;
   return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="${escapeHtml$1(label)}" title="${escapeHtml$1(label)}">⇄ ${content}</button>`;
@@ -14785,6 +14842,7 @@ function loadingCardRenderData(localEntries, ankiLookup, metaEntries = [], jpdbV
   ankiDecks: [],
   jpdbVocabularyInfo,
   jitenVocabularyInfo,
+  expressionComponents: [],
   loading: true
   };
 }
@@ -14834,18 +14892,26 @@ class CardRenderDataLoader {
   const jpdbDeckMembership = this.loadJpdbDeckMembership(card);
   const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
   const jitenVocabularyInfo = this.loadJitenVocabularyInfo(card);
+  const expressionComponents = this.withFallback(
+    card,
+    CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
+    "expression components",
+    this.loadExpressionComponents(card, localEntries),
+    []
+  );
   const componentPitches = this.withFallback(
     card,
     CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
     "expression component pitch",
-    this.loadExpressionComponentPitches(card, localMetaEntries),
+    this.loadExpressionComponentPitches(card, localMetaEntries, expressionComponents),
     []
   );
   void pitchAccent.catch(() => void 0);
   void jpdbDeckMembership.catch(() => void 0);
   void jitenVocabularyInfo.catch(() => void 0);
+  void expressionComponents.catch(() => void 0);
   void componentPitches.catch(() => void 0);
-  const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, componentPitches);
+  const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, expressionComponents, componentPitches);
   return { localEntries, localMetaEntries, pitchAccent, ankiLookup: fastAnkiLookup, hydrateAnkiLookup, jpdbVocabularyInfo, jitenVocabularyInfo, all };
   }
   withFallback(card, timeoutMs, detail, promise, fallback) {
@@ -14970,7 +15036,7 @@ class CardRenderDataLoader {
     return false;
   }), false);
   }
-  loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, componentPitches) {
+  loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, expressionComponents, componentPitches) {
   const ankiDecks = ankiLookup.then((lookup) => lookup.primary ? [] : this.loadAnkiDecks(card));
   const ankiFieldTargetPlan = ankiLookup.then((lookup) => lookup.primary ? null : this.loadAnkiFieldTargetPlan(card));
   return Promise.all([
@@ -14984,26 +15050,33 @@ class CardRenderDataLoader {
     jpdbDeckMembership,
     jpdbVocabularyInfo,
     jitenVocabularyInfo,
+    expressionComponents.catch(() => []),
     componentPitches.catch(() => []),
     ankiFieldTargetPlan
-  ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, componentPitchesValue, ankiFieldTargetPlanValue]) => {
+  ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
     if (jpdbDeckMembership2) applyPooledJpdbDeckState(card);
-    return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
+    return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
   });
   }
-  async loadExpressionComponentPitches(card, localMetaEntries) {
+  async loadExpressionComponents(card, localEntries) {
+  if (!this.settings().localDictionariesEnabled) return [];
+  const entries2 = await localEntries.catch(() => []);
+  if (!entries2.length && !looksComposableExpression(card.spelling)) return [];
+  return this.segmentExpressionComponents(card.spelling);
+  }
+  async loadExpressionComponentPitches(card, localMetaEntries, expressionComponents) {
   const settings = this.settings();
   if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return [];
   const metaEntries = await localMetaEntries.catch(() => []);
   if (card.pitchAccent.length) return [];
   if (localPitchPatternFromMeta(card.reading, metaEntries)) return [];
-  const components = await this.segmentExpressionComponents(card.spelling);
+  const components = await expressionComponents.catch(() => []);
   if (components.length < 2) return [];
   const pitches = [];
   for (const component of components) {
-    const meta = await this.dependencies.dictionaries.lookupTermMeta(component.expression, 12, settings.dictionaryPreferences).catch(() => []);
+    const meta = await this.dependencies.dictionaries.lookupTermMeta(component.text, 12, settings.dictionaryPreferences).catch(() => []);
     const pitch = localPitchPatternFromMeta(component.reading, meta);
-    if (pitch) pitches.push({ text: component.expression, reading: component.reading, pitch });
+    if (pitch) pitches.push({ text: component.text, reading: component.reading, pitch });
   }
   return pitches;
   }
@@ -15018,22 +15091,23 @@ class CardRenderDataLoader {
     const matched = await this.longestExpressionComponentAt(characters, cursor, settings);
     if (matched) {
       components.push(matched);
-      cursor += Array.from(matched.expression).length;
+      cursor += Array.from(matched.text).length;
       continue;
     }
     if (!EXPRESSION_CONNECTIVE_KANA.has(characters[cursor])) misses += 1;
     cursor += 1;
   }
-  return components;
+  return components.length >= 2 ? components : [];
   }
   async longestExpressionComponentAt(characters, cursor, settings) {
   const maxLength = Math.min(8, characters.length - cursor);
   for (let length = maxLength; length >= 1; length--) {
+    if (cursor === 0 && length === characters.length) continue;
     const candidate = characters.slice(cursor, cursor + length).join("");
     if (length === 1 && !isKanjiCharacter(candidate)) return null;
     const entries2 = await this.dependencies.dictionaries.lookup(candidate, candidate, 3, settings.dictionaryPreferences).catch(() => []);
     const exact = entries2.find((entry) => entry.expression === candidate || !entry.expression && entry.reading === candidate || entry.reading === candidate);
-    if (exact) return { expression: candidate, reading: exact.reading || candidate };
+    if (exact) return { text: candidate, reading: exact.reading || candidate };
   }
   return null;
   }
@@ -15132,6 +15206,10 @@ function cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs
     return fallback;
   })
   ]);
+}
+function looksComposableExpression(spelling) {
+  const characters = Array.from(spelling.trim());
+  return characters.length >= 4 && (characters.some((character) => EXPRESSION_CONNECTIVE_KANA.has(character)) || characters.every(isKanjiCharacter));
 }
 function delay$2(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -31044,7 +31122,7 @@ function refreshReaderWordContrast(root = document) {
     bg: style.backgroundColor,
     hl: style.getPropertyValue("--jpdb-reader-word-highlight-source"),
     fg: style.color,
-    deco: style.textDecorationColor,
+    deco: measuredWordDecorationColor(style),
     parentFg: parentStyle.color,
     furiFg: furiStyle?.color,
     hover: style.getPropertyValue("--jpdb-reader-hover"),
@@ -31060,6 +31138,12 @@ function refreshReaderWordContrast(root = document) {
   applyWordContrastVars(word, activeBackgrounds[i], measurements[i]);
   });
 }
+function measuredWordDecorationColor(style) {
+  const underline = style.getPropertyValue("--jpdb-reader-word-underline").trim();
+  if (underline && !underline.includes("var(")) return underline;
+  const source = style.getPropertyValue("--jpdb-reader-word-decoration-source").trim();
+  return source || underline || style.textDecorationColor;
+}
 function applyWordContrastVars(word, background, m) {
   word.style.setProperty("--jpdb-reader-page-bg", background.css);
   word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
@@ -31071,7 +31155,7 @@ function applyWordContrastVars(word, background, m) {
   const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
   const sourceText = cssColorToHex(m.fg, accessibleRgba);
   const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
-  const decoration = resolveDecorationHex(m.deco, accessibleRgba);
+  const decoration = resolveDecorationHex(word, m.deco, accessibleRgba);
   const furiText = m.furiFg ? cssColorToHex(m.furiFg, accessibleRgba) : null;
   const textSource = passiveWord ? nativeText : sourceText ?? nativeText;
   const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
@@ -31130,8 +31214,8 @@ function paintRgba(value, el) {
   probe.remove();
   return rgba;
 }
-function resolveDecorationHex(decorationColor, accessibleRgba) {
-  const decorationColorRgba = cssColorToRgba(decorationColor);
+function resolveDecorationHex(word, decorationColor, accessibleRgba) {
+  const decorationColorRgba = cssColorToRgba(decorationColor) ?? paintRgba(decorationColor, word);
   return decorationColorRgba && decorationColorRgba.alpha > 0 ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba) : null;
 }
 function refreshReaderWordContrastForWord(word) {
@@ -32561,7 +32645,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.77"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.78"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -34207,6 +34291,7 @@ class ReaderApp {
   void loadReaderCssFallback().then((css) => {
     if (!css || this.isDestroyed) return;
     style.textContent = css;
+    this.applyTheme();
   }).catch((error) => {
     log.warn("Reader CSS fallback load failed", error);
   });

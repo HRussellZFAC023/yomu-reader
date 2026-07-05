@@ -15,9 +15,12 @@ export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []
     return graph ? `<div class="jpdb-reader-pitch">${graph}</div>` : '';
 }
 
-export interface ExpressionComponentPitch {
+export interface ExpressionComponentLookup {
     text: string;
     reading: string;
+}
+
+export interface ExpressionComponentPitch extends ExpressionComponentLookup {
     pitch: string;
 }
 

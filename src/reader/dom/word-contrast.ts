@@ -115,7 +115,7 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
             bg: style.backgroundColor,
             hl: style.getPropertyValue('--jpdb-reader-word-highlight-source'),
             fg: style.color,
-            deco: style.textDecorationColor,
+            deco: measuredWordDecorationColor(style),
             parentFg: parentStyle.color,
             furiFg: furiStyle?.color,
             hover: style.getPropertyValue('--jpdb-reader-hover'),
@@ -145,6 +145,13 @@ type WordContrastMeasurement = {
     hovered: boolean;
 };
 
+function measuredWordDecorationColor(style: CSSStyleDeclaration): string {
+    const underline = style.getPropertyValue('--jpdb-reader-word-underline').trim();
+    if (underline && !underline.includes('var(')) return underline;
+    const source = style.getPropertyValue('--jpdb-reader-word-decoration-source').trim();
+    return source || underline || style.textDecorationColor;
+}
+
 function applyWordContrastVars(word: HTMLElement, background: PageBackground, m: WordContrastMeasurement): void {
     word.style.setProperty('--jpdb-reader-page-bg', background.css);
     word.style.setProperty('--jpdb-reader-highlight-backdrop', background.css);
@@ -162,7 +169,7 @@ function applyWordContrastVars(word: HTMLElement, background: PageBackground, m:
 
     const sourceText = cssColorToHex(m.fg, accessibleRgba);
     const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
-    const decoration = resolveDecorationHex(m.deco, accessibleRgba);
+    const decoration = resolveDecorationHex(word, m.deco, accessibleRgba);
     const furiText = m.furiFg ? cssColorToHex(m.furiFg, accessibleRgba) : null;
     const textSource = passiveWord ? nativeText : (sourceText ?? nativeText);
     const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
@@ -241,8 +248,8 @@ function paintRgba(value: string, el: HTMLElement): RgbaColor | null {
     return rgba;
 }
 
-function resolveDecorationHex(decorationColor: string, accessibleRgba: NonNullable<ReturnType<typeof cssColorToRgba>>): string | null {
-    const decorationColorRgba = cssColorToRgba(decorationColor);
+function resolveDecorationHex(word: HTMLElement, decorationColor: string, accessibleRgba: NonNullable<ReturnType<typeof cssColorToRgba>>): string | null {
+    const decorationColorRgba = cssColorToRgba(decorationColor) ?? paintRgba(decorationColor, word);
     return (decorationColorRgba && decorationColorRgba.alpha > 0)
         ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba)
         : null;

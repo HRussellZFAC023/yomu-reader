@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.78] - 2026-07-05
+
+### Fixed
+
+- Compound lookups such as 跳梁跋扈 now show a "Composed of" section with clickable component lookups for parts such as 跳梁 and 跋扈, while keeping the full compound as the main card.
+- Compound-style pitch accent is more reliable: local component pitch segmentation no longer mistakes the whole compound for its only component, and Yomitan pitch metadata that stores raw H/L patterns now loads correctly.
+- Pitch underlines no longer get stuck grey or hover-only on Discord-style message prose: readable chat/message bodies inside clickable app containers stay active text, and underline contrast refreshes from Yomu's actual painted underline rather than a transparent native fallback.
+
 ## [1.6.77] - 2026-07-05
 
 ### Fixed

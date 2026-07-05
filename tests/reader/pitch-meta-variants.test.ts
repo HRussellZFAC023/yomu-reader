@@ -32,6 +32,17 @@ describe('localPitchPatternsFromMeta', () => {
         expect(localPitchPatternFromMeta('はし', [])).toBe('');
     });
 
+    it('accepts Yomitan pitch records whose position is an H/L pattern string', () => {
+        expect(localPitchPatternFromMeta('はし', [pitchMeta({ reading: 'はし', position: 'LH' })])).toBe('LH');
+        expect(localPitchPatternsFromMeta('はし', [
+            pitchMeta({ reading: 'はし', pitches: [{ position: 'HL' }] }),
+        ])).toEqual(['HL']);
+    });
+
+    it('continues to parse numeric position strings as downstep numbers', () => {
+        expect(localPitchPatternFromMeta('はし', [pitchMeta({ reading: 'はし', position: '1' })])).toBe('HLL');
+    });
+
     it('matches a katakana card reading against the hiragana stored reading', () => {
         expect(localPitchPatternFromMeta('ハシ', [pitchMeta({ reading: 'はし', position: 1 })])).toBeTruthy();
     });

@@ -114,7 +114,7 @@ const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = `script,style,noscript,textarea,inp
 const FORM_CHROME_BOUNDARY_TAGS = ',FORM,LABEL,FIELDSET,LEGEND,';
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
 const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
-const CONVERSATION_TEXT_CLASS_RE = /(^|[-_\s])(chat|comment|message|post|reply)(?:[-_\s]*(body|content|copy|text|txt))?([-_\s_]|$)/i;
+const CONVERSATION_TEXT_CLASS_RE = /(^|\s)(chat|comment|message|post|reply)(?:[-_\s]*(body|bubble|content|copy|message|text|txt))?(?:_[a-z0-9]+)?(?=$|\s)/i;
 const READABLE_PROSE_CONTAINER_SELECTOR = 'article,main,[role=main],[role=article]';
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = 'h1,h2,h3,h4,h5,h6';
@@ -1029,6 +1029,7 @@ function hasRawJapaneseOutsideReaderWords(element: HTMLElement): boolean {
 
 export function isPassiveInteractionElement(element: Element): boolean {
     if (element.closest(READER_ROOT_SELECTOR)) return false;
+    if (element instanceof HTMLElement && isReadableProseContext(element) && !readableContextPassiveChromeElement(element)) return false;
     if (element.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
     const compactInteraction = element.closest<HTMLElement>(COMPACT_PASSIVE_INTERACTION_SELECTOR);
     if (compactInteraction && isCompactPassiveInteractionElement(compactInteraction)) return true;
@@ -1045,6 +1046,19 @@ function isCompactPassiveInteractionElement(element: HTMLElement): boolean {
 function isCompactPassiveChromeElement(element: HTMLElement): boolean {
     if (isLikelyProseElement(element)) return false;
     return isCompactPassiveInteractionElement(element);
+}
+
+function readableContextPassiveChromeElement(element: HTMLElement): HTMLElement | null {
+    const interaction = element.closest<HTMLElement>(PASSIVE_INTERACTION_SELECTOR);
+    if (interaction) {
+        if (isConversationTextClass(interaction)) return null;
+        if (safeElementMatches(interaction, 'a[href],[role="link"]')) return interaction;
+        if (isCompactPassiveInteractionElement(interaction)) return interaction;
+    }
+    const compactInteraction = element.closest<HTMLElement>(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+    if (compactInteraction && !isConversationTextClass(compactInteraction) && isCompactPassiveInteractionElement(compactInteraction)) return compactInteraction;
+    const compactChrome = element.closest<HTMLElement>(COMPACT_PASSIVE_CHROME_SELECTOR);
+    return compactChrome && isCompactPassiveChromeElement(compactChrome) ? compactChrome : null;
 }
 
 function isFragmentPassiveInteractionElement(element: Element, options: FragmentTextTargetCollectionOptions): boolean {

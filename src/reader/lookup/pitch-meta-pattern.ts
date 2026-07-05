@@ -1,4 +1,4 @@
-import { pitchPatternFromPosition } from './pitch-accent';
+import { normalizePitchPatternsForReading, pitchPatternFromPosition } from './pitch-accent';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 
 export function localPitchPatternFromMeta(reading: string, entries: YomitanMetaEntry[]): string {
@@ -24,8 +24,8 @@ function collectPitchPatterns(reading: string, entries: YomitanMetaEntry[], igno
     const patterns: string[] = [];
     for (const entry of entries) {
         if (entry.mode !== 'pitch') continue;
-        for (const position of readPitchPositions(entry.data, reading, ignoreReadingMismatch)) {
-            const pattern = pitchPatternFromPosition(reading, position);
+        for (const candidate of readPitchCandidates(entry.data, reading, ignoreReadingMismatch)) {
+            const pattern = pitchPatternFromCandidate(reading, candidate);
             if (pattern && !patterns.includes(pattern)) patterns.push(pattern);
         }
     }
@@ -43,19 +43,25 @@ function distinctMetadataReadings(entries: YomitanMetaEntry[]): string[] {
     return [...readings];
 }
 
-function readPitchPositions(value: unknown, reading: string, ignoreReadingMismatch: boolean): number[] {
+function readPitchCandidates(value: unknown, reading: string, ignoreReadingMismatch: boolean): Array<number | string> {
     const record = objectRecord(value);
     if (!record) {
-        const position = pitchPositionFromValue(value);
-        return position == null ? [] : [position];
+        const candidate = pitchCandidateFromValue(value);
+        return candidate == null ? [] : [candidate];
     }
     if (!ignoreReadingMismatch && !pitchMetadataReadingMatches(record, reading)) return [];
     const candidates = pitchPositionCandidates(record)
-        .map(candidate => pitchPositionFromValue(candidate))
-        .filter((position): position is number => position != null);
+        .map(candidate => pitchCandidateFromValue(candidate))
+        .filter((candidate): candidate is number | string => candidate != null);
     if (candidates.length) return candidates;
-    const direct = pitchPositionFromValue(record.position);
+    const direct = pitchCandidateFromValue(record.position);
     return direct == null ? [] : [direct];
+}
+
+function pitchPatternFromCandidate(reading: string, candidate: number | string): string {
+    return typeof candidate === 'number'
+        ? pitchPatternFromPosition(reading, candidate)
+        : normalizePitchPatternsForReading([candidate], reading)[0] ?? '';
 }
 
 function pitchMetadataReadingMatches(record: Record<string, unknown>, reading: string): boolean {
@@ -74,17 +80,21 @@ function pitchPositionCandidates(record: Record<string, unknown>): unknown[] {
     return Array.isArray(record.positions) ? record.positions : [];
 }
 
-function pitchPositionFromValue(value: unknown): number | null {
-    const direct = directPitchPositionValue(value);
+function pitchCandidateFromValue(value: unknown): number | string | null {
+    const direct = directPitchCandidateValue(value);
     if (direct !== null) return direct;
     if (!value || typeof value !== 'object') return null;
     const record = value as Record<string, unknown>;
-    return pitchPositionFromValue(record.position);
+    return pitchCandidateFromValue(record.position);
 }
 
-function directPitchPositionValue(value: unknown): number | null {
+function directPitchCandidateValue(value: unknown): number | string | null {
     if (typeof value === 'number') return validPitchPosition(value);
-    if (typeof value === 'string' && value.trim()) return validPitchPosition(Number(value));
+    if (typeof value === 'string' && value.trim()) {
+        const trimmed = value.trim();
+        if (/^[HL]+$/i.test(trimmed)) return trimmed.toUpperCase();
+        return validPitchPosition(Number(trimmed));
+    }
     return null;
 }
 

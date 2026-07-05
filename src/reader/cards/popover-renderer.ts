@@ -11,7 +11,7 @@ import { cardStateLabel, uiText } from '../app/i18n';
 import { speakerIcon } from '../ui/icons';
 import { loadMiningContext } from '../study/mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
-import { cardPronunciationReading, renderExpressionComponentPitches, renderPitch } from '../popup/render';
+import { cardPronunciationReading, renderExpressionComponentPitches, renderPitch, type ExpressionComponentLookup } from '../popup/render';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
@@ -87,6 +87,7 @@ export class CardPopoverRenderer {
     ): string {
         const view = this.renderView(card, data);
         const ankiSourceSection = this.renderAnkiSourceSection(card, sentence, data, view);
+        const expressionComponents = this.renderExpressionComponents(data, view);
         const definitionSources = this.dependencies.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, {
             [ANKI_SOURCE_ID]: ankiSourceSection,
         });
@@ -100,6 +101,7 @@ export class CardPopoverRenderer {
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
                 ${this.renderHeader(card, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}
+                ${expressionComponents}
                 ${definitionSources}
                 ${fallbackAnkiSection}
                 ${view.loadingDetails}
@@ -183,6 +185,35 @@ export class CardPopoverRenderer {
 
     private renderPartOfSpeech(view: CardPopoverRenderView): string {
         return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml(view.cardPosDetails)}">${escapeHtml(view.cardPos)}</div>` : '';
+    }
+
+    private renderExpressionComponents(data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
+        const components = uniqueExpressionComponents(data.expressionComponents ?? []);
+        if (data.loading || components.length < 2) return '';
+        const rows = components.map(component => this.renderExpressionComponent(component)).join('');
+        return `<details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-expression-components" open>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml(uiText(view.language, 'composedOf'))}</span>
+                <span class="jpdb-reader-example-count">${components.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in jpdb-reader-expression-component-list">${rows}</ul>
+            </div>
+        </details>`;
+    }
+
+    private renderExpressionComponent(component: ExpressionComponentLookup): string {
+        const reading = component.reading && component.reading !== component.text
+            ? `<small>${escapeHtml(component.reading)}</small>`
+            : '';
+        return `<li class="jpdb-reader-jpdb-used-in-row jpdb-reader-expression-component-row">
+            <div class="jpdb-reader-jpdb-used-in-main jpdb-reader-expression-component-main">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml(component.text)}" data-dictionary-reading="${escapeHtml(component.reading)}" data-external="false">
+                    <span class="jpdb-reader-jpdb-used-in-term">${escapeHtml(component.text)}</span>
+                </a>
+                ${reading}
+            </div>
+        </li>`;
     }
 
     private renderAnkiExistingSection(data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
@@ -666,6 +697,16 @@ function renderAnkiMeta(lookup: CardRenderData['ankiLookup'], settings: ReaderSe
 
 function renderMeta(metaItems: string[]): string {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : '';
+}
+
+function uniqueExpressionComponents(components: ExpressionComponentLookup[]): ExpressionComponentLookup[] {
+    const seen = new Set<string>();
+    return components.filter(component => {
+        const key = `${component.text}\n${component.reading}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
 }
 
 // Shown next to the grade target when the word can be graded by more than one
