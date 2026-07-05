@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.84] - 2026-07-05
+
+### Fixed
+
+- Word lookups no longer fail with a "No configured proxy." toast when nothing is configured: the built-in Cloudflare proxy (edge.yomureader.com) now serves allowlisted read-only dictionary and audio requests on every site, not just yomureader.com, so hover lookups, pitch, and audio work out of the box when a direct or userscript request is unavailable.
+
 ## [1.6.83] - 2026-07-05
 
 ### Fixed

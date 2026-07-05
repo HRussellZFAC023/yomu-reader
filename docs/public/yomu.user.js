@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.83
+// @version 1.6.84
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.83#sha256=BTsTKkK11pTKP4BkXxdapiXcKCC9kJA8YyqWsSVegJ0=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.83#sha256=zjZMjln3sg66KNP8QUGbfXDkd6uFHbcGVVNSCIfRd74=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.83#sha256=j7UeK9pWUaQOGzz6JIjmQ1we8WS5IDBvu/ptBM8TZ8w=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.83#sha256=4L4hEitPWhEM9M8bBstYGHdhmHHk0OW2tnDM91GnW0c=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.83#sha256=Pvjrtc5X/H7bvlv8S1eyYqog/AgGIVLNfZ94jj6y17E=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.83#sha256=UiyUz5Rud4kRLsmLS9tLlCcgynWoUZ1w+/P3hGZ+puU=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.84#sha256=iz5O+sYdQQ3IsTQnmJHRaN/+cscCRT028FrYxsR4HeE=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.84#sha256=bc/EsiJtVw6iWmHBcm7HGGGEruVkvDyMLQ8B0foUbBo=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.84#sha256=j7UeK9pWUaQOGzz6JIjmQ1we8WS5IDBvu/ptBM8TZ8w=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.84#sha256=Qp7PEqQNrMqpmEXR16D4rahWHVy0qb9unv2HAapo9/Y=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.84#sha256=76gxfdR6AzP7pNV76fi+PYoxUKtuLrTIGRJtlPxpKzI=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.84#sha256=KnXwd4LcLzE9PXKYX3MPjsZ+g7p7oeVCq4eoibElHoQ=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -7601,7 +7601,7 @@ function shouldSkipDirectCrossOriginFetch(targetUrl, options) {
   return Boolean(target && isCrossOriginHttpTarget(target) && (isKnownCorsBlockedConfiguredProxyTarget(target, method) || isJpdbPublicLookupTarget(target, method) || isLocalHostedBrowserCorsTarget(target, method)));
 }
 function builtInProxyUrls(targetUrl, options) {
-  if (!isOfficialHostedReaderOrigin$1() || !isSharedPublicProxySafeRequest(targetUrl, options)) return [];
+  if (!isSharedPublicProxySafeRequest(targetUrl, options)) return [];
   return YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS.map((proxyUrl) => configuredProxyFetchUrl$1(targetUrl, proxyUrl)).filter((url) => Boolean(url));
 }
 function isJpdbPublicAudioUrl(targetUrl) {
@@ -7664,10 +7664,6 @@ function isHostedGithubPagesApp$1() {
   } catch {
   return false;
   }
-}
-function isOfficialHostedReaderOrigin$1() {
-  if (typeof location === "undefined") return false;
-  return location.hostname === "yomureader.com" || location.hostname === "www.yomureader.com";
 }
 function isLocalHostedApp() {
   if (typeof location === "undefined") return false;
@@ -8208,13 +8204,8 @@ function userscriptTextResponse(response) {
 }
 function hostedFallbackProxyUrl(url, options = {}) {
   if (getUserscriptHttpRequest()) return "";
-  if (!isOfficialHostedReaderOrigin()) return "";
   if (!isSharedPublicProxySafeRequest(url, options)) return "";
   return YOMU_SHARED_PUBLIC_PROXY_URL;
-}
-function isOfficialHostedReaderOrigin() {
-  if (typeof location === "undefined") return false;
-  return location.hostname === "yomureader.com" || location.hostname === "www.yomureader.com";
 }
 async function requestViaFetch(url, options) {
   const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options), {
@@ -32678,7 +32669,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.83"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.84"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

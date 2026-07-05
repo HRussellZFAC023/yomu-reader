@@ -345,9 +345,12 @@ describe('audio module boundaries', () => {
         }
     });
 
-    it('does not provide built-in public proxy URLs for Jiten sentence TTS', () => {
+    it('provides built-in public proxy URLs for Jiten sentence TTS on any origin', () => {
         const targetUrl = 'https://api.jiten.moe/api/tts/sentence/803776181?voice=asmr';
-        expect(builtInProxyUrls(targetUrl, { method: 'GET' })).toEqual([]);
+        expect(builtInProxyUrls(targetUrl, { method: 'GET' })).toEqual([
+            `https://edge.yomureader.com/?url=${encodeURIComponent(targetUrl)}`,
+            `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(targetUrl)}`,
+        ]);
     });
 
     it('uses a custom proxy for Jisho lookup when the userscript bridge is unavailable', async () => {

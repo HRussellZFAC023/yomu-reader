@@ -1034,7 +1034,7 @@
     return Boolean(target && isCrossOriginHttpTarget(target) && (isKnownCorsBlockedConfiguredProxyTarget(target, method) || isJpdbPublicLookupTarget(target, method) || isLocalHostedBrowserCorsTarget(target, method)));
   }
   function builtInProxyUrls(targetUrl, options) {
-    if (!isOfficialHostedReaderOrigin$1() || !isSharedPublicProxySafeRequest(targetUrl, options)) return [];
+    if (!isSharedPublicProxySafeRequest(targetUrl, options)) return [];
     return YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS.map((proxyUrl) => configuredProxyFetchUrl(targetUrl, proxyUrl)).filter((url) => Boolean(url));
   }
   function isJpdbPublicAudioUrl(targetUrl) {
@@ -1097,10 +1097,6 @@
     } catch {
       return false;
     }
-  }
-  function isOfficialHostedReaderOrigin$1() {
-    if (typeof location === "undefined") return false;
-    return location.hostname === "yomureader.com" || location.hostname === "www.yomureader.com";
   }
   function isLocalHostedApp() {
     if (typeof location === "undefined") return false;
@@ -1554,13 +1550,8 @@
   }
   function hostedFallbackProxyUrl(url, options = {}) {
     if (getUserscriptHttpRequest()) return "";
-    if (!isOfficialHostedReaderOrigin()) return "";
     if (!isSharedPublicProxySafeRequest(url, options)) return "";
     return YOMU_SHARED_PUBLIC_PROXY_URL;
-  }
-  function isOfficialHostedReaderOrigin() {
-    if (typeof location === "undefined") return false;
-    return location.hostname === "yomureader.com" || location.hostname === "www.yomureader.com";
   }
   async function requestViaFetch(url, options) {
     const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options), {

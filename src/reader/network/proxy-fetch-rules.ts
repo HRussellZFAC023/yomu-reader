@@ -86,8 +86,14 @@ export function shouldSkipDirectCrossOriginFetch(targetUrl: string, options: Pro
             || isLocalHostedBrowserCorsTarget(target, method)));
 }
 
+// The shared public proxy is safe to use from ANY origin because
+// isSharedPublicProxySafeRequest restricts it to read-only GETs against the
+// dictionary/audio allowlist with no credentials or sensitive headers. Without
+// this fallback, a user with no configured proxy whose transport falls back to
+// page fetch (e.g. GM request unavailable or CORS-blocked) hits a dead
+// "No configured proxy." toast instead of a working lookup.
 export function builtInProxyUrls(targetUrl: string, options: ProxyRuleOptions): string[] {
-    if (!isOfficialHostedReaderOrigin() || !isSharedPublicProxySafeRequest(targetUrl, options)) return [];
+    if (!isSharedPublicProxySafeRequest(targetUrl, options)) return [];
     return YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS
         .map(proxyUrl => configuredProxyFetchUrl(targetUrl, proxyUrl))
         .filter((url): url is string => Boolean(url));
@@ -186,11 +192,6 @@ function isHostedGithubPagesApp(): boolean {
     } catch {
         return false;
     }
-}
-
-function isOfficialHostedReaderOrigin(): boolean {
-    if (typeof location === 'undefined') return false;
-    return location.hostname === 'yomureader.com' || location.hostname === 'www.yomureader.com';
 }
 
 function isLocalHostedApp(): boolean {

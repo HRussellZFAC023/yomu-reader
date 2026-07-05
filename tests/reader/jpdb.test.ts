@@ -1654,6 +1654,14 @@ function publicProxyUrlFor(target: string): string {
     return `${TEST_PROXY_URL}?url=${encodeURIComponent(target)}`;
 }
 
+function builtInEdgeProxyUrlFor(target: string): string {
+    return `https://edge.yomureader.com/?url=${encodeURIComponent(target)}`;
+}
+
+function builtInWorkersDevProxyUrlFor(target: string): string {
+    return `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(target)}`;
+}
+
 function expectFetchUrls(fetchMock: { mock: { calls: Array<[RequestInfo | URL, ...unknown[]]> } }, urls: string[]): void {
     expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(urls);
 }
@@ -2809,7 +2817,10 @@ function unproxiedFetchTarget(input: RequestInfo | URL): string {
     try {
         const url = new URL(value);
         const proxy = new URL(TEST_PROXY_URL);
-        return url.origin === proxy.origin && url.pathname === proxy.pathname
+        const isTestProxy = url.origin === proxy.origin && url.pathname === proxy.pathname;
+        const isBuiltInProxy = url.hostname === 'edge.yomureader.com'
+            || url.hostname === 'yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev';
+        return isTestProxy || isBuiltInProxy
             ? url.searchParams.get('url') ?? value
             : value;
     } catch {
@@ -12144,31 +12155,33 @@ describe('reader helpers', () => {
         });
     });
 
-    it('does not use public proxy fallbacks for JPDB pitch without a configured proxy', async () => {
+    it('uses the built-in public proxy for JPDB pitch without a configured proxy', async () => {
         vi.stubGlobal('location', { origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
-        vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('fetch should not be called'))));
+        vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('proxy offline'))));
 
         try {
             const client = new JpdbPublicPitchClient();
 
             await expect(client.lookup('易しい', 'やさしい')).resolves.toEqual([]);
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
-            expect(urls).toEqual([]);
+            expect(urls.length).toBeGreaterThan(0);
+            expect(urls.every(url => url.startsWith('https://edge.yomureader.com/') || url.startsWith('https://yomu-jpdb-public-proxy.'))).toBe(true);
         } finally {
             vi.unstubAllGlobals();
         }
     });
 
-    it('does not use public proxy fallbacks for JPDB vocabulary details without a configured proxy', async () => {
+    it('uses the built-in public proxy for JPDB vocabulary details without a configured proxy', async () => {
         vi.stubGlobal('location', { origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
-        vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('fetch should not be called'))));
+        vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('proxy offline'))));
 
         try {
             const client = new JpdbVocabularyClient();
 
             await expect(client.lookup(123, '読む', 'よむ')).resolves.toBeNull();
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
-            expect(urls).toEqual([]);
+            expect(urls.length).toBeGreaterThan(0);
+            expect(urls.every(url => url.startsWith('https://edge.yomureader.com/') || url.startsWith('https://yomu-jpdb-public-proxy.'))).toBe(true);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -12773,24 +12786,31 @@ describe('reader helpers', () => {
         expect(readDictionaryLookupLinks(new FormData(form)).at(-1)?.id).toBe(sourceId);
     });
 
-    it('builds only configured proxy URLs', () => {
+    it('builds configured proxy URLs ahead of built-in public proxies', () => {
         const target = 'https://jpdb.io/kanji/%E5%9B%B3';
         const candidates = proxyUrlCandidates(target, TEST_PROXY_URL);
 
-        expect(candidates).toEqual([publicProxyUrlFor(target)]);
+        expect(candidates).toEqual([
+            publicProxyUrlFor(target),
+            builtInEdgeProxyUrlFor(target),
+            builtInWorkersDevProxyUrlFor(target),
+        ]);
         expect(candidates.some(url => url.startsWith('https://api.allorigins.win/'))).toBe(false);
         expect(proxyUrlCandidates(target, TEST_PROXY_URL, false)).toEqual([publicProxyUrlFor(target)]);
-        expect(proxyUrlCandidates(target, '')).toEqual([]);
+        expect(proxyUrlCandidates(target, '')).toEqual([
+            builtInEdgeProxyUrlFor(target),
+            builtInWorkersDevProxyUrlFor(target),
+        ]);
     });
 
-    it('does not fall back from configured proxy HTTP failures to a public proxy', async () => {
+    it('falls back from configured proxy HTTP failures to the built-in public proxy', async () => {
         const target = 'https://jpdb.io/search?q=%E5%9B%B3';
         const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
             const url = String(input);
             if (url.startsWith(TEST_PROXY_URL)) {
                 return Promise.resolve(new Response('blocked', { status: 403 }));
             }
-            return Promise.reject(new Error('unexpected fetch'));
+            return Promise.resolve(new Response('ok', { status: 200 }));
         });
         stubNhkArticleLocation();
         vi.stubGlobal('fetch', fetchMock);
@@ -12798,24 +12818,24 @@ describe('reader helpers', () => {
         try {
             const response = await fetchWithCorsFallbacks(target, TEST_PROXY_URL, { credentials: 'omit' });
 
-            expect(response.status).toBe(403);
-            expectFetchUrls(fetchMock, [publicProxyUrlFor(target)]);
+            expect(response.status).toBe(200);
+            expectFetchUrls(fetchMock, [publicProxyUrlFor(target), builtInEdgeProxyUrlFor(target)]);
         } finally {
             vi.unstubAllGlobals();
         }
     });
 
-    it('does not invent a proxy for public JPDB lookup page requests from local app pages', async () => {
+    it('serves public JPDB lookup page requests from local app pages via the built-in proxy', async () => {
         const target = 'https://jpdb.io/search?q=%E8%AA%AD';
         const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('ok', { status: 200 })));
         stubLocalAppLocation();
         vi.stubGlobal('fetch', fetchMock);
 
         try {
-            await expect(fetchWithCorsFallbacks(target, '', { credentials: 'omit' }))
-                .rejects.toThrow(/configured proxy/);
+            const response = await fetchWithCorsFallbacks(target, '', { credentials: 'omit' });
 
-            expect(fetchMock).not.toHaveBeenCalled();
+            expect(response.status).toBe(200);
+            expectFetchUrls(fetchMock, [builtInEdgeProxyUrlFor(target)]);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -12889,7 +12909,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('does not use public proxy fallbacks for known CORS-blocked public audio lookup URLs', async () => {
+    it('routes known CORS-blocked public audio lookup URLs through the built-in public proxy', async () => {
         const target = 'https://jisho.org/search/%E5%A4%A7%E5%88%87';
         const jishoAudioTarget = 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/7f5db2ba73cff9c5ef681c0431a12d93.mp3';
         const studyAudioTarget = 'https://d1pra95f92lrn3.cloudfront.net/audio/271184.mp3';
@@ -12917,27 +12937,27 @@ describe('reader helpers', () => {
             const response = await fetchWithCorsFallbacks(target, '', { allowDirectCrossOrigin: true, credentials: 'omit' });
 
             expect(await response.text()).toBe('ok');
-            expectFetchUrls(fetchMock, [target]);
+            expectFetchUrls(fetchMock, [builtInEdgeProxyUrlFor(target)]);
 
             fetchMock.mockClear();
             await expect(fetchWithCorsFallbacks(jishoAudioTarget, '', { allowDirectCrossOrigin: true, credentials: 'omit' }))
                 .resolves.toBeInstanceOf(Response);
-            expectFetchUrls(fetchMock, [jishoAudioTarget]);
+            expectFetchUrls(fetchMock, [builtInEdgeProxyUrlFor(jishoAudioTarget)]);
 
             fetchMock.mockClear();
             await expect(fetchWithCorsFallbacks(studyAudioTarget, '', { allowDirectCrossOrigin: true, credentials: 'omit' }))
                 .resolves.toBeInstanceOf(Response);
-            expectFetchUrls(fetchMock, [studyAudioTarget]);
+            expectFetchUrls(fetchMock, [builtInEdgeProxyUrlFor(studyAudioTarget)]);
 
             fetchMock.mockClear();
             await expect(fetchWithCorsFallbacks(japanesePodTarget, '', { allowDirectCrossOrigin: true, credentials: 'omit' }))
                 .resolves.toBeInstanceOf(Response);
-            expectFetchUrls(fetchMock, [japanesePodTarget]);
+            expectFetchUrls(fetchMock, [builtInEdgeProxyUrlFor(japanesePodTarget)]);
 
             fetchMock.mockClear();
             await expect(fetchWithCorsFallbacks(innovativeLanguageTarget, '', { allowDirectCrossOrigin: true, credentials: 'omit' }))
                 .resolves.toBeInstanceOf(Response);
-            expectFetchUrls(fetchMock, [innovativeLanguageTarget]);
+            expectFetchUrls(fetchMock, [builtInEdgeProxyUrlFor(innovativeLanguageTarget)]);
 
             fetchMock.mockClear();
             await expect(fetchWithCorsFallbacks(languagePodPostTarget, TEST_PROXY_URL, {
@@ -26968,7 +26988,10 @@ describe('reader helpers', () => {
             await vi.waitFor(() => {
                 expect(mount.querySelector<HTMLImageElement>('[data-uchisen-image]')?.src).toBe(imageUrl);
             });
-            expect(fetchMock).not.toHaveBeenCalled();
+            // Built-in public proxies are attempted first; when they fail the
+            // carousel still falls back to the direct image URL.
+            const attempted = (fetchMock as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
+            expect(attempted.every(url => url.startsWith('https://edge.yomureader.com/') || url.startsWith('https://yomu-jpdb-public-proxy.'))).toBe(true);
         } finally {
             cleanup?.();
             mount.remove();

@@ -40,12 +40,19 @@ describe('hostedFallbackProxyUrl', () => {
         expect(hostedFallbackProxyUrl('blob:https://x/y')).toBe('');
     });
 
-    it('does NOT proxy on a normal userscript page (off the official hosted reader)', () => {
+    it('proxies allowlisted read-only requests on ANY origin when no bridge exists (no dead "No configured proxy." toast)', () => {
         uninstallUserscriptHttpBridge();
         vi.stubGlobal('location', new URL('https://hrussellzfac023.github.io/yomu-reader/'));
-        expect(hostedFallbackProxyUrl('https://api.jiten.moe/api/vocabulary/parse?text=x')).toBe('');
+        expect(hostedFallbackProxyUrl('https://api.jiten.moe/api/vocabulary/parse?text=x')).toBe('https://edge.yomureader.com/');
         vi.stubGlobal('location', new URL('https://www.youtube.com/watch?v=x'));
-        expect(hostedFallbackProxyUrl('https://api.jiten.moe/api/vocabulary/parse?text=x')).toBe('');
+        expect(hostedFallbackProxyUrl('https://api.jiten.moe/api/vocabulary/parse?text=x')).toBe('https://edge.yomureader.com/');
+    });
+
+    it('never proxies non-allowlisted or sensitive requests off the hosted reader', () => {
+        uninstallUserscriptHttpBridge();
+        vi.stubGlobal('location', new URL('https://www.youtube.com/watch?v=x'));
+        expect(hostedFallbackProxyUrl('https://example.com/api/x')).toBe('');
+        expect(hostedFallbackProxyUrl('https://jpdb.io/api/v1/lookup-vocabulary', { headers: { Authorization: 'Bearer x' } })).toBe('');
     });
 
     it('does NOT add a proxy when the userscript HTTP bridge is present (GM bypasses CORS)', () => {
