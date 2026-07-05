@@ -8967,8 +8967,31 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function targetForcesAllFurigana(parent) {
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
   }
+  let rubyBreaksLineClampCache = null;
+  function rubyBreaksLineClamp() {
+    if (rubyBreaksLineClampCache !== null) return rubyBreaksLineClampCache;
+    if (!document.body) return false;
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:absolute;left:-9999px;top:0;width:120px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:20px;line-height:1.2;";
+    probe.innerHTML = "<ruby>漢字<rt>かんじ</rt></ruby>の後に長いテキストが続いて二行目を埋めます";
+    document.body.appendChild(probe);
+    const height = probe.getBoundingClientRect().height;
+    const collapsed = height > 0 && height < 20;
+    probe.remove();
+    rubyBreaksLineClampCache = collapsed;
+    return collapsed;
+  }
+  function isInsideLineClampBox(element) {
+    let current = element;
+    for (let depth = 0; current && depth < 5; depth += 1) {
+      if (hasLineClamp(safeComputedStyle(current))) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
   function shouldSuppressCompactScanRuby(parent) {
     if (parent.closest(READER_ROOT_SELECTOR)) return false;
+    if (rubyBreaksLineClamp() && isInsideLineClampBox(parent)) return true;
     if (shouldSuppressCompactMediaRuby(parent)) {
       markCompactMediaPassiveChrome(parent);
       return true;
@@ -39370,7 +39393,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.73".trim() ? "1.6.73".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.74".trim() ? "1.6.74".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

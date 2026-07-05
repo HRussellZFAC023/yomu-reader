@@ -42,8 +42,8 @@ describe('VisiblePageScanner', () => {
 
             expect(parseJapanese.mock.calls.map(call => call[0])).toHaveLength(3);
             expect(parseJapanese.mock.calls[0]?.[0]).toHaveLength(80);
-            expect(parseJapanese.mock.calls[1]?.[0]).toHaveLength(40);
-            expect(parseJapanese.mock.calls[2]?.[0]).toHaveLength(50);
+            expect(parseJapanese.mock.calls[1]?.[0]).toHaveLength(80);
+            expect(parseJapanese.mock.calls[2]?.[0]).toHaveLength(10);
             expect(parseJapanese.mock.calls[0]?.[1]).toEqual({
                 jpdbTimeoutMs: 450,
                 allowJpdbTimeoutFallback: true,

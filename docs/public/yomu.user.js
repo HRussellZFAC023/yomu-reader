@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.73
+// @version 1.6.74
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.73#sha256=r+U3PPlMNcOWCLRVtHZhUi4xLBnGczjeYX3GVq8WU1M=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.73#sha256=NKYC/VXaQkKHPiOpiUqTesgQk8/nI2XOnTh8D/Ygrxk=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.73#sha256=DDs7i2K5xteBYt55n2PKuvpdBwD2bYuubpk2nR2KdoM=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.73#sha256=N1++NNa9Le4vmLfAkgmyxd1/OI56ZQO3Y1XjSeezdkA=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.73#sha256=vgC8ZXCszAQNrGCyis12JRidrrMeo/efhVJ715e6nLg=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.73#sha256=mpRGn5vgdK+axkUJgXDcO9AtbHA76IBwDXwHrKDHltE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.74#sha256=r+U3PPlMNcOWCLRVtHZhUi4xLBnGczjeYX3GVq8WU1M=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.74#sha256=NKYC/VXaQkKHPiOpiUqTesgQk8/nI2XOnTh8D/Ygrxk=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.74#sha256=DDs7i2K5xteBYt55n2PKuvpdBwD2bYuubpk2nR2KdoM=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.74#sha256=N1++NNa9Le4vmLfAkgmyxd1/OI56ZQO3Y1XjSeezdkA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.74#sha256=vgC8ZXCszAQNrGCyis12JRidrrMeo/efhVJ715e6nLg=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.74#sha256=mpRGn5vgdK+axkUJgXDcO9AtbHA76IBwDXwHrKDHltE=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -5331,8 +5331,31 @@ function scanTargetSuppressesRuby(parent, suppressRuby) {
 function targetForcesAllFurigana(parent) {
   return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
 }
+let rubyBreaksLineClampCache = null;
+function rubyBreaksLineClamp() {
+  if (rubyBreaksLineClampCache !== null) return rubyBreaksLineClampCache;
+  if (!document.body) return false;
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:absolute;left:-9999px;top:0;width:120px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:20px;line-height:1.2;";
+  probe.innerHTML = "<ruby>漢字<rt>かんじ</rt></ruby>の後に長いテキストが続いて二行目を埋めます";
+  document.body.appendChild(probe);
+  const height = probe.getBoundingClientRect().height;
+  const collapsed = height > 0 && height < 20;
+  probe.remove();
+  rubyBreaksLineClampCache = collapsed;
+  return collapsed;
+}
+function isInsideLineClampBox(element2) {
+  let current = element2;
+  for (let depth = 0; current && depth < 5; depth += 1) {
+  if (hasLineClamp(safeComputedStyle(current))) return true;
+  current = current.parentElement;
+  }
+  return false;
+}
 function shouldSuppressCompactScanRuby(parent) {
   if (parent.closest(READER_ROOT_SELECTOR$3)) return false;
+  if (rubyBreaksLineClamp() && isInsideLineClampBox(parent)) return true;
   if (shouldSuppressCompactMediaRuby(parent)) {
   markCompactMediaPassiveChrome(parent);
   return true;
@@ -25847,6 +25870,9 @@ const YOUTUBE_COMMENT_CONTROL_SELECTORS = [
 const YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS = [
   "ytd-comment-view-model #content-text",
   "ytm-comment-renderer #content-text",
+  "ytm-comment-thread-renderer",
+  "ytm-comment-renderer",
+  "ytm-comment-replies-renderer",
   ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map((selector) => `ytd-comment-view-model ${selector}`),
   ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map((selector) => `ytm-comment-renderer ${selector}`)
 ].join(",");
@@ -27105,7 +27131,7 @@ const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 24;
 const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
 const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
 const DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS = 180;
-const DEFERRED_PUBLIC_PITCH_PER_URL_CAP = 128;
+const DEFERRED_PUBLIC_PITCH_PER_URL_CAP = 256;
 const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
 const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 3e4;
 const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
@@ -32525,7 +32551,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.73"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.74"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -32682,9 +32708,9 @@ const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
 const VISIBLE_SCAN_PARSE_CHAR_BUDGET = 6e3;
 const VISIBLE_SCAN_MOBILE_PARSE_CHAR_BUDGET = 3200;
 const VISIBLE_SCAN_MOBILE_FALLBACK_PARSE_CHAR_BUDGET = 2e3;
-const VISIBLE_SCAN_TARGET_COLLECTION_LIMIT = 120;
-const VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT = 120;
-const VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_COLLECTION_LIMIT = 60;
+const VISIBLE_SCAN_TARGET_COLLECTION_LIMIT = 200;
+const VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT = 200;
+const VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_COLLECTION_LIMIT = 100;
 const VISIBLE_SCAN_TARGET_TEXT_CHUNK_SIZE = 1800;
 const VISIBLE_SCAN_MOBILE_TARGET_TEXT_CHUNK_SIZE = 900;
 const VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_TEXT_CHUNK_SIZE = 700;
@@ -34771,7 +34797,7 @@ class ReaderApp {
     {
       this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: isYouTubeHostname() });
     }
-  }, { passive: true });
+  }, { passive: true, capture: true });
   window.addEventListener("resize", () => {
     {
       this.scheduleAutoScan(250, { force: true, debounce: isYouTubeHostname() });

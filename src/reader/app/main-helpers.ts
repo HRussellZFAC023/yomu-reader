@@ -48,7 +48,8 @@ export const DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS = 180;
 // Bounds total public-pitch lookups per page so the deferred retry can never
 // trickle unbounded requests to the public endpoints; the lane is additionally
 // idle-gated + chunked, so it stays a gentle paced drain rather than a burst.
-export const DEFERRED_PUBLIC_PITCH_PER_URL_CAP = 128;
+// 128 left the tail of dense feeds on the grey unknown-pitch underline.
+export const DEFERRED_PUBLIC_PITCH_PER_URL_CAP = 256;
 const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
 export const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
 export const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;

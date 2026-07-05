@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.74] - 2026-07-05
+
+### Fixed
+
+- Mobile YouTube comment bodies and author handles are now decorated: the comment bottom sheet's current markup (comment threads without the legacy content-text id) is scanned directly, and scrolling inside any panel or bottom sheet now triggers the settle re-scan that previously only ran for whole-page scrolls.
+- On iPhone and iPad, community-post and description texts are no longer clipped to a sliver of one line: Safari collapses a line-clamped box as soon as a furigana annotation is inserted into it, so on affected browsers those boxes keep colour and pitch underlines while the reading is left off.
+- Dense feeds no longer leave later rows undecorated or stuck on the grey unknown-pitch underline: the per-scan collection cap and the per-page pitch lookup budget were raised so long subscription and channel feeds are covered.
+
 ## [1.6.73] - 2026-07-05
 
 ### Changed

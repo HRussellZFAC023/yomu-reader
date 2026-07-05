@@ -1982,11 +1982,15 @@ export class ReaderApp {
             }
         });
         this.observeAutoScanMutations();
+        // capture: true — scroll does not bubble, so a bubble-phase window
+        // listener only sees page scrolls. Bottom sheets and side panels
+        // (m.youtube comment sheet) scroll their own containers; without the
+        // capture phase their content never got a settle re-scan.
         window.addEventListener('scroll', () => {
             if (allowsFrequentVisibleAutoScan()) {
                 this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: isYouTubeHostname() });
             }
-        }, { passive: true });
+        }, { passive: true, capture: true });
         window.addEventListener('resize', () => {
             if (allowsFrequentVisibleAutoScan()) {
                 this.scheduleAutoScan(250, { force: true, debounce: isYouTubeHostname() });

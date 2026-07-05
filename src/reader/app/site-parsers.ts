@@ -440,6 +440,12 @@ const YOUTUBE_COMMENT_CONTROL_SELECTORS = [
 const YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS = [
     'ytd-comment-view-model #content-text',
     'ytm-comment-renderer #content-text',
+    // Current m.youtube comment sheets no longer expose #content-text: root
+    // the whole thread/renderer so bodies, author handles, and timestamps are
+    // all collected regardless of YouTube's inner markup of the week.
+    'ytm-comment-thread-renderer',
+    'ytm-comment-renderer',
+    'ytm-comment-replies-renderer',
     ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map(selector => `ytd-comment-view-model ${selector}`),
     ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map(selector => `ytm-comment-renderer ${selector}`),
 ].join(',');

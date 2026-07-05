@@ -1827,8 +1827,40 @@ function targetForcesAllFurigana(parent: HTMLElement): boolean {
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
 }
 
+// WebKit collapses a -webkit-line-clamp box to a sliver of one line as soon
+// as a <ruby> lands inside it (engine bug; Chromium keeps the clamped lines):
+// m.youtube community-post bodies showed a half-clipped first line. Probe the
+// engine once and keep readings out of clamped boxes where it is broken —
+// colour and pitch underlines still render there.
+let rubyBreaksLineClampCache: boolean | null = null;
+function rubyBreaksLineClamp(): boolean {
+    if (rubyBreaksLineClampCache !== null) return rubyBreaksLineClampCache;
+    if (!document.body) return false;
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:absolute;left:-9999px;top:0;width:120px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:20px;line-height:1.2;';
+    probe.innerHTML = '<ruby>漢字<rt>かんじ</rt></ruby>の後に長いテキストが続いて二行目を埋めます';
+    document.body.appendChild(probe);
+    // 0 = unmeasurable layout (jsdom, detached documents): assume healthy.
+    // A broken WebKit measures ~0.66em (13px here); healthy engines ≥2 lines.
+    const height = probe.getBoundingClientRect().height;
+    const collapsed = height > 0 && height < 20;
+    probe.remove();
+    rubyBreaksLineClampCache = collapsed;
+    return collapsed;
+}
+
+function isInsideLineClampBox(element: HTMLElement): boolean {
+    let current: HTMLElement | null = element;
+    for (let depth = 0; current && depth < 5; depth += 1) {
+        if (hasLineClamp(safeComputedStyle(current))) return true;
+        current = current.parentElement;
+    }
+    return false;
+}
+
 function shouldSuppressCompactScanRuby(parent: HTMLElement): boolean {
     if (parent.closest(READER_ROOT_SELECTOR)) return false;
+    if (rubyBreaksLineClamp() && isInsideLineClampBox(parent)) return true;
     if (shouldSuppressCompactMediaRuby(parent)) {
         markCompactMediaPassiveChrome(parent);
         return true;
