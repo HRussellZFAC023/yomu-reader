@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.84
+// @version 1.6.85
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.84#sha256=iz5O+sYdQQ3IsTQnmJHRaN/+cscCRT028FrYxsR4HeE=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.84#sha256=bc/EsiJtVw6iWmHBcm7HGGGEruVkvDyMLQ8B0foUbBo=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.84#sha256=j7UeK9pWUaQOGzz6JIjmQ1we8WS5IDBvu/ptBM8TZ8w=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.84#sha256=Qp7PEqQNrMqpmEXR16D4rahWHVy0qb9unv2HAapo9/Y=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.84#sha256=76gxfdR6AzP7pNV76fi+PYoxUKtuLrTIGRJtlPxpKzI=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.84#sha256=KnXwd4LcLzE9PXKYX3MPjsZ+g7p7oeVCq4eoibElHoQ=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.85#sha256=MckBoQek04F/5L7ew566RdMWj1j3jl/AfPjAt9el8mE=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.85#sha256=FOvCf7KbOTzYSH/kt8VlXqdkpaEl57KOu1wjtgxgfQE=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.85#sha256=Hgu0mcMzilg8tNkAtAZUEBoT4JNFj3EUEZcbxQdnzlc=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.85#sha256=Qp7PEqQNrMqpmEXR16D4rahWHVy0qb9unv2HAapo9/Y=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.85#sha256=++cbQibSCMrs8Nx9aMh6GVfvnIoaJ7pmgL4dHS/RlXo=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.85#sha256=3Df3EEyVtSvce9ui6qtxUj34MtRqwjIpZ4evw33rLQE=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -1482,6 +1482,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
   { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
+  { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
   { owner: "jpdb/jpdb-public-cache", kind: "gm", key: "yomu:jpdb-cache:v1" },
   { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v1" },
   { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
@@ -3798,6 +3799,9 @@ function hasPersonalizedFuriganaSource(settings) {
 }
 function shouldLookupAnkiStatus(settings) {
   return settings.ankiEnabled === true;
+}
+function shouldLookupBunproWordStates(settings, now = Date.now()) {
+  return settings.bunproMiningEnabled === true && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings, now);
 }
 function effectiveReaderColorSource(settings, source, fallback = DEFAULT_COLOR_CHANNELS.wordHighlightColorSource) {
   const concrete = source === "auto" ? legacyReaderColorSourceForAuto(settings, fallback) : source;
@@ -12930,7 +12934,7 @@ function glossaryValueToProfileText(value, options) {
   if (Array.isArray(value)) {
   return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
   }
-  return isRecord$4(value) ? glossaryRecordToText(value, options) : "";
+  return isRecord$5(value) ? glossaryRecordToText(value, options) : "";
 }
 function primitiveGlossaryText(value) {
   if (value == null) return "";
@@ -12961,7 +12965,7 @@ function glossaryRecordTextValues(record, options) {
 function shouldReadRecordTextKey(key, options) {
   return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
 }
-function isRecord$4(value) {
+function isRecord$5(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 const STRUCTURED_CONTENT_TAGS = new Set([
@@ -13027,7 +13031,7 @@ function renderGlossaryValue(value, context) {
   if (value == null) return "";
   if (isStructuredPrimitive(value)) return escapeHtml(String(value));
   if (Array.isArray(value)) return renderGlossaryArray(value, context);
-  if (!isRecord$3(value)) return "";
+  if (!isRecord$4(value)) return "";
   return renderGlossaryRecord(value, context);
 }
 function isStructuredPrimitive(value) {
@@ -13327,7 +13331,7 @@ function locationOrigin() {
 function camelToKebabCase(value) {
   return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
 }
-function isRecord$3(value) {
+function isRecord$4(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function escapeHtml(value) {
@@ -16880,7 +16884,7 @@ function isSearchExampleSurfaceMatch(example, query) {
   return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
 }
 function normalizeExample(value, provider = "immersion-kit") {
-  return isRecord$2(value) ? normalizeExampleRecord(value, provider) : null;
+  return isRecord$3(value) ? normalizeExampleRecord(value, provider) : null;
 }
 function normalizeExampleRecord(record, provider = "immersion-kit") {
   const id = text(record.id);
@@ -16921,18 +16925,18 @@ function nadeshikoSearchPayload(query, settings, minLength) {
 }
 function nadeshikoResponseRecord(data) {
   if (Array.isArray(data)) return { segments: data };
-  return isRecord$2(data) ? data : null;
+  return isRecord$3(data) ? data : null;
 }
 function nadeshikoSegments(response) {
   return firstArrayField(response, ["segments", "examples", "results", "data"]);
 }
 function nadeshikoMediaMap(response) {
   const includes = response.includes;
-  const media = isRecord$2(includes) ? includes.media : void 0;
-  return isRecord$2(media) ? media : {};
+  const media = isRecord$3(includes) ? includes.media : void 0;
+  return isRecord$3(media) ? media : {};
 }
 function normalizeNadeshikoExample(value, mediaById) {
-  if (!isRecord$2(value)) return null;
+  if (!isRecord$3(value)) return null;
   const sentence = nadeshikoSentence(value);
   if (!sentence) return null;
   const ids = nadeshikoExampleIds(value);
@@ -16969,7 +16973,7 @@ function nadeshikoMediaRecord(mediaById, mediaPublicId) {
   return recordField(mediaById[mediaPublicId]);
 }
 function recordField(value) {
-  return isRecord$2(value) ? value : {};
+  return isRecord$3(value) ? value : {};
 }
 function nadeshikoSourceTitle(record, media) {
   return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
@@ -16988,7 +16992,7 @@ function nadeshikoAbsoluteMediaUrl(record, urls, keys) {
 }
 function nestedText(record, key, fields) {
   const value = record[key];
-  return isRecord$2(value) ? firstText(value, fields) : "";
+  return isRecord$3(value) ? firstText(value, fields) : "";
 }
 function directMediaUrl(example, kind) {
   return kind === "image" ? example.imageUrl : example.soundUrl;
@@ -17026,7 +17030,7 @@ function firstText(record, keys) {
 function text(value) {
   return typeof value === "string" ? value.trim() : "";
 }
-function isRecord$2(value) {
+function isRecord$3(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function titleSlugFromId(id) {
@@ -22620,9 +22624,9 @@ class JitenPublicVocabularyClient {
   }
 }
 function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
-  if (!isRecord$1(payload)) return null;
+  if (!isRecord$2(payload)) return null;
   const wordId = finiteInteger(payload.wordId) ?? fallback.wordId;
-  const mainReading = isRecord$1(payload.mainReading) ? payload.mainReading : {};
+  const mainReading = isRecord$2(payload.mainReading) ? payload.mainReading : {};
   const annotatedReading = stringValue(mainReading.text) || requestedTerm;
   const spelling = cleanAnnotatedJitenText(annotatedReading) || requestedTerm;
   const reading = cleanJitenAnnotatedReading(annotatedReading) || spelling;
@@ -22677,7 +22681,7 @@ function publicParseWordFromCard(card) {
   };
 }
 function normalizePublicParseWord(value) {
-  if (!isRecord$1(value)) return null;
+  if (!isRecord$2(value)) return null;
   const wordId = finiteInteger(value.wordId);
   const readingIndex = finiteInteger(value.readingIndex);
   const originalText = stringValue(value.originalText);
@@ -22790,11 +22794,11 @@ function normalizeLookupText(value) {
 function endpointUrl(baseUrl, endpoint) {
   return `${(baseUrl ?? JITEN_PUBLIC_API_BASE_URL).replace(/\/+$/u, "")}/${endpoint.replace(/^\/+/u, "")}`;
 }
-function isRecord$1(value) {
+function isRecord$2(value) {
   return Boolean(value && typeof value === "object");
 }
 function arrayRecords(value) {
-  return Array.isArray(value) ? value.filter(isRecord$1) : [];
+  return Array.isArray(value) ? value.filter(isRecord$2) : [];
 }
 function stringArray(value) {
   if (typeof value === "string") return [value];
@@ -22819,11 +22823,11 @@ function logPublicJitenFailure(message, context, error) {
   log$9.warn(message, context, error);
 }
 function errorName(error) {
-  return isRecord$1(error) && typeof error.name === "string" ? error.name : "";
+  return isRecord$2(error) && typeof error.name === "string" ? error.name : "";
 }
 function errorMessage(error) {
   if (error instanceof Error) return error.message;
-  return isRecord$1(error) && typeof error.message === "string" ? error.message : "";
+  return isRecord$2(error) && typeof error.message === "string" ? error.message : "";
 }
 const JITEN_KANJI_WORD_PAGE_SIZE = 9;
 const CARD_STATES = new Set([
@@ -25279,9 +25283,10 @@ const RENDERED_WORD_CARD_STATES = [
   "frequent",
   "unparsed"
 ];
-const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback"];
+const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro"];
 const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
 const RENDERED_WORD_MINING_INSIGHT_STATES = new Set(["new", "not-in-deck", "in-deck"]);
+const BUNPRO_FILLABLE_CARD_STATES = new Set(["", "not-in-deck"]);
 function clearRenderedWordAnkiState(word) {
   Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
   delete word.dataset.ankiState;
@@ -25357,6 +25362,7 @@ function setRenderedWordCardIdentity(word, card) {
   const source = renderedWordCardSource(card);
   const state = primaryCardState(card.cardState);
   clearRenderedWordCardStateClasses(word);
+  delete word.dataset.bunproState;
   clearRenderedWordDeckMembershipClasses(word, ["anki"]);
   word.dataset.vid = String(card.vid);
   word.dataset.sid = String(card.sid);
@@ -25373,6 +25379,29 @@ function setRenderedWordCardIdentity(word, card) {
   word.classList.add(`jpdb-${state}`);
   if (source !== "jpdb") word.classList.add(`${source}-${state}`);
   applyRenderedWordDeckMembership(word, card);
+}
+function applyBunproStateToRenderedWord(word, state) {
+  const previous = word.dataset.bunproState ?? "";
+  if (!previous && !BUNPRO_FILLABLE_CARD_STATES.has(word.dataset.cardState ?? "")) return false;
+  if (!state) {
+  if (!previous) return false;
+  clearRenderedWordBunproState(word);
+  return true;
+  }
+  if (previous === state) return false;
+  if (previous) word.classList.remove(`jpdb-${previous}`, `bunpro-${previous}`);
+  word.classList.remove("jpdb-not-in-deck");
+  word.classList.add(`jpdb-${state}`, `bunpro-${state}`);
+  word.dataset.cardState = state;
+  word.dataset.bunproState = state;
+  return true;
+}
+function clearRenderedWordBunproState(word) {
+  const previous = word.dataset.bunproState ?? "";
+  if (previous) word.classList.remove(`jpdb-${previous}`, `bunpro-${previous}`);
+  delete word.dataset.bunproState;
+  word.classList.add("jpdb-not-in-deck");
+  word.dataset.cardState = "not-in-deck";
 }
 function clearRenderedWordMiningInsight(word) {
   word.classList.remove("jpdb-reader-i-plus-one");
@@ -31386,7 +31415,7 @@ class BunproClient {
   getSrsLevelDetails(level, reviewableType, page = 1) {
   return this.frontend("/user_stats/srs_level_details", {
     query: {
-      level: String(Math.max(1, Math.floor(level))),
+      level,
       reviewable_type: reviewableType,
       page: String(Math.max(1, Math.floor(page)))
     }
@@ -31524,6 +31553,155 @@ function trimBunproSearchSection(section, limit) {
   const value = section;
   if (!Array.isArray(value.data)) return section;
   return { ...value, data: value.data.slice(0, limit) };
+}
+const BUNPRO_SRS_TIERS = ["beginner", "adept", "seasoned", "expert", "master", "ghost"];
+const BUNPRO_WORD_STATES_STORAGE_KEY = "yomu:bunpro-word-states:v1";
+const BUNPRO_WORD_STATES_TTL_MS = 6 * 60 * 60 * 1e3;
+const BUNPRO_WORD_STATES_MAX_PAGES = 50;
+class BunproWordStateStore {
+  constructor(client, ttlMs = BUNPRO_WORD_STATES_TTL_MS) {
+  this.client = client;
+  this.ttlMs = ttlMs;
+  }
+  states = null;
+  pending = null;
+  async load(now = Date.now()) {
+  if (this.states) return this.states;
+  this.pending ??= this.loadFresh(now).finally(() => {
+    this.pending = null;
+  });
+  return this.pending;
+  }
+  async loadFresh(now) {
+  const stored = await gmStorageGet(BUNPRO_WORD_STATES_STORAGE_KEY, null);
+  const cached = restoreBunproWordStates(stored);
+  if (cached && stored && now - stored.fetchedAt < this.ttlMs) {
+    this.states = cached;
+    return cached;
+  }
+  if (!this.client.hasFrontendCredential()) return cached;
+  try {
+    const fetched = await fetchBunproWordStates(this.client);
+    await gmStorageSet(BUNPRO_WORD_STATES_STORAGE_KEY, persistableBunproWordStates(fetched, now));
+    this.states = fetched;
+    return fetched;
+  } catch {
+    this.states = cached;
+    return cached;
+  }
+  }
+}
+function effectiveBunproWordState(entry, now = Date.now()) {
+  const duePromotable = entry.state === "learning" || entry.state === "known";
+  if (duePromotable && entry.dueAt !== null && entry.dueAt <= now) return "due";
+  return entry.state;
+}
+async function fetchBunproWordStates(client) {
+  const overview = await client.getSrsOverview();
+  const vocabCounts = tierCounts(overview);
+  const states = new Map();
+  let pageBudget = BUNPRO_WORD_STATES_MAX_PAGES;
+  for (const tier of BUNPRO_SRS_TIERS) {
+  if (!vocabCounts[tier]) continue;
+  let page = 1;
+  let pages = 1;
+  while (page <= pages && pageBudget > 0) {
+    pageBudget -= 1;
+    const response = await client.getSrsLevelDetails(tier, "Vocab", page);
+    pages = Math.min(pageCount(response), page + pageBudget);
+    collectBunproWordStates(response, tier, states);
+    page += 1;
+  }
+  }
+  return states;
+}
+function collectBunproWordStates(response, tier, states) {
+  const reviews = objectAt$1(response, "reviews") ?? (isRecord$1(response) ? response : null);
+  if (!reviews) return;
+  const titles = reviewableTitlesById(arrayAt(reviews, "included"));
+  for (const review of arrayAt(reviews, "data")) {
+  addBunproWordState(review, tier, titles, states);
+  }
+}
+function addBunproWordState(review, tier, titles, states) {
+  const attributes = objectAt$1(review, "attributes") ?? (isRecord$1(review) ? review : null);
+  if (!attributes) return;
+  const title = titles.get(String(attributes.reviewable_id ?? ""));
+  if (!title) return;
+  states.set(title, {
+  state: bunproTierCardState(tier, numberAt(attributes, "streak")),
+  dueAt: parseEpoch(attributes.next_review)
+  });
+}
+function bunproTierCardState(tier, streak) {
+  if (tier === "ghost") return "failed";
+  if (tier === "master") return "known";
+  if (streak !== null && streak <= 0) return "new";
+  return "learning";
+}
+function reviewableTitlesById(included) {
+  const titles = new Map();
+  for (const item of included) {
+  const attributes = objectAt$1(item, "attributes");
+  if (!attributes) continue;
+  const id = String(attributes.id ?? "");
+  const title = typeof attributes.title === "string" ? attributes.title.trim() : "";
+  if (id && title) titles.set(id, title);
+  }
+  return titles;
+}
+function tierCounts(overview) {
+  const vocab = objectAt$1(overview, "vocab");
+  const counts = {};
+  for (const tier of BUNPRO_SRS_TIERS) {
+  const count = numberAt(vocab, tier);
+  counts[tier] = count ?? (vocab ? 0 : 1);
+  }
+  return counts;
+}
+function pageCount(response) {
+  return numberAt(objectAt$1(response, "pagy"), "pages") ?? 1;
+}
+function restoreBunproWordStates(stored) {
+  if (!stored || !isRecord$1(stored.states)) return null;
+  const states = new Map();
+  for (const [expression, entry] of Object.entries(stored.states)) {
+  if (!isRecord$1(entry) || typeof entry.s !== "string") continue;
+  states.set(expression, {
+    state: entry.s,
+    dueAt: typeof entry.d === "number" ? entry.d : null
+  });
+  }
+  return states;
+}
+function persistableBunproWordStates(states, fetchedAt) {
+  const stored = {};
+  states.forEach((entry, expression) => {
+  stored[expression] = { s: entry.state, d: entry.dueAt };
+  });
+  return { fetchedAt, states: stored };
+}
+function parseEpoch(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+function numberAt(value, key) {
+  if (!isRecord$1(value)) return null;
+  const raw = Number(value[key]);
+  return Number.isFinite(raw) ? raw : null;
+}
+function arrayAt(value, key) {
+  if (!isRecord$1(value)) return [];
+  const raw = value[key];
+  return Array.isArray(raw) ? raw : [];
+}
+function objectAt$1(value, key) {
+  const nested = isRecord$1(value) ? value[key] : null;
+  return isRecord$1(nested) && !Array.isArray(nested) ? nested : null;
+}
+function isRecord$1(value) {
+  return typeof value === "object" && value !== null;
 }
 const BUNPRO_FRONTEND_API_TOKEN_COOKIE = "frontend_api_token";
 const IMPORTER_ID = "jpdb-reader-bunpro-token-importer";
@@ -32669,7 +32847,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.84"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.85"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -33565,6 +33743,7 @@ function manualScrollReaderBody(body, deltaY) {
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
 const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
+const BUNPRO_WORD_STATE_WARMUP_DELAY_MS = 1500;
 const LINK_PRESS_LOOKUP_MS = 450;
 const SUBTITLE_HOVER_MINING_RESUME_GRACE_MS = 520;
 const HOVER_WORD_HOST_CONTROL_SELECTOR = 'button,[role="button"],a[href],[aria-controls],[aria-expanded]';
@@ -33725,6 +33904,7 @@ class ReaderApp {
   getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings)
   });
   bunproSrs = createBunproSrsAdapter(this.bunpro);
+  bunproWordStates = new BunproWordStateStore(this.bunpro);
   yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
   rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : null;
   dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
@@ -34117,9 +34297,9 @@ class ReaderApp {
   this.resumePendingCloudSettingsSync();
   if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
   if (this.shouldScanInitialPage()) {
-    void this.pageScanner.scanVisiblePage({ silent: true }).finally(() => this.scheduleAnkiStatusWarmup());
+    void this.pageScanner.scanVisiblePage({ silent: true }).finally(() => this.scheduleStatusWarmups());
   } else {
-    this.scheduleAnkiStatusWarmup();
+    this.scheduleStatusWarmups();
   }
   }
   async installBunproTokenImporter() {
@@ -34174,6 +34354,39 @@ class ReaderApp {
     onRecolorError: (error) => {
       log.warnOnce("anki-cache-recolor-failed", "Anki cache recolor failed", error);
     }
+  });
+  }
+  scheduleStatusWarmups() {
+  this.scheduleAnkiStatusWarmup();
+  this.scheduleBunproWordStateWarmup();
+  }
+  scheduleBunproWordStateWarmup() {
+  if (!this.shouldRunBunproWordStateWork()) return;
+  window.setTimeout(() => this.queueBunproWordStateEnrichment([document]), BUNPRO_WORD_STATE_WARMUP_DELAY_MS);
+  }
+  shouldRunBunproWordStateWork() {
+  return !this.isDestroyed && shouldLookupBunproWordStates(this.settings);
+  }
+  queueBunproWordStateEnrichment(roots = [document]) {
+  if (!this.shouldRunBunproWordStateWork()) return;
+  void this.applyBunproWordStatesToRoots(roots).catch((error) => {
+    log.warnOnce("bunpro-word-state-coloring-failed", "Bunpro word-state coloring failed", error);
+  });
+  }
+  async applyBunproWordStatesToRoots(roots) {
+  const states = await this.bunproWordStates.load();
+  if (!states?.size || !this.shouldRunBunproWordStateWork()) return;
+  const now = Date.now();
+  this.pauseAutoScanObserver(() => {
+    uniqueParentNodes(roots).forEach((root) => {
+      let changed = false;
+      renderedWordsInRoot(root).forEach((word) => {
+        const entry = word.dataset.expression ? states.get(word.dataset.expression) : void 0;
+        const state = entry ? effectiveBunproWordState(entry, now) : null;
+        if (applyBunproStateToRenderedWord(word, state)) changed = true;
+      });
+      if (changed) refreshReaderWordContrast(root);
+    });
   });
   }
   scheduleRenderedAnkiStatusRefresh(card) {
@@ -38670,8 +38883,9 @@ class ReaderApp {
   afterSubtitleJapaneseParsed(tokens, roots = []) {
   this.preloadTermAudioForTokens(tokens);
   void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
-  if (!this.shouldRunAnkiBackgroundWork()) return;
   const targetRoots = roots.length ? roots : this.subtitleAnkiEnrichmentRoots();
+  this.queueBunproWordStateEnrichment(targetRoots.length ? targetRoots : [document]);
+  if (!this.shouldRunAnkiBackgroundWork()) return;
   void this.enrichAnkiWords(tokens, targetRoots.length ? targetRoots : [document]);
   }
   queueSubtitleParsedHtmlRefresh(sentence) {
@@ -38788,6 +39002,7 @@ class ReaderApp {
   }
   async enrichOcrRenderedTokens(tokens, root) {
   if (!tokens.length) return;
+  this.queueBunproWordStateEnrichment([root]);
   if (!this.shouldRunAnkiBackgroundWork()) return;
   await this.enrichAnkiWords(tokens, [root]);
   }
@@ -38803,17 +39018,23 @@ class ReaderApp {
   return Boolean(root.isConnected && this.activePopover === root && root.classList.contains("jpdb-reader-settings"));
   }
   queueAnkiWordEnrichment(tokens, roots = [document]) {
+  if (tokens.length) this.queueBunproWordStateEnrichment(roots);
   if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return;
   void this.enrichAnkiWords(tokens, roots);
   }
-  beginAnkiWordEnrichment(tokens) {
-  if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return () => void 0;
-  const uniqueTokens = uniqueTokensByCard(tokens);
-  const lookups = this.anki.findCachedStatusBatch(uniqueTokens.map((token) => token.card)).catch((error) => {
+  ankiCachedStatusLookups(uniqueTokens) {
+  return this.anki.findCachedStatusBatch(uniqueTokens.map((token) => token.card)).catch((error) => {
     log.warnOnce("background-anki-coloring-failed", "Anki background coloring failed", error);
     return uniqueTokens.map(() => untrustedAnkiLookupResult());
   });
+  }
+  beginAnkiWordEnrichment(tokens) {
+  if (!tokens.length) return () => void 0;
+  if (!this.shouldRunAnkiBackgroundWork()) return (roots) => this.queueBunproWordStateEnrichment(roots);
+  const uniqueTokens = uniqueTokensByCard(tokens);
+  const lookups = this.ankiCachedStatusLookups(uniqueTokens);
   return (roots) => {
+    this.queueBunproWordStateEnrichment(roots);
     void lookups.then((resolved) => {
       if (!this.shouldRunAnkiBackgroundWork()) return;
       this.applyAnkiLookupsToRenderedWords(uniqueTokens, resolved, roots);
@@ -38821,13 +39042,12 @@ class ReaderApp {
   };
   }
   async prepareAnkiWordEnrichmentBeforeRender(tokens) {
-  if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return () => void 0;
+  if (!tokens.length) return () => void 0;
+  if (!this.shouldRunAnkiBackgroundWork()) return (roots) => this.queueBunproWordStateEnrichment(roots);
   const uniqueTokens = uniqueTokensByCard(tokens);
-  const lookups = await this.anki.findCachedStatusBatch(uniqueTokens.map((token) => token.card)).catch((error) => {
-    log.warnOnce("background-anki-coloring-failed", "Anki background coloring failed", error);
-    return uniqueTokens.map(() => untrustedAnkiLookupResult());
-  });
+  const lookups = await this.ankiCachedStatusLookups(uniqueTokens);
   return (roots) => {
+    this.queueBunproWordStateEnrichment(roots);
     if (!this.shouldRunAnkiBackgroundWork()) return;
     this.applyAnkiLookupsToRenderedWords(uniqueTokens, lookups, roots);
   };
@@ -38835,10 +39055,7 @@ class ReaderApp {
   async enrichAnkiWords(tokens, roots = [document]) {
   if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return;
   const uniqueTokens = uniqueTokensByCard(tokens);
-  const lookups = await this.anki.findCachedStatusBatch(uniqueTokens.map((token) => token.card)).catch((error) => {
-    log.warnOnce("background-anki-coloring-failed", "Anki background coloring failed", error);
-    return uniqueTokens.map(() => untrustedAnkiLookupResult());
-  });
+  const lookups = await this.ankiCachedStatusLookups(uniqueTokens);
   if (!this.shouldRunAnkiBackgroundWork()) return;
   this.applyAnkiLookupsToRenderedWords(uniqueTokens, lookups, roots);
   }

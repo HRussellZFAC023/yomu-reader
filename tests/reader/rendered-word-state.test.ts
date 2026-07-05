@@ -70,6 +70,24 @@ describe('rendered word card identity', () => {
 
         expect(word.dataset.pitchAccent).toBeUndefined();
     });
+
+    it('clears Bunpro fill state when the word resolves to a real card', () => {
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-learning bunpro-learning';
+        word.dataset.cardState = 'learning';
+        word.dataset.bunproState = 'learning';
+
+        setRenderedWordCardIdentity(word, renderedWordCard({
+            source: 'jiten',
+            cardState: ['mature'],
+        }));
+
+        expect(word.classList.contains('bunpro-learning')).toBe(false);
+        expect(word.classList.contains('jpdb-learning')).toBe(false);
+        expect(word.classList.contains('jpdb-mature')).toBe(true);
+        expect(word.dataset.bunproState).toBeUndefined();
+        expect(word.dataset.cardState).toBe('mature');
+    });
 });
 
 describe('rendered word deck styling parity', () => {

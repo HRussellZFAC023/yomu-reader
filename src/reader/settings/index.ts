@@ -3,7 +3,7 @@ import { SETTINGS_CHANGE_EVENT, YOMU_HOSTED_AUDIO_URL } from '../app/constants';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OCR_OVERLAY_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
-import { hasJitenApiCredential, hasJpdbApiCredential, isJitenApiCredential } from './api-credential';
+import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, isJitenApiCredential } from './api-credential';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists, subscribeToStoredValueChanges } from '../app/storage';
@@ -1304,6 +1304,12 @@ function hasPersonalizedFuriganaSource(settings: Partial<ReaderSettings>): boole
 
 export function shouldLookupAnkiStatus(settings: Partial<ReaderSettings>): boolean {
     return settings.ankiEnabled === true;
+}
+
+export function shouldLookupBunproWordStates(settings: Partial<ReaderSettings>, now = Date.now()): boolean {
+    return settings.bunproMiningEnabled === true
+        && hasBunproFrontendCredential(settings)
+        && !isBunproFrontendCredentialExpired(settings, now);
 }
 
 export function effectiveReaderColorSource(

@@ -3758,6 +3758,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
     { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
     { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
+    // Bunpro vocab SRS-state index for page word colouring.
+    { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
     // Public lookup caches.
     { owner: "jpdb/jpdb-public-cache", kind: "gm", key: "yomu:jpdb-cache:v1" },
     { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v1" },

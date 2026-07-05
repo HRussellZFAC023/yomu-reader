@@ -4016,6 +4016,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
     { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
     { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
+    // Bunpro vocab SRS-state index for page word colouring.
+    { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
     // Public lookup caches.
     { owner: "jpdb/jpdb-public-cache", kind: "gm", key: "yomu:jpdb-cache:v1" },
     { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v1" },
@@ -39433,7 +39435,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.84".trim() ? "1.6.84".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.85".trim() ? "1.6.85".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -61983,7 +61985,7 @@ ${component.reading}`;
     "frequent",
     "unparsed"
   ];
-  const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback"];
+  const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro"];
   const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
   const RENDERED_WORD_MINING_INSIGHT_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
   function clearRenderedWordAnkiState(word) {
@@ -62002,6 +62004,7 @@ ${component.reading}`;
     const source = renderedWordCardSource(card);
     const state2 = primaryCardState(card.cardState);
     clearRenderedWordCardStateClasses(word);
+    delete word.dataset.bunproState;
     clearRenderedWordDeckMembershipClasses(word, ["anki"]);
     word.dataset.vid = String(card.vid);
     word.dataset.sid = String(card.sid);
@@ -84828,15 +84831,20 @@ ${entry.url}`),
     getJlptProgress() {
       return this.frontend("/user_stats/jlpt_progress_mixed");
     }
+    // Called through a structural Pick<> by the word-state store, which the
+    // member-usage analysis cannot see.
     // fallow-ignore-next-line unused-class-member
     getSrsOverview() {
       return this.frontend("/user_stats/srs_level_overview");
     }
+    // Live API rejects numeric levels: `level` is the tier name Bunpro's own
+    // stats page sends (beginner/adept/seasoned/expert/master/ghost). Called
+    // through a structural Pick<> by the word-state store.
     // fallow-ignore-next-line unused-class-member
     getSrsLevelDetails(level, reviewableType, page = 1) {
       return this.frontend("/user_stats/srs_level_details", {
         query: {
-          level: String(Math.max(1, Math.floor(level))),
+          level,
           reviewable_type: reviewableType,
           page: String(Math.max(1, Math.floor(page)))
         }

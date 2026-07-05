@@ -282,6 +282,7 @@ import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickL
 import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import {
     clearRenderedWordAnkiState,
+    applyBunproStateToRenderedWord,
     isValidRenderedWordKey,
     renderedFallbackVocabularyCacheKey,
     renderedWordCardKey,
@@ -300,6 +301,7 @@ import {
     saveSettings,
     shortcutIsPressed,
     shouldLookupAnkiStatus,
+    shouldLookupBunproWordStates,
     subscribeToSettingsStorageChanges,
 } from '../settings/index';
 import {
@@ -312,6 +314,7 @@ import {
     isBunproFrontendCredentialExpired,
 } from '../settings/api-credential';
 import { BunproClient } from '../bunpro/bunpro';
+import { BunproWordStateStore, effectiveBunproWordState } from '../bunpro/word-states';
 import { installBunproFrontendTokenImporter } from '../bunpro/frontend-token-importer';
 import { createBunproSrsAdapter, createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../srs';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
@@ -447,6 +450,7 @@ const HOST_THEME_ENFORCE_STEP_MS = 200;
 // re-play (YouTube player, another extension) lands within a few hundred ms; a
 // deliberate user resume seconds later is left alone.
 const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
+const BUNPRO_WORD_STATE_WARMUP_DELAY_MS = 1_500;
 // Below Android's ~500ms native long-press threshold so the lookup wins the
 // gesture before the link context menu (which we also suppress) fires.
 const LINK_PRESS_LOOKUP_MS = 450;
@@ -630,6 +634,7 @@ export class ReaderApp {
         getLegacyApiKey: () => effectiveBunproLegacyApiKey(this.settings),
     });
     private bunproSrs = createBunproSrsAdapter(this.bunpro);
+    private bunproWordStates = new BunproWordStateStore(this.bunpro);
     private yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
     private rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : null;
     private dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
@@ -1048,9 +1053,9 @@ export class ReaderApp {
         if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
         if (this.shouldScanInitialPage()) {
             void this.pageScanner.scanVisiblePage({ silent: true })
-                .finally(() => this.scheduleAnkiStatusWarmup());
+                .finally(() => this.scheduleStatusWarmups());
         } else {
-            this.scheduleAnkiStatusWarmup();
+            this.scheduleStatusWarmups();
         }
     }
 
@@ -1111,6 +1116,46 @@ export class ReaderApp {
             onRecolorError: error => {
                 log.warnOnce('anki-cache-recolor-failed', 'Anki cache recolor failed', error);
             },
+        });
+    }
+
+    private scheduleStatusWarmups(): void {
+        this.scheduleAnkiStatusWarmup();
+        this.scheduleBunproWordStateWarmup();
+    }
+
+    private scheduleBunproWordStateWarmup(): void {
+        if (!this.shouldRunBunproWordStateWork()) return;
+        window.setTimeout(() => this.queueBunproWordStateEnrichment([document]), BUNPRO_WORD_STATE_WARMUP_DELAY_MS);
+    }
+
+    private shouldRunBunproWordStateWork(): boolean {
+        return !this.isDestroyed && shouldLookupBunproWordStates(this.settings);
+    }
+
+    private queueBunproWordStateEnrichment(roots: ParentNode[] = [document]): void {
+        if (!this.shouldRunBunproWordStateWork()) return;
+        void this.applyBunproWordStatesToRoots(roots).catch(error => {
+            log.warnOnce('bunpro-word-state-coloring-failed', 'Bunpro word-state coloring failed', error);
+        });
+    }
+
+    // Fills provider-untracked rendered words (not-in-deck) with the user's
+    // Bunpro SRS state so pages colour like they do for jpdb/jiten users.
+    private async applyBunproWordStatesToRoots(roots: ParentNode[]): Promise<void> {
+        const states = await this.bunproWordStates.load();
+        if (!states?.size || !this.shouldRunBunproWordStateWork()) return;
+        const now = Date.now();
+        this.pauseAutoScanObserver(() => {
+            uniqueParentNodes(roots).forEach(root => {
+                let changed = false;
+                renderedWordsInRoot(root).forEach(word => {
+                    const entry = word.dataset.expression ? states.get(word.dataset.expression) : undefined;
+                    const state = entry ? effectiveBunproWordState(entry, now) : null;
+                    if (applyBunproStateToRenderedWord(word, state)) changed = true;
+                });
+                if (changed) refreshReaderWordContrast(root);
+            });
         });
     }
 
@@ -6956,8 +7001,9 @@ export class ReaderApp {
     private afterSubtitleJapaneseParsed(tokens: JPDBToken[], roots: ParentNode[] = []): void {
         this.preloadTermAudioForTokens(tokens);
         void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
-        if (!this.shouldRunAnkiBackgroundWork()) return;
         const targetRoots = roots.length ? roots : this.subtitleAnkiEnrichmentRoots();
+        this.queueBunproWordStateEnrichment(targetRoots.length ? targetRoots : [document]);
+        if (!this.shouldRunAnkiBackgroundWork()) return;
         void this.enrichAnkiWords(tokens, targetRoots.length ? targetRoots : [document]);
     }
 
@@ -7101,6 +7147,7 @@ export class ReaderApp {
 
     private async enrichOcrRenderedTokens(tokens: JPDBToken[], root: ParentNode): Promise<void> {
         if (!tokens.length) return;
+        this.queueBunproWordStateEnrichment([root]);
         if (!this.shouldRunAnkiBackgroundWork()) return;
         await this.enrichAnkiWords(tokens, [root]);
     }
@@ -7120,6 +7167,7 @@ export class ReaderApp {
     }
 
     private queueAnkiWordEnrichment(tokens: JPDBToken[], roots: ParentNode[] = [document]): void {
+        if (tokens.length) this.queueBunproWordStateEnrichment(roots);
         if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return;
         void this.enrichAnkiWords(tokens, roots);
     }
@@ -7127,15 +7175,21 @@ export class ReaderApp {
     // Starts the cached status lookup before the scan touches the DOM so the
     // IndexedDB roundtrip overlaps the token apply; colors then land in the
     // same breath as the ruby instead of popping in afterwards.
-    private beginAnkiWordEnrichment(tokens: JPDBToken[]): (roots: ParentNode[]) => void {
-        if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return () => undefined;
-        const uniqueTokens = uniqueTokensByCard(tokens);
-        const lookups = this.anki.findCachedStatusBatch(uniqueTokens.map(token => token.card))
+    private ankiCachedStatusLookups(uniqueTokens: JPDBToken[]): Promise<AnkiLookupResult[]> {
+        return this.anki.findCachedStatusBatch(uniqueTokens.map(token => token.card))
             .catch(error => {
                 log.warnOnce('background-anki-coloring-failed', 'Anki background coloring failed', error);
                 return uniqueTokens.map(() => untrustedAnkiLookupResult());
             });
+    }
+
+    private beginAnkiWordEnrichment(tokens: JPDBToken[]): (roots: ParentNode[]) => void {
+        if (!tokens.length) return () => undefined;
+        if (!this.shouldRunAnkiBackgroundWork()) return roots => this.queueBunproWordStateEnrichment(roots);
+        const uniqueTokens = uniqueTokensByCard(tokens);
+        const lookups = this.ankiCachedStatusLookups(uniqueTokens);
         return roots => {
+            this.queueBunproWordStateEnrichment(roots);
             void lookups.then(resolved => {
                 if (!this.shouldRunAnkiBackgroundWork()) return;
                 this.applyAnkiLookupsToRenderedWords(uniqueTokens, resolved, roots);
@@ -7144,14 +7198,12 @@ export class ReaderApp {
     }
 
     private async prepareAnkiWordEnrichmentBeforeRender(tokens: JPDBToken[]): Promise<(roots: ParentNode[]) => void> {
-        if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return () => undefined;
+        if (!tokens.length) return () => undefined;
+        if (!this.shouldRunAnkiBackgroundWork()) return roots => this.queueBunproWordStateEnrichment(roots);
         const uniqueTokens = uniqueTokensByCard(tokens);
-        const lookups = await this.anki.findCachedStatusBatch(uniqueTokens.map(token => token.card))
-            .catch(error => {
-                log.warnOnce('background-anki-coloring-failed', 'Anki background coloring failed', error);
-                return uniqueTokens.map(() => untrustedAnkiLookupResult());
-            });
+        const lookups = await this.ankiCachedStatusLookups(uniqueTokens);
         return roots => {
+            this.queueBunproWordStateEnrichment(roots);
             if (!this.shouldRunAnkiBackgroundWork()) return;
             this.applyAnkiLookupsToRenderedWords(uniqueTokens, lookups, roots);
         };
@@ -7160,11 +7212,7 @@ export class ReaderApp {
     private async enrichAnkiWords(tokens: JPDBToken[], roots: ParentNode[] = [document]): Promise<void> {
         if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return;
         const uniqueTokens = uniqueTokensByCard(tokens);
-        const lookups = await this.anki.findCachedStatusBatch(uniqueTokens.map(token => token.card))
-            .catch(error => {
-                log.warnOnce('background-anki-coloring-failed', 'Anki background coloring failed', error);
-                return uniqueTokens.map(() => untrustedAnkiLookupResult());
-            });
+        const lookups = await this.ankiCachedStatusLookups(uniqueTokens);
         if (!this.shouldRunAnkiBackgroundWork()) return;
         this.applyAnkiLookupsToRenderedWords(uniqueTokens, lookups, roots);
     }

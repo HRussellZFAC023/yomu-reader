@@ -106,16 +106,21 @@ export class BunproClient {
         return this.frontend('/user_stats/jlpt_progress_mixed');
     }
 
+    // Called through a structural Pick<> by the word-state store, which the
+    // member-usage analysis cannot see.
     // fallow-ignore-next-line unused-class-member
     getSrsOverview(): Promise<unknown> {
         return this.frontend('/user_stats/srs_level_overview');
     }
 
+    // Live API rejects numeric levels: `level` is the tier name Bunpro's own
+    // stats page sends (beginner/adept/seasoned/expert/master/ghost). Called
+    // through a structural Pick<> by the word-state store.
     // fallow-ignore-next-line unused-class-member
-    getSrsLevelDetails(level: number, reviewableType: BunproReviewableReference['type'], page = 1): Promise<unknown> {
+    getSrsLevelDetails(level: string, reviewableType: BunproReviewableReference['type'], page = 1): Promise<unknown> {
         return this.frontend('/user_stats/srs_level_details', {
             query: {
-                level: String(Math.max(1, Math.floor(level))),
+                level,
                 reviewable_type: reviewableType,
                 page: String(Math.max(1, Math.floor(page))),
             },

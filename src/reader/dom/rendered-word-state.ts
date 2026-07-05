@@ -22,9 +22,11 @@ const RENDERED_WORD_CARD_STATES = [
     'frequent',
     'unparsed',
 ];
-const RENDERED_WORD_CARD_STATE_PREFIXES = ['jpdb', 'jiten', 'local', 'fallback'];
+const RENDERED_WORD_CARD_STATE_PREFIXES = ['jpdb', 'jiten', 'local', 'fallback', 'bunpro'];
 const RENDERED_WORD_DECK_SOURCE_PREFIXES = ['jpdb', 'jiten', 'local', 'fallback', 'anki'];
 const RENDERED_WORD_MINING_INSIGHT_STATES = new Set(['new', 'not-in-deck', 'in-deck']);
+// States a Bunpro match may colour over: the parse provider had no opinion.
+const BUNPRO_FILLABLE_CARD_STATES = new Set(['', 'not-in-deck']);
 
 export function clearRenderedWordAnkiState(word: HTMLElement): void {
     Array.from(word.classList)
@@ -124,6 +126,7 @@ export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): 
     const source = renderedWordCardSource(card);
     const state = primaryCardState(card.cardState);
     clearRenderedWordCardStateClasses(word);
+    delete word.dataset.bunproState;
     clearRenderedWordDeckMembershipClasses(word, ['anki']);
     word.dataset.vid = String(card.vid);
     word.dataset.sid = String(card.sid);
@@ -140,6 +143,38 @@ export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): 
     word.classList.add(`jpdb-${state}`);
     if (source !== 'jpdb') word.classList.add(`${source}-${state}`);
     applyRenderedWordDeckMembership(word, card);
+}
+
+/**
+ * Colours a rendered word from the user's Bunpro SRS state, reusing the same
+ * `jpdb-<state>` visual tiers jpdb/jiten words render with (plus a
+ * `bunpro-<state>` marker). Only fills words whose parse provider reported no
+ * state, so real jpdb/jiten card states always win. Returns true when the
+ * word's classes changed.
+ */
+export function applyBunproStateToRenderedWord(word: HTMLElement, state: string | null): boolean {
+    const previous = word.dataset.bunproState ?? '';
+    if (!previous && !BUNPRO_FILLABLE_CARD_STATES.has(word.dataset.cardState ?? '')) return false;
+    if (!state) {
+        if (!previous) return false;
+        clearRenderedWordBunproState(word);
+        return true;
+    }
+    if (previous === state) return false;
+    if (previous) word.classList.remove(`jpdb-${previous}`, `bunpro-${previous}`);
+    word.classList.remove('jpdb-not-in-deck');
+    word.classList.add(`jpdb-${state}`, `bunpro-${state}`);
+    word.dataset.cardState = state;
+    word.dataset.bunproState = state;
+    return true;
+}
+
+function clearRenderedWordBunproState(word: HTMLElement): void {
+    const previous = word.dataset.bunproState ?? '';
+    if (previous) word.classList.remove(`jpdb-${previous}`, `bunpro-${previous}`);
+    delete word.dataset.bunproState;
+    word.classList.add('jpdb-not-in-deck');
+    word.dataset.cardState = 'not-in-deck';
 }
 
 function clearRenderedWordMiningInsight(word: HTMLElement): void {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.85] - 2026-07-05
+
+### Added
+
+- Bunpro word colouring on pages: with a Bunpro API token connected, scanned words that match your Bunpro vocab reviews now colour with the same state tiers as JPDB and Jiten words (new, learning, known for Master items, due, and ghost reviews as failed), so underline, highlight, and text colour sources reflect your Bunpro progress on every site. Bunpro fills in only words your dictionary provider does not already track, and the review index is cached for six hours to keep page loads light.
+
 ## [1.6.84] - 2026-07-05
 
 ### Fixed
