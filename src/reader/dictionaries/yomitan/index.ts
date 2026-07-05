@@ -551,6 +551,30 @@ export class YomitanDictionaryStore {
         }
     }
 
+    // Pitch enrichment checks local pitch-dictionary availability through this
+    // injected store; pitch banks (e.g. Kanjium) are termMeta rows with
+    // mode 'pitch', so sampling the head of each meta dictionary is enough.
+    // fallow-ignore-next-line unused-class-member
+    async hasPitchMetaDictionaries(): Promise<boolean> {
+        const done = log.time('Pitch dictionary presence check');
+        try {
+            const db = await this.db();
+            const metaDictionaries = (await this.getAllDictionaryInfo(db))
+                .filter(info => Number(info.counts?.termMeta ?? 0) > 0)
+                .map(info => info.title);
+            for (const dictionary of metaDictionaries) {
+                const rows = await this.getByIndex<YomitanMetaEntry>(db, 'termMeta', 'dictionary', dictionary, 40);
+                if (rows.some(row => row.mode === 'pitch')) return true;
+            }
+            return false;
+        } catch (error) {
+            log.warn('Pitch dictionary presence check failed', { error });
+            throw error;
+        } finally {
+            done();
+        }
+    }
+
     async listRandomTerms(limit: number, preferences: DictionaryPreference[] = [], options: GlossaryCursorSearchOptions = {}): Promise<YomitanTermEntry[]> {
         const done = log.time('Random term listing', { limit, dictionaries: preferences.length });
         try {

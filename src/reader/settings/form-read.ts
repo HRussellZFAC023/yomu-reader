@@ -381,7 +381,7 @@ function readLocalDictionaryFormSettings(reader: SettingsFormReader, current: Re
     const { get, has, clamped } = reader;
     return {
         localDictionariesEnabled: true,
-        parserProvider: readOption(get('parserProvider'), ['local', 'auto'] as const, current.parserProvider),
+        parserProvider: readOption(get('parserProvider'), ['local', 'jiten', 'jpdb', 'auto'] as const, current.parserProvider),
         localDictionaryShowKanji: has('kanjiDictionaries.enabled') || kanjiPreferences.some(preference => preference.enabled),
         kanjiDictionariesAlias: readSourceAlias(reader, 'kanjiDictionaries', current.kanjiDictionariesAlias),
         kanjiDictionariesPriority: clamped('kanjiDictionaries.priority', 0, 999, current.kanjiDictionariesPriority),

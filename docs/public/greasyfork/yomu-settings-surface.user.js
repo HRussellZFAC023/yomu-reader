@@ -2574,7 +2574,8 @@
     };
   }
   function normalizeParserProvider(value) {
-    if (value?.parserProvider === "local" || value?.parserProvider === "auto") return value.parserProvider;
+    const provider = value?.parserProvider;
+    if (provider === "local" || provider === "jiten" || provider === "jpdb" || provider === "auto") return provider;
     return value ? "auto" : DEFAULT_SETTINGS.parserProvider;
   }
   function normalizeReaderSettings(value) {
@@ -4547,8 +4548,10 @@
       lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
       parserProvider: "Parsing source",
       parserProviderLocal: "Local dictionaries (offline)",
-      parserProviderAuto: "Jiten/JPDB APIs",
-      parserProviderHelp: "Local parses with imported dictionaries, offline. Automatic prefers Jiten/JPDB when keys are set.",
+      parserProviderJiten: "Jiten API",
+      parserProviderJpdb: "JPDB API",
+      parserProviderAuto: "Automatic (Jiten/JPDB)",
+      parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic prefers Jiten, then JPDB.",
       offlineDictionarySetupComplete: "Offline dictionaries installed.",
       offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
       copiesCurrentWord: "Copies the current word",
@@ -6221,8 +6224,10 @@ dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップ
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
-parserProviderAuto	Jiten/JPDB API
-parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。自動はキー設定時にJiten/JPDBを優先します。
+parserProviderJiten	Jiten API
+parserProviderJpdb	JPDB API
+parserProviderAuto	自動（Jiten/JPDB）
+parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
@@ -7355,7 +7360,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const { get, has, clamped } = reader;
     return {
       localDictionariesEnabled: true,
-      parserProvider: readOption(get("parserProvider"), ["local", "auto"], current.parserProvider),
+      parserProvider: readOption(get("parserProvider"), ["local", "jiten", "jpdb", "auto"], current.parserProvider),
       localDictionaryShowKanji: has("kanjiDictionaries.enabled") || kanjiPreferences.some((preference) => preference.enabled),
       kanjiDictionariesAlias: readSourceAlias(reader, "kanjiDictionaries", current.kanjiDictionariesAlias),
       kanjiDictionariesPriority: clamped("kanjiDictionaries.priority", 0, 999, current.kanjiDictionariesPriority),
@@ -9824,10 +9829,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
                 <legend>Sources</legend>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">Checking imported dictionaries...</div>
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-help" data-help-key="parserProviderHelp">Local parses with imported dictionaries, offline. Automatic prefers Jiten/JPDB when keys are set.</div>
+                    <div class="jpdb-reader-help" data-help-key="parserProviderHelp">Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic prefers Jiten, then JPDB.</div>
                     ${select("parserProvider", "Parsing source", settings.parserProvider, [
       ["local", "Local dictionaries (offline)"],
-      ["auto", "Jiten/JPDB APIs"]
+      ["jiten", "Jiten API"],
+      ["jpdb", "JPDB API"],
+      ["auto", "Automatic (Jiten/JPDB)"]
     ])}
                 </div>
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
@@ -10213,6 +10220,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     setSelectOptionLabels(form, "popupFontFamily", fontFamilyOptions(text));
     setSelectOptionLabels(form, "parserProvider", [
       ["local", text("parserProviderLocal")],
+      ["jiten", text("parserProviderJiten")],
+      ["jpdb", text("parserProviderJpdb")],
       ["auto", text("parserProviderAuto")]
     ]);
     setSelectOptionLabels(form, "newTabSource", [
@@ -14070,6 +14079,27 @@ ${entry.reading}`;
         return (await this.getAllDictionaryInfo(db)).some(hasTermDictionaryRows);
       } catch (error) {
         log$1.warn("Term dictionary presence check failed", { error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
+    // Pitch enrichment checks local pitch-dictionary availability through this
+    // injected store; pitch banks (e.g. Kanjium) are termMeta rows with
+    // mode 'pitch', so sampling the head of each meta dictionary is enough.
+    // fallow-ignore-next-line unused-class-member
+    async hasPitchMetaDictionaries() {
+      const done = log$1.time("Pitch dictionary presence check");
+      try {
+        const db = await this.db();
+        const metaDictionaries = (await this.getAllDictionaryInfo(db)).filter((info) => Number(info.counts?.termMeta ?? 0) > 0).map((info) => info.title);
+        for (const dictionary of metaDictionaries) {
+          const rows = await this.getByIndex(db, "termMeta", "dictionary", dictionary, 40);
+          if (rows.some((row) => row.mode === "pitch")) return true;
+        }
+        return false;
+      } catch (error) {
+        log$1.warn("Pitch dictionary presence check failed", { error });
         throw error;
       } finally {
         done();

@@ -853,6 +853,7 @@ export class ReaderApp {
     private preloadedPreparedTermAudioKeys = new Set<string>();
     private nestedParseContentCache = new Map<string, NestedParseContentCacheEntry>();
     private pitchEnrichmentLocalCache = new Map<string, Promise<string>>();
+    private localPitchDictionaryAvailability?: Promise<boolean>;
     private resolvedFallbackVocabularyCache = new Map<string, JPDBCard>();
     private unresolvedFallbackVocabularyCache = new Set<string>();
     private fallbackVocabularyResolutionCache = new Map<string, Promise<JPDBCard>>();
@@ -1241,6 +1242,7 @@ export class ReaderApp {
         this.preloadedPreparedTermAudioKeys.clear();
         this.nestedParseContentCache.clear();
         this.pitchEnrichmentLocalCache.clear();
+        this.localPitchDictionaryAvailability = undefined;
         this.jitenPublicVocabulary.clear();
         this.resolvedFallbackVocabularyCache.clear();
         this.unresolvedFallbackVocabularyCache.clear();
@@ -1418,6 +1420,7 @@ export class ReaderApp {
             return;
         }
         this.pitchEnrichmentLocalCache.clear();
+        this.localPitchDictionaryAvailability = undefined;
         this.jitenPublicVocabulary.clear();
         this.nestedParseContentCache.clear();
         this.resolvedFallbackVocabularyCache.clear();
@@ -1908,6 +1911,7 @@ export class ReaderApp {
         window.clearTimeout(this.hoverWatchTimer);
         this.nestedParseContentCache.clear();
         this.pitchEnrichmentLocalCache.clear();
+        this.localPitchDictionaryAvailability = undefined;
         this.resolvedFallbackVocabularyCache.clear();
         this.unresolvedFallbackVocabularyCache.clear();
         this.fallbackVocabularyResolutionCache.clear();
@@ -7236,6 +7240,13 @@ export class ReaderApp {
 
     private async enrichPitchWords(tokens: JPDBToken[], options: PitchEnrichmentOptions = {}): Promise<void> {
         if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
+        // An installed local pitch dictionary (e.g. Kanjium) is the default
+        // pitch source: background/deferred enrichment stays fully offline
+        // instead of trickling public jpdb.io lookups. Urgent (popover) flows
+        // keep the bounded public fallback for words the local bank misses.
+        if (options.publicLookup !== false && options.urgent !== true && await this.hasLocalPitchDictionary()) {
+            options = { ...options, publicLookup: false };
+        }
         const seen = new Set<string>();
         const tokensNeedingLookup = tokens.filter(token => !this.applyCachedPublicVocabularyToToken(token));
         const uniqueTokens = tokensNeedingLookup.filter(token => {
@@ -7623,6 +7634,20 @@ export class ReaderApp {
         this.deferredPublicPitchEnqueuedForUrl = 0;
         this.backgroundPublicPitchLookupBudgetHref = location.href;
         this.backgroundPublicPitchLookupBudgetUsed = 0;
+    }
+
+    private hasLocalPitchDictionary(): Promise<boolean> {
+        if (!this.settings.localDictionariesEnabled) return Promise.resolve(false);
+        const store = this.dictionaries as typeof this.dictionaries & {
+            hasPitchMetaDictionaries?: () => Promise<boolean>;
+        };
+        if (typeof store.hasPitchMetaDictionaries !== 'function') return Promise.resolve(false);
+        this.localPitchDictionaryAvailability ??= store.hasPitchMetaDictionaries().catch(error => {
+            this.localPitchDictionaryAvailability = undefined;
+            log.warn('Local pitch dictionary availability check failed', { error });
+            return false;
+        });
+        return this.localPitchDictionaryAvailability;
     }
 
     private async localPitchAccentForCard(card: JPDBCard): Promise<string[]> {

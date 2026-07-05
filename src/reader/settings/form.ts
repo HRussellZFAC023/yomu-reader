@@ -921,10 +921,12 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                 <legend>Sources</legend>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">Checking imported dictionaries...</div>
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-help" data-help-key="parserProviderHelp">Local parses with imported dictionaries, offline. Automatic prefers Jiten/JPDB when keys are set.</div>
+                    <div class="jpdb-reader-help" data-help-key="parserProviderHelp">Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic prefers Jiten, then JPDB.</div>
                     ${select('parserProvider', 'Parsing source', settings.parserProvider, [
                         ['local', 'Local dictionaries (offline)'],
-                        ['auto', 'Jiten/JPDB APIs'],
+                        ['jiten', 'Jiten API'],
+                        ['jpdb', 'JPDB API'],
+                        ['auto', 'Automatic (Jiten/JPDB)'],
                     ])}
                 </div>
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
@@ -1342,6 +1344,8 @@ function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText)
     setSelectOptionLabels(form, 'popupFontFamily', fontFamilyOptions(text));
     setSelectOptionLabels(form, 'parserProvider', [
         ['local', text('parserProviderLocal')],
+        ['jiten', text('parserProviderJiten')],
+        ['jpdb', text('parserProviderJpdb')],
         ['auto', text('parserProviderAuto')],
     ]);
     setSelectOptionLabels(form, 'newTabSource', [

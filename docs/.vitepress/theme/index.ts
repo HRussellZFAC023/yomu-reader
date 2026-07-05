@@ -127,7 +127,7 @@ let hostedDocsLocalizationResetPending = false;
 let hostedAccentSignature = '';
 let hostedDocumentTitleOriginal: string | undefined;
 let hostedRuntimeIntentController: AbortController | undefined;
-let hostedRuntimeIntentTarget: HTMLElement | undefined;
+let hostedRuntimeIntentTargets: HTMLElement[] | undefined;
 let routeSyncBound = false;
 let localRuntimeCacheCleanupStarted = false;
 
@@ -234,6 +234,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Refreshed the Cloudflare-hosted audio corpus from the local Rust audio server and uploaded the sharded R2 index, so the default hosted source now covers the full available Japanese local collection instead of only earlier seeded clips.": "Cloudflareホスト版音声コーパスをローカルのRust音声サーバーから更新し、シャード化したR2索引をアップロードしました。既定のホスト版ソースは、以前のシード済みクリップだけでなく、利用可能な日本語ローカルコレクション全体をカバーするようになりました。",
     "Clicking the headword on an unrevealed study word card now opens the word's own lookup instead of a component kanji card; per-kanji drilldown appears only after the answer is revealed.": "解答表示前の学習単語カードで見出し語をクリックすると、構成漢字のカードではなく単語自体の詳細が開くようになりました。漢字ごとの掘り下げは解答を表示した後にのみ表示されます。",
     "Tapping a \"Composed of\" kanji chip on the new-tab study reveal now switches the study card to that kanji's own step in place — the dictionary sections below swap to the kanji's details — instead of opening a lookup popover over the card.": "新タブ学習の答え表示で「構成漢字」のチップをタップすると、カードの上にルックアップのポップオーバーを開く代わりに、その場でその漢字自身の学習ステップに切り替わるようになりました。下の辞書セクションもその漢字の詳細に入れ替わります。",
+    'Hovering a word in the homepage "Try me" sample now opens the dictionary popover immediately: the reader runtime previously only started loading after the pointer crossed the manga or video demo, so hovers over the sample text did nothing until then. Demo pages now boot the already-preloaded runtime as soon as the browser is idle, and hovering or touching any demo surface (including the Try me text) starts it on the spot.': 'ホームページの「Try me」サンプルの単語にカーソルを合わせると、すぐに辞書ポップオーバーが開くようになりました。これまでリーダーのランタイムは、ポインターが漫画や動画のデモを通過して初めて読み込みを開始していたため、それまでサンプルテキストへのホバーは何も起こしませんでした。デモページはブラウザがアイドルになり次第、プリロード済みのランタイムを起動し、（Try meテキストを含む）どのデモ面へのホバーやタッチでもその場で起動が始まります。',
+    'The Parsing source setting now offers explicit Jiten API and JPDB API choices alongside Local dictionaries and Automatic, so you can pin one provider instead of relying on the automatic preference order. A pinned provider never silently switches to the other API; if it is unavailable the reader falls back to local parsing.': '解析ソースの設定に、ローカル辞書と自動に加えて、Jiten APIとJPDB APIを明示的に選べる選択肢が追加されました。自動の優先順位に頼らず、ひとつのプロバイダーを固定できます。固定したプロバイダーが黙って別のAPIに切り替わることはなく、利用できない場合はローカル解析にフォールバックします。',
+    'When a local pitch-accent dictionary (such as Kanjium from the offline setup) is installed, background pitch enrichment now stays fully local instead of sending paced public jpdb.io lookups, so pitch colouring works offline and pages stop trickling network requests. Word popovers keep the bounded public fallback for terms the local bank misses.': 'ローカルのピッチアクセント辞書（オフラインセットアップのKanjiumなど）がインストールされている場合、バックグラウンドのピッチ補強はペース制御された公開jpdb.ioルックアップを送らず、完全にローカルで行われるようになりました。ピッチの色分けがオフラインでも機能し、ページが少しずつネットワークリクエストを流し続けることもなくなります。単語ポップオーバーでは、ローカル辞書にない語のための上限付き公開フォールバックを引き続き使用します。',
     "The study page now loads the real Bunpro review queue: Bunpro serves its queue from the reviews quiz endpoint, so the previously used endpoint only returned deck settings and the page silently fell back to other sources.": "学習ページが本物のBunpro復習キューを読み込むようになりました。Bunproは復習キューをクイズ用エンドポイントから配信しているため、以前使用していたエンドポイントはデッキ設定しか返さず、ページが黙って他のソースにフォールバックしていました。",
     "Bunpro grading requests now include the same correct flag Bunpro's own quiz sends, so graded reviews advance reliably.": "Bunproの採点リクエストに、Bunpro本家のクイズが送信するのと同じcorrectフラグを含めるようになり、採点した復習が確実に進むようになりました。",
     'Tightened the homepage install-step cards so the manager step no longer wraps awkwardly and the buttons stay compact on desktop.': 'ホームページのインストール手順カードを引き締め、管理拡張のステップが不自然に折り返されず、デスクトップでもボタンがコンパクトに保たれるようにしました。',
@@ -3682,38 +3685,60 @@ function prepareHostedYomuRuntime(): void {
     if (isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime)) return;
     // The settings companion loads on the settings warm path; normal docs pages
     // should not download every companion before the reader is needed.
-    const target = findHostedYomuRuntimeTarget();
-    if (!target) {
+    const targets = findHostedYomuRuntimeTargets();
+    if (!targets.length) {
         clearHostedYomuRuntimeIntent();
         return;
     }
-    bindHostedYomuRuntimeIntent(target);
+    bindHostedYomuRuntimeIntent(targets);
+    // Demo pages preload yomu.user.js in <head>, so the bytes are already on
+    // disk; executing on idle makes the first hover over the Try-me sample and
+    // the demo captions open the popover immediately instead of waiting for a
+    // pointer to cross a demo surface before the runtime even starts booting.
+    if (targets.some(target => target.matches('[data-yomu-runtime-surface], .yomu-try-me-text'))) {
+        scheduleIdleHostedYomuRuntimeLoad();
+    }
     window.requestAnimationFrame(() => {
-        if (hostedRuntimeIntentTarget === target && isElementNearViewport(target)) loadHostedYomuRuntime();
+        if (hostedRuntimeIntentTargets === targets && targets.some(isElementNearViewport)) loadHostedYomuRuntime();
     });
 }
 
-function findHostedYomuRuntimeTarget(): HTMLElement | undefined {
-    const explicit = document.querySelector<HTMLElement>('[data-yomu-runtime-surface]');
-    if (explicit) return explicit;
-    return Array.from(document.querySelectorAll<HTMLElement>(HOSTED_RUNTIME_TARGET_SELECTOR))
-        .find(element => !element.closest('.VPContent.is-home') && HOSTED_JAPANESE_TEXT_RE.test(element.textContent ?? ''));
+function scheduleIdleHostedYomuRuntimeLoad(): void {
+    const load = () => { if (hostedRuntimeIntentTargets) loadHostedYomuRuntime(); };
+    if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(load, { timeout: 2500 });
+    else window.setTimeout(load, 350);
 }
 
-function bindHostedYomuRuntimeIntent(target: HTMLElement): void {
-    if (hostedRuntimeIntentTarget === target && hostedRuntimeIntentController) return;
+function findHostedYomuRuntimeTargets(): HTMLElement[] {
+    const explicit = Array.from(document.querySelectorAll<HTMLElement>('[data-yomu-runtime-surface], .yomu-try-me-text'));
+    if (explicit.length) return explicit;
+    const fallback = Array.from(document.querySelectorAll<HTMLElement>(HOSTED_RUNTIME_TARGET_SELECTOR))
+        .find(element => !element.closest('.VPContent.is-home') && HOSTED_JAPANESE_TEXT_RE.test(element.textContent ?? ''));
+    return fallback ? [fallback] : [];
+}
+
+function bindHostedYomuRuntimeIntent(targets: HTMLElement[]): void {
+    if (hostedRuntimeIntentTargets
+        && hostedRuntimeIntentController
+        && targets.length === hostedRuntimeIntentTargets.length
+        && targets.every((target, index) => hostedRuntimeIntentTargets?.[index] === target)) {
+        hostedRuntimeIntentTargets = targets;
+        return;
+    }
     clearHostedYomuRuntimeIntent();
     const controller = new AbortController();
     hostedRuntimeIntentController = controller;
-    hostedRuntimeIntentTarget = target;
+    hostedRuntimeIntentTargets = targets;
     const options = { passive: true, once: true, signal: controller.signal };
     const load = () => loadHostedYomuRuntime();
-    target.addEventListener('pointerenter', load, options);
-    target.addEventListener('pointerdown', load, options);
-    target.addEventListener('touchstart', load, options);
-    target.addEventListener('focusin', load, { once: true, signal: controller.signal });
+    for (const target of targets) {
+        target.addEventListener('pointerenter', load, options);
+        target.addEventListener('pointerdown', load, options);
+        target.addEventListener('touchstart', load, options);
+        target.addEventListener('focusin', load, { once: true, signal: controller.signal });
+    }
     window.addEventListener('scroll', () => {
-        if (isElementNearViewport(target)) loadHostedYomuRuntime();
+        if (targets.some(isElementNearViewport)) loadHostedYomuRuntime();
     }, { passive: true, signal: controller.signal });
 }
 
@@ -3731,7 +3756,7 @@ function loadHostedYomuRuntime(): HTMLScriptElement | undefined {
 function clearHostedYomuRuntimeIntent(): void {
     hostedRuntimeIntentController?.abort();
     hostedRuntimeIntentController = undefined;
-    hostedRuntimeIntentTarget = undefined;
+    hostedRuntimeIntentTargets = undefined;
 }
 
 function isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime = false): boolean {

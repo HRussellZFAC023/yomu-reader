@@ -103,6 +103,20 @@ export class ReaderParser {
         if (settings.parserProvider === 'local' && await this.hasLocalTermDictionaries(true)) {
             return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
         }
+        // An explicit Jiten/JPDB pick never silently swaps to the other API;
+        // when the pinned provider fails it drops to local/segmented fallback.
+        // requireJpdb flows (JPDB grading needs JPDB token identity) still go
+        // JPDB-first below even with Jiten pinned.
+        if (settings.parserProvider === 'jiten' && options.requireJpdb !== true) {
+            const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
+            if (jitenResult) return jitenResult;
+            return this.parseWithFallbackSource(paragraphs, options);
+        }
+        if (settings.parserProvider === 'jpdb') {
+            const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
+            if (jpdbResult) return jpdbResult;
+            return this.parseWithFallbackSource(paragraphs, options);
+        }
         if (shouldPreferJitenParser(settings, options, this.dependencies.jiten)) {
             const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
             if (jitenResult) return jitenResult;

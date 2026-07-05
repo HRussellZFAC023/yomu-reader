@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.68] - 2026-07-05
+
+### Fixed
+
+- Hovering a word in the homepage "Try me" sample now opens the dictionary popover immediately: the reader runtime previously only started loading after the pointer crossed the manga or video demo, so hovers over the sample text did nothing until then. Demo pages now boot the already-preloaded runtime as soon as the browser is idle, and hovering or touching any demo surface (including the Try me text) starts it on the spot.
+
+### Changed
+
+- The Parsing source setting now offers explicit Jiten API and JPDB API choices alongside Local dictionaries and Automatic, so you can pin one provider instead of relying on the automatic preference order. A pinned provider never silently switches to the other API; if it is unavailable the reader falls back to local parsing.
+- When a local pitch-accent dictionary (such as Kanjium from the offline setup) is installed, background pitch enrichment now stays fully local instead of sending paced public jpdb.io lookups, so pitch colouring works offline and pages stop trickling network requests. Word popovers keep the bounded public fallback for terms the local bank misses.
+
 ## [1.6.67] - 2026-07-05
 
 ### Fixed

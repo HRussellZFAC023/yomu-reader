@@ -575,7 +575,8 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
 // predate the setting keep API-first parsing so provider-backed word colors
 // and known states do not change under existing users.
 function normalizeParserProvider(value: LegacyReaderSettings | null): ReaderSettings['parserProvider'] {
-    if (value?.parserProvider === 'local' || value?.parserProvider === 'auto') return value.parserProvider;
+    const provider = value?.parserProvider;
+    if (provider === 'local' || provider === 'jiten' || provider === 'jpdb' || provider === 'auto') return provider;
     return value ? 'auto' : DEFAULT_SETTINGS.parserProvider;
 }
 

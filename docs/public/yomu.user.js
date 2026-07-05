@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.67
+// @version 1.6.68
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.67#sha256=0mHYvwR1lFhiM2jB+6L7BdyHRu7PF07HsnKDPaIQCj4=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.67#sha256=kxVUVDmiXG+8rjt9uffTB0uXqkEv/j8L4j3xU1W5ehI=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.67#sha256=ZHLI1Mp1gsJbdT9vv1akrMP9Y/ePz7aVbrYbAPYBMJk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.67#sha256=OqzwlfMm6WDgo24XoVKjMY+P8lKgmeCnDwm4XI9sCd0=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.67#sha256=39Vou9scdPr2MALdpfCIC3bPLNeHKS95AbrzeIT37Zo=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.67#sha256=q+MTUjWJDlgYrkqVYRMRC/lGBD2K9EphxhqgJ4bULds=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.68#sha256=Z9LgCGwAC/E1Tf/Fers1ZBYrjO2PPSmVMC5ZlP5CPd8=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.68#sha256=bTWyaA1wVl95xZ3OSPH2AEbTl/rh/DB4T16altfd7qE=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.68#sha256=/vAmxw77aqSzUrKro7JExUDT8R+5DQaTT1KghoTnJSk=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.68#sha256=xWYwdM2Crx9YJFsxjppG1+x4KnS1/IvL9Ubzsle4b3E=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.68#sha256=bxYnb9ZHoWC2ICMQs6fZ95Wume5QeHPzH0qsukPMHmU=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.68#sha256=dpglUonOWe4aPi8eVEAscpdaewG2qbadsBohytRxN54=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -3232,7 +3232,8 @@ function mergeSettings(value) {
   };
 }
 function normalizeParserProvider(value) {
-  if (value?.parserProvider === "local" || value?.parserProvider === "auto") return value.parserProvider;
+  const provider = value?.parserProvider;
+  if (provider === "local" || provider === "jiten" || provider === "jpdb" || provider === "auto") return provider;
   return value ? "auto" : DEFAULT_SETTINGS.parserProvider;
 }
 function normalizeApiCredentialSettings(value) {
@@ -18616,6 +18617,16 @@ class ReaderParser {
   if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
     return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
   }
+  if (settings.parserProvider === "jiten" && options.requireJpdb !== true) {
+    const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
+    if (jitenResult2) return jitenResult2;
+    return this.parseWithFallbackSource(paragraphs, options);
+  }
+  if (settings.parserProvider === "jpdb") {
+    const jpdbResult2 = await this.tryParseWithJpdb(paragraphs, options, settings);
+    if (jpdbResult2) return jpdbResult2;
+    return this.parseWithFallbackSource(paragraphs, options);
+  }
   if (shouldPreferJitenParser(settings, options, this.dependencies.jiten)) {
     const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
     if (jitenResult2) return jitenResult2;
@@ -32492,7 +32503,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.67"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.68"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -33762,6 +33773,7 @@ class ReaderApp {
   preloadedPreparedTermAudioKeys = new Set();
   nestedParseContentCache = new Map();
   pitchEnrichmentLocalCache = new Map();
+  localPitchDictionaryAvailability;
   resolvedFallbackVocabularyCache = new Map();
   unresolvedFallbackVocabularyCache = new Set();
   fallbackVocabularyResolutionCache = new Map();
@@ -34110,6 +34122,7 @@ class ReaderApp {
   this.preloadedPreparedTermAudioKeys.clear();
   this.nestedParseContentCache.clear();
   this.pitchEnrichmentLocalCache.clear();
+  this.localPitchDictionaryAvailability = void 0;
   this.jitenPublicVocabulary.clear();
   this.resolvedFallbackVocabularyCache.clear();
   this.unresolvedFallbackVocabularyCache.clear();
@@ -34258,6 +34271,7 @@ class ReaderApp {
     return;
   }
   this.pitchEnrichmentLocalCache.clear();
+  this.localPitchDictionaryAvailability = void 0;
   this.jitenPublicVocabulary.clear();
   this.nestedParseContentCache.clear();
   this.resolvedFallbackVocabularyCache.clear();
@@ -34668,6 +34682,7 @@ class ReaderApp {
   window.clearTimeout(this.hoverWatchTimer);
   this.nestedParseContentCache.clear();
   this.pitchEnrichmentLocalCache.clear();
+  this.localPitchDictionaryAvailability = void 0;
   this.resolvedFallbackVocabularyCache.clear();
   this.unresolvedFallbackVocabularyCache.clear();
   this.fallbackVocabularyResolutionCache.clear();
@@ -38724,6 +38739,9 @@ class ReaderApp {
   }
   async enrichPitchWords(tokens, options = {}) {
   if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
+  if (options.publicLookup !== false && options.urgent !== true && await this.hasLocalPitchDictionary()) {
+    options = { ...options, publicLookup: false };
+  }
   const seen = new Set();
   const tokensNeedingLookup = tokens.filter((token) => !this.applyCachedPublicVocabularyToToken(token));
   const uniqueTokens = tokensNeedingLookup.filter((token) => {
@@ -39050,6 +39068,17 @@ class ReaderApp {
   this.deferredPublicPitchEnqueuedForUrl = 0;
   this.backgroundPublicPitchLookupBudgetHref = location.href;
   this.backgroundPublicPitchLookupBudgetUsed = 0;
+  }
+  hasLocalPitchDictionary() {
+  if (!this.settings.localDictionariesEnabled) return Promise.resolve(false);
+  const store = this.dictionaries;
+  if (typeof store.hasPitchMetaDictionaries !== "function") return Promise.resolve(false);
+  this.localPitchDictionaryAvailability ??= store.hasPitchMetaDictionaries().catch((error) => {
+    this.localPitchDictionaryAvailability = void 0;
+    log.warn("Local pitch dictionary availability check failed", { error });
+    return false;
+  });
+  return this.localPitchDictionaryAvailability;
   }
   async localPitchAccentForCard(card) {
   const pattern = await this.localPitchPatternForCard(card);
