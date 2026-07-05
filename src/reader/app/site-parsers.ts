@@ -813,6 +813,11 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-watch-metadata #owner ytd-channel-name yt-formatted-string',
             'ytd-watch-metadata #owner ytd-channel-name .ytAttributedStringHost',
             'ytd-watch-metadata #owner ytd-channel-name',
+            // Sub-count and subscribe rows are volatile (constant re-render),
+            // so they had no root at all; the volatile transform below routes
+            // them through the passive mirror, which rides the re-renders.
+            'ytd-watch-metadata #owner-sub-count',
+            'ytd-watch-metadata #owner #subscribe-button',
             'ytd-watch-info-text',
             'ytd-watch-metadata #info-strings',
             'ytd-watch-metadata #metadata-line',
@@ -830,6 +835,17 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-watch-metadata #attributed-snippet-text',
             'ytd-watch-metadata #attributed-description-text',
             'ytd-watch-metadata yt-attributed-string#attributed-description-text',
+            // Search/browse chrome starves behind the video grid at collection
+            // time on desktop layouts (iPad): channel cards, the search filter
+            // row, shelf show-more expanders, and the mini-guide rail are
+            // small user-facing surfaces, so they ride with the high-value
+            // watch text instead of trailing the grids.
+            'ytd-channel-renderer',
+            'ytd-search-sub-menu-renderer',
+            'ytd-shelf-renderer #show-more-button',
+            'ytd-shelf-renderer #expand',
+            'ytd-shelf-renderer yt-button-renderer',
+            'ytd-mini-guide-entry-renderer',
             // The whole slim metadata section, not just the title: the
             // view-count/date line, hashtag row, and もっと見る expander live in
             // sibling rows that stayed bare when only h1/#title were rooted.
@@ -1355,15 +1371,28 @@ function addUniqueSiteScanTarget(
 ): boolean {
     return appendAdmittedFragmentTarget(context.targets, context.seen, target, {
         reject: candidate => shouldRejectProfileScanTarget(profile, candidate),
-        transform: candidate => siteScanTargetWithProfileOptions(profile, candidate),
+        transform: candidate => siteScanTargetWithProfileOptions(profile, volatileYouTubeTargetAsPassiveMirror(profile, candidate)),
     });
 }
 
 function shouldRejectProfileScanTarget(profile: SiteParserProfile, target: FragmentTextTarget): boolean {
     if (!isYouTubeSiteParserProfile(profile)) return false;
-    if (target.parent.closest(YOUTUBE_VOLATILE_WATCH_METADATA_SELECTOR)) return true;
-    if (targetSpansMultipleYouTubeWatchMetadataTextHosts(target)) return true;
-    return false;
+    return targetSpansMultipleYouTubeWatchMetadataTextHosts(target);
+}
+
+// Sub-count and subscribe rows re-render constantly — the flicker that once
+// justified dropping them outright. The passive non-destructive mirror rides
+// those re-renders (it watches the host text and refreshes itself), so they
+// get decoration instead of an exclusion.
+function volatileYouTubeTargetAsPassiveMirror(profile: SiteParserProfile, target: FragmentTextTarget): FragmentTextTarget {
+    if (!isYouTubeSiteParserProfile(profile)) return target;
+    if (!target.parent.closest(YOUTUBE_VOLATILE_WATCH_METADATA_SELECTOR)) return target;
+    return {
+        ...target,
+        passiveInteraction: true,
+        nonDestructive: true,
+        fragments: target.fragments.map(fragment => ({ ...fragment, passiveInteraction: true })),
+    };
 }
 
 function targetSpansMultipleYouTubeWatchMetadataTextHosts(target: FragmentTextTarget): boolean {

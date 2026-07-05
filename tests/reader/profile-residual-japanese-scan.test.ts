@@ -45,6 +45,23 @@ describe('profile-site residual visible Japanese scan', () => {
         expect(residual?.nonDestructive).toBe(true);
     });
 
+    it('collects volatile subscriber rows as passive non-destructive targets instead of dropping them', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <ytd-watch-metadata>
+                <div id="owner"><yt-formatted-string id="owner-sub-count">チャンネル登録者数 54.5万人</yt-formatted-string></div>
+            </ytd-watch-metadata>
+        `;
+        const targets = collectScanTargets(60, 'https://m.youtube.com/watch?v=abc');
+        const subCount = targets.find(target => target.text.includes('登録者数'));
+        expect(subCount).toBeDefined();
+        expect(subCount?.passiveInteraction).toBe(true);
+        expect(subCount?.nonDestructive).toBe(true);
+        // Collected by the profile pass itself, not the residual tail — the
+        // residual pass starves behind big grids exactly where these rows live.
+        expect(subCount?.parserId).not.toBe('residual-visible-japanese-parser');
+    });
+
     it('still collects the rooted metadata first', () => {
         stubYouTube();
         document.body.innerHTML = `

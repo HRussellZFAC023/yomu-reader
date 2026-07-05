@@ -36136,7 +36136,10 @@ describe('reader helpers', () => {
             '1 日前',
         ]));
         expect(targets.some(target => target.text.includes('にほんごのじかん | Japanese Comprehensible Input'))).toBe(true);
-        expect(targets.some(target => target.text.includes('チャンネル登録者数 2040人'))).toBe(false);
+        // Subscriber chrome is collected as a passive mirror target now — it
+        // must ride its own target, never bleed into the channel-name text.
+        const subCountTarget = targets.find(target => target.text.includes('チャンネル登録者数 2040人'));
+        expect(subCountTarget).toMatchObject({ nonDestructive: true, passiveInteraction: true });
 
         const channel = targets.find(target => target.text.includes('にほんごのじかん | Japanese Comprehensible Input'))!;
         const metadataAge = targets.find(target => target.text === '1 日前')!;
@@ -36210,7 +36213,10 @@ describe('reader helpers', () => {
             const channel = targets.find(target => target.text.includes('にほんごのじかん'))!;
             expect(channel).toMatchObject({ nonDestructive: true });
             expect(channel.text).not.toContain('チャンネル登録者数');
-            expect(targets.find(target => target.text.includes('チャンネル登録者数 2040人'))).toBeUndefined();
+            // Volatile subscriber chrome is no longer dropped: it rides the
+            // passive non-destructive mirror, which absorbs the re-renders.
+            const subCount = targets.find(target => target.text.includes('チャンネル登録者数 2040人'));
+            expect(subCount).toMatchObject({ nonDestructive: true, passiveInteraction: true });
 
             const settings: ReaderSettings = { ...DEFAULT_SETTINGS, furiganaMode: 'all' };
             const channelToken: JPDBToken = {

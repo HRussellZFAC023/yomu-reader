@@ -1550,7 +1550,14 @@ function collapseWhitespaceWithOffsets(text: string): { normalized: string; offs
             const start = index;
             while (index < text.length && /\s/u.test(text[index] ?? '')) index += 1;
             const mapped = normalized.length;
-            if (normalized.length > 0 && index < text.length) normalized += ' ';
+            // A line break between CJK characters carries no space semantics:
+            // YouTube's yt-formatted-string wraps 視聴 across a newline, and
+            // turning that into "視 聴" splits the word both visually and for
+            // the tokenizer. Latin boundaries keep their single space.
+            if (normalized.length > 0 && index < text.length
+                && !(isCjkChar(normalized[normalized.length - 1]) && isCjkChar(text[index]))) {
+                normalized += ' ';
+            }
             for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
             continue;
         }
@@ -1560,6 +1567,12 @@ function collapseWhitespaceWithOffsets(text: string): { normalized: string; offs
     }
     offsets[text.length] = normalized.length;
     return { normalized, offsets };
+}
+
+// Ideographic space through katakana, CJK ideographs, compat ideographs, and
+// fullwidth forms — the scripts whose soft line breaks carry no space.
+function isCjkChar(char: string | undefined): boolean {
+    return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-｠]/u.test(char ?? '');
 }
 
 function remapTokenOffsets(token: JPDBToken, offsets: number[], sentence: string): JPDBToken {
