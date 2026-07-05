@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.80] - 2026-07-05
+
+### Fixed
+
+- Removed the homepage hero Guide CTA so the primary action row stays focused on Install, Watch, Read, Study, and Game.
+
 ## [1.6.79] - 2026-07-05
 
 ### Fixed

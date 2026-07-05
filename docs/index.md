@@ -20,10 +20,6 @@ hero:
       text: Install
       link: https://yomureader.com/yomu.user.js
     - theme: alt
-      text: Guide
-      link: /getting-started
-      target: _self
-    - theme: alt
       text: Watch
       link: /video-player/index.html
       target: _self
