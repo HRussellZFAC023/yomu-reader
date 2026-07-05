@@ -632,10 +632,16 @@ window.__yomuRubyCoverageProof = function runRubyCoverageProof(options) {
     const vocabulary = [...options.vocabulary].sort((a, b) => b.surface.length - a.surface.length);
     document.documentElement.classList.add('jpdb-reader-word-underline-pitch', 'jpdb-reader-word-text-jpdb');
     const targets = collectScanTargets(800, location.href).filter(target => HAS_JAPANESE.test(target.text));
-    const targetSnapshots = targets.map(target => ({
-        text: target.text,
-        tokenSurfaces: tokensForText(target.text, vocabulary).map(token => token.card.spelling),
-    }));
+    const targetSnapshots = targets.map(target => {
+        markProofTargetScanFlags(target);
+        return {
+            text: target.text,
+            tokenSurfaces: tokensForText(target.text, vocabulary).map(token => token.card.spelling),
+            suppressRuby: target.suppressRuby === true,
+            passiveInteraction: target.passiveInteraction === true,
+            layoutSensitive: target.layoutSensitive === true,
+        };
+    });
 
     for (const target of targets) {
         const tokens = tokensForText(target.text, vocabulary);
@@ -662,7 +668,7 @@ window.__yomuRubyCoverageProof = function runRubyCoverageProof(options) {
     if (targetSnapshots.some(target => HAS_JAPANESE.test(target.text) && !target.tokenSurfaces.length && !/押下中/.test(target.text))) {
         failures.push('a visible Japanese scan target had no JPDB-shaped token match');
     }
-    if (renderedWords.some(word => (word.requiresRuby && !word.hasRuby) || word.source !== 'jpdb' || !CONCRETE_PITCH_CLASSES.has(word.pitchClass))) {
+    if (renderedWords.some(word => (word.requiresRuby && !word.hasRuby && !word.rubySuppressed) || word.source !== 'jpdb' || !CONCRETE_PITCH_CLASSES.has(word.pitchClass))) {
         failures.push('at least one rendered word is missing ruby, JPDB source, or concrete pitch');
     }
 
@@ -689,6 +695,14 @@ window.__yomuRubyCoverageProof = function runRubyCoverageProof(options) {
         renderedWords,
     };
 };
+
+function markProofTargetScanFlags(target) {
+    const root = target.parent?.closest?.('[data-proof-target]');
+    if (!root) return;
+    root.dataset.proofScanSuppressRuby = target.suppressRuby === true ? 'true' : 'false';
+    root.dataset.proofScanPassiveInteraction = target.passiveInteraction === true ? 'true' : 'false';
+    root.dataset.proofScanLayoutSensitive = target.layoutSensitive === true ? 'true' : 'false';
+}
 
 function tokensForText(text, vocabulary) {
     const tokens = [];
@@ -749,18 +763,22 @@ function auditProofTarget(element, vocabulary) {
     const uncoveredKanji = uncoveredKanjiForText(label, words.map(word => word.surface));
     const expectedRubyRoom = element.getAttribute('data-proof-expect-ruby-room') === 'true';
     const rubyRoomHeight = Number(element.dataset.yomuRubyRoomHeight || 0);
+    const scanSuppressRuby = element.dataset.proofScanSuppressRuby === 'true';
+    const renderedSuppressRuby = words.some(word => word.requiresRuby && !word.hasRuby)
+        && words.filter(word => word.requiresRuby && !word.hasRuby).every(word => word.rubySuppressed);
+    const rubySuppressed = scanSuppressRuby || renderedSuppressRuby;
 
     if (!expectedSurfaces.length) failures.push('no expected JPDB token surfaces for proof text');
     if (!words.length) failures.push('no rendered reader words');
     if (missingSurfaces.length) failures.push('missing rendered surfaces: ' + missingSurfaces.join(', '));
-    if (words.some(word => word.requiresRuby && !word.hasRuby)) failures.push('kanji-bearing rendered word without furigana');
+    if (!rubySuppressed && words.some(word => word.requiresRuby && !word.hasRuby)) failures.push('kanji-bearing rendered word without furigana');
     if (words.some(word => word.source !== 'jpdb')) failures.push('rendered word without JPDB source metadata');
     if (words.some(word => !CONCRETE_PITCH_CLASSES.has(word.pitchClass))) failures.push('rendered word without concrete pitch class');
     if (uncoveredKanji.length) failures.push('uncovered kanji: ' + uncoveredKanji.join(''));
-    if (clipped) failures.push('target still has scroll clipping after ruby room sweep');
+    if (clipped && !rubySuppressed) failures.push('target still has scroll clipping after ruby room sweep');
     if (rubyOutOfBounds) failures.push(rubyOutOfBounds + ' ruby annotations sit outside target bounds');
-    if (expectedRubyRoom && element.dataset.yomuRubyRoom !== 'true') failures.push('expected clipped title to receive ruby room');
-    if (expectedRubyRoom && rubyRoomHeight <= 38) failures.push('expected clipped title ruby room height to grow beyond the original title height');
+    if (expectedRubyRoom && !rubySuppressed && element.dataset.yomuRubyRoom !== 'true') failures.push('expected clipped title to receive ruby room');
+    if (expectedRubyRoom && !rubySuppressed && rubyRoomHeight <= 38) failures.push('expected clipped title ruby room height to grow beyond the original title height');
     if (element.getAttribute('data-proof-expect-at-rest-decoration') === 'true') {
         const wordElements = Array.from(proofTargetWordRoot(element).querySelectorAll('.jpdb-reader-word')).filter(isVisibleElement);
         const bare = wordElements.filter(wordElement => !hasAtRestDecoration(wordElement));
@@ -779,6 +797,11 @@ function auditProofTarget(element, vocabulary) {
         rubyOutOfBounds,
         rubyRoom: element.dataset.yomuRubyRoom || '',
         rubyRoomHeight,
+        scanSuppressRuby,
+        renderedSuppressRuby,
+        rubySuppressed,
+        scanPassiveInteraction: element.dataset.proofScanPassiveInteraction === 'true',
+        scanLayoutSensitive: element.dataset.proofScanLayoutSensitive === 'true',
         uncoveredKanji,
         words,
         failures,
@@ -818,10 +841,17 @@ function renderedWordDetails(root) {
         requiresRuby: HAN_RE.test(readerWordSurfaceText(word).trim()),
         hasRuby: Boolean(word.querySelector('rt')),
         rt: Array.from(word.querySelectorAll('rt')).map(rt => rt.textContent || '').join('|'),
+        passiveInteraction: word.classList.contains('jpdb-reader-passive-word'),
+        rubySuppressed: closestProofTargetSuppressesRuby(word)
+            || (!word.querySelector('rt') && word.classList.contains('jpdb-reader-passive-word')),
         source: word.dataset.cardSource || '',
         pitchClass: word.dataset.pitchClass || '',
         className: word.className,
     }));
+}
+
+function closestProofTargetSuppressesRuby(word) {
+    return word.closest('[data-proof-target]')?.dataset.proofScanSuppressRuby === 'true';
 }
 
 function missingExpectedSurfaces(expected, actual) {
