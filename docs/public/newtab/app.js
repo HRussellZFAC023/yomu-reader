@@ -39484,7 +39484,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.87".trim() ? "1.6.87".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.88".trim() ? "1.6.88".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -40286,7 +40286,10 @@ ${spelling}`);
       subtitleCopyIncludeTranslation: has("subtitleCopyIncludeTranslation"),
       subtitleControlsMode: readOption(get("subtitleControlsMode"), ["auto", "always", "hidden"], current.subtitleControlsMode),
       subtitleFontSize: clamped("subtitleFontSize", 16, 64, current.subtitleFontSize),
-      subtitleBottomOffset: clamped("subtitleBottomOffset", 2, 40, current.subtitleBottomOffset),
+      // The drag gesture may park the line anywhere on screen, which for a short
+      // frame near the bottom of a tall viewport is far above 100% of the frame
+      // height; only guard against garbage, not against legitimate positions.
+      subtitleBottomOffset: clamped("subtitleBottomOffset", -200, 500, current.subtitleBottomOffset),
       subtitleTextColor: sanitizeAccentColor(get("subtitleTextColor"), current.subtitleTextColor),
       subtitleOutlineColor: sanitizeAccentColor(get("subtitleOutlineColor"), current.subtitleOutlineColor),
       subtitleBackgroundColor: sanitizeAccentColor(get("subtitleBackgroundColor"), current.subtitleBackgroundColor),
@@ -45990,10 +45993,19 @@ ${spelling}`);
     return normalized.sort((a, b) => a.start - b.start);
   }
   const HAS_CUE_WORD_CONTENT_RE = /[\p{L}\p{N}]/u;
+  const PLACEHOLDER_CUE_CLAUSE_RE = new RegExp(
+    "^(?:(?:captions?|subtitles?|cc) (?:are |is )?not (?:needed|required|available|provided)|(?:there (?:is|are) )?no (?:dialogue|dialog|speech|narration|audio|spoken \\w+|captions?|subtitles?)(?: (?:is|are) (?:needed|required|available|provided))?(?: in this video)?|this video (?:has|contains) no (?:dialogue|dialog|speech|narration|audio))$",
+    "i"
+  );
+  function isPlaceholderSubtitleCueText(text2) {
+    const clauses = text2.split(/[.:;!?()[\]"']+/).map((clause) => clause.replace(/[^\p{L}\p{N}]+/gu, " ").trim()).filter(Boolean);
+    return clauses.length > 0 && clauses.every((clause) => PLACEHOLDER_CUE_CLAUSE_RE.test(clause));
+  }
   function normalizedSubtitleCueParts(cue, options) {
     const base = normalizedSubtitleCueBase(cue, options);
     if (!base) return [];
     if (!HAS_CUE_WORD_CONTENT_RE.test(base.text)) return [];
+    if (isPlaceholderSubtitleCueText(base.text)) return [];
     const sentenceParts = mergePunctuationOnlyCueParts(splitCueDisplayText(base.text));
     if (sentenceParts.length <= 1) return [{ ...base, transcriptEligible: base.transcriptEligible }];
     const timedParts = distributeCueParts(base, sentenceParts);
@@ -46991,7 +47003,6 @@ ${spelling}`);
         <div class="jpdb-subtitle-style-popover" id="jpdb-subtitle-style-popover" data-subtitle-style-popover role="group" aria-label="${escapeHtml$1(label)}" hidden>
             ${renderSubtitleStyleRange("subtitleFontSize", uiText(language, "subtitleFontSize"), settings.subtitleFontSize, 16, 64, 2, "px")}
             ${renderSubtitleStyleRange("subtitleFontWeight", uiText(language, "subtitleFontWeight"), settings.subtitleFontWeight, 300, 900, 20, "weight")}
-            ${renderSubtitleStyleRange("subtitleBottomOffset", uiText(language, "subtitleBottomOffset"), settings.subtitleBottomOffset, 2, 40, 1, "%")}
             ${renderSubtitleStyleRange("subtitleBackgroundOpacity", uiText(language, "subtitleBackgroundOpacity"), settings.subtitleBackgroundOpacity, 0, 0.7, 0.05, "")}
             <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
                 <span>${escapeHtml$1(uiText(language, "subtitleFontFamily"))}</span>
@@ -48209,10 +48220,16 @@ ${spelling}`);
     if (!rectContainsRect(parentRect, videoRect, 4)) return false;
     const hasInsetSpace = hasMeaningfulVideoInsetSpace(parentRect, videoRect);
     if (isViewportSizedVideoRect(parentRect) && hasInsetSpace) return false;
+    if (!parentCentersVideoHorizontally(parentRect, videoRect)) return false;
     const likelyPlayerFrame = isLikelyGenericPlayerFrame(parent);
     const likelyPlayerWithChrome = likelyPlayerFrame && (video.controls || hasLikelyPlayerChrome(parent));
     if (rectsHaveMatchingSize(parentRect, videoRect, 3)) return likelyPlayerWithChrome;
     return likelyPlayerWithChrome || hasInsetSpace && likelyPlayerFrame;
+  }
+  function parentCentersVideoHorizontally(parentRect, videoRect) {
+    const leftGap = videoRect.left - parentRect.left;
+    const rightGap = parentRect.right - videoRect.right;
+    return Math.abs(leftGap - rightGap) <= Math.max(64, videoRect.width * 0.2);
   }
   function isLikelyGenericPlayerFrame(element) {
     const text2 = `${element.tagName.toLowerCase()} ${element.id} ${String(element.className)} ${element.getAttribute("aria-label") ?? ""}`;
@@ -51823,7 +51840,7 @@ ${spelling}`);
           this.handleFullscreenLayoutChange();
         }, this.eventOptions());
       }
-      window.addEventListener("scroll", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
+      window.addEventListener("scroll", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true, capture: true }));
       window.addEventListener("resize", () => this.handleTranscriptViewportChange({ stabilize: true }), this.eventOptions({ passive: true }));
       window.addEventListener("orientationchange", () => this.handleTranscriptViewportChange({ stabilize: true }), this.eventOptions({ passive: true }));
       window.visualViewport?.addEventListener("resize", () => this.handleTranscriptViewportChange({ stabilize: true }), this.eventOptions({ passive: true }));
@@ -52268,11 +52285,11 @@ ${spelling}`);
       const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
       const secondary = this.tracks.find((track) => track.id === this.secondaryTrackId);
       if (this.shouldAutoSelectPrimaryPageTrack(option, selected)) {
-        void this.selectTrack(option.id);
+        void this.selectTrack(option.id, { auto: true });
         return;
       }
       if (this.shouldAutoSelectSecondaryPageTrack(option, secondary)) {
-        void this.selectSecondaryTrack(option.id);
+        void this.selectSecondaryTrack(option.id, { auto: true });
       }
     }
     shouldAutoSelectPrimaryPageTrack(option, selected) {
@@ -52300,7 +52317,7 @@ ${spelling}`);
     maybeAutoSelectTranslatedJapaneseTrack() {
       if (this.selectedTrackId) return;
       const synthetic = this.tracks.find((track) => track.translatedFromTrackId && isJapaneseSubtitleTrack(track));
-      if (synthetic) void this.selectTrack(synthetic.id);
+      if (synthetic) void this.selectTrack(synthetic.id, { auto: true });
     }
     autoSelectNativeTrack(option, track, role) {
       const requestId = this.beginTrackSelection(role);
@@ -52317,6 +52334,14 @@ ${spelling}`);
       if (!track) return;
       const cues = readTextTrackCues(track);
       const loadedCues = cues.length ? cues : await waitForTextTrackCues(track);
+      if (!this.isTrackSelectionCurrent(role, requestId, option.id)) return;
+      if (loadedCues.length <= 1) {
+        this.setSelectedNativeTrackId(role, "");
+        option.loadingState = "ready";
+        this.syncControls();
+        this.renderTrackPanel();
+        return;
+      }
       if (!this.canApplyNativeTrackCues(option, role, requestId, loadedCues)) return;
       this.applyNativeTrackCues(role, option.id, loadedCues);
       option.loadingState = "ready";
@@ -53689,7 +53714,6 @@ ${spelling}`);
       const setting = control.dataset.subtitleStyleSetting;
       if (setting === "subtitleFontSize") return updateNumberSetting(settings, "subtitleFontSize", control.value, 16, 64);
       if (setting === "subtitleFontWeight") return updateNumberSetting(settings, "subtitleFontWeight", control.value, 300, 900);
-      if (setting === "subtitleBottomOffset") return updateNumberSetting(settings, "subtitleBottomOffset", control.value, 2, 40);
       if (setting === "subtitleBackgroundOpacity") return updateNumberSetting(settings, "subtitleBackgroundOpacity", control.value, 0, 0.7);
       if (setting === "subtitleFontFamily") {
         const next = SUBTITLE_STYLE_FONT_FAMILY_VALUES.includes(control.value) ? control.value : settings.subtitleFontFamily;
@@ -53979,7 +54003,20 @@ ${spelling}`);
       }
     }
     clampedSubtitleBottomOffset(value) {
-      return Math.round(Math.min(Math.max(value, this.minSubtitleBottomOffsetPercent()), 40));
+      return Math.round(Math.min(Math.max(value, this.minSubtitleBottomOffsetPercent()), this.maxSubtitleBottomOffsetPercent()));
+    }
+    // Mirror of minSubtitleBottomOffsetPercent for the upward direction: the
+    // ceiling is the screen, not the frame — the line may ride as high as the
+    // user drags it while its top edge stays on screen. The old hard 40% cap
+    // "locked" upward drags near the middle of tall players while the downward
+    // direction was already screen-bounded.
+    maxSubtitleBottomOffsetPercent() {
+      const rect = this.root?.getBoundingClientRect();
+      if (!rect || rect.height <= 0) return 40;
+      const line = this.root?.querySelector(".jpdb-subtitle-text");
+      const lineHeight = Math.max(24, line?.getBoundingClientRect().height ?? 0);
+      const usable = rect.bottom - 12 - lineHeight;
+      return Math.max(40, Math.round(usable / rect.height * 100));
     }
     // The bottom offset is a percentage of the video frame, but the floor is
     // the screen: a letterboxed or inset frame leaves usable space below it,
@@ -54483,13 +54520,33 @@ ${spelling}`);
       this.updateFromLoadedCues();
       log$g.info("Subtitle file loaded", { kind, name: file.name, cues: cues.length });
     }
-    async selectTrack(id) {
+    async selectTrack(id, options = {}) {
       const requestId = this.preparePrimaryTrackSelection(id);
-      this.revealPrimarySubtitleOverlay();
+      if (!options.auto) this.revealPrimarySubtitleOverlay();
       const loaded = await this.loadPrimaryTrackSelection(id, requestId);
       if (!loaded) return;
+      if (options.auto && this.revertSingleCueAutoSelection("primary", loaded)) return;
+      if (options.auto) this.revealPrimarySubtitleOverlay();
       this.applyPrimaryTrackSelection(loaded);
       this.finishPrimaryTrackSelection(id, loaded.track);
+    }
+    // A track whose entire payload is a single usable line (a one-cue credit,
+    // or a metadata-only track whose cues the normalizer dropped) isn't worth
+    // auto-showing an overlay for the whole video; keep the track listed for
+    // manual selection but withdraw the automatic pick.
+    revertSingleCueAutoSelection(role, loaded) {
+      if (loaded.cues.length > 1) return false;
+      if (loaded.track) loaded.track.loadingState = "ready";
+      if (role === "primary" && this.selectedTrackId === loaded.trackId) {
+        this.selectedTrackId = "";
+        this.cues = [];
+        this.currentCue = void 0;
+      }
+      if (role === "secondary" && this.secondaryTrackId === loaded.trackId) this.clearSecondaryTrackSelection();
+      this.render();
+      this.syncControls();
+      this.renderTrackPanel();
+      return true;
     }
     preparePrimaryTrackSelection(id) {
       const requestId = this.beginTrackSelection("primary");
@@ -54575,11 +54632,13 @@ ${spelling}`);
     finishPrimaryTrackSelection(id, selected) {
       this.finishTrackSelection("Primary", id, selected, this.cues.length);
     }
-    async selectSecondaryTrack(id) {
+    async selectSecondaryTrack(id, options = {}) {
       const requestId = this.prepareSecondaryTrackSelection(id);
-      this.revealSecondarySubtitleOverlay();
+      if (!options.auto) this.revealSecondarySubtitleOverlay();
       const loaded = await this.loadSecondaryTrackSelection(id, requestId);
       if (!loaded) return;
+      if (options.auto && this.revertSingleCueAutoSelection("secondary", loaded)) return;
+      if (options.auto) this.revealSecondarySubtitleOverlay();
       this.applySecondaryTrackSelection(loaded);
       this.finishSecondaryTrackSelection(id, loaded.track);
     }
@@ -55361,7 +55420,6 @@ ${spelling}`);
       popover.hidden = !open;
       syncSubtitleStyleRangeControl(popover, "subtitleFontSize", settings.subtitleFontSize, "px");
       syncSubtitleStyleRangeControl(popover, "subtitleFontWeight", settings.subtitleFontWeight, "weight");
-      syncSubtitleStyleRangeControl(popover, "subtitleBottomOffset", settings.subtitleBottomOffset, "%");
       syncSubtitleStyleRangeControl(popover, "subtitleBackgroundOpacity", settings.subtitleBackgroundOpacity, "");
       const fontSelect = popover.querySelector('[data-subtitle-style-setting="subtitleFontFamily"]');
       if (fontSelect && fontSelect.value !== settings.subtitleFontFamily) fontSelect.value = settings.subtitleFontFamily;

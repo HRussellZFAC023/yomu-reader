@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.88] - 2026-07-05
+
+### Fixed
+
+- Placeholder caption tracks no longer render as subtitles: metadata cues such as "Captions not needed: There is no dialogue" (Amazon product videos) are dropped everywhere cues are read, and tracks whose entire payload is a single line are no longer auto-selected, so silent videos stay clean while manual track selection keeps working.
+- The subtitle overlay on generic sites now anchors to the actual video frame instead of a wider page section containing it: wrappers that extend far past one side of the video (player plus a "more videos" sidebar) are rejected, so subtitles centre on the picture and hide when the video scrolls out of view, and scrolling inside nested containers re-anchors the overlay too.
+- Dragging the subtitle line upwards is no longer capped at 40% of the video frame: the line can ride as high as the screen allows, matching the freedom the downward direction already had.
+- The subtitle style popover no longer duplicates the bottom-offset slider — drag the line itself to reposition it — and the drag handle now appears only while the video's rail controls are visible instead of hovering permanently over idle videos.
+
 ## [1.6.87] - 2026-07-05
 
 ### Fixed

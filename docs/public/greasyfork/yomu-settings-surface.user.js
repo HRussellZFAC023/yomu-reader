@@ -7506,7 +7506,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       subtitleCopyIncludeTranslation: has("subtitleCopyIncludeTranslation"),
       subtitleControlsMode: readOption(get("subtitleControlsMode"), ["auto", "always", "hidden"], current.subtitleControlsMode),
       subtitleFontSize: clamped("subtitleFontSize", 16, 64, current.subtitleFontSize),
-      subtitleBottomOffset: clamped("subtitleBottomOffset", 2, 40, current.subtitleBottomOffset),
+      // The drag gesture may park the line anywhere on screen, which for a short
+      // frame near the bottom of a tall viewport is far above 100% of the frame
+      // height; only guard against garbage, not against legitimate positions.
+      subtitleBottomOffset: clamped("subtitleBottomOffset", -200, 500, current.subtitleBottomOffset),
       subtitleTextColor: sanitizeAccentColor(get("subtitleTextColor"), current.subtitleTextColor),
       subtitleOutlineColor: sanitizeAccentColor(get("subtitleOutlineColor"), current.subtitleOutlineColor),
       subtitleBackgroundColor: sanitizeAccentColor(get("subtitleBackgroundColor"), current.subtitleBackgroundColor),
