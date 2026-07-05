@@ -155,7 +155,6 @@ export function renderSubtitleStyleControls(settings: ReaderSettings, language: 
         <div class="jpdb-subtitle-style-popover" id="jpdb-subtitle-style-popover" data-subtitle-style-popover role="group" aria-label="${escapeHtml(label)}" hidden>
             ${renderSubtitleStyleRange('subtitleFontSize', uiText(language, 'subtitleFontSize'), settings.subtitleFontSize, 16, 64, 2, 'px')}
             ${renderSubtitleStyleRange('subtitleFontWeight', uiText(language, 'subtitleFontWeight'), settings.subtitleFontWeight, 300, 900, 20, 'weight')}
-            ${renderSubtitleStyleRange('subtitleBottomOffset', uiText(language, 'subtitleBottomOffset'), settings.subtitleBottomOffset, 2, 40, 1, '%')}
             ${renderSubtitleStyleRange('subtitleBackgroundOpacity', uiText(language, 'subtitleBackgroundOpacity'), settings.subtitleBackgroundOpacity, 0, 0.7, 0.05, '')}
             <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
                 <span>${escapeHtml(uiText(language, 'subtitleFontFamily'))}</span>
@@ -177,7 +176,7 @@ export function renderSubtitleStyleControls(settings: ReaderSettings, language: 
 }
 
 function renderSubtitleStyleRange(
-    setting: 'subtitleFontSize' | 'subtitleFontWeight' | 'subtitleBottomOffset' | 'subtitleBackgroundOpacity',
+    setting: 'subtitleFontSize' | 'subtitleFontWeight' | 'subtitleBackgroundOpacity',
     label: string,
     value: number,
     min: number,

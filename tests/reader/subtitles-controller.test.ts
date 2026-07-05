@@ -567,19 +567,19 @@ describe('SubtitlePlayerController', () => {
 
             setSubtitleStyleControlValue(popover, 'subtitleFontSize', '36');
             setSubtitleStyleControlValue(popover, 'subtitleFontWeight', '620');
-            setSubtitleStyleControlValue(popover, 'subtitleBottomOffset', '24');
             setSubtitleStyleControlValue(popover, 'subtitleBackgroundOpacity', '0.35');
             setSubtitleStyleSelectValue(popover);
             popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleHoverPause"]')!.click();
 
             expect(settings.subtitleFontSize).toBe(36);
             expect(settings.subtitleFontWeight).toBe(620);
-            expect(settings.subtitleBottomOffset).toBe(24);
+            // The bottom offset is repositioned by dragging the line, not a slider.
+            expect(popover.querySelector('[data-subtitle-style-setting="subtitleBottomOffset"]')).toBeNull();
             expect(settings.subtitleBackgroundOpacity).toBe(0.35);
             expect(settings.subtitleHoverPause).toBe(false);
             expect(root.style.getPropertyValue('--subtitle-font-size-target')).toBe('36px');
             expect(root.style.getPropertyValue('--subtitle-weight')).toBe('620');
-            expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('24%');
+            expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('16%');
             expect(root.style.getPropertyValue('--subtitle-background-rgba')).toContain(',0.35)');
             expect(root.style.getPropertyValue('--subtitle-family')).toContain('Noto Serif JP');
             expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleFontWeight"]')?.textContent).toBe('620');
@@ -597,7 +597,6 @@ describe('SubtitlePlayerController', () => {
             expect(root.style.getPropertyValue('--subtitle-font-size-target')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleFontSize}px`);
             expect(root.style.getPropertyValue('--subtitle-weight')).toBe(String(BASE_DEFAULT_SETTINGS.subtitleFontWeight));
             expect(root.style.getPropertyValue('--subtitle-bottom')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleBottomOffset}%`);
-            expect(popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleBottomOffset"]')?.value).toBe(String(BASE_DEFAULT_SETTINGS.subtitleBottomOffset));
             expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleBackgroundOpacity"]')?.textContent).toBe('0%');
 
             toggle.click();
@@ -617,7 +616,7 @@ describe('SubtitlePlayerController', () => {
         try {
             toggle.click();
             const popover = root.querySelector<HTMLElement>('[data-subtitle-style-popover]')!;
-            const range = popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleBottomOffset"]')!;
+            const range = popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleFontSize"]')!;
             const checkbox = popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleHoverPause"]')!;
             const documentPointer = vi.fn();
             const documentPointerUp = vi.fn();
@@ -4030,11 +4029,9 @@ Watch the cat
             window.dispatchEvent(pointerEvent('pointermove', { clientY: 260, pointerId: 9 }));
             window.dispatchEvent(pointerEvent('pointerup', { clientY: 260, pointerId: 9 }));
 
-            root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="style"]')!.click();
-            const popover = root.querySelector<HTMLElement>('[data-subtitle-style-popover]')!;
-
-            expect(popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleBottomOffset"]')?.value).toBe('27');
-            expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleBottomOffset"]')?.textContent).toBe('27%');
+            // The drag is the only bottom-offset control now; it lands in the
+            // persisted setting and the rendered CSS variable directly.
+            expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('27%');
         } finally {
             controller.destroy();
         }
@@ -4762,7 +4759,7 @@ Watch the cat
         expect(normalizedCss).toContain('max-height: min(5.4em, 45%, calc(100% - 24px)); overflow: visible; pointer-events: none;');
         expect(normalizedCss).toContain('.jpdb-subtitle-lines { min-height: 1.36em; max-height: inherit; overflow: hidden; pointer-events: none; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle');
-        expect(normalizedCss).toContain('opacity: .56; pointer-events: auto;');
+        expect(normalizedCss).toContain('opacity: .76; pointer-events: auto;');
         expect(normalizedCss).toContain('box-shadow: none;');
         expect(normalizedCss).toContain('touch-action: none;');
         expect(normalizedCss).toContain('.jpdb-subtitle-drag-handle { left: 50%; right: auto; top: -32px; width: 42px; height: 28px; transform: translateX(-50%); }');

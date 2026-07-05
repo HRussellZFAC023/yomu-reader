@@ -85,14 +85,14 @@
   display: none !important;
   pointer-events: none !important;
 }
-.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle {
-  opacity: .56;
-  pointer-events: auto;
-}
+/* The handle rides with the rail controls: visible only while they are (video
+   focused/hovered), never as a permanent artifact over an idle video. Keyboard
+   focus and an in-flight drag keep it alive through the idle timeout. */
 .jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden):not(.jpdb-subtitle-controls-idle) .jpdb-subtitle-drag-handle,
 .jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:focus-visible,
 .jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden).jpdb-subtitle-dragging .jpdb-subtitle-drag-handle {
   opacity: .76;
+  pointer-events: auto;
 }
 .jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:is(:hover, :focus-visible, .jpdb-subtitle-dragging) {
   border-color: var(--jpdb-reader-accent);

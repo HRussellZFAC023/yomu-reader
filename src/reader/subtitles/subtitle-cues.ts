@@ -60,10 +60,34 @@ export function normalizeSubtitleCues(cues: SubtitleCue[], options: { transcript
 // has nothing to read, parse, or mine; rendering it as a row is just noise.
 const HAS_CUE_WORD_CONTENT_RE = /[\p{L}\p{N}]/u;
 
+// Some tracks ship a metadata cue announcing that the video has no dialogue
+// ("Captions not needed: There is no dialogue." on Amazon product videos).
+// That is a statement about the track, not a caption — rendering it (and
+// translating/decorating it) pins a fake subtitle onto a silent video. A cue
+// is a placeholder only when EVERY clause is one of these announcements, so
+// real dialogue that merely mentions captions is unaffected.
+const PLACEHOLDER_CUE_CLAUSE_RE = new RegExp(
+    '^(?:'
+    + '(?:captions?|subtitles?|cc) (?:are |is )?not (?:needed|required|available|provided)'
+    + '|(?:there (?:is|are) )?no (?:dialogue|dialog|speech|narration|audio|spoken \\w+|captions?|subtitles?)(?: (?:is|are) (?:needed|required|available|provided))?(?: in this video)?'
+    + '|this video (?:has|contains) no (?:dialogue|dialog|speech|narration|audio)'
+    + ')$',
+    'i',
+);
+
+export function isPlaceholderSubtitleCueText(text: string): boolean {
+    const clauses = text
+        .split(/[.:;!?()[\]"']+/)
+        .map(clause => clause.replace(/[^\p{L}\p{N}]+/gu, ' ').trim())
+        .filter(Boolean);
+    return clauses.length > 0 && clauses.every(clause => PLACEHOLDER_CUE_CLAUSE_RE.test(clause));
+}
+
 function normalizedSubtitleCueParts(cue: SubtitleCue, options: { transcriptEligible?: boolean }): SubtitleCue[] {
     const base = normalizedSubtitleCueBase(cue, options);
     if (!base) return [];
     if (!HAS_CUE_WORD_CONTENT_RE.test(base.text)) return [];
+    if (isPlaceholderSubtitleCueText(base.text)) return [];
 
     const sentenceParts = mergePunctuationOnlyCueParts(splitCueDisplayText(base.text));
     if (sentenceParts.length <= 1) return [{ ...base, transcriptEligible: base.transcriptEligible }];

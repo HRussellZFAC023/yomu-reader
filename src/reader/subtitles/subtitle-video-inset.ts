@@ -1025,10 +1025,24 @@ function shouldUseGenericVideoParent(parent: HTMLElement, parentRect: DOMRect, v
     // tight wrappers still resolve as the player frame so portrait videos get
     // the subtitle rail instead of being treated as out-of-view.
     if (isViewportSizedVideoRect(parentRect) && hasInsetSpace) return false;
+    // A wrapper that extends far past ONE side of the video is a page section
+    // (player + "more videos" sidebar), not the player frame: anchoring the
+    // overlay to it centres the subtitle on the section instead of the
+    // picture and keeps the overlay "visible" from the sidebar long after the
+    // video scrolled away. A real player frame letterboxes the video, so its
+    // horizontal overhang is symmetric — require that instead of a hard width
+    // cap so wide letterboxed players still anchor to their frame.
+    if (!parentCentersVideoHorizontally(parentRect, videoRect)) return false;
     const likelyPlayerFrame = isLikelyGenericPlayerFrame(parent);
     const likelyPlayerWithChrome = likelyPlayerFrame && (video.controls || hasLikelyPlayerChrome(parent));
     if (rectsHaveMatchingSize(parentRect, videoRect, 3)) return likelyPlayerWithChrome;
     return likelyPlayerWithChrome || (hasInsetSpace && likelyPlayerFrame);
+}
+
+function parentCentersVideoHorizontally(parentRect: DOMRect, videoRect: DOMRect): boolean {
+    const leftGap = videoRect.left - parentRect.left;
+    const rightGap = parentRect.right - videoRect.right;
+    return Math.abs(leftGap - rightGap) <= Math.max(64, videoRect.width * 0.2);
 }
 
 function isLikelyGenericPlayerFrame(element: HTMLElement): boolean {

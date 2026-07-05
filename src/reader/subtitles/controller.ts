@@ -1196,7 +1196,9 @@ export class SubtitlePlayerController {
                 this.handleFullscreenLayoutChange();
             }, this.eventOptions());
         }
-        window.addEventListener('scroll', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
+        // capture:true so scrolls inside nested scrollers (which don't bubble)
+        // still re-anchor the overlay to the video's new on-screen position.
+        window.addEventListener('scroll', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true, capture: true }));
         window.addEventListener('resize', () => this.handleTranscriptViewportChange({ stabilize: true }), this.eventOptions({ passive: true }));
         window.addEventListener('orientationchange', () => this.handleTranscriptViewportChange({ stabilize: true }), this.eventOptions({ passive: true }));
         window.visualViewport?.addEventListener('resize', () => this.handleTranscriptViewportChange({ stabilize: true }), this.eventOptions({ passive: true }));
@@ -1719,11 +1721,11 @@ export class SubtitlePlayerController {
         const selected = this.tracks.find(track => track.id === this.selectedTrackId);
         const secondary = this.tracks.find(track => track.id === this.secondaryTrackId);
         if (this.shouldAutoSelectPrimaryPageTrack(option, selected)) {
-            void this.selectTrack(option.id);
+            void this.selectTrack(option.id, { auto: true });
             return;
         }
         if (this.shouldAutoSelectSecondaryPageTrack(option, secondary)) {
-            void this.selectSecondaryTrack(option.id);
+            void this.selectSecondaryTrack(option.id, { auto: true });
         }
     }
 
@@ -1760,7 +1762,7 @@ export class SubtitlePlayerController {
     private maybeAutoSelectTranslatedJapaneseTrack(): void {
         if (this.selectedTrackId) return;
         const synthetic = this.tracks.find(track => track.translatedFromTrackId && isJapaneseSubtitleTrack(track));
-        if (synthetic) void this.selectTrack(synthetic.id);
+        if (synthetic) void this.selectTrack(synthetic.id, { auto: true });
     }
 
     private autoSelectNativeTrack(option: SubtitleTrackOption, track: TextTrack, role: 'primary' | 'secondary'): void {
@@ -1780,6 +1782,17 @@ export class SubtitlePlayerController {
         if (!track) return;
         const cues = readTextTrackCues(track);
         const loadedCues = cues.length ? cues : await waitForTextTrackCues(track);
+        if (!this.isTrackSelectionCurrent(role, requestId, option.id)) return;
+        // This path only runs for automatic selection — a single-line track
+        // (one-cue credit, or metadata-only after normalization) isn't worth
+        // auto-showing an overlay for; withdraw the pick, keep it selectable.
+        if (loadedCues.length <= 1) {
+            this.setSelectedNativeTrackId(role, '');
+            option.loadingState = 'ready';
+            this.syncControls();
+            this.renderTrackPanel();
+            return;
+        }
         if (!this.canApplyNativeTrackCues(option, role, requestId, loadedCues)) return;
         this.applyNativeTrackCues(role, option.id, loadedCues);
         option.loadingState = 'ready';
@@ -3411,7 +3424,6 @@ export class SubtitlePlayerController {
         const setting = control.dataset.subtitleStyleSetting;
         if (setting === 'subtitleFontSize') return updateNumberSetting(settings, 'subtitleFontSize', control.value, 16, 64);
         if (setting === 'subtitleFontWeight') return updateNumberSetting(settings, 'subtitleFontWeight', control.value, 300, 900);
-        if (setting === 'subtitleBottomOffset') return updateNumberSetting(settings, 'subtitleBottomOffset', control.value, 2, 40);
         if (setting === 'subtitleBackgroundOpacity') return updateNumberSetting(settings, 'subtitleBackgroundOpacity', control.value, 0, 0.7);
         if (setting === 'subtitleFontFamily') {
             const next = SUBTITLE_STYLE_FONT_FAMILY_VALUES.includes(control.value)
@@ -3744,7 +3756,21 @@ export class SubtitlePlayerController {
     }
 
     private clampedSubtitleBottomOffset(value: number): number {
-        return Math.round(Math.min(Math.max(value, this.minSubtitleBottomOffsetPercent()), 40));
+        return Math.round(Math.min(Math.max(value, this.minSubtitleBottomOffsetPercent()), this.maxSubtitleBottomOffsetPercent()));
+    }
+
+    // Mirror of minSubtitleBottomOffsetPercent for the upward direction: the
+    // ceiling is the screen, not the frame — the line may ride as high as the
+    // user drags it while its top edge stays on screen. The old hard 40% cap
+    // "locked" upward drags near the middle of tall players while the downward
+    // direction was already screen-bounded.
+    private maxSubtitleBottomOffsetPercent(): number {
+        const rect = this.root?.getBoundingClientRect();
+        if (!rect || rect.height <= 0) return 40;
+        const line = this.root?.querySelector<HTMLElement>('.jpdb-subtitle-text');
+        const lineHeight = Math.max(24, line?.getBoundingClientRect().height ?? 0);
+        const usable = rect.bottom - 12 - lineHeight;
+        return Math.max(40, Math.round((usable / rect.height) * 100));
     }
 
     // The bottom offset is a percentage of the video frame, but the floor is
@@ -4345,13 +4371,34 @@ export class SubtitlePlayerController {
         log.info('Subtitle file loaded', { kind, name: file.name, cues: cues.length });
     }
 
-    private async selectTrack(id: string): Promise<void> {
+    private async selectTrack(id: string, options: { auto?: boolean } = {}): Promise<void> {
         const requestId = this.preparePrimaryTrackSelection(id);
-        this.revealPrimarySubtitleOverlay();
+        if (!options.auto) this.revealPrimarySubtitleOverlay();
         const loaded = await this.loadPrimaryTrackSelection(id, requestId);
         if (!loaded) return;
+        if (options.auto && this.revertSingleCueAutoSelection('primary', loaded)) return;
+        if (options.auto) this.revealPrimarySubtitleOverlay();
         this.applyPrimaryTrackSelection(loaded);
         this.finishPrimaryTrackSelection(id, loaded.track);
+    }
+
+    // A track whose entire payload is a single usable line (a one-cue credit,
+    // or a metadata-only track whose cues the normalizer dropped) isn't worth
+    // auto-showing an overlay for the whole video; keep the track listed for
+    // manual selection but withdraw the automatic pick.
+    private revertSingleCueAutoSelection(role: 'primary' | 'secondary', loaded: LoadedSubtitleTrackSelection): boolean {
+        if (loaded.cues.length > 1) return false;
+        if (loaded.track) loaded.track.loadingState = 'ready';
+        if (role === 'primary' && this.selectedTrackId === loaded.trackId) {
+            this.selectedTrackId = '';
+            this.cues = [];
+            this.currentCue = undefined;
+        }
+        if (role === 'secondary' && this.secondaryTrackId === loaded.trackId) this.clearSecondaryTrackSelection();
+        this.render();
+        this.syncControls();
+        this.renderTrackPanel();
+        return true;
     }
 
     private preparePrimaryTrackSelection(id: string): number {
@@ -4464,11 +4511,13 @@ export class SubtitlePlayerController {
         this.finishTrackSelection('Primary', id, selected, this.cues.length);
     }
 
-    private async selectSecondaryTrack(id: string): Promise<void> {
+    private async selectSecondaryTrack(id: string, options: { auto?: boolean } = {}): Promise<void> {
         const requestId = this.prepareSecondaryTrackSelection(id);
-        this.revealSecondarySubtitleOverlay();
+        if (!options.auto) this.revealSecondarySubtitleOverlay();
         const loaded = await this.loadSecondaryTrackSelection(id, requestId);
         if (!loaded) return;
+        if (options.auto && this.revertSingleCueAutoSelection('secondary', loaded)) return;
+        if (options.auto) this.revealSecondarySubtitleOverlay();
         this.applySecondaryTrackSelection(loaded);
         this.finishSecondaryTrackSelection(id, loaded.track);
     }
@@ -5372,7 +5421,6 @@ export class SubtitlePlayerController {
         popover.hidden = !open;
         syncSubtitleStyleRangeControl(popover, 'subtitleFontSize', settings.subtitleFontSize, 'px');
         syncSubtitleStyleRangeControl(popover, 'subtitleFontWeight', settings.subtitleFontWeight, 'weight');
-        syncSubtitleStyleRangeControl(popover, 'subtitleBottomOffset', settings.subtitleBottomOffset, '%');
         syncSubtitleStyleRangeControl(popover, 'subtitleBackgroundOpacity', settings.subtitleBackgroundOpacity, '');
         const fontSelect = popover.querySelector<HTMLSelectElement>('[data-subtitle-style-setting="subtitleFontFamily"]');
         if (fontSelect && fontSelect.value !== settings.subtitleFontFamily) fontSelect.value = settings.subtitleFontFamily;
