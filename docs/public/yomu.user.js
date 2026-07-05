@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.66
+// @version 1.6.67
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.66#sha256=0mHYvwR1lFhiM2jB+6L7BdyHRu7PF07HsnKDPaIQCj4=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.66#sha256=kxVUVDmiXG+8rjt9uffTB0uXqkEv/j8L4j3xU1W5ehI=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.66#sha256=ZHLI1Mp1gsJbdT9vv1akrMP9Y/ePz7aVbrYbAPYBMJk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.66#sha256=OqzwlfMm6WDgo24XoVKjMY+P8lKgmeCnDwm4XI9sCd0=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.66#sha256=39Vou9scdPr2MALdpfCIC3bPLNeHKS95AbrzeIT37Zo=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.66#sha256=q+MTUjWJDlgYrkqVYRMRC/lGBD2K9EphxhqgJ4bULds=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.67#sha256=0mHYvwR1lFhiM2jB+6L7BdyHRu7PF07HsnKDPaIQCj4=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.67#sha256=kxVUVDmiXG+8rjt9uffTB0uXqkEv/j8L4j3xU1W5ehI=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.67#sha256=ZHLI1Mp1gsJbdT9vv1akrMP9Y/ePz7aVbrYbAPYBMJk=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.67#sha256=OqzwlfMm6WDgo24XoVKjMY+P8lKgmeCnDwm4XI9sCd0=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.67#sha256=39Vou9scdPr2MALdpfCIC3bPLNeHKS95AbrzeIT37Zo=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.67#sha256=q+MTUjWJDlgYrkqVYRMRC/lGBD2K9EphxhqgJ4bULds=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -31184,7 +31184,7 @@ class BunproClient {
   return this.frontend("/user/due");
   }
   getQueue() {
-  return this.frontend("/user/queue");
+  return this.frontend("/reviews/quiz_index");
   }
   getUserFurigana() {
   return this.frontend("/user/user_furigana");
@@ -31600,7 +31600,10 @@ function createBunproSrsAdapter(client) {
   capabilities: { stats: true, queue: true, review: true, mine: true, import: false },
   hasCredential: () => client.hasFrontendCredential(),
   verify: () => client.getUser().then(() => true, () => false),
-  stats: async () => normalizeBunproStatsResponse(await client.getBaseStats()),
+  stats: async () => {
+    const [base, due] = await Promise.all([client.getBaseStats(), client.getDueCount().catch(() => null)]);
+    return normalizeBunproStatsResponse(base, due);
+  },
   queue: async (limit) => normalizeBunproQueueResponse(await client.getQueue(), limit),
   review: (request) => reviewBunproCard(client, request),
   mine: (request) => mineBunproCard(client, request)
@@ -31612,22 +31615,29 @@ function normalizeBunproQueueResponse(raw, limit = 50) {
   providerId: "bunpro",
   fetchedAt: Date.now(),
   cards,
-  dueCount: readFirstNumber(raw, ["due_count", "dueCount", "reviews_due", "reviewsDue"]) ?? cards.filter((card) => card.state.includes("due")).length,
+  dueCount: readFirstNumber(raw, ["due_count", "dueCount", "reviews_due", "reviewsDue", "total_pending_attempt_count"]) ?? cards.filter((card) => card.state.includes("due")).length,
   newCount: readFirstNumber(raw, ["new_count", "newCount", "new_cards", "newCards"]) ?? cards.filter((card) => card.state.includes("new")).length,
   reviewCount: readFirstNumber(raw, ["review_count", "reviewCount", "reviews_count", "reviewsCount"]) ?? cards.length
   };
 }
-function normalizeBunproStatsResponse(raw) {
+function normalizeBunproStatsResponse(raw, due) {
+  const source = isRecord(raw) ? { ...objectAt(raw, "facts") ?? {}, ...raw } : raw;
   return {
   providerId: "bunpro",
   fetchedAt: Date.now(),
-  reviewsDue: readFirstNumber(raw, ["reviews_due", "reviewsDue", "due", "due_count"]),
-  reviewsToday: readFirstNumber(raw, ["reviews_today", "reviewsToday", "reviews_done_today"]),
-  newToday: readFirstNumber(raw, ["new_today", "newToday", "new_cards_today"]),
-  streakDays: readFirstNumber(raw, ["streak", "streak_days", "streakDays"]),
+  reviewsDue: bunproDueTotal(due) ?? readFirstNumber(source, ["reviews_due", "reviewsDue", "due", "due_count"]),
+  reviewsToday: readFirstNumber(source, ["reviews_today", "reviewsToday", "reviews_done_today"]),
+  newToday: readFirstNumber(source, ["new_today", "newToday", "new_cards_today"]),
+  streakDays: readFirstNumber(source, ["streak", "streak_days", "streakDays"]),
   levelCounts: normalizeLevelCounts(raw),
   raw
   };
+}
+function bunproDueTotal(due) {
+  const grammar = readFirstNumber(due, ["total_due_grammar"]);
+  const vocab = readFirstNumber(due, ["total_due_vocab"]);
+  if (grammar === void 0 && vocab === void 0) return void 0;
+  return (grammar ?? 0) + (vocab ?? 0);
 }
 function normalizeBunproReviewable(raw, fallbackKind = "grammar") {
   const record = reviewableRecord(raw);
@@ -31660,9 +31670,11 @@ function normalizeBunproReviewable(raw, fallbackKind = "grammar") {
 }
 async function reviewBunproCard(client, request) {
   const reviewId = request.card.providerReviewId || request.card.providerCardId;
+  const rating = bunproRatingForGrade(request.grade);
   const raw = await client.updateReview(reviewId, {
   grade: request.grade,
-  rating: bunproRatingForGrade(request.grade),
+  rating,
+  correct: rating >= 3,
   sentence: request.sentence
   });
   return { card: normalizeBunproReviewable(raw) ?? request.card, raw };
@@ -31694,6 +31706,8 @@ function bunproRatingForGrade(grade) {
   return 4;
 }
 function collectBunproReviewables(raw) {
+  const quizEntries = collectBunproQuizIndexEntries(raw);
+  if (quizEntries.length) return quizEntries;
   const arrays = [
   readArray(raw, ["data"]),
   readArray(raw, ["reviews"]),
@@ -31703,6 +31717,43 @@ function collectBunproReviewables(raw) {
   readArray(raw, ["due"])
   ];
   return arrays.find((items) => items.length) ?? (Array.isArray(raw) ? raw : []);
+}
+function collectBunproQuizIndexEntries(raw) {
+  if (!isRecord(raw)) return [];
+  const entries2 = [...readArray(raw, ["pending_attempt"]), ...readArray(raw, ["pending_wrapup"])];
+  return entries2.map((entry) => flattenBunproQuizIndexEntry(entry)).filter((entry) => entry !== null);
+}
+function flattenBunproQuizIndexEntry(entry) {
+  if (!isRecord(entry)) return null;
+  const review = objectAt(entry, "data");
+  if (!review) return null;
+  const attributes = objectAt(review, "attributes") ?? {};
+  const reviewId = readString(review, ["id"]) || readString(attributes, ["id"]);
+  if (!reviewId) return null;
+  const reviewable = bunproQuizIndexReviewable(entry, attributes);
+  return {
+  ...reviewable,
+  ...attributes,
+  japanese: readString(reviewable, ["title"]) || void 0,
+  id: reviewId,
+  review_id: reviewId,
+  state: "due",
+  srs_stage: void 0,
+  srs_level: void 0,
+  status: void 0,
+  next_review_at: readString(attributes, ["next_review"]) || void 0
+  };
+}
+function bunproQuizIndexReviewable(entry, reviewAttributes) {
+  const type = readString(reviewAttributes, ["reviewable_type"]).toLowerCase();
+  const wantedKind = type.includes("vocab") ? "vocab" : "grammar_point";
+  const included = readArray(entry, ["included"]);
+  for (const item of included) {
+  if (!isRecord(item) || readString(item, ["type"]) !== wantedKind) continue;
+  const attributes = objectAt(item, "attributes");
+  if (attributes) return attributes;
+  }
+  return {};
 }
 function firstBunproSearchHit(raw, preferredKind = "grammar") {
   const record = isRecord(raw) ? raw : {};
@@ -32441,7 +32492,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.66"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.67"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
