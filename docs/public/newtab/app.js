@@ -39370,7 +39370,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.70".trim() ? "1.6.70".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.71".trim() ? "1.6.71".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -71266,9 +71266,17 @@ ${options.version}`;
     if (!media) return;
     const rect = media.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
-    const scale = Math.sqrt(Math.min(rect.width / 1280, rect.height / 720));
+    const paintedWidth = newTabImmersionPaintedWidth(media, rect);
+    if (paintedWidth) media.style.setProperty("--yomu-immersion-frame-width", `${Math.round(paintedWidth)}px`);
+    else media.style.removeProperty("--yomu-immersion-frame-width");
+    const scale = Math.sqrt(Math.min((paintedWidth || rect.width) / 1280, rect.height / 720));
     const size = Math.max(13, Math.min(18, Math.round(22 * Math.max(0.55, scale))));
     media.style.setProperty("--subtitle-font-size", `${size}px`);
+  }
+  function newTabImmersionPaintedWidth(media, rect) {
+    const image = media.querySelector(".jpdb-reader-example-image");
+    if (!image || !image.naturalWidth || !image.naturalHeight) return 0;
+    return Math.min(rect.width, rect.height * (image.naturalWidth / image.naturalHeight));
   }
   function shouldRenderNewTabImmersionTranslation(example, settings) {
     return settings.immersionKitShowTranslation && Boolean(example.translation);

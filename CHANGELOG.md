@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.71] - 2026-07-05
+
+### Fixed
+
+- Immersion Kit example subtitles no longer spill past the sides of the screenshot: the sentence overlay is now capped to the painted width of the letterboxed image on the new-tab study card, and the kanji-study and in-page example frames shrink-wrap the picture so the caption anchors to the image instead of a wider invisible box.
+
 ## [1.6.70] - 2026-07-05
 
 ### Changed

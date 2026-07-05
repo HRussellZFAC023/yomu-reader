@@ -100,9 +100,21 @@ export function syncNewTabImmersionFrameSubtitleSize(root: HTMLElement): void {
     if (!media) return;
     const rect = media.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
-    const scale = Math.sqrt(Math.min(rect.width / 1280, rect.height / 720));
+    // object-fit: contain letterboxes wide stills inside the frame; the subtitle
+    // must be capped to the painted picture, not the frame, or it hangs past the
+    // image edges. Publish the contain-fit width for the CSS max-width clamp.
+    const paintedWidth = newTabImmersionPaintedWidth(media, rect);
+    if (paintedWidth) media.style.setProperty('--yomu-immersion-frame-width', `${Math.round(paintedWidth)}px`);
+    else media.style.removeProperty('--yomu-immersion-frame-width');
+    const scale = Math.sqrt(Math.min((paintedWidth || rect.width) / 1280, rect.height / 720));
     const size = Math.max(13, Math.min(18, Math.round(22 * Math.max(0.55, scale))));
     media.style.setProperty('--subtitle-font-size', `${size}px`);
+}
+
+function newTabImmersionPaintedWidth(media: HTMLElement, rect: DOMRect): number {
+    const image = media.querySelector<HTMLImageElement>('.jpdb-reader-example-image');
+    if (!image || !image.naturalWidth || !image.naturalHeight) return 0;
+    return Math.min(rect.width, rect.height * (image.naturalWidth / image.naturalHeight));
 }
 
 function shouldRenderNewTabImmersionTranslation(example: ImmersionKitExample, settings: ReaderSettings): boolean {

@@ -3830,7 +3830,7 @@ describe('reader helpers', () => {
         expect(normalizedImmersionCss).toContain('.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; }');
         expect(normalizedImmersionCss).toContain('.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; text-decoration-color: transparent !important; }');
         expect(normalizedImmersionCss).toContain('.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 0 0 6px; }');
-        expect(normalizedImmersionCss).toContain('.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-media { width: min(100%, 720px); overflow: visible; }');
+        expect(normalizedImmersionCss).toContain('width: fit-content; max-width: min(100%, 720px); overflow: visible; }');
         expect(normalizedImmersionCss).toContain('.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence { left: clamp(8px, 3%, 16px); right: clamp(8px, 3%, 16px); bottom: clamp(10px, 4%, 16px); width: auto; max-width: none; padding: 0; transform: none; background: transparent; box-shadow: none; }');
     });
 

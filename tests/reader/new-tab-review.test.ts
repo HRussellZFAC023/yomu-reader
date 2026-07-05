@@ -1619,7 +1619,7 @@ describe('new tab review helpers', () => {
         const imageTargetRule = newTabCssRule('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target');
 
         expect(imageSentenceRule).toContain('left: 50%;');
-        expect(imageSentenceRule).toContain('max-width: calc(100% - clamp(28px, 8%, 52px));');
+        expect(imageSentenceRule).toContain('max-width: min( calc(100% - clamp(28px, 8%, 52px)), calc(var(--yomu-immersion-frame-width, 100%) - 12px) );');
         expect(imageSentenceRule).toContain('transform: translateX(-50%);');
         expect(imageSentenceRule).toContain('color: var(--jpdb-reader-white);');
         expect(imageSentenceRule).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg));');

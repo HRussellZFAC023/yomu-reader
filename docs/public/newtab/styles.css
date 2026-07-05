@@ -3926,7 +3926,13 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   z-index: 1;
   justify-self: stretch;
   box-sizing: border-box;
-  max-width: calc(100% - clamp(28px, 8%, 52px));
+  /* Letterboxed stills paint narrower than the media frame; the load hook
+     publishes the contain-fit width so the subtitle never hangs past the
+     picture edges. */
+  max-width: min(
+    calc(100% - clamp(28px, 8%, 52px)),
+    calc(var(--yomu-immersion-frame-width, 100%) - 12px)
+  );
   padding: 2px 6px;
   border-radius: 4px;
   transform: translateX(-50%);
@@ -4125,8 +4131,10 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab-kanji-immersion
   .jpdb-reader-example-card.has-image
   .jpdb-reader-example-media {
-  width: min(100%, 720px);
-  max-width: 100%;
+  /* Shrink-wrap the picture so the absolutely-positioned sentence anchors to
+     the image box, not a wider transparent frame it would overflow onto. */
+  width: fit-content;
+  max-width: min(100%, 720px);
   max-height: var(--jpdb-reader-example-media-max-height, min(520px, 52vh));
   overflow: visible;
   border-radius: 0;
@@ -11107,7 +11115,10 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   .jpdb-reader-immersion
   .jpdb-reader-example-card.has-image
   .jpdb-reader-example-media {
-  width: min(100%, 720px);
+  /* Shrink-wrap the picture so the pinned sentence stays inside the image
+     frame instead of spanning a wider transparent media box. */
+  width: fit-content;
+  max-width: min(100%, 720px);
   overflow: visible;
 }
 .yomu-jpdb-page-addon

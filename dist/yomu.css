@@ -5302,7 +5302,10 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   .jpdb-reader-immersion
   .jpdb-reader-example-card.has-image
   .jpdb-reader-example-media {
-  width: min(100%, 720px);
+  /* Shrink-wrap the picture so the pinned sentence stays inside the image
+     frame instead of spanning a wider transparent media box. */
+  width: fit-content;
+  max-width: min(100%, 720px);
   overflow: visible;
 }
 .yomu-jpdb-page-addon
