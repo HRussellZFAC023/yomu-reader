@@ -236,6 +236,21 @@ function passiveJpdbLinkWordFixture(): { link: HTMLAnchorElement; word: HTMLElem
     return { link, word };
 }
 
+function linkWrappedWordFixture(): { link: HTMLAnchorElement; label: HTMLElement; word: HTMLElement } {
+    const link = document.createElement('a');
+    link.href = '#next';
+    link.innerHTML = `
+        <span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="よむをセットアップ">よむ</span>
+        <span class="label">をセットアップ</span>
+    `;
+    document.body.append(link);
+    return {
+        link,
+        label: link.querySelector<HTMLElement>('.label')!,
+        word: link.querySelector<HTMLElement>('.jpdb-reader-word')!,
+    };
+}
+
 function subtitleRowHitStackFixture(): { row: HTMLElement; surface: HTMLElement; word: HTMLElement } {
     const list = document.createElement('div');
     list.className = 'jpdb-subtitle-list';
@@ -1972,6 +1987,41 @@ describe('hover lookup', () => {
             internals.handleHoverPointerOut(hoverPointerEvent(word, 'mouse', 'pointerout', {}, document.body));
             expect(scheduleHoverClose).toHaveBeenCalled();
         } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('keeps the hover popover open while the pointer remains inside the same hyperlink', () => {
+        const app = new ReaderApp();
+        const { label, link, word } = linkWrappedWordFixture();
+        const { popover } = appendActivePopoverBody();
+        const internals = app as unknown as HoverLookupInternals;
+        const restorePoint = stubElementFromPoint(label);
+        const restoreStack = stubElementsFromPoint([label]);
+        const linkMatches = vi.spyOn(link, 'matches').mockImplementation(selector => (
+            selector === ':hover' || Element.prototype.matches.call(link, selector)
+        ));
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'hover';
+        internals.activeHoverWord = word;
+        internals.activePopoverAnchor = word;
+        internals.lastPointerPosition = { x: 40, y: 24 };
+
+        try {
+            expect(internals.isHoverContextActive({ ignoreCssHover: true })).toBe(true);
+            expect(internals.isHoverContextActive({ ignorePointerPosition: true })).toBe(true);
+            internals.activeHoverWord = undefined;
+            expect(internals.isHoverContextActive({ ignoreCssHover: true })).toBe(true);
+        } finally {
+            linkMatches.mockRestore();
+            restoreStack();
+            restorePoint();
             cleanupReaderApp(app);
         }
     });

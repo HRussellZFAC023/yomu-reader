@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.76
+// @version 1.6.77
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.76#sha256=r+U3PPlMNcOWCLRVtHZhUi4xLBnGczjeYX3GVq8WU1M=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.76#sha256=NKYC/VXaQkKHPiOpiUqTesgQk8/nI2XOnTh8D/Ygrxk=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.76#sha256=DDs7i2K5xteBYt55n2PKuvpdBwD2bYuubpk2nR2KdoM=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.76#sha256=N1++NNa9Le4vmLfAkgmyxd1/OI56ZQO3Y1XjSeezdkA=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.76#sha256=vgC8ZXCszAQNrGCyis12JRidrrMeo/efhVJ715e6nLg=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.76#sha256=mpRGn5vgdK+axkUJgXDcO9AtbHA76IBwDXwHrKDHltE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.77#sha256=r+U3PPlMNcOWCLRVtHZhUi4xLBnGczjeYX3GVq8WU1M=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.77#sha256=NKYC/VXaQkKHPiOpiUqTesgQk8/nI2XOnTh8D/Ygrxk=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.77#sha256=DDs7i2K5xteBYt55n2PKuvpdBwD2bYuubpk2nR2KdoM=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.77#sha256=N1++NNa9Le4vmLfAkgmyxd1/OI56ZQO3Y1XjSeezdkA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.77#sha256=vgC8ZXCszAQNrGCyis12JRidrrMeo/efhVJ715e6nLg=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.77#sha256=mpRGn5vgdK+axkUJgXDcO9AtbHA76IBwDXwHrKDHltE=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -32561,7 +32561,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.76"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.77"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -33459,6 +33459,7 @@ const HOST_THEME_ENFORCE_STEP_MS = 200;
 const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
 const LINK_PRESS_LOOKUP_MS = 450;
 const SUBTITLE_HOVER_MINING_RESUME_GRACE_MS = 520;
+const HOVER_WORD_HOST_CONTROL_SELECTOR = 'button,[role="button"],a[href],[aria-controls],[aria-expanded]';
 const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
   ".textBox",
   ".ocr-line",
@@ -36109,7 +36110,7 @@ class ReaderApp {
   }
   isWithinHoverWordHostControl(word, related) {
   if (!related) return false;
-  const control = word.closest('button,[role="button"],a[href],[aria-controls],[aria-expanded]');
+  const control = this.hoverWordHostControl(word);
   if (!control) return false;
   const relatedElement = related instanceof HTMLElement ? related : related.parentElement;
   return Boolean(relatedElement && control.contains(relatedElement));
@@ -36349,11 +36350,12 @@ class ReaderApp {
   return document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
   }
   isInsideActiveHoverContext(target) {
-  return this.isInsideActivePopover(target) || Boolean(this.activeHoverWord && this.isInsideNode(target, this.activeHoverWord));
+  const anchor = this.activeHoverWord ?? (this.activePopoverMode === "hover" ? this.activePopoverAnchor : void 0);
+  return this.isInsideActivePopover(target) || Boolean(anchor && (this.isInsideNode(target, anchor) || this.isWithinHoverWordHostControl(anchor, target)));
   }
   isWordHoverActive(word, options = {}) {
   if (!word.isConnected) return this.reanchorDisconnectedHoverWord(word, options);
-  if (!options.ignoreCssHover && word.matches(":hover")) return true;
+  if (!options.ignoreCssHover && (word.matches(":hover") || this.isHoverWordHostControlCssHoverActive(word))) return true;
   if (options.ignorePointerPosition) return false;
   if (!this.lastPointerPosition) return false;
   const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
@@ -36364,6 +36366,12 @@ class ReaderApp {
     if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y, (item) => this.canHoverLookupReaderWord(item)) === word) return true;
   }
   return this.isInsideNode(target, word);
+  }
+  isHoverWordHostControlCssHoverActive(word) {
+  return Boolean(this.hoverWordHostControl(word)?.matches(":hover"));
+  }
+  hoverWordHostControl(word) {
+  return word.closest(HOVER_WORD_HOST_CONTROL_SELECTOR);
   }
   isPointerInsideActiveOcrWordLine(word, target) {
   const line = word.closest(".jpdb-ocr-line");

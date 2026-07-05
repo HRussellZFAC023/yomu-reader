@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.77] - 2026-07-05
+
+### Fixed
+
+- Hover dictionary popovers stay open while the pointer remains inside the same hyperlink or link-card control, preventing link-wrapped Japanese text from flashing the popover open and closed as the cursor crosses padding or sibling inline text.
+
 ## [1.6.76] - 2026-07-05
 
 ### Fixed

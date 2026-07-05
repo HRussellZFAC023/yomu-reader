@@ -451,6 +451,7 @@ const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
 // gesture before the link context menu (which we also suppress) fires.
 const LINK_PRESS_LOOKUP_MS = 450;
 const SUBTITLE_HOVER_MINING_RESUME_GRACE_MS = 520;
+const HOVER_WORD_HOST_CONTROL_SELECTOR = 'button,[role="button"],a[href],[aria-controls],[aria-expanded]';
 const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
     '.textBox',
     '.ocr-line',
@@ -3694,7 +3695,7 @@ export class ReaderApp {
     // staying anywhere within the word's host control as still hovering.
     private isWithinHoverWordHostControl(word: HTMLElement, related: Node | null): boolean {
         if (!related) return false;
-        const control = word.closest('button,[role="button"],a[href],[aria-controls],[aria-expanded]');
+        const control = this.hoverWordHostControl(word);
         if (!control) return false;
         const relatedElement = related instanceof HTMLElement ? related : related.parentElement;
         return Boolean(relatedElement && control.contains(relatedElement));
@@ -3996,8 +3997,12 @@ export class ReaderApp {
     }
 
     private isInsideActiveHoverContext(target: Element): boolean {
+        const anchor = this.activeHoverWord ?? (this.activePopoverMode === 'hover' ? this.activePopoverAnchor : undefined);
         return this.isInsideActivePopover(target)
-            || Boolean(this.activeHoverWord && this.isInsideNode(target, this.activeHoverWord));
+            || Boolean(anchor && (
+                this.isInsideNode(target, anchor)
+                || this.isWithinHoverWordHostControl(anchor, target)
+            ));
     }
 
     private isWordHoverActive(word: HTMLElement, options: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean } = {}): boolean {
@@ -4005,10 +4010,10 @@ export class ReaderApp {
         // stationary cursor. The stored anchor becomes detached, so the usual `:hover` /
         // geometry checks all fail even though the same logical word still sits under the
         // pointer. Re-resolve the live word at the last pointer position and re-anchor when
-        // it is the SAME vid:sid; only do this for a disconnected node so the connected path
-        // stays byte-for-byte unchanged.
+        // it is the SAME vid:sid; only do this for a disconnected node so the connected checks
+        // can keep treating a live DOM node as the source of truth.
         if (!word.isConnected) return this.reanchorDisconnectedHoverWord(word, options);
-        if (!options.ignoreCssHover && word.matches(':hover')) return true;
+        if (!options.ignoreCssHover && (word.matches(':hover') || this.isHoverWordHostControlCssHoverActive(word))) return true;
         if (options.ignorePointerPosition) return false;
         if (!this.lastPointerPosition) return false;
         const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
@@ -4019,6 +4024,14 @@ export class ReaderApp {
             if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y, item => this.canHoverLookupReaderWord(item)) === word) return true;
         }
         return this.isInsideNode(target, word);
+    }
+
+    private isHoverWordHostControlCssHoverActive(word: HTMLElement): boolean {
+        return Boolean(this.hoverWordHostControl(word)?.matches(':hover'));
+    }
+
+    private hoverWordHostControl(word: HTMLElement): HTMLElement | null {
+        return word.closest<HTMLElement>(HOVER_WORD_HOST_CONTROL_SELECTOR);
     }
 
     private isPointerInsideActiveOcrWordLine(word: HTMLElement, target: Element): boolean {
