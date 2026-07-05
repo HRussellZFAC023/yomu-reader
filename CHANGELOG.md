@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.87] - 2026-07-05
+
+### Fixed
+
+- Styled clipped rows keep their look: a pill chip, dark section bar, row with an icon, or row with CSS decorations is no longer hidden behind a text overlay when its text is annotated — only visually bare rows (plain clipped titles and labels) use the overlay for furigana, and styled rows render in place with the reading suppressed instead. This fixes chips losing their background and border, dark bars and separators vanishing, icons disappearing, and doubled overlapping text on decorated sites.
+- Smoother annotation on iPhone and iPad: the clipped-row layout check is now memoized per element, so large pages no longer pay a forced layout reflow for every annotated word.
+
 ## [1.6.86] - 2026-07-05
 
 ### Fixed

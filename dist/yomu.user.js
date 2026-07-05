@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.86
+// @version 1.6.87
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.86#sha256=MckBoQek04F/5L7ew566RdMWj1j3jl/AfPjAt9el8mE=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.86#sha256=FOvCf7KbOTzYSH/kt8VlXqdkpaEl57KOu1wjtgxgfQE=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.86#sha256=Hgu0mcMzilg8tNkAtAZUEBoT4JNFj3EUEZcbxQdnzlc=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.86#sha256=Qp7PEqQNrMqpmEXR16D4rahWHVy0qb9unv2HAapo9/Y=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.86#sha256=++cbQibSCMrs8Nx9aMh6GVfvnIoaJ7pmgL4dHS/RlXo=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.86#sha256=3Df3EEyVtSvce9ui6qtxUj34MtRqwjIpZ4evw33rLQE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.87#sha256=MckBoQek04F/5L7ew566RdMWj1j3jl/AfPjAt9el8mE=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.87#sha256=FOvCf7KbOTzYSH/kt8VlXqdkpaEl57KOu1wjtgxgfQE=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.87#sha256=Hgu0mcMzilg8tNkAtAZUEBoT4JNFj3EUEZcbxQdnzlc=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.87#sha256=Qp7PEqQNrMqpmEXR16D4rahWHVy0qb9unv2HAapo9/Y=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.87#sha256=++cbQibSCMrs8Nx9aMh6GVfvnIoaJ7pmgL4dHS/RlXo=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.87#sha256=3Df3EEyVtSvce9ui6qtxUj34MtRqwjIpZ4evw33rLQE=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -4915,7 +4915,7 @@ function applyTokensToScanTarget(target, tokens, settings) {
   const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
   const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
   const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
-  const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(nonDestructiveHost);
+  const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(nonDestructiveHost) && hostIsVisuallyBareForMirror(nonDestructiveHost);
   if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (target.nonDestructive || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
   applyTokensToNonDestructiveScanTarget(target, tokens, settings);
   return;
@@ -5388,19 +5388,55 @@ function rubyDistortsConstrainedRows() {
   rubyDistortsConstrainedRowsCache = collapses || grows;
   return rubyDistortsConstrainedRowsCache;
 }
+const constrainedRowVerdicts = new WeakMap();
+const CONSTRAINED_ROW_VERDICT_TTL_MS = 250;
 function isInsideRubyFragileConstrainedRow(element2) {
+  const now = Date.now();
+  const memo = constrainedRowVerdicts.get(element2);
+  if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.value;
+  let value = false;
   let current = element2;
   for (let depth = 0; current && depth < 5; depth += 1) {
   const style = safeComputedStyle(current);
-  if (hasLineClamp(style)) return true;
-  if (isEllipsisTextRow(style)) return true;
-  if (clipsOverflow(style)) {
+  if (hasLineClamp(style) || isEllipsisTextRow(style) || clipsOverflow(style) && (() => {
     const height = current.getBoundingClientRect().height;
-    if (height > 0 && height <= 96) return true;
+    return height > 0 && height <= 96;
+  })()) {
+    value = true;
+    break;
   }
   current = current.parentElement;
   }
-  return false;
+  constrainedRowVerdicts.set(element2, { at: now, value });
+  return value;
+}
+function hostIsVisuallyBareForMirror(host) {
+  if (host.querySelector("svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr")) return false;
+  return elementHasNoOwnPaint(host);
+}
+function elementHasNoOwnPaint(element2) {
+  const style = safeComputedStyle(element2);
+  if (style.backgroundImage !== "none" && style.backgroundImage !== "") return false;
+  const background = style.backgroundColor;
+  if (background && background !== "transparent" && !/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0\s*\)/.test(background)) return false;
+  if ((style.backgroundClip || "").includes("text") || (style.webkitBackgroundClip || "").includes("text")) return false;
+  if (style.boxShadow && style.boxShadow !== "none") return false;
+  if (borderPaints(style)) return false;
+  for (const pseudo of ["::before", "::after"]) {
+  const content = safePseudoContent(element2, pseudo);
+  if (content && content !== "none" && content !== "normal" && content !== '""' && content !== "''") return false;
+  }
+  return true;
+}
+function borderPaints(style) {
+  return ["borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth"].some((property) => Number.parseFloat(style[property] || "0") > 0);
+}
+function safePseudoContent(element2, pseudo) {
+  try {
+  return getComputedStyle(element2, pseudo).content;
+  } catch {
+  return "";
+  }
 }
 function shouldSuppressCompactScanRuby(parent) {
   if (parent.closest(READER_ROOT_SELECTOR$3)) return false;
@@ -32912,7 +32948,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.86"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.87"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

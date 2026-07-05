@@ -1321,7 +1321,12 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     // the absolutely-positioned mirror sizes its own line above the host, so
     // those rows keep full furigana instead of a suppressed reading.
     const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion
-        && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(nonDestructiveHost);
+        && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(nonDestructiveHost)
+        // Only visually-bare hosts may be mirror-hidden: a styled host (pill
+        // background, border, chevron SVG, ::before separator) would lose its
+        // box paint with visibility:hidden — the bloomee bug class. Styled
+        // constrained rows render in place with the reading suppressed.
+        && hostIsVisuallyBareForMirror(nonDestructiveHost);
     if ((!target.forceInlineRender || (repaintLooping && canUseRepaintLoopMirror))
         && (target.nonDestructive || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
@@ -1898,6 +1903,12 @@ function targetForcesAllFurigana(parent: HTMLElement): boolean {
 // distortions once and keep readings out of constrained rows where either
 // bites — colour and pitch underlines still render there.
 let rubyDistortsConstrainedRowsCache: boolean | null = null;
+
+/** Test hook: force the constrained-row engine verdict (jsdom cannot measure
+ * layout, so the probe always reads healthy there). */
+export function setRubyDistortsConstrainedRowsForTest(value: boolean | null): void {
+    rubyDistortsConstrainedRowsCache = value;
+}
 function rubyDistortsConstrainedRows(): boolean {
     if (rubyDistortsConstrainedRowsCache !== null) return rubyDistortsConstrainedRowsCache;
     if (!document.body) return false;
@@ -1944,19 +1955,72 @@ function rubyDistortsConstrainedRows(): boolean {
 
 // Deliberately no display-heading exemption here: on a distorting engine a
 // clipped heading loses its base text just like any other constrained row.
+// Verdicts are memoized per element for a short window: on the engines where
+// the probe fires, this runs for every scan target between DOM writes, and an
+// unmemoized ancestor walk (getComputedStyle × 5 + a rect read) forces one
+// synchronous reflow per target — seconds of jank per pass on an iPhone.
+const constrainedRowVerdicts = new WeakMap<HTMLElement, { at: number; value: boolean }>();
+const CONSTRAINED_ROW_VERDICT_TTL_MS = 250;
+
 function isInsideRubyFragileConstrainedRow(element: HTMLElement): boolean {
+    const now = Date.now();
+    const memo = constrainedRowVerdicts.get(element);
+    if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.value;
+    let value = false;
     let current: HTMLElement | null = element;
     for (let depth = 0; current && depth < 5; depth += 1) {
         const style = safeComputedStyle(current);
-        if (hasLineClamp(style)) return true;
-        if (isEllipsisTextRow(style)) return true;
-        if (clipsOverflow(style)) {
-            const height = current.getBoundingClientRect().height;
-            if (height > 0 && height <= 96) return true;
+        if (hasLineClamp(style)
+            || isEllipsisTextRow(style)
+            || (clipsOverflow(style) && (() => {
+                const height = current!.getBoundingClientRect().height;
+                return height > 0 && height <= 96;
+            })())) {
+            value = true;
+            break;
         }
         current = current.parentElement;
     }
-    return false;
+    constrainedRowVerdicts.set(element, { at: now, value });
+    return value;
+}
+
+// The mirror replaces the HOST's rendering (visibility:hidden), so routing a
+// constrained row through it is only safe when the host paints nothing of its
+// own: a pill chip's background/border, a nav row's chevron SVG, or a ::before
+// separator would all vanish with the host. Styled hosts keep in-place
+// rendering (ruby suppression handles the clip) instead of losing their box.
+function hostIsVisuallyBareForMirror(host: HTMLElement): boolean {
+    if (host.querySelector('svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr')) return false;
+    return elementHasNoOwnPaint(host);
+}
+
+function elementHasNoOwnPaint(element: HTMLElement): boolean {
+    const style = safeComputedStyle(element);
+    if (style.backgroundImage !== 'none' && style.backgroundImage !== '') return false;
+    const background = style.backgroundColor;
+    if (background && background !== 'transparent' && !/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0\s*\)/.test(background)) return false;
+    if ((style.backgroundClip || '').includes('text') || (style.webkitBackgroundClip || '').includes('text')) return false;
+    if (style.boxShadow && style.boxShadow !== 'none') return false;
+    if (borderPaints(style)) return false;
+    for (const pseudo of ['::before', '::after'] as const) {
+        const content = safePseudoContent(element, pseudo);
+        if (content && content !== 'none' && content !== 'normal' && content !== '""' && content !== "''") return false;
+    }
+    return true;
+}
+
+function borderPaints(style: CSSStyleDeclaration): boolean {
+    return ['borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth']
+        .some(property => Number.parseFloat(style[property as 'borderTopWidth'] || '0') > 0);
+}
+
+function safePseudoContent(element: HTMLElement, pseudo: '::before' | '::after'): string {
+    try {
+        return getComputedStyle(element, pseudo).content;
+    } catch {
+        return '';
+    }
 }
 
 function shouldSuppressCompactScanRuby(parent: HTMLElement): boolean {

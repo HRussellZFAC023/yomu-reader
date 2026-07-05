@@ -8548,7 +8548,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
     const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
     const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
-    const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(nonDestructiveHost);
+    const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(nonDestructiveHost) && hostIsVisuallyBareForMirror(nonDestructiveHost);
     if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (target.nonDestructive || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
       applyTokensToNonDestructiveScanTarget(target, tokens, settings);
       return;
@@ -9015,19 +9015,55 @@ recommendedJiten	Jiten由来の頻度バッジです。
     rubyDistortsConstrainedRowsCache = collapses || grows;
     return rubyDistortsConstrainedRowsCache;
   }
+  const constrainedRowVerdicts = /* @__PURE__ */ new WeakMap();
+  const CONSTRAINED_ROW_VERDICT_TTL_MS = 250;
   function isInsideRubyFragileConstrainedRow(element) {
+    const now = Date.now();
+    const memo = constrainedRowVerdicts.get(element);
+    if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.value;
+    let value = false;
     let current = element;
     for (let depth = 0; current && depth < 5; depth += 1) {
       const style = safeComputedStyle(current);
-      if (hasLineClamp(style)) return true;
-      if (isEllipsisTextRow(style)) return true;
-      if (clipsOverflow(style)) {
+      if (hasLineClamp(style) || isEllipsisTextRow(style) || clipsOverflow(style) && (() => {
         const height = current.getBoundingClientRect().height;
-        if (height > 0 && height <= 96) return true;
+        return height > 0 && height <= 96;
+      })()) {
+        value = true;
+        break;
       }
       current = current.parentElement;
     }
-    return false;
+    constrainedRowVerdicts.set(element, { at: now, value });
+    return value;
+  }
+  function hostIsVisuallyBareForMirror(host) {
+    if (host.querySelector("svg,img,picture,canvas,video,audio,iframe,input,select,textarea,button,hr")) return false;
+    return elementHasNoOwnPaint(host);
+  }
+  function elementHasNoOwnPaint(element) {
+    const style = safeComputedStyle(element);
+    if (style.backgroundImage !== "none" && style.backgroundImage !== "") return false;
+    const background = style.backgroundColor;
+    if (background && background !== "transparent" && !/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0\s*\)/.test(background)) return false;
+    if ((style.backgroundClip || "").includes("text") || (style.webkitBackgroundClip || "").includes("text")) return false;
+    if (style.boxShadow && style.boxShadow !== "none") return false;
+    if (borderPaints(style)) return false;
+    for (const pseudo of ["::before", "::after"]) {
+      const content = safePseudoContent(element, pseudo);
+      if (content && content !== "none" && content !== "normal" && content !== '""' && content !== "''") return false;
+    }
+    return true;
+  }
+  function borderPaints(style) {
+    return ["borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth"].some((property) => Number.parseFloat(style[property] || "0") > 0);
+  }
+  function safePseudoContent(element, pseudo) {
+    try {
+      return getComputedStyle(element, pseudo).content;
+    } catch {
+      return "";
+    }
   }
   function shouldSuppressCompactScanRuby(parent) {
     if (parent.closest(READER_ROOT_SELECTOR)) return false;
@@ -39448,7 +39484,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.86".trim() ? "1.6.86".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.87".trim() ? "1.6.87".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
