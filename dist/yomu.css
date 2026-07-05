@@ -11173,18 +11173,11 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border));
   background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
 }
-.jpdb-subtitle-rail button[data-action="previous"],
-.jpdb-subtitle-rail button[data-action="next"] {
-  font-size: 19px;
-  line-height: 0;
-  padding-bottom: 2px;
-}
 .jpdb-subtitle-panel-toggle {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border)) !important;
   background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface)) !important;
 }
-.jpdb-subtitle-playback-toggle[aria-pressed="true"],
-.jpdb-subtitle-fullscreen-toggle[aria-pressed="true"] {
+.jpdb-subtitle-playback-toggle[aria-pressed="true"] {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 42%, var(--jpdb-reader-border));
   background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, var(--jpdb-reader-surface));
   color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
@@ -11687,14 +11680,17 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   max-width: 100%;
   gap: 8px;
 }
-/* ‹ › ▶ transport cluster lives in the head's top-actions row beside the
-   options and close buttons — never in the wrappable tabs row, so it cannot
-   wrap onto its own line over the list. It shares the bordered icon-button
-   chrome (base .jpdb-subtitle-list button supplies border + surface). */
+/* ‹ › ▶ transport cluster sits at the trailing edge of the actions row —
+   margin-left auto keeps it right-aligned beside the mode tabs, and on
+   viewports too narrow for both it wraps to its own line below them instead
+   of crowding the title row (where it used to truncate the track label). It
+   shares the bordered icon-button chrome (base .jpdb-subtitle-list button
+   supplies border + surface). */
 .jpdb-subtitle-drawer-playback {
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-left: auto;
 }
 .jpdb-subtitle-list .jpdb-subtitle-drawer-playback button {
   position: relative;

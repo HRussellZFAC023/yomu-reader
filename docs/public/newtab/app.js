@@ -2022,8 +2022,6 @@
       playVideo: "Play video",
       pauseVideo: "Pause video",
       readVideoFrame: "Read video frame (OCR)",
-      enterFullscreen: "Enter fullscreen",
-      exitFullscreen: "Exit fullscreen",
       copySubtitle: "Copy subtitle",
       subtitleFallbackLabel: "Subtitle",
       subtitlesTitle: "Subtitles",
@@ -2835,8 +2833,6 @@ jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
 readVideoFrame	動画フレームを読み取る（OCR）
-enterFullscreen	全画面表示
-exitFullscreen	全画面表示を終了
 copySubtitle	字幕をコピー
 subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
@@ -38397,7 +38393,6 @@ ${spelling}`);
   }
   function positionVideoFrameResumeControl(control, rect, video) {
     const root = videoFrameArtifactRoot(video);
-    if (hideVideoFrameResumeControlBehindSubtitlePlayback(control, root)) return;
     if (attachVideoFrameResumeControlToSubtitleRail(control, root)) return;
     attachVideoFrameResumeControlFallback(control, root);
     const content = videoContentBox(rect, video);
@@ -38530,19 +38525,6 @@ ${spelling}`);
     clearOcrFullscreenHostMarker(oldParent);
     updateSubtitleRailResumeState(oldRoot);
     updateSubtitleRailResumeState(subtitlePlayerRoot(control));
-    return true;
-  }
-  function hideVideoFrameResumeControlBehindSubtitlePlayback(control, root) {
-    const rail = subtitleRailForOcrRoot(root);
-    const playback = rail?.querySelector('[data-action="playback"]');
-    if (!rail?.isConnected || !playback || playback.hidden || playback.disabled) return false;
-    const oldRoot = subtitlePlayerRoot(control);
-    removeOcrArtifact(control);
-    control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
-    control.dataset.yomuOcrFullscreenHosted = "false";
-    control.style.left = "";
-    control.style.top = "";
-    updateSubtitleRailResumeState(oldRoot);
     return true;
   }
   function attachVideoFrameResumeControlFallback(control, root) {
@@ -39388,7 +39370,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.69".trim() ? "1.6.69".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.70".trim() ? "1.6.70".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -46854,7 +46836,6 @@ ${spelling}`);
                     <span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(state2.meta)}</span>
                 </div>
                 <div class="jpdb-subtitle-drawer-top-actions">
-                    ${renderDrawerPlayback(language)}
                     ${renderPanelOptionsControls(state2.options)}
                     ${renderPanelCloseButton(language)}
                 </div>
@@ -46862,6 +46843,7 @@ ${spelling}`);
             <div class="jpdb-subtitle-drawer-actions">
                 ${state2.showModeTabs === false ? "" : renderPanelModeControls(state2.mode, state2.canShowLines, language)}
                 ${state2.extraActions ?? ""}
+                ${renderDrawerPlayback(language)}
             </div>
         </div>
     `;
@@ -46973,8 +46955,6 @@ ${spelling}`);
       copy: '<path d="M14 3H6a2 2 0 0 0-2 2v12"/><path d="M10 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M14 11v6"/><path d="M11 14h6"/>',
       eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
       "eye-off": '<path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.2 3.8"/><path d="M6.6 6.8A18 18 0 0 0 2 12s3.5 6 10 6c1.5 0 2.8-.3 4-.8"/>',
-      fullscreen: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/>',
-      "fullscreen-exit": '<path d="M9 3v4a2 2 0 0 1-2 2H3"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M15 21v-4a2 2 0 0 1 2-2h4"/><path d="M9 21v-4a2 2 0 0 0-2-2H3"/>',
       locate: '<path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
       menu: '<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',
       mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M8 21h8"/>',
@@ -48805,8 +48785,8 @@ ${spelling}`);
   }
   const REDIRECT_FLAG = "__yomuSubtitleFullscreenRedirect";
   const STYLE_ID = "yomu-subtitle-fullscreen-redirect-style";
-  const INLINE_FULLSCREEN_CLASS$1 = "jpdb-subtitle-inline-fullscreen";
-  const INLINE_FULLSCREEN_ATTRIBUTE$1 = "data-yomu-inline-fullscreen";
+  const INLINE_FULLSCREEN_CLASS = "jpdb-subtitle-inline-fullscreen";
+  const INLINE_FULLSCREEN_ATTRIBUTE = "data-yomu-inline-fullscreen";
   function fullscreenRedirectBootstrap(win) {
     const flag = "__yomuSubtitleFullscreenRedirect";
     const inlineKey = "__yomuSubtitleInlineFullscreenElement";
@@ -48853,7 +48833,7 @@ ${spelling}`);
           const container = fullscreenContainerForVideo(this);
           if (container && container !== this) return requestElementFullscreenOrInline(container, args, () => native.apply(this, [mode, ...args]));
         }
-        if (mode === "inline" || mode === "picture-in-picture") exitInlineFullscreen2();
+        if (mode === "inline" || mode === "picture-in-picture") exitInlineFullscreen();
         return native.apply(this, [mode, ...args]);
       };
     }
@@ -48863,7 +48843,7 @@ ${spelling}`);
       if (typeof original !== "function") continue;
       const native = original;
       videoProto[name] = function patchedVideoExitFullscreen(...args) {
-        if (activeInlineFullscreenElement2()) return exitInlineFullscreen2();
+        if (activeInlineFullscreenElement()) return exitInlineFullscreen();
         return native.apply(this, args);
       };
     }
@@ -48874,7 +48854,7 @@ ${spelling}`);
         if (typeof original !== "function") continue;
         const native = original;
         documentProto[name] = function patchedDocumentExitFullscreen(...args) {
-          if (activeInlineFullscreenElement2()) return exitInlineFullscreen2();
+          if (activeInlineFullscreenElement()) return exitInlineFullscreen();
           return native.apply(this, args);
         };
       }
@@ -48887,7 +48867,7 @@ ${spelling}`);
       return win.document.querySelector("ytm-player, #movie_player, .html5-video-player");
     }
     function requestElementFullscreenOrInline(target, args, nativeVideoFallback) {
-      const fallback = () => nativeVideoFallback ? nativeVideoFallback() : enterInlineFullscreen2(target);
+      const fallback = () => nativeVideoFallback ? nativeVideoFallback() : enterInlineFullscreen(target);
       for (const name of methods) {
         const native = requestNatives[name];
         if (!native || typeof target[name] !== "function") continue;
@@ -48903,9 +48883,9 @@ ${spelling}`);
       const promise = result;
       return typeof promise?.catch === "function" ? promise.catch(() => fallback()) : result;
     }
-    function enterInlineFullscreen2(target) {
-      const current = activeInlineFullscreenElement2();
-      if (current && current !== target) clearInlineFullscreenElement2(current);
+    function enterInlineFullscreen(target) {
+      const current = activeInlineFullscreenElement();
+      if (current && current !== target) clearInlineFullscreenElement(current);
       target.setAttribute(inlineAttribute, "true");
       if (!target.hasAttribute("fullscreen")) {
         target.setAttribute("fullscreen", "");
@@ -48921,19 +48901,19 @@ ${spelling}`);
       }
       win.document.documentElement.classList.add(inlineClass);
       win[inlineKey] = target;
-      dispatchFullscreenLikeEvents2();
+      dispatchFullscreenLikeEvents();
       return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
     }
-    function exitInlineFullscreen2() {
-      const current = activeInlineFullscreenElement2();
+    function exitInlineFullscreen() {
+      const current = activeInlineFullscreenElement();
       if (!current) return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
-      clearInlineFullscreenElement2(current);
+      clearInlineFullscreenElement(current);
       win.document.documentElement.classList.remove(inlineClass);
       delete win[inlineKey];
-      dispatchFullscreenLikeEvents2();
+      dispatchFullscreenLikeEvents();
       return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
     }
-    function clearInlineFullscreenElement2(element) {
+    function clearInlineFullscreenElement(element) {
       element.removeAttribute(inlineAttribute);
       if (element.dataset.yomuInlineFullscreenAttr === "true") element.removeAttribute("fullscreen");
       if (element.dataset.yomuInlineYtpFullscreenClass === "true") element.classList.remove("ytp-fullscreen");
@@ -48942,12 +48922,12 @@ ${spelling}`);
       delete element.dataset.yomuInlineYtpFullscreenClass;
       delete element.dataset.yomuInlineFullscreenClass;
     }
-    function activeInlineFullscreenElement2() {
+    function activeInlineFullscreenElement() {
       const current = win[inlineKey];
       if (elementCtor && current instanceof elementCtor) return current;
       return win.document.querySelector(`[${inlineAttribute}="true"]`);
     }
-    function dispatchFullscreenLikeEvents2() {
+    function dispatchFullscreenLikeEvents() {
       for (const eventName of ["fullscreenchange", "webkitfullscreenchange"]) {
         try {
           win.document.dispatchEvent(new win.Event(eventName));
@@ -48972,10 +48952,10 @@ ${spelling}`);
       "#movie_player:-webkit-full-screen .html5-video-container{width:100%!important;height:100%!important;}",
       `[data-yomu-video-frame]:fullscreen video{${fill}}`,
       `[data-yomu-video-frame]:-webkit-full-screen video{${fill}}`,
-      `html.${INLINE_FULLSCREEN_CLASS$1},html.${INLINE_FULLSCREEN_CLASS$1} body{width:100%!important;height:100%!important;overflow:hidden!important;}`,
-      `[${INLINE_FULLSCREEN_ATTRIBUTE$1}="true"]{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important;z-index:2147483640!important;background:#000!important;}`,
-      `[${INLINE_FULLSCREEN_ATTRIBUTE$1}="true"] video{${fill}object-fit:contain!important;}`,
-      `[${INLINE_FULLSCREEN_ATTRIBUTE$1}="true"] .html5-video-container{width:100%!important;height:100%!important;}`
+      `html.${INLINE_FULLSCREEN_CLASS},html.${INLINE_FULLSCREEN_CLASS} body{width:100%!important;height:100%!important;overflow:hidden!important;}`,
+      `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important;z-index:2147483640!important;background:#000!important;}`,
+      `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] video{${fill}object-fit:contain!important;}`,
+      `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] .html5-video-container{width:100%!important;height:100%!important;}`
     ].join("\n");
   }
   function injectFullscreenRedirectStyle() {
@@ -49426,8 +49406,8 @@ ${spelling}`);
   function syncSubtitleTrackStatus(status, trackCount, language) {
     status.textContent = subtitleTrackStatusText(trackCount, language);
   }
-  function syncSubtitleLineNavigationButton(button, action, hasLines, hasVideo, hiddenByPanel, language) {
-    button.hidden = !hasLines || hiddenByPanel;
+  function syncSubtitleLineNavigationButton(button, action, hasLines, hasVideo, language) {
+    button.hidden = !hasLines;
     button.disabled = !hasVideo || !hasLines;
     const label = uiText(language, action === "previous" ? "previousSubtitle" : "nextSubtitle");
     button.title = label;
@@ -49436,7 +49416,7 @@ ${spelling}`);
   function syncSubtitlePlaybackButton(button, options) {
     const paused = options.video?.paused ?? true;
     const label = uiText(options.language, paused ? "playVideo" : "pauseVideo");
-    button.hidden = !options.hasLines || options.hiddenByNavigation;
+    button.hidden = !options.hasLines;
     button.disabled = !options.video;
     button.title = label;
     button.setAttribute("aria-label", label);
@@ -51055,8 +51035,6 @@ ${spelling}`);
   ];
   const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = "jpdb-subtitle-yt-sheet-open";
   const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = "Yomu";
-  const INLINE_FULLSCREEN_CLASS = "jpdb-subtitle-inline-fullscreen";
-  const INLINE_FULLSCREEN_ATTRIBUTE = "data-yomu-inline-fullscreen";
   function isYouTubeTheaterMode() {
     return isYouTubePage() && Boolean(document.querySelector("ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]"));
   }
@@ -51068,68 +51046,9 @@ ${spelling}`);
     }
     return false;
   }
-  function canEnterNativeVideoFullscreen(video) {
-    const fullscreenVideo = video;
-    if (fullscreenVideo.webkitSupportsFullscreen === false) return false;
-    return typeof (fullscreenVideo.webkitEnterFullscreen ?? fullscreenVideo.webkitEnterFullScreen) === "function";
-  }
   function currentFullscreenElement() {
     const fullscreenDocument = document;
     return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
-  }
-  function exitCurrentFullscreen() {
-    const fullscreenDocument = document;
-    return document.exitFullscreen?.() ?? fullscreenDocument.webkitExitFullscreen?.() ?? fullscreenDocument.webkitCancelFullScreen?.() ?? fullscreenDocument.mozCancelFullScreen?.() ?? fullscreenDocument.msExitFullscreen?.();
-  }
-  function requestElementFullscreen(element) {
-    const target = element;
-    return target.requestFullscreen?.() ?? target.webkitRequestFullscreen?.() ?? target.webkitRequestFullScreen?.() ?? target.mozRequestFullScreen?.() ?? target.msRequestFullscreen?.();
-  }
-  function canRequestElementFullscreen(element) {
-    const target = element;
-    return Boolean(target.requestFullscreen || target.webkitRequestFullscreen || target.webkitRequestFullScreen || target.mozRequestFullScreen || target.msRequestFullscreen);
-  }
-  function enterInlineFullscreen(target) {
-    const current = activeInlineFullscreenElement();
-    if (current && current !== target) clearInlineFullscreenElement(current);
-    target.setAttribute(INLINE_FULLSCREEN_ATTRIBUTE, "true");
-    if (!target.hasAttribute("fullscreen")) {
-      target.setAttribute("fullscreen", "");
-      target.dataset.yomuInlineFullscreenAttr = "true";
-    }
-    if (!target.classList.contains("ytp-fullscreen")) {
-      target.classList.add("ytp-fullscreen");
-      target.dataset.yomuInlineYtpFullscreenClass = "true";
-    }
-    if (!target.classList.contains("fullscreen")) {
-      target.classList.add("fullscreen");
-      target.dataset.yomuInlineFullscreenClass = "true";
-    }
-    document.documentElement.classList.add(INLINE_FULLSCREEN_CLASS);
-    dispatchFullscreenLikeEvents();
-  }
-  function exitInlineFullscreen() {
-    const current = activeInlineFullscreenElement();
-    if (!current) return;
-    clearInlineFullscreenElement(current);
-    document.documentElement.classList.remove(INLINE_FULLSCREEN_CLASS);
-    dispatchFullscreenLikeEvents();
-  }
-  function activeInlineFullscreenElement() {
-    return document.querySelector(`[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]`);
-  }
-  function clearInlineFullscreenElement(element) {
-    element.removeAttribute(INLINE_FULLSCREEN_ATTRIBUTE);
-    if (element.dataset.yomuInlineFullscreenAttr === "true") element.removeAttribute("fullscreen");
-    if (element.dataset.yomuInlineYtpFullscreenClass === "true") element.classList.remove("ytp-fullscreen");
-    if (element.dataset.yomuInlineFullscreenClass === "true") element.classList.remove("fullscreen");
-    delete element.dataset.yomuInlineFullscreenAttr;
-    delete element.dataset.yomuInlineYtpFullscreenClass;
-    delete element.dataset.yomuInlineFullscreenClass;
-  }
-  function dispatchFullscreenLikeEvents() {
-    for (const eventName of ["fullscreenchange", "webkitfullscreenchange"]) document.dispatchEvent(new Event(eventName));
-    window.dispatchEvent(new Event("resize"));
   }
   function subtitleViewportRect() {
     return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
@@ -51683,7 +51602,6 @@ ${spelling}`);
       playback: () => this.toggleVideoPlayback(),
       ocr: () => this.requestVideoFrameOcr(),
       visibility: () => this.toggleOverlayVisibility(),
-      fullscreen: () => this.togglePlayerFullscreen(),
       copy: (target) => {
         void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target));
       },
@@ -51927,10 +51845,6 @@ ${spelling}`);
       root.className = "jpdb-subtitle-player";
       root.dataset.jpdbReaderRoot = "true";
       const settings = this.options.getSettings();
-      const previousLabel = uiText(settings.interfaceLanguage, "previousSubtitle");
-      const nextLabel = uiText(settings.interfaceLanguage, "nextSubtitle");
-      const playLabel = uiText(settings.interfaceLanguage, "playVideo");
-      const fullscreenLabel = uiText(settings.interfaceLanguage, "enterFullscreen");
       const visibilityLabel = uiText(settings.interfaceLanguage, "subtitleOverlayVisible");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
@@ -51940,12 +51854,8 @@ ${spelling}`);
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml$1(moveLabel)}" aria-label="${escapeHtml$1(moveLabel)}"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
-                <button type="button" data-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">‹</button>
-                <button type="button" data-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">›</button>
-                <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml$1(playLabel)}" aria-label="${escapeHtml$1(playLabel)}">${subtitleIcon("play")}</button>
                 ${ocrButton}
                 <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml$1(visibilityLabel)}" aria-label="${escapeHtml$1(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? "eye" : "eye-off")}</button>
-                <button class="jpdb-subtitle-fullscreen-toggle" type="button" data-action="fullscreen" title="${escapeHtml$1(fullscreenLabel)}" aria-label="${escapeHtml$1(fullscreenLabel)}">${subtitleIcon("fullscreen")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml$1(panelLabel)}" aria-label="${escapeHtml$1(panelLabel)}">${subtitleIcon("panel-right")}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
             </div>
@@ -52137,7 +52047,8 @@ ${spelling}`);
       video.addEventListener("loadeddata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
       for (const eventName of ["webkitbeginfullscreen", "webkitendfullscreen", "webkitpresentationmodechanged"]) {
         video.addEventListener(eventName, () => {
-          if (!videoIsInNativeFullscreen(video)) this.hideNativeFullscreenCueTrack();
+          if (videoIsInNativeFullscreen(video)) this.showNativeFullscreenCueTrack(video);
+          else this.hideNativeFullscreenCueTrack();
           this.handleFullscreenLayoutChange();
         }, this.eventOptions({ passive: true }));
       }
@@ -54279,48 +54190,6 @@ ${spelling}`);
       this.playbackPauseReassert?.off();
       this.playbackPauseReassert = void 0;
     }
-    togglePlayerFullscreen() {
-      const video = this.video;
-      if (!video) return;
-      if (this.isFullscreenActive()) {
-        this.exitPlayerFullscreen();
-        return;
-      }
-      const target = this.fullscreenRequestTarget(video);
-      const fallback = () => {
-        if (canEnterNativeVideoFullscreen(video)) this.enterNativeVideoFullscreen(video);
-        else this.enterInlinePlayerFullscreen(target ?? video);
-      };
-      if (canRequestElementFullscreen(target ?? video)) void Promise.resolve(requestElementFullscreen(target ?? video)).catch(fallback);
-      else fallback();
-    }
-    exitPlayerFullscreen() {
-      if (activeInlineFullscreenElement()) {
-        exitInlineFullscreen();
-        this.syncFullscreenState();
-        this.scheduleAlignToVideo();
-        this.render();
-        return;
-      }
-      void Promise.resolve(exitCurrentFullscreen()).catch(() => void 0);
-    }
-    enterInlinePlayerFullscreen(target) {
-      enterInlineFullscreen(target);
-      this.syncFullscreenState();
-      this.scheduleAlignToVideo();
-      this.render();
-    }
-    fullscreenRequestTarget(video) {
-      return subtitleVideoLayoutTarget(video) ?? video;
-    }
-    enterNativeVideoFullscreen(video) {
-      this.showNativeFullscreenCueTrack(video);
-      try {
-        const fullscreenVideo = video;
-        (fullscreenVideo.webkitEnterFullscreen ?? fullscreenVideo.webkitEnterFullScreen)?.call(video);
-      } catch {
-      }
-    }
     // The iPhone system player paints in the browser top layer where the DOM
     // overlay cannot follow, so mirror the loaded cues into a native text track
     // for the duration of native video fullscreen.
@@ -54345,9 +54214,6 @@ ${spelling}`);
     hideNativeFullscreenCueTrack() {
       const track = this.nativeFullscreenCueTrack;
       if (track && track.mode !== "disabled") track.mode = "disabled";
-    }
-    isFullscreenActive() {
-      return Boolean(this.fullscreen || currentFullscreenElement() || videoIsInNativeFullscreen(this.video));
     }
     seekVideoTo(time) {
       const video = this.video;
@@ -54816,7 +54682,6 @@ ${spelling}`);
       this.syncLineNavigationButtons(hasLines);
       this.syncDrawerButtons(hasLines);
       this.syncSubtitleStyleControls();
-      this.syncFullscreenRailButton();
       this.syncVisibilityRailButton();
       this.syncTranscriptAutoScrollPausedClass();
       this.syncStatus();
@@ -54849,45 +54714,16 @@ ${spelling}`);
       button.setAttribute("aria-pressed", String(visible));
       setInnerHtml(button, subtitleIcon(visible ? "eye" : "eye-off"));
     }
-    syncFullscreenRailButton() {
-      const button = this.root?.querySelector('[data-action="fullscreen"]');
-      if (!button) return;
-      const active = this.isFullscreenActive();
-      const label = uiText(this.options.getSettings().interfaceLanguage, active ? "exitFullscreen" : "enterFullscreen");
-      button.hidden = this.shouldHideFullscreenRailButton();
-      button.disabled = !this.video;
-      button.title = label;
-      button.setAttribute("aria-label", label);
-      button.setAttribute("aria-pressed", String(active));
-      setInnerHtml(button, subtitleIcon(active ? "fullscreen-exit" : "fullscreen"));
-    }
-    shouldHideFullscreenRailButton() {
-      return Boolean(this.video?.closest("[data-yomu-video-frame]"));
-    }
     syncLineNavigationButtons(hasLines) {
-      const settings = this.options.getSettings();
-      const hideRailNavigation = settings.subtitleControlsMode === "hidden";
-      const language = settings.interfaceLanguage;
+      const language = this.options.getSettings().interfaceLanguage;
       for (const action of ["previous", "next"]) {
-        const railButton = this.root?.querySelector(`.jpdb-subtitle-rail [data-action="${action}"]`);
-        if (railButton) syncSubtitleLineNavigationButton(railButton, action, hasLines, Boolean(this.video), hideRailNavigation, language);
         const drawerButton = this.transcriptPanel?.querySelector(`.jpdb-subtitle-drawer-playback [data-action="${action}"]`);
-        if (drawerButton) syncSubtitleLineNavigationButton(drawerButton, action, hasLines, Boolean(this.video), false, language);
+        if (drawerButton) syncSubtitleLineNavigationButton(drawerButton, action, hasLines, Boolean(this.video), language);
       }
       const drawerPlayback = this.transcriptPanel?.querySelector('.jpdb-subtitle-drawer-playback [data-action="playback"]');
       if (drawerPlayback) {
         syncSubtitlePlaybackButton(drawerPlayback, {
           video: this.video,
-          hiddenByNavigation: false,
-          hasLines,
-          language
-        });
-      }
-      const playbackButton = this.root?.querySelector('.jpdb-subtitle-rail [data-action="playback"]');
-      if (playbackButton) {
-        syncSubtitlePlaybackButton(playbackButton, {
-          video: this.video,
-          hiddenByNavigation: settings.subtitleControlsMode === "hidden",
           hasLines,
           language
         });

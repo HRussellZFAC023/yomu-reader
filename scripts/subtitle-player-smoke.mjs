@@ -688,19 +688,23 @@ async function runLocalMobileWrapSmoke(browser) {
     }
     await page.waitForFunction(() => {
         const video = document.querySelector('video');
-        const playback = document.querySelector('.jpdb-subtitle-rail [data-action="playback"]');
-        return video && !video.paused && playback?.getAttribute('aria-label') === 'Pause video';
+        return video && !video.paused;
     }, null, { timeout: 3000 });
     const controls = await readMobileSubtitleControlsState(page);
-    assert(controls.actions.join(',') === 'previous,next,playback,visibility,fullscreen,panel,style', 'Mobile rail did not keep playback beside subtitle navigation', controls);
-    assert(!controls.previousHidden && !controls.nextHidden && !controls.playbackHidden, 'Mobile previous/next/playback controls were not shown together', controls);
-    assert(controls.playbackLabel === 'Pause video' && controls.playbackPressed === 'true', 'Mobile playback control did not expose pause while playing', controls);
+    // The rail is transport-free: prev/next/play live in the drawer head and
+    // fullscreen belongs to the player chrome.
+    assert(controls.actions.join(',') === 'ocr,visibility,panel,style', 'Mobile rail is not the slim ocr/visibility/panel/style cluster', controls);
     assert(controls.handle && controls.rail && controls.subtitle, 'Mobile subtitle controls did not expose measurable rail, subtitle, and handle boxes', controls);
     assert(Math.abs(controls.handleCenterX - controls.subtitleCenterX) <= 3, 'Mobile subtitle drag handle is not centered on the subtitle line', controls);
     assert(!overlaps(controls.handle, controls.rail), 'Mobile subtitle drag handle overlaps the subtitle rail', controls);
 
     const drawerTouch = await readMobileDrawerTouchTargets(page);
     assert(drawerTouch.buttons.length >= 5, 'Mobile transcript drawer head did not expose its controls', drawerTouch);
+    const drawerTransport = await readMobileDrawerTransportState(page);
+    assert(drawerTransport.actions.join(',') === 'previous,next,playback', 'Drawer transport cluster did not expose previous/next/playback', drawerTransport);
+    assert(drawerTransport.inActionsRow, 'Drawer transport is not in the actions row beside the mode tabs', drawerTransport);
+    assert(!drawerTransport.previousHidden && !drawerTransport.nextHidden && !drawerTransport.playbackHidden, 'Drawer previous/next/playback controls were not shown together', drawerTransport);
+    assert(drawerTransport.playbackLabel === 'Pause video' && drawerTransport.playbackPressed === 'true', 'Drawer playback control did not expose pause while playing', drawerTransport);
     for (const button of drawerTouch.buttons) {
         assert(
             button.effective.width >= 43.5 && button.effective.height >= 43.5,
@@ -801,9 +805,6 @@ async function readMobileSubtitleControlsState(page) {
         const rail = document.querySelector('.jpdb-subtitle-rail');
         const subtitle = document.querySelector('.jpdb-subtitle-text');
         const handle = document.querySelector('.jpdb-subtitle-text > .jpdb-subtitle-drag-handle');
-        const previous = document.querySelector('.jpdb-subtitle-rail [data-action="previous"]');
-        const next = document.querySelector('.jpdb-subtitle-rail [data-action="next"]');
-        const playback = document.querySelector('.jpdb-subtitle-rail [data-action="playback"]');
         const subtitleRect = subtitle?.getBoundingClientRect();
         const handleRect = handle?.getBoundingClientRect();
         return {
@@ -811,16 +812,29 @@ async function readMobileSubtitleControlsState(page) {
             actions: [...(rail?.children ?? [])]
                 .filter(element => element instanceof HTMLButtonElement)
                 .map(button => button.dataset.action),
-            previousHidden: previous?.hidden ?? true,
-            nextHidden: next?.hidden ?? true,
-            playbackHidden: playback?.hidden ?? true,
-            playbackLabel: playback?.getAttribute('aria-label') ?? '',
-            playbackPressed: playback?.getAttribute('aria-pressed') ?? '',
             rail: rail?.getBoundingClientRect().toJSON() ?? null,
             subtitle: subtitleRect?.toJSON() ?? null,
             handle: handleRect?.toJSON() ?? null,
             subtitleCenterX: subtitleRect ? subtitleRect.left + subtitleRect.width / 2 : 0,
             handleCenterX: handleRect ? handleRect.left + handleRect.width / 2 : 0,
+        };
+    });
+}
+
+async function readMobileDrawerTransportState(page) {
+    return page.evaluate(() => {
+        const transport = document.querySelector('.jpdb-subtitle-drawer-playback');
+        const previous = transport?.querySelector('[data-action="previous"]');
+        const next = transport?.querySelector('[data-action="next"]');
+        const playback = transport?.querySelector('[data-action="playback"]');
+        return {
+            actions: [...(transport?.querySelectorAll('button') ?? [])].map(button => button.dataset.action),
+            inActionsRow: Boolean(transport?.closest('.jpdb-subtitle-drawer-actions')),
+            previousHidden: previous?.hidden ?? true,
+            nextHidden: next?.hidden ?? true,
+            playbackHidden: playback?.hidden ?? true,
+            playbackLabel: playback?.getAttribute('aria-label') ?? '',
+            playbackPressed: playback?.getAttribute('aria-pressed') ?? '',
         };
     });
 }

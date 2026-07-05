@@ -90,11 +90,12 @@ export interface DrawerHeadState {
     showModeTabs?: boolean;
 }
 
-// Two-row drawer head shared by every panel mode. The options popover and the
-// close X live on the TITLE row, which frees the actions row to bring back the
-// prev/next cluster (lost in the 1.6.4 head redesign) plus a play/pause —
-// subtitle-by-subtitle review happens in this drawer, so its transport
-// controls belong here, not only on the on-video rail.
+// Two-row drawer head shared by every panel mode. The title row keeps only the
+// options popover and the close X so the title/track label gets the full head
+// width (the ‹ › ▶ cluster there used to truncate the track name); the
+// transport lives at the trailing edge of the actions row beside the mode tabs
+// — this drawer is the single home for subtitle-by-subtitle transport, the
+// on-video rail no longer duplicates it.
 export function renderDrawerHead(state: DrawerHeadState): string {
     const language = state.options.language;
     return `
@@ -105,7 +106,6 @@ export function renderDrawerHead(state: DrawerHeadState): string {
                     <span class="jpdb-subtitle-drawer-meta">${escapeHtml(state.meta)}</span>
                 </div>
                 <div class="jpdb-subtitle-drawer-top-actions">
-                    ${renderDrawerPlayback(language)}
                     ${renderPanelOptionsControls(state.options)}
                     ${renderPanelCloseButton(language)}
                 </div>
@@ -113,6 +113,7 @@ export function renderDrawerHead(state: DrawerHeadState): string {
             <div class="jpdb-subtitle-drawer-actions">
                 ${state.showModeTabs === false ? '' : renderPanelModeControls(state.mode, state.canShowLines, language)}
                 ${state.extraActions ?? ''}
+                ${renderDrawerPlayback(language)}
             </div>
         </div>
     `;
@@ -238,7 +239,7 @@ export function setStylePropertyIfChanged(element: HTMLElement, property: string
     element.style.setProperty(property, value);
 }
 
-export type SubtitleIconName = 'auto-hide' | 'check' | 'close' | 'copy' | 'eye' | 'eye-off' | 'fullscreen' | 'fullscreen-exit' | 'locate' | 'menu' | 'mic' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'pause' | 'play' | 'repeat' | 'scan' | 'stop' | 'style' | 'tracks' | 'transcript';
+export type SubtitleIconName = 'auto-hide' | 'check' | 'close' | 'copy' | 'eye' | 'eye-off' | 'locate' | 'menu' | 'mic' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'pause' | 'play' | 'repeat' | 'scan' | 'stop' | 'style' | 'tracks' | 'transcript';
 
 export function transcriptPlacementIcon(placement: ReaderSettings['subtitleTranscriptPlacement']): SubtitleIconName {
     if (placement === 'left') return 'panel-left';
@@ -254,8 +255,6 @@ export function subtitleIcon(name: SubtitleIconName): string {
         copy: '<path d="M14 3H6a2 2 0 0 0-2 2v12"/><path d="M10 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M14 11v6"/><path d="M11 14h6"/>',
         eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
         'eye-off': '<path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.2 3.8"/><path d="M6.6 6.8A18 18 0 0 0 2 12s3.5 6 10 6c1.5 0 2.8-.3 4-.8"/>',
-        fullscreen: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/>',
-        'fullscreen-exit': '<path d="M9 3v4a2 2 0 0 1-2 2H3"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M15 21v-4a2 2 0 0 1 2-2h4"/><path d="M9 21v-4a2 2 0 0 0-2-2H3"/>',
         locate: '<path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
         menu: '<path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/>',
         mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M8 21h8"/>',

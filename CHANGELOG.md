@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.70] - 2026-07-05
+
+### Changed
+
+- The on-video control rail was slimmed from eight buttons to at most four (frame OCR, subtitle visibility, panel, and style): the previous/next/play-pause cluster and the fullscreen button were removed, so the rail covers far less of the video and has room for future controls.
+- Subtitle transport (previous/next/play-pause) now lives only in the subtitle drawer, beside the Lines/Shadow/Mine/Tracks tabs, so the drawer title row shows the full track name instead of truncating it behind the buttons.
+- While a paused-frame OCR overlay is up, a dedicated play control joins the rail just for the duration of the overlay, replacing the always-present play/pause button that existed only for that conflict.
+
+### Fixed
+
+- Subtitle lines are now mirrored into a native track whenever the video enters native fullscreen, including via the site's own fullscreen button — previously the mirror only engaged through Yomu's rail toggle.
+
 ## [1.6.69] - 2026-07-05
 
 ### Fixed

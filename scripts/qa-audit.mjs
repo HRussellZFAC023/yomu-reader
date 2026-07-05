@@ -4458,8 +4458,6 @@ async function subtitleRailControlSnapshot(page, { addClasses, removeClasses, se
     return page.evaluate(() => {
         const root = document.querySelector('.jpdb-subtitle-player');
         const rail = document.querySelector('.jpdb-subtitle-rail');
-        const previous = document.querySelector('.jpdb-subtitle-rail [data-action="previous"]');
-        const next = document.querySelector('.jpdb-subtitle-rail [data-action="next"]');
         const panel = document.querySelector('.jpdb-subtitle-rail [data-action="panel"]');
         const styleFor = element => {
             if (!(element instanceof HTMLElement)) return null;
@@ -4477,8 +4475,6 @@ async function subtitleRailControlSnapshot(page, { addClasses, removeClasses, se
         return {
             rootClass: root instanceof HTMLElement ? root.className : '',
             rail: styleFor(rail),
-            previous: styleFor(previous),
-            next: styleFor(next),
             panel: styleFor(panel),
         };
     });

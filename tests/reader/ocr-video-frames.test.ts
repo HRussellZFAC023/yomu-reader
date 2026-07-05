@@ -806,13 +806,11 @@ describe('paused-video resume control', () => {
         document.body.replaceChildren();
     });
 
-    it('does not add a second play control when the subtitle rail already has playback', () => {
+    it('adds the resume control to the transport-free subtitle rail while a frame is up', () => {
         document.body.innerHTML = `
             <div class="jpdb-subtitle-player" data-jpdb-reader-root="true">
                 <div class="jpdb-subtitle-rail">
-                    <button type="button" data-action="previous">‹</button>
-                    <button type="button" data-action="next">›</button>
-                    <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback"></button>
+                    <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility"></button>
                     <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel"></button>
                 </div>
             </div>
@@ -830,16 +828,19 @@ describe('paused-video resume control', () => {
 
         video.dispatchEvent(new Event('pause'));
 
-        expect([...document.querySelectorAll<HTMLButtonElement>('.jpdb-subtitle-rail button')].map(button => button.dataset.action))
-            .toEqual(['previous', 'next', 'playback', 'panel']);
-        expect(document.querySelector('.jpdb-subtitle-rail .jpdb-ocr-video-frame-resume')).toBeNull();
-        expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
-        expect(root.classList.contains('jpdb-ocr-video-frame-resume-active')).toBe(false);
+        // The rail carries no persistent playback toggle anymore, so the OCR
+        // frame's own resume control is the way to un-freeze the video; it
+        // slots in before the panel toggle for the duration of the overlay.
+        const resume = document.querySelector<HTMLElement>('.jpdb-subtitle-rail .jpdb-ocr-video-frame-resume')!;
+        expect(resume).not.toBeNull();
+        expect(resume.nextElementSibling).toBe(document.querySelector('.jpdb-subtitle-panel-toggle'));
+        expect(root.classList.contains('jpdb-ocr-video-frame-resume-active')).toBe(true);
         expect(document.querySelector('.jpdb-ocr-video-frame')).not.toBeNull();
 
         video.dispatchEvent(new Event('play'));
 
         expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+        expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
         controller.destroy();
         document.body.replaceChildren();
     });

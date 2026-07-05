@@ -4212,8 +4212,6 @@
       playVideo: "Play video",
       pauseVideo: "Pause video",
       readVideoFrame: "Read video frame (OCR)",
-      enterFullscreen: "Enter fullscreen",
-      exitFullscreen: "Exit fullscreen",
       copySubtitle: "Copy subtitle",
       subtitleFallbackLabel: "Subtitle",
       subtitlesTitle: "Subtitles",
@@ -5006,8 +5004,6 @@ jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
 readVideoFrame	動画フレームを読み取る（OCR）
-enterFullscreen	全画面表示
-exitFullscreen	全画面表示を終了
 copySubtitle	字幕をコピー
 subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
@@ -11077,7 +11073,6 @@ ${spelling}`);
   }
   function positionVideoFrameResumeControl(control, rect, video) {
     const root = videoFrameArtifactRoot(video);
-    if (hideVideoFrameResumeControlBehindSubtitlePlayback(control, root)) return;
     if (attachVideoFrameResumeControlToSubtitleRail(control, root)) return;
     attachVideoFrameResumeControlFallback(control, root);
     const content = videoContentBox(rect, video);
@@ -11210,19 +11205,6 @@ ${spelling}`);
     clearOcrFullscreenHostMarker(oldParent);
     updateSubtitleRailResumeState(oldRoot);
     updateSubtitleRailResumeState(subtitlePlayerRoot(control));
-    return true;
-  }
-  function hideVideoFrameResumeControlBehindSubtitlePlayback(control, root) {
-    const rail = subtitleRailForOcrRoot(root);
-    const playback = rail?.querySelector('[data-action="playback"]');
-    if (!rail?.isConnected || !playback || playback.hidden || playback.disabled) return false;
-    const oldRoot = subtitlePlayerRoot(control);
-    removeOcrArtifact(control);
-    control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
-    control.dataset.yomuOcrFullscreenHosted = "false";
-    control.style.left = "";
-    control.style.top = "";
-    updateSubtitleRailResumeState(oldRoot);
     return true;
   }
   function attachVideoFrameResumeControlFallback(control, root) {

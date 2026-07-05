@@ -4464,7 +4464,6 @@ function positionVideoFrameImage(frame: HTMLImageElement, rect: DOMRect, video: 
 
 function positionVideoFrameResumeControl(control: HTMLElement, rect: DOMRect, video: HTMLVideoElement): void {
     const root = videoFrameArtifactRoot(video);
-    if (hideVideoFrameResumeControlBehindSubtitlePlayback(control, root)) return;
     if (attachVideoFrameResumeControlToSubtitleRail(control, root)) return;
     attachVideoFrameResumeControlFallback(control, root);
     const content = videoContentBox(rect, video);
@@ -4625,20 +4624,6 @@ function attachVideoFrameResumeControlToSubtitleRail(control: HTMLElement, root:
     clearOcrFullscreenHostMarker(oldParent);
     updateSubtitleRailResumeState(oldRoot);
     updateSubtitleRailResumeState(subtitlePlayerRoot(control));
-    return true;
-}
-
-function hideVideoFrameResumeControlBehindSubtitlePlayback(control: HTMLElement, root: HTMLElement): boolean {
-    const rail = subtitleRailForOcrRoot(root);
-    const playback = rail?.querySelector<HTMLButtonElement>('[data-action="playback"]');
-    if (!rail?.isConnected || !playback || playback.hidden || playback.disabled) return false;
-    const oldRoot = subtitlePlayerRoot(control);
-    removeOcrArtifact(control);
-    control.classList.remove('jpdb-ocr-video-frame-resume-fallback');
-    control.dataset.yomuOcrFullscreenHosted = 'false';
-    control.style.left = '';
-    control.style.top = '';
-    updateSubtitleRailResumeState(oldRoot);
     return true;
 }
 

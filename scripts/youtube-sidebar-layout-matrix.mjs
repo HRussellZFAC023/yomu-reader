@@ -660,21 +660,17 @@ function assertLayout(state, viewportName, requestedPlacement, phase) {
 }
 
 function assertRailControlParity(state, label, phase) {
+    const allActions = new Set((state.railActions ?? []).map(action => action.action));
     const visibleActions = new Set((state.railActions ?? [])
         .filter(action => !action.hidden)
         .map(action => action.action));
-    for (const action of ['playback', 'fullscreen', 'panel', 'style']) {
+    for (const action of ['panel', 'style']) {
         assert(visibleActions.has(action), `rail is missing ${action} in ${label}/${phase}`, compactSnapshot(state));
     }
-    assert(!visibleActions.has('panel-tracks'), `rail still renders the removed tracks shortcut in ${label}/${phase}`, compactSnapshot(state));
-    if (state.videoPaused === false) {
-        const playback = (state.railActions ?? []).find(action => action.action === 'playback');
-        assert(playback?.pressed === 'true', `rail playback is not showing pause state in ${label}/${phase}`, compactSnapshot(state));
-    }
-    // The drawer head no longer duplicates prev/next, so the rail keeps them
-    // visible in every phase, including while the panel is open.
-    for (const action of ['previous', 'next']) {
-        assert(visibleActions.has(action), `rail is missing ${action} in ${label}/${phase}`, compactSnapshot(state));
+    // The rail is transport-free: prev/next/play live only in the drawer head,
+    // and fullscreen belongs to the player's own chrome.
+    for (const action of ['previous', 'next', 'playback', 'fullscreen', 'panel-tracks']) {
+        assert(!allActions.has(action), `rail still renders the removed ${action} control in ${label}/${phase}`, compactSnapshot(state));
     }
 }
 
@@ -688,13 +684,14 @@ function assertDrawerControlParity(state, label) {
     for (const action of ['panel-lines', 'panel-shadow', 'panel-tracks', 'panel-options']) {
         assert(visibleActions.has(action), `drawer ${action} is not visible in ${label}`, compactSnapshot(state));
     }
-    for (const action of ['previous', 'next']) {
-        assert(!allActions.has(action), `drawer still duplicates the rail ${action} control in ${label}`, compactSnapshot(state));
+    // The drawer transport is the only prev/next/play surface now that the
+    // rail is transport-free.
+    for (const action of ['previous', 'next', 'playback']) {
+        assert(allActions.has(action), `drawer is missing the ${action} transport control in ${label}`, compactSnapshot(state));
     }
     if (state.viewport.width >= 700) return;
-    assert(state.drawerActionStrip?.flexWrap === 'nowrap', `mobile drawer actions can wrap in ${label}`, compactSnapshot(state));
-    assert(state.drawerActionStrip?.overflowX !== 'visible', `mobile drawer actions cannot scroll horizontally in ${label}`, compactSnapshot(state));
-    assert((state.drawerActionStrip?.rows ?? 0) <= 1, `mobile drawer actions consumed multiple rows in ${label}`, compactSnapshot(state));
+    // Narrow drawers wrap the transport cluster onto its own trailing line
+    // instead of overflowing the head horizontally.
     assert((state.drawerActionStrip?.scrollWidth ?? 0) <= (state.drawerActionStrip?.clientWidth ?? 0) + 4,
         `mobile drawer actions overflow the first viewport in ${label}`, compactSnapshot(state));
 }

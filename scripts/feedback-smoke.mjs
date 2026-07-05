@@ -909,7 +909,7 @@ async function assertHostedPausedVideoOcrDoesNotCoverPlayback(page) {
     const state = await readHostedPausedVideoOcrState(page);
     assert(hostedPausedVideoOcrSafe(state), 'Paused-frame OCR covered Yomu Video playback/subtitles or changed the video timeline', state);
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-paused-ocr.png'), fullPage: false });
-    const resume = page.locator('.jpdb-ocr-video-frame-resume, .jpdb-subtitle-rail [data-action="playback"]').first();
+    const resume = page.locator('.jpdb-ocr-video-frame-resume').first();
     await resume.click();
     await dispatchHostedVideoEvent(page, 'play');
     await page.waitForFunction(() => !document.querySelector('.jpdb-ocr-video-frame'), null, { timeout: 5000 });
@@ -973,7 +973,6 @@ async function readHostedPausedVideoOcrState(page) {
         const frame = document.querySelector('.jpdb-ocr-video-frame');
         const status = document.querySelector('.jpdb-ocr-video-frame-status');
         const resume = document.querySelector('.jpdb-ocr-video-frame-resume');
-        const playback = document.querySelector('.jpdb-subtitle-rail [data-action="playback"]');
         const root = document.querySelector('.jpdb-subtitle-player');
         const line = document.querySelector('.jpdb-subtitle-lines');
         const panel = document.querySelector('.jpdb-subtitle-list');
@@ -994,12 +993,9 @@ async function readHostedPausedVideoOcrState(page) {
             frameStyle: style(frame),
             statusStyle: style(status),
             resumeStyle: style(resume),
-            playbackStyle: style(playback),
             frameRect: rect(frame),
             statusRect: rect(status),
             resumeRect: rect(resume),
-            playbackRect: rect(playback),
-            playbackLabel: playback?.getAttribute('aria-label') ?? '',
             videoRect: rect(video),
             subtitleOverlay: readHostedSubtitleVisibilityInPage(root, line, panel),
         };
@@ -1025,23 +1021,16 @@ async function readHostedPausedVideoOcrState(page) {
 }
 
 function hostedPausedVideoOcrSafe(state) {
+    // The rail carries no persistent playback toggle, so the frame's own
+    // resume control must always join the rail while the overlay is up.
     const dedicatedResumeControl = state.resumeButtons === 1
         && state.railResumeButtons === 1
         && state.fallbackResumeButtons === 0
         && state.railResumeActive === true
         && state.resumeStyle?.pointerEvents === 'auto';
-    const existingPlaybackControl = state.resumeButtons === 0
-        && state.railResumeButtons === 0
-        && state.fallbackResumeButtons === 0
-        && includesText(state.playbackLabel, 'Play video')
-        && state.playbackStyle?.display !== 'none'
-        && state.playbackStyle?.visibility !== 'hidden'
-        && state.playbackStyle?.pointerEvents !== 'none'
-        && state.playbackRect?.width > 0
-        && state.playbackRect?.height > 0;
     return state.frames === 1
         && state.statuses === 1
-        && (dedicatedResumeControl || existingPlaybackControl)
+        && dedicatedResumeControl
         && state.framePending === true
         && state.statusPending === true
         && state.frameStyle?.opacity <= 0.01
@@ -1362,7 +1351,10 @@ function hostedFullscreenPausedOcrReady(state) {
         && state.rootParentIsStage
         && state.rootFullscreenClass
         && !state.rootOutOfView
-        && state.railActions.includes('fullscreen')
+        // The rail is transport-free (no fullscreen/playback buttons); the
+        // panel toggle proves it re-rendered inside the fullscreen host.
+        && state.railActions.includes('panel')
+        && !state.railActions.includes('fullscreen')
         && (state.railRect?.width ?? 0) > 0
         && state.frameParentIsStage
         && state.overlayParentIsStage

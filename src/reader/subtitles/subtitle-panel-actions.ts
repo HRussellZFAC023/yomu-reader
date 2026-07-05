@@ -31,10 +31,9 @@ export function syncSubtitleLineNavigationButton(
     action: 'previous' | 'next',
     hasLines: boolean,
     hasVideo: boolean,
-    hiddenByPanel: boolean,
     language: InterfaceLanguage,
 ): void {
-    button.hidden = !hasLines || hiddenByPanel;
+    button.hidden = !hasLines;
     button.disabled = !hasVideo || !hasLines;
     const label = uiText(language, action === 'previous' ? 'previousSubtitle' : 'nextSubtitle');
     button.title = label;
@@ -45,14 +44,13 @@ export function syncSubtitlePlaybackButton(
     button: HTMLButtonElement,
     options: {
         video: HTMLVideoElement | undefined;
-        hiddenByNavigation: boolean;
         hasLines: boolean;
         language: InterfaceLanguage;
     },
 ): void {
     const paused = options.video?.paused ?? true;
     const label = uiText(options.language, paused ? 'playVideo' : 'pauseVideo');
-    button.hidden = !options.hasLines || options.hiddenByNavigation;
+    button.hidden = !options.hasLines;
     button.disabled = !options.video;
     button.title = label;
     button.setAttribute('aria-label', label);

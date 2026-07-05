@@ -410,7 +410,7 @@ describe('SubtitlePlayerController', () => {
         expect(withoutPopover.defaultPrevented).toBe(true);
     });
 
-    it('keeps the drawer transport in the top-actions row so it never wraps over the list', () => {
+    it('keeps the drawer transport in the actions row so the title row gets the full head width', () => {
         const host = document.createElement('div');
         host.innerHTML = renderDrawerHead({
             mode: 'lines',
@@ -422,15 +422,14 @@ describe('SubtitlePlayerController', () => {
 
         const playback = host.querySelector('.jpdb-subtitle-drawer-playback');
         expect(playback).not.toBeNull();
-        // Anti-wrap guard: the ‹ › ▶ cluster lives beside the options/close
-        // buttons in the fixed top row, not in the wrappable tabs row where it
-        // used to break onto its own line over the transcript.
-        expect(playback!.closest('.jpdb-subtitle-drawer-top-actions')).not.toBeNull();
-        expect(host.querySelector('.jpdb-subtitle-drawer-actions .jpdb-subtitle-drawer-playback')).toBeNull();
+        // The ‹ › ▶ cluster shares the actions row with the mode tabs; putting
+        // it in the title row squeezed the track label into an ellipsis.
+        expect(playback!.closest('.jpdb-subtitle-drawer-actions')).not.toBeNull();
+        expect(host.querySelector('.jpdb-subtitle-drawer-top-actions .jpdb-subtitle-drawer-playback')).toBeNull();
         expect([...playback!.querySelectorAll('button')].map(b => b.dataset.action)).toEqual(['previous', 'next', 'playback']);
     });
 
-    it('renders subtitle navigation, playback, panel, and style controls in the rail', () => {
+    it('keeps the rail to OCR, visibility, panel, and style controls', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -448,85 +447,62 @@ describe('SubtitlePlayerController', () => {
             .filter((element): element is HTMLButtonElement => element instanceof HTMLButtonElement)
             .map(button => button.dataset.action);
 
-        expect(actions).toEqual(['previous', 'next', 'playback', 'ocr', 'visibility', 'fullscreen', 'panel', 'style']);
-        expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="playback"]')).toHaveLength(1);
+        expect(actions).toEqual(['ocr', 'visibility', 'panel', 'style']);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="visibility"]')).toHaveLength(1);
-        expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="fullscreen"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="panel"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="style"]')).toHaveLength(1);
-        // The tracks shortcut duplicated the panel toggle (both opened the same
-        // drawer), so the rail must stay a single-drawer-button surface.
+        // Transport (‹ › ▶) lives only in the drawer head, fullscreen belongs
+        // to the player's own chrome, and the tracks shortcut duplicated the
+        // panel toggle — none of them may creep back into the rail.
+        expect(document.querySelector('.jpdb-subtitle-rail [data-action="previous"]')).toBeNull();
+        expect(document.querySelector('.jpdb-subtitle-rail [data-action="next"]')).toBeNull();
+        expect(document.querySelector('.jpdb-subtitle-rail [data-action="playback"]')).toBeNull();
+        expect(document.querySelector('.jpdb-subtitle-rail [data-action="fullscreen"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="panel-tracks"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="toggle"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="list"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
     });
 
-    it('hides the duplicate rail fullscreen control on the hosted video frame', () => {
+    it('mirrors cues into a native text track when the video enters native fullscreen by itself', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
-        const fullscreenStub = stubFullscreenElement(null);
+        vi.stubGlobal('VTTCue', class {
+            constructor(public startTime: number, public endTime: number, public text: string) {}
+        });
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
         try {
-            document.body.insertAdjacentHTML('beforeend', '<section data-yomu-video-frame><video controls></video></section>');
-            const frame = document.querySelector<HTMLElement>('[data-yomu-video-frame]')!;
-            const video = document.querySelector<HTMLVideoElement>('video')!;
-            const requestFullscreen = vi.fn(() => Promise.resolve());
-            Object.defineProperty(frame, 'requestFullscreen', { configurable: true, value: requestFullscreen });
-            mockElementRect(frame, new DOMRect(20, 40, 960, 540));
+            const video = document.createElement('video');
+            const addCue = vi.fn();
+            const track = { mode: 'hidden', cues: [], addCue, removeCue: vi.fn() } as unknown as TextTrack;
+            Object.defineProperty(video, 'addTextTrack', { configurable: true, value: vi.fn(() => track) });
             mockElementRect(video, new DOMRect(20, 40, 960, 540));
             attachVideo(controller, { video });
-            controller.refresh();
+            const internals = controllerInternals<{
+                cues: { start: number; end: number; text: string }[];
+                observeVideoLayout: (video: HTMLVideoElement) => void;
+            }>(controller);
+            internals.cues = [{ start: 1, end: 2, text: 'こんにちは' }];
+            internals.observeVideoLayout(video);
 
-            const button = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="fullscreen"]')!;
-            expect(button.hidden).toBe(true);
+            // The site's own fullscreen button is the only entry point now, so
+            // the mirror must key off the presentation-mode event, not a Yomu
+            // toggle.
+            Object.defineProperty(video, 'webkitDisplayingFullscreen', { configurable: true, value: true });
+            video.dispatchEvent(new Event('webkitbeginfullscreen'));
 
-            controllerInternals<{ togglePlayerFullscreen: () => void }>(controller).togglePlayerFullscreen();
+            expect(video.addTextTrack).toHaveBeenCalledWith('subtitles', 'Yomu', 'ja');
+            expect(addCue).toHaveBeenCalledTimes(1);
+            expect(track.mode).toBe('showing');
 
-            expect(requestFullscreen).toHaveBeenCalledTimes(1);
-            expect(requestFullscreen.mock.instances[0]).toBe(frame);
+            Object.defineProperty(video, 'webkitDisplayingFullscreen', { configurable: true, value: false });
+            video.dispatchEvent(new Event('webkitendfullscreen'));
 
-            fullscreenStub.set(frame);
-            controllerInternals<{ syncFullscreenState: () => void; syncControls: () => void }>(controller).syncFullscreenState();
-            controllerInternals<{ syncControls: () => void }>(controller).syncControls();
-
-            expect(button.hidden).toBe(true);
-            expect(button.getAttribute('aria-pressed')).toBe('true');
-            expect(button.getAttribute('aria-label')).toBe('Exit fullscreen');
+            expect(track.mode).toBe('disabled');
         } finally {
-            fullscreenStub.restore();
-            controller.destroy();
-        }
-    });
-
-    it('keeps hosted fullscreen fallback available while the duplicate rail control is hidden', () => {
-        document.body.innerHTML = '<section data-yomu-video-frame><video controls></video></section>';
-        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
-        const fullscreenStub = stubFullscreenElement(null);
-        try {
-            const frame = document.querySelector<HTMLElement>('[data-yomu-video-frame]')!;
-            const video = document.querySelector<HTMLVideoElement>('video')!;
-            for (const method of ['requestFullscreen', 'webkitRequestFullscreen', 'webkitRequestFullScreen', 'mozRequestFullScreen', 'msRequestFullscreen']) {
-                Object.defineProperty(frame, method, { configurable: true, value: undefined });
-            }
-            mockElementRect(frame, new DOMRect(20, 40, 960, 540));
-            mockElementRect(video, new DOMRect(20, 40, 960, 540));
-            attachVideo(controller, { video });
-            controller.refresh();
-
-            const button = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="fullscreen"]')!;
-            expect(button.hidden).toBe(true);
-            controllerInternals<{ togglePlayerFullscreen: () => void }>(controller).togglePlayerFullscreen();
-
-            expect(frame.getAttribute('data-yomu-inline-fullscreen')).toBe('true');
-            expect(frame.hasAttribute('fullscreen')).toBe(true);
-            expect(document.documentElement.classList.contains('jpdb-subtitle-inline-fullscreen')).toBe(true);
-            expect(document.querySelector<HTMLElement>('.jpdb-subtitle-player')?.parentElement).toBe(frame);
-
-            controllerInternals<{ togglePlayerFullscreen: () => void }>(controller).togglePlayerFullscreen();
-
-            expect(frame.hasAttribute('data-yomu-inline-fullscreen')).toBe(false);
-            expect(document.documentElement.classList.contains('jpdb-subtitle-inline-fullscreen')).toBe(false);
-        } finally {
-            fullscreenStub.restore();
+            vi.unstubAllGlobals();
             controller.destroy();
         }
     });
@@ -789,7 +765,7 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('keeps the playback toggle beside subtitle navigation while playing', () => {
+    it('toggles playback from the drawer transport cluster', () => {
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
         const { controller } = createInstalledSubtitleController();
         const video = attachVideo(controller, { currentTime: 0.5 });
@@ -814,9 +790,12 @@ describe('SubtitlePlayerController', () => {
             internals.currentCue = cue;
             controller.refresh();
 
-            const previous = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="previous"]')!;
-            const next = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="next"]')!;
-            const playback = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="playback"]')!;
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!.click();
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const previous = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="previous"]')!;
+            const next = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="next"]')!;
+            const playback = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="playback"]')!;
 
             expect(previous.hidden).toBe(false);
             expect(next.hidden).toBe(false);
@@ -879,7 +858,7 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('keeps rail navigation and playback visible when the docked side panel is open during playback', () => {
+    it('keeps drawer navigation and playback enabled while the docked side panel is open during playback', () => {
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
         const { controller } = createInstalledSubtitleController();
         const video = attachVideo(controller, { currentTime: 0.5 });
@@ -896,16 +875,19 @@ describe('SubtitlePlayerController', () => {
 
             document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!.click();
 
-            const previous = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="previous"]')!;
-            const next = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="next"]')!;
-            const playback = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="playback"]')!;
             const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const previous = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="previous"]')!;
+            const next = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="next"]')!;
+            const playback = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="playback"]')!;
 
             expect(panel.hidden).toBe(false);
-            // The drawer head no longer carries its own prev/next pair, so the
-            // rail stays the only line-navigation surface while the panel is open.
+            // The drawer transport is the only line-navigation surface — the
+            // rail carries no transport buttons at all.
+            expect(document.querySelector('.jpdb-subtitle-rail [data-action="previous"]')).toBeNull();
             expect(previous.hidden).toBe(false);
+            expect(previous.disabled).toBe(false);
             expect(next.hidden).toBe(false);
+            expect(next.disabled).toBe(false);
             expect(playback.hidden).toBe(false);
             expect(playback.getAttribute('aria-label')).toBe('Pause video');
             expect(playback.getAttribute('aria-pressed')).toBe('true');

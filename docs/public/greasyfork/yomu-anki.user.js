@@ -1919,8 +1919,6 @@
       playVideo: "Play video",
       pauseVideo: "Pause video",
       readVideoFrame: "Read video frame (OCR)",
-      enterFullscreen: "Enter fullscreen",
-      exitFullscreen: "Exit fullscreen",
       copySubtitle: "Copy subtitle",
       subtitleFallbackLabel: "Subtitle",
       subtitlesTitle: "Subtitles",
@@ -2732,8 +2730,6 @@ jumpToCurrentSubtitle	現在の字幕へ移動
 playVideo	動画を再生
 pauseVideo	動画を一時停止
 readVideoFrame	動画フレームを読み取る（OCR）
-enterFullscreen	全画面表示
-exitFullscreen	全画面表示を終了
 copySubtitle	字幕をコピー
 subtitleFallbackLabel	字幕
 subtitlesTitle	字幕

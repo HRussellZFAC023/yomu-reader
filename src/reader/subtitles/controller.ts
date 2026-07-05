@@ -263,8 +263,6 @@ const ASBPLAYER_SUBTITLE_DRAG_CLASSES = [
 ] as const;
 const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = 'jpdb-subtitle-yt-sheet-open';
 const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = 'Yomu';
-const INLINE_FULLSCREEN_CLASS = 'jpdb-subtitle-inline-fullscreen';
-const INLINE_FULLSCREEN_ATTRIBUTE = 'data-yomu-inline-fullscreen';
 
 interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
@@ -325,31 +323,11 @@ type FullscreenDocument = Document & {
     webkitFullscreenElement?: Element | null;
     mozFullScreenElement?: Element | null;
     msFullscreenElement?: Element | null;
-    webkitExitFullscreen?: () => Promise<void> | void;
-    webkitCancelFullScreen?: () => Promise<void> | void;
-    mozCancelFullScreen?: () => Promise<void> | void;
-    msExitFullscreen?: () => Promise<void> | void;
 };
 
 type FullscreenVideoElement = HTMLVideoElement & {
     webkitDisplayingFullscreen?: boolean;
     webkitPresentationMode?: string;
-    webkitSupportsFullscreen?: boolean;
-    webkitEnterFullscreen?: () => void;
-    webkitEnterFullScreen?: () => void;
-};
-
-function canEnterNativeVideoFullscreen(video: HTMLVideoElement): boolean {
-    const fullscreenVideo = video as FullscreenVideoElement;
-    if (fullscreenVideo.webkitSupportsFullscreen === false) return false;
-    return typeof (fullscreenVideo.webkitEnterFullscreen ?? fullscreenVideo.webkitEnterFullScreen) === 'function';
-}
-
-type FullscreenTargetElement = HTMLElement & {
-    webkitRequestFullscreen?: () => Promise<void> | void;
-    webkitRequestFullScreen?: () => Promise<void> | void;
-    mozRequestFullScreen?: () => Promise<void> | void;
-    msRequestFullscreen?: () => Promise<void> | void;
 };
 
 function currentFullscreenElement(): Element | null {
@@ -359,80 +337,6 @@ function currentFullscreenElement(): Element | null {
         ?? fullscreenDocument.mozFullScreenElement
         ?? fullscreenDocument.msFullscreenElement
         ?? null;
-}
-
-function exitCurrentFullscreen(): Promise<void> | void {
-    const fullscreenDocument = document as FullscreenDocument;
-    return document.exitFullscreen?.()
-        ?? fullscreenDocument.webkitExitFullscreen?.()
-        ?? fullscreenDocument.webkitCancelFullScreen?.()
-        ?? fullscreenDocument.mozCancelFullScreen?.()
-        ?? fullscreenDocument.msExitFullscreen?.();
-}
-
-function requestElementFullscreen(element: HTMLElement): Promise<void> | void {
-    const target = element as FullscreenTargetElement;
-    return target.requestFullscreen?.()
-        ?? target.webkitRequestFullscreen?.()
-        ?? target.webkitRequestFullScreen?.()
-        ?? target.mozRequestFullScreen?.()
-        ?? target.msRequestFullscreen?.();
-}
-
-function canRequestElementFullscreen(element: HTMLElement): boolean {
-    const target = element as FullscreenTargetElement;
-    return Boolean(target.requestFullscreen
-        || target.webkitRequestFullscreen
-        || target.webkitRequestFullScreen
-        || target.mozRequestFullScreen
-        || target.msRequestFullscreen);
-}
-
-function enterInlineFullscreen(target: HTMLElement): void {
-    const current = activeInlineFullscreenElement();
-    if (current && current !== target) clearInlineFullscreenElement(current);
-    target.setAttribute(INLINE_FULLSCREEN_ATTRIBUTE, 'true');
-    if (!target.hasAttribute('fullscreen')) {
-        target.setAttribute('fullscreen', '');
-        target.dataset.yomuInlineFullscreenAttr = 'true';
-    }
-    if (!target.classList.contains('ytp-fullscreen')) {
-        target.classList.add('ytp-fullscreen');
-        target.dataset.yomuInlineYtpFullscreenClass = 'true';
-    }
-    if (!target.classList.contains('fullscreen')) {
-        target.classList.add('fullscreen');
-        target.dataset.yomuInlineFullscreenClass = 'true';
-    }
-    document.documentElement.classList.add(INLINE_FULLSCREEN_CLASS);
-    dispatchFullscreenLikeEvents();
-}
-
-function exitInlineFullscreen(): void {
-    const current = activeInlineFullscreenElement();
-    if (!current) return;
-    clearInlineFullscreenElement(current);
-    document.documentElement.classList.remove(INLINE_FULLSCREEN_CLASS);
-    dispatchFullscreenLikeEvents();
-}
-
-function activeInlineFullscreenElement(): HTMLElement | null {
-    return document.querySelector<HTMLElement>(`[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]`);
-}
-
-function clearInlineFullscreenElement(element: HTMLElement): void {
-    element.removeAttribute(INLINE_FULLSCREEN_ATTRIBUTE);
-    if (element.dataset.yomuInlineFullscreenAttr === 'true') element.removeAttribute('fullscreen');
-    if (element.dataset.yomuInlineYtpFullscreenClass === 'true') element.classList.remove('ytp-fullscreen');
-    if (element.dataset.yomuInlineFullscreenClass === 'true') element.classList.remove('fullscreen');
-    delete element.dataset.yomuInlineFullscreenAttr;
-    delete element.dataset.yomuInlineYtpFullscreenClass;
-    delete element.dataset.yomuInlineFullscreenClass;
-}
-
-function dispatchFullscreenLikeEvents(): void {
-    for (const eventName of ['fullscreenchange', 'webkitfullscreenchange']) document.dispatchEvent(new Event(eventName));
-    window.dispatchEvent(new Event('resize'));
 }
 
 function subtitleViewportRect(): DOMRect {
@@ -1198,7 +1102,6 @@ export class SubtitlePlayerController {
         playback: () => this.toggleVideoPlayback(),
         ocr: () => this.requestVideoFrameOcr(),
         visibility: () => this.toggleOverlayVisibility(),
-        fullscreen: () => this.togglePlayerFullscreen(),
         copy: target => { void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target)); },
         'copy-row': target => { void this.copyTranscriptRow(this.rowIndexFromTarget(target)).then(() => flashSubtitleCopyFeedback(target)); },
         'peek-row': target => this.toggleRowTranslationPeek(target),
@@ -1447,10 +1350,6 @@ export class SubtitlePlayerController {
         root.className = 'jpdb-subtitle-player';
         root.dataset.jpdbReaderRoot = 'true';
         const settings = this.options.getSettings();
-        const previousLabel = uiText(settings.interfaceLanguage, 'previousSubtitle');
-        const nextLabel = uiText(settings.interfaceLanguage, 'nextSubtitle');
-        const playLabel = uiText(settings.interfaceLanguage, 'playVideo');
-        const fullscreenLabel = uiText(settings.interfaceLanguage, 'enterFullscreen');
         const visibilityLabel = uiText(settings.interfaceLanguage, 'subtitleOverlayVisible');
         const panelLabel = uiText(settings.interfaceLanguage, 'openSubtitlePanel');
         const moveLabel = uiText(settings.interfaceLanguage, 'moveSubtitles');
@@ -1462,12 +1361,8 @@ export class SubtitlePlayerController {
             <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveLabel)}"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore></div>
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
-                <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
-                <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
-                <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon('play')}</button>
                 ${ocrButton}
                 <button class="jpdb-subtitle-visibility-toggle" type="button" data-action="visibility" title="${escapeHtml(visibilityLabel)}" aria-label="${escapeHtml(visibilityLabel)}">${subtitleIcon(settings.subtitleOverlayVisible ? 'eye' : 'eye-off')}</button>
-                <button class="jpdb-subtitle-fullscreen-toggle" type="button" data-action="fullscreen" title="${escapeHtml(fullscreenLabel)}" aria-label="${escapeHtml(fullscreenLabel)}">${subtitleIcon('fullscreen')}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
                 ${renderSubtitleStyleControls(settings, settings.interfaceLanguage)}
             </div>
@@ -1692,7 +1587,11 @@ export class SubtitlePlayerController {
         video.addEventListener('loadeddata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         for (const eventName of ['webkitbeginfullscreen', 'webkitendfullscreen', 'webkitpresentationmodechanged'] as const) {
             video.addEventListener(eventName, () => {
-                if (!videoIsInNativeFullscreen(video)) this.hideNativeFullscreenCueTrack();
+                // The mirror must follow every native-fullscreen entry, not just
+                // ones Yomu initiated — the site's own fullscreen button is the
+                // only entry point now that the rail no longer has one.
+                if (videoIsInNativeFullscreen(video)) this.showNativeFullscreenCueTrack(video);
+                else this.hideNativeFullscreenCueTrack();
                 this.handleFullscreenLayoutChange();
             }, this.eventOptions({ passive: true }));
         }
@@ -4246,58 +4145,6 @@ export class SubtitlePlayerController {
         this.playbackPauseReassert = undefined;
     }
 
-    private togglePlayerFullscreen(): void {
-        const video = this.video;
-        if (!video) return;
-        if (this.isFullscreenActive()) {
-            this.exitPlayerFullscreen();
-            return;
-        }
-        const target = this.fullscreenRequestTarget(video);
-        // True fullscreen first: element fullscreen on the player frame, then
-        // the video's own native fullscreen (the only real fullscreen iPhone
-        // Safari has). The CSS inline mode keeps the browser chrome on screen,
-        // so it is strictly a last resort.
-        const fallback = () => {
-            if (canEnterNativeVideoFullscreen(video)) this.enterNativeVideoFullscreen(video);
-            else this.enterInlinePlayerFullscreen(target ?? video);
-        };
-        if (canRequestElementFullscreen(target ?? video)) void Promise.resolve(requestElementFullscreen(target ?? video)).catch(fallback);
-        else fallback();
-    }
-
-    private exitPlayerFullscreen(): void {
-        if (activeInlineFullscreenElement()) {
-            exitInlineFullscreen();
-            this.syncFullscreenState();
-            this.scheduleAlignToVideo();
-            this.render();
-            return;
-        }
-        void Promise.resolve(exitCurrentFullscreen()).catch(() => undefined);
-    }
-
-    private enterInlinePlayerFullscreen(target: HTMLElement): void {
-        enterInlineFullscreen(target);
-        this.syncFullscreenState();
-        this.scheduleAlignToVideo();
-        this.render();
-    }
-
-    private fullscreenRequestTarget(video: HTMLVideoElement): HTMLElement {
-        return subtitleVideoLayoutTarget(video) ?? video;
-    }
-
-    private enterNativeVideoFullscreen(video: HTMLVideoElement): void {
-        this.showNativeFullscreenCueTrack(video);
-        try {
-            const fullscreenVideo = video as FullscreenVideoElement;
-            (fullscreenVideo.webkitEnterFullscreen ?? fullscreenVideo.webkitEnterFullScreen)?.call(video);
-        } catch {
-            // Fullscreen is best-effort across userscript hosts and mobile Safari.
-        }
-    }
-
     // The iPhone system player paints in the browser top layer where the DOM
     // overlay cannot follow, so mirror the loaded cues into a native text track
     // for the duration of native video fullscreen.
@@ -4324,10 +4171,6 @@ export class SubtitlePlayerController {
     private hideNativeFullscreenCueTrack(): void {
         const track = this.nativeFullscreenCueTrack;
         if (track && track.mode !== 'disabled') track.mode = 'disabled';
-    }
-
-    private isFullscreenActive(): boolean {
-        return Boolean(this.fullscreen || currentFullscreenElement() || videoIsInNativeFullscreen(this.video));
     }
 
     private seekVideoTo(time: number): void {
@@ -4875,7 +4718,6 @@ export class SubtitlePlayerController {
         this.syncLineNavigationButtons(hasLines);
         this.syncDrawerButtons(hasLines);
         this.syncSubtitleStyleControls();
-        this.syncFullscreenRailButton();
         this.syncVisibilityRailButton();
         this.syncTranscriptAutoScrollPausedClass();
         this.syncStatus();
@@ -4913,50 +4755,16 @@ export class SubtitlePlayerController {
         setInnerHtml(button, subtitleIcon(visible ? 'eye' : 'eye-off'));
     }
 
-    private syncFullscreenRailButton(): void {
-        const button = this.root?.querySelector<HTMLButtonElement>('[data-action="fullscreen"]');
-        if (!button) return;
-        const active = this.isFullscreenActive();
-        const label = uiText(this.options.getSettings().interfaceLanguage, active ? 'exitFullscreen' : 'enterFullscreen');
-        button.hidden = this.shouldHideFullscreenRailButton();
-        button.disabled = !this.video;
-        button.title = label;
-        button.setAttribute('aria-label', label);
-        button.setAttribute('aria-pressed', String(active));
-        setInnerHtml(button, subtitleIcon(active ? 'fullscreen-exit' : 'fullscreen'));
-    }
-
-    private shouldHideFullscreenRailButton(): boolean {
-        return Boolean(this.video?.closest('[data-yomu-video-frame]'));
-    }
-
     private syncLineNavigationButtons(hasLines: boolean): void {
-        const settings = this.options.getSettings();
-        // Prev/next live on the on-video rail AND in the drawer head's playback
-        // cluster; only the rail copy is subject to the hidden-controls mode
-        // (the drawer is an explicitly opened surface).
-        const hideRailNavigation = settings.subtitleControlsMode === 'hidden';
-        const language = settings.interfaceLanguage;
+        const language = this.options.getSettings().interfaceLanguage;
         for (const action of ['previous', 'next'] as const) {
-            const railButton = this.root?.querySelector<HTMLButtonElement>(`.jpdb-subtitle-rail [data-action="${action}"]`);
-            if (railButton) syncSubtitleLineNavigationButton(railButton, action, hasLines, Boolean(this.video), hideRailNavigation, language);
             const drawerButton = this.transcriptPanel?.querySelector<HTMLButtonElement>(`.jpdb-subtitle-drawer-playback [data-action="${action}"]`);
-            if (drawerButton) syncSubtitleLineNavigationButton(drawerButton, action, hasLines, Boolean(this.video), false, language);
+            if (drawerButton) syncSubtitleLineNavigationButton(drawerButton, action, hasLines, Boolean(this.video), language);
         }
         const drawerPlayback = this.transcriptPanel?.querySelector<HTMLButtonElement>('.jpdb-subtitle-drawer-playback [data-action="playback"]');
         if (drawerPlayback) {
             syncSubtitlePlaybackButton(drawerPlayback, {
                 video: this.video,
-                hiddenByNavigation: false,
-                hasLines,
-                language,
-            });
-        }
-        const playbackButton = this.root?.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="playback"]');
-        if (playbackButton) {
-            syncSubtitlePlaybackButton(playbackButton, {
-                video: this.video,
-                hiddenByNavigation: settings.subtitleControlsMode === 'hidden',
                 hasLines,
                 language,
             });
