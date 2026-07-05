@@ -189,9 +189,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 
 .yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby,
-.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word rt,
-.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby,
-.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word rt {
+.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby {
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -911,6 +909,16 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 2.05;
 }
+/* Chrome/UI hosts (menus, chips, slider labels) size their rows for plain
+   text; growing the line box shifts or overlaps the host layout (YouTube's
+   speed slider 倍 label rode onto the handle). Non-prose scan words keep the
+   host's line box and let the annotation paint above it instead. */
+.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-has-furi:not(.jpdb-reader-prose-word) {
+  line-height: inherit;
+}
+.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-prose-word) rt.jpdb-reader-furi {
+  line-height: 0.95;
+}
 .jpdb-reader-furi {
   font-size: 0.52em;
   color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;
@@ -955,9 +963,12 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   line-height: 1;
   text-align: center;
 }
-.jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi {
-  white-space: normal;
-  overflow-wrap: anywhere;
+/* A reading must never break across lines: a wrapped rt renders as stacked
+   kana fragments (ひょう/じゅん) inside narrow flex chrome. The word/ruby can
+   still wrap between token pairs; only the annotation itself stays intact. */
+.jpdb-reader-word rt.jpdb-reader-furi {
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 /* User feedback: the word contrast shadow (a white glow + a 2px dark drop) bleeds
    into the thin furigana strokes and makes the reading harder to read. Furigana

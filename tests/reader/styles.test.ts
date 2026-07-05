@@ -141,6 +141,22 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('line-height: inherit;');
     });
 
+    it('keeps furigana readings on a single line and chrome line boxes unshifted', () => {
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+
+        // A wrapped reading renders as stacked kana fragments (ひょう/じゅん)
+        // inside narrow flex chrome — rt must never break across lines.
+        const furiRtRule = css.match(/\.jpdb-reader-word rt\.jpdb-reader-furi\s*\{[^}]*\}/g)?.join('\n') ?? '';
+        expect(furiRtRule).toContain('white-space: nowrap');
+        expect(css).not.toMatch(/rt\.jpdb-reader-furi\s*\{[^}]*white-space: normal/);
+        expect(css).not.toMatch(/rt[^{,]*\{[^}]*overflow-wrap: anywhere/);
+
+        // Chrome/UI rows are sized for plain text: non-prose scan words keep
+        // the host line box (no 2.05 growth) so furigana cannot shift or
+        // overlap host layout (YouTube speed slider 倍 label).
+        expect(css).toContain('.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-has-furi:not(.jpdb-reader-prose-word) {\n  line-height: inherit;\n}');
+    });
+
     it('keeps pitch underline and state decorations on passive content words at rest', () => {
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
 

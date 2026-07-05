@@ -4736,6 +4736,43 @@ Watch the cat
         }
     });
 
+    it('shifts the rail below the native mobile control row instead of covering it', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+        expect(normalizedCss).toContain('.jpdb-subtitle-native-top-controls .jpdb-subtitle-rail { top: max(var(--jpdb-subtitle-native-top-inset, 56px), env(safe-area-inset-top)); }');
+
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://m.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        const { controller } = createInstalledSubtitleController();
+        const internals = controllerInternals<{ syncNativeControlsInset: () => void; root?: HTMLElement }>(controller);
+
+        try {
+            document.body.insertAdjacentHTML('beforeend', '<div id="player-control-overlay"><div class="player-controls-top"></div></div>');
+            const topRow = document.querySelector<HTMLElement>('.player-controls-top')!;
+            Object.defineProperty(topRow, 'getBoundingClientRect', {
+                value: () => ({ left: 0, right: 390, top: 0, bottom: 48, width: 390, height: 48, x: 0, y: 0, toJSON: () => ({}) }),
+            });
+
+            internals.syncNativeControlsInset();
+            const root = internals.root!;
+            expect(root.classList.contains('jpdb-subtitle-native-top-controls')).toBe(true);
+            expect(root.style.getPropertyValue('--jpdb-subtitle-native-top-inset')).toBe('56px');
+
+            document.getElementById('player-control-overlay')?.remove();
+            internals.syncNativeControlsInset();
+            expect(root.classList.contains('jpdb-subtitle-native-top-controls')).toBe(false);
+            expect(root.style.getPropertyValue('--jpdb-subtitle-native-top-inset')).toBe('');
+        } finally {
+            controller.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('keeps the subtitle move handle draggable on touch without painting a default shadow', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 

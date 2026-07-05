@@ -824,8 +824,11 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-watch-metadata #attributed-snippet-text',
             'ytd-watch-metadata #attributed-description-text',
             'ytd-watch-metadata yt-attributed-string#attributed-description-text',
-            'ytm-slim-video-metadata-section-renderer h1',
-            'ytm-slim-video-metadata-section-renderer #title',
+            // The whole slim metadata section, not just the title: the
+            // view-count/date line, hashtag row, and もっと見る expander live in
+            // sibling rows that stayed bare when only h1/#title were rooted.
+            'ytm-slim-video-metadata-section-renderer',
+            'ytm-slim-owner-renderer',
             'ytm-expandable-video-description-body-renderer',
             'ytm-structured-description-content-renderer',
             YOUTUBE_COMMENT_HEADER_ROOTS,
@@ -1484,7 +1487,19 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
     }
     const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
     if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
-        return [...baseTargets, ...profileUiChromeTargets];
+        // Profile roots are curated, not exhaustive: any visible Japanese they
+        // miss (e.g. a metadata row the selectors never named) still gets a
+        // passive, mirror-friendly pass so no site leaves text bare.
+        const profileTargets = [...baseTargets, ...profileUiChromeTargets];
+        if (matchingProfiles.some(profile => profile.suppressResidualVisibleScan)) return profileTargets;
+        const residualTargets = collectResidualVisibleJapaneseTargets(
+            effectiveLimit - profileTargets.length,
+            profileTargets,
+            matchingProfiles,
+        );
+        return residualTargets.length
+            ? [...profileTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some(profile => profile.nonDestructive) })]
+            : profileTargets;
     }
     const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length - profileUiChromeTargets.length, [...baseTargets, ...profileUiChromeTargets]);
     const uiChromeTargets = collectSafeUiChromeTargets(
