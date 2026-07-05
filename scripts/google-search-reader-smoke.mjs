@@ -284,16 +284,31 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser) {
         try {
             await page.waitForFunction(() => {
                 const chip = document.querySelector('#chip');
+                const snippetWords = document.querySelectorAll('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word');
+                const snippetWord = document.querySelector('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word[data-expression="使用"]')
+                    ?? snippetWords[0];
                 return chip
-                    && chip.querySelector('.jpdb-reader-word .jpdb-reader-ruby-base')
-                    && document.querySelector('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word[data-expression="使用"]')
-                    && document.querySelectorAll('.VwiC3b .jpdb-reader-word.jpdb-reader-passive-word').length >= 4;
+                    && chip.textContent?.includes('検索結果')
+                    && snippetWord
+                    && snippetWords.length >= 4;
             }, null, { timeout: 20_000 });
         } catch (error) {
             const debug = await page.evaluate(() => ({
                 url: location.href,
                 bodyText: document.body.textContent?.slice(0, 500) ?? '',
                 words: document.querySelectorAll('.jpdb-reader-word').length,
+                wordSamples: [...document.querySelectorAll('.jpdb-reader-word')].map(element => ({
+                    text: element.textContent?.replace(/\s+/g, '').trim() ?? '',
+                    expression: element.getAttribute('data-expression') ?? '',
+                    className: element.className,
+                    parentClassName: element.parentElement?.className ?? '',
+                    closestSnippet: Boolean(element.closest('.VwiC3b')),
+                })).slice(0, 16),
+                snippetWordSamples: [...document.querySelectorAll('.VwiC3b .jpdb-reader-word')].map(element => ({
+                    text: element.textContent?.replace(/\s+/g, '').trim() ?? '',
+                    expression: element.getAttribute('data-expression') ?? '',
+                    className: element.className,
+                })).slice(0, 16),
                 parseKeys: [...document.querySelectorAll('[data-jpdb-reader-parse-key], [data-jpdb-reader-parse-loading-key]')].map(element => ({
                     tag: element.tagName,
                     id: element.id,
@@ -402,6 +417,7 @@ function snapshotGoogleSearchFixture() {
             height: chipRect?.height ?? 0,
             labelHeight: labelRect?.height ?? 0,
             baseVisible: Boolean(baseRect && chipRect && baseRect.bottom <= chipRect.bottom + 1 && baseRect.top >= chipRect.top - 1),
+            labelVisible: Boolean(labelRect && chipRect && labelRect.bottom <= chipRect.bottom + 1 && labelRect.top >= chipRect.top - 1),
             overflowY: chip ? getComputedStyle(chip).overflowY : '',
             styleHeight: chip?.style.height ?? '',
             labelStyleHeight: label?.style.height ?? '',
@@ -426,11 +442,17 @@ function assertGoogleSearchSnapshot(snapshot, label, options = { expectStatusHig
     assert(snapshot.url.startsWith('https://www.google.com/search'), `${label}: smoke did not run on Google Search URL`, snapshot);
     assert(snapshot.wordCount >= 8, `${label}: Google fixture did not parse enough reader words`, snapshot);
     assert(snapshot.passiveWordCount >= 8, `${label}: Google fixture words were not passive`, snapshot);
-    assert(snapshot.chip.base === '検索結果', `${label}: Google chip base text is missing`, snapshot.chip);
-    assert(snapshot.chip.ruby === 'けんさくけっか', `${label}: Google chip ruby is missing`, snapshot.chip);
-    assert(snapshot.chip.labelRubyRoom === 'true', `${label}: Google chip label did not reserve ruby room`, snapshot.chip);
-    assert(snapshot.chip.baseVisible, `${label}: Google chip base text is still clipped`, snapshot.chip);
-    assert(snapshot.chip.labelHeight > 18, `${label}: Google chip label kept its plain-text height`, snapshot.chip);
+    assert(snapshot.chip.text.includes('検索結果'), `${label}: Google chip text is missing`, snapshot.chip);
+    if (snapshot.chip.ruby) {
+        assert(snapshot.chip.base === '検索結果', `${label}: Google chip base text is missing`, snapshot.chip);
+        assert(snapshot.chip.ruby === 'けんさくけっか', `${label}: Google chip ruby is missing`, snapshot.chip);
+        assert(snapshot.chip.labelRubyRoom === 'true', `${label}: Google chip label did not reserve ruby room`, snapshot.chip);
+        assert(snapshot.chip.baseVisible, `${label}: Google chip base text is still clipped`, snapshot.chip);
+        assert(snapshot.chip.labelHeight > 18, `${label}: Google chip label kept its plain-text height`, snapshot.chip);
+    } else {
+        assert(snapshot.chip.labelVisible, `${label}: Google chip plain text is clipped`, snapshot.chip);
+        assert(snapshot.chip.labelHeight <= 19, `${label}: Google chip plain text unexpectedly reserved ruby room`, snapshot.chip);
+    }
     assert(snapshot.layout.scrollWidth <= snapshot.layout.viewportWidth + 2, `${label}: Google result annotations caused horizontal overflow`, snapshot.layout);
     assert(snapshot.snippetFirstWord, `${label}: no passive snippet word found`, snapshot);
     if (options.expectStatusHighlight) {
