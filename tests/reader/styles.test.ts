@@ -191,7 +191,7 @@ describe('reader stylesheet loading', () => {
         // The filter chips and engagement panels are carved OUT of
         // bare-until-hover: their Japanese is reading material, so pitch
         // underlines stay on at rest there.
-        expect(strippedAtRest).toContain(':not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer) .jpdb-reader-word)');
+        expect(strippedAtRest).toContain(':not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word)');
         expect(strippedAtRest.slice(0, strippedAtRest.indexOf(':not('))).not.toContain('yt-chip-cloud-chip-view-model');
     });
 

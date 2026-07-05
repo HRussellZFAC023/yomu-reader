@@ -208,6 +208,7 @@ const HOSTED_MANGA_OCR_LINES = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Pitch underlines are visible again on overlay-decorated buttons and chips (subscribe and membership buttons, sort chips): the rule that keeps resting decoration off native page buttons no longer applies to Yomu's own overlay mirrors, which are always decorated surfaces.": "オーバーレイで装飾されたボタンやチップ（登録ボタン、メンバーになるボタン、並べ替えチップ）で、ピッチの下線が再び表示されるようになりました。ページ本来のボタンから静止時の装飾を外すルールが、常に装飾面であるよむ自身のオーバーレイミラーには適用されなくなりました。",
     "Moved the homepage Study CTA directly after Install and made the Study pill label bold.": "ホームページのStudy CTAをInstallの直後に移動し、Studyピルのラベルを太字にしました。",
     "Desktop-layout YouTube chrome that starved behind the video grid is now decorated: the left mini-guide rail entries, the search filter row, search channel cards, and shelf \"+other N\" expanders are collected with the high-value watch text instead of trailing the grids at the scan cap.": "デスクトップレイアウトのYouTubeで、動画グリッドの後回しになって未装飾のままだったクロームが装飾されるようになりました。左のミニガイドレールの項目、検索フィルター行、検索のチャンネルカード、棚の「+他 N 件」展開ボタンは、スキャン上限でグリッドの後ろに並ぶ代わりに、優先度の高い視聴テキストと一緒に収集されます。",
     "Subscriber counts and subscribe buttons are decorated at last: those rows re-render constantly, which used to exclude them entirely; they now ride the passive overlay mirror, which absorbs the re-renders, so チャンネル登録者数 rows get furigana and pitch everywhere.": "登録者数と登録ボタンがついに装飾されるようになりました。これらの行は絶えず再レンダリングされるため、以前は完全に除外されていましたが、再レンダリングを吸収するパッシブなオーバーレイミラーに載るようになり、チャンネル登録者数の行にもどこでもふりがなとピッチが付きます。",

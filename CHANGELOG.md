@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.83] - 2026-07-05
+
+### Fixed
+
+- Pitch underlines are visible again on overlay-decorated buttons and chips (subscribe and membership buttons, sort chips): the rule that keeps resting decoration off native page buttons no longer applies to Yomu's own overlay mirrors, which are always decorated surfaces.
+
 ## [1.6.82] - 2026-07-05
 
 ### Changed
