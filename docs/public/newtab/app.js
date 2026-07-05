@@ -8042,6 +8042,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const RENDERED_SCAN_HOST_MAX_TEXT = 1e3;
   const RENDERED_SCAN_HOST_REJECTION_RESET_MS = 6e4;
   const NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT = "jpdb-reader-text-mirror-stale";
+  const STALE_MIRROR_REMOVAL_GRACE_MS = 600;
   const renderedScanHosts = /* @__PURE__ */ new WeakMap();
   const textMirrorHosts = /* @__PURE__ */ new WeakMap();
   const canvasFallbackTextLayers = /* @__PURE__ */ new WeakMap();
@@ -8554,7 +8555,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
     const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
     const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
-    if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (target.nonDestructive || liveFrameworkRegion || repaintLooping)) {
+    const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(nonDestructiveHost);
+    if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (target.nonDestructive || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
       applyTokensToNonDestructiveScanTarget(target, tokens, settings);
       return;
     }
@@ -8581,7 +8583,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function renderTokenizedScanText(text2, tokens, settings, target) {
     const fragment2 = document.createDocumentFragment();
-    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby);
+    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender);
     const passiveInteraction = target.passiveInteraction || suppressRuby && !target.suppressRubyDoesNotImplyPassive;
     const renderSettings = furiganaSettingsForTarget(settings, target.parent);
     let offset = 0;
@@ -8672,7 +8674,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const text2 = plan.text;
     const safeTokens = plan.tokens;
     const renderPlan = whitespaceCollapsedNonDestructiveRender(text2, safeTokens);
-    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
+    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
     const existing = currentTextMirror(host);
@@ -8695,6 +8697,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
         parent: host,
         hasNativeRuby: targetHasNativeRuby(target),
+        mirrorRender: true,
         suppressRuby,
         passiveInteraction: target.passiveInteraction || suppressRuby
       }));
@@ -8788,7 +8791,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const text2 = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
     const placeholderOverlay = isPlaceholderControlTextMirror(host, text2);
-    const suppressRuby = placeholderOverlay || scanTargetSuppressesRuby(host, target.suppressRuby);
+    const suppressRuby = placeholderOverlay || scanTargetSuppressesRuby(host, target.suppressRuby, false);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
     const existing = currentControlTextMirror(host);
@@ -8805,6 +8808,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
       parent: host,
       hasNativeRuby: false,
+      mirrorRender: true,
       suppressRuby,
       passiveInteraction: false,
       suppressRubyDoesNotImplyPassive: placeholderOverlay
@@ -8844,6 +8848,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     layer.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
       parent: canvas,
       hasNativeRuby: targetHasNativeRuby(target),
+      mirrorRender: true,
       suppressRuby: noRuby,
       passiveInteraction: n || target.passiveInteraction
     }));
@@ -8975,8 +8980,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (settings.showFurigana && settings.furiganaMode === "all") return settings;
     return { ...settings, showFurigana: true, furiganaMode: "all" };
   }
-  function scanTargetSuppressesRuby(parent, suppressRuby) {
+  function scanTargetSuppressesRuby(parent, suppressRuby, inPlace = true) {
     if (targetForcesAllFurigana(parent)) return false;
+    if (inPlace && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(parent)) return true;
     return Boolean(suppressRuby || shouldSuppressCompactScanRuby(parent));
   }
   function targetForcesAllFurigana(parent) {
@@ -9016,7 +9022,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function shouldSuppressCompactScanRuby(parent) {
     if (parent.closest(READER_ROOT_SELECTOR)) return false;
-    if (rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(parent)) return true;
     if (shouldSuppressCompactMediaRuby(parent)) {
       markCompactMediaPassiveChrome(parent);
       return true;
@@ -9317,6 +9322,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (currentText !== state2.sourceText) {
         reassertTextMirrorHostStyles(host, state2);
         dispatchTextMirrorStale(host);
+        clearTimeout(state2.staleRemovalTimer);
+        const staleSource = state2.sourceText;
+        state2.staleRemovalTimer = setTimeout(() => {
+          if (textMirrorHosts.get(host) !== state2 || state2.sourceText !== staleSource) return;
+          if (normalizedMirrorHostText(nativeTextMirrorHostText(host)) !== state2.sourceText) removeTextMirror(host);
+        }, STALE_MIRROR_REMOVAL_GRACE_MS);
       }
     });
     state2.observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
@@ -9350,6 +9361,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function removeTextMirror(host) {
     const state2 = textMirrorHosts.get(host);
     state2?.observer.disconnect();
+    clearTimeout(state2?.staleRemovalTimer);
     Array.from(host.children).filter((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)).forEach((mirror) => mirror.remove());
     if (state2) restoreTextMirrorHost(host, state2);
     textMirrorHosts.delete(host);
@@ -39425,7 +39437,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.78".trim() ? "1.6.78".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.79".trim() ? "1.6.79".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

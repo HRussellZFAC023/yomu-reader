@@ -261,6 +261,7 @@ interface RenderedScanHost {
 interface TextMirrorHostState {
     observer: MutationObserver;
     sourceText: string;
+    staleRemovalTimer?: ReturnType<typeof setTimeout>;
     visibility: string;
     visibilityPriority: string;
     overflow: string;
@@ -307,6 +308,10 @@ const RENDERED_SCAN_HOST_REJECTION_WINDOW_MS = 15000;
 const RENDERED_SCAN_HOST_REJECTION_RESET_MS = 60000;
 const RENDERED_SCAN_HOST_RESCAN_DELAYS_MS = [700, 1600, 4000, 10000];
 export const NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT = 'jpdb-reader-text-mirror-stale';
+// Grace before a stale mirror (host text changed under it) is torn down when
+// no rescan refreshed it — long enough for the stale-event rescan, short
+// enough that a recycled element never keeps painting outdated text.
+export const STALE_MIRROR_REMOVAL_GRACE_MS = 600;
 const renderedScanHosts = new WeakMap<HTMLElement, RenderedScanHost>();
 const textMirrorHosts = new WeakMap<HTMLElement, TextMirrorHostState>();
 const canvasFallbackTextLayers = new WeakMap<HTMLCanvasElement, CanvasFallbackTextLayerState>();
@@ -1311,8 +1316,14 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
         ? scanHostIsRepaintLooping(nonDestructiveHost, target.text)
         : false;
     const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
+    // Constrained rows (line-clamp, ellipsis, sub-line clips) cannot take
+    // in-place ruby on engines where it collapses or grows the clip window —
+    // the absolutely-positioned mirror sizes its own line above the host, so
+    // those rows keep full furigana instead of a suppressed reading.
+    const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion
+        && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(nonDestructiveHost);
     if ((!target.forceInlineRender || (repaintLooping && canUseRepaintLoopMirror))
-        && (target.nonDestructive || liveFrameworkRegion || repaintLooping)) {
+        && (target.nonDestructive || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
     }
@@ -1346,10 +1357,10 @@ function renderTokenizedScanText(
     text: string,
     tokens: JPDBToken[],
     settings: ReaderSettings,
-    target: { parent: HTMLElement; hasNativeRuby?: boolean; suppressRuby?: boolean; proseWrap?: boolean; passiveInteraction?: boolean; suppressRubyDoesNotImplyPassive?: boolean },
+    target: { parent: HTMLElement; hasNativeRuby?: boolean; suppressRuby?: boolean; proseWrap?: boolean; passiveInteraction?: boolean; suppressRubyDoesNotImplyPassive?: boolean; mirrorRender?: boolean },
 ): DocumentFragment {
     const fragment = document.createDocumentFragment();
-    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby);
+    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender);
     const passiveInteraction = target.passiveInteraction || (suppressRuby && !target.suppressRubyDoesNotImplyPassive);
     const renderSettings = furiganaSettingsForTarget(settings, target.parent);
     let offset = 0;
@@ -1479,7 +1490,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     const text = plan.text;
     const safeTokens = plan.tokens;
     const renderPlan = whitespaceCollapsedNonDestructiveRender(text, safeTokens);
-    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
+    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
     const existing = currentTextMirror(host);
@@ -1503,6 +1514,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
         mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
             parent: host,
             hasNativeRuby: targetHasNativeRuby(target),
+            mirrorRender: true,
             suppressRuby,
             passiveInteraction: target.passiveInteraction || suppressRuby,
         }));
@@ -1619,7 +1631,7 @@ function applyTokensToControlTextMirrorTarget(target: ScanTextTarget, tokens: JP
     const text = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text.length);
     const placeholderOverlay = isPlaceholderControlTextMirror(host, text);
-    const suppressRuby = placeholderOverlay || scanTargetSuppressesRuby(host, target.suppressRuby);
+    const suppressRuby = placeholderOverlay || scanTargetSuppressesRuby(host, target.suppressRuby, false);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
     const existing = currentControlTextMirror(host);
@@ -1637,6 +1649,7 @@ function applyTokensToControlTextMirrorTarget(target: ScanTextTarget, tokens: JP
     mirror.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
         parent: host,
         hasNativeRuby: false,
+        mirrorRender: true,
         suppressRuby,
         passiveInteraction: false,
         suppressRubyDoesNotImplyPassive: placeholderOverlay,
@@ -1680,6 +1693,7 @@ function applyTokensToCanvasFallbackTarget(target: ScanTextTarget, tokens: JPDBT
     layer.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
         parent: canvas,
         hasNativeRuby: targetHasNativeRuby(target),
+        mirrorRender: true,
         suppressRuby: noRuby,
         passiveInteraction: n || target.passiveInteraction,
     }));
@@ -1832,8 +1846,12 @@ function furiganaSettingsForTarget(settings: ReaderSettings, parent: HTMLElement
     return { ...settings, showFurigana: true, furiganaMode: 'all' };
 }
 
-function scanTargetSuppressesRuby(parent: HTMLElement, suppressRuby?: boolean): boolean {
+function scanTargetSuppressesRuby(parent: HTMLElement, suppressRuby?: boolean, inPlace = true): boolean {
     if (targetForcesAllFurigana(parent)) return false;
+    // Constrained rows only reject IN-PLACE ruby (it collapses or grows the
+    // clip window on distorting engines); the absolutely-positioned mirror
+    // sizes its own line, so mirrored renders keep the reading.
+    if (inPlace && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(parent)) return true;
     return Boolean(suppressRuby || shouldSuppressCompactScanRuby(parent));
 }
 
@@ -1901,7 +1919,6 @@ function isInsideRubyFragileConstrainedRow(element: HTMLElement): boolean {
 
 function shouldSuppressCompactScanRuby(parent: HTMLElement): boolean {
     if (parent.closest(READER_ROOT_SELECTOR)) return false;
-    if (rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(parent)) return true;
     if (shouldSuppressCompactMediaRuby(parent)) {
         markCompactMediaPassiveChrome(parent);
         return true;
@@ -2291,8 +2308,20 @@ function observeTextMirrorHost(host: HTMLElement, sourceText: string): void {
             return;
         }
         if (currentText !== state.sourceText) {
+            // Keep the stale mirror briefly so a routine title re-render can
+            // be rescanned without a bare-text flash — but only briefly: when
+            // the element was recycled for DIFFERENT content (the comments
+            // header becoming the composer on iPad) and no rescan refreshes
+            // the mirror, it would keep painting the OLD text over the new
+            // content while hiding it. Restore the host once the grace passes.
             reassertTextMirrorHostStyles(host, state);
             dispatchTextMirrorStale(host);
+            clearTimeout(state.staleRemovalTimer);
+            const staleSource = state.sourceText;
+            state.staleRemovalTimer = setTimeout(() => {
+                if (textMirrorHosts.get(host) !== state || state.sourceText !== staleSource) return;
+                if (normalizedMirrorHostText(nativeTextMirrorHostText(host)) !== state.sourceText) removeTextMirror(host);
+            }, STALE_MIRROR_REMOVAL_GRACE_MS);
         }
     });
     state.observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
@@ -2334,6 +2363,7 @@ function normalizedMirrorHostText(text: string): string {
 function removeTextMirror(host: HTMLElement): void {
     const state = textMirrorHosts.get(host);
     state?.observer.disconnect();
+    clearTimeout(state?.staleRemovalTimer);
     Array.from(host.children)
         .filter((child): child is HTMLElement => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR))
         .forEach(mirror => mirror.remove());

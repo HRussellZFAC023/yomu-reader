@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { applyTokensToScanTarget, collectTextTargetsIn, removeNonDestructiveScanMirrors } from '../../src/reader/dom';
+import { applyTokensToScanTarget, collectTextTargetsIn, removeNonDestructiveScanMirrors, STALE_MIRROR_REMOVAL_GRACE_MS } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -64,6 +64,27 @@ describe('framework-managed chat mirror', () => {
             expect((host.firstChild as Text).data).toBe(TEXT);
         }
         expect(host.querySelector(':scope > .jpdb-reader-text-mirror')).toBeTruthy();
+    });
+
+    it('drops a stale mirror when the host is recycled with different text', async () => {
+        document.body.innerHTML = `<div data-message-author-role="assistant"><div id="host" class="markdown">${TEXT}</div></div>`;
+        const host = document.getElementById('host')!;
+        markReactOwned(host);
+        paint(host);
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
+
+        // YouTube/React recycle the element for new content (the comments
+        // header became the composer row on iPad): the OLD mirror must not
+        // keep painting over the new text once the rescan grace passes.
+        host.firstChild!.textContent = '別の日本語テキスト';
+        await new Promise(resolve => setTimeout(resolve, 0));
+        // Inside the grace window the mirror survives (anti-flicker for
+        // routine title re-renders that a rescan refreshes immediately).
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
+
+        await new Promise(resolve => setTimeout(resolve, STALE_MIRROR_REMOVAL_GRACE_MS + 150));
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
     });
 
     it('keeps the higher-fidelity destructive paint on static framework article prose', () => {

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.79] - 2026-07-05
+
+### Fixed
+
+- Clipped rows get their furigana back without any layout risk: Shorts titles, shelf headings, and line-clamped post bodies now render through the overlay text mirror, which draws the reading on its own line above the row, instead of suppressing the reading on browsers where in-place ruby would collapse or grow the clip window.
+- A recycled element no longer keeps showing its old overlay: when YouTube reuses an element for different text (the comments header turning into the comment composer on iPad), the stale overlay used to keep painting the old text over the new content while hiding it. The overlay is now removed the moment the underlying text changes, and the new text is re-decorated on the next scan.
+
 ## [1.6.78] - 2026-07-05
 
 ### Fixed

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.78
+// @version 1.6.79
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.78#sha256=BTsTKkK11pTKP4BkXxdapiXcKCC9kJA8YyqWsSVegJ0=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.78#sha256=zjZMjln3sg66KNP8QUGbfXDkd6uFHbcGVVNSCIfRd74=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.78#sha256=j7UeK9pWUaQOGzz6JIjmQ1we8WS5IDBvu/ptBM8TZ8w=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.78#sha256=4L4hEitPWhEM9M8bBstYGHdhmHHk0OW2tnDM91GnW0c=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.78#sha256=Pvjrtc5X/H7bvlv8S1eyYqog/AgGIVLNfZ94jj6y17E=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.78#sha256=UiyUz5Rud4kRLsmLS9tLlCcgynWoUZ1w+/P3hGZ+puU=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.79#sha256=BTsTKkK11pTKP4BkXxdapiXcKCC9kJA8YyqWsSVegJ0=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.79#sha256=zjZMjln3sg66KNP8QUGbfXDkd6uFHbcGVVNSCIfRd74=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.79#sha256=j7UeK9pWUaQOGzz6JIjmQ1we8WS5IDBvu/ptBM8TZ8w=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.79#sha256=4L4hEitPWhEM9M8bBstYGHdhmHHk0OW2tnDM91GnW0c=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.79#sha256=Pvjrtc5X/H7bvlv8S1eyYqog/AgGIVLNfZ94jj6y17E=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.79#sha256=UiyUz5Rud4kRLsmLS9tLlCcgynWoUZ1w+/P3hGZ+puU=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -4211,6 +4211,7 @@ const RENDERED_SCAN_HOST_REJECTION_WINDOW_MS = 15e3;
 const RENDERED_SCAN_HOST_REJECTION_RESET_MS = 6e4;
 const RENDERED_SCAN_HOST_RESCAN_DELAYS_MS = [700, 1600, 4e3, 1e4];
 const NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT = "jpdb-reader-text-mirror-stale";
+const STALE_MIRROR_REMOVAL_GRACE_MS = 600;
 const renderedScanHosts = new WeakMap();
 const textMirrorHosts = new WeakMap();
 const canvasFallbackTextLayers = new WeakMap();
@@ -4910,7 +4911,8 @@ function applyTokensToScanTarget(target, tokens, settings) {
   const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
   const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
   const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
-  if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (target.nonDestructive || liveFrameworkRegion || repaintLooping)) {
+  const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(nonDestructiveHost);
+  if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (target.nonDestructive || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
   applyTokensToNonDestructiveScanTarget(target, tokens, settings);
   return;
   }
@@ -4937,7 +4939,7 @@ function renderTokenizedTextFragment(target, tokens, settings) {
 }
 function renderTokenizedScanText(text2, tokens, settings, target) {
   const fragment = document.createDocumentFragment();
-  const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby);
+  const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender);
   const passiveInteraction = target.passiveInteraction || suppressRuby && !target.suppressRubyDoesNotImplyPassive;
   const renderSettings = furiganaSettingsForTarget(settings, target.parent);
   let offset = 0;
@@ -5028,7 +5030,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   const text2 = plan.text;
   const safeTokens = plan.tokens;
   const renderPlan = whitespaceCollapsedNonDestructiveRender(text2, safeTokens);
-  const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
+  const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false);
   const renderSettings = furiganaSettingsForTarget(settings, host);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
   const existing = currentTextMirror(host);
@@ -5051,6 +5053,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   mirror.append(renderTokenizedScanText(renderPlan.text, renderPlan.tokens, renderSettings, {
     parent: host,
     hasNativeRuby: targetHasNativeRuby(target),
+    mirrorRender: true,
     suppressRuby,
     passiveInteraction: target.passiveInteraction || suppressRuby
   }));
@@ -5150,7 +5153,7 @@ function applyTokensToControlTextMirrorTarget(target, tokens, settings) {
   const text2 = target.text;
   const safeTokens = nonOverlappingTokens(tokens, text2.length);
   const placeholderOverlay = isPlaceholderControlTextMirror(host, text2);
-  const suppressRuby = placeholderOverlay || scanTargetSuppressesRuby(host, target.suppressRuby);
+  const suppressRuby = placeholderOverlay || scanTargetSuppressesRuby(host, target.suppressRuby, false);
   const renderSettings = furiganaSettingsForTarget(settings, host);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
   const existing = currentControlTextMirror(host);
@@ -5167,6 +5170,7 @@ function applyTokensToControlTextMirrorTarget(target, tokens, settings) {
   mirror.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
   parent: host,
   hasNativeRuby: false,
+  mirrorRender: true,
   suppressRuby,
   passiveInteraction: false,
   suppressRubyDoesNotImplyPassive: placeholderOverlay
@@ -5206,6 +5210,7 @@ function applyTokensToCanvasFallbackTarget(target, tokens, settings) {
   layer.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
   parent: canvas,
   hasNativeRuby: targetHasNativeRuby(target),
+  mirrorRender: true,
   suppressRuby: noRuby,
   passiveInteraction: n || target.passiveInteraction
   }));
@@ -5337,8 +5342,9 @@ function furiganaSettingsForTarget(settings, parent) {
   if (settings.showFurigana && settings.furiganaMode === "all") return settings;
   return { ...settings, showFurigana: true, furiganaMode: "all" };
 }
-function scanTargetSuppressesRuby(parent, suppressRuby) {
+function scanTargetSuppressesRuby(parent, suppressRuby, inPlace = true) {
   if (targetForcesAllFurigana(parent)) return false;
+  if (inPlace && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(parent)) return true;
   return Boolean(suppressRuby || shouldSuppressCompactScanRuby(parent));
 }
 function targetForcesAllFurigana(parent) {
@@ -5378,7 +5384,6 @@ function isInsideRubyFragileConstrainedRow(element2) {
 }
 function shouldSuppressCompactScanRuby(parent) {
   if (parent.closest(READER_ROOT_SELECTOR$3)) return false;
-  if (rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(parent)) return true;
   if (shouldSuppressCompactMediaRuby(parent)) {
   markCompactMediaPassiveChrome(parent);
   return true;
@@ -5679,6 +5684,12 @@ function observeTextMirrorHost(host, sourceText) {
   if (currentText !== state.sourceText) {
     reassertTextMirrorHostStyles(host, state);
     dispatchTextMirrorStale(host);
+    clearTimeout(state.staleRemovalTimer);
+    const staleSource = state.sourceText;
+    state.staleRemovalTimer = setTimeout(() => {
+      if (textMirrorHosts.get(host) !== state || state.sourceText !== staleSource) return;
+      if (normalizedMirrorHostText(nativeTextMirrorHostText(host)) !== state.sourceText) removeTextMirror(host);
+    }, STALE_MIRROR_REMOVAL_GRACE_MS);
   }
   });
   state.observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
@@ -5712,6 +5723,7 @@ function normalizedMirrorHostText(text2) {
 function removeTextMirror(host) {
   const state = textMirrorHosts.get(host);
   state?.observer.disconnect();
+  clearTimeout(state?.staleRemovalTimer);
   Array.from(host.children).filter((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)).forEach((mirror) => mirror.remove());
   if (state) restoreTextMirrorHost(host, state);
   textMirrorHosts.delete(host);
@@ -32645,7 +32657,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.78"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.79"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
