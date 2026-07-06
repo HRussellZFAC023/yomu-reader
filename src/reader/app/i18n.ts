@@ -229,6 +229,7 @@ const COPY = {
         colorSourceJpdb: 'JPDB status',
         colorSourceAnki: 'Anki status',
         colorSourcePitch: 'Pitch accent',
+        colorSourceNone: 'None',
         colorChannelsHelp: '',
         interfaceHelp: '',
         popupLookup: 'Popup lookup',
@@ -1956,6 +1957,7 @@ colorSourceStatus	JPDB + Ankiの状態
 colorSourceJpdb	JPDBの状態
 colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
+colorSourceNone	なし
 colorChannelsHelp	
 interfaceHelp	インターフェイス設定です。
 popupLookup	ポップアップ検索

@@ -2011,7 +2011,10 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   opacity: 1 !important;
   transform: scale(1) !important;
   font-size: 11px !important;
-  letter-spacing: 1px !important;
+  line-height: 1 !important;
+  /* No trailing letter-spacing — it pushed the 'II' left of the badge centre.
+     A hair of indent balances the glyph pair inside the flex-centred box. */
+  text-indent: 0.06em !important;
   background: color-mix(in srgb, var(--jpdb-reader-muted) 78%, var(--jpdb-reader-surface)) !important;
   color: var(--jpdb-reader-surface) !important;
 }

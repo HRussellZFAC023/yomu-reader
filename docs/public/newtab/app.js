@@ -1545,6 +1545,7 @@
       colorSourceJpdb: "JPDB status",
       colorSourceAnki: "Anki status",
       colorSourcePitch: "Pitch accent",
+      colorSourceNone: "None",
       colorChannelsHelp: "",
       interfaceHelp: "",
       popupLookup: "Popup lookup",
@@ -3266,6 +3267,7 @@ colorSourceStatus	JPDB + Ankiの状態
 colorSourceJpdb	JPDBの状態
 colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
+colorSourceNone	なし
 colorChannelsHelp
 interfaceHelp	インターフェイス設定です。
 popupLookup	ポップアップ検索
@@ -39809,7 +39811,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.101".trim() ? "1.6.101".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.102".trim() ? "1.6.102".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -40145,7 +40147,7 @@ ${spelling}`);
     ["jpdb", "JPDB status"],
     ["anki", "Anki status"],
     ["pitch", "Pitch accent"],
-    ["off", "Off"]
+    ["off", "None"]
   ];
   const DEFAULT_COLOR_SOURCE_VALUES = {
     wordHighlightColorSource: "jpdb",
@@ -43176,7 +43178,7 @@ ${spelling}`);
       ["jpdb", text2("colorSourceJpdb").replace("JPDB", apiLabel)],
       ["anki", text2("colorSourceAnki")],
       ["pitch", text2("colorSourcePitch")],
-      ["off", text2("off")]
+      ["off", text2("colorSourceNone")]
     ]));
   }
   function localizeMediaSettingsSelects(form, text2) {

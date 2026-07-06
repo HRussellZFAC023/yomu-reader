@@ -27,7 +27,7 @@ const COLOR_SOURCE_OPTIONS: [SelectableReaderColorSource, string][] = [
     ['jpdb', 'JPDB status'],
     ['anki', 'Anki status'],
     ['pitch', 'Pitch accent'],
-    ['off', 'Off'],
+    ['off', 'None'],
 ];
 const DEFAULT_COLOR_SOURCE_VALUES: Record<ColorSourceSettingName, SelectableReaderColorSource> = {
     wordHighlightColorSource: 'jpdb',

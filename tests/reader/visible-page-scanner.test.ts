@@ -116,7 +116,9 @@ describe('VisiblePageScanner', () => {
             await new Promise(resolve => setTimeout(resolve, 20));
 
             await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalled());
-            expect(document.querySelector('ytd-comments .jpdb-reader-word')).not.toBeNull();
+            // Token application is async after parse resolves — wait for the word
+            // to render instead of asserting immediately (CI flake: got null).
+            await vi.waitFor(() => expect(document.querySelector('ytd-comments .jpdb-reader-word')).not.toBeNull());
             expect(document.querySelector('ytd-comment-view-model')?.textContent).toContain('日本語コメント0');
         } finally {
             scanner.destroy();
@@ -158,7 +160,7 @@ describe('VisiblePageScanner', () => {
             firstBatch.resolve((parseJapanese.mock.calls[0]?.[0] ?? []).map(text => [testToken(text, text, 0, text.length)]));
             await scan;
             expect(parseJapanese.mock.calls.length).toBeGreaterThan(1);
-            expect(document.querySelector('ytd-comments .jpdb-reader-word')).not.toBeNull();
+            await vi.waitFor(() => expect(document.querySelector('ytd-comments .jpdb-reader-word')).not.toBeNull());
             expect(document.querySelector('yt-attributed-string')?.textContent).toContain('日本語コメント0です');
         } finally {
             scanner.destroy();

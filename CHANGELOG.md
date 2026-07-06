@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.102] - 2026-07-06
+
+### Fixed
+
+- The pause icon on the puck is now centred in its badge instead of sitting slightly to the left.
+
+### Improved
+
+- Each word and subtitle colour channel (highlight, underline, text) now offers a "None" option — previously labelled "Off" — so it is clear you can turn that channel's colour off entirely (for example no underline colour, or no word highlight at all).
+
 ## [1.6.101] - 2026-07-06
 
 ### Fixed

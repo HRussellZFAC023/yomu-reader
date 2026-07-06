@@ -1405,7 +1405,7 @@ function localizeColorSourceSelects(form: HTMLFormElement, text: SettingsText): 
         ['jpdb', text('colorSourceJpdb').replace('JPDB', apiLabel)],
         ['anki', text('colorSourceAnki')],
         ['pitch', text('colorSourcePitch')],
-        ['off', text('off')],
+        ['off', text('colorSourceNone')],
     ]));
 }
 
