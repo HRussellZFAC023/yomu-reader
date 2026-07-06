@@ -14577,13 +14577,11 @@ class CardPopoverRenderer {
   const reading = component.reading.trim();
   const pitchClass = expressionComponentPitchClass(component, componentPitches);
   const term = renderExpressionComponentTerm(component, pitchClass);
-  const readingText2 = reading && reading !== component.text ? `<small>${escapeHtml$1(reading)}</small>` : "";
   return `<li class="jpdb-reader-jpdb-used-in-row jpdb-reader-expression-component-row">
             <div class="jpdb-reader-jpdb-used-in-main jpdb-reader-expression-component-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(component.text)}" data-dictionary-reading="${escapeHtml$1(reading)}" data-external="false">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" role="button" tabindex="0" data-dictionary-lookup="${escapeHtml$1(component.text)}" data-dictionary-reading="${escapeHtml$1(reading)}" data-external="false">
                     ${term}
                 </a>
-                ${readingText2}
             </div>
         </li>`;
   }
@@ -14948,7 +14946,7 @@ ${component.reading}`;
   });
 }
 function expressionComponentPitchClass(component, componentPitches) {
-  const match = componentPitches.find((pitch) => pitch.text === component.text && pitch.reading === component.reading);
+  const match = componentPitches.find((pitch) => pitch.text === component.text && pitch.reading === component.reading) ?? componentPitches.find((pitch) => pitch.text === component.text);
   return match ? getPitchClass([match.pitch], match.reading) : "";
 }
 function renderExpressionComponentTerm(component, pitchClass) {
@@ -28258,9 +28256,7 @@ function renderTokenListHtml(tokens, selected, source, previousNavigationEntry, 
             ${renderTokenListNavigation(previousNavigationEntry, language)}
             <div class="jpdb-reader-pos">${escapeHtml$1(title)}</div>
             ${renderSelectionLookupPills(selected, settings)}
-            <div class="jpdb-reader-meanings">
-                ${tokens.map((token) => renderTokenListButton(token)).join("")}
-            </div>
+            ${renderTokenSentence(tokens, selected, settings)}
             ${source === "selection" ? renderTokenListTranslation(tokens, settings) : ""}
         </div>
     `;
@@ -28297,15 +28293,66 @@ function renderTokenListNavigation(previousNavigationEntry, language) {
   label: previousNavigationEntry.kind === "kanji" ? previousNavigationEntry.kanji : previousNavigationEntry.card.spelling
   });
 }
-function renderTokenListButton(token) {
-  return `
-        <button class="jpdb-reader-btn" data-token-choice="true" data-vid="${token.card.vid}" data-sid="${token.card.sid}">
-            ${escapeHtml$1(token.card.spelling)} ${renderTokenListReading(token)}
-        </button>
-    `;
+function renderTokenSentence(tokens, selected, settings) {
+  const { segments, unmatched } = tokenSentenceSegments(tokens, selected);
+  const flow = segments.map((segment) => segment.kind === "token" ? renderTokenSentenceWord(segment.token, segment.surface, settings) : `<span class="jpdb-reader-token-sentence-gap">${escapeHtml$1(segment.text)}</span>`).join("");
+  const extras = unmatched.map((token) => renderTokenSentenceWord(token, token.card.spelling, settings)).join(" ");
+  return `<div class="jpdb-reader-meanings jpdb-reader-token-sentence" lang="ja">${flow}${extras ? `<span class="jpdb-reader-token-sentence-extras"> ${extras}</span>` : ""}</div>`;
 }
-function renderTokenListReading(token) {
-  return token.card.reading !== token.card.spelling ? `<span class="jpdb-reader-reading">${escapeHtml$1(token.card.reading)}</span>` : "";
+function tokenSentenceSegments(tokens, selected) {
+  const segments = [];
+  const unmatched = [];
+  let cursor = 0;
+  for (const token of tokens) {
+  const match = matchTokenSurface(selected, cursor, token);
+  if (!match) {
+    unmatched.push(token);
+    continue;
+  }
+  if (match.start > cursor) segments.push({ kind: "text", text: selected.slice(cursor, match.start) });
+  segments.push({ kind: "token", token, surface: selected.slice(match.start, match.end) });
+  cursor = match.end;
+  }
+  if (cursor < selected.length) segments.push({ kind: "text", text: selected.slice(cursor) });
+  return { segments, unmatched };
+}
+function matchTokenSurface(selected, cursor, token) {
+  if (hasPlausibleTokenOffsets(selected, cursor, token)) {
+  const slice = selected.slice(token.start, token.end);
+  if (slice === token.card.spelling || slice === token.card.reading) return { start: token.start, end: token.end };
+  }
+  for (const needle of [token.card.spelling, token.card.reading]) {
+  const trimmed = needle?.trim();
+  if (!trimmed) continue;
+  const index = selected.indexOf(trimmed, cursor);
+  if (index >= 0) return { start: index, end: index + trimmed.length };
+  }
+  if (hasPlausibleTokenOffsets(selected, cursor, token) && sliceSharesTokenPrefix(selected, token)) {
+  return { start: token.start, end: token.end };
+  }
+  return null;
+}
+function hasPlausibleTokenOffsets(selected, cursor, token) {
+  return token.start >= cursor && token.end > token.start && token.end <= selected.length;
+}
+function sliceSharesTokenPrefix(selected, token) {
+  const first = selected.slice(token.start, token.end)[0];
+  return Boolean(first && (token.card.spelling.startsWith(first) || token.card.reading.startsWith(first)));
+}
+function renderTokenSentenceWord(token, surface, settings) {
+  const reading = token.card.reading?.trim() ?? "";
+  const pitchClass = token.pitchClass || getPitchClass(token.card.pitchAccent ?? [], reading || surface);
+  const chipToken = { ...token, pitchClass, start: 0, end: surface.length, length: surface.length, rubies: [] };
+  const state = primaryCardState(normalizeCardStates(token.card.cardState));
+  const withRuby = shouldRenderRuby(surface, chipToken, settings);
+  const classes = [
+  readerWordClassName(state, chipToken, settings),
+  "jpdb-reader-token-sentence-word",
+  withRuby ? "jpdb-reader-has-furi" : ""
+  ].filter(Boolean).join(" ");
+  const content = withRuby ? renderRuby(surface, chipToken) : escapeHtml$1(surface);
+  const readingAttr = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
+  return `<button type="button" class="${classes}" data-token-choice="true" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-surface="${escapeHtml$1(surface)}" data-expression="${escapeHtml$1(token.card.spelling)}"${readingAttr} data-pitch-class="${escapeHtml$1(pitchClass || "unknown")}">${content}</button>`;
 }
 function renderTokenListTranslation(tokens, settings) {
   if (!settings.selectionPopoverShowTranslation) return "";
@@ -28313,6 +28360,7 @@ function renderTokenListTranslation(tokens, settings) {
   if (!glosses.length) return "";
   return `<div class="jpdb-reader-help jpdb-reader-selection-translation">${escapeHtml$1(glosses.join(" / "))}</div>`;
 }
+const RENDERED_SELECTION_MAX_LENGTH = 13;
 function createTextLookupDisplayContext(text2, options, state) {
   const selected = normalizedLookupText(text2);
   if (!isLookupableJapaneseText(selected)) return null;
@@ -28358,7 +28406,7 @@ function lookupRenderedSelection(selected, callbacks) {
   const context = renderedSelectionDisplayContext(words, selected, callbacks.displayState);
   if (!context) return false;
   const sentence = renderedSelectionSentence(words, getSelectionSentence() || context.selected, callbacks);
-  if (context.selected[13]) return false;
+  if (context.selected.length > RENDERED_SELECTION_MAX_LENGTH) return false;
   showRenderedSelectionTokens(tokens, context, sentence, callbacks);
   return true;
 }
@@ -38445,7 +38493,16 @@ class ReaderApp {
   installMiningDrawerHandle(popover, (button2, expanded) => this.setMiningControlsExpanded(button2, expanded));
   this.installReaderControlPointerActivation(popover);
   popover.addEventListener("click", (event) => this.handleCardPopoverClick(event, card, sentence, anchor, trigger));
+  popover.addEventListener("keydown", (event) => this.handleCardPopoverLookupKeydown(event));
   popover.addEventListener("change", (event) => this.handlePopoverReviewTargetChange(event, popover));
+  }
+  handleCardPopoverLookupKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const link = dictionaryLookupLink(event.target);
+  if (!link) return;
+  event.preventDefault();
+  event.stopPropagation();
+  link.click();
   }
   handlePopoverReviewTargetChange(event, popover) {
   const select = event.target?.closest("[data-review-target-select]");

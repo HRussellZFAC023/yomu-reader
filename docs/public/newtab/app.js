@@ -61506,13 +61506,11 @@ ${spelling}`);
       const reading = component.reading.trim();
       const pitchClass = expressionComponentPitchClass(component, componentPitches);
       const term = renderExpressionComponentTerm(component, pitchClass);
-      const readingText2 = reading && reading !== component.text ? `<small>${escapeHtml$1(reading)}</small>` : "";
       return `<li class="jpdb-reader-jpdb-used-in-row jpdb-reader-expression-component-row">
             <div class="jpdb-reader-jpdb-used-in-main jpdb-reader-expression-component-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(component.text)}" data-dictionary-reading="${escapeHtml$1(reading)}" data-external="false">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" role="button" tabindex="0" data-dictionary-lookup="${escapeHtml$1(component.text)}" data-dictionary-reading="${escapeHtml$1(reading)}" data-external="false">
                     ${term}
                 </a>
-                ${readingText2}
             </div>
         </li>`;
     }
@@ -61881,7 +61879,7 @@ ${component.reading}`;
     });
   }
   function expressionComponentPitchClass(component, componentPitches) {
-    const match = componentPitches.find((pitch) => pitch.text === component.text && pitch.reading === component.reading);
+    const match = componentPitches.find((pitch) => pitch.text === component.text && pitch.reading === component.reading) ?? componentPitches.find((pitch) => pitch.text === component.text);
     return match ? getPitchClass([match.pitch], match.reading) : "";
   }
   function renderExpressionComponentTerm(component, pitchClass) {
