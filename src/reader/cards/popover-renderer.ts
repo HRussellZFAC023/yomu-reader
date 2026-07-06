@@ -191,15 +191,11 @@ export class CardPopoverRenderer {
         const components = uniqueExpressionComponents(data.expressionComponents ?? []);
         if (data.loading || components.length < 2) return '';
         const rows = components.map(component => this.renderExpressionComponent(component, data.componentPitches ?? [])).join('');
-        return `<details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-expression-components" open>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml(uiText(view.language, 'composedOf'))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${components.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-used-in jpdb-reader-expression-component-list">${rows}</ul>
-            </div>
-        </details>`;
+        // The breakdown is visually self-explanatory, so the label lives only
+        // in the accessibility tree; role=list survives list-style:none.
+        return `<div class="jpdb-reader-expression-components">
+            <ul class="jpdb-reader-jpdb-used-in jpdb-reader-expression-component-list" role="list" aria-label="${escapeHtml(uiText(view.language, 'composedOf'))}">${rows}</ul>
+        </div>`;
     }
 
     private renderExpressionComponent(component: ExpressionComponentLookup, componentPitches: ExpressionComponentPitch[]): string {

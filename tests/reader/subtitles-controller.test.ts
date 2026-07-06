@@ -3649,6 +3649,47 @@ Watch the cat
         }
     });
 
+    it('calibrates virtual transcript row estimates from rendered row heights with damping and clamps', () => {
+        const cues = Array.from({ length: 300 }, (_, index) => ({
+            start: index,
+            end: index + 0.8,
+            text: `背の高い字幕${index}`,
+            transcriptEligible: true,
+        }));
+        const { controller, internals } = setupTranscriptCueController<typeof cues[number], {
+            calibrateTranscriptRowEstimate: () => void;
+            transcriptRowEstimatePx: number;
+        }>(cues);
+        const setRenderedRowHeights = (height: number) => {
+            document.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row').forEach(row => {
+                Object.defineProperty(row, 'offsetHeight', {
+                    configurable: true,
+                    value: height,
+                });
+            });
+        };
+
+        try {
+            internals.openLinesPanel();
+
+            setRenderedRowHeights(140);
+            internals.calibrateTranscriptRowEstimate();
+            expect(internals.transcriptRowEstimatePx).toBeCloseTo(116, 4);
+
+            internals.transcriptRowEstimatePx = 230;
+            setRenderedRowHeights(400);
+            internals.calibrateTranscriptRowEstimate();
+            expect(internals.transcriptRowEstimatePx).toBe(240);
+
+            internals.transcriptRowEstimatePx = 50;
+            setRenderedRowHeights(1);
+            internals.calibrateTranscriptRowEstimate();
+            expect(internals.transcriptRowEstimatePx).toBe(40);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('recenters a virtualized transcript when playback advances past the rendered rows', () => {
         const cues = Array.from({ length: 300 }, (_, index) => ({
             start: index,

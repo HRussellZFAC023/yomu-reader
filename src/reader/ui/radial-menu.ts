@@ -272,6 +272,16 @@ export function radialPowerIcon(): string {
     return `${SVG_OPEN}<path d="M12 4v8"></path><path d="M7.5 7.5a7 7 0 1 0 9 0"></path></svg>`;
 }
 
+/** Furigana hidden — the master toggle is in colours/lookups-only mode. */
+export function radialFuriganaHiddenIcon(): string {
+    return `${SVG_OPEN}<text x="12" y="15.5" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor" stroke="none">ふ</text><path d="M5 19 19 5"></path></svg>`;
+}
+
+/** Paused — all reader annotations are disabled. */
+export function radialPausedIcon(): string {
+    return `${SVG_OPEN}<path d="M9 5v14"></path><path d="M15 5v14"></path></svg>`;
+}
+
 /** Gear — open settings. */
 export function radialSettingsIcon(): string {
     return `${SVG_OPEN}<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
@@ -290,6 +300,11 @@ export function radialAudioMutedIcon(): string {
 /** Image/text scan — cycle OCR interaction mode. */
 export function radialOcrIcon(): string {
     return `${SVG_OPEN}<rect x="3" y="4" width="18" height="16" rx="2.5"></rect><path d="M7 8h4"></path><path d="M7 12h10"></path><path d="M7 16h7"></path><path d="M15.5 7.5 17 6l1.5 1.5"></path><path d="M17 6v5"></path></svg>`;
+}
+
+/** Corner scan frame — OCR is in direct tap/hover mode. */
+export function radialOcrOnIcon(): string {
+    return `${SVG_OPEN}<path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M7 12h10"></path></svg>`;
 }
 
 /** Video filter — toggle YouTube immersion filtering (YouTube only). */

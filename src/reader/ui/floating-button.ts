@@ -5,7 +5,10 @@ import {
     RadialMenuController,
     radialAudioMutedIcon,
     radialAudioOnIcon,
+    radialFuriganaHiddenIcon,
     radialOcrIcon,
+    radialOcrOnIcon,
+    radialPausedIcon,
     radialPowerIcon,
     radialSettingsIcon,
     radialYoutubeIcon,
@@ -147,6 +150,7 @@ export class FloatingButtonController {
         // Blacklist/Master row) collide with the default bottom-right spot;
         // raise the FAB above them (mobile UX finding, 2026-06-11).
         button.classList.toggle('jpdb-reader-fab-raised', hostHasBottomActionDock());
+        button.classList.toggle('jpdb-reader-fab--on', powerState === 'on');
         button.classList.toggle('jpdb-reader-fab--no-furigana', powerState === 'no-furigana');
         button.classList.toggle('jpdb-reader-fab--paused', powerState === 'paused');
         button.title = puckStateLabel(language, powerState);
@@ -171,7 +175,9 @@ export class FloatingButtonController {
             {
                 id: 'power',
                 label: uiText(language, powerLabelKey),
-                icon: radialPowerIcon(),
+                icon: powerState === 'on' ? radialPowerIcon()
+                    : powerState === 'no-furigana' ? radialFuriganaHiddenIcon()
+                        : radialPausedIcon(),
                 tone: powerState === 'on' ? 'on' : powerState === 'no-furigana' ? 'partial' : 'off',
                 primary: true,
                 keepOpen: true,
@@ -191,7 +197,7 @@ export class FloatingButtonController {
             {
                 id: 'ocr',
                 label: ocrModeLabel(language, ocrMode),
-                icon: radialOcrIcon(),
+                icon: ocrMode === 'manual' ? radialOcrOnIcon() : radialOcrIcon(),
                 tone: ocrMode === 'off' ? 'off' : 'on',
                 keepOpen: true,
                 run: () => actions.toggleOcrMode(),

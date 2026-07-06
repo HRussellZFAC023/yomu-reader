@@ -1502,7 +1502,8 @@ html.jpdb-reader-doodle-active * {
 }
 /* Expression cards: one labelled mini graph per component, never a single
    component's accent presented as the whole expression. */
-.jpdb-reader-pitch.jpdb-reader-pitch-components {
+.jpdb-reader-pitch.jpdb-reader-pitch-components,
+.jpdb-reader-pitch.jpdb-reader-pitch-variants {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;

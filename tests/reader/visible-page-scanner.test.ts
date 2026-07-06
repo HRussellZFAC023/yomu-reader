@@ -2059,6 +2059,51 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('keeps visible page status enrichment running when only Bunpro word states are active', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = '<main><p>青空の下で日本語を読む</p></main>';
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => {
+            return paragraphs.map(text => [testToken(text, '日本語', 5, 8)]);
+        });
+        const enrichAnkiWords = vi.fn((_tokens: JPDBToken[], roots?: ParentNode[]) => {
+            roots?.forEach(root => {
+                root.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
+                    word.classList.add('bunpro-known');
+                    word.dataset.bunproState = 'known';
+                });
+            });
+        });
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: false,
+                apiKey: '',
+                localDictionariesEnabled: false,
+                bunproMiningEnabled: true,
+                bunproFrontendApiToken: 'bunpro-front-token',
+                bunproFrontendApiTokenExpiresAt: '',
+            }),
+            parseJapanese,
+            enrichAnkiWords,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const paragraph = document.querySelector('p');
+            const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            expect(enrichAnkiWords).toHaveBeenCalledWith(
+                [expect.objectContaining({ card: expect.objectContaining({ spelling: '日本語' }) })],
+                [paragraph],
+            );
+            expect(word.dataset.bunproState).toBe('known');
+            expect(word.classList.contains('bunpro-known')).toBe(true);
+        } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('prepares asbplayer subtitle tokens and starts status coloring before the first render', async () => {
         document.body.innerHTML = '<div class="asbplayer-subtitles-container-bottom"><span>日本語を読む</span></div>';
         const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, '日本語', 0, 3)]));

@@ -16,6 +16,7 @@ const JPDB_CONCURRENCY = readPositiveInt(
     process.env.YOMU_CI_JPDB_CONCURRENCY ?? String(Math.max(1, Math.min(4, SHARD_TOTAL, availableParallelism()))),
     'YOMU_CI_JPDB_CONCURRENCY',
 );
+const USE_VITEST_API = process.env.YOMU_CI_VITEST_API === '1';
 const VITEST_API_BASE_PORT = readPositiveInt(process.env.YOMU_CI_VITEST_API_BASE_PORT ?? '55200', 'YOMU_CI_VITEST_API_BASE_PORT');
 const TEST_TIMEOUT_MS = readPositiveInt(process.env.YOMU_CI_TEST_TIMEOUT_MS ?? '540000', 'YOMU_CI_TEST_TIMEOUT_MS');
 const SUITE_CHILD_TIMEOUT_MS = readPositiveInt(process.env.YOMU_CI_SUITE_CHILD_TIMEOUT_MS ?? String(TEST_TIMEOUT_MS + 30000), 'YOMU_CI_SUITE_CHILD_TIMEOUT_MS');
@@ -30,14 +31,12 @@ if (targetedVitestArgs.length) {
 runShard('regular', 1, REGULAR_SHARD_TOTAL, ['--prepare']);
 await runParallelShards('regular', REGULAR_SHARD_TOTAL, REGULAR_CONCURRENCY, shard => [
     '--reuse',
-    '--api-port',
-    String(VITEST_API_BASE_PORT + shard),
+    ...ciTestVitestApiArgs(VITEST_API_BASE_PORT + shard),
 ]);
 runShard('jpdb', 1, SHARD_TOTAL, ['--prepare']);
 await runParallelShards('jpdb', SHARD_TOTAL, JPDB_CONCURRENCY, shard => [
     '--reuse',
-    '--api-port',
-    String(VITEST_API_BASE_PORT + REGULAR_SHARD_TOTAL + shard),
+    ...ciTestVitestApiArgs(VITEST_API_BASE_PORT + REGULAR_SHARD_TOTAL + shard),
 ]);
 
 function runShard(kind, shard, total, extraArgs = []) {
@@ -56,7 +55,7 @@ function runShard(kind, shard, total, extraArgs = []) {
 }
 
 function runTargetedVitest(args) {
-    const apiArgs = hasVitestApiArg(args) ? [] : ['--api', String(VITEST_API_BASE_PORT)];
+    const apiArgs = hasVitestApiArg(args) ? [] : directVitestApiArgs(VITEST_API_BASE_PORT);
     const result = spawnSync(process.execPath, [
         join(ROOT, 'node_modules/vitest/vitest.mjs'),
         'run',
@@ -102,6 +101,14 @@ function targetedVitestSignalStatus(result) {
 
 function hasVitestApiArg(args) {
     return args.some(arg => arg === '--api' || arg.startsWith('--api=') || arg.startsWith('--api.'));
+}
+
+function ciTestVitestApiArgs(port) {
+    return USE_VITEST_API ? ['--api-port', String(port)] : ['--no-api'];
+}
+
+function directVitestApiArgs(port) {
+    return USE_VITEST_API ? ['--api', String(port)] : [];
 }
 
 async function runParallelShards(kind, total, concurrency, extraArgsForShard = () => []) {

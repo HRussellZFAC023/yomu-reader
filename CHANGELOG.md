@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.6.99] - 2026-07-06
+
+### Fixed
+
+- Mining into a custom JPDB deck no longer fails with "JPDB request failed (400)": numeric deck ids are now sent to the deck add/remove API as numbers instead of strings, so grading a word that is not yet in your selected deck adds it and grades it in one tap. Special decks such as the priority list were unaffected.
+- The Grammar and Translation sections that Yomu adds to dictionary sites such as jpdb.io now actually load: they used to sit on "Finding grammar..." or "Open this section to translate." forever because their lazy loaders were only wired up inside Yomu's own popover, not on dictionary-page panels.
+- The YouTube subtitle side panel no longer turns unusable on long videos: word-state colouring passes used to re-measure contrast across every transcript row on every cue (a forced layout over hundreds of rows per second), and now only refresh the lines whose words actually changed.
+- Deep-scrolling a long transcript no longer runs into blank rows: the virtualized list calibrated its row height from a fixed 80px guess, so furigana-tall rows accumulated thousands of pixels of drift; the estimate is now measured from the rows on screen.
+- Bunpro-only setups (no JPDB or Jiten key, no Anki) now get word-state colouring on scanned pages and subtitles: the scan pipeline gated all word-state enrichment behind Anki being enabled, so the Bunpro colouring pass never ran for users who only have a Bunpro token.
+
+### Improved
+
+- The puck now shows all three power states unmistakably: annotations on gets an accent ring with a small accent dot, furigana hidden keeps its colour with a larger crossed-ふ badge, and paused stays greyed with a dashed border and pause badge but no longer fades so far that the state is hard to read.
+- The "Composed of" breakdown on lookup cards is now an always-visible inline row of tappable component chips joined by middle dots, dropping the collapsible panel and its heading: each part keeps its furigana, pitch colouring, and one-tap lookup while the whole breakdown wraps cleanly and lines up with the rest of the card.
+- Words whose reading carries more than one attested pitch accent now show every distinct accent graph instead of silently presenting the first one as the only accent, since the correct pattern often depends on the sentence; multi-graph rows (accent variants and per-component graphs) also break onto their own full-width line under the headword instead of stacking in the narrow corner next to the audio button, and component chips align with the headword text and show a visible keyboard focus ring.
+
 ## [1.6.98] - 2026-07-06
 
 ### Fixed

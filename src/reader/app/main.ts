@@ -277,7 +277,7 @@ import { registerReaderMenuCommands } from './menu-commands';
 import { bindReaderRuntimeEvents } from './runtime-events';
 import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions } from './startup';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
-import { refreshReaderWordContrast } from '../dom/word-contrast';
+import { refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
 import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import {
@@ -689,10 +689,15 @@ export class ReaderApp {
         getSettings: () => this.settings,
         dictionarySourceAttributes: key => this.dictionarySourceState.attributes(key),
         parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
-        parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
+        parsePopoverJapanese: popover => this.isJpdbPageAddonRoot(popover)
+            ? this.parseJpdbPageAddonJapanese(popover)
+            : this.parsePopoverJapanese(popover),
         enrichPitchWords: tokens => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
-        enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
-        isCurrentPopoverRoot: root => this.isCurrentPopoverRoot(root),
+        enrichAnkiWords: (tokens, roots) => this.queueAnkiWordEnrichment(tokens, roots ?? [document]),
+        // Study sections render inside popovers AND dictionary-site page addons;
+        // both hosts must pass the "still on screen" guard or the addon's lazy
+        // sections stay stuck on their loading placeholder forever.
+        isCurrentPopoverRoot: root => this.isCurrentPopoverRoot(root) || this.isJpdbPageAddonRoot(root),
     });
     private cardActions = new CardActionController({
         getSettings: () => this.settings,
@@ -733,7 +738,7 @@ export class ReaderApp {
         canParseJapanese: () => this.canParseJapanese(),
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
         enrichPitchWords: tokens => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
-        enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
+        enrichAnkiWords: (tokens, roots) => this.queueAnkiWordEnrichment(tokens, roots ?? [document]),
         repositionPopover: () => this.repositionActivePopover(),
         setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
         toast: message => this.toast(message),
@@ -775,7 +780,7 @@ export class ReaderApp {
         pauseMutationObserver: callback => this.pauseAutoScanObserver(callback),
         preloadParsedTokens: tokens => this.preloadParsedTokens(tokens),
         enrichPitchWords: tokens => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
-        enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
+        enrichAnkiWords: (tokens, roots) => this.queueAnkiWordEnrichment(tokens, roots ?? [document]),
         beginAnkiWordEnrichment: tokens => this.beginAnkiWordEnrichment(tokens),
         prepareAnkiWordEnrichmentBeforeRender: tokens => this.prepareAnkiWordEnrichmentBeforeRender(tokens),
         prepareSubtitleTokensBeforeRender: tokens => this.enrichSubtitleTokensBeforeRender(tokens),
@@ -1169,15 +1174,18 @@ export class ReaderApp {
         if (!states?.size || !this.shouldRunBunproWordStateWork()) return;
         const now = Date.now();
         this.pauseAutoScanObserver(() => {
+            const changedWords: HTMLElement[] = [];
             uniqueParentNodes(roots).forEach(root => {
-                let changed = false;
                 renderedWordsInRoot(root).forEach(word => {
                     const entry = word.dataset.expression ? states.get(word.dataset.expression) : undefined;
                     const state = entry ? effectiveBunproWordState(entry, now) : null;
-                    if (applyBunproStateToRenderedWord(word, state)) changed = true;
+                    if (applyBunproStateToRenderedWord(word, state)) changedWords.push(word);
                 });
-                if (changed) refreshReaderWordContrast(root);
             });
+            // Contrast measurement forces style/layout per word, and this pass
+            // re-runs on every subtitle cue over every transcript row — refresh
+            // only lines that actually changed or playback scroll turns to jank.
+            refreshContrastForChangedWords(changedWords);
         });
     }
 
@@ -1668,6 +1676,9 @@ export class ReaderApp {
         if (!this.updateJpdbPageAddonHtml(root, html)) return;
         this.installJpdbPageAddonHandlers(root, card);
         this.dictionarySourceState.installTracking(root);
+        // Without loaders the translation/grammar sections render their
+        // "Finding…" placeholders and never resolve on dictionary sites.
+        this.studySources.installLoaders(root, target.examples[0]?.sentence);
         this.installJpdbPageImmersionExamples(root, card, [
             ...target.alternates,
             ...target.compounds.flatMap(compound => [compound.term, compound.reading]),
@@ -7990,20 +8001,29 @@ export class ReaderApp {
                 return;
             }
             this.prepareRenderedWordIndexForLookups(lookupByWordKey, targetRoots);
+            const touchedWords: HTMLElement[] = [];
             lookupByWordKey.forEach((lookup, key) => {
-                this.renderedWordsForLookupKey(key, targetRoots)
-                    .forEach(word => applyAnkiLookupToRenderedWord(word, lookup, this.settings.interfaceLanguage, options));
+                this.renderedWordsForLookupKey(key, targetRoots).forEach(word => {
+                    applyAnkiLookupToRenderedWord(word, lookup, this.settings.interfaceLanguage, options);
+                    touchedWords.push(word);
+                });
             });
-            targetRoots.forEach(root => refreshReaderWordContrast(root));
+            // Refresh contrast only around the words this batch touched: a
+            // whole-root refresh forces layout across every transcript row on
+            // every cue, which made the YouTube side panel unusable.
+            refreshContrastForChangedWords(touchedWords);
         });
     }
 
     private clearRenderedAnkiLookupStateForKeys(lookupByWordKey: Map<string, AnkiLookupResult>, roots: ParentNode[]): void {
+        const touchedWords: HTMLElement[] = [];
         lookupByWordKey.forEach((_lookup, key) => {
-            this.renderedWordsForLookupKey(key, roots)
-                .forEach(word => clearRenderedWordAnkiState(word));
+            this.renderedWordsForLookupKey(key, roots).forEach(word => {
+                clearRenderedWordAnkiState(word);
+                touchedWords.push(word);
+            });
         });
-        roots.forEach(root => refreshReaderWordContrast(root));
+        refreshContrastForChangedWords(touchedWords);
     }
 
     private clearRenderedAnkiWordStates(root: ParentNode = document): void {

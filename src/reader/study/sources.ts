@@ -71,7 +71,7 @@ export class StudySourceController {
     }
 
     installLoaders(popover: HTMLElement, sentence?: string): void {
-        this.preloadStudySources(sentence);
+        this.preloadStudySources(popover, sentence);
         this.installTranslationLoader(popover, sentence);
         this.installGrammarLoader(popover, sentence);
     }
@@ -80,16 +80,16 @@ export class StudySourceController {
         return detectLocalGrammarHints(sentence);
     }
 
-    private preloadStudySources(sentence?: string): void {
+    private preloadStudySources(popover: HTMLElement, sentence?: string): void {
         if (!sentence) return;
         const settings = this.settings();
-        if (settings.studyGrammarEnabled) {
-            void this.cachedGrammarHints(sentence);
+        if (settings.studyGrammarEnabled && popover.querySelector('[data-study-grammar]')) {
+            void this.cachedGrammarHints(sentence).catch(() => undefined);
             preloadGrammarResources(sentence, settings.interfaceLanguage);
         }
-        if (settings.studyTranslationEnabled) {
+        if (settings.studyTranslationEnabled && popover.querySelector('[data-study-translation]')) {
             preloadJapaneseSentenceTranslation(sentence, settings.interfaceLanguage);
-            void this.cachedTranslationContent(sentence);
+            void this.cachedTranslationContent(sentence).catch(() => undefined);
         }
     }
 

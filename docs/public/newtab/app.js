@@ -22175,13 +22175,28 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function objectRecord(value) {
     return value && typeof value === "object" ? value : null;
   }
+  const MAX_PITCH_VARIANTS = 3;
   function renderPitch(card, metaEntries = []) {
     const reading = cardPronunciationReading(card);
-    const pitch = contextPitchPattern(card.pitchAccent, reading) || localPitchPatternFromMeta(reading || card.reading, metaEntries);
-    if (!pitch) return "";
     if (!reading) return "";
-    const graph = renderPitchGraphSvg(reading, pitch);
-    return graph ? `<div class="jpdb-reader-pitch">${graph}</div>` : "";
+    const candidates = [
+      ...card.pitchAccent ?? [],
+      ...localPitchPatternsFromMeta(reading, metaEntries)
+    ].filter((pattern) => pitchClassNameForPattern(pattern, reading) !== "");
+    const seen = /* @__PURE__ */ new Set();
+    const graphs = [];
+    for (const pattern of candidates) {
+      const key = pitchLevelsForDisplay(pattern, reading).join("");
+      if (!key || seen.has(key)) continue;
+      const graph = renderPitchGraphSvg(reading, pattern);
+      if (!graph) continue;
+      seen.add(key);
+      graphs.push(graph);
+      if (graphs.length === MAX_PITCH_VARIANTS) break;
+    }
+    if (!graphs.length) return "";
+    if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0]}</div>`;
+    return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((graph) => `<span class="jpdb-reader-pitch-component">${graph}</span>`).join("")}</div>`;
   }
   function renderExpressionComponentPitches(components2) {
     const graphs = components2.map((component) => ({ component, svg: renderPitchGraphSvg(component.reading, component.pitch) })).filter((entry) => entry.svg).map((entry) => `<span class="jpdb-reader-pitch-component">
@@ -31329,23 +31344,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         `;
     }
     installLoaders(popover, sentence) {
-      this.preloadStudySources(sentence);
+      this.preloadStudySources(popover, sentence);
       this.installTranslationLoader(popover, sentence);
       this.installGrammarLoader(popover, sentence);
     }
     async detectGrammarHints(sentence) {
       return detectGrammarHints(sentence);
     }
-    preloadStudySources(sentence) {
+    preloadStudySources(popover, sentence) {
       if (!sentence) return;
       const settings = this.settings();
-      if (settings.studyGrammarEnabled) {
-        void this.cachedGrammarHints(sentence);
+      if (settings.studyGrammarEnabled && popover.querySelector("[data-study-grammar]")) {
+        void this.cachedGrammarHints(sentence).catch(() => void 0);
         preloadGrammarResources(sentence, settings.interfaceLanguage);
       }
-      if (settings.studyTranslationEnabled) {
+      if (settings.studyTranslationEnabled && popover.querySelector("[data-study-translation]")) {
         preloadJapaneseSentenceTranslation(sentence, settings.interfaceLanguage);
-        void this.cachedTranslationContent(sentence);
+        void this.cachedTranslationContent(sentence).catch(() => void 0);
       }
     }
     renderTranslationPanel(sentence) {
@@ -39750,7 +39765,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.98".trim() ? "1.6.98".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.99".trim() ? "1.6.99".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -52056,6 +52071,12 @@ ${spelling}`);
     transcriptDeferredRenderTimer;
     transcriptVirtualRenderFrame;
     transcriptVirtualScrollTop = 0;
+    // Lines-panel row-height estimate, calibrated from actually rendered rows.
+    // The fixed 80px guess drifts badly on hydrated rows (furigana + wrapping
+    // push real rows past 110px), and since spacers AND the scroll->index map
+    // both use it, the error compounds with row index until deep scroll lands
+    // the viewport inside a spacer and the panel shows blank rows.
+    transcriptRowEstimatePx = TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX;
     // Tracks-panel virtualization (parallel to the lines-panel window above):
     // videos with auto-translated captions expose hundreds of track rows.
     renderedTracksVirtualWindow;
@@ -56444,23 +56465,24 @@ ${spelling}`);
     transcriptVirtualWindow(rowCount, currentRowIndex) {
       if (rowCount <= TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD) return void 0;
       const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
+      const rowEstimate = this.transcriptRowEstimatePx;
       const clientHeight = Math.max(
         scroller?.clientHeight ?? 0,
         Math.round((this.transcriptPanel?.getBoundingClientRect().height ?? 0) * 0.72),
-        TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX * 6
+        rowEstimate * 6
       );
       const scrollTop = Math.max(0, scroller?.scrollTop ?? this.transcriptVirtualScrollTop);
       const visibleRows = Math.max(
         TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS,
-        Math.ceil(clientHeight / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) + TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS * 2
+        Math.ceil(clientHeight / rowEstimate) + TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS * 2
       );
       const { start, end } = this.resolveVirtualWindowBounds(rowCount, currentRowIndex, scrollTop, visibleRows);
       return {
         start,
         end,
         scrollTop,
-        topSpacer: start * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX,
-        bottomSpacer: Math.max(0, (rowCount - end) * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX)
+        topSpacer: start * rowEstimate,
+        bottomSpacer: Math.max(0, (rowCount - end) * rowEstimate)
       };
     }
     // While auto-following, keep the committed window as long as the active row
@@ -56483,13 +56505,13 @@ ${spelling}`);
       if (this.shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex, visibleRows)) {
         return currentRowIndex - Math.floor(visibleRows / 2);
       }
-      return Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
+      return Math.floor(scrollTop / this.transcriptRowEstimatePx) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
     }
     shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex, visibleRows) {
       if (currentRowIndex < 0) return false;
       if (!this.options.getSettings().subtitleTranscriptAutoScroll) return false;
       if (this.isTranscriptAutoScrollPaused()) return false;
-      const firstRendered = Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
+      const firstRendered = Math.floor(scrollTop / this.transcriptRowEstimatePx) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
       const lastRendered = firstRendered + visibleRows - 1;
       return scrollTop <= 1 || currentRowIndex < firstRendered || currentRowIndex > lastRendered;
     }
@@ -56545,6 +56567,7 @@ ${spelling}`);
     }
     afterTranscriptPanelRender(state2, options = {}) {
       this.indexTranscriptTextTargets();
+      this.calibrateTranscriptRowEstimate();
       this.bindTranscriptScroller();
       this.bindTranscriptResizeHandle();
       this.positionTranscriptPanel({ resizeEventMode: options.deferPlayerResize ? "none" : "immediate" });
@@ -56568,6 +56591,18 @@ ${spelling}`);
         scroller.scrollTop = scrollTop;
       }
       this.transcriptVirtualScrollTop = scrollTop;
+    }
+    // Blend the measured mean height of the rows on screen into the estimate.
+    // Damped so a window of unusually tall/short rows nudges rather than jerks
+    // the geometry; clamped so a degenerate measurement can't wreck the map.
+    calibrateTranscriptRowEstimate() {
+      const rows = Array.from(this.transcriptPanel?.querySelectorAll(".jpdb-subtitle-list-row") ?? []);
+      if (rows.length < 4) return;
+      const total = rows.reduce((sum, row) => sum + row.offsetHeight, 0);
+      const mean = total / rows.length;
+      if (!Number.isFinite(mean) || mean <= 0) return;
+      const blended = this.transcriptRowEstimatePx * 0.4 + mean * 0.6;
+      this.transcriptRowEstimatePx = Math.min(240, Math.max(40, blended));
     }
     renderTranscriptRow(row, index, currentIndex, rows = this.transcriptRows()) {
       const cue = row.cue;
@@ -61724,15 +61759,9 @@ ${spelling}`);
       const components2 = uniqueExpressionComponents(data.expressionComponents ?? []);
       if (data.loading || components2.length < 2) return "";
       const rows = components2.map((component) => this.renderExpressionComponent(component, data.componentPitches ?? [])).join("");
-      return `<details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-expression-components" open>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(view.language, "composedOf"))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${components2.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-used-in jpdb-reader-expression-component-list">${rows}</ul>
-            </div>
-        </details>`;
+      return `<div class="jpdb-reader-expression-components">
+            <ul class="jpdb-reader-jpdb-used-in jpdb-reader-expression-component-list" role="list" aria-label="${escapeHtml$1(uiText(view.language, "composedOf"))}">${rows}</ul>
+        </div>`;
     }
     renderExpressionComponent(component, componentPitches) {
       const reading = component.reading.trim();
@@ -66633,7 +66662,7 @@ ${component.reading}`;
     async removeFromDeck(deckId, card) {
       log$8.info("Removing card from deck", { term: card.spelling, deckId });
       await this.api.request("deck/remove-vocabulary", {
-        id: deckId,
+        id: normalizeDeckRequestId(deckId),
         vocabulary: [[card.vid, card.sid]]
       });
       this.clearUserDeckPoolCache();
@@ -66662,7 +66691,7 @@ ${component.reading}`;
         return;
       }
       await this.api.request("deck/add-vocabulary", {
-        id: deckId,
+        id: normalizeDeckRequestId(deckId),
         vocabulary: [[card.vid, card.sid]]
       });
     }

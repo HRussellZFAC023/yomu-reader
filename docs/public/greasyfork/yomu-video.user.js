@@ -10880,6 +10880,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     transcriptDeferredRenderTimer;
     transcriptVirtualRenderFrame;
     transcriptVirtualScrollTop = 0;
+    // Lines-panel row-height estimate, calibrated from actually rendered rows.
+    // The fixed 80px guess drifts badly on hydrated rows (furigana + wrapping
+    // push real rows past 110px), and since spacers AND the scroll->index map
+    // both use it, the error compounds with row index until deep scroll lands
+    // the viewport inside a spacer and the panel shows blank rows.
+    transcriptRowEstimatePx = TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX;
     // Tracks-panel virtualization (parallel to the lines-panel window above):
     // videos with auto-translated captions expose hundreds of track rows.
     renderedTracksVirtualWindow;
@@ -15268,23 +15274,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
     transcriptVirtualWindow(rowCount, currentRowIndex) {
       if (rowCount <= TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD) return void 0;
       const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
+      const rowEstimate = this.transcriptRowEstimatePx;
       const clientHeight = Math.max(
         scroller?.clientHeight ?? 0,
         Math.round((this.transcriptPanel?.getBoundingClientRect().height ?? 0) * 0.72),
-        TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX * 6
+        rowEstimate * 6
       );
       const scrollTop = Math.max(0, scroller?.scrollTop ?? this.transcriptVirtualScrollTop);
       const visibleRows = Math.max(
         TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS,
-        Math.ceil(clientHeight / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) + TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS * 2
+        Math.ceil(clientHeight / rowEstimate) + TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS * 2
       );
       const { start, end } = this.resolveVirtualWindowBounds(rowCount, currentRowIndex, scrollTop, visibleRows);
       return {
         start,
         end,
         scrollTop,
-        topSpacer: start * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX,
-        bottomSpacer: Math.max(0, (rowCount - end) * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX)
+        topSpacer: start * rowEstimate,
+        bottomSpacer: Math.max(0, (rowCount - end) * rowEstimate)
       };
     }
     // While auto-following, keep the committed window as long as the active row
@@ -15307,13 +15314,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (this.shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex, visibleRows)) {
         return currentRowIndex - Math.floor(visibleRows / 2);
       }
-      return Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
+      return Math.floor(scrollTop / this.transcriptRowEstimatePx) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
     }
     shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex, visibleRows) {
       if (currentRowIndex < 0) return false;
       if (!this.options.getSettings().subtitleTranscriptAutoScroll) return false;
       if (this.isTranscriptAutoScrollPaused()) return false;
-      const firstRendered = Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
+      const firstRendered = Math.floor(scrollTop / this.transcriptRowEstimatePx) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
       const lastRendered = firstRendered + visibleRows - 1;
       return scrollTop <= 1 || currentRowIndex < firstRendered || currentRowIndex > lastRendered;
     }
@@ -15369,6 +15376,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     afterTranscriptPanelRender(state, options = {}) {
       this.indexTranscriptTextTargets();
+      this.calibrateTranscriptRowEstimate();
       this.bindTranscriptScroller();
       this.bindTranscriptResizeHandle();
       this.positionTranscriptPanel({ resizeEventMode: options.deferPlayerResize ? "none" : "immediate" });
@@ -15392,6 +15400,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
         scroller.scrollTop = scrollTop;
       }
       this.transcriptVirtualScrollTop = scrollTop;
+    }
+    // Blend the measured mean height of the rows on screen into the estimate.
+    // Damped so a window of unusually tall/short rows nudges rather than jerks
+    // the geometry; clamped so a degenerate measurement can't wreck the map.
+    calibrateTranscriptRowEstimate() {
+      const rows = Array.from(this.transcriptPanel?.querySelectorAll(".jpdb-subtitle-list-row") ?? []);
+      if (rows.length < 4) return;
+      const total = rows.reduce((sum, row) => sum + row.offsetHeight, 0);
+      const mean = total / rows.length;
+      if (!Number.isFinite(mean) || mean <= 0) return;
+      const blended = this.transcriptRowEstimatePx * 0.4 + mean * 0.6;
+      this.transcriptRowEstimatePx = Math.min(240, Math.max(40, blended));
     }
     renderTranscriptRow(row, index, currentIndex, rows = this.transcriptRows()) {
       const cue = row.cue;

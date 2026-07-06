@@ -1,18 +1,39 @@
 import { escapeHtml } from '../dom/index';
-import { contextPitchPattern, pitchClassNameForPattern, pitchLevelsForDisplay, splitMorae } from '../lookup/pitch-accent';
-import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
+import { pitchClassNameForPattern, pitchLevelsForDisplay, splitMorae } from '../lookup/pitch-accent';
+import { localPitchPatternsFromMeta } from '../lookup/pitch-meta';
 import type { JPDBCard } from '../app/types';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 
+// A reading can carry more than one legitimate accent (双子 0/3, 一分 いちぶ
+// 2/3 …) and which one is correct depends on the sentence. Showing only the
+// first candidate silently presents a possibly-wrong accent as THE accent, so
+// render every distinct pattern the sources list (JPDB first, then the local
+// pitch bank), capped to keep the header compact.
+const MAX_PITCH_VARIANTS = 3;
+
 export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []): string {
     const reading = cardPronunciationReading(card);
-    const pitch = contextPitchPattern(card.pitchAccent, reading)
-        || localPitchPatternFromMeta(reading || card.reading, metaEntries);
-    if (!pitch) return '';
-
     if (!reading) return '';
-    const graph = renderPitchGraphSvg(reading, pitch);
-    return graph ? `<div class="jpdb-reader-pitch">${graph}</div>` : '';
+    const candidates = [
+        ...(card.pitchAccent ?? []),
+        ...localPitchPatternsFromMeta(reading, metaEntries),
+    ].filter(pattern => pitchClassNameForPattern(pattern, reading) !== '');
+    const seen = new Set<string>();
+    const graphs: string[] = [];
+    for (const pattern of candidates) {
+        const key = pitchLevelsForDisplay(pattern, reading).join('');
+        if (!key || seen.has(key)) continue;
+        const graph = renderPitchGraphSvg(reading, pattern);
+        if (!graph) continue;
+        seen.add(key);
+        graphs.push(graph);
+        if (graphs.length === MAX_PITCH_VARIANTS) break;
+    }
+    if (!graphs.length) return '';
+    if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0]}</div>`;
+    return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs
+        .map(graph => `<span class="jpdb-reader-pitch-component">${graph}</span>`)
+        .join('')}</div>`;
 }
 
 export interface ExpressionComponentLookup {

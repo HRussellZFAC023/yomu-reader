@@ -2215,10 +2215,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  inline-size: 18px !important;
-  block-size: 18px !important;
-  min-inline-size: 18px !important;
-  min-block-size: 18px !important;
+  inline-size: 20px !important;
+  block-size: 20px !important;
+  min-inline-size: 20px !important;
+  min-block-size: 20px !important;
   border: 1px solid var(--jpdb-reader-surface) !important;
   border-radius: 50% !important;
   background: var(--jpdb-reader-surface) !important;
@@ -2297,6 +2297,27 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   box-shadow: 0 12px 34px var(--jpdb-reader-shadow), 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 32%, transparent) !important;
   transform: translate3d(0, 0, 0) scale(1.06) !important;
 }
+/* Everything on → the puck itself carries the accent so "live" reads at a
+   glance, not only by the absence of a badge. */
+.jpdb-reader-fab.jpdb-reader-fab--on {
+  border-color: var(--jpdb-reader-accent) !important;
+  box-shadow:
+    0 10px 28px var(--jpdb-reader-shadow),
+    0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 30%, transparent) !important;
+}
+.jpdb-reader-fab.jpdb-reader-fab--on::after {
+  content: '' !important;
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  inline-size: 10px !important;
+  block-size: 10px !important;
+  min-inline-size: 10px !important;
+  min-block-size: 10px !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: var(--jpdb-reader-accent) !important;
+  border-color: var(--jpdb-reader-surface) !important;
+}
 .jpdb-reader-fab.jpdb-reader-fab--no-furigana {
   opacity: 0.92 !important;
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 68%, var(--jpdb-reader-border)) !important;
@@ -2317,7 +2338,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 /* Annotations paused → drain the colour so on/off reads at a glance. */
 .jpdb-reader-fab.jpdb-reader-fab--paused {
   filter: grayscale(1) !important;
-  opacity: 0.55 !important;
+  opacity: 0.7 !important;
   border-style: dashed !important;
 }
 .jpdb-reader-fab.jpdb-reader-fab--paused::after {
@@ -2778,6 +2799,24 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  margin-left: auto;
+}
+/* Multi-graph pitch (per-component or accent variants) does not fit the
+   narrow tools column: dissolve the column and give the graphs their own
+   full-width row under the title, keeping the audio button top-right. */
+.jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
+  flex-wrap: wrap;
+}
+.jpdb-reader-card-tools:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
+  display: contents;
+}
+.jpdb-reader-card-tools :is(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
+  order: 3;
+  flex: 1 1 100%;
+  margin-top: 2px;
+}
+.jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-audio-control {
+  order: 2;
   margin-left: auto;
 }
 .jpdb-reader-popover .jpdb-reader-icon-btn,
@@ -4073,16 +4112,18 @@ button.jpdb-reader-token-sentence-word {
 /* Composed of: a quiet inline breakdown that wraps like a phrase while keeping
    each part available as a lookup target. */
 .jpdb-reader-expression-components {
-  margin-top: 8px;
-}
-.jpdb-reader-expression-components > .jpdb-reader-local-glossary {
-  padding-top: 0;
+  margin-top: 7px;
 }
 .jpdb-reader-jpdb-used-in.jpdb-reader-expression-component-list {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 3px 6px;
+  gap: 4px 8px;
+  padding: 0;
+  /* Pull the row out by the chip's own inline padding so the first chip's
+     TEXT (not its hover halo) aligns with the headword and reading above. */
+  margin-inline: -6px;
+  list-style: none;
 }
 .jpdb-reader-jpdb-used-in-row.jpdb-reader-expression-component-row {
   display: inline-flex;
@@ -4091,19 +4132,27 @@ button.jpdb-reader-token-sentence-word {
   min-width: 0;
 }
 .jpdb-reader-jpdb-used-in-row.jpdb-reader-expression-component-row:not(:last-child)::after {
-  content: "+";
+  content: "•";
   color: var(--jpdb-reader-muted, #64748b);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
-  opacity: 0.48;
+  opacity: 0.56;
+  margin: 0 2px;
+}
+/* Keep the separator visual-only for assistive tech where alt-text syntax is
+   supported (Chromium/WebKit); elsewhere the plain content above applies. */
+@supports (content: "•" / "") {
+  .jpdb-reader-jpdb-used-in-row.jpdb-reader-expression-component-row:not(:last-child)::after {
+    content: "•" / "";
+  }
 }
 .jpdb-reader-expression-component-link.gloss-link {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
   min-height: 30px;
-  padding: 2px 5px 4px;
+  padding: 2px 6px 4px;
   border-radius: 5px;
   background: transparent;
   color: var(--jpdb-reader-text, #17202a) !important;
@@ -4113,7 +4162,10 @@ button.jpdb-reader-token-sentence-word {
 .jpdb-reader-expression-component-link.gloss-link:focus-visible {
   background: color-mix(in srgb, var(--jpdb-reader-accent-soft, rgba(33, 182, 132, 0.16)) 52%, transparent);
   color: var(--jpdb-reader-text, #17202a) !important;
-  outline: none;
+}
+.jpdb-reader-expression-component-link.gloss-link:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent, #21b684);
+  outline-offset: 1px;
 }
 .jpdb-reader-expression-component-term {
   max-width: 100%;
@@ -7613,7 +7665,8 @@ html.jpdb-reader-doodle-active * {
 }
 /* Expression cards: one labelled mini graph per component, never a single
    component's accent presented as the whole expression. */
-.jpdb-reader-pitch.jpdb-reader-pitch-components {
+.jpdb-reader-pitch.jpdb-reader-pitch-components,
+.jpdb-reader-pitch.jpdb-reader-pitch-variants {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;

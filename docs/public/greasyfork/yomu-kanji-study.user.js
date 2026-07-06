@@ -13809,23 +13809,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         `;
     }
     installLoaders(popover, sentence) {
-      this.preloadStudySources(sentence);
+      this.preloadStudySources(popover, sentence);
       this.installTranslationLoader(popover, sentence);
       this.installGrammarLoader(popover, sentence);
     }
     async detectGrammarHints(sentence) {
       return detectGrammarHints(sentence);
     }
-    preloadStudySources(sentence) {
+    preloadStudySources(popover, sentence) {
       if (!sentence) return;
       const settings = this.settings();
-      if (settings.studyGrammarEnabled) {
-        void this.cachedGrammarHints(sentence);
+      if (settings.studyGrammarEnabled && popover.querySelector("[data-study-grammar]")) {
+        void this.cachedGrammarHints(sentence).catch(() => void 0);
         preloadGrammarResources(sentence, settings.interfaceLanguage);
       }
-      if (settings.studyTranslationEnabled) {
+      if (settings.studyTranslationEnabled && popover.querySelector("[data-study-translation]")) {
         preloadJapaneseSentenceTranslation(sentence, settings.interfaceLanguage);
-        void this.cachedTranslationContent(sentence);
+        void this.cachedTranslationContent(sentence).catch(() => void 0);
       }
     }
     renderTranslationPanel(sentence) {

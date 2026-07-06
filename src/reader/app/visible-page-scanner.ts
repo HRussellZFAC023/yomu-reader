@@ -12,7 +12,7 @@ import {
 import { formatUiText, uiText } from '../app/i18n';
 import { Logger } from './logger';
 import { collectScanTargets } from './site-parsers';
-import { shouldLookupAnkiStatus } from '../settings/index';
+import { shouldLookupAnkiStatus, shouldLookupBunproWordStates } from '../settings/index';
 import type { JPDBToken, ReaderSettings } from './types';
 
 const log = Logger.scope('VisiblePageScanner');
@@ -403,7 +403,12 @@ export class VisiblePageScanner {
     }
 
     private shouldEnrichAnkiWords(): boolean {
-        return !this.destroyed && shouldLookupAnkiStatus(this.dependencies.getSettings());
+        // Bunpro-only setups colour words through the same enrichment callbacks
+        // (beginAnkiWordEnrichment routes to the Bunpro word-state pass when
+        // Anki is off) — gating on Anki alone left Bunpro users with no
+        // word-state colouring from visible scans at all.
+        const settings = this.dependencies.getSettings();
+        return !this.destroyed && (shouldLookupAnkiStatus(settings) || shouldLookupBunproWordStates(settings));
     }
 
     private handleEmptyVisiblePageScan(silent: boolean): void {

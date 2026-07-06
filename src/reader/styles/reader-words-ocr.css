@@ -1867,10 +1867,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  inline-size: 18px !important;
-  block-size: 18px !important;
-  min-inline-size: 18px !important;
-  min-block-size: 18px !important;
+  inline-size: 20px !important;
+  block-size: 20px !important;
+  min-inline-size: 20px !important;
+  min-block-size: 20px !important;
   border: 1px solid var(--jpdb-reader-surface) !important;
   border-radius: 50% !important;
   background: var(--jpdb-reader-surface) !important;
@@ -1949,6 +1949,27 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   box-shadow: 0 12px 34px var(--jpdb-reader-shadow), 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 32%, transparent) !important;
   transform: translate3d(0, 0, 0) scale(1.06) !important;
 }
+/* Everything on → the puck itself carries the accent so "live" reads at a
+   glance, not only by the absence of a badge. */
+.jpdb-reader-fab.jpdb-reader-fab--on {
+  border-color: var(--jpdb-reader-accent) !important;
+  box-shadow:
+    0 10px 28px var(--jpdb-reader-shadow),
+    0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 30%, transparent) !important;
+}
+.jpdb-reader-fab.jpdb-reader-fab--on::after {
+  content: '' !important;
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  inline-size: 10px !important;
+  block-size: 10px !important;
+  min-inline-size: 10px !important;
+  min-block-size: 10px !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: var(--jpdb-reader-accent) !important;
+  border-color: var(--jpdb-reader-surface) !important;
+}
 .jpdb-reader-fab.jpdb-reader-fab--no-furigana {
   opacity: 0.92 !important;
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 68%, var(--jpdb-reader-border)) !important;
@@ -1969,7 +1990,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 /* Annotations paused → drain the colour so on/off reads at a glance. */
 .jpdb-reader-fab.jpdb-reader-fab--paused {
   filter: grayscale(1) !important;
-  opacity: 0.55 !important;
+  opacity: 0.7 !important;
   border-style: dashed !important;
 }
 .jpdb-reader-fab.jpdb-reader-fab--paused::after {

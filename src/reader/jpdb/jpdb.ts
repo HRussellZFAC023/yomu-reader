@@ -159,7 +159,7 @@ export class JpdbClient {
     async removeFromDeck(deckId: string, card: JPDBCard): Promise<void> {
         log.info('Removing card from deck', { term: card.spelling, deckId });
         await this.api.request<void>('deck/remove-vocabulary', {
-            id: deckId,
+            id: normalizeDeckRequestId(deckId),
             vocabulary: [[card.vid, card.sid]],
         });
         this.clearUserDeckPoolCache();
@@ -192,7 +192,7 @@ export class JpdbClient {
         }
 
         await this.api.request<void>('deck/add-vocabulary', {
-            id: deckId,
+            id: normalizeDeckRequestId(deckId),
             vocabulary: [[card.vid, card.sid]],
         });
     }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.98
+// @version 1.6.99
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.98#sha256=N0kDfli6QcwU15W78VmRYdj9pqPzPitUx+OJVHZoeXg=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.98#sha256=YkoJBh3Uc7HIPqUyBOyLJ9lr6TVn0tP9LlBgH8ovYII=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.98#sha256=ouQezXMgPVhSpjRQf6nVEIOA1BdNCYBq2T3XnmT/Ujk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.98#sha256=kxf+lcrOgWG2I6C+ucheI6LV0lvdkoKwqRYPPxZXFLs=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.98#sha256=EDQgt0RULyq8pTdZMdQFGrE0RTid8UF6Rm/l4NupFt0=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.98#sha256=2iqN3MWoGj/GRLfs0ZwljkXLmXoSk6jy8iWOkRiRdvE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.99#sha256=N0kDfli6QcwU15W78VmRYdj9pqPzPitUx+OJVHZoeXg=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.99#sha256=vDqzgPyYQp0aCzAERCTrLg7yzOJ1kOuG3GKWzluZ90g=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.99#sha256=ouQezXMgPVhSpjRQf6nVEIOA1BdNCYBq2T3XnmT/Ujk=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.99#sha256=kxf+lcrOgWG2I6C+ucheI6LV0lvdkoKwqRYPPxZXFLs=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.99#sha256=EDQgt0RULyq8pTdZMdQFGrE0RTid8UF6Rm/l4NupFt0=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.99#sha256=JdZ1qKpQLOV2xTi7BgOAEvAe/7Cq9qoY/p+evtcvkRI=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -14650,13 +14650,28 @@ function validPitchPosition(value) {
 function objectRecord(value) {
   return value && typeof value === "object" ? value : null;
 }
+const MAX_PITCH_VARIANTS = 3;
 function renderPitch(card, metaEntries = []) {
   const reading = cardPronunciationReading(card);
-  const pitch = contextPitchPattern(card.pitchAccent, reading) || localPitchPatternFromMeta(reading || card.reading, metaEntries);
-  if (!pitch) return "";
   if (!reading) return "";
-  const graph = renderPitchGraphSvg(reading, pitch);
-  return graph ? `<div class="jpdb-reader-pitch">${graph}</div>` : "";
+  const candidates = [
+  ...card.pitchAccent ?? [],
+  ...localPitchPatternsFromMeta(reading, metaEntries)
+  ].filter((pattern) => pitchClassNameForPattern(pattern, reading) !== "");
+  const seen = new Set();
+  const graphs = [];
+  for (const pattern of candidates) {
+  const key = pitchLevelsForDisplay(pattern, reading).join("");
+  if (!key || seen.has(key)) continue;
+  const graph = renderPitchGraphSvg(reading, pattern);
+  if (!graph) continue;
+  seen.add(key);
+  graphs.push(graph);
+  if (graphs.length === MAX_PITCH_VARIANTS) break;
+  }
+  if (!graphs.length) return "";
+  if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0]}</div>`;
+  return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((graph) => `<span class="jpdb-reader-pitch-component">${graph}</span>`).join("")}</div>`;
 }
 function renderExpressionComponentPitches(components) {
   const graphs = components.map((component) => ({ component, svg: renderPitchGraphSvg(component.reading, component.pitch) })).filter((entry) => entry.svg).map((entry) => `<span class="jpdb-reader-pitch-component">
@@ -14832,15 +14847,9 @@ class CardPopoverRenderer {
   const components = uniqueExpressionComponents(data.expressionComponents ?? []);
   if (data.loading || components.length < 2) return "";
   const rows = components.map((component) => this.renderExpressionComponent(component, data.componentPitches ?? [])).join("");
-  return `<details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-expression-components" open>
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(view.language, "composedOf"))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${components.length}</span>
-            </summary>
-            <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-used-in jpdb-reader-expression-component-list">${rows}</ul>
-            </div>
-        </details>`;
+  return `<div class="jpdb-reader-expression-components">
+            <ul class="jpdb-reader-jpdb-used-in jpdb-reader-expression-component-list" role="list" aria-label="${escapeHtml$1(uiText(view.language, "composedOf"))}">${rows}</ul>
+        </div>`;
   }
   renderExpressionComponent(component, componentPitches) {
   const reading = component.reading.trim();
@@ -21030,6 +21039,12 @@ const SVG_OPEN = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" 
 function radialPowerIcon() {
   return `${SVG_OPEN}<path d="M12 4v8"></path><path d="M7.5 7.5a7 7 0 1 0 9 0"></path></svg>`;
 }
+function radialFuriganaHiddenIcon() {
+  return `${SVG_OPEN}<text x="12" y="15.5" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor" stroke="none">ふ</text><path d="M5 19 19 5"></path></svg>`;
+}
+function radialPausedIcon() {
+  return `${SVG_OPEN}<path d="M9 5v14"></path><path d="M15 5v14"></path></svg>`;
+}
 function radialSettingsIcon() {
   return `${SVG_OPEN}<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
 }
@@ -21041,6 +21056,9 @@ function radialAudioMutedIcon() {
 }
 function radialOcrIcon() {
   return `${SVG_OPEN}<rect x="3" y="4" width="18" height="16" rx="2.5"></rect><path d="M7 8h4"></path><path d="M7 12h10"></path><path d="M7 16h7"></path><path d="M15.5 7.5 17 6l1.5 1.5"></path><path d="M17 6v5"></path></svg>`;
+}
+function radialOcrOnIcon() {
+  return `${SVG_OPEN}<path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M7 12h10"></path></svg>`;
 }
 function radialYoutubeIcon() {
   return `${SVG_OPEN}<rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="M10.2 9.6 14.4 12l-4.2 2.4z" fill="currentColor" stroke="none"></path></svg>`;
@@ -21124,6 +21142,7 @@ class FloatingButtonController {
   const powerState = this.actions?.powerState() ?? "on";
   const language = this.settings?.interfaceLanguage ?? "en";
   button2.classList.toggle("jpdb-reader-fab-raised", hostHasBottomActionDock());
+  button2.classList.toggle("jpdb-reader-fab--on", powerState === "on");
   button2.classList.toggle("jpdb-reader-fab--no-furigana", powerState === "no-furigana");
   button2.classList.toggle("jpdb-reader-fab--paused", powerState === "paused");
   button2.title = puckStateLabel(language, powerState);
@@ -21143,7 +21162,7 @@ class FloatingButtonController {
     {
       id: "power",
       label: uiText(language, powerLabelKey),
-      icon: radialPowerIcon(),
+      icon: powerState === "on" ? radialPowerIcon() : powerState === "no-furigana" ? radialFuriganaHiddenIcon() : radialPausedIcon(),
       tone: powerState === "on" ? "on" : powerState === "no-furigana" ? "partial" : "off",
       primary: true,
       keepOpen: true,
@@ -21163,7 +21182,7 @@ class FloatingButtonController {
     {
       id: "ocr",
       label: ocrModeLabel(language, ocrMode),
-      icon: radialOcrIcon(),
+      icon: ocrMode === "manual" ? radialOcrOnIcon() : radialOcrIcon(),
       tone: ocrMode === "off" ? "off" : "on",
       keepOpen: true,
       run: () => actions.toggleOcrMode()
@@ -24113,7 +24132,7 @@ class JpdbClient {
   async removeFromDeck(deckId, card) {
   log$7.info("Removing card from deck", { term: card.spelling, deckId });
   await this.api.request("deck/remove-vocabulary", {
-    id: deckId,
+    id: normalizeDeckRequestId(deckId),
     vocabulary: [[card.vid, card.sid]]
   });
   this.clearUserDeckPoolCache();
@@ -24140,7 +24159,7 @@ class JpdbClient {
     return;
   }
   await this.api.request("deck/add-vocabulary", {
-    id: deckId,
+    id: normalizeDeckRequestId(deckId),
     vocabulary: [[card.vid, card.sid]]
   });
   }
@@ -31881,6 +31900,13 @@ function resolveDecorationHex(word, decorationColor, accessibleRgba) {
 function refreshReaderWordContrastForWord(word) {
   refreshReaderWordContrast(word.parentElement ?? word);
 }
+function refreshContrastForChangedWords(words) {
+  const lines = new Set();
+  for (const word of words) {
+  if (word.isConnected) lines.add(word.parentElement ?? word);
+  }
+  lines.forEach((line) => refreshReaderWordContrast(line));
+}
 function isNeutralReaderWord(word) {
   if (!word.classList.contains("jpdb-not-in-deck") && !word.classList.contains("anki-not-in-deck")) return false;
   return !Array.from(word.classList).some((className) => COLORED_READER_WORD_CLASSES.has(className));
@@ -33479,7 +33505,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.98"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.99"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -33914,7 +33940,8 @@ class VisiblePageScanner {
   if (!options.skipAnki && this.shouldEnrichAnkiWords()) void this.dependencies.enrichAnkiWords(tokens, changedRoots);
   }
   shouldEnrichAnkiWords() {
-  return !this.destroyed && shouldLookupAnkiStatus(this.dependencies.getSettings());
+  const settings = this.dependencies.getSettings();
+  return !this.destroyed && (shouldLookupAnkiStatus(settings) || shouldLookupBunproWordStates(settings));
   }
   handleEmptyVisiblePageScan(silent) {
   if (!silent) this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "noUnscannedJapaneseText"));
@@ -34604,10 +34631,10 @@ class ReaderApp {
   getSettings: () => this.settings,
   dictionarySourceAttributes: (key) => this.dictionarySourceState.attributes(key),
   parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
-  parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
+  parsePopoverJapanese: (popover) => this.isJpdbPageAddonRoot(popover) ? this.parseJpdbPageAddonJapanese(popover) : this.parsePopoverJapanese(popover),
   enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
-  enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
-  isCurrentPopoverRoot: (root) => this.isCurrentPopoverRoot(root)
+  enrichAnkiWords: (tokens, roots) => this.queueAnkiWordEnrichment(tokens, roots ?? [document]),
+  isCurrentPopoverRoot: (root) => this.isCurrentPopoverRoot(root) || this.isJpdbPageAddonRoot(root)
   });
   cardActions = new CardActionController({
   getSettings: () => this.settings,
@@ -34648,7 +34675,7 @@ class ReaderApp {
   canParseJapanese: () => this.canParseJapanese(),
   parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
   enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
-  enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
+  enrichAnkiWords: (tokens, roots) => this.queueAnkiWordEnrichment(tokens, roots ?? [document]),
   repositionPopover: () => this.repositionActivePopover(),
   setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
   toast: (message) => this.toast(message)
@@ -34690,7 +34717,7 @@ class ReaderApp {
   pauseMutationObserver: (callback) => this.pauseAutoScanObserver(callback),
   preloadParsedTokens: (tokens) => this.preloadParsedTokens(tokens),
   enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
-  enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
+  enrichAnkiWords: (tokens, roots) => this.queueAnkiWordEnrichment(tokens, roots ?? [document]),
   beginAnkiWordEnrichment: (tokens) => this.beginAnkiWordEnrichment(tokens),
   prepareAnkiWordEnrichmentBeforeRender: (tokens) => this.prepareAnkiWordEnrichmentBeforeRender(tokens),
   prepareSubtitleTokensBeforeRender: (tokens) => this.enrichSubtitleTokensBeforeRender(tokens),
@@ -35037,15 +35064,15 @@ class ReaderApp {
   if (!states?.size || !this.shouldRunBunproWordStateWork()) return;
   const now = Date.now();
   this.pauseAutoScanObserver(() => {
+    const changedWords = [];
     uniqueParentNodes(roots).forEach((root) => {
-      let changed = false;
       renderedWordsInRoot(root).forEach((word) => {
         const entry = word.dataset.expression ? states.get(word.dataset.expression) : void 0;
         const state = entry ? effectiveBunproWordState(entry, now) : null;
-        if (applyBunproStateToRenderedWord(word, state)) changed = true;
+        if (applyBunproStateToRenderedWord(word, state)) changedWords.push(word);
       });
-      if (changed) refreshReaderWordContrast(root);
     });
+    refreshContrastForChangedWords(changedWords);
   });
   }
   scheduleRenderedAnkiStatusRefresh(card) {
@@ -35464,6 +35491,7 @@ class ReaderApp {
   if (!this.updateJpdbPageAddonHtml(root, html)) return;
   this.installJpdbPageAddonHandlers(root, card);
   this.dictionarySourceState.installTracking(root);
+  this.studySources.installLoaders(root, target.examples[0]?.sentence);
   this.installJpdbPageImmersionExamples(root, card, [
     ...target.alternates,
     ...target.compounds.flatMap((compound) => [compound.term, compound.reading]),
@@ -40326,17 +40354,25 @@ class ReaderApp {
       return;
     }
     this.prepareRenderedWordIndexForLookups(lookupByWordKey, targetRoots);
+    const touchedWords = [];
     lookupByWordKey.forEach((lookup, key) => {
-      this.renderedWordsForLookupKey(key, targetRoots).forEach((word) => applyAnkiLookupToRenderedWord(word, lookup, this.settings.interfaceLanguage, options));
+      this.renderedWordsForLookupKey(key, targetRoots).forEach((word) => {
+        applyAnkiLookupToRenderedWord(word, lookup, this.settings.interfaceLanguage, options);
+        touchedWords.push(word);
+      });
     });
-    targetRoots.forEach((root) => refreshReaderWordContrast(root));
+    refreshContrastForChangedWords(touchedWords);
   });
   }
   clearRenderedAnkiLookupStateForKeys(lookupByWordKey, roots) {
+  const touchedWords = [];
   lookupByWordKey.forEach((_lookup, key) => {
-    this.renderedWordsForLookupKey(key, roots).forEach((word) => clearRenderedWordAnkiState(word));
+    this.renderedWordsForLookupKey(key, roots).forEach((word) => {
+      clearRenderedWordAnkiState(word);
+      touchedWords.push(word);
+    });
   });
-  roots.forEach((root) => refreshReaderWordContrast(root));
+  refreshContrastForChangedWords(touchedWords);
   }
   clearRenderedAnkiWordStates(root = document) {
   this.pauseAutoScanObserver(() => {

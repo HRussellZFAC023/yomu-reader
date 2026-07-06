@@ -6,7 +6,7 @@ import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
 import { ReaderApp } from '../../src/reader/app/main';
 import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../src/reader/theme/color-utils';
 import { applyReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
-import { refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
+import { refreshContrastForChangedWords, refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
 import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_SETTINGS, loadSettings, saveSettings, SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
@@ -604,6 +604,45 @@ describe('reader theme', () => {
         // All three siblings still get an accessible color against the dark bg.
         for (const word of document.querySelectorAll<HTMLElement>('.jpdb-reader-word')) {
             expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).not.toBe('');
+        }
+    });
+
+    it('refreshes contrast only for connected changed word lines during enrichment', () => {
+        document.body.innerHTML = `
+            <main>
+                <p id="changed-line" style="background: rgb(20, 20, 20); color: rgb(255, 255, 255);">
+                    <span class="jpdb-reader-word jpdb-known" style="color: rgb(30, 30, 30);">読む</span>
+                    <span class="jpdb-reader-word anki-due" style="color: rgb(30, 30, 30);">本</span>
+                </p>
+                <p id="untouched-line" style="background: rgb(20, 20, 20); color: rgb(255, 255, 255);">
+                    <span class="jpdb-reader-word jpdb-known" style="color: rgb(30, 30, 30);">犬</span>
+                </p>
+            </main>`;
+        const changedLine = document.querySelector<HTMLElement>('#changed-line')!;
+        const changedWords = Array.from(changedLine.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        const untouchedWord = document.querySelector<HTMLElement>('#untouched-line .jpdb-reader-word')!;
+        const detachedLine = document.createElement('p');
+        detachedLine.innerHTML = '<span class="jpdb-reader-word jpdb-known" style="color: rgb(30, 30, 30);">猫</span>';
+        const detachedWord = detachedLine.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const changedLineScan = vi.spyOn(changedLine, 'querySelectorAll');
+        const bodyScan = vi.spyOn(document.body, 'querySelectorAll');
+        const detachedLineScan = vi.spyOn(detachedLine, 'querySelectorAll');
+
+        try {
+            refreshContrastForChangedWords([...changedWords, detachedWord]);
+
+            expect(changedLineScan).toHaveBeenCalledTimes(1);
+            expect(bodyScan).not.toHaveBeenCalled();
+            expect(detachedLineScan).not.toHaveBeenCalled();
+            for (const word of changedWords) {
+                expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).not.toBe('');
+            }
+            expect(untouchedWord.style.getPropertyValue('--jpdb-reader-word-accessible-color')).toBe('');
+            expect(detachedWord.style.getPropertyValue('--jpdb-reader-word-accessible-color')).toBe('');
+        } finally {
+            changedLineScan.mockRestore();
+            bodyScan.mockRestore();
+            detachedLineScan.mockRestore();
         }
     });
 

@@ -259,6 +259,17 @@ export function refreshReaderWordContrastForWord(word: HTMLElement): void {
     refreshReaderWordContrast(word.parentElement ?? word);
 }
 
+// Batch variant for enrichment passes: refresh each touched line once instead
+// of the whole root. Contrast measurement forces style/layout per word, so
+// whole-root refreshes after every subtitle cue made large transcripts jank.
+export function refreshContrastForChangedWords(words: Iterable<HTMLElement>): void {
+    const lines = new Set<ParentNode>();
+    for (const word of words) {
+        if (word.isConnected) lines.add(word.parentElement ?? word);
+    }
+    lines.forEach(line => refreshReaderWordContrast(line));
+}
+
 function isNeutralReaderWord(word: HTMLElement): boolean {
     if (!word.classList.contains('jpdb-not-in-deck') && !word.classList.contains('anki-not-in-deck')) return false;
     return !Array.from(word.classList).some(className => COLORED_READER_WORD_CLASSES.has(className));

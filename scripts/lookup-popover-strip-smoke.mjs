@@ -12,6 +12,21 @@ import * as esbuild from 'esbuild';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const ARTIFACTS = path.join(ROOT, 'artifacts', 'yomu-reader');
+const DIST_CSS = loadDistCss();
+
+function loadDistCss() {
+    const distCssPath = path.join(ROOT, 'dist/yomu.css');
+    let css = '';
+    try {
+        css = readFileSync(distCssPath, 'utf8');
+    } catch {
+        throw new Error(`lookup-popover-strip-smoke: dist/yomu.css not found at ${distCssPath}. Run \`npm run build\` first so the smoke loads the concatenated production stylesheet (base + reader-words-ocr + popover-core + kanji + …), not just popover-core.css.`);
+    }
+    if (!css.trim()) {
+        throw new Error(`lookup-popover-strip-smoke: dist/yomu.css at ${distCssPath} is empty. Run \`npm run build\` to regenerate it before running this smoke.`);
+    }
+    return css;
+}
 const tempDir = mkdtempSync(path.join(tmpdir(), 'yomu-lookup-popover-smoke-'));
 const entryPath = path.join(tempDir, 'probe.ts');
 const bundlePath = path.join(tempDir, 'probe.js');
@@ -105,15 +120,37 @@ writeFileSync(entryPath, `
                 const box = chip.getBoundingClientRect();
                 return { vid: chip.dataset.vid, top: box.top, width: box.width, height: box.height };
             });
-            const componentLinks = [...cardHost.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-expression-components a.gloss-link[data-dictionary-lookup]')];
+            const componentsSection = cardHost.querySelector<HTMLElement>('.jpdb-reader-expression-components')!;
+            const componentLinks = [...componentsSection.querySelectorAll<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]')];
             componentLinks[0]?.focus();
             const focusable = document.activeElement === componentLinks[0];
             const componentRects = componentLinks.map(link => {
                 const box = link.getBoundingClientRect();
                 return { top: box.top, left: box.left, width: box.width };
             });
-            const summary = cardHost.querySelector<HTMLElement>('.jpdb-reader-expression-components summary')!;
             const pos = cardHost.querySelector<HTMLElement>('.jpdb-reader-pos');
+            // Pitch graph SVG in the card header (whole-word or per-component).
+            const pitchContainer = cardHost.querySelector<HTMLElement>('.jpdb-reader-pitch');
+            const pitchSvg = pitchContainer?.querySelector<SVGSVGElement>('svg') ?? null;
+            const polyline = pitchContainer?.querySelector<SVGPolylineElement>('polyline') ?? null;
+            const header = cardHost.querySelector<HTMLElement>('.jpdb-reader-header');
+            const heading = cardHost.querySelector<HTMLElement>('.jpdb-reader-heading');
+            const audioButton = cardHost.querySelector<HTMLElement>('.jpdb-reader-audio-control');
+            const rectOf = (el: Element | null) => {
+                if (!el) return null;
+                const box = el.getBoundingClientRect();
+                return { top: box.top, bottom: box.bottom, left: box.left, right: box.right, height: box.height, width: box.width };
+            };
+            // Furigana annotations in the wrapping sentence strip must not bleed
+            // vertically into non-adjacent lines.
+            const stripRubyRects = [...strip.querySelectorAll<HTMLElement>('.jpdb-reader-furi')].map(rt => {
+                const box = rt.getBoundingClientRect();
+                return { top: box.top, bottom: box.bottom };
+            });
+            const stripWordRects = [...strip.querySelectorAll<HTMLElement>('.jpdb-reader-word')].map(word => {
+                const box = word.getBoundingClientRect();
+                return { top: box.top, bottom: box.bottom };
+            });
             return {
                 stripText: strip.textContent ?? '',
                 stripWidth: strip.getBoundingClientRect().width,
@@ -127,7 +164,20 @@ writeFileSync(entryPath, `
                 componentPitchClasses: [...cardHost.querySelectorAll<HTMLElement>('.jpdb-reader-expression-component-term')].map(term => term.dataset.pitchClass ?? ''),
                 componentRuby: [...cardHost.querySelectorAll<HTMLElement>('.jpdb-reader-expression-component-term .jpdb-reader-furi')].map(rt => rt.textContent ?? ''),
                 focusable,
-                composedGap: pos ? summary.getBoundingClientRect().top - pos.getBoundingClientRect().bottom : null,
+                // Redesigned breakdown is a borderless div, no <summary> label.
+                hasSummary: Boolean(componentsSection.querySelector('summary')),
+                componentsTag: componentsSection.tagName,
+                composedGap: pos ? componentsSection.getBoundingClientRect().top - pos.getBoundingClientRect().bottom : null,
+                componentsLeft: componentsSection.getBoundingClientRect().left,
+                posLeft: pos ? pos.getBoundingClientRect().left : null,
+                pitchSvgRenderedHeight: pitchSvg ? pitchSvg.getBoundingClientRect().height : null,
+                polylineFill: polyline ? getComputedStyle(polyline).fill : null,
+                headerRect: rectOf(header),
+                headingRect: rectOf(heading),
+                pitchRect: rectOf(pitchContainer),
+                audioRect: rectOf(audioButton),
+                stripRubyRects,
+                stripWordRects,
             };
         },
     });
@@ -165,7 +215,12 @@ async function runProbe(browserType, name) {
     try {
         const page = await browser.newPage({ viewport: { width: 390, height: 720 } });
         await page.setContent(fixture, { waitUntil: 'domcontentloaded' });
-        await page.addStyleTag({ content: readFileSync(path.join(ROOT, 'src/reader/styles/popover-core.css'), 'utf8') });
+        // Load the SAME concatenated stylesheet the product ships (base +
+        // reader-words-ocr + popover-core + kanji + …) so the rendered pitch
+        // graph and layout are faithful. kanji.css is what caps the pitch SVG at
+        // 42px and sets `polyline { fill: none }`; without it the graph renders
+        // as a giant black spiky blob.
+        await page.addStyleTag({ content: DIST_CSS });
         await page.addScriptTag({ path: bundlePath });
         const result = await page.evaluate(() => window.runYomuLookupPopoverProbe());
 
@@ -200,8 +255,51 @@ async function runProbe(browserType, name) {
             `${name}: component chips missing pitch colouring`, result);
         assert(result.componentRuby.includes('いっせき') && result.componentRuby.includes('にちょう'),
             `${name}: component chips missing ruby readings`, result);
-        assert(result.composedGap === null || result.composedGap >= 8,
-            `${name}: missing vertical gap above the Composed of header`, result);
+        assert(result.composedGap === null || result.composedGap >= 4,
+            `${name}: missing vertical gap above the composed-of breakdown`, result);
+
+        // Redesign: borderless div, no collapse/label.
+        assert(result.componentsTag === 'DIV' && !result.hasSummary,
+            `${name}: composed-of section should be a borderless div without a summary label`, result);
+
+        // Pitch graph must be capped by kanji.css (height: 42px), not the
+        // browser's intrinsic SVG default — a missing cascade renders it oversized.
+        assert(result.pitchSvgRenderedHeight !== null, `${name}: no pitch-graph SVG rendered`, result);
+        assert(result.pitchSvgRenderedHeight <= 60,
+            `${name}: pitch-graph SVG rendered height exceeds 60px - missing kanji.css height: 42px styling`, result);
+        // Polyline fill must be `none`; without kanji.css it computes to rgb(0,0,0)
+        // and the graph renders as a giant black spiky shape.
+        assert(result.polylineFill === 'none',
+            `${name}: polyline fill computed as ${result.polylineFill} instead of none - missing kanji.css polyline { fill: none; }`, result);
+
+        // Header row / pitch graph / audio button must not collide. The heading
+        // (headword, left) and the card-tools cluster (pitch graph + audio,
+        // right) sit in one flex row, so the giant-black-blob regression shows up
+        // as the pitch graph overrunning its 128px cap and overlapping either the
+        // heading (horizontally) or the audio button.
+        const { headingRect, pitchRect, audioRect } = result;
+        assert(headingRect && pitchRect && audioRect, `${name}: missing heading/pitch/audio boxes`, result);
+        const boxesDisjoint = (a, b) => a.right <= b.left + 1 || b.right <= a.left + 1 || a.bottom <= b.top + 1 || b.bottom <= a.top + 1;
+        assert(boxesDisjoint(headingRect, pitchRect),
+            `${name}: layout overlap detected: pitch graph overlaps the headword heading`, result);
+        assert(boxesDisjoint(pitchRect, audioRect),
+            `${name}: layout overlap detected: pitch graph overlaps the audio button`, result);
+
+        // Composed-of breakdown must sit at the popover-body inset, aligned with
+        // the rest of the card content (e.g. the part-of-speech row), never
+        // touching the popover edge.
+        if (result.posLeft !== null) {
+            assert(Math.abs(result.componentsLeft - result.posLeft) <= 2,
+                `${name}: composed-of breakdown left edge misaligned with card content inset`, result);
+        }
+
+        // Sentence-strip furigana must not overlap non-adjacent lines.
+        const lineTops = [...new Set(result.stripWordRects.map(rect => Math.round(rect.top)))].sort((a, b) => a - b);
+        const noRubyOverlap = result.stripRubyRects.every(ruby => {
+            const ownLine = lineTops.reduce((best, top) => Math.abs(top - ruby.bottom) < Math.abs(best - ruby.bottom) ? top : best, lineTops[0] ?? 0);
+            return lineTops.every(top => top === ownLine || ruby.bottom <= top + 2 || ruby.top >= top - 2);
+        });
+        assert(noRubyOverlap, `${name}: ruby annotation overlaps vertically with adjacent sentence-strip lines`, result);
 
         const screenshotPath = path.join(ARTIFACTS, `lookup-popover-strip-smoke-${name}.png`);
         await page.screenshot({ path: screenshotPath, fullPage: true });

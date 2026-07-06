@@ -3017,6 +3017,40 @@ describe('reader helpers', () => {
         }
     });
 
+    it('sends numeric user-deck ids as JSON numbers when adding and removing deck vocabulary', async () => {
+        const client = new JpdbClient(() => 'token');
+        const deckBodies: string[] = [];
+        const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
+            const href = String(url);
+            if (href === 'https://jpdb.io/api/v1/deck/add-vocabulary' || href === 'https://jpdb.io/api/v1/deck/remove-vocabulary') {
+                deckBodies.push(String(init?.body));
+                return { status: 200, ok: true, text: async () => '{}' };
+            }
+            if (href === 'https://jpdb.io/api/v1/lookup-vocabulary') {
+                return {
+                    status: 200,
+                    ok: true,
+                    text: async () => JSON.stringify({
+                        vocabulary_info: [[1, 2, 3, '食べる', 'たべる', 100, ['v1'], [['to eat']], [['v1']], ['new'], ['LHH']]],
+                    }),
+                };
+            }
+            throw new Error(`Unexpected URL: ${href}`);
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(client.addToDeck('37100', { ...card })).resolves.toBeUndefined();
+            await expect(client.removeFromDeck('37100', { ...card })).resolves.toBeUndefined();
+            expect(deckBodies).toEqual([
+                JSON.stringify({ id: 37100, vocabulary: [[1, 2]] }),
+                JSON.stringify({ id: 37100, vocabulary: [[1, 2]] }),
+            ]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('routes hosted JPDB API calls through the configured proxy before direct fetch', async () => {
         const proxyUrl = 'https://yomu-proxy.example/fetch';
         const target = 'https://jpdb.io/api/v1/list-user-decks';
@@ -4979,7 +5013,10 @@ describe('reader helpers', () => {
         const section = document.querySelector<HTMLElement>('.jpdb-reader-expression-components')!;
         const links = [...section.querySelectorAll<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]')];
         const words = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-expression-component-term')];
-        expect(section.textContent).toContain('Composed of');
+        // The redesigned breakdown drops the "Composed of" label/collapse: the
+        // section is a borderless div of tappable component chips.
+        expect(section.tagName).toBe('DIV');
+        expect(section.querySelector('summary')).toBeNull();
         expect(links.map(link => link.dataset.dictionaryLookup)).toEqual(['跳梁', '跋扈']);
         expect(links.map(link => link.dataset.dictionaryReading)).toEqual(['ちょうりょう', 'ばっこ']);
         expect(words.map(word => word.dataset.expression)).toEqual(['跳梁', '跋扈']);
@@ -10365,6 +10402,39 @@ describe('reader helpers', () => {
         expect(wrapper.querySelectorAll('[data-study-original-render]')).toHaveLength(2);
     });
 
+    it('resolves the grammar section inside dictionary-site page addons instead of leaving the placeholder', async () => {
+        const sentence = '私に関して言えば、肉よりも魚が好きだ。';
+        const root = document.createElement('div');
+        root.dataset.yomuJpdbAddon = 'word';
+        document.body.append(root);
+        const fetchSpy = vi.spyOn(globalThis, 'fetch');
+        const controller = new StudySourceController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, studyGrammarEnabled: true }),
+            dictionarySourceAttributes: () => 'open',
+            parseJapanese: vi.fn(async () => []),
+            parsePopoverJapanese: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            // Mirrors main.ts wiring: real popovers OR dictionary-site page
+            // addon roots pass the guard — addon sections used to fail it and
+            // sit on "Finding grammar..." forever.
+            isCurrentPopoverRoot: candidate => Boolean(candidate.closest('[data-yomu-jpdb-addon]')),
+        });
+
+        try {
+            root.innerHTML = controller.renderGrammarSource(sentence);
+            expect(root.textContent).toContain('Finding grammar');
+            controller.installLoaders(root, sentence);
+            await vi.waitFor(() => {
+                expect(root.textContent).not.toContain('Finding grammar');
+            });
+            expect(fetchSpy.mock.calls.some(call => String(call[0]).includes('translate.googleapis.com'))).toBe(false);
+        } finally {
+            fetchSpy.mockRestore();
+            document.body.replaceChildren();
+        }
+    });
+
     it('lets parsed study sentences wrap without pushing the sentence audio button off mobile sheets', () => {
         const style = document.createElement('style');
         style.textContent = `${READER_WORD_CSS}\n${IMMERSION_STUDY_CSS}`;
@@ -10574,31 +10644,46 @@ describe('reader helpers', () => {
             const puck = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')!;
             const powerButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="power"]')!;
 
+            expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
             expect(powerButton().getAttribute('aria-label')).toBe('Hide furigana');
             expect(powerButton().classList.contains('is-on')).toBe(true);
+            const onIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
+            expect(onIcon).toContain('M12 4v8');
+            expect(onIcon).not.toContain('>ふ<');
 
             powerButton().click();
             expect(cyclePowerState).toHaveBeenCalledTimes(1);
+            expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
             expect(puck.getAttribute('aria-label')).toContain('Furigana off');
             expect(powerButton().getAttribute('aria-label')).toBe('Pause annotations');
             expect(powerButton().classList.contains('is-partial')).toBe(true);
+            const noFuriganaIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
+            expect(noFuriganaIcon).toContain('>ふ<');
+            expect(noFuriganaIcon).not.toBe(onIcon);
 
             powerButton().click();
+            expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(true);
             expect(puck.getAttribute('aria-label')).toContain('Annotations paused');
             expect(powerButton().getAttribute('aria-label')).toBe('Resume annotations');
             expect(powerButton().classList.contains('is-off')).toBe(true);
+            const pausedIcon = powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
+            expect(pausedIcon).toContain('M9 5v14');
+            expect(pausedIcon).not.toBe(onIcon);
+            expect(pausedIcon).not.toBe(noFuriganaIcon);
 
             powerButton().click();
+            expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
             expect(puck.getAttribute('aria-label')).toBe('よむ');
             expect(powerButton().getAttribute('aria-label')).toBe('Hide furigana');
+            expect(powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML).toBe(onIcon);
         } finally {
             controller.destroy();
             restoreRects();
@@ -10629,15 +10714,21 @@ describe('reader helpers', () => {
 
             const ocrButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="ocr"]');
             expect(ocrButton()?.getAttribute('aria-label')).toBe('OCR: Auto');
+            const autoIcon = ocrButton()?.querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
+            expect(autoIcon).toContain('<rect');
 
             ocrButton()?.click();
             expect(toggleOcrMode).toHaveBeenCalledTimes(1);
             expect(ocrButton()?.getAttribute('aria-label')).toBe('OCR: Tap/Hover');
+            const manualIcon = ocrButton()?.querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML ?? '';
+            expect(manualIcon).toContain('M8 3H5');
+            expect(manualIcon).not.toBe(autoIcon);
             expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
 
             ocrButton()?.click();
             expect(ocrButton()?.getAttribute('aria-label')).toBe('OCR: Off');
             expect(ocrButton()?.classList.contains('is-off')).toBe(true);
+            expect(ocrButton()?.querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML).toBe(autoIcon);
         } finally {
             controller.destroy();
             restoreRects();
@@ -12032,6 +12123,24 @@ describe('reader helpers', () => {
         expect(html).toContain('class="odaka"');
         expect(html).toContain('>い<');
         expect(html).toContain('>く<');
+    });
+
+    it('renders every distinct accent variant when a reading has more than one', () => {
+        const html = renderPitch({
+            ...card,
+            spelling: '双子',
+            reading: 'ふたご',
+            // ふたご is attested both heiban (0) and odaka-ish (3); which one is
+            // right depends on the sentence, so both graphs must be shown.
+            pitchAccent: ['LHH', 'LHL'],
+            source: 'local',
+        }, [
+            // The local bank repeating a JPDB accent must not duplicate a graph.
+            { expression: '双子', mode: 'pitch', data: { reading: 'ふたご', pitches: [{ position: 0 }] }, dictionary: 'Pitch' },
+        ]);
+
+        expect(html).toContain('jpdb-reader-pitch-variants');
+        expect(html.match(/<svg /g)).toHaveLength(2);
     });
 
     it('falls back to local pitch metadata when no card pattern fits the contextual reading', () => {
