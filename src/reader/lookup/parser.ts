@@ -31,6 +31,16 @@ const LOCAL_PARSE_CACHE_LIMIT = 600;
 const LOCAL_PITCH_CACHE_LIMIT = 800;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6_000;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
+// Jiten's /parse endpoint is for batched LINES; a tiny per-word or per-refresh
+// parse would spam jiten.moe (and short text parses worse remotely). Route
+// batches shorter than this many Japanese characters to the local parser
+// instead — only when local term dictionaries exist, so Jiten-only users are
+// unaffected.
+const JITEN_MIN_BATCH_CHARS = 24;
+const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々]/gu;
+function japaneseBatchCharCount(paragraphs: string[]): number {
+    return paragraphs.reduce((total, text) => total + (text.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
+}
 const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3040-\u30ff\u3400-\u9fff々ー・]+$/u;
 const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
 const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
@@ -103,6 +113,12 @@ export class ReaderParser {
         if (settings.parserProvider === 'local' && await this.hasLocalTermDictionaries(true)) {
             return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
         }
+        // Length-gate the Jiten paths: short batches (a single word, a refresh)
+        // go local to avoid spamming jiten.moe, whose /parse endpoint is for
+        // batched lines. Only when local term dictionaries exist.
+        if (this.shouldRouteShortBatchToLocal(paragraphs, options, settings) && await this.hasLocalTermDictionaries(true)) {
+            return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
+        }
         // An explicit Jiten/JPDB pick never silently swaps to the other API;
         // when the pinned provider fails it drops to local/segmented fallback.
         // requireJpdb flows (JPDB grading needs JPDB token identity) still go
@@ -129,6 +145,16 @@ export class ReaderParser {
         const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
         if (jitenResult) return jitenResult;
         return this.parseWithFallbackSource(paragraphs, options);
+    }
+
+    // True when an EXPLICIT Jiten pick would fire a remote request for a batch too
+    // short to justify it. Only explicit 'jiten' is gated: the auto path keeps its
+    // API-first contract, jpdb has its own batching + grading identity, and
+    // requireJpdb flows still need JPDB. Jiten-only users (no local dicts) are
+    // unaffected because the caller also requires hasLocalTermDictionaries.
+    private shouldRouteShortBatchToLocal(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): boolean {
+        if (settings.parserProvider !== 'jiten' || options.requireJpdb === true) return false;
+        return japaneseBatchCharCount(paragraphs) < JITEN_MIN_BATCH_CHARS;
     }
 
     private async tryParseWithJpdb(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): Promise<JPDBToken[][] | null> {

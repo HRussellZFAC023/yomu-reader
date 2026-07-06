@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.101] - 2026-07-06
+
+### Fixed
+
+- Jiten parsing no longer sends tiny single-word requests to jiten.moe: short text now parses with your local offline dictionaries (when installed) while longer batched lines still use the Jiten endpoint, cutting request volume and giving better boundaries on long passages.
+
+### Improved
+
+- The floating puck is far less distracting at rest — it fades back into the page and only brightens to a crisp, clearly-coloured state when you hover or focus it. The three power states stay distinguishable by their colour, ring, and badge.
+- Local (offline) parsing is significantly faster: word deinflection — the single biggest cost in the local parser's per-line work — is now cached, so re-scanning a page or a live subtitle no longer recomputes the same candidates hundreds of times.
+
 ## [1.6.100] - 2026-07-06
 
 ### Fixed

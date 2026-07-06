@@ -7108,12 +7108,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
     { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
   ];
+  const DEINFLECTION_CACHE_MAX = 4e3;
+  const deinflectionCache = /* @__PURE__ */ new Map();
   function deinflectJapaneseTerm(source) {
+    const cached = deinflectionCache.get(source);
+    if (cached) return cached;
     const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
     const seen = /* @__PURE__ */ new Set([candidateKey(results[0])]);
     const queue = [results[0]];
     expandDeinflectionQueue(queue, results, seen);
     const sorted = sortDeinflectedTerms(results);
+    if (deinflectionCache.size >= DEINFLECTION_CACHE_MAX) {
+      const oldest = deinflectionCache.keys().next().value;
+      if (oldest !== void 0) deinflectionCache.delete(oldest);
+    }
+    deinflectionCache.set(source, sorted);
     return sorted;
   }
   function expandDeinflectionQueue(queue, results, seen) {

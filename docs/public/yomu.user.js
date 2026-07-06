@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.100
+// @version 1.6.101
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.100#sha256=N0kDfli6QcwU15W78VmRYdj9pqPzPitUx+OJVHZoeXg=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.100#sha256=vDqzgPyYQp0aCzAERCTrLg7yzOJ1kOuG3GKWzluZ90g=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.100#sha256=ouQezXMgPVhSpjRQf6nVEIOA1BdNCYBq2T3XnmT/Ujk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.100#sha256=kxf+lcrOgWG2I6C+ucheI6LV0lvdkoKwqRYPPxZXFLs=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.100#sha256=M214EvtM2GqEKS+5sY1RPXw4Klf6ZPU2cVy4xApls1Y=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.100#sha256=hOqXUgDY5XdiWt5nfPdb5Wb/RWtloO6RBikZRV51Sfo=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.101#sha256=N0kDfli6QcwU15W78VmRYdj9pqPzPitUx+OJVHZoeXg=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.101#sha256=vDqzgPyYQp0aCzAERCTrLg7yzOJ1kOuG3GKWzluZ90g=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.101#sha256=Ha1PTZ5aDiUONnmfX+X44USXhcfTn67bUiAI6J/6KTI=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.101#sha256=kxf+lcrOgWG2I6C+ucheI6LV0lvdkoKwqRYPPxZXFLs=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.101#sha256=yrZ4Zz8sspvkh3dXQPg2xT08Q2qWgzbu6vRI9jOBVyA=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.101#sha256=hOqXUgDY5XdiWt5nfPdb5Wb/RWtloO6RBikZRV51Sfo=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -13207,12 +13207,21 @@ const RULES = [
   { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
   { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
 ];
+const DEINFLECTION_CACHE_MAX = 4e3;
+const deinflectionCache = new Map();
 function deinflectJapaneseTerm(source) {
+  const cached = deinflectionCache.get(source);
+  if (cached) return cached;
   const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
   const seen = new Set([candidateKey(results[0])]);
   const queue = [results[0]];
   expandDeinflectionQueue(queue, results, seen);
   const sorted = sortDeinflectedTerms(results);
+  if (deinflectionCache.size >= DEINFLECTION_CACHE_MAX) {
+  const oldest = deinflectionCache.keys().next().value;
+  if (oldest !== void 0) deinflectionCache.delete(oldest);
+  }
+  deinflectionCache.set(source, sorted);
   return sorted;
 }
 function expandDeinflectionQueue(queue, results, seen) {
@@ -19265,6 +19274,11 @@ const LOCAL_PARSE_CACHE_LIMIT = 600;
 const LOCAL_PITCH_CACHE_LIMIT = 800;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
+const JITEN_MIN_BATCH_CHARS = 24;
+const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々]/gu;
+function japaneseBatchCharCount(paragraphs) {
+  return paragraphs.reduce((total, text2) => total + (text2.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
+}
 const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3040-\u30ff\u3400-\u9fff々ー・]+$/u;
 const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
 const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
@@ -19310,6 +19324,9 @@ class ReaderParser {
   if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
     return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
   }
+  if (this.shouldRouteShortBatchToLocal(paragraphs, options, settings) && await this.hasLocalTermDictionaries(true)) {
+    return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+  }
   if (settings.parserProvider === "jiten" && options.requireJpdb !== true) {
     const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
     if (jitenResult2) return jitenResult2;
@@ -19332,6 +19349,10 @@ class ReaderParser {
   const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
   if (jitenResult) return jitenResult;
   return this.parseWithFallbackSource(paragraphs, options);
+  }
+  shouldRouteShortBatchToLocal(paragraphs, options, settings) {
+  if (settings.parserProvider !== "jiten" || options.requireJpdb === true) return false;
+  return japaneseBatchCharCount(paragraphs) < JITEN_MIN_BATCH_CHARS;
   }
   async tryParseWithJpdb(paragraphs, options, settings) {
   if (!hasJpdbApiCredential(settings) || shouldSkipApiParser(options)) return null;
@@ -33529,7 +33550,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.100"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.101"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

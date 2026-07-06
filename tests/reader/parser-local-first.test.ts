@@ -95,6 +95,41 @@ describe('local-first parsing', () => {
     });
 });
 
+describe('jiten short-batch length gate', () => {
+    it('routes a short explicit-Jiten batch to the local parser instead of jiten.moe', async () => {
+        const { parser, jitenParse, findTermMatches } = parserHarness({ settings: { parserProvider: 'jiten' } });
+
+        await parser.parse(['日本語']); // 3 Japanese chars < 24
+
+        expect(jitenParse).not.toHaveBeenCalled();
+        expect(findTermMatches).toHaveBeenCalled();
+    });
+
+    it('uses Jiten for a long enough explicit-Jiten batch', async () => {
+        const { parser, jitenParse } = parserHarness({ settings: { parserProvider: 'jiten' } });
+
+        await parser.parse(['日本語日本語日本語日本語日本語日本語日本語日本語']); // 24 chars >= 24
+
+        expect(jitenParse).toHaveBeenCalledTimes(1);
+    });
+
+    it('still uses Jiten for short text when no local dictionaries are installed', async () => {
+        const { parser, jitenParse } = parserHarness({ settings: { parserProvider: 'jiten' }, hasTermDictionaries: false });
+
+        await parser.parse(['日本語']);
+
+        expect(jitenParse).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not gate the auto provider (API-first order preserved)', async () => {
+        const { parser, jitenParse } = parserHarness({ settings: { parserProvider: 'auto' } });
+
+        await parser.parse(['日本語']); // short, but auto is never gated
+
+        expect(jitenParse).toHaveBeenCalledTimes(1);
+    });
+});
+
 describe('keyless offline first paint', () => {
     function keylessParser({ onLine }: { onLine: boolean }) {
         const publicParse = vi.fn(async (paragraphs: readonly string[]) => paragraphs.map(() => []));

@@ -11009,12 +11009,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
     { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
   ];
+  const DEINFLECTION_CACHE_MAX = 4e3;
+  const deinflectionCache = /* @__PURE__ */ new Map();
   function deinflectJapaneseTerm(source) {
+    const cached = deinflectionCache.get(source);
+    if (cached) return cached;
     const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
     const seen = /* @__PURE__ */ new Set([candidateKey(results[0])]);
     const queue = [results[0]];
     expandDeinflectionQueue(queue, results, seen);
     const sorted = sortDeinflectedTerms(results);
+    if (deinflectionCache.size >= DEINFLECTION_CACHE_MAX) {
+      const oldest = deinflectionCache.keys().next().value;
+      if (oldest !== void 0) deinflectionCache.delete(oldest);
+    }
+    deinflectionCache.set(source, sorted);
     return sorted;
   }
   function expandDeinflectionQueue(queue, results, seen) {
@@ -34674,6 +34683,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const LOCAL_PITCH_CACHE_LIMIT = 800;
   const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
+  const JITEN_MIN_BATCH_CHARS = 24;
+  const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々]/gu;
+  function japaneseBatchCharCount(paragraphs) {
+    return paragraphs.reduce((total, text2) => total + (text2.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
+  }
   const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3040-\u30ff\u3400-\u9fff々ー・]+$/u;
   const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
   const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
@@ -34719,6 +34733,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
         return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
       }
+      if (this.shouldRouteShortBatchToLocal(paragraphs, options, settings) && await this.hasLocalTermDictionaries(true)) {
+        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+      }
       if (settings.parserProvider === "jiten" && options.requireJpdb !== true) {
         const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
         if (jitenResult2) return jitenResult2;
@@ -34741,6 +34758,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
       if (jitenResult) return jitenResult;
       return this.parseWithFallbackSource(paragraphs, options);
+    }
+    // True when an EXPLICIT Jiten pick would fire a remote request for a batch too
+    // short to justify it. Only explicit 'jiten' is gated: the auto path keeps its
+    // API-first contract, jpdb has its own batching + grading identity, and
+    // requireJpdb flows still need JPDB. Jiten-only users (no local dicts) are
+    // unaffected because the caller also requires hasLocalTermDictionaries.
+    shouldRouteShortBatchToLocal(paragraphs, options, settings) {
+      if (settings.parserProvider !== "jiten" || options.requireJpdb === true) return false;
+      return japaneseBatchCharCount(paragraphs) < JITEN_MIN_BATCH_CHARS;
     }
     async tryParseWithJpdb(paragraphs, options, settings) {
       if (!hasJpdbApiCredential(settings) || shouldSkipApiParser(options)) return null;
@@ -39783,7 +39809,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.100".trim() ? "1.6.100".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.101".trim() ? "1.6.101".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
