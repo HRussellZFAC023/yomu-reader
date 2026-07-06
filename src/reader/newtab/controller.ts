@@ -861,6 +861,11 @@ export class NewTabController {
     // toggled a CSS class; speaking held a transient score), so these maps give
     // the summary strip a stable, first-attempt source without re-deriving state.
     private doodleOutcomes = new Map<string, 'correct' | 'wrong'>();
+    // First-attempt result per (card, kanji) — a word can hold several
+    // kanji-doodle steps, and each kanji's outcome must latch on its FIRST draw
+    // so a redraw of the same character never launders it. The card-level
+    // doodleOutcomes above is the "roughest draw wins" aggregate across kanji.
+    private doodleFirstAttempt = new Map<string, 'correct' | 'wrong'>();
     private speakingOutcomes = new Map<string, 'correct' | 'wrong'>();
     // Progressive-hint reveal depth per card+step ("card|kanji-doodle:0:飲" -> 2).
     // A hint never prints the full answer; the count folds into the reveal summary.
@@ -1153,6 +1158,7 @@ export class NewTabController {
         this.typeOutcomes.clear();
         this.typeHandwritingProgress.clear();
         this.doodleOutcomes.clear();
+        this.doodleFirstAttempt.clear();
         this.speakingOutcomes.clear();
         this.studyHintDepth.clear();
         this.immersionAudioPlayer.reset();
@@ -8313,18 +8319,21 @@ export class NewTabController {
         }
         const assessment = assessKanjiStrokes(strokes, expectedStrokes || strokes.length, details.vg?.strokeShapes);
         this.renderDoodleAssessment(slots, assessment);
-        // First-attempt pass/fail feeds the reveal summary. A single word card can
-        // hold several kanji-doodle steps; keep the FIRST fail so the summary
-        // reflects the roughest draw rather than the last retry.
-        this.recordDoodleOutcome(card, assessment.passed);
+        // First-attempt pass/fail feeds the reveal summary.
+        this.recordDoodleOutcome(card, kanji, assessment.passed);
         this.autoSubmitDoodleAssessment(settings, assessment.passed);
     }
 
-    private recordDoodleOutcome(card: JPDBCard, passed: boolean): void {
+    private recordDoodleOutcome(card: JPDBCard, kanji: string, passed: boolean): void {
         const key = cardKey(card);
-        const prior = this.doodleOutcomes.get(key);
-        // A later pass never launders an earlier fail; a first result records as-is.
-        if (prior === 'wrong') return;
+        // Latch each kanji on its FIRST draw so clearing and redrawing the same
+        // character can't relaunder its result (a first pass stays a pass).
+        const attemptKey = `${key} ${kanji}`;
+        if (this.doodleFirstAttempt.has(attemptKey)) return;
+        this.doodleFirstAttempt.set(attemptKey, passed ? 'correct' : 'wrong');
+        // Aggregate across the word's kanji into one card-level outcome: the
+        // roughest draw wins, so any failed kanji marks the whole card wrong.
+        if (this.doodleOutcomes.get(key) === 'wrong') return;
         this.doodleOutcomes.set(key, passed ? 'correct' : 'wrong');
     }
 

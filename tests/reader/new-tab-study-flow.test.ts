@@ -58,6 +58,8 @@ interface StudyInternals {
     state: Record<string, unknown>;
     studyHintDepth: Map<string, number>;
     pitchOutcomes: Map<string, { position: number; outcome: 'correct' | 'wrong' }>;
+    doodleOutcomes: Map<string, 'correct' | 'wrong'>;
+    recordDoodleOutcome(card: JPDBCard, kanji: string, passed: boolean): void;
     renderWord(root: HTMLElement, card: JPDBCard): void;
     bindRootEvents(root: HTMLElement): void;
     pickListenPosition(position: number): void;
@@ -524,6 +526,32 @@ describe('study flow: unrevealed headword opens the word, not a kanji popup', ()
             const event = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 8, clientY: 8 });
             kanjiBtn!.dispatchEvent(event);
             expect(showKanjiCard).toHaveBeenCalledTimes(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+});
+
+describe('study flow: doodle first-attempt discipline', () => {
+    it('keeps a kanji pass on redraw and lets a different failed kanji fail the card', () => {
+        const card = drinkCard();
+        const { controller, internals } = studyController([card]);
+        try {
+            const key = cardKey(card);
+            // 飲 drawn correctly first, then cleared and redrawn wrong: the first
+            // pass must latch — a redraw of the SAME kanji never launders it.
+            internals.recordDoodleOutcome(card, '飲', true);
+            internals.recordDoodleOutcome(card, '飲', false);
+            expect(internals.doodleOutcomes.get(key)).toBe('correct');
+
+            // A DIFFERENT kanji failing must still fail the whole card (roughest
+            // draw wins across the word's kanji-doodle steps).
+            internals.recordDoodleOutcome(card, '物', false);
+            expect(internals.doodleOutcomes.get(key)).toBe('wrong');
+
+            // Once wrong, a later kanji passing can't launder the card back.
+            internals.recordDoodleOutcome(card, '飲', true);
+            expect(internals.doodleOutcomes.get(key)).toBe('wrong');
         } finally {
             controller.destroy();
         }
