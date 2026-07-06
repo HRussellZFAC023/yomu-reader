@@ -605,8 +605,8 @@ async function verifyHostedSubtitleFlow(page, baseUrl) {
     await assertSubtitleOpenRequiresVideo(page);
     await loadHostedVideoAndSubtitleTogether(page);
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-open-with-subtitles.png'), fullPage: false });
-    await assertHostedSubtitleStyleControls(page);
-    await assertHostedSubtitleSettingsSyncedFromCompactControls(page);
+    const subtitleBottomOffset = await assertHostedSubtitleStyleControls(page);
+    await assertHostedSubtitleSettingsSyncedFromCompactControls(page, subtitleBottomOffset);
     await assertHostedFullscreenSubtitleOverlay(page);
     await assertHostedManualPanelCloseRestoresPlayer(page);
     await assertHostedThemeToggleResponsiveWithLoadedSubtitles(page);
@@ -1059,36 +1059,37 @@ async function assertHostedSubtitleStyleControls(page) {
     await page.locator('.jpdb-subtitle-rail [data-action="style"]').click();
     await page.waitForSelector('[data-subtitle-style-popover]:not([hidden])', { timeout: 6000 });
     await setHostedSubtitleStyleControl(page, 'subtitleFontSize', '34');
-    await setHostedSubtitleStyleControl(page, 'subtitleBottomOffset', '24');
+    const bottomOffset = await setHostedSubtitleBottomOffsetByDrag(page, 24);
     await setHostedSubtitleStyleControl(page, 'subtitleBackgroundOpacity', '0.35');
     await setHostedSubtitleStyleFont(page);
     await page.locator('[data-subtitle-style-setting="subtitleMiningPause"]').setChecked(false);
     await page.locator('[data-subtitle-style-setting="subtitleHoverPause"]').setChecked(false);
-    await page.waitForFunction(key => {
+    await page.waitForFunction(({ key, expectedBottomOffset }) => {
         const settings = JSON.parse(localStorage.getItem(key) || '{}');
         return settings.subtitleFontSize === 34
-            && settings.subtitleBottomOffset === 24
+            && settings.subtitleBottomOffset === expectedBottomOffset
             && settings.subtitleBackgroundOpacity === 0.35
             && settings.subtitleMiningPause === false
             && settings.subtitleHoverPause === false;
-    }, SETTINGS_KEY, { timeout: 6000 });
+    }, { key: SETTINGS_KEY, expectedBottomOffset: bottomOffset }, { timeout: 6000 });
     const styleState = await readHostedSubtitleStyleState(page);
-    assert(hostedSubtitleStyleControlsReady(styleState), 'Hosted compact subtitle style controls did not update subtitle settings/style', styleState);
+    assert(hostedSubtitleStyleControlsReady(styleState, bottomOffset), 'Hosted compact subtitle style controls did not update subtitle settings/style', styleState);
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-style-controls.png'), fullPage: false });
     await page.locator('.jpdb-subtitle-rail [data-action="style"]').click();
     await page.waitForFunction(() => document.querySelector('[data-subtitle-style-popover]')?.hasAttribute('hidden') === true, null, { timeout: 6000 });
     await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click();
     await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 6000 });
+    return bottomOffset;
 }
 
-async function assertHostedSubtitleSettingsSyncedFromCompactControls(page) {
+async function assertHostedSubtitleSettingsSyncedFromCompactControls(page, expectedBottomOffset) {
     await page.evaluate(() => {
         window.dispatchEvent(new CustomEvent('yomu-open-settings', { detail: { panel: 'media' } }));
     });
     await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
     await page.locator('[data-action="settings-panel"][data-panel="media"]').click();
     const state = await readHostedSubtitleSettingsSyncState(page);
-    assert(hostedSubtitleSettingsSynced(state), 'Compact subtitle controls did not stay in sync with the Settings dialog', state);
+    assert(hostedSubtitleSettingsSynced(state, expectedBottomOffset), 'Compact subtitle controls did not stay in sync with the Settings dialog', state);
     await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
 }
@@ -1118,16 +1119,16 @@ async function readHostedSubtitleSettingsSyncState(page) {
     });
 }
 
-function hostedSubtitleSettingsSynced(state) {
+function hostedSubtitleSettingsSynced(state, expectedBottomOffset) {
     return includesText(state.text, 'Pause video on subtitle click')
         && includesText(state.fontFamily, 'Noto Serif JP')
         && state.fontSize === '34'
-        && state.bottomOffset === '24'
+        && state.bottomOffset === String(expectedBottomOffset)
         && Number(state.backgroundOpacity) === 0.35
         && state.miningPause === false
         && state.hoverPause === false
         && state.saved.fontSize === 34
-        && state.saved.bottomOffset === 24
+        && state.saved.bottomOffset === expectedBottomOffset
         && state.saved.backgroundOpacity === 0.35
         && includesText(state.saved.fontFamily, 'Noto Serif JP')
         && state.saved.miningPause === false
@@ -1140,6 +1141,39 @@ async function setHostedSubtitleStyleControl(page, name, value) {
         control.dispatchEvent(new Event('input', { bubbles: true }));
         control.dispatchEvent(new Event('change', { bubbles: true }));
     }, value);
+}
+
+async function setHostedSubtitleBottomOffsetByDrag(page, targetBottomOffset) {
+    const handle = page.locator('.jpdb-subtitle-text > [data-subtitle-drag-handle]').first();
+    await handle.waitFor({ timeout: 6000 });
+    const geometry = await page.evaluate(({ key, requested }) => {
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const settings = JSON.parse(localStorage.getItem(key) || '{}');
+        const current = Number.isFinite(settings.subtitleBottomOffset)
+            ? settings.subtitleBottomOffset
+            : Number.parseFloat(root.style.getPropertyValue('--subtitle-bottom')) || 16;
+        const rootRect = root.getBoundingClientRect();
+        const referenceHeight = Math.max(1, rootRect.height || document.documentElement.clientHeight || window.innerHeight || 1);
+        const next = Math.round(requested);
+        return {
+            current,
+            target: next,
+            deltaY: -((next - current) / 100) * referenceHeight,
+        };
+    }, { key: SETTINGS_KEY, requested: targetBottomOffset });
+    const box = await handle.boundingBox();
+    if (!box) throw new Error('subtitle drag handle did not expose a drag box');
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + geometry.deltaY, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForFunction(({ key, expected }) => {
+        const settings = JSON.parse(localStorage.getItem(key) || '{}');
+        return settings.subtitleBottomOffset === expected;
+    }, { key: SETTINGS_KEY, expected: geometry.target }, { timeout: 6000 });
+    return geometry.target;
 }
 
 async function setHostedSubtitleStyleFont(page) {
@@ -1205,7 +1239,7 @@ async function readHostedSubtitleStyleState(page) {
     }, SETTINGS_KEY);
 }
 
-function hostedSubtitleStyleControlsReady(state) {
+function hostedSubtitleStyleControlsReady(state, expectedBottomOffset) {
     return state.expanded === 'true'
         && state.popoverOpen
         && state.controlCount >= 6
@@ -1216,12 +1250,12 @@ function hostedSubtitleStyleControlsReady(state) {
         && state.popoverStyle?.background === state.rootThemeColors?.surface2
         && state.popoverStyle?.color === state.rootThemeColors?.text
         && numericPx(state.fontTarget) >= 34
-        && state.bottom === '24%'
+        && state.bottom === `${expectedBottomOffset}%`
         && includesText(state.background, ',0.35)')
         && includesText(state.family, 'Noto Serif JP')
         && state.opacityOutput === '35%'
         && state.saved.fontSize === 34
-        && state.saved.bottomOffset === 24
+        && state.saved.bottomOffset === expectedBottomOffset
         && state.saved.backgroundOpacity === 0.35
         && state.saved.miningPause === false
         && state.saved.hoverPause === false
