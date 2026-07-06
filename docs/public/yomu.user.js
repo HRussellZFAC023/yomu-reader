@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.94
+// @version 1.6.95
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.94#sha256=N0kDfli6QcwU15W78VmRYdj9pqPzPitUx+OJVHZoeXg=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.94#sha256=YkoJBh3Uc7HIPqUyBOyLJ9lr6TVn0tP9LlBgH8ovYII=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.94#sha256=ouQezXMgPVhSpjRQf6nVEIOA1BdNCYBq2T3XnmT/Ujk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.94#sha256=kxf+lcrOgWG2I6C+ucheI6LV0lvdkoKwqRYPPxZXFLs=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.94#sha256=EDQgt0RULyq8pTdZMdQFGrE0RTid8UF6Rm/l4NupFt0=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.94#sha256=2iqN3MWoGj/GRLfs0ZwljkXLmXoSk6jy8iWOkRiRdvE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.95#sha256=N0kDfli6QcwU15W78VmRYdj9pqPzPitUx+OJVHZoeXg=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.95#sha256=YkoJBh3Uc7HIPqUyBOyLJ9lr6TVn0tP9LlBgH8ovYII=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.95#sha256=ouQezXMgPVhSpjRQf6nVEIOA1BdNCYBq2T3XnmT/Ujk=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.95#sha256=kxf+lcrOgWG2I6C+ucheI6LV0lvdkoKwqRYPPxZXFLs=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.95#sha256=EDQgt0RULyq8pTdZMdQFGrE0RTid8UF6Rm/l4NupFt0=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.95#sha256=2iqN3MWoGj/GRLfs0ZwljkXLmXoSk6jy8iWOkRiRdvE=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -7357,6 +7357,9 @@ const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = [
 const RUBY_ROOM_MAX_PX = 400;
 const RUBY_ROOM_SHORT_ROW_MAX_PX = 96;
 const RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX = 120;
+const RUBY_ROOM_WRAPPED_MIRROR_MIN_DELTA_PX = 32;
+const RUBY_ROOM_WRAPPED_MIRROR_MIN_HEIGHT_PX = 80;
+const RUBY_ROOM_WRAPPED_MIRROR_SETTLE_BUFFER_PX = 8;
 const RUBY_ROOM_SWEEP_MAX_PASSES = 3;
 function makeRoomForRubyInCroppedRows(root = document) {
   const adjustedBoxes = new Set();
@@ -7519,11 +7522,13 @@ function boxActuallyCrops(box) {
 function rubyRoomHeight(box) {
   const mirror = box.querySelector(".jpdb-reader-text-mirror");
   const mirrorHeight = mirror ? mirror.scrollHeight : 0;
-  return Math.ceil(Math.max(
+  const measuredHeight = Math.max(
   box.scrollHeight,
   box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
   mirrorHeight
-  ));
+  );
+  const wrappedMirror = mirrorHeight >= RUBY_ROOM_WRAPPED_MIRROR_MIN_HEIGHT_PX && mirrorHeight > box.clientHeight + RUBY_ROOM_WRAPPED_MIRROR_MIN_DELTA_PX;
+  return Math.ceil(measuredHeight + (wrappedMirror ? RUBY_ROOM_WRAPPED_MIRROR_SETTLE_BUFFER_PX : 0));
 }
 function rubyMirrorBlockOverflow(box) {
   const mirror = box.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
@@ -33433,7 +33438,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.94"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.95"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

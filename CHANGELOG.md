@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.95] - 2026-07-06
+
+### Fixed
+
+- Large wrapped YouTube titles now reserve a small post-measurement cushion after the ruby-room sweep, so Linux/CI Chrome font metrics no longer leave watch titles a few pixels clipped even after the title grows for furigana.
+
 ## [1.6.94] - 2026-07-06
 
 ### Added

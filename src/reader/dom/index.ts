@@ -4540,6 +4540,9 @@ const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = [
 const RUBY_ROOM_MAX_PX = 400;
 const RUBY_ROOM_SHORT_ROW_MAX_PX = 96;
 const RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX = 120;
+const RUBY_ROOM_WRAPPED_MIRROR_MIN_DELTA_PX = 32;
+const RUBY_ROOM_WRAPPED_MIRROR_MIN_HEIGHT_PX = 80;
+const RUBY_ROOM_WRAPPED_MIRROR_SETTLE_BUFFER_PX = 8;
 
 // Growing a box can rewrap its content (inline-block ruby words wrap
 // differently at the new height's line breaks — font metrics decide, so CI
@@ -4790,11 +4793,14 @@ function rubyRoomHeight(box: HTMLElement): number {
     // and the top furigana row / wrapped line is cropped.
     const mirror = box.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
     const mirrorHeight = mirror ? mirror.scrollHeight : 0;
-    return Math.ceil(Math.max(
+    const measuredHeight = Math.max(
         box.scrollHeight,
         box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
         mirrorHeight,
-    ));
+    );
+    const wrappedMirror = mirrorHeight >= RUBY_ROOM_WRAPPED_MIRROR_MIN_HEIGHT_PX
+        && mirrorHeight > box.clientHeight + RUBY_ROOM_WRAPPED_MIRROR_MIN_DELTA_PX;
+    return Math.ceil(measuredHeight + (wrappedMirror ? RUBY_ROOM_WRAPPED_MIRROR_SETTLE_BUFFER_PX : 0));
 }
 
 function rubyMirrorBlockOverflow(box: HTMLElement): number {

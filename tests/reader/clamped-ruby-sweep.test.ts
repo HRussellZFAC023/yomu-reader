@@ -335,6 +335,28 @@ describe('makeRoomForRubyInCroppedRows', () => {
         document.body.innerHTML = '';
     });
 
+    it('adds settling room for large wrapped YouTube text mirrors', () => {
+        document.body.innerHTML = `
+            <ytd-watch-metadata>
+                <h1 id="watch-title" style="display:block;overflow:hidden;height:38px;max-height:38px;line-height:19px">
+                    <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true" data-jpdb-reader-has-ruby="true">
+                        ${annotatedWord('かんぜんどくがく', '完全独学')}で${annotatedWord('えいご', '英語')}を${annotatedWord('べんきょう', '勉強')}する${annotatedWord('ほうほう', '方法')}
+                    </span>
+                </h1>
+            </ytd-watch-metadata>
+        `;
+        const title = document.querySelector<HTMLElement>('#watch-title')!;
+        const mirror = document.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        mockOverflow(title, 100, 38);
+        mockOverflow(mirror, 100, 38);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(title.style.height).toBe('108px');
+        expect(title.style.maxHeight).toBe('108px');
+        expect(title.dataset.yomuRubyRoomHeight).toBe('108');
+        document.body.innerHTML = '';
+    });
+
     it('reserves ruby room on clipped Google related-search buttons', () => {
         vi.stubGlobal('location', {
             href: 'https://www.google.com/search?q=test',
