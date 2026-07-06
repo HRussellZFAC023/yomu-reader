@@ -14,7 +14,7 @@
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.91#sha256=Hgu0mcMzilg8tNkAtAZUEBoT4JNFj3EUEZcbxQdnzlc=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.91#sha256=Qp7PEqQNrMqpmEXR16D4rahWHVy0qb9unv2HAapo9/Y=
 // @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.91#sha256=HRPLMfdaQQNASjoXnbWn7m9ZDlZ0Tn8ya+p1Ng25aJE=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.91#sha256=/ojNP1AzQ7GU2FBxtIIytU6/G6cUmriOsChPOi8DxJs=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.91#sha256=KlAoAHLS8v1oMfyPfEak5j8qpABnCwlegbl0t6us3Sg=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -7201,10 +7201,13 @@ function makeRoomForRubyInCroppedRows(root = document) {
     if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || box.closest('[aria-hidden="true"],[hidden]')) continue;
     const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
     if (curated ? !boxActuallyCrops(box) : !genericRubyNeedsRoom(box)) continue;
-    const roomHeight = curated ? rubyRoomHeight(box) : genericRubyRoomHeight(box);
-    if (roomHeight > RUBY_ROOM_MAX_PX) continue;
-    if (previousRubyRoomHeight(box) >= roomHeight) continue;
-    decisions.set(box, roomHeight);
+    for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated)) {
+      const roomHeight = curated ? rubyRoomHeight(roomBox) : genericRubyRoomHeight(roomBox);
+      if (roomHeight > RUBY_ROOM_MAX_PX) continue;
+      if (previousRubyRoomHeight(roomBox) >= roomHeight) continue;
+      if ((decisions.get(roomBox) ?? 0) >= roomHeight) continue;
+      decisions.set(roomBox, roomHeight);
+    }
   }
   }
   let adjusted = 0;
@@ -7231,9 +7234,24 @@ function genericRubyRoomHeight(box) {
   shortRowHeight
   ));
 }
-const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ":is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])";
+const RUBY_ROOM_GOOGLE_CONTROL_SELECTOR = ":is(a,button,[role=button])";
+const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = `:is(#botstuff,#bres,.MjjYud,[data-attrid]) ${RUBY_ROOM_GOOGLE_CONTROL_SELECTOR}`;
 function isGoogleSearchRubyRoomTextBox(box) {
   return /(^|\.)google\./i.test(location.hostname) && location.pathname === "/search" && (safeElementMatches$1(box, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR) || !!box.closest(RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR));
+}
+function rubyRoomBoxesForCroppedBox(box, curated) {
+  if (!curated) return [box];
+  const boxes = [box];
+  const googleControl = googleSearchRubyRoomControl(box);
+  if (googleControl && googleControl !== box) boxes.push(googleControl);
+  return boxes;
+}
+function googleSearchRubyRoomControl(box) {
+  if (!/(^|\.)google\./i.test(location.hostname) || location.pathname !== "/search") return null;
+  const control = box.closest(RUBY_ROOM_GOOGLE_CONTROL_SELECTOR);
+  if (!control || !safeElementMatches$1(control, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR)) return null;
+  if (!control.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')) return null;
+  return control;
 }
 function isYouTubeRubyRoomTextBox(box) {
   if (safeElementMatches$1(box, "yt-attributed-string,yt-formatted-string,.ytAttributedStringHost,.yt-core-attributed-string")) {
@@ -26647,8 +26665,14 @@ const SITE_PARSER_PROFILES = [
     ...YOUTUBE_LIVE_CHAT_TEXT_ROOTS,
     "ytd-live-chat-frame #show-hide-button",
     "ytd-live-chat-frame #header",
-    "ytd-live-chat-frame #panel-pages",
+    "ytd-live-chat-frame #content",
+    "ytd-live-chat-frame #message",
+    "ytd-live-chat-frame #subtext",
+    "ytd-live-chat-frame .yt-core-attributed-string",
+    "ytd-live-chat-frame .yt-core-attributed-string--white-space-pre-wrap",
     "ytd-live-chat-frame yt-formatted-string",
+    "ytd-live-chat-frame button",
+    'ytd-live-chat-frame [role="button"]',
     YOUTUBE_MOBILE_CHROME_ROOTS,
     ...YOUTUBE_CHROME_ROOTS,
     "ytd-watch-next-secondary-results-renderer",
