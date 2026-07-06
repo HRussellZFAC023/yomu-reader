@@ -1321,7 +1321,7 @@ describe('settings form localization', () => {
         const normalizedTheme = DOCS_THEME_SOURCE.replace(/\s+/g, ' ');
 
         expect(normalizedTheme).toContain('function warmHostedSettingsRuntime(): HTMLScriptElement[] { const forceLocalRuntime = isLocalHostedRuntime(); const settings = appendHostedSettingsCompanionScript(forceLocalRuntime); const core = loadHostedYomuRuntime(); return [settings, core].filter(isHostedRuntimeScriptElement); }');
-        expect(normalizedTheme).toContain('function prepareHostedYomuRuntime(): void { const forceLocalRuntime = isLocalHostedRuntime(); prepareHostedMangaOcrDemo(); if (shouldLoadHostedRuntimeCompanionsBeforeCore()) appendHostedRuntimeCompanionScripts(forceLocalRuntime); if (isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime)) return;');
+        expect(normalizedTheme).toContain('function prepareHostedYomuRuntime(): void { const forceLocalRuntime = isLocalHostedRuntime(); prepareHostedMangaOcrDemo(); if (shouldLoadHostedRuntimeCompanionsBeforeCore()) appendHostedRuntimeCompanionScripts(forceLocalRuntime); if (isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime)) {');
         expect(normalizedTheme).toContain('function shouldLoadHostedRuntimeCompanionsBeforeCore(): boolean { return location.pathname.includes(\'/video-player/\') || Boolean(document.querySelector(\'[data-yomu-video-frame]\')); }');
         expect(normalizedTheme).toContain('if (!companionFirst) appendHostedSettingsCompanionAfterCoreLoad(script, forceLocalRuntime);');
         expect(normalizedTheme).toContain('ocrEnabled: true');

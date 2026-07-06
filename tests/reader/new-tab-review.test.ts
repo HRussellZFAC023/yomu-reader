@@ -1695,7 +1695,7 @@ describe('new tab review helpers', () => {
             .toContain('.jpdb-reader-newtab::after { right: 0; background: linear-gradient( 270deg, color-mix(in srgb, var(--jpdb-reader-state-known) 62%, transparent), transparent ); }');
         expect(newTabCssRule('.jpdb-reader-newtab::before, .jpdb-reader-newtab::after')).toContain('opacity: 0');
         expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('.jpdb-reader-newtab[data-newtab-swipe-direction="left"]::before, .jpdb-reader-newtab[data-newtab-swipe-direction="right"]::after { opacity: calc(0.25 + 0.75 * var(--jpdb-reader-newtab-swipe-progress, 0)); }');
+            .toContain('.jpdb-reader-newtab[data-newtab-swipe-mode="grade"][data-newtab-swipe-direction="left"]::before, .jpdb-reader-newtab[data-newtab-swipe-mode="grade"][data-newtab-swipe-direction="right"]::after { opacity: calc(0.25 + 0.75 * var(--jpdb-reader-newtab-swipe-progress, 0)); }');
         expect(NORMALIZED_NEW_TAB_CSS).not.toContain('.jpdb-reader-newtab-review-mode .jpdb-reader-newtab-study::before');
 
         expect(NORMALIZED_NEW_TAB_CSS)
@@ -4282,7 +4282,7 @@ describe('new tab review helpers', () => {
         expect(gradeButtons[1]?.title).toContain('+3d');
     });
 
-    it('gates swipe grades on the revealed answer: pre-reveal drags are inert, revealed swipes grade', async () => {
+    it('gates swipe grades on the revealed answer: pre-reveal drags navigate steps, revealed swipes grade', async () => {
         vi.stubGlobal('PointerEvent', class {});
         const runSwipe = async (deltaX: number, expectedGrade: JPDBGrade): Promise<void> => {
             const current = newTabTestCard({
@@ -4332,15 +4332,24 @@ describe('new tab review helpers', () => {
                 internals.bindRootEvents(root);
                 internals.renderWord(root, current);
 
-                // Answer hidden: the drag must not even start — a swipe grade
-                // for an unseen answer would corrupt the provider's SRS state.
+                // Answer hidden on a mid-flow step: a horizontal swipe now walks
+                // the study steps rather than grading. It must engage navigation
+                // and must NEVER submit a grade for an unseen answer (grading an
+                // unrevealed card would corrupt the provider's SRS state).
+                const navigateStudyStep = vi.spyOn(
+                    controller as unknown as { navigateStudyStep(direction: string): boolean },
+                    'navigateStudyStep',
+                );
                 dispatchPointerSwipe(root.querySelector<HTMLElement>('[data-newtab-study]')!, window, deltaX);
                 await Promise.resolve();
                 await Promise.resolve();
-                expect(root.dataset.newtabSwipeDirection).toBeUndefined();
+                expect(navigateStudyStep).toHaveBeenCalledWith(deltaX < 0 ? 'next' : 'previous');
                 expect(reviewCard).not.toHaveBeenCalled();
+                navigateStudyStep.mockRestore();
 
+                // Reveal the answer on the final-reveal step: the same swipe grades.
                 internals.state.revealAnswer = true;
+                internals.state.mode = 'word';
                 internals.renderWord(root, current);
                 dispatchPointerSwipe(root.querySelector<HTMLElement>('[data-newtab-study]')!, window, deltaX);
                 await Promise.resolve();
