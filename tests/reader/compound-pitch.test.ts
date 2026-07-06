@@ -103,6 +103,33 @@ describe('composeCompoundPitchPatternFromMeta', () => {
         await expect(composeCompoundPitchPatternFromMeta('国内向け', 'こくないむけ', readingOnly)).resolves.toBe('');
     });
 
+    it('resolves a non-final okurigana stem via its reading row (食べ物)', async () => {
+        // 食べ has no surface bank headword, but its reading たべ does. The kana
+        // okurigana (べ) pins the reading boundary against the compound reading,
+        // so this is surface-aligned and safe to resolve even though 食べ is not
+        // the final constituent.
+        const lookup = bankLookup({
+            たべ: [pitchEntry('たべ', 2)],
+            物: [pitchEntry('もの', 2)],
+        });
+        const composed = await composeCompoundPitchPatternFromMeta('食べ物', 'たべもの', lookup);
+        // 食べ contributes 2 morae (particle level dropped, non-final); 物 keeps
+        // its final particle level → 2 + 3 = 5 levels for a 4-mora reading.
+        expect(composed).toMatch(/^[LH]+$/);
+        expect(composed).toBe('LHLHL');
+    });
+
+    it('does not reading-key a non-final pure-kanji constituent (no okurigana anchor)', async () => {
+        // 国内 is pure kanji with no okurigana to pin the reading boundary; a
+        // reading-key match on an arbitrary prefix could mis-tile, so it must
+        // stay grey when only reading rows exist for the non-final part.
+        const readingOnly = bankLookup({
+            こくない: [pitchEntry('こくない', 0)],
+            むけ: [pitchEntry('むけ', 0)],
+        });
+        await expect(composeCompoundPitchPatternFromMeta('国内向け', 'こくないむけ', readingOnly)).resolves.toBe('');
+    });
+
     it('backtracks when the greedy longest constituent dead-ends', async () => {
         const lookup = bankLookup({
             日本: [pitchEntry('にほん', 2), pitchEntry('にっぽん', 3)],

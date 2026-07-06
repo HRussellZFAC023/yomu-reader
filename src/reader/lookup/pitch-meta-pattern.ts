@@ -7,6 +7,7 @@ const COMPOUND_MAX_CHARS = 24;
 const COMPOUND_MAX_SEGMENTS = 8;
 const COMPOUND_MAX_LOOKUPS = 32;
 const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
+const KANA_RE = /[぀-ヿー]/u;
 
 interface CompoundSegment {
     pattern: string;
@@ -126,29 +127,83 @@ async function constituentSegment(
     // the WHOLE remaining reading in ONE lookup: that keeps surface and reading
     // aligned (a mid-compound reading prefix could otherwise mis-tile) and never
     // drains the shared lookup budget on per-mora probes.
-    if (!isFinal) return null;
-    return readingKeyFinalSegment(readingRest, lookupMeta, state);
+    if (isFinal) return readingKeyFinalSegment(readingRest, lookupMeta, state);
+    // A NON-final okurigana stem (食べ in 食べ物) has no surface headword either,
+    // but its trailing kana anchors the reading boundary: the reading span must
+    // END with that okurigana, so there is no free prefix to mis-tile (unlike a
+    // pure-kanji span, which stays grey — see the reading-key guard tests).
+    return readingKeyOkuriganaStemSegment(candidate, readingRest, lookupMeta, state);
 }
 
-async function readingKeyFinalSegment(
+async function readingKeyOkuriganaStemSegment(
+    candidate: string,
     readingRest: string,
     lookupMeta: PitchMetaLookup,
     state: CompoundLookupState,
 ): Promise<{ pattern: string; moraCount: number; readingLength: number } | null> {
-    if (!readingRest || state.lookups >= COMPOUND_MAX_LOOKUPS) return null;
-    const cacheKey = `r:${readingRest}`;
+    const okurigana = trailingKanaRun(candidate);
+    if (!okurigana || okurigana.length >= candidate.length) return null;
+    for (const readingLength of okuriganaAnchoredReadingLengths(readingRest, okurigana)) {
+        const segment = await readingKeySegment(readingRest.slice(0, readingLength), lookupMeta, state);
+        if (segment) return segment;
+    }
+    return null;
+}
+
+// Prefix lengths of the reading whose kana tail equals the surface okurigana and
+// that end on a mora boundary — shortest first (the tightest okurigana alignment
+// is the safest). A leading kanji reading of at least one mora is required so a
+// pure-kana prefix cannot pose as an okurigana stem.
+function okuriganaAnchoredReadingLengths(readingRest: string, okurigana: string): number[] {
+    const lengths: number[] = [];
+    let index = readingRest.indexOf(okurigana, 1);
+    while (index >= 0) {
+        const readingLength = index + okurigana.length;
+        if (readingLength < readingRest.length
+            && !SMALL_KANA_RE.test(readingRest.slice(readingLength))
+            && !SMALL_KANA_RE.test(okurigana)) {
+            lengths.push(readingLength);
+        }
+        index = readingRest.indexOf(okurigana, index + 1);
+    }
+    return lengths;
+}
+
+function trailingKanaRun(value: string): string {
+    let run = '';
+    for (const character of Array.from(value)) {
+        run = KANA_RE.test(character) ? run + character : '';
+    }
+    return run;
+}
+
+function readingKeyFinalSegment(
+    readingRest: string,
+    lookupMeta: PitchMetaLookup,
+    state: CompoundLookupState,
+): Promise<{ pattern: string; moraCount: number; readingLength: number } | null> {
+    return readingKeySegment(readingRest, lookupMeta, state);
+}
+
+async function readingKeySegment(
+    reading: string,
+    lookupMeta: PitchMetaLookup,
+    state: CompoundLookupState,
+): Promise<{ pattern: string; moraCount: number; readingLength: number } | null> {
+    if (!reading || state.lookups >= COMPOUND_MAX_LOOKUPS) return null;
+    const cacheKey = `r:${reading}`;
     let entriesPromise = state.cache.get(cacheKey);
     if (!entriesPromise) {
         state.lookups += 1;
-        entriesPromise = Promise.resolve().then(() => lookupMeta(readingRest)).catch(() => [] as YomitanMetaEntry[]);
+        entriesPromise = Promise.resolve().then(() => lookupMeta(reading)).catch(() => [] as YomitanMetaEntry[]);
         state.cache.set(cacheKey, entriesPromise);
     }
     const entries = await entriesPromise;
-    const patterns = localPitchPatternsFromMeta(readingRest, entries);
+    const patterns = localPitchPatternsFromMeta(reading, entries);
     // Exactly one distinct pattern for this reading = unambiguous; otherwise a
     // homograph reading could colour the wrong pitch, so leave it grey.
     if (patterns.length !== 1) return null;
-    return { pattern: patterns[0], moraCount: splitMorae(readingRest).length, readingLength: readingRest.length };
+    return { pattern: patterns[0], moraCount: splitMorae(reading).length, readingLength: reading.length };
 }
 
 export function localPitchPatternFromMeta(reading: string, entries: YomitanMetaEntry[]): string {
