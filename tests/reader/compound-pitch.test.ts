@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { composeCompoundPitchPatternFromMeta } from '../../src/reader/lookup/pitch-meta';
+import { composeCompoundPitchPatternFromMeta, localPitchPatternsFromMetaLookup } from '../../src/reader/lookup/pitch-meta';
 import type { YomitanMetaEntry } from '../../src/reader/dictionaries/yomitan';
 
 function pitchEntry(reading: string, position: number): YomitanMetaEntry {
@@ -73,5 +73,55 @@ describe('composeCompoundPitchPatternFromMeta', () => {
         // 日本+人 fails (人 missing); 日 misaligns; but 日本(にほん) rejected only if
         // 人 lookup fails — full consumption must fail cleanly, not throw.
         await expect(composeCompoundPitchPatternFromMeta('日本人', 'にほんじん', lookup)).resolves.toBe('');
+    });
+});
+
+describe('localPitchPatternsFromMetaLookup', () => {
+    it('uses direct metadata before reading-keyed or compound fallbacks', async () => {
+        const lookup = bankLookup({
+            計量: [pitchEntry('けいりょう', 0)],
+            けいりょう: [pitchEntry('けいりょう', 1)],
+            計: [pitchEntry('けい', 1)],
+            量: [pitchEntry('りょう', 1)],
+        });
+
+        await expect(localPitchPatternsFromMetaLookup('計量', 'けいりょう', lookup)).resolves.toEqual(['LHHHH']);
+        expect(lookup).toHaveBeenCalledWith('計量');
+        expect(lookup).not.toHaveBeenCalledWith('けいりょう');
+    });
+
+    it('retries kana reading metadata before composing constituents', async () => {
+        const lookup = bankLookup({
+            これ等: [],
+            これら: [pitchEntry('これら', 1)],
+            これ: [pitchEntry('これ', 1)],
+            等: [pitchEntry('ら', 1)],
+        });
+
+        await expect(localPitchPatternsFromMetaLookup('これ等', 'これら', lookup)).resolves.toEqual(['HLLL']);
+        expect(lookup).toHaveBeenCalledWith('これ等');
+        expect(lookup).toHaveBeenCalledWith('これら');
+        expect(lookup).not.toHaveBeenCalledWith('これ');
+    });
+
+    it('composes compound pitch after whole-word and reading-keyed misses', async () => {
+        const lookup = bankLookup({
+            登録: [pitchEntry('とうろく', 0)],
+            者: [pitchEntry('しゃ', 1)],
+            数: [pitchEntry('すう', 1)],
+        });
+
+        await expect(localPitchPatternsFromMetaLookup('登録者数', 'とうろくしゃすう', lookup)).resolves.toEqual(['LHHHHHLL']);
+    });
+
+    it('can skip compound fallback when a caller only wants whole-word variants', async () => {
+        const lookup = bankLookup({
+            登録: [pitchEntry('とうろく', 0)],
+            者: [pitchEntry('しゃ', 1)],
+            数: [pitchEntry('すう', 1)],
+        });
+
+        await expect(localPitchPatternsFromMetaLookup('登録者数', 'とうろくしゃすう', lookup, { includeCompound: false })).resolves.toEqual([]);
+        expect(lookup).not.toHaveBeenCalledWith('登録');
     });
 });

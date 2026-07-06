@@ -3721,9 +3721,9 @@ describe('reader helpers', () => {
         const subtitleSurfaces = ':is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom)';
         const underlineSurfaces = ':is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface)';
         const pitchClassSelector = ':is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku)';
-        // The underline channel also colours jpdb-pitch-unknown (neutral grey
-        // fallback) so unresolved words never sit bare beside coloured ones.
-        const underlinePitchClassSelector = ':is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku, .jpdb-pitch-unknown)';
+        // Unknown pitch keeps its class for late enrichment, but pitch underline
+        // paints only when an actual pitch class is known.
+        const underlinePitchClassSelector = pitchClassSelector;
 
         expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--subtitle-color); --jpdb-reader-subtitle-highlight-default: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 24%, transparent ); background-color: transparent !important; background-image: none !important;');
         expect(normalizedCss).toContain(`${subtitleSurfaces} .jpdb-reader-word { --jpdb-reader-subtitle-status-color: var(--jpdb-reader-status-color, transparent);`);

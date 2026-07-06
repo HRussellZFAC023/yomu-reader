@@ -13,7 +13,7 @@ function criticalWordCss(): string {
     const pitches = pitchClasses
         .map(pattern => `.jpdb-reader-word:is(${pitchSelector(pattern)}){--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`)
         .join('');
-    const unknownPitch = '.jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown]){--pc:var(--jpdb-reader-pitch-unknown);--pr:var(--jpdb-reader-pitch-unknown-readable);--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,#0000)}';
+    const unknownPitch = '.jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown]){--pc:var(--jpdb-reader-pitch-unknown);--pr:var(--jpdb-reader-pitch-unknown-readable);--c2:var(--pr,var(--pc,currentColor));--d2:#0000}';
     const allPitches = pitchClasses.map(pitchSelector).join(',');
     return [
         pitches,

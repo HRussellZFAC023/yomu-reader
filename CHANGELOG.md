@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.98] - 2026-07-06
+
+### Fixed
+
+- Unknown pitch words no longer paint the neutral grey pitch underline in page annotations or YouTube subtitle/transcript rows; pitch underlines now appear only after a real pitch class is known.
+- Local pitch resolution now shares the same whole-word, kana-keyed, and component-composed fallback path across parser annotations, page enrichment, popup cards, and study/search cards, so compound words behave consistently wherever Yomu renders them.
+
 ## [1.6.97] - 2026-07-06
 
 ### Fixed

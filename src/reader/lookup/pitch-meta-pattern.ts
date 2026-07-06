@@ -18,6 +18,34 @@ interface CompoundLookupState {
     cache: Map<string, Promise<YomitanMetaEntry[]>>;
 }
 
+export interface LocalPitchPatternLookupOptions {
+    initialEntries?: YomitanMetaEntry[];
+    includeCompound?: boolean;
+}
+
+export async function localPitchPatternsFromMetaLookup(
+    spelling: string,
+    reading: string,
+    lookupMeta: PitchMetaLookup,
+    options: LocalPitchPatternLookupOptions = {},
+): Promise<string[]> {
+    const expression = spelling.trim();
+    const pronunciation = reading.trim();
+    const initialEntries = options.initialEntries ?? await lookupMeta(expression);
+    let patterns = localPitchPatternsFromMeta(pronunciation, initialEntries);
+    if (patterns.length) return patterns;
+
+    if (pronunciation && pronunciation !== expression) {
+        const readingEntries = await lookupMeta(pronunciation);
+        patterns = localPitchPatternsFromMeta(pronunciation, readingEntries);
+        if (patterns.length) return patterns;
+    }
+
+    if (options.includeCompound === false) return [];
+    const compoundPattern = await composeCompoundPitchPatternFromMeta(expression, pronunciation, lookupMeta);
+    return compoundPattern ? [compoundPattern] : [];
+}
+
 // Compound expressions (登録者数) rarely have a whole-word row in a pitch
 // bank, so their underline stays grey even though every constituent
 // (登録 / 者 / 数) is listed. Segment the spelling against the pitch bank

@@ -22041,6 +22041,21 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const COMPOUND_MAX_SEGMENTS = 8;
   const COMPOUND_MAX_LOOKUPS = 32;
   const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
+  async function localPitchPatternsFromMetaLookup(spelling, reading, lookupMeta, options = {}) {
+    const expression = spelling.trim();
+    const pronunciation = reading.trim();
+    const initialEntries = options.initialEntries ?? await lookupMeta(expression);
+    let patterns = localPitchPatternsFromMeta(pronunciation, initialEntries);
+    if (patterns.length) return patterns;
+    if (pronunciation && pronunciation !== expression) {
+      const readingEntries = await lookupMeta(pronunciation);
+      patterns = localPitchPatternsFromMeta(pronunciation, readingEntries);
+      if (patterns.length) return patterns;
+    }
+    if (options.includeCompound === false) return [];
+    const compoundPattern = await composeCompoundPitchPatternFromMeta(expression, pronunciation, lookupMeta);
+    return compoundPattern ? [compoundPattern] : [];
+  }
   async function composeCompoundPitchPatternFromMeta(spelling, reading, lookupMeta) {
     const characters = Array.from(spelling.trim());
     const kana = kanaNormalized(reading.trim());
@@ -35032,16 +35047,11 @@ ${spelling}`);
       const key = localPitchCacheKey(card, settings);
       const cached = this.localPitchCache.get(key);
       if (cached) return cached;
-      const promise = lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).then((metaEntries) => {
-        return localPitchPatternFromMeta(card.reading, metaEntries);
-      }).then((pattern) => {
-        const reading = card.reading.trim();
-        if (pattern || !reading || reading === card.spelling.trim()) return pattern;
-        return lookupTermMeta.call(this.dependencies.dictionaries, reading, 12, settings.dictionaryPreferences).then((metaEntries) => localPitchPatternFromMeta(card.reading, metaEntries));
-      }).then((pattern) => {
-        if (pattern) return pattern;
-        return composeCompoundPitchPatternFromMeta(card.spelling, card.reading, (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences));
-      }).catch((error) => {
+      const promise = localPitchPatternsFromMetaLookup(
+        card.spelling,
+        card.reading,
+        (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
+      ).then((patterns) => patterns[0] ?? "").catch((error) => {
         log$m.warn("Local pitch parse failed", { term: card.spelling }, error);
         return "";
       });
@@ -39740,7 +39750,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.97".trim() ? "1.6.97".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.98".trim() ? "1.6.98".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -62527,9 +62537,15 @@ ${component.reading}`;
     async applyLocalPitchAccent(card, metaEntries) {
       const settings = this.settings();
       if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return;
-      const directPatterns = localPitchPatternsFromMeta(card.reading, metaEntries);
-      const readingPatterns = directPatterns.length ? [] : await this.localReadingKeyedPitchPatterns(card);
-      const patterns = directPatterns.length ? directPatterns : readingPatterns.length ? readingPatterns : card.pitchAccent.length ? [] : await this.localCompoundPitchPatterns(card);
+      const patterns = await localPitchPatternsFromMetaLookup(
+        card.spelling,
+        card.reading,
+        (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
+        { initialEntries: metaEntries, includeCompound: !card.pitchAccent.length }
+      ).catch((error) => {
+        log$d.warn("Local pitch lookup failed", { term: card.spelling }, error);
+        return [];
+      });
       if (!patterns.length) return;
       if (!card.pitchAccent.length) {
         card.pitchAccent = patterns;
@@ -62538,28 +62554,6 @@ ${component.reading}`;
       for (const pattern of patterns) {
         if (!card.pitchAccent.includes(pattern)) card.pitchAccent.push(pattern);
       }
-    }
-    async localReadingKeyedPitchPatterns(card) {
-      const reading = card.reading.trim();
-      if (!reading || reading === card.spelling.trim()) return [];
-      const settings = this.settings();
-      const metaEntries = await this.dependencies.dictionaries.lookupTermMeta(reading, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences).catch((error) => {
-        log$d.warn("Local reading-keyed pitch lookup failed", { term: card.spelling, reading }, error);
-        return [];
-      });
-      return localPitchPatternsFromMeta(card.reading, metaEntries);
-    }
-    async localCompoundPitchPatterns(card) {
-      const settings = this.settings();
-      const pattern = await composeCompoundPitchPatternFromMeta(
-        card.spelling,
-        card.reading,
-        (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences)
-      ).catch((error) => {
-        log$d.warn("Local compound pitch lookup failed", { term: card.spelling }, error);
-        return "";
-      });
-      return pattern ? [pattern] : [];
     }
     applyJitenVocabularyInfoPitchAccent(card, info) {
       if (!info?.pitchAccents.length) return;
@@ -83789,10 +83783,17 @@ ${entry.url}`),
     async fetchLocalWordPitch(card) {
       const settings = this.dependencies.getSettings();
       if (!settings.localDictionariesEnabled) return "";
-      if (typeof this.dependencies.dictionaries.lookupTermMeta !== "function") return "";
-      const metaEntries = await this.dependencies.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch(() => []);
+      const lookupTermMeta = this.dependencies.dictionaries.lookupTermMeta;
+      if (typeof lookupTermMeta !== "function") return "";
+      const metaEntries = await lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).catch(() => []);
       const reading = newTabCardReading(card);
-      return localPitchPatternFromMeta(reading, metaEntries) || (reading === card.spelling ? localPitchPatternFromMeta("", metaEntries) : "");
+      const patterns = await localPitchPatternsFromMetaLookup(
+        card.spelling,
+        reading,
+        (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
+        { initialEntries: metaEntries }
+      ).catch(() => []);
+      return patterns[0] ?? (reading === card.spelling ? localPitchPatternFromMeta("", metaEntries) : "");
     }
     wordPitchCacheKey(card) {
       const settings = this.dependencies.getSettings();

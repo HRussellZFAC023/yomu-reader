@@ -208,6 +208,8 @@ const HOSTED_MANGA_OCR_LINES = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Unknown pitch words no longer paint the neutral grey pitch underline in page annotations or YouTube subtitle/transcript rows; pitch underlines now appear only after a real pitch class is known.': 'ピッチ不明の単語が、ページ注釈やYouTube字幕／トランスクリプト行で中立的な灰色のピッチ下線を描かなくなりました。ピッチ下線は、実際のピッチ種別が分かった後にだけ表示されます。',
+    'Local pitch resolution now shares the same whole-word, kana-keyed, and component-composed fallback path across parser annotations, page enrichment, popup cards, and study/search cards, so compound words behave consistently wherever Yomu renders them.': 'ローカルのピッチ解決は、解析注釈・ページ上の補完・ポップアップカード・学習／検索カードのすべてで、単語全体、かな表記キー、構成要素からの合成という同じフォールバック経路を共有するようになりました。これにより、複合語はYomuが表示するどの場所でも一貫して扱われます。',
     'Compound dictionary cards now compose a whole-word pitch graph from local component pitch entries when no whole-word pitch row exists, so the popup graph and pitch underline no longer stay unknown for words such as 登録者数.': '複合語の辞書カードは、単語全体のピッチ行がない場合にローカルの構成要素ピッチから単語全体のピッチグラフを合成するようになりました。これにより、登録者数のような語でもポップアップのグラフやピッチ下線が不明のままになりません。',
     'The "Composed of" panel is more compact and scannable: parts render as wrapped lookup chips with furigana, pitch colouring, and clear separators, so two-part expressions and longer compounds use the popup space without the old loose row layout.': '「Composed of」パネルは、よりコンパクトで見通しよくなりました。構成要素は、ふりがな・ピッチ色・明確な区切りを持つ折り返し可能な検索チップとして表示されるため、二語の表現も長い複合語も、従来の間延びした行レイアウトに頼らずポップアップの空間を使えます。',
     "Kaa and similar custom video players now load subtitle files declared inside player config payloads, including Astro-style": "Kaaなどのカスタム動画プレーヤーで、プレーヤー設定内に宣言された字幕ファイルを読み込めるようになりました。Astro形式の",

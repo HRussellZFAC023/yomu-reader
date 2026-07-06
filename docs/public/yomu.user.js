@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.97
+// @version 1.6.98
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.97#sha256=N0kDfli6QcwU15W78VmRYdj9pqPzPitUx+OJVHZoeXg=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.97#sha256=YkoJBh3Uc7HIPqUyBOyLJ9lr6TVn0tP9LlBgH8ovYII=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.97#sha256=ouQezXMgPVhSpjRQf6nVEIOA1BdNCYBq2T3XnmT/Ujk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.97#sha256=kxf+lcrOgWG2I6C+ucheI6LV0lvdkoKwqRYPPxZXFLs=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.97#sha256=EDQgt0RULyq8pTdZMdQFGrE0RTid8UF6Rm/l4NupFt0=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.97#sha256=2iqN3MWoGj/GRLfs0ZwljkXLmXoSk6jy8iWOkRiRdvE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.98#sha256=N0kDfli6QcwU15W78VmRYdj9pqPzPitUx+OJVHZoeXg=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.98#sha256=YkoJBh3Uc7HIPqUyBOyLJ9lr6TVn0tP9LlBgH8ovYII=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.98#sha256=ouQezXMgPVhSpjRQf6nVEIOA1BdNCYBq2T3XnmT/Ujk=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.98#sha256=kxf+lcrOgWG2I6C+ucheI6LV0lvdkoKwqRYPPxZXFLs=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.98#sha256=EDQgt0RULyq8pTdZMdQFGrE0RTid8UF6Rm/l4NupFt0=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.98#sha256=2iqN3MWoGj/GRLfs0ZwljkXLmXoSk6jy8iWOkRiRdvE=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -14516,6 +14516,21 @@ const COMPOUND_MAX_CHARS = 24;
 const COMPOUND_MAX_SEGMENTS = 8;
 const COMPOUND_MAX_LOOKUPS = 32;
 const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
+async function localPitchPatternsFromMetaLookup(spelling, reading, lookupMeta, options = {}) {
+  const expression = spelling.trim();
+  const pronunciation = reading.trim();
+  const initialEntries = options.initialEntries ?? await lookupMeta(expression);
+  let patterns = localPitchPatternsFromMeta(pronunciation, initialEntries);
+  if (patterns.length) return patterns;
+  if (pronunciation && pronunciation !== expression) {
+  const readingEntries = await lookupMeta(pronunciation);
+  patterns = localPitchPatternsFromMeta(pronunciation, readingEntries);
+  if (patterns.length) return patterns;
+  }
+  if (options.includeCompound === false) return [];
+  const compoundPattern = await composeCompoundPitchPatternFromMeta(expression, pronunciation, lookupMeta);
+  return compoundPattern ? [compoundPattern] : [];
+}
 async function composeCompoundPitchPatternFromMeta(spelling, reading, lookupMeta) {
   const characters = Array.from(spelling.trim());
   const kana = kanaNormalized(reading.trim());
@@ -15624,9 +15639,15 @@ class CardRenderDataLoader {
   async applyLocalPitchAccent(card, metaEntries) {
   const settings = this.settings();
   if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return;
-  const directPatterns = localPitchPatternsFromMeta(card.reading, metaEntries);
-  const readingPatterns = directPatterns.length ? [] : await this.localReadingKeyedPitchPatterns(card);
-  const patterns = directPatterns.length ? directPatterns : readingPatterns.length ? readingPatterns : card.pitchAccent.length ? [] : await this.localCompoundPitchPatterns(card);
+  const patterns = await localPitchPatternsFromMetaLookup(
+    card.spelling,
+    card.reading,
+    (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
+    { initialEntries: metaEntries, includeCompound: !card.pitchAccent.length }
+  ).catch((error) => {
+    log$f.warn("Local pitch lookup failed", { term: card.spelling }, error);
+    return [];
+  });
   if (!patterns.length) return;
   if (!card.pitchAccent.length) {
     card.pitchAccent = patterns;
@@ -15635,28 +15656,6 @@ class CardRenderDataLoader {
   for (const pattern of patterns) {
     if (!card.pitchAccent.includes(pattern)) card.pitchAccent.push(pattern);
   }
-  }
-  async localReadingKeyedPitchPatterns(card) {
-  const reading = card.reading.trim();
-  if (!reading || reading === card.spelling.trim()) return [];
-  const settings = this.settings();
-  const metaEntries = await this.dependencies.dictionaries.lookupTermMeta(reading, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences).catch((error) => {
-    log$f.warn("Local reading-keyed pitch lookup failed", { term: card.spelling, reading }, error);
-    return [];
-  });
-  return localPitchPatternsFromMeta(card.reading, metaEntries);
-  }
-  async localCompoundPitchPatterns(card) {
-  const settings = this.settings();
-  const pattern = await composeCompoundPitchPatternFromMeta(
-    card.spelling,
-    card.reading,
-    (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences)
-  ).catch((error) => {
-    log$f.warn("Local compound pitch lookup failed", { term: card.spelling }, error);
-    return "";
-  });
-  return pattern ? [pattern] : [];
   }
   applyJitenVocabularyInfoPitchAccent(card, info) {
   if (!info?.pitchAccents.length) return;
@@ -19633,16 +19632,11 @@ ${spelling}`);
   const key = localPitchCacheKey(card, settings);
   const cached = this.localPitchCache.get(key);
   if (cached) return cached;
-  const promise = lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).then((metaEntries) => {
-    return localPitchPatternFromMeta(card.reading, metaEntries);
-  }).then((pattern) => {
-    const reading = card.reading.trim();
-    if (pattern || !reading || reading === card.spelling.trim()) return pattern;
-    return lookupTermMeta.call(this.dependencies.dictionaries, reading, 12, settings.dictionaryPreferences).then((metaEntries) => localPitchPatternFromMeta(card.reading, metaEntries));
-  }).then((pattern) => {
-    if (pattern) return pattern;
-    return composeCompoundPitchPatternFromMeta(card.spelling, card.reading, (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences));
-  }).catch((error) => {
+  const promise = localPitchPatternsFromMetaLookup(
+    card.spelling,
+    card.reading,
+    (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
+  ).then((patterns) => patterns[0] ?? "").catch((error) => {
     log$c.warn("Local pitch parse failed", { term: card.spelling }, error);
     return "";
   });
@@ -33485,13 +33479,13 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.97"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.98"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
   const pitchSelector = (pattern) => `.jpdb-pitch-${pattern},[data-pitch-class=${pattern}]`;
   const pitches = pitchClasses.map((pattern) => `.jpdb-reader-word:is(${pitchSelector(pattern)}){--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`).join("");
-  const unknownPitch = ".jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown]){--pc:var(--jpdb-reader-pitch-unknown);--pr:var(--jpdb-reader-pitch-unknown-readable);--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,#0000)}";
+  const unknownPitch = ".jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown]){--pc:var(--jpdb-reader-pitch-unknown);--pr:var(--jpdb-reader-pitch-unknown-readable);--c2:var(--pr,var(--pc,currentColor));--d2:#0000}";
   const allPitches = pitchClasses.map(pitchSelector).join(",");
   return [
   pitches,
@@ -40196,14 +40190,11 @@ class ReaderApp {
   const key = this.localPitchEnrichmentCacheKey(card);
   const cached = this.pitchEnrichmentLocalCache.get(key);
   if (cached) return cached;
-  const promise = this.dictionaries.lookupTermMeta(card.spelling, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences).then((metaEntries) => localPitchPatternFromMeta(card.reading, metaEntries)).then((pattern) => {
-    const reading = card.reading.trim();
-    if (pattern || !reading || reading === card.spelling.trim()) return pattern;
-    return this.dictionaries.lookupTermMeta(reading, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences).then((metaEntries) => localPitchPatternFromMeta(card.reading, metaEntries));
-  }).then((pattern) => {
-    if (pattern) return pattern;
-    return composeCompoundPitchPatternFromMeta(card.spelling, card.reading, (expression) => this.dictionaries.lookupTermMeta(expression, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences));
-  }).catch((error) => {
+  const promise = localPitchPatternsFromMetaLookup(
+    card.spelling,
+    card.reading,
+    (expression) => this.dictionaries.lookupTermMeta(expression, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences)
+  ).then((patterns) => patterns[0] ?? "").catch((error) => {
     log.warn("Local pitch enrichment failed", { term: card.spelling }, error);
     return "";
   });

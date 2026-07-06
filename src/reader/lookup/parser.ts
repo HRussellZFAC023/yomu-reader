@@ -11,7 +11,7 @@ import {
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { Logger } from '../app/logger';
-import { composeCompoundPitchPatternFromMeta, localPitchPatternFromMeta } from './pitch-meta';
+import { localPitchPatternsFromMetaLookup } from './pitch-meta';
 import { stablePositiveHashId } from '../core/stable-hash';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
@@ -526,23 +526,11 @@ export class ReaderParser {
         const key = localPitchCacheKey(card, settings);
         const cached = this.localPitchCache.get(key);
         if (cached) return cached;
-        const promise = lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).then(metaEntries => {
-            return localPitchPatternFromMeta(card.reading, metaEntries);
-        }).then(pattern => {
-            // Pitch banks key rows by kanji expression (これ等) while the parsed
-            // card may carry the kana form (これら) — an exact-match retry on the
-            // reading recovers kana-keyed rows the spelling query misses.
-            const reading = card.reading.trim();
-            if (pattern || !reading || reading === card.spelling.trim()) return pattern;
-            return lookupTermMeta.call(this.dependencies.dictionaries, reading, 12, settings.dictionaryPreferences)
-                .then(metaEntries => localPitchPatternFromMeta(card.reading, metaEntries));
-        }).then(pattern => {
-            // Compounds (登録者数) have no whole-word bank row — compose the
-            // pattern from constituent rows instead of leaving it grey.
-            if (pattern) return pattern;
-            return composeCompoundPitchPatternFromMeta(card.spelling, card.reading, expression =>
-                lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences));
-        }).catch(error => {
+        const promise = localPitchPatternsFromMetaLookup(
+            card.spelling,
+            card.reading,
+            expression => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
+        ).then(patterns => patterns[0] ?? '').catch(error => {
             log.warn('Local pitch parse failed', { term: card.spelling }, error);
             return '';
         });

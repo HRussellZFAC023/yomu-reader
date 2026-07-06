@@ -253,7 +253,7 @@ import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { OnboardingController } from './onboarding';
 
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
-import { composeCompoundPitchPatternFromMeta, localPitchPatternFromMeta } from '../lookup/pitch-meta';
+import { localPitchPatternsFromMetaLookup } from '../lookup/pitch-meta';
 import { isKanjiCharacter, uniqueKanji } from '../popup/pitch';
 import type { ImageOcrController } from '../ocr/controller';
 import { applyOcrInteractionMode, nextOcrInteractionMode, ocrInteractionModeFromSettings, type OcrInteractionMode } from '../ocr/mode';
@@ -7825,25 +7825,11 @@ export class ReaderApp {
         const key = this.localPitchEnrichmentCacheKey(card);
         const cached = this.pitchEnrichmentLocalCache.get(key);
         if (cached) return cached;
-        const promise = this.dictionaries.lookupTermMeta(card.spelling, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences)
-            .then(metaEntries => localPitchPatternFromMeta(card.reading, metaEntries))
-            .then(pattern => {
-                // Pitch banks key rows by kanji expression (これ等) while the
-                // card may carry the kana form (これら) — retry the exact-match
-                // query on the reading to recover kana-keyed rows.
-                const reading = card.reading.trim();
-                if (pattern || !reading || reading === card.spelling.trim()) return pattern;
-                return this.dictionaries.lookupTermMeta(reading, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences)
-                    .then(metaEntries => localPitchPatternFromMeta(card.reading, metaEntries));
-            })
-            .then(pattern => {
-                // Compounds (登録者数) have no whole-word bank row — compose the
-                // pattern from constituent rows instead of leaving it grey.
-                if (pattern) return pattern;
-                return composeCompoundPitchPatternFromMeta(card.spelling, card.reading, expression =>
-                    this.dictionaries.lookupTermMeta(expression, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences));
-            })
-            .catch(error => {
+        const promise = localPitchPatternsFromMetaLookup(
+            card.spelling,
+            card.reading,
+            expression => this.dictionaries.lookupTermMeta(expression, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences),
+        ).then(patterns => patterns[0] ?? '').catch(error => {
                 log.warn('Local pitch enrichment failed', { term: card.spelling }, error);
                 return '';
             });

@@ -8,7 +8,7 @@ import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { Logger } from '../app/logger';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
-import { composeCompoundPitchPatternFromMeta, localPitchPatternFromMeta, localPitchPatternsFromMeta } from '../lookup/pitch-meta';
+import { localPitchPatternFromMeta, localPitchPatternsFromMetaLookup } from '../lookup/pitch-meta';
 import { cardPronunciationReading, isKanjiCharacter, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/pitch';
 import { shouldLookupAnkiStatus } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
@@ -427,15 +427,15 @@ export class CardRenderDataLoader {
     private async applyLocalPitchAccent(card: JPDBCard, metaEntries: YomitanMetaEntry[]): Promise<void> {
         const settings = this.settings();
         if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return;
-        const directPatterns = localPitchPatternsFromMeta(card.reading, metaEntries);
-        const readingPatterns = directPatterns.length ? [] : await this.localReadingKeyedPitchPatterns(card);
-        const patterns = directPatterns.length
-            ? directPatterns
-            : readingPatterns.length
-                ? readingPatterns
-                : card.pitchAccent.length
-                    ? []
-                    : await this.localCompoundPitchPatterns(card);
+        const patterns = await localPitchPatternsFromMetaLookup(
+            card.spelling,
+            card.reading,
+            expression => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
+            { initialEntries: metaEntries, includeCompound: !card.pitchAccent.length },
+        ).catch(error => {
+            log.warn('Local pitch lookup failed', { term: card.spelling }, error);
+            return [] as string[];
+        });
         if (!patterns.length) return;
         if (!card.pitchAccent.length) {
             card.pitchAccent = patterns;
@@ -446,28 +446,6 @@ export class CardRenderDataLoader {
         for (const pattern of patterns) {
             if (!card.pitchAccent.includes(pattern)) card.pitchAccent.push(pattern);
         }
-    }
-
-    private async localReadingKeyedPitchPatterns(card: JPDBCard): Promise<string[]> {
-        const reading = card.reading.trim();
-        if (!reading || reading === card.spelling.trim()) return [];
-        const settings = this.settings();
-        const metaEntries = await this.dependencies.dictionaries.lookupTermMeta(reading, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences).catch(error => {
-            log.warn('Local reading-keyed pitch lookup failed', { term: card.spelling, reading }, error);
-            return [] as YomitanMetaEntry[];
-        });
-        return localPitchPatternsFromMeta(card.reading, metaEntries);
-    }
-
-    private async localCompoundPitchPatterns(card: JPDBCard): Promise<string[]> {
-        const settings = this.settings();
-        const pattern = await composeCompoundPitchPatternFromMeta(card.spelling, card.reading, expression =>
-            this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
-        ).catch(error => {
-            log.warn('Local compound pitch lookup failed', { term: card.spelling }, error);
-            return '';
-        });
-        return pattern ? [pattern] : [];
     }
 
     private applyJitenVocabularyInfoPitchAccent(card: JPDBCard, info: JitenVocabularyInfo | null): void {

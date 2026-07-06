@@ -83,7 +83,7 @@ import { installOriginGraphInteractions } from '../popup/origin-graph-interactio
 import { installReaderControlPointerActivation } from '../ui/pointer-activation';
 import { matchesShortcut } from '../settings';
 import { openDeckPickerForCardAdd } from '../study/mining-controls';
-import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
+import { localPitchPatternFromMeta, localPitchPatternsFromMetaLookup } from '../lookup/pitch-meta';
 import {
     buildRtkComponentSummaries,
     renderKanjiKeywordLine,
@@ -10448,11 +10448,17 @@ export class NewTabController {
     private async fetchLocalWordPitch(card: JPDBCard): Promise<string> {
         const settings = this.dependencies.getSettings();
         if (!settings.localDictionariesEnabled) return '';
-        if (typeof this.dependencies.dictionaries.lookupTermMeta !== 'function') return '';
-        const metaEntries = await this.dependencies.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch(() => []);
+        const lookupTermMeta = this.dependencies.dictionaries.lookupTermMeta;
+        if (typeof lookupTermMeta !== 'function') return '';
+        const metaEntries = await lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).catch(() => []);
         const reading = newTabCardReading(card);
-        return localPitchPatternFromMeta(reading, metaEntries)
-            || (reading === card.spelling ? localPitchPatternFromMeta('', metaEntries) : '');
+        const patterns = await localPitchPatternsFromMetaLookup(
+            card.spelling,
+            reading,
+            expression => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
+            { initialEntries: metaEntries },
+        ).catch(() => [] as string[]);
+        return patterns[0] ?? (reading === card.spelling ? localPitchPatternFromMeta('', metaEntries) : '');
     }
 
     private wordPitchCacheKey(card: JPDBCard): string {
@@ -11153,4 +11159,3 @@ function jitenReviewKey(wordId: number, readingIndex: number): string {
 function isJitenBulkAction(action: string): boolean {
     return action === 'jiten-mining' || action === 'jiten-suspend' || action === 'jiten-forget';
 }
-

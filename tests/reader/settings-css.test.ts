@@ -120,10 +120,10 @@ describe('settings CSS', () => {
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text, .jpdb-reader-settings .grid > .jpdb-reader-shortcut-group > label:not(.inline) > .jpdb-reader-settings-label-text { min-height: 2.75em; display: flex; align-items: flex-end; }');
     });
 
-    it('paints unknown-pitch page-word underlines with the neutral pitch color', () => {
+    it('keeps unknown-pitch page-word underlines transparent', () => {
         const normalizedReaderWordsOcrCss = normalizeCss(READER_WORDS_OCR_CSS);
 
-        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-word.jpdb-pitch-unknown { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown); --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-unknown-readable); --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent); --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-unknown, transparent); }');
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-word.jpdb-pitch-unknown { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown); --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-unknown-readable); --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent); --jpdb-reader-source-pitch-decoration: transparent; }');
     });
 
     it('keeps passive page annotations layout-neutral until hover or focus', () => {

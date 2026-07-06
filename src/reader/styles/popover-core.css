@@ -1542,8 +1542,8 @@ button.jpdb-reader-token-sentence-word {
   border-radius: 4px;
 }
 
-/* Composed of: compact lookup chips that wrap without turning the popover
-   into empty chrome. */
+/* Composed of: a quiet inline breakdown that wraps like a phrase while keeping
+   each part available as a lookup target. */
 .jpdb-reader-expression-components {
   margin-top: 8px;
 }
@@ -1554,38 +1554,36 @@ button.jpdb-reader-token-sentence-word {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 8px;
+  gap: 3px 6px;
 }
 .jpdb-reader-jpdb-used-in-row.jpdb-reader-expression-component-row {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 .jpdb-reader-jpdb-used-in-row.jpdb-reader-expression-component-row:not(:last-child)::after {
   content: "+";
   color: var(--jpdb-reader-muted, #64748b);
-  font-size: 11px;
-  font-weight: 850;
+  font-size: 10px;
+  font-weight: 700;
   line-height: 1;
-  opacity: 0.72;
+  opacity: 0.48;
 }
 .jpdb-reader-expression-component-link.gloss-link {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  min-height: 34px;
-  padding: 4px 8px 5px;
-  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border, rgba(37, 52, 73, 0.18)) 74%, transparent);
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface-2, #eef2f7) 82%, transparent);
+  min-height: 30px;
+  padding: 2px 5px 4px;
+  border-radius: 5px;
+  background: transparent;
   color: var(--jpdb-reader-text, #17202a) !important;
   text-decoration: none !important;
 }
 .jpdb-reader-expression-component-link.gloss-link:hover,
 .jpdb-reader-expression-component-link.gloss-link:focus-visible {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent, #21b684) 62%, var(--jpdb-reader-border, rgba(37, 52, 73, 0.18)));
-  background: color-mix(in srgb, var(--jpdb-reader-accent-soft, rgba(33, 182, 132, 0.16)) 70%, var(--jpdb-reader-surface-2, #eef2f7));
+  background: color-mix(in srgb, var(--jpdb-reader-accent-soft, rgba(33, 182, 132, 0.16)) 52%, transparent);
   color: var(--jpdb-reader-text, #17202a) !important;
   outline: none;
 }
