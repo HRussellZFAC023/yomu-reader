@@ -451,6 +451,57 @@ describe('generic reader layout overflow guards', () => {
         expect(collectTextTargetsIn(document.body, 20, false, { includeReaderRoot: false }).map(target => target.text)).toContain('作曲家についての日本語本文です。');
     });
 
+    it('keeps NHK-style scrollable nav tab strips layout-neutral with ruby suppressed', () => {
+        // Guards the NHK news nav regression: a horizontally-scrolling [role=tablist]
+        // of kanji tabs must decorate as inline passive chrome with NO furigana row,
+        // so decoration adds neither height (no <rt>) nor width (no inline-block box).
+        // Live-confirmed layout-neutral (worstDW:0, worstDH:0); jsdom can't measure the
+        // box, so this locks the classification that guarantees the zero shift.
+        document.body.innerHTML = `
+            <nav>
+                <div role="tablist" style="display:flex;gap:8px;overflow-x:auto;white-space:nowrap">
+                    <a role="tab" href="#" aria-selected="true">ニュース</a>
+                    <a role="tab" href="#">新着</a>
+                    <a role="tab" href="#">注目</a>
+                    <a role="tab" href="#">社会</a>
+                    <a role="tab" href="#">気象</a>
+                    <a role="tab" href="#">災害</a>
+                    <a role="tab" href="#">政治</a>
+                </div>
+            </nav>
+        `;
+        const strip = document.querySelector<HTMLElement>('[role="tablist"]')!;
+        const targets = collectTargets(strip);
+
+        const kanjiTargets = targets.filter(candidate => /[一-龯々]/u.test(candidate.text));
+        expect(kanjiTargets.length).toBeGreaterThan(0);
+        expect(kanjiTargets.every(candidate => candidate.suppressRuby === true)).toBe(true);
+        expect(kanjiTargets.every(candidate => candidate.passiveInteraction === true)).toBe(true);
+
+        for (const target of kanjiTargets) {
+            const match = target.text.match(/[一-龯々]+/u)!;
+            applyTokensToScanTarget(target, [
+                token(match[0], target.text.indexOf(match[0]), target.text, match[0]),
+            ], {
+                ...DEFAULT_SETTINGS,
+                showFurigana: true,
+                furiganaMode: 'all',
+            });
+        }
+
+        const tabs = Array.from(strip.querySelectorAll<HTMLElement>('[role="tab"]'));
+        const kanjiTabs = tabs.filter(tab => /[一-龯々]/u.test(tab.textContent ?? ''));
+        expect(kanjiTabs.length).toBeGreaterThan(0);
+        for (const tab of kanjiTabs) {
+            const word = tab.querySelector<HTMLElement>('.jpdb-reader-word');
+            expect(word).toBeTruthy();
+            expect(word!.dataset.jpdbReaderPassive).toBe('true');
+            expect(tab.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            expect(tab.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+            expect(tab.dataset.jpdbReaderPassiveChrome).toBe('true');
+        }
+    });
+
     it('does not collect input or textarea placeholders as control mirrors', () => {
         document.body.innerHTML = `
             <form>

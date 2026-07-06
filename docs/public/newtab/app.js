@@ -1590,6 +1590,8 @@
       appearancePresetUnderlineNew: "Minimal highlights",
       wordColorStatesAll: "Use all learning states",
       wordColorStatesNewOnly: "Only new / not-in-deck words",
+      hideFuriganaFor: "Hide furigana for",
+      hideColorFor: "Hide color for",
       furiganaDifficultKanji: "Hard kanji only",
       furiganaHideKnown: "Hide familiar words",
       furiganaHoverOnly: "Show on hover",
@@ -3313,6 +3315,8 @@ appearancePresetNewOnly	新規単語に集中
 appearancePresetUnderlineNew	控えめなハイライト
 wordColorStatesAll	すべての学習状態
 wordColorStatesNewOnly	新規・未追加のみ
+hideFuriganaFor	ふりがなを隠す対象
+hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
@@ -39835,7 +39839,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.104".trim() ? "1.6.104".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.105".trim() ? "1.6.105".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -42983,6 +42987,10 @@ ${spelling}`);
     ["[data-proxy-guide-hide]", "hide"],
     ["[data-cloud-settings-sync-title]", "cloudSettingsSync"]
   ];
+  const HIDE_GROUP_LEGEND_TEXT_KEYS = [
+    ["[data-furigana-hide-groups]", "hideFuriganaFor"],
+    ["[data-word-color-hide-groups]", "hideColorFor"]
+  ];
   const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', "testAnki"],
     ['[data-action="prepare-anki"]', "prepareAnki"],
@@ -43118,6 +43126,9 @@ ${spelling}`);
     LOCAL_TITLE_TEXT_KEYS.forEach(([pattern, key]) => replaceLocalTitle(form, pattern, text2(key)));
     SELECTOR_TEXT_KEYS.forEach(([selector, key]) => {
       form.querySelector(selector)?.replaceChildren(text2(key));
+    });
+    HIDE_GROUP_LEGEND_TEXT_KEYS.forEach(([selector, key]) => {
+      form.querySelector(`${selector} > legend`)?.replaceChildren(text2(key));
     });
   }
   function replaceLocalTitle(form, pattern, value) {
@@ -43813,9 +43824,17 @@ ${spelling}`);
     ["shortcuts.gradeFail", "gradeFail"],
     ["shortcuts.gradePass", "gradePass"]
   ];
+  const HIDE_STATE_GROUP_CONTROL_LABELS = FURIGANA_HIDE_GROUPS.flatMap(([group]) => {
+    const key = CARD_STATE_LABEL_KEYS[group];
+    return [
+      [`furiganaHide-${group}`, key],
+      [`colorHide-${group}`, key]
+    ];
+  });
   const SETTINGS_CONTROL_LABELS = [
     ...DIRECT_SETTINGS_CONTROL_LABEL_KEYS.map((key) => [key, key]),
-    ...SETTINGS_CONTROL_LABEL_ALIASES
+    ...SETTINGS_CONTROL_LABEL_ALIASES,
+    ...HIDE_STATE_GROUP_CONTROL_LABELS
   ];
   let activeNamedControls = null;
   function withNamedControlIndex(form, run) {

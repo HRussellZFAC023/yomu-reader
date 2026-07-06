@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.105] - 2026-07-06
+
+### Improved
+
+- The "Hide furigana for" and "Hide color for" appearance controls and their word-category labels (New, Learning, Known, Due, Failed) are now translated when the interface language is Japanese, instead of always appearing in English.
+
 ## [1.6.104] - 2026-07-06
 
 ### Added
