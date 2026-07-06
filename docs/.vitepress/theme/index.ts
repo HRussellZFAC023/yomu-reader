@@ -128,6 +128,8 @@ let hostedAccentSignature = '';
 let hostedDocumentTitleOriginal: string | undefined;
 let hostedRuntimeIntentController: AbortController | undefined;
 let hostedRuntimeIntentTargets: HTMLElement[] | undefined;
+let hostedRuntimeHoverHandoff: { x: number; y: number } | undefined;
+let hostedRuntimeHoverHandoffController: AbortController | undefined;
 let routeSyncBound = false;
 let localRuntimeCacheCleanupStarted = false;
 
@@ -3779,12 +3781,18 @@ function prepareHostedYomuRuntime(): void {
     const forceLocalRuntime = isLocalHostedRuntime();
     prepareHostedMangaOcrDemo();
     if (shouldLoadHostedRuntimeCompanionsBeforeCore()) appendHostedRuntimeCompanionScripts(forceLocalRuntime);
-    if (isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime)) return;
+    if (isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime)) {
+        // Only a live reader makes the tracker moot; a mid-boot re-entry must
+        // leave it running so the pending replay can still fire.
+        if (hostedYomuRuntimeWindow().__yomuReaderAppInitialized) clearHostedRuntimeHoverHandoff();
+        return;
+    }
     // The settings companion loads on the settings warm path; normal docs pages
     // should not download every companion before the reader is needed.
     const targets = findHostedYomuRuntimeTargets();
     if (!targets.length) {
         clearHostedYomuRuntimeIntent();
+        clearHostedRuntimeHoverHandoff();
         return;
     }
     bindHostedYomuRuntimeIntent(targets);
@@ -3837,6 +3845,38 @@ function bindHostedYomuRuntimeIntent(targets: HTMLElement[]): void {
     window.addEventListener('scroll', () => {
         if (targets.some(isElementNearViewport)) loadHostedYomuRuntime();
     }, { passive: true, signal: controller.signal });
+    trackHostedRuntimeHoverHandoff(targets);
+}
+
+// The runtime usually starts on idle/near-viewport with no pointer, so a hover
+// already resting on a demo word never triggered the boot — and even a hover
+// that does trigger it is consumed before the reader attaches its
+// document-level hover listener. Track where the pointer rests over a demo word
+// (from bind until the runtime is live) so the post-boot handoff can replay it
+// and open the popover without a second hover. A move off the surface clears
+// the handoff so a stale position is never replayed.
+function trackHostedRuntimeHoverHandoff(targets: HTMLElement[]): void {
+    hostedRuntimeHoverHandoffController?.abort();
+    const controller = new AbortController();
+    hostedRuntimeHoverHandoffController = controller;
+    hostedRuntimeHoverHandoff = undefined;
+    const track = (event: PointerEvent): void => {
+        if (event.pointerType === 'touch') return;
+        if (typeof event.clientX !== 'number' || typeof event.clientY !== 'number') return;
+        const target = event.target instanceof Element ? event.target : null;
+        const word = target?.closest<HTMLElement>('.jpdb-reader-word') ?? null;
+        hostedRuntimeHoverHandoff = word && targets.some(surface => surface.contains(word))
+            ? { x: event.clientX, y: event.clientY }
+            : undefined;
+    };
+    window.addEventListener('pointermove', track, { passive: true, signal: controller.signal });
+    window.addEventListener('pointerover', track, { passive: true, signal: controller.signal });
+}
+
+function clearHostedRuntimeHoverHandoff(): void {
+    hostedRuntimeHoverHandoffController?.abort();
+    hostedRuntimeHoverHandoffController = undefined;
+    hostedRuntimeHoverHandoff = undefined;
 }
 
 function isElementNearViewport(element: HTMLElement): boolean {
@@ -3874,7 +3914,64 @@ function installHostedYomuRuntime(): HTMLScriptElement | undefined {
     if (companionFirst) appendHostedRuntimeCompanionScripts(forceLocalRuntime);
     const script = appendHostedRuntimeScript(YOMU_HOSTED_RUNTIME_SCRIPT_ID, hostedRuntimeScriptSrc(forceLocalRuntime));
     if (!companionFirst) appendHostedSettingsCompanionAfterCoreLoad(script, forceLocalRuntime);
+    armHostedRuntimeHoverHandoff();
     return script;
+}
+
+// Once the reader boots, replay whatever demo word the pointer is resting on so
+// its popover opens without a second hover. The pointer tracker keeps updating
+// through the whole boot window (a hover often arrives during the async load),
+// so this stays armed regardless of what triggered the boot. Generic across
+// every demo surface; a no-op unless the pointer ends up on a demo word.
+function armHostedRuntimeHoverHandoff(): void {
+    const controller = new AbortController();
+    let done = false;
+    const cleanup = (): void => {
+        if (done) return;
+        done = true;
+        controller.abort();
+        window.clearInterval(poll);
+        window.clearTimeout(timeout);
+    };
+    const tryReplay = (): void => {
+        if (done || !hostedYomuRuntimeWindow().__yomuReaderAppInitialized) return;
+        cleanup();
+        // Let the reader's first page scan settle before replaying — a hover
+        // lookup fired into the middle of the initial scan is dropped.
+        window.setTimeout(() => window.requestAnimationFrame(replayHostedRuntimeHoverHandoff), 250);
+    };
+    window.addEventListener('yomu-extension-loaded', () => window.requestAnimationFrame(tryReplay), {
+        once: true,
+        signal: controller.signal,
+    });
+    // Fallbacks: the ready event can precede this listener, and the local dev
+    // runtime never dispatches it. Poll briefly, then give up so a stale gesture
+    // is never replayed into an unrelated page state.
+    const poll = window.setInterval(tryReplay, 100);
+    const timeout = window.setTimeout(cleanup, 6000);
+    tryReplay();
+}
+
+function replayHostedRuntimeHoverHandoff(): void {
+    const point = hostedRuntimeHoverHandoff;
+    clearHostedRuntimeHoverHandoff();
+    if (!point) return;
+    const target = document.elementFromPoint(point.x, point.y);
+    if (!(target instanceof Element) || !target.closest('.jpdb-reader-word')) return;
+    // Dispatch on the leaf under the pointer (not the word wrapper) so the
+    // reader's capture-phase hover handler sees the same event.target a real
+    // pointer would. pointerover then pointermove mirrors a genuine hover, which
+    // the reader's move-driven lookup requires.
+    const shared: PointerEventInit = { bubbles: true, cancelable: true, view: window, clientX: point.x, clientY: point.y, pointerType: 'mouse' };
+    target.dispatchEvent(hostedPointerEvent('pointerover', shared));
+    target.dispatchEvent(hostedPointerEvent('pointermove', shared));
+}
+
+// PointerEvent exists in every browser the docs runtime hovers in, but fall back
+// to MouseEvent so the replay still fires in a stripped-down webview.
+function hostedPointerEvent(type: string, init: PointerEventInit): Event {
+    if (typeof PointerEvent === 'function') return new PointerEvent(type, init);
+    return new MouseEvent(type, init);
 }
 
 function prepareHostedDemoVideoSettings(): void {
