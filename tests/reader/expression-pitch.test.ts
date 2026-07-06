@@ -122,17 +122,46 @@ describe('expression component pitch', () => {
         expect(data.componentPitches?.map(component => component.text)).toEqual(['跳梁', '跋扈']);
     });
 
-    it('keeps componentPitches empty when the card has its own pitch', async () => {
+    it('composes a whole-card compound pitch from component pitch rows', async () => {
         const loader = createLoader({
-            entriesByTerm: { 読む: [termEntry('読む', 'よむ')] },
-            metaByTerm: { 読む: [pitchMeta('読む', 'よむ', 1)] },
+            entriesByTerm: {
+                登録: [termEntry('登録', 'とうろく')],
+                者: [termEntry('者', 'しゃ')],
+                数: [termEntry('数', 'すう')],
+            },
+            metaByTerm: {
+                登録: [pitchMeta('登録', 'とうろく', 0)],
+                者: [pitchMeta('者', 'しゃ', 1)],
+                数: [pitchMeta('数', 'すう', 1)],
+            },
         });
-        const card = expressionCard('読む', 'よむ');
-        card.pitchAccent = ['HLL'];
+        const card = expressionCard('登録者数', 'とうろくしゃすう');
 
         const data = await loader.load(card).all;
 
-        expect(data.componentPitches ?? []).toEqual([]);
+        expect(card.pitchAccent).toEqual(['LHHHHHLL']);
+        expect(data.expressionComponents?.map(component => component.text)).toEqual(['登録', '者', '数']);
+        expect(data.componentPitches?.map(component => component.text)).toEqual(['登録', '者', '数']);
+    });
+
+    it('keeps component pitch data when the card already has a whole pitch', async () => {
+        const loader = createLoader({
+            entriesByTerm: {
+                気合い: [termEntry('気合い', 'きあい')],
+                入れる: [termEntry('入れる', 'いれる')],
+            },
+            metaByTerm: {
+                気合い: [pitchMeta('気合い', 'きあい', 0)],
+                入れる: [pitchMeta('入れる', 'いれる', 0)],
+            },
+        });
+        const card = expressionCard('気合いを入れる', 'きあいをいれる');
+        card.pitchAccent = ['LHHHHHHH'];
+
+        const data = await loader.load(card).all;
+
+        expect(card.pitchAccent).toEqual(['LHHHHHHH']);
+        expect(data.componentPitches?.map(component => component.text)).toEqual(['気合い', '入れる']);
     });
 
     it('keeps componentPitches empty when only one component is found', async () => {

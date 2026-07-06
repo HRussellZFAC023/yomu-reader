@@ -3,9 +3,9 @@ import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 
 export type PitchMetaLookup = (expression: string) => Promise<YomitanMetaEntry[]>;
 
-const COMPOUND_MAX_CHARS = 12;
-const COMPOUND_MAX_SEGMENTS = 6;
-const COMPOUND_MAX_LOOKUPS = 16;
+const COMPOUND_MAX_CHARS = 24;
+const COMPOUND_MAX_SEGMENTS = 8;
+const COMPOUND_MAX_LOOKUPS = 32;
 const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
 
 interface CompoundSegment {

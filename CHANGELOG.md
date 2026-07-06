@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.97] - 2026-07-06
+
+### Fixed
+
+- Compound dictionary cards now compose a whole-word pitch graph from local component pitch entries when no whole-word pitch row exists, so the popup graph and pitch underline no longer stay unknown for words such as 登録者数.
+
+### Improved
+
+- The "Composed of" panel is more compact and scannable: parts render as wrapped lookup chips with furigana, pitch colouring, and clear separators, so two-part expressions and longer compounds use the popup space without the old loose row layout.
+
 ## [1.6.96] - 2026-07-06
 
 ### Improved

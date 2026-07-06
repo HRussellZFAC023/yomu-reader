@@ -194,7 +194,7 @@ export class CardPopoverRenderer {
         return `<details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-expression-components" open>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml(uiText(view.language, 'composedOf'))}</span>
-                <span class="jpdb-reader-example-count">${components.length}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${components.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
                 <ul class="jpdb-reader-jpdb-used-in jpdb-reader-expression-component-list">${rows}</ul>

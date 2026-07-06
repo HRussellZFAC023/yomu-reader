@@ -208,6 +208,8 @@ const HOSTED_MANGA_OCR_LINES = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Compound dictionary cards now compose a whole-word pitch graph from local component pitch entries when no whole-word pitch row exists, so the popup graph and pitch underline no longer stay unknown for words such as 登録者数.': '複合語の辞書カードは、単語全体のピッチ行がない場合にローカルの構成要素ピッチから単語全体のピッチグラフを合成するようになりました。これにより、登録者数のような語でもポップアップのグラフやピッチ下線が不明のままになりません。',
+    'The "Composed of" panel is more compact and scannable: parts render as wrapped lookup chips with furigana, pitch colouring, and clear separators, so two-part expressions and longer compounds use the popup space without the old loose row layout.': '「Composed of」パネルは、よりコンパクトで見通しよくなりました。構成要素は、ふりがな・ピッチ色・明確な区切りを持つ折り返し可能な検索チップとして表示されるため、二語の表現も長い複合語も、従来の間延びした行レイアウトに頼らずポップアップの空間を使えます。',
     "Kaa and similar custom video players now load subtitle files declared inside player config payloads, including Astro-style": "Kaaなどのカスタム動画プレーヤーで、プレーヤー設定内に宣言された字幕ファイルを読み込めるようになりました。Astro形式の",
     "data, and cross-origin page-file subtitles try anonymous browser CORS before falling back to the userscript bridge. This keeps tracks such as Kaa's": "データにも対応し、クロスオリジンのページファイル字幕はユーザースクリプトブリッジへ戻る前に、ブラウザの匿名CORSを試します。これによりKaaの",
     "VTT files from getting stuck at \"waiting for captions.\"": "VTTファイルのようなトラックが「waiting for captions」のまま止まらなくなります。",

@@ -162,6 +162,8 @@ describe('composed of section', () => {
         });
         expect(NORMALIZED_POPOVER_CSS).toContain('.jpdb-reader-expression-components { margin-top:');
         expect(NORMALIZED_POPOVER_CSS).toMatch(/\.jpdb-reader-jpdb-used-in\.jpdb-reader-expression-component-list \{ display: flex; flex-wrap: wrap;/);
+        expect(NORMALIZED_POPOVER_CSS).toContain('.jpdb-reader-expression-component-link.gloss-link { display: inline-flex;');
+        expect(NORMALIZED_POPOVER_CSS).toContain('.jpdb-reader-jpdb-used-in-row.jpdb-reader-expression-component-row:not(:last-child)::after { content: "+";');
     });
 
     it('keeps pitch colouring when component pitch readings differ from the component reading', () => {
