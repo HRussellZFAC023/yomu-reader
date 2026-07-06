@@ -7,6 +7,8 @@
 - Kaa and similar custom video players now load subtitle files declared inside player config payloads, including Astro-style `props` data, and cross-origin page-file subtitles try anonymous browser CORS before falling back to the userscript bridge. This keeps tracks such as Kaa's `subst.krussdomi.com` VTT files from getting stuck at "waiting for captions."
 - Furigana layout stays enabled without clipping or overflowing compact ecommerce rows: Google Search chips, Bloomee product cards, drawer/menu rows, and similar clipped controls now reserve ruby room on the actual control container as well as the mirrored text row.
 - YouTube live chat/card text is parsed at the message/control level instead of as whole live panels, reducing live-page churn while preserving furigana and pitch underlines on readable YouTube chrome.
+- The lookup panel's sentence breakdown now reads as a sentence: tokens flow inline and wrap naturally instead of stacking one word per line, numbers and Latin text between words are kept in place, and each word carries the same pitch accent and study-state colouring as words on the page.
+- Composed of polish: the section gained breathing room above its header, components render as annotated ruby chips in a wrapping row, chips can be activated by keyboard (Enter and Space) as well as tap, and component pitch colouring survives kana-variant reading differences.
 
 ## [1.6.90] - 2026-07-06
 
