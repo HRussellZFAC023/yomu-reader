@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.99
+// @version 1.6.100
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.99#sha256=N0kDfli6QcwU15W78VmRYdj9pqPzPitUx+OJVHZoeXg=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.99#sha256=vDqzgPyYQp0aCzAERCTrLg7yzOJ1kOuG3GKWzluZ90g=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.99#sha256=ouQezXMgPVhSpjRQf6nVEIOA1BdNCYBq2T3XnmT/Ujk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.99#sha256=kxf+lcrOgWG2I6C+ucheI6LV0lvdkoKwqRYPPxZXFLs=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.99#sha256=EDQgt0RULyq8pTdZMdQFGrE0RTid8UF6Rm/l4NupFt0=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.99#sha256=JdZ1qKpQLOV2xTi7BgOAEvAe/7Cq9qoY/p+evtcvkRI=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.100#sha256=N0kDfli6QcwU15W78VmRYdj9pqPzPitUx+OJVHZoeXg=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.100#sha256=vDqzgPyYQp0aCzAERCTrLg7yzOJ1kOuG3GKWzluZ90g=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.100#sha256=ouQezXMgPVhSpjRQf6nVEIOA1BdNCYBq2T3XnmT/Ujk=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.100#sha256=kxf+lcrOgWG2I6C+ucheI6LV0lvdkoKwqRYPPxZXFLs=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.100#sha256=M214EvtM2GqEKS+5sY1RPXw4Klf6ZPU2cVy4xApls1Y=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.100#sha256=hOqXUgDY5XdiWt5nfPdb5Wb/RWtloO6RBikZRV51Sfo=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -3056,6 +3056,7 @@ const DEFAULT_SETTINGS = {
   annotationsPaused: false,
   showFurigana: true,
   furiganaMode: "difficult-kanji",
+  puckFuriganaModeBeforeHide: "",
   furiganaHiddenStateGroups: ["known", "due", "failed"],
   wordColorStates: "all",
   showPitchAccent: true,
@@ -3452,6 +3453,7 @@ function normalizeReaderDisplaySettings(value) {
   puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
   showFurigana: booleanSetting(value, "showFurigana"),
   furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+  puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== "off" ? settings.puckFuriganaModeBeforeHide : "",
   furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
   wordColorStates: settings.wordColorStates === "new-only" ? "new-only" : "all",
   hideKnownFurigana: booleanSetting(value, "hideKnownFurigana")
@@ -14548,14 +14550,15 @@ async function composeSegments(characters, cursor, readingRest, lookupMeta, stat
   if (cursor === 0 && length === characters.length) continue;
   if (state.lookups >= COMPOUND_MAX_LOOKUPS) return null;
   const candidate = characters.slice(cursor, cursor + length).join("");
-  const segment = await constituentSegment(candidate, readingRest, lookupMeta, state);
+  const isFinal = cursor + length === characters.length;
+  const segment = await constituentSegment(candidate, readingRest, lookupMeta, state, isFinal);
   if (!segment) continue;
   const rest = await composeSegments(characters, cursor + length, readingRest.slice(segment.readingLength), lookupMeta, state, segmentsLeft - 1);
   if (rest) return [{ pattern: segment.pattern, moraCount: segment.moraCount }, ...rest];
   }
   return null;
 }
-async function constituentSegment(candidate, readingRest, lookupMeta, state) {
+async function constituentSegment(candidate, readingRest, lookupMeta, state, isFinal) {
   let entriesPromise = state.cache.get(candidate);
   if (!entriesPromise) {
   state.lookups += 1;
@@ -14571,7 +14574,22 @@ async function constituentSegment(candidate, readingRest, lookupMeta, state) {
   if (!pattern) continue;
   return { pattern, moraCount: splitMorae(constituentReading).length, readingLength: constituentReading.length };
   }
-  return null;
+  if (!isFinal) return null;
+  return readingKeyFinalSegment(readingRest, lookupMeta, state);
+}
+async function readingKeyFinalSegment(readingRest, lookupMeta, state) {
+  if (!readingRest || state.lookups >= COMPOUND_MAX_LOOKUPS) return null;
+  const cacheKey = `r:${readingRest}`;
+  let entriesPromise = state.cache.get(cacheKey);
+  if (!entriesPromise) {
+  state.lookups += 1;
+  entriesPromise = Promise.resolve().then(() => lookupMeta(readingRest)).catch(() => []);
+  state.cache.set(cacheKey, entriesPromise);
+  }
+  const entries2 = await entriesPromise;
+  const patterns = localPitchPatternsFromMeta(readingRest, entries2);
+  if (patterns.length !== 1) return null;
+  return { pattern: patterns[0], moraCount: splitMorae(readingRest).length, readingLength: readingRest.length };
 }
 function localPitchPatternFromMeta(reading, entries2) {
   return localPitchPatternsFromMeta(reading, entries2)[0] ?? "";
@@ -15751,9 +15769,15 @@ function cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs
   })
   ]);
 }
+function isKanaCharacter(character) {
+  const code = character.codePointAt(0) ?? 0;
+  return code >= 12352 && code <= 12543;
+}
 function looksComposableExpression(spelling) {
   const characters = Array.from(spelling.trim());
-  return characters.length >= 4 && (characters.some((character) => EXPRESSION_CONNECTIVE_KANA.has(character)) || characters.every(isKanjiCharacter));
+  if (characters.length < 4) return false;
+  const kanjiCount = characters.filter(isKanjiCharacter).length;
+  return characters.some((character) => EXPRESSION_CONNECTIVE_KANA.has(character)) || characters.every(isKanjiCharacter) || isKanjiCharacter(characters[0]) && kanjiCount >= 2 && characters.every((character) => isKanjiCharacter(character) || isKanaCharacter(character));
 }
 function delay$2(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -33505,7 +33529,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.99"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.100"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -34549,7 +34573,6 @@ function isJsdomRuntime() {
 class ReaderApp {
   abortController = new AbortController();
   isDestroyed = false;
-  furiganaModeBeforeHide;
   settings = DEFAULT_SETTINGS;
   disposeHostThemeObserver;
   hostThemeEnforceTimer;
@@ -35701,7 +35724,7 @@ class ReaderApp {
   async cyclePowerState() {
   const state = this.puckPowerState();
   if (state === "on") {
-    this.furiganaModeBeforeHide = this.settings.furiganaMode;
+    this.settings.puckFuriganaModeBeforeHide = this.settings.furiganaMode === "off" ? "" : this.settings.furiganaMode;
     await this.applyFuriganaMode("off");
     this.toast(uiText(this.settings.interfaceLanguage, "furiganaOffToast"));
     return;
@@ -35710,12 +35733,10 @@ class ReaderApp {
     await this.setAnnotationsPaused(true);
     return;
   }
-  const hiddenMode = this.furiganaModeBeforeHide;
-  this.furiganaModeBeforeHide = void 0;
-  if (hiddenMode && hiddenMode !== "off") {
-    this.settings.showFurigana = true;
-    this.settings.furiganaMode = hiddenMode;
-  }
+  const hiddenMode = this.settings.puckFuriganaModeBeforeHide;
+  this.settings.puckFuriganaModeBeforeHide = "";
+  this.settings.showFurigana = true;
+  this.settings.furiganaMode = hiddenMode || (this.settings.furiganaMode !== "off" ? this.settings.furiganaMode : DEFAULT_SETTINGS.furiganaMode);
   await this.setAnnotationsPaused(false);
   }
   async applyFuriganaMode(mode) {

@@ -6914,6 +6914,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     annotationsPaused: false,
     showFurigana: true,
     furiganaMode: "difficult-kanji",
+    puckFuriganaModeBeforeHide: "",
     furiganaHiddenStateGroups: ["known", "due", "failed"],
     wordColorStates: "all",
     showPitchAccent: true,
@@ -7316,6 +7317,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
       showFurigana: booleanSetting(value, "showFurigana"),
       furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+      puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== "off" ? settings.puckFuriganaModeBeforeHide : "",
       furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
       wordColorStates: settings.wordColorStates === "new-only" ? "new-only" : "all",
       hideKnownFurigana: booleanSetting(value, "hideKnownFurigana")
@@ -22073,14 +22075,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (cursor === 0 && length === characters.length) continue;
       if (state2.lookups >= COMPOUND_MAX_LOOKUPS) return null;
       const candidate = characters.slice(cursor, cursor + length).join("");
-      const segment = await constituentSegment(candidate, readingRest, lookupMeta, state2);
+      const isFinal = cursor + length === characters.length;
+      const segment = await constituentSegment(candidate, readingRest, lookupMeta, state2, isFinal);
       if (!segment) continue;
       const rest = await composeSegments(characters, cursor + length, readingRest.slice(segment.readingLength), lookupMeta, state2, segmentsLeft - 1);
       if (rest) return [{ pattern: segment.pattern, moraCount: segment.moraCount }, ...rest];
     }
     return null;
   }
-  async function constituentSegment(candidate, readingRest, lookupMeta, state2) {
+  async function constituentSegment(candidate, readingRest, lookupMeta, state2, isFinal) {
     let entriesPromise = state2.cache.get(candidate);
     if (!entriesPromise) {
       state2.lookups += 1;
@@ -22096,7 +22099,22 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!pattern) continue;
       return { pattern, moraCount: splitMorae(constituentReading).length, readingLength: constituentReading.length };
     }
-    return null;
+    if (!isFinal) return null;
+    return readingKeyFinalSegment(readingRest, lookupMeta, state2);
+  }
+  async function readingKeyFinalSegment(readingRest, lookupMeta, state2) {
+    if (!readingRest || state2.lookups >= COMPOUND_MAX_LOOKUPS) return null;
+    const cacheKey = `r:${readingRest}`;
+    let entriesPromise = state2.cache.get(cacheKey);
+    if (!entriesPromise) {
+      state2.lookups += 1;
+      entriesPromise = Promise.resolve().then(() => lookupMeta(readingRest)).catch(() => []);
+      state2.cache.set(cacheKey, entriesPromise);
+    }
+    const entries2 = await entriesPromise;
+    const patterns = localPitchPatternsFromMeta(readingRest, entries2);
+    if (patterns.length !== 1) return null;
+    return { pattern: patterns[0], moraCount: splitMorae(readingRest).length, readingLength: readingRest.length };
   }
   function localPitchPatternFromMeta(reading, entries2) {
     return localPitchPatternsFromMeta(reading, entries2)[0] ?? "";
@@ -39765,7 +39783,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.99".trim() ? "1.6.99".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.100".trim() ? "1.6.100".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -56596,6 +56614,7 @@ ${spelling}`);
     // Damped so a window of unusually tall/short rows nudges rather than jerks
     // the geometry; clamped so a degenerate measurement can't wreck the map.
     calibrateTranscriptRowEstimate() {
+      if (this.isTranscriptAutoScrollPaused()) return;
       const rows = Array.from(this.transcriptPanel?.querySelectorAll(".jpdb-subtitle-list-row") ?? []);
       if (rows.length < 4) return;
       const total = rows.reduce((sum, row) => sum + row.offsetHeight, 0);
@@ -62669,9 +62688,15 @@ ${component.reading}`;
       })
     ]);
   }
+  function isKanaCharacter(character) {
+    const code = character.codePointAt(0) ?? 0;
+    return code >= 12352 && code <= 12543;
+  }
   function looksComposableExpression(spelling) {
     const characters = Array.from(spelling.trim());
-    return characters.length >= 4 && (characters.some((character) => EXPRESSION_CONNECTIVE_KANA.has(character)) || characters.every(isKanjiCharacter$1));
+    if (characters.length < 4) return false;
+    const kanjiCount = characters.filter(isKanjiCharacter$1).length;
+    return characters.some((character) => EXPRESSION_CONNECTIVE_KANA.has(character)) || characters.every(isKanjiCharacter$1) || isKanjiCharacter$1(characters[0]) && kanjiCount >= 2 && characters.every((character) => isKanjiCharacter$1(character) || isKanaCharacter(character));
   }
   function delay$2(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));

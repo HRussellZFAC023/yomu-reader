@@ -544,12 +544,24 @@ function cardRenderDetailWithFallback<T>(detail: string, card: JPDBCard, promise
     ]);
 }
 
+function isKanaCharacter(character: string): boolean {
+    const code = character.codePointAt(0) ?? 0;
+    return code >= 0x3040 && code <= 0x30ff; // hiragana + katakana (incl. ー)
+}
+
 function looksComposableExpression(spelling: string): boolean {
     const characters = Array.from(spelling.trim());
-    return characters.length >= 4 && (
-        characters.some(character => EXPRESSION_CONNECTIVE_KANA.has(character))
+    if (characters.length < 4) return false;
+    const kanjiCount = characters.filter(isKanjiCharacter).length;
+    return characters.some(character => EXPRESSION_CONNECTIVE_KANA.has(character))
         || characters.every(isKanjiCharacter)
-    );
+        // Kanji-led ALL-JAPANESE compounds (国内向け, 海外向け, 取り扱い, 食べ物): a
+        // kanji stem with okurigana/kana. Restricting to kanji+kana excludes
+        // digit/latin-bearing tokens (単語10, A社) so bulk card loads don't run a
+        // pointless segmentation pass. Segmentation + the >=2 component gate
+        // downstream still keep this from producing spurious chips.
+        || (isKanjiCharacter(characters[0]) && kanjiCount >= 2
+            && characters.every(character => isKanjiCharacter(character) || isKanaCharacter(character)));
 }
 
 function delay(ms: number): Promise<void> {

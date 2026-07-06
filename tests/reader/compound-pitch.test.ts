@@ -64,6 +64,45 @@ describe('composeCompoundPitchPatternFromMeta', () => {
         await expect(composeCompoundPitchPatternFromMeta('会社', 'かいしゃ', lookup)).resolves.toBe('HLHL');
     });
 
+    it('composes a kanji-stem compound via a reading-keyed constituent (国内向け)', async () => {
+        // 向け has no surface bank headword, but its reading むけ does (Kanjium
+        // keys kana rows). The reading-key fallback resolves the tail so the
+        // compound gets a real pitch instead of staying grey.
+        const withReadingRow = bankLookup({
+            国内: [pitchEntry('こくない', 0)],
+            むけ: [pitchEntry('むけ', 0)],
+        });
+        const composed = await composeCompoundPitchPatternFromMeta('国内向け', 'こくないむけ', withReadingRow);
+        expect(composed).toMatch(/^[LH]+$/);
+        expect(composed.length).toBeGreaterThanOrEqual(6);
+
+        // Without the reading-keyed tail row it stays grey (graceful, no guess).
+        const withoutTail = bankLookup({ 国内: [pitchEntry('こくない', 0)] });
+        await expect(composeCompoundPitchPatternFromMeta('国内向け', 'こくないむけ', withoutTail)).resolves.toBe('');
+    });
+
+    it('declines a reading-keyed constituent when the reading is ambiguous', async () => {
+        // Two distinct pitches under reading むけ = ambiguous; the fallback must
+        // decline rather than mis-colour a homograph.
+        const ambiguous = bankLookup({
+            国内: [pitchEntry('こくない', 0)],
+            むけ: [pitchEntry('むけ', 0), pitchEntry('むけ', 2)],
+        });
+        await expect(composeCompoundPitchPatternFromMeta('国内向け', 'こくないむけ', ambiguous)).resolves.toBe('');
+    });
+
+    it('reading-key matches only the FINAL constituent (surface-aligned, no mid-compound mis-tile)', async () => {
+        // Only reading-keyed rows, no surface rows: 国内 (non-final) cannot resolve
+        // via reading key, so the compound stays grey instead of mis-tiling
+        // 国内向→こくない + け→むけ (the surface/reading misalignment a whole-prefix
+        // reading fallback would allow).
+        const readingOnly = bankLookup({
+            こくない: [pitchEntry('こくない', 0)],
+            むけ: [pitchEntry('むけ', 0)],
+        });
+        await expect(composeCompoundPitchPatternFromMeta('国内向け', 'こくないむけ', readingOnly)).resolves.toBe('');
+    });
+
     it('backtracks when the greedy longest constituent dead-ends', async () => {
         const lookup = bankLookup({
             日本: [pitchEntry('にほん', 2), pitchEntry('にっぽん', 3)],

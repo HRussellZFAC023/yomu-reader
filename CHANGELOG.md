@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.100] - 2026-07-06
+
+### Fixed
+
+- The puck's power button now cycles through all three states — annotations on, furigana hidden (colours and lookups stay active), and paused — instead of collapsing to a pause/resume toggle. Resuming from paused always restores furigana, so a furigana-off preference or a mid-session reload can no longer strand you between two states.
+- Compound words such as 国内向け now show their "Composed of" breakdown into component chips (国内 + 向け) in the lookup popover; kanji-stem compounds with an okurigana or kana tail used to be skipped before segmentation. (Requires imported offline dictionaries.)
+- Compound headwords now show a pitch-accent graph composed from their parts even when only a component's reading is in the pitch bank (向け resolves through its reading むけ) instead of staying grey; ambiguous readings are still left uncoloured so a homograph is never mismarked. (Requires an imported pitch bank.)
+
+### Improved
+
+- The puck's three power states are now unmistakable at a glance: everything on is a green ring with a solid dot, furigana hidden is a distinct amber ring with a crossed-through ふ badge, and paused is greyed with a dashed ring and a pause badge — so on and furigana-off are no longer both green and easy to confuse.
+
 ## [1.6.99] - 2026-07-06
 
 ### Fixed

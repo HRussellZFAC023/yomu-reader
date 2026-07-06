@@ -122,6 +122,33 @@ describe('expression component pitch', () => {
         expect(data.componentPitches?.map(component => component.text)).toEqual(['跳梁', '跋扈']);
     });
 
+    it('segments kanji-stem + okurigana compounds like 国内向け (mixed kanji/kana)', async () => {
+        // 国内向け is neither all-kanji nor particle-bearing, so the old gate
+        // rejected it before segmentation; it is also not a standalone headword.
+        // The kanji-led heuristic now lets the whole 〜向け family decompose.
+        const loader = createLoader({
+            entriesByTerm: {
+                国内: [termEntry('国内', 'こくない')],
+                向け: [termEntry('向け', 'むけ')],
+            },
+            metaByTerm: {
+                国内: [pitchMeta('国内', 'こくない', 0)],
+                向け: [pitchMeta('向け', 'むけ', 0)],
+            },
+        });
+
+        const data = await loader.load(expressionCard('国内向け', 'こくないむけ')).all;
+
+        expect(data.expressionComponents?.map(component => component.text)).toEqual(['国内', '向け']);
+        expect(data.componentPitches?.map(component => component.text)).toEqual(['国内', '向け']);
+    });
+
+    it('does not decompose a bare component or a short verb', async () => {
+        const loader = createLoader({ entriesByTerm: {}, metaByTerm: {} });
+        expect((await loader.load(expressionCard('向け', 'むけ')).all).expressionComponents ?? []).toEqual([]);
+        expect((await loader.load(expressionCard('食べる', 'たべる')).all).expressionComponents ?? []).toEqual([]);
+    });
+
     it('composes a whole-card compound pitch from component pitch rows', async () => {
         const loader = createLoader({
             entriesByTerm: {

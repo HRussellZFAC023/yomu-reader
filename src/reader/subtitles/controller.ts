@@ -6269,6 +6269,12 @@ export class SubtitlePlayerController {
     // Damped so a window of unusually tall/short rows nudges rather than jerks
     // the geometry; clamped so a degenerate measurement can't wreck the map.
     private calibrateTranscriptRowEstimate(): void {
+        // Never recalibrate while the user is hand-scrolling: the estimate
+        // scales BOTH spacers and the scroll->index map, so changing it
+        // mid-interaction moves the content under the finger and feeds the
+        // next window computation — the panel visibly drifts "by itself".
+        // Frozen geometry is idempotent: same scrollTop -> same window.
+        if (this.isTranscriptAutoScrollPaused()) return;
         const rows = Array.from(this.transcriptPanel?.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row') ?? []);
         if (rows.length < 4) return;
         const total = rows.reduce((sum, row) => sum + row.offsetHeight, 0);

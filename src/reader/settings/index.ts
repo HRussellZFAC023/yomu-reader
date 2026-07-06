@@ -380,6 +380,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     annotationsPaused: false,
     showFurigana: true,
     furiganaMode: 'difficult-kanji',
+    puckFuriganaModeBeforeHide: '',
     furiganaHiddenStateGroups: ['known', 'due', 'failed'],
     wordColorStates: 'all',
     showPitchAccent: true,
@@ -847,6 +848,9 @@ function normalizeReaderDisplaySettings(value: LegacyReaderSettings | null): Par
         puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
         showFurigana: booleanSetting(value, 'showFurigana'),
         furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+        puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== 'off'
+            ? settings.puckFuriganaModeBeforeHide
+            : '',
         furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
         wordColorStates: settings.wordColorStates === 'new-only' ? 'new-only' : 'all',
         hideKnownFurigana: booleanSetting(value, 'hideKnownFurigana'),

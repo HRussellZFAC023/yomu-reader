@@ -10617,6 +10617,89 @@ describe('reader helpers', () => {
         }
     });
 
+    it('restores furigana on resume even in a fresh session, via the persisted pre-hide marker', async () => {
+        // The hide step persists furiganaMode='off' globally, so the restore
+        // marker must be persisted too: with an in-memory marker, hiding on one
+        // page and resuming on the next left furigana off forever and the
+        // power cycle degraded to pause<->resume.
+        type PowerCycleInternals = {
+            settings: ReaderSettings;
+            cyclePowerState(): Promise<void>;
+            puckPowerState(): 'on' | 'no-furigana' | 'paused';
+            applyFuriganaMode(mode: ReaderSettings['furiganaMode']): Promise<void>;
+            clearAllAnnotations(): void;
+            scheduleAutoScan(delay: number, options?: { force?: boolean }): void;
+            setAnnotationsPaused(paused: boolean): Promise<void>;
+            applyAnnotationsPausedState(): void;
+            toast(message: string): void;
+        };
+        const appInternals = (app: ReaderApp): PowerCycleInternals => {
+            const internals = app as unknown as PowerCycleInternals;
+            internals.clearAllAnnotations = vi.fn();
+            internals.scheduleAutoScan = vi.fn();
+            internals.applyAnnotationsPausedState = vi.fn();
+            internals.toast = vi.fn();
+            return internals;
+        };
+
+        const first = appInternals(new ReaderApp());
+        first.settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' };
+        await first.cyclePowerState();
+        expect(first.settings.furiganaMode).toBe('off');
+        expect(first.settings.puckFuriganaModeBeforeHide).toBe('all');
+        await first.cyclePowerState();
+        expect(first.settings.annotationsPaused).toBe(true);
+
+        // "Navigate": a fresh app instance sees only the persisted settings.
+        const second = appInternals(new ReaderApp());
+        second.settings = { ...first.settings };
+        expect(second.puckPowerState()).toBe('paused');
+        await second.cyclePowerState();
+        expect(second.settings.annotationsPaused).toBe(false);
+        expect(second.settings.furiganaMode).toBe('all');
+        expect(second.settings.showFurigana).toBe(true);
+        expect(second.settings.puckFuriganaModeBeforeHide).toBe('');
+        expect(second.puckPowerState()).toBe('on');
+    });
+
+    it('reaches a genuine furigana-on state from a furigana-off preference (no two-state collapse)', async () => {
+        // A user whose saved preference is furigana-off starts the cycle in the
+        // no-furigana state with no pre-hide marker. Resuming must still land on
+        // a TRUE furigana-on "on" state (falling back to the default mode) —
+        // otherwise "on" and "furigana off" collapse and the puck only toggles
+        // pause<->resume: the reported "only two states" bug.
+        type PowerCycleInternals = {
+            settings: ReaderSettings;
+            cyclePowerState(): Promise<void>;
+            puckPowerState(): 'on' | 'no-furigana' | 'paused';
+            clearAllAnnotations(): void;
+            scheduleAutoScan(delay: number, options?: { force?: boolean }): void;
+            applyAnnotationsPausedState(): void;
+            toast(message: string): void;
+        };
+        const app = new ReaderApp() as unknown as PowerCycleInternals;
+        app.clearAllAnnotations = vi.fn();
+        app.scheduleAutoScan = vi.fn();
+        app.applyAnnotationsPausedState = vi.fn();
+        app.toast = vi.fn();
+        app.settings = { ...DEFAULT_SETTINGS, showFurigana: false, furiganaMode: 'off', annotationsPaused: false, puckFuriganaModeBeforeHide: '' };
+        expect(app.puckPowerState()).toBe('no-furigana');
+
+        await app.cyclePowerState();
+        expect(app.puckPowerState()).toBe('paused');
+
+        await app.cyclePowerState();
+        expect(app.settings.annotationsPaused).toBe(false);
+        expect(app.settings.showFurigana).toBe(true);
+        expect(app.settings.furiganaMode).not.toBe('off');
+        expect(app.settings.furiganaMode).toBe(DEFAULT_SETTINGS.furiganaMode);
+        expect(app.puckPowerState()).toBe('on');
+
+        // The loop keeps cycling: on -> furigana hidden again (all three live).
+        await app.cyclePowerState();
+        expect(app.puckPowerState()).toBe('no-furigana');
+    });
+
     it('marks the puck differently for furigana-hidden and annotation-paused states', () => {
         const controller = new FloatingButtonController();
         const restoreRects = mockFloatingButtonRects(760, 520);

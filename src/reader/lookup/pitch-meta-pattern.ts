@@ -87,7 +87,8 @@ async function composeSegments(
         if (cursor === 0 && length === characters.length) continue;
         if (state.lookups >= COMPOUND_MAX_LOOKUPS) return null;
         const candidate = characters.slice(cursor, cursor + length).join('');
-        const segment = await constituentSegment(candidate, readingRest, lookupMeta, state);
+        const isFinal = cursor + length === characters.length;
+        const segment = await constituentSegment(candidate, readingRest, lookupMeta, state, isFinal);
         if (!segment) continue;
         const rest = await composeSegments(characters, cursor + length, readingRest.slice(segment.readingLength), lookupMeta, state, segmentsLeft - 1);
         if (rest) return [{ pattern: segment.pattern, moraCount: segment.moraCount }, ...rest];
@@ -100,6 +101,7 @@ async function constituentSegment(
     readingRest: string,
     lookupMeta: PitchMetaLookup,
     state: CompoundLookupState,
+    isFinal: boolean,
 ): Promise<{ pattern: string; moraCount: number; readingLength: number } | null> {
     let entriesPromise = state.cache.get(candidate);
     if (!entriesPromise) {
@@ -118,7 +120,35 @@ async function constituentSegment(
         if (!pattern) continue;
         return { pattern, moraCount: splitMorae(constituentReading).length, readingLength: constituentReading.length };
     }
-    return null;
+    // Surface fallback missed: a productive FINAL constituent (向け) often has no
+    // bank headword while its READING (むけ) does — pitch banks key kana rows and
+    // pitch is reading-derived. Restrict this to the FINAL constituent consuming
+    // the WHOLE remaining reading in ONE lookup: that keeps surface and reading
+    // aligned (a mid-compound reading prefix could otherwise mis-tile) and never
+    // drains the shared lookup budget on per-mora probes.
+    if (!isFinal) return null;
+    return readingKeyFinalSegment(readingRest, lookupMeta, state);
+}
+
+async function readingKeyFinalSegment(
+    readingRest: string,
+    lookupMeta: PitchMetaLookup,
+    state: CompoundLookupState,
+): Promise<{ pattern: string; moraCount: number; readingLength: number } | null> {
+    if (!readingRest || state.lookups >= COMPOUND_MAX_LOOKUPS) return null;
+    const cacheKey = `r:${readingRest}`;
+    let entriesPromise = state.cache.get(cacheKey);
+    if (!entriesPromise) {
+        state.lookups += 1;
+        entriesPromise = Promise.resolve().then(() => lookupMeta(readingRest)).catch(() => [] as YomitanMetaEntry[]);
+        state.cache.set(cacheKey, entriesPromise);
+    }
+    const entries = await entriesPromise;
+    const patterns = localPitchPatternsFromMeta(readingRest, entries);
+    // Exactly one distinct pattern for this reading = unambiguous; otherwise a
+    // homograph reading could colour the wrong pitch, so leave it grey.
+    if (patterns.length !== 1) return null;
+    return { pattern: patterns[0], moraCount: splitMorae(readingRest).length, readingLength: readingRest.length };
 }
 
 export function localPitchPatternFromMeta(reading: string, entries: YomitanMetaEntry[]): string {

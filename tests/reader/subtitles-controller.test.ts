@@ -3690,6 +3690,36 @@ Watch the cat
         }
     });
 
+    it('freezes the row estimate while the user is hand-scrolling the transcript', () => {
+        const cues = Array.from({ length: 300 }, (_, index) => ({
+            start: index,
+            end: index + 0.8,
+            text: `背の高い字幕${index}`,
+            transcriptEligible: true,
+        }));
+        const { controller, internals } = setupTranscriptCueController<typeof cues[number], {
+            calibrateTranscriptRowEstimate: () => void;
+            transcriptRowEstimatePx: number;
+            noteTranscriptScroll: () => void;
+        }>(cues);
+
+        try {
+            internals.openLinesPanel();
+            document.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row').forEach(row => {
+                Object.defineProperty(row, 'offsetHeight', { configurable: true, value: 140 });
+            });
+            const before = internals.transcriptRowEstimatePx;
+
+            // A user scroll pauses auto-follow; the estimate must freeze so the
+            // spacer/scroll geometry stays idempotent under the user's finger.
+            internals.noteTranscriptScroll();
+            internals.calibrateTranscriptRowEstimate();
+            expect(internals.transcriptRowEstimatePx).toBe(before);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('recenters a virtualized transcript when playback advances past the rendered rows', () => {
         const cues = Array.from({ length: 300 }, (_, index) => ({
             start: index,

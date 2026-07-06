@@ -380,6 +380,10 @@ export interface ReaderSettings {
     annotationsPaused: boolean;
     showFurigana: boolean;
     furiganaMode: FuriganaMode;
+    // Furigana mode the puck's power cycle hid, persisted so resuming after a
+    // navigation or reload still restores it ('' = nothing to restore). The
+    // cycle collapsed to pause<->resume before this survived the page.
+    puckFuriganaModeBeforeHide: FuriganaMode | '';
     furiganaHiddenStateGroups: FuriganaStateGroup[];
     wordColorStates: WordColorStates;
     showPitchAccent: boolean;

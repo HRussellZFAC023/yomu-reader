@@ -604,8 +604,6 @@ function isJsdomRuntime(): boolean {
 export class ReaderApp {
     private abortController = new AbortController();
     private isDestroyed = false;
-    // Furigana mode active before the puck quick-hide, restored on re-show.
-    private furiganaModeBeforeHide?: ReaderSettings['furiganaMode'];
     private settings: ReaderSettings = DEFAULT_SETTINGS;
     private disposeHostThemeObserver?: () => void;
     private hostThemeEnforceTimer?: number;
@@ -1941,14 +1939,20 @@ export class ReaderApp {
         return this.isFuriganaEnabled() ? 'on' : 'no-furigana';
     }
 
-    // Puck power cycle: on → furigana hidden (reader stays active for colours,
-    // lookups, and mining) → annotations paused → on. Resuming only restores a
-    // furigana mode this cycle hid — a user whose saved preference is
-    // furigana-off is not opted back in by pausing and resuming.
+    // Puck power cycle — three states, always reachable in order:
+    //   on (annotations + furigana) → on, furigana hidden (reader still active
+    //   for colours, lookups, mining) → paused (annotations off) → on.
+    // Resuming ALWAYS lands in a true furigana-ON state so the cycle offers all
+    // three regardless of the user's saved furigana preference; a furigana-off
+    // user reaches the furigana-on state by cycling, then hides it again next
+    // press.
     private async cyclePowerState(): Promise<void> {
         const state = this.puckPowerState();
         if (state === 'on') {
-            this.furiganaModeBeforeHide = this.settings.furiganaMode;
+            // Persisted (not an instance field): the hide itself saves
+            // furiganaMode='off' globally, so the restore marker must survive
+            // navigation too or the cycle degrades to a two-state loop.
+            this.settings.puckFuriganaModeBeforeHide = this.settings.furiganaMode === 'off' ? '' : this.settings.furiganaMode;
             await this.applyFuriganaMode('off');
             this.toast(uiText(this.settings.interfaceLanguage, 'furiganaOffToast'));
             return;
@@ -1957,12 +1961,16 @@ export class ReaderApp {
             await this.setAnnotationsPaused(true);
             return;
         }
-        const hiddenMode = this.furiganaModeBeforeHide;
-        this.furiganaModeBeforeHide = undefined;
-        if (hiddenMode && hiddenMode !== 'off') {
-            this.settings.showFurigana = true;
-            this.settings.furiganaMode = hiddenMode;
-        }
+        // Resume to a genuine furigana-ON "on" state. Restore the mode the cycle
+        // hid; if none was hidden (furigana-off preference, or a mid-cycle
+        // reload dropped the marker), fall back to the current mode when it is a
+        // real one, else the default — never leave furigana off here, or "on"
+        // and "furigana off" collapse into one state.
+        const hiddenMode = this.settings.puckFuriganaModeBeforeHide;
+        this.settings.puckFuriganaModeBeforeHide = '';
+        this.settings.showFurigana = true;
+        this.settings.furiganaMode = hiddenMode
+            || (this.settings.furiganaMode !== 'off' ? this.settings.furiganaMode : DEFAULT_SETTINGS.furiganaMode);
         await this.setAnnotationsPaused(false);
     }
 

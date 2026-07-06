@@ -1949,54 +1949,67 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   box-shadow: 0 12px 34px var(--jpdb-reader-shadow), 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 32%, transparent) !important;
   transform: translate3d(0, 0, 0) scale(1.06) !important;
 }
-/* Everything on → the puck itself carries the accent so "live" reads at a
-   glance, not only by the absence of a badge. */
+/* The three power states form a green → amber → grey traffic light so on/off
+   reads instantly, not from a subtle badge alone (1.6.99: "on" and furigana-off
+   looked identical). Everything on → vivid GREEN ring + solid green dot. */
 .jpdb-reader-fab.jpdb-reader-fab--on {
+  opacity: 0.94 !important;
   border-color: var(--jpdb-reader-accent) !important;
   box-shadow:
     0 10px 28px var(--jpdb-reader-shadow),
-    0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 30%, transparent) !important;
+    0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent) !important;
 }
 .jpdb-reader-fab.jpdb-reader-fab--on::after {
   content: '' !important;
   opacity: 1 !important;
   transform: scale(1) !important;
-  inline-size: 10px !important;
-  block-size: 10px !important;
-  min-inline-size: 10px !important;
-  min-block-size: 10px !important;
+  inline-size: 13px !important;
+  block-size: 13px !important;
+  min-inline-size: 13px !important;
+  min-block-size: 13px !important;
   right: 0 !important;
   bottom: 0 !important;
   background: var(--jpdb-reader-accent) !important;
-  border-color: var(--jpdb-reader-surface) !important;
+  border: 2px solid var(--jpdb-reader-surface) !important;
 }
+/* Annotations on, furigana hidden → AMBER (a hue clearly apart from the green
+   "on" state) with a struck-through ふ, so "reader live but furigana off" never
+   reads as fully on. */
 .jpdb-reader-fab.jpdb-reader-fab--no-furigana {
-  opacity: 0.92 !important;
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 68%, var(--jpdb-reader-border)) !important;
+  opacity: 0.94 !important;
+  border-color: var(--jpdb-reader-grade-something) !important;
   box-shadow:
     0 10px 28px var(--jpdb-reader-shadow),
-    0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent) !important;
+    0 0 0 3px color-mix(in srgb, var(--jpdb-reader-grade-something) 32%, transparent) !important;
 }
 .jpdb-reader-fab.jpdb-reader-fab--no-furigana::after {
   content: 'ふ' !important;
   opacity: 1 !important;
   transform: scale(1) !important;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 82%, var(--jpdb-reader-surface)) !important;
-  color: var(--jpdb-reader-accent-readable) !important;
+  font-size: 12px !important;
+  background: var(--jpdb-reader-grade-something) !important;
+  color: var(--jpdb-reader-accent-text) !important;
+  border-color: var(--jpdb-reader-surface) !important;
+  text-decoration: line-through !important;
+  text-decoration-thickness: 2px !important;
 }
 .jpdb-reader-fab.jpdb-reader-fab--no-furigana::before {
-  opacity: 1 !important;
+  opacity: 0 !important;
 }
-/* Annotations paused → drain the colour so on/off reads at a glance. */
+/* Annotations paused → drain to grey + dashed ring + pause glyph so "off" is
+   unmistakable and carries no accent glow. */
 .jpdb-reader-fab.jpdb-reader-fab--paused {
   filter: grayscale(1) !important;
-  opacity: 0.7 !important;
+  opacity: 0.62 !important;
   border-style: dashed !important;
+  box-shadow: 0 8px 20px var(--jpdb-reader-shadow) !important;
 }
 .jpdb-reader-fab.jpdb-reader-fab--paused::after {
   content: 'II' !important;
   opacity: 1 !important;
   transform: scale(1) !important;
+  font-size: 11px !important;
+  letter-spacing: 1px !important;
   background: color-mix(in srgb, var(--jpdb-reader-muted) 78%, var(--jpdb-reader-surface)) !important;
   color: var(--jpdb-reader-surface) !important;
 }
@@ -2110,12 +2123,13 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   color: var(--jpdb-reader-accent-readable) !important;
 }
 .jpdb-reader-fab-radial-item.is-partial {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 72%, var(--jpdb-reader-border)) !important;
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, var(--jpdb-reader-surface)) !important;
-  color: var(--jpdb-reader-accent-readable) !important;
+  border-color: color-mix(in srgb, var(--jpdb-reader-grade-something) 76%, var(--jpdb-reader-border)) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-grade-something) 16%, var(--jpdb-reader-surface)) !important;
+  /* Readable theme text, not amber-on-amber (which fell to ~1.78:1 in light theme). */
+  color: var(--jpdb-reader-text) !important;
   box-shadow:
     0 9px 24px color-mix(in srgb, var(--jpdb-reader-shadow) 78%, transparent),
-    inset 0 0 0 2px color-mix(in srgb, var(--jpdb-reader-accent) 16%, transparent) !important;
+    inset 0 0 0 2px color-mix(in srgb, var(--jpdb-reader-grade-something) 18%, transparent) !important;
 }
 .jpdb-reader-fab-radial-item.is-off {
   filter: grayscale(1) !important;

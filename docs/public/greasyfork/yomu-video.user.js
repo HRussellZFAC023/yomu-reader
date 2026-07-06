@@ -1585,6 +1585,7 @@
     annotationsPaused: false,
     showFurigana: true,
     furiganaMode: "difficult-kanji",
+    puckFuriganaModeBeforeHide: "",
     furiganaHiddenStateGroups: ["known", "due", "failed"],
     wordColorStates: "all",
     showPitchAccent: true,
@@ -15405,6 +15406,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     // Damped so a window of unusually tall/short rows nudges rather than jerks
     // the geometry; clamped so a degenerate measurement can't wreck the map.
     calibrateTranscriptRowEstimate() {
+      if (this.isTranscriptAutoScrollPaused()) return;
       const rows = Array.from(this.transcriptPanel?.querySelectorAll(".jpdb-subtitle-list-row") ?? []);
       if (rows.length < 4) return;
       const total = rows.reduce((sum, row) => sum + row.offsetHeight, 0);
