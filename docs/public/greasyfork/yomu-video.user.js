@@ -1588,6 +1588,7 @@
     puckFuriganaModeBeforeHide: "",
     furiganaHiddenStateGroups: ["known", "due", "failed"],
     wordColorStates: "all",
+    wordColorHiddenStateGroups: [],
     showPitchAccent: true,
     showLookupPillFrequency: true,
     suppressRedundantWordUi: false,

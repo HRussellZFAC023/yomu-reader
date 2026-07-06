@@ -47,6 +47,12 @@ export function applyReaderTheme(settings: ReaderSettings, root: HTMLElement | n
     root.classList.toggle('jpdb-reader-hide-known', theme.furiganaMode === 'known-status' && hideGroups.has('known'));
     root.classList.toggle('yomu-furi-hover', theme.furiganaMode === 'hover');
     root.classList.toggle('yomu-word-color-new-only', settings.wordColorStates === 'new-only');
+    // Per-state colour opt-out (e.g. keep known words uncoloured while others
+    // stay coloured). CSS-class driven so the settings preview mirrors it live.
+    const colorHideGroups = new Set(settings.wordColorHiddenStateGroups);
+    for (const group of ['new', 'learning', 'known', 'due', 'failed'] as const) {
+        root.classList.toggle(`yomu-word-color-hide-${group}`, colorHideGroups.has(group));
+    }
     // Jiten Reader parity: optionally keep JPDB-redundant words unstyled.
     root.classList.toggle('jpdb-reader-suppress-redundant', Boolean(settings.suppressRedundantWordUi));
     // Jiten Reader parity: one-handed reach option for the mobile sheet.

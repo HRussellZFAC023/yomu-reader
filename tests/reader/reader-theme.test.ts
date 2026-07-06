@@ -165,6 +165,23 @@ describe('reader theme', () => {
         expect(root.classList.contains('yomu-word-color-new-only')).toBe(false);
     });
 
+    it('toggles per-state colour-hide classes from wordColorHiddenStateGroups', () => {
+        const root = document.documentElement;
+        // Woozlez: keep known words uncoloured while every other state stays coloured.
+        applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key', wordColorHiddenStateGroups: ['known', 'due'] }, root);
+        expect(root.classList.contains('yomu-word-color-hide-known')).toBe(true);
+        expect(root.classList.contains('yomu-word-color-hide-due')).toBe(true);
+        expect(root.classList.contains('yomu-word-color-hide-new')).toBe(false);
+        expect(root.classList.contains('yomu-word-color-hide-learning')).toBe(false);
+        expect(root.classList.contains('yomu-word-color-hide-failed')).toBe(false);
+        // Default (empty) colours every state — no hide classes, and toggling a group
+        // off drops its stale class.
+        applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key' }, root);
+        for (const group of ['new', 'learning', 'known', 'due', 'failed'] as const) {
+            expect(root.classList.contains(`yomu-word-color-hide-${group}`)).toBe(false);
+        }
+    });
+
     it('applies concrete default color channels', () => {
         const applied = applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key' });
         const root = document.documentElement;

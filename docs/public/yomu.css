@@ -1366,6 +1366,42 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-reader-word:not(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new, .jpdb-reader-example-target) {
   --jpdb-reader-word-underline: transparent;
   color: inherit !important;
+  /* WebKit paints text via -webkit-text-fill-color, which the colour-source
+     rules set with their own !important — reset it too or Safari/iOS keeps the
+     state text colour despite color:inherit. */
+  -webkit-text-fill-color: currentColor !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  text-decoration: none !important;
+  box-shadow: none !important;
+}
+
+/* Per-group colour opt-out (settings: wordColorHiddenStateGroups) — the colour
+   analogue of the per-group furigana hiding above. The chosen word-state groups
+   keep the page's own colour and lose Yomu underline/highlight/box marking while
+   every other state stays coloured (e.g. "no highlight on known words"). Applies
+   on the page root AND the settings preview container so the preview restyles
+   live; example targets keep their marking so the sample stays legible.
+   Like the furigana-hide rules, these match ANY provider's state class on the
+   word (jpdb/jiten/anki), not just the one driving the active colour source — a
+   word carrying two providers' differing states (e.g. jpdb-known + anki-due) is
+   hidden if EITHER group is opted out, which matches the aggregate default. */
+.yomu-word-color-hide-known
+  .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known):not(.jpdb-reader-example-target),
+.yomu-word-color-hide-due
+  .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due):not(.jpdb-reader-example-target),
+.yomu-word-color-hide-failed
+  .jpdb-reader-word:is(.jpdb-failed, .jiten-failed, .anki-failed):not(.jpdb-reader-example-target),
+.yomu-word-color-hide-learning
+  .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning):not(.jpdb-reader-example-target),
+.yomu-word-color-hide-new
+  .jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new):not(.jpdb-reader-example-target) {
+  --jpdb-reader-word-underline: transparent;
+  color: inherit !important;
+  /* WebKit paints text via -webkit-text-fill-color, which the colour-source
+     rules set with their own !important — reset it too or Safari/iOS keeps the
+     state text colour despite color:inherit. */
+  -webkit-text-fill-color: currentColor !important;
   background-color: transparent !important;
   background-image: none !important;
   text-decoration: none !important;

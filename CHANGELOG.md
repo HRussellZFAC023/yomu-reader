@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.104] - 2026-07-06
+
+### Added
+
+- Colour settings now let you switch off highlighting for specific word categories while keeping the rest coloured — for example, stop colouring words you already know but keep new and due words marked. A new "Hide color for" set of checkboxes in the appearance settings covers New, Learning, Known, Due, and Failed, mirroring the existing per-category furigana control. It works across every colour source (JPDB, Jiten, and Anki states).
+
 ## [1.6.103] - 2026-07-06
 
 ### Fixed

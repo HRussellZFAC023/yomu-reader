@@ -533,6 +533,20 @@ describe('settings form localization', () => {
         expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).twoButtonReviews).toBe(true);
     });
 
+    it('reads per-state colour opt-out (colorHide-*) checkboxes into wordColorHiddenStateGroups', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        // The colour subsection renders a "Hide color for" fieldset of state checkboxes.
+        expect(form.querySelector('fieldset[data-word-color-hide-groups]')).not.toBeNull();
+        const knownBox = form.querySelector<HTMLInputElement>('input[name="colorHide-known"]')!;
+        const dueBox = form.querySelector<HTMLInputElement>('input[name="colorHide-due"]')!;
+        expect(knownBox).not.toBeNull();
+        knownBox.checked = true;
+        dueBox.checked = true;
+        // form-read filters in fixed state order (new,learning,known,due,failed) → known before due.
+        expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).wordColorHiddenStateGroups).toEqual(['known', 'due']);
+    });
+
     it('splits the old Basics bucket into API, Appearance, and Sources sections', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
@@ -679,6 +693,11 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.furiganaMode).toBe('difficult-kanji');
         expect(DEFAULT_SETTINGS.furiganaHiddenStateGroups).toEqual(['known', 'due', 'failed']);
         expect(DEFAULT_SETTINGS.wordColorStates).toBe('all');
+        // Per-state colour opt-out defaults to empty (colour every state) so existing
+        // installs keep their colouring; normalize drops invalid/duplicate groups.
+        expect(DEFAULT_SETTINGS.wordColorHiddenStateGroups).toEqual([]);
+        expect(normalizeReaderSettings({}).wordColorHiddenStateGroups).toEqual([]);
+        expect(normalizeReaderSettings({ wordColorHiddenStateGroups: ['known', 'known', 'bogus', 'due'] as never }).wordColorHiddenStateGroups).toEqual(['known', 'due']);
         expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('difficult-kanji');
         expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'ak_jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
         expect(normalizeReaderSettings({}).ankiEnabled).toBe(false);

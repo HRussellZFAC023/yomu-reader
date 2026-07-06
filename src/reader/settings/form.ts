@@ -540,6 +540,17 @@ function renderFuriganaHiddenStateGroupControls(settings: ReaderSettings): strin
     return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${effectiveFuriganaMode(settings) === 'known-status' ? '' : ' hidden'}><legend>Hide furigana for</legend>${boxes}</fieldset>`;
 }
 
+function renderWordColorHiddenStateGroupControls(settings: ReaderSettings): string {
+    // Per-state colour/highlight opt-out (e.g. "no highlight on known words"),
+    // the colour analogue of the furigana hide groups. Always shown in the colour
+    // subsection: it stays meaningful whenever any colour channel is active.
+    const selected = new Set(settings.wordColorHiddenStateGroups);
+    const boxes = FURIGANA_HIDE_GROUPS
+        .map(([group, label]) => checkbox(`colorHide-${group}`, label, selected.has(group)))
+        .join('');
+    return `<fieldset class="jpdb-reader-radio-group" data-word-color-hide-groups><legend>Hide color for</legend>${boxes}</fieldset>`;
+}
+
 // UT-47: a live sample sentence that mirrors the furigana/colour options.
 // data-settings-preview-lookup keeps localizeSettingsForm's
 // unwrapReaderWords pass from stripping the sample word spans.
@@ -748,6 +759,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     ${select('furiganaMode', 'Furigana', effectiveFuriganaMode(settings), FURIGANA_MODE_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
                     ${select('wordColorStates', 'Color words', settings.wordColorStates, WORD_COLOR_STATE_OPTIONS)}
+                    ${renderWordColorHiddenStateGroupControls(settings)}
                     ${checkbox('showPitchAccent', 'Show pitch accent', settings.showPitchAccent)}
                     ${checkbox('suppressRedundantWordUi', 'Hide JPDB-redundant styling', settings.suppressRedundantWordUi)}
                     ${checkbox('sheetCloseButtonOnLeft', 'Sheet close button on left', settings.sheetCloseButtonOnLeft)}

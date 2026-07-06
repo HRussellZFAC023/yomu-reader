@@ -383,6 +383,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     puckFuriganaModeBeforeHide: '',
     furiganaHiddenStateGroups: ['known', 'due', 'failed'],
     wordColorStates: 'all',
+    wordColorHiddenStateGroups: [],
     showPitchAccent: true,
     showLookupPillFrequency: true,
     suppressRedundantWordUi: false,
@@ -853,6 +854,7 @@ function normalizeReaderDisplaySettings(value: LegacyReaderSettings | null): Par
             : '',
         furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
         wordColorStates: settings.wordColorStates === 'new-only' ? 'new-only' : 'all',
+        wordColorHiddenStateGroups: normalizeWordColorHiddenStateGroups(settings.wordColorHiddenStateGroups),
         hideKnownFurigana: booleanSetting(value, 'hideKnownFurigana'),
     };
 }
@@ -1286,6 +1288,15 @@ const FURIGANA_STATE_GROUPS: ReadonlySet<string> = new Set(['new', 'learning', '
 function normalizeFuriganaHiddenStateGroups(value: unknown): ReaderSettings['furiganaHiddenStateGroups'] {
     if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.furiganaHiddenStateGroups];
     const groups = value.filter((item): item is ReaderSettings['furiganaHiddenStateGroups'][number] =>
+        typeof item === 'string' && FURIGANA_STATE_GROUPS.has(item));
+    return [...new Set(groups)];
+}
+
+function normalizeWordColorHiddenStateGroups(value: unknown): ReaderSettings['wordColorHiddenStateGroups'] {
+    // Same five-group taxonomy as furigana hiding, but the default is EMPTY
+    // (colour every state) so existing installs keep their current colouring.
+    if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.wordColorHiddenStateGroups];
+    const groups = value.filter((item): item is ReaderSettings['wordColorHiddenStateGroups'][number] =>
         typeof item === 'string' && FURIGANA_STATE_GROUPS.has(item));
     return [...new Set(groups)];
 }

@@ -2399,6 +2399,7 @@
     puckFuriganaModeBeforeHide: "",
     furiganaHiddenStateGroups: ["known", "due", "failed"],
     wordColorStates: "all",
+    wordColorHiddenStateGroups: [],
     showPitchAccent: true,
     showLookupPillFrequency: true,
     suppressRedundantWordUi: false,
@@ -2802,6 +2803,7 @@
       puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== "off" ? settings.puckFuriganaModeBeforeHide : "",
       furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
       wordColorStates: settings.wordColorStates === "new-only" ? "new-only" : "all",
+      wordColorHiddenStateGroups: normalizeWordColorHiddenStateGroups(settings.wordColorHiddenStateGroups),
       hideKnownFurigana: booleanSetting(value, "hideKnownFurigana")
     };
   }
@@ -3138,6 +3140,11 @@
   const FURIGANA_STATE_GROUPS = /* @__PURE__ */ new Set(["new", "learning", "known", "due", "failed"]);
   function normalizeFuriganaHiddenStateGroups(value) {
     if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.furiganaHiddenStateGroups];
+    const groups = value.filter((item) => typeof item === "string" && FURIGANA_STATE_GROUPS.has(item));
+    return [...new Set(groups)];
+  }
+  function normalizeWordColorHiddenStateGroups(value) {
+    if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.wordColorHiddenStateGroups];
     const groups = value.filter((item) => typeof item === "string" && FURIGANA_STATE_GROUPS.has(item));
     return [...new Set(groups)];
   }
@@ -7357,6 +7364,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       furiganaMode,
       furiganaHiddenStateGroups: ["new", "learning", "known", "due", "failed"].filter((group) => has(`furiganaHide-${group}`)),
       wordColorStates: readOption(get("wordColorStates"), ["all", "new-only"], "all"),
+      wordColorHiddenStateGroups: ["new", "learning", "known", "due", "failed"].filter((group) => has(`colorHide-${group}`)),
       showPitchAccent: has("showPitchAccent"),
       showLookupPillFrequency: has("showLookupPillFrequency"),
       suppressRedundantWordUi: has("suppressRedundantWordUi"),
@@ -9491,6 +9499,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const boxes = FURIGANA_HIDE_GROUPS.map(([group, label]) => checkbox(`furiganaHide-${group}`, label, selected.has(group))).join("");
     return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${effectiveFuriganaMode(settings) === "known-status" ? "" : " hidden"}><legend>Hide furigana for</legend>${boxes}</fieldset>`;
   }
+  function renderWordColorHiddenStateGroupControls(settings) {
+    const selected = new Set(settings.wordColorHiddenStateGroups);
+    const boxes = FURIGANA_HIDE_GROUPS.map(([group, label]) => checkbox(`colorHide-${group}`, label, selected.has(group))).join("");
+    return `<fieldset class="jpdb-reader-radio-group" data-word-color-hide-groups><legend>Hide color for</legend>${boxes}</fieldset>`;
+  }
   function renderAppearancePreview() {
     return `
                 <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section">
@@ -9678,6 +9691,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
                     ${select("furiganaMode", "Furigana", effectiveFuriganaMode(settings), FURIGANA_MODE_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
                     ${select("wordColorStates", "Color words", settings.wordColorStates, WORD_COLOR_STATE_OPTIONS)}
+                    ${renderWordColorHiddenStateGroupControls(settings)}
                     ${checkbox("showPitchAccent", "Show pitch accent", settings.showPitchAccent)}
                     ${checkbox("suppressRedundantWordUi", "Hide JPDB-redundant styling", settings.suppressRedundantWordUi)}
                     ${checkbox("sheetCloseButtonOnLeft", "Sheet close button on left", settings.sheetCloseButtonOnLeft)}

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.103
+// @version 1.6.104
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.103#sha256=FiVH9NCp19JNDrXzaXm8fNTob16+dJUD7y+tnoDzpGc=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.103#sha256=xX8MG3emoqISFhix0JtyrExwdFVcRKVpuYCDzO0Yry4=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.103#sha256=de1YLqDkJbCVk+uiFMcfOcSRlNtZO0lK0lPatpF+ZlY=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.103#sha256=c+P7ESACswWPREdrlAT7n9a0PTMeGPkvZo3MD38PgUQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.103#sha256=Bzq+raxwPKJIpdv23pEHXxmv9esgeEnMBppyfHku/YM=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.103#sha256=PlUZzyufM0OAjl5WotE+wziV1x/BQDoNBQWgjTUWAJ8=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.104#sha256=FiVH9NCp19JNDrXzaXm8fNTob16+dJUD7y+tnoDzpGc=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.104#sha256=xX8MG3emoqISFhix0JtyrExwdFVcRKVpuYCDzO0Yry4=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.104#sha256=de1YLqDkJbCVk+uiFMcfOcSRlNtZO0lK0lPatpF+ZlY=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.104#sha256=c+P7ESACswWPREdrlAT7n9a0PTMeGPkvZo3MD38PgUQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.104#sha256=aL/uwlC5VFN0d8b9j2t/aXPi0NU58ZrV8cihJWZHSKI=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.104#sha256=ni2i18IbRgrgbNikiq1pLFsXhDrJWZmaXHIZARhs5Iw=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -3059,6 +3059,7 @@ const DEFAULT_SETTINGS = {
   puckFuriganaModeBeforeHide: "",
   furiganaHiddenStateGroups: ["known", "due", "failed"],
   wordColorStates: "all",
+  wordColorHiddenStateGroups: [],
   showPitchAccent: true,
   showLookupPillFrequency: true,
   suppressRedundantWordUi: false,
@@ -3456,6 +3457,7 @@ function normalizeReaderDisplaySettings(value) {
   puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== "off" ? settings.puckFuriganaModeBeforeHide : "",
   furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
   wordColorStates: settings.wordColorStates === "new-only" ? "new-only" : "all",
+  wordColorHiddenStateGroups: normalizeWordColorHiddenStateGroups(settings.wordColorHiddenStateGroups),
   hideKnownFurigana: booleanSetting(value, "hideKnownFurigana")
   };
 }
@@ -3792,6 +3794,11 @@ function isFuriganaMode(value) {
 const FURIGANA_STATE_GROUPS = new Set(["new", "learning", "known", "due", "failed"]);
 function normalizeFuriganaHiddenStateGroups(value) {
   if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.furiganaHiddenStateGroups];
+  const groups = value.filter((item) => typeof item === "string" && FURIGANA_STATE_GROUPS.has(item));
+  return [...new Set(groups)];
+}
+function normalizeWordColorHiddenStateGroups(value) {
+  if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.wordColorHiddenStateGroups];
   const groups = value.filter((item) => typeof item === "string" && FURIGANA_STATE_GROUPS.has(item));
   return [...new Set(groups)];
 }
@@ -33248,6 +33255,10 @@ function applyReaderTheme(settings, root = document.documentElement) {
   root.classList.toggle("jpdb-reader-hide-known", theme.furiganaMode === "known-status" && hideGroups.has("known"));
   root.classList.toggle("yomu-furi-hover", theme.furiganaMode === "hover");
   root.classList.toggle("yomu-word-color-new-only", settings.wordColorStates === "new-only");
+  const colorHideGroups = new Set(settings.wordColorHiddenStateGroups);
+  for (const group of ["new", "learning", "known", "due", "failed"]) {
+  root.classList.toggle(`yomu-word-color-hide-${group}`, colorHideGroups.has(group));
+  }
   root.classList.toggle("jpdb-reader-suppress-redundant", Boolean(settings.suppressRedundantWordUi));
   root.classList.toggle("jpdb-reader-sheet-close-left", Boolean(settings.sheetCloseButtonOnLeft));
   root.classList.remove("jpdb-reader-highlight-status", "jpdb-reader-highlight-pitch", "jpdb-reader-highlight-off");
@@ -33589,7 +33600,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.103"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.104"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

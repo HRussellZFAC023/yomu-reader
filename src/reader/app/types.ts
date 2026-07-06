@@ -386,6 +386,10 @@ export interface ReaderSettings {
     puckFuriganaModeBeforeHide: FuriganaMode | '';
     furiganaHiddenStateGroups: FuriganaStateGroup[];
     wordColorStates: WordColorStates;
+    // Word-state groups whose colour/highlight/underline is suppressed while
+    // everything else stays coloured (e.g. "no highlight on known words"). The
+    // same five-group taxonomy as furigana hiding; empty = colour every state.
+    wordColorHiddenStateGroups: FuriganaStateGroup[];
     showPitchAccent: boolean;
     // When on, the live Jiten/JPDB frequency rank is shown inline inside that
     // site's lookup pill (e.g. "Jiten #18447") instead of as a separate pill.
