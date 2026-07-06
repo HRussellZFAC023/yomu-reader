@@ -153,7 +153,7 @@ import { renderListenCard, type ListenCardView, type ListenOutcome } from './lis
 import { scoreSpeakingBlob, type SpeakingPitchScore } from './speaking-score';
 import { createNewTabStudySession, type NewTabStudySession, type NewTabStudyStep, type NewTabStudyStepId, type NewTabStudyStepKind } from './study-session';
 import { kanjiDrawHints, recallHints, type StudyHint, type StudyHintStep } from './study-hints';
-import { contextPitchPattern, pitchNumberForReading, splitMorae } from '../lookup/pitch-accent';
+import { collectPitchVariants, contextPitchPattern, pitchNumberForReading, splitMorae, validPitchPositions } from '../lookup/pitch-accent';
 import { installNewTabSwipeGesture, newTabSwipeGrade, type NewTabSwipeAction } from './swipe-gesture';
 import {
     newTabCardHighlightTargets,
@@ -4922,6 +4922,8 @@ export class NewTabController {
             revealed: this.listenRevealed,
             selectedPosition: this.listenSelectedPosition,
             outcome: this.listenOutcome,
+            validPositions: [...this.listenValidPositions(card, item)],
+            variants: collectPitchVariants(item.reading, this.listenAccentPatterns(card, item)),
             hasAudio: Boolean(this.dependencies.playWordAudio),
             recording: Boolean(this.listenRecorder && this.listenRecorder.state !== 'inactive'),
             hasRecording: Boolean(this.listenRecordingUrl),
@@ -4931,6 +4933,19 @@ export class NewTabController {
             micUnavailable: this.listenRecordingUnavailable,
             contrast: this.listenContrastView(),
         };
+    }
+
+    // The full accepted-accent candidate set for the current listen word: the
+    // card's variants in source (prevalence) order, with the SRS item's own
+    // contour appended so the keyed answer is always represented.
+    private listenAccentPatterns(card: JPDBCard | undefined, item: PitchSrsItem): string[] {
+        return [...(card?.pitchAccent ?? []), item.pattern];
+    }
+
+    private listenValidPositions(card: JPDBCard | undefined, item: PitchSrsItem): Set<number> {
+        const positions = validPitchPositions(item.reading, this.listenAccentPatterns(card, item));
+        positions.add(item.pitchNumber);
+        return positions;
     }
 
     private listenContrastView(): ListenCardView['contrast'] {
@@ -4966,15 +4981,22 @@ export class NewTabController {
     }
 
     private pickListenPosition(position: number): void {
-        if (!this.listenItem || this.listenRevealed || this.state.listenSubMode === 'shadow') return;
+        if (!this.listenItem || this.state.listenSubMode === 'shadow') return;
         if (position < 0 || position > splitMorae(this.listenItem.reading).length) return;
         this.listenSelectedPosition = position;
-        const correct = position === this.listenItem.pitchNumber;
+        if (this.listenRevealed) {
+            // Post-feedback picks are exploration only: move the visual selection,
+            // never rewrite the recorded first-attempt outcome.
+            this.rerenderActiveListen();
+            return;
+        }
+        const card = this.visibleWords[this.index];
+        // Multi-accent honesty: any accepted variant's downstep counts as correct.
+        const correct = this.listenValidPositions(card, this.listenItem).has(position);
         this.listenRevealed = true;
         this.listenOutcome = correct ? 'correct' : 'wrong';
-        const card = this.visibleWords[this.index];
-        // Persist the pick per card so it survives step navigation and feeds the
-        // single reveal — the pitch step's outcome tracks exactly like recall.
+        // Persist the FIRST pick per card so it survives step navigation and feeds
+        // the single reveal — the pitch step's outcome tracks exactly like recall.
         if (card) this.pitchOutcomes.set(cardKey(card), { position, outcome: this.listenOutcome });
         this.rerenderActiveListen();
         void this.playListenModelAudio();
@@ -5025,7 +5047,7 @@ export class NewTabController {
             return;
         }
         const key = event.key;
-        if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && /^[0-9]$/u.test(key) && !this.listenRevealed && this.state.listenSubMode !== 'shadow') {
+        if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && /^[0-9]$/u.test(key) && this.state.listenSubMode !== 'shadow') {
             event.preventDefault();
             this.pickListenPosition(Number(key));
             return;
@@ -6464,7 +6486,7 @@ export class NewTabController {
             : '';
         let pitch = '';
         if (settings.showPitchAccent) {
-            pitch = renderPitch(card, data?.metaEntries ?? [])
+            pitch = renderPitch(card, data?.metaEntries ?? [], { primary: this.text('pitchVariantPrimary'), alternative: this.text('pitchVariantAlso') })
                 || (data ? renderExpressionComponentPitches(data.componentPitches ?? []) : '');
         }
         const pitchNode = pitch ? htmlToFirstElement(pitch) : null;

@@ -14518,6 +14518,20 @@ function pitchProfileForPattern(pattern, reading) {
 function pitchClassNameForPattern(pattern, reading) {
   return pitchProfileForPattern(pattern, reading).className;
 }
+function collectPitchVariants(reading, patterns, max = Infinity) {
+  const seen = new Set();
+  const variants = [];
+  for (const pattern of patterns) {
+  if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
+  const position = pitchNumberFromPattern(pattern, reading);
+  const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
+  if (seen.has(key)) continue;
+  seen.add(key);
+  variants.push({ pattern, position });
+  if (variants.length >= max) break;
+  }
+  return variants;
+}
 function contextPitchPattern(patterns, reading) {
   if (!patterns?.length) return "";
   if (!reading) return patterns[0];
@@ -14724,27 +14738,25 @@ function objectRecord(value) {
   return value && typeof value === "object" ? value : null;
 }
 const MAX_PITCH_VARIANTS = 3;
-function renderPitch(card, metaEntries = []) {
+function renderPitch(card, metaEntries = [], labels) {
   const reading = cardPronunciationReading(card);
   if (!reading) return "";
-  const candidates = [
+  const variants = collectPitchVariants(reading, [
   ...card.pitchAccent ?? [],
   ...localPitchPatternsFromMeta(reading, metaEntries)
-  ].filter((pattern) => pitchClassNameForPattern(pattern, reading) !== "");
-  const seen = new Set();
-  const graphs = [];
-  for (const pattern of candidates) {
-  const key = pitchLevelsForDisplay(pattern, reading).join("");
-  if (!key || seen.has(key)) continue;
-  const graph = renderPitchGraphSvg(reading, pattern);
-  if (!graph) continue;
-  seen.add(key);
-  graphs.push(graph);
-  if (graphs.length === MAX_PITCH_VARIANTS) break;
-  }
+  ], MAX_PITCH_VARIANTS);
+  return renderPitchVariantGraphs(reading, variants);
+}
+function renderPitchVariantGraphs(reading, variants, labels) {
+  const graphs = variants.map((variant) => ({ variant, svg: renderPitchGraphSvg(reading, variant.pattern) })).filter((entry) => entry.svg);
   if (!graphs.length) return "";
-  if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0]}</div>`;
-  return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((graph) => `<span class="jpdb-reader-pitch-component">${graph}</span>`).join("")}</div>`;
+  if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
+  return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}${renderVariantBadge(entry.variant)}</span>`).join("")}</div>`;
+}
+function renderVariantBadge(variant, primary, labels) {
+  const text2 = variant.commonality != null ? `${Math.round(variant.commonality)}%` : "";
+  if (!text2) return "";
+  return `<span class="jpdb-reader-pitch-variant-badge">${escapeHtml$1(text2)}</span>`;
 }
 function renderExpressionComponentPitches(components) {
   const graphs = components.map((component) => ({ component, svg: renderPitchGraphSvg(component.reading, component.pitch) })).filter((entry) => entry.svg).map((entry) => `<span class="jpdb-reader-pitch-component">

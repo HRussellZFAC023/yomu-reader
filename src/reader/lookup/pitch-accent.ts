@@ -85,6 +85,47 @@ export function pitchClassNameForPattern(pattern: string, reading: string): Pitc
     return pitchProfileForPattern(pattern, reading).className;
 }
 
+// One accepted accent variant of a reading. `commonality` is a real percentage
+// (0–100) when a source ever provides one; today's sources (jpdb array order,
+// Kanjium row order) are ordinal-only — the FIRST variant is the primary/most
+// common one — so it stays undefined rather than inventing numbers.
+export interface PitchVariant {
+    pattern: string;
+    position: number | null;
+    commonality?: number;
+}
+
+// Shared candidate collection for every surface that shows accent variants
+// (popup header, study reveal, listen feedback/grading): source order kept,
+// contour-deduped, unclassifiable patterns dropped.
+export function collectPitchVariants(reading: string, patterns: string[], max = Infinity): PitchVariant[] {
+    const seen = new Set<string>();
+    const variants: PitchVariant[] = [];
+    for (const pattern of patterns) {
+        if (pitchClassNameForPattern(pattern, reading) === '' || !pitchLevelsForDisplay(pattern, reading).join('')) continue;
+        const position = pitchNumberFromPattern(pattern, reading);
+        // Dedupe by accent IDENTITY (downstep position), not display contour:
+        // heiban vs odaka differ only on the particle mora the graph omits, yet
+        // are distinct accepted accents (双子 0/3).
+        const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join('');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        variants.push({ pattern, position });
+        if (variants.length >= max) break;
+    }
+    return variants;
+}
+
+// Every downstep position some listed variant produces — a listen pick matching
+// ANY of them is honestly correct when the audio's variant is unknowable.
+export function validPitchPositions(reading: string, patterns: string[]): Set<number> {
+    const positions = new Set<number>();
+    for (const variant of collectPitchVariants(reading, patterns)) {
+        if (variant.position != null) positions.add(variant.position);
+    }
+    return positions;
+}
+
 // A card can carry several pitch variants (e.g. dictionary-form vs the
 // reading actually used in this sentence). Pick the first variant that fits
 // the contextual reading's mora count instead of blindly using the first.

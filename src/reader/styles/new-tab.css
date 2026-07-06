@@ -4725,6 +4725,24 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab-listen-verdict-wrong {
   color: var(--jpdb-reader-danger, #d9534f);
 }
+.jpdb-reader-newtab-listen-feedback {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.jpdb-reader-newtab-listen-verdict[data-listen-outcome='correct'] {
+  color: var(--jpdb-reader-success, #2e9b57);
+}
+.jpdb-reader-newtab-listen-verdict[data-listen-outcome='wrong'] {
+  color: var(--jpdb-reader-danger, #d9534f);
+}
+/* An exploration re-pick on an already-correct tile keeps the selected ring
+   visible on top of the correct fill. */
+.jpdb-reader-newtab-listen-pos-correct.jpdb-reader-newtab-listen-pos-selected,
+.jpdb-reader-newtab-listen-pos-wrong.jpdb-reader-newtab-listen-pos-selected {
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: 1px;
+}
 .jpdb-reader-newtab-listen-contrast {
   display: grid;
   justify-items: center;

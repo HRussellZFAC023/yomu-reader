@@ -159,6 +159,8 @@ describe('new-tab Listen mode', () => {
             revealed: false,
             selectedPosition: null,
             outcome: null,
+            validPositions: [],
+            variants: [],
             hasAudio: true,
             recording: false,
             hasRecording: false,
@@ -219,7 +221,7 @@ describe('new-tab Listen mode', () => {
         }
     });
 
-    it('saves a Perceive choice without grading or revealing the answer before final review', () => {
+    it('shows instant correct feedback on the picked position without SRS-grading it', () => {
         const { controller, internals } = listenController([pitchCard()], 'perceive');
         const root = listenRoot();
         try {
@@ -228,15 +230,16 @@ describe('new-tab Listen mode', () => {
             const item = internals.pitchSrs.item(pitchItemKey('はし', 1));
             expect(item?.reps).toBe(0);
             expect(item?.lapses).toBe(0);
-            expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')?.textContent).toBe('Choice saved');
-            expect(root.querySelector('.jpdb-reader-newtab-listen-pos-correct')).toBeNull();
+            expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')?.textContent).toBe('Correct!');
+            expect(root.querySelector('[data-listen-pos="1"]')?.classList.contains('jpdb-reader-newtab-listen-pos-correct')).toBe(true);
+            expect(root.querySelector('.jpdb-reader-newtab-listen-pos-wrong')).toBeNull();
             expect(root.querySelector('[data-newtab-action="listen-next"]')).toBeNull();
         } finally {
             controller.destroy();
         }
     });
 
-    it('keeps a wrong Perceive pick private until the final reveal', () => {
+    it('marks a wrong pick immediately and reveals the valid position', () => {
         // Two same-reading cards with different downstep form a strict minimal pair.
         const hashiAtamadaka = pitchCard();
         const hashiOdaka = pitchCard({ vid: 11, spelling: '橋', pitchAccent: [pitchPatternFromPosition('はし', 2)] });
@@ -249,9 +252,53 @@ describe('new-tab Listen mode', () => {
             const item = internals.pitchSrs.item(pitchItemKey('はし', 1));
             expect(item?.lapses).toBe(0);
             expect(item?.reps).toBe(0);
-            expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')?.textContent).toBe('Choice saved');
-            expect(root.querySelector('.jpdb-reader-newtab-listen-pos-correct')).toBeNull();
+            expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')?.textContent).toBe('Not quite');
+            expect(root.querySelector('[data-listen-pos="2"]')?.classList.contains('jpdb-reader-newtab-listen-pos-wrong')).toBe(true);
+            expect(root.querySelector('[data-listen-pos="1"]')?.classList.contains('jpdb-reader-newtab-listen-pos-correct')).toBe(true);
             expect(root.querySelector('.jpdb-reader-newtab-listen-contrast')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('accepts any listed accent variant as correct (multi-accent words)', () => {
+        // 双子-style word: heiban AND odaka both accepted; the SRS item keys on
+        // the first variant but a pick on either must grade correct.
+        const twoAccents = pitchCard({
+            pitchAccent: [pitchPatternFromPosition('はし', 1), pitchPatternFromPosition('はし', 2)],
+        });
+        const { controller, internals } = listenController([twoAccents], 'perceive');
+        const root = listenRoot();
+        try {
+            internals.renderWord(root, internals.visibleWords[0]);
+            internals.pickListenPosition(2); // secondary variant, not the item key's 1
+            expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')?.textContent).toBe('Correct!');
+            expect(root.querySelector('[data-listen-pos="1"]')?.classList.contains('jpdb-reader-newtab-listen-pos-correct')).toBe(true);
+            expect(root.querySelector('[data-listen-pos="2"]')?.classList.contains('jpdb-reader-newtab-listen-pos-correct')).toBe(true);
+            expect(root.querySelector('.jpdb-reader-newtab-listen-pos-wrong')).toBeNull();
+            // Both accepted variants render in the feedback with ordinal badges.
+            const badges = Array.from(root.querySelectorAll('.jpdb-reader-pitch-variant-badge'), badge => badge.textContent);
+            expect(badges).toEqual(['Most common', 'Also used']);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('records only the first attempt; later picks are exploration', () => {
+        const { controller, internals } = listenController([pitchCard()], 'perceive');
+        const root = listenRoot();
+        const outcomes = (internals as unknown as { pitchOutcomes: Map<string, { position: number; outcome: string }> }).pitchOutcomes;
+        try {
+            internals.renderWord(root, internals.visibleWords[0]);
+            internals.pickListenPosition(2); // wrong first attempt — this is what counts
+            const first = [...outcomes.values()][0];
+            expect(first).toEqual({ position: 2, outcome: 'wrong' });
+            internals.pickListenPosition(1); // exploring the correct tile afterwards
+            expect([...outcomes.values()][0]).toEqual({ position: 2, outcome: 'wrong' });
+            expect(outcomes.size).toBe(1);
+            // Visual selection follows the exploration pick; verdict stays wrong.
+            expect(root.querySelector('[data-listen-pos="1"]')?.getAttribute('aria-pressed')).toBe('true');
+            expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')?.textContent).toBe('Not quite');
         } finally {
             controller.destroy();
         }
@@ -349,6 +396,8 @@ describe('new-tab Listen mode', () => {
             revealed: true,
             selectedPosition: null,
             outcome: null,
+            validPositions: [],
+            variants: [],
             hasAudio: true,
             recording: false,
             hasRecording: true,
@@ -395,6 +444,8 @@ describe('new-tab Listen mode', () => {
             revealed: true,
             selectedPosition: null,
             outcome: null,
+            validPositions: [],
+            variants: [],
             hasAudio: true,
             recording: false,
             hasRecording: true,

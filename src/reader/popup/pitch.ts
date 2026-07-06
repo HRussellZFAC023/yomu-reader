@@ -1,5 +1,11 @@
 import { escapeHtml } from '../dom/index';
-import { pitchClassNameForPattern, pitchLevelsForDisplay, splitMorae } from '../lookup/pitch-accent';
+import {
+    collectPitchVariants,
+    pitchClassNameForPattern,
+    pitchLevelsForDisplay,
+    splitMorae,
+    type PitchVariant,
+} from '../lookup/pitch-accent';
 import { localPitchPatternsFromMeta } from '../lookup/pitch-meta';
 import type { JPDBCard } from '../app/types';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
@@ -11,29 +17,41 @@ import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 // pitch bank), capped to keep the header compact.
 const MAX_PITCH_VARIANTS = 3;
 
-export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []): string {
+// Localized commonality labels: surfaces without a translator (popover) omit
+// them and get badge-less graphs, exactly as before.
+export interface PitchVariantLabels {
+    primary: string;
+    alternative: string;
+}
+
+export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = [], labels?: PitchVariantLabels): string {
     const reading = cardPronunciationReading(card);
     if (!reading) return '';
-    const candidates = [
+    const variants = collectPitchVariants(reading, [
         ...(card.pitchAccent ?? []),
         ...localPitchPatternsFromMeta(reading, metaEntries),
-    ].filter(pattern => pitchClassNameForPattern(pattern, reading) !== '');
-    const seen = new Set<string>();
-    const graphs: string[] = [];
-    for (const pattern of candidates) {
-        const key = pitchLevelsForDisplay(pattern, reading).join('');
-        if (!key || seen.has(key)) continue;
-        const graph = renderPitchGraphSvg(reading, pattern);
-        if (!graph) continue;
-        seen.add(key);
-        graphs.push(graph);
-        if (graphs.length === MAX_PITCH_VARIANTS) break;
-    }
+    ], MAX_PITCH_VARIANTS);
+    return renderPitchVariantGraphs(reading, variants, labels);
+}
+
+export function renderPitchVariantGraphs(reading: string, variants: PitchVariant[], labels?: PitchVariantLabels): string {
+    const graphs = variants
+        .map(variant => ({ variant, svg: renderPitchGraphSvg(reading, variant.pattern) }))
+        .filter(entry => entry.svg);
     if (!graphs.length) return '';
-    if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0]}</div>`;
+    if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
     return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs
-        .map(graph => `<span class="jpdb-reader-pitch-component">${graph}</span>`)
+        .map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? ' jpdb-reader-pitch-variant-primary' : ''}">${entry.svg}${renderVariantBadge(entry.variant, index === 0, labels)}</span>`)
         .join('')}</div>`;
+}
+
+function renderVariantBadge(variant: PitchVariant, primary: boolean, labels?: PitchVariantLabels): string {
+    // A true percentage always wins; otherwise fall back to the ordinal labels.
+    const text = variant.commonality != null
+        ? `${Math.round(variant.commonality)}%`
+        : labels ? (primary ? labels.primary : labels.alternative) : '';
+    if (!text) return '';
+    return `<span class="jpdb-reader-pitch-variant-badge">${escapeHtml(text)}</span>`;
 }
 
 export interface ExpressionComponentLookup {
