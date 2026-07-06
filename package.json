@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.6.89",
+  "version": "1.6.90",
   "private": true,
   "type": "module",
   "description": "よむ: a small Jiten/JPDB/Yomitan popup dictionary and subtitle miner userscript.",
@@ -137,7 +137,8 @@
     "typecheck": "tsc --noEmit",
     "verify": "node scripts/verify-userscript.cjs",
     "start:gaming": "npm run build:gaming && electron dist-gaming/electron/main.cjs",
-    "smoke:constrained-gate": "node scripts/constrained-row-mirror-gate-smoke.mjs"
+    "smoke:constrained-gate": "node scripts/constrained-row-mirror-gate-smoke.mjs",
+    "smoke:live-furigana-layout": "node scripts/live-furigana-layout-smoke.mjs"
   },
   "dependencies": {
     "fflate": "^0.8.2"

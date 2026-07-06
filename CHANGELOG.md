@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.90] - 2026-07-06
+
+### Fixed
+
+- YouTube live streams and live chat no longer trigger continuous full-page rescans: overlay-decorated surfaces that update constantly (chat messages, live view counters) now refresh at most once every few seconds after the first fast refresh, instead of forcing a rescan for every update.
+- Furigana mode "All words" no longer forces in-place readings into rows the browser engine distorts (fixed-height and clamped rows where the base text would shift out of view): those rows keep their reading via the overlay on plain rows and suppress it on styled rows, exactly like other modes. Yomu's own panels still always show readings.
+- Less jank while annotating large pages: the cropped-row furigana sweep now measures everything before applying any size change (no more one forced reflow per annotated word), and the short-row overflow check no longer scans whole subtrees from every ancestor.
+
 ## [1.6.89] - 2026-07-05
 
 ### Fixed

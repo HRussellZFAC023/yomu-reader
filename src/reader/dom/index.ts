@@ -1922,11 +1922,15 @@ function furiganaSettingsForTarget(settings: ReaderSettings, parent: HTMLElement
 }
 
 function scanTargetSuppressesRuby(parent: HTMLElement, suppressRuby?: boolean, inPlace = true): boolean {
-    if (targetForcesAllFurigana(parent)) return false;
+    // Yomu-owned surfaces (lookup panel, drawer) may always force readings.
+    if (targetForcesAllFurigana(parent) && parent.closest(READER_ROOT_SELECTOR)) return false;
     // Constrained rows only reject IN-PLACE ruby (it collapses or grows the
     // clip window on distorting engines); the absolutely-positioned mirror
-    // sizes its own line, so mirrored renders keep the reading.
+    // sizes its own line, so mirrored renders keep the reading. This is an
+    // ENGINE-BUG guard: even the page-wide furigana-mode=all attribute must
+    // not force in-place ruby into a row the engine will distort.
     if (inPlace && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(parent)) return true;
+    if (targetForcesAllFurigana(parent)) return false;
     return Boolean(suppressRuby || shouldSuppressCompactScanRuby(parent));
 }
 
@@ -4315,11 +4319,16 @@ const RUBY_ROOM_SHORT_ROW_MAX_PX = 96;
 const RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX = 120;
 
 export function makeRoomForRubyInCroppedRows(root: ParentNode = document): number {
-    let adjusted = 0;
+    // Two phases: measure everything first, then write. Interleaving the
+    // per-box writes (min-height/height) with the next word's layout reads
+    // forces a synchronous reflow per annotated word — on a YouTube feed
+    // that is hundreds of reflows per sweep.
+    const decisions = new Map<HTMLElement, number>();
     const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
     for (const word of words) {
         if (!word.querySelector('rt')) continue;
         for (const box of cropCapableBoxes(word.parentElement)) {
+            if (decisions.has(box)) continue;
             if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || box.closest('[aria-hidden="true"],[hidden]')) continue;
             // Curated YouTube/Google rows grow on any crop signal (their crop
             // is always ruby-caused). Every OTHER site's clamped/ellipsis/
@@ -4331,12 +4340,15 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
             const roomHeight = curated ? rubyRoomHeight(box) : genericRubyRoomHeight(box);
             if (roomHeight > RUBY_ROOM_MAX_PX) continue;
             if (previousRubyRoomHeight(box) >= roomHeight) continue;
-            box.dataset.yomuRubyRoom = 'true';
-            box.dataset.yomuRubyRoomHeight = String(roomHeight);
-            const style = safeComputedStyle(box);
-            makeRoomForRubyInBox(box, style, roomHeight);
-            adjusted += 1;
+            decisions.set(box, roomHeight);
         }
+    }
+    let adjusted = 0;
+    for (const [box, roomHeight] of decisions) {
+        box.dataset.yomuRubyRoom = 'true';
+        box.dataset.yomuRubyRoomHeight = String(roomHeight);
+        makeRoomForRubyInBox(box, safeComputedStyle(box), roomHeight);
+        adjusted += 1;
     }
     return adjusted;
 }
@@ -4420,11 +4432,25 @@ function cropCapableBoxes(element: HTMLElement | null): HTMLElement[] {
     return boxes.length || !fallback ? boxes : [fallback];
 }
 
+const shortRowVerdicts = new WeakMap<HTMLElement, { at: number; value: boolean }>();
+
 function rubyLayoutOverflowsShortRow(box: HTMLElement): boolean {
-    if (!box.querySelector('.jpdb-reader-word rt,.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')) return false;
+    const now = Date.now();
+    const memo = shortRowVerdicts.get(box);
+    if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.value;
+    const value = rubyLayoutOverflowsShortRowUncached(box);
+    shortRowVerdicts.set(box, { at: now, value });
+    return value;
+}
+
+function rubyLayoutOverflowsShortRowUncached(box: HTMLElement): boolean {
     if (safeElementMatches(box, '.jpdb-reader-word,ruby,rt,.jpdb-reader-furi,.jpdb-reader-ruby-base')) return false;
     const clientHeight = box.clientHeight;
     if (clientHeight <= 0 || clientHeight > RUBY_ROOM_SHORT_ROW_MAX_PX) return false;
+    // Descendant ruby check LAST and only for plausibly-short boxes — a
+    // subtree query per ancestor (at high levels: most of the document) was
+    // the hot path of the clamp sweep on large pages.
+    if (!box.querySelector('.jpdb-reader-word rt,.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')) return false;
     const overflow = box.scrollHeight - clientHeight;
     if (overflow <= 2 || overflow > RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX) return false;
     const style = safeComputedStyle(box);

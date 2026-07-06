@@ -376,6 +376,9 @@ const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
 // the word instead of flipping the page.
 const READER_ROOT_GESTURE_EVENTS = ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click'] as const;
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
+// Sustained mirror-churn (live chat, live counters) may force at most one
+// full rescan per this interval; the first stale still refreshes fast.
+const MIRROR_STALE_SCAN_MIN_INTERVAL_MS = 2_500;
 
 function eventTargetsReaderRoot(event: Event): boolean {
     return Boolean((event.target as Element | null)?.closest?.(READER_ROOT_SELECTOR));
@@ -806,13 +809,22 @@ export class ReaderApp {
     private autoScanDeadline = 0;
     private autoScanForced = false;
     private autoScanObserver?: MutationObserver;
+    private lastMirrorStaleScanAt = 0;
     private readonly handleNonDestructiveMirrorStale = () => {
-        // No debounce: volatile hosts (live view/sub counts) fire stale faster
-        // than the scan delay, and a debounced deadline pushed forward on every
-        // event starves the rescan past the 600ms stale-mirror grace — the
-        // mirror tears down and re-mirrors in a visible flap. Holding the first
-        // deadline guarantees the refresh runs inside the grace window.
-        if (this.canParseJapanese()) this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true });
+        if (!this.canParseJapanese()) return;
+        // No debounce (a debounced deadline pushed forward on every event
+        // starves the rescan past the 600ms stale-mirror grace and the mirror
+        // flaps) — but throttled: surfaces that churn continuously (live-chat
+        // messages, live view counters) would otherwise force a full page
+        // rescan every few hundred ms for as long as the stream runs. The
+        // first stale refreshes inside the grace window; sustained churn
+        // backs off, letting the grace teardown restore native text until
+        // the next throttled scan re-decorates it.
+        const now = Date.now();
+        const baseDelay = visibleAutoScanMutationDelay();
+        const throttled = Math.max(baseDelay, this.lastMirrorStaleScanAt + MIRROR_STALE_SCAN_MIN_INTERVAL_MS - now);
+        this.lastMirrorStaleScanAt = now + throttled;
+        this.scheduleAutoScan(throttled, { force: true });
     };
     private asbScanTimer?: number;
     private hoverLookupTimer?: number;

@@ -9021,8 +9021,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return { ...settings, showFurigana: true, furiganaMode: "all" };
   }
   function scanTargetSuppressesRuby(parent, suppressRuby, inPlace = true) {
-    if (targetForcesAllFurigana(parent)) return false;
+    if (targetForcesAllFurigana(parent) && parent.closest(READER_ROOT_SELECTOR)) return false;
     if (inPlace && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(parent)) return true;
+    if (targetForcesAllFurigana(parent)) return false;
     return Boolean(suppressRuby || shouldSuppressCompactScanRuby(parent));
   }
   function targetForcesAllFurigana(parent) {
@@ -39520,7 +39521,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.89".trim() ? "1.6.89".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.90".trim() ? "1.6.90".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
