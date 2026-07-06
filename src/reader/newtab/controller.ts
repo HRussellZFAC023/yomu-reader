@@ -2052,13 +2052,29 @@ export class NewTabController {
         const dictionaryLink = target.closest<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]');
         if (dictionaryLink && root.contains(dictionaryLink)) return this.handleNestedDictionaryLink(root, dictionaryLink, event);
 
-        const actionTarget = target.closest<HTMLElement>('[data-action]');
+        const actionTarget = this.resolveNestedActionTarget(target.closest<HTMLElement>('[data-action]'));
         if (actionTarget && root.contains(actionTarget) && !actionTarget.classList.contains('jpdb-reader-word')) {
             return this.handleNestedLookupAction(root, actionTarget, event);
         }
         if (this.handleParsedWordLookup(root, target, event)) return true;
         if (actionTarget && root.contains(actionTarget)) return this.handleNestedLookupAction(root, actionTarget, event);
         return this.handlePromptLookupClick(root, target, event);
+    }
+
+    // A per-kanji drilldown button is only legitimate where the renderer opted
+    // the surrounding word into kanji navigation — every such surface marks its
+    // headword host with [data-jpdb-reader-kanji-nav] (revealed study headword,
+    // search/popover spelling). A kanji affordance nested in a .jpdb-reader-word
+    // WITHOUT that host is stale/leaked (e.g. an unrevealed study prompt where a
+    // click must open the word itself, not a kanji popup): promote the target to
+    // the enclosing word so its own "lookup" action wins. Kanji chips outside a
+    // word (composed-of, component cards) carry no word ancestor and pass through
+    // unchanged.
+    private resolveNestedActionTarget(actionTarget: HTMLElement | null): HTMLElement | null {
+        if (!actionTarget || actionTarget.dataset.action !== 'kanji') return actionTarget;
+        const word = actionTarget.closest<HTMLElement>('.jpdb-reader-word');
+        if (!word || actionTarget.closest('[data-jpdb-reader-kanji-nav]')) return actionTarget;
+        return word;
     }
 
     private handleParsedWordLookup(root: HTMLElement, target: HTMLElement, event: MouseEvent): boolean {

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { NewTabController } from '../../src/reader/newtab/controller';
+import { setInnerHtml } from '../../src/reader/dom/index';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
 import { cardKey } from '../../src/reader/cards/utils';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -341,6 +342,75 @@ describe('study flow: composed-of chip drilldown', () => {
             expect(pushSpy).not.toHaveBeenCalled();
         } finally {
             pushSpy.mockRestore();
+            controller.destroy();
+        }
+    });
+});
+
+describe('study flow: unrevealed headword opens the word, not a kanji popup', () => {
+    function headwordCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
+        return drinkCard({
+            vid: 50,
+            sid: 51,
+            spelling: '勉強',
+            reading: 'べんきょう',
+            meanings: [{ glosses: ['study'], partOfSpeech: ['n'] }],
+            sentence: '毎日勉強する。',
+            ...overrides,
+        });
+    }
+
+    function headwordController(revealAnswer: boolean) {
+        const lookupText = vi.fn(async (..._args: unknown[]) => undefined);
+        const showKanjiCard = vi.fn(async (..._args: unknown[]) => undefined);
+        const showLookupCard = vi.fn(async (..._args: unknown[]) => undefined);
+        const card = headwordCard();
+        const { controller, internals } = studyController([card], {
+            // Land on the Word step so the headword is the prompt.
+            newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],
+        }, { lookupText, showKanjiCard, showLookupCard });
+        const root = studyRoot();
+        internals.state.mode = 'word';
+        internals.state.revealAnswer = revealAnswer;
+        internals.bindRootEvents(root);
+        internals.renderWord(root, card);
+        return { controller, internals, root, card, lookupText, showKanjiCard, showLookupCard };
+    }
+
+    it('routes a kanji affordance inside the UNREVEALED headword to the word lookup', () => {
+        const { controller, root, showKanjiCard, showLookupCard, lookupText } = headwordController(false);
+        try {
+            const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word');
+            expect(word).not.toBeNull();
+            // The unrevealed headword carries no kanji-nav host…
+            expect(word!.dataset.jpdbReaderKanjiNav).toBeUndefined();
+            // …so a per-kanji button nested in it (stale/leaked affordance) must
+            // not hijack the click into a kanji popup.
+            setInnerHtml(word!, '<button type="button" class="jpdb-reader-kanji-inline" data-action="kanji" data-kanji="勉">勉</button><button type="button" class="jpdb-reader-kanji-inline" data-action="kanji" data-kanji="強">強</button>');
+            const kanjiBtn = word!.querySelector<HTMLElement>('[data-action="kanji"]');
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 7, clientY: 7 });
+            kanjiBtn!.dispatchEvent(event);
+
+            expect(showKanjiCard).not.toHaveBeenCalled();
+            expect(showLookupCard.mock.calls.length + lookupText.mock.calls.length).toBe(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('still opens the kanji popup for inline kanji on the REVEALED headword', () => {
+        const { controller, root, showKanjiCard } = headwordController(true);
+        try {
+            const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word');
+            // The revealed headword IS a kanji-nav host, so its inline kanji are
+            // legitimate drilldowns.
+            expect(word!.dataset.jpdbReaderKanjiNav).toBe('true');
+            const kanjiBtn = word!.querySelector<HTMLElement>('[data-action="kanji"][data-kanji]');
+            expect(kanjiBtn).not.toBeNull();
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 8, clientY: 8 });
+            kanjiBtn!.dispatchEvent(event);
+            expect(showKanjiCard).toHaveBeenCalledTimes(1);
+        } finally {
             controller.destroy();
         }
     });

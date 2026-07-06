@@ -4980,7 +4980,7 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('composed-of chips swap to the kanji study step in place instead of opening a popover', () => {
+    it('composed-of chips open the kanji popover in place, keeping the studied card', () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
         const showKanjiCard = vi.fn();
         const controller = newTabPromptController({
@@ -5004,12 +5004,13 @@ describe('new tab review helpers', () => {
             const chip = root.querySelector<HTMLButtonElement>('[data-newtab-composed-of] [data-kanji="本"]')!;
             expect(chip).not.toBeNull();
             chip.click();
-            expect(showKanjiCard).not.toHaveBeenCalled();
-            expect(root.classList.contains('jpdb-reader-newtab-kanji-mode')).toBe(true);
-            const activeStep = root.querySelector<HTMLElement>('[data-newtab-action="study-step"][data-active="true"]');
-            expect(activeStep?.dataset.studyStepKanji).toBe('本');
+            // The kanji surfaces in the standard anchored popover; the study card
+            // stays put — no disruptive swap to a synthetic kanji queue.
+            expect(showKanjiCard).toHaveBeenCalledTimes(1);
+            expect(showKanjiCard.mock.calls[0][1]).toBe('本');
+            expect(root.classList.contains('jpdb-reader-newtab-kanji-mode')).toBe(false);
             const state = (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state;
-            expect(state.mode).toBe('kanji');
+            expect(state.mode).toBe('word');
             expect(state.revealAnswer).toBe(true);
         } finally {
             controller.destroy();
