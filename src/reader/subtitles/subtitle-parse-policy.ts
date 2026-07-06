@@ -19,10 +19,15 @@ export function canParseSubtitleTranscriptRows(settings: ReaderSettings): boolea
     return hasSubtitleParserSource(settings);
 }
 
-export function shouldApplyParsedTranscriptHtml(target: HTMLElement, key: string, provisional = false): boolean {
+export function shouldApplyParsedTranscriptHtml(target: HTMLElement, key: string, provisional = false, refreshProvisional = false): boolean {
     if (target.dataset.parseKey !== key) return false;
     if (target.dataset.parsedKey !== key) return true;
-    return !provisional && target.dataset.parsedProvisional === 'true';
+    // A provisional refresh may repaint a row of the same key (late
+    // enrichment added pitch/furigana). Callers only request it while no
+    // authoritative html exists for the key, so it never overwrites an
+    // authoritative render with a provisional one.
+    if (provisional) return refreshProvisional;
+    return target.dataset.parsedProvisional === 'true';
 }
 
 export function hasAttemptedTranscriptParse(target: HTMLElement, key: string): boolean {

@@ -6726,8 +6726,16 @@ export class SubtitlePlayerController {
             });
             if (serial !== this.transcriptHydrationSerial) return;
             for (const item of parsed) {
-                if (item.provisional === true && !this.enrichedProvisionalParsedHtmlKeys.has(item.key)) continue;
-                this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true, force: item.provisional === true });
+                // Apply provisional html even while a fallback word is still
+                // unresolved: most words already carry their colour, furigana
+                // and pitch, and the row stays re-hydratable (non-enriched)
+                // so later passes keep improving it. Dropping the whole row
+                // here left visible lines bare/pitchless until the retry cap
+                // even though enriched html for every other word was cached.
+                this.updateTranscriptRowsForParseKey(item.key, item.html, {
+                    provisional: item.provisional === true,
+                    refreshProvisional: item.provisional === true && !this.parsedHtmlCache.has(item.key),
+                });
             }
         } catch {
             targets.forEach(hydration => {
@@ -6899,7 +6907,7 @@ export class SubtitlePlayerController {
         return isYouTubePage() ? YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS : 0;
     }
 
-    private updateTranscriptRowsForParseKey(key: string, html: string, options: { provisional?: boolean; force?: boolean } = {}): void {
+    private updateTranscriptRowsForParseKey(key: string, html: string, options: { provisional?: boolean; force?: boolean; refreshProvisional?: boolean } = {}): void {
         if (this.transcriptResizeActive) {
             this.transcriptWarmupAfterResize = true;
             return;
@@ -6911,7 +6919,7 @@ export class SubtitlePlayerController {
         for (const target of this.transcriptTextTargetsForParseKey(panel, key)) {
             // force: a rebake refreshes rows that already carry this key's
             // final html (enrichment changed the underlying tokens).
-            if (!options.force && !shouldApplyParsedTranscriptHtml(target, key, options.provisional === true)) continue;
+            if (!options.force && !shouldApplyParsedTranscriptHtml(target, key, options.provisional === true, options.refreshProvisional === true)) continue;
             if (hasReaderWords) {
                 target.dataset.parsedKey = key;
                 if (options.provisional) target.dataset.parsedProvisional = 'true';

@@ -4816,7 +4816,7 @@ Watch the cat
 
         expect(normalizedCss).toContain('.jpdb-subtitle-row-text { display: block; min-width: 0; width: 100%; max-width: 100%;');
         expect(normalizedCss).toContain('.jpdb-subtitle-list-row { display: grid;');
-        expect(normalizedCss).toContain('gap: 8px; min-height: 54px; padding: 10px 14px;');
+        expect(normalizedCss).toContain('min-height: 44px; padding: 6px 12px;');
         expect(normalizedCss).toContain('transition: background-color 160ms ease, box-shadow 160ms ease, border-color 160ms ease;');
         expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
         expect(normalizedCss).toContain('position: relative; display: inline-block !important; vertical-align: baseline;');
@@ -6960,6 +6960,59 @@ Watch the cat
             expect(internals.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(true);
         } finally {
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+        }
+    });
+
+    it('paints partially-enriched provisional rows immediately instead of leaving visible lines bare while one fallback word is unresolved', async () => {
+        vi.useFakeTimers();
+        const originalLocation = window.location;
+        const originalRequestAnimationFrame = window.requestAnimationFrame;
+        const originalCancelAnimationFrame = window.cancelAnimationFrame;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=partial-enrich') as unknown as Location,
+        });
+        window.requestAnimationFrame = ((callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0)) as typeof window.requestAnimationFrame;
+        window.cancelAnimationFrame = ((id: number) => window.clearTimeout(id)) as typeof window.cancelAnimationFrame;
+        try {
+            const cue = { start: 0, end: 2, text: '戦う', transcriptEligible: true };
+            // The local tokenizer returns 戦う as an unresolved fallback word and
+            // the public lookup never resolves it: the cue can never become
+            // fully enriched, but its provisional html (word state + pitch
+            // colour) must still reach the visible row.
+            const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(text => {
+                const token = makeSubtitleToken(text, { pitchClass: 'heiban' });
+                token.card.source = 'fallback';
+                return [token];
+            }));
+            const beforeRenderTokens = vi.fn(async () => undefined);
+            const { internals } = setupTranscriptCueController<typeof cue, {
+                hydrateTranscriptRows: (preferredIndex: number) => Promise<void>;
+                scheduleTranscriptCacheWarmup: () => void;
+                enrichedProvisionalParsedHtmlKeys: Set<string>;
+            }>([cue], {
+                hooks: { parseJapaneseBatch, beforeRenderTokens },
+                selectedTrackId: 'youtube-0',
+                settings: { subtitleTranscriptAutoScroll: false, apiKey: '', jitenApiKey: '', localDictionariesEnabled: false, furiganaMode: 'all' },
+            });
+            // Isolate the hydration path: the background warmup can also paint
+            // rows and would mask a hydration drop.
+            internals.scheduleTranscriptCacheWarmup = () => undefined;
+
+            internals.openLinesPanel();
+            expect(document.querySelector('.jpdb-subtitle-row-text')?.innerHTML).toBe('戦う');
+            await internals.hydrateTranscriptRows(0);
+
+            const row = document.querySelector<HTMLElement>('.jpdb-subtitle-row-text');
+            expect(row?.querySelector('.jpdb-reader-word.jpdb-pitch-heiban')).not.toBeNull();
+            // The row stays re-hydratable so later passes keep improving it.
+            expect(row?.dataset.parsedProvisional).toBe('true');
+            expect(internals.enrichedProvisionalParsedHtmlKeys.size).toBe(0);
+        } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+            window.requestAnimationFrame = originalRequestAnimationFrame;
+            window.cancelAnimationFrame = originalCancelAnimationFrame;
+            vi.useRealTimers();
         }
     });
 
