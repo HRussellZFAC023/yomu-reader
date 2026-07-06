@@ -5813,6 +5813,70 @@ Watch the cat
         }
     });
 
+    it('loads cross-origin subtitle files with anonymous CORS before the userscript bridge', async () => {
+        const originalLocation = window.location;
+        const originalFetch = globalThis.fetch;
+        const fetchMock = vi.fn(async () => new Response('WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nToday I read.\n', { status: 200 }));
+        const gmRequest = vi.fn((details: Parameters<UserscriptHttpRequest>[0]) => {
+            details.onerror?.(new Error('GM bridge should not be needed'));
+        });
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://krussdomi.com/cat-player/player') as unknown as Location,
+        });
+        Object.defineProperty(globalThis, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('GM_xmlhttpRequest', gmRequest);
+
+        try {
+            const text = await requestSubtitleText('https://subst.krussdomi.com/show/episode.en.vtt');
+
+            expect(text).toContain('WEBVTT');
+            expect(fetchMock).toHaveBeenCalledWith('https://subst.krussdomi.com/show/episode.en.vtt', expect.objectContaining({
+                credentials: 'omit',
+            }));
+            expect(gmRequest).not.toHaveBeenCalled();
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('falls back to the userscript bridge when anonymous CORS cannot load a subtitle file', async () => {
+        const originalLocation = window.location;
+        const originalFetch = globalThis.fetch;
+        const fetchMock = vi.fn(async () => { throw new Error('CORS blocked'); });
+        const gmRequest = vi.fn((details: Parameters<UserscriptHttpRequest>[0]) => {
+            details.onload?.({ status: 200, responseText: 'WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n今日は読む。\n', response: '' });
+        });
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://player.example/watch') as unknown as Location,
+        });
+        Object.defineProperty(globalThis, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('GM_xmlhttpRequest', gmRequest);
+
+        try {
+            const text = await requestSubtitleText('https://subs.example/show/episode.ja.vtt');
+
+            expect(text).toContain('今日は読む');
+            expect(fetchMock).toHaveBeenCalledWith('https://subs.example/show/episode.ja.vtt', expect.objectContaining({
+                credentials: 'omit',
+            }));
+            expect(gmRequest).toHaveBeenCalledTimes(1);
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('destroys the mounted subtitle runtime and stops its timer', async () => {
         vi.useFakeTimers();
         const settings = {

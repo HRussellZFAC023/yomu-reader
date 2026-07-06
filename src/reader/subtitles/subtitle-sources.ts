@@ -10,6 +10,7 @@ export function collectPageSubtitleSources(root: ParentNode = document): PageSub
     return dedupeSubtitleSources([
         ...collectTrackSubtitleSources(root, pageTitle),
         ...collectLinkSubtitleSources(root, pageTitle),
+        ...collectConfigSubtitleSources(root, pageTitle),
     ]);
 }
 
@@ -63,6 +64,155 @@ function subtitleSourceFromLink(link: HTMLAnchorElement, pageTitle: string): Pag
         language: normalizeSubtitleLanguage(link.lang || inferSubtitleLanguage(label, url)),
         sourceKey: pageSubtitleSourceKey('link', url),
     };
+}
+
+function collectConfigSubtitleSources(root: ParentNode, pageTitle: string): PageSubtitleSource[] {
+    return subtitleConfigElements(root)
+        .flatMap((element, index) => subtitleSourcesFromConfigElement(element, pageTitle, index));
+}
+
+function subtitleConfigElements(root: ParentNode): Element[] {
+    return Array.from(root.querySelectorAll([
+        '[props]',
+        '[data-props]',
+        '[data-tracks]',
+        '[data-subtitles]',
+        '[data-captions]',
+        '[data-config]',
+        '[data-player]',
+        '[data-setup]',
+        'script[type="application/json"]',
+        'script[type="application/ld+json"]',
+    ].join(',')));
+}
+
+function subtitleSourcesFromConfigElement(element: Element, pageTitle: string, elementIndex: number): PageSubtitleSource[] {
+    const texts = [
+        ...subtitleConfigAttributeTexts(element),
+        element instanceof HTMLScriptElement ? element.textContent ?? '' : '',
+    ].filter(text => text && hasSubtitleSourceText(text));
+    return texts.flatMap((text, textIndex) => subtitleSourcesFromConfigText(text, pageTitle, `config-${elementIndex}-${textIndex}`));
+}
+
+function subtitleConfigAttributeTexts(element: Element): string[] {
+    return Array.from(element.attributes)
+        .filter(attribute => subtitleConfigAttributeName(attribute.name) || hasSubtitleSourceText(attribute.value))
+        .map(attribute => attribute.value);
+}
+
+function subtitleConfigAttributeName(name: string): boolean {
+    return /^(?:props|data-(?:props|tracks|subtitles?|captions?|config|player|setup|sources?))$/i.test(name);
+}
+
+function hasSubtitleSourceText(text: string): boolean {
+    return /\.(?:vtt|srt|ass|ssa)(?:$|[?#\s"'\\<>,\])}])/i.test(text);
+}
+
+function subtitleSourcesFromConfigText(text: string, pageTitle: string, keyPrefix: string): PageSubtitleSource[] {
+    const parsed = parseSubtitleConfigJson(text);
+    return parsed === undefined ? [] : subtitleSourcesFromConfigValue(parsed, pageTitle, keyPrefix);
+}
+
+function parseSubtitleConfigJson(text: string): unknown {
+    try {
+        return JSON.parse(text);
+    } catch {
+        return undefined;
+    }
+}
+
+function subtitleSourcesFromConfigValue(value: unknown, pageTitle: string, keyPrefix: string): PageSubtitleSource[] {
+    const sources: PageSubtitleSource[] = [];
+    const seenObjects = new Set<object>();
+    const visit = (current: unknown, path: string[]): void => {
+        const decoded = subtitleConfigTaggedValue(current);
+        if (decoded !== current) {
+            visit(decoded, path);
+            return;
+        }
+        if (Array.isArray(current)) {
+            for (const item of current) visit(item, path);
+            return;
+        }
+        if (!current || typeof current !== 'object') return;
+        if (seenObjects.has(current)) return;
+        seenObjects.add(current);
+        const record = current as Record<string, unknown>;
+        const source = subtitleSourceFromConfigRecord(record, pageTitle, keyPrefix, sources.length, path);
+        if (source) sources.push(source);
+        for (const [key, child] of Object.entries(record)) visit(child, [...path, key]);
+    };
+    visit(value, []);
+    return sources;
+}
+
+function subtitleSourceFromConfigRecord(
+    record: Record<string, unknown>,
+    pageTitle: string,
+    keyPrefix: string,
+    index: number,
+    path: string[],
+): PageSubtitleSource | null {
+    const url = subtitleConfigRecordUrl(record);
+    if (!url || !isSubtitleConfigRecord(record, path)) return null;
+    const label = subtitleConfigSourceLabel(subtitleConfigRecordLabel(record), url, pageTitle);
+    return {
+        url,
+        label,
+        language: normalizeSubtitleLanguage(subtitleConfigRecordLanguage(record) || inferSubtitleLanguage(label, url)),
+        sourceKey: pageSubtitleSourceKey(`${keyPrefix}-${index}`, url),
+    };
+}
+
+function subtitleConfigRecordUrl(record: Record<string, unknown>): string {
+    for (const key of ['src', 'file', 'url', 'href']) {
+        const value = subtitleConfigString(record[key]);
+        const url = value ? subtitleSourceUrl(value) : '';
+        if (url) return url;
+    }
+    return '';
+}
+
+function subtitleConfigRecordLabel(record: Record<string, unknown>): string {
+    return subtitleConfigString(record.label)
+        || subtitleConfigString(record.name)
+        || subtitleConfigString(record.title)
+        || subtitleConfigRecordLanguage(record);
+}
+
+function subtitleConfigRecordLanguage(record: Record<string, unknown>): string {
+    return subtitleConfigString(record.language)
+        || subtitleConfigString(record.lang)
+        || subtitleConfigString(record.srclang);
+}
+
+function subtitleConfigSourceLabel(value: string, url: string, pageTitle: string): string {
+    const cleaned = cleanSubtitleTitle(value);
+    return cleaned || subtitleSourceLabel('', url, { pageTitle });
+}
+
+function isSubtitleConfigRecord(record: Record<string, unknown>, path: string[]): boolean {
+    const context = `${path.join(' ')} ${Object.keys(record).join(' ')}`;
+    if (/(?:thumbnail|thumb|preview|poster|image|sprite|chapter|manifest|playlist)/i.test(context)) return false;
+    const type = [
+        subtitleConfigString(record.kind),
+        subtitleConfigString(record.type),
+        subtitleConfigString(record.role),
+        subtitleConfigString(record.trackKind),
+    ].join(' ');
+    return /(?:subtitles?|captions?|closed.?captions?|text.?tracks?)/i.test(`${context} ${type}`)
+        || Boolean(subtitleConfigRecordLanguage(record) && subtitleConfigRecordLabel(record));
+}
+
+function subtitleConfigString(value: unknown): string {
+    const decoded = subtitleConfigTaggedValue(value);
+    return typeof decoded === 'string' ? decoded.trim() : '';
+}
+
+function subtitleConfigTaggedValue(value: unknown): unknown {
+    if (!Array.isArray(value) || value.length !== 2) return value;
+    if (typeof value[0] !== 'number' && typeof value[0] !== 'string') return value;
+    return value[1];
 }
 
 function linkSubtitleLabelText(link: HTMLAnchorElement): string {
@@ -198,7 +348,7 @@ function hasEnglishSubtitleLanguageHint(text: string): boolean {
         || /英(?:語|文)(?:字幕)?/u.test(text);
 }
 
-function pageSubtitleSourceKey(kind: 'link' | 'track', url: string): string {
+function pageSubtitleSourceKey(kind: string, url: string): string {
     return `${kind}:${normalizedSubtitleUrl(url)}`;
 }
 

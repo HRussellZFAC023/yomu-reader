@@ -208,6 +208,11 @@ const HOSTED_MANGA_OCR_LINES = [
 ] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Kaa and similar custom video players now load subtitle files declared inside player config payloads, including Astro-style": "Kaaなどのカスタム動画プレーヤーで、プレーヤー設定内に宣言された字幕ファイルを読み込めるようになりました。Astro形式の",
+    "data, and cross-origin page-file subtitles try anonymous browser CORS before falling back to the userscript bridge. This keeps tracks such as Kaa's": "データにも対応し、クロスオリジンのページファイル字幕はユーザースクリプトブリッジへ戻る前に、ブラウザの匿名CORSを試します。これによりKaaの",
+    "VTT files from getting stuck at \"waiting for captions.\"": "VTTファイルのようなトラックが「waiting for captions」のまま止まらなくなります。",
+    "Furigana layout stays enabled without clipping or overflowing compact ecommerce rows: Google Search chips, Bloomee product cards, drawer/menu rows, and similar clipped controls now reserve ruby room on the actual control container as well as the mirrored text row.": "コンパクトな通販行でも、ふりがなレイアウトを有効にしたまま切り抜きやはみ出しを防げるようになりました：Google検索チップ、Bloomeeの商品カード、ドロワー／メニュー行などのクリップされた操作要素では、ミラーされたテキスト行だけでなく実際の操作コンテナ側にもルビ用の余白を確保します。",
+    "YouTube live chat/card text is parsed at the message/control level instead of as whole live panels, reducing live-page churn while preserving furigana and pitch underlines on readable YouTube chrome.": "YouTubeライブチャットやカードのテキストは、ライブパネル全体ではなくメッセージ／操作テキスト単位で解析されるようになりました。ライブページの処理負荷を抑えながら、読めるYouTubeクローム上のふりがなとピッチ下線は維持されます。",
     "Furigana stays readable without breaking compact ecommerce layouts: short product price rows, breadcrumbs, review links, drawer menus, and similar fixed-height sections now grow only enough for readings instead of clipping, overlapping, or dropping annotated text.": "ふりがなが、コンパクトな通販レイアウトを壊さず読みやすくなりました：短い商品価格行、パンくず、レビューリンク、ドロワーメニューなどの固定高に近いセクションは、注釈テキストを切ったり重ねたり消したりせず、読みの分だけ必要最小限に広がります。",
     "YouTube live chat is lighter and parses subscriber-only notices correctly: live chat scans are scoped to message/control text instead of whole chat containers,": "YouTubeライブチャットが軽くなり、登録者限定のお知らせも正しく解析されるようになりました：ライブチャットのスキャン範囲はチャットコンテナ全体ではなく、メッセージや操作テキストに絞られます。",
     "frames get the same ruby-safe YouTube handling as watch pages, and split notice text such as 登録者 still receives furigana and pitch underlines.": "フレームも通常の視聴ページと同じルビ安全なYouTube処理を受け、登録者のように分割されたお知らせテキストにもふりがなとピッチ下線が付きます。",

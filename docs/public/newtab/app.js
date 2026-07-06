@@ -39521,7 +39521,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.90".trim() ? "1.6.90".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.91".trim() ? "1.6.91".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -47291,7 +47291,8 @@ ${spelling}`);
     const pageTitle = pageSubtitleTitle(root);
     return dedupeSubtitleSources([
       ...collectTrackSubtitleSources(root, pageTitle),
-      ...collectLinkSubtitleSources(root, pageTitle)
+      ...collectLinkSubtitleSources(root, pageTitle),
+      ...collectConfigSubtitleSources(root, pageTitle)
     ]);
   }
   function collectTrackSubtitleSources(root, pageTitle) {
@@ -47334,6 +47335,123 @@ ${spelling}`);
       language: normalizeSubtitleLanguage(link.lang || inferSubtitleLanguage(label, url)),
       sourceKey: pageSubtitleSourceKey("link", url)
     };
+  }
+  function collectConfigSubtitleSources(root, pageTitle) {
+    return subtitleConfigElements(root).flatMap((element, index) => subtitleSourcesFromConfigElement(element, pageTitle, index));
+  }
+  function subtitleConfigElements(root) {
+    return Array.from(root.querySelectorAll([
+      "[props]",
+      "[data-props]",
+      "[data-tracks]",
+      "[data-subtitles]",
+      "[data-captions]",
+      "[data-config]",
+      "[data-player]",
+      "[data-setup]",
+      'script[type="application/json"]',
+      'script[type="application/ld+json"]'
+    ].join(",")));
+  }
+  function subtitleSourcesFromConfigElement(element, pageTitle, elementIndex) {
+    const texts = [
+      ...subtitleConfigAttributeTexts(element),
+      element instanceof HTMLScriptElement ? element.textContent ?? "" : ""
+    ].filter((text2) => text2 && hasSubtitleSourceText(text2));
+    return texts.flatMap((text2, textIndex) => subtitleSourcesFromConfigText(text2, pageTitle, `config-${elementIndex}-${textIndex}`));
+  }
+  function subtitleConfigAttributeTexts(element) {
+    return Array.from(element.attributes).filter((attribute) => subtitleConfigAttributeName(attribute.name) || hasSubtitleSourceText(attribute.value)).map((attribute) => attribute.value);
+  }
+  function subtitleConfigAttributeName(name) {
+    return /^(?:props|data-(?:props|tracks|subtitles?|captions?|config|player|setup|sources?))$/i.test(name);
+  }
+  function hasSubtitleSourceText(text2) {
+    return /\.(?:vtt|srt|ass|ssa)(?:$|[?#\s"'\\<>,\])}])/i.test(text2);
+  }
+  function subtitleSourcesFromConfigText(text2, pageTitle, keyPrefix) {
+    const parsed = parseSubtitleConfigJson(text2);
+    return parsed === void 0 ? [] : subtitleSourcesFromConfigValue(parsed, pageTitle, keyPrefix);
+  }
+  function parseSubtitleConfigJson(text2) {
+    try {
+      return JSON.parse(text2);
+    } catch {
+      return void 0;
+    }
+  }
+  function subtitleSourcesFromConfigValue(value, pageTitle, keyPrefix) {
+    const sources = [];
+    const seenObjects = /* @__PURE__ */ new Set();
+    const visit = (current, path) => {
+      const decoded = subtitleConfigTaggedValue(current);
+      if (decoded !== current) {
+        visit(decoded, path);
+        return;
+      }
+      if (Array.isArray(current)) {
+        for (const item of current) visit(item, path);
+        return;
+      }
+      if (!current || typeof current !== "object") return;
+      if (seenObjects.has(current)) return;
+      seenObjects.add(current);
+      const record = current;
+      const source = subtitleSourceFromConfigRecord(record, pageTitle, keyPrefix, sources.length, path);
+      if (source) sources.push(source);
+      for (const [key, child] of Object.entries(record)) visit(child, [...path, key]);
+    };
+    visit(value, []);
+    return sources;
+  }
+  function subtitleSourceFromConfigRecord(record, pageTitle, keyPrefix, index, path) {
+    const url = subtitleConfigRecordUrl(record);
+    if (!url || !isSubtitleConfigRecord(record, path)) return null;
+    const label = subtitleConfigSourceLabel(subtitleConfigRecordLabel(record), url, pageTitle);
+    return {
+      url,
+      label,
+      language: normalizeSubtitleLanguage(subtitleConfigRecordLanguage(record) || inferSubtitleLanguage(label, url)),
+      sourceKey: pageSubtitleSourceKey(`${keyPrefix}-${index}`, url)
+    };
+  }
+  function subtitleConfigRecordUrl(record) {
+    for (const key of ["src", "file", "url", "href"]) {
+      const value = subtitleConfigString(record[key]);
+      const url = value ? subtitleSourceUrl(value) : "";
+      if (url) return url;
+    }
+    return "";
+  }
+  function subtitleConfigRecordLabel(record) {
+    return subtitleConfigString(record.label) || subtitleConfigString(record.name) || subtitleConfigString(record.title) || subtitleConfigRecordLanguage(record);
+  }
+  function subtitleConfigRecordLanguage(record) {
+    return subtitleConfigString(record.language) || subtitleConfigString(record.lang) || subtitleConfigString(record.srclang);
+  }
+  function subtitleConfigSourceLabel(value, url, pageTitle) {
+    const cleaned = cleanSubtitleTitle(value);
+    return cleaned || subtitleSourceLabel("", url, { pageTitle });
+  }
+  function isSubtitleConfigRecord(record, path) {
+    const context = `${path.join(" ")} ${Object.keys(record).join(" ")}`;
+    if (/(?:thumbnail|thumb|preview|poster|image|sprite|chapter|manifest|playlist)/i.test(context)) return false;
+    const type = [
+      subtitleConfigString(record.kind),
+      subtitleConfigString(record.type),
+      subtitleConfigString(record.role),
+      subtitleConfigString(record.trackKind)
+    ].join(" ");
+    return /(?:subtitles?|captions?|closed.?captions?|text.?tracks?)/i.test(`${context} ${type}`) || Boolean(subtitleConfigRecordLanguage(record) && subtitleConfigRecordLabel(record));
+  }
+  function subtitleConfigString(value) {
+    const decoded = subtitleConfigTaggedValue(value);
+    return typeof decoded === "string" ? decoded.trim() : "";
+  }
+  function subtitleConfigTaggedValue(value) {
+    if (!Array.isArray(value) || value.length !== 2) return value;
+    if (typeof value[0] !== "number" && typeof value[0] !== "string") return value;
+    return value[1];
   }
   function linkSubtitleLabelText(link) {
     return link.getAttribute("download") || link.getAttribute("aria-label") || link.getAttribute("title") || link.textContent || "";
@@ -50792,7 +50910,7 @@ ${spelling}`);
     if (shouldFetchSubtitleInPageContext(url)) {
       return fetchSubtitleText(url).catch((error) => requestSubtitleTextWithUserscript(url, error));
     }
-    return requestSubtitleTextWithUserscript(url);
+    return fetchSubtitleText(url, "omit").catch((pageFetchError) => requestSubtitleTextWithUserscript(url, pageFetchError));
   }
   function subtitleRequestFailureDetails(url) {
     try {
@@ -50825,8 +50943,8 @@ ${spelling}`);
     if (pageFetchError) return Promise.reject(pageFetchError);
     return fetchSubtitleText(url);
   }
-  function fetchSubtitleText(url) {
-    return fetch(url, { credentials: "include", signal: subtitleRequestSignal() }).then((response) => {
+  function fetchSubtitleText(url, credentials = "include") {
+    return fetch(url, { credentials, signal: subtitleRequestSignal() }).then((response) => {
       if (!response.ok) throw new Error(`Subtitle request failed (${response.status}).`);
       return response.text();
     });

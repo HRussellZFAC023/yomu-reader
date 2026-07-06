@@ -4337,10 +4337,13 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
             // collapsed read-more region, which must stay collapsed.
             const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
             if (curated ? !boxActuallyCrops(box) : !genericRubyNeedsRoom(box)) continue;
-            const roomHeight = curated ? rubyRoomHeight(box) : genericRubyRoomHeight(box);
-            if (roomHeight > RUBY_ROOM_MAX_PX) continue;
-            if (previousRubyRoomHeight(box) >= roomHeight) continue;
-            decisions.set(box, roomHeight);
+            for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated)) {
+                const roomHeight = curated ? rubyRoomHeight(roomBox) : genericRubyRoomHeight(roomBox);
+                if (roomHeight > RUBY_ROOM_MAX_PX) continue;
+                if (previousRubyRoomHeight(roomBox) >= roomHeight) continue;
+                if ((decisions.get(roomBox) ?? 0) >= roomHeight) continue;
+                decisions.set(roomBox, roomHeight);
+            }
         }
     }
     let adjusted = 0;
@@ -4374,13 +4377,30 @@ function genericRubyRoomHeight(box: HTMLElement): number {
     ));
 }
 
-const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ':is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])';
+const RUBY_ROOM_GOOGLE_CONTROL_SELECTOR = ':is(a,button,[role=button])';
+const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = `:is(#botstuff,#bres,.MjjYud,[data-attrid]) ${RUBY_ROOM_GOOGLE_CONTROL_SELECTOR}`;
 
 function isGoogleSearchRubyRoomTextBox(box: HTMLElement): boolean {
     return /(^|\.)google\./i.test(location.hostname)
         && location.pathname === '/search'
         && (safeElementMatches(box, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR)
             || !!box.closest(RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR));
+}
+
+function rubyRoomBoxesForCroppedBox(box: HTMLElement, curated: boolean): HTMLElement[] {
+    if (!curated) return [box];
+    const boxes = [box];
+    const googleControl = googleSearchRubyRoomControl(box);
+    if (googleControl && googleControl !== box) boxes.push(googleControl);
+    return boxes;
+}
+
+function googleSearchRubyRoomControl(box: HTMLElement): HTMLElement | null {
+    if (!/(^|\.)google\./i.test(location.hostname) || location.pathname !== '/search') return null;
+    const control = box.closest<HTMLElement>(RUBY_ROOM_GOOGLE_CONTROL_SELECTOR);
+    if (!control || !safeElementMatches(control, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR)) return null;
+    if (!control.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')) return null;
+    return control;
 }
 
 function isYouTubeRubyRoomTextBox(box: HTMLElement): boolean {

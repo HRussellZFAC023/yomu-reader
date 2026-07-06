@@ -13,7 +13,8 @@ export function requestSubtitleText(url: string): Promise<string> {
     if (shouldFetchSubtitleInPageContext(url)) {
         return fetchSubtitleText(url).catch(error => requestSubtitleTextWithUserscript(url, error));
     }
-    return requestSubtitleTextWithUserscript(url);
+    return fetchSubtitleText(url, 'omit')
+        .catch(pageFetchError => requestSubtitleTextWithUserscript(url, pageFetchError));
 }
 
 export function subtitleRequestFailureDetails(url: string): Record<string, string> {
@@ -51,8 +52,8 @@ function requestSubtitleTextWithUserscript(url: string, pageFetchError?: unknown
     return fetchSubtitleText(url);
 }
 
-function fetchSubtitleText(url: string): Promise<string> {
-    return fetch(url, { credentials: 'include', signal: subtitleRequestSignal() }).then(response => {
+function fetchSubtitleText(url: string, credentials: RequestCredentials = 'include'): Promise<string> {
+    return fetch(url, { credentials, signal: subtitleRequestSignal() }).then(response => {
         if (!response.ok) throw new Error(`Subtitle request failed (${response.status}).`);
         return response.text();
     });

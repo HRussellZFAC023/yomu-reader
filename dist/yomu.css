@@ -1190,7 +1190,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   ytm-shorts-video-title-view-model,
   .jpdb-reader-control-text-mirror,
   [data-jpdb-reader-passive-chrome="true"]
-) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word) {
+) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-live-chat-frame, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-page-header-view-model, ytd-c4-tabbed-header-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word) {
   --jpdb-reader-word-accessible-color: currentColor;
   --jpdb-reader-word-accessible-highlight: transparent;
   --jpdb-reader-word-accessible-underline: transparent;
@@ -1243,7 +1243,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   ytm-shorts-video-title-view-model,
   .jpdb-reader-control-text-mirror,
   [data-jpdb-reader-passive-chrome="true"]
-) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word)::after {
+) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-live-chat-frame, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-page-header-view-model, ytd-c4-tabbed-header-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word)::after {
   border-block-end-color: transparent !important;
 }
 :is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)

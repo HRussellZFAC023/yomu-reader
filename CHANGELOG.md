@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.91] - 2026-07-06
+
+### Fixed
+
+- Kaa and similar custom video players now load subtitle files declared inside player config payloads, including Astro-style `props` data, and cross-origin page-file subtitles try anonymous browser CORS before falling back to the userscript bridge. This keeps tracks such as Kaa's `subst.krussdomi.com` VTT files from getting stuck at "waiting for captions."
+- Furigana layout stays enabled without clipping or overflowing compact ecommerce rows: Google Search chips, Bloomee product cards, drawer/menu rows, and similar clipped controls now reserve ruby room on the actual control container as well as the mirrored text row.
+- YouTube live chat/card text is parsed at the message/control level instead of as whole live panels, reducing live-page churn while preserving furigana and pitch underlines on readable YouTube chrome.
+
 ## [1.6.90] - 2026-07-06
 
 ### Fixed

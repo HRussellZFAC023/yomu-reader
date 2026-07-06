@@ -42,6 +42,36 @@ describe('subtitle language inference', () => {
         ]);
     });
 
+    it('discovers subtitle files declared inside custom player config props', () => {
+        document.body.innerHTML = `
+            <astro-island props='${JSON.stringify({
+                manifest: [0, 'https://media.example/show/master.m3u8'],
+                thumbnails: [0, 'https://media.example/show/preview.vtt'],
+                subtitles: [1, [
+                    [0, { language: [0, 'eng'], name: [0, 'English'], src: [0, 'https://subs.example/show/episode.en.vtt'] }],
+                    [0, { language: [0, 'jpn'], name: [0, '日本語'], src: [0, 'https://subs.example/show/episode.ja.ass'] }],
+                ]],
+            }).replace(/'/g, '&apos;')}'></astro-island>
+        `;
+
+        expect(collectPageSubtitleSources(document).map(source => ({
+            url: source.url,
+            label: source.label,
+            language: source.language,
+        }))).toEqual([
+            {
+                url: 'https://subs.example/show/episode.en.vtt',
+                label: 'English',
+                language: 'en',
+            },
+            {
+                url: 'https://subs.example/show/episode.ja.ass',
+                label: '日本語',
+                language: 'ja',
+            },
+        ]);
+    });
+
     it('keeps explicit English hints ahead of Japanese title fallback', () => {
         expect(inferSubtitleLanguage('English subtitles for 葬送のフリーレン')).toBe('en');
         expect(inferSubtitleLanguage('葬送のフリーレン')).toBe('ja');

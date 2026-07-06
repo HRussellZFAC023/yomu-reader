@@ -29,6 +29,10 @@ const baseSettings = {
     ankiEnabled: false,
     localDictionariesEnabled: false,
     showFloatingButton: false,
+    showFurigana: true,
+    furiganaMode: 'all',
+    showPitchAccent: true,
+    wordUnderlineColorSource: 'pitch',
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
     youtubeShowChannelRecommendations: true,
@@ -164,6 +168,13 @@ function youtubeWatchHtml() {
     #description-inline-expander { margin: 16px 0; padding: 14px 16px; border-radius: 10px; background: #272727; line-height: 1.5; }
     ytd-comment-view-model { display: block; margin-top: 18px; padding: 16px 0; border-top: 1px solid #333; }
     #content-text { display: block; line-height: 1.6; }
+    ytd-live-chat-frame { display: block; margin-top: 18px; padding: 20px; border-radius: 18px; background: #272727; overflow: hidden; }
+    ytd-live-chat-frame #header { margin-bottom: 18px; font-size: 22px; font-weight: 600; }
+    ytd-live-chat-frame #panel-pages { display: block; }
+    .live-chat-preview-row { display: flex; align-items: center; gap: 16px; min-width: 0; }
+    .live-chat-card-icon { flex: 0 0 auto; width: 32px; height: 32px; border: 2px solid #f1f1f1; border-radius: 6px; }
+    .live-chat-card-copy { flex: 1 1 auto; min-width: 0; line-height: 1.4; white-space: normal; }
+    ytd-live-chat-frame #show-hide-button { flex: 0 0 auto; min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: #3f3f3f; color: #f1f1f1; font: inherit; white-space: nowrap; }
     aside { display: grid; gap: 16px; align-content: start; }
     ytd-compact-video-renderer { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; min-height: 84px; }
     ytd-compact-video-renderer .thumb { border-radius: 8px; background: #333; }
@@ -206,6 +217,16 @@ function youtubeWatchHtml() {
             <button type="button" aria-label="返信">返信</button>
           </yt-live-chat-text-message-renderer>
         </yt-live-chat-app>
+        <ytd-live-chat-frame>
+          <div id="header"><yt-formatted-string>チャット</yt-formatted-string></div>
+          <div id="panel-pages">
+            <div class="live-chat-preview-row">
+              <span class="live-chat-card-icon" aria-hidden="true"></span>
+              <yt-formatted-string id="message" class="live-chat-card-copy">会話に参加して、クリエイターや、このライブ配信を視聴している人たちと交流できます。</yt-formatted-string>
+              <button id="show-hide-button" type="button"><yt-formatted-string>チャットを開く</yt-formatted-string></button>
+            </div>
+          </div>
+        </ytd-live-chat-frame>
       </section>
       <aside id="secondary">
         <ytd-compact-video-renderer data-case="side-jp">
@@ -548,6 +569,18 @@ async function installUserscriptContext(context) {
                 textShadow: style.textShadow,
             };
         }
+        function wordStyleSnapshot(selector) {
+            const target = element(selector);
+            if (!target) return null;
+            const style = getComputedStyle(target);
+            return {
+                className: target.className,
+                pitchClass: target.getAttribute('data-pitch-class') || '',
+                decorationColor: style.textDecorationColor,
+                afterBorderColor: getComputedStyle(target, '::after').borderBlockEndColor,
+                text: target.textContent?.replace(/\s+/g, '').trim() || '',
+            };
+        }
         writeStoredValue(settingsKey, settings);
         window.GM_getResourceText = name => name === 'yomuCss' ? css : '';
         window.GM_addStyle = stylesheet => {
@@ -692,6 +725,19 @@ async function installUserscriptContext(context) {
                 commentTranslatePassive: element('ytd-comment-view-model ytd-tri-state-button-view-model .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
                 liveChatWords: queryCount('yt-live-chat-text-message-renderer .jpdb-reader-word'),
                 liveChatButtonPassive: element('yt-live-chat-text-message-renderer button .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
+                liveChatFrame: {
+                    headerWords: queryCount('ytd-live-chat-frame #header .jpdb-reader-word'),
+                    messageWords: queryCount('ytd-live-chat-frame #message.live-chat-card-copy .jpdb-reader-word'),
+                    actionWords: queryCount('ytd-live-chat-frame #show-hide-button .jpdb-reader-word'),
+                    panelPageDirectMirrors: queryCount('ytd-live-chat-frame #panel-pages > .jpdb-reader-text-mirror'),
+                    messageText: elementText('ytd-live-chat-frame #message.live-chat-card-copy').replace(/\s+/g, ' ').trim(),
+                    actionText: elementText('ytd-live-chat-frame #show-hide-button').replace(/\s+/g, ' ').trim(),
+                    card: elementRectJson('ytd-live-chat-frame'),
+                    message: elementRectJson('ytd-live-chat-frame #message.live-chat-card-copy'),
+                    action: elementRectJson('ytd-live-chat-frame #show-hide-button'),
+                    messageWordStyle: wordStyleSnapshot('ytd-live-chat-frame #message.live-chat-card-copy .jpdb-reader-word'),
+                    actionWordStyle: wordStyleSnapshot('ytd-live-chat-frame #show-hide-button .jpdb-reader-word'),
+                },
                 titleWords: queryCount('ytd-watch-metadata h1 .jpdb-reader-word, ytd-watch-metadata #title .jpdb-reader-word'),
                 watchTitleText: element('ytd-watch-metadata h1')?.textContent?.trim() ?? '',
                 sidebarReaderWords: queryCount('#secondary .jpdb-reader-word, ytd-compact-video-renderer .jpdb-reader-word'),
@@ -935,8 +981,8 @@ async function seedPausedVideoOcrFrame(page) {
         document.body.append(video);
         video.dispatchEvent(new Event('pause'));
     });
-    await page.waitForSelector('.jpdb-ocr-video-frame', { state: 'attached', timeout: 5000 });
-    await page.waitForSelector('.jpdb-ocr-video-frame-resume', { state: 'attached', timeout: 5000 });
+    await page.waitForSelector('.jpdb-ocr-video-frame', { state: 'attached', timeout: 10000 });
+    await page.waitForSelector('.jpdb-ocr-video-frame-resume', { state: 'attached', timeout: 10000 });
     const state = await readOcrArtifactState(page);
     assert(state.frames === 1, 'Paused homepage preview did not create an OCR frame for the navigation cleanup regression', state);
     assert(state.resumeButtons === 1, 'Paused homepage preview did not create the OCR resume control', state);
@@ -1070,6 +1116,14 @@ async function runWatchCheck(page) {
     };
 }
 
+async function runWatchLiveCardCheck(page) {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await waitForWatchFeatureReady(page);
+    const initial = await readWatchState(page);
+    assertYouTubeLiveChatFrameCard(initial.liveChatFrame);
+    return { liveChatFrame: initial.liveChatFrame };
+}
+
 async function runIpadWatchCheck(page) {
     await waitForWatchFeatureReady(page);
     const railButton = page.locator('.jpdb-subtitle-rail [data-action="panel"]');
@@ -1141,6 +1195,33 @@ function assertWatchPageParsing(initial) {
     assert(initial.commentTranslatePassive === true, 'Yomu did not passively annotate the YouTube comment translate control', initial);
     assert(initial.liveChatWords > 0, 'YouTube live chat text was not parsed', initial);
     assert(initial.liveChatButtonPassive === true, 'Yomu did not passively annotate the YouTube live chat button', initial);
+    assertYouTubeLiveChatFrameCard(initial.liveChatFrame);
+}
+
+function assertYouTubeLiveChatFrameCard(card) {
+    assert(card.headerWords > 0, 'YouTube watch live-chat frame header was not parsed', card);
+    assert(card.messageWords > 0, 'YouTube watch live-chat frame message was not parsed', card);
+    assert(card.actionWords > 0, 'YouTube watch live-chat frame action was not parsed', card);
+    assert(card.panelPageDirectMirrors === 0, 'YouTube watch live-chat frame parsed the whole panel as one mirror', card);
+    assert(card.messageText.includes('会話に参加して'), 'YouTube live-chat frame message text was lost', card);
+    assert(card.actionText.includes('チャットを開く'), 'YouTube live-chat frame action text was lost', card);
+    assertLayoutBox(card.card, 'Missing YouTube live-chat frame card box', card);
+    assertLayoutBox(card.message, 'Missing YouTube live-chat frame message box', card);
+    assertLayoutBox(card.action, 'Missing YouTube live-chat frame action box', card);
+    assert(!layoutBoxesOverlap(card.message, card.action), 'YouTube live-chat frame message overlaps the action button', card);
+    assertVisibleWordUnderline(card.messageWordStyle, 'YouTube live-chat frame message lost its underline channel');
+    assertVisibleWordUnderline(card.actionWordStyle, 'YouTube live-chat frame action lost its underline channel');
+}
+
+function assertVisibleWordUnderline(style, message) {
+    assert(style, message, style);
+    assert(style.className.includes('jpdb-pitch-'), message, style);
+    assert(!isTransparentCssColor(style.decorationColor) || !isTransparentCssColor(style.afterBorderColor), message, style);
+}
+
+function isTransparentCssColor(value) {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return normalized === '' || normalized === 'transparent' || normalized === '#0000' || normalized === 'rgba(0, 0, 0, 0)';
 }
 
 function assertWatchTextExclusions(initial) {
@@ -1371,26 +1452,36 @@ try {
     await installUserscriptContext(context);
     const page = await context.newPage();
     await installRoutes(page);
-    const homepage = await runHomepageCheck(page);
-    const spaWatch = await runSpaWatchNavigationCheck(page);
-    const watch = await runWatchCheck(page);
-    const mobileHome = await runMobileHomeLoadingCheck(page);
-    const shortsGallery = await runShortsGalleryCheck(page);
-    const shortsWatch = await runShortsWatchCheck(page);
-    const ipadContext = await browser.newContext({
-        viewport: { width: 1024, height: 1366 },
-        deviceScaleFactor: 2,
-        hasTouch: true,
-        isMobile: false,
-        locale: 'en-GB',
-        userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
-    });
-    await installUserscriptContext(ipadContext);
-    const ipadPage = await ipadContext.newPage();
-    await installRoutes(ipadPage);
-    const ipadWatch = await runIpadWatchCheck(ipadPage);
-    await ipadContext.close();
-    console.log(JSON.stringify({ homepage, spaWatch, watch, mobileHome, shortsGallery, shortsWatch, ipadWatch }, null, 2));
+    if (process.env.YOMU_YOUTUBE_FEATURE_ONLY === 'watch-live-card') {
+        const watchLiveCard = await runWatchLiveCardCheck(page);
+        console.log(JSON.stringify({ watchLiveCard }, null, 2));
+        process.exitCode = 0;
+    } else if (process.env.YOMU_YOUTUBE_FEATURE_ONLY === 'watch') {
+        const watch = await runWatchCheck(page);
+        console.log(JSON.stringify({ watch }, null, 2));
+        process.exitCode = 0;
+    } else {
+        const homepage = await runHomepageCheck(page);
+        const spaWatch = await runSpaWatchNavigationCheck(page);
+        const watch = await runWatchCheck(page);
+        const mobileHome = await runMobileHomeLoadingCheck(page);
+        const shortsGallery = await runShortsGalleryCheck(page);
+        const shortsWatch = await runShortsWatchCheck(page);
+        const ipadContext = await browser.newContext({
+            viewport: { width: 1024, height: 1366 },
+            deviceScaleFactor: 2,
+            hasTouch: true,
+            isMobile: false,
+            locale: 'en-GB',
+            userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+        });
+        await installUserscriptContext(ipadContext);
+        const ipadPage = await ipadContext.newPage();
+        await installRoutes(ipadPage);
+        const ipadWatch = await runIpadWatchCheck(ipadPage);
+        await ipadContext.close();
+        console.log(JSON.stringify({ homepage, spaWatch, watch, mobileHome, shortsGallery, shortsWatch, ipadWatch }, null, 2));
+    }
 } finally {
     await browser.close();
 }
