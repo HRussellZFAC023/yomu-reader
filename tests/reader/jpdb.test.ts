@@ -2644,7 +2644,8 @@ function stubFloatingButtonActions(overrides: Partial<FloatingButtonActions> = {
     return {
         openSettings: vi.fn(),
         openStudyPage: vi.fn(),
-        togglePause: vi.fn(),
+        cyclePowerState: vi.fn(),
+        powerState: () => 'on',
         isPaused: () => false,
         toggleOcrMode: vi.fn(),
         ocrMode: () => 'auto',
@@ -10501,6 +10502,43 @@ describe('reader helpers', () => {
             expect(offsets).toHaveLength(7);
             expect(labels).not.toContain('Scan page');
             expect(labels).toContain('Prefer Japanese site language and location');
+            expect(labels).toContain('Hide furigana');
+            expect(Math.min(...adjacentDistances)).toBeGreaterThanOrEqual(60);
+        } finally {
+            controller.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('keeps the densest YouTube + subtitle puck menu finger-spaced', () => {
+        const controller = new FloatingButtonController();
+        const restoreRects = mockFloatingButtonRects(1698, 282);
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            showFloatingButton: true,
+        };
+
+        try {
+            withViewport(1904, 1307, () => withImmediateAnimationFrame(() => {
+                controller.install(settings, vi.fn(), stubFloatingButtonActions({
+                    isYouTube: () => true,
+                    isYoutubeFilterEnabled: () => true,
+                    hasSubtitleVideo: () => true,
+                }));
+                document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
+            }));
+
+            const offsets = Array.from(document.querySelectorAll<HTMLButtonElement>('.jpdb-reader-fab-radial-item'))
+                .map(item => ({
+                    x: Number.parseFloat(item.style.getPropertyValue('--radial-x')),
+                    y: Number.parseFloat(item.style.getPropertyValue('--radial-y')),
+                }));
+            const adjacentDistances = offsets.slice(1).map((offset, index) => (
+                Math.hypot(offset.x - offsets[index].x, offset.y - offsets[index].y)
+            ));
+
+            expect(offsets).toHaveLength(8);
             expect(Math.min(...adjacentDistances)).toBeGreaterThanOrEqual(60);
         } finally {
             controller.destroy();

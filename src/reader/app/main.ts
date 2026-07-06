@@ -604,6 +604,8 @@ function isJsdomRuntime(): boolean {
 export class ReaderApp {
     private abortController = new AbortController();
     private isDestroyed = false;
+    // Furigana mode active before the puck quick-hide, restored on re-show.
+    private furiganaModeBeforeHide?: ReaderSettings['furiganaMode'];
     private settings: ReaderSettings = DEFAULT_SETTINGS;
     private disposeHostThemeObserver?: () => void;
     private hostThemeEnforceTimer?: number;
@@ -808,6 +810,9 @@ export class ReaderApp {
     private autoScanTimer?: number;
     private autoScanDeadline = 0;
     private autoScanForced = false;
+    // Whether the pending timer was set by a debounced request; only such
+    // timers may be pushed out by later debounced requests.
+    private autoScanDebounced = false;
     private autoScanObserver?: MutationObserver;
     private lastMirrorStaleScanAt = 0;
     private readonly handleNonDestructiveMirrorStale = () => {
@@ -1843,7 +1848,8 @@ export class ReaderApp {
             {
                 openSettings: () => this.showSettings(),
                 openStudyPage: () => this.openStudyPage(),
-                togglePause: () => void this.toggleAnnotationsPaused(),
+                cyclePowerState: () => void this.cyclePowerState(),
+                powerState: () => this.puckPowerState(),
                 isPaused: () => this.settings.annotationsPaused,
                 toggleOcrMode: () => void this.cycleOcrMode(),
                 ocrMode: () => ocrInteractionModeFromSettings(this.settings),
@@ -1913,6 +1919,51 @@ export class ReaderApp {
         await saveSettings(this.settings);
         log.info('Auto-play audio toggled', { enabled: !enabled });
         this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'autoplayAudioOffToast' : 'autoplayAudioOnToast'));
+    }
+
+    private isFuriganaEnabled(): boolean {
+        return this.settings.showFurigana && this.settings.furiganaMode !== 'off';
+    }
+
+    private puckPowerState(): 'on' | 'no-furigana' | 'paused' {
+        if (this.settings.annotationsPaused) return 'paused';
+        return this.isFuriganaEnabled() ? 'on' : 'no-furigana';
+    }
+
+    // Puck power cycle: on → furigana hidden (reader stays active for colours,
+    // lookups, and mining) → annotations paused → on. Resuming only restores a
+    // furigana mode this cycle hid — a user whose saved preference is
+    // furigana-off is not opted back in by pausing and resuming.
+    private async cyclePowerState(): Promise<void> {
+        const state = this.puckPowerState();
+        if (state === 'on') {
+            this.furiganaModeBeforeHide = this.settings.furiganaMode;
+            await this.applyFuriganaMode('off');
+            this.toast(uiText(this.settings.interfaceLanguage, 'furiganaOffToast'));
+            return;
+        }
+        if (state === 'no-furigana') {
+            await this.setAnnotationsPaused(true);
+            return;
+        }
+        const hiddenMode = this.furiganaModeBeforeHide;
+        this.furiganaModeBeforeHide = undefined;
+        if (hiddenMode && hiddenMode !== 'off') {
+            this.settings.showFurigana = true;
+            this.settings.furiganaMode = hiddenMode;
+        }
+        await this.setAnnotationsPaused(false);
+    }
+
+    private async applyFuriganaMode(mode: ReaderSettings['furiganaMode']): Promise<void> {
+        this.settings.showFurigana = this.settings.showFurigana || mode !== 'off';
+        this.settings.furiganaMode = mode;
+        await saveSettings(this.settings);
+        this.clearAllAnnotations();
+        if (!this.settings.annotationsPaused && !this.settings.manualScanEnabled) {
+            this.scheduleAutoScan(0, { force: true });
+        }
+        log.info('Furigana mode set from puck', { mode });
     }
 
     private async cycleOcrMode(): Promise<void> {
@@ -2108,7 +2159,11 @@ export class ReaderApp {
         const deadline = Date.now() + delay;
         if (this.autoScanTimer && this.autoScanDeadline <= deadline) {
             this.autoScanForced = this.autoScanForced || forced;
-            if (options.debounce && this.autoScanDeadline < deadline) {
+            // A debounced request may only push out a timer that was itself
+            // debounced. Postponing a hard-scheduled scan breaks its caller's
+            // contract — e.g. the render-rejection rescan throttle (10s) used
+            // to swallow the immediate forced rescan after a puck toggle.
+            if (options.debounce && this.autoScanDebounced && this.autoScanDeadline < deadline) {
                 window.clearTimeout(this.autoScanTimer);
                 this.autoScanDeadline = deadline;
                 this.autoScanTimer = window.setTimeout(() => {
@@ -2120,6 +2175,7 @@ export class ReaderApp {
 
         window.clearTimeout(this.autoScanTimer);
         this.autoScanForced = forced;
+        this.autoScanDebounced = Boolean(options.debounce);
         this.autoScanDeadline = deadline;
         this.autoScanTimer = window.setTimeout(() => {
             this.runScheduledAutoScan();
@@ -2141,6 +2197,7 @@ export class ReaderApp {
         this.autoScanTimer = undefined;
         this.autoScanDeadline = 0;
         this.autoScanForced = false;
+        this.autoScanDebounced = false;
         if (typeof this.pageScanner.scanAsbPlayerSubtitles === 'function') void this.pageScanner.scanAsbPlayerSubtitles();
         if (forced || hasVisibleAutoScanTargets()) void this.pageScanner.scanVisiblePage({ silent: true });
     }

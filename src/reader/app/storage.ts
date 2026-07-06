@@ -8,7 +8,20 @@ import {
     managedStateEntries,
 } from './managed-state-registry';
 
-const MISSING = { missing: true };
+// Missing-value sentinel. Message-based GM implementations (Safari
+// Userscripts, FireMonkey, world bridges) structured-clone the default they
+// hand back, so identity alone cannot detect "key not stored" — compare
+// structurally as well or every read of an absent key returns the sentinel
+// clone as if it were stored data (defaults + onboarding on every site).
+const MISSING = { __yomuStorageValueMissing: true };
+
+function isMissingSentinel(value: unknown): boolean {
+    if (value === MISSING) return true;
+    return Boolean(value
+        && typeof value === 'object'
+        && !Array.isArray(value)
+        && (value as Record<string, unknown>).__yomuStorageValueMissing === true);
+}
 const FACTORY_RESET_SIGNAL_KEY = 'yomu:factory-reset-signal';
 const FACTORY_RESET_CHANNEL_NAME = 'yomu:factory-reset';
 const YOMU_LOCAL_SRS_STORAGE_KEY = 'yomu:srs-local:v1';
@@ -53,9 +66,9 @@ export async function gmStorageGet<T>(key: string, fallback: T): Promise<T> {
     if (getValue) {
         try {
             const value = await getValue<T | typeof MISSING>(key, MISSING);
-            if (value !== MISSING) return value as T;
+            if (!isMissingSentinel(value)) return value as T;
             const migrated = localStorageGet<T>(key, MISSING as T);
-            if (migrated !== (MISSING as T)) {
+            if (!isMissingSentinel(migrated)) {
                 await gmStorageSet(key, migrated);
                 return migrated;
             }
@@ -80,7 +93,7 @@ function gmStorageSyncRead<T>(key: string, getValue: GmGetValue): SyncStorageRea
     try {
         const value = getValue<T | typeof MISSING>(key, MISSING);
         if (isPromiseLike(value)) return { kind: 'fallback' };
-        if (value !== MISSING) return { kind: 'found', value: value as T };
+        if (!isMissingSentinel(value)) return { kind: 'found', value: value as T };
         return migratedLocalStorageSyncValue(key);
     } catch (error) {
         debugStorageError('GM storage sync read failed', key, error);
@@ -90,7 +103,7 @@ function gmStorageSyncRead<T>(key: string, getValue: GmGetValue): SyncStorageRea
 
 function migratedLocalStorageSyncValue<T>(key: string): SyncStorageRead<T> {
     const migrated = localStorageGet<T>(key, MISSING as T);
-    if (migrated === (MISSING as T)) return { kind: 'fallback' };
+    if (isMissingSentinel(migrated)) return { kind: 'fallback' };
     void gmStorageSet(key, migrated);
     return { kind: 'found', value: migrated };
 }
@@ -98,9 +111,15 @@ function migratedLocalStorageSyncValue<T>(key: string): SyncStorageRead<T> {
 export async function gmStorageSet(key: string, value: unknown): Promise<void> {
     const setValue = asyncGmSetValue();
     if (setValue) {
-        await setValue(key, value);
-        mirrorManagedValueToHostedStorage(key, value);
-        return;
+        try {
+            await setValue(key, value);
+            mirrorManagedValueToHostedStorage(key, value);
+            return;
+        } catch (error) {
+            // A present-but-dead GM_setValue must not swallow the write: fall
+            // back to localStorage so at least this origin keeps the change.
+            debugStorageError('GM storage write failed', key, error);
+        }
     }
     localStorageSet(key, value);
 }
@@ -113,6 +132,7 @@ export function gmStorageSetSync(key: string, value: unknown): void {
                 mirrorManagedValueToHostedStorage(key, value);
                 return;
             }
+            result.catch(error => debugStorageError('GM storage async write failed', key, error));
         } catch (error) {
             debugStorageError('GM storage sync write failed', key, error);
         }
@@ -546,7 +566,7 @@ export async function storedValueExists(key: string): Promise<boolean> {
     const getValue = asyncGmGetValue();
     if (getValue) {
         try {
-            if (await getValue<unknown | typeof MISSING>(key, MISSING) !== MISSING) return true;
+            if (!isMissingSentinel(await getValue<unknown | typeof MISSING>(key, MISSING))) return true;
         } catch (error) {
             debugStorageError('GM storage existence check failed', key, error);
         }

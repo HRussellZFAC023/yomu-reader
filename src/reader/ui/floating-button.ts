@@ -17,11 +17,18 @@ function hostHasBottomActionDock(): boolean {
     return location.hostname === 'jiten.moe' && location.pathname.startsWith('/srs/');
 }
 
+/**
+ * The puck power button steps through three states: everything on → furigana
+ * hidden (colours, lookups, and mining stay live) → annotations paused → on.
+ */
+export type PuckPowerState = 'on' | 'no-furigana' | 'paused';
+
 /** Context actions surfaced by the puck's radial menu. */
 export interface FloatingButtonActions {
     openSettings(): void;
     openStudyPage(): void;
-    togglePause(): void;
+    cyclePowerState(): void;
+    powerState(): PuckPowerState;
     isPaused(): boolean;
     toggleOcrMode(): void;
     ocrMode(): OcrInteractionMode;
@@ -140,20 +147,25 @@ export class FloatingButtonController {
         const actions = this.actions;
         if (!settings || !actions) return [];
         const language = settings.interfaceLanguage;
-        const paused = actions.isPaused();
+        const powerState = actions.powerState();
         const ocrMode = actions.ocrMode();
         const audioOn = actions.isAutoPlayAudioEnabled();
         const japaneseSiteLanguage = settings.preferJapaneseSiteLanguage;
+        // Power steps on → furigana hidden → paused → on; the label always
+        // names the NEXT state so a press does what the button says.
+        const powerLabelKey = powerState === 'on' ? 'puckHideFurigana'
+            : powerState === 'no-furigana' ? 'puckPauseAnnotations'
+                : 'puckResumeAnnotations';
         const items: RadialAction[] = [
             {
                 id: 'power',
-                label: uiText(language, paused ? 'puckResumeAnnotations' : 'puckPauseAnnotations'),
+                label: uiText(language, powerLabelKey),
                 icon: radialPowerIcon(),
-                tone: paused ? 'off' : 'on',
+                tone: powerState === 'on' ? 'on' : powerState === 'no-furigana' ? 'neutral' : 'off',
                 primary: true,
                 keepOpen: true,
                 run: () => {
-                    actions.togglePause();
+                    actions.cyclePowerState();
                     this.button?.classList.toggle('jpdb-reader-fab--paused', actions.isPaused());
                 },
             },

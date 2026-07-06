@@ -1306,6 +1306,8 @@
       puckUnmuteAudio: "Unmute auto-play audio",
       autoplayAudioOnToast: "Auto-play audio on.",
       autoplayAudioOffToast: "Auto-play audio muted.",
+      puckHideFurigana: "Hide furigana",
+      furiganaOffToast: "Furigana off. Lookups stay active.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
       wordColorStates: "Color words",
@@ -3024,6 +3026,8 @@ annotationsPausedToast	注釈を一時停止しました。
 annotationsResumedToast	注釈を再開しました。
 puckMuteAudio	音声の自動再生をミュート
 puckUnmuteAudio	音声の自動再生のミュートを解除
+puckHideFurigana	ふりがなを隠す
+furiganaOffToast	ふりがなを非表示にしました。単語の検索は引き続き使えます。
 autoplayAudioOnToast	音声の自動再生をオンにしました。
 autoplayAudioOffToast	音声の自動再生をミュートしました。
 showFurigana	ふりがな注釈を有効にする

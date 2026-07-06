@@ -867,7 +867,11 @@
     registerManagedStates(MANAGED_STATE_MANIFEST);
   }
   registerManagedStateManifest();
-  const MISSING = { missing: true };
+  const MISSING = { __yomuStorageValueMissing: true };
+  function isMissingSentinel(value) {
+    if (value === MISSING) return true;
+    return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
+  }
   function gmStorageGetSync(key, fallback) {
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
     if (getValue) {
@@ -880,7 +884,7 @@
     try {
       const value = getValue(key, MISSING);
       if (isPromiseLike(value)) return { kind: "fallback" };
-      if (value !== MISSING) return { kind: "found", value };
+      if (!isMissingSentinel(value)) return { kind: "found", value };
       return migratedLocalStorageSyncValue(key);
     } catch (error) {
       debugStorageError("GM storage sync read failed", key, error);
@@ -889,16 +893,20 @@
   }
   function migratedLocalStorageSyncValue(key) {
     const migrated = localStorageGet(key, MISSING);
-    if (migrated === MISSING) return { kind: "fallback" };
+    if (isMissingSentinel(migrated)) return { kind: "fallback" };
     void gmStorageSet(key, migrated);
     return { kind: "found", value: migrated };
   }
   async function gmStorageSet(key, value) {
     const setValue = asyncGmSetValue();
     if (setValue) {
-      await setValue(key, value);
-      mirrorManagedValueToHostedStorage(key, value);
-      return;
+      try {
+        await setValue(key, value);
+        mirrorManagedValueToHostedStorage(key, value);
+        return;
+      } catch (error) {
+        debugStorageError("GM storage write failed", key, error);
+      }
     }
     localStorageSet(key, value);
   }
@@ -910,6 +918,7 @@
           mirrorManagedValueToHostedStorage(key, value);
           return;
         }
+        result.catch((error) => debugStorageError("GM storage async write failed", key, error));
       } catch (error) {
         debugStorageError("GM storage sync write failed", key, error);
       }
@@ -3993,6 +4002,8 @@
       puckUnmuteAudio: "Unmute auto-play audio",
       autoplayAudioOnToast: "Auto-play audio on.",
       autoplayAudioOffToast: "Auto-play audio muted.",
+      puckHideFurigana: "Hide furigana",
+      furiganaOffToast: "Furigana off. Lookups stay active.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
       wordColorStates: "Color words",
@@ -5711,6 +5722,8 @@ annotationsPausedToast	注釈を一時停止しました。
 annotationsResumedToast	注釈を再開しました。
 puckMuteAudio	音声の自動再生をミュート
 puckUnmuteAudio	音声の自動再生のミュートを解除
+puckHideFurigana	ふりがなを隠す
+furiganaOffToast	ふりがなを非表示にしました。単語の検索は引き続き使えます。
 autoplayAudioOnToast	音声の自動再生をオンにしました。
 autoplayAudioOffToast	音声の自動再生をミュートしました。
 showFurigana	ふりがな注釈を有効にする

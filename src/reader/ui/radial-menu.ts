@@ -30,7 +30,11 @@ export interface RadialMenuHost {
 const ITEM_EXIT_MS = 180;
 const PI = Math.PI;
 const MIN_GAP = 62;
-const MAX_R = 248;
+// Aesthetic reach cap only — the per-item screen-edge clamp in radiusForLayout
+// is the real off-screen guard. Sized so the densest menu (YouTube page with a
+// subtitle video: 8 items) still fans out at the MIN_GAP finger spacing on a
+// roomy screen instead of collapsing items on top of each other.
+const MAX_R = 320;
 const EDGE = 32;
 
 /**

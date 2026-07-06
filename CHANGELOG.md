@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.94] - 2026-07-06
+
+### Added
+
+- The puck power button now steps through three states: everything on, furigana hidden, and annotations paused. One press hides readings while the reader stays active for colours, lookups, and mining; a second press pauses everything; a third brings it all back, restoring the furigana mode you were on when the same cycle hid it.
+
+### Fixed
+
+- Settings are now stored reliably on userscript managers that hand back copies of saved values instead of the values themselves, such as the Safari and Firefox userscript apps, so preferences and the welcome screen no longer reappear from scratch on each new site. A failed storage write also falls back to local storage now instead of being silently dropped.
+- An immediate rescan requested right after annotations change, for example from the puck power button, is no longer postponed by the slow rescan throttle that live-updating pages use, so the page re-annotates instantly instead of up to ten seconds later.
+
 ## [1.6.93] - 2026-07-06
 
 ### Fixed

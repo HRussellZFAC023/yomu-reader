@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.92
+// @version 1.6.94
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.92#sha256=MckBoQek04F/5L7ew566RdMWj1j3jl/AfPjAt9el8mE=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.92#sha256=FOvCf7KbOTzYSH/kt8VlXqdkpaEl57KOu1wjtgxgfQE=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.92#sha256=Hgu0mcMzilg8tNkAtAZUEBoT4JNFj3EUEZcbxQdnzlc=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.92#sha256=Qp7PEqQNrMqpmEXR16D4rahWHVy0qb9unv2HAapo9/Y=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.92#sha256=HRPLMfdaQQNASjoXnbWn7m9ZDlZ0Tn8ya+p1Ng25aJE=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.92#sha256=bGdft0Z2DvYapLO+HMMaAuIIPNhpdbuMOc5J2pw3P2Y=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.94#sha256=N0kDfli6QcwU15W78VmRYdj9pqPzPitUx+OJVHZoeXg=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.94#sha256=YkoJBh3Uc7HIPqUyBOyLJ9lr6TVn0tP9LlBgH8ovYII=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.94#sha256=ouQezXMgPVhSpjRQf6nVEIOA1BdNCYBq2T3XnmT/Ujk=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.94#sha256=kxf+lcrOgWG2I6C+ucheI6LV0lvdkoKwqRYPPxZXFLs=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.94#sha256=EDQgt0RULyq8pTdZMdQFGrE0RTid8UF6Rm/l4NupFt0=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.94#sha256=2iqN3MWoGj/GRLfs0ZwljkXLmXoSk6jy8iWOkRiRdvE=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -1520,7 +1520,11 @@ function registerManagedStateManifest() {
   registerManagedStates(MANAGED_STATE_MANIFEST);
 }
 registerManagedStateManifest();
-const MISSING = { missing: true };
+const MISSING = { __yomuStorageValueMissing: true };
+function isMissingSentinel(value) {
+  if (value === MISSING) return true;
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
+}
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
 const MANAGED_CACHE_NAME_PREFIXES = [
@@ -1534,9 +1538,9 @@ async function gmStorageGet(key, fallback) {
   if (getValue) {
   try {
     const value = await getValue(key, MISSING);
-    if (value !== MISSING) return value;
+    if (!isMissingSentinel(value)) return value;
     const migrated = localStorageGet(key, MISSING);
-    if (migrated !== MISSING) {
+    if (!isMissingSentinel(migrated)) {
       await gmStorageSet(key, migrated);
       return migrated;
     }
@@ -1559,7 +1563,7 @@ function gmStorageSyncRead(key, getValue) {
   try {
   const value = getValue(key, MISSING);
   if (isPromiseLike$1(value)) return { kind: "fallback" };
-  if (value !== MISSING) return { kind: "found", value };
+  if (!isMissingSentinel(value)) return { kind: "found", value };
   return migratedLocalStorageSyncValue(key);
   } catch (error) {
   debugStorageError("GM storage sync read failed", key, error);
@@ -1568,16 +1572,20 @@ function gmStorageSyncRead(key, getValue) {
 }
 function migratedLocalStorageSyncValue(key) {
   const migrated = localStorageGet(key, MISSING);
-  if (migrated === MISSING) return { kind: "fallback" };
+  if (isMissingSentinel(migrated)) return { kind: "fallback" };
   void gmStorageSet(key, migrated);
   return { kind: "found", value: migrated };
 }
 async function gmStorageSet(key, value) {
   const setValue = asyncGmSetValue();
   if (setValue) {
-  await setValue(key, value);
-  mirrorManagedValueToHostedStorage(key, value);
-  return;
+  try {
+    await setValue(key, value);
+    mirrorManagedValueToHostedStorage(key, value);
+    return;
+  } catch (error) {
+    debugStorageError("GM storage write failed", key, error);
+  }
   }
   localStorageSet(key, value);
 }
@@ -1589,6 +1597,7 @@ function gmStorageSetSync(key, value) {
       mirrorManagedValueToHostedStorage(key, value);
       return;
     }
+    result.catch((error) => debugStorageError("GM storage async write failed", key, error));
   } catch (error) {
     debugStorageError("GM storage sync write failed", key, error);
   }
@@ -1814,7 +1823,7 @@ async function storedValueExists(key) {
   const getValue = asyncGmGetValue();
   if (getValue) {
   try {
-    if (await getValue(key, MISSING) !== MISSING) return true;
+    if (!isMissingSentinel(await getValue(key, MISSING))) return true;
   } catch (error) {
     debugStorageError("GM storage existence check failed", key, error);
   }
@@ -20791,7 +20800,7 @@ function scheduleIdleCallback(callback, timeoutMs = 75) {
 const ITEM_EXIT_MS = 180;
 const PI = Math.PI;
 const MIN_GAP = 62;
-const MAX_R = 248;
+const MAX_R = 320;
 const EDGE = 32;
 class RadialMenuController {
   constructor(host) {
@@ -21079,20 +21088,21 @@ class FloatingButtonController {
   const actions = this.actions;
   if (!settings || !actions) return [];
   const language = settings.interfaceLanguage;
-  const paused = actions.isPaused();
+  const powerState = actions.powerState();
   const ocrMode = actions.ocrMode();
   const audioOn = actions.isAutoPlayAudioEnabled();
   const japaneseSiteLanguage = settings.preferJapaneseSiteLanguage;
+  const powerLabelKey = powerState === "on" ? "puckHideFurigana" : powerState === "no-furigana" ? "puckPauseAnnotations" : "puckResumeAnnotations";
   const items = [
     {
       id: "power",
-      label: uiText(language, paused ? "puckResumeAnnotations" : "puckPauseAnnotations"),
+      label: uiText(language, powerLabelKey),
       icon: radialPowerIcon(),
-      tone: paused ? "off" : "on",
+      tone: powerState === "on" ? "on" : powerState === "no-furigana" ? "neutral" : "off",
       primary: true,
       keepOpen: true,
       run: () => {
-        actions.togglePause();
+        actions.cyclePowerState();
         this.button?.classList.toggle("jpdb-reader-fab--paused", actions.isPaused());
       }
     },
@@ -33423,7 +33433,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.92"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.94"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -34466,6 +34476,7 @@ function isJsdomRuntime() {
 class ReaderApp {
   abortController = new AbortController();
   isDestroyed = false;
+  furiganaModeBeforeHide;
   settings = DEFAULT_SETTINGS;
   disposeHostThemeObserver;
   hostThemeEnforceTimer;
@@ -34665,6 +34676,7 @@ class ReaderApp {
   autoScanTimer;
   autoScanDeadline = 0;
   autoScanForced = false;
+  autoScanDebounced = false;
   autoScanObserver;
   lastMirrorStaleScanAt = 0;
   handleNonDestructiveMirrorStale = () => {
@@ -35547,7 +35559,8 @@ class ReaderApp {
     {
       openSettings: () => this.showSettings(),
       openStudyPage: () => this.openStudyPage(),
-      togglePause: () => void this.toggleAnnotationsPaused(),
+      cyclePowerState: () => void this.cyclePowerState(),
+      powerState: () => this.puckPowerState(),
       isPaused: () => this.settings.annotationsPaused,
       toggleOcrMode: () => void this.cycleOcrMode(),
       ocrMode: () => ocrInteractionModeFromSettings(this.settings),
@@ -35603,6 +35616,43 @@ class ReaderApp {
   await saveSettings(this.settings);
   log.info("Auto-play audio toggled", { enabled: !enabled });
   this.toast(uiText(this.settings.interfaceLanguage, enabled ? "autoplayAudioOffToast" : "autoplayAudioOnToast"));
+  }
+  isFuriganaEnabled() {
+  return this.settings.showFurigana && this.settings.furiganaMode !== "off";
+  }
+  puckPowerState() {
+  if (this.settings.annotationsPaused) return "paused";
+  return this.isFuriganaEnabled() ? "on" : "no-furigana";
+  }
+  async cyclePowerState() {
+  const state = this.puckPowerState();
+  if (state === "on") {
+    this.furiganaModeBeforeHide = this.settings.furiganaMode;
+    await this.applyFuriganaMode("off");
+    this.toast(uiText(this.settings.interfaceLanguage, "furiganaOffToast"));
+    return;
+  }
+  if (state === "no-furigana") {
+    await this.setAnnotationsPaused(true);
+    return;
+  }
+  const hiddenMode = this.furiganaModeBeforeHide;
+  this.furiganaModeBeforeHide = void 0;
+  if (hiddenMode && hiddenMode !== "off") {
+    this.settings.showFurigana = true;
+    this.settings.furiganaMode = hiddenMode;
+  }
+  await this.setAnnotationsPaused(false);
+  }
+  async applyFuriganaMode(mode) {
+  this.settings.showFurigana = this.settings.showFurigana || mode !== "off";
+  this.settings.furiganaMode = mode;
+  await saveSettings(this.settings);
+  this.clearAllAnnotations();
+  if (!this.settings.annotationsPaused && !this.settings.manualScanEnabled) {
+    this.scheduleAutoScan(0, { force: true });
+  }
+  log.info("Furigana mode set from puck", { mode });
   }
   async cycleOcrMode() {
   const nextMode = nextOcrInteractionMode(ocrInteractionModeFromSettings(this.settings));
@@ -35771,7 +35821,7 @@ class ReaderApp {
   const deadline = Date.now() + delay2;
   if (this.autoScanTimer && this.autoScanDeadline <= deadline) {
     this.autoScanForced = this.autoScanForced || forced;
-    if (options.debounce && this.autoScanDeadline < deadline) {
+    if (options.debounce && this.autoScanDebounced && this.autoScanDeadline < deadline) {
       window.clearTimeout(this.autoScanTimer);
       this.autoScanDeadline = deadline;
       this.autoScanTimer = window.setTimeout(() => {
@@ -35782,6 +35832,7 @@ class ReaderApp {
   }
   window.clearTimeout(this.autoScanTimer);
   this.autoScanForced = forced;
+  this.autoScanDebounced = Boolean(options.debounce);
   this.autoScanDeadline = deadline;
   this.autoScanTimer = window.setTimeout(() => {
     this.runScheduledAutoScan();
@@ -35796,6 +35847,7 @@ class ReaderApp {
   this.autoScanTimer = void 0;
   this.autoScanDeadline = 0;
   this.autoScanForced = false;
+  this.autoScanDebounced = false;
   if (typeof this.pageScanner.scanAsbPlayerSubtitles === "function") void this.pageScanner.scanAsbPlayerSubtitles();
   if (forced || hasVisibleAutoScanTargets()) void this.pageScanner.scanVisiblePage({ silent: true });
   }

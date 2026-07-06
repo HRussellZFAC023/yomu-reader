@@ -4,6 +4,7 @@ import {
     createFactoryResetSignal,
     exportManagedStoredValues,
     gmStorageDelete,
+    gmStorageGet,
     gmStorageSet,
     importStoredValues,
     publishFactoryResetSignal,
@@ -212,6 +213,61 @@ describe('storage reset', () => {
         await clearManagedStoredValues();
 
         expect(gmValues.size).toBe(0);
+    });
+});
+
+describe('storage resilience', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        vi.unstubAllGlobals();
+    });
+
+    afterEach(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        vi.unstubAllGlobals();
+    });
+
+    it('treats a structured-clone of the missing sentinel as "not stored"', async () => {
+        // Message-based GM implementations (Safari Userscripts, FireMonkey)
+        // round-trip the default value, so identity checks fail.
+        vi.stubGlobal('GM_getValue', vi.fn(async (_key: string, fallback: unknown) =>
+            JSON.parse(JSON.stringify(fallback))));
+
+        await expect(gmStorageGet('jpdb-popup-reader-settings', null)).resolves.toBeNull();
+    });
+
+    it('still returns stored values when GM_getValue round-trips data', async () => {
+        const gmValues = new Map<string, unknown>([['jpdb-popup-reader-settings', { onboardingSeen: true }]]);
+        vi.stubGlobal('GM_getValue', vi.fn(async (key: string, fallback: unknown) =>
+            JSON.parse(JSON.stringify(gmValues.has(key) ? gmValues.get(key) : fallback))));
+
+        await expect(gmStorageGet('jpdb-popup-reader-settings', null)).resolves.toEqual({ onboardingSeen: true });
+    });
+
+    it('falls back to localStorage when a present GM_setValue rejects', async () => {
+        vi.stubGlobal('GM_setValue', vi.fn(async () => {
+            throw new Error('dead bridge');
+        }));
+
+        await gmStorageSet('jpdb-popup-reader-settings', { onboardingSeen: true });
+
+        expect(JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') ?? 'null'))
+            .toEqual({ onboardingSeen: true });
+    });
+
+    it('reads back a localStorage fallback write when GM storage stays broken', async () => {
+        vi.stubGlobal('GM_setValue', vi.fn(async () => {
+            throw new Error('dead bridge');
+        }));
+        vi.stubGlobal('GM_getValue', vi.fn(async () => {
+            throw new Error('dead bridge');
+        }));
+
+        await gmStorageSet('jpdb-popup-reader-settings', { showFurigana: false });
+
+        await expect(gmStorageGet('jpdb-popup-reader-settings', null)).resolves.toEqual({ showFurigana: false });
     });
 });
 

@@ -1219,6 +1219,26 @@ describe('reader theme', () => {
         expect(stored.wordHighlightColorSource).toBe('jpdb');
         expect(stored.wordUnderlineColorSource).toBe('pitch');
     });
+
+    it('loads saved furigana/onboarding state when GM storage round-trips the default (message-based managers)', async () => {
+        // Reproduces the reported bug: Safari Userscripts / FireMonkey hand back
+        // a structured clone of the default value, so a naive identity check
+        // treats every read as "unset" — settings appear unsaved and onboarding
+        // re-opens on every new site. loadSettings must still recover the value.
+        const store = new Map<string, unknown>([
+            [SETTINGS_STORAGE_KEY, { ...DEFAULT_SETTINGS, showFurigana: false, furiganaMode: 'off', onboardingSeen: true }],
+        ]);
+        vi.stubGlobal('GM_getValue', vi.fn(async (key: string, fallback: unknown) =>
+            JSON.parse(JSON.stringify(store.has(key) ? store.get(key) : fallback))));
+        try {
+            const settings = await loadSettings();
+            expect(settings.onboardingSeen).toBe(true);
+            expect(settings.showFurigana).toBe(false);
+            expect(settings.furiganaMode).toBe('off');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
 });
 
 describe('redundant word UI suppression', () => {
