@@ -1,5 +1,97 @@
-import { normalizePitchPatternsForReading, pitchPatternFromPosition } from './pitch-accent';
+import { normalizePitchPatternsForReading, pitchPatternFromPosition, splitMorae } from './pitch-accent';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
+
+export type PitchMetaLookup = (expression: string) => Promise<YomitanMetaEntry[]>;
+
+const COMPOUND_MAX_CHARS = 12;
+const COMPOUND_MAX_SEGMENTS = 6;
+const COMPOUND_MAX_LOOKUPS = 16;
+const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
+
+interface CompoundSegment {
+    pattern: string;
+    moraCount: number;
+}
+
+interface CompoundLookupState {
+    lookups: number;
+    cache: Map<string, Promise<YomitanMetaEntry[]>>;
+}
+
+// Compound expressions (登録者数) rarely have a whole-word row in a pitch
+// bank, so their underline stays grey even though every constituent
+// (登録 / 者 / 数) is listed. Segment the spelling against the pitch bank
+// itself — longest match first, constrained to constituents whose stored
+// reading is a mora-aligned prefix of the compound's remaining reading — and
+// compose a per-mora pattern from the constituents. Non-final constituents
+// drop their trailing particle level; the final one keeps it. Any unmatched
+// remainder aborts: a partial guess must never colour a word.
+export async function composeCompoundPitchPatternFromMeta(
+    spelling: string,
+    reading: string,
+    lookupMeta: PitchMetaLookup,
+): Promise<string> {
+    const characters = Array.from(spelling.trim());
+    const kana = kanaNormalized(reading.trim());
+    if (characters.length < 2 || characters.length > COMPOUND_MAX_CHARS || !kana) return '';
+    const state: CompoundLookupState = { lookups: 0, cache: new Map() };
+    const segments = await composeSegments(characters, 0, kana, lookupMeta, state, COMPOUND_MAX_SEGMENTS);
+    if (!segments || segments.length < 2) return '';
+    return segments
+        .map((segment, index) => index === segments.length - 1 ? segment.pattern : segment.pattern.slice(0, segment.moraCount))
+        .join('');
+}
+
+async function composeSegments(
+    characters: string[],
+    cursor: number,
+    readingRest: string,
+    lookupMeta: PitchMetaLookup,
+    state: CompoundLookupState,
+    segmentsLeft: number,
+): Promise<CompoundSegment[] | null> {
+    if (cursor >= characters.length) return readingRest ? null : [];
+    if (!segmentsLeft || !readingRest) return null;
+    const maxLength = Math.min(8, characters.length - cursor);
+    for (let length = maxLength; length >= 1; length--) {
+        // The whole compound at cursor 0 is the direct lookup the caller
+        // already tried — skipping it keeps this a true constituent fallback.
+        if (cursor === 0 && length === characters.length) continue;
+        if (state.lookups >= COMPOUND_MAX_LOOKUPS) return null;
+        const candidate = characters.slice(cursor, cursor + length).join('');
+        const segment = await constituentSegment(candidate, readingRest, lookupMeta, state);
+        if (!segment) continue;
+        const rest = await composeSegments(characters, cursor + length, readingRest.slice(segment.readingLength), lookupMeta, state, segmentsLeft - 1);
+        if (rest) return [{ pattern: segment.pattern, moraCount: segment.moraCount }, ...rest];
+    }
+    return null;
+}
+
+async function constituentSegment(
+    candidate: string,
+    readingRest: string,
+    lookupMeta: PitchMetaLookup,
+    state: CompoundLookupState,
+): Promise<{ pattern: string; moraCount: number; readingLength: number } | null> {
+    let entriesPromise = state.cache.get(candidate);
+    if (!entriesPromise) {
+        state.lookups += 1;
+        entriesPromise = Promise.resolve().then(() => lookupMeta(candidate)).catch(() => [] as YomitanMetaEntry[]);
+        state.cache.set(candidate, entriesPromise);
+    }
+    const entries = await entriesPromise;
+    // Longest stored reading first: it consumes more of the compound reading
+    // and is the stricter (safer) alignment.
+    const readings = distinctMetadataReadings(entries).sort((a, b) => b.length - a.length);
+    for (const constituentReading of readings) {
+        if (!constituentReading || !readingRest.startsWith(constituentReading)) continue;
+        if (SMALL_KANA_RE.test(readingRest.slice(constituentReading.length))) continue;
+        const pattern = localPitchPatternFromMeta(constituentReading, entries);
+        if (!pattern) continue;
+        return { pattern, moraCount: splitMorae(constituentReading).length, readingLength: constituentReading.length };
+    }
+    return null;
+}
 
 export function localPitchPatternFromMeta(reading: string, entries: YomitanMetaEntry[]): string {
     return localPitchPatternsFromMeta(reading, entries)[0] ?? '';

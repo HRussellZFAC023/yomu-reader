@@ -1570,7 +1570,9 @@ describe('VisiblePageScanner', () => {
             await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2));
 
             expect(title.querySelector('rt')).not.toBeNull();
-            expect(title.style.height).toBe('36px');
+            // 36px measured room + 1px top clearance for the flush reading
+            // (single-line rows push the annotation off the clip edge).
+            expect(title.style.height).toBe('37px');
 
             laterParse.resolve(parseJapanese.mock.calls[1]![0].map((text: string) => [rubyToken(text, '日本語', 'にほんご', 0, 3)]));
             await scan;

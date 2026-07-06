@@ -402,3 +402,45 @@ describe('makeRoomForRubyInCroppedRows', () => {
         }
     });
 });
+
+// A single-line fixed row (chip/tab/action label) with the reading pinned at —
+// or above — its top edge keeps the annotation shaved no matter how much the
+// row grows downward: the missing clearance must become padding-top so the
+// text is pushed down into the new room.
+describe('makeRoomForRubyInCroppedRows top clearance', () => {
+    it('pads a single-line clipped row whose reading pokes above the box top', () => {
+        document.body.innerHTML = `
+            <div id="tab" style="overflow:hidden;height:24px;line-height:24px">${annotatedWord()}順</div>
+        `;
+        const tab = document.querySelector<HTMLElement>('#tab')!;
+        mockOverflow(tab, 24, 24);
+        mockRect(tab, { top: 0, bottom: 24, height: 24 });
+        mockRect(tab.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!, { top: 8, bottom: 22, height: 14 });
+        mockRect(tab.querySelector<HTMLElement>('rt')!, { top: -3, bottom: 5, height: 8 });
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(tab.dataset.yomuRubyRoom).toBe('true');
+        // 3px overflow + 1px clearance pushed down as padding, and the room
+        // height accounts for the same 4px so the base line is not re-cropped.
+        expect(tab.style.paddingTop).toBe('4px');
+        expect(tab.dataset.yomuRubyRoomPadTop).toBe('4');
+        expect(Number(tab.dataset.yomuRubyRoomHeight)).toBeGreaterThanOrEqual(28);
+        document.body.innerHTML = '';
+    });
+
+    it('leaves single-line rows alone while the reading has real clearance', () => {
+        document.body.innerHTML = `
+            <div id="tab" style="overflow:hidden;height:28px;line-height:24px">${annotatedWord()}順</div>
+        `;
+        const tab = document.querySelector<HTMLElement>('#tab')!;
+        mockOverflow(tab, 28, 28);
+        mockRect(tab, { top: 0, bottom: 28, height: 28 });
+        mockRect(tab.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!, { top: 12, bottom: 26, height: 14 });
+        mockRect(tab.querySelector<HTMLElement>('rt')!, { top: 3, bottom: 11, height: 8 });
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(tab.style.paddingTop).toBe('');
+        expect(tab.dataset.yomuRubyRoomPadTop).toBeUndefined();
+        document.body.innerHTML = '';
+    });
+});

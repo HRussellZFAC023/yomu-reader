@@ -1578,6 +1578,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
         }
         hideTextMirrorHost(host, state);
         host.append(mirror);
+        tightenMirrorRubyOverhang(mirror);
         observeTextMirrorHost(host);
     } catch (error) {
         removeTextMirror(host);
@@ -2423,6 +2424,126 @@ function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false
     mirror.style.setProperty('text-align', style.textAlign);
     mirror.style.setProperty('z-index', '1');
     if (hasRuby) mirror.dataset.jpdbReaderHasRuby = 'true';
+}
+
+// A reading wider than its base (じゅん over 順) makes ruby layout grow the
+// ruby box and center the base inside it. Engines only reclaim that slack via
+// ruby overhang over adjacent NON-ruby text — never across an adjacent ruby —
+// so compact mirrored labels split into "新 しい 順" (worst on WebKit, which is
+// exactly the iPad chip surface). Styling rt is a dead end: WebKit ignores
+// display/position overrides on ruby internals. Instead, measure the RENDERED
+// gap between each ruby base and its same-line CJK neighbours and pull the
+// neighbours back in with negative inline margins on the ruby element — the
+// annotation keeps painting centered over the base, overhanging exactly the
+// way native overhang would. Measured-then-written in two phases (no
+// per-ruby reflow), and a no-op wherever the engine already overhangs.
+function tightenMirrorRubyOverhang(mirror: HTMLElement): void {
+    interface RubyMeasure {
+        ruby: HTMLElement;
+        baseRect: DOMRect;
+        insetLeft: number;
+        insetRight: number;
+        marginLeft: number;
+        marginRight: number;
+    }
+    // jsdom has no Range.getBoundingClientRect; there is no layout to fix there.
+    if (typeof Range.prototype.getBoundingClientRect !== 'function') return;
+    const measures: RubyMeasure[] = [];
+    const byRuby = new Map<HTMLElement, RubyMeasure>();
+    for (const ruby of mirror.querySelectorAll<HTMLElement>('ruby')) {
+        const base = ruby.querySelector<HTMLElement>('.jpdb-reader-ruby-base');
+        if (!base || !base.textContent) continue;
+        const rubyRect = ruby.getBoundingClientRect();
+        const baseRect = glyphRangeRect(base);
+        if (!baseRect) continue;
+        const measure: RubyMeasure = {
+            ruby,
+            baseRect,
+            insetLeft: Math.max(0, baseRect.left - rubyRect.left),
+            insetRight: Math.max(0, rubyRect.right - baseRect.right),
+            marginLeft: 0,
+            marginRight: 0,
+        };
+        measures.push(measure);
+        byRuby.set(ruby, measure);
+    }
+    for (const measure of measures) {
+        if (measure.insetLeft < 1 && measure.insetRight < 1) continue;
+        const previous = adjacentGlyph(mirror, measure.ruby, 'previous');
+        if (previous && rectsShareLine(measure.baseRect, previous.rect) && !previous.ruby) {
+            const gap = measure.baseRect.left - previous.rect.right;
+            measure.marginLeft = Math.max(0, Math.min(gap - RUBY_GAP_KEEP_PX, measure.insetLeft));
+        }
+        const next = adjacentGlyph(mirror, measure.ruby, 'next');
+        if (next && rectsShareLine(measure.baseRect, next.rect)) {
+            const gap = next.rect.left - measure.baseRect.right;
+            const needed = Math.max(0, gap - RUBY_GAP_KEEP_PX);
+            measure.marginRight = Math.min(needed, measure.insetRight);
+            // The slack between two ADJACENT rubies belongs to both boxes:
+            // this ruby reclaims its own right inset, the neighbour's left
+            // inset covers the remainder — assigned here as a pair so the
+            // same gap is never compensated twice.
+            const neighbour = next.ruby ? byRuby.get(next.ruby) : undefined;
+            if (neighbour) neighbour.marginLeft = Math.min(needed - measure.marginRight, neighbour.insetLeft);
+        }
+    }
+    for (const measure of measures) {
+        if (measure.marginLeft > 0) measure.ruby.style.setProperty('margin-left', `${-measure.marginLeft}px`, 'important');
+        if (measure.marginRight > 0) measure.ruby.style.setProperty('margin-right', `${-measure.marginRight}px`, 'important');
+    }
+}
+
+// CJK renders with no inter-glyph gap, so anything beyond a hair of rendered
+// space next to a ruby base is annotation-induced slack; reclaim it up to the
+// ruby box's own inset so a compensated line can never overlap real glyphs.
+const RUBY_GAP_KEEP_PX = 0.5;
+
+function rectsShareLine(a: DOMRect, b: DOMRect): boolean {
+    return Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > Math.min(a.height, b.height) / 2;
+}
+
+function glyphRangeRect(element: HTMLElement): DOMRect | null {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const rect = range.getBoundingClientRect();
+    return rect.width > 0 ? rect : null;
+}
+
+// Nearest rendered CJK glyph before/after the ruby inside the mirror. A
+// whitespace or Latin neighbour keeps its natural spacing — only CJK
+// adjacency implies the gap should be zero.
+function adjacentGlyph(
+    mirror: HTMLElement,
+    ruby: HTMLElement,
+    direction: 'previous' | 'next',
+): { rect: DOMRect; ruby: HTMLElement | null } | null {
+    const walker = document.createTreeWalker(mirror, NodeFilter.SHOW_TEXT, {
+        acceptNode: node => (node.parentElement?.closest('rt,rp') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    });
+    let candidate: Text | null = null;
+    const position = direction === 'previous' ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING;
+    while (walker.nextNode()) {
+        const node = walker.currentNode as Text;
+        if (ruby.contains(node) || !node.data) continue;
+        if (!(ruby.compareDocumentPosition(node) & position)) continue;
+        if (direction === 'previous') candidate = node;
+        else { candidate = node; break; }
+    }
+    if (!candidate?.data) return null;
+    const characters = Array.from(candidate.data);
+    const character = direction === 'previous' ? characters[characters.length - 1] : characters[0];
+    if (!character || !isCjkChar(character)) return null;
+    const range = document.createRange();
+    if (direction === 'previous') {
+        range.setStart(candidate, candidate.data.length - character.length);
+        range.setEnd(candidate, candidate.data.length);
+    } else {
+        range.setStart(candidate, 0);
+        range.setEnd(candidate, character.length);
+    }
+    const rect = range.getBoundingClientRect();
+    if (rect.width <= 0) return null;
+    return { rect, ruby: candidate.parentElement?.closest('ruby') as HTMLElement | null };
 }
 
 function rubyFriendlyMirrorLineHeight(style: CSSStyleDeclaration): string {
@@ -4323,12 +4444,11 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
     // per-box writes (min-height/height) with the next word's layout reads
     // forces a synchronous reflow per annotated word — on a YouTube feed
     // that is hundreds of reflows per sweep.
-    const decisions = new Map<HTMLElement, number>();
+    const decisions = new Map<HTMLElement, { roomHeight: number; topDeficit: number }>();
     const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
     for (const word of words) {
         if (!word.querySelector('rt')) continue;
         for (const box of cropCapableBoxes(word.parentElement)) {
-            if (decisions.has(box)) continue;
             if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || box.closest('[aria-hidden="true"],[hidden]')) continue;
             // Curated YouTube/Google rows grow on any crop signal (their crop
             // is always ruby-caused). Every OTHER site's clamped/ellipsis/
@@ -4340,24 +4460,63 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
             for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated)) {
                 const roomHeight = curated ? rubyRoomHeight(roomBox) : genericRubyRoomHeight(roomBox);
                 if (roomHeight > RUBY_ROOM_MAX_PX) continue;
-                if (previousRubyRoomHeight(roomBox) >= roomHeight) continue;
-                if ((decisions.get(roomBox) ?? 0) >= roomHeight) continue;
-                decisions.set(roomBox, roomHeight);
+                const topDeficit = rubyTopClearanceDeficit(roomBox);
+                if (previousRubyRoomHeight(roomBox) >= roomHeight + topDeficit && !topDeficit) continue;
+                if ((decisions.get(roomBox)?.roomHeight ?? 0) >= roomHeight + topDeficit) continue;
+                decisions.set(roomBox, { roomHeight: roomHeight + topDeficit, topDeficit });
             }
         }
     }
     let adjusted = 0;
-    for (const [box, roomHeight] of decisions) {
+    for (const [box, { roomHeight, topDeficit }] of decisions) {
         box.dataset.yomuRubyRoom = 'true';
         box.dataset.yomuRubyRoomHeight = String(roomHeight);
-        makeRoomForRubyInBox(box, safeComputedStyle(box), roomHeight);
+        makeRoomForRubyInBox(box, safeComputedStyle(box), roomHeight, topDeficit);
         adjusted += 1;
     }
     return adjusted;
 }
 
+// Growing a row reveals a reading cropped at the BOTTOM, but a reading pinned
+// against (or above) the row's TOP edge stays shaved no matter how tall the
+// row gets: min-height grows downward while the line stays top-anchored (a
+// chip whose label line-height equals the chip height puts the annotation
+// flush with the overflow-hidden edge). The missing clearance becomes
+// padding-top, which pushes the text down into the freshly grown room.
+const RUBY_ROOM_TOP_CLEARANCE_PX = 1;
+const RUBY_ROOM_TOP_PAD_MAX_PX = 24;
+
+function rubyTopClearanceDeficit(box: HTMLElement): number {
+    const raw = rubyTopOverflowRaw(box);
+    // A reading genuinely above the box top always needs the push-down; a
+    // merely flush reading only counts on single-line rows (rubyTouchesBoxTop)
+    // where the flush edge is the clip edge.
+    if (raw <= 0 && !rubyTouchesBoxTop(box)) return 0;
+    if (raw <= -RUBY_ROOM_TOP_CLEARANCE_PX) return 0;
+    const applied = previousRubyRoomTopPad(box);
+    const deficit = Math.ceil(raw + RUBY_ROOM_TOP_CLEARANCE_PX);
+    return applied + deficit > RUBY_ROOM_TOP_PAD_MAX_PX ? 0 : deficit;
+}
+
+function previousRubyRoomTopPad(box: HTMLElement): number {
+    const value = Number(box.dataset.yomuRubyRoomPadTop ?? '');
+    return Number.isFinite(value) ? value : 0;
+}
+
 function rubyCropsBox(box: HTMLElement): boolean {
-    return rubyBottomOverflow(box) > 1 || rubyTopOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
+    return rubyBottomOverflow(box) > 1 || rubyTouchesBoxTop(box) || rubyMirrorBlockOverflow(box) > 1;
+}
+
+// A reading pinned within a hair of the box's top edge is already shaved by
+// rounding/anti-aliasing even when it does not measurably overflow — treat
+// "flush with the top" as cropped so the row gains clearance. Only single-line
+// rows (chips, tabs, action labels) qualify: a multi-line clamp box crops at
+// its BOTTOM, and its first-line annotation legitimately starts at the top.
+function rubyTouchesBoxTop(box: HTMLElement): boolean {
+    const style = safeComputedStyle(box);
+    const lineHeight = cssPixels(style.lineHeight) || (cssPixels(style.fontSize) || 16) * 1.4;
+    if (!box.clientHeight || box.clientHeight > lineHeight * 1.8) return false;
+    return rubyTopOverflowRaw(box) > -RUBY_ROOM_TOP_CLEARANCE_PX;
 }
 
 function genericRubyNeedsRoom(box: HTMLElement): boolean {
@@ -4412,8 +4571,13 @@ function isYouTubeRubyRoomTextBox(box: HTMLElement): boolean {
 }
 
 
-function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration, roomHeight: number): void {
+function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration, roomHeight: number, topDeficit = 0): void {
     const contentHeight = `${roomHeight}px`;
+    if (topDeficit > 0) {
+        const applied = previousRubyRoomTopPad(box) + topDeficit;
+        box.dataset.yomuRubyRoomPadTop = String(applied);
+        box.style.setProperty('padding-top', `${(cssPixels(style.paddingTop) || 0) + topDeficit}px`, 'important');
+    }
     box.style.setProperty('min-height', contentHeight, 'important');
     if (hasLineClamp(style)) {
         // -webkit-line-clamp itself limits LINES; the crop comes from a height
@@ -4493,7 +4657,7 @@ function isShortRubyRowDisplay(style: CSSStyleDeclaration): boolean {
 function boxActuallyCrops(box: HTMLElement): boolean {
     return box.scrollHeight > box.clientHeight + 1
         || rubyBottomOverflow(box) > 1
-        || rubyTopOverflow(box) > 1
+        || rubyTouchesBoxTop(box)
         || rubyMirrorBlockOverflow(box) > 1;
 }
 
@@ -4523,8 +4687,15 @@ function rubyMirrorBlockOverflow(box: HTMLElement): number {
 // box TOP while scrollHeight and bottom overflow both read clean. Measure the
 // rt annotations directly.
 function rubyTopOverflow(box: HTMLElement): number {
+    return Math.max(0, rubyTopOverflowRaw(box));
+}
+
+// Raw signed clearance: positive = the reading pokes above the box top,
+// negative = how much breathing room it has. -Infinity when the box has no
+// visible annotated word at all.
+function rubyTopOverflowRaw(box: HTMLElement): number {
     const boxRect = box.getBoundingClientRect();
-    let overflow = 0;
+    let overflow = Number.NEGATIVE_INFINITY;
     for (const ruby of box.querySelectorAll<HTMLElement>('ruby')) {
         const base = ruby.querySelector<HTMLElement>('.jpdb-reader-ruby-base') ?? ruby;
         if (!baseVisibleInBox(base.getBoundingClientRect(), boxRect)) continue;
@@ -4532,7 +4703,7 @@ function rubyTopOverflow(box: HTMLElement): number {
         if (!rt) continue;
         overflow = Math.max(overflow, boxRect.top - rt.getBoundingClientRect().top);
     }
-    return Math.max(0, overflow);
+    return overflow;
 }
 
 function rubyBottomOverflow(box: HTMLElement): number {

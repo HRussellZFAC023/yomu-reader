@@ -11,7 +11,7 @@ import {
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { Logger } from '../app/logger';
-import { localPitchPatternFromMeta } from './pitch-meta';
+import { composeCompoundPitchPatternFromMeta, localPitchPatternFromMeta } from './pitch-meta';
 import { stablePositiveHashId } from '../core/stable-hash';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
@@ -536,6 +536,12 @@ export class ReaderParser {
             if (pattern || !reading || reading === card.spelling.trim()) return pattern;
             return lookupTermMeta.call(this.dependencies.dictionaries, reading, 12, settings.dictionaryPreferences)
                 .then(metaEntries => localPitchPatternFromMeta(card.reading, metaEntries));
+        }).then(pattern => {
+            // Compounds (登録者数) have no whole-word bank row — compose the
+            // pattern from constituent rows instead of leaving it grey.
+            if (pattern) return pattern;
+            return composeCompoundPitchPatternFromMeta(card.spelling, card.reading, expression =>
+                lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences));
         }).catch(error => {
             log.warn('Local pitch parse failed', { term: card.spelling }, error);
             return '';
