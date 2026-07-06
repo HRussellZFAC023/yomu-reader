@@ -3647,7 +3647,7 @@ function hasDifficultKanji(surface: string): boolean {
     return false;
 }
 
-function readerWordClassName(state: string, token: JPDBToken, settings: Pick<ReaderSettings, 'showPitchAccent'>): string {
+export function readerWordClassName(state: string, token: JPDBToken, settings: Pick<ReaderSettings, 'showPitchAccent'>): string {
     const classes = ['jpdb-reader-word'];
     if (isParticleCard(token.card)) {
         classes.push('jpdb-reader-particle');

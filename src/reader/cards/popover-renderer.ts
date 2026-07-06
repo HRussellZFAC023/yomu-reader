@@ -206,13 +206,11 @@ export class CardPopoverRenderer {
         const reading = component.reading.trim();
         const pitchClass = expressionComponentPitchClass(component, componentPitches);
         const term = renderExpressionComponentTerm(component, pitchClass);
-        const readingText = reading && reading !== component.text ? `<small>${escapeHtml(reading)}</small>` : '';
         return `<li class="jpdb-reader-jpdb-used-in-row jpdb-reader-expression-component-row">
             <div class="jpdb-reader-jpdb-used-in-main jpdb-reader-expression-component-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml(component.text)}" data-dictionary-reading="${escapeHtml(reading)}" data-external="false">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" role="button" tabindex="0" data-dictionary-lookup="${escapeHtml(component.text)}" data-dictionary-reading="${escapeHtml(reading)}" data-external="false">
                     ${term}
                 </a>
-                ${readingText}
             </div>
         </li>`;
     }
@@ -711,7 +709,10 @@ function uniqueExpressionComponents(components: ExpressionComponentLookup[]): Ex
 }
 
 function expressionComponentPitchClass(component: ExpressionComponentLookup, componentPitches: ExpressionComponentPitch[]): string {
-    const match = componentPitches.find(pitch => pitch.text === component.text && pitch.reading === component.reading);
+    // Exact text+reading first; fall back to text-only so a kana-variant
+    // reading mismatch does not strip the component's pitch colouring.
+    const match = componentPitches.find(pitch => pitch.text === component.text && pitch.reading === component.reading)
+        ?? componentPitches.find(pitch => pitch.text === component.text);
     return match ? getPitchClass([match.pitch], match.reading) : '';
 }
 

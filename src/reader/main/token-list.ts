@@ -1,4 +1,6 @@
-import { escapeHtml } from '../dom/index';
+import { escapeHtml, readerWordClassName, renderRuby, shouldRenderRuby } from '../dom/index';
+import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
+import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { uiText } from '../app/i18n';
 import { renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
 import { renderSelectionLookupPills } from '../sources/word-pills';
@@ -33,9 +35,7 @@ export function renderTokenListHtml(
                 ${renderTokenListNavigation(previousNavigationEntry, language)}
                 <div class="jpdb-reader-pos">${escapeHtml(title)}</div>
                 ${renderSelectionLookupPills(selected, settings)}
-                <div class="jpdb-reader-meanings">
-                    ${tokens.map(token => renderTokenListButton(token)).join('')}
-                </div>
+                ${renderTokenSentence(tokens, selected, settings)}
                 ${source === 'selection' ? renderTokenListTranslation(tokens, settings) : ''}
             </div>
         `;
@@ -86,18 +86,87 @@ function renderTokenListNavigation(previousNavigationEntry: PopupNavigationEntry
     });
 }
 
-function renderTokenListButton(token: JPDBToken): string {
-    return `
-            <button class="jpdb-reader-btn" data-token-choice="true" data-vid="${token.card.vid}" data-sid="${token.card.sid}">
-                ${escapeHtml(token.card.spelling)} ${renderTokenListReading(token)}
-            </button>
-        `;
+type TokenSentenceSegment =
+    | { kind: 'text'; text: string }
+    | { kind: 'token'; token: JPDBToken; surface: string };
+
+// The selection/search popover shows the parsed text as a flowing sentence:
+// every token stays inline (annotated like a page word) and the text between
+// tokens — numbers, latin, punctuation — is preserved as plain gap text.
+function renderTokenSentence(tokens: JPDBToken[], selected: string, settings: ReaderSettings): string {
+    const { segments, unmatched } = tokenSentenceSegments(tokens, selected);
+    const flow = segments.map(segment => segment.kind === 'token'
+        ? renderTokenSentenceWord(segment.token, segment.surface, settings)
+        : `<span class="jpdb-reader-token-sentence-gap">${escapeHtml(segment.text)}</span>`).join('');
+    const extras = unmatched.map(token => renderTokenSentenceWord(token, token.card.spelling, settings)).join(' ');
+    return `<div class="jpdb-reader-meanings jpdb-reader-token-sentence" lang="ja">${flow}${extras ? `<span class="jpdb-reader-token-sentence-extras"> ${extras}</span>` : ''}</div>`;
 }
 
-function renderTokenListReading(token: JPDBToken): string {
-    return token.card.reading !== token.card.spelling
-        ? `<span class="jpdb-reader-reading">${escapeHtml(token.card.reading)}</span>`
-        : '';
+// Token offsets are not guaranteed to index into `selected` (they can be
+// relative to the surrounding sentence the parser saw), so each token is
+// re-anchored: exact offset slice first, then a text search for its spelling
+// or reading, then a loose offset check for conjugated surfaces. Tokens that
+// cannot be anchored are appended after the sentence instead of being dropped.
+function tokenSentenceSegments(tokens: JPDBToken[], selected: string): { segments: TokenSentenceSegment[]; unmatched: JPDBToken[] } {
+    const segments: TokenSentenceSegment[] = [];
+    const unmatched: JPDBToken[] = [];
+    let cursor = 0;
+    for (const token of tokens) {
+        const match = matchTokenSurface(selected, cursor, token);
+        if (!match) {
+            unmatched.push(token);
+            continue;
+        }
+        if (match.start > cursor) segments.push({ kind: 'text', text: selected.slice(cursor, match.start) });
+        segments.push({ kind: 'token', token, surface: selected.slice(match.start, match.end) });
+        cursor = match.end;
+    }
+    if (cursor < selected.length) segments.push({ kind: 'text', text: selected.slice(cursor) });
+    return { segments, unmatched };
+}
+
+function matchTokenSurface(selected: string, cursor: number, token: JPDBToken): { start: number; end: number } | null {
+    if (hasPlausibleTokenOffsets(selected, cursor, token)) {
+        const slice = selected.slice(token.start, token.end);
+        if (slice === token.card.spelling || slice === token.card.reading) return { start: token.start, end: token.end };
+    }
+    for (const needle of [token.card.spelling, token.card.reading]) {
+        const trimmed = needle?.trim();
+        if (!trimmed) continue;
+        const index = selected.indexOf(trimmed, cursor);
+        if (index >= 0) return { start: index, end: index + trimmed.length };
+    }
+    if (hasPlausibleTokenOffsets(selected, cursor, token) && sliceSharesTokenPrefix(selected, token)) {
+        return { start: token.start, end: token.end };
+    }
+    return null;
+}
+
+function hasPlausibleTokenOffsets(selected: string, cursor: number, token: JPDBToken): boolean {
+    return token.start >= cursor && token.end > token.start && token.end <= selected.length;
+}
+
+// Conjugated surfaces (食べた for 食べる) never equal the dictionary form, so
+// accept the token's own offsets when the slice shares its leading character.
+function sliceSharesTokenPrefix(selected: string, token: JPDBToken): boolean {
+    const first = selected.slice(token.start, token.end)[0];
+    return Boolean(first && (token.card.spelling.startsWith(first) || token.card.reading.startsWith(first)));
+}
+
+function renderTokenSentenceWord(token: JPDBToken, surface: string, settings: ReaderSettings): string {
+    const reading = token.card.reading?.trim() ?? '';
+    const pitchClass = token.pitchClass || getPitchClass(token.card.pitchAccent ?? [], reading || surface);
+    const chipToken: JPDBToken = { ...token, pitchClass, start: 0, end: surface.length, length: surface.length, rubies: [] };
+    const state = primaryCardState(normalizeCardStates(token.card.cardState));
+    const withRuby = shouldRenderRuby(surface, chipToken, settings);
+    const classes = [
+        readerWordClassName(state, chipToken, settings),
+        'jpdb-reader-token-sentence-word',
+        withRuby ? 'jpdb-reader-has-furi' : '',
+    ].filter(Boolean).join(' ');
+    const content = withRuby ? renderRuby(surface, chipToken) : escapeHtml(surface);
+    const readingAttr = reading ? ` data-reading="${escapeHtml(reading)}"` : '';
+    return `<button type="button" class="${classes}" data-token-choice="true" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-surface="${escapeHtml(surface)}" data-expression="${escapeHtml(token.card.spelling)}"${readingAttr} data-pitch-class="${escapeHtml(pitchClass || 'unknown')}">${content}</button>`;
 }
 
 function renderTokenListTranslation(tokens: JPDBToken[], settings: ReaderSettings): string {

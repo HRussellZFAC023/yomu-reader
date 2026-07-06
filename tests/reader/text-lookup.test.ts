@@ -75,4 +75,5 @@ describe('text lookup display context', () => {
             document.body.replaceChildren();
         }
     });
+
 });

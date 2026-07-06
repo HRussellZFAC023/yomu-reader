@@ -6134,7 +6134,20 @@ export class ReaderApp {
         installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
         this.installReaderControlPointerActivation(popover);
         popover.addEventListener('click', event => this.handleCardPopoverClick(event, card, sentence, anchor, trigger));
+        popover.addEventListener('keydown', event => this.handleCardPopoverLookupKeydown(event));
         popover.addEventListener('change', event => this.handlePopoverReviewTargetChange(event, popover));
+    }
+
+    // Dictionary-lookup chips (Composed of, related words) render as anchors;
+    // Enter activates those natively but Space does not, so both keys are
+    // routed through the same click path for keyboard users.
+    private handleCardPopoverLookupKeydown(event: KeyboardEvent): void {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        const link = dictionaryLookupLink(event.target);
+        if (!link) return;
+        event.preventDefault();
+        event.stopPropagation();
+        link.click();
     }
 
     private handlePopoverReviewTargetChange(event: Event, popover: HTMLElement): void {

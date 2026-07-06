@@ -1511,6 +1511,54 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
   line-height: 1.25;
 }
 
+/* Token-list sentence strip: parsed words flow inline as one wrapping
+   sentence; gap text (numbers, latin, punctuation) stays in place. */
+.jpdb-reader-meanings.jpdb-reader-token-sentence {
+  display: block;
+  font-size: 16px;
+  line-height: 2.2;
+  overflow-wrap: anywhere;
+}
+.jpdb-reader-token-sentence-gap {
+  white-space: pre-wrap;
+  color: var(--jpdb-reader-text);
+}
+.jpdb-reader-popover button.jpdb-reader-token-sentence-word,
+button.jpdb-reader-token-sentence-word {
+  display: inline;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--jpdb-reader-text);
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+.jpdb-reader-token-sentence-word:hover,
+.jpdb-reader-token-sentence-word:focus-visible {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: 4px;
+}
+
+/* Composed of: breathing room above the header, components as a wrapping
+   row of ruby chips. */
+.jpdb-reader-expression-components {
+  margin-top: 12px;
+}
+.jpdb-reader-jpdb-used-in.jpdb-reader-expression-component-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.jpdb-reader-jpdb-used-in-row.jpdb-reader-expression-component-row {
+  display: inline-flex;
+}
+.jpdb-reader-expression-component-term {
+  font-size: 16px;
+}
+
 .jpdb-reader-jpdb-compound-reading,
 .jpdb-reader-jpdb-compounds small,
 .jpdb-reader-jpdb-used-in small,

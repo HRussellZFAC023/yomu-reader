@@ -17,6 +17,8 @@ import type { JPDBCard, JPDBToken } from '../app/types';
 import { renderedWordLookupText } from './rendered-word-lookup';
 
 type TextLookupTrigger = 'modal' | 'hover';
+
+const RENDERED_SELECTION_MAX_LENGTH = 13;
 type TextLookupCardOptions = Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'focusOnMount' | 'previousNavigationEntry' | 'insideReaderPopup' | 'userGesture' | 'hoverLookupGeneration' | 'stackOverSettings'>;
 
 export interface TextLookupDisplayState {
@@ -101,7 +103,9 @@ export function lookupRenderedSelection(selected: string, callbacks: RenderedSel
     const context = renderedSelectionDisplayContext(words, selected, callbacks.displayState);
     if (!context) return false;
     const sentence = renderedSelectionSentence(words, getSelectionSentence() || context.selected, callbacks);
-    if (context.selected[13]) return false;
+    // Long selections span fragmented page spans (読 + んで); reparse those
+    // through the parser instead of trusting the rendered word list.
+    if (context.selected.length > RENDERED_SELECTION_MAX_LENGTH) return false;
     showRenderedSelectionTokens(tokens, context, sentence, callbacks);
     return true;
 }
