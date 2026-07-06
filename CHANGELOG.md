@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.103] - 2026-07-06
+
+### Fixed
+
+- Text on framework-driven articles that live-update (such as NHK news) no longer turns into an unreadable double image. When such a site re-rendered a paragraph, its fresh copy of the text painted on top of Yomu's already-annotated words, leaving two overlapping copies. Yomu now detects that duplicate re-insert, drops its stale annotations for that paragraph, and switches it to the non-destructive overlay so later re-renders stay clean. Verified on both Chromium and WebKit.
+
 ## [1.6.102] - 2026-07-06
 
 ### Fixed

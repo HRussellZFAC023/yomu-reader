@@ -1371,6 +1371,27 @@ function targetLeavesVisibleBlockDescendantTextUncovered(target: FragmentTextTar
     return Boolean(walker.nextNode());
 }
 
+// Plain text nodes WE interspersed between word-spans during destructive paint.
+// Tracked so a duplicate-insert repair can drop exactly our paint remnants and
+// never a page-owned sibling (adjacency alone is not a reliable ownership signal).
+const destructivePaintTextNodes = new WeakSet<Text>();
+
+function registerDestructivePaintTextNodes(root: Node): void {
+    // A bare replacement text node (a plain fragment gap) has no subtree to walk.
+    if (root.nodeType === Node.TEXT_NODE) {
+        destructivePaintTextNodes.add(root as Text);
+        return;
+    }
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        // Text inside our word-spans is removed by selector; only the plain text
+        // we placed between them needs explicit ownership tracking.
+        if (!(node.parentElement && node.parentElement.closest(READER_WORD_SELECTOR))) {
+            destructivePaintTextNodes.add(node as Text);
+        }
+    }
+}
+
 export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
     if (!tokens.length || !target.node.parentElement) return;
 
@@ -1378,7 +1399,9 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
     const safeTokens = nonOverlappingTokens(tokens, text.length);
     if (!safeTokens.length) return;
 
-    target.node.replaceWith(renderTokenizedTextFragment(target, safeTokens, settings));
+    const fragment = renderTokenizedTextFragment(target, safeTokens, settings);
+    registerDestructivePaintTextNodes(fragment);
+    target.node.replaceWith(fragment);
     markRenderedScanTarget(target);
 }
 
@@ -2882,11 +2905,22 @@ export function mutationLooksLikeReaderRenderRejection(mutation: MutationRecord)
 export function readerRenderRejectionRescanDelay(mutation: MutationRecord): number | null {
     const rejection = classifyReaderRenderRejection(mutation);
     if (!rejection) return null;
-    if (rejection.repair) unwrapReaderWords(rejection.match.element);
+    if (rejection.duplicateInsert) {
+        // A re-rendering framework re-inserted its OWN copy of the host text
+        // alongside our still-intact word-spans (it lost the node our destructive
+        // paint replaced), producing the unreadable double image. Drop only our
+        // tracked destructive paint (never page-owned nodes) and promote the host
+        // to the non-destructive mirror so every later re-render overlays cleanly
+        // instead of re-fragmenting the framework's text.
+        replaceStaleReaderPaintWithAddedNodes(rejection.match.element);
+        loopingScanHosts.add(rejection.match.element);
+    } else if (rejection.repair) {
+        unwrapReaderWords(rejection.match.element);
+    }
     return nextRenderedScanHostRescanDelay(rejection.match.host);
 }
 
-function classifyReaderRenderRejection(mutation: MutationRecord): { match: { element: HTMLElement; host: RenderedScanHost }; repair: boolean } | null {
+function classifyReaderRenderRejection(mutation: MutationRecord): { match: { element: HTMLElement; host: RenderedScanHost }; repair: boolean; duplicateInsert?: boolean } | null {
     if (mutation.type !== 'childList') return null;
     const element = mutationTargetElement(mutation.target);
     if (!element) return null;
@@ -2898,7 +2932,55 @@ function classifyReaderRenderRejection(mutation: MutationRecord): { match: { ele
     if (mutationTouchesReaderWordContent(mutation) && renderedHostContainsDamagedReaderWord(match.element)) {
         return { match, repair: true };
     }
+    // A framework re-render re-inserted a plain copy of the host surface ALONGSIDE
+    // our intact word-spans (nothing removed, nothing damaged) — the NHK double
+    // image. Only framework-managed hosts, and only when the added text really
+    // duplicates the stored surface (not new distinct content such as a live
+    // ticker appending a fresh line).
+    if (elementIsFrameworkManaged(match.element)
+        && addedNodesDuplicateHostSurface(mutation.addedNodes, match.host.text)
+        && Boolean(match.element.querySelector(READER_WORD_SELECTOR))) {
+        return { match, repair: false, duplicateInsert: true };
+    }
     return null;
+}
+
+function addedNodesDuplicateHostSurface(addedNodes: NodeList | Node[], previousText: string): boolean {
+    if (!previousText || nodesContainReaderWord(addedNodes)) return false;
+    // The stored surface is capped to RENDERED_SCAN_HOST_MAX_TEXT. When it sits
+    // exactly at the cap it may be TRUNCATED, so `includes` could match a partial
+    // re-insert of the FIRST 1000 chars of a longer surface. Only trust the check
+    // for surfaces that fit within the cap (the overwhelmingly common single
+    // paragraph); truncated giants fall through to the safe debounced rescan.
+    if (previousText.length >= RENDERED_SCAN_HOST_MAX_TEXT) return false;
+    const addedText = normalizedRenderedHostText(Array.from(addedNodes, node => node.textContent ?? '').join(''));
+    // A genuine duplicate re-insert reproduces the WHOLE painted surface; a tiny
+    // split fragment (の, する) that merely appears within it must NOT qualify, or
+    // a legitimate framework reconciliation would trip the cleanup.
+    return addedText.length >= previousText.length && addedText.includes(previousText);
+}
+
+// Drop only what our destructive paint added — the word-spans and the plain text
+// nodes WE created and tracked in destructivePaintTextNodes. Page-owned siblings
+// (which we never created, so are not tracked) and the framework's just-added
+// nodes are left untouched, so the host keeps a single clean copy for the
+// promoted mirror to overlay. The framework's re-render then reconciles freely.
+function replaceStaleReaderPaintWithAddedNodes(host: HTMLElement): void {
+    host.querySelectorAll<HTMLElement>(READER_WORD_SELECTOR).forEach(word => word.remove());
+    // Registration walks the whole rendered fragment, so our tracked plain-text
+    // nodes can sit inside wrappers (.jpdb-reader-number-bind, the flex/grid run
+    // span) — not only as direct children. Walk the whole subtree so none are left
+    // behind as a stale duplicate remnant.
+    const staleTextNodes: Text[] = [];
+    const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (destructivePaintTextNodes.has(node as Text)) staleTextNodes.push(node as Text);
+    }
+    staleTextNodes.forEach(node => node.remove());
+    // Deliberately NO host.normalize(): merging adjacent text nodes would fuse the
+    // framework's OWN just-inserted node with a page-owned neighbour, changing node
+    // identity and breaking React/Vue reconciliation. The promoted mirror reads the
+    // host surface directly, so the nodes never need to be coalesced here.
 }
 
 function nextRenderedScanHostRescanDelay(host: RenderedScanHost): number {
@@ -3474,6 +3556,11 @@ function isInsideOwnedReaderRoot(element: Element): boolean {
 
 function replaceTextNodeRange(node: Text, start: number, end: number, replacement: Node): void {
     if (!node.parentNode || end <= start || start < 0 || end > node.data.length) return;
+    // Track the plain gap text nodes this fragment paint inserts (word-span text is
+    // skipped by the closest-word check), so the framework-duplicate cleanup can drop
+    // them by ownership. Registration happens BEFORE insertion, while a replacement
+    // DocumentFragment still holds its children.
+    registerDestructivePaintTextNodes(replacement);
     const after = node.splitText(end);
     const selected = node.splitText(start);
     selected.replaceWith(replacement);

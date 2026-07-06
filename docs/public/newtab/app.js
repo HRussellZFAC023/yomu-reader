@@ -8042,6 +8042,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const PROSE_TAGS = ",P,LI,DD,DT,TD,TH,BLOCKQUOTE,FIGCAPTION,";
   const READER_RENDERED_TEXT_BLOCK_TAGS = `${PROSE_TAGS}H1,H2,H3,H4,H5,H6,`;
   const BLOCK_TAGS = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
+  const READER_WORD_SELECTOR$1 = ".jpdb-reader-word";
   const READER_TEXT_MIRROR_SELECTOR = ".jpdb-reader-text-mirror";
   const READER_OWNED_TEXT_SELECTOR = ".jpdb-reader-word,.jpdb-reader-text-mirror,[data-jpdb-reader-root]";
   const READER_CONTROL_TEXT_MIRROR_SELECTOR = ".jpdb-reader-control-text-mirror";
@@ -8596,12 +8597,27 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     return Boolean(walker.nextNode());
   }
+  const destructivePaintTextNodes = /* @__PURE__ */ new WeakSet();
+  function registerDestructivePaintTextNodes(root) {
+    if (root.nodeType === Node.TEXT_NODE) {
+      destructivePaintTextNodes.add(root);
+      return;
+    }
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!(node.parentElement && node.parentElement.closest(READER_WORD_SELECTOR$1))) {
+        destructivePaintTextNodes.add(node);
+      }
+    }
+  }
   function applyTokensToTextNode(target, tokens, settings) {
     if (!tokens.length || !target.node.parentElement) return;
     const text2 = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
     if (!safeTokens.length) return;
-    target.node.replaceWith(renderTokenizedTextFragment(target, safeTokens, settings));
+    const fragment2 = renderTokenizedTextFragment(target, safeTokens, settings);
+    registerDestructivePaintTextNodes(fragment2);
+    target.node.replaceWith(fragment2);
     markRenderedScanTarget(target);
   }
   function renderTokenizedTextFragment(target, tokens, settings) {
@@ -10016,6 +10032,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function replaceTextNodeRange(node, start, end, replacement) {
     if (!node.parentNode || end <= start || start < 0 || end > node.data.length) return;
+    registerDestructivePaintTextNodes(replacement);
     const after = node.splitText(end);
     const selected = node.splitText(start);
     selected.replaceWith(replacement);
@@ -39811,7 +39828,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.102".trim() ? "1.6.102".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.103".trim() ? "1.6.103".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
