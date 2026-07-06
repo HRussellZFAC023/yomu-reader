@@ -775,7 +775,20 @@ function auditProofTarget(element, vocabulary) {
     if (words.some(word => word.source !== 'jpdb')) failures.push('rendered word without JPDB source metadata');
     if (words.some(word => !CONCRETE_PITCH_CLASSES.has(word.pitchClass))) failures.push('rendered word without concrete pitch class');
     if (uncoveredKanji.length) failures.push('uncovered kanji: ' + uncoveredKanji.join(''));
-    if (clipped && !rubySuppressed) failures.push('target still has scroll clipping after ruby room sweep');
+    if (clipped && !rubySuppressed) {
+        // Environment-sensitive (font metrics decide wrap); carry the numbers
+        // so a CI-only failure is diagnosable from the log alone.
+        failures.push('target still has scroll clipping after ruby room sweep '
+            + JSON.stringify({
+                scrollHeight: element.scrollHeight,
+                clientHeight: element.clientHeight,
+                scrollWidth: element.scrollWidth,
+                clientWidth: element.clientWidth,
+                rubyRoomHeight,
+                styleHeight: element.style.height,
+                styleMinHeight: element.style.minHeight,
+            }));
+    }
     if (rubyOutOfBounds) failures.push(rubyOutOfBounds + ' ruby annotations sit outside target bounds');
     if (expectedRubyRoom && !rubySuppressed && element.dataset.yomuRubyRoom !== 'true') failures.push('expected clipped title to receive ruby room');
     if (expectedRubyRoom && !rubySuppressed && rubyRoomHeight <= 38) failures.push('expected clipped title ruby room height to grow beyond the original title height');

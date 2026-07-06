@@ -60,6 +60,29 @@ writeFileSync(entryPath, `
     }
 
     Object.assign(window, {
+        runConcealProbe() {
+            removeNonDestructiveScanMirrors(document);
+            const host = document.querySelector<HTMLElement>('#conceal-host')!;
+            host.textContent = TEXT;
+            host.insertAdjacentHTML('beforeend', '<svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M3 2l5 4-5 4"/></svg>');
+            (host as unknown as Record<string, unknown>).__reactFiber$probe = {};
+            (host as unknown as Record<string, unknown>).__reactProps$probe = {};
+            paintHost(host);
+            const style = getComputedStyle(host);
+            const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
+            const word = mirror?.querySelector<HTMLElement>('.jpdb-reader-word');
+            const svg = host.querySelector('svg');
+            return {
+                mirror: Boolean(mirror),
+                mirrorReading: mirror?.querySelector('rt')?.textContent ?? '',
+                hostVisibility: style.visibility,
+                hostColor: style.color,
+                hostBackground: style.backgroundColor,
+                hostBorderWidth: style.borderTopWidth,
+                wordColor: word ? getComputedStyle(word).color : '',
+                svgColor: svg ? getComputedStyle(svg).color : '',
+            };
+        },
         runConstrainedGateProbe(forceVerdict: boolean | null) {
             setRubyDistortsConstrainedRowsForTest(null);
             removeNonDestructiveScanMirrors(document);
@@ -94,6 +117,7 @@ body { font: 16px/1.4 sans-serif; width: 240px; }
 <div id="dark-bar" class="clip" data-fixture="dark"></div>
 <div id="nav-item" class="clip" data-fixture="nav-svg"></div>
 <div id="before-row" class="clip" data-fixture="before"></div>
+<div data-message-author-role="assistant"><div id="conceal-host" style="background: rgb(31, 41, 55); border: 1px solid rgb(99, 102, 241); color: rgb(229, 231, 235); padding: 4px 8px;"></div></div>
 </body></html>`;
 
 function fail(message, details) {
@@ -131,6 +155,17 @@ async function runEngine(name, browserType) {
             if (healthy[id].mirror || healthy[id].hostHidden) fail(`${name}: healthy engine mirrored ${id}`, healthy[id]);
         }
         if (!healthy['bare-title'].inPlaceRt) fail(`${name}: healthy engine lost in-place ruby on the bare title`, healthy['bare-title']);
+
+        // Styled framework host: text concealed, box paint intact, icon and
+        // mirror text keep their real colours.
+        const conceal = await page.evaluate(() => window.runConcealProbe());
+        if (!conceal.mirror || conceal.mirrorReading !== 'にほんご') fail(`${name}: styled framework host was not mirrored with a reading`, conceal);
+        if (conceal.hostVisibility === 'hidden') fail(`${name}: styled framework host was visibility-hidden (box paint erased)`, conceal);
+        if (!/rgba\(0, 0, 0, 0\)|transparent/.test(conceal.hostColor)) fail(`${name}: styled framework host text not concealed`, conceal);
+        if (conceal.hostBackground !== 'rgb(31, 41, 55)') fail(`${name}: styled framework host lost its background`, conceal);
+        if (conceal.hostBorderWidth === '0px') fail(`${name}: styled framework host lost its border`, conceal);
+        if (/rgba\(0, 0, 0, 0\)|transparent/.test(conceal.wordColor) || !conceal.wordColor) fail(`${name}: mirror word text is transparent`, conceal);
+        if (/rgba\(0, 0, 0, 0\)|transparent/.test(conceal.svgColor) || !conceal.svgColor) fail(`${name}: host icon inherited the transparent text colour`, conceal);
 
         console.log(`${name}: natural verdict = ${JSON.stringify({ bareMirrored: natural['bare-title'].mirror, pillMirrored: natural.pill.mirror })}, forced + healthy rounds ${process.exitCode ? 'FAILED' : 'passed'}`);
     } finally {

@@ -43,6 +43,51 @@ afterEach(() => { removeNonDestructiveScanMirrors(document); document.body.inner
 // framework-owned chat surfaces with the non-destructive mirror, which never mutates
 // the framework's own nodes, so React keeps ownership and re-renders safely.
 describe('framework-managed chat mirror', () => {
+    it('conceals text instead of hiding a STYLED framework host (box paint survives)', () => {
+        document.body.innerHTML = `<div data-message-author-role="assistant"><div id="host" class="markdown" style="background-color: rgb(31, 41, 55); border: 1px solid rgb(99, 102, 241);">${TEXT}<svg aria-hidden="true"></svg></div></div>`;
+        const host = document.getElementById('host')!;
+        markReactOwned(host);
+        paint(host);
+
+        // The mirror carries the text; the host box must keep painting: no
+        // visibility:hidden (which erases background/border/icons) — the
+        // host text goes transparent instead.
+        expect(host.querySelector(':scope > .jpdb-reader-text-mirror')).toBeTruthy();
+        expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
+        expect(host.style.getPropertyValue('color')).toBe('transparent');
+        expect(host.style.getPropertyValue('background-color')).toBe('rgb(31, 41, 55)');
+        // The icon must not inherit the transparent text colour.
+        const svg = host.querySelector('svg')!;
+        expect((svg as unknown as HTMLElement).style.getPropertyValue('color')).not.toBe('transparent');
+        // The mirror pins its own colour so it does not inherit transparent.
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror.style.getPropertyValue('color')).toBeTruthy();
+        expect(mirror.style.getPropertyValue('color')).not.toBe('transparent');
+    });
+
+    it('restores concealed text when the mirror is removed', () => {
+        document.body.innerHTML = `<div data-message-author-role="assistant"><div id="host" class="markdown" style="background-color: rgb(31, 41, 55); color: rgb(255, 255, 255);">${TEXT}</div></div>`;
+        const host = document.getElementById('host')!;
+        markReactOwned(host);
+        paint(host);
+        expect(host.style.getPropertyValue('color')).toBe('transparent');
+
+        removeNonDestructiveScanMirrors(document);
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(host.style.getPropertyValue('color')).toBe('rgb(255, 255, 255)');
+    });
+
+    it('keeps plain visibility hiding for BARE hosts (colour still follows the page)', () => {
+        document.body.innerHTML = `<div data-message-author-role="assistant"><div id="host" class="markdown">${TEXT}</div></div>`;
+        const host = document.getElementById('host')!;
+        markReactOwned(host);
+        paint(host);
+        expect(host.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(host.style.getPropertyValue('color')).not.toBe('transparent');
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror.style.getPropertyValue('color')).toBe('');
+    });
+
     it('mirrors a React-owned chat message instead of replacing its text node', () => {
         document.body.innerHTML = `<div data-message-author-role="assistant"><div id="host" class="markdown">${TEXT}</div></div>`;
         const host = document.getElementById('host')!;

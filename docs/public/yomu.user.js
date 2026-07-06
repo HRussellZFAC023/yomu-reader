@@ -5102,7 +5102,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
     removeTextMirror(host);
     return;
   }
-  hideTextMirrorHost(host, state);
+  hideTextMirrorHost(host, state, mirror);
   host.append(mirror);
   tightenMirrorRubyOverhang(mirror);
   observeTextMirrorHost(host);
@@ -5718,7 +5718,9 @@ function styleTextMirrorHost(host, allowOverflow = true) {
   positioned: computed.position === "static",
   display: host.style.getPropertyValue("display"),
   displayPriority: host.style.getPropertyPriority("display"),
-  displayAdjusted: computed.display === "inline"
+  displayAdjusted: computed.display === "inline",
+  concealTextOnly: !hostIsVisuallyBareForMirror(host),
+  concealedText: []
   };
   textMirrorHosts.set(host, state);
   if (state.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
@@ -5726,12 +5728,79 @@ function styleTextMirrorHost(host, allowOverflow = true) {
   if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
   return state;
 }
-function hideTextMirrorHost(host, state) {
+function hideTextMirrorHost(host, state, mirror) {
   textMirrorHosts.set(host, state);
-  host.style.setProperty("visibility", "hidden", "important");
+  if (state.concealTextOnly) {
+  if (mirror) {
+    const hostColor = safeComputedStyle(host).color;
+    if (hostColor) {
+      mirror.style.setProperty("color", hostColor);
+      mirror.style.setProperty("-webkit-text-fill-color", "currentcolor");
+    }
+  }
+  concealTextMirrorHostText(host, state);
+  } else host.style.setProperty("visibility", "hidden", "important");
   if (state.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
   if (state.positioned) host.style.setProperty("position", "relative", "important");
   if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
+}
+const CONCEALED_TEXT_PROPERTIES = ["color", "-webkit-text-fill-color", "text-decoration-color", "text-shadow"];
+const CONCEALED_TEXT_MAX_ELEMENTS = 60;
+function concealTextMirrorHostText(host, state) {
+  const descendants = Array.from(host.querySelectorAll("*")).filter((element2) => !element2.closest(READER_TEXT_MIRROR_SELECTOR));
+  if (descendants.length > CONCEALED_TEXT_MAX_ELEMENTS) {
+  state.concealTextOnly = false;
+  host.style.setProperty("visibility", "hidden", "important");
+  return;
+  }
+  for (const svg of host.querySelectorAll("svg")) {
+  if (svg.closest(READER_TEXT_MIRROR_SELECTOR) || svg.style.getPropertyValue("color")) continue;
+  const computed = safeComputedStyle(svg).color;
+  if (computed) {
+    state.concealedText.push({ element: svg, values: [{ property: "color", value: "", priority: "" }] });
+    svg.style.setProperty("color", computed, "important");
+  }
+  }
+  for (const element2 of [host, ...descendants]) {
+  if (element2 instanceof SVGElement || element2.closest("svg")) continue;
+  concealElementText(element2, state);
+  }
+}
+function concealElementText(element2, state) {
+  if (state.concealedText.some((record) => record.element === element2 && record.values.length === CONCEALED_TEXT_PROPERTIES.length)) return;
+  const values = CONCEALED_TEXT_PROPERTIES.map((property) => ({
+  property,
+  value: element2.style.getPropertyValue(property),
+  priority: element2.style.getPropertyPriority(property)
+  }));
+  state.concealedText.push({ element: element2, values });
+  for (const property of CONCEALED_TEXT_PROPERTIES) {
+  element2.style.setProperty(property, property === "text-shadow" ? "none" : "transparent", "important");
+  }
+}
+function reassertConcealedTextMirrorHostText(host, state) {
+  if (host.style.getPropertyValue("color") !== "transparent") concealElementText(host, state);
+  for (const record of state.concealedText) {
+  const element2 = record.element;
+  if (!element2.isConnected || element2 instanceof SVGElement) continue;
+  if (element2.style.getPropertyValue("color") !== "transparent") {
+    for (const property of CONCEALED_TEXT_PROPERTIES) {
+      element2.style.setProperty(property, property === "text-shadow" ? "none" : "transparent", "important");
+    }
+  }
+  }
+}
+function restoreConcealedTextMirrorHostText(state) {
+  for (const record of state.concealedText) {
+  for (const { property, value, priority: priority2 } of record.values) {
+    const injected = property === "text-shadow" ? "none" : "transparent";
+    const current = record.element.style.getPropertyValue(property);
+    if (record.values.length === CONCEALED_TEXT_PROPERTIES.length && current && current !== injected) continue;
+    if (value) record.element.style.setProperty(property, value, priority2);
+    else record.element.style.removeProperty(property);
+  }
+  }
+  state.concealedText = [];
 }
 function styleTextMirror(mirror, host, hasRuby = false) {
   const style = safeComputedStyle(host);
@@ -5911,7 +5980,9 @@ function reassertTextMirrorHostStyles(host, state) {
   removeTextMirror(host);
   return;
   }
-  if (host.style.getPropertyValue("visibility") !== "hidden") {
+  if (state.concealTextOnly) {
+  reassertConcealedTextMirrorHostText(host, state);
+  } else if (host.style.getPropertyValue("visibility") !== "hidden") {
   host.style.setProperty("visibility", "hidden", "important");
   }
   if (state.overflowAdjusted && host.style.getPropertyValue("overflow") !== "visible") {
@@ -5925,7 +5996,8 @@ function reassertTextMirrorHostStyles(host, state) {
   }
 }
 function restoreTextMirrorHost(host, state) {
-  restoreStyleProperty(host, "visibility", "hidden", state.visibility, state.visibilityPriority);
+  if (state.concealTextOnly) restoreConcealedTextMirrorHostText(state);
+  else restoreStyleProperty(host, "visibility", "hidden", state.visibility, state.visibilityPriority);
   if (state.overflowAdjusted) restoreStyleProperty(host, "overflow", "visible", state.overflow, state.overflowPriority);
   if (state.positioned) restoreStyleProperty(host, "position", "relative", state.position, state.positionPriority);
   if (state.displayAdjusted) restoreStyleProperty(host, "display", "inline-block", state.display, state.displayPriority);
@@ -7276,7 +7348,15 @@ const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = [
 const RUBY_ROOM_MAX_PX = 400;
 const RUBY_ROOM_SHORT_ROW_MAX_PX = 96;
 const RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX = 120;
+const RUBY_ROOM_SWEEP_MAX_PASSES = 3;
 function makeRoomForRubyInCroppedRows(root = document) {
+  const adjustedBoxes = new Set();
+  for (let pass = 0; pass < RUBY_ROOM_SWEEP_MAX_PASSES; pass += 1) {
+  if (!makeRoomForRubyInCroppedRowsOnce(root, adjustedBoxes)) break;
+  }
+  return adjustedBoxes.size;
+}
+function makeRoomForRubyInCroppedRowsOnce(root, adjustedBoxes) {
   const decisions = new Map();
   const words = root.querySelectorAll(".jpdb-reader-word");
   for (const word of words) {
@@ -7288,7 +7368,7 @@ function makeRoomForRubyInCroppedRows(root = document) {
     for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated)) {
       const roomHeight = curated ? rubyRoomHeight(roomBox) : genericRubyRoomHeight(roomBox);
       if (roomHeight > RUBY_ROOM_MAX_PX) continue;
-      const topDeficit = rubyTopClearanceDeficit(roomBox);
+      const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox);
       if (previousRubyRoomHeight(roomBox) >= roomHeight + topDeficit && !topDeficit) continue;
       if ((decisions.get(roomBox)?.roomHeight ?? 0) >= roomHeight + topDeficit) continue;
       decisions.set(roomBox, { roomHeight: roomHeight + topDeficit, topDeficit });
@@ -7300,6 +7380,7 @@ function makeRoomForRubyInCroppedRows(root = document) {
   box.dataset.yomuRubyRoom = "true";
   box.dataset.yomuRubyRoomHeight = String(roomHeight);
   makeRoomForRubyInBox(box, safeComputedStyle(box), roomHeight, topDeficit);
+  adjustedBoxes.add(box);
   adjusted += 1;
   }
   return adjusted;

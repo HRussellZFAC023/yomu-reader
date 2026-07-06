@@ -273,6 +273,16 @@ interface TextMirrorHostState {
     display: string;
     displayPriority: string;
     displayAdjusted: boolean;
+    /** Styled hosts hide TEXT only (transparent colour) so their own box
+     * paint — background, border, pseudo-elements, icons — keeps rendering
+     * under the mirror; bare hosts use plain visibility:hidden. */
+    concealTextOnly: boolean;
+    concealedText: ConcealedTextRecord[];
+}
+
+interface ConcealedTextRecord {
+    element: HTMLElement;
+    values: Array<{ property: string; value: string; priority: string }>;
 }
 
 interface ControlTextMirrorHostState {
@@ -1576,7 +1586,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
             removeTextMirror(host);
             return;
         }
-        hideTextMirrorHost(host, state);
+        hideTextMirrorHost(host, state, mirror);
         host.append(mirror);
         tightenMirrorRubyOverhang(mirror);
         observeTextMirrorHost(host);
@@ -2391,6 +2401,8 @@ function styleTextMirrorHost(host: HTMLElement, allowOverflow = true): TextMirro
         display: host.style.getPropertyValue('display'),
         displayPriority: host.style.getPropertyPriority('display'),
         displayAdjusted: computed.display === 'inline',
+        concealTextOnly: !hostIsVisuallyBareForMirror(host),
+        concealedText: [],
     };
     textMirrorHosts.set(host, state);
     if (state.overflowAdjusted) host.style.setProperty('overflow', 'visible', 'important');
@@ -2399,12 +2411,99 @@ function styleTextMirrorHost(host: HTMLElement, allowOverflow = true): TextMirro
     return state;
 }
 
-function hideTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
+function hideTextMirrorHost(host: HTMLElement, state: TextMirrorHostState, mirror?: HTMLElement): void {
     textMirrorHosts.set(host, state);
-    host.style.setProperty('visibility', 'hidden', 'important');
+    if (state.concealTextOnly) {
+        // The mirror inherits colour from the host; pin the host's REAL text
+        // colour on it before the host's colour goes transparent. (Bare hosts
+        // skip this so mirrors keep following late host colour changes.)
+        if (mirror) {
+            const hostColor = safeComputedStyle(host).color;
+            if (hostColor) {
+                mirror.style.setProperty('color', hostColor);
+                // currentcolor, NOT the fixed colour: fill-color inherits and
+                // would override the per-word state colour classes inside.
+                mirror.style.setProperty('-webkit-text-fill-color', 'currentcolor');
+            }
+        }
+        concealTextMirrorHostText(host, state);
+    } else host.style.setProperty('visibility', 'hidden', 'important');
     if (state.overflowAdjusted) host.style.setProperty('overflow', 'visible', 'important');
     if (state.positioned) host.style.setProperty('position', 'relative', 'important');
     if (state.displayAdjusted) host.style.setProperty('display', 'inline-block', 'important');
+}
+
+// Text-transparency set: hides glyphs, decorations, and shadows while the
+// element's own box (background, border, pseudo content) keeps painting.
+const CONCEALED_TEXT_PROPERTIES = ['color', '-webkit-text-fill-color', 'text-decoration-color', 'text-shadow'] as const;
+// Hosts bigger than this are not concealed element-by-element — a mirror over
+// a huge subtree falls back to hiding the host outright.
+const CONCEALED_TEXT_MAX_ELEMENTS = 60;
+
+function concealTextMirrorHostText(host: HTMLElement, state: TextMirrorHostState): void {
+    const descendants = Array.from(host.querySelectorAll<HTMLElement>('*'))
+        .filter(element => !element.closest(READER_TEXT_MIRROR_SELECTOR));
+    if (descendants.length > CONCEALED_TEXT_MAX_ELEMENTS) {
+        state.concealTextOnly = false;
+        host.style.setProperty('visibility', 'hidden', 'important');
+        return;
+    }
+    // Icons drawn with fill/stroke: currentColor would inherit the transparent
+    // text colour — pin their computed colour inline first, then skip them.
+    for (const svg of host.querySelectorAll<SVGElement>('svg')) {
+        if (svg.closest(READER_TEXT_MIRROR_SELECTOR) || svg.style.getPropertyValue('color')) continue;
+        const computed = safeComputedStyle(svg as unknown as HTMLElement).color;
+        if (computed) {
+            state.concealedText.push({ element: svg as unknown as HTMLElement, values: [{ property: 'color', value: '', priority: '' }] });
+            svg.style.setProperty('color', computed, 'important');
+        }
+    }
+    for (const element of [host, ...descendants]) {
+        if (element instanceof SVGElement || element.closest('svg')) continue;
+        concealElementText(element, state);
+    }
+}
+
+function concealElementText(element: HTMLElement, state: TextMirrorHostState): void {
+    if (state.concealedText.some(record => record.element === element && record.values.length === CONCEALED_TEXT_PROPERTIES.length)) return;
+    const values = CONCEALED_TEXT_PROPERTIES.map(property => ({
+        property,
+        value: element.style.getPropertyValue(property),
+        priority: element.style.getPropertyPriority(property),
+    }));
+    state.concealedText.push({ element, values });
+    for (const property of CONCEALED_TEXT_PROPERTIES) {
+        element.style.setProperty(property, property === 'text-shadow' ? 'none' : 'transparent', 'important');
+    }
+}
+
+function reassertConcealedTextMirrorHostText(host: HTMLElement, state: TextMirrorHostState): void {
+    if (host.style.getPropertyValue('color') !== 'transparent') concealElementText(host, state);
+    for (const record of state.concealedText) {
+        const element = record.element;
+        if (!element.isConnected || element instanceof SVGElement) continue;
+        if (element.style.getPropertyValue('color') !== 'transparent') {
+            for (const property of CONCEALED_TEXT_PROPERTIES) {
+                element.style.setProperty(property, property === 'text-shadow' ? 'none' : 'transparent', 'important');
+            }
+        }
+    }
+}
+
+function restoreConcealedTextMirrorHostText(state: TextMirrorHostState): void {
+    for (const record of state.concealedText) {
+        for (const { property, value, priority } of record.values) {
+            const injected = property === 'text-shadow' ? 'none' : 'transparent';
+            const current = record.element.style.getPropertyValue(property);
+            // SVG colour pins recorded a snapshot, not an injected sentinel —
+            // restore those unconditionally; text conceals restore only while
+            // they still hold our transparent value.
+            if (record.values.length === CONCEALED_TEXT_PROPERTIES.length && current && current !== injected) continue;
+            if (value) record.element.style.setProperty(property, value, priority);
+            else record.element.style.removeProperty(property);
+        }
+    }
+    state.concealedText = [];
 }
 
 function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false): void {
@@ -2662,7 +2761,9 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
         removeTextMirror(host);
         return;
     }
-    if (host.style.getPropertyValue('visibility') !== 'hidden') {
+    if (state.concealTextOnly) {
+        reassertConcealedTextMirrorHostText(host, state);
+    } else if (host.style.getPropertyValue('visibility') !== 'hidden') {
         host.style.setProperty('visibility', 'hidden', 'important');
     }
     if (state.overflowAdjusted && host.style.getPropertyValue('overflow') !== 'visible') {
@@ -2677,7 +2778,8 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
 }
 
 function restoreTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
-    restoreStyleProperty(host, 'visibility', 'hidden', state.visibility, state.visibilityPriority);
+    if (state.concealTextOnly) restoreConcealedTextMirrorHostText(state);
+    else restoreStyleProperty(host, 'visibility', 'hidden', state.visibility, state.visibilityPriority);
     if (state.overflowAdjusted) restoreStyleProperty(host, 'overflow', 'visible', state.overflow, state.overflowPriority);
     if (state.positioned) restoreStyleProperty(host, 'position', 'relative', state.position, state.positionPriority);
     if (state.displayAdjusted) restoreStyleProperty(host, 'display', 'inline-block', state.display, state.displayPriority);
@@ -4439,7 +4541,22 @@ const RUBY_ROOM_MAX_PX = 400;
 const RUBY_ROOM_SHORT_ROW_MAX_PX = 96;
 const RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX = 120;
 
+// Growing a box can rewrap its content (inline-block ruby words wrap
+// differently at the new height's line breaks — font metrics decide, so CI
+// Linux fonts hit this where local fonts don't), leaving the freshly grown
+// box still cropping. Repeat the sweep until a pass adjusts nothing; each
+// pass only ever grows (previousRubyRoomHeight guard), so it terminates.
+const RUBY_ROOM_SWEEP_MAX_PASSES = 3;
+
 export function makeRoomForRubyInCroppedRows(root: ParentNode = document): number {
+    const adjustedBoxes = new Set<HTMLElement>();
+    for (let pass = 0; pass < RUBY_ROOM_SWEEP_MAX_PASSES; pass += 1) {
+        if (!makeRoomForRubyInCroppedRowsOnce(root, adjustedBoxes)) break;
+    }
+    return adjustedBoxes.size;
+}
+
+function makeRoomForRubyInCroppedRowsOnce(root: ParentNode, adjustedBoxes: Set<HTMLElement>): number {
     // Two phases: measure everything first, then write. Interleaving the
     // per-box writes (min-height/height) with the next word's layout reads
     // forces a synchronous reflow per annotated word — on a YouTube feed
@@ -4460,7 +4577,10 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
             for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated)) {
                 const roomHeight = curated ? rubyRoomHeight(roomBox) : genericRubyRoomHeight(roomBox);
                 if (roomHeight > RUBY_ROOM_MAX_PX) continue;
-                const topDeficit = rubyTopClearanceDeficit(roomBox);
+                // Repeat passes only correct HEIGHT under-growth (content can
+                // rewrap once the box grows); top padding is exact on first
+                // application and must not accumulate across passes.
+                const topDeficit = adjustedBoxes.has(roomBox) ? 0 : rubyTopClearanceDeficit(roomBox);
                 if (previousRubyRoomHeight(roomBox) >= roomHeight + topDeficit && !topDeficit) continue;
                 if ((decisions.get(roomBox)?.roomHeight ?? 0) >= roomHeight + topDeficit) continue;
                 decisions.set(roomBox, { roomHeight: roomHeight + topDeficit, topDeficit });
@@ -4472,6 +4592,7 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
         box.dataset.yomuRubyRoom = 'true';
         box.dataset.yomuRubyRoomHeight = String(roomHeight);
         makeRoomForRubyInBox(box, safeComputedStyle(box), roomHeight, topDeficit);
+        adjustedBoxes.add(box);
         adjusted += 1;
     }
     return adjusted;

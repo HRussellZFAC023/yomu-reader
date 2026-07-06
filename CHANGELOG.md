@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.93] - 2026-07-06
+
+### Fixed
+
+- Styled chat-app and framework-managed rows keep their look when annotated: instead of hiding the whole row (which erased its background, border, and icons) the row's own text is made transparent while the annotated overlay paints on top — the box, its icons, and its decorations keep rendering, and icons drawn with the text colour keep their colour.
+- Titles that wrap differently once they grow for furigana no longer stay clipped: the cropped-row sweep re-measures after applying room and grows again when the new wrap needs it (this depended on the system's fonts, so some devices saw clipped watch titles that others did not).
+
 ## [1.6.92] - 2026-07-06
 
 ### Fixed

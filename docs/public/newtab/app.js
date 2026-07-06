@@ -8735,7 +8735,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         removeTextMirror(host);
         return;
       }
-      hideTextMirrorHost(host, state2);
+      hideTextMirrorHost(host, state2, mirror);
       host.append(mirror);
       tightenMirrorRubyOverhang(mirror);
       observeTextMirrorHost(host);
@@ -9345,7 +9345,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       positioned: computed.position === "static",
       display: host.style.getPropertyValue("display"),
       displayPriority: host.style.getPropertyPriority("display"),
-      displayAdjusted: computed.display === "inline"
+      displayAdjusted: computed.display === "inline",
+      concealTextOnly: !hostIsVisuallyBareForMirror(host),
+      concealedText: []
     };
     textMirrorHosts.set(host, state2);
     if (state2.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
@@ -9353,12 +9355,79 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
     return state2;
   }
-  function hideTextMirrorHost(host, state2) {
+  function hideTextMirrorHost(host, state2, mirror) {
     textMirrorHosts.set(host, state2);
-    host.style.setProperty("visibility", "hidden", "important");
+    if (state2.concealTextOnly) {
+      if (mirror) {
+        const hostColor = safeComputedStyle(host).color;
+        if (hostColor) {
+          mirror.style.setProperty("color", hostColor);
+          mirror.style.setProperty("-webkit-text-fill-color", "currentcolor");
+        }
+      }
+      concealTextMirrorHostText(host, state2);
+    } else host.style.setProperty("visibility", "hidden", "important");
     if (state2.overflowAdjusted) host.style.setProperty("overflow", "visible", "important");
     if (state2.positioned) host.style.setProperty("position", "relative", "important");
     if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
+  }
+  const CONCEALED_TEXT_PROPERTIES = ["color", "-webkit-text-fill-color", "text-decoration-color", "text-shadow"];
+  const CONCEALED_TEXT_MAX_ELEMENTS = 60;
+  function concealTextMirrorHostText(host, state2) {
+    const descendants = Array.from(host.querySelectorAll("*")).filter((element) => !element.closest(READER_TEXT_MIRROR_SELECTOR));
+    if (descendants.length > CONCEALED_TEXT_MAX_ELEMENTS) {
+      state2.concealTextOnly = false;
+      host.style.setProperty("visibility", "hidden", "important");
+      return;
+    }
+    for (const svg of host.querySelectorAll("svg")) {
+      if (svg.closest(READER_TEXT_MIRROR_SELECTOR) || svg.style.getPropertyValue("color")) continue;
+      const computed = safeComputedStyle(svg).color;
+      if (computed) {
+        state2.concealedText.push({ element: svg, values: [{ property: "color", value: "", priority: "" }] });
+        svg.style.setProperty("color", computed, "important");
+      }
+    }
+    for (const element of [host, ...descendants]) {
+      if (element instanceof SVGElement || element.closest("svg")) continue;
+      concealElementText(element, state2);
+    }
+  }
+  function concealElementText(element, state2) {
+    if (state2.concealedText.some((record) => record.element === element && record.values.length === CONCEALED_TEXT_PROPERTIES.length)) return;
+    const values = CONCEALED_TEXT_PROPERTIES.map((property) => ({
+      property,
+      value: element.style.getPropertyValue(property),
+      priority: element.style.getPropertyPriority(property)
+    }));
+    state2.concealedText.push({ element, values });
+    for (const property of CONCEALED_TEXT_PROPERTIES) {
+      element.style.setProperty(property, property === "text-shadow" ? "none" : "transparent", "important");
+    }
+  }
+  function reassertConcealedTextMirrorHostText(host, state2) {
+    if (host.style.getPropertyValue("color") !== "transparent") concealElementText(host, state2);
+    for (const record of state2.concealedText) {
+      const element = record.element;
+      if (!element.isConnected || element instanceof SVGElement) continue;
+      if (element.style.getPropertyValue("color") !== "transparent") {
+        for (const property of CONCEALED_TEXT_PROPERTIES) {
+          element.style.setProperty(property, property === "text-shadow" ? "none" : "transparent", "important");
+        }
+      }
+    }
+  }
+  function restoreConcealedTextMirrorHostText(state2) {
+    for (const record of state2.concealedText) {
+      for (const { property, value, priority } of record.values) {
+        const injected = property === "text-shadow" ? "none" : "transparent";
+        const current = record.element.style.getPropertyValue(property);
+        if (record.values.length === CONCEALED_TEXT_PROPERTIES.length && current && current !== injected) continue;
+        if (value) record.element.style.setProperty(property, value, priority);
+        else record.element.style.removeProperty(property);
+      }
+    }
+    state2.concealedText = [];
   }
   function styleTextMirror(mirror, host, hasRuby = false) {
     const style = safeComputedStyle(host);
@@ -9538,7 +9607,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       removeTextMirror(host);
       return;
     }
-    if (host.style.getPropertyValue("visibility") !== "hidden") {
+    if (state2.concealTextOnly) {
+      reassertConcealedTextMirrorHostText(host, state2);
+    } else if (host.style.getPropertyValue("visibility") !== "hidden") {
       host.style.setProperty("visibility", "hidden", "important");
     }
     if (state2.overflowAdjusted && host.style.getPropertyValue("overflow") !== "visible") {
@@ -9552,7 +9623,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   function restoreTextMirrorHost(host, state2) {
-    restoreStyleProperty$1(host, "visibility", "hidden", state2.visibility, state2.visibilityPriority);
+    if (state2.concealTextOnly) restoreConcealedTextMirrorHostText(state2);
+    else restoreStyleProperty$1(host, "visibility", "hidden", state2.visibility, state2.visibilityPriority);
     if (state2.overflowAdjusted) restoreStyleProperty$1(host, "overflow", "visible", state2.overflow, state2.overflowPriority);
     if (state2.positioned) restoreStyleProperty$1(host, "position", "relative", state2.position, state2.positionPriority);
     if (state2.displayAdjusted) restoreStyleProperty$1(host, "display", "inline-block", state2.display, state2.displayPriority);
