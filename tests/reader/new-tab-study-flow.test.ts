@@ -62,7 +62,7 @@ interface StudyInternals {
     pickListenPosition(position: number): void;
 }
 
-function studyController(cards: JPDBCard[], settings: Partial<ReaderSettings> = {}) {
+function studyController(cards: JPDBCard[], settings: Partial<ReaderSettings> = {}, extraDeps: Record<string, unknown> = {}) {
     const playWordAudio = vi.fn(async () => undefined);
     const mergedSettings: ReaderSettings = {
         ...DEFAULT_SETTINGS,
@@ -91,6 +91,7 @@ function studyController(cards: JPDBCard[], settings: Partial<ReaderSettings> = 
         dismissLookup: vi.fn(),
         toast: vi.fn(),
         playWordAudio,
+        ...extraDeps,
     } as never);
     const internals = controller as unknown as StudyInternals;
     internals.allWords = cards.slice();
@@ -287,6 +288,59 @@ describe('study flow: pitch-selection outcome persistence', () => {
             // Grading did not happen on pick (single grade at final reveal).
             expect(root.querySelector('[data-newtab-action="listen-next"]')).toBeNull();
         } finally {
+            controller.destroy();
+        }
+    });
+});
+
+describe('study flow: composed-of chip drilldown', () => {
+    function kanjiCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
+        return drinkCard({
+            vid: 40,
+            sid: 41,
+            spelling: '飲食',
+            reading: 'いんしょく',
+            meanings: [{ glosses: ['food and drink'], partOfSpeech: ['n'] }],
+            sentence: '飲食を控える。',
+            ...overrides,
+        });
+    }
+
+    it('opens the kanji popover in place — no card swap, no navigation, no render loop', () => {
+        const card = kanjiCard();
+        const showKanjiCard = vi.fn(async (..._args: unknown[]) => undefined);
+        const { controller, internals } = studyController([card], {}, { showKanjiCard });
+        const root = studyRoot();
+        const anyController = controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void };
+        const pushSpy = vi.spyOn(history, 'pushState');
+        try {
+            internals.state.mode = 'word';
+            internals.state.revealAnswer = true;
+            internals.bindRootEvents(root);
+            internals.renderWord(root, card);
+
+            const renderSpy = vi.spyOn(anyController, 'renderWord');
+            const chip = root.querySelector<HTMLElement>('[data-newtab-composed-of] [data-action="kanji"][data-kanji]');
+            expect(chip).not.toBeNull();
+            const kanji = chip!.dataset.kanji;
+
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 5, clientY: 5 });
+            chip!.dispatchEvent(event);
+
+            // The kanji surfaces in the standard anchored popover.
+            expect(showKanjiCard).toHaveBeenCalledTimes(1);
+            expect(showKanjiCard.mock.calls[0][1]).toBe(kanji);
+            // The click is consumed — no default navigation from the button.
+            expect(event.defaultPrevented).toBe(true);
+            // The studied card stays put: no re-pool, no mode swap, no re-render
+            // cascade, no history navigation, page still alive.
+            expect(renderSpy).not.toHaveBeenCalled();
+            expect(internals.state.mode).toBe('word');
+            expect(internals.state.revealAnswer).toBe(true);
+            expect(root.isConnected).toBe(true);
+            expect(pushSpy).not.toHaveBeenCalled();
+        } finally {
+            pushSpy.mockRestore();
             controller.destroy();
         }
     });

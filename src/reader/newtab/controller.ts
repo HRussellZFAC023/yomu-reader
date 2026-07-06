@@ -2235,28 +2235,17 @@ export class NewTabController {
             return true;
         }
         if (!card) return true;
-        if (actionTarget.closest('[data-newtab-composed-of]') && this.activateComposedOfKanjiStep(root, card, kanji)) return true;
+        // Every kanji chip — composed-of included — surfaces the kanji in the
+        // standard anchored popover (KanjiVG / meaning / mnemonic). A composed-of
+        // chip used to swap the whole study card to a synthetic per-kanji queue
+        // in place; that re-pooled the review, replaced the word the learner was
+        // mid-reveal on, and read as the page navigating away. The popover keeps
+        // the studied card put and shows the same kanji detail non-destructively.
         if (this.dependencies.showKanjiCard) {
             void this.dependencies.showKanjiCard(card, kanji, sentenceForCard(card), actionTarget, this.nestedLookupOptions());
         } else {
             void this.dependencies.lookupText?.(kanji, kanji, actionTarget, this.nestedLookupOptions());
         }
-        return true;
-    }
-
-    // Composed-of chips on the study reveal navigate to the word's own kanji
-    // study step (revealed) so the dictionary sections below swap in place —
-    // a popover with a Back button would hide the card being studied.
-    private activateComposedOfKanjiStep(root: HTMLElement, card: JPDBCard, kanji: string): boolean {
-        const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
-        const step = session.steps.find(candidate => candidate.kind === 'kanji-doodle' && candidate.kanji === kanji);
-        if (!step) return false;
-        const kanjiCard = this.kanjiStudyCardFromSourceCard(card, kanji);
-        const kanjiStep = this.studySessionForCard(kanjiCard, true)
-            .steps.find(candidate => candidate.kind === 'kanji-doodle' && candidate.kanji === kanji);
-        if (!kanjiStep) return false;
-        this.setStudyStepOverrideForCard(kanjiCard, kanjiStep.id);
-        this.setState({ mode: step.mode, revealAnswer: true }, root, { preserveWord: true, preferredCardKey: cardKey(kanjiCard) });
         return true;
     }
 
