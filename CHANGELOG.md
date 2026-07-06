@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.92] - 2026-07-06
+
+### Fixed
+
+- Subtitle transcript rows paint their readings and pitch colouring as soon as each line is parsed, instead of leaving a line bare until every word on it resolved — no more patchwork of coloured and uncoloured lines in the drawer.
+- Subtitle transcript rows are more compact: cue rows no longer waste vertical space (a two-line cue is roughly 25% shorter) while keeping furigana fully readable.
+- Furigana readings no longer show gaps between words in overlay chips (for example a sort control reading "新しい順"): the annotation overhang is measured and tightened so words sit together the way they do in body text.
+- Furigana readings are no longer shaved at the top edge of short fixed-height chips and labels (for example "さらに表示"): those rows now reserve a little clearance above the reading.
+- Pitch-accent colouring now covers compounds whose whole-word reading is not in the pitch dictionary (for example 登録者数): the pattern is composed from the pitch of the individual parts, so the word colours and underlines instead of staying grey.
+
 ## [1.6.91] - 2026-07-06
 
 ### Fixed

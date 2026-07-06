@@ -9810,10 +9810,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function canParseSubtitleTranscriptRows(settings) {
     return hasSubtitleParserSource();
   }
-  function shouldApplyParsedTranscriptHtml(target, key, provisional = false) {
+  function shouldApplyParsedTranscriptHtml(target, key, provisional = false, refreshProvisional = false) {
     if (target.dataset.parseKey !== key) return false;
     if (target.dataset.parsedKey !== key) return true;
-    return !provisional && target.dataset.parsedProvisional === "true";
+    if (provisional) return refreshProvisional;
+    return target.dataset.parsedProvisional === "true";
   }
   function hasAttemptedTranscriptParse(target, key) {
     return target.dataset.parsedKey === key || hasRecentTranscriptParseAttempt(target.dataset.parseEmptyKey, target.dataset.parseEmptyAt, key) || hasRecentTranscriptParseAttempt(target.dataset.parseFailedKey, target.dataset.parseFailedAt, key);
@@ -15784,8 +15785,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         });
         if (serial !== this.transcriptHydrationSerial) return;
         for (const item of parsed) {
-          if (item.provisional === true && !this.enrichedProvisionalParsedHtmlKeys.has(item.key)) continue;
-          this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true, force: item.provisional === true });
+          this.updateTranscriptRowsForParseKey(item.key, item.html, {
+            provisional: item.provisional === true,
+            refreshProvisional: item.provisional === true && !this.parsedHtmlCache.has(item.key)
+          });
         }
       } catch {
         targets.forEach((hydration) => {
@@ -15938,7 +15941,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const hasReaderWords = parsedSubtitleHtmlHasReaderWords(html);
       const updatedRoots = [];
       for (const target of this.transcriptTextTargetsForParseKey(panel, key)) {
-        if (!options.force && !shouldApplyParsedTranscriptHtml(target, key, options.provisional === true)) continue;
+        if (!options.force && !shouldApplyParsedTranscriptHtml(target, key, options.provisional === true, options.refreshProvisional === true)) continue;
         if (hasReaderWords) {
           target.dataset.parsedKey = key;
           if (options.provisional) target.dataset.parsedProvisional = "true";

@@ -17677,7 +17677,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   display: grid;
   align-content: start;
   grid-auto-rows: max-content;
-  gap: 4px;
+  gap: 2px;
   padding: 8px 10px 12px;
   overscroll-behavior: contain;
 }
@@ -17690,8 +17690,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   grid-template-columns: minmax(0, 1fr) max-content;
   align-items: start;
   gap: 8px;
-  min-height: 54px;
-  padding: 10px 14px;
+  /* Keep the seek-row touch target ≥44px but stop padding out short cues:
+     ruby already grows tall rows, so vertical chrome is pure waste. */
+  min-height: 44px;
+  padding: 6px 12px;
   border: 0;
   border-bottom: 1px solid var(--jpdb-reader-border);
   border-radius: 0;
@@ -17786,7 +17788,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   white-space: normal;
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
   font-weight: var(--jpdb-reader-popup-font-weight, 400);
-  line-height: 1.45;
+  /* Ruby words are inline-blocks whose own height (base + rt) sizes their
+     line box; a generous base line-height double-counts that headroom and
+     inflates every transcript line. Keep the base tight and let ruby grow
+     only the lines that actually carry readings. */
+  line-height: 1.35;
   font-size: 16px;
   letter-spacing: 0;
   text-shadow: none;
@@ -17798,6 +17804,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   position: relative;
   display: inline-block !important;
   vertical-align: baseline;
+  line-height: 1.35;
   color: inherit;
   background-color: transparent;
   background-image: none;
@@ -17829,6 +17836,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-row-text rt,
 .jpdb-subtitle-row-text .jpdb-reader-furi {
   white-space: nowrap !important;
+}
+.jpdb-subtitle-row-text rt.jpdb-reader-furi {
+  line-height: 1.05;
 }
 .jpdb-subtitle-row-text .jpdb-reader-word:hover,
 .jpdb-subtitle-row-text .jpdb-reader-word:focus-visible {

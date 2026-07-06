@@ -8737,6 +8737,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       hideTextMirrorHost(host, state2);
       host.append(mirror);
+      tightenMirrorRubyOverhang(mirror);
       observeTextMirrorHost(host);
     } catch (error) {
       removeTextMirror(host);
@@ -9376,6 +9377,90 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.style.setProperty("text-align", style.textAlign);
     mirror.style.setProperty("z-index", "1");
     if (hasRuby) mirror.dataset.jpdbReaderHasRuby = "true";
+  }
+  function tightenMirrorRubyOverhang(mirror) {
+    if (typeof Range.prototype.getBoundingClientRect !== "function") return;
+    const measures = [];
+    const byRuby = /* @__PURE__ */ new Map();
+    for (const ruby of mirror.querySelectorAll("ruby")) {
+      const base = ruby.querySelector(".jpdb-reader-ruby-base");
+      if (!base || !base.textContent) continue;
+      const rubyRect = ruby.getBoundingClientRect();
+      const baseRect = glyphRangeRect(base);
+      if (!baseRect) continue;
+      const measure = {
+        ruby,
+        baseRect,
+        insetLeft: Math.max(0, baseRect.left - rubyRect.left),
+        insetRight: Math.max(0, rubyRect.right - baseRect.right),
+        marginLeft: 0,
+        marginRight: 0
+      };
+      measures.push(measure);
+      byRuby.set(ruby, measure);
+    }
+    for (const measure of measures) {
+      if (measure.insetLeft < 1 && measure.insetRight < 1) continue;
+      const previous = adjacentGlyph(mirror, measure.ruby, "previous");
+      if (previous && rectsShareLine(measure.baseRect, previous.rect) && !previous.ruby) {
+        const gap = measure.baseRect.left - previous.rect.right;
+        measure.marginLeft = Math.max(0, Math.min(gap - RUBY_GAP_KEEP_PX, measure.insetLeft));
+      }
+      const next = adjacentGlyph(mirror, measure.ruby, "next");
+      if (next && rectsShareLine(measure.baseRect, next.rect)) {
+        const gap = next.rect.left - measure.baseRect.right;
+        const needed = Math.max(0, gap - RUBY_GAP_KEEP_PX);
+        measure.marginRight = Math.min(needed, measure.insetRight);
+        const neighbour = next.ruby ? byRuby.get(next.ruby) : void 0;
+        if (neighbour) neighbour.marginLeft = Math.min(needed - measure.marginRight, neighbour.insetLeft);
+      }
+    }
+    for (const measure of measures) {
+      if (measure.marginLeft > 0) measure.ruby.style.setProperty("margin-left", `${-measure.marginLeft}px`, "important");
+      if (measure.marginRight > 0) measure.ruby.style.setProperty("margin-right", `${-measure.marginRight}px`, "important");
+    }
+  }
+  const RUBY_GAP_KEEP_PX = 0.5;
+  function rectsShareLine(a, b) {
+    return Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > Math.min(a.height, b.height) / 2;
+  }
+  function glyphRangeRect(element) {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const rect = range.getBoundingClientRect();
+    return rect.width > 0 ? rect : null;
+  }
+  function adjacentGlyph(mirror, ruby, direction) {
+    const walker = document.createTreeWalker(mirror, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => node.parentElement?.closest("rt,rp") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+    });
+    let candidate = null;
+    const position = direction === "previous" ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING;
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (ruby.contains(node) || !node.data) continue;
+      if (!(ruby.compareDocumentPosition(node) & position)) continue;
+      if (direction === "previous") candidate = node;
+      else {
+        candidate = node;
+        break;
+      }
+    }
+    if (!candidate?.data) return null;
+    const characters = Array.from(candidate.data);
+    const character = direction === "previous" ? characters[characters.length - 1] : characters[0];
+    if (!character || !isCjkChar(character)) return null;
+    const range = document.createRange();
+    if (direction === "previous") {
+      range.setStart(candidate, candidate.data.length - character.length);
+      range.setEnd(candidate, candidate.data.length);
+    } else {
+      range.setStart(candidate, 0);
+      range.setEnd(candidate, character.length);
+    }
+    const rect = range.getBoundingClientRect();
+    if (rect.width <= 0) return null;
+    return { rect, ruby: candidate.parentElement?.closest("ruby") };
   }
   function rubyFriendlyMirrorLineHeight(style) {
     const fontSize = cssPixels(style.fontSize) || 16;
@@ -21866,6 +21951,52 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (levels.length > splitMorae(chars.join("")).length + 1) return true;
     if (levels.length < chars.length) return false;
     return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
+  }
+  const COMPOUND_MAX_CHARS = 12;
+  const COMPOUND_MAX_SEGMENTS = 6;
+  const COMPOUND_MAX_LOOKUPS = 16;
+  const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
+  async function composeCompoundPitchPatternFromMeta(spelling, reading, lookupMeta) {
+    const characters = Array.from(spelling.trim());
+    const kana = kanaNormalized(reading.trim());
+    if (characters.length < 2 || characters.length > COMPOUND_MAX_CHARS || !kana) return "";
+    const state2 = { lookups: 0, cache: /* @__PURE__ */ new Map() };
+    const segments = await composeSegments(characters, 0, kana, lookupMeta, state2, COMPOUND_MAX_SEGMENTS);
+    if (!segments || segments.length < 2) return "";
+    return segments.map((segment, index) => index === segments.length - 1 ? segment.pattern : segment.pattern.slice(0, segment.moraCount)).join("");
+  }
+  async function composeSegments(characters, cursor, readingRest, lookupMeta, state2, segmentsLeft) {
+    if (cursor >= characters.length) return readingRest ? null : [];
+    if (!segmentsLeft || !readingRest) return null;
+    const maxLength = Math.min(8, characters.length - cursor);
+    for (let length = maxLength; length >= 1; length--) {
+      if (cursor === 0 && length === characters.length) continue;
+      if (state2.lookups >= COMPOUND_MAX_LOOKUPS) return null;
+      const candidate = characters.slice(cursor, cursor + length).join("");
+      const segment = await constituentSegment(candidate, readingRest, lookupMeta, state2);
+      if (!segment) continue;
+      const rest = await composeSegments(characters, cursor + length, readingRest.slice(segment.readingLength), lookupMeta, state2, segmentsLeft - 1);
+      if (rest) return [{ pattern: segment.pattern, moraCount: segment.moraCount }, ...rest];
+    }
+    return null;
+  }
+  async function constituentSegment(candidate, readingRest, lookupMeta, state2) {
+    let entriesPromise = state2.cache.get(candidate);
+    if (!entriesPromise) {
+      state2.lookups += 1;
+      entriesPromise = Promise.resolve().then(() => lookupMeta(candidate)).catch(() => []);
+      state2.cache.set(candidate, entriesPromise);
+    }
+    const entries2 = await entriesPromise;
+    const readings2 = distinctMetadataReadings(entries2).sort((a, b) => b.length - a.length);
+    for (const constituentReading of readings2) {
+      if (!constituentReading || !readingRest.startsWith(constituentReading)) continue;
+      if (SMALL_KANA_RE.test(readingRest.slice(constituentReading.length))) continue;
+      const pattern = localPitchPatternFromMeta(constituentReading, entries2);
+      if (!pattern) continue;
+      return { pattern, moraCount: splitMorae(constituentReading).length, readingLength: constituentReading.length };
+    }
+    return null;
   }
   function localPitchPatternFromMeta(reading, entries2) {
     return localPitchPatternsFromMeta(reading, entries2)[0] ?? "";
@@ -34822,6 +34953,9 @@ ${spelling}`);
         const reading = card.reading.trim();
         if (pattern || !reading || reading === card.spelling.trim()) return pattern;
         return lookupTermMeta.call(this.dependencies.dictionaries, reading, 12, settings.dictionaryPreferences).then((metaEntries) => localPitchPatternFromMeta(card.reading, metaEntries));
+      }).then((pattern) => {
+        if (pattern) return pattern;
+        return composeCompoundPitchPatternFromMeta(card.spelling, card.reading, (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences));
       }).catch((error) => {
         log$m.warn("Local pitch parse failed", { term: card.spelling }, error);
         return "";
@@ -39521,7 +39655,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.91".trim() ? "1.6.91".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.92".trim() ? "1.6.92".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -50773,10 +50907,11 @@ ${spelling}`);
   function canParseSubtitleTranscriptRows(settings) {
     return hasSubtitleParserSource();
   }
-  function shouldApplyParsedTranscriptHtml(target, key, provisional = false) {
+  function shouldApplyParsedTranscriptHtml(target, key, provisional = false, refreshProvisional = false) {
     if (target.dataset.parseKey !== key) return false;
     if (target.dataset.parsedKey !== key) return true;
-    return !provisional && target.dataset.parsedProvisional === "true";
+    if (provisional) return refreshProvisional;
+    return target.dataset.parsedProvisional === "true";
   }
   function hasAttemptedTranscriptParse(target, key) {
     return target.dataset.parsedKey === key || hasRecentTranscriptParseAttempt(target.dataset.parseEmptyKey, target.dataset.parseEmptyAt, key) || hasRecentTranscriptParseAttempt(target.dataset.parseFailedKey, target.dataset.parseFailedAt, key);
@@ -56744,8 +56879,10 @@ ${spelling}`);
         });
         if (serial !== this.transcriptHydrationSerial) return;
         for (const item of parsed) {
-          if (item.provisional === true && !this.enrichedProvisionalParsedHtmlKeys.has(item.key)) continue;
-          this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true, force: item.provisional === true });
+          this.updateTranscriptRowsForParseKey(item.key, item.html, {
+            provisional: item.provisional === true,
+            refreshProvisional: item.provisional === true && !this.parsedHtmlCache.has(item.key)
+          });
         }
       } catch {
         targets.forEach((hydration) => {
@@ -56898,7 +57035,7 @@ ${spelling}`);
       const hasReaderWords = parsedSubtitleHtmlHasReaderWords(html);
       const updatedRoots = [];
       for (const target of this.transcriptTextTargetsForParseKey(panel, key)) {
-        if (!options.force && !shouldApplyParsedTranscriptHtml(target, key, options.provisional === true)) continue;
+        if (!options.force && !shouldApplyParsedTranscriptHtml(target, key, options.provisional === true, options.refreshProvisional === true)) continue;
         if (hasReaderWords) {
           target.dataset.parsedKey = key;
           if (options.provisional) target.dataset.parsedProvisional = "true";

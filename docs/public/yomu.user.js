@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.91
+// @version 1.6.92
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.91#sha256=MckBoQek04F/5L7ew566RdMWj1j3jl/AfPjAt9el8mE=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.91#sha256=FOvCf7KbOTzYSH/kt8VlXqdkpaEl57KOu1wjtgxgfQE=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.91#sha256=Hgu0mcMzilg8tNkAtAZUEBoT4JNFj3EUEZcbxQdnzlc=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.91#sha256=Qp7PEqQNrMqpmEXR16D4rahWHVy0qb9unv2HAapo9/Y=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.91#sha256=HRPLMfdaQQNASjoXnbWn7m9ZDlZ0Tn8ya+p1Ng25aJE=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.91#sha256=KlAoAHLS8v1oMfyPfEak5j8qpABnCwlegbl0t6us3Sg=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.92#sha256=MckBoQek04F/5L7ew566RdMWj1j3jl/AfPjAt9el8mE=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.92#sha256=FOvCf7KbOTzYSH/kt8VlXqdkpaEl57KOu1wjtgxgfQE=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.92#sha256=Hgu0mcMzilg8tNkAtAZUEBoT4JNFj3EUEZcbxQdnzlc=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.92#sha256=Qp7PEqQNrMqpmEXR16D4rahWHVy0qb9unv2HAapo9/Y=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.92#sha256=HRPLMfdaQQNASjoXnbWn7m9ZDlZ0Tn8ya+p1Ng25aJE=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.92#sha256=bGdft0Z2DvYapLO+HMMaAuIIPNhpdbuMOc5J2pw3P2Y=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -5104,6 +5104,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   }
   hideTextMirrorHost(host, state);
   host.append(mirror);
+  tightenMirrorRubyOverhang(mirror);
   observeTextMirrorHost(host);
   } catch (error) {
   removeTextMirror(host);
@@ -5749,6 +5750,90 @@ function styleTextMirror(mirror, host, hasRuby = false) {
   mirror.style.setProperty("text-align", style.textAlign);
   mirror.style.setProperty("z-index", "1");
   if (hasRuby) mirror.dataset.jpdbReaderHasRuby = "true";
+}
+function tightenMirrorRubyOverhang(mirror) {
+  if (typeof Range.prototype.getBoundingClientRect !== "function") return;
+  const measures = [];
+  const byRuby = new Map();
+  for (const ruby of mirror.querySelectorAll("ruby")) {
+  const base = ruby.querySelector(".jpdb-reader-ruby-base");
+  if (!base || !base.textContent) continue;
+  const rubyRect = ruby.getBoundingClientRect();
+  const baseRect = glyphRangeRect(base);
+  if (!baseRect) continue;
+  const measure = {
+    ruby,
+    baseRect,
+    insetLeft: Math.max(0, baseRect.left - rubyRect.left),
+    insetRight: Math.max(0, rubyRect.right - baseRect.right),
+    marginLeft: 0,
+    marginRight: 0
+  };
+  measures.push(measure);
+  byRuby.set(ruby, measure);
+  }
+  for (const measure of measures) {
+  if (measure.insetLeft < 1 && measure.insetRight < 1) continue;
+  const previous = adjacentGlyph(mirror, measure.ruby, "previous");
+  if (previous && rectsShareLine(measure.baseRect, previous.rect) && !previous.ruby) {
+    const gap = measure.baseRect.left - previous.rect.right;
+    measure.marginLeft = Math.max(0, Math.min(gap - RUBY_GAP_KEEP_PX, measure.insetLeft));
+  }
+  const next = adjacentGlyph(mirror, measure.ruby, "next");
+  if (next && rectsShareLine(measure.baseRect, next.rect)) {
+    const gap = next.rect.left - measure.baseRect.right;
+    const needed = Math.max(0, gap - RUBY_GAP_KEEP_PX);
+    measure.marginRight = Math.min(needed, measure.insetRight);
+    const neighbour = next.ruby ? byRuby.get(next.ruby) : void 0;
+    if (neighbour) neighbour.marginLeft = Math.min(needed - measure.marginRight, neighbour.insetLeft);
+  }
+  }
+  for (const measure of measures) {
+  if (measure.marginLeft > 0) measure.ruby.style.setProperty("margin-left", `${-measure.marginLeft}px`, "important");
+  if (measure.marginRight > 0) measure.ruby.style.setProperty("margin-right", `${-measure.marginRight}px`, "important");
+  }
+}
+const RUBY_GAP_KEEP_PX = 0.5;
+function rectsShareLine(a, b) {
+  return Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > Math.min(a.height, b.height) / 2;
+}
+function glyphRangeRect(element2) {
+  const range = document.createRange();
+  range.selectNodeContents(element2);
+  const rect = range.getBoundingClientRect();
+  return rect.width > 0 ? rect : null;
+}
+function adjacentGlyph(mirror, ruby, direction) {
+  const walker = document.createTreeWalker(mirror, NodeFilter.SHOW_TEXT, {
+  acceptNode: (node) => node.parentElement?.closest("rt,rp") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+  });
+  let candidate = null;
+  const position = direction === "previous" ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING;
+  while (walker.nextNode()) {
+  const node = walker.currentNode;
+  if (ruby.contains(node) || !node.data) continue;
+  if (!(ruby.compareDocumentPosition(node) & position)) continue;
+  if (direction === "previous") candidate = node;
+  else {
+    candidate = node;
+    break;
+  }
+  }
+  if (!candidate?.data) return null;
+  const characters = Array.from(candidate.data);
+  const character = direction === "previous" ? characters[characters.length - 1] : characters[0];
+  if (!character || !isCjkChar(character)) return null;
+  const range = document.createRange();
+  if (direction === "previous") {
+  range.setStart(candidate, candidate.data.length - character.length);
+  range.setEnd(candidate, candidate.data.length);
+  } else {
+  range.setStart(candidate, 0);
+  range.setEnd(candidate, character.length);
+  }
+  const rect = range.getBoundingClientRect();
+  if (rect.width <= 0) return null;
+  return { rect, ruby: candidate.parentElement?.closest("ruby") };
 }
 function rubyFriendlyMirrorLineHeight(style) {
   const fontSize = cssPixels(style.fontSize) || 16;
@@ -7197,30 +7282,50 @@ function makeRoomForRubyInCroppedRows(root = document) {
   for (const word of words) {
   if (!word.querySelector("rt")) continue;
   for (const box of cropCapableBoxes(word.parentElement)) {
-    if (decisions.has(box)) continue;
     if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR) || box.closest('[aria-hidden="true"],[hidden]')) continue;
     const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
     if (curated ? !boxActuallyCrops(box) : !genericRubyNeedsRoom(box)) continue;
     for (const roomBox of rubyRoomBoxesForCroppedBox(box, curated)) {
       const roomHeight = curated ? rubyRoomHeight(roomBox) : genericRubyRoomHeight(roomBox);
       if (roomHeight > RUBY_ROOM_MAX_PX) continue;
-      if (previousRubyRoomHeight(roomBox) >= roomHeight) continue;
-      if ((decisions.get(roomBox) ?? 0) >= roomHeight) continue;
-      decisions.set(roomBox, roomHeight);
+      const topDeficit = rubyTopClearanceDeficit(roomBox);
+      if (previousRubyRoomHeight(roomBox) >= roomHeight + topDeficit && !topDeficit) continue;
+      if ((decisions.get(roomBox)?.roomHeight ?? 0) >= roomHeight + topDeficit) continue;
+      decisions.set(roomBox, { roomHeight: roomHeight + topDeficit, topDeficit });
     }
   }
   }
   let adjusted = 0;
-  for (const [box, roomHeight] of decisions) {
+  for (const [box, { roomHeight, topDeficit }] of decisions) {
   box.dataset.yomuRubyRoom = "true";
   box.dataset.yomuRubyRoomHeight = String(roomHeight);
-  makeRoomForRubyInBox(box, safeComputedStyle(box), roomHeight);
+  makeRoomForRubyInBox(box, safeComputedStyle(box), roomHeight, topDeficit);
   adjusted += 1;
   }
   return adjusted;
 }
+const RUBY_ROOM_TOP_CLEARANCE_PX = 1;
+const RUBY_ROOM_TOP_PAD_MAX_PX = 24;
+function rubyTopClearanceDeficit(box) {
+  const raw = rubyTopOverflowRaw(box);
+  if (raw <= 0 && !rubyTouchesBoxTop(box)) return 0;
+  if (raw <= -RUBY_ROOM_TOP_CLEARANCE_PX) return 0;
+  const applied = previousRubyRoomTopPad(box);
+  const deficit = Math.ceil(raw + RUBY_ROOM_TOP_CLEARANCE_PX);
+  return applied + deficit > RUBY_ROOM_TOP_PAD_MAX_PX ? 0 : deficit;
+}
+function previousRubyRoomTopPad(box) {
+  const value = Number(box.dataset.yomuRubyRoomPadTop ?? "");
+  return Number.isFinite(value) ? value : 0;
+}
 function rubyCropsBox(box) {
-  return rubyBottomOverflow(box) > 1 || rubyTopOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
+  return rubyBottomOverflow(box) > 1 || rubyTouchesBoxTop(box) || rubyMirrorBlockOverflow(box) > 1;
+}
+function rubyTouchesBoxTop(box) {
+  const style = safeComputedStyle(box);
+  const lineHeight = cssPixels(style.lineHeight) || (cssPixels(style.fontSize) || 16) * 1.4;
+  if (!box.clientHeight || box.clientHeight > lineHeight * 1.8) return false;
+  return rubyTopOverflowRaw(box) > -RUBY_ROOM_TOP_CLEARANCE_PX;
 }
 function genericRubyNeedsRoom(box) {
   return rubyCropsBox(box) || rubyLayoutOverflowsShortRow(box);
@@ -7259,8 +7364,13 @@ function isYouTubeRubyRoomTextBox(box) {
   }
   return safeElementMatches$1(box, RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR) || !!box.closest(RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR);
 }
-function makeRoomForRubyInBox(box, style, roomHeight) {
+function makeRoomForRubyInBox(box, style, roomHeight, topDeficit = 0) {
   const contentHeight = `${roomHeight}px`;
+  if (topDeficit > 0) {
+  const applied = previousRubyRoomTopPad(box) + topDeficit;
+  box.dataset.yomuRubyRoomPadTop = String(applied);
+  box.style.setProperty("padding-top", `${(cssPixels(style.paddingTop) || 0) + topDeficit}px`, "important");
+  }
   box.style.setProperty("min-height", contentHeight, "important");
   if (hasLineClamp(style)) {
   box.style.setProperty("max-height", "none", "important");
@@ -7314,7 +7424,7 @@ function isShortRubyRowDisplay(style) {
   return style.display.includes("flex") || style.display.includes("grid") || style.display === "block" || style.display === "flow-root" || style.display === "list-item" || style.display === "table" || style.display === "table-row" || style.display === "table-cell" || style.display === "inline-block";
 }
 function boxActuallyCrops(box) {
-  return box.scrollHeight > box.clientHeight + 1 || rubyBottomOverflow(box) > 1 || rubyTopOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
+  return box.scrollHeight > box.clientHeight + 1 || rubyBottomOverflow(box) > 1 || rubyTouchesBoxTop(box) || rubyMirrorBlockOverflow(box) > 1;
 }
 function rubyRoomHeight(box) {
   const mirror = box.querySelector(".jpdb-reader-text-mirror");
@@ -7331,8 +7441,11 @@ function rubyMirrorBlockOverflow(box) {
   return Math.max(0, mirror.scrollHeight - box.clientHeight);
 }
 function rubyTopOverflow(box) {
+  return Math.max(0, rubyTopOverflowRaw(box));
+}
+function rubyTopOverflowRaw(box) {
   const boxRect = box.getBoundingClientRect();
-  let overflow = 0;
+  let overflow = Number.NEGATIVE_INFINITY;
   for (const ruby of box.querySelectorAll("ruby")) {
   const base = ruby.querySelector(".jpdb-reader-ruby-base") ?? ruby;
   if (!baseVisibleInBox(base.getBoundingClientRect(), boxRect)) continue;
@@ -7340,7 +7453,7 @@ function rubyTopOverflow(box) {
   if (!rt) continue;
   overflow = Math.max(overflow, boxRect.top - rt.getBoundingClientRect().top);
   }
-  return Math.max(0, overflow);
+  return overflow;
 }
 function rubyBottomOverflow(box) {
   const boxRect = box.getBoundingClientRect();
@@ -14304,6 +14417,52 @@ function looksCharacterAlignedPitch(levels, chars) {
   if (levels.length < chars.length) return false;
   return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
 }
+const COMPOUND_MAX_CHARS = 12;
+const COMPOUND_MAX_SEGMENTS = 6;
+const COMPOUND_MAX_LOOKUPS = 16;
+const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
+async function composeCompoundPitchPatternFromMeta(spelling, reading, lookupMeta) {
+  const characters = Array.from(spelling.trim());
+  const kana = kanaNormalized(reading.trim());
+  if (characters.length < 2 || characters.length > COMPOUND_MAX_CHARS || !kana) return "";
+  const state = { lookups: 0, cache: new Map() };
+  const segments = await composeSegments(characters, 0, kana, lookupMeta, state, COMPOUND_MAX_SEGMENTS);
+  if (!segments || segments.length < 2) return "";
+  return segments.map((segment, index) => index === segments.length - 1 ? segment.pattern : segment.pattern.slice(0, segment.moraCount)).join("");
+}
+async function composeSegments(characters, cursor, readingRest, lookupMeta, state, segmentsLeft) {
+  if (cursor >= characters.length) return readingRest ? null : [];
+  if (!segmentsLeft || !readingRest) return null;
+  const maxLength = Math.min(8, characters.length - cursor);
+  for (let length = maxLength; length >= 1; length--) {
+  if (cursor === 0 && length === characters.length) continue;
+  if (state.lookups >= COMPOUND_MAX_LOOKUPS) return null;
+  const candidate = characters.slice(cursor, cursor + length).join("");
+  const segment = await constituentSegment(candidate, readingRest, lookupMeta, state);
+  if (!segment) continue;
+  const rest = await composeSegments(characters, cursor + length, readingRest.slice(segment.readingLength), lookupMeta, state, segmentsLeft - 1);
+  if (rest) return [{ pattern: segment.pattern, moraCount: segment.moraCount }, ...rest];
+  }
+  return null;
+}
+async function constituentSegment(candidate, readingRest, lookupMeta, state) {
+  let entriesPromise = state.cache.get(candidate);
+  if (!entriesPromise) {
+  state.lookups += 1;
+  entriesPromise = Promise.resolve().then(() => lookupMeta(candidate)).catch(() => []);
+  state.cache.set(candidate, entriesPromise);
+  }
+  const entries2 = await entriesPromise;
+  const readings = distinctMetadataReadings(entries2).sort((a, b) => b.length - a.length);
+  for (const constituentReading of readings) {
+  if (!constituentReading || !readingRest.startsWith(constituentReading)) continue;
+  if (SMALL_KANA_RE.test(readingRest.slice(constituentReading.length))) continue;
+  const pattern = localPitchPatternFromMeta(constituentReading, entries2);
+  if (!pattern) continue;
+  return { pattern, moraCount: splitMorae(constituentReading).length, readingLength: constituentReading.length };
+  }
+  return null;
+}
 function localPitchPatternFromMeta(reading, entries2) {
   return localPitchPatternsFromMeta(reading, entries2)[0] ?? "";
 }
@@ -19349,6 +19508,9 @@ ${spelling}`);
     const reading = card.reading.trim();
     if (pattern || !reading || reading === card.spelling.trim()) return pattern;
     return lookupTermMeta.call(this.dependencies.dictionaries, reading, 12, settings.dictionaryPreferences).then((metaEntries) => localPitchPatternFromMeta(card.reading, metaEntries));
+  }).then((pattern) => {
+    if (pattern) return pattern;
+    return composeCompoundPitchPatternFromMeta(card.spelling, card.reading, (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences));
   }).catch((error) => {
     log$c.warn("Local pitch parse failed", { term: card.spelling }, error);
     return "";
@@ -33180,7 +33342,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.91"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.92"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -39853,6 +40015,9 @@ class ReaderApp {
     const reading = card.reading.trim();
     if (pattern || !reading || reading === card.spelling.trim()) return pattern;
     return this.dictionaries.lookupTermMeta(reading, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences).then((metaEntries) => localPitchPatternFromMeta(card.reading, metaEntries));
+  }).then((pattern) => {
+    if (pattern) return pattern;
+    return composeCompoundPitchPatternFromMeta(card.spelling, card.reading, (expression) => this.dictionaries.lookupTermMeta(expression, PITCH_LOCAL_META_LIMIT, this.settings.dictionaryPreferences));
   }).catch((error) => {
     log.warn("Local pitch enrichment failed", { term: card.spelling }, error);
     return "";
