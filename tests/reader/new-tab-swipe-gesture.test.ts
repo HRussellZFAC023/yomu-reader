@@ -118,6 +118,45 @@ describe('new-tab swipe gesture', () => {
         expect(root.dataset.newtabSwipeDirection).toBe('right');
     });
 
+    it('drops a vertical-dominant drag so scrolling still works (no swipe)', () => {
+        stubPointerEvents();
+        const { root, card } = renderSwipeCard();
+        const swipes: NewTabSwipeAction[] = [];
+        installNewTabSwipeGesture({
+            root,
+            target: card,
+            thresholdPx: 80,
+            onSwipe: action => swipes.push(action),
+        });
+
+        card.dispatchEvent(pointerEvent('pointerdown', 0, 0));
+        // Mostly-vertical intent: |deltaY| > |deltaX| abandons the gesture.
+        window.dispatchEvent(pointerEvent('pointermove', 12, 60));
+        window.dispatchEvent(pointerEvent('pointerup', 12, 120));
+
+        expect(swipes).toEqual([]);
+        expect(root.dataset.newtabSwipeDirection).toBeUndefined();
+    });
+
+    it('respects shouldStart(target) to veto the gesture', () => {
+        stubPointerEvents();
+        const { root, card } = renderSwipeCard();
+        const swipes: NewTabSwipeAction[] = [];
+        installNewTabSwipeGesture({
+            root,
+            target: card,
+            thresholdPx: 72,
+            shouldStart: () => false,
+            onSwipe: action => swipes.push(action),
+        });
+
+        card.dispatchEvent(pointerEvent('pointerdown', 0, 0));
+        window.dispatchEvent(pointerEvent('pointermove', 98, 0));
+        window.dispatchEvent(pointerEvent('pointerup', 98, 0));
+
+        expect(swipes).toEqual([]);
+    });
+
     it('leaves keyboard events untouched', () => {
         stubPointerEvents();
         const { root, card } = renderSwipeCard();

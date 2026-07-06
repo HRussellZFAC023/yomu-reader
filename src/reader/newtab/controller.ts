@@ -155,7 +155,7 @@ import { createNewTabStudySession, type NewTabStudySession, type NewTabStudyStep
 import { studySummaryState, suggestedStudyGrade, type StudyStepOutcome, type StudyStepOutcomes } from './study-outcomes';
 import { kanjiDrawHints, recallHints, type StudyHint, type StudyHintStep } from './study-hints';
 import { collectPitchVariants, contextPitchPattern, pitchNumberForReading, splitMorae, validPitchPositions } from '../lookup/pitch-accent';
-import { installNewTabSwipeGesture, newTabSwipeGrade, type NewTabSwipeAction } from './swipe-gesture';
+import { installNewTabSwipeGesture, newTabSwipeGrade, type NewTabSwipeAction, type NewTabSwipeDirection, type NewTabSwipeProgress } from './swipe-gesture';
 import {
     newTabCardHighlightTargets,
     newTabCardOptionalReading,
@@ -1495,8 +1495,9 @@ export class NewTabController {
             root,
             target: () => root.querySelector<HTMLElement>('[data-newtab-study]'),
             signal: controller.signal,
-            shouldStart: () => this.canSwipeCurrentStudyCard(),
-            onSwipe: action => this.handleNewTabSwipe(root, action),
+            shouldStart: target => this.canSwipeCurrentStudyCard() || this.swipeStartAllowedForStepNavigation(target),
+            onProgress: progress => this.syncSwipeAffordance(root, progress),
+            onSwipe: (action, direction) => this.handleNewTabSwipe(root, action, direction),
         });
 
         window.addEventListener('popstate', () => this.handleLocationPopstate(root), { signal: controller.signal });
@@ -1965,11 +1966,32 @@ export class NewTabController {
         if (grade) void this.gradeCurrentCard(grade, this.selectedMainGradeTarget(root));
     }
 
-    private handleNewTabSwipe(root: HTMLElement, action: NewTabSwipeAction): void {
-        if (!this.canSwipeCurrentStudyCard()) return;
-        const settings = this.dependencies.getSettings();
-        const grade = newTabSwipeGrade(action, { twoButtonReviews: settings.twoButtonReviews });
-        void this.gradeCurrentCard(grade, this.selectedMainGradeTarget(root));
+    private handleNewTabSwipe(root: HTMLElement, action: NewTabSwipeAction, direction: NewTabSwipeDirection): void {
+        // The final-reveal grade swipe wins whenever it is armed: a horizontal
+        // drag there submits again/good exactly as before. Everywhere else the
+        // same drag walks the study steps instead of grading.
+        if (this.canSwipeCurrentStudyCard()) {
+            const settings = this.dependencies.getSettings();
+            const grade = newTabSwipeGrade(action, { twoButtonReviews: settings.twoButtonReviews });
+            void this.gradeCurrentCard(grade, this.selectedMainGradeTarget(root));
+            return;
+        }
+        if (!this.swipeStartAllowedForStepNavigation(null)) return;
+        // Carousel physics, matching the drag: swipe LEFT pulls the next step in
+        // (forward), swipe RIGHT brings the previous one back.
+        this.navigateStudyStep(direction === 'left' ? 'next' : 'previous');
+    }
+
+    // Distinguishes the grade swipe (red/green fail/pass edge glow) from a
+    // step-nav swipe (neutral edge hint) so navigating never flashes a
+    // misleading "fail" colour. The attribute is cleared at rest; the card
+    // slide/rotate the engine applies is direction-neutral and reads for both.
+    private syncSwipeAffordance(root: HTMLElement, progress: NewTabSwipeProgress): void {
+        if (!progress.direction || progress.progress <= 0) {
+            delete root.dataset.newtabSwipeMode;
+            return;
+        }
+        root.dataset.newtabSwipeMode = this.canSwipeCurrentStudyCard() ? 'grade' : 'nav';
     }
 
     private canSwipeCurrentStudyCard(): boolean {
@@ -1987,6 +2009,24 @@ export class NewTabController {
             && this.isFinalRevealStep(card)
             && this.canReviewCard(card),
         );
+    }
+
+    // Horizontal step-nav swipes ride the same enablement flag as grade swipes
+    // (newTabSwipeReviews) — one "swipe cards" toggle, no extra settings UI. A
+    // nav swipe never submits a grade, so it is allowed on every non-final step
+    // (and on the final reveal only while grading is NOT armed, e.g. answer
+    // hidden or unreviewable). It is refused when the drag starts on a surface
+    // that owns the pointer: the doodle/handwriting canvas, text inputs, the
+    // pitch/pos picker buttons, or any [data-action] control. That start-target
+    // test mirrors isNewTabStudyInteractiveTarget; the engine already drops the
+    // gesture on vertical intent, so scrolling stays intact.
+    private swipeStartAllowedForStepNavigation(target: HTMLElement | null): boolean {
+        if (!this.dependencies.getSettings().newTabSwipeReviews) return false;
+        const card = this.visibleWords[this.index];
+        if (!card || this.state.mode === 'search' || this.state.mode === 'stats') return false;
+        if (target && isNewTabStudyInteractiveTarget(target)) return false;
+        const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
+        return session.steps.length > 1;
     }
 
     private kanjiActionIdFromTarget(target: HTMLElement): string {

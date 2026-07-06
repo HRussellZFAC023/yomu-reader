@@ -77,9 +77,36 @@
   );
 }
 
-.jpdb-reader-newtab[data-newtab-swipe-direction="left"]::before,
-.jpdb-reader-newtab[data-newtab-swipe-direction="right"]::after {
+/* Fail/pass colour only when the swipe is actually armed to grade
+   (final reveal). A step-nav swipe reuses the same drag but must not flash
+   red "fail" — data-newtab-swipe-mode="grade" gates the coloured glow. */
+.jpdb-reader-newtab[data-newtab-swipe-mode="grade"][data-newtab-swipe-direction="left"]::before,
+.jpdb-reader-newtab[data-newtab-swipe-mode="grade"][data-newtab-swipe-direction="right"]::after {
   opacity: calc(0.25 + 0.75 * var(--jpdb-reader-newtab-swipe-progress, 0));
+}
+
+/* Neutral edge hint while dragging between study steps (no grade colour). The
+   hint appears on the edge the content slides toward: swipe LEFT (next) glows
+   the right edge (::after), swipe RIGHT (previous) glows the left (::before). */
+.jpdb-reader-newtab[data-newtab-swipe-mode="nav"]::before {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--jpdb-reader-accent) 42%, transparent),
+    transparent
+  );
+}
+
+.jpdb-reader-newtab[data-newtab-swipe-mode="nav"]::after {
+  background: linear-gradient(
+    270deg,
+    color-mix(in srgb, var(--jpdb-reader-accent) 42%, transparent),
+    transparent
+  );
+}
+
+.jpdb-reader-newtab[data-newtab-swipe-mode="nav"][data-newtab-swipe-direction="left"]::after,
+.jpdb-reader-newtab[data-newtab-swipe-mode="nav"][data-newtab-swipe-direction="right"]::before {
+  opacity: calc(0.18 + 0.5 * var(--jpdb-reader-newtab-swipe-progress, 0));
 }
 
 .jpdb-reader-newtab * {

@@ -185,28 +185,142 @@ describe('study flow: progressive hints', () => {
     });
 });
 
+interface SwipeInternals {
+    handleNewTabSwipe(root: HTMLElement, action: 'again' | 'good', direction: 'left' | 'right'): void;
+    swipeStartAllowedForStepNavigation(target: HTMLElement | null): boolean;
+    canSwipeCurrentStudyCard(): boolean;
+    gradeCurrentCard(grade: string, target: unknown): Promise<void>;
+    navigateStudyStep(direction: 'next' | 'previous'): boolean;
+    studySessionForCard(card: JPDBCard, renderAsKanji?: boolean): { activeStep: { id: string; kind: string }; steps: unknown[] };
+    shouldRenderCardAsKanji(card: JPDBCard): boolean;
+}
+
 describe('study flow: swipe grading gate', () => {
     it('ignores grade swipes until the answer is revealed, then grades once revealed', () => {
         const { controller, internals } = studyController([drinkCard()], { newTabSwipeReviews: true });
         const root = studyRoot();
-        const swipeable = controller as unknown as {
-            handleNewTabSwipe(root: HTMLElement, action: 'good'): void;
-            gradeCurrentCard(grade: string, target: unknown): Promise<void>;
-        };
+        const swipeable = controller as unknown as SwipeInternals;
         try {
             internals.state.mode = 'word';
             internals.renderWord(root, internals.visibleWords[0]);
             const gradeSpy = vi.spyOn(swipeable, 'gradeCurrentCard').mockResolvedValue(undefined);
+            // Isolate the grade path from step-nav: force the final-reveal step.
+            vi.spyOn(swipeable, 'canSwipeCurrentStudyCard').mockReturnValue(false);
 
             // Mid-step (answer hidden) a horizontal drag must NOT submit a
             // provider grade — the answer was never shown.
-            swipeable.handleNewTabSwipe(root, 'good');
+            swipeable.handleNewTabSwipe(root, 'good', 'right');
             expect(gradeSpy).not.toHaveBeenCalled();
 
+            (swipeable.canSwipeCurrentStudyCard as ReturnType<typeof vi.fn>).mockReturnValue(true);
             internals.state.revealAnswer = true;
             internals.renderWord(root, internals.visibleWords[0]);
-            swipeable.handleNewTabSwipe(root, 'good');
+            swipeable.handleNewTabSwipe(root, 'good', 'right');
             expect(gradeSpy).toHaveBeenCalledTimes(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+});
+
+describe('study flow: swipe navigates study steps', () => {
+    function activeStepKind(swipeable: SwipeInternals, card: JPDBCard): string {
+        return swipeable.studySessionForCard(card, swipeable.shouldRenderCardAsKanji(card)).activeStep.kind;
+    }
+    function activeStepId(swipeable: SwipeInternals, card: JPDBCard): string {
+        return swipeable.studySessionForCard(card, swipeable.shouldRenderCardAsKanji(card)).activeStep.id;
+    }
+
+    it('walks steps on a non-final step instead of grading (left = next, right = previous)', () => {
+        const card = drinkCard();
+        // Drop the kanji sub-steps so the session starts on a plain Word step —
+        // the everyday mid-session case, free of the kanji-queue mode quirk.
+        const { controller, internals } = studyController([card], {
+            newTabSwipeReviews: true,
+            newTabStudyDisabledSteps: ['kanji-doodle'],
+        });
+        const root = studyRoot();
+        const swipeable = controller as unknown as SwipeInternals;
+        try {
+            internals.state.mode = 'word';
+            internals.renderWord(root, card);
+            const startId = activeStepId(swipeable, card);
+            expect(activeStepKind(swipeable, card)).toBe('word');
+            const gradeSpy = vi.spyOn(swipeable, 'gradeCurrentCard').mockResolvedValue(undefined);
+            const navSpy = vi.spyOn(swipeable, 'navigateStudyStep');
+
+            // Swipe LEFT advances forward through the session; never grades.
+            swipeable.handleNewTabSwipe(root, 'again', 'left');
+            expect(gradeSpy).not.toHaveBeenCalled();
+            expect(navSpy).toHaveBeenLastCalledWith('next');
+            const forwardId = activeStepId(swipeable, card);
+            expect(forwardId).not.toBe(startId);
+            expect(activeStepKind(swipeable, card)).not.toBe('final-reveal');
+
+            // Swipe RIGHT steps back to where we started.
+            swipeable.handleNewTabSwipe(root, 'good', 'right');
+            expect(navSpy).toHaveBeenLastCalledWith('previous');
+            expect(gradeSpy).not.toHaveBeenCalled();
+            expect(activeStepId(swipeable, card)).toBe(startId);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('still grades on the final-reveal step (grade swipe is not regressed)', () => {
+        const card = drinkCard();
+        const { controller, internals } = studyController([card], { newTabSwipeReviews: true });
+        const root = studyRoot();
+        const swipeable = controller as unknown as SwipeInternals;
+        try {
+            internals.state.mode = 'word';
+            internals.state.revealAnswer = true;
+            internals.renderWord(root, card);
+            expect(activeStepKind(swipeable, card)).toBe('final-reveal');
+            const gradeSpy = vi.spyOn(swipeable, 'gradeCurrentCard').mockResolvedValue(undefined);
+            const navSpy = vi.spyOn(swipeable, 'navigateStudyStep');
+
+            swipeable.handleNewTabSwipe(root, 'good', 'right');
+            expect(gradeSpy).toHaveBeenCalledTimes(1);
+            expect(navSpy).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('refuses a nav swipe that starts on the doodle canvas or a text input', () => {
+        const card = drinkCard();
+        const { controller, internals } = studyController([card], { newTabSwipeReviews: true });
+        const root = studyRoot();
+        const swipeable = controller as unknown as SwipeInternals;
+        try {
+            internals.state.mode = 'kanji';
+            internals.renderWord(root, card);
+
+            const canvas = document.createElement('canvas');
+            root.querySelector('[data-newtab-study]')!.append(canvas);
+            const input = document.createElement('input');
+            root.querySelector('[data-newtab-study]')!.append(input);
+
+            // A generic drag over the card body is allowed.
+            expect(swipeable.swipeStartAllowedForStepNavigation(root.querySelector('h1'))).toBe(true);
+            // Handwriting/doodle canvas and text inputs own the pointer.
+            expect(swipeable.swipeStartAllowedForStepNavigation(canvas)).toBe(false);
+            expect(swipeable.swipeStartAllowedForStepNavigation(input)).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('gates step-nav swipes behind the same enablement flag as grade swipes', () => {
+        const card = drinkCard();
+        const { controller, internals } = studyController([card], { newTabSwipeReviews: false });
+        const root = studyRoot();
+        const swipeable = controller as unknown as SwipeInternals;
+        try {
+            internals.state.mode = 'kanji';
+            internals.renderWord(root, card);
+            expect(swipeable.swipeStartAllowedForStepNavigation(root.querySelector('h1'))).toBe(false);
         } finally {
             controller.destroy();
         }
