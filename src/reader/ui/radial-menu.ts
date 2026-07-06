@@ -1,6 +1,6 @@
 import { escapeHtml, setInnerHtml } from '../dom/index';
 
-export type RadialActionTone = 'on' | 'off' | 'neutral';
+export type RadialActionTone = 'on' | 'off' | 'partial' | 'neutral';
 
 export interface RadialAction {
     id: string;
@@ -216,6 +216,7 @@ export class RadialMenuController {
         const tone = action.disabled ? 'neutral' : action.tone ?? 'neutral';
         if (tone === 'on') item.classList.add('is-on');
         else if (tone === 'off') item.classList.add('is-off');
+        else if (tone === 'partial') item.classList.add('is-partial');
         item.title = action.label;
         item.setAttribute('aria-label', action.label);
         item.setAttribute('aria-disabled', String(Boolean(action.disabled)));

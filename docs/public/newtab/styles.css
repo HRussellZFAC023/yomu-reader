@@ -7915,8 +7915,49 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   opacity: 0.78 !important;
   font: 700 14px/1 var(--jpdb-reader-font) !important;
   cursor: pointer !important;
+  overflow: visible !important;
   touch-action: none !important;
   transform: translate3d(0, 0, 0) !important;
+}
+.jpdb-reader-fab::after {
+  content: '' !important;
+  position: absolute !important;
+  right: -4px !important;
+  bottom: -4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  inline-size: 18px !important;
+  block-size: 18px !important;
+  min-inline-size: 18px !important;
+  min-block-size: 18px !important;
+  border: 1px solid var(--jpdb-reader-surface) !important;
+  border-radius: 50% !important;
+  background: var(--jpdb-reader-surface) !important;
+  color: var(--jpdb-reader-text) !important;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--jpdb-reader-shadow) 72%, transparent) !important;
+  font: 800 10px/1 var(--jpdb-reader-font) !important;
+  letter-spacing: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: scale(0.65) !important;
+  transition: opacity 0.16s ease, transform 0.16s ease !important;
+}
+.jpdb-reader-fab::before {
+  content: '' !important;
+  position: absolute !important;
+  right: -1px !important;
+  bottom: 5px !important;
+  inline-size: 17px !important;
+  block-size: 2px !important;
+  border-radius: 999px !important;
+  background: var(--jpdb-reader-surface) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-accent) 38%, transparent) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: rotate(-35deg) scaleX(0.86) !important;
+  transition: opacity 0.16s ease !important;
+  z-index: 1 !important;
 }
 .jpdb-reader-fab:hover,
 .jpdb-reader-fab:focus-visible {
@@ -7968,11 +8009,35 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   box-shadow: 0 12px 34px var(--jpdb-reader-shadow), 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 32%, transparent) !important;
   transform: translate3d(0, 0, 0) scale(1.06) !important;
 }
+.jpdb-reader-fab.jpdb-reader-fab--no-furigana {
+  opacity: 0.92 !important;
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 68%, var(--jpdb-reader-border)) !important;
+  box-shadow:
+    0 10px 28px var(--jpdb-reader-shadow),
+    0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent) !important;
+}
+.jpdb-reader-fab.jpdb-reader-fab--no-furigana::after {
+  content: 'ふ' !important;
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 82%, var(--jpdb-reader-surface)) !important;
+  color: var(--jpdb-reader-accent-readable) !important;
+}
+.jpdb-reader-fab.jpdb-reader-fab--no-furigana::before {
+  opacity: 1 !important;
+}
 /* Annotations paused → drain the colour so on/off reads at a glance. */
 .jpdb-reader-fab.jpdb-reader-fab--paused {
   filter: grayscale(1) !important;
   opacity: 0.55 !important;
   border-style: dashed !important;
+}
+.jpdb-reader-fab.jpdb-reader-fab--paused::after {
+  content: 'II' !important;
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-muted) 78%, var(--jpdb-reader-surface)) !important;
+  color: var(--jpdb-reader-surface) !important;
 }
 .jpdb-reader-fab.jpdb-reader-fab--paused:hover,
 .jpdb-reader-fab.jpdb-reader-fab--paused:focus-visible {
@@ -8082,6 +8147,14 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   border-color: var(--jpdb-reader-accent) !important;
   background: color-mix(in srgb, var(--jpdb-reader-accent) 24%, var(--jpdb-reader-surface)) !important;
   color: var(--jpdb-reader-accent-readable) !important;
+}
+.jpdb-reader-fab-radial-item.is-partial {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 72%, var(--jpdb-reader-border)) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, var(--jpdb-reader-surface)) !important;
+  color: var(--jpdb-reader-accent-readable) !important;
+  box-shadow:
+    0 9px 24px color-mix(in srgb, var(--jpdb-reader-shadow) 78%, transparent),
+    inset 0 0 0 2px color-mix(in srgb, var(--jpdb-reader-accent) 16%, transparent) !important;
 }
 .jpdb-reader-fab-radial-item.is-off {
   filter: grayscale(1) !important;

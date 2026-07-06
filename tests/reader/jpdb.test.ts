@@ -10547,6 +10547,65 @@ describe('reader helpers', () => {
         }
     });
 
+    it('marks the puck differently for furigana-hidden and annotation-paused states', () => {
+        const controller = new FloatingButtonController();
+        const restoreRects = mockFloatingButtonRects(760, 520);
+        let powerState: 'on' | 'no-furigana' | 'paused' = 'on';
+        const cyclePowerState = vi.fn(() => {
+            powerState = powerState === 'on' ? 'no-furigana'
+                : powerState === 'no-furigana' ? 'paused'
+                    : 'on';
+        });
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            showFloatingButton: true,
+        };
+
+        try {
+            withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
+                controller.install(settings, vi.fn(), stubFloatingButtonActions({
+                    cyclePowerState,
+                    powerState: () => powerState,
+                    isPaused: () => powerState === 'paused',
+                }));
+                document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
+            }));
+
+            const puck = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')!;
+            const powerButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="power"]')!;
+
+            expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
+            expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
+            expect(powerButton().getAttribute('aria-label')).toBe('Hide furigana');
+            expect(powerButton().classList.contains('is-on')).toBe(true);
+
+            powerButton().click();
+            expect(cyclePowerState).toHaveBeenCalledTimes(1);
+            expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(true);
+            expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
+            expect(puck.getAttribute('aria-label')).toContain('Furigana off');
+            expect(powerButton().getAttribute('aria-label')).toBe('Pause annotations');
+            expect(powerButton().classList.contains('is-partial')).toBe(true);
+
+            powerButton().click();
+            expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
+            expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(true);
+            expect(puck.getAttribute('aria-label')).toContain('Annotations paused');
+            expect(powerButton().getAttribute('aria-label')).toBe('Resume annotations');
+            expect(powerButton().classList.contains('is-off')).toBe(true);
+
+            powerButton().click();
+            expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
+            expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
+            expect(puck.getAttribute('aria-label')).toBe('よむ');
+            expect(powerButton().getAttribute('aria-label')).toBe('Hide furigana');
+        } finally {
+            controller.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('cycles OCR mode from the puck without closing the radial menu', () => {
         const controller = new FloatingButtonController();
         const restoreRects = mockFloatingButtonRects(760, 520);

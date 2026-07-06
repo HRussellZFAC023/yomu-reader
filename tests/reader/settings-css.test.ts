@@ -61,6 +61,9 @@ describe('settings CSS', () => {
         expect(normalizedReaderWordsOcrCss).toContain('min-width: 52px !important; width: 52px !important; max-width: 52px !important; height: 52px !important; min-height: 52px !important; max-height: 52px !important; padding: 0 !important;');
         expect(normalizedReaderWordsOcrCss).toContain('border: 1px solid var(--jpdb-reader-border) !important; border-radius: 50% !important; background: var(--jpdb-reader-surface) !important; color: var(--jpdb-reader-text) !important;');
         expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab:hover, .jpdb-reader-fab:focus-visible { border-color: var(--jpdb-reader-accent) !important; color: var(--jpdb-reader-accent-readable) !important;');
+        expect(normalizedReaderWordsOcrCss).toContain(".jpdb-reader-fab.jpdb-reader-fab--no-furigana::after { content: 'ふ' !important;");
+        expect(normalizedReaderWordsOcrCss).toContain(".jpdb-reader-fab.jpdb-reader-fab--paused::after { content: 'II' !important;");
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab-radial-item.is-partial { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 72%, var(--jpdb-reader-border)) !important;');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-tab { min-height: 34px !important; padding: 0 11px !important; border: 1px solid var(--jpdb-reader-border) !important;');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-tab[aria-selected="true"] { border-color: var(--jpdb-reader-accent) !important; color: var(--jpdb-reader-accent-readable) !important; background: var(--jpdb-reader-accent-soft) !important; }');
         expect(normalizedInteractionsCss).toContain('filter: brightness(1.045);');

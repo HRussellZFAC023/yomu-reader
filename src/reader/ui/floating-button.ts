@@ -17,6 +17,12 @@ function hostHasBottomActionDock(): boolean {
     return location.hostname === 'jiten.moe' && location.pathname.startsWith('/srs/');
 }
 
+function puckStateLabel(language: ReaderSettings['interfaceLanguage'], state: PuckPowerState): string {
+    if (state === 'no-furigana') return `${APP_NAME}: ${uiText(language, 'furiganaOffToast')}`;
+    if (state === 'paused') return `${APP_NAME}: ${uiText(language, 'annotationsPausedToast')}`;
+    return APP_NAME;
+}
+
 /**
  * The puck power button steps through three states: everything on → furigana
  * hidden (colours, lookups, and mining stay live) → annotations paused → on.
@@ -135,11 +141,16 @@ export class FloatingButtonController {
     private syncButtonState(): void {
         const button = this.button;
         if (!button) return;
+        const powerState = this.actions?.powerState() ?? 'on';
+        const language = this.settings?.interfaceLanguage ?? 'en';
         // Sites with their own bottom action dock (Jiten's study grade bar +
         // Blacklist/Master row) collide with the default bottom-right spot;
         // raise the FAB above them (mobile UX finding, 2026-06-11).
         button.classList.toggle('jpdb-reader-fab-raised', hostHasBottomActionDock());
-        button.classList.toggle('jpdb-reader-fab--paused', Boolean(this.actions?.isPaused()));
+        button.classList.toggle('jpdb-reader-fab--no-furigana', powerState === 'no-furigana');
+        button.classList.toggle('jpdb-reader-fab--paused', powerState === 'paused');
+        button.title = puckStateLabel(language, powerState);
+        button.setAttribute('aria-label', button.title);
     }
 
     private buildRadialActions(): RadialAction[] {
@@ -161,12 +172,12 @@ export class FloatingButtonController {
                 id: 'power',
                 label: uiText(language, powerLabelKey),
                 icon: radialPowerIcon(),
-                tone: powerState === 'on' ? 'on' : powerState === 'no-furigana' ? 'neutral' : 'off',
+                tone: powerState === 'on' ? 'on' : powerState === 'no-furigana' ? 'partial' : 'off',
                 primary: true,
                 keepOpen: true,
                 run: () => {
                     actions.cyclePowerState();
-                    this.button?.classList.toggle('jpdb-reader-fab--paused', actions.isPaused());
+                    this.syncButtonState();
                 },
             },
             {

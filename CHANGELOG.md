@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.96] - 2026-07-06
+
+### Improved
+
+- The puck now makes its power-cycle state visible: furigana-hidden mode gets its own small furigana badge and partial-tone power action, while fully paused annotations show a pause badge, so the intermediate "readings hidden but lookups still active" state no longer looks the same as turning annotations off.
+
 ## [1.6.95] - 2026-07-06
 
 ### Fixed

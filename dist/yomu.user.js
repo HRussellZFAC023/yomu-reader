@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.95
+// @version 1.6.96
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.95#sha256=N0kDfli6QcwU15W78VmRYdj9pqPzPitUx+OJVHZoeXg=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.95#sha256=YkoJBh3Uc7HIPqUyBOyLJ9lr6TVn0tP9LlBgH8ovYII=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.95#sha256=ouQezXMgPVhSpjRQf6nVEIOA1BdNCYBq2T3XnmT/Ujk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.95#sha256=kxf+lcrOgWG2I6C+ucheI6LV0lvdkoKwqRYPPxZXFLs=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.95#sha256=EDQgt0RULyq8pTdZMdQFGrE0RTid8UF6Rm/l4NupFt0=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.95#sha256=2iqN3MWoGj/GRLfs0ZwljkXLmXoSk6jy8iWOkRiRdvE=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.96#sha256=N0kDfli6QcwU15W78VmRYdj9pqPzPitUx+OJVHZoeXg=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.96#sha256=YkoJBh3Uc7HIPqUyBOyLJ9lr6TVn0tP9LlBgH8ovYII=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.96#sha256=ouQezXMgPVhSpjRQf6nVEIOA1BdNCYBq2T3XnmT/Ujk=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.96#sha256=kxf+lcrOgWG2I6C+ucheI6LV0lvdkoKwqRYPPxZXFLs=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.96#sha256=EDQgt0RULyq8pTdZMdQFGrE0RTid8UF6Rm/l4NupFt0=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.96#sha256=2iqN3MWoGj/GRLfs0ZwljkXLmXoSk6jy8iWOkRiRdvE=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -20953,6 +20953,7 @@ class RadialMenuController {
   const tone = action.disabled ? "neutral" : action.tone ?? "neutral";
   if (tone === "on") item.classList.add("is-on");
   else if (tone === "off") item.classList.add("is-off");
+  else if (tone === "partial") item.classList.add("is-partial");
   item.title = action.label;
   item.setAttribute("aria-label", action.label);
   item.setAttribute("aria-disabled", String(Boolean(action.disabled)));
@@ -21016,6 +21017,11 @@ function radialYoutubeIcon() {
 }
 function hostHasBottomActionDock() {
   return location.hostname === "jiten.moe" && location.pathname.startsWith("/srs/");
+}
+function puckStateLabel(language, state) {
+  if (state === "no-furigana") return `${APP_NAME}: ${uiText(language, "furiganaOffToast")}`;
+  if (state === "paused") return `${APP_NAME}: ${uiText(language, "annotationsPausedToast")}`;
+  return APP_NAME;
 }
 class FloatingButtonController {
   button;
@@ -21085,8 +21091,13 @@ class FloatingButtonController {
   syncButtonState() {
   const button2 = this.button;
   if (!button2) return;
+  const powerState = this.actions?.powerState() ?? "on";
+  const language = this.settings?.interfaceLanguage ?? "en";
   button2.classList.toggle("jpdb-reader-fab-raised", hostHasBottomActionDock());
-  button2.classList.toggle("jpdb-reader-fab--paused", Boolean(this.actions?.isPaused()));
+  button2.classList.toggle("jpdb-reader-fab--no-furigana", powerState === "no-furigana");
+  button2.classList.toggle("jpdb-reader-fab--paused", powerState === "paused");
+  button2.title = puckStateLabel(language, powerState);
+  button2.setAttribute("aria-label", button2.title);
   }
   buildRadialActions() {
   const settings = this.settings;
@@ -21103,12 +21114,12 @@ class FloatingButtonController {
       id: "power",
       label: uiText(language, powerLabelKey),
       icon: radialPowerIcon(),
-      tone: powerState === "on" ? "on" : powerState === "no-furigana" ? "neutral" : "off",
+      tone: powerState === "on" ? "on" : powerState === "no-furigana" ? "partial" : "off",
       primary: true,
       keepOpen: true,
       run: () => {
         actions.cyclePowerState();
-        this.button?.classList.toggle("jpdb-reader-fab--paused", actions.isPaused());
+        this.syncButtonState();
       }
     },
     {
@@ -33438,7 +33449,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.95"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.96"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
