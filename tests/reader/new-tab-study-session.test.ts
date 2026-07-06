@@ -39,6 +39,7 @@ describe('new-tab study session model', () => {
             'recall-cloze',
             'listen-pitch',
             'speaking',
+            'type-word',
             'final-reveal',
         ]);
         expect(session.steps.filter(step => step.gradeable).map(step => step.kind)).toEqual(['final-reveal']);
@@ -113,6 +114,9 @@ describe('new-tab study session model', () => {
             'listen-pitch',
             'recall-cloze',
             'kanji-doodle',
+            // type-word has no configured position, so it lands after the ordered
+            // steps (before the always-last reveal), gated on the recall cloze.
+            'type-word',
             'final-reveal',
         ]);
         expect(session.gradeStep.kind).toBe('final-reveal');
