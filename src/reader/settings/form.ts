@@ -68,6 +68,7 @@ const NEW_TAB_STUDY_STEP_LABELS: Record<NewTabStudyChallengeStep, string> = {
     'recall-cloze': 'Write in sentence',
     'listen-pitch': 'Pitch listening',
     speaking: 'Speaking',
+    'type-word': 'Type the word',
 };
 const NEW_TAB_STUDY_STEP_HELP: Record<NewTabStudyChallengeStep, string> = {
     'kanji-doodle': 'Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.',
@@ -75,6 +76,7 @@ const NEW_TAB_STUDY_STEP_HELP: Record<NewTabStudyChallengeStep, string> = {
     'recall-cloze': 'Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.',
     'listen-pitch': 'Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.',
     speaking: 'Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available.',
+    'type-word': 'Produce the word after hearing and speaking it: type it, or write it kanji by kanji. Skippable in-session.',
 };
 const NEW_TAB_STUDY_STEP_LABEL_KEYS: Record<NewTabStudyChallengeStep, SettingsTextKey> = {
     'kanji-doodle': 'newTabStudyStepKanji',
@@ -82,6 +84,7 @@ const NEW_TAB_STUDY_STEP_LABEL_KEYS: Record<NewTabStudyChallengeStep, SettingsTe
     'recall-cloze': 'newTabStudyStepRecall',
     'listen-pitch': 'newTabStudyStepListen',
     speaking: 'newTabStudyStepSpeaking',
+    'type-word': 'newTabStudyStepType',
 };
 const NEW_TAB_STUDY_STEP_HELP_KEYS: Record<NewTabStudyChallengeStep, SettingsTextKey> = {
     'kanji-doodle': 'newTabStudyStepKanjiHelp',
@@ -89,6 +92,7 @@ const NEW_TAB_STUDY_STEP_HELP_KEYS: Record<NewTabStudyChallengeStep, SettingsTex
     'recall-cloze': 'newTabStudyStepRecallHelp',
     'listen-pitch': 'newTabStudyStepListenHelp',
     speaking: 'newTabStudyStepSpeakingHelp',
+    'type-word': 'newTabStudyStepTypeHelp',
 };
 const DEFAULT_SETTINGS_PANEL = 'appearance';
 const SETTINGS_TABS: readonly { panel: string; label: string; labelKey?: SettingsTextKey; active?: boolean }[] = [

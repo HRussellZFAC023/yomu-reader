@@ -152,6 +152,7 @@ import { PitchSrsStore, pitchItemKey, type PitchSrsItem } from './pitch-srs';
 import { renderListenCard, type ListenCardView, type ListenOutcome } from './listen-render';
 import { scoreSpeakingBlob, type SpeakingPitchScore } from './speaking-score';
 import { createNewTabStudySession, type NewTabStudySession, type NewTabStudyStep, type NewTabStudyStepId, type NewTabStudyStepKind } from './study-session';
+import { studySummaryState, suggestedStudyGrade, type StudyStepOutcome, type StudyStepOutcomes } from './study-outcomes';
 import { kanjiDrawHints, recallHints, type StudyHint, type StudyHintStep } from './study-hints';
 import { collectPitchVariants, contextPitchPattern, pitchNumberForReading, splitMorae, validPitchPositions } from '../lookup/pitch-accent';
 import { installNewTabSwipeGesture, newTabSwipeGrade, type NewTabSwipeAction } from './swipe-gesture';
@@ -263,7 +264,7 @@ import type {
 } from '../srs/types';
 import { loadJitenDailyStats } from '../dictionaries/jiten-stats-cache';
 import { jpdbFirstParseOptions, type ReaderParser } from '../lookup/parser';
-import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
+import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, NewTabTypeWordInputMode, ReaderSettings } from '../app/types';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import { gmStorageGet, gmStorageSet } from '../app/storage';
 import { nextExplicitUiLanguage, resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
@@ -846,6 +847,21 @@ export class NewTabController {
     // the recall answer so it survives step navigation and folds into the single
     // reveal — the pitch step feeds the same per-step outcome tracking as recall.
     private pitchOutcomes = new Map<string, { position: number; outcome: ListenOutcome }>();
+    // Type-word production: the in-progress typed answer, plus the FIRST-attempt
+    // outcome per card (recall grades reused; 'skipped' when the learner skips).
+    // First attempt counts — a later retry never rewrites the recorded outcome,
+    // matching the listen/pitch first-attempt convention.
+    private typeAnswers = new Map<string, string>();
+    private typeOutcomes = new Map<string, NewTabRecallOutcome | 'skipped'>();
+    // Handwriting sub-mode progress: how many leading characters of the target
+    // the learner has cleared (kana/KanjiVG-missing chars auto-advance).
+    private typeHandwritingProgress = new Map<string, number>();
+    // First-attempt pass/fail for the doodle and speaking steps, mirrored into the
+    // reveal summary. Neither step natively persisted a per-card outcome (doodle
+    // toggled a CSS class; speaking held a transient score), so these maps give
+    // the summary strip a stable, first-attempt source without re-deriving state.
+    private doodleOutcomes = new Map<string, 'correct' | 'wrong'>();
+    private speakingOutcomes = new Map<string, 'correct' | 'wrong'>();
     // Progressive-hint reveal depth per card+step ("card|kanji-doodle:0:飲" -> 2).
     // A hint never prints the full answer; the count folds into the reveal summary.
     private studyHintDepth = new Map<string, number>();
@@ -870,6 +886,9 @@ export class NewTabController {
         'study-hint': (root, target) => this.revealStudyHint(root, target),
         'dismiss-study-tour': root => { void this.dismissStudyTour(root); },
         'recall-submit': root => this.submitRecallAnswer(root),
+        'type-word-submit': root => this.submitTypeWordAnswer(root),
+        'type-word-skip': root => this.skipTypeWord(root),
+        'type-word-mode': (root, target) => this.handleTypeWordModeClick(root, target),
         'listen-pick': (root, target) => this.handleListenPick(root, target),
         'listen-play': () => { void this.playListenModelAudio(); },
         'listen-play-both': () => { void this.playListenContrast(); },
@@ -1130,6 +1149,11 @@ export class NewTabController {
         this.recallAnswers.clear();
         this.recallOutcomes.clear();
         this.pitchOutcomes.clear();
+        this.typeAnswers.clear();
+        this.typeOutcomes.clear();
+        this.typeHandwritingProgress.clear();
+        this.doodleOutcomes.clear();
+        this.speakingOutcomes.clear();
         this.studyHintDepth.clear();
         this.immersionAudioPlayer.reset();
         this.statsSnapshot = emptyStatsDashboardSnapshot();
@@ -4841,6 +4865,7 @@ export class NewTabController {
         else if (step.kind === 'kanji-doodle') this.renderKanjiPrompt(slots, card, step.kanji);
         else if (step.kind === 'listen-pitch' || step.kind === 'speaking') this.renderListenPrompt(slots, card);
         else if (step.kind === 'recall-cloze') this.renderRecallPrompt(slots, card, state);
+        else if (step.kind === 'type-word') this.renderTypeWordPrompt(slots, card);
         else this.renderWordPrompt(slots, card, state);
     }
 
@@ -5152,6 +5177,10 @@ export class NewTabController {
             if (generation !== this.listenSpeakingScoreGeneration || this.listenItem?.key !== itemKey || this.state.listenSubMode !== 'shadow') return;
             this.listenSpeakingScore = score;
             this.listenSpeakingScoring = false;
+            // Fold the shadowing verdict into the reveal summary (first attempt
+            // counts) — a 'retry' verdict reads as wrong, 'good'/'close' as pass.
+            const speakingCard = this.visibleWords[this.index];
+            if (score && speakingCard) this.recordSpeakingOutcome(speakingCard, score.verdict !== 'retry');
             this.rerenderActiveListen();
         } catch (error) {
             log.warn('Listen pitch scoring failed', error);
@@ -5191,6 +5220,12 @@ export class NewTabController {
             try { this.listenRecorder.stop(); } catch { /* already stopping */ }
         }
         this.listenRecorder = undefined;
+    }
+
+    private recordSpeakingOutcome(card: JPDBCard, passed: boolean): void {
+        const key = cardKey(card);
+        if (this.speakingOutcomes.has(key)) return;
+        this.speakingOutcomes.set(key, passed ? 'correct' : 'wrong');
     }
 
     private clearListenSpeakingScore(): void {
@@ -6360,6 +6395,231 @@ export class NewTabController {
         if (outcome === 'accepted') return this.text('recallAccepted');
         if (outcome === 'incorrect') return this.text('recallIncorrect');
         return this.text('recallEmpty');
+    }
+
+    // ----- Type-word: reproduce the recall word (typed or handwritten) -----
+
+    private renderTypeWordPrompt(slots: NewTabStudySlots, card: JPDBCard): void {
+        // The prompt is the SAME blanked example sentence recall uses, so the
+        // learner produces the word from meaning + context (not just reading).
+        if (slots.prompt) this.renderRecallQuestion(slots.prompt, card);
+        this.renderTypeWordAnswer(slots.answer, card);
+        this.renderRecallMeaning(slots.meaning, card);
+        if (this.state.revealAnswer) void this.renderImmersionExample(slots, card);
+    }
+
+    private typeWordInputMode(): NewTabTypeWordInputMode {
+        return this.dependencies.getSettings().newTabTypeWordInputMode === 'handwriting' ? 'handwriting' : 'keyboard';
+    }
+
+    private renderTypeWordAnswer(answer: HTMLElement | null, card: JPDBCard): void {
+        if (!answer) return;
+        delete answer.dataset.newtabAnswerDetailsRequest;
+        const mode = this.typeWordInputMode();
+        const outcome = this.typeOutcomes.get(cardKey(card));
+        answer.dataset.typeWordMode = mode;
+        answer.dataset.typeWordOutcome = outcome ?? 'pending';
+        replaceChildrenWith(answer,
+            this.renderTypeWordModeToggle(mode),
+            mode === 'handwriting'
+                ? this.renderTypeWordHandwriting(card)
+                : this.renderTypeWordKeyboard(card),
+            outcome && outcome !== 'skipped' ? el('div', {
+                class: 'jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result',
+                dataset: { newtabTypeResult: outcome },
+            }, this.typeWordOutcomeLabel(outcome, card)) : null,
+            el('div', { class: 'jpdb-reader-newtab-type-skip-row' },
+                el('button', {
+                    class: 'jpdb-reader-btn jpdb-reader-newtab-type-skip',
+                    type: 'button',
+                    dataset: { newtabAction: 'type-word-skip' },
+                }, this.text('typeWordSkip'))),
+        );
+        if (mode === 'handwriting') this.installTypeWordDoodle(answer, card);
+        else if (!this.state.revealAnswer) this.focusTypeWordInputSoon(answer);
+    }
+
+    private renderTypeWordModeToggle(mode: NewTabTypeWordInputMode): HTMLElement {
+        const button = (value: NewTabTypeWordInputMode, label: string) => el('button', {
+            class: 'jpdb-reader-btn jpdb-reader-newtab-type-mode',
+            type: 'button',
+            dataset: { newtabAction: 'type-word-mode', typeWordMode: value, active: String(mode === value) },
+            'aria-pressed': String(mode === value),
+        }, label);
+        return el('div', { class: 'jpdb-reader-newtab-type-modes', role: 'group', 'aria-label': this.text('typeWordModeGroup') },
+            button('keyboard', this.text('typeWordModeKeyboard')),
+            button('handwriting', this.text('typeWordModeHandwriting')),
+        );
+    }
+
+    private renderTypeWordKeyboard(card: JPDBCard): HTMLElement {
+        return el('form', { class: 'jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form', dataset: { newtabTypeForm: true } },
+            el('input', {
+                class: 'jpdb-reader-newtab-recall-input jpdb-reader-newtab-type-input',
+                dataset: { newtabTypeInput: true },
+                value: this.typeAnswers.get(cardKey(card)) ?? '',
+                placeholder: this.text('typeWordPlaceholder'),
+                autocomplete: 'off',
+                autocapitalize: 'none',
+                autocorrect: 'off',
+                spellcheck: false,
+                inputmode: 'text',
+                enterkeyhint: 'done',
+                lang: 'ja',
+                'aria-label': this.text('typeWordPlaceholder'),
+                disabled: this.state.revealAnswer,
+            }),
+            el('button', {
+                class: 'jpdb-reader-newtab-recall-check',
+                type: 'button',
+                dataset: { newtabAction: 'type-word-submit' },
+            }, this.text('recallCheck')),
+        );
+    }
+
+    // Handwriting produces the word one character at a time. Only kanji are
+    // graded against KanjiVG; kana and kanji with no stroke reference auto-pass
+    // and advance, so a mixed word like 飲み物 asks for 飲 and 物 but skips み.
+    private renderTypeWordHandwriting(card: JPDBCard): HTMLElement {
+        const target = this.typeWordTarget(card);
+        const chars = Array.from(target);
+        const progress = Math.min(this.typeHandwritingProgress.get(cardKey(card)) ?? 0, chars.length);
+        const current = chars[progress] ?? '';
+        return el('div', { class: 'jpdb-reader-newtab-type-handwriting', dataset: { typeWordChars: String(chars.length), typeWordProgress: String(progress) } },
+            el('div', { class: 'jpdb-reader-newtab-type-handwriting-track', 'aria-label': this.text('typeWordProgress') },
+                chars.map((character, index) => el('span', {
+                    class: 'jpdb-reader-newtab-type-handwriting-cell',
+                    lang: 'ja',
+                    dataset: { done: String(index < progress), active: String(index === progress) },
+                }, index < progress ? character : '＿'))),
+            progress >= chars.length
+                ? el('div', { class: 'jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result', dataset: { newtabTypeResult: 'correct' } }, this.text('typeWordAllDone'))
+                : el('div', { class: 'jpdb-reader-newtab-type-handwriting-prompt', lang: 'ja' }, this.text('typeWordWriteChar')),
+            this.kanjiDoodleFront(current || '字'),
+        );
+    }
+
+    private installTypeWordDoodle(answer: HTMLElement, card: JPDBCard): void {
+        const chars = Array.from(this.typeWordTarget(card));
+        const progress = Math.min(this.typeHandwritingProgress.get(cardKey(card)) ?? 0, chars.length);
+        if (progress >= chars.length) return;
+        const current = chars[progress] ?? '';
+        installKanjiDoodle(answer, () => this.dependencies.getSettings().interfaceLanguage, {
+            onChange: strokes => { void this.assessTypeWordDoodle(answer, card, current, strokes); },
+            onClear: () => this.clearDoodleAssessment({ ...this.studySlots(answer.closest<HTMLElement>('.jpdb-reader-newtab') ?? answer), answer }),
+        });
+    }
+
+    private async assessTypeWordDoodle(answer: HTMLElement, card: JPDBCard, character: string, strokes: Parameters<typeof assessKanjiStrokes>[0]): Promise<void> {
+        const slots = { ...this.studySlots(answer.closest<HTMLElement>('.jpdb-reader-newtab') ?? answer), answer };
+        // Non-kanji (kana) has no KanjiVG reference, so it can never be stroke-
+        // graded — auto-advance the moment any stroke lands.
+        if (!isKanjiCharacter(character)) {
+            this.advanceTypeWordHandwriting(answer, card, 'correct');
+            return;
+        }
+        const details = await this.loadKanjiDetails(character);
+        const expectedStrokes = details.vg?.strokeCount ?? 0;
+        if (!expectedStrokes || !details.vg?.strokeShapes?.length) {
+            // No stroke reference for this kanji: cannot fairly grade shape, so
+            // accept the attempt and move on rather than blocking the word.
+            this.advanceTypeWordHandwriting(answer, card, 'correct');
+            return;
+        }
+        if (shouldWaitForMoreDoodleStrokes(strokes, expectedStrokes)) {
+            this.clearDoodleAssessment(slots);
+            return;
+        }
+        const assessment = assessKanjiStrokes(strokes, expectedStrokes, details.vg.strokeShapes);
+        this.renderDoodleAssessment(slots, assessment);
+        if (assessment.passed) this.advanceTypeWordHandwriting(answer, card, 'correct');
+    }
+
+    private advanceTypeWordHandwriting(answer: HTMLElement, card: JPDBCard, charOutcome: 'correct' | 'wrong'): void {
+        const key = cardKey(card);
+        const chars = Array.from(this.typeWordTarget(card));
+        const progress = Math.min(this.typeHandwritingProgress.get(key) ?? 0, chars.length);
+        const next = Math.min(progress + 1, chars.length);
+        this.typeHandwritingProgress.set(key, next);
+        if (next >= chars.length) {
+            // All characters cleared -> the whole word passes. A wrong char along
+            // the way never reaches here (grading only advances on a pass).
+            this.recordTypeOutcome(card, charOutcome === 'wrong' ? 'incorrect' : 'correct');
+            const root = answer.closest<HTMLElement>('.jpdb-reader-newtab');
+            if (root && this.visibleWords[this.index] === card && !this.navigateStudyStep('next')) this.renderWord(root, card);
+            return;
+        }
+        const root = answer.closest<HTMLElement>('.jpdb-reader-newtab');
+        if (root && this.visibleWords[this.index] === card) this.renderWord(root, card);
+    }
+
+    private typeWordTarget(card: JPDBCard): string {
+        const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
+        return (cloze.hasCloze ? cloze.answer : '').trim() || card.spelling.trim();
+    }
+
+    private focusTypeWordInputSoon(answer: HTMLElement): void {
+        if (typeof window === 'undefined') return;
+        window.setTimeout(() => {
+            const input = answer.querySelector<HTMLInputElement>('[data-newtab-type-input]');
+            if (!input?.isConnected || input.disabled) return;
+            const active = document.activeElement;
+            if (active && active !== document.body && active !== answer.closest('[data-newtab-study]')) return;
+            input.focus({ preventScroll: true });
+        }, 0);
+    }
+
+    private setTypeWordInputMode(root: HTMLElement, mode: NewTabTypeWordInputMode): void {
+        const settings = this.dependencies.getSettings();
+        if (settings.newTabTypeWordInputMode === mode) return;
+        settings.newTabTypeWordInputMode = mode;
+        void this.dependencies.onSettingsChange();
+        const card = this.visibleWords[this.index];
+        if (card) this.renderWord(root, card);
+    }
+
+    private handleTypeWordModeClick(root: HTMLElement, target: HTMLElement): void {
+        const mode = target.closest<HTMLElement>('[data-type-word-mode]')?.dataset.typeWordMode;
+        if (mode === 'keyboard' || mode === 'handwriting') this.setTypeWordInputMode(root, mode);
+    }
+
+    private submitTypeWordAnswer(root: HTMLElement): void {
+        const card = this.visibleWords[this.index];
+        const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]');
+        if (!card || !input) return;
+        const evaluation = evaluateNewTabRecallAnswer(card, input.value, newTabCardReading(card));
+        this.typeAnswers.set(cardKey(card), input.value);
+        if (evaluation.outcome === 'empty') {
+            this.renderWord(root, card);
+            return;
+        }
+        this.recordTypeOutcome(card, evaluation.outcome);
+        // Stay on the step and show correct/incorrect feedback + the answer;
+        // the learner advances with Continue. (Auto-advancing would hide the
+        // feedback the moment they checked, unlike recall which is pass-through.)
+        this.renderWord(root, card);
+    }
+
+    private skipTypeWord(root: HTMLElement): void {
+        const card = this.visibleWords[this.index];
+        if (!card) return;
+        this.recordTypeOutcome(card, 'skipped');
+        if (!this.navigateStudyStep('next')) this.renderWord(root, card);
+    }
+
+    // First attempt counts: once an outcome is recorded for this card it is never
+    // overwritten (a retype/redraw does not launder a first miss into a pass).
+    private recordTypeOutcome(card: JPDBCard, outcome: NewTabRecallOutcome | 'skipped'): void {
+        const key = cardKey(card);
+        if (this.typeOutcomes.has(key)) return;
+        this.typeOutcomes.set(key, outcome);
+    }
+
+    private typeWordOutcomeLabel(outcome: NewTabRecallOutcome | 'skipped', card: JPDBCard): string {
+        if (outcome === 'correct') return `${this.text('recallCorrect')} · ${this.typeWordTarget(card)}`;
+        if (outcome === 'accepted') return `${this.text('recallAccepted')} · ${this.typeWordTarget(card)}`;
+        if (outcome === 'incorrect') return `${this.text('recallIncorrect')} · ${this.typeWordTarget(card)}`;
+        return this.text('typeWordSkipped');
     }
 
     private renderWordAnswer(answer: HTMLElement | null, _card: JPDBCard): void {
@@ -8013,7 +8273,19 @@ export class NewTabController {
         }
         const assessment = assessKanjiStrokes(strokes, expectedStrokes || strokes.length, details.vg?.strokeShapes);
         this.renderDoodleAssessment(slots, assessment);
+        // First-attempt pass/fail feeds the reveal summary. A single word card can
+        // hold several kanji-doodle steps; keep the FIRST fail so the summary
+        // reflects the roughest draw rather than the last retry.
+        this.recordDoodleOutcome(card, assessment.passed);
         this.autoSubmitDoodleAssessment(settings, assessment.passed);
+    }
+
+    private recordDoodleOutcome(card: JPDBCard, passed: boolean): void {
+        const key = cardKey(card);
+        const prior = this.doodleOutcomes.get(key);
+        // A later pass never launders an earlier fail; a first result records as-is.
+        if (prior === 'wrong') return;
+        this.doodleOutcomes.set(key, passed ? 'correct' : 'wrong');
     }
 
     private autoSubmitDoodleAssessment(settings: ReaderSettings, passed: boolean): void {
@@ -9547,10 +9819,11 @@ export class NewTabController {
     private gradeControlButtons(card: JPDBCard): HTMLElement[] {
         const targetOptions = this.mainGradeTargetOptions(card);
         const targetLabel = targetOptions[0]?.label ?? this.gradeTargetLabel(card);
-        return renderNewTabGradeControlButtons({
+        const grades = newTabGradeOptions(this.dependencies.getSettings());
+        const buttons = renderNewTabGradeControlButtons({
             apiShortLabel: this.apiGradeTargetShortLabel(card),
             bothLabel: this.text('gradeTargetBoth'),
-            grades: newTabGradeOptions(this.dependencies.getSettings()),
+            grades,
             intervals: card.reviewGradeIntervals,
             keyHints: this.studyGradeShortcutHints(),
             showShortcutHints: this.dependencies.getSettings().newTabShortcutHintsEnabled,
@@ -9560,6 +9833,69 @@ export class NewTabController {
             targetLabel,
             targetOptions,
         });
+        // Suggestion is advisory only — highlight one button, never grade. The
+        // learner's manual choice always wins (nothing is submitted here).
+        const outcomes = this.studyStepOutcomesForCard(card);
+        this.markSuggestedGradeButton(buttons, suggestedStudyGrade(outcomes, grades.map(([grade]) => grade)));
+        const summary = this.renderStudySummaryStrip(card, outcomes);
+        return summary ? [summary, ...buttons] : buttons;
+    }
+
+    private markSuggestedGradeButton(buttons: HTMLElement[], suggested: JPDBGrade | null): void {
+        if (!suggested) return;
+        for (const button of buttons) {
+            const match = button instanceof HTMLElement && button.dataset.grade === suggested
+                ? button
+                : button.querySelector<HTMLElement>(`[data-grade="${suggested}"]`);
+            if (!match) continue;
+            match.dataset.suggested = 'true';
+            match.setAttribute('aria-label', `${match.getAttribute('aria-label') ?? ''} (${this.text('gradeSuggested')})`.trim());
+            return;
+        }
+    }
+
+    // Gather each study step's first-attempt mini-outcome for THIS card, drawing
+    // from the same per-step maps the individual steps write. Steps with no
+    // recorded result are omitted (undefined), so the summary + suggestion only
+    // reflect what the learner actually did.
+    private studyStepOutcomesForCard(card: JPDBCard): StudyStepOutcomes {
+        const key = cardKey(card);
+        const outcomes: StudyStepOutcomes = {};
+        const doodle = this.doodleOutcomes.get(key);
+        if (doodle) outcomes['kanji-doodle'] = doodle;
+        const recall = this.recallOutcomes.get(key);
+        if (recall) outcomes['recall-cloze'] = recallOutcomeToStepOutcome(recall);
+        const pitch = this.pitchOutcomes.get(key);
+        if (pitch) outcomes['listen-pitch'] = pitch.outcome === 'correct' ? 'correct' : 'wrong';
+        const speaking = this.speakingOutcomes.get(key);
+        if (speaking) outcomes.speaking = speaking;
+        const type = this.typeOutcomes.get(key);
+        if (type) outcomes['type-word'] = type === 'skipped' ? 'skipped' : recallOutcomeToStepOutcome(type);
+        return outcomes;
+    }
+
+    private renderStudySummaryStrip(card: JPDBCard, outcomes: StudyStepOutcomes): HTMLElement | null {
+        // Only surface steps that are actually part of THIS card's flow, in flow
+        // order, so a card with no cloze never shows an empty Recall/Type cell.
+        const session = this.studySessionForCard(card, this.shouldRenderCardAsKanji(card));
+        const seen = new Set<NewTabStudyStepKind>();
+        const kinds = session.steps
+            .map(step => step.kind)
+            .filter(kind => kind !== 'word' && kind !== 'final-reveal' && !seen.has(kind) && seen.add(kind));
+        if (!kinds.length) return null;
+        return el('div', { class: 'jpdb-reader-newtab-study-summary', dataset: { newtabStudySummary: true }, role: 'list', 'aria-label': this.text('studySummaryLabel') },
+            kinds.map(kind => {
+                const state = studySummaryState(outcomes[kind]);
+                return el('span', {
+                    class: 'jpdb-reader-newtab-study-summary-step',
+                    role: 'listitem',
+                    dataset: { studySummaryStep: kind, studySummaryOutcome: state },
+                    title: `${this.text(studySummaryLabelKey(kind))}: ${this.text(studySummaryStateKey(state))}`,
+                },
+                    el('span', { class: 'jpdb-reader-newtab-study-summary-icon', 'aria-hidden': 'true' }, studySummaryIcon(state)),
+                    el('span', { class: 'jpdb-reader-newtab-study-summary-name' }, this.text(studySummaryLabelKey(kind))),
+                );
+            }));
     }
 
     private studyGradeShortcutHints(): Partial<Record<JPDBGrade, string>> {
@@ -11038,8 +11374,37 @@ function studyTourCopyKey(kind: NewTabStudyStepKind): NewTabCopyKey {
     if (kind === 'recall-cloze') return 'studyTourRecall';
     if (kind === 'listen-pitch') return 'studyTourListen';
     if (kind === 'speaking') return 'studyTourSpeaking';
+    if (kind === 'type-word') return 'studyTourType';
     if (kind === 'final-reveal') return 'studyTourReveal';
     return 'studyTourWord';
+}
+
+function recallOutcomeToStepOutcome(outcome: NewTabRecallOutcome): StudyStepOutcome {
+    // 'accepted' (right reading, not the target spelling) still counts as knowing
+    // the word for the reveal summary — only a real miss reads as wrong.
+    return outcome === 'correct' || outcome === 'accepted' ? 'correct' : 'wrong';
+}
+
+function studySummaryLabelKey(kind: NewTabStudyStepKind): NewTabCopyKey {
+    if (kind === 'kanji-doodle') return 'studySummaryKanji';
+    if (kind === 'recall-cloze') return 'studySummaryRecall';
+    if (kind === 'listen-pitch') return 'studySummaryListen';
+    if (kind === 'speaking') return 'studySummarySpeaking';
+    if (kind === 'type-word') return 'studySummaryType';
+    return 'studySummaryWord';
+}
+
+function studySummaryStateKey(state: StudyStepOutcome | 'none'): NewTabCopyKey {
+    if (state === 'correct') return 'studySummaryStateCorrect';
+    if (state === 'wrong') return 'studySummaryStateWrong';
+    if (state === 'skipped') return 'studySummaryStateSkipped';
+    return 'studySummaryStateNone';
+}
+
+function studySummaryIcon(state: StudyStepOutcome | 'none'): string {
+    if (state === 'correct') return '✓';
+    if (state === 'wrong') return '✗';
+    return '—';
 }
 
 function isNewTabKeyboardCaptureBlockedTarget(target: HTMLElement): boolean {

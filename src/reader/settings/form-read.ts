@@ -107,6 +107,7 @@ const NEW_TAB_STUDY_CHALLENGE_STEPS = [
     'recall-cloze',
     'listen-pitch',
     'speaking',
+    'type-word',
 ] as const satisfies readonly NewTabStudyChallengeStep[];
 
 export function settingsColorSourceValue(settings: ReaderSettings, name: ColorSourceSettingName): SelectableReaderColorSource {

@@ -238,8 +238,10 @@ export const DEFAULT_NEW_TAB_STUDY_STEP_ORDER: NewTabStudyChallengeStep[] = [
     'recall-cloze',
     'listen-pitch',
     'speaking',
+    'type-word',
 ];
 const NEW_TAB_STUDY_CHALLENGE_STEPS = new Set<NewTabStudyChallengeStep>(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
+const NEW_TAB_TYPE_WORD_INPUT_MODES = ['keyboard', 'handwriting'] as const satisfies readonly ReaderSettings['newTabTypeWordInputMode'][];
 
 const LEGACY_COLOR_CHANNEL_DEFAULTS: Record<ReaderColorChannelKey, ReaderColorSource> = {
     wordHighlightColorSource: 'auto',
@@ -373,6 +375,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     newTabKanjiAutoSubmit: false,
     newTabStudyStepOrder: [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER],
     newTabStudyDisabledSteps: [],
+    newTabTypeWordInputMode: 'keyboard',
     newTabStudyTourSeen: false,
     puckPositionX: undefined,
     puckPositionY: undefined,
@@ -809,6 +812,7 @@ function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial
         newTabKanjiAutoSubmit: booleanSetting(value, 'newTabKanjiAutoSubmit'),
         newTabStudyStepOrder: normalizeNewTabStudyStepOrder(value?.newTabStudyStepOrder),
         newTabStudyDisabledSteps: normalizeNewTabStudyDisabledSteps(value?.newTabStudyDisabledSteps),
+        newTabTypeWordInputMode: normalizeOption(value?.newTabTypeWordInputMode, NEW_TAB_TYPE_WORD_INPUT_MODES, DEFAULT_SETTINGS.newTabTypeWordInputMode),
         newTabStudyTourSeen: booleanSetting(value, 'newTabStudyTourSeen'),
     };
 }

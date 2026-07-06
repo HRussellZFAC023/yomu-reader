@@ -2143,6 +2143,126 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   color: var(--jpdb-reader-state-failed);
 }
 
+/* ----- Type-word: mode toggle, skip, handwriting track (reuses recall input/result) ----- */
+.jpdb-reader-newtab-type-modes {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 82%, transparent);
+  border: 1px solid var(--jpdb-reader-border);
+}
+
+.jpdb-reader-newtab-type-mode {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jpdb-reader-muted);
+  font: 820 12px / 1 var(--jpdb-reader-font);
+}
+
+.jpdb-reader-newtab-type-mode[data-active="true"] {
+  background: color-mix(in srgb, var(--jpdb-reader-accent-soft) 82%, var(--jpdb-reader-surface));
+  color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
+}
+
+.jpdb-reader-newtab-type-result[data-newtab-type-result="correct"],
+.jpdb-reader-newtab-type-result[data-newtab-type-result="accepted"] {
+  color: var(--jpdb-reader-state-known);
+}
+
+.jpdb-reader-newtab-type-result[data-newtab-type-result="incorrect"] {
+  color: var(--jpdb-reader-state-failed);
+}
+
+.jpdb-reader-newtab-type-skip-row {
+  display: flex;
+  justify-content: center;
+}
+
+.jpdb-reader-newtab-type-skip {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--jpdb-reader-muted);
+  font: 820 12px / 1 var(--jpdb-reader-font);
+}
+
+.jpdb-reader-newtab-type-handwriting {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.jpdb-reader-newtab-type-handwriting-track {
+  display: inline-flex;
+  gap: 6px;
+  font: 900 clamp(1.4rem, 4vw, 2rem) / 1 var(--jpdb-reader-font);
+}
+
+.jpdb-reader-newtab-type-handwriting-cell {
+  color: var(--jpdb-reader-muted);
+}
+
+.jpdb-reader-newtab-type-handwriting-cell[data-done="true"] {
+  color: var(--jpdb-reader-state-known);
+}
+
+.jpdb-reader-newtab-type-handwriting-cell[data-active="true"] {
+  color: var(--jpdb-reader-accent);
+}
+
+.jpdb-reader-newtab-type-handwriting-prompt {
+  color: var(--jpdb-reader-muted);
+  font-size: 13px;
+  font-weight: 820;
+}
+
+/* ----- Final-reveal per-step results strip + suggested-grade highlight ----- */
+.jpdb-reader-newtab-study-summary {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.jpdb-reader-newtab-study-summary-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--jpdb-reader-border);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 82%, transparent);
+  color: var(--jpdb-reader-muted);
+  font: 820 11px / 1 var(--jpdb-reader-font);
+}
+
+.jpdb-reader-newtab-study-summary-step[data-study-summary-outcome="correct"] {
+  color: var(--jpdb-reader-state-known);
+  border-color: color-mix(in srgb, var(--jpdb-reader-state-known) 45%, var(--jpdb-reader-border));
+}
+
+.jpdb-reader-newtab-study-summary-step[data-study-summary-outcome="wrong"] {
+  color: var(--jpdb-reader-state-failed);
+  border-color: color-mix(in srgb, var(--jpdb-reader-state-failed) 45%, var(--jpdb-reader-border));
+}
+
+.jpdb-reader-newtab-study-summary-icon {
+  font-weight: 900;
+}
+
+[data-newtab-action="grade"][data-suggested="true"] {
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: 2px;
+}
+
 .jpdb-reader-newtab-recall-solution {
   width: 100%;
   display: grid;

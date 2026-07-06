@@ -85,7 +85,10 @@ export type NewTabStudyChallengeStep =
     | 'word'
     | 'recall-cloze'
     | 'listen-pitch'
-    | 'speaking';
+    | 'speaking'
+    | 'type-word';
+
+export type NewTabTypeWordInputMode = 'keyboard' | 'handwriting';
 
 export type ReaderColorSource = 'auto' | 'status' | 'jpdb' | 'anki' | 'pitch' | 'off';
 
@@ -371,6 +374,7 @@ export interface ReaderSettings {
     newTabKanjiAutoSubmit: boolean;
     newTabStudyStepOrder: NewTabStudyChallengeStep[];
     newTabStudyDisabledSteps: NewTabStudyChallengeStep[];
+    newTabTypeWordInputMode: NewTabTypeWordInputMode;
     newTabStudyTourSeen: boolean;
     puckPositionX?: number;
     puckPositionY?: number;

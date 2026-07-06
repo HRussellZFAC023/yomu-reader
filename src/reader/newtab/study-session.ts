@@ -42,6 +42,7 @@ const STUDY_STEP_LABELS: Record<NewTabStudyStepKind, string> = {
     'recall-cloze': 'Recall',
     'listen-pitch': 'Listen',
     speaking: 'Speak',
+    'type-word': 'Type',
     'final-reveal': 'Reveal',
 };
 
@@ -63,6 +64,11 @@ function mergedStudyStepsForCard(card: JPDBCard, options: NewTabStudySessionOpti
     // (owner: "listen and speak should always be there, whether jiten or jpdb").
     available.add('listen-pitch');
     available.add('speaking');
+    // Type-word is a production drill on the SAME example sentence as recall: it
+    // blanks the target word and asks the learner to reproduce it (typed or
+    // handwritten). No cloze means no sentence to blank, so gate it exactly like
+    // recall-cloze rather than on a separate flag.
+    if (options.hasRecallCloze) available.add('type-word');
     const disabled = new Set(options.disabledSteps ?? []);
     const ordered = normalizedChallengeStepOrder(options.stepOrder);
     const kanji = kanjiCharacters(card.spelling);
@@ -121,6 +127,7 @@ function normalizedChallengeStepOrder(order: NewTabStudySessionOptions['stepOrde
         'recall-cloze',
         'listen-pitch',
         'speaking',
+        'type-word',
     ]);
 }
 
@@ -137,6 +144,8 @@ function studyModeForStep(kind: NewTabStudyChallengeStep): NewTabMode {
     if (kind === 'kanji-doodle') return 'kanji';
     if (kind === 'recall-cloze') return 'recall';
     if (kind === 'listen-pitch' || kind === 'speaking') return 'listen';
+    // Type-word reproduces the recall cloze word, so it lives in the same
+    // in-session word view (no dedicated queue mode) — like the word step.
     return 'word';
 }
 
