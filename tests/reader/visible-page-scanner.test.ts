@@ -292,6 +292,81 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('preserves furigana across Bloomee product chrome, drawers, and review links', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://bloomeelife.com/products/rose-arrangement') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <aside class="drawer-menu" style="width:340px">
+                <p>保有ポイント <strong>59 pt</strong></p>
+                <a href="/subscription">お花の定期便</a>
+                <a href="/mypage">マイページ</a>
+                <a href="/orders">購入履歴</a>
+            </aside>
+            <main class="product-detail">
+                <nav class="breadcrumb" style="white-space:nowrap">
+                    <a href="/gift">お花のギフト</a>
+                    &gt;
+                    <a href="/arrangement">フラワーアレンジメント</a>
+                    &gt;
+                    <span>【花瓶不要】 バラのみ 季節のお花アレンジメント</span>
+                </nav>
+                <section class="product-hero">
+                    <h1 data-product-title style="font-size:38px;line-height:1.1">
+                        【花瓶不要】 バラのみ 季節のお花アレンジメント
+                    </h1>
+                    <p class="rating" style="line-height:1.2">★★★★☆ 4.9 <a href="#reviews">（10件のレビュー）</a></p>
+                    <dl class="prices">
+                        <dt>一般価格</dt><dd>6,644円(税込)</dd>
+                        <dt>会員価格</dt><dd>5,980円(税込)</dd>
+                    </dl>
+                </section>
+                <article class="review-card">
+                    <h2>母の誕生日に</h2>
+                    <p>お花が大好きな母の誕生日にプレゼントしました🌹 とても喜んでくれました。</p>
+                    <a class="review-product-link" href="/products/rose-arrangement">
+                        【花瓶不要】 バラのみ 季節のお花アレンジメント
+                    </a>
+                </article>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForBloomeeProductText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            expect(document.documentElement.getAttribute('data-yomu-furigana-mode')).toBe('all');
+            const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
+            expect(parsedTexts.some(text => text.includes('【花瓶不要】 バラのみ 季節のお花アレンジメント'))).toBe(true);
+            expect(parsedTexts.some(text => text.includes('お花の定期便'))).toBe(true);
+
+            const productTitle = document.querySelector<HTMLElement>('[data-product-title]')!;
+            expect(productTitle.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="花瓶"] rt')?.textContent).toBe('かびん');
+            expect(productTitle.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="季節"] rt')?.textContent).toBe('きせつ');
+            expect(productTitle.closest('[data-jpdb-reader-passive-chrome="true"]')).toBeNull();
+            expect(document.querySelector<HTMLElement>('.breadcrumb .jpdb-reader-word[data-expression="お花"] rt')?.textContent).toBe('はな');
+            expect(document.querySelector<HTMLElement>('.drawer-menu .jpdb-reader-word[data-expression="定期便"] rt')?.textContent).toBe('ていきびん');
+            expect(document.querySelector<HTMLElement>('.prices .jpdb-reader-word[data-expression="一般価格"] rt')?.textContent).toBe('いっぱんかかく');
+            expect(document.querySelector<HTMLElement>('.review-card .jpdb-reader-word[data-expression="誕生日"] rt')?.textContent).toBe('たんじょうび');
+            expect(document.querySelector<HTMLElement>('.review-product-link .jpdb-reader-word[data-expression="季節"] rt')?.textContent).toBe('きせつ');
+        } finally {
+            scanner.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('renders furigana on generic compact media-card titles while keeping them passive', async () => {
         const restoreRects = mockVisibleElementRects();
         const originalLocation = window.location;
@@ -459,7 +534,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('keeps compact image navigation labels inline without adding ruby height', async () => {
+    it('keeps compact image navigation labels inline while preserving furigana', async () => {
         const restoreRects = mockVisibleElementRects();
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -504,8 +579,7 @@ describe('VisiblePageScanner', () => {
             expect(words).toHaveLength(2);
             expect(words.map(word => word.dataset.expression)).toEqual(['現地', 'ツアー']);
             expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
-            expect(words.every(word => word.closest<HTMLElement>('[data-jpdb-reader-passive-atomic="true"]'))).toBe(true);
-            expect(words.every(word => word.querySelector('rt,.jpdb-reader-furi') === null)).toBe(true);
+            expect(words[0]?.querySelector('rt,.jpdb-reader-furi')?.textContent).toBe('げんち');
             expect(words.map(word => word.style.getPropertyValue('display'))).toEqual(['inline', 'inline']);
             expect(words.map(word => word.style.getPropertyPriority('display'))).toEqual(['important', 'important']);
             expect(words.map(word => getComputedStyle(word).display)).toEqual(['inline', 'inline']);
@@ -521,7 +595,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('keeps compact footer help links lookupable without adding ruby height', async () => {
+    it('keeps compact footer help links lookupable while preserving furigana', async () => {
         const restoreRects = mockVisibleElementRects();
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -555,8 +629,8 @@ describe('VisiblePageScanner', () => {
             const word = link.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="共有"]')!;
             expect(word).not.toBeNull();
             expect(word.dataset.jpdbReaderPassive).toBe('true');
-            expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
-            expect(link.textContent?.replace(/\s+/g, '')).toContain('ClaudeCodeと共有される制限');
+            expect(word.querySelector('rt,.jpdb-reader-furi')?.textContent).toBe('きょうゆう');
+            expect(textWithoutFurigana(link).replace(/\s+/g, '')).toContain('ClaudeCodeと共有される制限');
         } finally {
             scanner.destroy();
             Object.defineProperty(window, 'location', {
@@ -610,8 +684,8 @@ describe('VisiblePageScanner', () => {
             expect(toast.dataset.jpdbReaderPassiveChrome).toBe('true');
             expect(words.length).toBeGreaterThan(3);
             expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
-            expect(words.every(word => word.querySelector('rt,.jpdb-reader-furi') === null)).toBe(true);
-            expect(message.textContent?.replace(/\s+/g, '')).toContain('回答があまりユーザーに適合しない可能性があります');
+            expect(words.some(word => word.querySelector('rt,.jpdb-reader-furi')?.textContent === 'かいとう')).toBe(true);
+            expect(textWithoutFurigana(message).replace(/\s+/g, '')).toContain('回答があまりユーザーに適合しない可能性があります');
         } finally {
             scanner.destroy();
             Object.defineProperty(window, 'location', {
@@ -2427,6 +2501,39 @@ function tokensForBloomeeLandingText(text: string): JPDBToken[] {
         ['お花', 'おはな'],
         ['飾れる', 'かざれる'],
         ['利用', 'りよう'],
+    ] as const;
+    const tokens: JPDBToken[] = [];
+    for (const [surface, reading] of targets) {
+        let index = text.indexOf(surface);
+        while (index >= 0) {
+            tokens.push(rubyToken(text, surface, reading, index, index + surface.length));
+            index = text.indexOf(surface, index + surface.length);
+        }
+    }
+    return tokens.sort((first, second) => first.start - second.start);
+}
+
+function tokensForBloomeeProductText(text: string): JPDBToken[] {
+    const targets = [
+        ['保有', 'ほゆう'],
+        ['ポイント', 'ポイント'],
+        ['お花', 'はな'],
+        ['定期便', 'ていきびん'],
+        ['購入履歴', 'こうにゅうりれき'],
+        ['花瓶', 'かびん'],
+        ['不要', 'ふよう'],
+        ['バラ', 'バラ'],
+        ['季節', 'きせつ'],
+        ['アレンジメント', 'アレンジメント'],
+        ['件', 'けん'],
+        ['レビュー', 'レビュー'],
+        ['一般価格', 'いっぱんかかく'],
+        ['会員価格', 'かいいんかかく'],
+        ['税込', 'ぜいこみ'],
+        ['母', 'はは'],
+        ['誕生日', 'たんじょうび'],
+        ['大好き', 'だいすき'],
+        ['喜んで', 'よろこんで'],
     ] as const;
     const tokens: JPDBToken[] = [];
     for (const [surface, reading] of targets) {

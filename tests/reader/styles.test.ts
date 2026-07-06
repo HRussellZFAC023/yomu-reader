@@ -134,6 +134,7 @@ describe('reader stylesheet loading', () => {
         expect(scanRule).toContain('.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word');
         expect(css).toContain('.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-has-furi');
         expect(css).toContain('.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-has-furi');
+        expect(css).toContain('.jpdb-reader-text-mirror .jpdb-reader-furi,\n.jpdb-reader-control-text-mirror .jpdb-reader-furi {\n  line-height: 1.08;\n}');
         expect(css).toContain('.jpdb-reader-word.jpdb-reader-passive-word');
         expect(css).toContain('.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word');
         expect(css).toContain('word-break: keep-all');
@@ -141,7 +142,7 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('line-height: inherit;');
     });
 
-    it('keeps furigana readings on a single line and chrome line boxes unshifted', () => {
+    it('keeps furigana readings legible and reserves line height for scanned text', () => {
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
 
         // A wrapped reading renders as stacked kana fragments (ひょう/じゅん)
@@ -151,10 +152,13 @@ describe('reader stylesheet loading', () => {
         expect(css).not.toMatch(/rt\.jpdb-reader-furi\s*\{[^}]*white-space: normal/);
         expect(css).not.toMatch(/rt[^{,]*\{[^}]*overflow-wrap: anywhere/);
 
-        // Chrome/UI rows are sized for plain text: non-prose scan words keep
-        // the host line box (no 2.05 growth) so furigana cannot shift or
-        // overlap host layout (YouTube speed slider 倍 label).
-        expect(css).toContain('.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-has-furi:not(.jpdb-reader-prose-word) {\n  line-height: inherit;\n}');
+        expect(css).toContain('.jpdb-reader-word.jpdb-reader-has-furi {\n  line-height: 2.15;\n}');
+        expect(css).not.toContain('.jpdb-reader-word.jpdb-reader-scan-word.jpdb-reader-has-furi:not(.jpdb-reader-prose-word) {\n  line-height: inherit;\n}');
+        const furiRule = Array.from(css.matchAll(/\.jpdb-reader-furi\s*\{[^}]*\}/g), match => match[0])
+            .find(rule => rule.includes('font-size')) ?? '';
+        expect(furiRule).toContain('font-size: 0.58em');
+        expect(furiRule).toContain('font-weight: 700');
+        expect(furiRule).toContain('line-height: 1.08');
     });
 
     it('keeps pitch underline and state decorations on passive content words at rest', () => {

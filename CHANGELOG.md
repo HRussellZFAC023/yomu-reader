@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.89] - 2026-07-05
+
+### Fixed
+
+- Furigana stays readable without breaking compact ecommerce layouts: short product price rows, breadcrumbs, review links, drawer menus, and similar fixed-height sections now grow only enough for readings instead of clipping, overlapping, or dropping annotated text.
+- YouTube live chat is lighter and parses subscriber-only notices correctly: live chat scans are scoped to message/control text instead of whole chat containers, `/live_chat` frames get the same ruby-safe YouTube handling as watch pages, and split notice text such as 登録者 still receives furigana and pitch underlines.
+- YouTube transcript rows keep phrase context across adjacent cue fragments without bloating the drawer labels, so words split by transcript row boundaries parse consistently while the panel remains compact.
+- Compound lookup component links now keep their ruby and pitch styling, so composed-of entries remain readable without losing pronunciation detail.
+
 ## [1.6.88] - 2026-07-05
 
 ### Fixed

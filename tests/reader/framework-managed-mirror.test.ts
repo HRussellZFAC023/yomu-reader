@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { applyTokensToScanTarget, collectTextTargetsIn, removeNonDestructiveScanMirrors, STALE_MIRROR_REMOVAL_GRACE_MS } from '../../src/reader/dom';
+import {
+    applyTokensToScanTarget,
+    collectFragmentTextTargetsIn,
+    collectTextTargetsIn,
+    removeNonDestructiveScanMirrors,
+    STALE_MIRROR_REMOVAL_GRACE_MS,
+} from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -19,7 +25,11 @@ function markReactOwned(element: Element): void {
     (element as unknown as Record<string, unknown>).__reactProps$abc123 = {};
 }
 function paint(host: HTMLElement): void {
-    const target = collectTextTargetsIn(host, 40, false).find(t => t.text.trim() === TEXT);
+    const targets = [
+        ...collectTextTargetsIn(host, 40, false),
+        ...collectFragmentTextTargetsIn(host, 40, false),
+    ];
+    const target = targets.find(t => t.text.trim() === TEXT);
     expect(target).toBeTruthy();
     applyTokensToScanTarget(target!, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 }
@@ -64,6 +74,21 @@ describe('framework-managed chat mirror', () => {
             expect((host.firstChild as Text).data).toBe(TEXT);
         }
         expect(host.querySelector(':scope > .jpdb-reader-text-mirror')).toBeTruthy();
+    });
+
+    it('mirrors one word across framework-owned sibling text fragments', () => {
+        document.body.innerHTML = `<div data-message-author-role="assistant"><div id="host" class="markdown"><span>日</span><span>本語</span></div></div>`;
+        const host = document.getElementById('host')!;
+        markReactOwned(host);
+
+        paint(host);
+
+        const mirror = host.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror')!;
+        const words = [...mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
+        expect(words).toHaveLength(1);
+        expect(words[0]?.dataset.expression).toBe(TEXT);
+        expect(words[0]?.querySelector('.jpdb-reader-furi')?.textContent).toBe('にほんご');
+        expect(host.querySelector('span')?.textContent).toBe('日');
     });
 
     it('drops a stale mirror when the host is recycled with different text', async () => {

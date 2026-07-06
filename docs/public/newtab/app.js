@@ -8082,7 +8082,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       layoutSensitive: true,
       nonDestructive: true,
       controlTextMirror: true,
-      controlSelectTextMode: options.selectTextMode
+      controlSelectTextMode: options.selectTextMode,
+      passiveInteraction: !options.includeReaderRoot
     };
   }
   function isCollectableFormControlTextElement(control, visibleOnly, options) {
@@ -8549,12 +8550,34 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
     const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
     const constrainedRubyHost = !target.nonDestructive && !liveFrameworkRegion && rubyDistortsConstrainedRows() && isInsideRubyFragileConstrainedRow(nonDestructiveHost) && hostIsVisuallyBareForMirror(nonDestructiveHost);
-    if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (target.nonDestructive || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
+    const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
+    if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
       applyTokensToNonDestructiveScanTarget(target, tokens, settings);
       return;
     }
     if (isFragmentTextTarget(target)) applyTokensToFragmentTarget(target, tokens, settings);
     else applyTokensToTextNode(target, tokens, settings);
+  }
+  function nonDestructiveTargetShouldRenderInline(target, host) {
+    if (!isFragmentTextTarget(target)) return false;
+    if (!target.fragments.length) return false;
+    if (scanHostIsLiveFrameworkRegion(host)) return false;
+    return targetLeavesVisibleBlockDescendantTextUncovered(target, host);
+  }
+  function targetLeavesVisibleBlockDescendantTextUncovered(target, host) {
+    if (!host.querySelector(":scope p,:scope div,:scope li,:scope dl,:scope dt,:scope dd,:scope section,:scope article,:scope blockquote")) return false;
+    const covered = new Set(target.fragments.map((fragment2) => fragment2.node));
+    const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => {
+        const parent = node.parentElement;
+        if (!parent || covered.has(node)) return NodeFilter.FILTER_REJECT;
+        if (parent.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
+        const block = parent.closest("p,div,li,dl,dt,dd,section,article,blockquote");
+        if (!block || block === host || !host.contains(block)) return NodeFilter.FILTER_REJECT;
+        return (node.textContent ?? "").trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+    return Boolean(walker.nextNode());
   }
   function applyTokensToTextNode(target, tokens, settings) {
     if (!tokens.length || !target.node.parentElement) return;
@@ -8609,7 +8632,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return { text: target.text, tokens };
     }
     const indexed = indexTextFragments(fragments);
-    const remapped = tokens.map((token) => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText.length)).filter((token) => token !== null);
+    const remapped = tokens.map((token) => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText)).filter((token) => token !== null);
     return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length) };
   }
   function collapsedTextKey(text2) {
@@ -8641,16 +8664,29 @@ recommendedJiten	Jiten由来の頻度バッジです。
       passiveInteraction: target.passiveInteraction
     }];
   }
-  function remapTokenIntoHostText(token, indexed, nodeOffsets, hostLength) {
+  function remapTokenIntoHostText(token, indexed, nodeOffsets, hostText) {
     const start = findFragmentBoundary(indexed, token.start, "start");
     const end = findFragmentBoundary(indexed, token.end, "end");
-    if (!start || !end || start.fragment !== end.fragment) return null;
-    const base = nodeOffsets.get(start.fragment.node);
-    if (base === void 0) return null;
-    const hostStart = base + start.localOffset;
-    const hostEnd = base + end.localOffset;
-    if (hostStart < 0 || hostEnd <= hostStart || hostEnd > hostLength) return null;
+    if (!start || !end) return null;
+    const hostStart = hostTextOffsetForBoundary(start, nodeOffsets);
+    const hostEnd = hostTextOffsetForBoundary(end, nodeOffsets);
+    if (hostStart === null || hostEnd === null) return null;
+    if (hostStart < 0 || hostEnd <= hostStart || hostEnd > hostText.length) return null;
+    const surface = textFragmentSurface(indexed, token.start, token.end);
+    if (!surface || hostText.slice(hostStart, hostEnd) !== surface) return null;
     return shiftTokenOffsets(token, hostStart - token.start);
+  }
+  function hostTextOffsetForBoundary(boundary, nodeOffsets) {
+    const base = nodeOffsets.get(boundary.fragment.node);
+    return base === void 0 ? null : base + boundary.localOffset;
+  }
+  function textFragmentSurface(indexed, start, end) {
+    if (end <= start) return "";
+    return indexed.filter((fragment2) => fragment2.globalEnd > start && fragment2.globalStart < end).map((fragment2) => {
+      const localStart = fragment2.start + Math.max(start, fragment2.globalStart) - fragment2.globalStart;
+      const localEnd = fragment2.start + Math.min(end, fragment2.globalEnd) - fragment2.globalStart;
+      return fragment2.node.data.slice(localStart, localEnd);
+    }).join("");
   }
   function shiftTokenOffsets(token, delta) {
     if (delta === 0) return token;
@@ -8814,7 +8850,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hasNativeRuby: false,
       mirrorRender: true,
       suppressRuby,
-      passiveInteraction: false,
+      passiveInteraction: target.passiveInteraction,
       suppressRubyDoesNotImplyPassive: placeholderOverlay
     }));
     if (!mirror.textContent?.trim()) {
@@ -18316,7 +18352,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function jpdbAudioIdMatchesVoice(audioId, prefixes) {
     const normalized = audioId.trim().toLowerCase();
-    return prefixes.some((prefix) => normalized.startsWith(`${prefix}/`) || prefix.length === 1 && new RegExp(`^${escapeRegExp$4(prefix)}\\d+/`).test(normalized));
+    return prefixes.some((prefix) => normalized.startsWith(`${prefix}/`) || prefix.length === 1 && new RegExp(`^${escapeRegExp$5(prefix)}\\d+/`).test(normalized));
   }
   async function jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl) {
     const reference = jitenAudioReferenceFromCard(card) ?? await lookupJitenAudioReference(card, timeoutMs, proxyUrl);
@@ -18687,7 +18723,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return urls;
   }
   function commonsSearchApiUrl(term, source) {
-    const search = source === "lingua-libre" ? `intitle:/-(${escapeRegExp$4(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"` : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp$4(term)}[0123456789]*.ogg/i`;
+    const search = source === "lingua-libre" ? `intitle:/-(${escapeRegExp$5(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"` : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp$5(term)}[0123456789]*.ogg/i`;
     return `https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srnamespace=6&origin=*&srsearch=${encodeURIComponent(search)}`;
   }
   function commonsSearchTitles(response) {
@@ -18707,10 +18743,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return Object.values(filePages).map((filePage) => filePage.imageinfo?.[0]).filter((image) => Boolean(image?.url && isValidCommonsAudioFilename(title, image.user ?? "", term, source))).map((image) => image?.url ?? "");
   }
   function findHtmlElementById(html, tag, id) {
-    return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp$4(id)}\\1`, "i"));
+    return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp$5(id)}\\1`, "i"));
   }
   function htmlAttributeValue(html, attribute) {
-    const match = new RegExp(`\\b${escapeRegExp$4(attribute)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(html);
+    const match = new RegExp(`\\b${escapeRegExp$5(attribute)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(html);
     return match?.[2] ?? null;
   }
   function findHtmlElementByClass(html, tag, className) {
@@ -18774,7 +18810,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
   }
   function getHtmlAttribute(attributes, name) {
-    const match = new RegExp(`\\b${escapeRegExp$4(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
+    const match = new RegExp(`\\b${escapeRegExp$5(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
     return match ? decodeHtmlAttribute(match[2]) : null;
   }
   function decodeHtmlAttribute(value) {
@@ -18786,9 +18822,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function isValidCommonsAudioFilename(filename, fileUser, term, source) {
     if (!filename) return false;
     if (source === "lingua-libre") {
-      return new RegExp(`^File:LL-Q\\d+\\s+\\(jpn\\)-${escapeRegExp$4(fileUser)}-${escapeRegExp$4(term)}\\.wav$`, "i").test(filename);
+      return new RegExp(`^File:LL-Q\\d+\\s+\\(jpn\\)-${escapeRegExp$5(fileUser)}-${escapeRegExp$5(term)}\\.wav$`, "i").test(filename);
     }
-    return new RegExp(`^File:ja(-\\w\\w)?-${escapeRegExp$4(term)}\\d*\\.ogg$`, "i").test(filename);
+    return new RegExp(`^File:ja(-\\w\\w)?-${escapeRegExp$5(term)}\\d*\\.ogg$`, "i").test(filename);
   }
   function normalizeAudioUrl(value, sourceUrl) {
     try {
@@ -18881,7 +18917,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (rel === "preconnect") link.crossOrigin = "anonymous";
     document.head?.append(link);
   }
-  function escapeRegExp$4(value) {
+  function escapeRegExp$5(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   let activationTrackingInstalled = false;
@@ -23679,7 +23715,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function metaKeyword(doc, kanji) {
     const description = doc.querySelector('meta[name="description"]')?.content ?? "";
-    const match = new RegExp(`${escapeRegExp$3(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
+    const match = new RegExp(`${escapeRegExp$4(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
     return cleanText$1(match?.[1] ?? "");
   }
   function cleanInfoTableValue(cell) {
@@ -23689,7 +23725,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const normalized = value.trim().toLowerCase();
     return normalized === "" || normalized === "missing" || section?.querySelector(".keyword-missing") !== null;
   }
-  function escapeRegExp$3(value) {
+  function escapeRegExp$4(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   function requestText$4(url, proxyUrl = "", options = {}) {
@@ -39484,7 +39520,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.88".trim() ? "1.6.88".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.89".trim() ? "1.6.89".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -46959,7 +46995,7 @@ ${spelling}`);
             <div class="jpdb-subtitle-drawer-top">
                 <div class="jpdb-subtitle-drawer-brand">
                     <strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(state2.title)}</strong>
-                    <span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(state2.meta)}</span>
+                    <span class="jpdb-subtitle-drawer-meta" title="${escapeHtml$1(state2.metaTitle ?? state2.meta)}">${escapeHtml$1(state2.meta)}</span>
                 </div>
                 <div class="jpdb-subtitle-drawer-top-actions">
                     ${renderPanelOptionsControls(state2.options)}
@@ -48875,7 +48911,7 @@ ${spelling}`);
     return readYouTubeConfigStringFromScripts(key);
   }
   function readYouTubeConfigStringFromScripts(key) {
-    const escapedKey = escapeRegExp$2(key);
+    const escapedKey = escapeRegExp$3(key);
     const patterns = [
       new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
       new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
@@ -48911,7 +48947,7 @@ ${spelling}`);
       params.has("kind") ? 1 : 0
     ].reduce((sum, item) => sum + item, 0);
   }
-  function escapeRegExp$2(value) {
+  function escapeRegExp$3(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   const REDIRECT_FLAG = "__yomuSubtitleFullscreenRedirect";
@@ -49400,6 +49436,15 @@ ${spelling}`);
         secondaryTrackId: state2.secondaryTrackId,
         language
       }),
+      metaTitle: subtitleDrawerMetaText({
+        mode: "tracks",
+        count: state2.tracks.length,
+        tracks: state2.tracks,
+        selectedTrackId: state2.selectedTrackId,
+        secondaryTrackId: state2.secondaryTrackId,
+        language,
+        compact: false
+      }),
       canShowLines: state2.hasTranscriptSurface,
       showModeTabs: state2.hasTranscriptSurface,
       options: {
@@ -49438,8 +49483,9 @@ ${spelling}`);
   function subtitleDrawerMetaText(options) {
     const primaryTrack = options.tracks.find((track) => track.id === options.selectedTrackId);
     const secondaryTrack = options.tracks.find((track) => track.id === options.secondaryTrackId);
-    const primary = primaryTrack ? localizedSubtitleTrackLabel(primaryTrack, options.language) : void 0;
-    const secondary = secondaryTrack ? localizedSubtitleTrackLabel(secondaryTrack, options.language) : void 0;
+    const label = options.compact === false ? localizedSubtitleTrackLabel : compactSubtitleTrackLabel;
+    const primary = primaryTrack ? label(primaryTrack, options.language) : void 0;
+    const secondary = secondaryTrack ? label(secondaryTrack, options.language) : void 0;
     return drawerMetaParts(options.mode, options.count, primary, secondary, options.language).filter(Boolean).join(" · ");
   }
   function renderSubtitleTrackRow(track, state2) {
@@ -49449,7 +49495,7 @@ ${spelling}`);
     return `
         <div class="jpdb-subtitle-track-row ${isPrimary || isSecondary ? "active" : ""}" data-track-id="${escapeHtml$1(track.id)}">
             <div class="jpdb-subtitle-track-title">
-                    <strong>${escapeHtml$1(localizedSubtitleTrackLabel(track, language))}</strong>
+                    <strong title="${escapeHtml$1(localizedSubtitleTrackLabel(track, language))}">${escapeHtml$1(compactSubtitleTrackLabel(track, language))}</strong>
                     <span>${escapeHtml$1(formatTrackKind(track.kind, language))}</span>
                 </div>
             <span>${escapeHtml$1(trackLanguageLabel(track, language))}${trackRoleText(isPrimary, isSecondary, language)}${trackStatusText(track, language)}</span>
@@ -49500,6 +49546,36 @@ ${spelling}`);
     if (language !== "ja") return track.label;
     if (track.label === "YouTube subtitles") return uiText(language, "youTubeSubtitles");
     return track.label.replace(/ \u00b7 auto-generated$/u, ` · ${uiText(language, "autoGeneratedSubtitle")}`);
+  }
+  function compactSubtitleTrackLabel(track, language) {
+    const label = localizedSubtitleTrackLabel(track, language);
+    return compactAutoTranslatedTrackLabel(label) || compactSyntheticTranslationTrackLabel(label, language) || compactAutoGeneratedTrackLabel(label, language) || label;
+  }
+  function compactAutoTranslatedTrackLabel(label) {
+    const match = label.match(/^\s*(.+?)\s+\u00b7\s+auto-translated from\s+(.+?)\s*$/iu);
+    if (!match) return "";
+    return `${match[1]} <- ${compactTrackSourceLabel(match[2] ?? "")}`;
+  }
+  function compactSyntheticTranslationTrackLabel(label, language) {
+    const prefix = uiText(language, "translation");
+    const match = label.match(new RegExp(`^${escapeRegExp$2(prefix)}\\s*\\((.+)\\)$`, "iu"));
+    if (!match) return "";
+    return `${prefix}: ${compactTrackSourceLabel(match[1] ?? "")}`;
+  }
+  function compactAutoGeneratedTrackLabel(label, language) {
+    const localizedAuto = uiText(language, "autoGeneratedSubtitle");
+    const patterns = [
+      new RegExp(`^(.+?)\\s+\\u00b7\\s+${escapeRegExp$2(localizedAuto)}$`, "u"),
+      /^(.+?)\s+\u00b7\s+auto-generated$/iu
+    ];
+    const match = patterns.map((pattern) => label.match(pattern)).find(Boolean);
+    return match ? `${match[1]} (${localizedAuto})` : "";
+  }
+  function compactTrackSourceLabel(label) {
+    return label.replace(/\s+\u00b7\s+auto-generated$/iu, "").replace(/\s+\u00b7\s+.+$/u, "").trim();
+  }
+  function escapeRegExp$2(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   function trackRoleText(isPrimary, isSecondary, language) {
     return [
@@ -51386,6 +51462,15 @@ ${spelling}`);
     }
     return result;
   }
+  function isTranscriptContextJoinChar(value) {
+    return Boolean(value && /[\u3040-\u30ff\u3400-\u9fff々〆〤ー]/u.test(value));
+  }
+  function lastTextChar(value) {
+    return value.trimEnd().at(-1);
+  }
+  function firstTextChar(value) {
+    return value.trimStart().charAt(0) || void 0;
+  }
   function forwardIndexes(start, endExclusive) {
     const indexes = [];
     for (let index = start; index < endExclusive; index++) indexes.push(index);
@@ -53246,6 +53331,94 @@ ${spelling}`);
         this.rememberParsedCueHtml(item.key, html, tokenList, { ...options, enriched: this.shouldMarkCueEnriched(item.key, tokenList, options.enrichBeforeRender === true) });
         return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
       }));
+    }
+    async parseTranscriptRowHtmlBatch(items, rows, settings, options = {}) {
+      const plain = [];
+      const contextual = [];
+      for (const item of items) {
+        if (this.shouldParseTranscriptRowWithContext(rows, item.rowIndex)) contextual.push(item);
+        else plain.push(item);
+      }
+      const results = await Promise.all([
+        plain.length ? this.parseCueHtmlBatch(plain.map((item) => item.text), settings, options) : Promise.resolve([]),
+        contextual.length ? this.parseTranscriptContextHtmlBatch(contextual, rows, settings, options) : Promise.resolve([])
+      ]);
+      return results.flat();
+    }
+    async parseTranscriptContextHtmlBatch(items, rows, settings, options = {}) {
+      const provisional = options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings) && !this.shouldBypassProvisionalForAuthoritative(settings, options);
+      const pendingCache2 = provisional ? this.pendingProvisionalParsedHtml : this.pendingParsedHtml;
+      const parseOptions = provisional ? provisionalSubtitleParseOptions() : this.finalSubtitleParseOptions(settings);
+      const ready = [];
+      const batch = [];
+      for (const item of items) {
+        const cached = this.cachedTranscriptContextHtml(item.key, settings, options, provisional);
+        if (cached) {
+          ready.push(Promise.resolve(cached));
+          continue;
+        }
+        const pending = pendingCache2.get(item.key);
+        if (pending && !(provisional && options.refreshProvisional)) {
+          ready.push(pending.then((html) => provisional ? { key: item.key, html, provisional: true } : { key: item.key, html }));
+          continue;
+        }
+        batch.push({ ...item, context: this.transcriptContextWindow(rows, item.rowIndex) });
+      }
+      if (!batch.length) return Promise.all(ready);
+      const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(batch.map((item) => item.context.text), parseOptions) : Promise.all(batch.map((item) => this.options.parseJapanese(item.context.text, parseOptions)));
+      const prepared = options.enrichBeforeRender ? this.enrichParsedTokenBatchBeforeRender(parsed) : parsed;
+      const parsedHtml = batch.map((item, index) => prepared.then((tokenRows) => {
+        const rowTokens = this.projectTranscriptContextTokens(tokenRows[index] ?? [], item.context);
+        const html = withBreaks(renderTokensToHtml(item.text, rowTokens, settings));
+        this.rememberParsedCueHtml(item.key, html, rowTokens, {
+          provisional,
+          enriched: this.shouldMarkCueEnriched(item.key, rowTokens, options.enrichBeforeRender === true)
+        });
+        return provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
+      }));
+      return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache2);
+    }
+    cachedTranscriptContextHtml(key, settings, options, provisional) {
+      const authoritative = this.cachedParsedCueHtml(key, settings);
+      if (authoritative) return { key, html: authoritative };
+      const empty = this.freshEmptyParsedHtml(key);
+      if (empty) return { key, html: empty, provisional: provisional || void 0 };
+      if (provisional) {
+        const html = this.usableProvisionalParsedHtml(key, options);
+        if (html) return { key, html, provisional: true };
+      } else if (!this.hasAuthoritativeParseTier(settings)) {
+        const html = this.provisionalParsedHtmlCache.get(key);
+        if (html) return { key, html, provisional: true };
+      }
+      return void 0;
+    }
+    projectTranscriptContextTokens(tokens, context) {
+      return tokens.flatMap((token) => this.projectTranscriptContextToken(token, context));
+    }
+    projectTranscriptContextToken(token, context) {
+      const start = Math.max(token.start, context.rowStart);
+      const end = Math.min(token.end, context.rowEnd);
+      if (end <= start) return [];
+      return [{
+        ...token,
+        start: start - context.rowStart,
+        end: end - context.rowStart,
+        length: end - start,
+        rubies: this.projectTranscriptContextRubies(token, start, end, context.rowStart)
+      }];
+    }
+    projectTranscriptContextRubies(token, start, end, rowStart) {
+      return token.rubies.flatMap((ruby) => {
+        const rubyStart = Math.max(ruby.start, start);
+        const rubyEnd = Math.min(ruby.end, end);
+        if (rubyEnd <= rubyStart) return [];
+        return [{
+          ...ruby,
+          start: rubyStart - rowStart,
+          end: rubyEnd - rowStart,
+          length: rubyEnd - rubyStart
+        }];
+      });
     }
     async enrichParsedTokenBatchBeforeRender(parsed) {
       const tokenRows = await parsed;
@@ -55543,6 +55716,15 @@ ${spelling}`);
           secondaryTrackId: this.secondaryTrackId,
           language
         }),
+        metaTitle: subtitleDrawerMetaText({
+          mode: "lines",
+          count: state2.cue?.text.trim() ? 1 : 0,
+          tracks: this.tracks,
+          selectedTrackId: this.selectedTrackId,
+          secondaryTrackId: this.secondaryTrackId,
+          language,
+          compact: false
+        }),
         canShowLines: this.hasTranscriptSurface(),
         options: this.panelOptionsState(state2.settings.subtitlePausePanel, language)
       });
@@ -55975,6 +56157,7 @@ ${spelling}`);
       const language = settings.interfaceLanguage;
       const rowCount = state2.totalRowCount ?? state2.rows.length;
       const rowIndexOffset = state2.rowIndexOffset ?? 0;
+      const transcriptRows = this.transcriptRows();
       return `
             ${renderDrawerHead({
         mode: "lines",
@@ -55987,13 +56170,22 @@ ${spelling}`);
           secondaryTrackId: this.secondaryTrackId,
           language
         }),
+        metaTitle: subtitleDrawerMetaText({
+          mode: "lines",
+          count: rowCount,
+          tracks: this.tracks,
+          selectedTrackId: this.selectedTrackId,
+          secondaryTrackId: this.secondaryTrackId,
+          language,
+          compact: false
+        }),
         canShowLines: this.hasTranscriptSurface(),
         options: this.panelOptionsState(settings.subtitlePausePanel, language),
         extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}" aria-label="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}">${subtitleIcon("locate")}</button>`
       })}
             <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state2.virtual ? ' data-virtualized="true"' : ""}>
                 ${state2.virtual ? this.renderTranscriptVirtualSpacer(state2.virtual.topSpacer) : ""}
-                ${state2.rows.length ? state2.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state2.currentRowIndex)).join("") : this.renderTranscriptWaitingState()}
+                ${state2.rows.length ? state2.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state2.currentRowIndex, transcriptRows)).join("") : this.renderTranscriptWaitingState()}
                 ${state2.virtual ? this.renderTranscriptVirtualSpacer(state2.virtual.bottomSpacer) : ""}
             </div>
             <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>
@@ -56028,10 +56220,10 @@ ${spelling}`);
       }
       this.transcriptVirtualScrollTop = scrollTop;
     }
-    renderTranscriptRow(row, index, currentIndex) {
+    renderTranscriptRow(row, index, currentIndex, rows = this.transcriptRows()) {
       const cue = row.cue;
       const settings = this.options.getSettings();
-      const parsedKey = this.parseCacheKey(cue.text, settings);
+      const parsedKey = this.transcriptRowParseKey(row, index, rows, settings);
       const parsed = this.parsedHtmlCache.get(parsedKey) ?? this.provisionalParsedHtmlCache.get(parsedKey);
       const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml$1(parsedKey)}"` : "";
       const provisionalAttribute = parsed && !this.parsedHtmlCache.has(parsedKey) ? ' data-parsed-provisional="true"' : "";
@@ -56054,6 +56246,33 @@ ${spelling}`);
         return this.cues.map((cue, cueIndex) => ({ cue, cueIndex })).filter((row) => row.cue.transcriptEligible !== false);
       }
       return this.currentCue && this.currentCue.transcriptEligible !== false ? [{ cue: this.currentCue, cueIndex: -1 }] : [];
+    }
+    transcriptRowParseKey(row, rowIndex, rows, settings) {
+      if (!this.shouldParseTranscriptRowWithContext(rows, rowIndex)) return this.parseCacheKey(row.cue.text, settings);
+      const context = this.transcriptContextWindow(rows, rowIndex);
+      return this.parseCacheKey(`transcript-context:${context.rowStart}:${context.rowEnd}:${context.text}`, settings);
+    }
+    shouldParseTranscriptRowWithContext(rows, rowIndex) {
+      const text2 = rows[rowIndex]?.cue.text;
+      if (!text2?.trim()) return false;
+      const previous = rows[rowIndex - 1]?.cue.text;
+      const next = rows[rowIndex + 1]?.cue.text;
+      return isTranscriptContextJoinChar(lastTextChar(previous ?? "")) && isTranscriptContextJoinChar(firstTextChar(text2)) || isTranscriptContextJoinChar(lastTextChar(text2)) && isTranscriptContextJoinChar(firstTextChar(next ?? ""));
+    }
+    transcriptContextWindow(rows, rowIndex) {
+      const startIndex = Math.max(0, rowIndex - 1);
+      const endIndex = Math.min(rows.length, rowIndex + 2);
+      let text2 = "";
+      let rowStart = 0;
+      for (let index = startIndex; index < endIndex; index += 1) {
+        if (index === rowIndex) rowStart = text2.length;
+        text2 += rows[index]?.cue.text ?? "";
+      }
+      return {
+        text: text2,
+        rowStart,
+        rowEnd: rowStart + (rows[rowIndex]?.cue.text.length ?? 0)
+      };
     }
     renderTranscriptWaitingState() {
       const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
@@ -56394,7 +56613,12 @@ ${spelling}`);
     }
     async hydrateTranscriptRowTargets(targets, settings, serial) {
       try {
-        const parsed = await this.parseCueHtmlBatch(targets.map((target) => target.cue.text), settings, {
+        const rows = this.transcriptRows();
+        const parsed = await this.parseTranscriptRowHtmlBatch(targets.map((target) => ({
+          rowIndex: target.rowIndex,
+          text: target.cue.text,
+          key: target.key
+        })), rows, settings, {
           enrichBeforeRender: true,
           refreshProvisional: true,
           requireEnrichedProvisional: true
@@ -56416,9 +56640,9 @@ ${spelling}`);
       const cue = rows[index]?.cue;
       const target = this.transcriptPanel?.querySelector(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
       if (!cue || !target) return null;
-      const key = this.parseCacheKey(cue.text, settings);
+      const key = this.transcriptRowParseKey(rows[index], index, rows, settings);
       const provisionalNeedsHydration = (target.dataset.parsedProvisional === "true" || this.provisionalParsedHtmlCache.has(key) && !this.enrichedProvisionalParsedHtmlKeys.has(key)) && (this.hasAuthoritativeParseTier() || !this.enrichedProvisionalParsedHtmlKeys.has(key));
-      return !provisionalNeedsHydration && hasAttemptedTranscriptParse(target, key) ? null : { cue, target, key };
+      return !provisionalNeedsHydration && hasAttemptedTranscriptParse(target, key) ? null : { cue, rowIndex: index, target, key };
     }
     applyCachedTranscriptRowHtml(hydration, html) {
       hydration.target.dataset.parsedKey = hydration.key;
@@ -56468,7 +56692,7 @@ ${spelling}`);
           const batch = this.nextTranscriptWarmupBatch(planned, settings, () => cursor++);
           if (!batch.length) continue;
           try {
-            const parsed = await this.parseCueHtmlBatch(batch.map((item) => item.text), settings, parseOptions);
+            const parsed = await this.parseTranscriptRowHtmlBatch(batch, rows, settings, parseOptions);
             if (serial !== this.transcriptCacheWarmupSerial) return;
             for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true });
           } catch {
@@ -56534,9 +56758,10 @@ ${spelling}`);
       return TRANSCRIPT_BACKGROUND_PARSE_LIMIT;
     }
     addTranscriptWarmupPlanItem(plan, seen, rows, rowIndex, settings) {
-      const text2 = rows[rowIndex]?.cue.text.trim();
-      if (!text2) return;
-      const key = this.parseCacheKey(text2, settings);
+      const row = rows[rowIndex];
+      const text2 = row?.cue.text;
+      if (!text2?.trim()) return;
+      const key = this.transcriptRowParseKey(row, rowIndex, rows, settings);
       if (seen.has(key) || this.isWarmParsedCueKey(key, settings)) return;
       seen.add(key);
       plan.push({ rowIndex, text: text2, key });
@@ -61147,7 +61372,7 @@ ${spelling}`);
     renderExpressionComponents(data, view) {
       const components2 = uniqueExpressionComponents(data.expressionComponents ?? []);
       if (data.loading || components2.length < 2) return "";
-      const rows = components2.map((component) => this.renderExpressionComponent(component)).join("");
+      const rows = components2.map((component) => this.renderExpressionComponent(component, data.componentPitches ?? [])).join("");
       return `<details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-expression-components" open>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(view.language, "composedOf"))}</span>
@@ -61158,14 +61383,17 @@ ${spelling}`);
             </div>
         </details>`;
     }
-    renderExpressionComponent(component) {
-      const reading = component.reading && component.reading !== component.text ? `<small>${escapeHtml$1(component.reading)}</small>` : "";
+    renderExpressionComponent(component, componentPitches) {
+      const reading = component.reading.trim();
+      const pitchClass = expressionComponentPitchClass(component, componentPitches);
+      const term = renderExpressionComponentTerm(component, pitchClass);
+      const readingText2 = reading && reading !== component.text ? `<small>${escapeHtml$1(reading)}</small>` : "";
       return `<li class="jpdb-reader-jpdb-used-in-row jpdb-reader-expression-component-row">
             <div class="jpdb-reader-jpdb-used-in-main jpdb-reader-expression-component-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(component.text)}" data-dictionary-reading="${escapeHtml$1(component.reading)}" data-external="false">
-                    <span class="jpdb-reader-jpdb-used-in-term">${escapeHtml$1(component.text)}</span>
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(component.text)}" data-dictionary-reading="${escapeHtml$1(reading)}" data-external="false">
+                    ${term}
                 </a>
-                ${reading}
+                ${readingText2}
             </div>
         </li>`;
     }
@@ -61532,6 +61760,49 @@ ${component.reading}`;
       seen.add(key);
       return true;
     });
+  }
+  function expressionComponentPitchClass(component, componentPitches) {
+    const match = componentPitches.find((pitch) => pitch.text === component.text && pitch.reading === component.reading);
+    return match ? getPitchClass([match.pitch], match.reading) : "";
+  }
+  function renderExpressionComponentTerm(component, pitchClass) {
+    const text2 = component.text.trim();
+    const reading = component.reading.trim();
+    const classes = [
+      "jpdb-reader-word",
+      "jpdb-reader-passive-word",
+      "jpdb-reader-expression-component-term",
+      "jpdb-reader-jpdb-used-in-term",
+      reading && reading !== text2 ? "jpdb-reader-has-furi" : "",
+      pitchClass ? `jpdb-pitch-${pitchClass}` : "jpdb-pitch-unknown"
+    ].filter(Boolean).join(" ");
+    const pitchAttribute = pitchClass || "unknown";
+    const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
+    const content = reading && reading !== text2 ? renderRuby(text2, expressionComponentRubyToken(text2, reading, pitchClass)) : escapeHtml$1(text2);
+    return `<span class="${classes}" data-jpdb-reader-passive="true" data-pitch-class="${escapeHtml$1(pitchAttribute)}" data-sentence="${escapeHtml$1(text2)}" data-expression="${escapeHtml$1(text2)}"${readingAttribute} tabindex="-1">${content}</span>`;
+  }
+  function expressionComponentRubyToken(text2, reading, pitchClass) {
+    return {
+      card: {
+        vid: 0,
+        sid: 0,
+        rid: 0,
+        spelling: text2,
+        reading,
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ["not-in-deck"],
+        pitchAccent: [],
+        wordWithReading: null
+      },
+      start: 0,
+      end: text2.length,
+      length: text2.length,
+      rubies: [],
+      pitchClass,
+      sentence: text2
+    };
   }
   function renderProviderToggle(nextProvider, language, content = "") {
     const label = `${uiText(language, "switchGradingProvider")} (${nextProvider.label})`;

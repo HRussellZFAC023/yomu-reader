@@ -672,8 +672,21 @@ interface TranscriptPanelRenderState {
 
 interface TranscriptRowHydrationTarget {
     cue: SubtitleCue;
+    rowIndex: number;
     target: HTMLElement;
     key: string;
+}
+
+interface TranscriptParseItem {
+    rowIndex: number;
+    text: string;
+    key: string;
+}
+
+interface TranscriptContextWindow {
+    text: string;
+    rowStart: number;
+    rowEnd: number;
 }
 
 interface TranscriptPanelVirtualWindow {
@@ -704,6 +717,18 @@ function uniqueSubtitleParseTexts(texts: string[]): string[] {
         result.push(text);
     }
     return result;
+}
+
+function isTranscriptContextJoinChar(value: string | undefined): boolean {
+    return Boolean(value && /[\u3040-\u30ff\u3400-\u9fff々〆〤ー]/u.test(value));
+}
+
+function lastTextChar(value: string): string | undefined {
+    return value.trimEnd().at(-1);
+}
+
+function firstTextChar(value: string): string | undefined {
+    return value.trimStart().charAt(0) || undefined;
 }
 
 function forwardIndexes(start: number, endExclusive: number): number[] {
@@ -2868,6 +2893,121 @@ export class SubtitlePlayerController {
             this.rememberParsedCueHtml(item.key, html, tokenList, { ...options, enriched: this.shouldMarkCueEnriched(item.key, tokenList, options.enrichBeforeRender === true) });
             return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
         }));
+    }
+
+    private async parseTranscriptRowHtmlBatch(
+        items: TranscriptParseItem[],
+        rows: TranscriptRow[],
+        settings: ReaderSettings,
+        options: ParseCueHtmlOptions = {},
+    ): Promise<ParsedSubtitleHtmlResult[]> {
+        const plain: TranscriptParseItem[] = [];
+        const contextual: TranscriptParseItem[] = [];
+        for (const item of items) {
+            if (this.shouldParseTranscriptRowWithContext(rows, item.rowIndex)) contextual.push(item);
+            else plain.push(item);
+        }
+        const results = await Promise.all([
+            plain.length ? this.parseCueHtmlBatch(plain.map(item => item.text), settings, options) : Promise.resolve([]),
+            contextual.length ? this.parseTranscriptContextHtmlBatch(contextual, rows, settings, options) : Promise.resolve([]),
+        ]);
+        return results.flat();
+    }
+
+    private async parseTranscriptContextHtmlBatch(
+        items: TranscriptParseItem[],
+        rows: TranscriptRow[],
+        settings: ReaderSettings,
+        options: ParseCueHtmlOptions = {},
+    ): Promise<ParsedSubtitleHtmlResult[]> {
+        const provisional = options.allowProvisional !== false
+            && this.shouldUseProvisionalSubtitleParse(settings)
+            && !this.shouldBypassProvisionalForAuthoritative(settings, options);
+        const pendingCache = provisional ? this.pendingProvisionalParsedHtml : this.pendingParsedHtml;
+        const parseOptions = provisional ? provisionalSubtitleParseOptions() : this.finalSubtitleParseOptions(settings);
+        const ready: Promise<ParsedSubtitleHtmlResult>[] = [];
+        const batch: Array<TranscriptParseItem & { context: TranscriptContextWindow }> = [];
+
+        for (const item of items) {
+            const cached = this.cachedTranscriptContextHtml(item.key, settings, options, provisional);
+            if (cached) {
+                ready.push(Promise.resolve(cached));
+                continue;
+            }
+            const pending = pendingCache.get(item.key);
+            if (pending && !(provisional && options.refreshProvisional)) {
+                ready.push(pending.then(html => provisional ? { key: item.key, html, provisional: true } : { key: item.key, html }));
+                continue;
+            }
+            batch.push({ ...item, context: this.transcriptContextWindow(rows, item.rowIndex) });
+        }
+
+        if (!batch.length) return Promise.all(ready);
+        const parsed = this.options.parseJapaneseBatch
+            ? this.options.parseJapaneseBatch(batch.map(item => item.context.text), parseOptions)
+            : Promise.all(batch.map(item => this.options.parseJapanese(item.context.text, parseOptions)));
+        const prepared = options.enrichBeforeRender ? this.enrichParsedTokenBatchBeforeRender(parsed) : parsed;
+        const parsedHtml = batch.map((item, index) => prepared.then(tokenRows => {
+            const rowTokens = this.projectTranscriptContextTokens(tokenRows[index] ?? [], item.context);
+            const html = withBreaks(renderTokensToHtml(item.text, rowTokens, settings));
+            this.rememberParsedCueHtml(item.key, html, rowTokens, {
+                provisional,
+                enriched: this.shouldMarkCueEnriched(item.key, rowTokens, options.enrichBeforeRender === true),
+            });
+            return provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
+        }));
+        return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache);
+    }
+
+    private cachedTranscriptContextHtml(
+        key: string,
+        settings: ReaderSettings,
+        options: ParseCueHtmlOptions,
+        provisional: boolean,
+    ): ParsedSubtitleHtmlResult | undefined {
+        const authoritative = this.cachedParsedCueHtml(key, settings);
+        if (authoritative) return { key, html: authoritative };
+        const empty = this.freshEmptyParsedHtml(key);
+        if (empty) return { key, html: empty, provisional: provisional || undefined };
+        if (provisional) {
+            const html = this.usableProvisionalParsedHtml(key, options);
+            if (html) return { key, html, provisional: true };
+        } else if (!this.hasAuthoritativeParseTier(settings)) {
+            const html = this.provisionalParsedHtmlCache.get(key);
+            if (html) return { key, html, provisional: true };
+        }
+        return undefined;
+    }
+
+    private projectTranscriptContextTokens(tokens: JPDBToken[], context: TranscriptContextWindow): JPDBToken[] {
+        return tokens.flatMap(token => this.projectTranscriptContextToken(token, context));
+    }
+
+    private projectTranscriptContextToken(token: JPDBToken, context: TranscriptContextWindow): JPDBToken[] {
+        const start = Math.max(token.start, context.rowStart);
+        const end = Math.min(token.end, context.rowEnd);
+        if (end <= start) return [];
+        return [{
+            ...token,
+            start: start - context.rowStart,
+            end: end - context.rowStart,
+            length: end - start,
+            rubies: this.projectTranscriptContextRubies(token, start, end, context.rowStart),
+        }];
+    }
+
+    private projectTranscriptContextRubies(token: JPDBToken, start: number, end: number, rowStart: number): JPDBToken['rubies'] {
+        return token.rubies.flatMap(ruby => {
+            const rubyStart = Math.max(ruby.start, start);
+            const rubyEnd = Math.min(ruby.end, end);
+            if (rubyEnd <= rubyStart) return [];
+            return [{
+                ...ruby,
+                start: rubyStart - rowStart,
+                end: rubyEnd - rowStart,
+                length: rubyEnd - rubyStart,
+            }];
+        });
     }
 
     private async enrichParsedTokenBatchBeforeRender(parsed: Promise<JPDBToken[][]>): Promise<JPDBToken[][]> {
@@ -5563,6 +5703,15 @@ export class SubtitlePlayerController {
                 secondaryTrackId: this.secondaryTrackId,
                 language,
             }),
+            metaTitle: subtitleDrawerMetaText({
+                mode: 'lines',
+                count: state.cue?.text.trim() ? 1 : 0,
+                tracks: this.tracks,
+                selectedTrackId: this.selectedTrackId,
+                secondaryTrackId: this.secondaryTrackId,
+                language,
+                compact: false,
+            }),
             canShowLines: this.hasTranscriptSurface(),
             options: this.panelOptionsState(state.settings.subtitlePausePanel, language),
         });
@@ -6036,6 +6185,7 @@ export class SubtitlePlayerController {
         const language = settings.interfaceLanguage;
         const rowCount = state.totalRowCount ?? state.rows.length;
         const rowIndexOffset = state.rowIndexOffset ?? 0;
+        const transcriptRows = this.transcriptRows();
         return `
             ${renderDrawerHead({
                 mode: 'lines',
@@ -6048,6 +6198,15 @@ export class SubtitlePlayerController {
                     secondaryTrackId: this.secondaryTrackId,
                     language,
                 }),
+                metaTitle: subtitleDrawerMetaText({
+                    mode: 'lines',
+                    count: rowCount,
+                    tracks: this.tracks,
+                    selectedTrackId: this.selectedTrackId,
+                    secondaryTrackId: this.secondaryTrackId,
+                    language,
+                    compact: false,
+                }),
                 canShowLines: this.hasTranscriptSurface(),
                 options: this.panelOptionsState(settings.subtitlePausePanel, language),
                 extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}" aria-label="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}">${subtitleIcon('locate')}</button>`,
@@ -6055,7 +6214,7 @@ export class SubtitlePlayerController {
             <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state.virtual ? ' data-virtualized="true"' : ''}>
                 ${state.virtual ? this.renderTranscriptVirtualSpacer(state.virtual.topSpacer) : ''}
                 ${state.rows.length
-                    ? state.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state.currentRowIndex)).join('')
+                    ? state.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state.currentRowIndex, transcriptRows)).join('')
                     : this.renderTranscriptWaitingState()}
                 ${state.virtual ? this.renderTranscriptVirtualSpacer(state.virtual.bottomSpacer) : ''}
             </div>
@@ -6098,10 +6257,10 @@ export class SubtitlePlayerController {
         this.transcriptVirtualScrollTop = scrollTop;
     }
 
-    private renderTranscriptRow(row: TranscriptRow, index: number, currentIndex: number): string {
+    private renderTranscriptRow(row: TranscriptRow, index: number, currentIndex: number, rows = this.transcriptRows()): string {
         const cue = row.cue;
         const settings = this.options.getSettings();
-        const parsedKey = this.parseCacheKey(cue.text, settings);
+        const parsedKey = this.transcriptRowParseKey(row, index, rows, settings);
         const parsed = this.parsedHtmlCache.get(parsedKey) ?? this.provisionalParsedHtmlCache.get(parsedKey);
         const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml(parsedKey)}"` : '';
         const provisionalAttribute = parsed && !this.parsedHtmlCache.has(parsedKey) ? ' data-parsed-provisional="true"' : '';
@@ -6129,6 +6288,37 @@ export class SubtitlePlayerController {
         return this.currentCue && this.currentCue.transcriptEligible !== false
             ? [{ cue: this.currentCue, cueIndex: -1 }]
             : [];
+    }
+
+    private transcriptRowParseKey(row: TranscriptRow, rowIndex: number, rows: TranscriptRow[], settings: ReaderSettings): string {
+        if (!this.shouldParseTranscriptRowWithContext(rows, rowIndex)) return this.parseCacheKey(row.cue.text, settings);
+        const context = this.transcriptContextWindow(rows, rowIndex);
+        return this.parseCacheKey(`transcript-context:${context.rowStart}:${context.rowEnd}:${context.text}`, settings);
+    }
+
+    private shouldParseTranscriptRowWithContext(rows: TranscriptRow[], rowIndex: number): boolean {
+        const text = rows[rowIndex]?.cue.text;
+        if (!text?.trim()) return false;
+        const previous = rows[rowIndex - 1]?.cue.text;
+        const next = rows[rowIndex + 1]?.cue.text;
+        return (isTranscriptContextJoinChar(lastTextChar(previous ?? '')) && isTranscriptContextJoinChar(firstTextChar(text)))
+            || (isTranscriptContextJoinChar(lastTextChar(text)) && isTranscriptContextJoinChar(firstTextChar(next ?? '')));
+    }
+
+    private transcriptContextWindow(rows: TranscriptRow[], rowIndex: number): TranscriptContextWindow {
+        const startIndex = Math.max(0, rowIndex - 1);
+        const endIndex = Math.min(rows.length, rowIndex + 2);
+        let text = '';
+        let rowStart = 0;
+        for (let index = startIndex; index < endIndex; index += 1) {
+            if (index === rowIndex) rowStart = text.length;
+            text += rows[index]?.cue.text ?? '';
+        }
+        return {
+            text,
+            rowStart,
+            rowEnd: rowStart + (rows[rowIndex]?.cue.text.length ?? 0),
+        };
     }
 
     private renderTranscriptWaitingState(): string {
@@ -6524,7 +6714,12 @@ export class SubtitlePlayerController {
 
     private async hydrateTranscriptRowTargets(targets: TranscriptRowHydrationTarget[], settings: ReaderSettings, serial: number): Promise<void> {
         try {
-            const parsed = await this.parseCueHtmlBatch(targets.map(target => target.cue.text), settings, {
+            const rows = this.transcriptRows();
+            const parsed = await this.parseTranscriptRowHtmlBatch(targets.map(target => ({
+                rowIndex: target.rowIndex,
+                text: target.cue.text,
+                key: target.key,
+            })), rows, settings, {
                 enrichBeforeRender: true,
                 refreshProvisional: true,
                 requireEnrichedProvisional: true,
@@ -6547,11 +6742,11 @@ export class SubtitlePlayerController {
         const cue = rows[index]?.cue;
         const target = this.transcriptPanel?.querySelector<HTMLElement>(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
         if (!cue || !target) return null;
-        const key = this.parseCacheKey(cue.text, settings);
+        const key = this.transcriptRowParseKey(rows[index], index, rows, settings);
         const provisionalNeedsHydration = (target.dataset.parsedProvisional === 'true'
             || (this.provisionalParsedHtmlCache.has(key) && !this.enrichedProvisionalParsedHtmlKeys.has(key)))
             && (this.hasAuthoritativeParseTier() || !this.enrichedProvisionalParsedHtmlKeys.has(key));
-        return !provisionalNeedsHydration && hasAttemptedTranscriptParse(target, key) ? null : { cue, target, key };
+        return !provisionalNeedsHydration && hasAttemptedTranscriptParse(target, key) ? null : { cue, rowIndex: index, target, key };
     }
 
     private applyCachedTranscriptRowHtml(hydration: TranscriptRowHydrationTarget, html: string): void {
@@ -6606,7 +6801,7 @@ export class SubtitlePlayerController {
                 const batch = this.nextTranscriptWarmupBatch(planned, settings, () => cursor++);
                 if (!batch.length) continue;
                 try {
-                    const parsed = await this.parseCueHtmlBatch(batch.map(item => item.text), settings, parseOptions);
+                    const parsed = await this.parseTranscriptRowHtmlBatch(batch, rows, settings, parseOptions);
                     if (serial !== this.transcriptCacheWarmupSerial) return;
                     for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true });
                 } catch {
@@ -6645,12 +6840,12 @@ export class SubtitlePlayerController {
     }
 
     private nextTranscriptWarmupBatch(
-        planned: Array<{ rowIndex: number; text: string; key: string }>,
+        planned: TranscriptParseItem[],
         settings: ReaderSettings,
         takeNextIndex: () => number,
-    ): Array<{ rowIndex: number; text: string; key: string }> {
+    ): TranscriptParseItem[] {
         const batchSize = this.options.parseJapaneseBatch ? TRANSCRIPT_BACKGROUND_PARSE_BATCH : 1;
-        const batch: Array<{ rowIndex: number; text: string; key: string }> = [];
+        const batch: TranscriptParseItem[] = [];
         while (batch.length < batchSize) {
             const item = planned[takeNextIndex()];
             if (!item) break;
@@ -6660,13 +6855,13 @@ export class SubtitlePlayerController {
         return batch;
     }
 
-    private transcriptWarmupPlan(rows: TranscriptRow[], preferredIndex: number, settings: ReaderSettings): Array<{ rowIndex: number; text: string; key: string }> {
+    private transcriptWarmupPlan(rows: TranscriptRow[], preferredIndex: number, settings: ReaderSettings): TranscriptParseItem[] {
         const priority = this.transcriptHydrationIndexes(preferredIndex, rows.length);
         const focusIndex = preferredIndex >= 0 ? preferredIndex : 0;
         const orderedIndexes = transcriptWarmupIndexes(priority, focusIndex, rows.length);
         const limit = this.transcriptBackgroundParseLimit(rows.length);
         const seen = new Set<string>();
-        const plan: Array<{ rowIndex: number; text: string; key: string }> = [];
+        const plan: TranscriptParseItem[] = [];
         for (const rowIndex of orderedIndexes) {
             this.addTranscriptWarmupPlanItem(plan, seen, rows, rowIndex, settings);
             if (plan.length >= limit) break;
@@ -6685,15 +6880,16 @@ export class SubtitlePlayerController {
     }
 
     private addTranscriptWarmupPlanItem(
-        plan: Array<{ rowIndex: number; text: string; key: string }>,
+        plan: TranscriptParseItem[],
         seen: Set<string>,
         rows: TranscriptRow[],
         rowIndex: number,
         settings: ReaderSettings,
     ): void {
-        const text = rows[rowIndex]?.cue.text.trim();
-        if (!text) return;
-        const key = this.parseCacheKey(text, settings);
+        const row = rows[rowIndex];
+        const text = row?.cue.text;
+        if (!text?.trim()) return;
+        const key = this.transcriptRowParseKey(row, rowIndex, rows, settings);
         if (seen.has(key) || this.isWarmParsedCueKey(key, settings)) return;
         seen.add(key);
         plan.push({ rowIndex, text, key });

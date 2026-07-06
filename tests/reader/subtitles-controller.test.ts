@@ -10,6 +10,7 @@ import { readPageCaptionText } from '../../src/reader/subtitles/subtitle-dom-cap
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles/controller';
 import { subtitleCueSignature } from '../../src/reader/subtitles/subtitle-cues';
 import { renderDrawerHead } from '../../src/reader/subtitles/subtitle-surface';
+import { subtitleDrawerMetaText } from '../../src/reader/subtitles/subtitle-track-panel';
 import { SUBTITLE_DRAG_OFFSET_KEY } from '../../src/reader/subtitles/subtitle-layout';
 import { createSubtitleVideoInsetAdapter, subtitleVideoLayoutTarget } from '../../src/reader/subtitles/subtitle-video-inset';
 
@@ -427,6 +428,48 @@ describe('SubtitlePlayerController', () => {
         expect(playback!.closest('.jpdb-subtitle-drawer-actions')).not.toBeNull();
         expect(host.querySelector('.jpdb-subtitle-drawer-top-actions .jpdb-subtitle-drawer-playback')).toBeNull();
         expect([...playback!.querySelectorAll('button')].map(b => b.dataset.action)).toEqual(['previous', 'next', 'playback']);
+    });
+
+    it('keeps translated track labels concise in the drawer while preserving the full tooltip', () => {
+        const track = {
+            id: 'youtube-ja-translated',
+            label: '日本語 (ja) · auto-translated from English (en) · auto-generated',
+            kind: 'youtube' as const,
+            language: 'ja',
+        };
+        const compact = subtitleDrawerMetaText({
+            mode: 'lines',
+            count: 17,
+            tracks: [track],
+            selectedTrackId: track.id,
+            secondaryTrackId: '',
+            language: 'en',
+        });
+        const full = subtitleDrawerMetaText({
+            mode: 'lines',
+            count: 17,
+            tracks: [track],
+            selectedTrackId: track.id,
+            secondaryTrackId: '',
+            language: 'en',
+            compact: false,
+        });
+        const host = document.createElement('div');
+        host.innerHTML = renderDrawerHead({
+            mode: 'lines',
+            title: 'Subtitles',
+            meta: compact,
+            metaTitle: full,
+            canShowLines: true,
+            options: { placement: 'right', pausePanelEnabled: false, menuOpen: false, language: 'en' },
+        });
+
+        expect(compact).toContain('日本語 (ja) <- English (en)');
+        expect(compact).not.toContain('auto-translated');
+        expect(full).toContain('auto-translated from English (en)');
+        const meta = host.querySelector<HTMLElement>('.jpdb-subtitle-drawer-meta')!;
+        expect(meta.textContent).toBe(compact);
+        expect(meta.title).toBe(full);
     });
 
     it('keeps the rail to OCR, visibility, panel, and style controls', () => {
@@ -4773,12 +4816,13 @@ Watch the cat
 
         expect(normalizedCss).toContain('.jpdb-subtitle-row-text { display: block; min-width: 0; width: 100%; max-width: 100%;');
         expect(normalizedCss).toContain('.jpdb-subtitle-list-row { display: grid;');
+        expect(normalizedCss).toContain('gap: 8px; min-height: 54px; padding: 10px 14px;');
         expect(normalizedCss).toContain('transition: background-color 160ms ease, box-shadow 160ms ease, border-color 160ms ease;');
         expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
-        expect(normalizedCss).toContain('position: relative; display: inline !important;');
-        expect(normalizedCss).toContain('display: inline !important;');
+        expect(normalizedCss).toContain('position: relative; display: inline-block !important; vertical-align: baseline;');
+        expect(normalizedCss).toContain('white-space: nowrap !important; overflow-wrap: normal; word-break: keep-all;');
         expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word::after { content: ""; inset-inline: 1px; inset-block-end: .04em; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-row-text :is(ruby, rt, .jpdb-reader-furi, .jpdb-reader-ruby-base) { max-width: 100%; white-space: normal !important; overflow-wrap: anywhere; word-break: break-word; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-row-text :is(ruby, rt, .jpdb-reader-furi, .jpdb-reader-ruby-base) { max-width: 100%; white-space: nowrap !important; overflow-wrap: normal; word-break: keep-all; }');
     });
 
     it('keeps long primary player subtitles wrapable on phone-width screens', () => {
@@ -6685,6 +6729,53 @@ Watch the cat
         }
     });
 
+    it('hydrates visible transcript rows with reader words when a token spans adjacent cues', async () => {
+        vi.useFakeTimers();
+        const originalRequestAnimationFrame = window.requestAnimationFrame;
+        const originalCancelAnimationFrame = window.cancelAnimationFrame;
+        window.requestAnimationFrame = ((callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0)) as typeof window.requestAnimationFrame;
+        window.cancelAnimationFrame = ((id: number) => window.clearTimeout(id)) as typeof window.cancelAnimationFrame;
+
+        try {
+            const cues = [
+                { start: 0, end: 1, text: '大', transcriptEligible: true },
+                { start: 1, end: 2, text: '学', transcriptEligible: true },
+            ];
+            const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(text => text === '大学'
+                ? [makeSubtitleToken('大学', {
+                    cardState: ['known'],
+                    pitchClass: 'heiban',
+                    reading: 'だいがく',
+                    rubies: [{ start: 0, end: 2, length: 2, text: 'だいがく' }],
+                })]
+                : []));
+            const { internals } = setupTranscriptCueController(cues, {
+                hooks: { parseJapaneseBatch },
+                selectedTrackId: 'file-primary',
+                settings: {
+                    subtitleTranscriptAutoScroll: false,
+                    apiKey: 'test-key',
+                    furiganaMode: 'all',
+                },
+            });
+
+            internals.openLinesPanel();
+            await vi.advanceTimersByTimeAsync(1);
+            await Promise.resolve();
+
+            const rows = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-subtitle-row-text'));
+            expect(parseJapaneseBatch.mock.calls.flatMap(call => call[0] as string[])).toContain('大学');
+            expect(rows).toHaveLength(2);
+            for (const row of rows) {
+                expect(row.querySelector('.jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
+                expect(row.querySelector('.jpdb-reader-furi')?.textContent).toBe('だいがく');
+            }
+        } finally {
+            window.requestAnimationFrame = originalRequestAnimationFrame;
+            window.cancelAnimationFrame = originalCancelAnimationFrame;
+        }
+    });
+
     it('refreshes cheap provisional transcript rows with enriched furigana when they become visible', async () => {
         vi.useFakeTimers();
         const originalLocation = window.location;
@@ -8568,6 +8659,56 @@ Watch the cat
         expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['字幕0', '字幕1', '字幕2', '字幕3', '字幕4', '字幕5', '字幕6', '字幕7']);
         expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual(AUTHORITATIVE_SUBTITLE_PARSE_OPTIONS);
         expect(parseJapaneseBatch.mock.calls[1]?.[0]).toEqual(['字幕8']);
+    });
+
+    it('warms adjacent transcript row context so split tokens keep reader metadata in both row caches', async () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            subtitleTranscriptAutoScroll: false,
+            apiKey: 'test-key',
+            localDictionariesEnabled: false,
+            furiganaMode: 'all' as const,
+        };
+        const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(text => text === '大学'
+            ? [makeSubtitleToken('大学', {
+                cardState: ['known'],
+                pitchClass: 'heiban',
+                reading: 'だいがく',
+                rubies: [{ start: 0, end: 2, length: 2, text: 'だいがく' }],
+            })]
+            : []));
+        const { controller } = createSubtitleController(settings, {
+            parseJapanese: async () => [],
+            parseJapaneseBatch,
+        });
+        const rows = [
+            { cue: { start: 0, end: 1, text: '大', transcriptEligible: true }, cueIndex: 0 },
+            { cue: { start: 1, end: 2, text: '学', transcriptEligible: true }, cueIndex: 1 },
+        ];
+        type WarmupRows = typeof rows;
+        type WarmupSettings = typeof settings;
+        const internals = controller as unknown as {
+            transcriptCacheWarmupSerial: number;
+            warmTranscriptParseCache: (
+                rows: WarmupRows,
+                preferredIndex: number,
+                settings: WarmupSettings,
+                serial: number,
+            ) => Promise<void>;
+            transcriptRowParseKey: (row: WarmupRows[number], rowIndex: number, rows: WarmupRows, settings: ReaderSettings) => string;
+            parsedHtmlCache: Map<string, string>;
+        };
+
+        internals.transcriptCacheWarmupSerial = 1;
+        await internals.warmTranscriptParseCache(rows, 0, settings, 1);
+
+        expect(parseJapaneseBatch.mock.calls.flatMap(call => call[0] as string[])).toContain('大学');
+        const firstHtml = internals.parsedHtmlCache.get(internals.transcriptRowParseKey(rows[0], 0, rows, settings)) ?? '';
+        const secondHtml = internals.parsedHtmlCache.get(internals.transcriptRowParseKey(rows[1], 1, rows, settings)) ?? '';
+        expect(firstHtml).toContain('jpdb-reader-word jpdb-known jpdb-pitch-heiban');
+        expect(firstHtml).toContain('<rt class="jpdb-reader-furi">だいがく</rt>');
+        expect(secondHtml).toContain('jpdb-reader-word jpdb-known jpdb-pitch-heiban');
+        expect(secondHtml).toContain('<rt class="jpdb-reader-furi">だいがく</rt>');
     });
 
     it('keeps long YouTube transcript background warmup provisional and keyless', async () => {

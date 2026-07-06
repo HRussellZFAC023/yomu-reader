@@ -353,6 +353,48 @@ describe('generic reader layout overflow guards', () => {
         expect(getComputedStyle(mirror).color).toBe('rgb(20, 20, 20)');
     });
 
+    it('does not duplicate block-child text in a generic non-destructive parent mirror', () => {
+        document.body.innerHTML = `
+            <dl>
+                <dd id="postage">
+                    送料無料の商品です。
+                    <p id="note">※配送不可エリア 離島</p>
+                </dd>
+            </dl>
+        `;
+        const host = document.querySelector<HTMLElement>('#postage')!;
+        const note = document.querySelector<HTMLElement>('#note')!;
+        const targets = collectFragmentTextTargetsIn(host, 10, false);
+        const parentTarget = targets.find(candidate => candidate.text.includes('送料無料')) as FragmentTextTarget | undefined;
+        const noteTarget = targets.find(candidate => candidate.text.includes('配送不可')) as FragmentTextTarget | undefined;
+
+        expect(parentTarget).toBeTruthy();
+        expect(noteTarget).toBeTruthy();
+        applyTokensToScanTarget({ ...parentTarget!, nonDestructive: true }, [
+            token('商品', parentTarget!.text.indexOf('商品'), parentTarget!.text, 'しょうひん'),
+        ], {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+        applyTokensToScanTarget({ ...noteTarget!, nonDestructive: true }, [
+            token('配送', noteTarget!.text.indexOf('配送'), noteTarget!.text, 'はいそう'),
+            token('不可', noteTarget!.text.indexOf('不可'), noteTarget!.text, 'ふか'),
+        ], {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+
+        expect(host.querySelector(':scope > .jpdb-reader-text-mirror')).toBeNull();
+        expect(note.querySelector(':scope > .jpdb-reader-text-mirror')).not.toBeNull();
+        expect(host.querySelectorAll('.jpdb-reader-word')).toHaveLength(3);
+        expect(note.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
+        const plain = host.cloneNode(true) as HTMLElement;
+        plain.querySelectorAll('rt,rp,.jpdb-reader-text-mirror').forEach(child => child.remove());
+        expect(plain.textContent?.replace(/\s+/g, '')).toContain('送料無料の商品です。※配送不可エリア離島');
+    });
+
     it('does not collect composer/editor placeholder text as page prose', () => {
         document.body.innerHTML = `
             <main>

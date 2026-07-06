@@ -5,16 +5,16 @@ import { normalizeCardStates, primaryCardState } from './state';
 import type { CardRenderData } from './render-data';
 import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
 import { isPlainReadingDuplicatedByVisibleRuby, renderCardSpellingWithFurigana } from './reading-display';
-import { escapeHtml } from '../dom/index';
+import { escapeHtml, renderRuby } from '../dom/index';
 import { renderKanjiDefinitions } from '../sources/definition-render';
 import { cardStateLabel, uiText } from '../app/i18n';
 import { speakerIcon } from '../ui/icons';
 import { loadMiningContext } from '../study/mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
-import { cardPronunciationReading, renderExpressionComponentPitches, renderPitch, type ExpressionComponentLookup } from '../popup/render';
+import { cardPronunciationReading, renderExpressionComponentPitches, renderPitch, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/render';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, type ApiSrsProviderView } from './srs-providers';
-import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
+import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
@@ -190,7 +190,7 @@ export class CardPopoverRenderer {
     private renderExpressionComponents(data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
         const components = uniqueExpressionComponents(data.expressionComponents ?? []);
         if (data.loading || components.length < 2) return '';
-        const rows = components.map(component => this.renderExpressionComponent(component)).join('');
+        const rows = components.map(component => this.renderExpressionComponent(component, data.componentPitches ?? [])).join('');
         return `<details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-expression-components" open>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml(uiText(view.language, 'composedOf'))}</span>
@@ -202,16 +202,17 @@ export class CardPopoverRenderer {
         </details>`;
     }
 
-    private renderExpressionComponent(component: ExpressionComponentLookup): string {
-        const reading = component.reading && component.reading !== component.text
-            ? `<small>${escapeHtml(component.reading)}</small>`
-            : '';
+    private renderExpressionComponent(component: ExpressionComponentLookup, componentPitches: ExpressionComponentPitch[]): string {
+        const reading = component.reading.trim();
+        const pitchClass = expressionComponentPitchClass(component, componentPitches);
+        const term = renderExpressionComponentTerm(component, pitchClass);
+        const readingText = reading && reading !== component.text ? `<small>${escapeHtml(reading)}</small>` : '';
         return `<li class="jpdb-reader-jpdb-used-in-row jpdb-reader-expression-component-row">
             <div class="jpdb-reader-jpdb-used-in-main jpdb-reader-expression-component-main">
-                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml(component.text)}" data-dictionary-reading="${escapeHtml(component.reading)}" data-external="false">
-                    <span class="jpdb-reader-jpdb-used-in-term">${escapeHtml(component.text)}</span>
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-expression-component-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml(component.text)}" data-dictionary-reading="${escapeHtml(reading)}" data-external="false">
+                    ${term}
                 </a>
-                ${reading}
+                ${readingText}
             </div>
         </li>`;
     }
@@ -707,6 +708,54 @@ function uniqueExpressionComponents(components: ExpressionComponentLookup[]): Ex
         seen.add(key);
         return true;
     });
+}
+
+function expressionComponentPitchClass(component: ExpressionComponentLookup, componentPitches: ExpressionComponentPitch[]): string {
+    const match = componentPitches.find(pitch => pitch.text === component.text && pitch.reading === component.reading);
+    return match ? getPitchClass([match.pitch], match.reading) : '';
+}
+
+function renderExpressionComponentTerm(component: ExpressionComponentLookup, pitchClass: string): string {
+    const text = component.text.trim();
+    const reading = component.reading.trim();
+    const classes = [
+        'jpdb-reader-word',
+        'jpdb-reader-passive-word',
+        'jpdb-reader-expression-component-term',
+        'jpdb-reader-jpdb-used-in-term',
+        reading && reading !== text ? 'jpdb-reader-has-furi' : '',
+        pitchClass ? `jpdb-pitch-${pitchClass}` : 'jpdb-pitch-unknown',
+    ].filter(Boolean).join(' ');
+    const pitchAttribute = pitchClass || 'unknown';
+    const readingAttribute = reading ? ` data-reading="${escapeHtml(reading)}"` : '';
+    const content = reading && reading !== text
+        ? renderRuby(text, expressionComponentRubyToken(text, reading, pitchClass))
+        : escapeHtml(text);
+    return `<span class="${classes}" data-jpdb-reader-passive="true" data-pitch-class="${escapeHtml(pitchAttribute)}" data-sentence="${escapeHtml(text)}" data-expression="${escapeHtml(text)}"${readingAttribute} tabindex="-1">${content}</span>`;
+}
+
+function expressionComponentRubyToken(text: string, reading: string, pitchClass: string): JPDBToken {
+    return {
+        card: {
+            vid: 0,
+            sid: 0,
+            rid: 0,
+            spelling: text,
+            reading,
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [],
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            wordWithReading: null,
+        } as JPDBCard,
+        start: 0,
+        end: text.length,
+        length: text.length,
+        rubies: [],
+        pitchClass,
+        sentence: text,
+    };
 }
 
 // Shown next to the grade target when the word can be graded by more than one

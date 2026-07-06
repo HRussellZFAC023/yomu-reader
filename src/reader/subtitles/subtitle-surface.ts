@@ -80,6 +80,7 @@ export interface DrawerHeadState {
     mode: SubtitlePanelMode;
     title: string;
     meta: string;
+    metaTitle?: string;
     canShowLines: boolean;
     options: PanelOptionsControlsState;
     // Mode-specific extra buttons rendered after the tabs (e.g. the lines
@@ -103,7 +104,7 @@ export function renderDrawerHead(state: DrawerHeadState): string {
             <div class="jpdb-subtitle-drawer-top">
                 <div class="jpdb-subtitle-drawer-brand">
                     <strong class="jpdb-subtitle-drawer-title">${escapeHtml(state.title)}</strong>
-                    <span class="jpdb-subtitle-drawer-meta">${escapeHtml(state.meta)}</span>
+                    <span class="jpdb-subtitle-drawer-meta" title="${escapeHtml(state.metaTitle ?? state.meta)}">${escapeHtml(state.meta)}</span>
                 </div>
                 <div class="jpdb-subtitle-drawer-top-actions">
                     ${renderPanelOptionsControls(state.options)}

@@ -609,6 +609,7 @@ function formControlTextTarget(
         nonDestructive: true,
         controlTextMirror: true,
         controlSelectTextMode: options.selectTextMode,
+        passiveInteraction: !options.includeReaderRoot,
     };
 }
 
@@ -1327,13 +1328,37 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
         // box paint with visibility:hidden — the bloomee bug class. Styled
         // constrained rows render in place with the reading suppressed.
         && hostIsVisuallyBareForMirror(nonDestructiveHost);
+    const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
     if ((!target.forceInlineRender || (repaintLooping && canUseRepaintLoopMirror))
-        && (target.nonDestructive || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
+        && (canUseRequestedNonDestructiveMirror || liveFrameworkRegion || repaintLooping || constrainedRubyHost)) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
     }
     if (isFragmentTextTarget(target)) applyTokensToFragmentTarget(target, tokens, settings);
     else applyTokensToTextNode(target, tokens, settings);
+}
+
+function nonDestructiveTargetShouldRenderInline(target: ScanTextTarget, host: HTMLElement): boolean {
+    if (!isFragmentTextTarget(target)) return false;
+    if (!target.fragments.length) return false;
+    if (scanHostIsLiveFrameworkRegion(host)) return false;
+    return targetLeavesVisibleBlockDescendantTextUncovered(target, host);
+}
+
+function targetLeavesVisibleBlockDescendantTextUncovered(target: FragmentTextTarget, host: HTMLElement): boolean {
+    if (!host.querySelector(':scope p,:scope div,:scope li,:scope dl,:scope dt,:scope dd,:scope section,:scope article,:scope blockquote')) return false;
+    const covered = new Set(target.fragments.map(fragment => fragment.node));
+    const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
+        acceptNode: node => {
+            const parent = node.parentElement;
+            if (!parent || covered.has(node as Text)) return NodeFilter.FILTER_REJECT;
+            if (parent.closest(MIRROR_PLAN_TEXT_SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
+            const block = parent.closest<HTMLElement>('p,div,li,dl,dt,dd,section,article,blockquote');
+            if (!block || block === host || !host.contains(block)) return NodeFilter.FILTER_REJECT;
+            return (node.textContent ?? '').trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        },
+    });
+    return Boolean(walker.nextNode());
 }
 
 export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
@@ -1415,7 +1440,7 @@ function nonDestructiveHostRenderPlan(
     }
     const indexed = indexTextFragments(fragments);
     const remapped = tokens
-        .map(token => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText.length))
+        .map(token => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText))
         .filter((token): token is JPDBToken => token !== null);
     return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length) };
 }
@@ -1463,24 +1488,42 @@ function nonDestructiveTargetFragments(target: ScanTextTarget): TextFragment[] {
 }
 
 // Shift a token from target.text coordinates into the host's full-text coordinates.
-// Only tokens that resolve within a single text node are remapped (a constant
-// offset shift); a token straddling fragments is dropped so its surface can never
-// be mismatched against the host text — the words still render as plain text.
+// Cross-fragment tokens are safe when the host's visible text contains the same
+// contiguous surface; the non-destructive mirror renders over host text, not DOM
+// nodes, so one reader word can span sibling text nodes without mutating them.
 function remapTokenIntoHostText(
     token: JPDBToken,
     indexed: IndexedTextFragment[],
     nodeOffsets: Map<Text, number>,
-    hostLength: number,
+    hostText: string,
 ): JPDBToken | null {
     const start = findFragmentBoundary(indexed, token.start, 'start');
     const end = findFragmentBoundary(indexed, token.end, 'end');
-    if (!start || !end || start.fragment !== end.fragment) return null;
-    const base = nodeOffsets.get(start.fragment.node);
-    if (base === undefined) return null;
-    const hostStart = base + start.localOffset;
-    const hostEnd = base + end.localOffset;
-    if (hostStart < 0 || hostEnd <= hostStart || hostEnd > hostLength) return null;
+    if (!start || !end) return null;
+    const hostStart = hostTextOffsetForBoundary(start, nodeOffsets);
+    const hostEnd = hostTextOffsetForBoundary(end, nodeOffsets);
+    if (hostStart === null || hostEnd === null) return null;
+    if (hostStart < 0 || hostEnd <= hostStart || hostEnd > hostText.length) return null;
+    const surface = textFragmentSurface(indexed, token.start, token.end);
+    if (!surface || hostText.slice(hostStart, hostEnd) !== surface) return null;
     return shiftTokenOffsets(token, hostStart - token.start);
+}
+
+function hostTextOffsetForBoundary(boundary: FragmentBoundaryMatch, nodeOffsets: Map<Text, number>): number | null {
+    const base = nodeOffsets.get(boundary.fragment.node);
+    return base === undefined ? null : base + boundary.localOffset;
+}
+
+function textFragmentSurface(indexed: IndexedTextFragment[], start: number, end: number): string {
+    if (end <= start) return '';
+    return indexed
+        .filter(fragment => fragment.globalEnd > start && fragment.globalStart < end)
+        .map(fragment => {
+            const localStart = fragment.start + Math.max(start, fragment.globalStart) - fragment.globalStart;
+            const localEnd = fragment.start + Math.min(end, fragment.globalEnd) - fragment.globalStart;
+            return fragment.node.data.slice(localStart, localEnd);
+        })
+        .join('');
 }
 
 function shiftTokenOffsets(token: JPDBToken, delta: number): JPDBToken {
@@ -1680,12 +1723,12 @@ function applyTokensToControlTextMirrorTarget(target: ScanTextTarget, tokens: JP
     const state = styleControlTextMirror(mirror, host, placeholderOverlay);
     mirror.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
         parent: host,
-        hasNativeRuby: false,
-        mirrorRender: true,
-        suppressRuby,
-        passiveInteraction: false,
-        suppressRubyDoesNotImplyPassive: placeholderOverlay,
-    }));
+            hasNativeRuby: false,
+            mirrorRender: true,
+            suppressRuby,
+            passiveInteraction: target.passiveInteraction,
+            suppressRubyDoesNotImplyPassive: placeholderOverlay,
+        }));
     if (!mirror.textContent?.trim()) {
         restoreControlTextMirrorHost(host, state);
         return;
@@ -4229,12 +4272,47 @@ function hasVisibleBorderSide(style: string, width: string): boolean {
 // any aria-hidden subtree. Scanned words can live inside a collapsed card; room
 // must skip them.
 const RUBY_ROOM_HARD_SKIP_SELECTOR = '[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending';
-const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = 'ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-section-renderer :is(#title,h2),ytd-rich-shelf-renderer :is(#title,h2),ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3,grid-shelf-view-model h2,ytd-shelf-renderer :is(#title,h2),ytd-grid-video-renderer :is(#video-title,#metadata-line),yt-description-preview-view-model,yt-tab-shape,ytd-playlist-panel-video-renderer #video-title,ytd-playlist-video-renderer #video-title,ytd-playlist-header-renderer :is(#title,.metadata-wrapper),ytd-video-renderer .metadata-snippet-text,:is(ytd-channel-renderer,ytd-grid-channel-renderer) :is(#info,#description)';
+const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = [
+    'ytd-comment-view-model #content-text',
+    'ytm-comment-renderer #content-text',
+    'ytd-watch-info-text',
+    'ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model)',
+    '.ytContentMetadataViewModelMetadataRow',
+    'ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string)',
+    'ytm-transcript-segment-renderer',
+    'ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info)',
+    'ytm-expandable-video-description-body-renderer p',
+    'ytm-structured-description-content-renderer',
+    'ytd-rich-section-renderer :is(#title,h2)',
+    'ytd-rich-shelf-renderer :is(#title,h2)',
+    'ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name)',
+    'ytd-video-renderer :is(#video-title,#metadata-line)',
+    ':is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title',
+    'yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost)',
+    'ytm-video-with-context-renderer .media-item-headline',
+    ':is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3',
+    'grid-shelf-view-model h2',
+    'ytd-shelf-renderer :is(#title,h2)',
+    'ytd-grid-video-renderer :is(#video-title,#metadata-line)',
+    'yt-description-preview-view-model',
+    'yt-tab-shape',
+    'ytd-playlist-panel-video-renderer #video-title',
+    'ytd-playlist-video-renderer #video-title',
+    'ytd-playlist-header-renderer :is(#title,.metadata-wrapper)',
+    'ytd-video-renderer .metadata-snippet-text',
+    ':is(ytd-channel-renderer,ytd-grid-channel-renderer) :is(#info,#description)',
+    'yt-live-chat-viewer-engagement-message-renderer :is(#content,#message,yt-formatted-string,a,button,[role="button"])',
+    'yt-live-chat-restricted-participation-renderer :is(#message,#subtext,yt-formatted-string,a,button,[role="button"])',
+    'yt-live-chat-banner-renderer :is(#message,#header,yt-formatted-string,a,button,[role="button"])',
+    'yt-live-chat-ticker-renderer :is(#text,#content,yt-formatted-string,a,button,[role="button"])',
+].join(',');
 // A clamped/ellipsis text row's furigana never needs more than a few lines of
 // extra height. A room far larger than this means we measured a container (a
 // collapsed card, a virtualized list) rather than a text row — refuse it so a
 // mis-measure can never blow the layout up to hundreds of px.
 const RUBY_ROOM_MAX_PX = 400;
+const RUBY_ROOM_SHORT_ROW_MAX_PX = 96;
+const RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX = 120;
 
 export function makeRoomForRubyInCroppedRows(root: ParentNode = document): number {
     let adjusted = 0;
@@ -4249,7 +4327,7 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
             // plain scroll overflow there usually means an intentionally
             // collapsed read-more region, which must stay collapsed.
             const curated = isGoogleSearchRubyRoomTextBox(box) || isYouTubeRubyRoomTextBox(box);
-            if (curated ? !boxActuallyCrops(box) : !rubyCropsBox(box)) continue;
+            if (curated ? !boxActuallyCrops(box) : !genericRubyNeedsRoom(box)) continue;
             const roomHeight = curated ? rubyRoomHeight(box) : genericRubyRoomHeight(box);
             if (roomHeight > RUBY_ROOM_MAX_PX) continue;
             if (previousRubyRoomHeight(box) >= roomHeight) continue;
@@ -4267,12 +4345,21 @@ function rubyCropsBox(box: HTMLElement): boolean {
     return rubyBottomOverflow(box) > 1 || rubyTopOverflow(box) > 1 || rubyMirrorBlockOverflow(box) > 1;
 }
 
+function genericRubyNeedsRoom(box: HTMLElement): boolean {
+    return rubyCropsBox(box) || rubyLayoutOverflowsShortRow(box);
+}
+
 // Generic rows must never inherit scrollHeight (a collapsed region's full
 // content height); the room is the visible height plus exactly the ruby
 // overflow the box is cropping.
 function genericRubyRoomHeight(box: HTMLElement): number {
     const mirror = box.querySelector<HTMLElement>('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
-    return Math.ceil(Math.max(box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box), mirror ? mirror.scrollHeight : 0));
+    const shortRowHeight = rubyLayoutOverflowsShortRow(box) ? box.scrollHeight : 0;
+    return Math.ceil(Math.max(
+        box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
+        mirror ? mirror.scrollHeight : 0,
+        shortRowHeight,
+    ));
 }
 
 const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ':is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])';
@@ -4322,7 +4409,8 @@ function cropCapableBoxes(element: HTMLElement | null): HTMLElement[] {
         const style = safeComputedStyle(current);
         if (hasLineClamp(style)
             || isEllipsisTextRow(style)
-            || hasClippedTextConstraint(style)) {
+            || hasClippedTextConstraint(style)
+            || rubyLayoutOverflowsShortRow(current)) {
             boxes.push(current);
         } else if (!fallback && isYouTubeRubyRoomTextBox(current) && current.querySelector('.jpdb-reader-text-mirror')) {
             fallback = current;
@@ -4330,6 +4418,30 @@ function cropCapableBoxes(element: HTMLElement | null): HTMLElement[] {
         current = current.parentElement;
     }
     return boxes.length || !fallback ? boxes : [fallback];
+}
+
+function rubyLayoutOverflowsShortRow(box: HTMLElement): boolean {
+    if (!box.querySelector('.jpdb-reader-word rt,.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')) return false;
+    if (safeElementMatches(box, '.jpdb-reader-word,ruby,rt,.jpdb-reader-furi,.jpdb-reader-ruby-base')) return false;
+    const clientHeight = box.clientHeight;
+    if (clientHeight <= 0 || clientHeight > RUBY_ROOM_SHORT_ROW_MAX_PX) return false;
+    const overflow = box.scrollHeight - clientHeight;
+    if (overflow <= 2 || overflow > RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX) return false;
+    const style = safeComputedStyle(box);
+    if (hasClippedTextConstraint(style) || hasLineClamp(style) || isEllipsisTextRow(style)) return false;
+    return isShortRubyRowDisplay(style);
+}
+
+function isShortRubyRowDisplay(style: CSSStyleDeclaration): boolean {
+    return style.display.includes('flex')
+        || style.display.includes('grid')
+        || style.display === 'block'
+        || style.display === 'flow-root'
+        || style.display === 'list-item'
+        || style.display === 'table'
+        || style.display === 'table-row'
+        || style.display === 'table-cell'
+        || style.display === 'inline-block';
 }
 
 function boxActuallyCrops(box: HTMLElement): boolean {

@@ -151,6 +151,24 @@ describe('makeRoomForRubyInCroppedRows', () => {
         document.body.innerHTML = '';
     });
 
+    it('reserves room on short generic rows whose ruby layout overflows the row height', () => {
+        document.body.innerHTML = `
+            <dl id="price-row" style="display:flex;align-items:flex-start;height:28px;line-height:28px;overflow:visible">
+                <dt>${annotatedWord('かかく', '価格')}</dt>
+                <dd>6,644円(${annotatedWord('ぜいこみ', '税込')})</dd>
+            </dl>
+        `;
+        const row = document.querySelector<HTMLElement>('#price-row')!;
+        mockOverflow(row, 79, 28);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(row.dataset.yomuRubyRoom).toBe('true');
+        expect(row.style.minHeight).toBe('79px');
+        expect(row.style.height).toBe('79px');
+        expect(row.querySelector('rt')?.textContent).toBe('かかく');
+        document.body.innerHTML = '';
+    });
+
     it('leaves boxes alone when the ruby already fits', () => {
         document.body.innerHTML = `
             <div id="fits" style="display:-webkit-box;-webkit-line-clamp:4;overflow:hidden">${annotatedWord('べんきょう', '勉強')}します</div>

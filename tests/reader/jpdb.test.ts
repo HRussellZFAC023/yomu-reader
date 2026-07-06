@@ -3651,7 +3651,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('--jpdb-reader-word-inline-gap: 0.08em; --jpdb-reader-word-highlight-size: calc(100% - var(--jpdb-reader-word-inline-gap) - var(--jpdb-reader-word-inline-gap)); --jpdb-reader-word-highlight-block-size: 1.16em;');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1; inset-inline: var(--jpdb-reader-word-inline-gap); inset-block-end: 0; border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent); pointer-events: none; }');
         expect(normalizedCss).not.toContain('.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 2.05; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 2.15; }');
         expect(normalizedCss).toContain('.jpdb-reader-word ruby {');
         expect(normalizedCss).toContain('display: ruby !important;');
         expect(normalizedCss).toContain('.jpdb-reader-word rt {');
@@ -3763,7 +3763,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toMatch(/\.jpdb-reader-subtitle-underline-pitch :is\([^)]+\) \.jpdb-reader-word \{ --jpdb-reader-word-underline-offset: \.12em; --jpdb-reader-word-underline-thickness: \.12em; text-decoration-thickness: \.12em !important; text-underline-offset: \.12em !important;[^}]*text-decoration-color: transparent; \}/);
         expect(normalizedCss).not.toContain('.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); text-decoration-line: underline !important; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken { opacity: 1; } .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current { opacity: 1; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); --jpdb-reader-word-underline-offset: .16em; --jpdb-reader-word-underline-thickness: .08em; position: relative; display: inline !important; color: inherit; background-color: transparent; background-image: none; text-decoration-color: transparent;');
+        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); --jpdb-reader-word-underline-offset: .16em; --jpdb-reader-word-underline-thickness: .08em; position: relative; display: inline-block !important; vertical-align: baseline; color: inherit; background-color: transparent; background-image: none; text-decoration-color: transparent;');
     });
 
     it('keeps passive control labels on the host line-wrapping contract', () => {
@@ -4969,13 +4969,21 @@ describe('reader helpers', () => {
                 { text: '跳梁', reading: 'ちょうりょう' },
                 { text: '跋扈', reading: 'ばっこ' },
             ],
+            componentPitches: [
+                { text: '跳梁', reading: 'ちょうりょう', pitch: 'LHHHHH' },
+                { text: '跋扈', reading: 'ばっこ', pitch: 'HLL' },
+            ],
         });
 
         const section = document.querySelector<HTMLElement>('.jpdb-reader-expression-components')!;
         const links = [...section.querySelectorAll<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]')];
+        const words = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-expression-component-term')];
         expect(section.textContent).toContain('Composed of');
         expect(links.map(link => link.dataset.dictionaryLookup)).toEqual(['跳梁', '跋扈']);
         expect(links.map(link => link.dataset.dictionaryReading)).toEqual(['ちょうりょう', 'ばっこ']);
+        expect(words.map(word => word.dataset.expression)).toEqual(['跳梁', '跋扈']);
+        expect(words.map(word => word.dataset.pitchClass)).toEqual(['heiban', 'atamadaka']);
+        expect(words.map(word => word.querySelector('.jpdb-reader-furi')?.textContent)).toEqual(['ちょうりょう', 'ばっこ']);
     });
 
     it('renders furigana on the popup headword without losing inline kanji navigation', () => {
@@ -36036,15 +36044,19 @@ describe('reader helpers', () => {
                 <yt-live-chat-header-renderer>
                     <div id="primary-content"><span id="title">チャット</span></div>
                 </yt-live-chat-header-renderer>
-                <yt-live-chat-viewer-engagement-message-renderer>
-                    <yt-formatted-string id="message">会話に参加して、クリエイターや、このライブ配信を視聴している人たちと交流する。</yt-formatted-string>
-                    <button aria-label="パネルを開く">パネルを開く</button>
-                </yt-live-chat-viewer-engagement-message-renderer>
-                <yt-live-chat-text-message-renderer>
-                    <span id="author-name">先生</span>
-                    <yt-formatted-string id="message">今日はライブで日本語を聞いています。</yt-formatted-string>
-                    <button aria-label="返信">返信</button>
-                </yt-live-chat-text-message-renderer>
+                <yt-live-chat-renderer>
+                    <div id="chat-messages">
+                        <yt-live-chat-viewer-engagement-message-renderer>
+                            <yt-formatted-string id="message">会話に参加して、クリエイターや、このライブ配信を視聴している人たちと交流する。</yt-formatted-string>
+                            <button aria-label="パネルを開く">パネルを開く</button>
+                        </yt-live-chat-viewer-engagement-message-renderer>
+                        <yt-live-chat-text-message-renderer>
+                            <span id="author-name">先生</span>
+                            <yt-formatted-string id="message">今日はライブで日本語を聞いています。</yt-formatted-string>
+                            <button aria-label="返信">返信</button>
+                        </yt-live-chat-text-message-renderer>
+                    </div>
+                </yt-live-chat-renderer>
             </yt-live-chat-app>
         `, YOUTUBE_WATCH_TEST_URL, undefined);
 
@@ -36055,6 +36067,7 @@ describe('reader helpers', () => {
             '先生',
             '今日はライブで日本語を聞いています。',
         ]));
+        expect(targets.some(target => target.parent.matches('yt-live-chat-renderer #chat-messages'))).toBe(false);
         expect(targets.map(target => target.text)).toContain('返信');
         expect(targets.map(target => target.text)).toContain('パネルを開く');
 
@@ -36091,6 +36104,73 @@ describe('reader helpers', () => {
         expect(readerWordSurfaceText(engagementWord)).toBe('会話');
         expect(engagementWord.querySelector('rt')?.textContent).toBe('かいわ');
         expect(document.querySelector('yt-live-chat-viewer-engagement-message-renderer button .jpdb-reader-word')).toBeNull();
+    });
+
+    it('scans YouTube subscriber-only live-chat notices as separate ruby-capable rows', () => {
+        const notice = 'チャンネル登録者のみモード。このチャンネルの登録期間が5分以上のユーザーからのメッセージが表示されます。';
+        const targets = collectYouTubeTargets(`
+            <yt-live-chat-app>
+                <yt-live-chat-restricted-participation-renderer>
+                    <yt-formatted-string id="message">チャンネル登<span>録者</span>のみモード。このチャンネルの登録期間が5分以上のユーザーからのメッセージが表示されます。</yt-formatted-string>
+                    <span id="subtext" role="button">詳細</span>
+                </yt-live-chat-restricted-participation-renderer>
+            </yt-live-chat-app>
+        `, YOUTUBE_WATCH_TEST_URL, undefined);
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            notice,
+            '詳細',
+        ]));
+        expect(targets.filter(target => target.text.includes('チャンネル登録者のみ'))).toHaveLength(1);
+        const noticeTarget = targets.find(target => target.text === notice)!;
+        const detailTarget = targets.find(target => target.text === '詳細')!;
+        expect(noticeTarget).toMatchObject({ nonDestructive: true });
+        expect(detailTarget).toMatchObject({ nonDestructive: true, passiveInteraction: true });
+        expect('fragments' in noticeTarget ? noticeTarget.fragments.length : 0).toBeGreaterThan(1);
+
+        applyTokensToScanTarget(noticeTarget, [{
+            card: { ...card, cardState: ['known'], spelling: '登録者', reading: 'とうろくしゃ', source: 'jpdb' },
+            start: notice.indexOf('登録者'),
+            end: notice.indexOf('登録者') + '登録者'.length,
+            length: '登録者'.length,
+            rubies: [{ text: 'とうろくしゃ', start: notice.indexOf('登録者'), end: notice.indexOf('登録者') + '登録者'.length, length: '登録者'.length }],
+            pitchClass: 'heiban',
+            sentence: notice,
+        }, {
+            card: { ...card, vid: card.vid + 1, sid: card.sid + 1, cardState: ['known'], spelling: '期間', reading: 'きかん', source: 'jpdb' },
+            start: notice.indexOf('期間'),
+            end: notice.indexOf('期間') + '期間'.length,
+            length: '期間'.length,
+            rubies: [{ text: 'きかん', start: notice.indexOf('期間'), end: notice.indexOf('期間') + '期間'.length, length: '期間'.length }],
+            pitchClass: 'heiban',
+            sentence: notice,
+        }, {
+            card: { ...card, vid: card.vid + 2, sid: card.sid + 2, cardState: ['known'], spelling: '表示', reading: 'ひょうじ', source: 'jpdb' },
+            start: notice.indexOf('表示'),
+            end: notice.indexOf('表示') + '表示'.length,
+            length: '表示'.length,
+            rubies: [{ text: 'ひょうじ', start: notice.indexOf('表示'), end: notice.indexOf('表示') + '表示'.length, length: '表示'.length }],
+            pitchClass: 'heiban',
+            sentence: notice,
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        applyTokensToScanTarget(detailTarget, [{
+            card: { ...card, cardState: ['known'], spelling: '詳細', reading: 'しょうさい', source: 'jpdb' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'しょうさい', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '詳細',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const noticeWords = Array.from(document.querySelectorAll<HTMLElement>('yt-live-chat-restricted-participation-renderer #message .jpdb-reader-word'));
+        expect(noticeWords.map(word => readerWordSurfaceText(word))).toEqual(['登録者', '期間', '表示']);
+        expect(noticeWords.map(word => word.querySelector('rt')?.textContent)).toEqual(['とうろくしゃ', 'きかん', 'ひょうじ']);
+        expect(document.querySelectorAll('yt-live-chat-restricted-participation-renderer > .jpdb-reader-text-mirror')).toHaveLength(0);
+        const detailWord = document.querySelector<HTMLElement>('yt-live-chat-restricted-participation-renderer #subtext .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(detailWord)).toBe('詳細');
+        expect(detailWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(detailWord.querySelector('rt')?.textContent).toBe('しょうさい');
     });
 
     it('uses YouTube watch-info aria labels instead of hidden rolling-number text', async () => {
@@ -36298,6 +36378,76 @@ describe('reader helpers', () => {
         const chatWord = document.querySelector<HTMLElement>('main .jpdb-reader-text-mirror .jpdb-reader-word')!;
         expect(readerWordSurfaceText(chatWord)).toBe('チャット');
         expectRenderedPitchWord(chatWord, 'heiban');
+    });
+
+    it('scans YouTube live-chat frame notices without mirroring chat containers', () => {
+        const notice = 'チャンネル登録者のみモード。このチャンネルの登録期間が5分以上のユーザーからのメッセージが表示されます。';
+        const targets = collectYouTubeTargets(`
+            <main>
+                <yt-live-chat-app>
+                    <yt-live-chat-renderer>
+                        <div id="chat-messages">
+                            <yt-live-chat-restricted-participation-renderer>
+                                <yt-formatted-string id="message">チャンネル登<span>録者</span>のみモード。このチャンネルの登録期間が5分以上のユーザーからのメッセージが表示されます。</yt-formatted-string>
+                                <span id="subtext" role="button">詳細</span>
+                            </yt-live-chat-restricted-participation-renderer>
+                        </div>
+                    </yt-live-chat-renderer>
+                </yt-live-chat-app>
+            </main>
+        `, 'https://www.youtube.com/live_chat?continuation=test', undefined);
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            notice,
+            '詳細',
+        ]));
+        expect(targets.filter(target => target.text.includes('チャンネル登録者のみ'))).toHaveLength(1);
+        expect(targets.some(target => target.parent === document.body)).toBe(false);
+        expect(targets.some(target => target.parent.matches('main,[role="main"]'))).toBe(false);
+        expect(targets.some(target => target.parent.matches('yt-live-chat-renderer #chat-messages'))).toBe(false);
+
+        const noticeTarget = targets.find(target => target.text === notice)!;
+        const detailTarget = targets.find(target => target.text === '詳細')!;
+        expect(noticeTarget).toMatchObject({ nonDestructive: true });
+        expect(detailTarget).toMatchObject({ nonDestructive: true, passiveInteraction: true });
+        expect('fragments' in noticeTarget ? noticeTarget.fragments.length : 0).toBeGreaterThan(1);
+
+        applyTokensToScanTarget(noticeTarget, [{
+            card: { ...card, cardState: ['known'], spelling: '登録者', reading: 'とうろくしゃ', source: 'jpdb' },
+            start: notice.indexOf('登録者'),
+            end: notice.indexOf('登録者') + '登録者'.length,
+            length: '登録者'.length,
+            rubies: [{ text: 'とうろくしゃ', start: notice.indexOf('登録者'), end: notice.indexOf('登録者') + '登録者'.length, length: '登録者'.length }],
+            pitchClass: 'heiban',
+            sentence: notice,
+        }, {
+            card: { ...card, vid: card.vid + 1, sid: card.sid + 1, cardState: ['known'], spelling: '表示', reading: 'ひょうじ', source: 'jpdb' },
+            start: notice.indexOf('表示'),
+            end: notice.indexOf('表示') + '表示'.length,
+            length: '表示'.length,
+            rubies: [{ text: 'ひょうじ', start: notice.indexOf('表示'), end: notice.indexOf('表示') + '表示'.length, length: '表示'.length }],
+            pitchClass: 'heiban',
+            sentence: notice,
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        applyTokensToScanTarget(detailTarget, [{
+            card: { ...card, cardState: ['known'], spelling: '詳細', reading: 'しょうさい', source: 'jpdb' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'しょうさい', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '詳細',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const noticeWords = Array.from(document.querySelectorAll<HTMLElement>('yt-live-chat-restricted-participation-renderer #message .jpdb-reader-word'));
+        expect(noticeWords.map(word => readerWordSurfaceText(word))).toEqual(['登録者', '表示']);
+        expect(noticeWords.map(word => word.querySelector('rt')?.textContent)).toEqual(['とうろくしゃ', 'ひょうじ']);
+        expect(document.querySelectorAll('yt-live-chat-renderer #chat-messages > .jpdb-reader-text-mirror')).toHaveLength(0);
+        expect(document.querySelectorAll('yt-live-chat-restricted-participation-renderer > .jpdb-reader-text-mirror')).toHaveLength(0);
+        const detailWord = document.querySelector<HTMLElement>('yt-live-chat-restricted-participation-renderer #subtext .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(detailWord)).toBe('詳細');
+        expect(detailWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(detailWord.querySelector('rt')?.textContent).toBe('しょうさい');
     });
 
     it('scans YouTube watch metadata live-chat teaser carousel text', () => {

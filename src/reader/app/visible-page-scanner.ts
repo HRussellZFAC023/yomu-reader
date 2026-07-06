@@ -45,6 +45,7 @@ const VISIBLE_SCAN_REMOTE_PARSE_PREFETCH = 2;
 const YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH = 2;
 const ASB_SCAN_BATCH_LIMIT = 12;
 const ASB_SCAN_DRAIN_DELAY_MS = 80;
+const FORCE_FURIGANA_MODE_ATTRIBUTE = 'data-yomu-furigana-mode';
 interface VisibleScanParseOptions {
     jpdbTimeoutMs?: number;
     allowJpdbTimeoutFallback?: boolean;
@@ -109,6 +110,7 @@ export class VisiblePageScanner {
         this.asbDrainTimer = undefined;
         window.clearTimeout(this.clampSweepTimer);
         this.clampSweepTimer = undefined;
+        this.clearPageFuriganaMode();
     }
 
     interruptVisiblePageScan(): void {
@@ -124,6 +126,7 @@ export class VisiblePageScanner {
         const generation = this.scanGeneration;
         const done = log.time('scanVisiblePage', { silent });
         try {
+            this.syncPageFuriganaMode();
             await this.runVisiblePageScan(silent, generation);
         } catch (error) {
             this.handleVisiblePageScanError(error, silent);
@@ -444,6 +447,23 @@ export class VisiblePageScanner {
         if (this.destroyed) return;
         this.scanPending = true;
         this.scanPendingSilent = this.scanPendingSilent && silent;
+    }
+
+    private syncPageFuriganaMode(): void {
+        if (typeof document === 'undefined') return;
+        const settings = this.dependencies.getSettings();
+        if (settings.showFurigana && settings.furiganaMode === 'all') {
+            document.documentElement.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, 'all');
+            return;
+        }
+        this.clearPageFuriganaMode();
+    }
+
+    private clearPageFuriganaMode(): void {
+        if (typeof document === 'undefined') return;
+        if (document.documentElement.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) === 'all') {
+            document.documentElement.removeAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE);
+        }
     }
 }
 
