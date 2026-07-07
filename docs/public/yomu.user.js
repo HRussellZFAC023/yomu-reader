@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.104
+// @version 1.6.105
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.104#sha256=FiVH9NCp19JNDrXzaXm8fNTob16+dJUD7y+tnoDzpGc=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.104#sha256=xX8MG3emoqISFhix0JtyrExwdFVcRKVpuYCDzO0Yry4=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.104#sha256=de1YLqDkJbCVk+uiFMcfOcSRlNtZO0lK0lPatpF+ZlY=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.104#sha256=c+P7ESACswWPREdrlAT7n9a0PTMeGPkvZo3MD38PgUQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.104#sha256=aL/uwlC5VFN0d8b9j2t/aXPi0NU58ZrV8cihJWZHSKI=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.104#sha256=ni2i18IbRgrgbNikiq1pLFsXhDrJWZmaXHIZARhs5Iw=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.105#sha256=xnmq0rMr10GQosnEL/4AhAgxmcssI8Lzph/7+d3eoqE=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.105#sha256=zgz2TcbwZGzlrTOrseea5iaBzGwMKykwPNJhUw/t/sk=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.105#sha256=7brLpQdgA4yNOV51p8O76K4AZ93CuoWLaaFzVSHFeMU=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.105#sha256=7TlprkwBiwdTQmhqW6nI0cB6TedICprw9vmDg4Qh55Y=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.105#sha256=3jzszt6ksu8oDkkLRsDfa6x9k4BOrV0XWcNTrBOLu3c=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.105#sha256=fr/1gB5P5iutV27vV8YxSJKrIRYbp9jT9AdAlEZvrVQ=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -2917,9 +2917,11 @@ const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
   "word",
   "recall-cloze",
   "listen-pitch",
-  "speaking"
+  "speaking",
+  "type-word"
 ];
 const NEW_TAB_STUDY_CHALLENGE_STEPS = new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
+const NEW_TAB_TYPE_WORD_INPUT_MODES = ["keyboard", "handwriting"];
 const LEGACY_COLOR_CHANNEL_DEFAULTS = {
   wordHighlightColorSource: "auto",
   wordUnderlineColorSource: "auto",
@@ -3049,6 +3051,7 @@ const DEFAULT_SETTINGS = {
   newTabKanjiAutoSubmit: false,
   newTabStudyStepOrder: [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER],
   newTabStudyDisabledSteps: [],
+  newTabTypeWordInputMode: "keyboard",
   newTabStudyTourSeen: false,
   puckPositionX: void 0,
   puckPositionY: void 0,
@@ -3419,6 +3422,7 @@ function normalizeNewTabSettings(value) {
   newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit"),
   newTabStudyStepOrder: normalizeNewTabStudyStepOrder(value?.newTabStudyStepOrder),
   newTabStudyDisabledSteps: normalizeNewTabStudyDisabledSteps(value?.newTabStudyDisabledSteps),
+  newTabTypeWordInputMode: normalizeOption(value?.newTabTypeWordInputMode, NEW_TAB_TYPE_WORD_INPUT_MODES, DEFAULT_SETTINGS.newTabTypeWordInputMode),
   newTabStudyTourSeen: booleanSetting(value, "newTabStudyTourSeen")
   };
 }
@@ -4137,7 +4141,7 @@ function ensureBuiltInAudioSource(sources, source, beforeType) {
 }
 const KANJI_RE$3 = /[\u3400-\u9fff]/u;
 const KANA_CHAR_RE$1 = /[\u3040-\u30ffー・]/u;
-const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
+const KANA_RE$2 = /^[\u3040-\u30ffー・]+$/u;
 const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
 const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
 const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
@@ -6917,13 +6921,13 @@ function inferredInflectedSurfaceRubies(surface, spelling, reading) {
   const baseSpelling = spelling.trim();
   const baseReading = reading.trim();
   if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-  if (!KANJI_RE$3.test(visibleSurface) || !KANA_RE$1.test(baseReading) || baseReading === baseSpelling) return [];
+  if (!KANJI_RE$3.test(visibleSurface) || !KANA_RE$2.test(baseReading) || baseReading === baseSpelling) return [];
   for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
   if (!baseReading.endsWith(spellingSuffix)) continue;
   const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
   if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
   const surfaceSuffix = visibleSurface.slice(spellingStem.length);
-  if (!surfaceSuffix || !KANA_RE$1.test(surfaceSuffix)) continue;
+  if (!surfaceSuffix || !KANA_RE$2.test(surfaceSuffix)) continue;
   const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
   if (rubies.length) return rubies;
   }
@@ -6933,14 +6937,14 @@ function trailingKanaSuffixes(value) {
   const suffixes = [];
   for (let index = 0; index < value.length; index += 1) {
   const suffix = value.slice(index);
-  if (suffix && KANA_RE$1.test(suffix)) suffixes.push(suffix);
+  if (suffix && KANA_RE$2.test(suffix)) suffixes.push(suffix);
   }
   return suffixes.sort((first, second) => second.length - first.length);
 }
 function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
   const trimmed = trimSharedKanaAffixes$1(surfaceStem, readingStem);
   if (!trimmed.surface || !trimmed.reading) return [];
-  if (!KANJI_RE$3.test(trimmed.surface) || !KANA_RE$1.test(trimmed.reading)) return [];
+  if (!KANJI_RE$3.test(trimmed.surface) || !KANA_RE$2.test(trimmed.reading)) return [];
   return [{
   text: trimmed.reading,
   start: trimmed.offset,
@@ -6967,7 +6971,7 @@ function trimSharedKanaAffixes$1(surface, reading) {
   return { surface: trimmedSurface, reading: trimmedReading, offset };
 }
 function sameKanaCharacter(first, second) {
-  return Boolean(first && second && first === second && KANA_RE$1.test(first));
+  return Boolean(first && second && first === second && KANA_RE$2.test(first));
 }
 function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
   const sources = sourceTokenRubies(surface, token);
@@ -6987,7 +6991,7 @@ function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
 function sourceTokenRubies(surface, token) {
   if (token.rubies.length) return token.rubies;
   const reading = token.card.reading.trim();
-  if (!surface || !KANJI_RE$3.test(surface) || !reading || reading === surface || !KANA_RE$1.test(reading)) return [];
+  if (!surface || !KANJI_RE$3.test(surface) || !reading || reading === surface || !KANA_RE$2.test(reading)) return [];
   const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
   if (inferred.length) {
   return inferred.map((ruby) => ({
@@ -7016,7 +7020,7 @@ function localRubyRange(surface, token, ruby) {
 }
 function kanjiRubyParts(base, reading) {
   if (!base || !reading || !KANJI_RE$3.test(base)) return [];
-  if (!KANA_RE$1.test(reading)) return [{ text: reading, start: 0, end: base.length }];
+  if (!KANA_RE$2.test(reading)) return [{ text: reading, start: 0, end: base.length }];
   const anchors = alignRubyKanaAnchors(base, reading);
   if (!anchors) return trimRubyPartToKanji(base, reading);
   const parts = [];
@@ -7052,7 +7056,7 @@ function trimRubyPartToKanji(base, reading) {
   }];
 }
 function kanaTrimmedKanjiRange(base, reading) {
-  if (!KANA_RE$1.test(reading) || !KANA_CHAR_RE$1.test(base)) return null;
+  if (!KANA_RE$2.test(reading) || !KANA_CHAR_RE$1.test(base)) return null;
   const chars = Array.from(base);
   const first = chars.findIndex((char) => KANJI_RE$3.test(char));
   if (first < 0) return null;
@@ -14518,6 +14522,20 @@ function pitchProfileForPattern(pattern, reading) {
 function pitchClassNameForPattern(pattern, reading) {
   return pitchProfileForPattern(pattern, reading).className;
 }
+function collectPitchVariants(reading, patterns, max = Infinity) {
+  const seen = new Set();
+  const variants = [];
+  for (const pattern of patterns) {
+  if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
+  const position = pitchNumberFromPattern(pattern, reading);
+  const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
+  if (seen.has(key)) continue;
+  seen.add(key);
+  variants.push({ pattern, position });
+  if (variants.length >= max) break;
+  }
+  return variants;
+}
 function contextPitchPattern(patterns, reading) {
   if (!patterns?.length) return "";
   if (!reading) return patterns[0];
@@ -14573,6 +14591,7 @@ const COMPOUND_MAX_CHARS = 24;
 const COMPOUND_MAX_SEGMENTS = 8;
 const COMPOUND_MAX_LOOKUPS = 32;
 const SMALL_KANA_RE = /^[ゃゅょぁぃぅぇぉゎ゙゚]/u;
+const KANA_RE$1 = /[぀-ヿー]/u;
 async function localPitchPatternsFromMetaLookup(spelling, reading, lookupMeta, options = {}) {
   const expression = spelling.trim();
   const pronunciation = reading.trim();
@@ -14629,22 +14648,53 @@ async function constituentSegment(candidate, readingRest, lookupMeta, state, isF
   if (!pattern) continue;
   return { pattern, moraCount: splitMorae(constituentReading).length, readingLength: constituentReading.length };
   }
-  if (!isFinal) return null;
-  return readingKeyFinalSegment(readingRest, lookupMeta, state);
+  if (isFinal) return readingKeyFinalSegment(readingRest, lookupMeta, state);
+  return readingKeyOkuriganaStemSegment(candidate, readingRest, lookupMeta, state);
 }
-async function readingKeyFinalSegment(readingRest, lookupMeta, state) {
-  if (!readingRest || state.lookups >= COMPOUND_MAX_LOOKUPS) return null;
-  const cacheKey = `r:${readingRest}`;
+async function readingKeyOkuriganaStemSegment(candidate, readingRest, lookupMeta, state) {
+  const okurigana = trailingKanaRun(candidate);
+  if (!okurigana || okurigana.length >= candidate.length) return null;
+  for (const readingLength of okuriganaAnchoredReadingLengths(readingRest, okurigana)) {
+  const segment = await readingKeySegment(readingRest.slice(0, readingLength), lookupMeta, state);
+  if (segment) return segment;
+  }
+  return null;
+}
+function okuriganaAnchoredReadingLengths(readingRest, okurigana) {
+  const lengths = [];
+  let index = readingRest.indexOf(okurigana, 1);
+  while (index >= 0) {
+  const readingLength = index + okurigana.length;
+  if (readingLength < readingRest.length && !SMALL_KANA_RE.test(readingRest.slice(readingLength)) && !SMALL_KANA_RE.test(okurigana)) {
+    lengths.push(readingLength);
+  }
+  index = readingRest.indexOf(okurigana, index + 1);
+  }
+  return lengths;
+}
+function trailingKanaRun(value) {
+  let run = "";
+  for (const character of Array.from(value)) {
+  run = KANA_RE$1.test(character) ? run + character : "";
+  }
+  return run;
+}
+function readingKeyFinalSegment(readingRest, lookupMeta, state) {
+  return readingKeySegment(readingRest, lookupMeta, state);
+}
+async function readingKeySegment(reading, lookupMeta, state) {
+  if (!reading || state.lookups >= COMPOUND_MAX_LOOKUPS) return null;
+  const cacheKey = `r:${reading}`;
   let entriesPromise = state.cache.get(cacheKey);
   if (!entriesPromise) {
   state.lookups += 1;
-  entriesPromise = Promise.resolve().then(() => lookupMeta(readingRest)).catch(() => []);
+  entriesPromise = Promise.resolve().then(() => lookupMeta(reading)).catch(() => []);
   state.cache.set(cacheKey, entriesPromise);
   }
   const entries2 = await entriesPromise;
-  const patterns = localPitchPatternsFromMeta(readingRest, entries2);
+  const patterns = localPitchPatternsFromMeta(reading, entries2);
   if (patterns.length !== 1) return null;
-  return { pattern: patterns[0], moraCount: splitMorae(readingRest).length, readingLength: readingRest.length };
+  return { pattern: patterns[0], moraCount: splitMorae(reading).length, readingLength: reading.length };
 }
 function localPitchPatternFromMeta(reading, entries2) {
   return localPitchPatternsFromMeta(reading, entries2)[0] ?? "";
@@ -14724,27 +14774,25 @@ function objectRecord(value) {
   return value && typeof value === "object" ? value : null;
 }
 const MAX_PITCH_VARIANTS = 3;
-function renderPitch(card, metaEntries = []) {
+function renderPitch(card, metaEntries = [], labels) {
   const reading = cardPronunciationReading(card);
   if (!reading) return "";
-  const candidates = [
+  const variants = collectPitchVariants(reading, [
   ...card.pitchAccent ?? [],
   ...localPitchPatternsFromMeta(reading, metaEntries)
-  ].filter((pattern) => pitchClassNameForPattern(pattern, reading) !== "");
-  const seen = new Set();
-  const graphs = [];
-  for (const pattern of candidates) {
-  const key = pitchLevelsForDisplay(pattern, reading).join("");
-  if (!key || seen.has(key)) continue;
-  const graph = renderPitchGraphSvg(reading, pattern);
-  if (!graph) continue;
-  seen.add(key);
-  graphs.push(graph);
-  if (graphs.length === MAX_PITCH_VARIANTS) break;
-  }
+  ], MAX_PITCH_VARIANTS);
+  return renderPitchVariantGraphs(reading, variants);
+}
+function renderPitchVariantGraphs(reading, variants, labels) {
+  const graphs = variants.map((variant) => ({ variant, svg: renderPitchGraphSvg(reading, variant.pattern) })).filter((entry) => entry.svg);
   if (!graphs.length) return "";
-  if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0]}</div>`;
-  return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((graph) => `<span class="jpdb-reader-pitch-component">${graph}</span>`).join("")}</div>`;
+  if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
+  return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}${renderVariantBadge(entry.variant)}</span>`).join("")}</div>`;
+}
+function renderVariantBadge(variant, primary, labels) {
+  const text2 = variant.commonality != null ? `${Math.round(variant.commonality)}%` : "";
+  if (!text2) return "";
+  return `<span class="jpdb-reader-pitch-variant-badge">${escapeHtml$1(text2)}</span>`;
 }
 function renderExpressionComponentPitches(components) {
   const graphs = components.map((component) => ({ component, svg: renderPitchGraphSvg(component.reading, component.pitch) })).filter((entry) => entry.svg).map((entry) => `<span class="jpdb-reader-pitch-component">
@@ -33600,7 +33648,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.104"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.105"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

@@ -7748,6 +7748,36 @@ html.jpdb-reader-doodle-active * {
   gap: 1px;
   min-width: 0;
 }
+/* Accent variants: one compact wrapping row, graph + commonality badge grouped
+   tightly, primary variant first and emphasized (mobile-first space use). */
+.jpdb-reader-pitch.jpdb-reader-pitch-variants {
+  justify-content: center;
+  gap: 4px 8px;
+}
+.jpdb-reader-pitch-variant {
+  padding: 2px 6px 3px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+.jpdb-reader-pitch-variant-primary {
+  border-color: var(--jpdb-reader-border);
+  background: var(--jpdb-reader-surface);
+}
+.jpdb-reader-pitch-variant:not(.jpdb-reader-pitch-variant-primary) {
+  opacity: 0.82;
+}
+.jpdb-reader-pitch-variant-badge {
+  color: var(--jpdb-reader-muted);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.jpdb-reader-pitch-variant-primary .jpdb-reader-pitch-variant-badge {
+  color: var(--jpdb-reader-accent);
+}
 .jpdb-reader-pitch-component-label {
   max-width: 128px;
   overflow: hidden;

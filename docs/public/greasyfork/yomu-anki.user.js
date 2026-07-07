@@ -1410,11 +1410,13 @@
       newTabStudyStepRecall: "Write in sentence",
       newTabStudyStepListen: "Pitch listening",
       newTabStudyStepSpeaking: "Speaking",
+      newTabStudyStepType: "Type the word",
       newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.",
       newTabStudyStepWordHelp: "Japanese front, meaning and reading on reveal.",
       newTabStudyStepRecallHelp: "Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.",
       newTabStudyStepListenHelp: "Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.",
       newTabStudyStepSpeakingHelp: "Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available.",
+      newTabStudyStepTypeHelp: "Produce the word after hearing and speaking it: type it, or write it kanji by kanji. Skippable in-session.",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
       wordColors: "Word colors",
@@ -3132,11 +3134,13 @@ newTabStudyStepWord	単語の意味
 newTabStudyStepRecall	文で書く
 newTabStudyStepListen	ピッチ聞き取り
 newTabStudyStepSpeaking	発音
+newTabStudyStepType	単語を書く
 newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。単語の意味を表示するので空欄が曖昧になりません。ヒントで漢字キーワードを出せます。
 newTabStudyStepWordHelp	表は日本語、表示後に意味と読み。
 newTabStudyStepRecallHelp	例文の空欄に単語を入力します。ヒントで最初の音、次に長さを表示。例文があるカードのみ表示。
 newTabStudyStepListenHelp	音声を聞き、型の候補からピッチ型を選びます。正誤は最後の答え合わせまで表示しません。ピッチアクセント情報がある時のみ表示。
 newTabStudyStepSpeakingHelp	単語をシャドーイングします。ピッチの高低をこの端末でお手本と比較して採点します。音声がある時のみ表示。
+newTabStudyStepTypeHelp	聞いて発音した単語を書き出します。入力または漢字ごとの手書きで解答できます。セッション中はスキップ可能。
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色
@@ -5116,7 +5120,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "word",
     "recall-cloze",
     "listen-pitch",
-    "speaking"
+    "speaking",
+    "type-word"
   ];
   new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
   ({

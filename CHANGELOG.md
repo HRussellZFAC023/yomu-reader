@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.6.105] - 2026-07-07
+
+### Added
+
+- The study session has a new optional "Type the word" step after Speaking: the example sentence appears with the target word blanked out and you fill it in — either by typing, or by handwriting it one kanji at a time (each kanji is graded against its stroke shape, while kana and reference-less characters advance on their own). It grades your first attempt instantly and shows the correct answer, and you can turn it off or skip it per session. Your keyboard/handwriting choice is remembered.
+- The final reveal now shows a per-step results strip — a compact row of ✓ / ✗ / — marks for each step you did this card (Kanji, Recall, Listen, Speak, Type) — and gently highlights a suggested grade based on how those steps went. It is only a suggestion: your own grade always wins, and skipped steps never count against you.
+
+### Improved
+
+- The Listen pitch step now tells you immediately whether your pick was right instead of waiting until the reveal, and it keeps the picker live so you can explore the other contours afterwards — your recorded result is fixed to your first pick, so exploring never changes your grade. Words that legitimately have more than one accent now accept any of their valid patterns as correct.
+- Pitch accents on the reveal and the Listen feedback now label how common each variant is — the primary reading is marked "Most common" and the others "Also used" — and the variant graphs sit in one compact wrapping row that uses space far better on a phone, with the primary pattern emphasised first.
+- You can now swipe left and right to move between study steps, not just to grade on the last step: a horizontal swipe on an earlier step steps forward or back, while the final-reveal swipe still grades (left again, right good). Swipes are ignored when they start on the handwriting canvas, a text box, or the pitch buttons, and vertical scrolling is untouched.
+
+### Fixed
+
+- Tapping a "composed of" kanji chip on the reveal page no longer freezes the page or navigates away. The chip now opens the standard kanji popover — with its stroke diagram, meaning, and mnemonic — right next to the word, instead of swapping the whole card into a separate kanji queue.
+- Clicking the headword on an unrevealed study card now opens the word's dictionary entry, as intended, instead of a single-kanji popup.
+- Compound words built from an okurigana stem, such as 食べ物, no longer lose their pitch-accent underline on the reveal page: their component pitches are now composed correctly instead of being dropped.
+- Pitch variants that differ only by their downstep position (for example the heiban and odaka readings of a word) are no longer collapsed into a single graph, so every distinct accent a word can take is shown.
+- The homepage "Try me" demo text now responds to the very first hover even when the page is still loading: a hover that lands during start-up is replayed once the reader is ready, so the popover no longer needs a second pass to appear.
+
 ## [1.6.104] - 2026-07-06
 
 ### Added
