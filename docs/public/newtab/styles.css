@@ -6399,8 +6399,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word rt,
 .jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby,
 .jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word rt {
-  white-space: nowrap;
-  overflow-wrap: normal;
+  white-space: nowrap !important;
+  overflow-wrap: normal !important;
+  word-break: keep-all !important;
 }
 
 /* Hosted docs cards are links, so their annotated text is passive; still let
@@ -7183,11 +7184,15 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   text-align: center;
 }
 /* A reading must never break across lines: a wrapped rt renders as stacked
-   kana fragments (ひょう/じゅん) inside narrow flex chrome. The word/ruby can
-   still wrap between token pairs; only the annotation itself stays intact. */
+   kana fragments (しょう/さい over 詳細) inside narrow flex chrome. The word/ruby
+   can still wrap between token pairs; only the annotation itself stays intact.
+   !important + keep-all + overflow-wrap:normal are load-bearing: host chrome
+   (reddit buttons set word-break/overflow-wrap) otherwise injects break
+   opportunities INSIDE the reading that a plain white-space:nowrap can't hold. */
 .jpdb-reader-word rt.jpdb-reader-furi {
-  white-space: nowrap;
-  overflow-wrap: normal;
+  white-space: nowrap !important;
+  overflow-wrap: normal !important;
+  word-break: keep-all !important;
 }
 /* User feedback: the word contrast shadow (a white glow + a 2px dark drop) bleeds
    into the thin furigana strokes and makes the reading harder to read. Furigana

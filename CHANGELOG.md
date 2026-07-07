@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.107] - 2026-07-07
+
+### Fixed
+
+- Japanese readings (furigana) inside narrow site chrome — such as the buttons in Reddit's community header — no longer wrap onto two lines or get cut off on Safari and other WebKit browsers. A reading longer than its kanji (for example しょうさい over 詳細) was stacking onto a second line that a short button then clipped away, which looked like the reading was missing entirely; the annotation now always stays on a single line.
+
 ## [1.6.106] - 2026-07-07
 
 ### Added
