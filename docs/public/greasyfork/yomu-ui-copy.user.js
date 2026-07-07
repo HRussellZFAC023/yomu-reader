@@ -1321,6 +1321,8 @@
       appearancePresetUnderlineNew: "Minimal highlights",
       wordColorStatesAll: "Use all learning states",
       wordColorStatesNewOnly: "Only new / not-in-deck words",
+      hideFuriganaFor: "Hide furigana for",
+      hideColorFor: "Hide color for",
       furiganaDifficultKanji: "Hard kanji only",
       furiganaHideKnown: "Hide familiar words",
       furiganaHoverOnly: "Show on hover",
@@ -3046,6 +3048,8 @@ appearancePresetNewOnly	新規単語に集中
 appearancePresetUnderlineNew	控えめなハイライト
 wordColorStatesAll	すべての学習状態
 wordColorStatesNewOnly	新規・未追加のみ
+hideFuriganaFor	ふりがなを隠す対象
+hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示

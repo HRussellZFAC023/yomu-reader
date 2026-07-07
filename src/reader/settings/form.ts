@@ -1,6 +1,6 @@
 import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, USERSCRIPT_INSTALL_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
-import { audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
+import { CARD_STATE_LABEL_KEYS, audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { CURRENT_YOMU_VERSION } from '../app/version';
 import { runningAsBrowserExtension } from '../app/runtime-env';
 import { externalLinkIcon } from '../ui/icons';
@@ -1178,6 +1178,10 @@ const SELECTOR_TEXT_KEYS = [
     ['[data-proxy-guide-hide]', 'hide'],
     ['[data-cloud-settings-sync-title]', 'cloudSettingsSync'],
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
+const HIDE_GROUP_LEGEND_TEXT_KEYS = [
+    ['[data-furigana-hide-groups]', 'hideFuriganaFor'],
+    ['[data-word-color-hide-groups]', 'hideColorFor'],
+] as const satisfies readonly (readonly [string, SettingsTextKey])[];
 const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', 'testAnki'],
     ['[data-action="prepare-anki"]', 'prepareAnki'],
@@ -1324,6 +1328,9 @@ function localizeSettingsSectionTitles(form: HTMLFormElement, text: SettingsText
     LOCAL_TITLE_TEXT_KEYS.forEach(([pattern, key]) => replaceLocalTitle(form, pattern, text(key)));
     SELECTOR_TEXT_KEYS.forEach(([selector, key]) => {
         form.querySelector<HTMLElement>(selector)?.replaceChildren(text(key));
+    });
+    HIDE_GROUP_LEGEND_TEXT_KEYS.forEach(([selector, key]) => {
+        form.querySelector<HTMLElement>(`${selector} > legend`)?.replaceChildren(text(key));
     });
 }
 
@@ -1950,9 +1957,19 @@ const SETTINGS_CONTROL_LABEL_ALIASES = [
     ['shortcuts.gradePass', 'gradePass'],
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
 
+const HIDE_STATE_GROUP_CONTROL_LABELS: readonly (readonly [string, SettingsTextKey])[] =
+    FURIGANA_HIDE_GROUPS.flatMap(([group]) => {
+        const key = CARD_STATE_LABEL_KEYS[group];
+        return [
+            [`furiganaHide-${group}`, key],
+            [`colorHide-${group}`, key],
+        ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
+    });
+
 const SETTINGS_CONTROL_LABELS: readonly (readonly [string, SettingsTextKey])[] = [
     ...DIRECT_SETTINGS_CONTROL_LABEL_KEYS.map(key => [key, key] as const),
     ...SETTINGS_CONTROL_LABEL_ALIASES,
+    ...HIDE_STATE_GROUP_CONTROL_LABELS,
 ];
 
 type NamedFormControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;

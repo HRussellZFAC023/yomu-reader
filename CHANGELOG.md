@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.6.105] - 2026-07-07
+## [1.6.106] - 2026-07-07
 
 ### Added
 
@@ -20,6 +20,11 @@
 - Compound words built from an okurigana stem, such as 食べ物, no longer lose their pitch-accent underline on the reveal page: their component pitches are now composed correctly instead of being dropped.
 - Pitch variants that differ only by their downstep position (for example the heiban and odaka readings of a word) are no longer collapsed into a single graph, so every distinct accent a word can take is shown.
 - The homepage "Try me" demo text now responds to the very first hover even when the page is still loading: a hover that lands during start-up is replayed once the reader is ready, so the popover no longer needs a second pass to appear.
+## [1.6.105] - 2026-07-06
+
+### Improved
+
+- The "Hide furigana for" and "Hide color for" appearance controls and their word-category labels (New, Learning, Known, Due, Failed) are now translated when the interface language is Japanese, instead of always appearing in English.
 
 ## [1.6.104] - 2026-07-06
 

@@ -3188,6 +3188,9 @@ function replaceSingleFragmentTokenNode(
     replaceTextNodeRange(fragment.node, fragment.start, fragment.end, wrapDirectFlexGridTextRun(replacement, fragment.node.parentElement));
 }
 
+// A raw text child of a flex/grid host is ONE anonymous item; tokenizing it into N spans
+// would create N items and reflow the track. The bare wrapper collapses them back to one
+// item for every render path (incl. passive/suppressed chrome) — do not gate or remove it.
 function wrapDirectFlexGridTextRun(replacement: DocumentFragment, parent: HTMLElement | null): DocumentFragment {
     const display = parent ? safeComputedStyle(parent).display : '';
     if (!display.includes('flex') && !display.includes('grid')) return replacement;

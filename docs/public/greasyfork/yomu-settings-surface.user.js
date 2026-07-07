@@ -4268,6 +4268,8 @@
       appearancePresetUnderlineNew: "Minimal highlights",
       wordColorStatesAll: "Use all learning states",
       wordColorStatesNewOnly: "Only new / not-in-deck words",
+      hideFuriganaFor: "Hide furigana for",
+      hideColorFor: "Hide color for",
       furiganaDifficultKanji: "Hard kanji only",
       furiganaHideKnown: "Hide familiar words",
       furiganaHoverOnly: "Show on hover",
@@ -5200,6 +5202,25 @@
       grammarLevelCore: "Core"
     }
   };
+  const CARD_STATE_LABEL_KEYS = {
+    new: "stateNew",
+    learning: "stateLearning",
+    young: "stateYoung",
+    mature: "stateMature",
+    known: "stateKnown",
+    mastered: "stateMastered",
+    due: "stateDue",
+    failed: "stateFailed",
+    locked: "stateLocked",
+    "never-forget": "stateNeverForget",
+    blacklisted: "stateBlacklisted",
+    suspended: "stateSuspended",
+    "in-deck": "stateInDeck",
+    "not-in-deck": "stateNotInDeck",
+    redundant: "stateRedundant",
+    frequent: "stateFrequent",
+    unparsed: "stateUnparsed"
+  };
   function parseUiCopyTable(rows) {
     const copy = {};
     rows.trim().split("\n").forEach((row) => {
@@ -5974,6 +5995,8 @@ appearancePresetNewOnly	新規単語に集中
 appearancePresetUnderlineNew	控えめなハイライト
 wordColorStatesAll	すべての学習状態
 wordColorStatesNewOnly	新規・未追加のみ
+hideFuriganaFor	ふりがなを隠す対象
+hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
@@ -10091,6 +10114,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["[data-proxy-guide-hide]", "hide"],
     ["[data-cloud-settings-sync-title]", "cloudSettingsSync"]
   ];
+  const HIDE_GROUP_LEGEND_TEXT_KEYS = [
+    ["[data-furigana-hide-groups]", "hideFuriganaFor"],
+    ["[data-word-color-hide-groups]", "hideColorFor"]
+  ];
   const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', "testAnki"],
     ['[data-action="prepare-anki"]', "prepareAnki"],
@@ -10226,6 +10253,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     LOCAL_TITLE_TEXT_KEYS.forEach(([pattern, key]) => replaceLocalTitle(form, pattern, text(key)));
     SELECTOR_TEXT_KEYS.forEach(([selector, key]) => {
       form.querySelector(selector)?.replaceChildren(text(key));
+    });
+    HIDE_GROUP_LEGEND_TEXT_KEYS.forEach(([selector, key]) => {
+      form.querySelector(`${selector} > legend`)?.replaceChildren(text(key));
     });
   }
   function replaceLocalTitle(form, pattern, value) {
@@ -10921,9 +10951,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["shortcuts.gradeFail", "gradeFail"],
     ["shortcuts.gradePass", "gradePass"]
   ];
+  const HIDE_STATE_GROUP_CONTROL_LABELS = FURIGANA_HIDE_GROUPS.flatMap(([group]) => {
+    const key = CARD_STATE_LABEL_KEYS[group];
+    return [
+      [`furiganaHide-${group}`, key],
+      [`colorHide-${group}`, key]
+    ];
+  });
   const SETTINGS_CONTROL_LABELS = [
     ...DIRECT_SETTINGS_CONTROL_LABEL_KEYS.map((key) => [key, key]),
-    ...SETTINGS_CONTROL_LABEL_ALIASES
+    ...SETTINGS_CONTROL_LABEL_ALIASES,
+    ...HIDE_STATE_GROUP_CONTROL_LABELS
   ];
   let activeNamedControls = null;
   function withNamedControlIndex(form, run) {
