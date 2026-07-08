@@ -3692,7 +3692,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word rt {');
         // A reading must never break across lines (stacked kana fragments in
         // narrow flex chrome); only word/ruby level wrapping is allowed.
-        expect(normalizedCss).toContain('.jpdb-reader-word rt.jpdb-reader-furi { white-space: nowrap; overflow-wrap: normal; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word rt.jpdb-reader-furi { white-space: nowrap !important; overflow-wrap: normal !important; word-break: keep-all !important; }');
         expect(normalizedCss).toContain('display: ruby-text !important;');
         // UT-47: hiding is per state group now.
         expect(normalizedCss).toContain('.yomu-furi-hide-known .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
