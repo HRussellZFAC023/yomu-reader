@@ -139,8 +139,13 @@ describe('settings CSS', () => {
         // The trailing :not() carves YouTube's filter chips, live chat, channel
         // headers, and engagement panels out of bare-until-hover: their
         // Japanese is reading material.
-        expect(normalizedReaderWordsOcrCss).toContain('[data-jpdb-reader-passive-chrome="true"] ) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-live-chat-frame, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-page-header-view-model, ytd-c4-tabbed-header-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word) { --jpdb-reader-word-accessible-color: currentColor; --jpdb-reader-word-accessible-highlight: transparent; --jpdb-reader-word-accessible-underline: transparent;');
-        expect(normalizedReaderWordsOcrCss).toContain('background-image: none !important; box-shadow: none !important; color: currentColor !important; -webkit-text-fill-color: currentColor; text-decoration-color: transparent !important; text-shadow: none; }');
+        // Chrome bare-until-hover strips only the highlight (background) paint;
+        // text colour honours the contrast-computed accessible colour so ruby
+        // base glyphs stay legible (Shorts channel pill "floating readings" fix),
+        // and the underline/decoration channels stay visible at rest so pitch
+        // underlines on chrome (Shorts subscribe button) survive like subtitles.
+        expect(normalizedReaderWordsOcrCss).toContain('[data-jpdb-reader-passive-chrome="true"] ) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-live-chat-frame, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-page-header-view-model, ytd-c4-tabbed-header-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word) { --jpdb-reader-word-accessible-highlight: transparent; --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none;');
+        expect(normalizedReaderWordsOcrCss).toContain('background-image: none !important; box-shadow: none !important; color: var(--jpdb-reader-word-accessible-color, currentColor) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor); text-shadow: none; }');
     });
 
     it('reserves subtitle line height for furigana on player overlays', () => {

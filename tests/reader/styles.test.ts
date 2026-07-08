@@ -185,7 +185,13 @@ describe('reader stylesheet loading', () => {
         expect(bareRestRule).not.toContain('text-decoration-color');
         expect(css).not.toMatch(/\n\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)::after/);
         const strippedAtRest = css.match(/:is\([^)]*\[data-jpdb-reader-passive-chrome="true"\]\s*\)\s*\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)(?::not\([^{]*?\))?\s*\{[^}]*\}/)?.[0] ?? '';
-        expect(strippedAtRest).toContain('--jpdb-reader-word-underline: transparent');
+        // Chrome bare-until-hover strips only the highlight (background) paint;
+        // the text/underline channels stay visible at rest (pitch underlines on
+        // Shorts subscribe buttons must survive), and the base colour honours the
+        // contrast-computed accessible colour so ruby base glyphs stay legible.
+        expect(strippedAtRest).toContain('--jpdb-reader-word-highlight-source: transparent');
+        expect(strippedAtRest).toContain('color: var(--jpdb-reader-word-accessible-color, currentColor) !important');
+        expect(strippedAtRest).not.toContain('--jpdb-reader-word-underline: transparent');
         expect(strippedAtRest).toContain('nav');
         expect(strippedAtRest).toContain('[role="navigation"]');
         // YouTube chrome roots without a button/nav ancestor live in the CSS
@@ -196,6 +202,45 @@ describe('reader stylesheet loading', () => {
         // Japanese is reading material, so pitch underlines stay on at rest.
         expect(strippedAtRest).toContain(':not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-live-chat-frame, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-page-header-view-model, ytd-c4-tabbed-header-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word)');
         expect(strippedAtRest.slice(0, strippedAtRest.indexOf(':not('))).not.toContain('yt-chip-cloud-chip-view-model');
+    });
+
+    it('keeps passive-chrome ruby base glyphs legible at rest via the contrast-computed colour', () => {
+        // YouTube Shorts channel/title pills mark their words passive chrome, so
+        // the bare-until-hover rule paints them. It must NOT discard the
+        // contrast system's --jpdb-reader-word-accessible-color: forcing the base
+        // to raw currentColor collapses the base glyphs into the pill background
+        // while the furigana (which reads --jpdb-reader-furi-accessible-color)
+        // stays visible — "floating readings" with no base text (Discord/YT bug).
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const chromeRestRule = css.match(/:is\([^)]*\[data-jpdb-reader-passive-chrome="true"\]\s*\)\s*\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)(?::not\([^{]*?\))?\s*\{[^}]*\}/)?.[0] ?? '';
+
+        // The rule must never reset the accessible colour to currentColor (that
+        // clobbers the contrast var so the fallback below can never fire) …
+        expect(chromeRestRule).not.toContain('--jpdb-reader-word-accessible-color: currentColor');
+        // … and the base text paint must honour the accessible colour (falling
+        // back to currentColor only when contrast has not computed one).
+        expect(chromeRestRule).toContain('color: var(--jpdb-reader-word-accessible-color, currentColor) !important');
+        expect(chromeRestRule).toContain('-webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor)');
+        expect(chromeRestRule).not.toContain('color: currentColor !important');
+    });
+
+    it('keeps the pitch-accent underline on passive chrome at rest like subtitles', () => {
+        // The Shorts subscribe button (チャンネル登録) carries furigana AND a pitch
+        // underline; subtitles on the same screen keep their pitch underline at
+        // rest, so the chrome button must too. The bare-until-hover rule zeroed
+        // --jpdb-reader-word-underline and the ::after border, so only chrome
+        // lost its pitch underline until hover.
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const chromeRestRule = css.match(/:is\([^)]*\[data-jpdb-reader-passive-chrome="true"\]\s*\)\s*\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)(?::not\([^{]*?\))?\s*\{[^}]*\}/)?.[0] ?? '';
+        // The underline channel must stay driven by the decoration source, not
+        // forced transparent at rest.
+        expect(chromeRestRule).not.toContain('--jpdb-reader-word-underline: transparent');
+        expect(chromeRestRule).not.toContain('text-decoration-color: transparent !important');
+        // The ::after pitch-underline border must not be zeroed at rest for
+        // passive chrome (the only remaining border-block-end-color rule scoped
+        // to this chrome selector was the one that hid the pitch underline).
+        const chromeAfterRule = css.match(/:is\([^)]*\[data-jpdb-reader-passive-chrome="true"\]\s*\)\s*\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)(?::not\([^{]*?\))?\s*::after\s*\{[^}]*\}/)?.[0] ?? '';
+        expect(chromeAfterRule).toBe('');
     });
 
     it('keeps hover layered over highlights while passive chrome strips highlight paint', () => {
