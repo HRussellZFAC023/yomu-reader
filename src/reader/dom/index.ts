@@ -4897,7 +4897,49 @@ function rubyTouchesBoxTop(box: HTMLElement): boolean {
 }
 
 function genericRubyNeedsRoom(box: HTMLElement): boolean {
-    return rubyCropsBox(box) || rubyLayoutOverflowsShortRow(box);
+    return rubyCropsBox(box) || rubyLayoutOverflowsShortRow(box) || rubyOverflowsCompactClippedRow(box);
+}
+
+// GENERIC compact-row detector (replaces per-site YouTube/Google selector lists
+// for the metadata/comment/sidebar case). A row that (a) the AUTHOR explicitly
+// clipped to a fixed/max height or line-clamp — already true, it is only reached
+// from cropCapableBoxes — and (b) is COMPACT (a metadata/byline/comment/tab row,
+// not a tall block) and (c) crops its annotated ruby by a BOUNDED amount grows
+// to fit the reading. Any scanned site's tight non-prose row is caught the same
+// way, so the YouTube watch channel/view-count/comment/sidebar rows no longer
+// need enumeration.
+//
+// The two caps are exactly what separates a compact row from a collapsed
+// "read more" region (which must stay collapsed): a read-more block is TALL
+// (clientHeight well past the short-row cap) and hides MANY lines (overflow far
+// past the bounded cap — e.g. a 104px→400px description expander). A prose
+// context (article/main) is excluded outright so body paragraphs never grow.
+function rubyOverflowsCompactClippedRow(box: HTMLElement): boolean {
+    const clientHeight = box.clientHeight;
+    if (clientHeight <= 0 || clientHeight > RUBY_ROOM_SHORT_ROW_MAX_PX) return false;
+    if (isReadableProseContext(box)) return false;
+    // A visually-hidden box is a measurement wrapper (e.g. the attributed-string
+    // host whose only visible content is an out-of-flow mirror) — its clipping
+    // is invisible, so sizing it does nothing but risk double-growth against the
+    // real display row that also gets room. The visible display ancestor is
+    // caught on its own.
+    if (isVisuallyHiddenBox(box)) return false;
+    if (!box.querySelector('.jpdb-reader-word rt,.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')) return false;
+    const overflow = compactClippedRubyOverflow(box) - clientHeight;
+    return overflow > 2 && overflow <= RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX;
+}
+
+function isVisuallyHiddenBox(box: HTMLElement): boolean {
+    const visibility = safeComputedStyle(box).visibility;
+    return visibility === 'hidden' || visibility === 'collapse';
+}
+
+// Whichever paint path the row uses: destructive in-flow ruby raises the box's
+// own scrollHeight; a non-destructive mirror is absolutely positioned (out of
+// flow) so the true furigana'd height is the mirror's scrollHeight instead.
+function compactClippedRubyOverflow(box: HTMLElement): number {
+    const mirror = box.querySelector<HTMLElement>('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
+    return Math.max(box.scrollHeight, mirror ? mirror.scrollHeight : 0);
 }
 
 // Generic rows must never inherit scrollHeight (a collapsed region's full
@@ -4906,10 +4948,12 @@ function genericRubyNeedsRoom(box: HTMLElement): boolean {
 function genericRubyRoomHeight(box: HTMLElement): number {
     const mirror = box.querySelector<HTMLElement>('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
     const shortRowHeight = rubyLayoutOverflowsShortRow(box) ? box.scrollHeight : 0;
+    const compactRowHeight = rubyOverflowsCompactClippedRow(box) ? compactClippedRubyOverflow(box) : 0;
     return Math.ceil(Math.max(
         box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
         mirror ? mirror.scrollHeight : 0,
         shortRowHeight,
+        compactRowHeight,
     ));
 }
 
@@ -4979,11 +5023,7 @@ function cropCapableBoxes(element: HTMLElement | null): HTMLElement[] {
     let current: HTMLElement | null = element;
     while (current && current !== document.body && current !== document.documentElement) {
         if (current.dataset.jpdbReaderRoot) break;
-        const style = safeComputedStyle(current);
-        if (hasLineClamp(style)
-            || isEllipsisTextRow(style)
-            || hasClippedTextConstraint(style)
-            || rubyLayoutOverflowsShortRow(current)) {
+        if (boxStyleIsClipCapable(current) || rubyLayoutOverflowsShortRow(current)) {
             boxes.push(current);
         } else if (!fallback && isYouTubeRubyRoomTextBox(current) && current.querySelector('.jpdb-reader-text-mirror')) {
             fallback = current;
@@ -4991,6 +5031,24 @@ function cropCapableBoxes(element: HTMLElement | null): HTMLElement[] {
         current = current.parentElement;
     }
     return boxes.length || !fallback ? boxes : [fallback];
+}
+
+// The style-only half of the crop-capable verdict (clamp/ellipsis/clipped) is a
+// getComputedStyle read per ANCESTOR per annotated word — on a YouTube feed the
+// same shared ancestors (list container, section, watch-flexy) are re-classified
+// hundreds of times per sweep. A short-TTL memo (same pattern as
+// shortRowVerdicts) collapses those repeats to one read while still expiring
+// fast enough to catch a host that flips its own clamp/overflow styling.
+const clipCapableStyleVerdicts = new WeakMap<HTMLElement, { at: number; value: boolean }>();
+
+function boxStyleIsClipCapable(box: HTMLElement): boolean {
+    const now = Date.now();
+    const memo = clipCapableStyleVerdicts.get(box);
+    if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.value;
+    const style = safeComputedStyle(box);
+    const value = hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style);
+    clipCapableStyleVerdicts.set(box, { at: now, value });
+    return value;
 }
 
 const shortRowVerdicts = new WeakMap<HTMLElement, { at: number; value: boolean }>();

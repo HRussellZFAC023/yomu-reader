@@ -302,7 +302,12 @@ describe('generic reader layout overflow guards', () => {
         expect(Array.from(chip.querySelectorAll<HTMLElement>('.jpdb-reader-word')).every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
     });
 
-    it('does not reserve ruby room on generic clipped boxes', () => {
+    it('grows a generic compact clipped row that crops its ruby (metadata/notification class)', () => {
+        // A tight single-line clipped chrome row (channel byline, view-count,
+        // notification) that carries a furigana word crops the reading; the
+        // generic compact-row detector grows it to fit WITHOUT any per-site
+        // selector. This is the same bug class as the reddit/YouTube chrome
+        // furigana wrap: the row must grow, not clip the reading.
         document.body.innerHTML = `
             <div id="clipped" style="overflow:hidden;height:22px;max-height:22px;line-height:22px">
                 日本語の通知
@@ -322,10 +327,40 @@ describe('generic reader layout overflow guards', () => {
         });
 
         expect(clipped.querySelector('rt,.jpdb-reader-furi')).not.toBeNull();
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(clipped.style.height).toBe('44px');
+        expect(clipped.style.maxHeight).toBe('44px');
+        expect(clipped.dataset.yomuRubyRoom).toBe('true');
+    });
+
+    it('does NOT reserve ruby room on clipped PROSE paragraphs (articles keep their flow)', () => {
+        // Guards the prose exemption of the generic compact-row detector: a
+        // clipped paragraph inside <article>/<main> must never be grown, so body
+        // text layout is untouched even when a reading nominally overflows.
+        document.body.innerHTML = `
+            <main>
+                <article>
+                    <p id="para" style="overflow:hidden;height:22px;max-height:22px;line-height:22px">日本語の本文</p>
+                </article>
+            </main>
+        `;
+        const para = document.querySelector<HTMLElement>('#para')!;
+        mockOverflow(para, 44, 22);
+        const target = collectTargets().find(candidate => candidate.text.includes('日本語の本文'));
+
+        expect(target).toBeTruthy();
+        applyTokensToScanTarget(target!, [
+            token('日本語', target!.text.indexOf('日本語'), target!.text, 'にほんご'),
+        ], {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+
         expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
-        expect(clipped.style.height).toBe('22px');
-        expect(clipped.style.maxHeight).toBe('22px');
-        expect(clipped.dataset.yomuRubyRoom).toBeUndefined();
+        expect(para.style.height).toBe('22px');
+        expect(para.style.maxHeight).toBe('22px');
+        expect(para.dataset.yomuRubyRoom).toBeUndefined();
     });
 
     it('lets non-destructive mirrors inherit host color after late theme changes', () => {
