@@ -1594,6 +1594,11 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     mirror.dataset.jpdbReaderTextMirror = 'true';
     mirror.dataset.sourceText = text;
     mirror.dataset.renderSignature = signature;
+    // The mirror is a full duplicate of the host text. Hide it from the a11y
+    // tree so screen readers (and copy that respects it) skip the duplicate;
+    // paired with user-select:none in CSS this keeps Cmd+A/copy grabbing only
+    // the clean original host text instead of doubled/garbled clipboard.
+    mirror.setAttribute('aria-hidden', 'true');
     const hasRenderedRuby = !suppressRuby && safeTokens.some(token => token.rubies.length > 0);
     const state = styleTextMirrorHost(host, hasRenderedRuby);
     try {

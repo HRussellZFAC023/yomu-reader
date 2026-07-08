@@ -444,6 +444,16 @@
   white-space: normal;
 }
 
+/* The mirror is a full duplicate of the host text (the host keeps its own real
+   text, hidden or transparent). Exclude the whole mirror from selection so
+   Cmd+A/copy grabs only the clean original host text, never a doubled/garbled
+   copy with the mirror's furigana rt readings interleaved. Paired with
+   aria-hidden on the mirror element. */
+.jpdb-reader-text-mirror {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 /* Text mirrors preserve app-owned DOM/layout. Let surrounding mirrored text wrap
    as the host does, but keep each rendered word atomic so short YouTube metadata
    and action labels do not collapse into one-character vertical stacks. */
@@ -1230,6 +1240,9 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   ) !important;
   line-height: 1.08;
   user-select: none;
+  /* -webkit- too: iOS Safari (the OOM/copy target) needs the prefixed property
+     to keep ruby readings out of the selection when copying mirrored text. */
+  -webkit-user-select: none;
 }
 .jpdb-reader-word ruby {
   position: static !important;
