@@ -225,6 +225,30 @@ export function visibleAutoScanInitialDelay(defaultDelay = 600): number {
     return isYouTubeHostForAutoScan() ? 220 : defaultDelay;
 }
 
+// Floor on how often a mutation/scroll-driven (debounced) visible-page scan may
+// begin on frequent-auto-scan hosts. YouTube's comment/sidebar re-renders fire
+// continuously (5-10 childList mutations/sec); without this the debounced scan
+// restarted every ~320ms of quiet and re-collected the whole page. Only the
+// leading edge is stretched — the trailing settle scan still fires — so no
+// legitimate new-content scan is dropped.
+export const AUTO_SCAN_MIN_INTERVAL_MS = 900;
+
+// Clamp a debounced scan's delay so it cannot begin sooner than
+// AUTO_SCAN_MIN_INTERVAL_MS after the previous scan started. Non-debounced
+// (forced puck/render-rejection) scans and non-frequent hosts pass through
+// unthrottled. `frequentHost` is injected so the math is testable without a DOM.
+export function throttledAutoScanDelay(
+    delay: number,
+    options: { debounce?: boolean },
+    lastScanStartedAt: number,
+    now: number,
+    frequentHost = allowsFrequentVisibleAutoScan(),
+): number {
+    if (!options.debounce || !frequentHost) return delay;
+    const floorDelay = AUTO_SCAN_MIN_INTERVAL_MS - (now - lastScanStartedAt);
+    return Math.max(delay, Math.min(floorDelay, AUTO_SCAN_MIN_INTERVAL_MS));
+}
+
 function isYouTubeHostForAutoScan(hostname = location.hostname): boolean {
     return hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com');
 }

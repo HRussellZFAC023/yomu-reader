@@ -203,6 +203,7 @@ import {
     selectionIntersectsElement,
     shouldLockMountedPopoverPosition,
     shouldAutoScanImageOcr,
+    throttledAutoScanDelay,
     visibleAutoScanInitialDelay,
     visibleAutoScanMutationDelay,
     type CardDisplayOptions,
@@ -816,6 +817,10 @@ export class ReaderApp {
     // Whether the pending timer was set by a debounced request; only such
     // timers may be pushed out by later debounced requests.
     private autoScanDebounced = false;
+    // When the most recent scheduled scan started, used to throttle the
+    // steady-state mutation storm from YouTube's comment/sidebar re-renders
+    // (5-10 childList mutations/sec) into a bounded scan cadence.
+    private lastAutoScanStartedAt = 0;
     private autoScanObserver?: MutationObserver;
     private lastMirrorStaleScanAt = 0;
     private readonly handleNonDestructiveMirrorStale = () => {
@@ -2175,6 +2180,13 @@ export class ReaderApp {
     private scheduleAutoScan(delay: number, options: { force?: boolean; debounce?: boolean } = {}): void {
         const forced = Boolean(options.force);
         if (!this.canScheduleAutoScan(forced)) return;
+        // Steady-state throttle: on hosts that mutate their own content
+        // constantly (YouTube comment/sidebar re-renders), a debounced scan
+        // re-armed on every mutation still fired every ~320ms of quiet, each
+        // re-collecting the whole visible page. Clamp the leading edge to
+        // AUTO_SCAN_MIN_INTERVAL_MS since the last scan began; the trailing
+        // settle scan still fires so no new-content scan is dropped.
+        delay = throttledAutoScanDelay(delay, options, this.lastAutoScanStartedAt, Date.now());
         const deadline = Date.now() + delay;
         if (this.autoScanTimer && this.autoScanDeadline <= deadline) {
             this.autoScanForced = this.autoScanForced || forced;
@@ -2217,6 +2229,7 @@ export class ReaderApp {
         this.autoScanDeadline = 0;
         this.autoScanForced = false;
         this.autoScanDebounced = false;
+        this.lastAutoScanStartedAt = Date.now();
         if (typeof this.pageScanner.scanAsbPlayerSubtitles === 'function') void this.pageScanner.scanAsbPlayerSubtitles();
         if (forced || hasVisibleAutoScanTargets()) void this.pageScanner.scanVisiblePage({ silent: true });
     }

@@ -5,6 +5,7 @@ import { canAttemptReaderAutoAudio } from '../../src/reader/audio/activation';
 import { registerReaderMenuCommands } from '../../src/reader/app/menu-commands';
 import { bindReaderRuntimeEvents } from '../../src/reader/app/runtime-events';
 import {
+    AUTO_SCAN_MIN_INTERVAL_MS,
     YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
     YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
     YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
@@ -14,6 +15,7 @@ import {
     backgroundPitchEnrichmentOptionsForHost,
     handleReaderActionPillLink,
     nestedPitchEnrichmentOptionsForHost,
+    throttledAutoScanDelay,
 } from '../../src/reader/app/main-helpers';
 import { shouldShowReaderOnboarding } from '../../src/reader/app/startup';
 import { documentLooksLikeImageReadingPage } from '../../src/reader/app/dom-helpers';
@@ -381,5 +383,39 @@ describe('reader runtime helpers', () => {
         } finally {
             video.remove();
         }
+    });
+});
+
+describe('throttledAutoScanDelay (steady-state churn throttle)', () => {
+    const NOW = 1_000_000;
+
+    it('does not throttle non-debounced (forced) scans even on frequent hosts', () => {
+        // A forced scan just after another scan started keeps its own delay.
+        expect(throttledAutoScanDelay(320, { debounce: false }, NOW - 100, NOW, true)).toBe(320);
+    });
+
+    it('does not throttle on non-frequent hosts', () => {
+        expect(throttledAutoScanDelay(320, { debounce: true }, NOW - 100, NOW, false)).toBe(320);
+    });
+
+    it('stretches a debounced scan to the min interval when the last scan started recently', () => {
+        // 100ms since the last scan began => the next debounced scan is floored
+        // to AUTO_SCAN_MIN_INTERVAL_MS - 100 (still bounded by the interval).
+        expect(throttledAutoScanDelay(320, { debounce: true }, NOW - 100, NOW, true))
+            .toBe(AUTO_SCAN_MIN_INTERVAL_MS - 100);
+    });
+
+    it('never floors above the min interval even immediately after a scan started', () => {
+        expect(throttledAutoScanDelay(50, { debounce: true }, NOW, NOW, true)).toBe(AUTO_SCAN_MIN_INTERVAL_MS);
+    });
+
+    it('keeps the requested delay once the interval has already elapsed', () => {
+        // Storm has settled (>= interval since last scan): the trailing settle
+        // scan uses its own (short) delay — nothing is dropped or over-delayed.
+        expect(throttledAutoScanDelay(320, { debounce: true }, NOW - AUTO_SCAN_MIN_INTERVAL_MS - 500, NOW, true)).toBe(320);
+    });
+
+    it('keeps a delay already larger than the floor', () => {
+        expect(throttledAutoScanDelay(2_000, { debounce: true }, NOW - 100, NOW, true)).toBe(2_000);
     });
 });
