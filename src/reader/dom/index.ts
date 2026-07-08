@@ -2804,10 +2804,15 @@ function observeTextMirrorHost(host: HTMLElement): void {
             liveState.staleRemovalTimer = setTimeout(() => {
                 // aborted -> teardown already ran; do not touch a stale host.
                 if (staleLifecycle?.signal.aborted) return;
+                // Resolve state through the WeakRef only, and identify the
+                // scheduling cycle by its lifecycle (an AbortController, which
+                // holds no host ref) rather than by closing over liveState —
+                // closing over liveState would strong-ref the host (via
+                // state.concealedText) for the whole grace window.
                 const timerHost = hostRef.deref();
                 const timerState = timerHost ? textMirrorHosts.get(timerHost) : undefined;
-                if (!timerHost || timerState !== liveState || liveState.sourceText !== staleSource) return;
-                if (normalizedMirrorHostText(nativeTextMirrorHostText(timerHost)) !== liveState.sourceText) removeTextMirror(timerHost);
+                if (!timerHost || !timerState || timerState.lifecycle !== staleLifecycle || timerState.sourceText !== staleSource) return;
+                if (normalizedMirrorHostText(nativeTextMirrorHostText(timerHost)) !== timerState.sourceText) removeTextMirror(timerHost);
             }, STALE_MIRROR_REMOVAL_GRACE_MS);
         }
     });
