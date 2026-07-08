@@ -14,7 +14,7 @@
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.108#sha256=UhOlkoQnRC+BJuZRapO4QJqqHi47Zolg9b1bGi8BHrI=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.108#sha256=jnUdQDQ4UCyztMyjwrkSjzbzGZ+Hb//V51c2J8phVH8=
 // @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.108#sha256=dJcxc9MheKfGWb0wXRI8AZWk0RBQy1eLOW+glolG12Y=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.108#sha256=FL6NI+CBTu3FfqAJT0gWs0YT4eS2Orj6aXMrehMhf7k=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.108#sha256=ggPB+gljU+OK3csLsY3BeCGtrnVCgvmZRLi9fjzdXxU=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io

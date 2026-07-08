@@ -105,6 +105,17 @@ for (const result of results) {
     assert(result.fullscreen.hasRail, `${result.name}: missing Yomu control rail in fullscreen mode`, result.fullscreen);
     assert(result.fullscreen.lineText, `${result.name}: missing Yomu subtitle text in fullscreen mode`, result.fullscreen);
     assertYoutubeControlsNotBlocked(result, 'fullscreen');
+    assertMastheadHiddenInFullscreen(result);
+}
+
+function assertMastheadHiddenInFullscreen(result) {
+    const normalMasthead = result.normal.masthead ?? {};
+    const fullscreenMasthead = result.fullscreen.masthead ?? {};
+    assert(fullscreenMasthead.found, `${result.name}: no YouTube masthead/topbar element found to check`, { normal: normalMasthead, fullscreen: fullscreenMasthead });
+    // Normal browsing must be untouched — the masthead stays visible.
+    assert(!normalMasthead.hidden, `${result.name}: masthead was hidden in normal (non-fullscreen) mode`, normalMasthead);
+    // Regression 2: Yomu inline CSS-fullscreen hides YouTube's native top chrome.
+    assert(fullscreenMasthead.hidden, `${result.name}: YouTube masthead/topbar was still visible in Yomu inline fullscreen`, fullscreenMasthead);
 }
 
 console.log(JSON.stringify({
@@ -151,6 +162,7 @@ async function runViewport(viewport) {
         await installUserscriptCssResource(page, CSS_PATH);
         await installDiagnosticTrack(page);
         await installDiagnosticCaption(page);
+        await installDiagnosticMasthead(page);
         await waitForYomuSubtitle(page, errors);
 
         await forceYoutubeControlsVisible(page);
@@ -241,6 +253,24 @@ async function forceYoutubeControlsVisible(page) {
     });
     await page.mouse.move(24, 24).catch(() => undefined);
     await page.waitForTimeout(250);
+}
+
+async function installDiagnosticMasthead(page) {
+    // Real youtube.com renders ytd-masthead#masthead inside #masthead-container;
+    // when we cannot reach the live page (offline sandbox), inject the same
+    // structure so the masthead-hide assertion still exercises Yomu's stylesheet.
+    await evaluateWithNavigationRetry(page, () => {
+        if (document.querySelector('ytd-masthead, #masthead, #masthead-container')) return;
+        const container = document.createElement('div');
+        container.id = 'masthead-container';
+        const masthead = document.createElement('ytd-masthead');
+        masthead.id = 'masthead';
+        masthead.dataset.yomuFullscreenSmokeMasthead = 'true';
+        masthead.innerHTML = '<div id="searchbox">検索</div>';
+        Object.assign(masthead.style, { position: 'fixed', top: '0', left: '0', right: '0', height: '56px', background: '#0f0f0f', zIndex: '2200' });
+        container.append(masthead);
+        (document.body ?? document.documentElement).prepend(container);
+    });
 }
 
 async function installDiagnosticCaption(page) {
@@ -364,6 +394,10 @@ async function enterYoutubeCssFullscreen(page) {
         ].filter(Boolean))];
         const player = players.find(candidate => video && candidate.contains(video)) ?? players[0];
         document.documentElement.classList.add('yomu-fullscreen-smoke');
+        // Mirror Yomu's real inline CSS-fullscreen state so the masthead-hide
+        // stylesheet (scoped to html.jpdb-subtitle-inline-fullscreen) is exercised.
+        document.documentElement.classList.add('jpdb-subtitle-inline-fullscreen');
+        if (player instanceof HTMLElement) player.setAttribute('data-yomu-inline-fullscreen', 'true');
         for (const candidate of players) {
             candidate.classList.add('ytp-fullscreen', 'fullscreen');
             if (candidate.matches('ytm-player')) candidate.setAttribute('fullscreen', '');
@@ -456,7 +490,20 @@ async function collectEvidence(page, mode) {
             railRect: railRect ? roundedRect(railRect) : null,
             playerRect: playerRect ? roundedRect(playerRect) : null,
             youtubeControlHits: youtubeControlHits(),
+            masthead: mastheadVisibility(),
         };
+
+        function mastheadVisibility() {
+            const masthead = document.querySelector('ytd-masthead, #masthead, #masthead-container');
+            if (!(masthead instanceof HTMLElement)) return { found: false };
+            const style = getComputedStyle(masthead);
+            const rect = masthead.getBoundingClientRect();
+            const hidden = style.display === 'none'
+                || style.visibility === 'hidden'
+                || Number.parseFloat(style.opacity || '1') === 0
+                || rect.width < 1 || rect.height < 1;
+            return { found: true, hidden, display: style.display, rect: roundedRect(rect) };
+        }
 
         function youtubeControlHits() {
             return {

@@ -68,7 +68,9 @@ function watchHtml() {
     html, body { margin: 0; background: #0f0f0f; color: #f1f1f1; font-family: Roboto, Arial, sans-serif; }
     ytd-watch-flexy { display: block; }
     #page { display: grid; grid-template-columns: minmax(0, 1fr); padding: 60px 24px; }
-    #movie_player { position: relative; width: 960px; aspect-ratio: 16 / 9; background: #000; }
+    /* Responsive like YouTube's flexy player: width follows the viewport so a
+       viewport nudge changes the docked player box (and the inset signature). */
+    #movie_player { position: relative; width: min(960px, calc(100vw - 48px)); aspect-ratio: 16 / 9; background: #000; }
     #movie_player video { display: block; width: 100%; height: 100%; background: #050505; }
   </style>
   <script>
@@ -245,7 +247,7 @@ function mobileWatchHtml() {
 </html>`;
 }
 
-async function runMode(browser, { name, settings, prepare, viewport, screenshot, mobile }) {
+async function runMode(browser, { name, settings, prepare, viewport, screenshot, mobile, inlineFullscreen, nudgeViewport }) {
     const ctx = await browser.newContext({
         viewport: viewport ?? { width: 1180, height: 820 },
         hasTouch: true,
@@ -287,6 +289,20 @@ async function runMode(browser, { name, settings, prepare, viewport, screenshot,
   };
 })();
 ` });
+    if (inlineFullscreen) {
+        // Simulate iPad in-browser YouTube refusing the element Fullscreen API:
+        // requestFullscreen rejects, so Yomu's fullscreen-redirect falls back to
+        // its inline CSS-fullscreen (enterInlineFullscreen) — the exact state the
+        // user is in. This init script runs before the userscript, so the redirect
+        // captures this rejecting native and its inline fallback fires.
+        await ctx.addInitScript({ content: `
+(() => {
+  const reject = function requestFullscreen() { return Promise.reject(new Error('smoke: element fullscreen unavailable')); };
+  try { HTMLElement.prototype.requestFullscreen = reject; } catch {}
+  try { delete HTMLVideoElement.prototype.webkitEnterFullscreen; } catch {}
+})();
+` });
+    }
     for (const companionPath of COMPANION_PATHS) await ctx.addInitScript({ path: companionPath });
     await ctx.addInitScript({ path: USERSCRIPT_PATH });
 
@@ -301,10 +317,55 @@ async function runMode(browser, { name, settings, prepare, viewport, screenshot,
     // Start playback with one wake (as a user tap would), then hands off.
     await page.evaluate(() => document.querySelector('video').play());
     await page.waitForTimeout(1000);
-    // reset counters after startup churn so we only measure steady-state
+    // reset counters after startup churn so we only measure steady-state. For the
+    // inline-fullscreen modes the fullscreen ENTER + viewport nudge happen AFTER
+    // this reset, so any synthetic resize Yomu emits while going/being fullscreen
+    // is counted (that is exactly the regression under test).
     await page.evaluate(() => {
         Object.assign(window.__wake, { resizes: 0, syntheticResizes: 0, setSizes: 0, plays: 0, pauses: 0, seeks: 0, wakes: [], visibleSamples: 0, samples: 0 });
     });
+
+    if (inlineFullscreen) {
+        // Drive Yomu's OWN inline CSS-fullscreen path the way iPad does: request
+        // fullscreen on the video. The fullscreen-redirect patch reroutes it to the
+        // #movie_player container; when the element Fullscreen API is unavailable or
+        // refused (iPad in-browser YouTube, and headless Chromium without a user
+        // gesture) it falls back to enterInlineFullscreen, which adds
+        // html.jpdb-subtitle-inline-fullscreen and fires Yomu's fullscreen-like
+        // events. This exercises the real code that (pre-fix) emitted a synthetic
+        // global resize on every inline-fullscreen enter/exit and woke the controls.
+        await page.evaluate(() => {
+            const video = document.querySelector('video');
+            try { video?.requestFullscreen?.(); } catch { /* headless rejects → inline fallback */ }
+        });
+        await page.waitForTimeout(500);
+        // Guarantee the inline-fullscreen state even if the environment took the
+        // native path, so the steady-state assertion always runs in fullscreen.
+        await page.evaluate(() => {
+            if (document.documentElement.classList.contains('jpdb-subtitle-inline-fullscreen')) return;
+            const player = document.querySelector('#movie_player');
+            player?.classList.add('ytp-fullscreen', 'fullscreen');
+            player?.setAttribute('data-yomu-inline-fullscreen', 'true');
+            document.documentElement.classList.add('jpdb-subtitle-inline-fullscreen');
+            document.dispatchEvent(new Event('fullscreenchange'));
+            document.dispatchEvent(new Event('webkitfullscreenchange'));
+        });
+        await page.waitForTimeout(800);
+    }
+
+    if (nudgeViewport) {
+        // iPad CSS-fullscreen + touch jitters the visual viewport (URL bar hide,
+        // orientation micro-shifts). Each trusted resize re-runs Yomu's layout;
+        // pre-fix this (plus the fullscreen-enter path) re-emitted a SYNTHETIC
+        // global resize — waking YouTube's controls in an endless loop. These
+        // trusted nudges must NOT provoke any synthetic resize from Yomu.
+        const base = page.viewportSize() ?? { width: 1180, height: 820 };
+        for (const width of [base.width - 60, base.width - 20, base.width]) {
+            await page.setViewportSize({ width: Math.max(480, width), height: base.height });
+            await page.waitForTimeout(500);
+        }
+    }
+
     await page.waitForTimeout(8000);
 
     if (screenshot) await page.screenshot({ path: screenshot }).catch(() => {});
@@ -323,7 +384,7 @@ async function runMode(browser, { name, settings, prepare, viewport, screenshot,
     });
     const playing = await page.evaluate(() => !document.querySelector('video').paused);
     await ctx.close();
-    return { name, wake, controlsHidden, playing, pageErrors, yomuState };
+    return { name, wake, controlsHidden, playing, pageErrors, yomuState, nudgeViewport: Boolean(nudgeViewport) };
 }
 
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: !HEADED });
@@ -354,6 +415,40 @@ results.push(await runMode(browser, {
 results.push(await runMode(browser, {
     name: 'shadow-drawer',
     settings: baseSettings,
+    prepare: async page => {
+        await page.evaluate(() => document.querySelector('[data-action="panel-shadow"]')?.click());
+        await page.waitForTimeout(800);
+    },
+}));
+
+// iPad in-browser YouTube with the side drawer open and the viewport jittering
+// (URL-bar/orientation churn). This exercises the named inset-relayout path
+// (dispatchSubtitleVideoLayoutResize): pre-fix each nudge re-applied the docked
+// inset and re-emitted a SYNTHETIC global resize, resetting YouTube's controls
+// idle timer. RED→GREEN target for Regression 1.
+results.push(await runMode(browser, {
+    name: 'ipad-drawer-nudge',
+    settings: baseSettings,
+    viewport: { width: 1024, height: 768 },
+    nudgeViewport: true,
+}));
+
+// iPad in-browser YouTube, Yomu inline CSS-fullscreen + a viewport nudge.
+// Fills the iPad fullscreen blind spot: asserts Yomu emits zero synthetic
+// global resizes (so the native controls-idle timer is never reset by Yomu).
+results.push(await runMode(browser, {
+    name: 'ipad-inline-fullscreen',
+    settings: baseSettings,
+    viewport: { width: 1024, height: 768 },
+    inlineFullscreen: true,
+    nudgeViewport: true,
+}));
+results.push(await runMode(browser, {
+    name: 'ipad-inline-fullscreen-shadow',
+    settings: baseSettings,
+    viewport: { width: 1024, height: 768 },
+    inlineFullscreen: true,
+    nudgeViewport: true,
     prepare: async page => {
         await page.evaluate(() => document.querySelector('[data-action="panel-shadow"]')?.click());
         await page.waitForTimeout(800);
@@ -401,8 +496,18 @@ for (const result of results) {
     try {
         assert(result.playing, `${result.name}: video still playing at end`);
         assert(result.yomuState.overlay && result.yomuState.drawer, `${result.name}: yomu subtitle overlay + drawer mounted`);
+        // The core regression: Yomu must never dispatch a SYNTHETIC global resize
+        // on YouTube. YouTube treats it as user activity and resets the controls
+        // idle-hide timer, which on iPad fullscreen kept the chrome permanently
+        // awake. This holds even in the nudge modes: a real viewport change must be
+        // answered with player.setSize(), never a re-broadcast window 'resize'.
         assert(wake.syntheticResizes === 0, `${result.name}: no synthetic window resizes during steady-state playback (got ${wake.syntheticResizes})`);
-        assert(wake.setSizes === 0, `${result.name}: no player.setSize calls during steady-state playback (got ${wake.setSizes})`);
+        // player.setSize is the legitimate refit call. It is expected when we
+        // deliberately jitter the viewport (nudge modes); it must not fire on its
+        // own during a genuinely idle window (all other modes).
+        if (!result.nudgeViewport) {
+            assert(wake.setSizes === 0, `${result.name}: no player.setSize calls during steady-state playback (got ${wake.setSizes})`);
+        }
         assert(result.controlsHidden, `${result.name}: native controls auto-hid during hands-off playback`);
     } catch (error) {
         failed = true;

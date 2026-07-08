@@ -7499,6 +7499,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return `${Math.round(width)}:${Math.round(height)}`;
   }
   function dispatchSubtitleVideoLayoutResize(mode = "immediate") {
+    if (shouldSuppressSyntheticVideoLayoutResize()) return;
     if (mode === "immediate") {
       if (pendingImmediateVideoLayoutResize !== void 0) window.clearTimeout(pendingImmediateVideoLayoutResize);
       const delay = dispatchingImmediateVideoLayoutResize ? 1 : 0;
@@ -7519,6 +7520,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (typeof window === "undefined") return;
       dispatchWindowEvent(createWindowEvent("resize"));
     }, 80);
+  }
+  function shouldSuppressSyntheticVideoLayoutResize() {
+    return isYouTubePage$1();
   }
   function resetYouTubePlayerResizeTracking() {
     lastYouTubePlayerResizeSignature = "";
@@ -8626,10 +8630,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         } catch {
         }
       }
-      try {
-        win.dispatchEvent(new win.Event("resize"));
-      } catch {
-      }
     }
     function isMobileYouTube() {
       return /^m\.youtube\.com$/i.test(win.location.hostname);
@@ -8645,6 +8645,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
       `[data-yomu-video-frame]:fullscreen video{${fill}}`,
       `[data-yomu-video-frame]:-webkit-full-screen video{${fill}}`,
       `html.${INLINE_FULLSCREEN_CLASS},html.${INLINE_FULLSCREEN_CLASS} body{width:100%!important;height:100%!important;overflow:hidden!important;}`,
+      // Yomu's inline CSS-fullscreen keeps the video inside the normal document
+      // flow (the player is not promoted to the browser top layer), so YouTube's
+      // native fullscreen chrome-hide — which assumes a real Fullscreen API
+      // transition — never runs and the masthead/search bar stay on screen.
+      // Hide YouTube's top chrome ourselves, strictly scoped to the inline-
+      // fullscreen root class so normal browsing is untouched. Selectors are the
+      // real desktop (ytd-masthead / #masthead / #masthead-container) and mobile
+      // (ytm-mobile-topbar-renderer / ytm-app-header) top-bar elements already
+      // recognised elsewhere in the reader; the player's own controls and the
+      // subtitle overlay live under the player, not these, so they are unaffected.
+      `html.${INLINE_FULLSCREEN_CLASS} :is(ytd-masthead,#masthead,#masthead-container,ytm-mobile-topbar-renderer,ytm-app-header){display:none!important;}`,
       `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important;z-index:2147483640!important;background:#000!important;}`,
       `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] video{${fill}object-fit:contain!important;}`,
       `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] .html5-video-container{width:100%!important;height:100%!important;}`

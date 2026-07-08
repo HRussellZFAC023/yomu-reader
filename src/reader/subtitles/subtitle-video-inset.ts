@@ -695,11 +695,21 @@ function youtubeResizeSignature(width: number, height: number): string {
     return `${Math.round(width)}:${Math.round(height)}`;
 }
 
-// A site's video player sizes the <video> element from its container in
+// A generic site's video player sizes the <video> element from its container in
 // response to viewport resize, not from a style mutation. Dispatch a resize
 // (now and after layout settles) so the player re-fits the video to the box we
 // just changed — the same recompute that entering/exiting fullscreen forces.
+//
+// YouTube is the exception: it re-fits the box through its private setSize() API
+// (scheduleYouTubePlayerResize) plus applyStableYouTubePlayerVideoSize, so it
+// does not need the global resize — and its player treats a window 'resize' as
+// user activity, resetting the controls idle-hide timer. On iPad CSS-fullscreen
+// with touch, the controller's own resize listener re-runs the side layout,
+// which calls back here and re-emits the synthetic resize, so the controls
+// never fade and the masthead stays awake. Suppress the global resize on
+// YouTube (the direct setSize path already refits) to break that wake loop.
 function dispatchSubtitleVideoLayoutResize(mode: SubtitleVideoInsetResizeEventMode = 'immediate'): void {
+    if (shouldSuppressSyntheticVideoLayoutResize()) return;
     if (mode === 'immediate') {
         if (pendingImmediateVideoLayoutResize !== undefined) window.clearTimeout(pendingImmediateVideoLayoutResize);
         const delay = dispatchingImmediateVideoLayoutResize ? 1 : 0;
@@ -720,6 +730,14 @@ function dispatchSubtitleVideoLayoutResize(mode: SubtitleVideoInsetResizeEventMo
         if (typeof window === 'undefined') return;
         dispatchWindowEvent(createWindowEvent('resize'));
     }, 80);
+}
+
+// The synthetic global resize is a wake trigger for players (like YouTube's)
+// whose native controls auto-hide is armed by user activity. YouTube already
+// refits via setSize()/applyStableYouTubePlayerVideoSize, so it never needs the
+// resize; skipping it stops Yomu from resetting the controls idle-hide timer.
+function shouldSuppressSyntheticVideoLayoutResize(): boolean {
+    return isYouTubePage();
 }
 
 function resetYouTubePlayerResizeTracking(): void {

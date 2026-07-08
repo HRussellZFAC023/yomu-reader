@@ -228,4 +228,29 @@ describe('installSubtitleFullscreenRedirect', () => {
             expect(calls[0]).toBe(player);
         });
     });
+
+    it('hides YouTube top chrome only while the inline-fullscreen root class is present', () => {
+        document.body.innerHTML = `
+            <div id="masthead-container"><ytd-masthead id="masthead">top</ytd-masthead></div>
+            <div id="movie_player" class="html5-video-player"><video></video></div>
+        `;
+        installSubtitleFullscreenRedirect();
+
+        const masthead = document.getElementById('masthead')!;
+        const container = document.getElementById('masthead-container')!;
+
+        // Regression 2: without the inline-fullscreen class the masthead stays put.
+        expect(getComputedStyle(masthead).display).not.toBe('none');
+        expect(getComputedStyle(container).display).not.toBe('none');
+
+        document.documentElement.classList.add(INLINE_FULLSCREEN_CLASS);
+        expect(getComputedStyle(masthead).display).toBe('none');
+        expect(getComputedStyle(container).display).toBe('none');
+
+        const style = document.getElementById(STYLE_ID);
+        expect(style?.textContent).toContain(`html.${INLINE_FULLSCREEN_CLASS} :is(ytd-masthead,#masthead,#masthead-container,ytm-mobile-topbar-renderer,ytm-app-header)`);
+
+        document.documentElement.classList.remove(INLINE_FULLSCREEN_CLASS);
+        expect(getComputedStyle(masthead).display).not.toBe('none');
+    });
 });
