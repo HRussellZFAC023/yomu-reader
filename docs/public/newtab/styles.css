@@ -517,6 +517,47 @@
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
+/* Extension opt-out surface: shown when the user turns Study off for new tabs.
+   Deliberately minimal — a mostly-blank page with one re-enable control and a
+   link to open Study on demand. No study UI, no word loading. */
+.jpdb-reader-newtab-optout {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+}
+
+.jpdb-reader-newtab-optout-title {
+  margin: 0;
+  font-size: clamp(20px, 3.4vw, 28px);
+  font-weight: 700;
+  color: var(--jpdb-reader-text, #17202a);
+}
+
+.jpdb-reader-newtab-optout-body {
+  margin: 0;
+  max-width: 42ch;
+  color: var(--jpdb-reader-muted, #4f5968);
+}
+
+.jpdb-reader-newtab-optout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.jpdb-reader-newtab-optout-link {
+  color: var(--jpdb-reader-accent, #5ea780);
+  text-decoration: underline;
+}
+
 .jpdb-reader-newtab-topbar {
   min-height: 42px;
   min-width: 0;
@@ -7019,15 +7060,23 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   box-shadow: none !important;
 }
 /* Bare-until-hover applies to CHROME passive words only (buttons, tabs, menus,
-   nav links, compact controls the scanner marked) — readable content that
-   merely sits inside a link/expander keeps its pitch underline and state
-   colours at rest. 1.5.4 stripped every passive word here, which made pitch
-   underlines and colours on link-wrapped prose (news headlines, Wikipedia
-   links, forum titles) flicker in on hover and vanish on mouse-out.
+   nav links, compact controls the scanner marked). Only the highlight
+   (background) channel is stripped here — filled highlights across every
+   button/tab/menu repaint chrome wall-to-wall. Text colour, the pitch/state
+   underline, and furigana all stay visible at rest, matching the passive-
+   CONTENT rule and subtitles. Two prior regressions lived in this rule: (1)
+   1.5.4 stripped the underline/decoration on every passive word, flickering
+   pitch underlines on link-wrapped prose in/out on hover; (2) forcing the base
+   text to raw currentColor (and resetting --jpdb-reader-word-accessible-color)
+   collapsed the ruby base into the host pill background on YouTube Shorts
+   channel pills while the furigana kept its own accessible colour — readings
+   "floated" with no base text. The base colour now honours the contrast-
+   computed --jpdb-reader-word-accessible-color, and the pitch underline (drawn
+   via the ::after border) is no longer zeroed at rest.
    YouTube's feed filter chips, engagement panels, watch metadata (action
    row, description), masthead, and guide are carved OUT via the trailing
    :not() — their Japanese is reading material despite the [role=tab]/
-   [role=button] wrappers, so underlines stay on at rest there like content
+   [role=button] wrappers, so highlights stay on at rest there like content
    (owner feedback: 作成/共有/質問する read as broken without them). */
 :is(
   button,
@@ -7069,60 +7118,15 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-reader-control-text-mirror,
   [data-jpdb-reader-passive-chrome="true"]
 ) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-live-chat-frame, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-page-header-view-model, ytd-c4-tabbed-header-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word) {
-  --jpdb-reader-word-accessible-color: currentColor;
   --jpdb-reader-word-accessible-highlight: transparent;
-  --jpdb-reader-word-accessible-underline: transparent;
-  --jpdb-reader-word-color-source: currentColor;
-  --jpdb-reader-word-decoration-source: transparent;
   --jpdb-reader-word-highlight-source: transparent;
   --jpdb-reader-word-highlight-shadow-source: none;
-  --jpdb-reader-word-underline: transparent;
   background-color: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
-  color: currentColor !important;
-  -webkit-text-fill-color: currentColor;
-  text-decoration-color: transparent !important;
+  color: var(--jpdb-reader-word-accessible-color, currentColor) !important;
+  -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor);
   text-shadow: none;
-}
-:is(
-  button,
-  [role="button"],
-  [role="tab"],
-  [role="menuitem"],
-  [role="menuitemcheckbox"],
-  [role="menuitemradio"],
-  [role="option"],
-  [role="checkbox"],
-  [role="radio"],
-  [role="switch"],
-  [role="menu"],
-  [role="menubar"],
-  [role="toolbar"],
-  [role="tablist"],
-  [role="listbox"],
-  [role="navigation"],
-  nav,
-  summary,
-  label,
-  select,
-  ytm-pivot-bar-renderer,
-  ytm-pivot-bar-item-renderer,
-  ytm-mobile-topbar-renderer,
-  ytm-app-header,
-  ytm-searchbox,
-  ytm-shorts-player-controls,
-  ytm-actions-renderer,
-  ytm-menu-renderer,
-  ytm-button-renderer,
-  ytm-toggle-button-renderer,
-  ytm-bottom-sheet-renderer,
-  ytm-reel-player-overlay-renderer,
-  ytm-shorts-video-title-view-model,
-  .jpdb-reader-control-text-mirror,
-  [data-jpdb-reader-passive-chrome="true"]
-) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-live-chat-frame, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-page-header-view-model, ytd-c4-tabbed-header-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word)::after {
-  border-block-end-color: transparent !important;
 }
 :is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)
   .jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) {

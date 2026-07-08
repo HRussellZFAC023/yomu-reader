@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.108] - 2026-07-08
+
+### Fixed
+
+- Discord and other constantly-re-rendering apps no longer slowly break their own layout ("the spaces get bigger and bigger"). When such an app reshuffled a message's elements, Yomu could lose track of the hidden text overlay it had added and stack a fresh one on top each time, and each extra copy added height until rows grew unbounded. Yomu now finds and reuses the overlay it already owns no matter where the app moves it, so only one is ever present.
+- YouTube Shorts video titles no longer occasionally vanish. When Shorts recycled a title element and swapped in new text, Yomu's hidden overlay was cleared without asking for a fresh pass, leaving the title blank; it now re-scans immediately so the new title always appears.
+- The channel/title pill on YouTube Shorts no longer shows furigana readings floating with the word text missing beneath them. The at-rest style for buttons and chrome was overriding the word's readable text colour so the base glyphs blended into the pill; the base text now keeps its computed contrast colour.
+- Buttons such as Subscribe (チャンネル登録) now keep their pitch-accent underline at rest, matching subtitles and body text. The bare-until-hover treatment for chrome now only removes the background highlight; the pitch/state underline, text colour, and furigana stay visible.
+- Browser-extension users can now actually turn off Yomu Study as the new-tab page. The "Set Study as the new tab" setting was silently switching itself back on every time a new tab opened; it now stays exactly as you set it, turning it off shows a plain new tab instead of Study, and the choice is offered during onboarding.
+
 ## [1.6.107] - 2026-07-07
 
 ### Fixed

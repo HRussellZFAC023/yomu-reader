@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.107
+// @version 1.6.108
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.107#sha256=nnuinwY1V6TkAuVP3+AVCjdZW/J2SLKnWCSLjg5g6UM=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.107#sha256=VRyueMC4LJp3+34/Kh6wb6Dhc34CJDqrMzlgDmhflwc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.107#sha256=UhOlkoQnRC+BJuZRapO4QJqqHi47Zolg9b1bGi8BHrI=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.107#sha256=jnUdQDQ4UCyztMyjwrkSjzbzGZ+Hb//V51c2J8phVH8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.107#sha256=33kMk2Hw9e46+VmoQjO+h0dA2QVK0mWkb58aVz/Exlo=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.107#sha256=mCwr6aeMS6My1MkL0FX8bSRAy/h36h3woLzLKLtTiLg=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.108#sha256=nnuinwY1V6TkAuVP3+AVCjdZW/J2SLKnWCSLjg5g6UM=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.108#sha256=VRyueMC4LJp3+34/Kh6wb6Dhc34CJDqrMzlgDmhflwc=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.108#sha256=UhOlkoQnRC+BJuZRapO4QJqqHi47Zolg9b1bGi8BHrI=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.108#sha256=jnUdQDQ4UCyztMyjwrkSjzbzGZ+Hb//V51c2J8phVH8=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.108#sha256=dJcxc9MheKfGWb0wXRI8AZWk0RBQy1eLOW+glolG12Y=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.108#sha256=FL6NI+CBTu3FfqAJT0gWs0YT4eS2Orj6aXMrehMhf7k=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -3030,7 +3030,7 @@ const DEFAULT_SETTINGS = {
   popupActivationMode: "hover",
   scanModifierKey: "shift",
   showFloatingButton: true,
-  newTabEnabled: false,
+  newTabEnabled: true,
   newTabAnkiEnabled: false,
   newTabAnkiDisabledDecks: [],
   newTabSource: "auto",
@@ -5208,8 +5208,21 @@ function remapTokenOffsets(token, offsets, sentence) {
   })
   };
 }
+function textMirrorBelongsToHost(mirror, host) {
+  let ancestor = mirror.parentElement;
+  while (ancestor && ancestor !== host) {
+  if (textMirrorHosts.has(ancestor)) return false;
+  ancestor = ancestor.parentElement;
+  }
+  return ancestor === host;
+}
+function ownedTextMirrors(host) {
+  return Array.from(host.querySelectorAll(READER_TEXT_MIRROR_SELECTOR)).filter((mirror) => textMirrorBelongsToHost(mirror, host));
+}
 function currentTextMirror(host) {
-  return Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)) ?? null;
+  const direct = Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR));
+  if (direct) return direct;
+  return ownedTextMirrors(host)[0] ?? null;
 }
 function textMirrorAlreadyRenders(host, text2) {
   const mirror = currentTextMirror(host);
@@ -5953,6 +5966,9 @@ function observeTextMirrorHost(host) {
   state.observer = new MutationObserver((mutations) => {
   if (mutations.every(mutationInsideTextMirror)) return;
   if (!currentTextMirror(host)) {
+    if (host.isConnected && HAS_JAPANESE$1.test(normalizedMirrorHostText(nativeTextMirrorHostText(host)))) {
+      dispatchTextMirrorStale(host);
+    }
     removeTextMirror(host);
     return;
   }
@@ -6008,7 +6024,7 @@ function removeTextMirror(host) {
   const state = textMirrorHosts.get(host);
   state?.observer.disconnect();
   clearTimeout(state?.staleRemovalTimer);
-  Array.from(host.children).filter((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)).forEach((mirror) => mirror.remove());
+  ownedTextMirrors(host).forEach((mirror) => mirror.remove());
   if (state) restoreTextMirrorHost(host, state);
   textMirrorHosts.delete(host);
 }
@@ -29881,6 +29897,14 @@ function applyOcrInteractionMode(settings, mode) {
   settings.ocrEnabled = mode !== "off";
   settings.ocrAutoScanImages = mode === "auto";
 }
+function runningAsBrowserExtension() {
+  const global = globalThis;
+  try {
+  return Boolean(global.chrome?.runtime?.id || global.browser?.runtime?.id);
+  } catch {
+  return false;
+  }
+}
 const log$3 = Logger.scope("Onboarding");
 const ONBOARDING_ACCENT_SWATCHES = ["#5ea780", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
 const ONBOARDING_FEATURE_KEYS = [
@@ -29908,6 +29932,7 @@ class OnboardingController {
   youtubeImmersionInput;
   preferJapaneseSiteLanguageInput;
   offlineDictionariesInput;
+  newTabEnabledInput;
   pageScanModeInputs = [];
   ocrModeInputs = [];
   manualPageScanShortcutInput;
@@ -30029,6 +30054,7 @@ class OnboardingController {
   this.youtubeImmersionInput = checkboxInput("youtubeImmersionEnabled", this.options.getSettings().youtubeImmersionEnabled);
   this.preferJapaneseSiteLanguageInput = checkboxInput("preferJapaneseSiteLanguage", this.options.getSettings().preferJapaneseSiteLanguage);
   this.offlineDictionariesInput = checkboxInput("onboardingInstallOfflineDictionaries", true);
+  this.newTabEnabledInput = runningAsBrowserExtension() ? checkboxInput("newTabEnabled", this.options.getSettings().newTabEnabled) : void 0;
   const pageScanMode = createModeGroup(
     "pageScanMode",
     uiText(this.options.getSettings().interfaceLanguage, "pageScanMode"),
@@ -30063,6 +30089,11 @@ class OnboardingController {
     checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, "preferJapaneseSiteLanguage")),
     checkboxLabel(this.offlineDictionariesInput, uiText(this.options.getSettings().interfaceLanguage, "onboardingInstallOfflineDictionaries"))
   );
+  if (this.newTabEnabledInput) {
+    defaultColumn.append(
+      checkboxLabel(this.newTabEnabledInput, uiText(this.options.getSettings().interfaceLanguage, "newTabEnabled"))
+    );
+  }
   const scanColumn = document.createElement("div");
   scanColumn.className = "jpdb-reader-onboarding-option-column";
   scanColumn.append(pageScanMode.fieldset, ocrMode.fieldset);
@@ -30143,6 +30174,7 @@ class OnboardingController {
   panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, "youtubeImmersionEnabled"));
   panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, "preferJapaneseSiteLanguage"));
   panel.querySelector('[data-onboarding-copy="onboardingInstallOfflineDictionaries"]')?.replaceChildren(uiText(language, "onboardingInstallOfflineDictionaries"));
+  panel.querySelector('[data-onboarding-copy="newTabEnabled"]')?.replaceChildren(uiText(language, "newTabEnabled"));
   panel.querySelector('[data-onboarding-mode-legend="pageScanMode"]')?.replaceChildren(uiText(language, "pageScanMode"));
   setOnboardingModeLabel(panel, "pageScanMode", "off", uiText(language, "pageScanModeOff"));
   setOnboardingModeLabel(panel, "pageScanMode", "auto", uiText(language, "pageScanModeAuto"));
@@ -30213,6 +30245,7 @@ class OnboardingController {
     localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
     youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
     preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
+    newTabEnabled: this.newTabEnabledInput?.checked ?? current.newTabEnabled,
     annotationsPaused: pageScanMode === "off",
     manualScanEnabled: pageScanMode === "manual",
     ocrEnabled: ocrMode !== "off",
@@ -30243,6 +30276,7 @@ class OnboardingController {
   this.youtubeImmersionInput = void 0;
   this.preferJapaneseSiteLanguageInput = void 0;
   this.offlineDictionariesInput = void 0;
+  this.newTabEnabledInput = void 0;
   this.pageScanModeInputs = [];
   this.ocrModeInputs = [];
   this.manualPageScanShortcutInput = void 0;
@@ -33648,7 +33682,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.107"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.108"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

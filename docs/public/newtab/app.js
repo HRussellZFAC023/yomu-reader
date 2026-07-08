@@ -6898,7 +6898,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     popupActivationMode: "hover",
     scanModifierKey: "shift",
     showFloatingButton: true,
-    newTabEnabled: false,
+    // First-install default: fresh browser-extension installs get Study on the
+    // new tab (the page gates on this + runningAsBrowserExtension()). The page
+    // never flips a user's explicit false back to true, so unchecking sticks.
+    // Userscript / hosted new-tab is not gated by this flag, so the default is
+    // harmless there.
+    newTabEnabled: true,
     newTabAnkiEnabled: false,
     newTabAnkiDisabledDecks: [],
     newTabSource: "auto",
@@ -8856,8 +8861,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
       })
     };
   }
+  function textMirrorBelongsToHost(mirror, host) {
+    let ancestor = mirror.parentElement;
+    while (ancestor && ancestor !== host) {
+      if (textMirrorHosts.has(ancestor)) return false;
+      ancestor = ancestor.parentElement;
+    }
+    return ancestor === host;
+  }
+  function ownedTextMirrors(host) {
+    return Array.from(host.querySelectorAll(READER_TEXT_MIRROR_SELECTOR)).filter((mirror) => textMirrorBelongsToHost(mirror, host));
+  }
   function currentTextMirror(host) {
-    return Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)) ?? null;
+    const direct = Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR));
+    if (direct) return direct;
+    return ownedTextMirrors(host)[0] ?? null;
   }
   function nonDestructiveScanSignature(target, tokens, settings, suppressRuby = Boolean(target.suppressRuby)) {
     return JSON.stringify({
@@ -9595,6 +9613,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     state2.observer = new MutationObserver((mutations) => {
       if (mutations.every(mutationInsideTextMirror)) return;
       if (!currentTextMirror(host)) {
+        if (host.isConnected && HAS_JAPANESE.test(normalizedMirrorHostText(nativeTextMirrorHostText(host)))) {
+          dispatchTextMirrorStale(host);
+        }
         removeTextMirror(host);
         return;
       }
@@ -9650,7 +9671,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const state2 = textMirrorHosts.get(host);
     state2?.observer.disconnect();
     clearTimeout(state2?.staleRemovalTimer);
-    Array.from(host.children).filter((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)).forEach((mirror) => mirror.remove());
+    ownedTextMirrors(host).forEach((mirror) => mirror.remove());
     if (state2) restoreTextMirrorHost(host, state2);
     textMirrorHosts.delete(host);
   }
@@ -39898,7 +39919,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.107".trim() ? "1.6.107".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.108".trim() ? "1.6.108".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -66050,7 +66071,11 @@ ${component.reading}`;
       studySummaryStateWrong: "Missed",
       studySummaryStateSkipped: "Skipped",
       studySummaryStateNone: "Not attempted",
-      gradeSuggested: "suggested"
+      gradeSuggested: "suggested",
+      newTabOff: "Yomu Study is off for new tabs",
+      newTabOffBody: "New tabs stay blank. You can turn Study back on here, or open it any time.",
+      newTabTurnOn: "Turn Study on",
+      newTabOpenStudy: "Open Study"
     }
   };
   const JA_NEW_TAB_COPY = {
@@ -66313,7 +66338,11 @@ ${component.reading}`;
     studySummaryStateWrong: "不正解",
     studySummaryStateSkipped: "スキップ",
     studySummaryStateNone: "未実施",
-    gradeSuggested: "おすすめ"
+    gradeSuggested: "おすすめ",
+    newTabOff: "新しいタブの学習はオフです",
+    newTabOffBody: "新しいタブは空白のままになります。ここで学習を再びオンにするか、いつでも開けます。",
+    newTabTurnOn: "学習をオンにする",
+    newTabOpenStudy: "学習を開く"
   };
   const NEW_TAB_COPY_BY_LANGUAGE = {
     en: NEW_TAB_COPY.en,
@@ -75943,11 +75972,15 @@ ${entry.url}`),
       document.documentElement.classList.add("jpdb-reader-newtab-document");
       const settings = this.dependencies.getSettings();
       this.syncSourceFromSettings(settings);
-      await this.ensureNewTabEnabled(settings);
       this.applyPalette();
       const { root, isNew } = this.ensureNewTabRoot();
       this.bindRootEvents(root);
       root.dataset.newtabBound = "true";
+      if (runningAsBrowserExtension() && !settings.newTabEnabled) {
+        this.renderNewTabOptOut(root);
+        return;
+      }
+      delete root.dataset.newtabOptout;
       const shouldRenderContent = this.shouldRenderEnabledContent(root, isNew);
       if (shouldRenderContent) {
         delete root.dataset.standaloneNewtab;
@@ -75970,10 +76003,48 @@ ${entry.url}`),
       if (shouldRenderContent || this.allWords.length === 0) await this.loadWordsInto(root, true);
       else this.applyWords(root, true);
     }
-    async ensureNewTabEnabled(settings) {
+    // Minimal opt-out surface shown (extension only) when the user has turned
+    // Study off for new tabs. No study UI, no word loading — just a re-enable
+    // control and a link to open Study on demand. Mirrors the settings toggle:
+    // turning it back on persists the choice and re-renders the study page.
+    renderNewTabOptOut(root) {
+      const language = this.language();
+      delete root.dataset.standaloneNewtab;
+      delete root.dataset.newtabLanguage;
+      root.dataset.newtabOptout = "true";
+      replaceChildrenWith(
+        root,
+        el(
+          "section",
+          { class: "jpdb-reader-newtab-optout", dataset: { newtabOptout: true } },
+          el("h1", { class: "jpdb-reader-newtab-optout-title" }, newTabText(language, "newTabOff")),
+          el("p", { class: "jpdb-reader-newtab-optout-body" }, newTabText(language, "newTabOffBody")),
+          el(
+            "div",
+            { class: "jpdb-reader-newtab-optout-actions" },
+            el("button", {
+              class: "jpdb-reader-btn",
+              type: "button",
+              dataset: { newtabAction: "enable-newtab" }
+            }, newTabText(language, "newTabTurnOn")),
+            el("a", {
+              class: "jpdb-reader-newtab-optout-link",
+              href: NEW_TAB_PAGE_URL
+            }, newTabText(language, "newTabOpenStudy"))
+          )
+        )
+      );
+      const enableButton = root.querySelector('[data-newtab-action="enable-newtab"]');
+      enableButton?.addEventListener("click", () => {
+        void this.enableNewTabFromOptOut();
+      });
+    }
+    async enableNewTabFromOptOut() {
+      const settings = this.dependencies.getSettings();
       if (settings.newTabEnabled) return;
       settings.newTabEnabled = true;
       await this.dependencies.onSettingsChange();
+      await this.renderPage();
     }
     ensureNewTabRoot() {
       const root = document.querySelector(".jpdb-reader-newtab[data-jpdb-reader-root]");
