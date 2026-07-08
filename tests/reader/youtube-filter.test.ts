@@ -258,9 +258,18 @@ async function runInitialFilterScan(): Promise<void> {
 }
 
 async function flushPendingFilterWork(): Promise<void> {
-    for (let i = 0; i < 10; i += 1) {
+    // Drain until the fake-timer queue is stable rather than a fixed number of
+    // cycles: scan work re-schedules follow-up timers, and a fixed loop can
+    // under-drain when a slow scheduler chains more continuations than expected,
+    // leaving a test asserting against half-settled state (a load-only flake).
+    // The hard cap guarantees termination even if a timer perpetually re-arms.
+    const MAX_CYCLES = 40;
+    for (let i = 0; i < MAX_CYCLES; i += 1) {
         await settlePromises();
+        const pendingBefore = vi.getTimerCount();
         await vi.advanceTimersByTimeAsync(25);
+        await settlePromises();
+        if (pendingBefore === 0 && vi.getTimerCount() === 0) return;
     }
 }
 
@@ -2321,7 +2330,15 @@ describe('YouTube channel subscription flag', () => {
     };
 
     afterEach(() => {
+        // Match the first describe block's full teardown so fake timers or stubbed
+        // globals never leak across blocks (or into the next file in a reused fork).
+        vi.clearAllTimers();
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+        sessionStorage.clear();
         localStorage.clear();
+        document.body.replaceChildren();
+        document.title = '';
     });
 
     it('signature is stable and encodes the channel count', () => {

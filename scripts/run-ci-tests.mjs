@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { availableParallelism } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { formatDuration, readPositiveInt } from './lib/ci-utils.mjs';
@@ -48,7 +49,7 @@ function runRegularShard(currentShard, shardTotal, reuseGenerated = false) {
         ...regularBuckets[currentShard - 1],
         ...generated.map(files => files[currentShard - 1]),
     ].filter(Boolean);
-    const maxWorkers = readPositiveInt(process.env.YOMU_CI_REGULAR_MAX_WORKERS ?? '4', 'YOMU_CI_REGULAR_MAX_WORKERS');
+    const maxWorkers = readPositiveInt(process.env.YOMU_CI_REGULAR_MAX_WORKERS ?? String(defaultRegularMaxWorkers()), 'YOMU_CI_REGULAR_MAX_WORKERS');
     runVitest(
         [
             'run',
@@ -66,6 +67,26 @@ function runRegularShard(currentShard, shardTotal, reuseGenerated = false) {
             files: filesForShard,
         },
     );
+}
+
+// Each regular shard runs its own Vitest process with this many forks. The suite
+// launches several shards concurrently (see run-ci-suite.mjs), so the aggregate
+// fork count is roughly shardConcurrency * maxWorkers. Sizing workers to
+// cores / concurrency keeps that aggregate at or under the core count instead of
+// oversubscribing memory-heavy jsdom forks, which is what pushes a slow CI runner
+// into thrash and a suite-child timeout under load. Clamp to [2, 4] so a small
+// box still gets intra-shard parallelism and a large box does not over-fan a
+// setup-bound suite. An explicit YOMU_CI_REGULAR_MAX_WORKERS always wins.
+function defaultRegularMaxWorkers() {
+    const shardConcurrency = regularShardConcurrency();
+    const perShard = Math.floor(availableParallelism() / shardConcurrency);
+    return Math.max(2, Math.min(4, perShard));
+}
+
+function regularShardConcurrency() {
+    const shardTotal = readPositiveInt(process.env.YOMU_CI_REGULAR_SHARDS ?? '4', 'YOMU_CI_REGULAR_SHARDS');
+    const fallback = Math.max(1, Math.min(4, shardTotal, availableParallelism()));
+    return readPositiveInt(process.env.YOMU_CI_REGULAR_CONCURRENCY ?? String(fallback), 'YOMU_CI_REGULAR_CONCURRENCY');
 }
 
 function regularShardSourceFiles() {

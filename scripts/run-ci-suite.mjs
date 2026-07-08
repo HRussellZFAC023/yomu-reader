@@ -19,7 +19,13 @@ const JPDB_CONCURRENCY = readPositiveInt(
 const USE_VITEST_API = process.env.YOMU_CI_VITEST_API === '1';
 const VITEST_API_BASE_PORT = readPositiveInt(process.env.YOMU_CI_VITEST_API_BASE_PORT ?? '55200', 'YOMU_CI_VITEST_API_BASE_PORT');
 const TEST_TIMEOUT_MS = readPositiveInt(process.env.YOMU_CI_TEST_TIMEOUT_MS ?? '540000', 'YOMU_CI_TEST_TIMEOUT_MS');
-const SUITE_CHILD_TIMEOUT_MS = readPositiveInt(process.env.YOMU_CI_SUITE_CHILD_TIMEOUT_MS ?? String(TEST_TIMEOUT_MS + 30000), 'YOMU_CI_SUITE_CHILD_TIMEOUT_MS');
+// The suite-child (outer) timeout must sit comfortably above the inner Vitest
+// spawnSync timeout so a genuinely slow shard reports a clean Vitest ETIMEDOUT
+// (exit 124 with the offending shard files logged) instead of being SIGTERM'd
+// from underneath. 30s of headroom is tight when a loaded runner is thrashing
+// and slow to service the inner timer; 90s guarantees the inner one always wins
+// the race and we never mask which shard hung.
+const SUITE_CHILD_TIMEOUT_MS = readPositiveInt(process.env.YOMU_CI_SUITE_CHILD_TIMEOUT_MS ?? String(TEST_TIMEOUT_MS + 90000), 'YOMU_CI_SUITE_CHILD_TIMEOUT_MS');
 const SUITE_CHILD_KILL_GRACE_MS = readPositiveInt(process.env.YOMU_CI_SUITE_CHILD_KILL_GRACE_MS ?? '5000', 'YOMU_CI_SUITE_CHILD_KILL_GRACE_MS');
 const targetedVitestArgs = process.argv.slice(2);
 

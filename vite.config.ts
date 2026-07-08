@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin, type PluginOption } from 'vite';
 import monkey, { type MonkeyUserScript } from 'vite-plugin-monkey';
@@ -198,10 +199,21 @@ function readerTestConfig() {
         pool: 'forks',
         poolOptions: {
             forks: {
-                maxForks: 10,
+                // Cap concurrent jsdom forks to the available cores (never above 10).
+                // A hard 10 oversubscribes an 8-core runner and — combined with the
+                // sharded suite launching several Vitest processes at once — is what
+                // thrashes a loaded machine into the suite-child timeout. Honors an
+                // explicit VITEST_MAX_FORKS override for hand-tuned CI runners.
+                maxForks: readMaxForks(),
             },
         },
     };
+}
+
+function readMaxForks(): number {
+    const override = Number.parseInt(process.env.VITEST_MAX_FORKS ?? '', 10);
+    if (Number.isInteger(override) && override >= 1) return override;
+    return Math.max(2, Math.min(10, availableParallelism()));
 }
 
 const generatedShardExcludes = [
