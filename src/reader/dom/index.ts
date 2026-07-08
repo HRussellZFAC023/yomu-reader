@@ -1693,10 +1693,34 @@ function remapTokenOffsets(token: JPDBToken, offsets: number[], sentence: string
     };
 }
 
+// A mirror is normally appended as a DIRECT child of its host, but frameworks
+// (Discord/ChatGPT React) reconcile the host's subtree and relocate the mirror
+// one level deeper (into a wrapper) while leaving the host's own text in place.
+// Scanning host.children alone then misses the relocated mirror, so the
+// idempotency check appends a SECOND mirror — over repeated re-renders mirrors
+// stack and each renders furigana, growing the row unbounded. Search the whole
+// subtree instead, but only claim a mirror that this host OWNS: a mirror
+// belongs to `host` when `host` is the CLOSEST registered mirror-host ancestor
+// of it, so a nested scan host's own mirror is never stolen or torn down here.
+function textMirrorBelongsToHost(mirror: HTMLElement, host: HTMLElement): boolean {
+    let ancestor = mirror.parentElement;
+    while (ancestor && ancestor !== host) {
+        if (textMirrorHosts.has(ancestor)) return false;
+        ancestor = ancestor.parentElement;
+    }
+    return ancestor === host;
+}
+
+function ownedTextMirrors(host: HTMLElement): HTMLElement[] {
+    return Array.from(host.querySelectorAll<HTMLElement>(READER_TEXT_MIRROR_SELECTOR))
+        .filter(mirror => textMirrorBelongsToHost(mirror, host));
+}
+
 function currentTextMirror(host: HTMLElement): HTMLElement | null {
-    return Array.from(host.children)
-        .find((child): child is HTMLElement => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR))
-        ?? null;
+    const direct = Array.from(host.children)
+        .find((child): child is HTMLElement => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR));
+    if (direct) return direct;
+    return ownedTextMirrors(host)[0] ?? null;
 }
 
 // A host whose mirror already renders exactly this text needs no re-collect or
@@ -2765,9 +2789,13 @@ function removeTextMirror(host: HTMLElement): void {
     const state = textMirrorHosts.get(host);
     state?.observer.disconnect();
     clearTimeout(state?.staleRemovalTimer);
-    Array.from(host.children)
-        .filter((child): child is HTMLElement => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR))
-        .forEach(mirror => mirror.remove());
+    // Remove EVERY mirror this host owns, not just its direct children: a
+    // framework re-render can relocate the mirror into a wrapper below the host
+    // (Discord), and a direct-child-only sweep would orphan it — the next paint
+    // then stacks a fresh mirror on top. Ownership scoping (host is the closest
+    // registered mirror-host ancestor) leaves a nested scan host's own mirror
+    // untouched.
+    ownedTextMirrors(host).forEach(mirror => mirror.remove());
     if (state) restoreTextMirrorHost(host, state);
     textMirrorHosts.delete(host);
 }
