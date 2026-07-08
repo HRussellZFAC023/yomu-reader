@@ -557,3 +557,78 @@ describe('study flow: doodle first-attempt discipline', () => {
         }
     });
 });
+
+// FIX (Arka_rg): the extension new tab could not be turned off — the page
+// force-re-enabled newTabEnabled on every render, so unchecking it in Settings
+// self-reverted. With newTabEnabled=false as a browser extension, renderPage
+// must render a minimal opt-out page (no Study UI, no words) and must NEVER
+// flip the user's false back to true.
+function optOutController(newTabEnabled: boolean) {
+    const settings: ReaderSettings = {
+        ...DEFAULT_SETTINGS,
+        interfaceLanguage: 'en',
+        newTabEnabled,
+    };
+    const onSettingsChange = vi.fn();
+    const controller = new NewTabController({
+        getSettings: () => settings,
+        anki: {} as never,
+        jpdb: {} as never,
+        jpdbKanji: {} as never,
+        kanjiVG: {} as never,
+        rtk: {} as never,
+        immersionKit: {} as never,
+        jpdbReviewBridge: { onUpdate: () => () => {}, latestStatus: () => ({ connected: false }), requestCurrent: vi.fn() } as never,
+        parser: { isJpdbBackedCard: () => false } as never,
+        dictionaries: { summary: vi.fn(async () => ({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 })), listRandomTopTerms: vi.fn(async () => []) } as never,
+        onSettingsChange,
+        applyTheme: vi.fn(),
+        showSettings: vi.fn(),
+        dismiss: vi.fn(),
+    } as never);
+    return { controller, settings, onSettingsChange };
+}
+
+describe('extension new-tab opt-out', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        document.body.replaceChildren();
+    });
+
+    it('renders a minimal opt-out page and never re-enables newTabEnabled when off in an extension', async () => {
+        vi.stubGlobal('chrome', { runtime: { id: 'test-extension-id' } });
+        const { controller, settings, onSettingsChange } = optOutController(false);
+        try {
+            await controller.renderPage();
+
+            // The page must NOT force the user's choice back on.
+            expect(settings.newTabEnabled).toBe(false);
+            expect(onSettingsChange).not.toHaveBeenCalled();
+
+            // No Study UI, no word loading.
+            expect(document.querySelector('[data-newtab-study]')).toBeNull();
+            expect((controller as unknown as { allWords: JPDBCard[] }).allWords).toHaveLength(0);
+
+            // A minimal opt-out surface with a re-enable control is shown.
+            const optOut = document.querySelector('[data-newtab-optout]');
+            expect(optOut).not.toBeNull();
+            expect(optOut?.querySelector('[data-newtab-action="enable-newtab"]')).not.toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('renders Study as before when newTabEnabled is on in an extension', async () => {
+        vi.stubGlobal('chrome', { runtime: { id: 'test-extension-id' } });
+        const { controller, settings, onSettingsChange } = optOutController(true);
+        try {
+            await controller.renderPage();
+            expect(settings.newTabEnabled).toBe(true);
+            expect(onSettingsChange).not.toHaveBeenCalled();
+            expect(document.querySelector('[data-newtab-study]')).not.toBeNull();
+            expect(document.querySelector('[data-newtab-optout]')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+});

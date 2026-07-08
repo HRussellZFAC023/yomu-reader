@@ -265,6 +265,10 @@ const NEW_TAB_COPY = {
         studySummaryStateSkipped: 'Skipped',
         studySummaryStateNone: 'Not attempted',
         gradeSuggested: 'suggested',
+        newTabOff: 'Yomu Study is off for new tabs',
+        newTabOffBody: 'New tabs stay blank. You can turn Study back on here, or open it any time.',
+        newTabTurnOn: 'Turn Study on',
+        newTabOpenStudy: 'Open Study',
     },
 } as const;
 
@@ -531,6 +535,10 @@ const JA_NEW_TAB_COPY: Partial<Record<NewTabCopyKey, string>> = {
     studySummaryStateSkipped: 'スキップ',
     studySummaryStateNone: '未実施',
     gradeSuggested: 'おすすめ',
+    newTabOff: '新しいタブの学習はオフです',
+    newTabOffBody: '新しいタブは空白のままになります。ここで学習を再びオンにするか、いつでも開けます。',
+    newTabTurnOn: '学習をオンにする',
+    newTabOpenStudy: '学習を開く',
 };
 
 const NEW_TAB_COPY_BY_LANGUAGE: Record<NewTabLanguage, Partial<Record<NewTabCopyKey, string>>> = {

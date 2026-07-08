@@ -10,6 +10,7 @@ describe('OnboardingController', () => {
         document.body.innerHTML = '';
         localStorage.clear();
         vi.restoreAllMocks();
+        vi.unstubAllGlobals();
     });
 
     it('shows default-on immersion options and saves first-run choices', async () => {
@@ -153,6 +154,47 @@ describe('OnboardingController', () => {
 
         expect(installOfflineDictionaries).not.toHaveBeenCalled();
         expect(settings.localDictionariesEnabled).toBe(false);
+    });
+
+    it('surfaces the "Set Study as the new tab" toggle for extension users and honours unchecking it', async () => {
+        vi.stubGlobal('chrome', { runtime: { id: 'test-extension-id' } });
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en', newTabEnabled: true };
+        const controller = new OnboardingController({
+            getSettings: () => settings,
+            setSettings: nextSettings => {
+                settings = nextSettings;
+            },
+            showSettings: vi.fn(),
+            parseJapanese: vi.fn(),
+        });
+
+        await expect(controller.showIfNeeded()).resolves.toBe(true);
+
+        const newTabToggle = document.querySelector<HTMLInputElement>('input[name="newTabEnabled"]');
+        expect(newTabToggle).not.toBeNull();
+        expect(newTabToggle?.checked).toBe(true);
+        expect(document.body.textContent).toContain('Set Study as the new tab');
+
+        newTabToggle!.checked = false;
+        document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')?.click();
+        await settleAsyncHandlers();
+
+        expect(settings.onboardingSeen).toBe(true);
+        expect(settings.newTabEnabled).toBe(false);
+    });
+
+    it('hides the new-tab toggle for userscript builds (cannot override the browser new tab)', async () => {
+        const settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en' };
+        const controller = new OnboardingController({
+            getSettings: () => settings,
+            setSettings: vi.fn(),
+            showSettings: vi.fn(),
+            parseJapanese: vi.fn(),
+        });
+
+        await expect(controller.showIfNeeded()).resolves.toBe(true);
+
+        expect(document.querySelector('input[name="newTabEnabled"]')).toBeNull();
     });
 });
 

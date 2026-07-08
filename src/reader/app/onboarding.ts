@@ -5,6 +5,7 @@ import { Logger } from './logger';
 import { defaultDictionaryLookupLinks, formatShortcutEvent, sanitizeAccentColor, saveSettings } from '../settings/index';
 import type { InterfaceLanguage, ReaderSettings } from './types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
+import { runningAsBrowserExtension } from './runtime-env';
 
 const log = Logger.scope('Onboarding');
 const ONBOARDING_ACCENT_SWATCHES = ['#5ea780', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#0891b2'] as const;
@@ -45,6 +46,7 @@ export class OnboardingController {
     private youtubeImmersionInput?: HTMLInputElement;
     private preferJapaneseSiteLanguageInput?: HTMLInputElement;
     private offlineDictionariesInput?: HTMLInputElement;
+    private newTabEnabledInput?: HTMLInputElement;
     private pageScanModeInputs: HTMLInputElement[] = [];
     private ocrModeInputs: HTMLInputElement[] = [];
     private manualPageScanShortcutInput?: HTMLInputElement;
@@ -180,6 +182,13 @@ export class OnboardingController {
         this.youtubeImmersionInput = checkboxInput('youtubeImmersionEnabled', this.options.getSettings().youtubeImmersionEnabled);
         this.preferJapaneseSiteLanguageInput = checkboxInput('preferJapaneseSiteLanguage', this.options.getSettings().preferJapaneseSiteLanguage);
         this.offlineDictionariesInput = checkboxInput('onboardingInstallOfflineDictionaries', true);
+        // Extension only: surface the "Set Study as the new tab" toggle up front
+        // so new users know they can turn Study off for new tabs (Arka_rg could
+        // not find where to disable it). Userscript builds cannot override the
+        // browser new tab, so the control is hidden there.
+        this.newTabEnabledInput = runningAsBrowserExtension()
+            ? checkboxInput('newTabEnabled', this.options.getSettings().newTabEnabled)
+            : undefined;
         const pageScanMode = createModeGroup(
             'pageScanMode',
             uiText(this.options.getSettings().interfaceLanguage, 'pageScanMode'),
@@ -214,6 +223,11 @@ export class OnboardingController {
             checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, 'preferJapaneseSiteLanguage')),
             checkboxLabel(this.offlineDictionariesInput, uiText(this.options.getSettings().interfaceLanguage, 'onboardingInstallOfflineDictionaries')),
         );
+        if (this.newTabEnabledInput) {
+            defaultColumn.append(
+                checkboxLabel(this.newTabEnabledInput, uiText(this.options.getSettings().interfaceLanguage, 'newTabEnabled')),
+            );
+        }
         const scanColumn = document.createElement('div');
         scanColumn.className = 'jpdb-reader-onboarding-option-column';
         scanColumn.append(pageScanMode.fieldset, ocrMode.fieldset);
@@ -305,6 +319,7 @@ export class OnboardingController {
         panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, 'youtubeImmersionEnabled'));
         panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, 'preferJapaneseSiteLanguage'));
         panel.querySelector('[data-onboarding-copy="onboardingInstallOfflineDictionaries"]')?.replaceChildren(uiText(language, 'onboardingInstallOfflineDictionaries'));
+        panel.querySelector('[data-onboarding-copy="newTabEnabled"]')?.replaceChildren(uiText(language, 'newTabEnabled'));
         panel.querySelector('[data-onboarding-mode-legend="pageScanMode"]')?.replaceChildren(uiText(language, 'pageScanMode'));
         setOnboardingModeLabel(panel, 'pageScanMode', 'off', uiText(language, 'pageScanModeOff'));
         setOnboardingModeLabel(panel, 'pageScanMode', 'auto', uiText(language, 'pageScanModeAuto'));
@@ -378,6 +393,7 @@ export class OnboardingController {
             localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
             youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
             preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
+            newTabEnabled: this.newTabEnabledInput?.checked ?? current.newTabEnabled,
             annotationsPaused: pageScanMode === 'off',
             manualScanEnabled: pageScanMode === 'manual',
             ocrEnabled: ocrMode !== 'off',
@@ -410,6 +426,7 @@ export class OnboardingController {
         this.youtubeImmersionInput = undefined;
         this.preferJapaneseSiteLanguageInput = undefined;
         this.offlineDictionariesInput = undefined;
+        this.newTabEnabledInput = undefined;
         this.pageScanModeInputs = [];
         this.ocrModeInputs = [];
         this.manualPageScanShortcutInput = undefined;
@@ -538,7 +555,7 @@ function button(text: string): HTMLButtonElement {
     return node;
 }
 
-function checkboxInput(name: keyof Pick<ReaderSettings, 'preferJapaneseSiteLanguage' | 'youtubeImmersionEnabled'> | 'onboardingInstallOfflineDictionaries', checked: boolean): HTMLInputElement {
+function checkboxInput(name: keyof Pick<ReaderSettings, 'preferJapaneseSiteLanguage' | 'youtubeImmersionEnabled' | 'newTabEnabled'> | 'onboardingInstallOfflineDictionaries', checked: boolean): HTMLInputElement {
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.name = name;
