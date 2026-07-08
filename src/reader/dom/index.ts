@@ -2739,18 +2739,21 @@ function observeTextMirrorHost(host: HTMLElement): void {
     state.lifecycle?.abort();
     const lifecycle = new AbortController();
     state.lifecycle = lifecycle;
-    // Hold the host through a WeakRef, NOT a closed-over strong reference: a
-    // long/paginated reader recycles host nodes constantly, and a strong ref in
-    // the observer callback would pin every detached host in memory (the OOM
-    // leak). deref() first; if the host is gone, disconnect and bail so the
-    // observer itself becomes collectable.
+    // The callback must close over NOTHING that strongly reaches `host`.
+    // WeakRef(host) alone is not enough: closing over `state` would pin the host
+    // too, because a concealTextOnly mirror's state.concealedText holds `host`
+    // itself (the [host, ...descendants] capture in concealTextMirrorHostText).
+    // So the callback closes over ONLY hostRef, derefs it, and looks the state
+    // back up through the host-keyed WeakMap — no strong host retention survives
+    // in the observer/callback/global-Set graph, so a framework detach lets the
+    // host (and this observer) be collected.
     const hostRef = new WeakRef(host);
     const observer: MutationObserver = new MutationObserver(mutations => {
         const liveHost = hostRef.deref();
-        if (!liveHost) {
-            // The host was collected: disconnect THIS observer (captured, not
-            // state.observer which a re-observe could have replaced) so it — and
-            // its records — become collectable too.
+        const liveState = liveHost ? textMirrorHosts.get(liveHost) : undefined;
+        if (!liveHost || !liveState || liveState.observer !== observer) {
+            // Host collected, teardown already ran, or a re-observe replaced us:
+            // drop and disconnect THIS observer so it (and its records) collect.
             liveTextMirrorObservers.delete(observer);
             observer.disconnect();
             return;
@@ -2778,7 +2781,7 @@ function observeTextMirrorHost(host: HTMLElement): void {
         // reassertTextMirrorHostStyles only writes a property that was actually
         // stripped, so it cannot loop on the style mutation it makes.
         if (mutations.some(mutation => mutation.type === 'attributes' && mutation.target === liveHost)) {
-            reassertTextMirrorHostStyles(liveHost, state);
+            reassertTextMirrorHostStyles(liveHost, liveState);
         }
         if (!mutations.some(mutation => mutation.type === 'childList' || mutation.type === 'characterData')) return;
         const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
@@ -2786,51 +2789,59 @@ function observeTextMirrorHost(host: HTMLElement): void {
             removeTextMirror(liveHost);
             return;
         }
-        if (currentText !== state.sourceText) {
+        if (currentText !== liveState.sourceText) {
             // Keep the stale mirror briefly so a routine title re-render can
             // be rescanned without a bare-text flash — but only briefly: when
             // the element was recycled for DIFFERENT content (the comments
             // header becoming the composer on iPad) and no rescan refreshes
             // the mirror, it would keep painting the OLD text over the new
             // content while hiding it. Restore the host once the grace passes.
-            reassertTextMirrorHostStyles(liveHost, state);
+            reassertTextMirrorHostStyles(liveHost, liveState);
             dispatchTextMirrorStale(liveHost);
-            clearTimeout(state.staleRemovalTimer);
-            const staleSource = state.sourceText;
-            state.staleRemovalTimer = setTimeout(() => {
+            clearTimeout(liveState.staleRemovalTimer);
+            const staleSource = liveState.sourceText;
+            const staleLifecycle = liveState.lifecycle;
+            liveState.staleRemovalTimer = setTimeout(() => {
                 // aborted -> teardown already ran; do not touch a stale host.
-                if (lifecycle.signal.aborted) return;
+                if (staleLifecycle?.signal.aborted) return;
                 const timerHost = hostRef.deref();
-                if (!timerHost || textMirrorHosts.get(timerHost) !== state || state.sourceText !== staleSource) return;
-                if (normalizedMirrorHostText(nativeTextMirrorHostText(timerHost)) !== state.sourceText) removeTextMirror(timerHost);
+                const timerState = timerHost ? textMirrorHosts.get(timerHost) : undefined;
+                if (!timerHost || timerState !== liveState || liveState.sourceText !== staleSource) return;
+                if (normalizedMirrorHostText(nativeTextMirrorHostText(timerHost)) !== liveState.sourceText) removeTextMirror(timerHost);
             }, STALE_MIRROR_REMOVAL_GRACE_MS);
         }
     });
     state.observer = observer;
     observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
-    // Track the live observer so a guarded token-apply can drain its
-    // self-inflicted records; drop it from the set when this observe cycle is
-    // torn down (abort fires on removeTextMirror and on the next re-observe).
-    liveTextMirrorObservers.add(observer);
+    // Track the live observer (keyed to a WeakRef of its host, never the host
+    // itself) so a guarded token-apply can drain its self-inflicted records AND
+    // sweep observers whose host has detached without Yomu teardown. Dropped
+    // when this observe cycle is torn down (abort fires on removeTextMirror and
+    // on the next re-observe).
+    liveTextMirrorObservers.set(observer, hostRef);
     lifecycle.signal.addEventListener('abort', () => liveTextMirrorObservers.delete(observer), { once: true });
 }
 
-// Live per-host mirror observers. The visible-page scanner's batched
-// token-apply tears down and rebuilds mirrors on hosts it re-scans; those
-// mutations fire these PER-HOST observers (pauseMutationObserver pauses only
-// the app-level auto-scan observer, not these). Each fired observer would
-// dispatch a stale event, the app schedules another scan, and long/dynamic
-// pages spin a self-sustaining allocation loop that OOM-crashes the tab.
+// Live per-host mirror observers, keyed to a WeakRef of their host (never the
+// host itself, so this map cannot pin a detached host). The visible-page
+// scanner's batched token-apply tears down and rebuilds mirrors on hosts it
+// re-scans; those mutations fire these PER-HOST observers (pauseMutationObserver
+// pauses only the app-level auto-scan observer, not these). Each fired observer
+// would dispatch a stale event, the app schedules another scan, and long/
+// dynamic pages spin a self-sustaining allocation loop that OOM-crashes the tab.
 //
 // MutationObserver callbacks run as microtasks AFTER the synchronous apply
 // block returns, so a bare depth flag checked at dispatch time is already 0 by
 // then. Instead, at the END of each guarded apply we synchronously DRAIN each
 // live observer's queued records (takeRecords), discarding the self-inflicted
 // mutations before their microtask runs — the callback then fires with an
-// empty record set and early-returns. A REAL external re-render outside this
-// guard (e.g. the 1.6.108 YouTube title-recycler) is never drained, so its
-// legitimate stale-rescan still fires.
-const liveTextMirrorObservers = new Set<MutationObserver>();
+// empty record set and early-returns. (takeRecords drains ALL live observers,
+// so an unrelated external mutation queued in the same delivery turn could be
+// dropped; the app-level auto-scan observer re-covers that surface on its next
+// settle, so no annotation is lost.) A REAL external re-render that queues in a
+// LATER task (the common recycler case, e.g. the 1.6.108 YouTube title-recycler)
+// is never drained, so its legitimate stale-rescan still fires.
+const liveTextMirrorObservers = new Map<MutationObserver, WeakRef<HTMLElement>>();
 let mirrorTokenApplyDepth = 0;
 
 export function withMirrorTokenApply<T>(callback: () => T): T {
@@ -2841,9 +2852,29 @@ export function withMirrorTokenApply<T>(callback: () => T): T {
         mirrorTokenApplyDepth -= 1;
         // Only drain once the outermost apply block completes, so a nested
         // apply does not clear records the outer block still needs to ignore.
-        if (mirrorTokenApplyDepth === 0) {
-            for (const observer of liveTextMirrorObservers) observer.takeRecords();
+        if (mirrorTokenApplyDepth === 0) sweepAndDrainTextMirrorObservers();
+    }
+}
+
+// Runs every guarded apply (once per scan cadence during reading). For each
+// tracked observer: if its host WeakRef is dead OR the host has left the DOM
+// without Yomu teardown (a framework replaced its subtree — the exact OOM
+// scenario, where the observer would otherwise sit in this map forever and its
+// callback never fire again to self-clean), disconnect it, abort its lifecycle,
+// and drop it — releasing the detached host. Live hosts just get their records
+// drained. Sweeping !isConnected is safe: the observer callback already tears a
+// mirror down the moment it fires on an off-DOM host (the !liveHost.isConnected
+// branch), so a detached host never legitimately keeps its mirror to reattach.
+function sweepAndDrainTextMirrorObservers(): void {
+    for (const [observer, hostRef] of liveTextMirrorObservers) {
+        const host = hostRef.deref();
+        if (!host || !host.isConnected) {
+            liveTextMirrorObservers.delete(observer);
+            observer.disconnect();
+            if (host) removeTextMirror(host);
+            continue;
         }
+        observer.takeRecords();
     }
 }
 

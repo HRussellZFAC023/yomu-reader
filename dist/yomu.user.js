@@ -5976,7 +5976,8 @@ function observeTextMirrorHost(host) {
   const hostRef = new WeakRef(host);
   const observer = new MutationObserver((mutations) => {
   const liveHost = hostRef.deref();
-  if (!liveHost) {
+  const liveState = liveHost ? textMirrorHosts.get(liveHost) : void 0;
+  if (!liveHost || !liveState || liveState.observer !== observer) {
     liveTextMirrorObservers.delete(observer);
     observer.disconnect();
     return;
@@ -5990,7 +5991,7 @@ function observeTextMirrorHost(host) {
     return;
   }
   if (mutations.some((mutation) => mutation.type === "attributes" && mutation.target === liveHost)) {
-    reassertTextMirrorHostStyles(liveHost, state);
+    reassertTextMirrorHostStyles(liveHost, liveState);
   }
   if (!mutations.some((mutation) => mutation.type === "childList" || mutation.type === "characterData")) return;
   const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
@@ -5998,25 +5999,27 @@ function observeTextMirrorHost(host) {
     removeTextMirror(liveHost);
     return;
   }
-  if (currentText !== state.sourceText) {
-    reassertTextMirrorHostStyles(liveHost, state);
+  if (currentText !== liveState.sourceText) {
+    reassertTextMirrorHostStyles(liveHost, liveState);
     dispatchTextMirrorStale(liveHost);
-    clearTimeout(state.staleRemovalTimer);
-    const staleSource = state.sourceText;
-    state.staleRemovalTimer = setTimeout(() => {
-      if (lifecycle.signal.aborted) return;
+    clearTimeout(liveState.staleRemovalTimer);
+    const staleSource = liveState.sourceText;
+    const staleLifecycle = liveState.lifecycle;
+    liveState.staleRemovalTimer = setTimeout(() => {
+      if (staleLifecycle?.signal.aborted) return;
       const timerHost = hostRef.deref();
-      if (!timerHost || textMirrorHosts.get(timerHost) !== state || state.sourceText !== staleSource) return;
-      if (normalizedMirrorHostText(nativeTextMirrorHostText(timerHost)) !== state.sourceText) removeTextMirror(timerHost);
+      const timerState = timerHost ? textMirrorHosts.get(timerHost) : void 0;
+      if (!timerHost || timerState !== liveState || liveState.sourceText !== staleSource) return;
+      if (normalizedMirrorHostText(nativeTextMirrorHostText(timerHost)) !== liveState.sourceText) removeTextMirror(timerHost);
     }, STALE_MIRROR_REMOVAL_GRACE_MS);
   }
   });
   state.observer = observer;
   observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
-  liveTextMirrorObservers.add(observer);
+  liveTextMirrorObservers.set(observer, hostRef);
   lifecycle.signal.addEventListener("abort", () => liveTextMirrorObservers.delete(observer), { once: true });
 }
-const liveTextMirrorObservers = new Set();
+const liveTextMirrorObservers = new Map();
 let mirrorTokenApplyDepth = 0;
 function withMirrorTokenApply(callback) {
   mirrorTokenApplyDepth += 1;
@@ -6024,9 +6027,19 @@ function withMirrorTokenApply(callback) {
   return callback();
   } finally {
   mirrorTokenApplyDepth -= 1;
-  if (mirrorTokenApplyDepth === 0) {
-    for (const observer of liveTextMirrorObservers) observer.takeRecords();
+  if (mirrorTokenApplyDepth === 0) sweepAndDrainTextMirrorObservers();
   }
+}
+function sweepAndDrainTextMirrorObservers() {
+  for (const [observer, hostRef] of liveTextMirrorObservers) {
+  const host = hostRef.deref();
+  if (!host || !host.isConnected) {
+    liveTextMirrorObservers.delete(observer);
+    observer.disconnect();
+    if (host) removeTextMirror(host);
+    continue;
+  }
+  observer.takeRecords();
   }
 }
 function dispatchTextMirrorStale(host) {
@@ -31707,7 +31720,9 @@ async function loadReaderStartupSettings(options) {
   };
 }
 function shouldShowReaderOnboarding(shouldShowWelcome, href = location.href) {
-  return shouldShowWelcome && !isYomuHostedAppUrl(href);
+  if (!shouldShowWelcome) return false;
+  if (runningAsBrowserExtension()) return isYomuNewTabUrl(href);
+  return !isYomuHostedAppUrl(href);
 }
 function installReaderStartupBridge() {
   initJpdbReviewPageBridge();
