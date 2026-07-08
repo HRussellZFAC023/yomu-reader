@@ -4,6 +4,7 @@ import {
     isCurrentScanTarget,
     makeRoomForRubyInCroppedRows,
     removeStaleControlTextMirrors,
+    withMirrorTokenApply,
     type FragmentTextTarget,
     type ScanTextTarget,
     type TextFragment,
@@ -369,7 +370,14 @@ export class VisiblePageScanner {
             if (this.shouldStopApplyingTokens(generation)) return [...allChangedRoots];
             const start = index;
             const batch = targets.slice(start, start + applyBatchSize);
-            this.dependencies.pauseMutationObserver(() => {
+            this.dependencies.pauseMutationObserver(() => withMirrorTokenApply(() => {
+                // pauseMutationObserver only pauses the app-level auto-scan
+                // observer; the PER-HOST text-mirror observers stay live and
+                // would fire on our own teardown/rebuild mutations, dispatching
+                // a stale event that schedules yet another scan (the OOM
+                // feedback loop). withMirrorTokenApply suppresses that dispatch
+                // for the duration of our own apply — real external re-renders
+                // (outside this block) still trigger legitimate rescans.
                 if (this.shouldStopApplyingTokens(generation)) return;
                 const changedRoots = new Set<ParentNode>();
                 const applyPlans = scanApplyPlans(batch, parsed, start);
@@ -384,7 +392,7 @@ export class VisiblePageScanner {
                     makeRoomForRubyInCroppedRows(root);
                     this.dependencies.refreshWordContrast?.(root);
                 });
-            });
+            }));
             if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
         }
         return [...allChangedRoots];

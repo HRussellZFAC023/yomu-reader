@@ -1,6 +1,15 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { applyTokensToScanTarget, collectTextTargetsIn, removeNonDestructiveScanMirrors, type FragmentTextTarget } from '../../src/reader/dom';
+import {
+    applyTokensToScanTarget,
+    collectTextTargetsIn,
+    NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
+    removeNonDestructiveScanMirrors,
+    STALE_MIRROR_REMOVAL_GRACE_MS,
+    withMirrorTokenApply,
+    type FragmentTextTarget,
+    type ScanTextTarget,
+} from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -230,5 +239,182 @@ describe('repaint-loop mirror fallback', () => {
 
         expect(document.querySelector<HTMLElement>('.jpdb-reader-text-mirror')).toBe(firstMirror);
         expect(document.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
+    });
+});
+
+// A long/paginated reading surface (Narou, ttsu) recycles the same host slots
+// as the reader scrolls: each new title paints a mirror, the SPA later swaps
+// the host content, we paint again. Every mirror install creates a per-host
+// MutationObserver. If a recycled/detached host's observer is never
+// disconnected, the observer's callback closure pins the detached host in
+// memory forever — an unbounded leak that OOM-crashes the tab. Every observer
+// created for a mirror MUST be disconnected when that mirror is torn down.
+describe('text mirror observer lifecycle (leak guard)', () => {
+    function paintNonDestructive(host: HTMLElement): void {
+        const target = collectTextTargetsIn(host, 40, false).find(t => t.text.trim() === TEXT)!;
+        expect(target).toBeTruthy();
+        applyTokensToScanTarget({ ...target, nonDestructive: true }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+    }
+
+    it('disconnects one observer for every observe across detached-host recycle cycles', () => {
+        const observeSpy = vi.spyOn(MutationObserver.prototype, 'observe');
+        const disconnectSpy = vi.spyOn(MutationObserver.prototype, 'disconnect');
+
+        try {
+            // A virtualized reader (Narou, ttsu) recycles slots by detaching the
+            // whole host node and mounting a fresh one. On the leaky code the
+            // detached host's per-host observer is NEVER disconnected — its
+            // callback closure strong-references the host, so host<->state<->
+            // observer form a self-sustaining cycle that survives detach and
+            // GC (the OOM leak). The fix disconnects the prior/placeholder
+            // observer when a new one is installed, so across N recycle cycles
+            // the number of disconnects matches the number of observe() calls.
+            const CYCLES = 12;
+            for (let cycle = 0; cycle < CYCLES; cycle++) {
+                document.body.innerHTML = `<span id="title" class="ytAttributedStringHost">${TEXT}</span>`;
+                const host = document.getElementById('title')!;
+                paintNonDestructive(host);
+                host.remove();
+            }
+
+            // Every mirror install ran observe(); each must be balanced by a
+            // disconnect (leaky code left them all connected -> disconnect == 0).
+            expect(observeSpy.mock.calls.length).toBeGreaterThanOrEqual(CYCLES);
+            expect(disconnectSpy.mock.calls.length).toBeGreaterThanOrEqual(observeSpy.mock.calls.length);
+        } finally {
+            observeSpy.mockRestore();
+            disconnectSpy.mockRestore();
+        }
+    });
+
+    it('does not fire a dangling stale-removal timer after the mirror host is torn down', async () => {
+        vi.useFakeTimers();
+        try {
+            document.body.innerHTML = `<span id="title" class="ytAttributedStringHost">${TEXT}</span>`;
+            const host = document.getElementById('title')!;
+            paintNonDestructive(host);
+
+            // A benign external re-render changes the host text -> the per-host
+            // observer schedules a stale-removal timer (STALE_MIRROR_REMOVAL_GRACE_MS).
+            const textNode = Array.from(host.childNodes).find(n => n.nodeType === Node.TEXT_NODE) as Text;
+            textNode.nodeValue = '新しい題名';
+            // Flush the MutationObserver microtask so the timer is scheduled.
+            await Promise.resolve();
+
+            // Tear down before the grace elapses (recycler swaps the slot away).
+            removeNonDestructiveScanMirrors(document);
+
+            // Advancing past the grace must NOT fire a dangling callback that
+            // re-touches the torn-down host (the aborted lifecycle no-ops it).
+            expect(() => vi.advanceTimersByTime(STALE_MIRROR_REMOVAL_GRACE_MS + 50)).not.toThrow();
+            // The host must have been fully restored by teardown (no residual
+            // hidden state from a late timer).
+            expect(host.style.getPropertyValue('visibility')).toBe('');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('tears down control-mirror change/input listeners on removal (no accumulation across recycles)', () => {
+        // Regression guard for LEAK 4: a control (button/input) text mirror adds
+        // change+input listeners bound to a stored closure. Across repeated
+        // mirror install/teardown cycles the net listener count must stay
+        // bounded — teardown (AbortController.abort) removes both every time.
+        document.body.innerHTML = `<button id="btn">${TEXT}</button>`;
+        const host = document.getElementById('btn')!;
+        const added = new Set<EventListenerOrEventListenerObject>();
+        const addSpy = vi.spyOn(host, 'addEventListener');
+        const removeSpy = vi.spyOn(host, 'removeEventListener');
+        addSpy.mockImplementation(function (this: HTMLElement, type: string, listener: EventListenerOrEventListenerObject, opts?: boolean | AddEventListenerOptions) {
+            if ((type === 'change' || type === 'input') && listener) {
+                added.add(listener);
+                if (opts && typeof opts === 'object' && opts.signal) {
+                    opts.signal.addEventListener('abort', () => added.delete(listener));
+                }
+            }
+            return HTMLElement.prototype.addEventListener.call(this, type, listener, opts);
+        });
+        removeSpy.mockImplementation(function (this: HTMLElement, type: string, listener: EventListenerOrEventListenerObject, opts?: boolean | EventListenerOptions) {
+            if (type === 'change' || type === 'input') added.delete(listener);
+            return HTMLElement.prototype.removeEventListener.call(this, type, listener, opts);
+        });
+
+        try {
+            const target = {
+                text: TEXT, parent: host, fragments: [], nonDestructive: true,
+                controlTextMirror: true, passiveInteraction: true,
+            } as unknown as ScanTextTarget;
+            for (let cycle = 0; cycle < 6; cycle++) {
+                applyTokensToScanTarget(target, [{ ...token(), rubies: [] }], { ...DEFAULT_SETTINGS, furiganaMode: 'off' });
+                removeNonDestructiveScanMirrors(document);
+            }
+            // After the final teardown, no change/input listener may remain live.
+            expect(added.size).toBe(0);
+        } finally {
+            addSpy.mockRestore();
+            removeSpy.mockRestore();
+        }
+    });
+});
+
+// The visible-page scanner batches token-apply inside pauseMutationObserver
+// (which pauses only the app-level auto-scan observer). The PER-HOST mirror
+// observers are NOT paused, so Yomu's own mirror teardown/rebuild mutations
+// fire them -> dispatchTextMirrorStale -> the app schedules ANOTHER scan ->
+// self-sustaining allocation loop on long/dynamic pages (the OOM feedback
+// loop). Yomu's own token-apply must not re-trigger the stale-rescan path,
+// while a REAL external re-render still must.
+describe('mirror stale-event feedback loop guard', () => {
+    function paintNonDestructive(host: HTMLElement): void {
+        const target = collectTextTargetsIn(host, 40, false).find(t => t.text.trim() === TEXT)!;
+        expect(target).toBeTruthy();
+        applyTokensToScanTarget({ ...target, nonDestructive: true }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+    }
+
+    it('does not dispatch a stale event for host mutations made during Yomu token-apply', async () => {
+        document.body.innerHTML = `<span id="title" class="ytAttributedStringHost">${TEXT}</span>`;
+        const host = document.getElementById('title')!;
+        paintNonDestructive(host);
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
+
+        let staleEvents = 0;
+        const onStale = () => { staleEvents += 1; };
+        document.addEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, onStale);
+
+        // During a guarded apply the scanner mutates host subtrees that carry
+        // OTHER live mirrors (batched apply touches many hosts). Such a host-text
+        // change queues the per-host observer, but because it happened inside the
+        // apply guard, its records are drained before the microtask runs — no
+        // stale event, so no follow-up scan is scheduled (the loop is broken).
+        // The observer callback fires as a microtask AFTER the synchronous guard
+        // exits, so this specifically exercises the end-of-apply record drain
+        // (a bare synchronous flag would already be 0 by callback time).
+        withMirrorTokenApply(() => {
+            host.firstChild!.nodeValue = '別の題名';
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, onStale);
+
+        expect(staleEvents).toBe(0);
+    });
+
+    it('still dispatches a stale event for a REAL external re-render (outside token-apply)', async () => {
+        document.body.innerHTML = `<span id="title" class="ytAttributedStringHost">${TEXT}</span>`;
+        const host = document.getElementById('title')!;
+        paintNonDestructive(host);
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
+
+        let staleEvents = 0;
+        const onStale = () => { staleEvents += 1; };
+        document.addEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, onStale);
+
+        // Recycler swaps the title in place with NO apply guard active — the
+        // 1.6.108 YouTube title-recycler rescan must still fire.
+        const textNode = Array.from(host.childNodes).find(n => n.nodeType === Node.TEXT_NODE) as Text;
+        textNode.nodeValue = '新しい題名';
+        await new Promise(resolve => setTimeout(resolve, 0));
+        document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, onStale);
+
+        expect(staleEvents).toBeGreaterThan(0);
     });
 });

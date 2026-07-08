@@ -5124,6 +5124,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   mirror.dataset.jpdbReaderTextMirror = "true";
   mirror.dataset.sourceText = text2;
   mirror.dataset.renderSignature = signature;
+  mirror.setAttribute("aria-hidden", "true");
   const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
   const state = styleTextMirrorHost(host, hasRenderedRuby);
   try {
@@ -5416,15 +5417,18 @@ function styleControlTextMirror(mirror, host, placeholderOverlay) {
   return state;
 }
 function observeControlTextMirrorHost(host, state) {
-  host.addEventListener("change", state.onChange);
-  host.addEventListener("input", state.onChange);
+  const previous = controlTextMirrorHosts.get(host);
+  previous?.listeners?.abort();
+  const listeners = new AbortController();
+  state.listeners = listeners;
+  host.addEventListener("change", state.onChange, { signal: listeners.signal });
+  host.addEventListener("input", state.onChange, { signal: listeners.signal });
   controlTextMirrorHosts.set(host, state);
 }
 function removeControlTextMirror(host) {
   const state = controlTextMirrorHosts.get(host);
   if (state) {
-  host.removeEventListener("change", state.onChange);
-  host.removeEventListener("input", state.onChange);
+  state.listeners?.abort();
   restoreControlTextMirrorHost(host, state);
   }
   currentControlTextMirror(host)?.remove();
@@ -5963,36 +5967,67 @@ function observeTextMirrorHost(host) {
   const state = textMirrorHosts.get(host);
   if (!state) return;
   state.sourceText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
-  state.observer = new MutationObserver((mutations) => {
-  if (mutations.every(mutationInsideTextMirror)) return;
-  if (!currentTextMirror(host)) {
-    if (host.isConnected && HAS_JAPANESE$1.test(normalizedMirrorHostText(nativeTextMirrorHostText(host)))) {
-      dispatchTextMirrorStale(host);
-    }
-    removeTextMirror(host);
+  state.observer.disconnect();
+  clearTimeout(state.staleRemovalTimer);
+  state.staleRemovalTimer = void 0;
+  state.lifecycle?.abort();
+  const lifecycle = new AbortController();
+  state.lifecycle = lifecycle;
+  const hostRef = new WeakRef(host);
+  const observer = new MutationObserver((mutations) => {
+  const liveHost = hostRef.deref();
+  if (!liveHost) {
+    liveTextMirrorObservers.delete(observer);
+    observer.disconnect();
     return;
   }
-  if (mutations.some((mutation) => mutation.type === "attributes" && mutation.target === host)) {
-    reassertTextMirrorHostStyles(host, state);
+  if (mutations.every(mutationInsideTextMirror)) return;
+  if (!currentTextMirror(liveHost)) {
+    if (liveHost.isConnected && HAS_JAPANESE$1.test(normalizedMirrorHostText(nativeTextMirrorHostText(liveHost)))) {
+      dispatchTextMirrorStale(liveHost);
+    }
+    removeTextMirror(liveHost);
+    return;
+  }
+  if (mutations.some((mutation) => mutation.type === "attributes" && mutation.target === liveHost)) {
+    reassertTextMirrorHostStyles(liveHost, state);
   }
   if (!mutations.some((mutation) => mutation.type === "childList" || mutation.type === "characterData")) return;
-  const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
-  if (!host.isConnected || !HAS_JAPANESE$1.test(currentText)) {
-    removeTextMirror(host);
+  const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
+  if (!liveHost.isConnected || !HAS_JAPANESE$1.test(currentText)) {
+    removeTextMirror(liveHost);
     return;
   }
   if (currentText !== state.sourceText) {
-    reassertTextMirrorHostStyles(host, state);
-    dispatchTextMirrorStale(host);
+    reassertTextMirrorHostStyles(liveHost, state);
+    dispatchTextMirrorStale(liveHost);
     clearTimeout(state.staleRemovalTimer);
     const staleSource = state.sourceText;
     state.staleRemovalTimer = setTimeout(() => {
-      if (textMirrorHosts.get(host) !== state || state.sourceText !== staleSource) return;
-      if (normalizedMirrorHostText(nativeTextMirrorHostText(host)) !== state.sourceText) removeTextMirror(host);
+      if (lifecycle.signal.aborted) return;
+      const timerHost = hostRef.deref();
+      if (!timerHost || textMirrorHosts.get(timerHost) !== state || state.sourceText !== staleSource) return;
+      if (normalizedMirrorHostText(nativeTextMirrorHostText(timerHost)) !== state.sourceText) removeTextMirror(timerHost);
     }, STALE_MIRROR_REMOVAL_GRACE_MS);
   }
   });
-  state.observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+  state.observer = observer;
+  observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+  liveTextMirrorObservers.add(observer);
+  lifecycle.signal.addEventListener("abort", () => liveTextMirrorObservers.delete(observer), { once: true });
+}
+const liveTextMirrorObservers = new Set();
+let mirrorTokenApplyDepth = 0;
+function withMirrorTokenApply(callback) {
+  mirrorTokenApplyDepth += 1;
+  try {
+  return callback();
+  } finally {
+  mirrorTokenApplyDepth -= 1;
+  if (mirrorTokenApplyDepth === 0) {
+    for (const observer of liveTextMirrorObservers) observer.takeRecords();
+  }
+  }
 }
 function dispatchTextMirrorStale(host) {
   host.dispatchEvent(new CustomEvent(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, {
@@ -6023,7 +6058,9 @@ function normalizedMirrorHostText(text2) {
 function removeTextMirror(host) {
   const state = textMirrorHosts.get(host);
   state?.observer.disconnect();
+  state?.lifecycle?.abort();
   clearTimeout(state?.staleRemovalTimer);
+  if (state) state.staleRemovalTimer = void 0;
   ownedTextMirrors(host).forEach((mirror) => mirror.remove());
   if (state) restoreTextMirrorHost(host, state);
   textMirrorHosts.delete(host);
@@ -34086,7 +34123,7 @@ class VisiblePageScanner {
     if (this.shouldStopApplyingTokens(generation)) return [...allChangedRoots];
     const start = index;
     const batch = targets.slice(start, start + applyBatchSize);
-    this.dependencies.pauseMutationObserver(() => {
+    this.dependencies.pauseMutationObserver(() => withMirrorTokenApply(() => {
       if (this.shouldStopApplyingTokens(generation)) return;
       const changedRoots = new Set();
       const applyPlans = scanApplyPlans(batch, parsed, start);
@@ -34101,7 +34138,7 @@ class VisiblePageScanner {
         makeRoomForRubyInCroppedRows(root);
         this.dependencies.refreshWordContrast?.(root);
       });
-    });
+    }));
     if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
   }
   return [...allChangedRoots];

@@ -262,6 +262,9 @@ interface TextMirrorHostState {
     observer: MutationObserver;
     sourceText: string;
     staleRemovalTimer?: ReturnType<typeof setTimeout>;
+    // Aborted on teardown so a pending stale-removal timer scheduled by the
+    // per-host observer can never fire against a removed/recycled host.
+    lifecycle?: AbortController;
     visibility: string;
     visibilityPriority: string;
     overflow: string;
@@ -287,6 +290,10 @@ interface ConcealedTextRecord {
 
 interface ControlTextMirrorHostState {
     onChange: () => void;
+    // Aborted on teardown / before re-observing so the change+input listeners
+    // are always removed — a stored closure can outlive a detached host and
+    // re-adding without tearing down the old pair leaks listeners.
+    listeners?: AbortController;
     placeholderHidden: boolean;
     placeholderHiddenAttribute: string | null;
     parent?: HTMLElement;
@@ -1952,16 +1959,23 @@ function styleControlTextMirror(mirror: HTMLElement, host: HTMLElement, placehol
 }
 
 function observeControlTextMirrorHost(host: HTMLElement, state: ControlTextMirrorHostState): void {
-    host.addEventListener('change', state.onChange);
-    host.addEventListener('input', state.onChange);
+    // Tear down any listeners from a prior observe cycle on the SAME host before
+    // wiring new ones — re-applying tokens to a control re-runs this path.
+    const previous = controlTextMirrorHosts.get(host);
+    previous?.listeners?.abort();
+    const listeners = new AbortController();
+    state.listeners = listeners;
+    host.addEventListener('change', state.onChange, { signal: listeners.signal });
+    host.addEventListener('input', state.onChange, { signal: listeners.signal });
     controlTextMirrorHosts.set(host, state);
 }
 
 function removeControlTextMirror(host: HTMLElement): void {
     const state = controlTextMirrorHosts.get(host);
     if (state) {
-        host.removeEventListener('change', state.onChange);
-        host.removeEventListener('input', state.onChange);
+        // abort() removes both listeners at once; even a detached host (whose
+        // removeEventListener would be a no-op against a fresh node) is covered.
+        state.listeners?.abort();
         restoreControlTextMirrorHost(host, state);
     }
     currentControlTextMirror(host)?.remove();
@@ -2715,9 +2729,34 @@ function observeTextMirrorHost(host: HTMLElement): void {
     // hosts with any aria-hidden node permanently "stale" — every re-render
     // then tore the mirror down after the grace instead of keeping it.
     state.sourceText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
-    state.observer = new MutationObserver(mutations => {
+    // Tear down any observer/timer from a prior observe cycle before wiring a
+    // fresh one: styleTextMirrorHost seeds state.observer with a no-op
+    // placeholder, and a re-observe on a surviving host would otherwise orphan
+    // the previous real observer (its callback closure keeps the host alive).
+    state.observer.disconnect();
+    clearTimeout(state.staleRemovalTimer);
+    state.staleRemovalTimer = undefined;
+    state.lifecycle?.abort();
+    const lifecycle = new AbortController();
+    state.lifecycle = lifecycle;
+    // Hold the host through a WeakRef, NOT a closed-over strong reference: a
+    // long/paginated reader recycles host nodes constantly, and a strong ref in
+    // the observer callback would pin every detached host in memory (the OOM
+    // leak). deref() first; if the host is gone, disconnect and bail so the
+    // observer itself becomes collectable.
+    const hostRef = new WeakRef(host);
+    const observer: MutationObserver = new MutationObserver(mutations => {
+        const liveHost = hostRef.deref();
+        if (!liveHost) {
+            // The host was collected: disconnect THIS observer (captured, not
+            // state.observer which a re-observe could have replaced) so it — and
+            // its records — become collectable too.
+            liveTextMirrorObservers.delete(observer);
+            observer.disconnect();
+            return;
+        }
         if (mutations.every(mutationInsideTextMirror)) return;
-        if (!currentTextMirror(host)) {
+        if (!currentTextMirror(liveHost)) {
             // A recycler that rewrites host.textContent wipes the mirror AND
             // swaps in a fresh title in one batch (YouTube feed/Shorts grid).
             // removeTextMirror un-hides the host, but without queuing a rescan
@@ -2725,10 +2764,10 @@ function observeTextMirrorHost(host: HTMLElement): void {
             // unrelated scroll scan happened by. Signal staleness first so the
             // app re-scans this surface immediately (the host-text-changed path
             // below already does this for the mirror-survived case).
-            if (host.isConnected && HAS_JAPANESE.test(normalizedMirrorHostText(nativeTextMirrorHostText(host)))) {
-                dispatchTextMirrorStale(host);
+            if (liveHost.isConnected && HAS_JAPANESE.test(normalizedMirrorHostText(nativeTextMirrorHostText(liveHost)))) {
+                dispatchTextMirrorStale(liveHost);
             }
-            removeTextMirror(host);
+            removeTextMirror(liveHost);
             return;
         }
         // A YouTube re-render can rewrite the host's own style/class attribute
@@ -2738,13 +2777,13 @@ function observeTextMirrorHost(host: HTMLElement): void {
         // title looking missing/misaligned). Re-assert on host attribute changes;
         // reassertTextMirrorHostStyles only writes a property that was actually
         // stripped, so it cannot loop on the style mutation it makes.
-        if (mutations.some(mutation => mutation.type === 'attributes' && mutation.target === host)) {
-            reassertTextMirrorHostStyles(host, state);
+        if (mutations.some(mutation => mutation.type === 'attributes' && mutation.target === liveHost)) {
+            reassertTextMirrorHostStyles(liveHost, state);
         }
         if (!mutations.some(mutation => mutation.type === 'childList' || mutation.type === 'characterData')) return;
-        const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
-        if (!host.isConnected || !HAS_JAPANESE.test(currentText)) {
-            removeTextMirror(host);
+        const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
+        if (!liveHost.isConnected || !HAS_JAPANESE.test(currentText)) {
+            removeTextMirror(liveHost);
             return;
         }
         if (currentText !== state.sourceText) {
@@ -2754,17 +2793,58 @@ function observeTextMirrorHost(host: HTMLElement): void {
             // header becoming the composer on iPad) and no rescan refreshes
             // the mirror, it would keep painting the OLD text over the new
             // content while hiding it. Restore the host once the grace passes.
-            reassertTextMirrorHostStyles(host, state);
-            dispatchTextMirrorStale(host);
+            reassertTextMirrorHostStyles(liveHost, state);
+            dispatchTextMirrorStale(liveHost);
             clearTimeout(state.staleRemovalTimer);
             const staleSource = state.sourceText;
             state.staleRemovalTimer = setTimeout(() => {
-                if (textMirrorHosts.get(host) !== state || state.sourceText !== staleSource) return;
-                if (normalizedMirrorHostText(nativeTextMirrorHostText(host)) !== state.sourceText) removeTextMirror(host);
+                // aborted -> teardown already ran; do not touch a stale host.
+                if (lifecycle.signal.aborted) return;
+                const timerHost = hostRef.deref();
+                if (!timerHost || textMirrorHosts.get(timerHost) !== state || state.sourceText !== staleSource) return;
+                if (normalizedMirrorHostText(nativeTextMirrorHostText(timerHost)) !== state.sourceText) removeTextMirror(timerHost);
             }, STALE_MIRROR_REMOVAL_GRACE_MS);
         }
     });
-    state.observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+    state.observer = observer;
+    observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+    // Track the live observer so a guarded token-apply can drain its
+    // self-inflicted records; drop it from the set when this observe cycle is
+    // torn down (abort fires on removeTextMirror and on the next re-observe).
+    liveTextMirrorObservers.add(observer);
+    lifecycle.signal.addEventListener('abort', () => liveTextMirrorObservers.delete(observer), { once: true });
+}
+
+// Live per-host mirror observers. The visible-page scanner's batched
+// token-apply tears down and rebuilds mirrors on hosts it re-scans; those
+// mutations fire these PER-HOST observers (pauseMutationObserver pauses only
+// the app-level auto-scan observer, not these). Each fired observer would
+// dispatch a stale event, the app schedules another scan, and long/dynamic
+// pages spin a self-sustaining allocation loop that OOM-crashes the tab.
+//
+// MutationObserver callbacks run as microtasks AFTER the synchronous apply
+// block returns, so a bare depth flag checked at dispatch time is already 0 by
+// then. Instead, at the END of each guarded apply we synchronously DRAIN each
+// live observer's queued records (takeRecords), discarding the self-inflicted
+// mutations before their microtask runs — the callback then fires with an
+// empty record set and early-returns. A REAL external re-render outside this
+// guard (e.g. the 1.6.108 YouTube title-recycler) is never drained, so its
+// legitimate stale-rescan still fires.
+const liveTextMirrorObservers = new Set<MutationObserver>();
+let mirrorTokenApplyDepth = 0;
+
+export function withMirrorTokenApply<T>(callback: () => T): T {
+    mirrorTokenApplyDepth += 1;
+    try {
+        return callback();
+    } finally {
+        mirrorTokenApplyDepth -= 1;
+        // Only drain once the outermost apply block completes, so a nested
+        // apply does not clear records the outer block still needs to ignore.
+        if (mirrorTokenApplyDepth === 0) {
+            for (const observer of liveTextMirrorObservers) observer.takeRecords();
+        }
+    }
 }
 
 function dispatchTextMirrorStale(host: HTMLElement): void {
@@ -2803,7 +2883,11 @@ function normalizedMirrorHostText(text: string): string {
 function removeTextMirror(host: HTMLElement): void {
     const state = textMirrorHosts.get(host);
     state?.observer.disconnect();
+    // Abort BEFORE clearing so a stale-removal timer that already queued a
+    // microtask/callback sees signal.aborted and no-ops against the removed host.
+    state?.lifecycle?.abort();
     clearTimeout(state?.staleRemovalTimer);
+    if (state) state.staleRemovalTimer = undefined;
     // Remove EVERY mirror this host owns, not just its direct children: a
     // framework re-render can relocate the mirror into a wrapper below the host
     // (Discord), and a direct-child-only sweep would orphan it — the next paint
