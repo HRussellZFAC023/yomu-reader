@@ -101,6 +101,12 @@ export class VisiblePageScanner {
     private asbScanInFlight = false;
     private asbDrainTimer?: number;
     private clampSweepTimer: number | undefined;
+    // Roots already swept for ruby room during the in-flight scan. Each parse
+    // batch reserves room for its OWN newly-changed rows as it lands (so early
+    // rows never flash cropped during a long scan), but a root that recurs
+    // across the scan's 4-6 parse batches — the YouTube feed churn case — is
+    // swept only once instead of re-swept per batch (see applyTokens).
+    private rubyRoomSweptThisScan = new WeakSet<ParentNode>();
 
     constructor(private readonly dependencies: VisiblePageScannerDependencies) {}
 
@@ -256,6 +262,7 @@ export class VisiblePageScanner {
             return;
         }
 
+        this.rubyRoomSweptThisScan = new WeakSet<ParentNode>();
         const parsedAnyTokens = await this.parseAndApplyTargets(targets, generation, settings);
         if (this.isStaleScan(generation)) return;
         if (parsedAnyTokens && targets.length >= targetCollectionLimit && canContinueVisibleScan(targets)) {
@@ -389,13 +396,36 @@ export class VisiblePageScanner {
                 });
                 changedRoots.forEach(root => {
                     allChangedRoots.add(root);
-                    makeRoomForRubyInCroppedRows(root);
                     this.dependencies.refreshWordContrast?.(root);
                 });
             }));
             if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
         }
+        // Reserve ruby room for this parse batch's newly-changed rows once the
+        // batch has applied — so early rows never flash cropped during a long
+        // scan — but skip any root already swept earlier in THIS scan.
+        // makeRoomForRubyInCroppedRows measures and mutates layout (up to
+        // RUBY_ROOM_SWEEP_MAX_PASSES synchronous reflow passes per call), and on
+        // a churning YouTube feed the same roots recur across the scan's 4-6
+        // parse batches; the dedup collapses those re-sweeps to one per root
+        // (the sweep only ever grows and guards on previousRubyRoomHeight, so a
+        // recurring root's later state is already covered).
+        this.reserveRubyRoomForNewRoots(allChangedRoots);
         return [...allChangedRoots];
+    }
+
+    private reserveRubyRoomForNewRoots(roots: Iterable<ParentNode>): void {
+        // The sweep only mutates each box's inline style + data-* attributes.
+        // Neither observer wakes on that: the app auto-scan observer's
+        // attributeFilter excludes style/data-*, and the per-host mirror
+        // observer ignores attribute-only mutations in its callback — so no
+        // pauseMutationObserver/withMirrorTokenApply guard is needed here.
+        for (const root of roots) {
+            if (this.destroyed) return;
+            if (this.rubyRoomSweptThisScan.has(root)) continue;
+            this.rubyRoomSweptThisScan.add(root);
+            makeRoomForRubyInCroppedRows(root);
+        }
     }
 
     private shouldStopApplyingTokens(generation: number | undefined): boolean {
