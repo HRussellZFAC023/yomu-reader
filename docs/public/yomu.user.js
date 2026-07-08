@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.108
+// @version 1.6.109
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.108#sha256=nnuinwY1V6TkAuVP3+AVCjdZW/J2SLKnWCSLjg5g6UM=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.108#sha256=VRyueMC4LJp3+34/Kh6wb6Dhc34CJDqrMzlgDmhflwc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.108#sha256=UhOlkoQnRC+BJuZRapO4QJqqHi47Zolg9b1bGi8BHrI=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.108#sha256=jnUdQDQ4UCyztMyjwrkSjzbzGZ+Hb//V51c2J8phVH8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.108#sha256=dJcxc9MheKfGWb0wXRI8AZWk0RBQy1eLOW+glolG12Y=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.108#sha256=ggPB+gljU+OK3csLsY3BeCGtrnVCgvmZRLi9fjzdXxU=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.109#sha256=nnuinwY1V6TkAuVP3+AVCjdZW/J2SLKnWCSLjg5g6UM=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.109#sha256=VRyueMC4LJp3+34/Kh6wb6Dhc34CJDqrMzlgDmhflwc=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.109#sha256=UhOlkoQnRC+BJuZRapO4QJqqHi47Zolg9b1bGi8BHrI=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.109#sha256=jnUdQDQ4UCyztMyjwrkSjzbzGZ+Hb//V51c2J8phVH8=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.109#sha256=dJcxc9MheKfGWb0wXRI8AZWk0RBQy1eLOW+glolG12Y=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.109#sha256=PliUNu56D4LXtJTAs6dDts4NhSL8V9VU9OGuKiCZ6rs=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -5124,6 +5124,7 @@ function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
   mirror.dataset.jpdbReaderTextMirror = "true";
   mirror.dataset.sourceText = text2;
   mirror.dataset.renderSignature = signature;
+  mirror.setAttribute("aria-hidden", "true");
   const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
   const state = styleTextMirrorHost(host, hasRenderedRuby);
   try {
@@ -5416,15 +5417,18 @@ function styleControlTextMirror(mirror, host, placeholderOverlay) {
   return state;
 }
 function observeControlTextMirrorHost(host, state) {
-  host.addEventListener("change", state.onChange);
-  host.addEventListener("input", state.onChange);
+  const previous = controlTextMirrorHosts.get(host);
+  previous?.listeners?.abort();
+  const listeners = new AbortController();
+  state.listeners = listeners;
+  host.addEventListener("change", state.onChange, { signal: listeners.signal });
+  host.addEventListener("input", state.onChange, { signal: listeners.signal });
   controlTextMirrorHosts.set(host, state);
 }
 function removeControlTextMirror(host) {
   const state = controlTextMirrorHosts.get(host);
   if (state) {
-  host.removeEventListener("change", state.onChange);
-  host.removeEventListener("input", state.onChange);
+  state.listeners?.abort();
   restoreControlTextMirrorHost(host, state);
   }
   currentControlTextMirror(host)?.remove();
@@ -5963,36 +5967,80 @@ function observeTextMirrorHost(host) {
   const state = textMirrorHosts.get(host);
   if (!state) return;
   state.sourceText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
-  state.observer = new MutationObserver((mutations) => {
-  if (mutations.every(mutationInsideTextMirror)) return;
-  if (!currentTextMirror(host)) {
-    if (host.isConnected && HAS_JAPANESE$1.test(normalizedMirrorHostText(nativeTextMirrorHostText(host)))) {
-      dispatchTextMirrorStale(host);
-    }
-    removeTextMirror(host);
+  state.observer.disconnect();
+  clearTimeout(state.staleRemovalTimer);
+  state.staleRemovalTimer = void 0;
+  state.lifecycle?.abort();
+  const lifecycle = new AbortController();
+  state.lifecycle = lifecycle;
+  const hostRef = new WeakRef(host);
+  const observer = new MutationObserver((mutations) => {
+  const liveHost = hostRef.deref();
+  const liveState = liveHost ? textMirrorHosts.get(liveHost) : void 0;
+  if (!liveHost || !liveState || liveState.observer !== observer) {
+    liveTextMirrorObservers.delete(observer);
+    observer.disconnect();
     return;
   }
-  if (mutations.some((mutation) => mutation.type === "attributes" && mutation.target === host)) {
-    reassertTextMirrorHostStyles(host, state);
+  if (mutations.every(mutationInsideTextMirror)) return;
+  if (!currentTextMirror(liveHost)) {
+    if (liveHost.isConnected && HAS_JAPANESE$1.test(normalizedMirrorHostText(nativeTextMirrorHostText(liveHost)))) {
+      dispatchTextMirrorStale(liveHost);
+    }
+    removeTextMirror(liveHost);
+    return;
+  }
+  if (mutations.some((mutation) => mutation.type === "attributes" && mutation.target === liveHost)) {
+    reassertTextMirrorHostStyles(liveHost, liveState);
   }
   if (!mutations.some((mutation) => mutation.type === "childList" || mutation.type === "characterData")) return;
-  const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
-  if (!host.isConnected || !HAS_JAPANESE$1.test(currentText)) {
-    removeTextMirror(host);
+  const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
+  if (!liveHost.isConnected || !HAS_JAPANESE$1.test(currentText)) {
+    removeTextMirror(liveHost);
     return;
   }
-  if (currentText !== state.sourceText) {
-    reassertTextMirrorHostStyles(host, state);
-    dispatchTextMirrorStale(host);
-    clearTimeout(state.staleRemovalTimer);
-    const staleSource = state.sourceText;
-    state.staleRemovalTimer = setTimeout(() => {
-      if (textMirrorHosts.get(host) !== state || state.sourceText !== staleSource) return;
-      if (normalizedMirrorHostText(nativeTextMirrorHostText(host)) !== state.sourceText) removeTextMirror(host);
+  if (currentText !== liveState.sourceText) {
+    reassertTextMirrorHostStyles(liveHost, liveState);
+    dispatchTextMirrorStale(liveHost);
+    clearTimeout(liveState.staleRemovalTimer);
+    const staleSource = liveState.sourceText;
+    const staleLifecycle = liveState.lifecycle;
+    liveState.staleRemovalTimer = setTimeout(() => {
+      if (staleLifecycle?.signal.aborted) return;
+      const timerHost = hostRef.deref();
+      const timerState = timerHost ? textMirrorHosts.get(timerHost) : void 0;
+      if (!timerHost || !timerState || timerState.lifecycle !== staleLifecycle || timerState.sourceText !== staleSource) return;
+      if (normalizedMirrorHostText(nativeTextMirrorHostText(timerHost)) !== timerState.sourceText) removeTextMirror(timerHost);
     }, STALE_MIRROR_REMOVAL_GRACE_MS);
   }
   });
-  state.observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+  state.observer = observer;
+  observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+  liveTextMirrorObservers.set(observer, hostRef);
+  lifecycle.signal.addEventListener("abort", () => liveTextMirrorObservers.delete(observer), { once: true });
+}
+const liveTextMirrorObservers = new Map();
+let mirrorTokenApplyDepth = 0;
+function withMirrorTokenApply(callback) {
+  mirrorTokenApplyDepth += 1;
+  try {
+  return callback();
+  } finally {
+  mirrorTokenApplyDepth -= 1;
+  if (mirrorTokenApplyDepth === 0) sweepAndDrainTextMirrorObservers();
+  }
+}
+function sweepAndDrainTextMirrorObservers() {
+  for (const [observer, hostRef] of liveTextMirrorObservers) {
+  const host = hostRef.deref();
+  if (!host || !host.isConnected) {
+    liveTextMirrorObservers.delete(observer);
+    observer.disconnect();
+    if (host) removeTextMirror(host);
+    continue;
+  }
+  observer.takeRecords();
+  }
 }
 function dispatchTextMirrorStale(host) {
   host.dispatchEvent(new CustomEvent(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, {
@@ -6023,7 +6071,9 @@ function normalizedMirrorHostText(text2) {
 function removeTextMirror(host) {
   const state = textMirrorHosts.get(host);
   state?.observer.disconnect();
+  state?.lifecycle?.abort();
   clearTimeout(state?.staleRemovalTimer);
+  if (state) state.staleRemovalTimer = void 0;
   ownedTextMirrors(host).forEach((mirror) => mirror.remove());
   if (state) restoreTextMirrorHost(host, state);
   textMirrorHosts.delete(host);
@@ -31670,7 +31720,9 @@ async function loadReaderStartupSettings(options) {
   };
 }
 function shouldShowReaderOnboarding(shouldShowWelcome, href = location.href) {
-  return shouldShowWelcome && !isYomuHostedAppUrl(href);
+  if (!shouldShowWelcome) return false;
+  if (runningAsBrowserExtension()) return isYomuNewTabUrl(href);
+  return !isYomuHostedAppUrl(href);
 }
 function installReaderStartupBridge() {
   initJpdbReviewPageBridge();
@@ -33682,7 +33734,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.108"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.109"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -34086,7 +34138,7 @@ class VisiblePageScanner {
     if (this.shouldStopApplyingTokens(generation)) return [...allChangedRoots];
     const start = index;
     const batch = targets.slice(start, start + applyBatchSize);
-    this.dependencies.pauseMutationObserver(() => {
+    this.dependencies.pauseMutationObserver(() => withMirrorTokenApply(() => {
       if (this.shouldStopApplyingTokens(generation)) return;
       const changedRoots = new Set();
       const applyPlans = scanApplyPlans(batch, parsed, start);
@@ -34101,7 +34153,7 @@ class VisiblePageScanner {
         makeRoomForRubyInCroppedRows(root);
         this.dependencies.refreshWordContrast?.(root);
       });
-    });
+    }));
     if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
   }
   return [...allChangedRoots];

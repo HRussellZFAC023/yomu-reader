@@ -8651,11 +8651,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       // transition — never runs and the masthead/search bar stay on screen.
       // Hide YouTube's top chrome ourselves, strictly scoped to the inline-
       // fullscreen root class so normal browsing is untouched. Selectors are the
-      // real desktop (ytd-masthead / #masthead / #masthead-container) and mobile
+      // real desktop (ytd-masthead, and the generic #masthead / #masthead-container
+      // scoped under ytd-app so they can't hide same-named elements on a
+      // non-YouTube page during inline fullscreen) and mobile
       // (ytm-mobile-topbar-renderer / ytm-app-header) top-bar elements already
       // recognised elsewhere in the reader; the player's own controls and the
       // subtitle overlay live under the player, not these, so they are unaffected.
-      `html.${INLINE_FULLSCREEN_CLASS} :is(ytd-masthead,#masthead,#masthead-container,ytm-mobile-topbar-renderer,ytm-app-header){display:none!important;}`,
+      `html.${INLINE_FULLSCREEN_CLASS} :is(ytd-masthead,ytd-app #masthead,ytd-app #masthead-container,ytm-mobile-topbar-renderer,ytm-app-header){display:none!important;}`,
       `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important;z-index:2147483640!important;background:#000!important;}`,
       `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] video{${fill}object-fit:contain!important;}`,
       `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] .html5-video-container{width:100%!important;height:100%!important;}`

@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.109] - 2026-07-08
+
+### Fixed
+
+- Yomu no longer slowly leaks memory and crashes the browser tab during long reading sessions (reported on iOS Safari reading novels on Narou and in the ttsu reader, where the tab would run out of memory roughly every few minutes). The hidden text overlays Yomu uses on some sites kept their page-change watchers, timers, and duplicate copies alive even after the underlying text was gone, and could also keep re-scanning their own edits; Yomu now releases each overlay's watchers and timers as soon as its text is detached and no longer re-scans the changes it makes itself.
+- Copying text from a page Yomu has annotated no longer produces doubled or garbled text. The hidden overlay Yomu adds for some layouts was being included in the selection, so copying picked up two copies of the words (and sometimes the furigana readings); the overlay is now excluded from selection and the clipboard, leaving the original page text clean.
+- The welcome/onboarding overlay no longer appears on every website when Yomu is installed as a browser extension. It was showing over ordinary pages because the check that should have limited it to Yomu's own new-tab page was inverted for the extension; it now appears only on the Yomu new-tab/study page.
+- YouTube fullscreen on iPad now behaves like it does without Yomu: the top search bar is hidden, and the player controls fade out on their own instead of staying up permanently. Yomu was dispatching a page resize that YouTube reads as constant activity (which kept the controls awake), and its inline fullscreen wasn't hiding YouTube's top bar; both are now fixed.
+
 ## [1.6.108] - 2026-07-08
 
 ### Fixed

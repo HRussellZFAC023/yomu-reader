@@ -8777,6 +8777,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.dataset.jpdbReaderTextMirror = "true";
     mirror.dataset.sourceText = text2;
     mirror.dataset.renderSignature = signature;
+    mirror.setAttribute("aria-hidden", "true");
     const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
     const state2 = styleTextMirrorHost(host, hasRenderedRuby);
     try {
@@ -9063,15 +9064,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return state2;
   }
   function observeControlTextMirrorHost(host, state2) {
-    host.addEventListener("change", state2.onChange);
-    host.addEventListener("input", state2.onChange);
+    const previous = controlTextMirrorHosts.get(host);
+    previous?.listeners?.abort();
+    const listeners = new AbortController();
+    state2.listeners = listeners;
+    host.addEventListener("change", state2.onChange, { signal: listeners.signal });
+    host.addEventListener("input", state2.onChange, { signal: listeners.signal });
     controlTextMirrorHosts.set(host, state2);
   }
   function removeControlTextMirror(host) {
     const state2 = controlTextMirrorHosts.get(host);
     if (state2) {
-      host.removeEventListener("change", state2.onChange);
-      host.removeEventListener("input", state2.onChange);
+      state2.listeners?.abort();
       restoreControlTextMirrorHost(host, state2);
     }
     currentControlTextMirror(host)?.remove();
@@ -9610,37 +9614,59 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const state2 = textMirrorHosts.get(host);
     if (!state2) return;
     state2.sourceText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
-    state2.observer = new MutationObserver((mutations) => {
-      if (mutations.every(mutationInsideTextMirror)) return;
-      if (!currentTextMirror(host)) {
-        if (host.isConnected && HAS_JAPANESE.test(normalizedMirrorHostText(nativeTextMirrorHostText(host)))) {
-          dispatchTextMirrorStale(host);
-        }
-        removeTextMirror(host);
+    state2.observer.disconnect();
+    clearTimeout(state2.staleRemovalTimer);
+    state2.staleRemovalTimer = void 0;
+    state2.lifecycle?.abort();
+    const lifecycle = new AbortController();
+    state2.lifecycle = lifecycle;
+    const hostRef = new WeakRef(host);
+    const observer = new MutationObserver((mutations) => {
+      const liveHost = hostRef.deref();
+      const liveState = liveHost ? textMirrorHosts.get(liveHost) : void 0;
+      if (!liveHost || !liveState || liveState.observer !== observer) {
+        liveTextMirrorObservers.delete(observer);
+        observer.disconnect();
         return;
       }
-      if (mutations.some((mutation) => mutation.type === "attributes" && mutation.target === host)) {
-        reassertTextMirrorHostStyles(host, state2);
+      if (mutations.every(mutationInsideTextMirror)) return;
+      if (!currentTextMirror(liveHost)) {
+        if (liveHost.isConnected && HAS_JAPANESE.test(normalizedMirrorHostText(nativeTextMirrorHostText(liveHost)))) {
+          dispatchTextMirrorStale(liveHost);
+        }
+        removeTextMirror(liveHost);
+        return;
+      }
+      if (mutations.some((mutation) => mutation.type === "attributes" && mutation.target === liveHost)) {
+        reassertTextMirrorHostStyles(liveHost, liveState);
       }
       if (!mutations.some((mutation) => mutation.type === "childList" || mutation.type === "characterData")) return;
-      const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
-      if (!host.isConnected || !HAS_JAPANESE.test(currentText)) {
-        removeTextMirror(host);
+      const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
+      if (!liveHost.isConnected || !HAS_JAPANESE.test(currentText)) {
+        removeTextMirror(liveHost);
         return;
       }
-      if (currentText !== state2.sourceText) {
-        reassertTextMirrorHostStyles(host, state2);
-        dispatchTextMirrorStale(host);
-        clearTimeout(state2.staleRemovalTimer);
-        const staleSource = state2.sourceText;
-        state2.staleRemovalTimer = setTimeout(() => {
-          if (textMirrorHosts.get(host) !== state2 || state2.sourceText !== staleSource) return;
-          if (normalizedMirrorHostText(nativeTextMirrorHostText(host)) !== state2.sourceText) removeTextMirror(host);
+      if (currentText !== liveState.sourceText) {
+        reassertTextMirrorHostStyles(liveHost, liveState);
+        dispatchTextMirrorStale(liveHost);
+        clearTimeout(liveState.staleRemovalTimer);
+        const staleSource = liveState.sourceText;
+        const staleLifecycle = liveState.lifecycle;
+        liveState.staleRemovalTimer = setTimeout(() => {
+          if (staleLifecycle?.signal.aborted) return;
+          const timerHost = hostRef.deref();
+          const timerState = timerHost ? textMirrorHosts.get(timerHost) : void 0;
+          if (!timerHost || !timerState || timerState.lifecycle !== staleLifecycle || timerState.sourceText !== staleSource) return;
+          if (normalizedMirrorHostText(nativeTextMirrorHostText(timerHost)) !== timerState.sourceText) removeTextMirror(timerHost);
         }, STALE_MIRROR_REMOVAL_GRACE_MS);
       }
     });
-    state2.observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+    state2.observer = observer;
+    observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+    liveTextMirrorObservers.set(observer, hostRef);
+    lifecycle.signal.addEventListener("abort", () => liveTextMirrorObservers.delete(observer), { once: true });
   }
+  const liveTextMirrorObservers = /* @__PURE__ */ new Map();
   function dispatchTextMirrorStale(host) {
     host.dispatchEvent(new CustomEvent(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, {
       bubbles: true
@@ -9670,7 +9696,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function removeTextMirror(host) {
     const state2 = textMirrorHosts.get(host);
     state2?.observer.disconnect();
+    state2?.lifecycle?.abort();
     clearTimeout(state2?.staleRemovalTimer);
+    if (state2) state2.staleRemovalTimer = void 0;
     ownedTextMirrors(host).forEach((mirror) => mirror.remove());
     if (state2) restoreTextMirrorHost(host, state2);
     textMirrorHosts.delete(host);
@@ -39919,7 +39947,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.108".trim() ? "1.6.108".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.109".trim() ? "1.6.109".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -48534,6 +48562,7 @@ ${spelling}`);
     return `${Math.round(width)}:${Math.round(height)}`;
   }
   function dispatchSubtitleVideoLayoutResize(mode = "immediate") {
+    if (shouldSuppressSyntheticVideoLayoutResize()) return;
     if (mode === "immediate") {
       if (pendingImmediateVideoLayoutResize !== void 0) window.clearTimeout(pendingImmediateVideoLayoutResize);
       const delay2 = dispatchingImmediateVideoLayoutResize ? 1 : 0;
@@ -48554,6 +48583,9 @@ ${spelling}`);
       if (typeof window === "undefined") return;
       dispatchWindowEvent(createWindowEvent("resize"));
     }, 80);
+  }
+  function shouldSuppressSyntheticVideoLayoutResize() {
+    return isYouTubePage$1();
   }
   function resetYouTubePlayerResizeTracking() {
     lastYouTubePlayerResizeSignature = "";
@@ -49645,10 +49677,6 @@ ${spelling}`);
         } catch {
         }
       }
-      try {
-        win.dispatchEvent(new win.Event("resize"));
-      } catch {
-      }
     }
     function isMobileYouTube() {
       return /^m\.youtube\.com$/i.test(win.location.hostname);
@@ -49664,6 +49692,19 @@ ${spelling}`);
       `[data-yomu-video-frame]:fullscreen video{${fill}}`,
       `[data-yomu-video-frame]:-webkit-full-screen video{${fill}}`,
       `html.${INLINE_FULLSCREEN_CLASS},html.${INLINE_FULLSCREEN_CLASS} body{width:100%!important;height:100%!important;overflow:hidden!important;}`,
+      // Yomu's inline CSS-fullscreen keeps the video inside the normal document
+      // flow (the player is not promoted to the browser top layer), so YouTube's
+      // native fullscreen chrome-hide — which assumes a real Fullscreen API
+      // transition — never runs and the masthead/search bar stay on screen.
+      // Hide YouTube's top chrome ourselves, strictly scoped to the inline-
+      // fullscreen root class so normal browsing is untouched. Selectors are the
+      // real desktop (ytd-masthead, and the generic #masthead / #masthead-container
+      // scoped under ytd-app so they can't hide same-named elements on a
+      // non-YouTube page during inline fullscreen) and mobile
+      // (ytm-mobile-topbar-renderer / ytm-app-header) top-bar elements already
+      // recognised elsewhere in the reader; the player's own controls and the
+      // subtitle overlay live under the player, not these, so they are unaffected.
+      `html.${INLINE_FULLSCREEN_CLASS} :is(ytd-masthead,ytd-app #masthead,ytd-app #masthead-container,ytm-mobile-topbar-renderer,ytm-app-header){display:none!important;}`,
       `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important;z-index:2147483640!important;background:#000!important;}`,
       `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] video{${fill}object-fit:contain!important;}`,
       `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] .html5-video-container{width:100%!important;height:100%!important;}`

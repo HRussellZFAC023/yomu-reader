@@ -230,9 +230,14 @@ describe('installSubtitleFullscreenRedirect', () => {
     });
 
     it('hides YouTube top chrome only while the inline-fullscreen root class is present', () => {
+        // Real YouTube always roots the page in <ytd-app>; the generic
+        // #masthead / #masthead-container IDs are scoped under it so they can't
+        // hide same-named elements on a non-YouTube page during inline fullscreen.
         document.body.innerHTML = `
-            <div id="masthead-container"><ytd-masthead id="masthead">top</ytd-masthead></div>
-            <div id="movie_player" class="html5-video-player"><video></video></div>
+            <ytd-app>
+                <div id="masthead-container"><ytd-masthead id="masthead">top</ytd-masthead></div>
+                <div id="movie_player" class="html5-video-player"><video></video></div>
+            </ytd-app>
         `;
         installSubtitleFullscreenRedirect();
 
@@ -248,7 +253,7 @@ describe('installSubtitleFullscreenRedirect', () => {
         expect(getComputedStyle(container).display).toBe('none');
 
         const style = document.getElementById(STYLE_ID);
-        expect(style?.textContent).toContain(`html.${INLINE_FULLSCREEN_CLASS} :is(ytd-masthead,#masthead,#masthead-container,ytm-mobile-topbar-renderer,ytm-app-header)`);
+        expect(style?.textContent).toContain(`html.${INLINE_FULLSCREEN_CLASS} :is(ytd-masthead,ytd-app #masthead,ytd-app #masthead-container,ytm-mobile-topbar-renderer,ytm-app-header)`);
 
         document.documentElement.classList.remove(INLINE_FULLSCREEN_CLASS);
         expect(getComputedStyle(masthead).display).not.toBe('none');

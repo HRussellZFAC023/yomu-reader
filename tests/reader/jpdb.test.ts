@@ -19220,7 +19220,10 @@ describe('reader helpers', () => {
             expect(setSize).not.toHaveBeenCalled();
 
             await vi.advanceTimersByTimeAsync(1);
-            expect(onResize).toHaveBeenCalledTimes(1);
+            // On YouTube the synthetic global window 'resize' is suppressed (it
+            // reads as user activity and keeps the player controls awake); the
+            // player still refits through its own setSize, which stays deferred.
+            expect(onResize).not.toHaveBeenCalled();
             expect(setSize).toHaveBeenCalledTimes(1);
             expect(setSize).toHaveBeenCalledWith(1040, 585);
         } finally {
