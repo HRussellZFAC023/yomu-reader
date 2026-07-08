@@ -2713,6 +2713,16 @@ function observeTextMirrorHost(host: HTMLElement): void {
     state.observer = new MutationObserver(mutations => {
         if (mutations.every(mutationInsideTextMirror)) return;
         if (!currentTextMirror(host)) {
+            // A recycler that rewrites host.textContent wipes the mirror AND
+            // swaps in a fresh title in one batch (YouTube feed/Shorts grid).
+            // removeTextMirror un-hides the host, but without queuing a rescan
+            // the NEW title would sit as bare, unannotated text until some
+            // unrelated scroll scan happened by. Signal staleness first so the
+            // app re-scans this surface immediately (the host-text-changed path
+            // below already does this for the mirror-survived case).
+            if (host.isConnected && HAS_JAPANESE.test(normalizedMirrorHostText(nativeTextMirrorHostText(host)))) {
+                dispatchTextMirrorStale(host);
+            }
             removeTextMirror(host);
             return;
         }
