@@ -162,6 +162,12 @@ export interface TextTarget {
     suppressRepaintLoopMirror?: boolean;
     controlTextMirror?: boolean;
     controlSelectTextMode?: 'options' | 'selected';
+    // See FragmentTextTarget.insideShadowDOM. The light-DOM TextTarget walk
+    // never enters shadow roots, so this is always unset here today; kept on the
+    // union so the render-plan guard resolves on both members.
+    insideShadowDOM?: boolean;
+    shadowHost?: HTMLElement;
+    shadowRoot?: ShadowRoot;
 }
 
 export interface TextFragment {
@@ -188,6 +194,13 @@ export interface FragmentTextTarget {
     suppressRepaintLoopMirror?: boolean;
     controlTextMirror?: boolean;
     controlSelectTextMode?: 'options' | 'selected';
+    // Set when this target's text lives inside an OPEN shadow root (Phase 1
+    // shadow-DOM scan). Forces the non-destructive mirror render path — a
+    // destructive paint into a framework-owned shadow tree (Shoelace, Spectrum,
+    // shreddit) corrupts its bindings — see applyTokensToScanTarget.
+    insideShadowDOM?: boolean;
+    shadowHost?: HTMLElement;
+    shadowRoot?: ShadowRoot;
 }
 
 export type ScanTextTarget = TextTarget | FragmentTextTarget;
@@ -249,6 +262,10 @@ interface FragmentTextCollectionState {
     visibleOnly: boolean;
     excludeSelector: string;
     options: FragmentTextTargetCollectionOptions;
+    // How many OPEN shadow-root boundaries the current walk has crossed. Phase 1
+    // descends at most one level (SHADOW_SCAN_MAX_DEPTH): shadow-of-shadow is not
+    // scanned. Zero for the light-DOM walk.
+    shadowDepth: number;
 }
 
 interface RenderedScanHost {
@@ -585,6 +602,7 @@ export function collectFragmentTextTargetsIn(
         visibleOnly,
         excludeSelector,
         options,
+        shadowDepth: 0,
     };
 
     visitFragmentNode(root, state, false, true);
@@ -759,6 +777,22 @@ function fragmentTextTargetFrom(
         passiveInteraction,
         forceInlineRender: options.forceInlineRender,
         suppressRepaintLoopMirror: options.suppressRepaintLoopMirror,
+        ...shadowDomTargetMetadata(parent),
+    };
+}
+
+// A target whose text lives in an OPEN shadow root is force-routed to the
+// non-destructive mirror (framework-owned shadow trees must never be
+// destructively painted). getRootNode() surfaces the owning ShadowRoot even
+// when the fragment's parent is deep inside the shadow tree.
+function shadowDomTargetMetadata(parent: HTMLElement): Partial<FragmentTextTarget> {
+    const root = parent.getRootNode();
+    if (!(root instanceof ShadowRoot)) return {};
+    return {
+        insideShadowDOM: true,
+        nonDestructive: true,
+        shadowHost: root.host instanceof HTMLElement ? root.host : undefined,
+        shadowRoot: root,
     };
 }
 
@@ -841,6 +875,50 @@ function visitFragmentElement(
     flushFragmentBlockBoundary(isBlock, state);
     visitFragmentElementChildren(element, state, nextFragmentRubyState(element, hasNativeRuby));
     flushFragmentBlockBoundary(isBlock, state);
+    // Phase 1 shadow-DOM scan: after this element's own (light-DOM / slotted)
+    // children, descend into an OPEN shadow root it hosts so Japanese rendered
+    // inside a web component (reddit shreddit, Shoelace, Spectrum, …) is
+    // annotated too. Bounded to one level and gated on Japanese content below.
+    visitFragmentShadowRoot(element, state);
+}
+
+// Phase 1 caps shadow traversal at ONE boundary: shadow-of-shadow is rare in
+// UI-label web components and is left for a later phase. Raising this alone
+// enables deeper recursion, but re-audit perf/observer bounds before doing so.
+const SHADOW_SCAN_MAX_DEPTH = 1;
+
+function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollectionState): void {
+    if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) return;
+    // element.shadowRoot is null for a closed root (mode:'closed') — silently
+    // skip, it is unreachable and not an error.
+    const shadowRoot = element.shadowRoot;
+    if (!shadowRoot) return;
+    // Fast path: never walk a shadow root with no Japanese. reddit renders ~155
+    // shadow hosts per page, most Latin-only; this gate keeps them cheap.
+    if (!HAS_JAPANESE.test(shadowRoot.textContent ?? '')) return;
+    // COMMIT any pending inline light-DOM run BEFORE descending: an inline host
+    // (e.g. <span> that also hosts a shadow root) leaves its light run in
+    // state.fragments here. Flushing it now — the same block-boundary primitive
+    // the walk uses when it crosses a block — records the light target in
+    // document order and empties state.fragments, so the shadow walk starts
+    // clean. A save/clear/RESTORE dance instead held those light fragments across
+    // the descent; if the shadow flush then reached state.limit, the restored
+    // light run was silently dropped by fragmentCollectionComplete and the shadow
+    // target could land ahead of an earlier-in-document light run.
+    flushFragmentTextTarget(state);
+    if (fragmentCollectionComplete(state)) return;
+    // A <slot> projects light-DOM children into the shadow tree, but those text
+    // nodes are ALREADY walked in the light-DOM pass above (their real parent is
+    // in light DOM). Walking shadowRoot.childNodes reaches a <slot>'s fallback
+    // content only, never projected light-DOM nodes, so slotted content is never
+    // annotated twice.
+    state.shadowDepth += 1;
+    for (const child of Array.from(shadowRoot.childNodes)) {
+        visitFragmentNode(child, state, false);
+        if (fragmentCollectionComplete(state)) break;
+    }
+    flushFragmentTextTarget(state);
+    state.shadowDepth -= 1;
 }
 
 function shouldIgnoreFragmentElement(
@@ -1328,6 +1406,17 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
         applyTokensToCanvasFallbackTarget(target, tokens, settings);
         return;
     }
+    // CRITICAL invariant (Phase 1 shadow-DOM scan): a target inside an open
+    // shadow root is ALWAYS rendered with the non-destructive mirror and can
+    // never fall through to a destructive paint. Destructive paint replaces the
+    // component's own Text nodes (node.replaceWith), which corrupts a
+    // framework-owned shadow tree's bindings (Shoelace/Spectrum/shreddit) exactly
+    // as it crashed the chat apps. The mirror overlays a copy and mutates nothing
+    // the component owns. This dominates every other render heuristic below.
+    if (target.insideShadowDOM) {
+        applyTokensToNonDestructiveScanTarget(target, tokens, settings);
+        return;
+    }
     const nonDestructiveHost = nonDestructiveScanHost(target);
     const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
     const repaintLooping = !target.nonDestructive && !liveFrameworkRegion
@@ -1401,6 +1490,15 @@ function registerDestructivePaintTextNodes(root: Node): void {
 
 export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
     if (!tokens.length || !target.node.parentElement) return;
+    // Defence-in-depth: never destructively replace a node that lives inside a
+    // shadow root — that corrupts a framework-owned shadow tree. applyTokensTo-
+    // ScanTarget already routes shadow targets to the mirror, but this exported
+    // primitive enforces the invariant at the point of the replaceWith too, so a
+    // future caller cannot reach destructive paint on a shadow node.
+    if (target.insideShadowDOM || target.node.getRootNode() instanceof ShadowRoot) {
+        applyTokensToNonDestructiveScanTarget({ ...target, insideShadowDOM: true }, tokens, settings);
+        return;
+    }
 
     const text = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text.length);
@@ -2981,10 +3079,35 @@ function restoreStyleProperty(host: HTMLElement, property: string, injectedValue
     else host.style.removeProperty(property);
 }
 
+// Resolve a mirror node to the host CURRENTLY registered in textMirrorHosts —
+// the closest such ancestor, matching the ownership model removeTextMirror uses.
+// A framework can relocate the mirror into a wrapper BELOW its host (Discord in
+// light DOM, shreddit inside a shadow root): keying teardown off
+// mirror.parentElement would call removeTextMirror(wrapper), find no registered
+// state, remove the node but leave the ORIGINAL host's observer connected and
+// its styles unrestored (a leak). Fall back to the parent only for true orphan
+// nodes whose host is already gone.
+function registeredTextMirrorHostFor(mirror: HTMLElement): HTMLElement | null {
+    let ancestor = mirror.parentElement;
+    while (ancestor) {
+        if (textMirrorHosts.has(ancestor)) return ancestor;
+        ancestor = ancestor.parentElement;
+    }
+    return null;
+}
+
 export function removeNonDestructiveScanMirrors(root: ParentNode = document): number {
     const hosts = new Set<HTMLElement>();
-    root.querySelectorAll<HTMLElement>(READER_TEXT_MIRROR_SELECTOR).forEach(mirror => {
-        if (mirror.parentElement) hosts.add(mirror.parentElement);
+    // Pierce open shadow roots: a shadow-scan mirror is appended INSIDE its
+    // shadow root, which root.querySelectorAll does not cross. Missing it here
+    // would leave the shadow mirror painted AND its per-host observer connected
+    // after clear/destroy — the exact leak class 1.6.109/1.6.112 closed. Bounded
+    // and open-only, consistent with the scan-side descent.
+    queryAllPiercingShadow(root, READER_TEXT_MIRROR_SELECTOR).forEach(mirror => {
+        const host = registeredTextMirrorHostFor(mirror);
+        if (host) hosts.add(host);
+        else if (mirror.parentElement) hosts.add(mirror.parentElement);
+        else mirror.remove();
     });
     const controlHosts = new Set<HTMLElement>();
     root.querySelectorAll<HTMLElement>(READER_CONTROL_TEXT_MIRROR_SELECTOR).forEach(mirror => {
@@ -3002,6 +3125,20 @@ export function removeNonDestructiveScanMirrors(root: ParentNode = document): nu
     controlHosts.forEach(removeControlTextMirror);
     canvasHosts.forEach(removeCanvasFallbackTextLayer);
     return hosts.size + controlHosts.size + canvasHosts.size;
+}
+
+// querySelectorAll that also reaches into OPEN shadow roots one level deep
+// (SHADOW_SCAN_MAX_DEPTH), matching the scan side. Only used by teardown paths
+// that must remove shadow-hosted mirrors (and disconnect their observers), so it
+// stays a shallow, open-only descent rather than a full recursive pierce.
+function queryAllPiercingShadow(root: ParentNode, selector: string, depth = 0): HTMLElement[] {
+    const matches = Array.from(root.querySelectorAll<HTMLElement>(selector));
+    if (depth >= SHADOW_SCAN_MAX_DEPTH) return matches;
+    for (const host of root.querySelectorAll<HTMLElement>('*')) {
+        const shadowRoot = host.shadowRoot;
+        if (shadowRoot) matches.push(...queryAllPiercingShadow(shadowRoot, selector, depth + 1));
+    }
+    return matches;
 }
 
 export function removeStaleControlTextMirrors(root: ParentNode = document): number {

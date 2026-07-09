@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.112
+// @version 1.6.113
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.112#sha256=nnuinwY1V6TkAuVP3+AVCjdZW/J2SLKnWCSLjg5g6UM=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.112#sha256=VRyueMC4LJp3+34/Kh6wb6Dhc34CJDqrMzlgDmhflwc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.112#sha256=Z5lad4ZNBuFnSse/5E7lZxnj9AH0C31Rv276m+nEJOA=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.112#sha256=jnUdQDQ4UCyztMyjwrkSjzbzGZ+Hb//V51c2J8phVH8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.112#sha256=dJcxc9MheKfGWb0wXRI8AZWk0RBQy1eLOW+glolG12Y=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.112#sha256=PliUNu56D4LXtJTAs6dDts4NhSL8V9VU9OGuKiCZ6rs=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.113#sha256=nnuinwY1V6TkAuVP3+AVCjdZW/J2SLKnWCSLjg5g6UM=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.113#sha256=VRyueMC4LJp3+34/Kh6wb6Dhc34CJDqrMzlgDmhflwc=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.113#sha256=Z5lad4ZNBuFnSse/5E7lZxnj9AH0C31Rv276m+nEJOA=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.113#sha256=jnUdQDQ4UCyztMyjwrkSjzbzGZ+Hb//V51c2J8phVH8=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.113#sha256=dJcxc9MheKfGWb0wXRI8AZWk0RBQy1eLOW+glolG12Y=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.113#sha256=PliUNu56D4LXtJTAs6dDts4NhSL8V9VU9OGuKiCZ6rs=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -4442,7 +4442,8 @@ function collectFragmentTextTargetsIn(root, limit = 40, visibleOnly = true, excl
   limit,
   visibleOnly,
   excludeSelector,
-  options
+  options,
+  shadowDepth: 0
   };
   visitFragmentNode(root, state, false, true);
   flushFragmentTextTarget(state);
@@ -4574,7 +4575,18 @@ function fragmentTextTargetFrom(fragments, options) {
   layoutSensitive: trimmedFragments.some((fragment) => fragment.layoutSensitive),
   passiveInteraction,
   forceInlineRender: options.forceInlineRender,
-  suppressRepaintLoopMirror: options.suppressRepaintLoopMirror
+  suppressRepaintLoopMirror: options.suppressRepaintLoopMirror,
+  ...shadowDomTargetMetadata(parent)
+  };
+}
+function shadowDomTargetMetadata(parent) {
+  const root = parent.getRootNode();
+  if (!(root instanceof ShadowRoot)) return {};
+  return {
+  insideShadowDOM: true,
+  nonDestructive: true,
+  shadowHost: root.host instanceof HTMLElement ? root.host : void 0,
+  shadowRoot: root
   };
 }
 function fragmentTargetSuppressesCompactScanRuby(parent, fragments) {
@@ -4627,6 +4639,23 @@ function visitFragmentElement(element2, state, hasNativeRuby, isRoot) {
   flushFragmentBlockBoundary(isBlock, state);
   visitFragmentElementChildren(element2, state, nextFragmentRubyState(element2, hasNativeRuby));
   flushFragmentBlockBoundary(isBlock, state);
+  visitFragmentShadowRoot(element2, state);
+}
+const SHADOW_SCAN_MAX_DEPTH = 1;
+function visitFragmentShadowRoot(element2, state) {
+  if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) return;
+  const shadowRoot = element2.shadowRoot;
+  if (!shadowRoot) return;
+  if (!HAS_JAPANESE$1.test(shadowRoot.textContent ?? "")) return;
+  flushFragmentTextTarget(state);
+  if (fragmentCollectionComplete(state)) return;
+  state.shadowDepth += 1;
+  for (const child of Array.from(shadowRoot.childNodes)) {
+  visitFragmentNode(child, state, false);
+  if (fragmentCollectionComplete(state)) break;
+  }
+  flushFragmentTextTarget(state);
+  state.shadowDepth -= 1;
 }
 function shouldIgnoreFragmentElement(element2, options) {
   return isRubyAnnotationElement(element2) || isSurfaceIgnoredElement(element2) || isExcludedReaderRootElement(element2, options);
@@ -4934,6 +4963,10 @@ function applyTokensToScanTarget(target, tokens, settings) {
   applyTokensToCanvasFallbackTarget(target, tokens, settings);
   return;
   }
+  if (target.insideShadowDOM) {
+  applyTokensToNonDestructiveScanTarget(target, tokens, settings);
+  return;
+  }
   const nonDestructiveHost = nonDestructiveScanHost(target);
   const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
   const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
@@ -4983,6 +5016,10 @@ function registerDestructivePaintTextNodes(root) {
 }
 function applyTokensToTextNode(target, tokens, settings) {
   if (!tokens.length || !target.node.parentElement) return;
+  if (target.insideShadowDOM || target.node.getRootNode() instanceof ShadowRoot) {
+  applyTokensToNonDestructiveScanTarget({ ...target, insideShadowDOM: true }, tokens, settings);
+  return;
+  }
   const text2 = target.text;
   const safeTokens = nonOverlappingTokens(tokens, text2.length);
   if (!safeTokens.length) return;
@@ -6111,10 +6148,21 @@ function restoreStyleProperty(host, property, injectedValue, value, priority2) {
   if (value) host.style.setProperty(property, value, priority2);
   else host.style.removeProperty(property);
 }
+function registeredTextMirrorHostFor(mirror) {
+  let ancestor = mirror.parentElement;
+  while (ancestor) {
+  if (textMirrorHosts.has(ancestor)) return ancestor;
+  ancestor = ancestor.parentElement;
+  }
+  return null;
+}
 function removeNonDestructiveScanMirrors(root = document) {
   const hosts = new Set();
-  root.querySelectorAll(READER_TEXT_MIRROR_SELECTOR).forEach((mirror) => {
-  if (mirror.parentElement) hosts.add(mirror.parentElement);
+  queryAllPiercingShadow(root, READER_TEXT_MIRROR_SELECTOR).forEach((mirror) => {
+  const host = registeredTextMirrorHostFor(mirror);
+  if (host) hosts.add(host);
+  else if (mirror.parentElement) hosts.add(mirror.parentElement);
+  else mirror.remove();
   });
   const controlHosts = new Set();
   root.querySelectorAll(READER_CONTROL_TEXT_MIRROR_SELECTOR).forEach((mirror) => {
@@ -6132,6 +6180,15 @@ function removeNonDestructiveScanMirrors(root = document) {
   controlHosts.forEach(removeControlTextMirror);
   canvasHosts.forEach(removeCanvasFallbackTextLayer);
   return hosts.size + controlHosts.size + canvasHosts.size;
+}
+function queryAllPiercingShadow(root, selector, depth = 0) {
+  const matches = Array.from(root.querySelectorAll(selector));
+  if (depth >= SHADOW_SCAN_MAX_DEPTH) return matches;
+  for (const host of root.querySelectorAll("*")) {
+  const shadowRoot = host.shadowRoot;
+  if (shadowRoot) matches.push(...queryAllPiercingShadow(shadowRoot, selector, depth + 1));
+  }
+  return matches;
 }
 function removeStaleControlTextMirrors(root = document) {
   let removed = 0;
@@ -33784,7 +33841,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.112"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.113"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];

@@ -8095,7 +8095,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       limit,
       visibleOnly,
       excludeSelector,
-      options
+      options,
+      shadowDepth: 0
     };
     visitFragmentNode(root, state2, false, true);
     flushFragmentTextTarget(state2);
@@ -8227,7 +8228,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
       layoutSensitive: trimmedFragments.some((fragment2) => fragment2.layoutSensitive),
       passiveInteraction,
       forceInlineRender: options.forceInlineRender,
-      suppressRepaintLoopMirror: options.suppressRepaintLoopMirror
+      suppressRepaintLoopMirror: options.suppressRepaintLoopMirror,
+      ...shadowDomTargetMetadata(parent)
+    };
+  }
+  function shadowDomTargetMetadata(parent) {
+    const root = parent.getRootNode();
+    if (!(root instanceof ShadowRoot)) return {};
+    return {
+      insideShadowDOM: true,
+      nonDestructive: true,
+      shadowHost: root.host instanceof HTMLElement ? root.host : void 0,
+      shadowRoot: root
     };
   }
   function fragmentTargetSuppressesCompactScanRuby(parent, fragments) {
@@ -8280,6 +8292,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
     flushFragmentBlockBoundary(isBlock, state2);
     visitFragmentElementChildren(element, state2, nextFragmentRubyState(element, hasNativeRuby));
     flushFragmentBlockBoundary(isBlock, state2);
+    visitFragmentShadowRoot(element, state2);
+  }
+  const SHADOW_SCAN_MAX_DEPTH = 1;
+  function visitFragmentShadowRoot(element, state2) {
+    if (state2.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) return;
+    const shadowRoot = element.shadowRoot;
+    if (!shadowRoot) return;
+    if (!HAS_JAPANESE.test(shadowRoot.textContent ?? "")) return;
+    flushFragmentTextTarget(state2);
+    if (fragmentCollectionComplete(state2)) return;
+    state2.shadowDepth += 1;
+    for (const child of Array.from(shadowRoot.childNodes)) {
+      visitFragmentNode(child, state2, false);
+      if (fragmentCollectionComplete(state2)) break;
+    }
+    flushFragmentTextTarget(state2);
+    state2.shadowDepth -= 1;
   }
   function shouldIgnoreFragmentElement(element, options) {
     return isRubyAnnotationElement(element) || isSurfaceIgnoredElement(element) || isExcludedReaderRootElement(element, options);
@@ -8587,6 +8616,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       applyTokensToCanvasFallbackTarget(target, tokens, settings);
       return;
     }
+    if (target.insideShadowDOM) {
+      applyTokensToNonDestructiveScanTarget(target, tokens, settings);
+      return;
+    }
     const nonDestructiveHost = nonDestructiveScanHost(target);
     const liveFrameworkRegion = !target.nonDestructive && scanHostIsLiveFrameworkRegion(nonDestructiveHost);
     const repaintLooping = !target.nonDestructive && !liveFrameworkRegion ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
@@ -8636,6 +8669,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function applyTokensToTextNode(target, tokens, settings) {
     if (!tokens.length || !target.node.parentElement) return;
+    if (target.insideShadowDOM || target.node.getRootNode() instanceof ShadowRoot) {
+      applyTokensToNonDestructiveScanTarget({ ...target, insideShadowDOM: true }, tokens, settings);
+      return;
+    }
     const text2 = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
     if (!safeTokens.length) return;
@@ -39951,7 +39988,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.112".trim() ? "1.6.112".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.113".trim() ? "1.6.113".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

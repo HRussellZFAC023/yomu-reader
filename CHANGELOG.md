@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.113] - 2026-07-09
+
+### Added
+
+- Yomu now reads Japanese text inside web components (open shadow DOM), so readings appear on parts of a site Yomu previously couldn't reach — for example Reddit's sort dropdown (賛成票率順) and community header. It only reads open shadow roots, renders the readings through the same non-destructive overlay it uses elsewhere (so a site's own components are never disturbed), and skips shadow trees with no Japanese, so pages that don't use them are unaffected.
+
 ## [1.6.112] - 2026-07-09
 
 ### Fixed
