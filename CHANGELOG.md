@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.111] - 2026-07-09
+
+### Fixed
+
+- Furigana readings added later during a scan of a busy page (such as a long YouTube comment thread or a fast-updating feed) no longer stay clipped. A recent speed-up reserved space for readings only once per page scan, so rows that were annotated in a later pass could remain cut off until a delayed cleanup ran; Yomu now reserves room for every newly-annotated row as it lands, including in video subtitles, so readings are never left cropped.
+
 ## [1.6.110] - 2026-07-08
 
 ### Fixed

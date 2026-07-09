@@ -89,6 +89,35 @@ describe('VisiblePageScanner ruby-room sweep cadence', () => {
         }
     }, 15000);
 
+    it('reserves ruby room for a shared root in EVERY parse batch that adds rows (not just the first)', async () => {
+        const restoreRects = mockRects();
+        // 170 text nodes under ONE parent (a shared container / mirror host)
+        // split across multiple parse batches. A per-scan root dedup swept the
+        // shared root only in the FIRST batch, so rows annotated in later
+        // batches stayed cropped until the delayed document sweep. Each batch
+        // adds NEW rows to the same root, so the sweep must run for it once per
+        // batch that touches it.
+        const lines = Array.from({ length: 170 }, (_, index) => `日本語の文${index}`).join('<br>');
+        document.body.innerHTML = `<div id="shared">${lines}</div>`;
+        const shared = document.querySelector<HTMLElement>('#shared')!;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, text, 0, text.length)]));
+        const applyLog: string[] = [];
+        const scanner = makeScanner({ parseJapanese }, applyLog);
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+            const parseBatches = parseJapanese.mock.calls.length;
+            expect(parseBatches).toBeGreaterThanOrEqual(2);
+            const sharedSweeps = rubyRoomSpy.mock.calls.filter(call => call[0] === shared).length;
+            // One sweep of the shared root per parse batch that added rows —
+            // never collapsed to a single first-batch sweep.
+            expect(sharedSweeps).toBe(parseBatches);
+        } finally {
+            scanner.destroy();
+            restoreRects();
+        }
+    }, 15000);
+
     it('still reserves ruby room incrementally: an early clipped root gets room before the scan finishes', async () => {
         const restoreRects = mockRects();
         // First parse batch resolves immediately; the rest stays pending. The
