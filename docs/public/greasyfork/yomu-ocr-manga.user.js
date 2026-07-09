@@ -8097,11 +8097,13 @@ ${candidate.depth}`;
       setOcrOverlayAccessibility(overlay, false);
       this.mountOcrOverlayForImage(overlay, image);
       const state2 = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
-      image.addEventListener("load", () => {
+      const loadListener = () => {
         this.resetStateIfImageChanged(state2);
         this.schedulePosition();
         this.scheduleRefresh(0);
-      });
+      };
+      state2.loadListener = loadListener;
+      image.addEventListener("load", loadListener);
       this.states.set(image, state2);
       if (image.complete && image.naturalWidth > 0) {
         this.schedulePosition();
@@ -9743,6 +9745,7 @@ ${candidate.depth}`;
       this.queue = [];
       this.inFlightKeys.clear();
       for (const state2 of this.states.values()) {
+        if (state2.loadListener) state2.image.removeEventListener("load", state2.loadListener);
         removeOcrArtifact(state2.overlay);
       }
       this.states.clear();
@@ -9849,6 +9852,7 @@ ${candidate.depth}`;
     releaseImageState(image, state2 = this.states.get(image)) {
       if (state2) {
         this.observer?.unobserve(image);
+        if (state2.loadListener) image.removeEventListener("load", state2.loadListener);
         removeOcrArtifact(state2.overlay);
         this.states.delete(image);
       }

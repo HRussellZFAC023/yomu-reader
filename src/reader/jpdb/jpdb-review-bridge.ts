@@ -149,10 +149,21 @@ function staleJpdbReviewBridgeStatus(): JpdbReviewBridgeStatus {
     };
 }
 
-export function initJpdbReviewPageBridge(): void {
-    if (typeof BroadcastChannel !== 'function') return;
+// Tears down the currently-installed page bridge (if any). A same-window
+// re-boot — a higher-priority runtime superseding a lower one on the live
+// jpdb.io/review page (boot.ts destroyExistingApps/discardPageRuntimeForRealBoot)
+// — destroys the old ReaderApp and inits a new one WITHOUT navigating, so
+// 'pagehide' never fires. Without this, each re-init stacked another
+// MutationObserver + heartbeat interval + BroadcastChannel on top of the last.
+let disposeActiveJpdbReviewBridge: (() => void) | undefined;
+
+export function initJpdbReviewPageBridge(): (() => void) | undefined {
+    if (typeof BroadcastChannel !== 'function') return undefined;
     const onLearnPage = location.hostname === 'jpdb.io' && location.pathname.startsWith('/learn');
-    if (location.hostname !== 'jpdb.io' || (!location.pathname.startsWith('/review') && !onLearnPage)) return;
+    if (location.hostname !== 'jpdb.io' || (!location.pathname.startsWith('/review') && !onLearnPage)) return undefined;
+
+    // Reap any prior bridge before installing a fresh one (idempotent re-init).
+    disposeActiveJpdbReviewBridge?.();
 
     const channel = new BroadcastChannel(JPDB_REVIEW_BRIDGE_CHANNEL);
     const publish = () => {
@@ -176,15 +187,26 @@ export function initJpdbReviewPageBridge(): void {
         window.setTimeout(publish, 900);
     };
 
-    new MutationObserver(schedulePublish).observe(document.body, { childList: true, subtree: true, attributes: true });
+    const observer = new MutationObserver(schedulePublish);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
     publish();
 
     // Heartbeat feeds consumers' staleness clock while the review tab idles;
     // pagehide flips them to disconnected immediately instead of leaving the
     // last card lingering as a live review target.
     const heartbeat = window.setInterval(publish, JPDB_REVIEW_BRIDGE_HEARTBEAT_MS);
-    window.addEventListener('pagehide', () => {
+    const bridgeAbort = new AbortController();
+    const dispose = (): void => {
+        if (disposeActiveJpdbReviewBridge === dispose) disposeActiveJpdbReviewBridge = undefined;
         window.clearInterval(heartbeat);
+        observer.disconnect();
+        bridgeAbort.abort();
+        try { channel.close(); } catch { /* already closed */ }
+    };
+    // A real tab close/navigation additionally tells consumers the review tab
+    // is gone; an in-place ReaderApp.destroy() (via the returned disposer) stays
+    // silent so the superseding bridge takes over without a disconnected blip.
+    window.addEventListener('pagehide', () => {
         channel.postMessage({
             type: 'status',
             source: 'jpdb',
@@ -195,7 +217,10 @@ export function initJpdbReviewPageBridge(): void {
                 message: 'JPDB review tab closed. Reopen jpdb.io/review to continue live reviews.',
             },
         } satisfies BridgeMessage);
-    });
+        dispose();
+    }, { signal: bridgeAbort.signal });
+    disposeActiveJpdbReviewBridge = dispose;
+    return dispose;
 }
 
 // UT-23: jpdb.io/learn shows "You have N due items (V vocabulary and K

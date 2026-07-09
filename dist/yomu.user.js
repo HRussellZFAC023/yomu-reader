@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.111
+// @version 1.6.112
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.111#sha256=nnuinwY1V6TkAuVP3+AVCjdZW/J2SLKnWCSLjg5g6UM=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.111#sha256=VRyueMC4LJp3+34/Kh6wb6Dhc34CJDqrMzlgDmhflwc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.111#sha256=UhOlkoQnRC+BJuZRapO4QJqqHi47Zolg9b1bGi8BHrI=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.111#sha256=jnUdQDQ4UCyztMyjwrkSjzbzGZ+Hb//V51c2J8phVH8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.111#sha256=dJcxc9MheKfGWb0wXRI8AZWk0RBQy1eLOW+glolG12Y=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.111#sha256=PliUNu56D4LXtJTAs6dDts4NhSL8V9VU9OGuKiCZ6rs=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.112#sha256=nnuinwY1V6TkAuVP3+AVCjdZW/J2SLKnWCSLjg5g6UM=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.112#sha256=VRyueMC4LJp3+34/Kh6wb6Dhc34CJDqrMzlgDmhflwc=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.112#sha256=Z5lad4ZNBuFnSse/5E7lZxnj9AH0C31Rv276m+nEJOA=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.112#sha256=jnUdQDQ4UCyztMyjwrkSjzbzGZ+Hb//V51c2J8phVH8=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.112#sha256=dJcxc9MheKfGWb0wXRI8AZWk0RBQy1eLOW+glolG12Y=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.112#sha256=PliUNu56D4LXtJTAs6dDts4NhSL8V9VU9OGuKiCZ6rs=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -31468,10 +31468,12 @@ function settingsThemeChangeDetail(detail) {
 }
 const JPDB_REVIEW_BRIDGE_CHANNEL = "yomu-jpdb-review-bridge";
 const JPDB_REVIEW_BRIDGE_HEARTBEAT_MS = 12e3;
+let disposeActiveJpdbReviewBridge;
 function initJpdbReviewPageBridge() {
-  if (typeof BroadcastChannel !== "function") return;
+  if (typeof BroadcastChannel !== "function") return void 0;
   const onLearnPage = location.hostname === "jpdb.io" && location.pathname.startsWith("/learn");
-  if (location.hostname !== "jpdb.io" || !location.pathname.startsWith("/review") && !onLearnPage) return;
+  if (location.hostname !== "jpdb.io" || !location.pathname.startsWith("/review") && !onLearnPage) return void 0;
+  disposeActiveJpdbReviewBridge?.();
   const channel = new BroadcastChannel(JPDB_REVIEW_BRIDGE_CHANNEL);
   const publish = () => {
   const status = onLearnPage ? jpdbLearnPageStatus(document) : parseJpdbReviewDocument(document, location.href);
@@ -31491,11 +31493,22 @@ function initJpdbReviewPageBridge() {
   window.setTimeout(publish, 300);
   window.setTimeout(publish, 900);
   };
-  new MutationObserver(schedulePublish).observe(document.body, { childList: true, subtree: true, attributes: true });
+  const observer = new MutationObserver(schedulePublish);
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true });
   publish();
   const heartbeat = window.setInterval(publish, JPDB_REVIEW_BRIDGE_HEARTBEAT_MS);
-  window.addEventListener("pagehide", () => {
+  const bridgeAbort = new AbortController();
+  const dispose = () => {
+  if (disposeActiveJpdbReviewBridge === dispose) disposeActiveJpdbReviewBridge = void 0;
   window.clearInterval(heartbeat);
+  observer.disconnect();
+  bridgeAbort.abort();
+  try {
+    channel.close();
+  } catch {
+  }
+  };
+  window.addEventListener("pagehide", () => {
   channel.postMessage({
     type: "status",
     source: "jpdb",
@@ -31506,7 +31519,10 @@ function initJpdbReviewPageBridge() {
       message: "JPDB review tab closed. Reopen jpdb.io/review to continue live reviews."
     }
   });
-  });
+  dispose();
+  }, { signal: bridgeAbort.signal });
+  disposeActiveJpdbReviewBridge = dispose;
+  return dispose;
 }
 function jpdbLearnPageStatus(doc) {
   const text2 = doc.body?.textContent?.replace(/\s+/g, " ") ?? "";
@@ -31759,7 +31775,7 @@ function shouldShowReaderOnboarding(shouldShowWelcome, href = location.href) {
   return !isYomuHostedAppUrl(href);
 }
 function installReaderStartupBridge() {
-  initJpdbReviewPageBridge();
+  return initJpdbReviewPageBridge();
 }
 function detectReaderStartupJapaneseText() {
   return documentHasJapaneseText();
@@ -33768,7 +33784,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.111"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.112"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -34995,6 +35011,7 @@ class ReaderApp {
   unsubscribeCardStateSignals;
   unsubscribeSettingsStorageChanges;
   disposeMokuroOcrToggleWatch;
+  disposeJpdbReviewBridge;
   factoryReset = createFactoryResetCoordinator({
   dictionaries: this.dictionaries,
   isDestroyed: () => this.isDestroyed,
@@ -35225,7 +35242,8 @@ class ReaderApp {
   if (this.embeddedFrame) return;
   this.registerMenuCommands();
   this.bindEvents();
-  installReaderStartupBridge();
+  this.disposeJpdbReviewBridge?.();
+  this.disposeJpdbReviewBridge = installReaderStartupBridge();
   }
   async initReaderPage(shouldShowWelcome) {
   await this.waitForDocumentBody();
@@ -36024,6 +36042,8 @@ class ReaderApp {
   this.isDestroyed = true;
   this.disposeMokuroOcrToggleWatch?.();
   this.disposeMokuroOcrToggleWatch = void 0;
+  this.disposeJpdbReviewBridge?.();
+  this.disposeJpdbReviewBridge = void 0;
   this.unsubscribeCardStateSignals?.();
   this.unsubscribeCardStateSignals = void 0;
   this.unsubscribeSettingsStorageChanges?.();
@@ -36089,6 +36109,7 @@ class ReaderApp {
   document.querySelectorAll("[data-jpdb-reader-root]").forEach((el) => el.remove());
   }
   setupAutoScan() {
+  const abortSignal = this.abortController.signal;
   this.autoScanObserver?.disconnect();
   this.autoScanObserver = new MutationObserver((mutations) => {
     const canScanText = this.canParseJapanese();
@@ -36124,13 +36145,13 @@ class ReaderApp {
     {
       this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: true });
     }
-  }, { passive: true, capture: true });
+  }, { passive: true, capture: true, signal: abortSignal });
   window.addEventListener("resize", () => {
     {
       this.scheduleAutoScan(250, { force: true, debounce: isYouTubeHostname() });
     }
-  }, { passive: true });
-  window.addEventListener("resize", () => this.scheduleJpdbPageEnhancements(700), { passive: true });
+  }, { passive: true, signal: abortSignal });
+  window.addEventListener("resize", () => this.scheduleJpdbPageEnhancements(700), { passive: true, signal: abortSignal });
   if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
   document.addEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
   }
@@ -36204,6 +36225,7 @@ class ReaderApp {
   this.asbScanTimer = window.setTimeout(() => void this.pageScanner.scanAsbPlayerSubtitles(), delay2);
   }
   bindEvents() {
+  const abortSignal = this.abortController.signal;
   bindReaderRuntimeEvents({
     getSettings: () => this.settings,
     setSettings: (settings) => {
@@ -36221,7 +36243,7 @@ class ReaderApp {
     if (swallow) event.stopPropagation();
   };
   for (const gestureType of READER_ROOT_GESTURE_EVENTS) {
-    document.addEventListener(gestureType, swallowReaderRootGesture, { capture: true, passive: true });
+    document.addEventListener(gestureType, swallowReaderRootGesture, { capture: true, passive: true, signal: abortSignal });
   }
   let scrollDragBody = null;
   let scrollDragLastY = 0;
@@ -36286,22 +36308,23 @@ class ReaderApp {
   if (htmlRoot) rootObserver.observe(htmlRoot, { childList: true });
   observeScrollDriveRoot();
   this.abortController.signal.addEventListener("abort", () => {
+    setScrollDrive(false);
     scrollDriveObserver.disconnect();
     rootObserver.disconnect();
   }, { once: true });
-  document.addEventListener("click", (event) => this.handleDocumentClick(event), { capture: true });
+  document.addEventListener("click", (event) => this.handleDocumentClick(event), { capture: true, signal: abortSignal });
   document.addEventListener("mousedown", (event) => {
     if (this.isDestroyed) return;
     if (!this.shouldCaptureMiddleMouseLookup(event)) return;
     event.preventDefault();
     event.stopPropagation();
-  }, { capture: true, passive: false });
+  }, { capture: true, passive: false, signal: abortSignal });
   document.addEventListener("auxclick", (event) => {
     if (this.isDestroyed) return;
     if (event.button !== 1 || Date.now() > this.suppressMiddleAuxClickUntil) return;
     event.preventDefault();
     event.stopPropagation();
-  }, { capture: true });
+  }, { capture: true, signal: abortSignal });
   document.addEventListener("pointerdown", (event) => {
     if (this.isMiningDrawerHandlePointerEvent(event)) return;
     this.suppressHoverAfterPenContact(event);
@@ -36311,64 +36334,64 @@ class ReaderApp {
     this.dismissModalPopoverForOutsidePointer(event);
     this.dismissHoverPopoverForOutsidePointer(event);
     this.beginPressLookup(event);
-  }, { capture: true, passive: false });
+  }, { capture: true, passive: false, signal: abortSignal });
   document.addEventListener("pointermove", (event) => {
     this.updateTapLookup(event);
     this.updateLinkPressLookup(event);
     this.updatePressLookup(event);
-  }, { capture: true, passive: false });
+  }, { capture: true, passive: false, signal: abortSignal });
   document.addEventListener("pointerup", (event) => {
     this.finishTapLookup(event);
     this.cancelLinkPressLookup(event);
     this.endPressLookup(event);
-  }, { capture: true });
+  }, { capture: true, signal: abortSignal });
   document.addEventListener("pointercancel", (event) => {
     this.cancelTapLookup(event);
     this.cancelLinkPressLookup(event);
     this.endPressLookup(event);
-  }, { capture: true });
+  }, { capture: true, signal: abortSignal });
   document.addEventListener("contextmenu", (event) => {
     if (!this.linkPressLookup && Date.now() >= this.suppressLinkContextMenuUntil) return;
     event.preventDefault();
     event.stopPropagation();
-  }, { capture: true });
+  }, { capture: true, signal: abortSignal });
   document.addEventListener("pointerover", (event) => {
     this.handleHoverPointer(event);
-  }, { capture: true });
+  }, { capture: true, signal: abortSignal });
   document.addEventListener("pointermove", (event) => {
     this.queueHoverPointerMove(event);
-  }, { capture: true });
+  }, { capture: true, signal: abortSignal });
   document.addEventListener("pointerout", (event) => {
     this.handleHoverPointerOut(event);
-  }, { capture: true });
+  }, { capture: true, signal: abortSignal });
   if (!window.PointerEvent) {
     document.addEventListener("mouseover", (event) => {
       this.handleHoverPointer(event);
-    }, { capture: true });
+    }, { capture: true, signal: abortSignal });
     document.addEventListener("mousemove", (event) => {
       this.queueHoverPointerMove(event);
-    }, { capture: true });
+    }, { capture: true, signal: abortSignal });
     document.addEventListener("mouseout", (event) => {
       this.handleHoverPointerOut(event);
-    }, { capture: true });
+    }, { capture: true, signal: abortSignal });
   }
-  document.addEventListener("keyup", () => this.scheduleSelectionLookup(120));
-  document.addEventListener("mouseup", () => this.scheduleSelectionLookup(140));
-  document.addEventListener("touchend", () => this.scheduleSelectionLookup(180), { passive: true });
-  document.addEventListener("selectionchange", () => this.scheduleSelectionLookup(250));
-  document.addEventListener("keydown", (event) => this.handleDocumentKeydown(event));
+  document.addEventListener("keyup", () => this.scheduleSelectionLookup(120), { signal: abortSignal });
+  document.addEventListener("mouseup", () => this.scheduleSelectionLookup(140), { signal: abortSignal });
+  document.addEventListener("touchend", () => this.scheduleSelectionLookup(180), { passive: true, signal: abortSignal });
+  document.addEventListener("selectionchange", () => this.scheduleSelectionLookup(250), { signal: abortSignal });
+  document.addEventListener("keydown", (event) => this.handleDocumentKeydown(event), { signal: abortSignal });
   document.addEventListener("keyup", (event) => {
     this.pressedKeys.delete(normalizePressedKey(event.key));
     if ((this.settings.shortcuts.hoverLookup ?? "").trim() && !this.shouldLookupOnHover(event)) {
       this.cancelPendingHoverLookup();
       if (this.activePopoverMode === "hover") this.scheduleHoverClose(0, { ignoreCssHover: true });
     }
-  });
+  }, { signal: abortSignal });
   window.addEventListener("blur", () => {
     this.pressedKeys.clear();
     this.cancelPendingHoverLookup();
     if (this.activePopoverMode === "hover") this.scheduleHoverClose(0, { ignoreCssHover: true });
-  });
+  }, { signal: abortSignal });
   }
   scheduleSelectionLookup(delayMs) {
   if (this.isDestroyed || this.settings.popupActivationMode === "off" || !this.settings.parseSelection) return;

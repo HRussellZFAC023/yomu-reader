@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.112] - 2026-07-09
+
+### Fixed
+
+- Yomu no longer slowly leaks memory when it restarts on the same page (single-page-app navigation, embedded video players, or switching between the userscript and the browser extension on one tab). Several page-wide event listeners, an image load handler, the scroll helper used inside Yomu's own panels, and the jpdb.io review bridge (its page watcher, heartbeat and cross-tab channel) were not always released when Yomu tore itself down and started again, so they piled up over a long session; every one of them is now cleaned up on teardown.
+
 ## [1.6.111] - 2026-07-09
 
 ### Fixed

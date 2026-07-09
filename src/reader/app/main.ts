@@ -789,6 +789,7 @@ export class ReaderApp {
     private unsubscribeCardStateSignals?: () => void;
     private unsubscribeSettingsStorageChanges?: () => void;
     private disposeMokuroOcrToggleWatch?: () => void;
+    private disposeJpdbReviewBridge?: () => void;
     private factoryReset: FactoryResetCoordinator = createFactoryResetCoordinator({
         dictionaries: this.dictionaries,
         isDestroyed: () => this.isDestroyed,
@@ -1049,7 +1050,8 @@ export class ReaderApp {
         if (this.embeddedFrame) return;
         this.registerMenuCommands();
         this.bindEvents();
-        installReaderStartupBridge();
+        this.disposeJpdbReviewBridge?.();
+        this.disposeJpdbReviewBridge = installReaderStartupBridge();
     }
 
     private async initReaderPage(shouldShowWelcome: boolean): Promise<void> {
@@ -2024,6 +2026,11 @@ export class ReaderApp {
         this.isDestroyed = true;
         this.disposeMokuroOcrToggleWatch?.();
         this.disposeMokuroOcrToggleWatch = undefined;
+        // Tear down the jpdb.io/review page bridge (observer + heartbeat +
+        // BroadcastChannel) on an in-place re-boot — pagehide only fires on a
+        // real tab close/navigation, not a same-window destroy+re-init.
+        this.disposeJpdbReviewBridge?.();
+        this.disposeJpdbReviewBridge = undefined;
         this.unsubscribeCardStateSignals?.();
         this.unsubscribeCardStateSignals = undefined;
         this.unsubscribeSettingsStorageChanges?.();
@@ -2094,6 +2101,7 @@ export class ReaderApp {
     }
 
     private setupAutoScan(): void {
+        const abortSignal = this.abortController.signal;
         this.autoScanObserver?.disconnect();
         this.autoScanObserver = new MutationObserver(mutations => {
             const canScanText = this.canParseJapanese();
@@ -2139,13 +2147,13 @@ export class ReaderApp {
                 // settle scan after the scroll stops.
                 this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: true });
             }
-        }, { passive: true, capture: true });
+        }, { passive: true, capture: true, signal: abortSignal });
         window.addEventListener('resize', () => {
             if (allowsFrequentVisibleAutoScan()) {
                 this.scheduleAutoScan(250, { force: true, debounce: isYouTubeHostname() });
             }
-        }, { passive: true });
-        window.addEventListener('resize', () => this.scheduleJpdbPageEnhancements(700), { passive: true });
+        }, { passive: true, signal: abortSignal });
+        window.addEventListener('resize', () => this.scheduleJpdbPageEnhancements(700), { passive: true, signal: abortSignal });
         if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
         document.addEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
     }
@@ -2246,6 +2254,7 @@ export class ReaderApp {
     }
 
     private bindEvents(): void {
+        const abortSignal = this.abortController.signal;
         bindReaderRuntimeEvents({
             getSettings: () => this.settings,
             setSettings: settings => {
@@ -2283,7 +2292,7 @@ export class ReaderApp {
             if (swallow) event.stopPropagation();
         };
         for (const gestureType of READER_ROOT_GESTURE_EVENTS) {
-            document.addEventListener(gestureType, swallowReaderRootGesture, { capture: true, passive: true });
+            document.addEventListener(gestureType, swallowReaderRootGesture, { capture: true, passive: true, signal: abortSignal });
         }
 
         // Drive scroll inside a Yomu overlay body ourselves so a scroll-locking host
@@ -2362,25 +2371,32 @@ export class ReaderApp {
         if (htmlRoot) rootObserver.observe(htmlRoot, { childList: true });
         observeScrollDriveRoot();
         this.abortController.signal.addEventListener('abort', () => {
+            // Reap the scroll-drive touch/wheel listeners FIRST. They are added
+            // via a raw document.addEventListener toggle (no signal), and once
+            // the observers below are disconnected nothing can ever call
+            // setScrollDrive(false) again — so if an overlay carrying a scroll
+            // body was open at teardown, the 5 listeners would otherwise survive
+            // the abort and stack on every re-boot (retaining their closures).
+            setScrollDrive(false);
             scrollDriveObserver.disconnect();
             rootObserver.disconnect();
         }, { once: true });
 
-        document.addEventListener('click', event => this.handleDocumentClick(event), { capture: true });
+        document.addEventListener('click', event => this.handleDocumentClick(event), { capture: true, signal: abortSignal });
 
         document.addEventListener('mousedown', event => {
             if (this.isDestroyed) return;
             if (!this.shouldCaptureMiddleMouseLookup(event)) return;
             event.preventDefault();
             event.stopPropagation();
-        }, { capture: true, passive: false });
+        }, { capture: true, passive: false, signal: abortSignal });
 
         document.addEventListener('auxclick', event => {
             if (this.isDestroyed) return;
             if (event.button !== 1 || Date.now() > this.suppressMiddleAuxClickUntil) return;
             event.preventDefault();
             event.stopPropagation();
-        }, { capture: true });
+        }, { capture: true, signal: abortSignal });
 
         document.addEventListener('pointerdown', event => {
             if (this.isMiningDrawerHandlePointerEvent(event)) return;
@@ -2391,25 +2407,25 @@ export class ReaderApp {
             this.dismissModalPopoverForOutsidePointer(event);
             this.dismissHoverPopoverForOutsidePointer(event);
             this.beginPressLookup(event);
-        }, { capture: true, passive: false });
+        }, { capture: true, passive: false, signal: abortSignal });
 
         document.addEventListener('pointermove', event => {
             this.updateTapLookup(event);
             this.updateLinkPressLookup(event);
             this.updatePressLookup(event);
-        }, { capture: true, passive: false });
+        }, { capture: true, passive: false, signal: abortSignal });
 
         document.addEventListener('pointerup', event => {
             this.finishTapLookup(event);
             this.cancelLinkPressLookup(event);
             this.endPressLookup(event);
-        }, { capture: true });
+        }, { capture: true, signal: abortSignal });
 
         document.addEventListener('pointercancel', event => {
             this.cancelTapLookup(event);
             this.cancelLinkPressLookup(event);
             this.endPressLookup(event);
-        }, { capture: true });
+        }, { capture: true, signal: abortSignal });
 
         // Android fires contextmenu at its own long-press threshold; when the
         // link-word long-press lookup is pending or just opened, the popover
@@ -2418,60 +2434,60 @@ export class ReaderApp {
             if (!this.linkPressLookup && Date.now() >= this.suppressLinkContextMenuUntil) return;
             event.preventDefault();
             event.stopPropagation();
-        }, { capture: true });
+        }, { capture: true, signal: abortSignal });
 
         document.addEventListener('pointerover', event => {
             this.handleHoverPointer(event);
-        }, { capture: true });
+        }, { capture: true, signal: abortSignal });
 
         document.addEventListener('pointermove', event => {
             this.queueHoverPointerMove(event);
-        }, { capture: true });
+        }, { capture: true, signal: abortSignal });
 
         document.addEventListener('pointerout', event => {
             this.handleHoverPointerOut(event);
-        }, { capture: true });
+        }, { capture: true, signal: abortSignal });
 
         if (!window.PointerEvent) {
             document.addEventListener('mouseover', event => {
                 this.handleHoverPointer(event as PointerEvent);
-            }, { capture: true });
+            }, { capture: true, signal: abortSignal });
 
             document.addEventListener('mousemove', event => {
                 this.queueHoverPointerMove(event as PointerEvent);
-            }, { capture: true });
+            }, { capture: true, signal: abortSignal });
 
             document.addEventListener('mouseout', event => {
                 this.handleHoverPointerOut(event as PointerEvent);
-            }, { capture: true });
+            }, { capture: true, signal: abortSignal });
         }
 
-        document.addEventListener('keyup', () => this.scheduleSelectionLookup(120));
+        document.addEventListener('keyup', () => this.scheduleSelectionLookup(120), { signal: abortSignal });
 
-        document.addEventListener('mouseup', () => this.scheduleSelectionLookup(140));
+        document.addEventListener('mouseup', () => this.scheduleSelectionLookup(140), { signal: abortSignal });
 
-        document.addEventListener('touchend', () => this.scheduleSelectionLookup(180), { passive: true });
+        document.addEventListener('touchend', () => this.scheduleSelectionLookup(180), { passive: true, signal: abortSignal });
 
         // mouseup/touchend/keyup miss selections that settle without a fresh
         // gesture end on document — most visibly iPad selection-handle drags and
         // the text loupe. A debounced selectionchange catches the settled
         // selection so the popover triggers consistently; the longer delay
         // coalesces the burst of events a drag emits into a single lookup.
-        document.addEventListener('selectionchange', () => this.scheduleSelectionLookup(250));
+        document.addEventListener('selectionchange', () => this.scheduleSelectionLookup(250), { signal: abortSignal });
 
-        document.addEventListener('keydown', event => this.handleDocumentKeydown(event));
+        document.addEventListener('keydown', event => this.handleDocumentKeydown(event), { signal: abortSignal });
         document.addEventListener('keyup', event => {
             this.pressedKeys.delete(normalizePressedKey(event.key));
             if ((this.settings.shortcuts.hoverLookup ?? '').trim() && !this.shouldLookupOnHover(event)) {
                 this.cancelPendingHoverLookup();
                 if (this.activePopoverMode === 'hover') this.scheduleHoverClose(0, { ignoreCssHover: true });
             }
-        });
+        }, { signal: abortSignal });
         window.addEventListener('blur', () => {
             this.pressedKeys.clear();
             this.cancelPendingHoverLookup();
             if (this.activePopoverMode === 'hover') this.scheduleHoverClose(0, { ignoreCssHover: true });
-        });
+        }, { signal: abortSignal });
     }
 
     private scheduleSelectionLookup(delayMs: number): void {

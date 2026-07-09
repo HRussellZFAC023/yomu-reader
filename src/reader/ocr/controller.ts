@@ -70,6 +70,8 @@ interface ImageState {
     overlayRequested: boolean;
     manualRequested: boolean;
     autoSkipped: boolean;
+    /** The image's 'load' listener, removed when the state is torn down so a re-boot doesn't leak it. */
+    loadListener?: () => void;
 }
 
 interface OcrRenderedImageFrame {
@@ -729,12 +731,14 @@ export class ImageOcrController {
 
         this.mountOcrOverlayForImage(overlay, image);
 
-        const state = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
-        image.addEventListener('load', () => {
+        const state: ImageState = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
+        const loadListener = (): void => {
             this.resetStateIfImageChanged(state);
             this.schedulePosition();
             this.scheduleRefresh(0);
-        });
+        };
+        state.loadListener = loadListener;
+        image.addEventListener('load', loadListener);
         this.states.set(image, state);
         if (image.complete && image.naturalWidth > 0) {
             this.schedulePosition();
@@ -2749,6 +2753,7 @@ export class ImageOcrController {
         this.queue = [];
         this.inFlightKeys.clear();
         for (const state of this.states.values()) {
+            if (state.loadListener) state.image.removeEventListener('load', state.loadListener);
             removeOcrArtifact(state.overlay);
         }
         this.states.clear();
@@ -2866,6 +2871,7 @@ export class ImageOcrController {
     private releaseImageState(image: HTMLImageElement, state = this.states.get(image)): void {
         if (state) {
             this.observer?.unobserve(image);
+            if (state.loadListener) image.removeEventListener('load', state.loadListener);
             removeOcrArtifact(state.overlay);
             this.states.delete(image);
         }

@@ -42,8 +42,8 @@ export function shouldShowReaderOnboarding(shouldShowWelcome: boolean, href = lo
     return !isYomuHostedAppUrl(href);
 }
 
-export function installReaderStartupBridge(): void {
-    initJpdbReviewPageBridge();
+export function installReaderStartupBridge(): (() => void) | undefined {
+    return initJpdbReviewPageBridge();
 }
 
 export function detectReaderStartupJapaneseText(): boolean {
