@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.109
+// @version 1.6.110
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR for manga, video subtitles, and Anki/JPDB/Jiten mining.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.109#sha256=nnuinwY1V6TkAuVP3+AVCjdZW/J2SLKnWCSLjg5g6UM=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.109#sha256=VRyueMC4LJp3+34/Kh6wb6Dhc34CJDqrMzlgDmhflwc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.109#sha256=UhOlkoQnRC+BJuZRapO4QJqqHi47Zolg9b1bGi8BHrI=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.109#sha256=jnUdQDQ4UCyztMyjwrkSjzbzGZ+Hb//V51c2J8phVH8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.109#sha256=dJcxc9MheKfGWb0wXRI8AZWk0RBQy1eLOW+glolG12Y=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.109#sha256=PliUNu56D4LXtJTAs6dDts4NhSL8V9VU9OGuKiCZ6rs=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.110#sha256=nnuinwY1V6TkAuVP3+AVCjdZW/J2SLKnWCSLjg5g6UM=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.110#sha256=VRyueMC4LJp3+34/Kh6wb6Dhc34CJDqrMzlgDmhflwc=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.110#sha256=UhOlkoQnRC+BJuZRapO4QJqqHi47Zolg9b1bGi8BHrI=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.110#sha256=jnUdQDQ4UCyztMyjwrkSjzbzGZ+Hb//V51c2J8phVH8=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.110#sha256=dJcxc9MheKfGWb0wXRI8AZWk0RBQy1eLOW+glolG12Y=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.110#sha256=PliUNu56D4LXtJTAs6dDts4NhSL8V9VU9OGuKiCZ6rs=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -7539,15 +7539,34 @@ function rubyTouchesBoxTop(box) {
   return rubyTopOverflowRaw(box) > -RUBY_ROOM_TOP_CLEARANCE_PX;
 }
 function genericRubyNeedsRoom(box) {
-  return rubyCropsBox(box) || rubyLayoutOverflowsShortRow(box);
+  return rubyCropsBox(box) || rubyLayoutOverflowsShortRow(box) || rubyOverflowsCompactClippedRow(box);
+}
+function rubyOverflowsCompactClippedRow(box) {
+  const clientHeight = box.clientHeight;
+  if (clientHeight <= 0 || clientHeight > RUBY_ROOM_SHORT_ROW_MAX_PX) return false;
+  if (isReadableProseContext(box)) return false;
+  if (isVisuallyHiddenBox(box)) return false;
+  if (!box.querySelector('.jpdb-reader-word rt,.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]')) return false;
+  const overflow = compactClippedRubyOverflow(box) - clientHeight;
+  return overflow > 2 && overflow <= RUBY_ROOM_SHORT_ROW_OVERFLOW_MAX_PX;
+}
+function isVisuallyHiddenBox(box) {
+  const visibility = safeComputedStyle(box).visibility;
+  return visibility === "hidden" || visibility === "collapse";
+}
+function compactClippedRubyOverflow(box) {
+  const mirror = box.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
+  return Math.max(box.scrollHeight, mirror ? mirror.scrollHeight : 0);
 }
 function genericRubyRoomHeight(box) {
   const mirror = box.querySelector('.jpdb-reader-text-mirror[data-jpdb-reader-has-ruby="true"]');
   const shortRowHeight = rubyLayoutOverflowsShortRow(box) ? box.scrollHeight : 0;
+  const compactRowHeight = rubyOverflowsCompactClippedRow(box) ? compactClippedRubyOverflow(box) : 0;
   return Math.ceil(Math.max(
   box.clientHeight + rubyBottomOverflow(box) + rubyTopOverflow(box),
   mirror ? mirror.scrollHeight : 0,
-  shortRowHeight
+  shortRowHeight,
+  compactRowHeight
   ));
 }
 const RUBY_ROOM_GOOGLE_CONTROL_SELECTOR = ":is(a,button,[role=button])";
@@ -7601,8 +7620,7 @@ function cropCapableBoxes(element2) {
   let current = element2;
   while (current && current !== document.body && current !== document.documentElement) {
   if (current.dataset.jpdbReaderRoot) break;
-  const style = safeComputedStyle(current);
-  if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style) || rubyLayoutOverflowsShortRow(current)) {
+  if (boxStyleIsClipCapable(current) || rubyLayoutOverflowsShortRow(current)) {
     boxes.push(current);
   } else if (!fallback && isYouTubeRubyRoomTextBox(current) && current.querySelector(".jpdb-reader-text-mirror")) {
     fallback = current;
@@ -7610,6 +7628,16 @@ function cropCapableBoxes(element2) {
   current = current.parentElement;
   }
   return boxes.length || !fallback ? boxes : [fallback];
+}
+const clipCapableStyleVerdicts = new WeakMap();
+function boxStyleIsClipCapable(box) {
+  const now = Date.now();
+  const memo = clipCapableStyleVerdicts.get(box);
+  if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.value;
+  const style = safeComputedStyle(box);
+  const value = hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style);
+  clipCapableStyleVerdicts.set(box, { at: now, value });
+  return value;
 }
 const shortRowVerdicts = new WeakMap();
 function rubyLayoutOverflowsShortRow(box) {
@@ -28168,6 +28196,12 @@ function visibleAutoScanMutationDelay(defaultDelay = 450) {
 function visibleAutoScanInitialDelay(defaultDelay = 600) {
   return isYouTubeHostForAutoScan() ? 220 : defaultDelay;
 }
+const AUTO_SCAN_MIN_INTERVAL_MS = 900;
+function throttledAutoScanDelay(delay2, options, lastScanStartedAt, now, frequentHost = allowsFrequentVisibleAutoScan()) {
+  if (!options.debounce || !frequentHost) return delay2;
+  const floorDelay = AUTO_SCAN_MIN_INTERVAL_MS - (now - lastScanStartedAt);
+  return Math.max(delay2, Math.min(floorDelay, AUTO_SCAN_MIN_INTERVAL_MS));
+}
 function isYouTubeHostForAutoScan(hostname = location.hostname) {
   return hostname === "youtu.be" || hostname === "youtube.com" || hostname.endsWith(".youtube.com");
 }
@@ -33734,7 +33768,7 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
 }
 const READER_CSS_RESOURCE = "yomuCss";
 const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.109"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.110"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"];
@@ -33922,6 +33956,7 @@ class VisiblePageScanner {
   asbScanInFlight = false;
   asbDrainTimer;
   clampSweepTimer;
+  rubyRoomSweptThisScan = new WeakSet();
   destroy() {
   this.destroyed = true;
   this.scanPending = false;
@@ -34037,6 +34072,7 @@ class VisiblePageScanner {
     this.handleEmptyVisiblePageScan(silent);
     return;
   }
+  this.rubyRoomSweptThisScan = new WeakSet();
   const parsedAnyTokens = await this.parseAndApplyTargets(targets, generation, settings);
   if (this.isStaleScan(generation)) return;
   if (parsedAnyTokens && targets.length >= targetCollectionLimit && canContinueVisibleScan(targets)) {
@@ -34150,13 +34186,21 @@ class VisiblePageScanner {
       });
       changedRoots.forEach((root) => {
         allChangedRoots.add(root);
-        makeRoomForRubyInCroppedRows(root);
         this.dependencies.refreshWordContrast?.(root);
       });
     }));
     if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
   }
+  this.reserveRubyRoomForNewRoots(allChangedRoots);
   return [...allChangedRoots];
+  }
+  reserveRubyRoomForNewRoots(roots) {
+  for (const root of roots) {
+    if (this.destroyed) return;
+    if (this.rubyRoomSweptThisScan.has(root)) continue;
+    this.rubyRoomSweptThisScan.add(root);
+    makeRoomForRubyInCroppedRows(root);
+  }
   }
   shouldStopApplyingTokens(generation) {
   return this.destroyed || generation !== void 0 && this.isStaleScan(generation);
@@ -34978,6 +35022,7 @@ class ReaderApp {
   autoScanDeadline = 0;
   autoScanForced = false;
   autoScanDebounced = false;
+  lastAutoScanStartedAt = 0;
   autoScanObserver;
   lastMirrorStaleScanAt = 0;
   handleNonDestructiveMirrorStale = () => {
@@ -36118,6 +36163,7 @@ class ReaderApp {
   scheduleAutoScan(delay2, options = {}) {
   const forced = Boolean(options.force);
   if (!this.canScheduleAutoScan(forced)) return;
+  delay2 = throttledAutoScanDelay(delay2, options, this.lastAutoScanStartedAt, Date.now());
   const deadline = Date.now() + delay2;
   if (this.autoScanTimer && this.autoScanDeadline <= deadline) {
     this.autoScanForced = this.autoScanForced || forced;
@@ -36148,6 +36194,7 @@ class ReaderApp {
   this.autoScanDeadline = 0;
   this.autoScanForced = false;
   this.autoScanDebounced = false;
+  this.lastAutoScanStartedAt = Date.now();
   if (typeof this.pageScanner.scanAsbPlayerSubtitles === "function") void this.pageScanner.scanAsbPlayerSubtitles();
   if (forced || hasVisibleAutoScanTargets()) void this.pageScanner.scanVisiblePage({ silent: true });
   }

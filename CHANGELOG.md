@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.110] - 2026-07-08
+
+### Fixed
+
+- Furigana no longer breaks the layout of compact rows on sites like YouTube. On the watch page the channel subscriber count, view count, comment count and sort, individual comments, and the sidebar recommendation details were wrapping onto extra lines or overlapping the line below once readings were added; Yomu now reserves space for the reading in any short, clipped row generally, rather than relying on a hand-maintained list of elements, so the rows grow just enough to fit instead of breaking.
+
+### Improved
+
+- Yomu uses much less CPU on busy, constantly-updating pages such as the YouTube watch page, which had been making iPads run hot. It now reserves furigana room once per scan instead of once per batch, briefly caches layout measurements, and throttles rescans on pages that mutate many times a second — roughly halving style recalculations during heavy scrolling, while still annotating new content as it loads.
+
 ## [1.6.109] - 2026-07-08
 
 ### Fixed
