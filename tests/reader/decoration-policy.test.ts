@@ -427,3 +427,45 @@ describe('mirror bareness with painted descendants', () => {
         expect(row.querySelector('.jpdb-reader-word')).toBeTruthy();
     });
 });
+
+// Live-YT release blocker (2026-07-10): the desktop subscribe button renders
+// through the volatile-watch-metadata MIRROR; under furigana-mode=all the
+// inner mirror render re-derived suppression WITHOUT the sealed decision and
+// the mode attribute won — ruby appeared in the mirror channel. Realistic
+// live DOM shape; interactive-passive must show furigana in NO channel.
+describe('interactive-passive mirror channel under furigana-mode=all', () => {
+    it('renders a subscribe-button mirror without any ruby when readings are forced page-wide', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <div data-yomu-furigana-mode="all">
+                <ytd-watch-metadata>
+                    <div id="owner">
+                        <yt-subscribe-button-view-model>
+                            <button class="yt-spec-button-shape-next yt-spec-button-shape-next--filled">
+                                <div class="yt-spec-button-shape-next__button-text-content">チャンネル登録</div>
+                            </button>
+                        </yt-subscribe-button-view-model>
+                    </div>
+                </ytd-watch-metadata>
+            </div>
+        `;
+        const collected = collectTargets().find(candidate => candidate.text === 'チャンネル登録');
+        expect(collected).toBeTruthy();
+        expect(collected?.decoration).toBe('interactive-passive');
+        // The volatile watch-metadata profile routes subscribe rows through
+        // the non-destructive mirror.
+        const target = { ...collected!, nonDestructive: true, passiveInteraction: true };
+
+        applyTokensToScanTarget(target, [
+            token('登録', 'チャンネル登録'.indexOf('登録'), 'チャンネル登録', 'とうろく'),
+        ], FURIGANA_SETTINGS);
+
+        const button = document.querySelector<HTMLElement>('button.yt-spec-button-shape-next')!;
+        const mirror = button.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
+        expect(mirror).toBeTruthy();
+        expect(mirror?.querySelector('.jpdb-reader-word')).toBeTruthy();
+        // No furigana in ANY channel: not in flow, not in the mirror.
+        expect(button.querySelectorAll('rt')).toHaveLength(0);
+        expect(button.querySelector('.jpdb-reader-has-furi')).toBeNull();
+    });
+});
