@@ -1004,22 +1004,34 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   -webkit-text-fill-color: transparent !important;
 }
 
-/* Class Q (2026-07-10 site sweep): clip-constrained rows (fixed-height nav
-   rows, line-clamped titles) show NO at-rest furigana in any channel — both
+/* Class Q: clip-constrained rows (fixed-height nav rows, line-clamped titles)
+   show no in-place furigana — both
    the out-of-flow mirror's rt and in-place rt paint outside the clipped row
-   bounds. The stamp is written by the scanner on the mirror (mirror channel)
-   or on the clip row itself (in-place channel); readings reveal on
-   hover/focus, and stay visible once ruby-room has grown the row. */
-[data-yomu-clip-constrained="true"] .jpdb-reader-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active) rt.jpdb-reader-furi {
+   bounds. In-place rows retain word annotations/lookup with plain line metrics;
+   the separately constrained mirror channel retains its hover overlay. */
+/* In-place clipped rows cannot safely reveal ruby: even a hover/focus reveal
+   changes WebKit's line box and can re-open the same blank-gap/base-clipping
+   bug as a sticky iPad hover. Keep their word annotations and popup lookup,
+   but remove rt from layout. Out-of-flow clip mirrors retain their separate
+   hover overlay below. */
+[data-yomu-clip-constrained="true"]:not(.jpdb-reader-text-mirror) .jpdb-reader-word.jpdb-reader-has-furi {
+  line-height: inherit;
+}
+[data-yomu-clip-constrained="true"]:not(.jpdb-reader-text-mirror) .jpdb-reader-word rt.jpdb-reader-furi {
+  /* visibility:hidden still participates in ruby layout on WebKit. In a
+     fixed/clamped row that hidden annotation can move the BASE below the clip,
+     leaving a blank row or only a shaved glyph. display:none restores the
+     page's plain-text line box. */
+  display: none !important;
   visibility: hidden;
 }
 [data-yomu-ruby-room="true"] [data-yomu-clip-constrained="true"][data-yomu-clip-constrained] .jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi,
 [data-yomu-ruby-room="true"][data-yomu-clip-constrained="true"][data-yomu-clip-constrained] .jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi {
+  display: ruby-text !important;
   visibility: visible;
 }
 
-/* POLICY AMENDMENT (owner 2026-07-11): CONTENT clip rows that grow in flow
-   (value "content" — e.g. Google's line-clamped prose snippets) keep their
+/* Semantic prose clip rows that grow in flow (value "content") keep their
    readings AT REST by default; the row grows naturally via the ruby line
    height, with no geometry writes. The optional hover-only mode (settings:
    "readings on clamped rows") re-hides them via a root stamp. Interactive/

@@ -5857,6 +5857,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
+  const HAS_JAPANESE_LETTER = /[\u3041-\u3096\u309d-\u309f\u30a1-\u30fa\u30fd-\u30ff\u3400-\u9fff\uff66-\uff6f\uff71-\uff9d]/u;
   const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
   const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
   const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
@@ -5962,13 +5963,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return null;
   }
   function contentClipRowShowsRestReadings(decoration, clipRow) {
-    if (decoration !== "content-ruby" && decoration !== "prose-full") return false;
+    if (decoration !== "prose-full") return false;
+    if (!isLikelyProseElement(clipRow) || !isReadableProseContext(clipRow)) return false;
+    if (clipRow.closest('a[href],button,[role="button"],[role="link"]')) return false;
     const facts = constrainedRowStyleFacts(clipRow);
     if (facts.clippedShortRow) return false;
     if (!facts.clamped && !facts.ellipsisRow) return false;
     const style = safeComputedStyle(clipRow);
     if (hasDefiniteCssSize(style.maxHeight)) return false;
-    return !hasDefiniteCssSize(clipRow.style.height) && !hasDefiniteCssSize(clipRow.style.maxHeight);
+    if (hasDefiniteCssSize(clipRow.style.height) || hasDefiniteCssSize(clipRow.style.maxHeight)) return false;
+    const parentDisplay = clipRow.parentElement ? safeComputedStyle(clipRow.parentElement).display : "";
+    return !parentDisplay.includes("flex") && !parentDisplay.includes("grid") && !parentDisplay.startsWith("table");
   }
   const MIRROR_BARE_DESCENDANT_LIMIT = 16;
   function hostIsVisuallyBareForMirror(host) {
@@ -6370,12 +6375,33 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ].join(",");
   const NAMED_CONTENT_ROOT_SELECTOR = `${RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR},${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
   function interactivePassiveControl(element) {
+    const temporalMetadata = element.closest("time,[datetime]");
+    if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
     const control = element.closest(INTERACTIVE_CONTROL_SELECTOR);
     if (control && !isConversationTextClass(control) && !isMediaTextContentControl(control)) return control;
     const link = element.closest(INTERACTIVE_LINK_SELECTOR);
     if (!link) return null;
+    if (isCompactLinkedCardMetadata(link, element)) return link;
     if (element instanceof HTMLElement && isLikelyProseLink(link, element)) return null;
     return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
+  }
+  function isCompactTemporalMetadata(element) {
+    const text2 = element.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    if (!HAS_JAPANESE.test(text2) || compactLength(text2) > COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) return false;
+    const height = element.getBoundingClientRect().height;
+    return height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX;
+  }
+  const COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT = 80;
+  const COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX = 48;
+  function isCompactLinkedCardMetadata(link, element) {
+    const textElement = element instanceof HTMLElement ? element : element.parentElement;
+    if (!textElement || textElement.closest("h1,h2,h3,h4,h5,h6")) return false;
+    const heading = safeQuerySelector(link, "h1,h2,h3,h4,h5,h6");
+    if (!heading || heading.contains(textElement) || isLikelyProseElement(textElement)) return false;
+    const text2 = textElement.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    if (!HAS_JAPANESE.test(text2) || compactLength(text2) > COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT) return false;
+    const height = textElement.getBoundingClientRect().height;
+    return height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX;
   }
   function isMediaTextContentControl(control) {
     if (!safeElementMatches(control, 'a[href],[role="link"],[role="button"]')) return false;
@@ -8871,12 +8897,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     flushFragmentBlockBoundary(isBlock, state2);
     visitFragmentShadowRoot(element, state2);
   }
-  const SHADOW_SCAN_MAX_DEPTH = 1;
+  const SHADOW_SCAN_MAX_DEPTH = 2;
+  const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
   function visitFragmentShadowRoot(element, state2) {
     if (state2.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) return;
     const shadowRoot = element.shadowRoot;
     if (!shadowRoot) return;
-    if (!HAS_JAPANESE.test(shadowRoot.textContent ?? "")) return;
+    if (!shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH - state2.shadowDepth)) return;
     flushFragmentTextTarget(state2);
     if (fragmentCollectionComplete(state2)) return;
     state2.shadowDepth += 1;
@@ -8886,6 +8913,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     flushFragmentTextTarget(state2);
     state2.shadowDepth -= 1;
+  }
+  function shadowBranchHasJapanese(root, remainingDepth) {
+    if (HAS_JAPANESE.test(root.textContent ?? "")) return true;
+    if (remainingDepth <= 1) return false;
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    for (let inspected = 0, node = walker.nextNode(); node && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT; inspected += 1, node = walker.nextNode()) {
+      const element = node;
+      const nested = element.shadowRoot;
+      if (nested && shadowBranchHasJapanese(nested, remainingDepth - 1)) return true;
+    }
+    return false;
   }
   function shouldIgnoreFragmentElement(element, options) {
     return isRubyAnnotationElement(element) || isSurfaceIgnoredElement(element) || isExcludedReaderRootElement(element, options);
@@ -9218,7 +9256,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return;
     }
     const text2 = target.text;
-    const safeTokens = nonOverlappingTokens(tokens, text2.length);
+    const safeTokens = nonOverlappingTokens(tokens, text2);
     if (!safeTokens.length) return;
     const fragment2 = renderTokenizedTextFragment(target, safeTokens, settings);
     registerDestructivePaintTextNodes(fragment2);
@@ -9274,7 +9312,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!fragments.length || !hostText) return { text: target.text, tokens, hostText };
     const indexed = indexTextFragments(fragments);
     const remapped = tokens.map((token) => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText)).filter((token) => token !== null);
-    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText.length), whitespaceJoints, hostText };
+    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText), whitespaceJoints, hostText };
   }
   const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden],rt,rp`;
   function hostOriginalTextWithNodeOffsets(host) {
@@ -9496,7 +9534,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
     const host = nonDestructiveScanHost(target);
     if (!host.isConnected) return;
-    const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text.length));
+    const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text));
     const text2 = plan.text;
     const safeTokens = plan.tokens;
     const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
@@ -9505,8 +9543,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
     const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
     const clipRow = closestRubyFragileConstrainedRow(host);
+    const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
+    const clipHoverOnly = Boolean(clipRow && hasRenderedRuby);
     const existing = currentTextMirror(host);
-    if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature && (existing.dataset.whitespaceJoints ?? "") === whitespaceJointsKey && existing.classList.contains("jpdb-reader-clip-hover-mirror") === Boolean(clipRow)) {
+    if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature && (existing.dataset.whitespaceJoints ?? "") === whitespaceJointsKey && existing.classList.contains("jpdb-reader-clip-hover-mirror") === clipHoverOnly) {
       const state22 = textMirrorHosts.get(host);
       if (state22) reassertTextMirrorHostStyles(host, state22);
       return;
@@ -9520,14 +9560,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.dataset.renderSignature = signature;
     mirror.dataset.whitespaceJoints = whitespaceJointsKey;
     mirror.setAttribute("aria-hidden", "true");
-    const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
     if (clipRow && hasRenderedRuby) mirror.dataset.yomuClipConstrained = "true";
     const mirrorRubyLayout = hasRenderedRuby && !clipRow;
-    const state2 = styleTextMirrorHost(host, mirrorRubyLayout, Boolean(clipRow));
+    const state2 = styleTextMirrorHost(host, mirrorRubyLayout, clipHoverOnly, Boolean(clipRow));
     try {
       styleTextMirror(mirror, host, mirrorRubyLayout);
       if (clipRow) {
         constrainMirrorToClampBox(mirror, clipRow);
+      }
+      if (clipHoverOnly) {
         mirror.classList.add("jpdb-reader-clip-hover-mirror");
         mirror.style.setProperty("visibility", "hidden");
         const hostColor = safeComputedStyle(host).color;
@@ -9683,7 +9724,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const host = target.parent;
     if (!host.isConnected) return;
     const text2 = target.text;
-    const safeTokens = nonOverlappingTokens(tokens, text2.length);
+    const safeTokens = nonOverlappingTokens(tokens, text2);
     const placeholderOverlay = isPlaceholderControlTextMirror(host, text2);
     const suppressRuby = placeholderOverlay || scanTargetSuppressesRuby(host, target.suppressRuby, false);
     const renderSettings = furiganaSettingsForTarget(settings, host);
@@ -9725,7 +9766,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const host = canvas.parentElement;
     if (!host) return;
     const text2 = target.text;
-    const safeTokens = nonOverlappingTokens(tokens, text2.length);
+    const safeTokens = nonOverlappingTokens(tokens, text2);
     const n = canvas.parentElement?.classList.contains("lesson-canvas-clipper") ?? false;
     const noRuby = n || Boolean(target.suppressRuby);
     const renderSettings = furiganaSettingsForTarget(settings, canvas);
@@ -9913,7 +9954,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function targetHasNativeRuby(target) {
     return isFragmentTextTarget(target) ? target.fragments.some((fragment2) => fragment2.hasNativeRuby) : Boolean(target.hasNativeRuby);
   }
-  function styleTextMirrorHost(host, allowOverflow = true, clipHoverOnly = false) {
+  function styleTextMirrorHost(host, allowOverflow = true, clipHoverOnly = false, preserveConstrainedLayout = false) {
     const computed = safeComputedStyle(host);
     const state2 = {
       observer: new MutationObserver(() => void 0),
@@ -9930,7 +9971,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       displayPriority: host.style.getPropertyPriority("display"),
       // Paint invariance for clip-constrained hosts: no display coercion —
       // the host must lay out exactly as without the userscript.
-      displayAdjusted: computed.display === "inline" && !clipHoverOnly,
+      displayAdjusted: computed.display === "inline" && !preserveConstrainedLayout,
       concealTextOnly: !hostIsVisuallyBareForMirror(host),
       concealedText: [],
       clipHoverOnly
@@ -10418,7 +10459,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function applyTokensToFragmentTarget(target, tokens, settings) {
     if (!hasFragmentTokenWork(target, tokens)) return;
-    const safeTokens = nonOverlappingTokens(tokens, target.text.length);
+    const safeTokens = nonOverlappingTokens(tokens, target.text);
     if (!safeTokens.length) return;
     const sentence = target.text.replace(/\s+/g, " ").trim();
     const renderTarget = target.decoration === "interactive-passive" && interactivePassiveControl(target.parent) ? { ...target, suppressRuby: true } : targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
@@ -10818,7 +10859,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function renderTokensToHtml(text2, tokens, settings) {
     let html = "";
     let offset = 0;
-    const safeTokens = nonOverlappingTokens(tokens, text2.length);
+    const safeTokens = nonOverlappingTokens(tokens, text2);
     const miningInsightKeys = miningInsightTokenKeys(safeTokens);
     for (const token of safeTokens) {
       if (token.start > offset) html += plainTextBeforeTokenHtml(text2.slice(offset, token.start));
@@ -10878,18 +10919,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function uniqueNonEmptyStrings$1(values) {
     return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
   }
-  function nonOverlappingTokens(tokens, textLength) {
+  function nonOverlappingTokens(tokens, text2) {
     const safe = [];
     let offset = 0;
     for (const token of tokens) {
-      if (!isSafeTokenSpan(token, offset, textLength)) continue;
+      if (!isSafeTokenSpan(token, offset, text2)) continue;
       safe.push(token);
       offset = token.end;
     }
     return safe;
   }
-  function isSafeTokenSpan(token, offset, textLength) {
-    return token.start >= offset && token.start >= 0 && token.end > token.start && token.end <= textLength;
+  function isSafeTokenSpan(token, offset, text2) {
+    if (token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
+    return HAS_JAPANESE_LETTER.test(text2.slice(token.start, token.end));
   }
   function miningInsightTokenKeys(tokens) {
     const sentences = /* @__PURE__ */ new Map();
@@ -40675,7 +40717,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.123".trim() ? "1.6.123".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.124".trim() ? "1.6.124".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

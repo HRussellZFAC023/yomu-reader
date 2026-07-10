@@ -2442,6 +2442,7 @@
       classes.add(`${source}-deck-${slug}`);
     });
   }
+  const HAS_JAPANESE_LETTER = /[\u3041-\u3096\u309d-\u309f\u30a1-\u30fa\u30fd-\u30ff\u3400-\u9fff\uff66-\uff6f\uff71-\uff9d]/u;
   const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
   const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
   `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
@@ -2840,7 +2841,7 @@
   function renderTokensToHtml(text2, tokens, settings) {
     let html = "";
     let offset = 0;
-    const safeTokens = nonOverlappingTokens(tokens, text2.length);
+    const safeTokens = nonOverlappingTokens(tokens, text2);
     const miningInsightKeys = miningInsightTokenKeys(safeTokens);
     for (const token of safeTokens) {
       if (token.start > offset) html += plainTextBeforeTokenHtml(text2.slice(offset, token.start));
@@ -2856,18 +2857,19 @@
     const prefix = gap.slice(0, gap.length - digits.length);
     return `${escapeHtml(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml(digits)}</span>`;
   }
-  function nonOverlappingTokens(tokens, textLength) {
+  function nonOverlappingTokens(tokens, text2) {
     const safe = [];
     let offset = 0;
     for (const token of tokens) {
-      if (!isSafeTokenSpan(token, offset, textLength)) continue;
+      if (!isSafeTokenSpan(token, offset, text2)) continue;
       safe.push(token);
       offset = token.end;
     }
     return safe;
   }
-  function isSafeTokenSpan(token, offset, textLength) {
-    return token.start >= offset && token.start >= 0 && token.end > token.start && token.end <= textLength;
+  function isSafeTokenSpan(token, offset, text2) {
+    if (token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
+    return HAS_JAPANESE_LETTER.test(text2.slice(token.start, token.end));
   }
   function miningInsightTokenKeys(tokens) {
     const sentences = /* @__PURE__ */ new Map();

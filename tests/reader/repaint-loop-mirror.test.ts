@@ -32,7 +32,10 @@ function paintForcedInline(host: HTMLElement): void {
     applyTokensToScanTarget({ ...target!, forceInlineRender: true }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 }
 
-afterEach(() => { document.body.innerHTML = ''; });
+afterEach(() => {
+    removeNonDestructiveScanMirrors(document);
+    document.body.innerHTML = '';
+});
 
 // A reconciling SPA (e.g. the mokuro.moe catalog) strips our annotation, we
 // re-paint, it strips again — the text flips between plain and annotated. After

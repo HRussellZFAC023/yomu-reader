@@ -1004,6 +1004,7 @@
     });
   }
   const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
+  const HAS_JAPANESE_LETTER = /[\u3041-\u3096\u309d-\u309f\u30a1-\u30fa\u30fd-\u30ff\u3400-\u9fff\uff66-\uff6f\uff71-\uff9d]/u;
   const CORE_COLOR_TOKENS = {
     white: "#ffffff"
   };
@@ -2272,7 +2273,7 @@
   function renderTokensToHtml(text, tokens, settings) {
     let html = "";
     let offset = 0;
-    const safeTokens = nonOverlappingTokens(tokens, text.length);
+    const safeTokens = nonOverlappingTokens(tokens, text);
     const miningInsightKeys = miningInsightTokenKeys(safeTokens);
     for (const token of safeTokens) {
       if (token.start > offset) html += plainTextBeforeTokenHtml(text.slice(offset, token.start));
@@ -2288,18 +2289,19 @@
     const prefix = gap.slice(0, gap.length - digits.length);
     return `${escapeHtml(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml(digits)}</span>`;
   }
-  function nonOverlappingTokens(tokens, textLength) {
+  function nonOverlappingTokens(tokens, text) {
     const safe = [];
     let offset = 0;
     for (const token of tokens) {
-      if (!isSafeTokenSpan(token, offset, textLength)) continue;
+      if (!isSafeTokenSpan(token, offset, text)) continue;
       safe.push(token);
       offset = token.end;
     }
     return safe;
   }
-  function isSafeTokenSpan(token, offset, textLength) {
-    return token.start >= offset && token.start >= 0 && token.end > token.start && token.end <= textLength;
+  function isSafeTokenSpan(token, offset, text) {
+    if (token.start < offset || token.start < 0 || token.end <= token.start || token.end > text.length) return false;
+    return HAS_JAPANESE_LETTER.test(text.slice(token.start, token.end));
   }
   function miningInsightTokenKeys(tokens) {
     const sentences = /* @__PURE__ */ new Map();

@@ -239,6 +239,25 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#nav-link')).toBe('interactive-passive');
     });
 
+    it('classifies compact metadata rows inside a linked card as interactive-passive', () => {
+        document.body.innerHTML = `
+            <a id="card" href="/r/example/comments/1">
+                <h2 id="title">Discord Server Link</h2>
+                <span id="flair">告知</span>
+                <span id="metadata">10件の賛成票・0件のコメント</span>
+            </a>
+        `;
+
+        expect(classifyText('#title')).toBe('content-ruby');
+        expect(classifyText('#flair')).toBe('interactive-passive');
+        expect(classifyText('#metadata')).toBe('interactive-passive');
+    });
+
+    it('classifies semantic timestamps as interactive-passive metadata', () => {
+        document.body.innerHTML = '<article><time id="timestamp" datetime="2026-07-10T19:01:00Z">2時間前</time></article>';
+        expect(classifyText('#timestamp')).toBe('interactive-passive');
+    });
+
     it('classifies plain non-prose text as content-ruby by default', () => {
         document.body.innerHTML = '<div id="row">昨日の出来事について</div>';
         expect(classifyText('#row')).toBe('content-ruby');
@@ -291,6 +310,40 @@ describe('interactive-passive geometry invariance', () => {
         expect(button.style.paddingTop).toBe('');
         expect(button.dataset.yomuRubyRoom).toBeUndefined();
         expect(button.getBoundingClientRect().height).toBe(rectBefore);
+    });
+
+    it('keeps Reddit-style linked-card metadata plain, visible, and fixed-height', () => {
+        const metadataText = '10件の賛成票・0件のコメント';
+        document.body.innerHTML = `
+            <shreddit-app data-yomu-furigana-mode="all">
+                <a id="card" href="/r/example/comments/1" style="display:block;height:120px;overflow:hidden">
+                    <h2>Discord Server Link</h2>
+                    <span id="metadata">${metadataText}</span>
+                </a>
+            </shreddit-app>
+        `;
+        const card = document.querySelector<HTMLElement>('#card')!;
+        const metadata = document.querySelector<HTMLElement>('#metadata')!;
+        mockRect(card, { width: 500, height: 120 });
+        mockRect(metadata, { width: 260, height: 14 });
+        const target = collectTargets(metadata).find(candidate => candidate.text === metadataText);
+        expect(target).toBeTruthy();
+        expect(target?.decoration).toBe('interactive-passive');
+
+        applyTokensToScanTarget(target!, [
+            token('賛成票', metadataText.indexOf('賛成票'), metadataText, 'さんせいひょう'),
+            token('コメント', metadataText.indexOf('コメント'), metadataText, 'コメント'),
+        ], FURIGANA_SETTINGS);
+
+        expect(metadata.textContent).toBe(metadataText);
+        expect(metadata.querySelectorAll('.jpdb-reader-word').length).toBe(2);
+        expect(metadata.querySelector('rt')).toBeNull();
+        expect(metadata.getAttribute('data-yomu-decoration')).toBe('interactive-passive');
+
+        mockOverflow(card, 180, 120);
+        makeRoomForRubyInCroppedRows(document);
+        expect(card.style.height).toBe('120px');
+        expect(card.dataset.yomuRubyRoom).toBeUndefined();
     });
 });
 
@@ -466,6 +519,53 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         // No furigana in ANY channel: not in flow, not in the mirror.
         expect(button.querySelectorAll('rt')).toHaveLength(0);
         expect(button.querySelector('.jpdb-reader-has-furi')).toBeNull();
+    });
+
+    it('keeps a clipped Reddit-style control mirror annotated and visible at rest', () => {
+        document.body.innerHTML = `
+            <shreddit-app data-yomu-furigana-mode="all">
+                <button id="join" style="height:40px;max-height:40px;overflow:hidden;white-space:nowrap">参加</button>
+            </shreddit-app>
+        `;
+        const button = document.querySelector<HTMLElement>('#join')!;
+        mockRect(button, { width: 88, height: 40 });
+        const collected = collectTargets(button).find(candidate => candidate.text === '参加');
+        expect(collected?.decoration).toBe('interactive-passive');
+
+        applyTokensToScanTarget({ ...collected!, nonDestructive: true, passiveInteraction: true }, [
+            token('参加', 0, '参加', 'さんか'),
+        ], FURIGANA_SETTINGS);
+
+        const mirror = button.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror).toBeTruthy();
+        expect(mirror.querySelector('.jpdb-reader-word')).toBeTruthy();
+        expect(mirror.querySelector('rt')).toBeNull();
+        expect(mirror.classList.contains('jpdb-reader-clip-hover-mirror')).toBe(false);
+        expect(mirror.style.getPropertyValue('visibility')).toBe('visible');
+        expect(button.dataset.yomuClipHoverHost).toBeUndefined();
+        expect(button.getBoundingClientRect().height).toBe(40);
+        expect(button.dataset.yomuRubyRoom).toBeUndefined();
+    });
+
+    it('does not coerce a clipped inline metadata host to inline-block', () => {
+        document.body.innerHTML = `
+            <shreddit-app data-yomu-furigana-mode="all">
+                <a href="/r/example/comments/1"><h2>Card</h2><span id="meta" style="display:inline;max-height:16px;overflow:hidden">告知</span></a>
+            </shreddit-app>
+        `;
+        const metadata = document.querySelector<HTMLElement>('#meta')!;
+        mockRect(metadata, { width: 28, height: 16 });
+        const collected = collectTargets(metadata).find(candidate => candidate.text === '告知');
+        expect(collected?.decoration).toBe('interactive-passive');
+
+        applyTokensToScanTarget({ ...collected!, nonDestructive: true, passiveInteraction: true }, [
+            token('告知', 0, '告知', 'こくち'),
+        ], FURIGANA_SETTINGS);
+
+        expect(metadata.style.display).toBe('inline');
+        expect(metadata.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
+        expect(metadata.querySelector('rt')).toBeNull();
+        expect(metadata.textContent).toContain('告知');
     });
 });
 
