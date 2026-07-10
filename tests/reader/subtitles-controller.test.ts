@@ -787,8 +787,10 @@ describe('SubtitlePlayerController', () => {
             document.dispatchEvent(new Event('fullscreenchange'));
             expect(internals.subtitleFullscreenHost()).toBeNull();
 
-            // Real element fullscreen bypasses the cache entirely (the
-            // fullscreenElement branch), so a stale cache can never shadow it.
+            // Real element fullscreen on a NON-video container bypasses the
+            // cache (the fullscreenElement-contains-video branch), so a stale
+            // cache can never shadow it. Bare <video> fullscreen is a
+            // different path entirely (native-fullscreen handling), not this.
             const fullscreenStub = stubFullscreenElement(player);
             try {
                 expect(internals.subtitleFullscreenHost()).toBe(player);
@@ -830,46 +832,134 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('re-reads native cue lists only when dirty or stale, not on every tick', () => {
+    it('refreshes the cached fullscreen host when a marked mobile shell is inserted without the video', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://m.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        const { controller } = createSubtitleController(makeSubtitleSettings({ subtitleOverlayVisible: true }));
+        try {
+            // m.youtube can keep the bound video OUTSIDE the fullscreen shell
+            // and swap in an ALREADY-MARKED <ytm-player fullscreen> — a
+            // childList-only mutation: no attribute changes, and video
+            // discovery ignores the videoless shell (sol P1).
+            document.body.insertAdjacentHTML('beforeend', '<div id="player-container"><video></video></div>');
+            const video = document.querySelector('#player-container video') as HTMLVideoElement;
+            controller.init();
+            attachVideo(controller, { video, rect: new DOMRect(0, 0, 390, 220) });
+            const internals = controllerInternals<{ subtitleFullscreenHost: () => HTMLElement | null }>(controller);
+            expect(internals.subtitleFullscreenHost()).toBeNull();
+
+            const shell = document.createElement('ytm-player');
+            shell.setAttribute('fullscreen', '');
+            document.body.append(shell);
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(internals.subtitleFullscreenHost()).toBe(shell);
+
+            shell.remove();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(internals.subtitleFullscreenHost()).toBeNull();
+        } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+            controller.destroy();
+        }
+    });
+
+    it('drops a cached host that no longer passes the semantic selection condition', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            document.body.insertAdjacentHTML('beforeend', `
+                <div id="movie_player" class="html5-video-player ytp-fullscreen"><video></video></div>
+                <div id="other_player" class="html5-video-player ytp-fullscreen"></div>
+            `);
+            const player = document.getElementById('movie_player')!;
+            const other = document.getElementById('other_player')!;
+            const video = player.querySelector('video') as HTMLVideoElement;
+            mockElementRect(other, new DOMRect(0, 0, 0, 0));
+            attachVideo(controller, { video, rect: new DOMRect(0, 0, 960, 540) });
+            const internals = controllerInternals<{
+                subtitleFullscreenHost: () => HTMLElement | null;
+                fullscreenHostQuery?: { host: HTMLElement | null; at: number };
+            }>(controller);
+            // Start from a fresh (post-signal) cache: install() cached null
+            // before this fixture existed, and this install-only harness has
+            // no observer to invalidate it — the subject here is how a cached
+            // NON-null host is revalidated on read.
+            internals.fullscreenHostQuery = undefined;
+
+            expect(internals.subtitleFullscreenHost()).toBe(player);
+
+            // Simulate a visibility handoff: the cached host keeps matching the
+            // selector but stops containing the video and is not visible — a
+            // fresh query would reject it, so revalidation must too (sol P1b:
+            // selector membership alone retained the wrong host).
+            internals.fullscreenHostQuery = { host: other, at: performance.now() };
+            expect(internals.subtitleFullscreenHost()).toBe(player);
+        } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+            controller.destroy();
+        }
+    });
+
+    it('re-reads native cue lists only when dirty or stale, observed through the cue state', () => {
         const { settings, controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         try {
             const internals = controllerInternals<{
                 tickSubtitlePlayer: (settings: ReaderSettings) => void;
                 markNativeCueListsDirty: () => void;
                 lastForcedNativeCueRefreshAt: number;
-                refreshNativeCueLists: () => void;
+                tracks: Array<{ id: string; label: string; kind: string; track?: TextTrack }>;
+                selectedTrackId: string;
+                cues: Array<{ text: string }>;
             }>(controller);
-            const refreshSpy = vi.spyOn(internals, 'refreshNativeCueLists');
+            const trackCues: Array<{ startTime: number; endTime: number; text: string }> = [
+                { startTime: 0, endTime: 2, text: '一行目です。' },
+            ];
+            const track = { mode: 'hidden', label: 'Japanese', language: 'ja', cues: trackCues, addEventListener: vi.fn() } as unknown as TextTrack;
+            internals.tracks = [{ id: 'native-0', label: 'Japanese', kind: 'native', track }];
+            internals.selectedTrackId = 'native-0';
 
             internals.tickSubtitlePlayer(settings);
-            expect(refreshSpy).toHaveBeenCalledTimes(1);
+            expect(internals.cues.map(cue => cue.text)).toEqual(['一行目です。']);
 
-            // Steady-state ticks within the staleness bound skip the re-read
-            // (this was an every-500ms full readTextTrackCues normalization).
+            // A silent append (no TextTrack event exists for cue additions)
+            // is NOT picked up by steady-state ticks within the bound…
+            trackCues.push({ startTime: 2, endTime: 4, text: '二行目です。' });
             internals.tickSubtitlePlayer(settings);
             internals.tickSubtitlePlayer(settings);
-            expect(refreshSpy).toHaveBeenCalledTimes(1);
+            expect(internals.cues.map(cue => cue.text)).toEqual(['一行目です。']);
 
-            // Track/selection signals mark dirty for a same-tick refresh.
+            // …but a dirty mark (track/selection signal) refreshes same-tick…
             internals.markNativeCueListsDirty();
             internals.tickSubtitlePlayer(settings);
-            expect(refreshSpy).toHaveBeenCalledTimes(2);
+            expect(internals.cues.map(cue => cue.text)).toEqual(['一行目です。', '二行目です。']);
 
-            // Silent cue-list appends fire no event: bounded forced re-read.
-            internals.lastForcedNativeCueRefreshAt = 0;
+            // …and staleness is bounded: past the forced-refresh window the
+            // tick re-reads without any signal. (Offset from the live clock so
+            // the assertion cannot depend on how long the suite has run.)
+            trackCues.push({ startTime: 4, endTime: 6, text: '三行目です。' });
+            internals.lastForcedNativeCueRefreshAt = performance.now() - 5001;
             internals.tickSubtitlePlayer(settings);
-            expect(refreshSpy).toHaveBeenCalledTimes(3);
+            expect(internals.cues.map(cue => cue.text)).toEqual(['一行目です。', '二行目です。', '三行目です。']);
         } finally {
             controller.destroy();
         }
     });
 
-    it('marks cue lists dirty from track add and cuechange so discovery latency does not regress', () => {
+    it('marks cue lists dirty on track add, and cuechange refreshes directly without re-marking', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         try {
             const internals = controllerInternals<{
                 addNativeTrack: (track: TextTrack) => void;
                 nativeCueListsDirty: boolean;
+                updateFromNativeTrack: (track: TextTrack) => void;
             }>(controller);
             internals.nativeCueListsDirty = false;
             const listeners: Record<string, () => void> = {};
@@ -884,9 +974,43 @@ describe('SubtitlePlayerController', () => {
             internals.addNativeTrack(track);
             expect(internals.nativeCueListsDirty).toBe(true);
 
+            // cuechange re-reads the selected track's list inside
+            // updateFromNativeTrack; ALSO marking the global flag made the
+            // next tick normalize the same list a second time (sol P3).
             internals.nativeCueListsDirty = false;
+            const updateSpy = vi.spyOn(internals, 'updateFromNativeTrack');
             listeners.cuechange?.();
-            expect(internals.nativeCueListsDirty).toBe(true);
+            expect(updateSpy).toHaveBeenCalledWith(track);
+            expect(internals.nativeCueListsDirty).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('forces a native cue refresh when a transcript panel opens so silent appends are never missing', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            const internals = controllerInternals<{
+                openLinesPanel: () => void;
+                tracks: Array<{ id: string; label: string; kind: string; track?: TextTrack }>;
+                selectedTrackId: string;
+                cues: Array<{ text: string }>;
+            }>(controller);
+            const trackCues: Array<{ startTime: number; endTime: number; text: string }> = [
+                { startTime: 0, endTime: 2, text: '一行目です。' },
+                // Appended silently since the last refresh (within the 5s
+                // bound): the drawer render — and a mining scan, which
+                // snapshots transcriptRows() and can never regain rows later —
+                // must see the full list the moment it opens.
+                { startTime: 2, endTime: 4, text: '二行目です。' },
+            ];
+            const track = { mode: 'hidden', label: 'Japanese', language: 'ja', cues: trackCues, addEventListener: vi.fn() } as unknown as TextTrack;
+            internals.tracks = [{ id: 'native-0', label: 'Japanese', kind: 'native', track }];
+            internals.selectedTrackId = 'native-0';
+
+            internals.openLinesPanel();
+
+            expect(internals.cues.map(cue => cue.text)).toEqual(['一行目です。', '二行目です。']);
         } finally {
             controller.destroy();
         }
